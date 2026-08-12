@@ -51,8 +51,21 @@ jobs:
           for (const x of forbidden) {
             if (s.includes(x)) throw new Error(`mutation primitive forbidden: ${x}`);
           }
-          for (const x of ['TAI_MODEL_SSH_KEY', 'TAI_MODEL_SSH_HOST_KEY', 'StrictHostKeyChecking=yes', '/metrics']) {
+          for (const x of [
+            'TAI_MODEL_SSH_KEY',
+            'TAI_MODEL_SSH_HOST_KEY',
+            'StrictHostKeyChecking=yes',
+            '/metrics',
+            'LLAMA_API_KEY',
+            '--api-key',
+            '--api-key-file',
+            'Authorization',
+            'MODEL_METRICS_AUTH_SOURCE',
+          ]) {
             if (!s.includes(x)) throw new Error(`missing protected control: ${x}`);
+          }
+          if (!s.includes("grep -E '^MODEL_(METRICS|METRIC)_")) {
+            throw new Error('bounded output filter missing');
           }
           NODE
 
@@ -123,7 +136,7 @@ jobs:
           chmod 600 "$HOME/.ssh/model_known_hosts"
           echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
 
-      - name: Read whitelisted llama metrics
+      - name: Read whitelisted authenticated llama metrics
         env:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
           MODEL_USER: ${{ steps.ssh.outputs.user }}
@@ -131,45 +144,193 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          raw="$RUNNER_TEMP/metrics-raw"
+          bounded="$RUNNER_TEMP/metrics"
+          set +e
           ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
             -o BatchMode=yes -o IdentitiesOnly=yes \
             -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
             -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST" \
-            python3 - > "$RUNNER_TEMP/metrics" <<'PY'
-          import pathlib,re,urllib.request
-          service='tai-qwen3-8b.service'
+            python3 - > "$raw" <<'PY'
+          import os
+          import pathlib
+          import re
           import subprocess
-          pid=subprocess.check_output(['systemctl','show',service,'--property=MainPID','--value'],text=True).strip()
-          if not pid.isdigit() or int(pid)<=0: raise SystemExit('invalid model pid')
-          argv=[x.decode('utf-8','replace') for x in pathlib.Path(f'/proc/{pid}/cmdline').read_bytes().split(b'\0') if x]
-          if '--metrics' not in argv: raise SystemExit('metrics flag absent')
-          port=8080
-          for i,x in enumerate(argv[:-1]):
-              if x in ('--port','--listen-port') and argv[i+1].isdigit(): port=int(argv[i+1])
-          if not 1 <= port <= 65535: raise SystemExit('invalid listen port')
-          with urllib.request.urlopen(f'http://127.0.0.1:{port}/metrics',timeout=4) as r:
-              body=r.read(512_000).decode('utf-8','replace')
-          wanted=(
-            'llamacpp:prompt_tokens_total','llamacpp:prompt_seconds_total','llamacpp:prompt_tokens_seconds',
-            'llamacpp:tokens_predicted_total','llamacpp:tokens_predicted_seconds_total','llamacpp:predicted_tokens_seconds',
-            'llamacpp:requests_processing','llamacpp:requests_deferred','llamacpp:n_tokens_max',
-            'llamacpp:kv_cache_usage_ratio','llamacpp:kv_cache_tokens')
-          found={}
-          for line in body.splitlines():
-              if not line or line.startswith('#'): continue
-              m=re.match(r'^([^\s{]+)(?:\{[^}]*\})?\s+([-+0-9.eE]+)$',line)
-              if m and m.group(1) in wanted:
-                  try: found.setdefault(m.group(1),[]).append(float(m.group(2)))
-                  except ValueError: pass
-          print('MODEL_METRICS_READ_ONLY=1')
-          print(f'MODEL_METRICS_HTTP_PORT={port}')
-          for name in wanted:
-              vals=found.get(name,[])
-              key=name.split(':',1)[1].upper().replace(':','_')
-              if vals: print(f'MODEL_METRIC_{key}={sum(vals):.9g}')
-              else: print(f'MODEL_METRIC_{key}=MISSING')
+          import urllib.error
+          import urllib.request
+
+          def fail(code):
+              print(f'MODEL_METRICS_ERROR={code}')
+              raise SystemExit(40)
+
+          def clean_key(value):
+              value = value.strip()
+              if not (32 <= len(value) <= 4096):
+                  return None
+              try:
+                  text = value.decode('ascii')
+              except UnicodeDecodeError:
+                  return None
+              if any(ord(ch) < 33 or ord(ch) > 126 for ch in text):
+                  return None
+              return text
+
+          def first_key(value):
+              for candidate in value.split(b','):
+                  key = clean_key(candidate)
+                  if key:
+                      return key
+              return None
+
+          try:
+              service = 'tai-qwen3-8b.service'
+              pid_text = subprocess.check_output(
+                  ['systemctl', 'show', service, '--property=MainPID', '--value'],
+                  text=True,
+              ).strip()
+              if not pid_text.isdigit() or int(pid_text) <= 0:
+                  fail('MODEL_PID_INVALID')
+              pid = int(pid_text)
+              proc = pathlib.Path(f'/proc/{pid}')
+              if proc.stat().st_uid != os.geteuid():
+                  fail('SERVICE_USER_MISMATCH')
+
+              argv_raw = [part for part in (proc / 'cmdline').read_bytes().split(b'\0') if part]
+              argv = [part.decode('utf-8', 'replace') for part in argv_raw]
+              if '--metrics' not in argv:
+                  fail('METRICS_FLAG_ABSENT')
+
+              port = 8080
+              for i, token in enumerate(argv[:-1]):
+                  if token in ('--port', '--listen-port') and argv[i + 1].isdigit():
+                      port = int(argv[i + 1])
+              if not 1 <= port <= 65535:
+                  fail('LISTEN_PORT_INVALID')
+
+              env = {}
+              for entry in (proc / 'environ').read_bytes().split(b'\0'):
+                  if not entry or b'=' not in entry:
+                      continue
+                  key, value = entry.split(b'=', 1)
+                  env[key] = value
+
+              bearer = None
+              auth_source = None
+
+              # CLI has the strongest precedence in llama-server. Keep the
+              # credential entirely on the model host and only publish an enum.
+              for i, raw_token in enumerate(argv_raw):
+                  if raw_token == b'--api-key' and i + 1 < len(argv_raw):
+                      bearer = first_key(argv_raw[i + 1])
+                      if bearer:
+                          auth_source = 'ARGV'
+                          break
+                  if raw_token.startswith(b'--api-key='):
+                      bearer = first_key(raw_token.split(b'=', 1)[1])
+                      if bearer:
+                          auth_source = 'ARGV'
+                          break
+
+              if bearer is None:
+                  bearer = first_key(env.get(b'LLAMA_API_KEY', b''))
+                  if bearer:
+                      auth_source = 'ENV'
+
+              key_file = None
+              if bearer is None:
+                  for i, raw_token in enumerate(argv_raw):
+                      if raw_token == b'--api-key-file' and i + 1 < len(argv_raw):
+                          key_file = argv_raw[i + 1]
+                          break
+                      if raw_token.startswith(b'--api-key-file='):
+                          key_file = raw_token.split(b'=', 1)[1]
+                          break
+                  if key_file is None:
+                      key_file = env.get(b'LLAMA_ARG_API_KEY_FILE')
+
+              if bearer is None and key_file:
+                  try:
+                      file_path = pathlib.Path(os.fsdecode(key_file))
+                      stat = file_path.stat()
+                      if not file_path.is_file() or stat.st_size > 65536:
+                          fail('API_KEY_FILE_INVALID')
+                      for line in file_path.read_bytes().splitlines():
+                          stripped = line.strip()
+                          if not stripped or stripped.startswith(b'#'):
+                              continue
+                          bearer = clean_key(stripped)
+                          if bearer:
+                              auth_source = 'FILE'
+                              break
+                  except (OSError, ValueError):
+                      fail('API_KEY_FILE_UNREADABLE')
+
+              if bearer is None or auth_source is None:
+                  fail('AUTH_SOURCE_MISSING')
+
+              request = urllib.request.Request(
+                  f'http://127.0.0.1:{port}/metrics',
+                  headers={'Authorization': f'Bearer {bearer}'},
+                  method='GET',
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=4) as response:
+                      if response.status != 200:
+                          fail(f'HTTP_{response.status}')
+                      body = response.read(512_000).decode('utf-8', 'replace')
+              except urllib.error.HTTPError as exc:
+                  fail(f'HTTP_{exc.code}')
+              except urllib.error.URLError:
+                  fail('METRICS_UNREACHABLE')
+
+              wanted = (
+                  'llamacpp:prompt_tokens_total',
+                  'llamacpp:prompt_seconds_total',
+                  'llamacpp:prompt_tokens_seconds',
+                  'llamacpp:tokens_predicted_total',
+                  'llamacpp:tokens_predicted_seconds_total',
+                  'llamacpp:predicted_tokens_seconds',
+                  'llamacpp:requests_processing',
+                  'llamacpp:requests_deferred',
+                  'llamacpp:n_tokens_max',
+                  'llamacpp:kv_cache_usage_ratio',
+                  'llamacpp:kv_cache_tokens',
+              )
+              found = {}
+              for line in body.splitlines():
+                  if not line or line.startswith('#'):
+                      continue
+                  match = re.match(r'^([^\s{]+)(?:\{[^}]*\})?\s+([-+0-9.eE]+)$', line)
+                  if match and match.group(1) in wanted:
+                      try:
+                          found.setdefault(match.group(1), []).append(float(match.group(2)))
+                      except ValueError:
+                          pass
+
+              print('MODEL_METRICS_READ_ONLY=1')
+              print(f'MODEL_METRICS_HTTP_PORT={port}')
+              print(f'MODEL_METRICS_AUTH_SOURCE={auth_source}')
+              for name in wanted:
+                  values = found.get(name, [])
+                  key = name.split(':', 1)[1].upper().replace(':', '_')
+                  if values:
+                      print(f'MODEL_METRIC_{key}={sum(values):.9g}')
+                  else:
+                      print(f'MODEL_METRIC_{key}=MISSING')
+          except SystemExit:
+              raise
+          except Exception:
+              fail('INTERNAL_PROBE_FAILURE')
           PY
-          cat "$RUNNER_TEMP/metrics"
+          rc=$?
+          set -e
+
+          grep -E '^MODEL_(METRICS|METRIC)_[A-Z0-9_]+=(1|[0-9]+|[-+0-9.eE]+|ARGV|ENV|FILE|MISSING|[A-Z0-9_]+)$' "$raw" > "$bounded" || true
+          if [[ ! -s "$bounded" ]]; then
+            echo 'MODEL_METRICS_ERROR=BOUNDED_EVIDENCE_MISSING' > "$bounded"
+          fi
+          cat "$bounded"
+          exit "$rc"
 
       - name: Publish bounded metrics evidence
         if: always()
