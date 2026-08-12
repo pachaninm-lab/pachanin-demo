@@ -288,7 +288,7 @@ grep -Fq "\"correlationId\":\"$correlation_id\"" "$response_body"
 # emit the matching log line to the runner.
 delivery_ok=0
 for _ in 1 2 3 4 5; do
-  if docker logs --since "@$started_epoch" "$web_id" 2>&1 \
+  if docker logs --since "$started_epoch" "$web_id" 2>&1 \
       | grep -F "$correlation_id" \
       | grep -F 'password_reset_delivery_result' \
       | grep -Eq '"delivered"[[:space:]]*:[[:space:]]*true'; then
