@@ -97,7 +97,6 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 
 const PUBLIC_API_EXACT = new Set([
-  // No-secret exact-SHA authority required by the production runbook and release gates.
   '/api/health/ready',
   '/api/agro-chat',
   '/api/public-platform-assistant',
@@ -112,16 +111,9 @@ function isPrivateMode(): boolean {
   return process.env.PC_PRIVATE_MODE === 'on';
 }
 
-/**
- * A static file served from public/ has an extension and no route behind it.
- * Cabinet RBAC must never apply to one: a stylesheet or font is not a cabinet,
- * and gating it only breaks the page for anonymous visitors.
- */
 const STATIC_FILE = /\.(?:css|js|mjs|map|json|yaml|yml|txt|xml|webmanifest|ico|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|otf|eot)$/i;
 
 function isStaticFileRequest(p: string): boolean {
-  // Route handlers under /api keep their own authentication regardless of the
-  // path's shape, so they are never treated as static files.
   return !p.startsWith('/api/') && STATIC_FILE.test(p);
 }
 
@@ -130,11 +122,9 @@ function isPublicAsset(p: string): boolean {
 }
 
 function isPublic(p: string): boolean {
-  return PUBLIC_EXACT.has(p) || isPublicAsset(p);
+  return PUBLIC_EXACT.has(p) || p.startsWith('/gekta/') || isPublicAsset(p);
 }
 
-// These handlers authenticate their own Bearer token and fail closed. Middleware must
-// not redirect server-to-server requests before the handler can verify that token.
 function isTokenAuthenticatedInternalPath(p: string): boolean {
   return p === '/auth/me' || p.startsWith('/staff/');
 }
@@ -166,9 +156,7 @@ function safeEqual(a: string, b: string): boolean {
   if (!a || !b) return false;
   let diff = a.length ^ b.length;
   const max = Math.max(a.length, b.length);
-  for (let i = 0; i < max; i += 1) {
-    diff |= a.charCodeAt(i % a.length) ^ b.charCodeAt(i % b.length);
-  }
+  for (let i = 0; i < max; i += 1) diff |= a.charCodeAt(i % a.length) ^ b.charCodeAt(i % b.length);
   return diff === 0;
 }
 
@@ -198,7 +186,6 @@ function isOwnerAuthorized(req: NextRequest): boolean {
   const privateUser = readEnv('PC_PRIVATE_USER') || 'owner';
   const basic = parseBasicAuth(req.headers.get('authorization'));
   if (!basic) return false;
-
   return safeEqual(basic.user, privateUser) && safeEqual(basic.password, privatePassword);
 }
 
@@ -225,35 +212,27 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false,
 }
 
 function privateLockedResponse() {
-  const response = new NextResponse('Private deployment locked.', {
-    status: 503,
-    headers: { 'content-type': 'text/plain; charset=utf-8' },
-  });
-  return applySecurityHeaders(response, true);
+  return applySecurityHeaders(new NextResponse('Private deployment locked.', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } }), true);
 }
 
 function privateUnauthorizedResponse() {
-  const response = new NextResponse('Private access required.', {
+  return applySecurityHeaders(new NextResponse('Private access required.', {
     status: 401,
-    headers: {
-      'content-type': 'text/plain; charset=utf-8',
-      'www-authenticate': `Basic realm="${PRIVATE_REALM}", charset="UTF-8"`,
-    },
-  });
-  return applySecurityHeaders(response, true);
+    headers: { 'content-type': 'text/plain; charset=utf-8', 'www-authenticate': `Basic realm="${PRIVATE_REALM}", charset="UTF-8"` },
+  }), true);
 }
 
 function parseSession(raw: string | undefined): { role: string; exp: number } | null {
   if (!raw) return null;
   const candidates = [raw];
   try {
-    const d = decodeURIComponent(raw);
-    if (d !== raw) candidates.push(d);
+    const decoded = decodeURIComponent(raw);
+    if (decoded !== raw) candidates.push(decoded);
   } catch {}
-  for (const s of candidates) {
+  for (const value of candidates) {
     try {
-      const p = JSON.parse(s) as { role?: string; exp?: number };
-      if (p && typeof p.role === 'string' && typeof p.exp === 'number') return { role: p.role, exp: p.exp };
+      const parsed = JSON.parse(value) as { role?: string; exp?: number };
+      if (parsed && typeof parsed.role === 'string' && typeof parsed.exp === 'number') return { role: parsed.role, exp: parsed.exp };
     } catch {}
   }
   return null;
@@ -291,16 +270,26 @@ function resolveLocaleFromQuery(req: NextRequest): string | null {
   return queryLocale && VALID_LOCALES.has(queryLocale) ? queryLocale : null;
 }
 
+function resolveGektaPathLocale(pathname: string): string | null {
+  if (pathname === '/gekta/en' || pathname.startsWith('/gekta/en/')) return 'en';
+  if (pathname === '/gekta/zh' || pathname.startsWith('/gekta/zh/')) return 'zh';
+  if (pathname === '/gekta' || pathname.startsWith('/gekta/')) return 'ru';
+  return null;
+}
+
 function withRoleHeaders(req: NextRequest, role: string, protectedResponse = false, indexable = false) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-pc-role', role);
   requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
   const queryLocale = resolveLocaleFromQuery(req);
-  if (queryLocale) requestHeaders.set('x-pc-locale', queryLocale);
+  const pathLocale = resolveGektaPathLocale(req.nextUrl.pathname);
+  const requestLocale = pathLocale || queryLocale;
+  if (requestLocale) requestHeaders.set('x-pc-locale', requestLocale);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('x-pc-role', role);
   response.headers.set('x-pc-pathname', req.nextUrl.pathname);
   if (queryLocale) persistLocaleCookie(req, response, queryLocale);
+  else if (pathLocale) response.headers.set('x-pc-locale', pathLocale);
   ensureCsrfCookie(req, response);
   return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale), indexable);
 }
@@ -318,33 +307,18 @@ function ensureCsrfCookie(req: NextRequest, response: NextResponse) {
 
 function persistRoleCookie(req: NextRequest, response: NextResponse, role: string) {
   if (req.cookies.get('pc-role')?.value !== role) {
-    response.cookies.set('pc-role', role, {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30,
-      sameSite: 'lax',
-      secure: true,
-    });
+    response.cookies.set('pc-role', role, { path: '/', maxAge: 60 * 60 * 24 * 30, sameSite: 'lax', secure: true });
   }
 }
 
 function clearPresentationRoleCookie(response: NextResponse) {
-  response.cookies.set('pc-role', '', {
-    path: '/',
-    maxAge: 0,
-    sameSite: 'lax',
-    secure: true,
-  });
+  response.cookies.set('pc-role', '', { path: '/', maxAge: 0, sameSite: 'lax', secure: true });
 }
 
 function persistLocaleCookie(req: NextRequest, response: NextResponse, locale: string) {
   if (!VALID_LOCALES.has(locale)) return;
   if (req.cookies.get(LOCALE_COOKIE)?.value !== locale) {
-    response.cookies.set(LOCALE_COOKIE, locale, {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 365,
-      sameSite: 'lax',
-      secure: true,
-    });
+    response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true });
   }
   response.headers.set('x-pc-locale', locale);
   response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
@@ -353,28 +327,36 @@ function persistLocaleCookie(req: NextRequest, response: NextResponse, locale: s
 }
 
 function markPlatformV7Entry(response: NextResponse) {
-  response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', {
-    path: '/',
-    maxAge: 60 * 60 * 4,
-    sameSite: 'lax',
-    secure: true,
-  });
+  response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', { path: '/', maxAge: 60 * 60 * 4, sameSite: 'lax', secure: true });
+}
+
+function legacyGektaLocaleRedirect(req: NextRequest): NextResponse | null {
+  if (req.nextUrl.pathname !== '/gekta') return null;
+  const lang = req.nextUrl.searchParams.get('lang');
+  if (!lang || !VALID_LOCALES.has(lang)) return null;
+  const target = req.nextUrl.clone();
+  target.searchParams.delete('lang');
+  target.pathname = lang === 'en' ? '/gekta/en' : lang === 'zh' ? '/gekta/zh' : '/gekta';
+  return applySecurityHeaders(NextResponse.redirect(target, 301));
 }
 
 export async function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
+  const gektaRedirect = legacyGektaLocaleRedirect(req);
+  if (gektaRedirect) return gektaRedirect;
+
   const canonRedirect = CANON_REDIRECTS[p];
   if (canonRedirect) {
-    const u = req.nextUrl.clone();
-    u.pathname = canonRedirect;
-    return applySecurityHeaders(NextResponse.redirect(u, 308), true);
+    const url = req.nextUrl.clone();
+    url.pathname = canonRedirect;
+    return applySecurityHeaders(NextResponse.redirect(url, 308), true);
   }
 
   if (p === '/platform-v7/ai') {
-    const u = req.nextUrl.clone();
-    u.pathname = '/platform-v7/assistant';
-    return applySecurityHeaders(NextResponse.redirect(u, 308), true);
+    const url = req.nextUrl.clone();
+    url.pathname = '/platform-v7/assistant';
+    return applySecurityHeaders(NextResponse.redirect(url, 308), true);
   }
 
   if (p === '/platform-v7/open') {
@@ -385,9 +367,9 @@ export async function middleware(req: NextRequest) {
   }
 
   if (p === '/platform-v7r' || p.startsWith('/platform-v7r/')) {
-    const u = req.nextUrl.clone();
-    u.pathname = p.replace('/platform-v7r', '/platform-v7');
-    return applySecurityHeaders(NextResponse.redirect(u, 308), true);
+    const url = req.nextUrl.clone();
+    url.pathname = p.replace('/platform-v7r', '/platform-v7');
+    return applySecurityHeaders(NextResponse.redirect(url, 308), true);
   }
 
   if (SEO_INFRASTRUCTURE_EXACT.has(p)) {
@@ -399,48 +381,31 @@ export async function middleware(req: NextRequest) {
   const protectedPath = isProtectedPath(p);
   const privateModeEnabled = isPrivateMode();
   if (privateModeEnabled && protectedPath) {
-    if (!hasPrivateCredentials()) {
-      return privateLockedResponse();
-    }
-    if (!isOwnerAuthorized(req)) {
-      return privateUnauthorizedResponse();
-    }
+    if (!hasPrivateCredentials()) return privateLockedResponse();
+    if (!isOwnerAuthorized(req)) return privateUnauthorizedResponse();
   }
 
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
   const presentationRole = resolveRole(req, session?.role ?? null);
 
-  // The public URL is a compatibility alias only. Every POST is rewritten here,
-  // before filesystem route resolution, to the model-first agro route. GET stays
-  // on the public catalog handler. This prevents a stale standalone bundle from
-  // answering a crop question with an unrelated platform knowledge article.
   if (p === '/api/public-platform-assistant' && req.method === 'POST') {
-    const u = req.nextUrl.clone();
-    u.pathname = '/api/agro-chat';
+    const url = req.nextUrl.clone();
+    url.pathname = '/api/agro-chat';
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-pc-role', presentationRole);
-    requestHeaders.set('x-pc-pathname', u.pathname);
-    const response = NextResponse.rewrite(u, { request: { headers: requestHeaders } });
+    requestHeaders.set('x-pc-pathname', url.pathname);
+    const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
     response.headers.set('x-pc-role', presentationRole);
-    response.headers.set('x-pc-pathname', u.pathname);
+    response.headers.set('x-pc-pathname', url.pathname);
     persistRoleCookie(req, response, presentationRole);
     return applySecurityHeaders(response, privateModeEnabled && protectedPath);
   }
 
-  // Match the route segment, not the string. `/platform-v7-density-fix.css` is
-  // a stylesheet in public/, not a cabinet, and a prefix test sent it to login.
   if (p === '/platform-v7' || p.startsWith('/platform-v7/')) {
     const isEntry = p === '/platform-v7';
     const isIndexable = isEntry && PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
-    // public/platform-v7/ holds the hero artwork the public landing page
-    // renders. Those are files, not cabinets, and gating them redirected the
-    // anonymous homepage's own images to the login screen.
-    if (isStaticFileRequest(p)) {
-      return applySecurityHeaders(NextResponse.next(), false);
-    }
+    if (isStaticFileRequest(p)) return applySecurityHeaders(NextResponse.next(), false);
     if (isPlatformV7PublicPath(p) || isPlatformV7StaffPath(p)) {
-      // Registration is an unauthenticated boundary.  A writable presentation
-      // cookie must not survive onto it or suggest an operator context.
       const routeRole = isPublicRegistrationPath(p) ? 'organization' : presentationRole;
       const response = withRoleHeaders(req, routeRole, privateModeEnabled && protectedPath, isIndexable);
       if (isPublicRegistrationPath(p)) clearPresentationRoleCookie(response);
@@ -449,15 +414,9 @@ export async function middleware(req: NextRequest) {
       return response;
     }
 
-    // Protected platform-v7 routes must stay inside the app shell and can only
-    // inherit a role from a verified HttpOnly cabinet session.
     const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
     const context = secret
-      ? await readVerifiedCabinetSessionContext(
-        req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null,
-        secret,
-        Math.floor(Date.now() / 1000),
-      )
+      ? await readVerifiedCabinetSessionContext(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, Math.floor(Date.now() / 1000))
       : null;
     if (context?.role === 'organization') {
       if (!isOrganizationCabinetPath(p)) {
@@ -499,12 +458,10 @@ export async function middleware(req: NextRequest) {
   }
 
   if (!session) {
-    if (p.startsWith('/api/')) {
-      return applySecurityHeaders(NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 }), privateModeEnabled);
-    }
-    const u = req.nextUrl.clone();
-    u.pathname = '/platform-v7';
-    return applySecurityHeaders(NextResponse.redirect(u), privateModeEnabled);
+    if (p.startsWith('/api/')) return applySecurityHeaders(NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 }), privateModeEnabled);
+    const url = req.nextUrl.clone();
+    url.pathname = '/platform-v7';
+    return applySecurityHeaders(NextResponse.redirect(url), privateModeEnabled);
   }
 
   return withRoleHeaders(req, presentationRole, privateModeEnabled && protectedPath);

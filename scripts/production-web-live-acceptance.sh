@@ -7,21 +7,23 @@ LIVE_BASE="${PC_LIVE_BASE:-https://xn----8sbjf4befbjgs9b.xn--p1ai}"
 ATTEMPTS="${PC_LIVE_ACCEPTANCE_ATTEMPTS:-12}"
 DELAY_SECONDS="${PC_LIVE_ACCEPTANCE_DELAY_SECONDS:-3}"
 
-[[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || {
-  echo 'A full lowercase 40-character target SHA is required.' >&2
-  exit 2
-}
-[[ "$ACTION" == deploy || "$ACTION" == rollback ]] || {
-  echo 'Live acceptance action must be deploy or rollback.' >&2
-  exit 3
-}
-[[ "$ATTEMPTS" =~ ^[0-9]+$ ]] && (( ATTEMPTS >= 1 && ATTEMPTS <= 90 )) || {
-  echo 'PC_LIVE_ACCEPTANCE_ATTEMPTS must be between 1 and 90.' >&2
-  exit 4
-}
-[[ "$DELAY_SECONDS" =~ ^[0-9]+$ ]] && (( DELAY_SECONDS >= 1 && DELAY_SECONDS <= 30 )) || {
-  echo 'PC_LIVE_ACCEPTANCE_DELAY_SECONDS must be between 1 and 30.' >&2
-  exit 5
+[[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'A full lowercase 40-character target SHA is required.' >&2; exit 2; }
+[[ "$ACTION" == deploy || "$ACTION" == rollback ]] || { echo 'Live acceptance action must be deploy or rollback.' >&2; exit 3; }
+[[ "$ATTEMPTS" =~ ^[0-9]+$ ]] && (( ATTEMPTS >= 1 && ATTEMPTS <= 90 )) || { echo 'PC_LIVE_ACCEPTANCE_ATTEMPTS must be between 1 and 90.' >&2; exit 4; }
+[[ "$DELAY_SECONDS" =~ ^[0-9]+$ ]] && (( DELAY_SECONDS >= 1 && DELAY_SECONDS <= 30 )) || { echo 'PC_LIVE_ACCEPTANCE_DELAY_SECONDS must be between 1 and 30.' >&2; exit 5; }
+
+check_html() {
+  local body="$1" lang="$2" title="$3" h1="$4" canonical="$5"
+  grep -Fq "lang=\"$lang\"" <<< "$body" \
+    && grep -Fq "<title>$title</title>" <<< "$body" \
+    && grep -Fq "$h1" <<< "$body" \
+    && grep -Fq "rel=\"canonical\" href=\"$LIVE_BASE$canonical\"" <<< "$body" \
+    && grep -Fq "hreflang=\"ru-RU\"" <<< "$body" \
+    && grep -Fq "hreflang=\"en\"" <<< "$body" \
+    && grep -Fq "hreflang=\"zh-CN\"" <<< "$body" \
+    && grep -Fq "hreflang=\"x-default\"" <<< "$body" \
+    && grep -Fq 'BusinessApplication' <<< "$body" \
+    && ! grep -Eiq 'llama\.cpp|Qwen3|private[[:space:]_-]+model[[:space:]_-]+endpoint' <<< "$body"
 }
 
 for attempt in $(seq 1 "$ATTEMPTS"); do
@@ -34,20 +36,45 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   deal_ru_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/platform-v7/how-it-works?lang=ru&release=$cache_bust" || true)"
   deal_en_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/platform-v7/how-it-works?lang=en&release=$cache_bust" || true)"
   deal_zh_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/platform-v7/how-it-works?lang=zh&release=$cache_bust" || true)"
-  gekta_ru_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/gekta?lang=ru&release=$cache_bust" || true)"
-  gekta_en_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/gekta?lang=en&release=$cache_bust" || true)"
-  gekta_zh_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 15 "$LIVE_BASE/gekta?lang=zh&release=$cache_bust" || true)"
+
+  gekta_ru_url="$LIVE_BASE/gekta?release=$cache_bust"
+  gekta_en_url="$LIVE_BASE/gekta/en?release=$cache_bust"
+  gekta_zh_url="$LIVE_BASE/gekta/zh?release=$cache_bust"
+  gekta_ru_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 20 "$gekta_ru_url" || true)"
+  gekta_en_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 20 "$gekta_en_url" || true)"
+  gekta_zh_code="$(curl -sSLo /dev/null -w '%{http_code}' --compressed --max-time 20 "$gekta_zh_url" || true)"
+  gekta_ru_body="$(curl -fsSL --compressed --max-time 20 "$gekta_ru_url" 2>/dev/null || true)"
+  gekta_en_body="$(curl -fsSL --compressed --max-time 20 "$gekta_en_url" 2>/dev/null || true)"
+  gekta_zh_body="$(curl -fsSL --compressed --max-time 20 "$gekta_zh_url" 2>/dev/null || true)"
+  gekta_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 20 "$gekta_ru_url" 2>/dev/null | tr -d '\r' || true)"
+
+  compat_headers="$(curl -sS -D - -o /dev/null --max-redirs 0 --compressed --max-time 15 "$LIVE_BASE/gekta?lang=en&utm_source=acceptance&release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
+  compat_code="$(awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print code }' <<< "$compat_headers")"
+  compat_location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' <<< "$compat_headers")"
 
   robots_body="$(curl -fsSL --compressed --max-time 15 "$LIVE_BASE/robots.txt?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
   robots_headers="$(curl -fsS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/robots.txt?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
   sitemap_body="$(curl -fsSL --compressed --max-time 15 "$LIVE_BASE/sitemap.xml?release=$cache_bust" 2>/dev/null || true)"
   root_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
   public_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/platform-v7?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
-  gekta_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/gekta?lang=ru&release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
 
   manifest_ok=0
-  if grep -Fq "$TARGET_SHA" <<< "$manifest"; then
-    manifest_ok=1
+  grep -Fq "$TARGET_SHA" <<< "$manifest" && manifest_ok=1
+
+  crawler_ok=0
+  if check_html "$gekta_ru_body" 'ru' 'Гекта — аграрный ИИ для сельского хозяйства и агробизнеса' 'Гекта — аграрный ИИ для сельского хозяйства и агробизнеса' '/gekta' \
+    && check_html "$gekta_en_body" 'en' 'Gekta — agricultural AI for farming and agribusiness' 'Gekta — agricultural AI for farming and agribusiness' '/gekta/en' \
+    && check_html "$gekta_zh_body" 'zh-CN' 'Gekta — 面向农业生产与农业经营的农业 AI' 'Gekta — 面向农业生产与农业经营的农业 AI' '/gekta/zh'; then
+    crawler_ok=1
+  fi
+
+  compat_ok=0
+  if [[ "$compat_code" == 301 ]] \
+    && grep -Fq '/gekta/en?' <<< "$compat_location" \
+    && grep -Fq 'utm_source=acceptance' <<< "$compat_location" \
+    && grep -Fq "release=$cache_bust" <<< "$compat_location" \
+    && ! grep -Fq 'lang=' <<< "$compat_location"; then
+    compat_ok=1
   fi
 
   indexation_ok=0
@@ -55,7 +82,11 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     && ! grep -Eiq '^disallow:[[:space:]]*/[[:space:]]*$' <<< "$robots_body" \
     && grep -Fq "Sitemap: $LIVE_BASE/sitemap.xml" <<< "$robots_body" \
     && grep -Fq "$LIVE_BASE/platform-v7" <<< "$sitemap_body" \
-    && grep -Fq "$LIVE_BASE/gekta" <<< "$sitemap_body" \
+    && grep -Fq "$LIVE_BASE/gekta</loc>" <<< "$sitemap_body" \
+    && grep -Fq "$LIVE_BASE/gekta/en</loc>" <<< "$sitemap_body" \
+    && grep -Fq "$LIVE_BASE/gekta/zh</loc>" <<< "$sitemap_body" \
+    && grep -Fq "$LIVE_BASE/gekta/agronomiya-rastenievodstvo</loc>" <<< "$sitemap_body" \
+    && grep -Fq "$LIVE_BASE/gekta/dacha-lph</loc>" <<< "$sitemap_body" \
     && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$robots_headers" \
     && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$root_headers" \
     && ! grep -Eiq '^x-robots-tag:.*noindex' <<< "$public_headers" \
@@ -63,7 +94,26 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     indexation_ok=1
   fi
 
-  if (( manifest_ok == 1 && indexation_ok == 1 )) \
+  stream_id="gektaaccept${TARGET_SHA:0:12}${attempt}"
+  stream_headers="$(mktemp)"
+  stream_body="$(mktemp)"
+  stream_code="$(curl -sS -D "$stream_headers" -o "$stream_body" -w '%{http_code}' --no-buffer --max-time 155 \
+    -H 'Content-Type: application/json' -H 'Accept: text/event-stream' \
+    --data "{\"message\":\"Ответь одним коротким предложением: что проверить при падении урожайности озимой пшеницы?\",\"locale\":\"ru\",\"context\":\"gekta-standalone\",\"conversationId\":\"$stream_id\",\"history\":[]}" \
+    "$LIVE_BASE/api/agro-chat?stream=1" || true)"
+  stream_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$stream_headers" | tr -d '\r')"
+  stream_ok=0
+  if [[ "$stream_code" == 200 ]] \
+    && grep -Eiq '^text/event-stream' <<< "$stream_type" \
+    && grep -Fq '"event":"meta"' "$stream_body" \
+    && grep -Fq '"event":"token"' "$stream_body" \
+    && grep -Fq '"event":"done"' "$stream_body" \
+    && ! grep -Eiq 'tenantId|roleId|subjectId|llama\.cpp|Qwen3|reasoning_content|tool_calls' "$stream_body"; then
+    stream_ok=1
+  fi
+  rm -f "$stream_headers" "$stream_body"
+
+  if (( manifest_ok == 1 && crawler_ok == 1 && compat_ok == 1 && indexation_ok == 1 && stream_ok == 1 )) \
     && [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]] \
     && [[ "$deal_ru_code" == 200 && "$deal_en_code" == 200 && "$deal_zh_code" == 200 ]] \
     && [[ "$gekta_ru_code" == 200 && "$gekta_en_code" == 200 && "$gekta_zh_code" == 200 ]]; then
@@ -74,14 +124,20 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     printf 'LIVE_LANG_CODES=ru:%s,en:%s,zh:%s\n' "$ru_code" "$en_code" "$zh_code"
     printf 'LIVE_DEAL_JOURNEY_CODES=ru:%s,en:%s,zh:%s\n' "$deal_ru_code" "$deal_en_code" "$deal_zh_code"
     printf 'LIVE_GEKTA_CODES=ru:%s,en:%s,zh:%s\n' "$gekta_ru_code" "$gekta_en_code" "$gekta_zh_code"
-    printf 'LIVE_INDEXATION=robots:allow,sitemap:platform+gekta,public:noindex-absent\n'
+    printf 'GEKTA_CRAWLER_HTML=PASS\n'
+    printf 'GEKTA_COMPAT_REDIRECT=PASS\n'
+    printf 'GEKTA_STREAM=PASS\n'
+    printf 'LIVE_INDEXATION=robots:allow,sitemap:gekta-locales+cluster,public:noindex-absent\n'
     exit 0
   fi
 
-  printf 'LIVE_ATTEMPT=%s/%s action=%s health_route_code=%s manifest_sha=%s indexation=%s codes=ru:%s,en:%s,zh:%s deal_journey=ru:%s,en:%s,zh:%s gekta=ru:%s,en:%s,zh:%s\n' \
+  printf 'LIVE_ATTEMPT=%s/%s action=%s health_route_code=%s manifest_sha=%s indexation=%s crawler=%s compat=%s stream=%s codes=ru:%s,en:%s,zh:%s deal=ru:%s,en:%s,zh:%s gekta=ru:%s,en:%s,zh:%s\n' \
     "$attempt" "$ATTEMPTS" "$ACTION" "${health_code:-missing}" \
     "$([[ "$manifest_ok" == 1 ]] && echo match || echo mismatch)" \
     "$([[ "$indexation_ok" == 1 ]] && echo pass || echo fail)" \
+    "$([[ "$crawler_ok" == 1 ]] && echo pass || echo fail)" \
+    "$([[ "$compat_ok" == 1 ]] && echo pass || echo fail)" \
+    "$([[ "$stream_ok" == 1 ]] && echo pass || echo fail)" \
     "${ru_code:-missing}" "${en_code:-missing}" "${zh_code:-missing}" \
     "${deal_ru_code:-missing}" "${deal_en_code:-missing}" "${deal_zh_code:-missing}" \
     "${gekta_ru_code:-missing}" "${gekta_en_code:-missing}" "${gekta_zh_code:-missing}"
