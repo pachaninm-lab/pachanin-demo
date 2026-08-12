@@ -59,7 +59,8 @@
     "scripts/check-production-full-stack-release.mjs",
     ".github/workflows/production-full-stack-exact-sha.yml",
     "docs/platform-v7/autopilot/scopes/industrial-auth-mail-outbox-3785.json",
-    "docs/platform-v7/crop-platform/industrial-auth-mail-architecture.md"
+    "docs/platform-v7/crop-platform/industrial-auth-mail-architecture.md",
+    ".github/workflows/docker-publish.yml"
   ],
   "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
   "boundaries": {

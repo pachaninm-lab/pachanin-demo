@@ -8,6 +8,7 @@ const paths = {
   controller: '.github/workflows/platform-v7-safe-merge.yml',
   middleware: 'apps/web/middleware.ts',
   executor: 'scripts/production-full-stack-exact-sha.sh',
+  provision: 'scripts/provision-production-auth-mail-runtime.sh',
   live: 'scripts/production-full-stack-live-acceptance.sh',
   hero: 'apps/web/i18n/platform-v7-hero-message.ts',
   scope: 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json',
@@ -81,6 +82,7 @@ requireAll('publish', [
 const requiredReleaseTriggerPaths = [
   '.github/workflows/production-full-stack-exact-sha.yml',
   'scripts/production-full-stack-exact-sha.sh',
+  'scripts/provision-production-auth-mail-runtime.sh',
   'scripts/production-full-stack-live-acceptance.sh',
   'scripts/check-production-full-stack-release.mjs',
 ];
@@ -124,7 +126,10 @@ requireAll('workflow', [
   'PC_PROD_BACKUP_EVIDENCE_FILE_B64',
   'No valid protected SSH private key is configured.',
   'scripts/production-full-stack-exact-sha.sh',
+  'scripts/provision-production-auth-mail-runtime.sh',
   'scripts/production-full-stack-live-acceptance.sh',
+  'DEPLOYED_AUTH_MAIL_WORKER_REVISION',
+  'AUTH_MAIL_RUNTIME',
   'Verify PostgreSQL, audit and outbox evidence',
   'Restore exact API/web images after acceptance failure',
   'DURABLE_INTAKE_DB=PASS',
@@ -175,7 +180,11 @@ requireAll('executor', [
   'run --rm --no-deps --pull never "$migration_service"',
   'MIGRATION_COMPLETE=1',
   'up -d --no-deps --pull never api',
+  'up -d --no-deps --pull never "$auth_mail_worker_service"',
   'up -d --no-deps --pull never web',
+  'wait_worker',
+  'AUTH_MAIL_COMPOSE_CONTRACT=PASS',
+  'DEPLOYED_AUTH_MAIL_WORKER_REVISION=',
   'wait_api',
   'redact_api_startup_log',
   'emit_api_startup_diagnostics',
@@ -193,6 +202,20 @@ requireAll('executor', [
   'WATCHTOWER_RETIRED=1',
   'DEPLOYMENT_COMPLETE=1',
 ]);
+
+requireAll('provision', [
+  'AUTHORITY_DIR="/var/lib/pc-secret-authority"',
+  'RUNTIME_PROJECTION_DIR="$AUTHORITY_DIR/runtime"',
+  "ACTION=\"${1:-bootstrap}\"",
+  'rotate-smtp',
+  'rotate-db',
+  'rotate-key',
+  'mail.hosting.reg.ru',
+  'AUTH_MAIL_GITHUB_SECRET_REQUIRED=0',
+  'refresh_runtime_projection',
+  'install -m 0444',
+]);
+
 requireAll('live', [
   'for locale in ru en zh',
   '?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID',
@@ -247,6 +270,7 @@ forbid('workflow', [
 ]);
 forbid('executor', [
   /docker\s+(?:build|commit|tag)\b/,
+  /web:[\s\S]{0,500}(?:PC_SMTP_PASS|RESEND_API_KEY|PASSWORD_RESET_DELIVERY_KEY|REGISTRATION_DELIVERY_KEY)/,
   /prisma\s+migrate\s+(?:reset|dev)/i,
   /down[-_ ]migration/i,
   /docker\s+compose[^\n]*(?:down|rm\s+-f)/,

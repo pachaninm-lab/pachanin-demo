@@ -13,6 +13,7 @@ KEYRING_DIR="$AUTHORITY_DIR/auth-mail-keyring"
 CURRENT_VERSION_FILE="$AUTHORITY_DIR/auth-mail-current-key-version"
 DATABASE_URL_FILE="$AUTHORITY_DIR/auth-mail-database-url"
 TRANSPORT_FILE="$AUTHORITY_DIR/auth-mail-transport.env"
+RUNTIME_PROJECTION_DIR="$AUTHORITY_DIR/runtime"
 SMTP_HOST='mail.hosting.reg.ru'
 SMTP_PORT='465'
 SMTP_USER='access@xn----8sbjf4befbjgs9b.xn--p1ai'
@@ -52,6 +53,47 @@ read_key_version() {
 validate_key_file() {
   local version="$1" key_file="$KEYRING_DIR/v${version}.key"
   validate_secret_file "$key_file" && grep -Eq '^[A-Fa-f0-9]{64}$' "$key_file"
+}
+
+
+refresh_runtime_projection() {
+  local staging="$AUTHORITY_DIR/.runtime-projection.new" key_file key_name
+  rm -rf -- "$staging"
+  install -d -m 0700 -o 0 -g 0 "$staging"
+  install -d -m 0555 -o 0 -g 0 "$staging/keyring"
+
+  for key_file in "$KEYRING_DIR"/v*.key; do
+    [[ -f "$key_file" && ! -L "$key_file" ]] || continue
+    key_name="$(basename "$key_file")"
+    install -m 0444 -o 0 -g 0 "$key_file" "$staging/keyring/$key_name"
+  done
+  [[ -n "$(find "$staging/keyring" -maxdepth 1 -type f -name 'v*.key' -print -quit)" ]] \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_KEYRING_EMPTY'; exit 33; }
+
+  install -m 0444 -o 0 -g 0 "$CURRENT_VERSION_FILE" "$staging/current-key-version"
+  install -m 0444 -o 0 -g 0 "$DATABASE_URL_FILE" "$staging/database-url"
+  install -m 0444 -o 0 -g 0 "$TRANSPORT_FILE" "$staging/transport.env"
+
+  # The projected files are world-readable only inside this root-only
+  # parent. Docker bind-mounts the individual targets read-only into
+  # nonroot containers; host users cannot traverse AUTHORITY_DIR/runtime.
+  [[ "$(stat -c '%a:%u:%g' "$staging")" == '700:0:0' ]] \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_PROJECTION_PARENT'; exit 34; }
+  [[ "$(stat -c '%a:%u:%g' "$staging/keyring")" == '555:0:0' ]] \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_KEYRING_PROJECTION'; exit 35; }
+  for projected in "$staging/current-key-version" "$staging/database-url" "$staging/transport.env" "$staging/keyring"/v*.key; do
+    [[ "$(stat -c '%a:%u:%g' "$projected")" == '444:0:0' ]] \
+      || { echo 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_PROJECTION_FILE'; exit 36; }
+  done
+
+  rm -rf -- "$RUNTIME_PROJECTION_DIR.previous"
+  if [[ -e "$RUNTIME_PROJECTION_DIR" ]]; then
+    [[ -d "$RUNTIME_PROJECTION_DIR" && ! -L "$RUNTIME_PROJECTION_DIR" ]] \
+      || { echo 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_PROJECTION_SHAPE'; exit 37; }
+    mv "$RUNTIME_PROJECTION_DIR" "$RUNTIME_PROJECTION_DIR.previous"
+  fi
+  mv "$staging" "$RUNTIME_PROJECTION_DIR"
+  rm -rf -- "$RUNTIME_PROJECTION_DIR.previous"
 }
 
 create_key_version() {
@@ -235,6 +277,8 @@ for key_file in "$KEYRING_DIR"/v*.key; do
   validate_secret_file "$key_file" || { echo 'AUTH_MAIL_PROVISION=FAIL_KEYRING_PERMISSIONS'; exit 28; }
   grep -Eq '^[A-Fa-f0-9]{64}$' "$key_file" || { echo 'AUTH_MAIL_PROVISION=FAIL_KEYRING_CONTENT'; exit 29; }
 done
+
+refresh_runtime_projection
 
 echo 'AUTH_MAIL_PROVISION=PASS'
 echo 'AUTH_MAIL_SECRET_AUTHORITY=SERVER_SIDE_ROOT_ONLY'

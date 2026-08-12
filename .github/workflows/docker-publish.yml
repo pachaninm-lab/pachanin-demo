@@ -21,6 +21,7 @@ on:
       - ".github/workflows/tai-owner-reg-ru-deployment-command.yml"
       - ".github/workflows/tai-owner-controller-sync-command.yml"
       - "scripts/production-full-stack-exact-sha.sh"
+      - "scripts/provision-production-auth-mail-runtime.sh"
       - "scripts/production-full-stack-live-acceptance.sh"
       - "scripts/check-production-full-stack-release.mjs"
       - "scripts/tai-reg-ru-preflight.sh"
