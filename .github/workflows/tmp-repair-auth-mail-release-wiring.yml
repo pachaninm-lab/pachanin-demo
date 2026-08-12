@@ -1,0 +1,58 @@
+name: Repair temporary auth-mail release wiring
+
+on:
+  push:
+    branches:
+      - p0/industrial-auth-mail-outbox-3785
+    paths:
+      - .github/workflows/tmp-repair-auth-mail-release-wiring.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: p0/industrial-auth-mail-outbox-3785
+          fetch-depth: 0
+      - name: Repair one split Python string
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/tmp-auth-mail-release-wiring.yml')
+          lines = path.read_text(encoding='utf-8').splitlines()
+          out = []
+          repaired = 0
+          index = 0
+          while index < len(lines):
+              line = lines[index]
+              if "forbid('executor'" in line and 'build|commit|tag' in line and line.rstrip().endswith('/,'):
+                  if index + 1 >= len(lines) or lines[index + 1].strip() != '",':
+                      raise SystemExit('unexpected split-string continuation')
+                  out.append(line + r'\n",')
+                  index += 2
+                  repaired += 1
+                  continue
+              out.append(line)
+              index += 1
+          if repaired != 1:
+              raise SystemExit(f'expected one repair, got {repaired}')
+          path.write_text('\n'.join(out) + '\n', encoding='utf-8')
+          PY
+          python3 scripts/check-workflow-syntax.py
+          git diff --check
+      - name: Commit repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'pc-crop-auth-mail-release'
+          git config user.email 'actions@users.noreply.github.com'
+          git add .github/workflows/tmp-auth-mail-release-wiring.yml
+          git commit -m 'chore(auth-mail): repair temporary release wiring syntax'
+          git push origin HEAD:p0/industrial-auth-mail-outbox-3785
