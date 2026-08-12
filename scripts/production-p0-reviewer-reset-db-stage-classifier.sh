@@ -8,7 +8,7 @@ set -Eeuo pipefail
 DEFAULT_HOST='195.19.12.120'
 LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 RELEASE_ISSUE_NUMBER='3072'
-EXPECTED_DEPLOYED_SHA='58d7e1f80aa4482293e24eb7b0e111f7bf988d29'
+EXPECTED_DEPLOYED_SHA='2b1350ff67a988bfc0151c1dbca1038a8389b8b6'
 
 key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-stage-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-stage-known-hosts"
