@@ -264,7 +264,9 @@ def main() -> int:
         mailbox = None
         try:
             mailbox = imaplib.IMAP4_SSL(imap_host, int(imap_port_raw), ssl_context=context, timeout=15)
-            mailbox.login(mailbox_user_raw, mailbox_password)
+            # IMAP4 commands are ASCII encoded. Use the same validated IDNA-normalized
+            # mailbox identity that was derived above instead of the raw protected value.
+            mailbox.login(mailbox_login, mailbox_password)
             status, _ = mailbox.select(imap_folder, readonly=True)
             if status != "OK":
                 return 41
