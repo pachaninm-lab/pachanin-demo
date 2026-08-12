@@ -53,8 +53,6 @@ jobs:
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    outputs:
-      target_sha: ${{ steps.target.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,7 +82,6 @@ jobs:
           if (JSON.stringify([...scope.allowedPaths].sort()) !== JSON.stringify(expected)) process.exit(6);
           NODE
       - name: Resolve exact current main
-        id: target
         if: github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,24 +91,23 @@ jobs:
           git fetch --no-tags origin main
           target="$(git rev-parse origin/main)"
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$GITHUB_SHA" ]]
           [[ "$target" == "$(git rev-parse HEAD)" ]]
           [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
           [[ -z "$(git status --porcelain=v1)" ]]
-          echo "sha=$target" >> "$GITHUB_OUTPUT"
 
   runtime:
     name: Verify active root-only auth runtime without changing credentials
     needs: authority
     if: >-
       github.event_name == 'issue_comment' &&
-      needs.authority.result == 'success' &&
-      needs.authority.outputs.target_sha != ''
+      needs.authority.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read
     env:
-      TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+      TARGET_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -270,8 +266,7 @@ jobs:
     if: >-
       github.event_name == 'issue_comment' &&
       needs.authority.result == 'success' &&
-      needs.runtime.result == 'success' &&
-      needs.authority.outputs.target_sha != ''
+      needs.runtime.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -279,7 +274,7 @@ jobs:
       actions: write
     env:
       GH_TOKEN: ${{ github.token }}
-      TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+      TARGET_SHA: ${{ github.sha }}
       REPO: ${{ github.repository }}
     steps:
       - name: Dispatch and verify exact image publication
