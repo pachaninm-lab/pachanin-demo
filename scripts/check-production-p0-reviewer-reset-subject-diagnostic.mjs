@@ -31,7 +31,7 @@ required(script, "policyname = 'user_orgs_staff_reviewer_password_reset_subject'
 required(script, "policyname = 'organizations_staff_reviewer_password_reset_subject'", 'organization reset policy probe');
 required(script, 'SELECT auth.staff_reviewer_password_reset_subject() IS NOT NULL AS eligible', 'non-PII function probe');
 required(script, 'PRODUCTION_MUTATION=NONE', 'no-mutation marker');
-required(script, 'reviewer identity exposure: `NONE`', 'identity-redaction result');
+required(script, 'reviewer identity exposure: \\`NONE\\`', 'identity-redaction result');
 
 forbidden(script, /SET\s+ROLE/i, 'SET ROLE');
 forbidden(script, /BYPASSRLS\s*;|ALTER\s+ROLE[^\n]+BYPASSRLS/i, 'RLS bypass');
