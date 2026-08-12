@@ -10,7 +10,7 @@ LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 LIVE_BASE="https://$LIVE_DOMAIN"
 RELEASE_ISSUE_NUMBER='3072'
 COMMAND='/production p0-reviewer-reset-http-diagnose current-deployed'
-EXPECTED_DEPLOYED_SHA='3298ef9e7d661102e4b275a777055331a94ce7ff'
+EXPECTED_DEPLOYED_SHA='2b1350ff67a988bfc0151c1dbca1038a8389b8b6'
 
 key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-http-diag-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-http-diag-known-hosts"
