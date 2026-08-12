@@ -329,3 +329,48 @@ CREATE TABLE "gekta_merchant_profiles" (
 
 CREATE INDEX "gekta_merchant_profiles_effective_idx"
   ON "gekta_merchant_profiles"("effectiveFrom" DESC);
+
+-- Права runtime-принципалов на новые таблицы.
+--
+-- Таблицы создаёт владелец миграции, а приложение работает под ограниченной
+-- ролью. Без явной выдачи прав ни одна операция Гекты не выполнится в
+-- production, где принципал приложения отличается от владельца схемы.
+--
+-- Роль перечислена условно: в окружениях, где её нет, блок просто не выдаёт
+-- ничего и миграция остаётся применимой.
+DO $gekta_runtime_grants$
+DECLARE
+  runtime_role text;
+  gekta_table text;
+BEGIN
+  FOR runtime_role IN
+    SELECT rolname FROM pg_catalog.pg_roles
+    WHERE rolname IN ('pc_deal_runtime', 'one_deal_app', 'app_runtime')
+  LOOP
+    EXECUTE format('GRANT USAGE ON SCHEMA public TO %I', runtime_role);
+
+    FOREACH gekta_table IN ARRAY ARRAY[
+      'gekta_accounts',
+      'gekta_phone_identities',
+      'gekta_usage',
+      'gekta_entitlement_grants',
+      'gekta_projects',
+      'gekta_conversations',
+      'gekta_messages',
+      'gekta_consents',
+      'gekta_support_grants',
+      'gekta_subscriptions',
+      'gekta_payments',
+      'gekta_webhook_events',
+      'gekta_merchant_profiles'
+    ]
+    LOOP
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE ON public.%I TO %I', gekta_table, runtime_role);
+    END LOOP;
+
+    -- Журнал оператора только дописывается: право на UPDATE ему не выдаётся,
+    -- поэтому запись о выданном доступе нельзя переписать задним числом.
+    EXECUTE format('GRANT SELECT, INSERT ON public.gekta_operator_audits TO %I', runtime_role);
+  END LOOP;
+END;
+$gekta_runtime_grants$;
