@@ -1,0 +1,112 @@
+name: Gekta P0 SPEED Prompt Cache Locality Patch
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-prompt-cache-locality-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: >-
+      github.actor == github.repository_owner &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/gekta-p0-speed-prompt-cache-locality-3896'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reorder only dynamic system-prompt fragments to the tail
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          service_path = Path('apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts')
+          test_path = Path('apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts')
+          workflow_path = Path('.github/workflows/gekta-p0-speed-prompt-cache-locality-patch.yml')
+
+          text = service_path.read_text(encoding='utf-8')
+          fn_start = text.index('function publicSystemPrompt(')
+          fn_end = text.index('\nfunction generalAgroResponseBudgetRule(', fn_start)
+          block = text[fn_start:fn_end]
+
+          targets = {
+            'Reply in ${language}. ': '',
+            '${responseBudgetRule} ': '',
+            '${authorityRule} ${currentRule} ': '',
+          }
+          for old, new in targets.items():
+            if block.count(old) != 1:
+              raise SystemExit(f'exact prompt fragment count={block.count(old)} for {old!r}; refusing broad edit')
+            block = block.replace(old, new)
+
+          tail_marker = 'Start with the direct answer and avoid generic filler.`;'
+          if block.count(tail_marker) != 1:
+            raise SystemExit('system-prompt tail marker mismatch; refusing broad edit')
+          block = block.replace(
+            tail_marker,
+            'Start with the direct answer and avoid generic filler. ${authorityRule} ${currentRule} ${responseBudgetRule} Reply in ${language}.`;'
+          )
+          service_path.write_text(text[:fn_start] + block + text[fn_end:], encoding='utf-8')
+
+          tests = test_path.read_text(encoding='utf-8')
+          anchor = "  it('omits variable platform grounding from general-agro model prefill but preserves it for platform answers', async () => {"
+          if tests.count(anchor) != 1:
+            raise SystemExit(f'test anchor count={tests.count(anchor)}; refusing broad edit')
+
+          regression = '''  it('keeps the large system-prompt core cache-identical across locale and answer-mode variants', async () => {
+            const ruProbe = installRuntime({ deltas: ['Ответ. '] });
+            for await (const _event of service.generateStream(request({ locale: 'ru', answerMode: 'general_agro' }))) { /* drain */ }
+            const ruMessages = ruProbe.requests[0].body.messages as { role: string; content: string }[];
+            const ruSystem = ruMessages[0].content;
+
+            const enProbe = installRuntime({ deltas: ['Answer. '] });
+            for await (const _event of service.generateStream(request({ locale: 'en', answerMode: 'verified_platform' }))) { /* drain */ }
+            const enMessages = enProbe.requests[0].body.messages as { role: string; content: string }[];
+            const enSystem = enMessages[0].content;
+
+            const coreTail = 'Start with the direct answer and avoid generic filler.';
+            const ruCoreEnd = ruSystem.indexOf(coreTail) + coreTail.length;
+            const enCoreEnd = enSystem.indexOf(coreTail) + coreTail.length;
+            expect(ruCoreEnd).toBeGreaterThan(coreTail.length);
+            expect(enCoreEnd).toBeGreaterThan(coreTail.length);
+            expect(ruSystem.slice(0, ruCoreEnd)).toBe(enSystem.slice(0, enCoreEnd));
+            expect(ruSystem.indexOf('Reply in Russian.')).toBeGreaterThan(ruCoreEnd);
+            expect(enSystem.indexOf('Reply in English.')).toBeGreaterThan(enCoreEnd);
+            expect(ruSystem).toContain('Use stable general agricultural, agribusiness and safe general knowledge');
+            expect(enSystem).toContain('For facts about Transparent Price, use the supplied verified public grounding as the authority');
+          });
+
+'''
+          test_path.write_text(tests.replace(anchor, regression + anchor), encoding='utf-8')
+
+          workflow_path.unlink()
+          PY
+
+          git diff --check
+          git diff -- apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts
+
+      - name: Commit exact patch back to feature branch
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts \
+            apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts \
+            .github/workflows/gekta-p0-speed-prompt-cache-locality-patch.yml
+          git commit -m 'perf(gekta): maximize system-prompt cache locality'
+          git push origin "HEAD:${HEAD_BRANCH}"
