@@ -16,7 +16,8 @@ from email.utils import formatdate, getaddresses, make_msgid
 HOST = "mail.hosting.reg.ru"
 SMTP_PORT = 465
 IMAP_PORT = 993
-DOMAIN = "xn----8sbjf4befbjgs9b.xn--p1ai"
+ROOT_DOMAIN = "xn----8sbjf4befbjgs9b.xn--p1ai"
+ACCEPTANCE_DOMAIN = "acceptance.xn----8sbjf4befbjgs9b.xn--p1ai"
 
 
 def ascii_email(value: str) -> str:
@@ -47,7 +48,10 @@ def render_recipient(template: str, run_id: str) -> str:
         rendered = template.replace("{run}", run_id).replace("{slot}", "coherent")
     else:
         raise ValueError("template")
-    return ascii_email(rendered.lower())
+    recipient = ascii_email(rendered.lower())
+    if not recipient.endswith("@" + ACCEPTANCE_DOMAIN):
+        raise ValueError("recipient-domain")
+    return recipient
 
 
 def message_text(message) -> str:
@@ -99,7 +103,7 @@ def main() -> int:
         return 21
 
     if (
-        not user.endswith("@" + DOMAIN)
+        not user.endswith("@" + ACCEPTANCE_DOMAIN)
         or not password
         or "\n" in password
         or "\r" in password
@@ -114,7 +118,7 @@ def main() -> int:
     message["From"] = user
     message["To"] = recipient
     message["Date"] = formatdate(localtime=False)
-    message["Message-ID"] = make_msgid(domain=DOMAIN)
+    message["Message-ID"] = make_msgid(domain=ROOT_DOMAIN)
     message["Subject"] = "PC-CROP auth mail coherence verification"
     message.set_content(
         "Production authentication mail channel verification.\n"
