@@ -26,17 +26,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git show HEAD^:.github/workflows/tmp-auth-mail-release-wiring.yml > /tmp/original-auth-mail-wiring.yml
+          git show HEAD^^:.github/workflows/tmp-auth-mail-release-wiring.yml > /tmp/original-auth-mail-wiring.yml
           python3 - <<'PY'
           from pathlib import Path
-          import textwrap
 
           source = Path('/tmp/original-auth-mail-wiring.yml').read_text(encoding='utf-8')
           marker = "          python3 - <<'PATCHPY'\n"
           start = source.index(marker) + len(marker)
           end = source.index("\n          PATCHPY", start)
-          script = textwrap.dedent(source[start:end])
-          lines = script.splitlines()
+          raw_lines = source[start:end].splitlines()
+          lines = [line[10:] if line.startswith('          ') else line for line in raw_lines]
           out = []
           repaired = 0
           i = 0
