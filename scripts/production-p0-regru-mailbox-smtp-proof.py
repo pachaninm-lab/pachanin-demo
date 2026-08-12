@@ -5,6 +5,7 @@ import os
 import re
 import secrets
 import smtplib
+import socket
 import ssl
 import sys
 import time
@@ -150,7 +151,20 @@ def main() -> int:
         return 34
     except smtplib.SMTPDataError:
         return 35
-    except (smtplib.SMTPException, OSError, ssl.SSLError):
+    except socket.gaierror:
+        print("SMTP_TRANSPORT_CLASS=DNS")
+        return 36
+    except (TimeoutError, socket.timeout):
+        print("SMTP_TRANSPORT_CLASS=TIMEOUT")
+        return 36
+    except ssl.SSLError:
+        print("SMTP_TRANSPORT_CLASS=TLS")
+        return 36
+    except smtplib.SMTPException:
+        print("SMTP_TRANSPORT_CLASS=SMTP_PROTOCOL")
+        return 36
+    except OSError:
+        print("SMTP_TRANSPORT_CLASS=NETWORK")
         return 36
 
     deadline = time.time() + 120
