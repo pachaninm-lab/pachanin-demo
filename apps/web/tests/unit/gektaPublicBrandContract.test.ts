@@ -27,7 +27,7 @@ describe('Gekta public brand contract', () => {
   it('uses the canonical Russian brand, descriptor and CTA', () => {
     expect(sources.assistant).toContain("open: 'Спросить Гекту'");
     expect(sources.assistant).toContain("title: 'Гекта'");
-    expect(sources.assistant).toContain("subtitle: 'Аграрный интеллект для земли, урожая и решений.'");
+    expect(sources.assistant).toContain("subtitle: 'ИИ для сельского хозяйства и агробизнеса от «Прозрачной Цены»'");
     expect(sources.fullscreenController).not.toContain('PUBLIC_ASSISTANT_BRANDING');
     expect(sources.contactDock).toContain("assistant: 'Гекта'");
     expect(sources.contactDock).toContain("assistantAria: 'Открыть Гекту'");

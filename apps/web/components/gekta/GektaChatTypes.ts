@@ -21,5 +21,7 @@ export type GektaConversation = Readonly<{
   title: string;
   createdAt: string;
   updatedAt: string;
+  /** Null or absent means the conversation sits in the general history. */
+  projectId?: string | null;
   messages: readonly GektaMessage[];
 }>;
