@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { importablePayload, toConversation, toProject } from '@/lib/gekta/server-workspace';
+import { chunkImport, importablePayload, toConversation, toProject } from '@/lib/gekta/server-workspace';
 import type { GektaConversation } from '@/components/gekta/GektaChatTypes';
 
 const root = resolve(__dirname, '../..');
@@ -71,6 +71,26 @@ describe('Gekta imports anonymous history without inventing content', () => {
     expect(payload.conversations[0]?.messages).toHaveLength(2);
   });
 
+  it('splits the import so a long history does not exceed the request body limit', () => {
+    const many = Array.from({ length: 12 }, (_, index) => ({
+      title: `Диалог ${index}`,
+      locale: 'ru',
+      createdAt: NOW,
+      messages: [{ role: 'user', body: 'x'.repeat(3_000) }],
+    }));
+    const chunks = chunkImport(many, 10_000);
+    expect(chunks.length).toBeGreaterThan(1);
+    // Ни один диалог не теряется и ни один не дублируется.
+    expect(chunks.flat()).toHaveLength(12);
+    expect(new Set(chunks.flat().map((item) => item.title)).size).toBe(12);
+  });
+
+  it('still sends a conversation that alone exceeds the limit, rather than dropping it', () => {
+    const huge = [{ title: 'Огромный', locale: 'ru', createdAt: NOW, messages: [{ role: 'user', body: 'x'.repeat(50_000) }] }];
+    expect(chunkImport(huge, 1_000).flat()).toHaveLength(1);
+    expect(chunkImport([], 1_000)).toEqual([]);
+  });
+
   it('skips an empty conversation instead of importing a blank chat', () => {
     const payload = importablePayload([
       conversation({ id: 'c-2', messages: [] }),
@@ -98,6 +118,17 @@ describe('Gekta keeps one authority for the history', () => {
     expect(workspace).toContain('markImportDone()');
   });
 
+  it('keeps the local copy authoritative until the whole import lands', () => {
+    // Иначе непереехавшие диалоги были бы стёрты вместе с локальной копией.
+    expect(workspace).toContain('if (!complete) return;');
+    expect(workspace).toContain('for (const chunk of chunkImport(');
+  });
+
+  it('switches to server mode only after the server list is actually read', () => {
+    // Сбой чтения не должен приводить к удалению локальной копии.
+    expect(workspace).toContain('if (!serverConversations.ok) return;');
+  });
+
   it('does not create a second server conversation for one that was loaded', () => {
     expect(workspace).toContain('serverConversationIds.current.set(conversation.id, conversation.id)');
     expect(workspace).toContain('sentMessageIds.current.add(message.id)');
@@ -116,7 +147,16 @@ describe('Gekta keeps one authority for the history', () => {
 
   it('sends deletions to the server so they survive a reload', () => {
     expect(workspace).toContain("accountApi(`conversations/${encodeURIComponent(serverId)}`, { method: 'DELETE' })");
-    expect(workspace).toContain("accountApi('conversations', { method: 'DELETE' })");
     expect(workspace).toContain("accountApi(`projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' })");
+  });
+
+  it('clears only the language the user was looking at', () => {
+    // Общий DELETE /conversations стёр бы и другие языки, которых нет на экране.
+    expect(workspace).not.toContain("accountApi('conversations', { method: 'DELETE' })");
+    expect(workspace).toContain("conversations.filter((conversation) => conversation.locale === locale)");
+  });
+
+  it('moves a conversation onto the server project id instead of orphaning it', () => {
+    expect(workspace).toContain('conversation.projectId === project.id ? { ...conversation, projectId: serverId }');
   });
 });

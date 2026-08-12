@@ -21,6 +21,7 @@ import {
 } from '@/lib/gekta/projects';
 import {
   accountApi,
+  chunkImport,
   importAlreadyDone,
   importablePayload,
   markImportDone,
@@ -229,8 +230,20 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       // так перенос не зависит от того, успел ли отработать эффект гидратации.
       const local = readStoredConversations();
       if (!importAlreadyDone() && local.length > 0) {
-        const imported = await accountApi('history/import', { method: 'POST', body: importablePayload(local) });
-        if (imported.ok) markImportDone();
+        // Части отправляются последовательно, потому что целая история легко
+        // перерастает лимит тела запроса. Пока перенесено не всё, локальная
+        // копия остаётся авторитетом: иначе непереехавшие диалоги пропали бы.
+        let complete = true;
+        for (const chunk of chunkImport(importablePayload(local).conversations)) {
+          const imported = await accountApi('history/import', { method: 'POST', body: { conversations: chunk } });
+          if (cancelled) return;
+          if (!imported.ok) {
+            complete = false;
+            break;
+          }
+        }
+        if (!complete) return;
+        markImportDone();
       }
 
       const [serverConversations, serverProjects] = await Promise.all([
@@ -240,7 +253,11 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       if (cancelled) return;
 
       const now = new Date().toISOString();
-      if (serverConversations.ok) {
+      // Переключение режима привязано к успешной загрузке списка: локальная
+      // копия удаляется только тогда, когда серверная история действительно
+      // прочитана. Иначе сбой чтения стёр бы историю и с экрана, и из браузера.
+      if (!serverConversations.ok) return;
+      {
         const loaded = (serverConversations.data?.conversations ?? []).flatMap((row) => toConversation(row, now) ?? []);
         // Загруженный диалог уже живёт на сервере под своим id: без этой
         // отметки продолжение старого диалога создало бы его копию.
@@ -664,10 +681,19 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   const clearHistory = React.useCallback(() => {
     if (!window.confirm(ui.clearConfirm)) return;
+    // Очистка адресована текущему языку, поэтому на сервер уходят ровно те
+    // диалоги, которые исчезли с экрана. Общий DELETE стёр бы и остальные
+    // языки — пользователь этого не подтверждал.
+    const removed = workspaceMode === 'server'
+      ? conversations.filter((conversation) => conversation.locale === locale)
+      : [];
     setConversations((current) => current.filter((conversation) => conversation.locale !== locale));
     setActiveId(null); setMessages([]); setDocuments([]); setDrawerOpen(false);
-    if (workspaceMode === 'server') void accountApi('conversations', { method: 'DELETE' });
-  }, [locale, ui.clearConfirm, workspaceMode]);
+    for (const conversation of removed) {
+      const serverId = serverConversationIds.current.get(conversation.id);
+      if (serverId) void accountApi(`conversations/${encodeURIComponent(serverId)}`, { method: 'DELETE' });
+    }
+  }, [conversations, locale, ui.clearConfirm, workspaceMode]);
 
   const createProject = React.useCallback((name: string, description: string) => {
     const cleanName = normaliseProjectName(name);
@@ -690,6 +716,11 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       const serverId = created.data.id;
       setProjects((current) => current.map((item) => (item.id === project.id ? { ...item, id: serverId } : item)));
       setActiveProjectId((current) => (current === project.id ? serverId : current));
+      // Диалог, начатый до ответа сервера, уже несёт локальный id проекта.
+      // Без переадресации он остался бы висеть в несуществующей папке.
+      setConversations((current) => current.map((conversation) => (
+        conversation.projectId === project.id ? { ...conversation, projectId: serverId } : conversation
+      )));
     })();
   }, [locale, workspaceMode]);
 

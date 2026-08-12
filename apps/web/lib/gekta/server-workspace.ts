@@ -80,12 +80,19 @@ export function toProject(row: ServerProjectRow, now: string): GektaProject | nu
   };
 }
 
+export type ImportableConversation = {
+  title: string;
+  locale: string;
+  createdAt: string;
+  messages: { role: string; body: string }[];
+};
+
 /**
  * Что именно переносить в аккаунт. Пустые диалоги не переносятся: они не несут
  * содержания, а в истории выглядели бы как потерянная переписка.
  */
 export function importablePayload(conversations: readonly GektaConversation[]): {
-  conversations: { title: string; locale: string; createdAt: string; messages: { role: string; body: string }[] }[];
+  conversations: ImportableConversation[];
 } {
   return {
     conversations: conversations
@@ -98,6 +105,36 @@ export function importablePayload(conversations: readonly GektaConversation[]): 
         messages: conversation.messages.map((message) => ({ role: message.role, body: message.text })),
       })),
   };
+}
+
+/** Порог, ниже стандартного лимита тела запроса NestJS в 100 КБ. */
+export const IMPORT_CHUNK_BYTES = 64 * 1024;
+
+/**
+ * Перенос идёт частями: целая история легко перерастает лимит тела запроса, а
+ * молчаливо обрезать её нельзя — локальная копия после переноса удаляется.
+ * Диалог, который сам по себе больше порога, всё равно уходит отдельной
+ * частью: пусть лучше сервер откажет явно, чем клиент потеряет переписку молча.
+ */
+export function chunkImport(
+  conversations: readonly ImportableConversation[],
+  limitBytes: number = IMPORT_CHUNK_BYTES,
+): ImportableConversation[][] {
+  const chunks: ImportableConversation[][] = [];
+  let current: ImportableConversation[] = [];
+  let size = 0;
+  for (const conversation of conversations) {
+    const weight = JSON.stringify(conversation).length;
+    if (current.length > 0 && size + weight > limitBytes) {
+      chunks.push(current);
+      current = [];
+      size = 0;
+    }
+    current.push(conversation);
+    size += weight;
+  }
+  if (current.length > 0) chunks.push(current);
+  return chunks;
 }
 
 export function csrfToken(): string {
@@ -125,7 +162,10 @@ export async function accountApi<T>(
       cache: 'no-store',
       headers: {
         Accept: 'application/json',
-        ...(method === 'GET' || method === 'DELETE' ? {} : { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken() }),
+        // DELETE — тоже небезопасный метод: без токена мост отклонит его как
+        // межсайтовый. Content-Type ставится только там, где есть тело.
+        ...(method === 'GET' ? {} : { 'x-csrf-token': csrfToken() }),
+        ...(init?.body === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
       ...(init?.body === undefined ? {} : { body: JSON.stringify(init.body) }),
       ...(init?.signal ? { signal: init.signal } : {}),
