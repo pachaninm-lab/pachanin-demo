@@ -38,7 +38,17 @@ jobs:
           node <<'NODE'
           const fs = require('node:fs');
           const s = fs.readFileSync('.github/workflows/gekta-p0-speed-model-metrics.yml', 'utf8');
-          for (const x of ['sudo ', 'systemctl restart', 'systemctl stop', 'systemctl start', 'kill ', 'pkill ', 'docker ', 'curl -X POST']) {
+          const forbidden = [
+            'sudo' + ' ',
+            'systemctl' + ' restart',
+            'systemctl' + ' stop',
+            'systemctl' + ' start',
+            'kill' + ' ',
+            'pkill' + ' ',
+            'docker' + ' ',
+            'curl -X' + ' POST',
+          ];
+          for (const x of forbidden) {
             if (s.includes(x)) throw new Error(`mutation primitive forbidden: ${x}`);
           }
           for (const x of ['TAI_MODEL_SSH_KEY', 'TAI_MODEL_SSH_HOST_KEY', 'StrictHostKeyChecking=yes', '/metrics']) {
