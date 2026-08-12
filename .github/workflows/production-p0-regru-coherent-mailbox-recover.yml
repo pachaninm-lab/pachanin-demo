@@ -20,6 +20,7 @@ concurrency:
 
 env:
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  ACCEPTANCE_MAIL_DOMAIN: acceptance.xn----8sbjf4befbjgs9b.xn--p1ai
   RELEASE_ISSUE_NUMBER: '3072'
   EVIDENCE_DIR: artifacts/production-p0-regru-coherent-mailbox-recover
   SMTP_HOST: mail.hosting.reg.ru
@@ -74,6 +75,7 @@ jobs:
           workflow = Path('.github/workflows/production-p0-regru-coherent-mailbox-recover.yml').read_text(encoding='utf-8')
           proof = Path('scripts/production-p0-regru-coherent-mailbox-proof.py').read_text(encoding='utf-8')
           runtime = Path('scripts/production-p0-regru-coherent-mailbox-runtime.sh').read_text(encoding='utf-8')
+          acceptance = 'acceptance.xn----8sbjf4befbjgs9b.xn--p1ai'
 
           for marker in (
               "github.event.issue.number == 3072",
@@ -84,6 +86,7 @@ jobs:
               'PRODUCTION_MUTATION=ROOT_ONLY_AUTH_MAIL_RUNTIME_FILE',
               'database/deployment mutation:',
               'new recurring cost:',
+              acceptance,
           ):
               assert marker in workflow, marker
 
@@ -94,6 +97,7 @@ jobs:
               'client.send_message(message, from_addr=user, to_addrs=[recipient])',
               'SMTP_AUTHENTICATED_SEND_OK=1',
               'IMAP_PROBE_RECEIPT_OK=1',
+              acceptance,
           ):
               assert marker in proof, marker
 
@@ -105,6 +109,7 @@ jobs:
               'TRANSACTIONAL_MAIL_RECONCILE=CREATED_COHERENT',
               'committed=0',
               'rollback()',
+              acceptance,
           ):
               assert marker in runtime, marker
 
@@ -342,9 +347,10 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
-          normalized="$(RAW_MAILBOX_USER="$MAILBOX_USER" python3 - <<'PY'
+          normalized="$(RAW_MAILBOX_USER="$MAILBOX_USER" ACCEPTANCE_DOMAIN="$ACCEPTANCE_MAIL_DOMAIN" python3 - <<'PY'
           import os, re
           raw = os.environ['RAW_MAILBOX_USER']
+          acceptance = os.environ['ACCEPTANCE_DOMAIN']
           if raw.count('@') != 1:
               raise SystemExit(1)
           local, domain = raw.rsplit('@', 1)
@@ -352,12 +358,12 @@ jobs:
           value = f"{local}@{domain.encode('idna').decode('ascii').lower()}"
           if not re.fullmatch(r'[^\s@]{1,64}@[^\s@]{1,189}', value):
               raise SystemExit(1)
-          if not value.endswith('@xn----8sbjf4befbjgs9b.xn--p1ai'):
+          if not value.endswith('@' + acceptance):
               raise SystemExit(1)
           print(value)
           PY
           )"
-          [[ "$normalized" =~ ^[^[:space:]@]+@xn----8sbjf4befbjgs9b\.xn--p1ai$ ]]
+          [[ "$normalized" =~ ^[^[:space:]@]+@acceptance\.xn----8sbjf4befbjgs9b\.xn--p1ai$ ]]
           mailenv="$RUNNER_TEMP/pc-password-reset-mail-${GITHUB_RUN_ID}.env"
           umask 077
           printf 'PC_SMTP_HOST=%s\nPC_SMTP_USER=%s\nPC_SMTP_PASS=%s\nPC_SMTP_PORT=%s\nPC_MAIL_FROM=%s\n' \
@@ -403,6 +409,7 @@ jobs:
           - exact main: \`$TARGET_SHA\`
           - result: \`PASS\`
           - SMTP authority: \`mail.hosting.reg.ru:465 implicit TLS\`
+          - mailbox authority: \`isolated acceptance subdomain\`
           - auth identity / envelope sender coherence: \`PASS\`
           - authenticated real send: \`PASS\`
           - IMAP real receipt: \`PASS\`
