@@ -48,6 +48,45 @@ def advertised_auth_methods(client: smtplib.SMTP) -> set[str]:
     }
 
 
+def classify_auth(method: str, user: str, password: str, context: ssl.SSLContext) -> tuple[str, set[str]]:
+    client = smtplib.SMTP(HOST, SMTP_PORT, timeout=TIMEOUT)
+    try:
+        code, _ = client.ehlo()
+        if code != 250:
+            raise smtplib.SMTPHeloError(code, b"")
+        if "starttls" not in client.esmtp_features:
+            raise smtplib.SMTPNotSupportedError("STARTTLS_NOT_ADVERTISED")
+        client.starttls(context=context)
+        code, _ = client.ehlo()
+        if code != 250:
+            raise smtplib.SMTPHeloError(code, b"")
+        methods = advertised_auth_methods(client)
+        if method not in methods:
+            return "NOT_ADVERTISED", methods
+        try:
+            if method == "PLAIN":
+                auth_plain(client, user, password)
+            elif method == "LOGIN":
+                auth_login(client, user, password)
+            else:
+                return "UNSUPPORTED_METHOD", methods
+            return "PASS", methods
+        except smtplib.SMTPAuthenticationError:
+            return "REJECTED", methods
+        except smtplib.SMTPServerDisconnected:
+            return "DISCONNECTED", methods
+        except smtplib.SMTPException:
+            return "PROTOCOL_ERROR", methods
+    finally:
+        try:
+            client.quit()
+        except Exception:
+            try:
+                client.close()
+            except Exception:
+                pass
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         return 20
@@ -72,6 +111,8 @@ def main() -> int:
         "SMTP_STARTTLS_TLS_OK": "0",
         "SMTP_AUTH_LOGIN_ADVERTISED": "0",
         "SMTP_AUTH_PLAIN_ADVERTISED": "0",
+        "SMTP_AUTH_PLAIN_RESULT": "NOT_ATTEMPTED",
+        "SMTP_AUTH_LOGIN_RESULT": "NOT_ATTEMPTED",
         "SMTP_STARTTLS_AUTH_METHOD": "NONE",
         "SMTP_STARTTLS_AUTH_RESULT": "NOT_ATTEMPTED",
         "PRODUCTION_MUTATION": "NONE",
@@ -130,71 +171,63 @@ def main() -> int:
                 except Exception:
                     pass
 
-    def open_starttls():
-        client = smtplib.SMTP(HOST, SMTP_PORT, timeout=TIMEOUT)
-        code, _ = client.ehlo()
-        if code != 250:
-            raise smtplib.SMTPHeloError(code, b"")
-        result["SMTP_STARTTLS_EHLO_OK"] = "1"
-        if "starttls" not in client.esmtp_features:
-            raise smtplib.SMTPNotSupportedError("STARTTLS_NOT_ADVERTISED")
-        client.starttls(context=context)
-        result["SMTP_STARTTLS_TLS_OK"] = "1"
-        code, _ = client.ehlo()
-        if code != 250:
-            raise smtplib.SMTPHeloError(code, b"")
-        result["SMTP_STARTTLS_TRANSPORT_CLASS"] = "PASS"
-        methods = advertised_auth_methods(client)
-        result["SMTP_AUTH_LOGIN_ADVERTISED"] = "1" if "LOGIN" in methods else "0"
-        result["SMTP_AUTH_PLAIN_ADVERTISED"] = "1" if "PLAIN" in methods else "0"
-        return client, methods
-
-    client = None
     try:
-        client, methods = open_starttls()
-        if "PLAIN" in methods:
-            result["SMTP_STARTTLS_AUTH_METHOD"] = "PLAIN"
+        probe = smtplib.SMTP(HOST, SMTP_PORT, timeout=TIMEOUT)
+        try:
+            code, _ = probe.ehlo()
+            if code != 250:
+                raise smtplib.SMTPHeloError(code, b"")
+            result["SMTP_STARTTLS_EHLO_OK"] = "1"
+            if "starttls" not in probe.esmtp_features:
+                raise smtplib.SMTPNotSupportedError("STARTTLS_NOT_ADVERTISED")
+            probe.starttls(context=context)
+            result["SMTP_STARTTLS_TLS_OK"] = "1"
+            code, _ = probe.ehlo()
+            if code != 250:
+                raise smtplib.SMTPHeloError(code, b"")
+            result["SMTP_STARTTLS_TRANSPORT_CLASS"] = "PASS"
+            methods = advertised_auth_methods(probe)
+            result["SMTP_AUTH_LOGIN_ADVERTISED"] = "1" if "LOGIN" in methods else "0"
+            result["SMTP_AUTH_PLAIN_ADVERTISED"] = "1" if "PLAIN" in methods else "0"
+        finally:
             try:
-                auth_plain(client, login, password)
-                result["SMTP_STARTTLS_AUTH_RESULT"] = "PASS"
-            except smtplib.SMTPAuthenticationError:
-                result["SMTP_STARTTLS_AUTH_RESULT"] = "REJECTED"
-            except smtplib.SMTPServerDisconnected:
+                probe.quit()
+            except Exception:
                 try:
-                    client.close()
+                    probe.close()
                 except Exception:
                     pass
-                client = None
-                if "LOGIN" in methods:
-                    client, retry_methods = open_starttls()
-                    if "LOGIN" in retry_methods:
-                        result["SMTP_STARTTLS_AUTH_METHOD"] = "LOGIN_AFTER_PLAIN_DISCONNECT"
-                        try:
-                            auth_login(client, login, password)
-                            result["SMTP_STARTTLS_AUTH_RESULT"] = "PASS"
-                        except smtplib.SMTPAuthenticationError:
-                            result["SMTP_STARTTLS_AUTH_RESULT"] = "REJECTED"
-                        except smtplib.SMTPServerDisconnected:
-                            result["SMTP_STARTTLS_AUTH_RESULT"] = "DISCONNECTED"
-                        except smtplib.SMTPException:
-                            result["SMTP_STARTTLS_AUTH_RESULT"] = "PROTOCOL_ERROR"
-                    else:
-                        result["SMTP_STARTTLS_AUTH_RESULT"] = "LOGIN_NOT_ADVERTISED_AFTER_RECONNECT"
-                else:
-                    result["SMTP_STARTTLS_AUTH_RESULT"] = "DISCONNECTED"
-            except smtplib.SMTPException:
-                result["SMTP_STARTTLS_AUTH_RESULT"] = "PROTOCOL_ERROR"
-        elif "LOGIN" in methods:
-            result["SMTP_STARTTLS_AUTH_METHOD"] = "LOGIN"
-            try:
-                auth_login(client, login, password)
-                result["SMTP_STARTTLS_AUTH_RESULT"] = "PASS"
-            except smtplib.SMTPAuthenticationError:
-                result["SMTP_STARTTLS_AUTH_RESULT"] = "REJECTED"
-            except smtplib.SMTPServerDisconnected:
-                result["SMTP_STARTTLS_AUTH_RESULT"] = "DISCONNECTED"
-            except smtplib.SMTPException:
-                result["SMTP_STARTTLS_AUTH_RESULT"] = "PROTOCOL_ERROR"
+
+        if result["SMTP_AUTH_PLAIN_ADVERTISED"] == "1":
+            plain_result, _ = classify_auth("PLAIN", login, password, context)
+            result["SMTP_AUTH_PLAIN_RESULT"] = plain_result
+        else:
+            result["SMTP_AUTH_PLAIN_RESULT"] = "NOT_ADVERTISED"
+
+        if result["SMTP_AUTH_LOGIN_ADVERTISED"] == "1":
+            login_result, _ = classify_auth("LOGIN", login, password, context)
+            result["SMTP_AUTH_LOGIN_RESULT"] = login_result
+        else:
+            result["SMTP_AUTH_LOGIN_RESULT"] = "NOT_ADVERTISED"
+
+        method_results = {
+            "PLAIN": result["SMTP_AUTH_PLAIN_RESULT"],
+            "LOGIN": result["SMTP_AUTH_LOGIN_RESULT"],
+        }
+        passing = [method for method, status in method_results.items() if status == "PASS"]
+        attempted = [status for status in method_results.values() if status not in ("NOT_ADVERTISED", "NOT_ATTEMPTED")]
+        if passing:
+            result["SMTP_STARTTLS_AUTH_METHOD"] = "+".join(passing)
+            result["SMTP_STARTTLS_AUTH_RESULT"] = "PASS"
+        elif attempted and all(status == "REJECTED" for status in attempted):
+            result["SMTP_STARTTLS_AUTH_METHOD"] = "PLAIN+LOGIN"
+            result["SMTP_STARTTLS_AUTH_RESULT"] = "REJECTED"
+        elif "DISCONNECTED" in attempted:
+            result["SMTP_STARTTLS_AUTH_METHOD"] = "PLAIN+LOGIN"
+            result["SMTP_STARTTLS_AUTH_RESULT"] = "DISCONNECTED"
+        elif "PROTOCOL_ERROR" in attempted:
+            result["SMTP_STARTTLS_AUTH_METHOD"] = "PLAIN+LOGIN"
+            result["SMTP_STARTTLS_AUTH_RESULT"] = "PROTOCOL_ERROR"
         else:
             result["SMTP_STARTTLS_AUTH_RESULT"] = "NO_SUPPORTED_AUTH_ADVERTISED"
     except socket.gaierror:
@@ -209,15 +242,6 @@ def main() -> int:
         result["SMTP_STARTTLS_TRANSPORT_CLASS"] = "SMTP_PROTOCOL"
     except OSError:
         result["SMTP_STARTTLS_TRANSPORT_CLASS"] = "NETWORK"
-    finally:
-        if client is not None:
-            try:
-                client.quit()
-            except Exception:
-                try:
-                    client.close()
-                except Exception:
-                    pass
 
     order = [
         "IMAP_TRANSPORT_CLASS",
@@ -228,6 +252,8 @@ def main() -> int:
         "SMTP_STARTTLS_TLS_OK",
         "SMTP_AUTH_LOGIN_ADVERTISED",
         "SMTP_AUTH_PLAIN_ADVERTISED",
+        "SMTP_AUTH_PLAIN_RESULT",
+        "SMTP_AUTH_LOGIN_RESULT",
         "SMTP_STARTTLS_AUTH_METHOD",
         "SMTP_STARTTLS_AUTH_RESULT",
         "PRODUCTION_MUTATION",
