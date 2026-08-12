@@ -65,25 +65,26 @@ model User {
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  orgs                              UserOrg[]
-  ukepCerts                         UkepCertificate[]
-  dealParticipants                  DealParticipant[]
-  fgisProviderConfigurationsCreated FgisGrainProviderConfiguration[] @relation("FgisProviderConfigurationCreatedBy")
-  fgisProviderConfigurationsUpdated FgisGrainProviderConfiguration[] @relation("FgisProviderConfigurationUpdatedBy")
-  fgisGrainProviderAttestations     FgisGrainProviderAttestation[]
+  orgs                                      UserOrg[]
+  ukepCerts                                 UkepCertificate[]
+  dealParticipants                          DealParticipant[]
+  fgisProviderConfigurationsCreated         FgisGrainProviderConfiguration[]   @relation("FgisProviderConfigurationCreatedBy")
+  fgisProviderConfigurationsUpdated         FgisGrainProviderConfiguration[]   @relation("FgisProviderConfigurationUpdatedBy")
+  fgisGrainProviderAttestations             FgisGrainProviderAttestation[]
   fgisGrainTenantReadAuthorizationsCreated  FgisGrainTenantReadAuthorization[] @relation("FgisGrainTenantReadAuthorizationCreatedBy")
   fgisGrainTenantReadAuthorizationsUpdated  FgisGrainTenantReadAuthorization[] @relation("FgisGrainTenantReadAuthorizationUpdatedBy")
   fgisGrainTenantReadAuthorizationsAttested FgisGrainTenantReadAuthorization[] @relation("FgisGrainTenantReadAuthorizationAttestedBy")
-  fgisGrainTenantReadProviderClaims          FgisGrainTenantReadProviderClaim[]  @relation("FgisGrainTenantReadProviderClaimActor")
-  fgisGrainTenantReadAudits                  FgisGrainTenantReadAudit[]         @relation("FgisGrainTenantReadAuditActor")
+  fgisGrainTenantReadProviderClaims         FgisGrainTenantReadProviderClaim[] @relation("FgisGrainTenantReadProviderClaimActor")
+  fgisGrainTenantReadAudits                 FgisGrainTenantReadAudit[]         @relation("FgisGrainTenantReadAuditActor")
+  gektaAccount                              GektaAccount?
 
   @@map("users")
 }
 
 model UserOrg {
-  id             String   @id @default(cuid())
-  userId         String
-  organizationId String
+  id                 String    @id @default(cuid())
+  userId             String
+  organizationId     String
   role               String
   status             String    @default("ACTIVE")
   requestedWorkspace String?   @map("requested_workspace")
@@ -1203,34 +1204,34 @@ model RegulatoryIntegrationInboxConflict {
 // ── FGIS Grain provider and SDIZ authority ────────────────────────────────────
 
 model FgisGrainProviderConfiguration {
-  id                    String   @id
-  tenantId              String
-  organizationId        String
-  adapterCode           String   @default("FGIS_ZERNO")
-  apiVersion            String   @default("1.0.23")
-  mappingVersion        String   @default("fgis-zerno-1.0.23-catalog.v1")
-  signingPolicyVersion  String   @default("fgis-zerno-1.0.23-signing-policy.v1")
-  environment           String
-  endpointReference     String
-  tlsPolicyReference    String
-  credentialReference   String
-  signingKeyReference   String
-  payloadStoreReference String
+  id                                 String   @id
+  tenantId                           String
+  organizationId                     String
+  adapterCode                        String   @default("FGIS_ZERNO")
+  apiVersion                         String   @default("1.0.23")
+  mappingVersion                     String   @default("fgis-zerno-1.0.23-catalog.v1")
+  signingPolicyVersion               String   @default("fgis-zerno-1.0.23-signing-policy.v1")
+  environment                        String
+  endpointReference                  String
+  tlsPolicyReference                 String
+  credentialReference                String
+  signingKeyReference                String
+  payloadStoreReference              String
   tenantReadTransportAdmittedVersion BigInt?
-  status                String   @default("DRAFT")
-  version               BigInt   @default(0)
-  createdByUserId       String
-  updatedByUserId       String
-  createdAt             DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
-  updatedAt             DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  status                             String   @default("DRAFT")
+  version                            BigInt   @default(0)
+  createdByUserId                    String
+  updatedByUserId                    String
+  createdAt                          DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  updatedAt                          DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization  Organization                   @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_org_fk")
-  createdByUser User                           @relation("FgisProviderConfigurationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_created_user_fk")
-  updatedByUser User                           @relation("FgisProviderConfigurationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_updated_user_fk")
-  attestations  FgisGrainProviderAttestation[]
+  organization             Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_org_fk")
+  createdByUser            User                               @relation("FgisProviderConfigurationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_created_user_fk")
+  updatedByUser            User                               @relation("FgisProviderConfigurationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_updated_user_fk")
+  attestations             FgisGrainProviderAttestation[]
   tenantReadAuthorizations FgisGrainTenantReadAuthorization[]
   tenantReadProviderClaims FgisGrainTenantReadProviderClaim[]
-  tenantReadAudits FgisGrainTenantReadAudit[]
+  tenantReadAudits         FgisGrainTenantReadAudit[]
 
   @@unique([tenantId, organizationId, adapterCode, environment], map: "fgis_grain_provider_config_tenant_org_env_key")
   @@index([tenantId, organizationId, status], map: "fgis_grain_provider_config_status_idx")
@@ -1421,7 +1422,7 @@ model FgisGrainAcknowledgement {
 }
 
 model FgisGrainTenantReadAuthorization {
-  id                           String   @id
+  id                           String    @id
   tenantId                     String
   organizationId               String
   configurationId              String
@@ -1441,13 +1442,13 @@ model FgisGrainTenantReadAuthorization {
   createdAt                    DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
   updatedAt                    DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_org_fk")
-  configuration FgisGrainProviderConfiguration @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_config_fk")
-  createdByUser User                            @relation("FgisGrainTenantReadAuthorizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_created_user_fk")
-  updatedByUser User                            @relation("FgisGrainTenantReadAuthorizationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_updated_user_fk")
-  attestedByUser User?                          @relation("FgisGrainTenantReadAuthorizationAttestedBy", fields: [attestedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_attested_user_fk")
+  organization   Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_org_fk")
+  configuration  FgisGrainProviderConfiguration     @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_config_fk")
+  createdByUser  User                               @relation("FgisGrainTenantReadAuthorizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_created_user_fk")
+  updatedByUser  User                               @relation("FgisGrainTenantReadAuthorizationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_updated_user_fk")
+  attestedByUser User?                              @relation("FgisGrainTenantReadAuthorizationAttestedBy", fields: [attestedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_attested_user_fk")
   providerClaims FgisGrainTenantReadProviderClaim[]
-  audits FgisGrainTenantReadAudit[]
+  audits         FgisGrainTenantReadAudit[]
 
   @@unique([tenantId, organizationId, configurationId], map: "fgis_grain_tenant_read_auth_config_key")
   @@unique([id, tenantId, organizationId], map: "fgis_grain_tenant_read_auth_tenant_key")
@@ -1478,12 +1479,12 @@ model FgisGrainTenantReadProviderClaim {
   completedAt           DateTime? @db.Timestamptz(6)
   createdAt             DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization  Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_org_fk")
-  authorization FgisGrainTenantReadAuthorization @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_auth_fk")
-  configuration FgisGrainProviderConfiguration   @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_config_fk")
-  actorUser     User                              @relation("FgisGrainTenantReadProviderClaimActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_user_fk")
+  organization   Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_org_fk")
+  authorization  FgisGrainTenantReadAuthorization @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_auth_fk")
+  configuration  FgisGrainProviderConfiguration   @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_config_fk")
+  actorUser      User                             @relation("FgisGrainTenantReadProviderClaimActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_user_fk")
   completedAudit FgisGrainTenantReadAudit?        @relation("FgisGrainTenantReadClaimCompletion", fields: [completedAuditId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_completed_audit_fk")
-  audits         FgisGrainTenantReadAudit[]        @relation("FgisGrainTenantReadClaimAudits")
+  audits         FgisGrainTenantReadAudit[]       @relation("FgisGrainTenantReadClaimAudits")
 
   @@unique([tenantId, organizationId, requestIdempotencyKey], map: "fgis_grain_tenant_read_claim_request_key")
   @@index([tenantId, organizationId, leaseExpiresAt], map: "fgis_grain_tenant_read_claim_lease_idx")
@@ -1517,13 +1518,13 @@ model FgisGrainTenantReadAudit {
   prevHash              String?   @db.Char(64)
   createdAt             DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_org_fk")
-  authorization FgisGrainTenantReadAuthorization @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_auth_fk")
-  configuration FgisGrainProviderConfiguration   @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_config_fk")
-  actorUser User                                  @relation("FgisGrainTenantReadAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_user_fk")
-  providerClaim FgisGrainTenantReadProviderClaim? @relation("FgisGrainTenantReadClaimAudits", fields: [providerClaimId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_claim_fk")
+  organization   Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_org_fk")
+  authorization  FgisGrainTenantReadAuthorization  @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_auth_fk")
+  configuration  FgisGrainProviderConfiguration    @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_config_fk")
+  actorUser      User                              @relation("FgisGrainTenantReadAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_user_fk")
+  providerClaim  FgisGrainTenantReadProviderClaim? @relation("FgisGrainTenantReadClaimAudits", fields: [providerClaimId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_claim_fk")
   completedClaim FgisGrainTenantReadProviderClaim? @relation("FgisGrainTenantReadClaimCompletion")
-  chainHead FgisGrainTenantReadAuditHead?          @relation("FgisGrainTenantReadChainHead")
+  chainHead      FgisGrainTenantReadAuditHead?     @relation("FgisGrainTenantReadChainHead")
 
   @@unique([tenantId, organizationId, idempotencyKey], map: "fgis_grain_tenant_read_audit_idempotency_key")
   @@unique([tenantId, organizationId, chainSequence], map: "fgis_grain_tenant_read_audit_chain_sequence_key")
@@ -1542,9 +1543,373 @@ model FgisGrainTenantReadAuditHead {
   lastHash       String?  @db.Char(64)
   updatedAt      DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_head_org_fk")
-  lastAudit FgisGrainTenantReadAudit? @relation("FgisGrainTenantReadChainHead", fields: [lastAuditId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_head_last_audit_fk")
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_head_org_fk")
+  lastAudit    FgisGrainTenantReadAudit? @relation("FgisGrainTenantReadChainHead", fields: [lastAuditId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_head_last_audit_fk")
 
   @@id([tenantId, organizationId], map: "fgis_grain_tenant_read_audit_head_pkey")
   @@map("fgis_grain_tenant_read_audit_heads")
+}
+
+// ── Gekta: аккаунт, доступ, история и монетизация ─────────────────────────────
+//
+// Гекта переиспользует существующую identity: аккаунт Гекты — это состояние
+// поверх User платформы, а не вторая система аутентификации. Email verification,
+// пароль/сессия и MFA остаются authority аккаунта.
+
+enum GektaPhoneState {
+  DECLARED
+  VERIFIED
+  CONFLICTED
+  REVOKED
+}
+
+enum GektaGrantKind {
+  MANUAL
+  LIFETIME
+  TRIAL_EXTENSION
+}
+
+enum GektaSubscriptionStatus {
+  NONE
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum GektaPaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum GektaReceiptState {
+  NOT_REQUIRED
+  PENDING
+  ISSUED
+  CANCELLED
+  FAILED
+}
+
+enum GektaConsentPurpose {
+  SERVICE_TERMS
+  PERSONAL_DATA
+  MARKETING
+  SUPPORT_ACCESS
+  SUBSCRIPTION_TERMS
+  AUTO_RENEWAL
+}
+
+/// Состояние доступа пользователя к Гекте. Пробный период выдаётся один раз на
+/// аккаунт, поэтому очистка cookie, смена браузера и повторный вход его не
+/// возобновляют.
+model GektaAccount {
+  id             String    @id @default(cuid())
+  userId         String    @unique(map: "gekta_accounts_user_key")
+  trialStartedAt DateTime? @db.Timestamptz(6)
+  trialEndsAt    DateTime? @db.Timestamptz(6)
+  /// Пробный период уже выдавался: повторная выдача запрещена независимо от того,
+  /// закончился он или был продлён.
+  trialGranted   Boolean   @default(false)
+  lifetimeAccess Boolean   @default(false)
+  suspended      Boolean   @default(false)
+  suspendedAt    DateTime? @db.Timestamptz(6)
+  suspendReason  String?   @db.VarChar(500)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
+
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_accounts_user_fk")
+  phoneIdentity GektaPhoneIdentity?
+  usage         GektaUsage?
+  subscription  GektaSubscription?
+  grants        GektaEntitlementGrant[]
+  projects      GektaProject[]
+  conversations GektaConversation[]
+  consents      GektaConsent[]
+  supportGrants GektaSupportGrant[]
+  payments      GektaPayment[]
+  audits        GektaOperatorAudit[]
+
+  @@index([trialEndsAt], map: "gekta_accounts_trial_ends_idx")
+  @@index([createdAt], map: "gekta_accounts_created_idx")
+  @@map("gekta_accounts")
+}
+
+/// Телефон обязателен как атрибут аккаунта. Канонический номер хранится
+/// зашифрованным, а поиск идёт по отдельному HMAC-индексу: компрометация индекса
+/// не раскрывает номера, а по шифротексту нельзя искать.
+model GektaPhoneIdentity {
+  id             String          @id @default(cuid())
+  accountId      String          @unique(map: "gekta_phone_identities_account_key")
+  /// AES-256-GCM шифротекст канонического E.164.
+  encryptedPhone String          @db.VarChar(512)
+  /// Детерминированный HMAC для точного совпадения. Частичный поиск невозможен.
+  lookupHash     String          @db.VarChar(64)
+  state          GektaPhoneState @default(DECLARED)
+  declaredAt     DateTime        @default(now()) @db.Timestamptz(6)
+  verifiedAt     DateTime?       @db.Timestamptz(6)
+  revokedAt      DateTime?       @db.Timestamptz(6)
+  /// Канал, которым владение было подтверждено. Пусто, пока подтверждения нет.
+  verifiedVia    String?         @db.VarChar(64)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
+
+  account GektaAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_phone_identities_account_fk")
+
+  /// Неподтверждённый номер намеренно НЕ уникален: иначе первый заявивший навсегда
+  /// блокировал бы чужой номер. Уникальность подтверждённого обеспечивается
+  /// частичным индексом в миграции.
+  @@index([lookupHash], map: "gekta_phone_identities_lookup_idx")
+  @@index([state], map: "gekta_phone_identities_state_idx")
+  @@map("gekta_phone_identities")
+}
+
+/// Счётчик завершённых ответов. Считаются именно завершённые ответы, а не
+/// нажатия Send.
+model GektaUsage {
+  id               String    @id @default(cuid())
+  accountId        String    @unique(map: "gekta_usage_account_key")
+  completedAnswers BigInt    @default(0)
+  answersToday     Int       @default(0)
+  todayResetAt     DateTime  @default(now()) @db.Timestamptz(6)
+  lastAnswerAt     DateTime? @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
+
+  account GektaAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_usage_account_fk")
+
+  @@map("gekta_usage")
+}
+
+/// Ручной доступ, выданный владельцем. Гранты не перезаписываются: отзыв — это
+/// новое состояние существующей записи, а история остаётся целиком.
+model GektaEntitlementGrant {
+  id        String         @id @default(cuid())
+  accountId String
+  kind      GektaGrantKind
+  grantedAt DateTime       @default(now()) @db.Timestamptz(6)
+  /// Пусто у бессрочного доступа.
+  expiresAt DateTime?      @db.Timestamptz(6)
+  revokedAt DateTime?      @db.Timestamptz(6)
+  grantedBy String         @db.VarChar(64)
+  revokedBy String?        @db.VarChar(64)
+  reason    String         @db.VarChar(500)
+  createdAt DateTime       @default(now()) @db.Timestamptz(6)
+
+  account GektaAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_entitlement_grants_account_fk")
+
+  @@index([accountId, revokedAt, expiresAt], map: "gekta_entitlement_grants_active_idx")
+  @@map("gekta_entitlement_grants")
+}
+
+model GektaProject {
+  id          String    @id @default(cuid())
+  accountId   String
+  name        String    @db.VarChar(60)
+  description String    @default("") @db.VarChar(240)
+  locale      String    @db.VarChar(8)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  account       GektaAccount        @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_projects_account_fk")
+  conversations GektaConversation[]
+
+  @@index([accountId, deletedAt, updatedAt(sort: Desc)], map: "gekta_projects_account_idx")
+  @@map("gekta_projects")
+}
+
+model GektaConversation {
+  id         String    @id @default(cuid())
+  accountId  String
+  projectId  String?
+  title      String    @db.VarChar(80)
+  locale     String    @db.VarChar(8)
+  /// Диалог, импортированный из анонимной истории при регистрации.
+  importedAt DateTime? @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt  DateTime? @db.Timestamptz(6)
+
+  account  GektaAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_conversations_account_fk")
+  project  GektaProject?  @relation(fields: [projectId], references: [id], onDelete: SetNull, onUpdate: Restrict, map: "gekta_conversations_project_fk")
+  messages GektaMessage[]
+
+  @@index([accountId, deletedAt, updatedAt(sort: Desc)], map: "gekta_conversations_account_idx")
+  @@index([projectId], map: "gekta_conversations_project_idx")
+  @@map("gekta_conversations")
+}
+
+model GektaMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   @db.VarChar(16)
+  body           String
+  /// Подтверждённые источники ответа, если они были.
+  citations      Json?
+  attachments    Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  conversation GektaConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_messages_conversation_fk")
+
+  @@index([conversationId, createdAt], map: "gekta_messages_conversation_idx")
+  @@map("gekta_messages")
+}
+
+/// Согласия по целям. Одно согласие — одна цель: 152-ФЗ требует конкретного,
+/// предметного и однозначного согласия, оформленного отдельно от иных документов.
+model GektaConsent {
+  id              String              @id @default(cuid())
+  accountId       String?
+  /// Идентификатор анонимной сессии до регистрации.
+  anonymousSid    String?             @db.VarChar(64)
+  purpose         GektaConsentPurpose
+  documentSlug    String              @db.VarChar(128)
+  documentVersion String              @db.VarChar(32)
+  locale          String              @db.VarChar(8)
+  acceptedAt      DateTime            @default(now()) @db.Timestamptz(6)
+  revokedAt       DateTime?           @db.Timestamptz(6)
+  /// Экран, на котором согласие было дано.
+  sourceSurface   String              @db.VarChar(64)
+
+  account GektaAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_consents_account_fk")
+
+  @@index([accountId, purpose, acceptedAt(sort: Desc)], map: "gekta_consents_account_idx")
+  @@index([anonymousSid], map: "gekta_consents_anonymous_idx")
+  @@map("gekta_consents")
+}
+
+/// Разрешение поддержке читать диалоги, выданное самим пользователем и
+/// ограниченное по времени. Без действующего гранта переписку не читает никто.
+model GektaSupportGrant {
+  id        String    @id @default(cuid())
+  accountId String
+  grantedAt DateTime  @default(now()) @db.Timestamptz(6)
+  expiresAt DateTime  @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+  reason    String    @db.VarChar(500)
+
+  account GektaAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_support_grants_account_fk")
+
+  @@index([accountId, expiresAt(sort: Desc)], map: "gekta_support_grants_account_idx")
+  @@map("gekta_support_grants")
+}
+
+/// Неизменяемый журнал действий оператора. Телефон попадает сюда только
+/// маскированным и только как локатор поиска.
+model GektaOperatorAudit {
+  id                 String    @id @default(cuid())
+  correlationId      String    @db.VarChar(64)
+  actorUserId        String    @db.VarChar(64)
+  actorRoles         String    @db.VarChar(200)
+  accountId          String?
+  phoneLocatorMasked String?   @db.VarChar(32)
+  action             String    @db.VarChar(64)
+  previousState      String    @db.VarChar(64)
+  newState           String    @db.VarChar(64)
+  reason             String    @db.VarChar(500)
+  expiresAt          DateTime? @db.Timestamptz(6)
+  source             String    @db.VarChar(64)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+
+  account GektaAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull, onUpdate: Restrict, map: "gekta_operator_audits_account_fk")
+
+  @@index([accountId, createdAt(sort: Desc)], map: "gekta_operator_audits_account_idx")
+  @@index([actorUserId, createdAt(sort: Desc)], map: "gekta_operator_audits_actor_idx")
+  @@index([correlationId], map: "gekta_operator_audits_correlation_idx")
+  @@map("gekta_operator_audits")
+}
+
+/// Подписка. Отзыв платёжного средства фиксируется отдельным полем: после него
+/// периодическое списание запрещено (ст. 16-1 ЗоЗПП в редакции 376-ФЗ).
+model GektaSubscription {
+  id                         String                  @id @default(cuid())
+  accountId                  String                  @unique(map: "gekta_subscriptions_account_key")
+  plan                       String                  @default("monthly") @db.VarChar(32)
+  status                     GektaSubscriptionStatus @default(NONE)
+  startedAt                  DateTime?               @db.Timestamptz(6)
+  currentPeriodStart         DateTime?               @db.Timestamptz(6)
+  currentPeriodEnd           DateTime?               @db.Timestamptz(6)
+  cancelAtPeriodEnd          Boolean                 @default(false)
+  cancelledAt                DateTime?               @db.Timestamptz(6)
+  paymentMethodAuthorization String?                 @db.VarChar(255)
+  paymentMethodRevokedAt     DateTime?               @db.Timestamptz(6)
+  createdAt                  DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime                @updatedAt @db.Timestamptz(6)
+
+  account GektaAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_subscriptions_account_fk")
+
+  @@index([status, currentPeriodEnd], map: "gekta_subscriptions_status_idx")
+  @@map("gekta_subscriptions")
+}
+
+/// Платёж вместе со снимком продавца на момент оплаты: смена юридической формы
+/// не переписывает историю расчётов.
+model GektaPayment {
+  id                String             @id @default(cuid())
+  accountId         String
+  provider          String             @db.VarChar(64)
+  providerPaymentId String?            @db.VarChar(128)
+  amountKopecks     Int
+  currency          String             @default("RUB") @db.VarChar(3)
+  status            GektaPaymentStatus @default(PENDING)
+  idempotencyKey    String             @unique(map: "gekta_payments_idempotency_key") @db.VarChar(128)
+  receiptState      GektaReceiptState  @default(NOT_REQUIRED)
+  receiptId         String?            @db.VarChar(128)
+  receiptUrl        String?            @db.VarChar(512)
+  merchantSnapshot  Json
+  paidAt            DateTime?          @db.Timestamptz(6)
+  refundedAt        DateTime?          @db.Timestamptz(6)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+
+  account GektaAccount @relation(fields: [accountId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "gekta_payments_account_fk")
+
+  @@index([accountId, createdAt(sort: Desc)], map: "gekta_payments_account_idx")
+  @@index([status, createdAt(sort: Desc)], map: "gekta_payments_status_idx")
+  @@map("gekta_payments")
+}
+
+/// Обработанные webhook-события. Существование записи — защита от повторного
+/// применения одного и того же события.
+model GektaWebhookEvent {
+  id          String    @id @default(cuid())
+  provider    String    @db.VarChar(64)
+  eventId     String    @db.VarChar(128)
+  receivedAt  DateTime  @default(now()) @db.Timestamptz(6)
+  processedAt DateTime? @db.Timestamptz(6)
+  outcome     String    @db.VarChar(64)
+
+  @@unique([provider, eventId], map: "gekta_webhook_events_provider_event_key")
+  @@map("gekta_webhook_events")
+}
+
+/// Версионируемый профиль продавца. Переход НПД → ИП → ООО добавляет версию и
+/// не требует миграции аккаунтов, подписок или entitlement.
+model GektaMerchantProfile {
+  id               String    @id @default(cuid())
+  operatorType     String    @db.VarChar(32)
+  legalDisplayName String    @db.VarChar(255)
+  fullName         String?   @db.VarChar(255)
+  inn              String?   @db.VarChar(12)
+  ogrnip           String?   @db.VarChar(15)
+  ogrn             String?   @db.VarChar(13)
+  legalAddress     String?   @db.VarChar(500)
+  contactAddress   String?   @db.VarChar(500)
+  supportEmail     String?   @db.VarChar(255)
+  supportPhone     String?   @db.VarChar(32)
+  taxRegime        String    @db.VarChar(16)
+  receiptMode      String    @db.VarChar(16)
+  paymentProvider  String?   @db.VarChar(64)
+  billingEnabled   Boolean   @default(false)
+  verifiedAt       DateTime? @db.Timestamptz(6)
+  source           String?   @db.VarChar(255)
+  effectiveFrom    DateTime  @db.Timestamptz(6)
+  effectiveTo      DateTime? @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([effectiveFrom(sort: Desc)], map: "gekta_merchant_profiles_effective_idx")
+  @@map("gekta_merchant_profiles")
 }
