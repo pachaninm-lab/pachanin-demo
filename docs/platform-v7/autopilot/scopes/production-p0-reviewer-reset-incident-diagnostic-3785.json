@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-password-reset-production-diagnostic-3785-v2",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_INCIDENT_READ_ONLY_DIAGNOSTIC",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Production P0 reviewer reset fixed-incident read-only diagnostic",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-incident-diagnostic.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-incident-diagnostic-3785.json",
+    "scripts/check-production-p0-reviewer-reset-incident-diagnostic.mjs",
+    "scripts/production-p0-reviewer-reset-incident-diagnostic.sh"
+  ],
+  "incident": {
+    "runId": 31635866371,
+    "sinceUtc": "2026-08-12T20:05:30Z",
+    "untilUtc": "2026-08-12T20:06:00Z",
+    "deployedRevision": "58d7e1f80aa4482293e24eb7b0e111f7bf988d29"
+  },
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "credentialMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the owner-only command is accepted only on release issue 3072 and is fixed to failed reviewer reset run 31635866371",
+    "the diagnostic reads only the already-recorded REG.RU Web log window 2026-08-12T20:05:30Z through 2026-08-12T20:06:00Z and never replays an auth or reset request",
+    "the active REG.RU API and Web containers must be healthy and both remain exact deployed revision 58d7e1f80aa4482293e24eb7b0e111f7bf988d29",
+    "environment inspection publishes only booleans for API URL, password-reset delivery-key readiness/equality and Resend/SMTP readiness; values never leave REG.RU",
+    "incident log classification publishes only allowlisted event class, sanitized detail and aggregate correlation/event counts; reviewer identity, account hashes, reset tokens, correlation identifiers, credentials and raw logs are never published",
+    "the diagnostic uses only Docker ps/inspect/logs and performs no SQL, auth call, container exec/restart, deployment, identity, password, MFA, session or credential mutation",
+    "production mutation is NONE and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
