@@ -29,7 +29,7 @@ jobs:
         github.event.comment.user.login == github.repository_owner &&
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
-        github.event.comment.body == '/production p0-reviewer-reset-http-diagnose current-deployed'
+        github.event.comment.body == '/production p0-reviewer-reset-http-diagnose current-main'
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -55,7 +55,7 @@ jobs:
       github.event.comment.user.login == github.repository_owner &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
-      github.event.comment.body == '/production p0-reviewer-reset-http-diagnose current-deployed'
+      github.event.comment.body == '/production p0-reviewer-reset-http-diagnose current-main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -76,6 +76,6 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Classify forgot-password GET and CSRF contract on deployed REG.RU
+      - name: Classify forgot-password GET and CSRF contract on exact current-main REG.RU
         shell: bash
         run: bash scripts/production-p0-reviewer-reset-http-diagnostic.sh
