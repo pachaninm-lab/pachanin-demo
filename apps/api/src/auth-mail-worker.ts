@@ -6,6 +6,7 @@ import {
   decryptAuthMailEnvelope,
   type EncryptedAuthMailEnvelope,
   resolveAuthMailOutboxKey,
+  resolveCurrentAuthMailKeyVersion,
 } from './modules/auth-mail/auth-mail-crypto';
 import {
   AuthMailTransportError,
@@ -16,6 +17,7 @@ import {
 const DEFAULT_INTERVAL_MS = 1_000;
 const DEFAULT_BATCH_SIZE = 20;
 const DEFAULT_LEASE_SECONDS = 60;
+const DEFAULT_RETENTION_DAYS = 7;
 const MAX_BACKOFF_MS = 60 * 60 * 1000;
 const BASE_BACKOFF_MS = 5_000;
 
@@ -37,6 +39,7 @@ type ClaimedMail = {
 type WorkerState = {
   workerId: string;
   startedAt: string;
+  currentKeyVersion: number;
   lastPollAt: string | null;
   lastSuccessAt: string | null;
   lastErrorCode: string | null;
@@ -44,6 +47,7 @@ type WorkerState = {
   sent: number;
   retried: number;
   deadLettered: number;
+  redacted: number;
   shuttingDown: boolean;
 };
 
@@ -58,9 +62,9 @@ function production(): boolean {
 }
 
 function readSecretFile(name: string): string {
-  const path = String(process.env[name] ?? '').trim();
-  if (!path) throw new Error(`${name} is required`);
-  const value = readFileSync(path, 'utf8').trim();
+  const filePath = String(process.env[name] ?? '').trim();
+  if (!filePath) throw new Error(`${name} is required`);
+  const value = readFileSync(filePath, 'utf8').trim();
   if (!value || /[\r\n\0]/.test(value)) throw new Error(`${name} contains an invalid secret value`);
   return value;
 }
@@ -104,6 +108,14 @@ async function expireStale(prisma: PrismaClient, state: WorkerState): Promise<vo
   state.deadLettered += count;
 }
 
+async function redactTerminal(prisma: PrismaClient, state: WorkerState, retentionDays: number): Promise<void> {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+  const rows = await prisma.$queryRaw<Array<{ redacted: number }>>(Prisma.sql`
+    SELECT auth.redact_terminal_mail_outbox(${cutoff}) AS redacted
+  `);
+  state.redacted += Number(rows[0]?.redacted ?? 0);
+}
+
 async function claimBatch(
   prisma: PrismaClient,
   workerId: string,
@@ -120,7 +132,8 @@ async function claimBatch(
     WHERE id IN (
       SELECT id
       FROM auth.mail_outbox
-      WHERE expires_at > clock_timestamp()
+      WHERE redacted_at IS NULL
+        AND expires_at > clock_timestamp()
         AND (
           (status = 'PENDING' AND next_attempt_at <= clock_timestamp())
           OR (status = 'PROCESSING' AND lease_expires_at < clock_timestamp())
@@ -208,7 +221,7 @@ async function processEntry(prisma: PrismaClient, workerId: string, entry: Claim
       ciphertext: entry.payload_ciphertext,
       iv: entry.payload_iv,
       tag: entry.payload_tag,
-      keyVersion: entry.payload_key_version as 1,
+      keyVersion: entry.payload_key_version,
     };
     const envelope = decryptAuthMailEnvelope(encrypted, {
       kind: entry.message_kind,
@@ -225,18 +238,18 @@ async function processEntry(prisma: PrismaClient, workerId: string, entry: Claim
 
 async function startHealthServer(prisma: PrismaClient, state: WorkerState, port: number): Promise<Server> {
   const server = createServer(async (request, response) => {
-    const path = request.url?.split('?', 1)[0] ?? '/';
+    const route = request.url?.split('?', 1)[0] ?? '/';
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Content-Type', 'application/json');
 
-    if (path === '/live') {
+    if (route === '/live') {
       response.statusCode = state.shuttingDown ? 503 : 200;
       response.end(JSON.stringify({ status: state.shuttingDown ? 'stopping' : 'alive', component: 'auth-mail-worker' }));
       return;
     }
 
-    if (path === '/ready') {
+    if (route === '/ready') {
       let database = false;
       try {
         const rows = await prisma.$queryRaw<Array<{ current_user: string }>>(Prisma.sql`SELECT current_user`);
@@ -249,12 +262,12 @@ async function startHealthServer(prisma: PrismaClient, state: WorkerState, port:
       response.end(JSON.stringify({
         status: ready ? 'ready' : 'unavailable',
         component: 'auth-mail-worker',
-        checks: { database, smtpConfiguration: true, outboxKey: true },
+        checks: { database, smtpConfiguration: true, outboxKey: true, currentKeyVersion: state.currentKeyVersion },
       }));
       return;
     }
 
-    if (path === '/metrics') {
+    if (route === '/metrics') {
       response.statusCode = 200;
       response.end(JSON.stringify({
         component: 'auth-mail-worker',
@@ -262,6 +275,7 @@ async function startHealthServer(prisma: PrismaClient, state: WorkerState, port:
         sent: state.sent,
         retried: state.retried,
         deadLettered: state.deadLettered,
+        redacted: state.redacted,
         lastPollAt: state.lastPollAt,
         lastSuccessAt: state.lastSuccessAt,
         lastErrorCode: state.lastErrorCode,
@@ -295,7 +309,8 @@ async function bootstrap(): Promise<void> {
     throw new Error('AUTH_MAIL_WORKER_ENABLED must equal true');
   }
 
-  resolveAuthMailOutboxKey();
+  const currentKeyVersion = resolveCurrentAuthMailKeyVersion();
+  resolveAuthMailOutboxKey(currentKeyVersion);
   resolveAuthMailSmtpConfig();
   const databaseUrl = resolveMailDatabaseUrl();
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
@@ -313,10 +328,12 @@ async function bootstrap(): Promise<void> {
   const intervalMs = positiveInteger(process.env.AUTH_MAIL_WORKER_INTERVAL_MS, DEFAULT_INTERVAL_MS, 60_000);
   const batchSize = positiveInteger(process.env.AUTH_MAIL_WORKER_BATCH_SIZE, DEFAULT_BATCH_SIZE, 100);
   const leaseSeconds = positiveInteger(process.env.AUTH_MAIL_WORKER_LEASE_SECONDS, DEFAULT_LEASE_SECONDS, 900);
+  const retentionDays = positiveInteger(process.env.AUTH_MAIL_RETENTION_DAYS, DEFAULT_RETENTION_DAYS, 365);
   const healthPort = positiveInteger(process.env.AUTH_MAIL_WORKER_HEALTH_PORT, 3003, 65_535);
   const state: WorkerState = {
     workerId,
     startedAt: new Date().toISOString(),
+    currentKeyVersion,
     lastPollAt: null,
     lastSuccessAt: null,
     lastErrorCode: null,
@@ -324,6 +341,7 @@ async function bootstrap(): Promise<void> {
     sent: 0,
     retried: 0,
     deadLettered: 0,
+    redacted: 0,
     shuttingDown: false,
   };
 
@@ -334,6 +352,7 @@ async function bootstrap(): Promise<void> {
     running = (async () => {
       state.lastPollAt = new Date().toISOString();
       await expireStale(prisma, state);
+      await redactTerminal(prisma, state, retentionDays);
       const batch = await claimBatch(prisma, workerId, batchSize, leaseSeconds);
       state.claimed += batch.length;
       for (const entry of batch) {
