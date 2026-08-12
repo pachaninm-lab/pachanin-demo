@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import type { AuthSqlClient } from '../auth/persistent-auth.repository';
 import {
   type AuthMailEnvelope,
-  authMailEnvelopeDigest,
+  authMailReplayDigest,
   encryptAuthMailEnvelope,
 } from './auth-mail-crypto';
 
@@ -21,7 +21,6 @@ export const AUTH_MAIL_KINDS = [
 ] as const;
 
 export type AuthMailKind = typeof AUTH_MAIL_KINDS[number];
-
 const KIND_SET = new Set<string>(AUTH_MAIL_KINDS);
 
 export type EnqueueAuthMailInput = {
@@ -34,9 +33,14 @@ export type EnqueueAuthMailInput = {
   maxAttempts?: number;
 };
 
+type EnqueueResult = { outbox_id: string; replayed: boolean };
+
 @Injectable()
 export class AuthMailOutboxService {
-  async enqueue(tx: AuthSqlClient, input: EnqueueAuthMailInput): Promise<{ queued: true; envelopeDigest: string }> {
+  async enqueue(
+    tx: AuthSqlClient,
+    input: EnqueueAuthMailInput,
+  ): Promise<{ queued: true; replayed: boolean; envelopeDigest: string }> {
     const kind = String(input.kind ?? '').trim();
     const idempotencyKey = String(input.idempotencyKey ?? '').trim();
     const correlationId = String(input.correlationId ?? '').trim();
@@ -61,24 +65,32 @@ export class AuthMailOutboxService {
       throw new Error('Auth-mail maxAttempts must be between 1 and 50');
     }
 
+    // The replay digest is deterministic and keyed. It lets PostgreSQL prove
+    // same-key/same-payload replays without retaining plaintext and without
+    // comparing randomized AES-GCM ciphertext.
+    const digest = authMailReplayDigest(input.envelope, { kind, idempotencyKey });
     const encrypted = encryptAuthMailEnvelope(input.envelope, { kind, idempotencyKey, correlationId });
-    const digest = authMailEnvelopeDigest(encrypted);
-
-    await tx.$executeRaw(Prisma.sql`
-      INSERT INTO auth.mail_outbox (
-        id, message_kind,
-        payload_ciphertext, payload_iv, payload_tag, payload_key_version,
-        status, idempotency_key, correlation_id,
-        max_attempts, attempt_count, next_attempt_at, expires_at
-      ) VALUES (
-        ${`auth_mail_${randomUUID()}`}, ${kind},
-        ${encrypted.ciphertext}, ${encrypted.iv}, ${encrypted.tag}, ${encrypted.keyVersion},
-        'PENDING', ${idempotencyKey}, ${correlationId},
-        ${maxAttempts}, 0, ${availableAt}, ${input.expiresAt}
+    const rows = await tx.$queryRaw<EnqueueResult[]>(Prisma.sql`
+      SELECT outbox_id, replayed
+      FROM auth.enqueue_mail_outbox(
+        ${`auth_mail_${randomUUID()}`},
+        ${kind},
+        ${encrypted.ciphertext},
+        ${encrypted.iv},
+        ${encrypted.tag},
+        ${encrypted.keyVersion},
+        ${digest},
+        ${idempotencyKey},
+        ${correlationId},
+        ${maxAttempts},
+        ${availableAt},
+        ${input.expiresAt}
       )
-      ON CONFLICT (idempotency_key) DO NOTHING
     `);
+    if (rows.length !== 1 || !rows[0]?.outbox_id) {
+      throw new Error('Auth-mail enqueue authority returned an invalid result');
+    }
 
-    return { queued: true, envelopeDigest: digest };
+    return { queued: true, replayed: Boolean(rows[0].replayed), envelopeDigest: digest };
   }
 }
