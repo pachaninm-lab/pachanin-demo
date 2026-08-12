@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const workflowPath = '.github/workflows/production-p0-reviewer-password-reset-request.yml';
 const scriptPath = 'scripts/production-p0-reviewer-password-reset-request.sh';
 const migrationPath = 'apps/api/prisma/migrations/20260812154500_p0_reviewer_password_reset_subject/migration.sql';
-const scopePath = 'docs/platform-v7/autopilot/scopes/p0-reviewer-password-reset-request-3785.json';
+const scopePath = 'docs/security/p0-reviewer-password-reset-request-3785.json';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const workflow = read(workflowPath);
