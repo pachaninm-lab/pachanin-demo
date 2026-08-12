@@ -43,8 +43,8 @@ BEGIN
 END;
 $p0_reviewer_password_reset_dispatch_role$;
 
--- Identity tables are already FORCE-RLS production authorities. Reassert the
--- boundary without changing ownership or granting the runtime any table read.
+-- Identity tables are already FORCE-RLS production authorities. Reassert that
+-- boundary without changing ownership or the auth runtime's existing grants.
 ALTER TABLE public."users" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."users" FORCE ROW LEVEL SECURITY;
 ALTER TABLE public."user_orgs" ENABLE ROW LEVEL SECURITY;
@@ -256,6 +256,7 @@ $p0_reviewer_password_reset_dispatch_grants$;
 DO $p0_reviewer_password_reset_dispatch_boundary_proof$
 DECLARE
   table_name text;
+  identity_rel text;
 BEGIN
   IF NOT EXISTS (
     SELECT 1
@@ -308,23 +309,52 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- The login runtime remains table-free: the only new capability is EXECUTE on
-  -- the fixed SECURITY DEFINER projection.
+  FOREACH identity_rel IN ARRAY ARRAY[
+    'users',
+    'user_orgs',
+    'organizations'
+  ]
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_class relation
+      JOIN pg_catalog.pg_namespace schema ON schema.oid = relation.relnamespace
+      WHERE schema.nspname = 'public'
+        AND relation.relname = identity_rel
+        AND relation.relrowsecurity
+        AND relation.relforcerowsecurity
+    ) THEN
+      RAISE EXCEPTION 'identity FORCE RLS is required for %', identity_rel
+        USING ERRCODE = '42501';
+    END IF;
+  END LOOP;
+
+  -- pc_auth_runtime intentionally keeps its pre-existing identity-table grants
+  -- under FORCE RLS. This migration must not weaken that principal: no
+  -- SUPERUSER/BYPASSRLS/INHERIT, no membership in the dispatch authority, and
+  -- only EXECUTE on the new SECURITY DEFINER projection is required here.
   IF EXISTS (
     SELECT 1
     FROM pg_catalog.pg_roles
     WHERE rolname = 'pc_auth_runtime'
   ) THEN
-    IF has_table_privilege('pc_auth_runtime', 'public.users', 'SELECT')
-       OR has_table_privilege('pc_auth_runtime', 'public.user_orgs', 'SELECT')
-       OR has_table_privilege('pc_auth_runtime', 'public.organizations', 'SELECT')
-       OR has_table_privilege('pc_auth_runtime', 'auth.staff_assignments', 'SELECT')
-       OR NOT has_function_privilege(
-         'pc_auth_runtime',
-         'auth.resolve_single_reviewer_password_reset_subject()',
-         'EXECUTE'
-       )
-    THEN
+    IF EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_roles
+      WHERE rolname = 'pc_auth_runtime'
+        AND (rolsuper OR rolbypassrls OR rolinherit)
+    ) OR EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_auth_members membership
+      JOIN pg_catalog.pg_roles granted ON granted.oid = membership.roleid
+      JOIN pg_catalog.pg_roles member ON member.oid = membership.member
+      WHERE granted.rolname = 'pc_reviewer_password_reset_dispatch_authority'
+        AND member.rolname = 'pc_auth_runtime'
+    ) OR NOT has_function_privilege(
+      'pc_auth_runtime',
+      'auth.resolve_single_reviewer_password_reset_subject()',
+      'EXECUTE'
+    ) THEN
       RAISE EXCEPTION 'pc_auth_runtime reviewer password-reset dispatch boundary is invalid'
         USING ERRCODE = '42501';
     END IF;
