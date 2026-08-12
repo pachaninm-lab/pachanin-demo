@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: p0/industrial-auth-mail-outbox-3785
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Recover bounded patch and create Git blobs
         shell: bash
@@ -26,7 +26,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git show HEAD^^:.github/workflows/tmp-auth-mail-release-wiring.yml > /tmp/original-auth-mail-wiring.yml
+          git show c4f07f9ad5184b1bd055902c11b1e72a185e4c40:.github/workflows/tmp-auth-mail-release-wiring.yml > /tmp/original-auth-mail-wiring.yml
           python3 - <<'PY'
           from pathlib import Path
 
