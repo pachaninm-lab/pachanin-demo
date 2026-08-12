@@ -89,7 +89,9 @@ test.describe('Gekta exact production mobile acceptance', () => {
       await expectTargetsAtLeast(page.locator('[data-gekta-chat-workspace="true"] button[aria-label="Прикрепить файл"]:visible, [data-gekta-chat-workspace="true"] button[aria-label="Отправить"]:visible'), 44);
       await expectTargetsAtLeast(page.locator('[data-gekta-role="assistant"] button:visible'), 44);
 
-      const sources = page.getByText('Источники', { exact: true });
+      const sources = page.locator('[data-gekta-role="assistant"] summary').filter({ hasText: 'Источники' });
+      await expect(sources).toHaveCount(1);
+      await expect(sources).toContainText('Источники');
       await sources.click();
       const sourceLink = page.locator('[data-gekta-role="assistant"] a[href^="https://example.com/"]');
       await expect(sourceLink).toBeVisible();
@@ -124,7 +126,7 @@ test.describe('Gekta exact production mobile acceptance', () => {
       expect(response?.ok()).toBe(true);
       await expect(page.locator('html')).toHaveAttribute('lang', route.lang);
       await expect(page.getByRole('button', { name: route.menu })).toBeVisible();
-      await expect(page.locator('[data-gekta-chat-workspace="true"] header')).toContainText(route.brand);
+      await expect(page.locator('[data-gekta-chat-workspace="true"] main > header')).toContainText(route.brand);
       await expectNoHorizontalOverflow(page);
     }
   });
