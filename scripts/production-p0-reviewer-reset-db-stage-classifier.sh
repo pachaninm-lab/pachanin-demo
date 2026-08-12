@@ -273,7 +273,7 @@ mutation="$(grep '^PRODUCTION_MUTATION|' <<< "$output" | tail -n1)"
 
 guard_main
 summary="$(grep -E '^(PARITY|DATABASE_URL|PRINCIPAL_BOUNDARY|PREFLIGHT_DEFINITION|READINESS_DEFINITION|RESET_SUBJECT_DEFINITION|PREFLIGHT_CALL|READINESS_CALL|RESET_SUBJECT_CALL)\|' <<< "$output" | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
-[[ "$summary" =~ ^[A-Z0-9_| -]+$ ]]
+[[ "$summary" =~ ^[A-Z0-9_|-]+([[:space:]][A-Z0-9_|-]+)*$ ]]
 
 gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset DB-stage classifier
 
