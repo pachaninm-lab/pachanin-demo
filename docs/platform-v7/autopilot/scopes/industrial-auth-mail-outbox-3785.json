@@ -18,6 +18,8 @@
     "apps/api/src/modules/auth-mail/auth-mail-outbox.service.spec.ts",
     "apps/api/src/modules/auth-mail/auth-mail-smtp.spec.ts",
     "apps/api/src/modules/auth/auth.module.ts",
+    "apps/api/src/modules/auth/public-inquiry.controller.ts",
+    "apps/api/src/modules/auth/public-inquiry.service.ts",
     "apps/api/src/modules/auth/auth.controller.ts",
     "apps/api/src/modules/auth/registration-application.service.ts",
     "apps/api/src/modules/auth/registration-application.service.spec.ts",
@@ -74,6 +76,7 @@
   },
   "acceptance": [
     "all auth mail is durably queued before request success and never synchronously delivered by the Web runtime",
+    "public inquiry delivery also leaves Web and is durably queued through the same encrypted server-side dispatcher without creating an open mail relay",
     "auth mail uses a dedicated auth.mail_outbox and cannot be claimed by the generic Kafka outbox worker",
     "recipient, subject, body and bearer tokens are AES-256-GCM encrypted at rest under a dedicated server-side key",
     "pc_auth_mail_runtime is a distinct NOINHERIT NOSUPERUSER NOBYPASSRLS PostgreSQL login with no role memberships and no INSERT/DELETE authority",
