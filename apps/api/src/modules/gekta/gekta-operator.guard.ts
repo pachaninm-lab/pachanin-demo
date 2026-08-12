@@ -1,5 +1,6 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable, SetMetadata } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable, Optional, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { StaffAccessService } from '../staff-access/staff-access.service';
 
 /**
  * Права кабинета Гекты проверяются только на сервере.
@@ -108,13 +109,19 @@ export const RequireGektaPermission = (permission: GektaPermission) => SetMetada
  *
  * Условие AppAuthGuard намеренно не расширяется: это общий контур авторизации
  * платформы, и менять его ради одного продукта нельзя.
+ *
+ * Важно: параметр остаётся узким структурным контрактом для тестов, но runtime
+ * DI-токен указан явно. Без @Inject(StaffAccessService) TypeScript-interface
+ * превращается в Object metadata, и Nest не может поднять API.
  */
-type StaffActorResolver = { enrichActor: (user: { id: string }) => Promise<{ staffRoles?: string[] }> };
+type StaffActorResolver = Pick<StaffAccessService, 'enrichActor'>;
 
 @Injectable()
 export class GektaOperatorGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
+    @Optional()
+    @Inject(StaffAccessService)
     private readonly staffAccess?: StaffActorResolver,
   ) {}
 
