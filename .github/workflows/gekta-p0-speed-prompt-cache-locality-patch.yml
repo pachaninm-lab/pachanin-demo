@@ -1,8 +1,9 @@
 name: Gekta P0 SPEED Prompt Cache Locality Patch
 
 on:
-  pull_request:
-    branches: [main]
+  push:
+    branches:
+      - 'fix/gekta-p0-speed-prompt-cache-locality-3896'
     paths:
       - '.github/workflows/gekta-p0-speed-prompt-cache-locality-patch.yml'
 
@@ -13,14 +14,13 @@ jobs:
   patch:
     if: >-
       github.actor == github.repository_owner &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.head.ref == 'fix/gekta-p0-speed-prompt-cache-locality-3896'
+      github.ref_name == 'fix/gekta-p0-speed-prompt-cache-locality-3896'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           persist-credentials: true
 
@@ -89,7 +89,6 @@ jobs:
 
 '''
           test_path.write_text(tests.replace(anchor, regression + anchor), encoding='utf-8')
-
           workflow_path.unlink()
           PY
 
@@ -99,7 +98,7 @@ jobs:
       - name: Commit exact patch back to feature branch
         shell: bash
         env:
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          HEAD_BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
