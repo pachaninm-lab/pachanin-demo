@@ -218,8 +218,12 @@ const isSafeCount = (value) => Number.isInteger(Number(value)) && Number(value) 
   try {
     const rows = await db.$queryRawUnsafe(`SELECT * FROM auth.staff_reviewer_preflight()`);
     const r = rows[0];
-    const ok = rows.length === 1 && isSafeCount(r?.active_owner_count) && isSafeCount(r?.usable_reviewer_count);
-    result('PREFLIGHT_CALL', ok, ok ? '' : 'CARDINALITY');
+    const ok = rows.length === 1
+      && isSafeCount(r?.active_owner_count)
+      && isSafeCount(r?.usable_reviewer_count)
+      && Number(r?.active_owner_count) === 1
+      && Number(r?.usable_reviewer_count) === 1;
+    result('PREFLIGHT_CALL', ok, ok ? '' : 'UNEXPECTED');
   } catch (error) {
     result('PREFLIGHT_CALL', false, safeCode(error));
   }
@@ -231,8 +235,11 @@ const isSafeCount = (value) => Number.isInteger(Number(value)) && Number(value) 
       'assignment_ready_count', 'active_identity_ready_count', 'membership_ready_count',
       'password_ready_count', 'mfa_enrolled_ready_count', 'login_ready_count',
     ];
-    const ok = rows.length === 1 && fields.every((name) => isSafeCount(r?.[name]));
-    result('READINESS_CALL', ok, ok ? '' : 'CARDINALITY');
+    const expected = [1, 1, 1, 0, 0, 0];
+    const ok = rows.length === 1 && fields.every((name, index) =>
+      isSafeCount(r?.[name]) && Number(r?.[name]) === expected[index]
+    );
+    result('READINESS_CALL', ok, ok ? '' : 'UNEXPECTED');
   } catch (error) {
     result('READINESS_CALL', false, safeCode(error));
   }
