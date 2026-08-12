@@ -18,6 +18,7 @@ CANONICAL_REG_RU_MAIL_HOST = "mail.hosting.reg.ru"
 CANONICAL_REG_RU_IMAP_PORT = 993
 CANONICAL_SMTP_LOGIN = "access@xn----8sbjf4befbjgs9b.xn--p1ai"
 CANONICAL_MAIL_DOMAIN = "xn----8sbjf4befbjgs9b.xn--p1ai"
+CANONICAL_SMTP_PORTS = {465: "IMPLICIT_TLS", 587: "STARTTLS"}
 
 
 def required(name: str) -> str:
@@ -69,7 +70,7 @@ def message_text(message) -> str:
             parts.append(part.get_content())
         except Exception:
             payload = part.get_payload(decode=True) or b""
-            parts.append(payload.decode(part.get_content_charset() or "utf-8", errors="replace"))
+            parts.append(part.decode(part.get_content_charset() or "utf-8", errors="replace"))
     return "\n".join(parts)
 
 
@@ -108,8 +109,6 @@ def main() -> int:
     mailbox_password = required("PC_PROBE_MAILBOX_PASSWORD")
     email_template = required("PC_PROBE_EMAIL_TEMPLATE")
     mail_from_raw = required("PC_PROBE_MAIL_FROM")
-    # REG.RU documents one canonical SSL/TLS mail authority for both directions.
-    # Do not inherit a historical per-host IMAP endpoint from repository secrets.
     imap_host = CANONICAL_REG_RU_MAIL_HOST
     imap_port_raw = str(CANONICAL_REG_RU_IMAP_PORT)
     imap_folder = os.environ.get("PC_PROBE_IMAP_FOLDER", "INBOX").strip() or "INBOX"
@@ -119,8 +118,10 @@ def main() -> int:
 
     if smtp_host != CANONICAL_REG_RU_MAIL_HOST:
         return 21
-    if not smtp_port_raw.isdigit() or not 1 <= int(smtp_port_raw) <= 65535:
+    if not smtp_port_raw.isdigit() or int(smtp_port_raw) not in CANONICAL_SMTP_PORTS:
         return 22
+    smtp_port = int(smtp_port_raw)
+    smtp_security = CANONICAL_SMTP_PORTS[smtp_port]
     if not re.fullmatch(r"[A-Za-z0-9.-]{1,253}", imap_host):
         return 23
     if not imap_port_raw.isdigit() or not 1 <= int(imap_port_raw) <= 65535:
@@ -142,12 +143,6 @@ def main() -> int:
     if smtp_login != CANONICAL_SMTP_LOGIN or mail_from != CANONICAL_SMTP_LOGIN:
         return 29
 
-    # The protected mailbox password was historically proven to authenticate its
-    # own REG.RU mailbox identity. When no dedicated SMTP secret exists, the
-    # workflow intentionally falls back to that same password. Keep that fallback
-    # as one coherent credential pair instead of combining the mailbox password
-    # with the canonical sender login. The visible/envelope sender remains pinned
-    # to the platform address and this fallback is limited to the same mail domain.
     auth_login_name = smtp_login
     auth_password = smtp_password
     if (
@@ -184,27 +179,46 @@ def main() -> int:
     sent = False
     tried_supported_method = False
     for method in ("PLAIN", "LOGIN"):
+        client = None
         try:
             smtp_stage = "CONNECT"
-            with smtplib.SMTP_SSL(smtp_host, int(smtp_port_raw), timeout=15, context=context) as client:
-                smtp_stage = "EHLO"
+            if smtp_security == "IMPLICIT_TLS":
+                client = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15, context=context)
+            else:
+                client = smtplib.SMTP(smtp_host, smtp_port, timeout=15)
+
+            smtp_stage = "EHLO"
+            code, _ = client.ehlo()
+            if code != 250:
+                return 31
+
+            if smtp_security == "STARTTLS":
+                if not client.has_extn("starttls"):
+                    print("SMTP_TRANSPORT_CLASS=SMTP_NOT_SUPPORTED")
+                    print("SMTP_FAILURE_STAGE=STARTTLS_CAPABILITY")
+                    return 36
+                smtp_stage = "STARTTLS"
+                client.starttls(context=context)
+                smtp_stage = "EHLO_POST_TLS"
                 code, _ = client.ehlo()
                 if code != 250:
                     return 31
-                methods = advertised_auth_methods(client)
-                if method not in methods:
-                    continue
-                tried_supported_method = True
-                smtp_stage = f"AUTH_{method}"
-                if method == "PLAIN":
-                    auth_plain(client, auth_login_name, auth_password)
-                else:
-                    auth_login(client, auth_login_name, auth_password)
-                smtp_stage = "SEND"
-                client.send_message(msg, from_addr=mail_from, to_addrs=[recipient])
-                print(f"SMTP_AUTH_METHOD={method}")
-                sent = True
-                break
+
+            methods = advertised_auth_methods(client)
+            if method not in methods:
+                continue
+            tried_supported_method = True
+            smtp_stage = f"AUTH_{method}"
+            if method == "PLAIN":
+                auth_plain(client, auth_login_name, auth_password)
+            else:
+                auth_login(client, auth_login_name, auth_password)
+            smtp_stage = "SEND"
+            client.send_message(msg, from_addr=mail_from, to_addrs=[recipient])
+            print(f"SMTP_SECURITY_MODE={smtp_security}")
+            print(f"SMTP_AUTH_METHOD={method}")
+            sent = True
+            break
         except smtplib.SMTPAuthenticationError:
             print(f"SMTP_AUTH_REJECTED_METHOD={method}")
             if method == "PLAIN":
@@ -256,6 +270,15 @@ def main() -> int:
             print("SMTP_TRANSPORT_CLASS=NETWORK")
             print(f"SMTP_FAILURE_STAGE={smtp_stage}")
             return 36
+        finally:
+            if client is not None:
+                try:
+                    client.quit()
+                except Exception:
+                    try:
+                        client.close()
+                    except Exception:
+                        pass
 
     if not sent:
         if not tried_supported_method:
@@ -268,8 +291,6 @@ def main() -> int:
         mailbox = None
         try:
             mailbox = imaplib.IMAP4_SSL(imap_host, int(imap_port_raw), ssl_context=context, timeout=15)
-            # IMAP4 commands are ASCII encoded. Use the same validated IDNA-normalized
-            # mailbox identity that was derived above instead of the raw protected value.
             mailbox.login(mailbox_login, mailbox_password)
             status, _ = mailbox.select(imap_folder, readonly=True)
             if status != "OK":
@@ -308,8 +329,6 @@ def main() -> int:
                 return 0
             mailbox.logout()
         except imaplib.IMAP4.error:
-            # Authentication/protocol failures are deterministic configuration
-            # failures and must not be misreported as a delivery timeout.
             if mailbox is not None:
                 try:
                     mailbox.logout()
