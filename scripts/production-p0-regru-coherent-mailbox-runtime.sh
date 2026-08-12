@@ -61,7 +61,7 @@ provision_out=""
 existed=0
 committed=0
 
-cleanup() {
+rollback() {
   local rc=$?
   set +e
   if (( rc != 0 && committed == 0 )); then
@@ -74,7 +74,7 @@ cleanup() {
   rm -f -- "$backup" "${tmp:-}" "${provision_out:-}"
   exit "$rc"
 }
-trap cleanup EXIT
+trap rollback EXIT
 
 if [[ -e "$target" ]]; then
   [[ -f "$target" && ! -L "$target" ]] || fail EXISTING_MAIL_RUNTIME_INVALID 12
