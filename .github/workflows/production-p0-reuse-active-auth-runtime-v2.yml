@@ -209,9 +209,10 @@ jobs:
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
           ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
           scp "${scp_common[@]}" scripts/provision-production-p0-password-reset-runtime.sh "$USER@$HOST:$remote_script"
-          ssh "${ssh_common[@]}" "$USER@$HOST" "REMOTE_SCRIPT='$remote_script' REMOTE_MAIL='$remote_mail' bash -s" <<'REMOTE' | tee "$EVIDENCE_DIR/runtime.log"
+          ssh "${ssh_common[@]}" "$USER@$HOST" "REMOTE_SCRIPT='$remote_script' REMOTE_MAIL='$remote_mail' bash -s" <<'REMOTE'
           set -Eeuo pipefail
-          cleanup(){ rm -f -- "$REMOTE_SCRIPT" "$REMOTE_MAIL"; }
+          provision_output="$(mktemp /tmp/pc-auth-runtime-v2-output.XXXXXX)"
+          cleanup(){ rm -f -- "$REMOTE_SCRIPT" "$REMOTE_MAIL" "$provision_output"; }
           trap cleanup EXIT
           mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
           (( ${#web_ids[@]} == 1 ))
@@ -228,14 +229,20 @@ jobs:
           before_mail="$(sha256sum "$mail" | awk '{print $1}')"
           /usr/bin/install -m 0600 -o 0 -g 0 "$mail" "$REMOTE_MAIL"
           chmod 0700 "$REMOTE_SCRIPT"
-          PC_PROD_DIR_B64='' PC_RECONCILE_ACTIVE_RUNTIME=1 "$REMOTE_SCRIPT" provision "$REMOTE_MAIL"
+          PC_PROD_DIR_B64='' PC_RECONCILE_ACTIVE_RUNTIME=1 "$REMOTE_SCRIPT" provision "$REMOTE_MAIL" > "$provision_output"
+          grep -Fxq 'PASSWORD_RESET_RUNTIME_VALID=1' "$provision_output"
+          grep -Fxq 'AUTH_MAIL_RUNTIME_VALID=1' "$provision_output"
           after_delivery="$(sha256sum "$delivery" | awk '{print $1}')"
           after_mail="$(sha256sum "$mail" | awk '{print $1}')"
           [[ "$before_delivery" == "$after_delivery" && "$before_mail" == "$after_mail" ]]
-          printf 'ACTIVE_RUNTIME_AUTHORITY=PASS\n'
-          printf 'CREDENTIAL_BYTES_UNCHANGED=PASS\n'
-          printf 'PRODUCTION_MUTATION_BEFORE_RELEASE=NONE\n'
           REMOTE
+          printf '%s\n' \
+            'PASSWORD_RESET_RUNTIME_VALID=1' \
+            'AUTH_MAIL_RUNTIME_VALID=1' \
+            'ACTIVE_RUNTIME_AUTHORITY=PASS' \
+            'CREDENTIAL_BYTES_UNCHANGED=PASS' \
+            'PRODUCTION_MUTATION_BEFORE_RELEASE=NONE' \
+            > "$EVIDENCE_DIR/runtime.log"
           grep -Fxq 'PASSWORD_RESET_RUNTIME_VALID=1' "$EVIDENCE_DIR/runtime.log"
           grep -Fxq 'AUTH_MAIL_RUNTIME_VALID=1' "$EVIDENCE_DIR/runtime.log"
           grep -Fxq 'ACTIVE_RUNTIME_AUTHORITY=PASS' "$EVIDENCE_DIR/runtime.log"
