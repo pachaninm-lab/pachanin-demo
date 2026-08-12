@@ -33,11 +33,16 @@ requireAll(script, [
   "org.opencontainers.image.revision",
   "AUTH_DATABASE_URL",
   "pc_auth_runtime",
+  "rolbypassrls",
+  "rolinherit",
+  "identity_force_rls",
+  "pc_reviewer_password_reset_dispatch_authority",
   "auth.resolve_single_reviewer_password_reset_subject()",
   "/platform-v7/register?lang=ru&reviewer-reset=",
   "/api/auth/forgot-password",
   "pc_csrf_token",
   "x-csrf-token",
+  "password_reset_delivery_result",
   "PASSWORD_RESET_CHALLENGE_AND_AUDIT_ONLY",
   "REVIEWER_PASSWORD_RESET_EMAIL_ACTION_REQUIRED",
 ], 'dispatch script');
@@ -53,7 +58,9 @@ requireAll(migration, [
   "resolved_count <> 1",
   "REVOKE ALL ON FUNCTION auth.resolve_single_reviewer_password_reset_subject() FROM PUBLIC",
   "GRANT EXECUTE ON FUNCTION auth.resolve_single_reviewer_password_reset_subject()",
-  "has_table_privilege('pc_auth_runtime', 'public.users', 'SELECT')",
+  "relation.relrowsecurity",
+  "relation.relforcerowsecurity",
+  "rolsuper OR rolbypassrls OR rolinherit",
 ], 'migration');
 
 const forbidden = [
