@@ -161,6 +161,35 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(probe.requests).toHaveLength(0);
   });
 
+  it('omits variable platform grounding from general-agro model prefill but preserves it for platform answers', async () => {
+    const generalProbe = installRuntime({ deltas: ['Агрономический ответ. '] });
+    for await (const _event of service.generateStream(request({
+      grounding: {
+        ...request().grounding,
+        answer: 'UNIQUE_PLATFORM_GROUNDING_SENTINEL',
+      },
+    }))) { /* drain */ }
+
+    const generalMessages = generalProbe.requests[0].body.messages as { role: string; content: string }[];
+    const generalUserPrompt = generalMessages[generalMessages.length - 1].content;
+    expect(generalUserPrompt).not.toContain('PUBLIC_PLATFORM_CONTEXT_JSON:');
+    expect(generalUserPrompt).not.toContain('UNIQUE_PLATFORM_GROUNDING_SENTINEL');
+    expect(generalUserPrompt).toContain('Почему падает урожайность озимой пшеницы?');
+
+    const platformProbe = installRuntime({ deltas: ['Подтверждённый ответ платформы. '] });
+    for await (const _event of service.generateStream(request({
+      answerMode: 'verified_platform',
+      grounding: {
+        ...request().grounding,
+        answer: 'UNIQUE_PLATFORM_GROUNDING_SENTINEL',
+      },
+    }))) { /* drain */ }
+
+    const platformMessages = platformProbe.requests[0].body.messages as { role: string; content: string }[];
+    const platformUserPrompt = platformMessages[platformMessages.length - 1].content;
+    expect(platformUserPrompt).toContain('PUBLIC_PLATFORM_CONTEXT_JSON:');
+    expect(platformUserPrompt).toContain('UNIQUE_PLATFORM_GROUNDING_SENTINEL');
+  });
   it('delivers content to the reader before generation has finished', async () => {
     const probe = installRuntime({
       deltas: [

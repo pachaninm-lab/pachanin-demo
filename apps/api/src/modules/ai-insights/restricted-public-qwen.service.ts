@@ -687,15 +687,25 @@ function generalAgroResponseBudgetRule(
 }
 
 function buildGroundedPrompt(request: NormalizedRequest): string {
+  // General-agro answers do not use platform knowledge as factual authority.
+  // Keeping that variable JSON in every model prompt made llama.cpp prefill
+  // thousands of irrelevant characters before it could emit the first token.
+  // Verified-platform questions retain the complete governed grounding.
+  const verifiedPlatformContext = request.answerMode === 'verified_platform'
+    ? [
+      'PUBLIC_PLATFORM_CONTEXT_JSON:',
+      JSON.stringify(request.grounding),
+      '',
+    ]
+    : [];
+
   return [
     `ANSWER_MODE: ${request.answerMode}`,
     ...(request.conversationState
       ? [request.conversationState, '']
       : []),
     `CURRENT_DATA_REQUIRED: ${request.currentDataRequired ? 'yes' : 'no'}`,
-    'PUBLIC_PLATFORM_CONTEXT_JSON:',
-    JSON.stringify(request.grounding),
-    '',
+    ...verifiedPlatformContext,
     'ORIGINAL_PUBLIC_USER_QUESTION:',
     request.originalQuestion,
     '',
