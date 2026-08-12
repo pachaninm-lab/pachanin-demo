@@ -1,0 +1,81 @@
+name: Temporary auth-mail final materializer
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/tmp-auth-mail-materialize-final.yml
+
+permissions:
+  contents: read
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: p0/industrial-auth-mail-outbox-3785
+          fetch-depth: 0
+
+      - name: Materialize validated bundle
+        id: materialize
+        shell: bash
+        run: |
+          set -uo pipefail
+          REPORT="/tmp/auth-mail-final-${GITHUB_RUN_ID}.txt"
+          STAGE="/tmp/auth-mail-materialized"
+          BUNDLE="/tmp/auth-mail-materialized.tar.gz"
+          status=0
+          set +e
+          (
+            set -euo pipefail
+            echo "SOURCE_HEAD=$(git rev-parse HEAD)"
+            echo "SOURCE_PATCH=c4f07f9ad5184b1bd055902c11b1e72a185e4c40"
+            git show c4f07f9ad5184b1bd055902c11b1e72a185e4c40:.github/workflows/tmp-auth-mail-release-wiring.yml > /tmp/original-auth-mail-wiring.yml
+            python3 -c 'import base64,pathlib,re; s=pathlib.Path(".github/workflows/tmp-auth-mail-release-wiring.yml").read_text(); m=re.search(r"printf .%s. .([A-Za-z0-9+/=]+). \| base64 -d > /tmp/auth-mail-extract.py", s); assert m, "extractor base64 not found"; pathlib.Path("/tmp/auth-mail-extract.py").write_bytes(base64.b64decode(m.group(1)))'
+            python3 /tmp/auth-mail-extract.py
+            python3 /tmp/auth-mail-release-patch.py
+            sed -i "/AUTH_MAIL_WORKER_ARTIFACT=PASS/s/[[:space:]]\+$//" scripts/production-full-stack-exact-sha.sh
+            echo 'PATCH=PASS'
+            bash -n scripts/provision-production-auth-mail-runtime.sh
+            bash -n scripts/production-full-stack-exact-sha.sh
+            node scripts/check-production-full-stack-release.mjs
+            git diff --check
+            echo 'VALIDATION=PASS'
+
+            rm -rf "$STAGE"
+            mkdir -p "$STAGE/scripts" "$STAGE/.github/workflows" "$STAGE/docs/platform-v7/autopilot/scopes"
+            cp scripts/provision-production-auth-mail-runtime.sh "$STAGE/scripts/"
+            cp scripts/production-full-stack-exact-sha.sh "$STAGE/scripts/"
+            cp scripts/check-production-full-stack-release.mjs "$STAGE/scripts/"
+            cp .github/workflows/production-full-stack-exact-sha.yml "$STAGE/.github/workflows/"
+            cp .github/workflows/docker-publish.yml "$STAGE/.github/workflows/"
+            cp docs/platform-v7/autopilot/scopes/industrial-auth-mail-outbox-3785.json "$STAGE/docs/platform-v7/autopilot/scopes/"
+            tar -C /tmp -czf "$BUNDLE" auth-mail-materialized
+            echo 'MATERIALIZE=PASS'
+          ) >"$REPORT" 2>&1
+          status=$?
+          set -e
+          echo "MATERIALIZE_EXIT=$status" >> "$REPORT"
+          cat "$REPORT"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload final materializer evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-mail-final-materializer-evidence
+          path: |
+            /tmp/auth-mail-final-*.txt
+            /tmp/auth-mail-materialized.tar.gz
+          if-no-files-found: warn
+          retention-days: 1
+
+      - name: Propagate materializer failure
+        if: always() && steps.materialize.outputs.status != '0'
+        shell: bash
+        run: exit 1
