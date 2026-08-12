@@ -28,7 +28,13 @@ required(script, "to_regprocedure('auth.staff_reviewer_preflight()')", 'prefligh
 required(script, "to_regprocedure('auth.staff_reviewer_login_readiness()')", 'readiness execute probe');
 required(script, "to_regprocedure('auth.staff_reviewer_password_reset_subject()')", 'reset subject execute probe');
 required(script, "SELECT * FROM auth.staff_reviewer_preflight()", 'preflight call');
+required(script, 'Number(r?.active_owner_count) === 1', 'exact active owner count');
+required(script, 'Number(r?.usable_reviewer_count) === 1', 'exact usable reviewer count');
 required(script, "SELECT * FROM auth.staff_reviewer_login_readiness()", 'readiness call');
+required(script, 'const expected = [1, 1, 1, 0, 0, 0];', 'exact login-readiness vector');
+required(script, 'Number(r?.[name]) === expected[index]', 'exact readiness comparison');
+required(script, "result('PREFLIGHT_CALL', ok, ok ? '' : 'UNEXPECTED')", 'preflight unexpected-state classifier');
+required(script, "result('READINESS_CALL', ok, ok ? '' : 'UNEXPECTED')", 'readiness unexpected-state classifier');
 required(script, 'SELECT auth.staff_reviewer_password_reset_subject() IS NOT NULL AS eligible', 'reset subject boolean call');
 required(script, 'PRODUCTION_MUTATION|NONE', 'no-mutation marker');
 required(script, 'reviewer identity exposure: \\`NONE\\`', 'identity redaction result');
@@ -36,6 +42,7 @@ required(script, 'last completed stage:', 'transport classifier');
 
 forbidden(script, /SET\s+ROLE/i, 'SET ROLE');
 forbidden(script, /ALTER\s+ROLE[^\n]+BYPASSRLS|GRANT\s+[^\n]+BYPASSRLS/i, 'RLS bypass');
+forbidden(script, /ALTER\s+ROLE[^\n;]*\bSUPERUSER\b/i, 'SUPERUSER escalation');
 forbidden(script, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE)\s+(?:INTO\s+|FROM\s+)?(?:public|auth)\./i, 'persistent database write');
 forbidden(script, /process\.stdout\.write\([^\n]*(?:email|token|password|totp|databaseUrl)/i, 'identity or secret stdout');
 forbidden(script, /gh\s+issue\s+comment[^\n]*(?:email|token|passwordHash|totp|databaseUrl)/i, 'identity or secret issue output');
