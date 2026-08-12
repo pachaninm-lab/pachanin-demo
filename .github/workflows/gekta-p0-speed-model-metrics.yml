@@ -57,10 +57,13 @@ jobs:
             'StrictHostKeyChecking=yes',
             '/metrics',
             'LLAMA_API_KEY',
+            'LLAMA_ARG_PORT',
             '--api-key',
             '--api-key-file',
             'Authorization',
             'MODEL_METRICS_AUTH_SOURCE',
+            'MODEL_METRICS_PORT_SOURCE',
+            '/proc/',
           ]) {
             if (!s.includes(x)) throw new Error(`missing protected control: ${x}`);
           }
@@ -152,12 +155,12 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
             -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST" \
             python3 - > "$raw" <<'PY'
+          import http.client
           import os
           import pathlib
           import re
+          import socket
           import subprocess
-          import urllib.error
-          import urllib.request
 
           def fail(code):
               print(f'MODEL_METRICS_ERROR={code}')
@@ -182,6 +185,78 @@ jobs:
                       return key
               return None
 
+          def valid_port(value):
+              try:
+                  port = int(value)
+              except (TypeError, ValueError):
+                  return None
+              return port if 1 <= port <= 65535 else None
+
+          def decode_ipv4(hex_address):
+              try:
+                  return socket.inet_ntoa(bytes.fromhex(hex_address)[::-1])
+              except (OSError, ValueError):
+                  return None
+
+          def owned_listener_endpoints(proc):
+              socket_inodes = set()
+              fd_dir = proc / 'fd'
+              try:
+                  entries = tuple(fd_dir.iterdir())
+              except OSError:
+                  return []
+              for entry in entries:
+                  try:
+                      target = os.readlink(entry)
+                  except OSError:
+                      continue
+                  match = re.fullmatch(r'socket:\[(\d+)\]', target)
+                  if match:
+                      socket_inodes.add(match.group(1))
+
+              endpoints = []
+              for table_name in ('net/tcp', 'net/tcp6'):
+                  table = proc / table_name
+                  try:
+                      lines = table.read_text(encoding='ascii', errors='replace').splitlines()[1:]
+                  except OSError:
+                      continue
+                  for line in lines:
+                      fields = line.split()
+                      if len(fields) < 10 or fields[3] != '0A' or fields[9] not in socket_inodes:
+                          continue
+                      try:
+                          address_hex, port_hex = fields[1].split(':', 1)
+                          port = int(port_hex, 16)
+                      except (ValueError, IndexError):
+                          continue
+                      if not 1 <= port <= 65535:
+                          continue
+                      if table_name == 'net/tcp':
+                          host = decode_ipv4(address_hex)
+                          if not host:
+                              continue
+                          if host == '0.0.0.0':
+                              host = '127.0.0.1'
+                          endpoints.append((host, port, 'PROC'))
+                      else:
+                          endpoints.append(('::1', port, 'PROC'))
+              return endpoints
+
+          def fetch_metrics(host, port, bearer):
+              connection = http.client.HTTPConnection(host, port, timeout=3)
+              try:
+                  connection.request(
+                      'GET',
+                      '/metrics',
+                      headers={'Authorization': f'Bearer {bearer}'},
+                  )
+                  response = connection.getresponse()
+                  body = response.read(512_000)
+                  return response.status, body.decode('utf-8', 'replace')
+              finally:
+                  connection.close()
+
           try:
               service = 'tai-qwen3-8b.service'
               pid_text = subprocess.check_output(
@@ -199,13 +274,6 @@ jobs:
               argv = [part.decode('utf-8', 'replace') for part in argv_raw]
               if '--metrics' not in argv:
                   fail('METRICS_FLAG_ABSENT')
-
-              port = 8080
-              for i, token in enumerate(argv[:-1]):
-                  if token in ('--port', '--listen-port') and argv[i + 1].isdigit():
-                      port = int(argv[i + 1])
-              if not 1 <= port <= 65535:
-                  fail('LISTEN_PORT_INVALID')
 
               env = {}
               for entry in (proc / 'environ').read_bytes().split(b'\0'):
@@ -268,19 +336,57 @@ jobs:
               if bearer is None or auth_source is None:
                   fail('AUTH_SOURCE_MISSING')
 
-              request = urllib.request.Request(
-                  f'http://127.0.0.1:{port}/metrics',
-                  headers={'Authorization': f'Bearer {bearer}'},
-                  method='GET',
-              )
-              try:
-                  with urllib.request.urlopen(request, timeout=4) as response:
-                      if response.status != 200:
-                          fail(f'HTTP_{response.status}')
-                      body = response.read(512_000).decode('utf-8', 'replace')
-              except urllib.error.HTTPError as exc:
-                  fail(f'HTTP_{exc.code}')
-              except urllib.error.URLError:
+              endpoints = []
+              seen = set()
+
+              def add_endpoint(host, port, source):
+                  port = valid_port(port)
+                  key = (host, port)
+                  if port is None or key in seen:
+                      return
+                  seen.add(key)
+                  endpoints.append((host, port, source))
+
+              for i, token in enumerate(argv):
+                  if token in ('--port', '--listen-port') and i + 1 < len(argv):
+                      for host in ('127.0.0.1', '::1'):
+                          add_endpoint(host, argv[i + 1], 'ARGV')
+                  elif token.startswith('--port=') or token.startswith('--listen-port='):
+                      value = token.split('=', 1)[1]
+                      for host in ('127.0.0.1', '::1'):
+                          add_endpoint(host, value, 'ARGV')
+
+              for key in (b'LLAMA_ARG_PORT', b'LLAMA_PORT'):
+                  if key in env:
+                      value = env[key].decode('ascii', 'ignore').strip()
+                      for host in ('127.0.0.1', '::1'):
+                          add_endpoint(host, value, 'ENV')
+
+              for host, port, source in owned_listener_endpoints(proc):
+                  add_endpoint(host, port, source)
+
+              if not endpoints:
+                  fail('LISTEN_PORT_UNRESOLVED')
+
+              body = None
+              selected_port = None
+              port_source = None
+              http_errors = []
+              for host, port, source in endpoints:
+                  try:
+                      status, candidate_body = fetch_metrics(host, port, bearer)
+                  except (ConnectionError, OSError, TimeoutError, http.client.HTTPException):
+                      continue
+                  if status == 200:
+                      body = candidate_body
+                      selected_port = port
+                      port_source = source
+                      break
+                  http_errors.append(status)
+
+              if body is None or selected_port is None or port_source is None:
+                  if http_errors:
+                      fail(f'HTTP_{http_errors[0]}')
                   fail('METRICS_UNREACHABLE')
 
               wanted = (
@@ -308,8 +414,9 @@ jobs:
                           pass
 
               print('MODEL_METRICS_READ_ONLY=1')
-              print(f'MODEL_METRICS_HTTP_PORT={port}')
+              print(f'MODEL_METRICS_HTTP_PORT={selected_port}')
               print(f'MODEL_METRICS_AUTH_SOURCE={auth_source}')
+              print(f'MODEL_METRICS_PORT_SOURCE={port_source}')
               for name in wanted:
                   values = found.get(name, [])
                   key = name.split(':', 1)[1].upper().replace(':', '_')
@@ -325,7 +432,7 @@ jobs:
           rc=$?
           set -e
 
-          grep -E '^MODEL_(METRICS|METRIC)_[A-Z0-9_]+=(1|[0-9]+|[-+0-9.eE]+|ARGV|ENV|FILE|MISSING|[A-Z0-9_]+)$' "$raw" > "$bounded" || true
+          grep -E '^MODEL_(METRICS|METRIC)_[A-Z0-9_]+=(1|[0-9]+|[-+0-9.eE]+|ARGV|ENV|FILE|PROC|MISSING|[A-Z0-9_]+)$' "$raw" > "$bounded" || true
           if [[ ! -s "$bounded" ]]; then
             echo 'MODEL_METRICS_ERROR=BOUNDED_EVIDENCE_MISSING' > "$bounded"
           fi
