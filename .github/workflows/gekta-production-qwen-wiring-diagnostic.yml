@@ -1,0 +1,230 @@
+name: Gekta Production Qwen Wiring Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/gekta-production-qwen-wiring-diagnostic.yml"
+      - "scripts/gekta-production-qwen-wiring-diagnostic.sh"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-production-qwen-wiring-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  COMMAND: /gekta speed-runtime-wiring current-main
+  EVIDENCE_DIR: artifacts/gekta-production-qwen-wiring
+
+jobs:
+  contract:
+    name: Validate read-only wiring diagnostic contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate syntax and mutation boundary
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/gekta-production-qwen-wiring-diagnostic.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('scripts/gekta-production-qwen-wiring-diagnostic.sh').read_text(encoding='utf-8')
+          forbidden = (
+              'docker restart', 'docker stop', 'docker kill', 'docker rm',
+              'docker compose', 'systemctl ', 'service ', 'reboot', 'shutdown',
+              'AI_ASSISTANT_API_KEY=', 'TAI_PUBLIC_GATEWAY_HMAC_SECRET=',
+          )
+          bad = [token for token in forbidden if token in text]
+          if bad:
+              raise SystemExit(f'forbidden diagnostic token(s): {bad}')
+          required = (
+              'GEKTA_WIRING_MODE=READ_ONLY',
+              'GEKTA_WIRING_RUNTIME_MUTATION=NONE',
+              'GEKTA_WIRING_DIAGNOSTIC=COMPLETE',
+              'com.docker.compose.project.config_files',
+              'TAI_RESTRICTED_QWEN_PUBLIC_ENABLED',
+          )
+          missing = [token for token in required if token not in text]
+          if missing:
+              raise SystemExit(f'missing diagnostic token(s): {missing}')
+          PY
+
+  diagnose:
+    name: Inspect live production Qwen wiring
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.body == '/gekta speed-runtime-wiring current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      probe_rc: ${{ steps.probe.outputs.rc }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify owner command and exact current main
+        env:
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          [[ "${{ github.event.comment.body }}" == "$COMMAND" ]]
+          git fetch --force --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+          [[ "$(git rev-parse HEAD)" == "$(git rev-parse refs/remotes/origin/main)" ]]
+          bash -n scripts/gekta-production-qwen-wiring-diagnostic.sh
+          mkdir -p "$EVIDENCE_DIR"
+          git rev-parse HEAD | tee "$EVIDENCE_DIR/repository-main.txt"
+
+      - name: Resolve pinned production root transport
+        id: ssh
+        env:
+          SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+          SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+          SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+          SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+          SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+          SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+          SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          pinned=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; echo ROOT_DOCKER_READ_OK' \
+            | tee "$EVIDENCE_DIR/transport.txt"
+          grep -Fxq ROOT_DOCKER_READ_OK "$EVIDENCE_DIR/transport.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Run redacted read-only wiring probe
+        id: probe
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            'bash -s' < scripts/gekta-production-qwen-wiring-diagnostic.sh \
+            | tee "$EVIDENCE_DIR/wiring.txt"
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          printf 'GEKTA_WIRING_PROBE_RC=%s\n' "$rc" | tee -a "$EVIDENCE_DIR/wiring.txt"
+
+      - name: Publish bounded diagnostic evidence
+        if: always() && steps.probe.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROBE_RC: ${{ steps.probe.outputs.rc }}
+        run: |
+          set -Eeuo pipefail
+          main="$(cat "$EVIDENCE_DIR/repository-main.txt" 2>/dev/null || echo unknown)"
+          report="$RUNNER_TEMP/report.md"
+          {
+            echo '## Gekta production Qwen wiring diagnostic'
+            echo
+            echo "- repository main: \`$main\`"
+            echo "- probe rc: \`${PROBE_RC:-unknown}\`"
+            echo '- mode: `READ_ONLY`; runtime mutation: `NONE`'
+            echo '- run: '${GITHUB_SERVER_URL}'/'${GITHUB_REPOSITORY}'/actions/runs/'${GITHUB_RUN_ID}
+            echo
+            echo '```text'
+            grep -E '^GEKTA_WIRING_[A-Z0-9_]+=([A-Za-z0-9._:-]+)$' "$EVIDENCE_DIR/wiring.txt" 2>/dev/null || true
+            echo '```'
+          } > "$report"
+          gh issue comment 3896 --repo "$GITHUB_REPOSITORY" --body-file "$report"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gekta-production-qwen-wiring-${{ github.run_id }}
+          path: artifacts/gekta-production-qwen-wiring
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce diagnostic completion
+        if: always() && steps.probe.outcome != 'skipped'
+        env:
+          PROBE_RC: ${{ steps.probe.outputs.rc }}
+        run: |
+          set -Eeuo pipefail
+          [[ "${PROBE_RC:-999}" == 0 ]]
+          grep -Fxq 'GEKTA_WIRING_MODE=READ_ONLY' "$EVIDENCE_DIR/wiring.txt"
+          grep -Fxq 'GEKTA_WIRING_RUNTIME_MUTATION=NONE' "$EVIDENCE_DIR/wiring.txt"
+          grep -Fxq 'GEKTA_WIRING_DIAGNOSTIC=COMPLETE' "$EVIDENCE_DIR/wiring.txt"
+
+      - name: Cleanup protected transport
+        if: always()
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
