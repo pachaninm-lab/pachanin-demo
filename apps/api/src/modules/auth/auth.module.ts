@@ -10,12 +10,14 @@ import { OrganizationInvitationService } from './organization-invitation.service
 import { PasswordResetRepository } from './password-reset.repository';
 import { PasswordResetService } from './password-reset.service';
 import { PersistentAuthRepository } from './persistent-auth.repository';
+import { PublicInquiryController } from './public-inquiry.controller';
+import { PublicInquiryService } from './public-inquiry.service';
 import { RegistrationApplicationService } from './registration-application.service';
 import { RegistrationDecisionService } from './registration-decision.service';
 
 @Module({
   imports: [BusinessReputationModule, AuthMailModule],
-  controllers: [AuthController],
+  controllers: [AuthController, PublicInquiryController],
   providers: [
     AuthPrismaService,
     {
@@ -27,6 +29,7 @@ import { RegistrationDecisionService } from './registration-decision.service';
     PasswordResetService,
     RegistrationApplicationService,
     RegistrationDecisionService,
+    PublicInquiryService,
     AuthService,
     OrganizationTeamService,
     OrganizationInvitationService,
