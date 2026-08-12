@@ -144,6 +144,7 @@ live_base="$3"
 [[ "$live_base" == 'https://xn----8sbjf4befbjgs9b.xn--p1ai' ]]
 [[ "$(id -u)" -eq 0 ]]
 command -v docker >/dev/null 2>&1
+command -v python3 >/dev/null 2>&1
 
 mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
 (( ${#web_ids[@]} == 1 ))
@@ -159,8 +160,8 @@ api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontai
 web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
 [[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" ]]
 
-# Keep reviewer PII and the reset token entirely inside the production API/Web
-# trust boundary. The only stdout marker is correlation/hash/count/status.
+# Reviewer PII and the reset token remain entirely inside the production
+# API/Web trust boundary. The only stdout marker is correlation/hash/count/status.
 request_marker="$(docker exec \
   -e P0_REVIEWER_RESET_CORRELATION_ID="$correlation_id" \
   -e P0_REVIEWER_RESET_LIVE_BASE="$live_base" \
@@ -188,24 +189,28 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       SELECT current_user AS user_name,
              rolsuper,
              rolbypassrls,
-             has_table_privilege(current_user, 'public.users', 'SELECT') AS can_read_users,
-             has_table_privilege(current_user, 'public.user_orgs', 'SELECT') AS can_read_memberships,
-             has_table_privilege(current_user, 'public.organizations', 'SELECT') AS can_read_organizations,
-             has_table_privilege(current_user, 'auth.staff_assignments', 'SELECT') AS can_read_assignments,
+             rolinherit,
+             pg_has_role(current_user, 'pc_reviewer_password_reset_dispatch_authority', 'MEMBER') AS dispatch_member,
              coalesce(has_function_privilege(
                current_user,
                to_regprocedure('auth.resolve_single_reviewer_password_reset_subject()'),
                'EXECUTE'
-             ), false) AS dispatch_execute
+             ), false) AS dispatch_execute,
+             (
+               SELECT bool_and(relation.relrowsecurity AND relation.relforcerowsecurity)
+               FROM pg_class relation
+               JOIN pg_namespace schema ON schema.oid = relation.relnamespace
+               WHERE schema.nspname = 'public'
+                 AND relation.relname IN ('users', 'user_orgs', 'organizations')
+             ) AS identity_force_rls
       FROM pg_roles
       WHERE rolname = current_user
     `);
     const principal = principalRows[0];
     if (!principal || principal.user_name !== 'pc_auth_runtime'
-        || principal.rolsuper || principal.rolbypassrls
-        || principal.can_read_users || principal.can_read_memberships
-        || principal.can_read_organizations || principal.can_read_assignments
-        || !principal.dispatch_execute) {
+        || principal.rolsuper || principal.rolbypassrls || principal.rolinherit
+        || principal.dispatch_member || !principal.dispatch_execute
+        || principal.identity_force_rls !== true) {
       console.error('P0_REVIEWER_RESET_AUTH_PRINCIPAL_BOUNDARY_INVALID');
       process.exitCode = 42;
       return;
@@ -251,7 +256,10 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const startedAt = new Date();
     const prime = await fetch(`${liveBase}/platform-v7/register?lang=ru&reviewer-reset=${encodeURIComponent(correlationId)}`, {
       method: 'GET',
-      headers: { 'Cache-Control': 'no-cache, no-store', 'User-Agent': 'PC-CROP-P0-Reviewer-Reset/1.0' },
+      headers: {
+        'Cache-Control': 'no-cache, no-store',
+        'User-Agent': 'PC-CROP-P0-Reviewer-Reset/1.0',
+      },
       cache: 'no-store',
       signal: AbortSignal.timeout(10_000),
     });
@@ -326,30 +334,34 @@ IFS='|' read -r tag marker_correlation account_hash challenge_count http_status 
 [[ "$challenge_count" == '1' && "$http_status" == '202' ]]
 
 # The web route logs only correlation id, an irreversible short account hash,
-# provider and delivery outcome. Parse those sanitized fields locally and never
-# print the surrounding container log stream.
-delivery_marker="$(
-  docker logs "$web_id" --since 5m 2>&1 \
-    | python3 - "$correlation_id" <<'PY'
+# provider and delivery outcome. Persist the bounded log window root-only,
+# parse only the matching sanitized event, then erase the raw window.
+log_file="$(mktemp /tmp/pc-reviewer-reset-web-log.XXXXXX)"
+chmod 0600 "$log_file"
+trap 'rm -f -- "$log_file"' EXIT
+docker logs "$web_id" --since 5m > "$log_file" 2>&1 || true
+
+delivery_marker="$(python3 - "$correlation_id" "$log_file" <<'PY'
 import json
 import re
 import sys
 
 correlation = sys.argv[1]
+path = sys.argv[2]
 matched = None
-for line in sys.stdin:
-    if 'password_reset_delivery_result' not in line or correlation not in line:
-        continue
-    start = line.find('{')
-    if start < 0:
-        continue
-    try:
-        payload = json.loads(line[start:])
-    except Exception:
-        continue
-    if payload.get('correlationId') != correlation:
-        continue
-    matched = payload
+with open(path, encoding='utf-8', errors='replace') as handle:
+    for line in handle:
+        if 'password_reset_delivery_result' not in line or correlation not in line:
+            continue
+        start = line.find('{')
+        if start < 0:
+            continue
+        try:
+            payload = json.loads(line[start:])
+        except Exception:
+            continue
+        if payload.get('correlationId') == correlation:
+            matched = payload
 if matched is None:
     raise SystemExit(2)
 provider = re.sub(r'[^A-Za-z0-9_-]', '', str(matched.get('provider') or 'unknown'))[:24] or 'unknown'
@@ -358,6 +370,8 @@ delivered = '1' if matched.get('delivered') is True else '0'
 print(f'REVIEWER_PASSWORD_RESET_DELIVERY|{delivered}|{provider}|{reason}')
 PY
 )"
+rm -f -- "$log_file"
+trap - EXIT
 
 IFS='|' read -r delivery_tag delivered provider delivery_reason <<< "$delivery_marker"
 [[ "$delivery_tag" == 'REVIEWER_PASSWORD_RESET_DELIVERY' ]]
