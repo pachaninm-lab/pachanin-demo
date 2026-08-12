@@ -35,36 +35,8 @@ jobs:
             echo "SOURCE_HEAD=$(git rev-parse HEAD)"
             echo "SOURCE_PATCH=c4f07f9ad5184b1bd055902c11b1e72a185e4c40"
             git show c4f07f9ad5184b1bd055902c11b1e72a185e4c40:.github/workflows/tmp-auth-mail-release-wiring.yml > /tmp/original-auth-mail-wiring.yml
-
-            python3 - <<'PY'
-            from pathlib import Path
-
-            source = Path('/tmp/original-auth-mail-wiring.yml').read_text(encoding='utf-8')
-            marker = "          python3 - <<'PATCHPY'\n"
-            start = source.index(marker) + len(marker)
-            end = source.index("\n          PATCHPY", start)
-            raw_lines = source[start:end].splitlines()
-            lines = [line[10:] if line.startswith('          ') else line for line in raw_lines]
-            out = []
-            repaired = 0
-            i = 0
-            while i < len(lines):
-                line = lines[i]
-                if "forbid('executor'" in line and 'build|commit|tag' in line and line.rstrip().endswith('/,'):
-                    if i + 1 >= len(lines) or lines[i + 1].strip() != '",':
-                        raise SystemExit('unexpected split-string continuation')
-                    out.append(line + r'\n",')
-                    i += 2
-                    repaired += 1
-                    continue
-                out.append(line)
-                i += 1
-            if repaired != 1:
-                raise SystemExit(f'expected one repair, got {repaired}')
-            Path('/tmp/auth-mail-release-patch.py').write_text('\n'.join(out) + '\n', encoding='utf-8')
-            print(f'EXTRACTION=PASS lines={len(out)} repaired={repaired}')
-            PY
-
+            printf '%s' 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpzb3VyY2UgPSBQYXRoKCIvdG1wL29yaWdpbmFsLWF1dGgtbWFpbC13aXJpbmcueW1sIikucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCm1hcmtlciA9ICIgICAgICAgICAgcHl0aG9uMyAtIDw8J1BBVENIUFknXG4iCnN0YXJ0ID0gc291cmNlLmluZGV4KG1hcmtlcikgKyBsZW4obWFya2VyKQplbmQgPSBzb3VyY2UuaW5kZXgoIlxuICAgICAgICAgIFBBVENIUFkiLCBzdGFydCkKcmF3X2xpbmVzID0gc291cmNlW3N0YXJ0OmVuZF0uc3BsaXRsaW5lcygpCmxpbmVzID0gW2xpbmVbMTA6XSBpZiBsaW5lLnN0YXJ0c3dpdGgoIiAgICAgICAgICAiKSBlbHNlIGxpbmUgZm9yIGxpbmUgaW4gcmF3X2xpbmVzXQoKb3V0ID0gW10KcmVwYWlyZWQgPSAwCmkgPSAwCndoaWxlIGkgPCBsZW4obGluZXMpOgogICAgbGluZSA9IGxpbmVzW2ldCiAgICBpZiAiZm9yYmlkKCdleGVjdXRvciciIGluIGxpbmUgYW5kICJidWlsZHxjb21taXR8dGFnIiBpbiBsaW5lIGFuZCBsaW5lLnJzdHJpcCgpLmVuZHN3aXRoKCIvLCIpOgogICAgICAgIGlmIGkgKyAxID49IGxlbihsaW5lcykgb3IgbGluZXNbaSArIDFdLnN0cmlwKCkgIT0gJyIsJzoKICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgidW5leHBlY3RlZCBzcGxpdC1zdHJpbmcgY29udGludWF0aW9uIikKICAgICAgICBvdXQuYXBwZW5kKGxpbmUgKyByJ1xuIiwnKQogICAgICAgIGkgKz0gMgogICAgICAgIHJlcGFpcmVkICs9IDEKICAgICAgICBjb250aW51ZQogICAgb3V0LmFwcGVuZChsaW5lKQogICAgaSArPSAxCgppZiByZXBhaXJlZCAhPSAxOgogICAgcmFpc2UgU3lzdGVtRXhpdChmImV4cGVjdGVkIG9uZSByZXBhaXIsIGdvdCB7cmVwYWlyZWR9IikKClBhdGgoIi90bXAvYXV0aC1tYWlsLXJlbGVhc2UtcGF0Y2gucHkiKS53cml0ZV90ZXh0KCJcbiIuam9pbihvdXQpICsgIlxuIiwgZW5jb2Rpbmc9InV0Zi04IikKcHJpbnQoZiJFWFRSQUNUSU9OPVBBU1MgbGluZXM9e2xlbihvdXQpfSByZXBhaXJlZD17cmVwYWlyZWR9IikK' | base64 -d > /tmp/auth-mail-extract.py
+            python3 /tmp/auth-mail-extract.py
             python3 /tmp/auth-mail-release-patch.py
             echo 'PATCH=PASS'
             bash -n scripts/provision-production-auth-mail-runtime.sh
@@ -73,10 +45,7 @@ jobs:
             git diff --check
             echo 'VALIDATION=PASS'
 
-            mkdir -p \
-              "$STAGE/scripts" \
-              "$STAGE/.github/workflows" \
-              "$STAGE/docs/platform-v7/autopilot/scopes"
+            mkdir -p "$STAGE/scripts" "$STAGE/.github/workflows" "$STAGE/docs/platform-v7/autopilot/scopes"
             cp scripts/provision-production-auth-mail-runtime.sh "$STAGE/scripts/"
             cp scripts/production-full-stack-exact-sha.sh "$STAGE/scripts/"
             cp scripts/check-production-full-stack-release.mjs "$STAGE/scripts/"
@@ -100,10 +69,10 @@ jobs:
           path: |
             /tmp/auth-mail-materializer-*.txt
             /tmp/auth-mail-materialized.tar.gz
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 1
 
       - name: Propagate materializer failure
-        if: steps.materialize.outputs.status != '0'
+        if: always() && steps.materialize.outputs.status != '0'
         shell: bash
         run: exit 1
