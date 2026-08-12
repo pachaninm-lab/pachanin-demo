@@ -268,9 +268,20 @@ forbid('workflow', [
   /\[\[\s*"?\$user"?\s*==\s*root\s*\]\]/,
   /BEGIN (?:OPENSSH |RSA |EC )?PRIVATE KEY/,
 ]);
+const executorSource = text.executor ?? '';
+const authMailBlockStart = executorSource.indexOf('    auth-mail)');
+const authMailBlockEnd = authMailBlockStart >= 0 ? executorSource.indexOf('\n      ;;', authMailBlockStart) : -1;
+if (authMailBlockStart < 0 || authMailBlockEnd <= authMailBlockStart) {
+  failures.push(`${paths.executor}: auth-mail target override block missing`);
+} else {
+  const authMailTargetBlock = executorSource.slice(authMailBlockStart, authMailBlockEnd);
+  for (const forbidden of ['PC_SMTP_PASS', 'RESEND_API_KEY', 'PASSWORD_RESET_DELIVERY_KEY', 'REGISTRATION_DELIVERY_KEY']) {
+    if (authMailTargetBlock.includes(forbidden)) failures.push(`${paths.executor}: auth-mail target override contains forbidden mail authority ${forbidden}`);
+  }
+}
+
 forbid('executor', [
   /docker\s+(?:build|commit|tag)\b/,
-  /web:[\s\S]{0,500}(?:PC_SMTP_PASS|RESEND_API_KEY|PASSWORD_RESET_DELIVERY_KEY|REGISTRATION_DELIVERY_KEY)/,
   /prisma\s+migrate\s+(?:reset|dev)/i,
   /down[-_ ]migration/i,
   /docker\s+compose[^\n]*(?:down|rm\s+-f)/,
