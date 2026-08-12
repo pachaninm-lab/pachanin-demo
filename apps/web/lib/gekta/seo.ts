@@ -88,6 +88,26 @@ export function getGektaApplicationSchema(locale: GektaLocale) {
   } as const;
 }
 
+/**
+ * FAQPage is only emitted because the same questions and answers are rendered
+ * for the reader on the page itself. Nothing here is generated from data the
+ * product does not have.
+ */
+export function getGektaFaqSchema(locale: GektaLocale) {
+  const copy = getGektaCopy(locale);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    inLanguage: copy.htmlLang,
+    url: `${GEKTA_ORIGIN}${GEKTA_PATHS[locale]}`,
+    mainEntity: copy.faq.map(([question, answer]) => ({
+      '@type': 'Question',
+      name: question,
+      acceptedAnswer: { '@type': 'Answer', text: answer },
+    })),
+  } as const;
+}
+
 export function getGektaTopicMetadata(topic: GektaTopic): Metadata {
   const path = `/gekta/${topic.slug}`;
   return {

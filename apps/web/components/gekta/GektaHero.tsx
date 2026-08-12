@@ -1,4 +1,5 @@
 import { getGektaCopy, type GektaLocale } from '@/lib/gekta/content';
+import { GektaProductCta } from './GektaProductCta';
 
 export function GektaHero({ locale }: { locale: GektaLocale }) {
   const copy = getGektaCopy(locale);
@@ -8,6 +9,7 @@ export function GektaHero({ locale }: { locale: GektaLocale }) {
       <h1 className='mx-auto mt-4 max-w-4xl text-balance text-3xl font-semibold tracking-[-0.035em] text-slate-950 sm:text-5xl'>{copy.h1}</h1>
       <p className='mx-auto mt-5 max-w-3xl text-pretty text-base leading-7 text-slate-600 sm:text-lg sm:leading-8'>{copy.lead}</p>
       <p className='mt-4 text-sm text-slate-500'>{copy.maker}</p>
+      <GektaProductCta locale={locale} variant='hero' />
     </header>
   );
 }
