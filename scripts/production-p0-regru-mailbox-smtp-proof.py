@@ -154,12 +154,16 @@ def main() -> int:
     )
 
     context = ssl.create_default_context()
+    smtp_stage = "CONNECT"
     try:
         with smtplib.SMTP_SSL(smtp_host, int(smtp_port_raw), timeout=15, context=context) as client:
+            smtp_stage = "EHLO"
             code, _ = client.ehlo()
             if code != 250:
                 return 31
+            smtp_stage = "AUTH"
             client.login(auth_login, auth_password)
+            smtp_stage = "SEND"
             client.send_message(msg, from_addr=mail_from, to_addrs=[recipient])
     except smtplib.SMTPAuthenticationError:
         return 32
@@ -171,18 +175,39 @@ def main() -> int:
         return 35
     except socket.gaierror:
         print("SMTP_TRANSPORT_CLASS=DNS")
+        print(f"SMTP_FAILURE_STAGE={smtp_stage}")
         return 36
     except (TimeoutError, socket.timeout):
         print("SMTP_TRANSPORT_CLASS=TIMEOUT")
+        print(f"SMTP_FAILURE_STAGE={smtp_stage}")
         return 36
     except ssl.SSLError:
         print("SMTP_TRANSPORT_CLASS=TLS")
+        print(f"SMTP_FAILURE_STAGE={smtp_stage}")
+        return 36
+    except smtplib.SMTPNotSupportedError:
+        print("SMTP_TRANSPORT_CLASS=SMTP_NOT_SUPPORTED")
+        print(f"SMTP_FAILURE_STAGE={smtp_stage}")
+        return 36
+    except smtplib.SMTPServerDisconnected:
+        print("SMTP_TRANSPORT_CLASS=SMTP_DISCONNECTED")
+        print(f"SMTP_FAILURE_STAGE={smtp_stage}")
+        return 36
+    except smtplib.SMTPConnectError:
+        print("SMTP_TRANSPORT_CLASS=SMTP_CONNECT")
+        print(f"SMTP_FAILURE_STAGE={smtp_stage}")
+        return 36
+    except smtplib.SMTPHeloError:
+        print("SMTP_TRANSPORT_CLASS=SMTP_HELO")
+        print(f"SMTP_FAILURE_STAGE={smtp_stage}")
         return 36
     except smtplib.SMTPException:
-        print("SMTP_TRANSPORT_CLASS=SMTP_PROTOCOL")
+        print("SMTP_TRANSPORT_CLASS=SMTP_OTHER")
+        print(f"SMTP_FAILURE_STAGE={smtp_stage}")
         return 36
     except OSError:
         print("SMTP_TRANSPORT_CLASS=NETWORK")
+        print(f"SMTP_FAILURE_STAGE={smtp_stage}")
         return 36
 
     deadline = time.time() + 120
