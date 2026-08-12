@@ -17,6 +17,7 @@ from email.utils import formatdate, getaddresses, make_msgid
 CANONICAL_REG_RU_MAIL_HOST = "mail.hosting.reg.ru"
 CANONICAL_REG_RU_IMAP_PORT = 993
 CANONICAL_SMTP_LOGIN = "access@xn----8sbjf4befbjgs9b.xn--p1ai"
+CANONICAL_MAIL_DOMAIN = "xn----8sbjf4befbjgs9b.xn--p1ai"
 
 
 def required(name: str) -> str:
@@ -107,6 +108,7 @@ def main() -> int:
 
     try:
         smtp_login = ascii_email(smtp_user_raw)
+        mailbox_login = ascii_email(mailbox_user_raw)
         recipient = render_control_recipient(email_template, run_id)
         mail_from = ascii_email(mail_from_raw)
     except Exception:
@@ -114,10 +116,26 @@ def main() -> int:
     if smtp_login != CANONICAL_SMTP_LOGIN or mail_from != CANONICAL_SMTP_LOGIN:
         return 29
 
+    # The protected mailbox password was historically proven to authenticate its
+    # own REG.RU mailbox identity. When no dedicated SMTP secret exists, the
+    # workflow intentionally falls back to that same password. Keep that fallback
+    # as one coherent credential pair instead of combining the mailbox password
+    # with the canonical sender login. The visible/envelope sender remains pinned
+    # to the platform address and this fallback is limited to the same mail domain.
+    auth_login = smtp_login
+    auth_password = smtp_password
+    if (
+        smtp_password == mailbox_password
+        and mailbox_login != smtp_login
+        and mailbox_login.endswith("@" + CANONICAL_MAIL_DOMAIN)
+    ):
+        auth_login = mailbox_login
+        auth_password = mailbox_password
+
     old_umask = os.umask(0o077)
     try:
         with open(login_output, "w", encoding="ascii") as handle:
-            handle.write(smtp_login + "\n")
+            handle.write(auth_login + "\n")
     finally:
         os.umask(old_umask)
     os.chmod(login_output, 0o600)
@@ -141,7 +159,7 @@ def main() -> int:
             code, _ = client.ehlo()
             if code != 250:
                 return 31
-            client.login(smtp_login, smtp_password)
+            client.login(auth_login, auth_password)
             client.send_message(msg, from_addr=mail_from, to_addrs=[recipient])
     except smtplib.SMTPAuthenticationError:
         return 32
