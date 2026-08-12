@@ -39,7 +39,7 @@ if values['PC_SMTP_USER'] != values['PC_MAIL_FROM']:
     raise SystemExit(1)
 if not re.fullmatch(r'[^\s@]{1,64}@[^\s@]{1,189}', values['PC_SMTP_USER']):
     raise SystemExit(1)
-if not values['PC_SMTP_USER'].endswith('@xn----8sbjf4befbjgs9b.xn--p1ai'):
+if not values['PC_SMTP_USER'].endswith('@acceptance.xn----8sbjf4befbjgs9b.xn--p1ai'):
     raise SystemExit(1)
 if not 1 <= len(values['PC_SMTP_PASS']) <= 512:
     raise SystemExit(1)
