@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-csrf-reverse-proxy-origin-3785",
+  "status": "active",
+  "issue": 3785,
+  "baseCommit": "57d8a906ddadf9f70d440b2b4c017159b4d47515",
+  "operationalStatus": "P0_CSRF_REVERSE_PROXY_ORIGIN_REMEDIATION",
+  "allowedPaths": [
+    "apps/web/lib/server-request-security.ts",
+    "apps/web/tests/unit/serverRequestSecurity.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-p0-csrf-reverse-proxy-origin-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "RELEASE_ONLY_AFTER_GATES",
+    "runtimeBusinessBehaviorChange": true,
+    "identityMutation": false,
+    "staffAssignmentMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "rlsMutation": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "originValidationDisabled": false,
+    "csrfTokenValidationDisabled": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "same-origin browser requests behind the existing TLS-terminating reverse proxy resolve the public target origin from an explicit trusted public origin or proxy-preserved host/proto headers",
+    "cross-origin requests remain rejected before route business logic even when the double-submit CSRF token matches",
+    "CSRF cookie/header mismatches remain rejected after same-origin validation passes",
+    "malformed explicitly configured public origins fail closed",
+    "the production invalid-email diagnostic must return INVALID_EMAIL with the real public Origin before any real reviewer password reset is replayed",
+    "no DB, RLS, reviewer credential, MFA or staff-assignment mutation is introduced",
+    "new recurring cost is 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
