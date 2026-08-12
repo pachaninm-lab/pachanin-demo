@@ -280,7 +280,6 @@ jobs:
         run: |
           set -Eeuo pipefail
           config="$RUNNER_TEMP/pc-regru-host-mail-proof-${GITHUB_RUN_ID}.json"
-          mailenv="$RUNNER_TEMP/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.env"
           login_path="/tmp/pc-regru-host-mail-login-${GITHUB_RUN_ID}.txt"
           umask 077
           CONFIG="$config" LOGIN_PATH="$login_path" python3 - <<'PY'
@@ -305,13 +304,10 @@ jobs:
               json.dump(cfg, f, ensure_ascii=True)
           PY
           chmod 0600 "$config"
-          printf 'PC_SMTP_HOST=%s\nPC_SMTP_USER=%s\nPC_SMTP_PASS=%s\nPC_SMTP_PORT=%s\nPC_MAIL_FROM=%s\n' \
-            "$SMTP_HOST" "$SMTP_USER" "$SMTP_PASSWORD" "$SMTP_PORT" "$SMTP_FROM" > "$mailenv"
-          chmod 0600 "$mailenv"
           echo "config=$config" >> "$GITHUB_OUTPUT"
-          echo "mailenv=$mailenv" >> "$GITHUB_OUTPUT"
 
       - name: Prove authenticated send and IMAP receipt from REG.RU host
+        id: mailproof
         env:
           HOST: ${{ steps.ssh.outputs.host }}
           USER: ${{ steps.ssh.outputs.user }}
@@ -324,6 +320,8 @@ jobs:
           remote_proof="/tmp/pc-regru-host-mail-proof-${GITHUB_RUN_ID}.py"
           remote_cfg="/tmp/pc-regru-host-mail-proof-${GITHUB_RUN_ID}.json"
           remote_wrapper="/tmp/pc-regru-host-mail-wrapper-${GITHUB_RUN_ID}.py"
+          remote_login="/tmp/pc-regru-host-mail-login-${GITHUB_RUN_ID}.txt"
+          login_file="$RUNNER_TEMP/pc-regru-host-mail-login-${GITHUB_RUN_ID}.txt"
           wrapper="$RUNNER_TEMP/pc-regru-host-mail-wrapper-${GITHUB_RUN_ID}.py"
           cat > "$wrapper" <<'PY'
           import json, os, runpy, sys
@@ -344,23 +342,37 @@ jobs:
             > "$EVIDENCE_DIR/remote-mail-proof.txt"
           grep -Fxq SMTP_AUTHENTICATED_SEND_OK=1 "$EVIDENCE_DIR/remote-mail-proof.txt"
           grep -Fxq IMAP_PROBE_RECEIPT_OK=1 "$EVIDENCE_DIR/remote-mail-proof.txt"
+          scp "${scp_common[@]}" "$USER@$HOST:$remote_login" "$login_file"
+          chmod 0600 "$login_file"
+          [[ -f "$login_file" && ! -L "$login_file" && "$(stat -c '%a' "$login_file")" == 600 ]]
+          proven_login="$(cat "$login_file")"
+          [[ "$proven_login" =~ ^[^[:space:]@]+@xn----8sbjf4befbjgs9b\.xn--p1ai$ ]]
+          echo "login_file=$login_file" >> "$GITHUB_OUTPUT"
 
       - name: Materialize protected auth-mail runtime
         env:
           HOST: ${{ steps.ssh.outputs.host }}
           USER: ${{ steps.ssh.outputs.user }}
           PORT: ${{ steps.ssh.outputs.port }}
-          MAILENV: ${{ steps.proof.outputs.mailenv }}
+          LOGIN_FILE: ${{ steps.mailproof.outputs.login_file }}
         shell: bash
         run: |
           set -Eeuo pipefail
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -f "$LOGIN_FILE" && ! -L "$LOGIN_FILE" && "$(stat -c '%a' "$LOGIN_FILE")" == 600 ]]
+          proven_login="$(cat "$LOGIN_FILE")"
+          [[ "$proven_login" =~ ^[^[:space:]@]+@xn----8sbjf4befbjgs9b\.xn--p1ai$ ]]
+          mailenv="$RUNNER_TEMP/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.env"
+          umask 077
+          printf 'PC_SMTP_HOST=%s\nPC_SMTP_USER=%s\nPC_SMTP_PASS=%s\nPC_SMTP_PORT=%s\nPC_MAIL_FROM=%s\n' \
+            "$SMTP_HOST" "$proven_login" "$SMTP_PASSWORD" "$SMTP_PORT" "$SMTP_FROM" > "$mailenv"
+          chmod 0600 "$mailenv"
           remote_script="/tmp/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.sh"
           remote_mail="/tmp/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.env"
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
           ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
           scp "${scp_common[@]}" scripts/provision-production-p0-password-reset-runtime.sh "$USER@$HOST:$remote_script"
-          scp "${scp_common[@]}" "$MAILENV" "$USER@$HOST:$remote_mail"
+          scp "${scp_common[@]}" "$mailenv" "$USER@$HOST:$remote_mail"
           ssh "${ssh_common[@]}" "$USER@$HOST" \
             "chmod 0700 '$remote_script'; chmod 0600 '$remote_mail'; PC_RECONCILE_ACTIVE_RUNTIME=1 '$remote_script' provision '$remote_mail'" \
             > "$EVIDENCE_DIR/provision.txt"
@@ -424,4 +436,5 @@ jobs:
           rm -f "$RUNNER_TEMP/pc-regru-host-mail-proof-${GITHUB_RUN_ID}.json"
           rm -f "$RUNNER_TEMP/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.env"
           rm -f "$RUNNER_TEMP/pc-regru-host-mail-wrapper-${GITHUB_RUN_ID}.py"
+          rm -f "$RUNNER_TEMP/pc-regru-host-mail-login-${GITHUB_RUN_ID}.txt"
           unset SMTP_PASSWORD MAILBOX_PASSWORD PC_PROD_SSH_KEY PC_PROD_SSH_PRIVATE_KEY VPS_SSH_KEY
