@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   issues: write
 
 concurrency:
@@ -27,9 +28,31 @@ env:
   RELEASE_ISSUE_NUMBER: 3048
 
 jobs:
+  accepted:
+    name: Resolve accepted protected Web release
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.name == 'Production Web Exact-SHA Release' ||
+       github.event.workflow_run.name == 'Production Web Owner Exact-SHA Command')
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/production-release-accepted-sha.yml
+    with:
+      release_run_id: ${{ github.event.workflow_run.id }}
+      manual_sha: ''
+
   mobile-acceptance:
     name: 320x700, 390x844 and 430x932 production acceptance
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    needs: accepted
+    if: >-
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.name == 'Production Full-Stack Exact-SHA Release') ||
+       needs.accepted.outputs.deployment_accepted == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -38,11 +61,17 @@ jobs:
         id: target
         env:
           INPUT_TARGET_SHA: ${{ inputs.target_sha }}
+          ACCEPTED_SHA: ${{ needs.accepted.outputs.accepted_sha }}
           RELEASE_TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+          RELEASE_WORKFLOW: ${{ github.event.workflow_run.name }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run \
+            && ( "$RELEASE_WORKFLOW" == 'Production Web Exact-SHA Release' \
+              || "$RELEASE_WORKFLOW" == 'Production Web Owner Exact-SHA Command' ) ]]; then
+            target_sha="$ACCEPTED_SHA"
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
             target_sha="$RELEASE_TARGET_SHA"
           elif [[ -n "${INPUT_TARGET_SHA:-}" ]]; then
             target_sha="$INPUT_TARGET_SHA"
