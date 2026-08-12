@@ -141,8 +141,9 @@ headers="$remote_tmp/headers.txt"
 page="$remote_tmp/page.html"
 probe_request="$remote_tmp/probe-request.json"
 probe_response="$remote_tmp/probe-response.json"
-: > "$jar"; : > "$headers"; : > "$page"; : > "$probe_request"; : > "$probe_response"
-chmod 0600 "$jar" "$headers" "$page" "$probe_request" "$probe_response"
+probe_no_origin_response="$remote_tmp/probe-no-origin-response.json"
+: > "$jar"; : > "$headers"; : > "$page"; : > "$probe_request"; : > "$probe_response"; : > "$probe_no_origin_response"
+chmod 0600 "$jar" "$headers" "$page" "$probe_request" "$probe_response" "$probe_no_origin_response"
 
 get_status="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
   --dump-header "$headers" --output "$page" --write-out '%{http_code}' \
@@ -155,8 +156,10 @@ csrf_present=0; csrf_format=0
 [[ "$csrf" =~ ^[A-Za-z0-9_-]{24,128}$ ]] && csrf_format=1
 
 post_status='000'; invalid_code=0; correlation_match=0
+post_no_origin_status='000'; no_origin_invalid_code=0; no_origin_correlation_match=0
 if [[ "$get_status" == '200' && "$csrf_format" == '1' ]]; then
   printf '%s' '{"email":"invalid","locale":"ru"}' > "$probe_request"
+
   correlation_id="$(cat /proc/sys/kernel/random/uuid)"
   [[ "$correlation_id" =~ ^[0-9a-f-]{36}$ ]]
   post_status="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
@@ -171,11 +174,31 @@ if [[ "$get_status" == '200' && "$csrf_format" == '1' ]]; then
     "$live_base/api/auth/forgot-password")"
   grep -Eq '"code"[[:space:]]*:[[:space:]]*"INVALID_EMAIL"' "$probe_response" && invalid_code=1
   grep -Fq "\"correlationId\":\"$correlation_id\"" "$probe_response" && correlation_match=1
+
+  # This second probe deliberately omits Origin while preserving the exact same
+  # invalid body and double-submit token. It can only distinguish same-origin
+  # rejection from CSRF-token rejection; INVALID_EMAIL stops it before auth,
+  # reset-token creation or mail delivery.
+  correlation_id_no_origin="$(cat /proc/sys/kernel/random/uuid)"
+  [[ "$correlation_id_no_origin" =~ ^[0-9a-f-]{36}$ ]]
+  post_no_origin_status="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
+    --output "$probe_no_origin_response" --write-out '%{http_code}' \
+    --cookie "$jar" --cookie-jar "$jar" \
+    -H 'Accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -H "x-csrf-token: $csrf" \
+    -H "x-correlation-id: $correlation_id_no_origin" \
+    --data-binary "@$probe_request" \
+    "$live_base/api/auth/forgot-password")"
+  grep -Eq '"code"[[:space:]]*:[[:space:]]*"INVALID_EMAIL"' "$probe_no_origin_response" && no_origin_invalid_code=1
+  grep -Fq "\"correlationId\":\"$correlation_id_no_origin\"" "$probe_no_origin_response" && no_origin_correlation_match=1
 fi
 unset csrf
 
-printf 'RESET_HTTP|%s|%s|%s|%s|%s|%s\n' \
-  "$get_status" "$csrf_present" "$csrf_format" "$post_status" "$invalid_code" "$correlation_match"
+printf 'RESET_HTTP|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
+  "$get_status" "$csrf_present" "$csrf_format" \
+  "$post_status" "$invalid_code" "$correlation_match" \
+  "$post_no_origin_status" "$no_origin_invalid_code" "$no_origin_correlation_match"
 printf 'API_REVISION=%s\n' "$api_revision"
 printf 'WEB_REVISION=%s\n' "$web_revision"
 printf 'PRODUCTION_MUTATION=NONE\n'
@@ -186,15 +209,27 @@ marker="$(grep '^RESET_HTTP|' <<< "$output" | tail -n1)"
 api_revision="$(grep '^API_REVISION=' <<< "$output" | tail -n1 | cut -d= -f2)"
 web_revision="$(grep '^WEB_REVISION=' <<< "$output" | tail -n1 | cut -d= -f2)"
 mutation="$(grep '^PRODUCTION_MUTATION=' <<< "$output" | tail -n1)"
-[[ "$marker" =~ ^RESET_HTTP\|[0-9]{3}\|[01]\|[01]\|[0-9]{3}\|[01]\|[01]$ ]]
+[[ "$marker" =~ ^RESET_HTTP\|[0-9]{3}\|[01]\|[01]\|[0-9]{3}\|[01]\|[01]\|[0-9]{3}\|[01]\|[01]$ ]]
 [[ "$api_revision" == "$EXPECTED_DEPLOYED_SHA" && "$web_revision" == "$EXPECTED_DEPLOYED_SHA" ]]
 [[ "$mutation" == 'PRODUCTION_MUTATION=NONE' ]]
-IFS='|' read -r _ get_status csrf_present csrf_format post_status invalid_code correlation_match <<< "$marker"
+IFS='|' read -r _ get_status csrf_present csrf_format post_status invalid_code correlation_match post_no_origin_status no_origin_invalid_code no_origin_correlation_match <<< "$marker"
 
 result='FAIL_CLOSED'
+classification='UNCLASSIFIED'
 if [[ "$get_status" == '200' && "$csrf_present" == '1' && "$csrf_format" == '1' \
       && "$post_status" == '400' && "$invalid_code" == '1' && "$correlation_match" == '1' ]]; then
-  result='PASS_READ_ONLY'
+  result='PASS_READ_ONLY_CLASSIFIED'
+  classification='ORIGIN_AND_CSRF_PASS'
+elif [[ "$get_status" == '200' && "$csrf_present" == '1' && "$csrf_format" == '1' \
+        && "$post_status" == '403' && "$invalid_code" == '0' && "$correlation_match" == '1' \
+        && "$post_no_origin_status" == '400' && "$no_origin_invalid_code" == '1' && "$no_origin_correlation_match" == '1' ]]; then
+  result='PASS_READ_ONLY_CLASSIFIED'
+  classification='ORIGIN_MISMATCH'
+elif [[ "$get_status" == '200' && "$csrf_present" == '1' && "$csrf_format" == '1' \
+        && "$post_status" == '403' && "$invalid_code" == '0' && "$correlation_match" == '1' \
+        && "$post_no_origin_status" == '403' && "$no_origin_invalid_code" == '0' && "$no_origin_correlation_match" == '1' ]]; then
+  result='PASS_READ_ONLY_CLASSIFIED'
+  classification='CSRF_TOKEN_REJECTED'
 fi
 
 gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset HTTP diagnostic
@@ -203,12 +238,13 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 - current main at start: \`$CURRENT_MAIN\`
 - inspected deployed revision: \`$EXPECTED_DEPLOYED_SHA\`
 - result: \`$result\`
+- classification: \`$classification\`
 - forgot-password GET status: \`$get_status\`
 - CSRF cookie present / format valid: \`$csrf_present/$csrf_format\`
-- CSRF-protected invalid-input POST status: \`$post_status\`
-- route returned INVALID_EMAIL / correlation preserved: \`$invalid_code/$correlation_match\`
+- invalid-input POST with public Origin status / INVALID_EMAIL / correlation: \`$post_status/$invalid_code/$correlation_match\`
+- invalid-input POST without Origin status / INVALID_EMAIL / correlation: \`$post_no_origin_status/$no_origin_invalid_code/$no_origin_correlation_match\`
 - reviewer identity exposure: \`NONE\`
 - reset request sent: \`NO\`
 - production mutation: \`NONE\`" >/dev/null
 result_published=1
-[[ "$result" == 'PASS_READ_ONLY' ]]
+[[ "$result" == 'PASS_READ_ONLY_CLASSIFIED' ]]
