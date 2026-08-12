@@ -9,16 +9,22 @@ DEFAULT_HOST='195.19.12.120'
 LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 LIVE_BASE="https://$LIVE_DOMAIN"
 RELEASE_ISSUE_NUMBER='3072'
-COMMAND='/production p0-reviewer-reset-http-diagnose current-deployed'
-EXPECTED_DEPLOYED_SHA='2b1350ff67a988bfc0151c1dbca1038a8389b8b6'
+COMMAND='/production p0-reviewer-reset-http-diagnose current-main'
 
 key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-http-diag-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-http-diag-known-hosts"
 SOURCE_SHA='unknown'
 CURRENT_MAIN='unknown'
+EXPECTED_DEPLOYED_SHA='unknown'
+scan=''
+match=''
 result_published=0
 
-cleanup() { rm -f -- "$key_path" "$known_hosts"; }
+cleanup() {
+  rm -f -- "$key_path" "$known_hosts"
+  [[ -z "$scan" ]] || rm -f -- "$scan"
+  [[ -z "$match" ]] || rm -f -- "$match"
+}
 trap cleanup EXIT
 
 publish_failure() {
@@ -46,13 +52,21 @@ trim() {
   printf '%s' "$value"
 }
 
+guard_main() {
+  local remote_main
+  remote_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+  [[ "$remote_main" == "$CURRENT_MAIN" ]]
+  git fetch --no-tags origin main >/dev/null
+  [[ "$(git rev-parse origin/main)" == "$CURRENT_MAIN" ]]
+}
+
 SOURCE_SHA="$(git rev-parse HEAD)"
 CURRENT_MAIN="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
 [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ && "$CURRENT_MAIN" =~ ^[0-9a-f]{40}$ ]]
+[[ "$SOURCE_SHA" == "$CURRENT_MAIN" ]]
 git fetch --no-tags origin main >/dev/null
 [[ "$(git rev-parse origin/main)" == "$CURRENT_MAIN" ]]
-git merge-base --is-ancestor "$SOURCE_SHA" "$CURRENT_MAIN"
-git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$CURRENT_MAIN"
+EXPECTED_DEPLOYED_SHA="$CURRENT_MAIN"
 [[ -z "$(git status --porcelain=v1)" ]]
 
 host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
@@ -94,17 +108,37 @@ try_key "${PC_PROD_SSH_KEY:-}" \
   || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" \
   || try_key "${VPS_SSH_KEY:-}"
 
+guard_main
+
 domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
 grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
 scan="$(mktemp)"; match="$(mktemp)"
-ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
-[[ -s "$scan" ]]
-while IFS= read -r line; do
-  fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-  [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
-done < "$scan"
-[[ "$(grep -c . "$match" || true)" == '1' ]]
-mv "$match" "$known_hosts"; rm -f "$scan"; chmod 0600 "$known_hosts"
+pinned_ready=0
+for attempt in 1 2 3; do
+  : > "$scan"
+  : > "$match"
+  ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+  if [[ -s "$scan" ]]; then
+    while IFS= read -r line; do
+      fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+      [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+    done < "$scan"
+    sort -u -o "$match" "$match"
+    if [[ "$(grep -c . "$match" || true)" == '1' ]]; then
+      pinned_ready=1
+      break
+    fi
+  fi
+  (( attempt == 3 )) || sleep "$attempt"
+done
+[[ "$pinned_ready" == '1' ]]
+mv "$match" "$known_hosts"
+match=''
+rm -f -- "$scan"
+scan=''
+chmod 0600 "$known_hosts"
+
+guard_main
 
 output="$(ssh -i "$key_path" -p "$port" \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
@@ -175,10 +209,6 @@ if [[ "$get_status" == '200' && "$csrf_format" == '1' ]]; then
   grep -Eq '"code"[[:space:]]*:[[:space:]]*"INVALID_EMAIL"' "$probe_response" && invalid_code=1
   grep -Fq "\"correlationId\":\"$correlation_id\"" "$probe_response" && correlation_match=1
 
-  # This second probe deliberately omits Origin while preserving the exact same
-  # invalid body and double-submit token. It can only distinguish same-origin
-  # rejection from CSRF-token rejection; INVALID_EMAIL stops it before auth,
-  # reset-token creation or mail delivery.
   correlation_id_no_origin="$(cat /proc/sys/kernel/random/uuid)"
   [[ "$correlation_id_no_origin" =~ ^[0-9a-f-]{36}$ ]]
   post_no_origin_status="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
@@ -214,28 +244,29 @@ mutation="$(grep '^PRODUCTION_MUTATION=' <<< "$output" | tail -n1)"
 [[ "$mutation" == 'PRODUCTION_MUTATION=NONE' ]]
 IFS='|' read -r _ get_status csrf_present csrf_format post_status invalid_code correlation_match post_no_origin_status no_origin_invalid_code no_origin_correlation_match <<< "$marker"
 
+guard_main
+
 result='FAIL_CLOSED'
 classification='UNCLASSIFIED'
 if [[ "$get_status" == '200' && "$csrf_present" == '1' && "$csrf_format" == '1' \
       && "$post_status" == '400' && "$invalid_code" == '1' && "$correlation_match" == '1' ]]; then
-  result='PASS_READ_ONLY_CLASSIFIED'
   classification='ORIGIN_AND_CSRF_PASS'
 elif [[ "$get_status" == '200' && "$csrf_present" == '1' && "$csrf_format" == '1' \
         && "$post_status" == '403' && "$invalid_code" == '0' && "$correlation_match" == '1' \
         && "$post_no_origin_status" == '400' && "$no_origin_invalid_code" == '1' && "$no_origin_correlation_match" == '1' ]]; then
-  result='PASS_READ_ONLY_CLASSIFIED'
   classification='ORIGIN_MISMATCH'
 elif [[ "$get_status" == '200' && "$csrf_present" == '1' && "$csrf_format" == '1' \
         && "$post_status" == '403' && "$invalid_code" == '0' && "$correlation_match" == '1' \
         && "$post_no_origin_status" == '403' && "$no_origin_invalid_code" == '0' && "$no_origin_correlation_match" == '1' ]]; then
-  result='PASS_READ_ONLY_CLASSIFIED'
   classification='CSRF_TOKEN_REJECTED'
+fi
+if [[ "$classification" == 'ORIGIN_AND_CSRF_PASS' ]]; then
+  result='PASS_READ_ONLY'
 fi
 
 gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset HTTP diagnostic
 
-- source SHA: \`$SOURCE_SHA\`
-- current main at start: \`$CURRENT_MAIN\`
+- source/current-main SHA: \`$SOURCE_SHA\`
 - inspected deployed revision: \`$EXPECTED_DEPLOYED_SHA\`
 - result: \`$result\`
 - classification: \`$classification\`
@@ -247,4 +278,4 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 - reset request sent: \`NO\`
 - production mutation: \`NONE\`" >/dev/null
 result_published=1
-[[ "$result" == 'PASS_READ_ONLY_CLASSIFIED' ]]
+[[ "$result" == 'PASS_READ_ONLY' ]]
