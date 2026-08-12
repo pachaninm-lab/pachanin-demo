@@ -124,6 +124,17 @@ describe('Gekta keeps one authority for the history', () => {
     expect(workspace).toContain('for (const chunk of chunkImport(');
   });
 
+  it('loads the replies when a restored conversation is opened', () => {
+    // Список приходит без реплик, поэтому без дочитывания диалог из истории
+    // открывался бы пустым.
+    expect(workspace).toContain("accountApi<ServerConversationRow>(`conversations/${encodeURIComponent(serverId)}`)");
+    expect(workspace).toContain('for (const message of restored.messages) sentMessageIds.current.add(message.id);');
+    // Пользователь мог переключиться, пока читались реплики. Проверка идёт по
+    // ref, а обновление состояния остаётся чистым.
+    expect(workspace).toContain('if (activeIdRef.current === conversation.id) setMessages([...restored.messages]);');
+    expect(workspace).toContain('activeIdRef.current = activeId;');
+  });
+
   it('switches to server mode only after the server list is actually read', () => {
     // Сбой чтения не должен приводить к удалению локальной копии.
     expect(workspace).toContain('if (!serverConversations.ok) return;');

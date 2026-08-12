@@ -177,10 +177,20 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const [workspaceMode, setWorkspaceMode] = React.useState<WorkspaceMode>('local');
   const serverConversationIds = React.useRef(new Map<string, string>());
   const sentMessageIds = React.useRef(new Set<string>());
+  /**
+   * Открытый диалог, читаемый из асинхронной догрузки реплик. Значение
+   * зеркалится эффектом, а не присваивается во время рендера: запись в ref
+   * при рендере — побочный эффект, который React вправе выполнить дважды.
+   */
+  const activeIdRef = React.useRef<string | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
   const stopRequested = React.useRef(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const nearBottom = React.useRef(true);
+
+  React.useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   React.useEffect(() => {
     try {
@@ -654,7 +664,30 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     setError('');
     setDrawerOpen(false);
     onEnteredChat?.();
-  }, [onEnteredChat, stop]);
+
+    // Список диалогов приходит с сервера без реплик — иначе каждая загрузка
+    // истории тянула бы всю переписку целиком. Сами реплики читаются при
+    // открытии диалога, иначе восстановленная история открывалась бы пустой.
+    if (workspaceMode !== 'server' || conversation.messages.length > 0) return;
+    const serverId = serverConversationIds.current.get(conversation.id);
+    if (!serverId) return;
+    void (async () => {
+      const loaded = await accountApi<ServerConversationRow>(`conversations/${encodeURIComponent(serverId)}`);
+      if (!loaded.ok || !loaded.data) return;
+      const restored = toConversation(loaded.data, new Date().toISOString());
+      if (!restored) return;
+      // Прочитанные реплики уже на сервере: без отметки следующая запись
+      // отправила бы их повторно.
+      for (const message of restored.messages) sentMessageIds.current.add(message.id);
+      setConversations((current) => current.map((item) => (
+        item.id === conversation.id ? { ...item, messages: restored.messages } : item
+      )));
+      // Пользователь мог уйти в другой диалог, пока читались реплики. Проверка
+      // идёт по ref, а не внутри обновления состояния: обновление обязано быть
+      // чистым, иначе StrictMode выполнит побочный эффект дважды.
+      if (activeIdRef.current === conversation.id) setMessages([...restored.messages]);
+    })();
+  }, [onEnteredChat, stop, workspaceMode]);
 
   /**
    * Серверный адрес диалога. Для загруженной из аккаунта переписки он совпадает
