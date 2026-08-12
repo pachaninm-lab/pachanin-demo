@@ -67,15 +67,17 @@ jobs:
           from pathlib import Path
           text = Path('.github/workflows/production-p0-regru-mail-auth-diagnostic.yml').read_text(encoding='utf-8')
           runtime = text.split('\n  diagnose:\n', 1)[1]
+          global_required = [
+              'mail.hosting.reg.ru',
+              "SMTP_PORT: '465'",
+              "IMAP_PORT: '993'",
+          ]
           authority_required = [
               "github.event.issue.number == 3072",
               "github.event.comment.author_association == 'OWNER'",
               'TRUSTED_CONNECTOR_APP_ID: 1144995',
           ]
           runtime_required = [
-              'mail.hosting.reg.ru',
-              "SMTP_PORT: '465'",
-              "IMAP_PORT: '993'",
               'StrictHostKeyChecking=yes',
               'IMAP_AUTH_RESULT=',
               'SMTP_AUTH_LOGIN_ADVERTISED=',
@@ -83,7 +85,7 @@ jobs:
               'SMTP_EXPLICIT_AUTH_RESULT=',
               'PRODUCTION_MUTATION=NONE',
           ]
-          for marker in authority_required:
+          for marker in global_required + authority_required:
               assert marker in text, marker
           for marker in runtime_required:
               assert marker in runtime, marker
