@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 
 [[ "$(id -u)" -eq 0 ]] || { echo 'GEKTA_WIRING_ERROR=root_required' >&2; exit 2; }
 command -v docker >/dev/null
 command -v python3 >/dev/null
+command -v sha256sum >/dev/null
 
 EXPECTED_MODEL_BASE='http://192.168.0.206:18080/v1/'
 EXPECTED_MODEL='tai-qwen3-8b-q4km'
@@ -47,13 +49,16 @@ web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontai
 [[ "$web_revision" =~ ^[0-9a-f]{40}$ ]] || web_revision='unknown'
 
 inspect_env() {
-  local container="$1" role="$2"
-  docker inspect --format '{{json .Config.Env}}' "$container" | python3 - "$role" "$EXPECTED_MODEL_BASE" "$EXPECTED_MODEL" <<'PY'
+  local container="$1" role="$2" tmp
+  tmp="$(mktemp)"
+  docker inspect --format '{{json .Config.Env}}' "$container" > "$tmp"
+  python3 - "$role" "$EXPECTED_MODEL_BASE" "$EXPECTED_MODEL" "$tmp" <<'PY'
 import json
 import sys
 
-role, expected_base, expected_model = sys.argv[1:]
-rows = json.load(sys.stdin)
+role, expected_base, expected_model, path = sys.argv[1:]
+with open(path, encoding='utf-8') as handle:
+    rows = json.load(handle)
 env = dict(row.split('=', 1) for row in rows if isinstance(row, str) and '=' in row)
 
 def bit(value: bool) -> int:
@@ -74,30 +79,35 @@ elif role == 'web':
 else:
     raise SystemExit(3)
 PY
+  rm -f "$tmp"
 }
 
 api_env_report="$(inspect_env "$api_id" api)"
 web_env_report="$(inspect_env "$web_id" web)"
 
-hmac_match="$(
-  docker inspect --format '{{json .Config.Env}}' "$api_id" > /tmp/gekta-wiring-api-env.$$
-  docker inspect --format '{{json .Config.Env}}' "$web_id" > /tmp/gekta-wiring-web-env.$$
-  trap 'rm -f /tmp/gekta-wiring-api-env.$$ /tmp/gekta-wiring-web-env.$$' RETURN
-  python3 - /tmp/gekta-wiring-api-env.$$ /tmp/gekta-wiring-web-env.$$ <<'PY'
+api_env_tmp="$(mktemp)"
+web_env_tmp="$(mktemp)"
+trap 'rm -f "$api_env_tmp" "$web_env_tmp"' EXIT
+docker inspect --format '{{json .Config.Env}}' "$api_id" > "$api_env_tmp"
+docker inspect --format '{{json .Config.Env}}' "$web_id" > "$web_env_tmp"
+hmac_match="$(python3 - "$api_env_tmp" "$web_env_tmp" <<'PY'
 import json
 import sys
 
 def read(path):
-    rows = json.load(open(path, encoding='utf-8'))
+    with open(path, encoding='utf-8') as handle:
+        rows = json.load(handle)
     return dict(row.split('=', 1) for row in rows if isinstance(row, str) and '=' in row)
-api = read(sys.argv[1]); web = read(sys.argv[2])
+
+api = read(sys.argv[1])
+web = read(sys.argv[2])
 a = api.get('TAI_PUBLIC_GATEWAY_HMAC_SECRET', '')
 w = web.get('TAI_PUBLIC_GATEWAY_HMAC_SECRET', '')
 print(1 if len(a) >= 32 and a == w else 0)
 PY
 )"
-rm -f /tmp/gekta-wiring-api-env.$$ /tmp/gekta-wiring-web-env.$$
-trap - RETURN 2>/dev/null || true
+rm -f "$api_env_tmp" "$web_env_tmp"
+trap - EXIT
 
 model_health=0
 if docker exec -i "$api_id" /nodejs/bin/node - <<'NODE' >/dev/null 2>&1
