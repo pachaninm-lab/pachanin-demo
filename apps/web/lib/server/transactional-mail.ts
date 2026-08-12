@@ -23,6 +23,10 @@ export function smtpSecurityForPort(port: number): SmtpSecurityMode | null {
   return null;
 }
 
+export function shouldFallbackToLoginAfterPlain(code: number) {
+  return code === 535;
+}
+
 function safeReason(error: unknown) {
   if (error instanceof Error) return `${error.name}:${error.message}`.slice(0, 180);
   return String(error || 'unknown').slice(0, 180);
@@ -92,14 +96,20 @@ async function readResponse(socket: Socket): Promise<string> {
   });
 }
 
+function responseCode(response: string) {
+  return Number(response.slice(0, 3));
+}
+
 function assertCode(response: string, allowed: number[]) {
-  const code = Number(response.slice(0, 3));
+  const code = responseCode(response);
   if (!allowed.includes(code)) throw new Error(`smtp_${code || 'unknown'}`);
 }
 
 async function command(socket: Socket, value: string, allowed: number[]) {
   socket.write(`${value}\r\n`);
-  assertCode(await readResponse(socket), allowed);
+  const response = await readResponse(socket);
+  assertCode(response, allowed);
+  return response;
 }
 
 function waitForConnect(socket: Socket): Promise<void> {
@@ -193,6 +203,21 @@ async function openSmtpTlsSocket(host: string, port: number): Promise<TLSSocket>
   }
 }
 
+async function authenticateSmtp(socket: TLSSocket, user: string, pass: string) {
+  const plainResponse = await command(
+    socket,
+    `AUTH PLAIN ${Buffer.from(`\u0000${user}\u0000${pass}`, 'utf8').toString('base64')}`,
+    [235, 535],
+  );
+  const plainCode = responseCode(plainResponse);
+  if (plainCode === 235) return;
+  if (!shouldFallbackToLoginAfterPlain(plainCode)) throw new Error(`smtp_${plainCode || 'unknown'}`);
+
+  await command(socket, 'AUTH LOGIN', [334]);
+  await command(socket, Buffer.from(user, 'utf8').toString('base64'), [334]);
+  await command(socket, Buffer.from(pass, 'utf8').toString('base64'), [235]);
+}
+
 async function sendViaSmtp(mail: TransactionalMail): Promise<MailDeliveryResult> {
   if (!smtpConfigured()) return { delivered: false, provider: 'none', reason: 'smtp_not_configured' };
 
@@ -215,7 +240,7 @@ async function sendViaSmtp(mail: TransactionalMail): Promise<MailDeliveryResult>
   let socket: TLSSocket | undefined;
   try {
     socket = await openSmtpTlsSocket(host, port);
-    await command(socket, `AUTH PLAIN ${Buffer.from(`\u0000${user}\u0000${pass}`, 'utf8').toString('base64')}`, [235]);
+    await authenticateSmtp(socket, user, pass);
     await command(socket, `MAIL FROM:<${from}>`, [250]);
     await command(socket, `RCPT TO:<${mail.to}>`, [250, 251]);
     await command(socket, 'DATA', [354]);
