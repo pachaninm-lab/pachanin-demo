@@ -66,13 +66,16 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           text = Path('.github/workflows/production-p0-regru-mail-auth-diagnostic.yml').read_text(encoding='utf-8')
-          required = [
-              'mail.hosting.reg.ru',
-              "SMTP_PORT: '465'",
-              "IMAP_PORT: '993'",
+          runtime = text.split('\n  diagnose:\n', 1)[1]
+          authority_required = [
               "github.event.issue.number == 3072",
               "github.event.comment.author_association == 'OWNER'",
               'TRUSTED_CONNECTOR_APP_ID: 1144995',
+          ]
+          runtime_required = [
+              'mail.hosting.reg.ru',
+              "SMTP_PORT: '465'",
+              "IMAP_PORT: '993'",
               'StrictHostKeyChecking=yes',
               'IMAP_AUTH_RESULT=',
               'SMTP_AUTH_LOGIN_ADVERTISED=',
@@ -80,16 +83,12 @@ jobs:
               'SMTP_EXPLICIT_AUTH_RESULT=',
               'PRODUCTION_MUTATION=NONE',
           ]
-          for marker in required:
+          for marker in authority_required:
               assert marker in text, marker
-          forbidden = [
-              'send_message(',
-              'sendmail(',
-              'PC_RECONCILE_ACTIVE_RUNTIME',
-              'provision-production-p0-password-reset-runtime.sh',
-          ]
-          for marker in forbidden:
-              assert marker not in text, marker
+          for marker in runtime_required:
+              assert marker in runtime, marker
+          for marker in ('send_message(', 'sendmail(', 'PC_RECONCILE_ACTIVE_RUNTIME', 'provision-production-p0-password-reset-runtime.sh'):
+              assert marker not in runtime, marker
           PY
 
       - name: Verify issue-comment provenance through GitHub REST
@@ -247,10 +246,7 @@ jobs:
           umask 077
           CONFIG="$config" python3 - <<'PY'
           import json, os
-          payload = {
-              'user': os.environ['MAILBOX_USER'],
-              'password': os.environ['MAILBOX_PASSWORD'],
-          }
+          payload = {'user': os.environ['MAILBOX_USER'], 'password': os.environ['MAILBOX_PASSWORD']}
           for value in payload.values():
               if not value or any(c in value for c in ('\n', '\r', '\x00')):
                   raise SystemExit(20)
@@ -260,92 +256,72 @@ jobs:
           chmod 0600 "$config"
           cat > "$script" <<'PY'
           import base64, imaplib, json, smtplib, ssl, sys
-
-          HOST = 'mail.hosting.reg.ru'
-          SMTP_PORT = 465
-          IMAP_PORT = 993
+          HOST='mail.hosting.reg.ru'; SMTP_PORT=465; IMAP_PORT=993
           with open(sys.argv[1], encoding='utf-8') as handle:
-              cfg = json.load(handle)
-          user = cfg.get('user', '')
-          password = cfg.get('password', '')
-          if not user or not password or any(c in user + password for c in ('\n', '\r', '\x00')):
+              cfg=json.load(handle)
+          user=cfg.get('user',''); password=cfg.get('password','')
+          if not user or not password or any(c in user + password for c in ('\n','\r','\x00')):
               raise SystemExit(20)
-          context = ssl.create_default_context()
-          result = {
-              'IMAP_AUTH_RESULT': 'ERROR',
-              'SMTP_AUTH_LOGIN_ADVERTISED': '0',
-              'SMTP_AUTH_PLAIN_ADVERTISED': '0',
-              'SMTP_AUTH_CRAM_MD5_ADVERTISED': '0',
-              'SMTP_EXPLICIT_AUTH_METHOD': 'NONE',
-              'SMTP_EXPLICIT_AUTH_RESULT': 'NOT_ATTEMPTED',
-              'PRODUCTION_MUTATION': 'NONE',
+          context=ssl.create_default_context()
+          result={
+              'IMAP_AUTH_RESULT':'ERROR',
+              'SMTP_AUTH_LOGIN_ADVERTISED':'0',
+              'SMTP_AUTH_PLAIN_ADVERTISED':'0',
+              'SMTP_AUTH_CRAM_MD5_ADVERTISED':'0',
+              'SMTP_EXPLICIT_AUTH_METHOD':'NONE',
+              'SMTP_EXPLICIT_AUTH_RESULT':'NOT_ATTEMPTED',
+              'PRODUCTION_MUTATION':'NONE',
           }
-
           try:
-              mailbox = imaplib.IMAP4_SSL(HOST, IMAP_PORT, ssl_context=context, timeout=12)
-              mailbox.login(user, password)
-              result['IMAP_AUTH_RESULT'] = 'PASS'
-              try:
-                  mailbox.logout()
-              except Exception:
-                  pass
+              mailbox=imaplib.IMAP4_SSL(HOST,IMAP_PORT,ssl_context=context,timeout=12)
+              mailbox.login(user,password); result['IMAP_AUTH_RESULT']='PASS'
+              try: mailbox.logout()
+              except Exception: pass
           except imaplib.IMAP4.error:
-              result['IMAP_AUTH_RESULT'] = 'REJECTED'
+              result['IMAP_AUTH_RESULT']='REJECTED'
           except Exception:
-              result['IMAP_AUTH_RESULT'] = 'TRANSPORT_ERROR'
-
+              result['IMAP_AUTH_RESULT']='TRANSPORT_ERROR'
           try:
-              with smtplib.SMTP_SSL(HOST, SMTP_PORT, timeout=12, context=context) as client:
-                  code, _ = client.ehlo()
+              with smtplib.SMTP_SSL(HOST,SMTP_PORT,timeout=12,context=context) as client:
+                  code,_=client.ehlo()
                   if code != 250:
-                      result['SMTP_EXPLICIT_AUTH_RESULT'] = 'EHLO_FAILED'
+                      result['SMTP_EXPLICIT_AUTH_RESULT']='EHLO_FAILED'
                   else:
-                      methods = set(client.esmtp_features.get('auth', '').upper().split())
-                      result['SMTP_AUTH_LOGIN_ADVERTISED'] = '1' if 'LOGIN' in methods else '0'
-                      result['SMTP_AUTH_PLAIN_ADVERTISED'] = '1' if 'PLAIN' in methods else '0'
-                      result['SMTP_AUTH_CRAM_MD5_ADVERTISED'] = '1' if 'CRAM-MD5' in methods else '0'
-                      if result['IMAP_AUTH_RESULT'] == 'PASS':
+                      methods=set(client.esmtp_features.get('auth','').upper().split())
+                      result['SMTP_AUTH_LOGIN_ADVERTISED']='1' if 'LOGIN' in methods else '0'
+                      result['SMTP_AUTH_PLAIN_ADVERTISED']='1' if 'PLAIN' in methods else '0'
+                      result['SMTP_AUTH_CRAM_MD5_ADVERTISED']='1' if 'CRAM-MD5' in methods else '0'
+                      if result['IMAP_AUTH_RESULT']=='PASS':
                           if 'LOGIN' in methods:
-                              result['SMTP_EXPLICIT_AUTH_METHOD'] = 'LOGIN'
+                              result['SMTP_EXPLICIT_AUTH_METHOD']='LOGIN'
                               try:
-                                  code, _ = client.docmd('AUTH', 'LOGIN')
-                                  if code != 334:
-                                      result['SMTP_EXPLICIT_AUTH_RESULT'] = 'METHOD_REFUSED'
+                                  code,_=client.docmd('AUTH','LOGIN')
+                                  if code != 334: result['SMTP_EXPLICIT_AUTH_RESULT']='METHOD_REFUSED'
                                   else:
-                                      code, _ = client.docmd(base64.b64encode(user.encode('utf-8')).decode('ascii'))
-                                      if code != 334:
-                                          result['SMTP_EXPLICIT_AUTH_RESULT'] = 'USER_REFUSED'
+                                      code,_=client.docmd(base64.b64encode(user.encode()).decode('ascii'))
+                                      if code != 334: result['SMTP_EXPLICIT_AUTH_RESULT']='USER_REFUSED'
                                       else:
-                                          code, _ = client.docmd(base64.b64encode(password.encode('utf-8')).decode('ascii'))
-                                          result['SMTP_EXPLICIT_AUTH_RESULT'] = 'PASS' if code == 235 else ('REJECTED' if code in (530, 534, 535) else 'PROTOCOL_FAIL')
+                                          code,_=client.docmd(base64.b64encode(password.encode()).decode('ascii'))
+                                          result['SMTP_EXPLICIT_AUTH_RESULT']='PASS' if code==235 else ('REJECTED' if code in (530,534,535) else 'PROTOCOL_FAIL')
                               except smtplib.SMTPServerDisconnected:
-                                  result['SMTP_EXPLICIT_AUTH_RESULT'] = 'DISCONNECTED'
+                                  result['SMTP_EXPLICIT_AUTH_RESULT']='DISCONNECTED'
                           elif 'PLAIN' in methods:
-                              result['SMTP_EXPLICIT_AUTH_METHOD'] = 'PLAIN'
-                              token = base64.b64encode(('\x00' + user + '\x00' + password).encode('utf-8')).decode('ascii')
+                              result['SMTP_EXPLICIT_AUTH_METHOD']='PLAIN'
+                              token=base64.b64encode(('\x00'+user+'\x00'+password).encode()).decode('ascii')
                               try:
-                                  code, _ = client.docmd('AUTH', 'PLAIN ' + token)
-                                  result['SMTP_EXPLICIT_AUTH_RESULT'] = 'PASS' if code == 235 else ('REJECTED' if code in (530, 534, 535) else 'PROTOCOL_FAIL')
+                                  code,_=client.docmd('AUTH','PLAIN '+token)
+                                  result['SMTP_EXPLICIT_AUTH_RESULT']='PASS' if code==235 else ('REJECTED' if code in (530,534,535) else 'PROTOCOL_FAIL')
                               except smtplib.SMTPServerDisconnected:
-                                  result['SMTP_EXPLICIT_AUTH_RESULT'] = 'DISCONNECTED'
+                                  result['SMTP_EXPLICIT_AUTH_RESULT']='DISCONNECTED'
                           else:
-                              result['SMTP_EXPLICIT_AUTH_RESULT'] = 'NO_SUPPORTED_METHOD'
+                              result['SMTP_EXPLICIT_AUTH_RESULT']='NO_SUPPORTED_METHOD'
           except smtplib.SMTPServerDisconnected:
-              result['SMTP_EXPLICIT_AUTH_RESULT'] = 'DISCONNECTED'
+              result['SMTP_EXPLICIT_AUTH_RESULT']='DISCONNECTED'
           except ssl.SSLError:
-              result['SMTP_EXPLICIT_AUTH_RESULT'] = 'TLS_ERROR'
+              result['SMTP_EXPLICIT_AUTH_RESULT']='TLS_ERROR'
           except Exception:
-              result['SMTP_EXPLICIT_AUTH_RESULT'] = 'TRANSPORT_ERROR'
-
-          for key in (
-              'IMAP_AUTH_RESULT',
-              'SMTP_AUTH_LOGIN_ADVERTISED',
-              'SMTP_AUTH_PLAIN_ADVERTISED',
-              'SMTP_AUTH_CRAM_MD5_ADVERTISED',
-              'SMTP_EXPLICIT_AUTH_METHOD',
-              'SMTP_EXPLICIT_AUTH_RESULT',
-              'PRODUCTION_MUTATION',
-          ):
+              result['SMTP_EXPLICIT_AUTH_RESULT']='TRANSPORT_ERROR'
+          for key in ('IMAP_AUTH_RESULT','SMTP_AUTH_LOGIN_ADVERTISED','SMTP_AUTH_PLAIN_ADVERTISED','SMTP_AUTH_CRAM_MD5_ADVERTISED','SMTP_EXPLICIT_AUTH_METHOD','SMTP_EXPLICIT_AUTH_RESULT','PRODUCTION_MUTATION'):
               print(f'{key}={result[key]}')
           PY
           chmod 0600 "$script"
@@ -369,9 +345,7 @@ jobs:
           ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
           scp "${scp_common[@]}" "$CONFIG" "$USER@$HOST:$remote_cfg"
           scp "${scp_common[@]}" "$SCRIPT" "$USER@$HOST:$remote_script"
-          ssh "${ssh_common[@]}" "$USER@$HOST" \
-            "set -Eeuo pipefail; chmod 0600 '$remote_cfg' '$remote_script'; python3 '$remote_script' '$remote_cfg'" \
-            > "$EVIDENCE_DIR/result.txt"
+          ssh "${ssh_common[@]}" "$USER@$HOST" "set -Eeuo pipefail; chmod 0600 '$remote_cfg' '$remote_script'; python3 '$remote_script' '$remote_cfg'" > "$EVIDENCE_DIR/result.txt"
           grep -Eq '^IMAP_AUTH_RESULT=(PASS|REJECTED|TRANSPORT_ERROR)$' "$EVIDENCE_DIR/result.txt"
           grep -Eq '^SMTP_AUTH_LOGIN_ADVERTISED=[01]$' "$EVIDENCE_DIR/result.txt"
           grep -Eq '^SMTP_AUTH_PLAIN_ADVERTISED=[01]$' "$EVIDENCE_DIR/result.txt"
@@ -434,9 +408,7 @@ jobs:
         run: |
           set +e
           if [[ -n "${HOST:-}" && -n "${USER:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
-            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-              -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-              "$USER@$HOST" "rm -f '/tmp/pc-regru-mail-auth-diag-${GITHUB_RUN_ID}.json' '/tmp/pc-regru-mail-auth-diag-${GITHUB_RUN_ID}.py'" >/dev/null 2>&1 || true
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "$USER@$HOST" "rm -f '/tmp/pc-regru-mail-auth-diag-${GITHUB_RUN_ID}.json' '/tmp/pc-regru-mail-auth-diag-${GITHUB_RUN_ID}.py'" >/dev/null 2>&1 || true
           fi
           rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
           rm -f "${{ steps.bundle.outputs.config }}" "${{ steps.bundle.outputs.script }}"
