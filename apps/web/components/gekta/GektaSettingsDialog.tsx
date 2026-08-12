@@ -4,6 +4,7 @@ import * as React from 'react';
 import { X } from 'lucide-react';
 import { GEKTA_PATHS, type GektaLocale } from '@/lib/gekta/content';
 import { createSpeechRecognition, speechSynthesisAvailable } from '@/lib/gekta/speech';
+import { GektaPhoneCard } from './GektaPhoneCard';
 import { useDialogFocus } from './useDialogFocus';
 
 function Toggle({ id, label, hint, checked, onChange }: { id: string; label: string; hint: string; checked: boolean; onChange: (value: boolean) => void }) {
@@ -193,6 +194,10 @@ export function GektaSettingsDialog({ locale, answerLocale, hasHistory, voiceInp
             </button>
           ) : null}
         </section>
+
+        {/* Карточка сама решает, показываться ли: у анонимного посетителя
+            аккаунта нет, и поле телефона ему не нужно. */}
+        <GektaPhoneCard />
       </div>
     </div>
   );

@@ -47,6 +47,22 @@ describe('Gekta platform scenario and Gekta product are separate entry points', 
     expect(floatingEntry).toContain("<span aria-hidden='true' className='pc-gekta-floating-mark'>G</span>");
   });
 
+  it('reaches the rendered home, not just the base component file', () => {
+    // `/platform-v7` рендерит международную обёртку, а не базовый компонент
+    // напрямую: alias `@/components/platform-v7/PlatformV7StrategicHome`
+    // указывает на неё. Обёртка обходит дерево базового компонента и
+    // вырезает узлы — если она начнёт вырезать что-то ещё, блок продукта и
+    // плавающая кнопка молча исчезнут с живой страницы.
+    const international = read('components/platform-v7/PlatformV7StrategicHomeInternational.tsx');
+    expect(international).toContain("import { PlatformV7StrategicHome as BasePlatformV7StrategicHome } from './PlatformV7StrategicHome';");
+    expect(international).toContain('const base = await BasePlatformV7StrategicHome();');
+
+    const dropped = international.match(/return null;/gu) ?? [];
+    expect(dropped).toHaveLength(2);
+    expect(international).toContain("if (props.id === 'deal-path') return null;");
+    expect(international).toContain("if (element.type === 'article' && normalizedKey(element.key) === '08') return null;");
+  });
+
   it('keeps the platform dialog focused on platform value', () => {
     expect(assistant).toContain("emptyTitle: 'Чем я могу вам помочь?'");
     expect(assistant).toContain("subtitle: 'ИИ для сельского хозяйства и агробизнеса от «Прозрачной Цены»'");

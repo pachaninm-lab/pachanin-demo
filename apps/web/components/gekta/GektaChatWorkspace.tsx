@@ -19,6 +19,18 @@ import {
   safeProjects,
   type GektaProject,
 } from '@/lib/gekta/projects';
+import {
+  accountApi,
+  chunkImport,
+  importAlreadyDone,
+  importablePayload,
+  markImportDone,
+  toConversation,
+  toProject,
+  type ServerConversationRow,
+  type ServerProjectRow,
+  type WorkspaceMode,
+} from '@/lib/gekta/server-workspace';
 import { GektaComposer } from './GektaComposer';
 import { GektaEmptyState } from './GektaEmptyState';
 import { GektaMessageList } from './GektaMessageList';
@@ -38,6 +50,8 @@ const VOICE_INPUT_STORAGE = 'gekta-voice-input-v1';
 const VOICE_OUTPUT_STORAGE = 'gekta-voice-output-v1';
 const MAX_CONVERSATIONS = 60;
 const MAX_MESSAGES = 80;
+/** Заглушка тикета для аккаунта: у него нет квоты анонимного режима. */
+const ACCOUNT_TICKET = 'account';
 
 type HistoryTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 
@@ -104,6 +118,15 @@ function safeConversations(value: unknown): GektaConversation[] {
   });
 }
 
+function readStoredConversations(): GektaConversation[] {
+  try {
+    const stored = window.localStorage.getItem(HISTORY_STORAGE);
+    return safeConversations(stored ? JSON.parse(stored) : []);
+  } catch {
+    return [];
+  }
+}
+
 function finalText(locale: GektaLocale, snapshot: GatewayStreamSnapshot): string {
   if (snapshot.refusal === 'CANCELLED') return snapshot.text || CHAT_UI[locale].stopped;
   return snapshot.text || refusalCopy(locale, snapshot.refusal);
@@ -150,10 +173,24 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const [voiceInputEnabled, setVoiceInputEnabled] = React.useState(true);
   const [speechEnabled, setSpeechEnabled] = React.useState(true);
   const hydrated = React.useRef(false);
+  // Пока сервер не подтвердил аккаунт, авторитет истории — этот браузер.
+  const [workspaceMode, setWorkspaceMode] = React.useState<WorkspaceMode>('local');
+  const serverConversationIds = React.useRef(new Map<string, string>());
+  const sentMessageIds = React.useRef(new Set<string>());
+  /**
+   * Открытый диалог, читаемый из асинхронной догрузки реплик. Значение
+   * зеркалится эффектом, а не присваивается во время рендера: запись в ref
+   * при рендере — побочный эффект, который React вправе выполнить дважды.
+   */
+  const activeIdRef = React.useRef<string | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
   const stopRequested = React.useRef(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const nearBottom = React.useRef(true);
+
+  React.useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   React.useEffect(() => {
     try {
@@ -183,15 +220,92 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     }
   }, [locale]);
 
+  /**
+   * Переход на серверную историю.
+   *
+   * Мост отвечает 401, пока пользователь не вошёл, и 503, если API кабинета не
+   * настроен. В обоих случаях остаётся локальный режим: показывать пустую
+   * историю вместо уже существующей — потеря данных, а не аккуратность.
+   */
   React.useEffect(() => {
-    if (!hydrated.current) return;
-    try { window.localStorage.setItem(HISTORY_STORAGE, JSON.stringify(conversations.slice(0, MAX_CONVERSATIONS))); } catch {}
-  }, [conversations]);
+    let cancelled = false;
+    void (async () => {
+      const probe = await accountApi<{ entitlement: GektaEntitlementSnapshot }>('entitlement');
+      if (cancelled || !probe.ok) return;
+      // Значок остатка бесплатных ответов к аккаунту неприменим: там пробный
+      // период или подписка, а не счётчик анонимных ответов.
+      if (probe.data?.entitlement) setEntitlement({ ...probe.data.entitlement, remaining: null, limit: null });
+
+      // История для переноса читается прямо из хранилища, а не из состояния:
+      // так перенос не зависит от того, успел ли отработать эффект гидратации.
+      const local = readStoredConversations();
+      if (!importAlreadyDone() && local.length > 0) {
+        // Части отправляются последовательно, потому что целая история легко
+        // перерастает лимит тела запроса. Пока перенесено не всё, локальная
+        // копия остаётся авторитетом: иначе непереехавшие диалоги пропали бы.
+        let complete = true;
+        for (const chunk of chunkImport(importablePayload(local).conversations)) {
+          const imported = await accountApi('history/import', { method: 'POST', body: { conversations: chunk } });
+          if (cancelled) return;
+          if (!imported.ok) {
+            complete = false;
+            break;
+          }
+        }
+        if (!complete) return;
+        markImportDone();
+      }
+
+      const [serverConversations, serverProjects] = await Promise.all([
+        accountApi<{ conversations: ServerConversationRow[] }>('conversations'),
+        accountApi<{ projects: ServerProjectRow[] }>('projects'),
+      ]);
+      if (cancelled) return;
+
+      const now = new Date().toISOString();
+      // Переключение режима привязано к успешной загрузке списка: локальная
+      // копия удаляется только тогда, когда серверная история действительно
+      // прочитана. Иначе сбой чтения стёр бы историю и с экрана, и из браузера.
+      if (!serverConversations.ok) return;
+      {
+        const loaded = (serverConversations.data?.conversations ?? []).flatMap((row) => toConversation(row, now) ?? []);
+        // Загруженный диалог уже живёт на сервере под своим id: без этой
+        // отметки продолжение старого диалога создало бы его копию.
+        for (const conversation of loaded) {
+          serverConversationIds.current.set(conversation.id, conversation.id);
+          for (const message of conversation.messages) sentMessageIds.current.add(message.id);
+        }
+        setConversations(loaded);
+      }
+      if (serverProjects.ok) {
+        setProjects((serverProjects.data?.projects ?? []).flatMap((row) => toProject(row, now) ?? []));
+      }
+      setWorkspaceMode('server');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!hydrated.current) return;
+    // В серверном режиме локальная копия истории удаляется целиком: две копии
+    // одной истории неизбежно расходятся, и пользователь видит не то, что есть.
+    if (workspaceMode === 'server') {
+      try { window.localStorage.removeItem(HISTORY_STORAGE); } catch {}
+      return;
+    }
+    try { window.localStorage.setItem(HISTORY_STORAGE, JSON.stringify(conversations.slice(0, MAX_CONVERSATIONS))); } catch {}
+  }, [conversations, workspaceMode]);
+
+  React.useEffect(() => {
+    if (!hydrated.current) return;
+    if (workspaceMode === 'server') {
+      try { window.localStorage.removeItem(GEKTA_PROJECTS_STORAGE); } catch {}
+      return;
+    }
     try { window.localStorage.setItem(GEKTA_PROJECTS_STORAGE, JSON.stringify(projects.slice(0, GEKTA_PROJECT_LIMITS.maxProjects))); } catch {}
-  }, [projects]);
+  }, [projects, workspaceMode]);
 
   React.useEffect(() => {
     if ((!nearBottom.current && !sending) || !scrollRef.current) return;
@@ -229,15 +343,54 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     });
   }, [conversations, localeProjects, search]);
 
+  /**
+   * Запись диалога в аккаунт.
+   *
+   * Сервер выдаёт собственные идентификаторы, поэтому клиентский id диалога
+   * сопоставляется с серверным один раз и дальше переиспользуется. Отправленные
+   * сообщения помечаются, чтобы повторное сохранение того же хода не создавало
+   * дублей в истории.
+   */
+  const persistToServer = React.useCallback(async (
+    conversationId: string,
+    nextMessages: readonly GektaMessage[],
+    title: string,
+  ) => {
+    let serverId = serverConversationIds.current.get(conversationId);
+    if (!serverId) {
+      const created = await accountApi<{ id: string }>('conversations', {
+        method: 'POST',
+        body: { title, locale, projectId: activeProjectId },
+      });
+      if (!created.ok || typeof created.data?.id !== 'string') return;
+      serverId = created.data.id;
+      serverConversationIds.current.set(conversationId, serverId);
+    }
+    for (const message of nextMessages) {
+      if (sentMessageIds.current.has(message.id)) continue;
+      if (!message.text.trim()) continue;
+      const stored = await accountApi(`conversations/${encodeURIComponent(serverId)}/messages`, {
+        method: 'POST',
+        body: { role: message.role, body: message.text, citations: message.citations ?? [], attachments: message.attachments ?? [] },
+      });
+      if (stored.ok) sentMessageIds.current.add(message.id);
+    }
+  }, [activeProjectId, locale]);
+
   const saveConversation = React.useCallback((conversationId: string, nextMessages: readonly GektaMessage[], preferredTitle?: string) => {
     const now = new Date().toISOString();
+    let savedTitle = preferredTitle ?? '';
     setConversations((current) => {
       const existing = current.find((conversation) => conversation.id === conversationId);
       const title = preferredTitle || existing?.title || titleFrom(nextMessages.find((message) => message.role === 'user')?.text || ui.newChat);
+      savedTitle = title;
       const next: GektaConversation = { id: conversationId, locale, title, projectId: existing?.projectId ?? activeProjectId, createdAt: existing?.createdAt || now, updatedAt: now, messages: nextMessages.slice(-MAX_MESSAGES) };
       return [next, ...current.filter((conversation) => conversation.id !== conversationId)].slice(0, MAX_CONVERSATIONS);
     });
-  }, [activeProjectId, locale, ui.newChat]);
+    if (workspaceMode === 'server') {
+      void persistToServer(conversationId, nextMessages, savedTitle || titleFrom(nextMessages.find((message) => message.role === 'user')?.text || ui.newChat));
+    }
+  }, [activeProjectId, locale, persistToServer, ui.newChat, workspaceMode]);
 
   const stop = React.useCallback(() => {
     if (!abortRef.current) return;
@@ -337,6 +490,22 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   /** Server decides whether another answer may be generated. */
   const reserveAnswer = React.useCallback(async (): Promise<string | null> => {
+    // У вошедшего пользователя доступ решает аккаунт, а не квота анонимного
+    // режима: иначе пробный период упирался бы в десять бесплатных ответов.
+    if (workspaceMode === 'server') {
+      const decision = await accountApi<{ entitlement: GektaEntitlementSnapshot }>('entitlement');
+      if (decision.ok && decision.data?.entitlement) {
+        const snapshot = { ...decision.data.entitlement, remaining: null, limit: null };
+        setEntitlement(snapshot);
+        if (!snapshot.canAsk) {
+          track('gekta_registration_gate_view', locale);
+          return null;
+        }
+        // Ответ засчитывается на сервере при записи реплики ассистента,
+        // поэтому анонимный тикет здесь не нужен.
+        return ACCOUNT_TICKET;
+      }
+    }
     try {
       const response = await fetch('/api/gekta/entitlement', {
         method: 'POST',
@@ -356,9 +525,11 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     } catch {
       return null;
     }
-  }, [applyEntitlement, locale]);
+  }, [applyEntitlement, locale, workspaceMode]);
 
   const settleAnswer = React.useCallback(async (ticket: string) => {
+    // Счётчик аккаунта двигает сервер, когда сохраняет ответ ассистента.
+    if (ticket === ACCOUNT_TICKET) return;
     try {
       const response = await fetch('/api/gekta/entitlement', {
         method: 'POST',
@@ -493,45 +664,119 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     setError('');
     setDrawerOpen(false);
     onEnteredChat?.();
-  }, [onEnteredChat, stop]);
 
-  const renameConversation = React.useCallback((conversationId: string, title: string) => setConversations((current) => current.map((conversation) => conversation.id === conversationId ? { ...conversation, title: title.slice(0, 80), updatedAt: new Date().toISOString() } : conversation)), []);
+    // Список диалогов приходит с сервера без реплик — иначе каждая загрузка
+    // истории тянула бы всю переписку целиком. Сами реплики читаются при
+    // открытии диалога, иначе восстановленная история открывалась бы пустой.
+    if (workspaceMode !== 'server' || conversation.messages.length > 0) return;
+    const serverId = serverConversationIds.current.get(conversation.id);
+    if (!serverId) return;
+    void (async () => {
+      const loaded = await accountApi<ServerConversationRow>(`conversations/${encodeURIComponent(serverId)}`);
+      if (!loaded.ok || !loaded.data) return;
+      const restored = toConversation(loaded.data, new Date().toISOString());
+      if (!restored) return;
+      // Прочитанные реплики уже на сервере: без отметки следующая запись
+      // отправила бы их повторно.
+      for (const message of restored.messages) sentMessageIds.current.add(message.id);
+      setConversations((current) => current.map((item) => (
+        item.id === conversation.id ? { ...item, messages: restored.messages } : item
+      )));
+      // Пользователь мог уйти в другой диалог, пока читались реплики. Проверка
+      // идёт по ref, а не внутри обновления состояния: обновление обязано быть
+      // чистым, иначе StrictMode выполнит побочный эффект дважды.
+      if (activeIdRef.current === conversation.id) setMessages([...restored.messages]);
+    })();
+  }, [onEnteredChat, stop, workspaceMode]);
+
+  /**
+   * Серверный адрес диалога. Для загруженной из аккаунта переписки он совпадает
+   * с локальным, для только что начатой — появляется после первой записи.
+   */
+  const serverIdOf = React.useCallback((conversationId: string) => (
+    workspaceMode === 'server' ? serverConversationIds.current.get(conversationId) ?? null : null
+  ), [workspaceMode]);
+
+  const renameConversation = React.useCallback((conversationId: string, title: string) => {
+    const next = title.slice(0, 80);
+    setConversations((current) => current.map((conversation) => conversation.id === conversationId ? { ...conversation, title: next, updatedAt: new Date().toISOString() } : conversation));
+    const serverId = serverIdOf(conversationId);
+    if (serverId) void accountApi(`conversations/${encodeURIComponent(serverId)}`, { method: 'PATCH', body: { title: next } });
+  }, [serverIdOf]);
+
   const deleteConversation = React.useCallback((conversationId: string) => {
     if (!window.confirm(ui.deleteConfirm)) return;
     setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
     if (activeId === conversationId) { setActiveId(null); setMessages([]); setDocuments([]); }
-  }, [activeId, ui.deleteConfirm]);
+    const serverId = serverIdOf(conversationId);
+    if (serverId) void accountApi(`conversations/${encodeURIComponent(serverId)}`, { method: 'DELETE' });
+  }, [activeId, serverIdOf, ui.deleteConfirm]);
+
   const clearHistory = React.useCallback(() => {
     if (!window.confirm(ui.clearConfirm)) return;
+    // Очистка адресована текущему языку, поэтому на сервер уходят ровно те
+    // диалоги, которые исчезли с экрана. Общий DELETE стёр бы и остальные
+    // языки — пользователь этого не подтверждал.
+    const removed = workspaceMode === 'server'
+      ? conversations.filter((conversation) => conversation.locale === locale)
+      : [];
     setConversations((current) => current.filter((conversation) => conversation.locale !== locale));
     setActiveId(null); setMessages([]); setDocuments([]); setDrawerOpen(false);
-  }, [locale, ui.clearConfirm]);
+    for (const conversation of removed) {
+      const serverId = serverConversationIds.current.get(conversation.id);
+      if (serverId) void accountApi(`conversations/${encodeURIComponent(serverId)}`, { method: 'DELETE' });
+    }
+  }, [conversations, locale, ui.clearConfirm, workspaceMode]);
+
   const createProject = React.useCallback((name: string, description: string) => {
     const cleanName = normaliseProjectName(name);
     if (!cleanName) return;
     const now = new Date().toISOString();
-    const project: GektaProject = { id: id('project'), locale, name: cleanName, description: normaliseProjectDescription(description), createdAt: now, updatedAt: now };
+    const cleanDescription = normaliseProjectDescription(description);
+    const project: GektaProject = { id: id('project'), locale, name: cleanName, description: cleanDescription, createdAt: now, updatedAt: now };
     setProjects((current) => [project, ...current].slice(0, GEKTA_PROJECT_LIMITS.maxProjects));
     setActiveProjectId(project.id);
     track('gekta_project_created', locale);
-  }, [locale]);
+    if (workspaceMode !== 'server') return;
+    // Сервер выдаёт собственный id: локальная запись заменяется на серверную,
+    // иначе следующая загрузка показала бы два одинаковых проекта.
+    void (async () => {
+      const created = await accountApi<{ id: string }>('projects', {
+        method: 'POST',
+        body: { name: cleanName, description: cleanDescription, locale },
+      });
+      if (!created.ok || typeof created.data?.id !== 'string') return;
+      const serverId = created.data.id;
+      setProjects((current) => current.map((item) => (item.id === project.id ? { ...item, id: serverId } : item)));
+      setActiveProjectId((current) => (current === project.id ? serverId : current));
+      // Диалог, начатый до ответа сервера, уже несёт локальный id проекта.
+      // Без переадресации он остался бы висеть в несуществующей папке.
+      setConversations((current) => current.map((conversation) => (
+        conversation.projectId === project.id ? { ...conversation, projectId: serverId } : conversation
+      )));
+    })();
+  }, [locale, workspaceMode]);
 
   const renameProject = React.useCallback((projectId: string, name: string) => {
     const cleanName = normaliseProjectName(name);
     if (!cleanName) return;
     setProjects((current) => current.map((project) => project.id === projectId ? { ...project, name: cleanName, updatedAt: new Date().toISOString() } : project));
-  }, []);
+    if (workspaceMode === 'server') void accountApi(`projects/${encodeURIComponent(projectId)}`, { method: 'PATCH', body: { name: cleanName } });
+  }, [workspaceMode]);
 
   /** Deleting a project never deletes conversations: they return to the history. */
   const deleteProject = React.useCallback((projectId: string) => {
     setProjects((current) => current.filter((project) => project.id !== projectId));
     setConversations((current) => current.map((conversation) => conversation.projectId === projectId ? { ...conversation, projectId: null } : conversation));
     setActiveProjectId((current) => (current === projectId ? null : current));
-  }, []);
+    if (workspaceMode === 'server') void accountApi(`projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+  }, [workspaceMode]);
 
   const assignConversationProject = React.useCallback((conversationId: string, projectId: string | null) => {
     setConversations((current) => current.map((conversation) => conversation.id === conversationId ? { ...conversation, projectId, updatedAt: new Date().toISOString() } : conversation));
-  }, []);
+    const serverId = serverIdOf(conversationId);
+    if (serverId) void accountApi(`conversations/${encodeURIComponent(serverId)}`, { method: 'PATCH', body: { projectId } });
+  }, [serverIdOf]);
 
   const changeVoiceInput = React.useCallback((enabled: boolean) => {
     setVoiceInputEnabled(enabled);
