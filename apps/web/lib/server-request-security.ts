@@ -27,17 +27,16 @@ function normalizeHttpOrigin(value: string) {
 /**
  * Resolve the browser-facing target origin rather than the internal Node URL.
  *
- * Production is behind a TLS-terminating reverse proxy. OWASP and Next.js both
- * require Origin checks to compare against the public Host/X-Forwarded-Host
- * boundary in that topology. A configured site URL, when present, remains the
- * strongest authority; otherwise we use the proxy-preserved host/proto pair.
+ * An explicitly configured public origin is the strongest authority. Otherwise
+ * the production reverse proxy contract overwrites Host and X-Forwarded-Proto,
+ * so only that pair is trusted to reconstruct the public target origin. Do not
+ * trust X-Forwarded-Host here: the current proxy contract does not overwrite it.
  */
 export function resolveRequestTargetOrigin(request: Request) {
   const configured = String(process.env.PC_PUBLIC_ORIGIN || process.env.NEXT_PUBLIC_SITE_URL || '').trim();
   if (configured) return normalizeHttpOrigin(configured);
 
-  const forwardedHost = firstForwardedValue(request.headers.get('x-forwarded-host'));
-  const host = forwardedHost || firstForwardedValue(request.headers.get('host'));
+  const host = firstForwardedValue(request.headers.get('host'));
   const forwardedProto = firstForwardedValue(request.headers.get('x-forwarded-proto')).toLowerCase();
 
   let requestUrl: URL;

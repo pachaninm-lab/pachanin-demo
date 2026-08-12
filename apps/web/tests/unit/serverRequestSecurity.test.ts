@@ -22,20 +22,27 @@ function request(options: {
   headerToken?: string;
 } = {}) {
   const token = options.token ?? TOKEN;
-  const headers = new Headers({
-    host: options.host ?? 'web:3000',
-    cookie: `pc_csrf_token=${token}`,
-    'x-csrf-token': options.headerToken ?? token,
-  });
-  if (options.origin) headers.set('origin', options.origin);
-  if (options.forwardedHost) headers.set('x-forwarded-host', options.forwardedHost);
-  if (options.forwardedProto) headers.set('x-forwarded-proto', options.forwardedProto);
+  const headerValues = new Map<string, string>([
+    ['host', options.host ?? 'web:3000'],
+    ['cookie', `pc_csrf_token=${token}`],
+    ['x-csrf-token', options.headerToken ?? token],
+  ]);
+  if (options.origin) headerValues.set('origin', options.origin);
+  if (options.forwardedHost) headerValues.set('x-forwarded-host', options.forwardedHost);
+  if (options.forwardedProto) headerValues.set('x-forwarded-proto', options.forwardedProto);
 
-  return new Request(options.url ?? 'http://web:3000/api/auth/forgot-password', {
+  // These helpers execute on the server. Browser-like test environments may
+  // strip forbidden request headers such as Host/Cookie/Origin, so use a
+  // minimal server Request contract instead of the browser Fetch constructor.
+  return {
+    url: options.url ?? 'http://web:3000/api/auth/forgot-password',
     method: 'POST',
-    headers,
-    body: '{}',
-  });
+    headers: {
+      get(name: string) {
+        return headerValues.get(name.toLowerCase()) ?? null;
+      },
+    },
+  } as unknown as Request;
 }
 
 afterEach(() => {
@@ -43,7 +50,7 @@ afterEach(() => {
 });
 
 describe('server request security target-origin resolution', () => {
-  it('accepts a same-origin POST behind a TLS-terminating reverse proxy', () => {
+  it('accepts a same-origin POST behind the production TLS-terminating reverse proxy', () => {
     clearConfiguredOrigin();
     const req = request({
       origin: 'https://xn----8sbjf4befbjgs9b.xn--p1ai',
@@ -56,7 +63,21 @@ describe('server request security target-origin resolution', () => {
     expect(assertCsrf(req)).toEqual({ ok: true });
   });
 
-  it('uses X-Forwarded-Host when the proxy rewrites Host internally', () => {
+  it('does not trust X-Forwarded-Host when the proxy contract does not overwrite it', () => {
+    clearConfiguredOrigin();
+    const req = request({
+      origin: 'https://attacker.example',
+      host: 'xn----8sbjf4befbjgs9b.xn--p1ai',
+      forwardedHost: 'attacker.example',
+      forwardedProto: 'https',
+    });
+
+    expect(resolveRequestTargetOrigin(req)).toBe('https://xn----8sbjf4befbjgs9b.xn--p1ai');
+    expect(assertSameOriginIfPresent(req)).toEqual({ ok: false, reason: 'origin_mismatch' });
+    expect(assertCsrf(req)).toEqual({ ok: false, reason: 'origin_mismatch' });
+  });
+
+  it('fails closed if Host is internal and no configured public origin is available', () => {
     clearConfiguredOrigin();
     const req = request({
       origin: 'https://xn----8sbjf4befbjgs9b.xn--p1ai',
@@ -65,8 +86,8 @@ describe('server request security target-origin resolution', () => {
       forwardedProto: 'https',
     });
 
-    expect(resolveRequestTargetOrigin(req)).toBe('https://xn----8sbjf4befbjgs9b.xn--p1ai');
-    expect(assertCsrf(req)).toEqual({ ok: true });
+    expect(resolveRequestTargetOrigin(req)).toBe('https://web:3000');
+    expect(assertCsrf(req)).toEqual({ ok: false, reason: 'origin_mismatch' });
   });
 
   it('still rejects a cross-origin request even when the CSRF token matches', () => {
