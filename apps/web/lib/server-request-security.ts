@@ -10,6 +10,41 @@ function readCookie(request: Request, name: string) {
   return part ? decodeURIComponent(part.slice(prefix.length)) : '';
 }
 
+function firstForwardedValue(value: string | null) {
+  return String(value || '').split(',')[0]?.trim() || '';
+}
+
+function parseHttpOrigin(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function resolveTargetOrigin(request: Request): string | null {
+  const configured = String(process.env.NEXT_PUBLIC_SITE_URL || '').trim();
+  if (configured) {
+    return parseHttpOrigin(configured);
+  }
+
+  // Production terminates TLS at the controlled reverse proxy. The proxy
+  // overwrites Host and X-Forwarded-Proto before forwarding to the web runtime,
+  // so these two headers describe the public target origin even when request.url
+  // contains the internal container address. Do not trust client-supplied
+  // X-Forwarded-Host here: the current proxy contract does not overwrite it.
+  const forwardedProto = firstForwardedValue(request.headers.get('x-forwarded-proto')).toLowerCase();
+  const host = firstForwardedValue(request.headers.get('host'));
+  if ((forwardedProto === 'http' || forwardedProto === 'https') && host) {
+    const proxyOrigin = parseHttpOrigin(`${forwardedProto}://${host}`);
+    if (proxyOrigin) return proxyOrigin;
+  }
+
+  return parseHttpOrigin(request.url);
+}
+
 export function isUnsafeMethod(method?: string | null) {
   return !SAFE_METHODS.has(String(method || 'GET').toUpperCase());
 }
@@ -21,8 +56,10 @@ export function generateCsrfToken() {
 export function assertSameOriginIfPresent(request: Request) {
   const origin = request.headers.get('origin');
   if (!origin) return { ok: true as const };
-  const current = new URL(request.url).origin;
-  if (origin !== current) {
+
+  const sourceOrigin = parseHttpOrigin(origin);
+  const targetOrigin = resolveTargetOrigin(request);
+  if (!sourceOrigin || !targetOrigin || sourceOrigin !== targetOrigin) {
     return { ok: false as const, reason: 'origin_mismatch' };
   }
   return { ok: true as const };
