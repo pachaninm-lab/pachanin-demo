@@ -32,6 +32,7 @@
     "apps/api/src/modules/auth/dto/password-reset.dto.ts",
     "apps/api/src/modules/auth/dto/organization-access.dto.ts",
     "apps/api/src/modules/staff-access/staff-access.controller.ts",
+    "apps/api/src/modules/staff-access/registration-decision-session-boundary.spec.ts",
     "apps/api/test/auth/mfa-recovery.e2e-spec.ts",
     "apps/api/test/auth/persistent-auth.e2e-spec.ts",
     "apps/web/lib/server/transactional-mail.ts",
