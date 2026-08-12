@@ -27,12 +27,15 @@ import { GektaSidebar } from './GektaSidebar';
 import { GEKTA_ENTER_CHAT_EVENT } from './GektaProductCta';
 import { GektaSettingsDialog, type GektaAnswerLocale } from './GektaSettingsDialog';
 import { GektaAccessGate, GektaRemainingBadge } from './GektaAccessGate';
+import { GektaConsentDialog } from './GektaConsentDialog';
 import type { GektaEntitlementSnapshot } from '@/lib/gekta/entitlement';
 import type { GektaConversation, GektaMessage } from './GektaChatTypes';
 
 const HISTORY_STORAGE = 'gekta-conversations-v2';
 const LOCALE_STORAGE = 'gekta-locale-v1';
 const ANSWER_LOCALE_STORAGE = 'gekta-answer-locale-v1';
+const VOICE_INPUT_STORAGE = 'gekta-voice-input-v1';
+const VOICE_OUTPUT_STORAGE = 'gekta-voice-output-v1';
 const MAX_CONVERSATIONS = 60;
 const MAX_MESSAGES = 80;
 
@@ -142,6 +145,9 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const [answerLocale, setAnswerLocale] = React.useState<GektaAnswerLocale>('auto');
   const [entitlement, setEntitlement] = React.useState<GektaEntitlementSnapshot | null>(null);
   const [registrationUrl, setRegistrationUrl] = React.useState<string | null>(null);
+  const [consentRequired, setConsentRequired] = React.useState(false);
+  const [voiceInputEnabled, setVoiceInputEnabled] = React.useState(true);
+  const [speechEnabled, setSpeechEnabled] = React.useState(true);
   const hydrated = React.useRef(false);
   const abortRef = React.useRef<AbortController | null>(null);
   const stopRequested = React.useRef(false);
@@ -157,6 +163,8 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       setProjects(safeProjects(storedProjects ? JSON.parse(storedProjects) : []));
       const storedAnswerLocale = window.localStorage.getItem(ANSWER_LOCALE_STORAGE);
       if (storedAnswerLocale === 'ru' || storedAnswerLocale === 'en' || storedAnswerLocale === 'zh') setAnswerLocale(storedAnswerLocale);
+      if (window.localStorage.getItem(VOICE_INPUT_STORAGE) === 'off') setVoiceInputEnabled(false);
+      if (window.localStorage.getItem(VOICE_OUTPUT_STORAGE) === 'off') setSpeechEnabled(false);
       window.localStorage.setItem(LOCALE_STORAGE, locale);
       const params = new URLSearchParams(window.location.search);
       const prompt = params.get('prompt');
@@ -281,6 +289,86 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     setDrawerOpen(false);
     track('gekta_new_chat', locale);
   }, [locale, stop]);
+
+  const applyEntitlement = React.useCallback((payload: unknown) => {
+    if (!payload || typeof payload !== 'object') return;
+    const body = payload as { entitlement?: GektaEntitlementSnapshot; registrationUrl?: unknown; consent?: { version?: unknown } | null; legalVersion?: unknown };
+    if (body.entitlement && typeof body.entitlement === 'object') setEntitlement(body.entitlement);
+    setRegistrationUrl(typeof body.registrationUrl === 'string' ? body.registrationUrl : null);
+    if (typeof body.legalVersion === 'string') {
+      // Re-asked only when the documents themselves change version.
+      setConsentRequired(body.consent?.version !== body.legalVersion);
+    }
+  }, []);
+
+  const acceptConsent = React.useCallback(async () => {
+    setConsentRequired(false);
+    track('gekta_legal_consent_accepted', locale);
+    try {
+      const response = await fetch('/api/gekta/entitlement', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'consent' }),
+      });
+      if (response.ok) applyEntitlement(await response.json());
+    } catch {
+      // The notice is shown again on the next visit if the record did not land.
+    }
+  }, [locale]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/gekta/entitlement', { cache: 'no-store' });
+        if (!response.ok) return;
+        const payload: unknown = await response.json();
+        if (!cancelled) applyEntitlement(payload);
+      } catch {
+        // Access is decided by the server on every request; a failed probe only
+        // means the badge is not shown yet.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [applyEntitlement]);
+
+  /** Server decides whether another answer may be generated. */
+  const reserveAnswer = React.useCallback(async (): Promise<string | null> => {
+    try {
+      const response = await fetch('/api/gekta/entitlement', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reserve' }),
+      });
+      if (!response.ok) return null;
+      const payload = await response.json() as { allowed?: boolean; ticket?: string | null };
+      applyEntitlement(payload);
+      if (!payload.allowed) {
+        track('gekta_anonymous_limit_reached', locale);
+        track('gekta_registration_gate_view', locale);
+        return null;
+      }
+      return typeof payload.ticket === 'string' ? payload.ticket : null;
+    } catch {
+      return null;
+    }
+  }, [applyEntitlement, locale]);
+
+  const settleAnswer = React.useCallback(async (ticket: string) => {
+    try {
+      const response = await fetch('/api/gekta/entitlement', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'complete', ticket }),
+      });
+      if (response.ok) applyEntitlement(await response.json());
+    } catch {
+      // The reservation is settled server-side on the next request anyway.
+    }
+  }, [applyEntitlement]);
 
   const runGeneration = React.useCallback(async ({ question, history, conversationId, baseMessages, ticket }: { question: string; history: HistoryTurn[]; conversationId: string; baseMessages: readonly GektaMessage[]; ticket: string }) => {
     if (sending) return;
@@ -416,66 +504,6 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     setConversations((current) => current.filter((conversation) => conversation.locale !== locale));
     setActiveId(null); setMessages([]); setDocuments([]); setDrawerOpen(false);
   }, [locale, ui.clearConfirm]);
-  const applyEntitlement = React.useCallback((payload: unknown) => {
-    if (!payload || typeof payload !== 'object') return;
-    const body = payload as { entitlement?: GektaEntitlementSnapshot; registrationUrl?: unknown };
-    if (body.entitlement && typeof body.entitlement === 'object') setEntitlement(body.entitlement);
-    setRegistrationUrl(typeof body.registrationUrl === 'string' ? body.registrationUrl : null);
-  }, []);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const response = await fetch('/api/gekta/entitlement', { cache: 'no-store' });
-        if (!response.ok) return;
-        const payload: unknown = await response.json();
-        if (!cancelled) applyEntitlement(payload);
-      } catch {
-        // Access is decided by the server on every request; a failed probe only
-        // means the badge is not shown yet.
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [applyEntitlement]);
-
-  /** Server decides whether another answer may be generated. */
-  const reserveAnswer = React.useCallback(async (): Promise<string | null> => {
-    try {
-      const response = await fetch('/api/gekta/entitlement', {
-        method: 'POST',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reserve' }),
-      });
-      if (!response.ok) return null;
-      const payload = await response.json() as { allowed?: boolean; ticket?: string | null };
-      applyEntitlement(payload);
-      if (!payload.allowed) {
-        track('gekta_anonymous_limit_reached', locale);
-        track('gekta_registration_gate_view', locale);
-        return null;
-      }
-      return typeof payload.ticket === 'string' ? payload.ticket : null;
-    } catch {
-      return null;
-    }
-  }, [applyEntitlement, locale]);
-
-  const settleAnswer = React.useCallback(async (ticket: string) => {
-    try {
-      const response = await fetch('/api/gekta/entitlement', {
-        method: 'POST',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'complete', ticket }),
-      });
-      if (response.ok) applyEntitlement(await response.json());
-    } catch {
-      // The reservation is settled server-side on the next request anyway.
-    }
-  }, [applyEntitlement]);
-
   const createProject = React.useCallback((name: string, description: string) => {
     const cleanName = normaliseProjectName(name);
     if (!cleanName) return;
@@ -501,6 +529,16 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   const assignConversationProject = React.useCallback((conversationId: string, projectId: string | null) => {
     setConversations((current) => current.map((conversation) => conversation.id === conversationId ? { ...conversation, projectId, updatedAt: new Date().toISOString() } : conversation));
+  }, []);
+
+  const changeVoiceInput = React.useCallback((enabled: boolean) => {
+    setVoiceInputEnabled(enabled);
+    try { window.localStorage.setItem(VOICE_INPUT_STORAGE, enabled ? 'on' : 'off'); } catch {}
+  }, []);
+
+  const changeVoiceOutput = React.useCallback((enabled: boolean) => {
+    setSpeechEnabled(enabled);
+    try { window.localStorage.setItem(VOICE_OUTPUT_STORAGE, enabled ? 'on' : 'off'); } catch {}
   }, []);
 
   const changeAnswerLocale = React.useCallback((next: GektaAnswerLocale) => {
@@ -560,23 +598,28 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
           </header>
 
           <div ref={scrollRef} onScroll={(event) => { const root = event.currentTarget; const distance = root.scrollHeight - root.scrollTop - root.clientHeight; nearBottom.current = distance < 140; setShowScroll(distance > 260); }} className={`${activeChat ? 'min-h-0 flex-1 overflow-y-auto' : 'flex-1'} overscroll-contain`}>
-            {messages.length ? <GektaMessageList messages={messages} sending={sending} labels={{ assistant: ui.assistant, you: ui.you, copy: ui.copy, copied: ui.copied, retry: ui.retry, sources: ui.sources, working: ui.working }} copiedId={copiedId} onCopy={(message) => void copyMessage(message)} onRetry={(index) => void retry(index)} onSourceOpen={() => track('gekta_source_opened', locale)} /> : <GektaEmptyState locale={locale} hero={discoveryHero} starters={product.starters} onStarter={useStarter} />}
+            {messages.length ? <GektaMessageList messages={messages} locale={locale} sending={sending} speechEnabled={speechEnabled} onSpeech={(event) => track(event === 'started' ? 'gekta_tts_started' : 'gekta_tts_stopped', locale)} labels={{ assistant: ui.assistant, you: ui.you, copy: ui.copy, copied: ui.copied, retry: ui.retry, sources: ui.sources, working: ui.working }} copiedId={copiedId} onCopy={(message) => void copyMessage(message)} onRetry={(index) => void retry(index)} onSourceOpen={() => track('gekta_source_opened', locale)} /> : <GektaEmptyState locale={locale} hero={discoveryHero} starters={product.starters} onStarter={useStarter} />}
             {error ? <div className='mx-auto mb-2 w-full max-w-[920px] px-4 sm:px-6'><p className='rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800' role='alert'>{error}</p></div> : null}
           </div>
 
           {showScroll && activeChat ? <button type='button' onClick={() => { const root = scrollRef.current; if (root) root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' }); }} className='absolute bottom-36 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md' aria-label='Scroll to bottom'><ArrowDown className='h-4 w-4' aria-hidden='true' /></button> : null}
 
           <div className={`${activeChat ? 'shrink-0 border-t border-slate-200/70 bg-[#fcfbf7]/95 backdrop-blur' : 'pb-7'}`}>
-            {entitlement && !entitlement.canAsk ? <GektaAccessGate locale={locale} registrationUrl={registrationUrl} /> : <GektaComposer locale={locale} value={input} placeholder={product.placeholder} sending={sending} stopLabel={ui.stop} sendLabel={ui.send} boundary={ui.boundary} documents={documents} onDocuments={setDocuments} onChange={setInput} onSubmit={() => void submit()} onStop={stop} onError={setError} />}
+            {entitlement && !entitlement.canAsk ? <GektaAccessGate locale={locale} registrationUrl={registrationUrl} /> : <GektaComposer locale={locale} value={input} placeholder={product.placeholder} sending={sending} stopLabel={ui.stop} sendLabel={ui.send} boundary={ui.boundary} documents={documents} onDocuments={setDocuments} onChange={setInput} onSubmit={() => void submit()} onStop={stop} onError={setError} voiceEnabled={voiceInputEnabled} />}
           </div>
         </main>
       </div>
       <GektaMobileDrawer open={drawerOpen} closeLabel={ui.closeMenu} onClose={() => setDrawerOpen(false)}><GektaSidebar {...sidebarProps} /></GektaMobileDrawer>
+      {consentRequired && activeChat ? <GektaConsentDialog locale={locale} onAccept={() => void acceptConsent()} /> : null}
       {settingsOpen ? (
         <GektaSettingsDialog
           locale={locale}
           answerLocale={answerLocale}
           hasHistory={conversations.length > 0}
+          voiceInputEnabled={voiceInputEnabled}
+          voiceOutputEnabled={speechEnabled}
+          onVoiceInput={changeVoiceInput}
+          onVoiceOutput={changeVoiceOutput}
           onAnswerLocale={changeAnswerLocale}
           onLocale={switchLocale}
           onClearHistory={() => { clearHistory(); setSettingsOpen(false); }}

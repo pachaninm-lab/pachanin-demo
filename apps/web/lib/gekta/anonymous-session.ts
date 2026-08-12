@@ -24,6 +24,8 @@ export type GektaAnonymousSession = Readonly<{
   /** An issued-but-unsettled answer, so an abandoned stream still costs one. */
   pending: string | null;
   issuedAt: number;
+  /** Recorded acceptance of the legal notice: which version, and when. */
+  consent?: Readonly<{ version: string; at: number }> | null;
 }>;
 
 let processSecret: string | null = null;
@@ -74,10 +76,22 @@ export function parseAnonymousSession(raw: string | undefined | null): GektaAnon
     if (typeof value.used !== 'number' || !Number.isFinite(value.used) || value.used < 0) return null;
     if (typeof value.issuedAt !== 'number' || !Number.isFinite(value.issuedAt)) return null;
     const pending = typeof value.pending === 'string' && value.pending ? value.pending : null;
-    return { sid: value.sid, used: Math.floor(value.used), pending, issuedAt: value.issuedAt };
+    const rawConsent = value.consent;
+    let consent: { version: string; at: number } | null = null;
+    if (rawConsent && typeof rawConsent === 'object' && !Array.isArray(rawConsent)) {
+      const record = rawConsent as Record<string, unknown>;
+      if (typeof record.version === 'string' && typeof record.at === 'number' && Number.isFinite(record.at)) {
+        consent = { version: record.version, at: record.at };
+      }
+    }
+    return { sid: value.sid, used: Math.floor(value.used), pending, issuedAt: value.issuedAt, consent };
   } catch {
     return null;
   }
+}
+
+export function recordConsent(session: GektaAnonymousSession, version: string, now: Date): GektaAnonymousSession {
+  return { ...session, consent: { version, at: now.getTime() } };
 }
 
 export function issueTicket(): string {

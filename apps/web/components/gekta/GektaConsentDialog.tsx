@@ -1,0 +1,76 @@
+'use client';
+
+import Link from 'next/link';
+import type { GektaLocale } from '@/lib/gekta/content';
+import { useDialogFocus } from './useDialogFocus';
+
+const UI = {
+  ru: {
+    title: 'Перед началом',
+    body: 'Гекта использует искусственный интеллект и помогает разбираться в аграрных задачах. Ответы могут требовать проверки и не заменяют профильного специалиста.',
+    accept: 'Продолжая, вы принимаете',
+    terms: 'условия использования',
+    and: 'и',
+    privacy: 'политику конфиденциальности',
+    cta: 'Понятно, начать',
+  },
+  en: {
+    title: 'Before you start',
+    body: 'Gekta uses artificial intelligence to help work through agricultural tasks. Answers may need checking and do not replace a qualified specialist.',
+    accept: 'By continuing you accept the',
+    terms: 'terms of use',
+    and: 'and the',
+    privacy: 'privacy policy',
+    cta: 'Got it, start',
+  },
+  zh: {
+    title: '开始之前',
+    body: 'Gekta 使用人工智能帮助分析农业任务。回答可能需要核实，且不能替代专业人员。',
+    accept: '继续即表示您接受',
+    terms: '使用条款',
+    and: '与',
+    privacy: '隐私政策',
+    cta: '知道了，开始',
+  },
+} as const;
+
+/**
+ * One compact notice before the first conversation. Acceptance is recorded
+ * server-side against the session id and the document version, so it is not
+ * shown again until the documents actually change.
+ */
+export function GektaConsentDialog({ locale, onAccept }: { locale: GektaLocale; onAccept: () => void }) {
+  const ui = UI[locale];
+  // Accepting is the only way out: this notice has no dismiss action.
+  const panelRef = useDialogFocus(true, onAccept);
+
+  return (
+    <div className='fixed inset-0 z-[95] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-4'>
+      <div
+        ref={panelRef}
+        role='dialog'
+        aria-modal='true'
+        aria-labelledby='gekta-consent-title'
+        data-gekta-consent='true'
+        className='w-full rounded-t-3xl bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-md sm:rounded-3xl sm:pb-5'
+      >
+        <h2 id='gekta-consent-title' className='text-base font-semibold text-slate-950'>{ui.title}</h2>
+        <p className='mt-2 text-sm leading-6 text-slate-600'>{ui.body}</p>
+        <p className='mt-3 text-xs leading-5 text-slate-500'>
+          {ui.accept}{' '}
+          <Link href='/legal/usloviya-ispolzovaniya-gekta' className='font-medium text-emerald-800 underline underline-offset-2'>{ui.terms}</Link>{' '}
+          {ui.and}{' '}
+          <Link href='/legal/politika-konfidencialnosti' className='font-medium text-emerald-800 underline underline-offset-2'>{ui.privacy}</Link>.
+        </p>
+        <button
+          type='button'
+          onClick={onAccept}
+          className='mt-5 min-h-11 w-full rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
+          data-gekta-consent-accept='true'
+        >
+          {ui.cta}
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -8,9 +8,11 @@ import {
   parseAnonymousSession,
   reserveAnswer,
   serializeAnonymousSession,
+  recordConsent,
   settlePending,
   type GektaAnonymousSession,
 } from '@/lib/gekta/anonymous-session';
+import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 import { resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
 
 /**
@@ -50,7 +52,12 @@ function readSession(request: NextRequest): GektaAnonymousSession {
 export async function GET(request: NextRequest) {
   const now = new Date();
   const session = readSession(request);
-  return respond(session, { entitlement: resolveAnonymousEntitlement({ used: session.used }, now), registrationUrl: registrationUrl() }, now);
+  return respond(session, {
+    entitlement: resolveAnonymousEntitlement({ used: session.used }, now),
+    consent: session.consent ?? null,
+    legalVersion: GEKTA_LEGAL_VERSION,
+    registrationUrl: registrationUrl(),
+  }, now);
 }
 
 export async function POST(request: NextRequest) {
@@ -67,12 +74,19 @@ export async function POST(request: NextRequest) {
     body = null;
   }
   const payload = body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
-  const action = payload.action === 'reserve' || payload.action === 'complete' ? payload.action : null;
+  const action = payload.action === 'reserve' || payload.action === 'complete' || payload.action === 'consent' ? payload.action : null;
   if (!action) {
     return NextResponse.json({ error: 'unsupported_action' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
 
   const current = readSession(request);
+
+  if (action === 'consent') {
+    // Consent is bound to the anonymous session id, the document version and
+    // the server clock, and signed so the record cannot be edited client-side.
+    const accepted = recordConsent(current, GEKTA_LEGAL_VERSION, now);
+    return respond(accepted, { entitlement: resolveAnonymousEntitlement({ used: accepted.used }, now), consent: accepted.consent, legalVersion: GEKTA_LEGAL_VERSION, registrationUrl: registrationUrl() }, now);
+  }
 
   if (action === 'complete') {
     const ticket = typeof payload.ticket === 'string' ? payload.ticket : '';

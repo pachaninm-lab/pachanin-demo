@@ -3,7 +3,26 @@
 import * as React from 'react';
 import { X } from 'lucide-react';
 import { GEKTA_PATHS, type GektaLocale } from '@/lib/gekta/content';
+import { createSpeechRecognition, speechSynthesisAvailable } from '@/lib/gekta/speech';
 import { useDialogFocus } from './useDialogFocus';
+
+function Toggle({ id, label, hint, checked, onChange }: { id: string; label: string; hint: string; checked: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <div className='mt-3 flex items-start gap-3'>
+      <input
+        id={id}
+        type='checkbox'
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className='mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
+      />
+      <label htmlFor={id} className='min-w-0'>
+        <span className='block text-sm font-medium text-slate-800'>{label}</span>
+        <span className='mt-0.5 block text-xs leading-5 text-slate-500'>{hint}</span>
+      </label>
+    </div>
+  );
+}
 
 export type GektaAnswerLocale = 'auto' | GektaLocale;
 
@@ -17,6 +36,12 @@ const UI = {
     answerLanguage: 'Язык ответа',
     answerAuto: 'Как интерфейс',
     answerHint: 'Гекта отвечает на выбранном языке. «Как интерфейс» — язык страницы.',
+    voice: 'Голос',
+    voiceInput: 'Голосовой ввод',
+    voiceInputHint: 'Кнопка микрофона в поле ввода. Речь преобразуется в текст средствами браузера, аудио не сохраняется.',
+    voiceOutput: 'Озвучивание ответов',
+    voiceOutputHint: 'Кнопка «Прослушать» под ответом Гекты. Используется синтез речи браузера.',
+    voiceUnsupported: 'Браузер не поддерживает эту функцию — обычный чат работает без неё.',
     history: 'История и приватность',
     historyHint: 'История анонимного режима хранится только в этом браузере и не передаётся вместе с аналитикой.',
     clear: 'Удалить историю в этом браузере',
@@ -31,6 +56,12 @@ const UI = {
     answerLanguage: 'Answer language',
     answerAuto: 'Follow interface',
     answerHint: 'Gekta answers in the selected language. "Follow interface" uses the page language.',
+    voice: 'Voice',
+    voiceInput: 'Voice input',
+    voiceInputHint: 'A microphone button in the composer. Speech is turned into text by the browser and audio is not stored.',
+    voiceOutput: 'Read answers aloud',
+    voiceOutputHint: 'A "Listen" button under a Gekta answer, using the browser\u2019s own speech synthesis.',
+    voiceUnsupported: 'This browser does not support the feature — the normal chat works without it.',
     history: 'History and privacy',
     historyHint: 'Anonymous history is stored only in this browser and is never sent with analytics.',
     clear: 'Delete history in this browser',
@@ -45,6 +76,12 @@ const UI = {
     answerLanguage: '回答语言',
     answerAuto: '跟随界面',
     answerHint: 'Gekta 会使用所选语言回答。“跟随界面”表示使用页面语言。',
+    voice: '语音',
+    voiceInput: '语音输入',
+    voiceInputHint: '输入框中的麦克风按钮。由浏览器将语音转为文本，不保存音频。',
+    voiceOutput: '朗读回答',
+    voiceOutputHint: 'Gekta 回答下方的“朗读”按钮，使用浏览器自带的语音合成。',
+    voiceUnsupported: '此浏览器不支持该功能 — 普通聊天不受影响。',
     history: '历史与隐私',
     historyHint: '匿名历史记录仅保存在此浏览器中，且不会随分析数据发送。',
     clear: '删除此浏览器中的历史记录',
@@ -56,18 +93,30 @@ const UI = {
  * Only settings that work end to end are shown. Appearance, voice and
  * subscription controls appear here when the feature behind them is real.
  */
-export function GektaSettingsDialog({ locale, answerLocale, hasHistory, extraSections, onAnswerLocale, onLocale, onClearHistory, onClose }: {
+export function GektaSettingsDialog({ locale, answerLocale, hasHistory, voiceInputEnabled, voiceOutputEnabled, extraSections, onAnswerLocale, onVoiceInput, onVoiceOutput, onLocale, onClearHistory, onClose }: {
   locale: GektaLocale;
   answerLocale: GektaAnswerLocale;
   hasHistory: boolean;
+  voiceInputEnabled: boolean;
+  voiceOutputEnabled: boolean;
   extraSections?: React.ReactNode;
   onAnswerLocale: (value: GektaAnswerLocale) => void;
+  onVoiceInput: (enabled: boolean) => void;
+  onVoiceOutput: (enabled: boolean) => void;
   onLocale: (value: GektaLocale) => void;
   onClearHistory: () => void;
   onClose: () => void;
 }) {
   const ui = UI[locale];
   const panelRef = useDialogFocus(true, onClose);
+  const [speechCapable, setSpeechCapable] = React.useState(false);
+
+  // Voice controls appear only where the browser can actually deliver them.
+  React.useEffect(() => {
+    const recognition = createSpeechRecognition(locale);
+    setSpeechCapable(recognition !== null || speechSynthesisAvailable());
+    recognition?.abort?.();
+  }, [locale]);
 
   return (
     <div className='fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4' onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -119,6 +168,18 @@ export function GektaSettingsDialog({ locale, answerLocale, hasHistory, extraSec
             <option value='zh'>{ui.languages.zh}</option>
           </select>
           <p className='mt-2 text-xs leading-5 text-slate-500'>{ui.answerHint}</p>
+        </section>
+
+        <section className='mt-6'>
+          <h3 className='text-sm font-semibold text-slate-900'>{ui.voice}</h3>
+          {speechCapable ? (
+            <>
+              <Toggle id='gekta-voice-input' label={ui.voiceInput} hint={ui.voiceInputHint} checked={voiceInputEnabled} onChange={onVoiceInput} />
+              <Toggle id='gekta-voice-output' label={ui.voiceOutput} hint={ui.voiceOutputHint} checked={voiceOutputEnabled} onChange={onVoiceOutput} />
+            </>
+          ) : (
+            <p className='mt-2 text-xs leading-5 text-slate-500'>{ui.voiceUnsupported}</p>
+          )}
         </section>
 
         {extraSections}

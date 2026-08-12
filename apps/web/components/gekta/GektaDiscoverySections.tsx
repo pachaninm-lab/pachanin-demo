@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { ArrowRight, CheckCircle2, ExternalLink, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { GEKTA_TOPICS, getGektaCopy, type GektaLocale } from '@/lib/gekta/content';
 import { getGektaProductCopy } from '@/lib/gekta/product-copy';
 import { GektaCapabilities } from './GektaCapabilities';
+import { GektaLegalFooter } from './GektaLegalFooter';
 import { GektaProductCta } from './GektaProductCta';
 
 export function GektaDiscoverySections({ locale }: { locale: GektaLocale }) {
@@ -85,6 +86,8 @@ export function GektaDiscoverySections({ locale }: { locale: GektaLocale }) {
         <h2 className='text-2xl font-semibold tracking-tight text-slate-950 sm:text-4xl'>{copy.faqTitle}</h2>
         <div className='mt-8 divide-y divide-slate-200 border-y border-slate-200'>{copy.faq.map(([question, answer]) => <details key={question} className='group py-5'><summary className='cursor-pointer list-none pr-8 text-base font-semibold text-slate-950 marker:hidden'>{question}</summary><p className='mt-3 max-w-3xl leading-7 text-slate-600'>{answer}</p></details>)}</div>
       </section>
+
+      <GektaLegalFooter locale={locale} />
     </div>
   );
 }

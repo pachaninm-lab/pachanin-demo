@@ -1,12 +1,15 @@
 'use client';
 
 import { Check, Copy, RotateCcw } from 'lucide-react';
+import type { GektaLocale } from '@/lib/gekta/content';
 import { GektaMarkdown } from './GektaMarkdown';
+import { GektaSpeakButton } from './GektaSpeakButton';
 import { GektaSourceList } from './GektaSourceList';
 import type { GektaMessage as Message } from './GektaChatTypes';
 
-export function GektaMessage({ message, assistantName, you, copyLabel, copiedLabel, retryLabel, sourceLabel, copied, canRetry, onCopy, onRetry, onSourceOpen }: {
+export function GektaMessage({ message, locale, assistantName, you, copyLabel, copiedLabel, retryLabel, sourceLabel, copied, canRetry, speechEnabled, onCopy, onRetry, onSourceOpen, onSpeech }: {
   message: Message;
+  locale: GektaLocale;
   assistantName: string;
   you: string;
   copyLabel: string;
@@ -15,9 +18,11 @@ export function GektaMessage({ message, assistantName, you, copyLabel, copiedLab
   sourceLabel: string;
   copied: boolean;
   canRetry: boolean;
+  speechEnabled: boolean;
   onCopy: () => void;
   onRetry: () => void;
   onSourceOpen: () => void;
+  onSpeech?: (event: 'started' | 'stopped') => void;
 }) {
   const user = message.role === 'user';
   const avatar = user ? you.slice(0, 1).toLocaleUpperCase() : 'G';
@@ -34,6 +39,7 @@ export function GektaMessage({ message, assistantName, you, copyLabel, copiedLab
             <div className='mt-3 flex flex-wrap gap-2 text-xs font-medium text-slate-500'>
               <button type='button' onClick={onCopy} className='inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700'>{copied ? <Check className='h-3.5 w-3.5' aria-hidden='true' /> : <Copy className='h-3.5 w-3.5' aria-hidden='true' />}{copied ? copiedLabel : copyLabel}</button>
               {canRetry ? <button type='button' onClick={onRetry} className='inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700'><RotateCcw className='h-3.5 w-3.5' aria-hidden='true' />{retryLabel}</button> : null}
+              {speechEnabled ? <GektaSpeakButton locale={locale} text={message.text} onEvent={onSpeech} /> : null}
             </div>
           ) : null}
         </div>
