@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: /platform-v7-production-mobile-acceptance\.spec\.ts/,
+  testMatch: /(?:platform-v7|gekta)-production-mobile-acceptance\.spec\.ts/,
   fullyParallel: false,
   forbidOnly: true,
   retries: 1,

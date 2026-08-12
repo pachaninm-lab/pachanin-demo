@@ -32,8 +32,8 @@ export function GektaMessage({ message, assistantName, you, copyLabel, copiedLab
           {!user && message.citations?.length ? <GektaSourceList citations={message.citations} label={sourceLabel} onOpen={onSourceOpen} /> : null}
           {!user && message.text ? (
             <div className='mt-3 flex flex-wrap gap-2 text-xs font-medium text-slate-500'>
-              <button type='button' onClick={onCopy} className='inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2.5 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700'>{copied ? <Check className='h-3.5 w-3.5' aria-hidden='true' /> : <Copy className='h-3.5 w-3.5' aria-hidden='true' />}{copied ? copiedLabel : copyLabel}</button>
-              {canRetry ? <button type='button' onClick={onRetry} className='inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2.5 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700'><RotateCcw className='h-3.5 w-3.5' aria-hidden='true' />{retryLabel}</button> : null}
+              <button type='button' onClick={onCopy} className='inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700'>{copied ? <Check className='h-3.5 w-3.5' aria-hidden='true' /> : <Copy className='h-3.5 w-3.5' aria-hidden='true' />}{copied ? copiedLabel : copyLabel}</button>
+              {canRetry ? <button type='button' onClick={onRetry} className='inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700'><RotateCcw className='h-3.5 w-3.5' aria-hidden='true' />{retryLabel}</button> : null}
             </div>
           ) : null}
         </div>
