@@ -26,6 +26,8 @@ import { GektaMobileDrawer } from './GektaMobileDrawer';
 import { GektaSidebar } from './GektaSidebar';
 import { GEKTA_ENTER_CHAT_EVENT } from './GektaProductCta';
 import { GektaSettingsDialog, type GektaAnswerLocale } from './GektaSettingsDialog';
+import { GektaAccessGate, GektaRemainingBadge } from './GektaAccessGate';
+import type { GektaEntitlementSnapshot } from '@/lib/gekta/entitlement';
 import type { GektaConversation, GektaMessage } from './GektaChatTypes';
 
 const HISTORY_STORAGE = 'gekta-conversations-v2';
@@ -138,6 +140,8 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const [activeProjectId, setActiveProjectId] = React.useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [answerLocale, setAnswerLocale] = React.useState<GektaAnswerLocale>('auto');
+  const [entitlement, setEntitlement] = React.useState<GektaEntitlementSnapshot | null>(null);
+  const [registrationUrl, setRegistrationUrl] = React.useState<string | null>(null);
   const hydrated = React.useRef(false);
   const abortRef = React.useRef<AbortController | null>(null);
   const stopRequested = React.useRef(false);
@@ -278,7 +282,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     track('gekta_new_chat', locale);
   }, [locale, stop]);
 
-  const runGeneration = React.useCallback(async ({ question, history, conversationId, baseMessages }: { question: string; history: HistoryTurn[]; conversationId: string; baseMessages: readonly GektaMessage[] }) => {
+  const runGeneration = React.useCallback(async ({ question, history, conversationId, baseMessages, ticket }: { question: string; history: HistoryTurn[]; conversationId: string; baseMessages: readonly GektaMessage[]; ticket: string }) => {
     if (sending) return;
     const assistantId = id('assistant');
     const startedAt = new Date().toISOString();
@@ -333,6 +337,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       saveConversation(conversationId, finalMessages);
       setError('');
       track('gekta_answer_completed', locale, { sourceCount: finalMessage.citations?.length || 0 });
+      if (finalMessage.status === 'answered') await settleAnswer(ticket);
     } catch (reason) {
       const aborted = reason instanceof DOMException && reason.name === 'AbortError';
       const text = aborted ? (stopRequested.current ? ui.stopped : ui.timeout) : ui.error;
@@ -346,12 +351,14 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       stopRequested.current = false;
       setSending(false);
     }
-  }, [answerLocale, locale, saveConversation, sending, ui.error, ui.reconnecting, ui.stopped, ui.timeout]);
+  }, [answerLocale, locale, saveConversation, sending, settleAnswer, ui.error, ui.reconnecting, ui.stopped, ui.timeout]);
 
   const submit = React.useCallback(async (override?: string) => {
     if (sending) return;
     const question = cleanText(override ?? input).slice(0, 1_200);
     if (!question) return;
+    const ticket = await reserveAnswer();
+    if (!ticket) return;
     const conversationId = activeId || id('conversation');
     const history = historyFrom(messages);
     const attached = documents.map((document) => ({ name: document.name, size: document.size, mediaType: document.mediaType }));
@@ -364,22 +371,24 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     setDocuments([]);
     onEnteredChat?.();
     track(override ? 'gekta_starter_used' : 'gekta_prompt_submitted', locale, { hasAttachments: attached.length > 0 });
-    await runGeneration({ question: requestWithDocuments(question, documents), history, conversationId, baseMessages });
-  }, [activeId, documents, input, locale, messages, onEnteredChat, runGeneration, saveConversation, sending]);
+    await runGeneration({ question: requestWithDocuments(question, documents), history, conversationId, baseMessages, ticket });
+  }, [activeId, documents, input, locale, messages, onEnteredChat, reserveAnswer, runGeneration, saveConversation, sending]);
 
   const retry = React.useCallback(async (assistantIndex: number) => {
     if (sending) return;
     let userIndex = -1;
     for (let index = assistantIndex - 1; index >= 0; index -= 1) { if (messages[index]?.role === 'user') { userIndex = index; break; } }
     if (userIndex < 0) return;
+    const ticket = await reserveAnswer();
+    if (!ticket) return;
     const conversationId = activeId || id('conversation');
     const question = messages[userIndex].text;
     const baseMessages = messages.slice(0, userIndex + 1);
     setMessages(baseMessages);
     saveConversation(conversationId, baseMessages);
     track('gekta_retry', locale);
-    await runGeneration({ question, history: historyFrom(messages.slice(0, userIndex)), conversationId, baseMessages });
-  }, [activeId, locale, messages, runGeneration, saveConversation, sending]);
+    await runGeneration({ question, history: historyFrom(messages.slice(0, userIndex)), conversationId, baseMessages, ticket });
+  }, [activeId, locale, messages, reserveAnswer, runGeneration, saveConversation, sending]);
 
   const copyMessage = React.useCallback(async (message: GektaMessage) => {
     try { await navigator.clipboard.writeText(message.text); setCopiedId(message.id); window.setTimeout(() => setCopiedId(''), 1_500); } catch {}
@@ -407,6 +416,66 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     setConversations((current) => current.filter((conversation) => conversation.locale !== locale));
     setActiveId(null); setMessages([]); setDocuments([]); setDrawerOpen(false);
   }, [locale, ui.clearConfirm]);
+  const applyEntitlement = React.useCallback((payload: unknown) => {
+    if (!payload || typeof payload !== 'object') return;
+    const body = payload as { entitlement?: GektaEntitlementSnapshot; registrationUrl?: unknown };
+    if (body.entitlement && typeof body.entitlement === 'object') setEntitlement(body.entitlement);
+    setRegistrationUrl(typeof body.registrationUrl === 'string' ? body.registrationUrl : null);
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/gekta/entitlement', { cache: 'no-store' });
+        if (!response.ok) return;
+        const payload: unknown = await response.json();
+        if (!cancelled) applyEntitlement(payload);
+      } catch {
+        // Access is decided by the server on every request; a failed probe only
+        // means the badge is not shown yet.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [applyEntitlement]);
+
+  /** Server decides whether another answer may be generated. */
+  const reserveAnswer = React.useCallback(async (): Promise<string | null> => {
+    try {
+      const response = await fetch('/api/gekta/entitlement', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reserve' }),
+      });
+      if (!response.ok) return null;
+      const payload = await response.json() as { allowed?: boolean; ticket?: string | null };
+      applyEntitlement(payload);
+      if (!payload.allowed) {
+        track('gekta_anonymous_limit_reached', locale);
+        track('gekta_registration_gate_view', locale);
+        return null;
+      }
+      return typeof payload.ticket === 'string' ? payload.ticket : null;
+    } catch {
+      return null;
+    }
+  }, [applyEntitlement, locale]);
+
+  const settleAnswer = React.useCallback(async (ticket: string) => {
+    try {
+      const response = await fetch('/api/gekta/entitlement', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'complete', ticket }),
+      });
+      if (response.ok) applyEntitlement(await response.json());
+    } catch {
+      // The reservation is settled server-side on the next request anyway.
+    }
+  }, [applyEntitlement]);
+
   const createProject = React.useCallback((name: string, description: string) => {
     const cleanName = normaliseProjectName(name);
     if (!cleanName) return;
@@ -484,7 +553,10 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
               <span aria-hidden='true' className='grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-800 text-base font-black text-white'>G</span>
               <span className='min-w-0'><span className='block truncate text-sm font-bold tracking-[0.12em]'>{brand}</span><span className='hidden truncate text-xs text-slate-500 sm:block'>{product.maker}</span></span>
             </Link>
-            <button type='button' onClick={newChat} className='ml-auto flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700' data-gekta-header-new-chat='true'><Plus className='h-4 w-4' aria-hidden='true' /><span className='hidden sm:inline'>{ui.newChat}</span></button>
+            <div className='ml-auto flex items-center gap-2'>
+              <GektaRemainingBadge locale={locale} entitlement={entitlement} />
+              <button type='button' onClick={newChat} className='flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700' data-gekta-header-new-chat='true'><Plus className='h-4 w-4' aria-hidden='true' /><span className='hidden sm:inline'>{ui.newChat}</span></button>
+            </div>
           </header>
 
           <div ref={scrollRef} onScroll={(event) => { const root = event.currentTarget; const distance = root.scrollHeight - root.scrollTop - root.clientHeight; nearBottom.current = distance < 140; setShowScroll(distance > 260); }} className={`${activeChat ? 'min-h-0 flex-1 overflow-y-auto' : 'flex-1'} overscroll-contain`}>
@@ -495,7 +567,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
           {showScroll && activeChat ? <button type='button' onClick={() => { const root = scrollRef.current; if (root) root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' }); }} className='absolute bottom-36 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md' aria-label='Scroll to bottom'><ArrowDown className='h-4 w-4' aria-hidden='true' /></button> : null}
 
           <div className={`${activeChat ? 'shrink-0 border-t border-slate-200/70 bg-[#fcfbf7]/95 backdrop-blur' : 'pb-7'}`}>
-            <GektaComposer locale={locale} value={input} placeholder={product.placeholder} sending={sending} stopLabel={ui.stop} sendLabel={ui.send} boundary={ui.boundary} documents={documents} onDocuments={setDocuments} onChange={setInput} onSubmit={() => void submit()} onStop={stop} onError={setError} />
+            {entitlement && !entitlement.canAsk ? <GektaAccessGate locale={locale} registrationUrl={registrationUrl} /> : <GektaComposer locale={locale} value={input} placeholder={product.placeholder} sending={sending} stopLabel={ui.stop} sendLabel={ui.send} boundary={ui.boundary} documents={documents} onDocuments={setDocuments} onChange={setInput} onSubmit={() => void submit()} onStop={stop} onError={setError} />}
           </div>
         </main>
       </div>
