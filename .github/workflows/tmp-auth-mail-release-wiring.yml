@@ -20,65 +20,96 @@ jobs:
           ref: p0/industrial-auth-mail-outbox-3785
           fetch-depth: 0
 
-      - name: Recover bounded patch and create Git blobs
+      - name: Materialize bounded patch and persist report
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          git show c4f07f9ad5184b1bd055902c11b1e72a185e4c40:.github/workflows/tmp-auth-mail-release-wiring.yml > /tmp/original-auth-mail-wiring.yml
-          python3 - <<'PY'
-          from pathlib import Path
+          set -uo pipefail
+          REPORT="/tmp/auth-mail-materializer-${GITHUB_RUN_ID}.txt"
+          REPORT_PATH="docs/platform-v7/autopilot/tmp-auth-mail-materializer-${GITHUB_RUN_ID}.txt"
+          status=0
 
-          source = Path('/tmp/original-auth-mail-wiring.yml').read_text(encoding='utf-8')
-          marker = "          python3 - <<'PATCHPY'\n"
-          start = source.index(marker) + len(marker)
-          end = source.index("\n          PATCHPY", start)
-          raw_lines = source[start:end].splitlines()
-          lines = [line[10:] if line.startswith('          ') else line for line in raw_lines]
-          out = []
-          repaired = 0
-          i = 0
-          while i < len(lines):
-              line = lines[i]
-              if "forbid('executor'" in line and 'build|commit|tag' in line and line.rstrip().endswith('/,'):
-                  if i + 1 >= len(lines) or lines[i + 1].strip() != '",':
-                      raise SystemExit('unexpected split-string continuation')
-                  out.append(line + r'\n",')
-                  i += 2
-                  repaired += 1
-                  continue
-              out.append(line)
-              i += 1
-          if repaired != 1:
-              raise SystemExit(f'expected one repair, got {repaired}')
-          Path('/tmp/auth-mail-release-patch.py').write_text('\n'.join(out) + '\n', encoding='utf-8')
-          PY
+          (
+            set -euo pipefail
+            echo "SOURCE_HEAD=$(git rev-parse HEAD)"
+            echo "SOURCE_PATCH=c4f07f9ad5184b1bd055902c11b1e72a185e4c40"
+            git show c4f07f9ad5184b1bd055902c11b1e72a185e4c40:.github/workflows/tmp-auth-mail-release-wiring.yml > /tmp/original-auth-mail-wiring.yml
 
-          python3 /tmp/auth-mail-release-patch.py
-          bash -n scripts/provision-production-auth-mail-runtime.sh
-          bash -n scripts/production-full-stack-exact-sha.sh
-          node scripts/check-production-full-stack-release.mjs
-          git diff --check
+            python3 - <<'PY'
+            from pathlib import Path
 
-          emit_blob() {
-            local key="$1" path="$2" payload sha
-            payload="$(jq -n --arg content "$(base64 -w0 "$path")" '{content:$content,encoding:"base64"}')"
-            sha="$(curl --fail-with-body -sS \
-              -X POST \
-              -H 'Accept: application/vnd.github+json' \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H 'X-GitHub-Api-Version: 2022-11-28' \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/blobs" \
-              -d "$payload" | jq -r '.sha')"
-            [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "INVALID_BLOB_${key}=$sha" >&2; exit 1; }
-            echo "BLOB_${key}=$sha"
-          }
+            source = Path('/tmp/original-auth-mail-wiring.yml').read_text(encoding='utf-8')
+            marker = "          python3 - <<'PATCHPY'\n"
+            start = source.index(marker) + len(marker)
+            end = source.index("\n          PATCHPY", start)
+            raw_lines = source[start:end].splitlines()
+            lines = [line[10:] if line.startswith('          ') else line for line in raw_lines]
+            out = []
+            repaired = 0
+            i = 0
+            while i < len(lines):
+                line = lines[i]
+                if "forbid('executor'" in line and 'build|commit|tag' in line and line.rstrip().endswith('/,'):
+                    if i + 1 >= len(lines) or lines[i + 1].strip() != '",':
+                        raise SystemExit('unexpected split-string continuation')
+                    out.append(line + r'\n",')
+                    i += 2
+                    repaired += 1
+                    continue
+                out.append(line)
+                i += 1
+            if repaired != 1:
+                raise SystemExit(f'expected one repair, got {repaired}')
+            Path('/tmp/auth-mail-release-patch.py').write_text('\n'.join(out) + '\n', encoding='utf-8')
+            print(f'EXTRACTION=PASS lines={len(out)} repaired={repaired}')
+            PY
 
-          emit_blob PROVISION scripts/provision-production-auth-mail-runtime.sh
-          emit_blob EXECUTOR scripts/production-full-stack-exact-sha.sh
-          emit_blob CHECK scripts/check-production-full-stack-release.mjs
-          emit_blob RELEASE_WORKFLOW .github/workflows/production-full-stack-exact-sha.yml
-          emit_blob PUBLISH_WORKFLOW .github/workflows/docker-publish.yml
-          emit_blob SCOPE docs/platform-v7/autopilot/scopes/industrial-auth-mail-outbox-3785.json
-          echo 'MATERIALIZE=PASS'
+            python3 /tmp/auth-mail-release-patch.py
+            echo 'PATCH=PASS'
+            bash -n scripts/provision-production-auth-mail-runtime.sh
+            bash -n scripts/production-full-stack-exact-sha.sh
+            node scripts/check-production-full-stack-release.mjs
+            git diff --check
+            echo 'VALIDATION=PASS'
+
+            emit_blob() {
+              local key="$1" path="$2" payload sha
+              payload="$(jq -n --arg content "$(base64 -w0 "$path")" '{content:$content,encoding:"base64"}')"
+              sha="$(curl --fail-with-body -sS \
+                -X POST \
+                -H 'Accept: application/vnd.github+json' \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H 'X-GitHub-Api-Version: 2022-11-28' \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/blobs" \
+                -d "$payload" | jq -r '.sha')"
+              [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+              echo "BLOB_${key}=$sha"
+            }
+
+            emit_blob PROVISION scripts/provision-production-auth-mail-runtime.sh
+            emit_blob EXECUTOR scripts/production-full-stack-exact-sha.sh
+            emit_blob CHECK scripts/check-production-full-stack-release.mjs
+            emit_blob RELEASE_WORKFLOW .github/workflows/production-full-stack-exact-sha.yml
+            emit_blob PUBLISH_WORKFLOW .github/workflows/docker-publish.yml
+            emit_blob SCOPE docs/platform-v7/autopilot/scopes/industrial-auth-mail-outbox-3785.json
+            echo 'MATERIALIZE=PASS'
+          ) >"$REPORT" 2>&1 || status=$?
+
+          echo "MATERIALIZE_EXIT=$status" >> "$REPORT"
+          cat "$REPORT"
+
+          payload="$(jq -n \
+            --arg message "chore(auth-mail): record materializer run ${GITHUB_RUN_ID}" \
+            --arg content "$(base64 -w0 "$REPORT")" \
+            --arg branch "p0/industrial-auth-mail-outbox-3785" \
+            '{message:$message,content:$content,branch:$branch}')"
+          curl --fail-with-body -sS \
+            -X PUT \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/${REPORT_PATH}" \
+            -d "$payload" >/dev/null
+
+          exit "$status"
