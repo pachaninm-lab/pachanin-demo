@@ -52,6 +52,7 @@
     "apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts",
     "apps/web/app/api/staff/[...path]/route.ts",
     "apps/web/app/api/platform-v7/inquiries/route.ts",
+    "apps/web/tests/unit/platformV7PublicDemoContact.test.ts",
     "scripts/provision-production-auth-mail-runtime.sh",
     "scripts/production-full-stack-exact-sha.sh",
     "scripts/production-full-stack-live-acceptance.sh",
