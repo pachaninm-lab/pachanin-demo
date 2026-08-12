@@ -34,10 +34,6 @@ requireAll('workflow', workflow, [
   "scripts/check-production-p0-reviewer-password-reset-request.mjs",
   "scripts/production-p0-reviewer-password-reset-request.sh",
   "PC_PROD_SSH_HOST_FINGERPRINT",
-  "Install bounded ssh-keyscan retry shim",
-  "/usr/bin/ssh-keyscan",
-  "for attempt in 1 2 3",
-  '>> "$GITHUB_PATH"',
 ]);
 rejectAll('workflow', workflow, [
   'PC_P0_REVIEWER_EMAIL',
@@ -45,6 +41,7 @@ rejectAll('workflow', workflow, [
   'PC_P0_REVIEWER_TOTP',
   'upload-artifact',
   'actions/upload-artifact',
+  'Install bounded ssh-keyscan retry shim',
   'StrictHostKeyChecking=no',
   'UserKnownHostsFile=/dev/null',
 ]);
@@ -53,6 +50,16 @@ requireAll('script', script, [
   "DEFAULT_HOST='195.19.12.120'",
   "LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'",
   "StrictHostKeyChecking=yes",
+  "UserKnownHostsFile=\"$known_hosts\"",
+  "failure_reason='SSH_HOST_KEY_SCAN_FAILED'",
+  "failure_reason='SSH_HOST_KEY_FINGERPRINT_MISMATCH'",
+  "failure_reason='SSH_TRANSPORT_FAILED'",
+  "failure reason: \\`$failure_reason\\`",
+  "for attempt in 1 2 3",
+  "/usr/bin/ssh-keyscan -T 10 -p \"$port\" \"$host\" > \"$scan_raw\" 2>/dev/null || true",
+  "[[ \"$scan_ready\" == '1' ]]",
+  "grep -c . \"$match\"",
+  "REMOTE_PARITY_FAILED",
   "staff_reviewer_preflight()",
   "staff_reviewer_login_readiness()",
   "staff_reviewer_password_reset_subject()",
@@ -79,6 +86,9 @@ rejectAll('script', script, [
   'UPDATE public."users"',
   'INSERT INTO public."users"',
   'DELETE FROM public."users"',
+  'StrictHostKeyChecking=no',
+  'UserKnownHostsFile=/dev/null',
+  'ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"',
 ]);
 
 if (/printf[^\n]*reviewer_email[^\n]*(?:\\n|%s)/.test(script)
