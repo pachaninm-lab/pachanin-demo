@@ -13,7 +13,7 @@ COMMAND='/production p0-reviewer-reset-attempt-classify 31706325376 current-main
 SOURCE_RUN_ID='31706325376'
 ATTEMPT_SINCE='2026-08-13T13:43:10Z'
 ATTEMPT_UNTIL='2026-08-13T13:43:26Z'
-EXPECTED_DEPLOYED_SHA='7c768ad7c54523837b06999a8f69bdffe2a840db'
+SOURCE_REVISION='7c768ad7c54523837b06999a8f69bdffe2a840db'
 
 [[ "$PC_REVIEWER_RESET_ATTEMPT_COMMAND" == "$COMMAND" ]]
 
@@ -46,7 +46,7 @@ guard_main() {
   git fetch --no-tags origin main >/dev/null
   [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
   [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
-  git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$TARGET_SHA"
+  git merge-base --is-ancestor "$SOURCE_REVISION" "$TARGET_SHA"
   [[ -z "$(git status --porcelain=v1)" ]]
 }
 
@@ -58,7 +58,8 @@ publish_failure() {
 
 - source reset run: \`$SOURCE_RUN_ID\`
 - exact diagnostic main: \`$TARGET_SHA\`
-- expected source revision: \`$EXPECTED_DEPLOYED_SHA\`
+- source reset revision: \`$SOURCE_REVISION\`
+- active production revision policy: \`MATCHING_ANCESTOR_OF_EXACT_MAIN\`
 - result: \`FAIL_CLOSED\`
 - failure stage: \`$stage\`
 - failure detail: \`$failure_detail\`
@@ -80,8 +81,8 @@ TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
 git fetch --no-tags origin main >/dev/null
 [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
 [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
-git cat-file -e "$EXPECTED_DEPLOYED_SHA^{commit}"
-git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$TARGET_SHA"
+git cat-file -e "$SOURCE_REVISION^{commit}"
+git merge-base --is-ancestor "$SOURCE_REVISION" "$TARGET_SHA"
 [[ -z "$(git status --porcelain=v1)" ]]
 stage='MAIN_CONFIRMED'
 
@@ -167,12 +168,13 @@ stage='SSH_CONFIRMED'
 
 guard_main
 stage='REMOTE_ATTEMPT_CLASSIFICATION'
-if output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$EXPECTED_DEPLOYED_SHA' '$ATTEMPT_SINCE' '$ATTEMPT_UNTIL'" <<'REMOTE'
+if output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$SOURCE_REVISION' '$ATTEMPT_SINCE' '$ATTEMPT_UNTIL'" <<'REMOTE'
 set -Eeuo pipefail
-expected_revision="$1"
+source_revision="$1"
 attempt_since="$2"
 attempt_until="$3"
 remote_substage='REMOTE_PRECONDITION'
+remote_source_cardinality='UNKNOWN'
 remote_terminal_cardinality='UNKNOWN'
 remote_delivery_cardinality='UNKNOWN'
 db_output=''
@@ -181,14 +183,15 @@ web_logs=''
 publish_remote_failure() {
   local rc="$?"
   trap - ERR
-  printf 'ATTEMPT_REMOTE_FAILURE|%s|%s|%s\n' \
-    "$remote_substage" "$remote_terminal_cardinality" "$remote_delivery_cardinality"
+  printf 'ATTEMPT_REMOTE_FAILURE|%s|%s|%s|%s\n' \
+    "$remote_substage" "$remote_source_cardinality" \
+    "$remote_terminal_cardinality" "$remote_delivery_cardinality"
   exit "$rc"
 }
 trap publish_remote_failure ERR
 exec 2>/dev/null
 
-[[ "$expected_revision" == '7c768ad7c54523837b06999a8f69bdffe2a840db' ]]
+[[ "$source_revision" == '7c768ad7c54523837b06999a8f69bdffe2a840db' ]]
 [[ "$attempt_since" == '2026-08-13T13:43:10Z' ]]
 [[ "$attempt_until" == '2026-08-13T13:43:26Z' ]]
 [[ "$(id -u)" -eq 0 ]]
@@ -197,8 +200,8 @@ command -v docker >/dev/null 2>&1
 remote_substage='CONTAINER_DISCOVERY'
 mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
 (( ${#web_ids[@]} == 1 ))
-web_id="${web_ids[0]}"
-project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+active_web_id="${web_ids[0]}"
+project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$active_web_id")"
 [[ -n "$project" ]]
 mapfile -t api_ids < <(docker ps -q \
   --filter "label=com.docker.compose.project=$project" \
@@ -206,9 +209,67 @@ mapfile -t api_ids < <(docker ps -q \
 (( ${#api_ids[@]} == 1 ))
 api_id="${api_ids[0]}"
 api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
-web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
-[[ "$api_revision" == "$expected_revision" && "$web_revision" == "$expected_revision" ]]
+web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$active_web_id")"
+[[ "$api_revision" =~ ^[0-9a-f]{40}$ ]]
+[[ "$web_revision" == "$api_revision" ]]
+active_revision="$api_revision"
+printf 'ACTIVE_REVISION|%s\n' "$active_revision"
 printf 'PARITY|PASS\n'
+
+remote_substage='HISTORICAL_LOG_SOURCE_DISCOVERY'
+project_web_output="$(docker ps -aq \
+  --filter "label=com.docker.compose.project=$project" \
+  --filter 'label=com.docker.compose.service=web')"
+project_web_ids=()
+if [[ -n "$project_web_output" ]]; then
+  mapfile -t project_web_ids <<< "$project_web_output"
+fi
+historical_web_ids=()
+attempt_since_epoch="$(date -u -d "$attempt_since" +%s)"
+attempt_until_epoch="$(date -u -d "$attempt_until" +%s)"
+[[ "$attempt_since_epoch" =~ ^[0-9]+$ && "$attempt_until_epoch" =~ ^[0-9]+$ ]]
+(( attempt_since_epoch <= attempt_until_epoch ))
+for candidate_id in "${project_web_ids[@]}"; do
+  candidate_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$candidate_id")"
+  [[ "$candidate_revision" =~ ^[0-9a-f]{40}$ ]]
+  [[ "$candidate_revision" == "$source_revision" ]] || continue
+  candidate_started_at="$(docker inspect --format '{{ .State.StartedAt }}' "$candidate_id")"
+  candidate_finished_at="$(docker inspect --format '{{ .State.FinishedAt }}' "$candidate_id")"
+  if [[ "$candidate_started_at" == 0001-01-01T00:00:00* ]]; then
+    continue
+  fi
+  candidate_started_epoch="$(date -u -d "$candidate_started_at" +%s)"
+  [[ "$candidate_started_epoch" =~ ^[0-9]+$ ]]
+  (( candidate_started_epoch <= attempt_until_epoch )) || continue
+  if [[ "$candidate_finished_at" == 0001-01-01T00:00:00* ]]; then
+    historical_web_ids+=("$candidate_id")
+    continue
+  fi
+  candidate_finished_epoch="$(date -u -d "$candidate_finished_at" +%s)"
+  [[ "$candidate_finished_epoch" =~ ^[0-9]+$ ]]
+  (( candidate_finished_epoch >= attempt_since_epoch )) || continue
+  historical_web_ids+=("$candidate_id")
+done
+case "${#historical_web_ids[@]}" in
+  0)
+    remote_source_cardinality='ZERO'
+    log_source='UNAVAILABLE_AFTER_EXACT_RELEASE'
+    historical_web_id=''
+    ;;
+  1)
+    remote_source_cardinality='ONE'
+    log_source='HISTORICAL_CONTAINER'
+    historical_web_id="${historical_web_ids[0]}"
+    ;;
+  *)
+    remote_source_cardinality='MULTIPLE'
+    remote_substage='HISTORICAL_LOG_SOURCE_MULTIPLE'
+    false
+    ;;
+esac
+unset project_web_output project_web_ids historical_web_ids candidate_id candidate_revision
+unset candidate_started_at candidate_finished_at candidate_started_epoch candidate_finished_epoch
+unset attempt_since_epoch attempt_until_epoch
 
 remote_substage='DATABASE_AGGREGATES'
 if db_output="$(
@@ -433,73 +494,74 @@ IFS='|' read -r _ reviewer_web_hash reviewer_api_hash <<< "$binding_marker"
 printf '%s\n' "$datasource_marker" "$principal_marker" "$db_safe_marker"
 unset db_output db_failure datasource_marker principal_marker db_safe_marker binding_marker reviewer_api_hash
 
-remote_substage='TERMINAL_LOG_READ'
-if web_logs="$(docker logs --since "$attempt_since" --until "$attempt_until" "$web_id" 2>&1)"; then
-  :
-else
-  false
-fi
-
-# Every attributable Web event carries the public-route SHA-256 account hash.
-# Filter it against the reviewer hash resolved inside the same protected SSH
-# session. Configuration events predate that hash in the deployed route, so
-# their presence is inherently unbindable and must fail closed.
-remote_substage='TERMINAL_LOG_BINDING'
-mapfile -t delivery_lines < <(
-  grep -F 'password_reset_delivery_result' <<< "$web_logs" \
-    | grep -F "\"accountHash\":\"$reviewer_web_hash\"" || true
-)
-mapfile -t accepted_lines < <(
-  grep -F 'password_reset_request_accepted_without_delivery' <<< "$web_logs" \
-    | grep -F "\"accountHash\":\"$reviewer_web_hash\"" || true
-)
-mapfile -t api_failure_lines < <(
-  grep -F 'password_reset_request_api_failure' <<< "$web_logs" \
-    | grep -F "\"accountHash\":\"$reviewer_web_hash\"" || true
-)
-mapfile -t transport_lines < <(
-  grep -F 'password_reset_request_transport_failure' <<< "$web_logs" \
-    | grep -F "\"accountHash\":\"$reviewer_web_hash\"" || true
-)
-mapfile -t configuration_lines < <(
-  grep -F 'password_reset_request_configuration_error' <<< "$web_logs" || true
-)
-unset web_logs reviewer_web_hash
-delivery_count="${#delivery_lines[@]}"
-accepted_count="${#accepted_lines[@]}"
-api_failure_count="${#api_failure_lines[@]}"
-transport_count="${#transport_lines[@]}"
-if (( ${#configuration_lines[@]} != 0 )); then
-  remote_substage='UNBOUND_CONFIGURATION_EVENT'
-  false
-fi
-configuration_count=0
-terminal_count=$(( delivery_count + accepted_count + api_failure_count + transport_count + configuration_count ))
-case "$terminal_count" in
-  0) remote_terminal_cardinality='ZERO' ;;
-  1) remote_terminal_cardinality='ONE' ;;
-  *) remote_terminal_cardinality='MULTIPLE'; false ;;
-esac
-case "$delivery_count" in
-  0) remote_delivery_cardinality='ZERO' ;;
-  1) remote_delivery_cardinality='ONE' ;;
-  *) remote_delivery_cardinality='MULTIPLE'; false ;;
-esac
-
-reviewer_correlation=''
-if (( terminal_count == 1 )); then
-  bound_line="${delivery_lines[0]:-${accepted_lines[0]:-${api_failure_lines[0]:-${transport_lines[0]:-}}}}"
-  reviewer_correlation="$(sed -n 's/.*"correlationId"[[:space:]]*:[[:space:]]*"\([0-9a-f-]*\)".*/\1/p' <<< "$bound_line")"
-  [[ "$reviewer_correlation" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]
-fi
-unset bound_line reviewer_correlation
-
 delivered_class='NOT_OBSERVED'
 provider_class='NONE'
 reason_class='NONE'
 api_status_class='NONE'
 transport_class='NONE'
 configuration_class='NONE'
+
+if [[ "$log_source" == 'HISTORICAL_CONTAINER' ]]; then
+  remote_substage='TERMINAL_LOG_READ'
+  if web_logs="$(docker logs --since "$attempt_since" --until "$attempt_until" "$historical_web_id" 2>&1)"; then
+    :
+  else
+    false
+  fi
+
+  # Every attributable Web event carries the public-route SHA-256 account hash.
+  # Filter it against the reviewer hash resolved inside the same protected SSH
+  # session. Configuration events predate that hash in the source route, so
+  # their presence is inherently unbindable and must fail closed.
+  remote_substage='TERMINAL_LOG_BINDING'
+  mapfile -t delivery_lines < <(
+    grep -F 'password_reset_delivery_result' <<< "$web_logs" \
+      | grep -F "\"accountHash\":\"$reviewer_web_hash\"" || true
+  )
+  mapfile -t accepted_lines < <(
+    grep -F 'password_reset_request_accepted_without_delivery' <<< "$web_logs" \
+      | grep -F "\"accountHash\":\"$reviewer_web_hash\"" || true
+  )
+  mapfile -t api_failure_lines < <(
+    grep -F 'password_reset_request_api_failure' <<< "$web_logs" \
+      | grep -F "\"accountHash\":\"$reviewer_web_hash\"" || true
+  )
+  mapfile -t transport_lines < <(
+    grep -F 'password_reset_request_transport_failure' <<< "$web_logs" \
+      | grep -F "\"accountHash\":\"$reviewer_web_hash\"" || true
+  )
+  mapfile -t configuration_lines < <(
+    grep -F 'password_reset_request_configuration_error' <<< "$web_logs" || true
+  )
+  unset web_logs reviewer_web_hash
+  delivery_count="${#delivery_lines[@]}"
+  accepted_count="${#accepted_lines[@]}"
+  api_failure_count="${#api_failure_lines[@]}"
+  transport_count="${#transport_lines[@]}"
+  if (( ${#configuration_lines[@]} != 0 )); then
+    remote_substage='UNBOUND_CONFIGURATION_EVENT'
+    false
+  fi
+  configuration_count=0
+  terminal_count=$(( delivery_count + accepted_count + api_failure_count + transport_count + configuration_count ))
+  case "$terminal_count" in
+    0) remote_terminal_cardinality='ZERO' ;;
+    1) remote_terminal_cardinality='ONE' ;;
+    *) remote_terminal_cardinality='MULTIPLE'; false ;;
+  esac
+  case "$delivery_count" in
+    0) remote_delivery_cardinality='ZERO' ;;
+    1) remote_delivery_cardinality='ONE' ;;
+    *) remote_delivery_cardinality='MULTIPLE'; false ;;
+  esac
+
+  reviewer_correlation=''
+  if (( terminal_count == 1 )); then
+    bound_line="${delivery_lines[0]:-${accepted_lines[0]:-${api_failure_lines[0]:-${transport_lines[0]:-}}}}"
+    reviewer_correlation="$(sed -n 's/.*"correlationId"[[:space:]]*:[[:space:]]*"\([0-9a-f-]*\)".*/\1/p' <<< "$bound_line")"
+    [[ "$reviewer_correlation" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]
+  fi
+  unset bound_line reviewer_correlation
 
 if (( delivery_count == 1 )); then
   remote_substage='DELIVERY_EVENT_CLASSIFICATION'
@@ -596,16 +658,47 @@ if (( configuration_count == 1 )); then
   fi
 fi
 
+  [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$historical_web_id")" == "$source_revision" ]]
+else
+  remote_substage='TERMINAL_LOG_UNAVAILABLE'
+  unset reviewer_web_hash
+  terminal_count='NA'
+  delivery_count='NA'
+  accepted_count='NA'
+  api_failure_count='NA'
+  transport_count='NA'
+  configuration_count='NA'
+  delivered_class='UNAVAILABLE'
+  provider_class='UNAVAILABLE'
+  reason_class='UNAVAILABLE'
+  api_status_class='UNAVAILABLE'
+  transport_class='UNAVAILABLE'
+  configuration_class='UNAVAILABLE'
+  remote_terminal_cardinality='UNAVAILABLE'
+  remote_delivery_cardinality='UNAVAILABLE'
+fi
+
 unset delivery_lines accepted_lines api_failure_lines transport_lines configuration_lines
 unset delivery_line delivered provider reason api_status transport_reason configuration_line
 unset api_configured boundary_configured mail_configured missing_count
 remote_substage='REVISION_AFTER'
-[[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" == "$expected_revision" ]]
-[[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" == "$expected_revision" ]]
+mapfile -t web_ids_after < <(docker ps -q \
+  --filter "label=com.docker.compose.project=$project" \
+  --filter 'label=com.docker.compose.service=web')
+mapfile -t api_ids_after < <(docker ps -q \
+  --filter "label=com.docker.compose.project=$project" \
+  --filter 'label=com.docker.compose.service=api')
+(( ${#web_ids_after[@]} == 1 && ${#api_ids_after[@]} == 1 ))
+[[ "${web_ids_after[0]}" == "$active_web_id" && "${api_ids_after[0]}" == "$api_id" ]]
+[[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" == "$active_revision" ]]
+[[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$active_web_id")" == "$active_revision" ]]
+if [[ "$log_source" == 'HISTORICAL_CONTAINER' ]]; then
+  [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$historical_web_id")" == "$source_revision" ]]
+fi
 
 trap - ERR
-printf 'RESET_ATTEMPT_LOG|PASS|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
-  "$terminal_count" "$delivery_count" "$accepted_count" "$api_failure_count" "$transport_count" \
+printf 'RESET_ATTEMPT_LOG|PASS|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n' \
+  "$log_source" "$terminal_count" "$delivery_count" "$accepted_count" "$api_failure_count" "$transport_count" \
   "$configuration_count" "$delivered_class" "$provider_class" "$reason_class" "$api_status_class" \
   "$transport_class" "$configuration_class"
 printf 'RESET_REPLAY|NONE\n'
@@ -620,6 +713,7 @@ fi
 stage='RESULT_VALIDATION'
 
 parity="$(grep '^PARITY|' <<< "$output" | tail -n1 || true)"
+active_marker="$(grep '^ACTIVE_REVISION|' <<< "$output" | tail -n1 || true)"
 datasource="$(grep '^AUTH_DATASOURCE|' <<< "$output" | tail -n1 || true)"
 principal="$(grep '^AUTH_PRINCIPAL|' <<< "$output" | tail -n1 || true)"
 db_marker="$(grep '^RESET_ATTEMPT_DB|' <<< "$output" | tail -n1 || true)"
@@ -633,8 +727,8 @@ if (( remote_rc != 0 )); then
     failure_detail='PARITY_OR_PRE_NODE_FAILURE'
   elif [[ "$db_marker" =~ ^RESET_ATTEMPT_DB\|FAIL_([A-Z0-9_-]{1,64})$ ]]; then
     failure_detail="${BASH_REMATCH[1]}"
-  elif [[ "$remote_failure" =~ ^ATTEMPT_REMOTE_FAILURE\|([A-Z0-9_-]{1,64})\|(ZERO|ONE|MULTIPLE|UNKNOWN)\|(ZERO|ONE|MULTIPLE|UNKNOWN)$ ]]; then
-    failure_detail="${BASH_REMATCH[1]}_${BASH_REMATCH[2]}_${BASH_REMATCH[3]}"
+  elif [[ "$remote_failure" =~ ^ATTEMPT_REMOTE_FAILURE\|([A-Z0-9_-]{1,64})\|(ZERO|ONE|MULTIPLE|UNKNOWN)\|(ZERO|ONE|MULTIPLE|UNKNOWN|UNAVAILABLE)\|(ZERO|ONE|MULTIPLE|UNKNOWN|UNAVAILABLE)$ ]]; then
+    failure_detail="${BASH_REMATCH[1]}_${BASH_REMATCH[2]}_${BASH_REMATCH[3]}_${BASH_REMATCH[4]}"
   else
     failure_detail='REMOTE_NO_SAFE_MARKER'
   fi
@@ -643,6 +737,9 @@ if (( remote_rc != 0 )); then
 fi
 
 [[ "$parity" == 'PARITY|PASS' ]]
+[[ "$active_marker" =~ ^ACTIVE_REVISION\|([0-9a-f]{40})$ ]]
+active_revision="${BASH_REMATCH[1]}"
+git merge-base --is-ancestor "$active_revision" "$TARGET_SHA"
 [[ "$datasource" == 'AUTH_DATASOURCE|PASS' ]]
 [[ "$principal" == 'AUTH_PRINCIPAL|PASS' ]]
 [[ "$replay_marker" == 'RESET_REPLAY|NONE' ]]
@@ -656,19 +753,40 @@ for value in "$password_ready" "$mfa_ready" "$login_ready" "$attempt_challenges"
 done
 [[ "$latest_status" =~ ^(NONE|PENDING|CONSUMED|EXPIRED)$ ]]
 
-IFS='|' read -r log_tag log_result terminal_count delivery_count accepted_count api_failure_count transport_count configuration_count delivered_class provider_class reason_class api_status_class transport_class configuration_class <<< "$log_marker"
+IFS='|' read -r log_tag log_result log_source terminal_count delivery_count accepted_count api_failure_count transport_count configuration_count delivered_class provider_class reason_class api_status_class transport_class configuration_class <<< "$log_marker"
 [[ "$log_tag" == 'RESET_ATTEMPT_LOG' && "$log_result" == 'PASS' ]]
-for value in "$terminal_count" "$delivery_count" "$accepted_count" "$api_failure_count" "$transport_count" "$configuration_count"; do
-  [[ "$value" =~ ^[01]$ ]]
-done
-[[ "$delivered_class" =~ ^(NOT_OBSERVED|TRUE|FALSE)$ ]]
-[[ "$provider_class" =~ ^(NONE|SMTP|RESEND)$ ]]
-[[ "$reason_class" =~ ^(NONE|SENT|SMTP_AUTH_REJECTED|SMTP_RECIPIENT_OR_POLICY|SMTP_TEMPORARY|SMTP_TIMEOUT|SMTP_DNS_FAILURE|SMTP_CONNECTION_REFUSED|SMTP_TLS_FAILURE|SMTP_TRANSPORT_EXCEPTION|RESEND_AUTH_REJECTED|RESEND_RATE_LIMIT|RESEND_UPSTREAM|RESEND_TIMEOUT|RESEND_TRANSPORT_EXCEPTION|MAIL_CHANNEL_NOT_CONFIGURED|UNCLASSIFIED)$ ]]
-[[ "$api_status_class" =~ ^(NONE|HTTP_429|HTTP_4XX|HTTP_5XX|HTTP_OTHER)$ ]]
-[[ "$transport_class" =~ ^(NONE|ABORT|TIMEOUT|OTHER)$ ]]
-[[ "$configuration_class" =~ ^(NONE|API_MISSING|DELIVERY_BOUNDARY_MISSING|MAIL_MISSING|MULTIPLE_MISSING)$ ]]
-(( terminal_count == delivery_count + accepted_count + api_failure_count + transport_count + configuration_count ))
+[[ "$log_source" =~ ^(HISTORICAL_CONTAINER|UNAVAILABLE_AFTER_EXACT_RELEASE)$ ]]
+if [[ "$log_source" == 'HISTORICAL_CONTAINER' ]]; then
+  for value in "$terminal_count" "$delivery_count" "$accepted_count" "$api_failure_count" "$transport_count" "$configuration_count"; do
+    [[ "$value" =~ ^[01]$ ]]
+  done
+  [[ "$delivered_class" =~ ^(NOT_OBSERVED|TRUE|FALSE)$ ]]
+  [[ "$provider_class" =~ ^(NONE|SMTP|RESEND)$ ]]
+  [[ "$reason_class" =~ ^(NONE|SENT|SMTP_AUTH_REJECTED|SMTP_RECIPIENT_OR_POLICY|SMTP_TEMPORARY|SMTP_TIMEOUT|SMTP_DNS_FAILURE|SMTP_CONNECTION_REFUSED|SMTP_TLS_FAILURE|SMTP_TRANSPORT_EXCEPTION|RESEND_AUTH_REJECTED|RESEND_RATE_LIMIT|RESEND_UPSTREAM|RESEND_TIMEOUT|RESEND_TRANSPORT_EXCEPTION|MAIL_CHANNEL_NOT_CONFIGURED|UNCLASSIFIED)$ ]]
+  [[ "$api_status_class" =~ ^(NONE|HTTP_429|HTTP_4XX|HTTP_5XX|HTTP_OTHER)$ ]]
+  [[ "$transport_class" =~ ^(NONE|ABORT|TIMEOUT|OTHER)$ ]]
+  [[ "$configuration_class" =~ ^(NONE|API_MISSING|DELIVERY_BOUNDARY_MISSING|MAIL_MISSING|MULTIPLE_MISSING)$ ]]
+  (( terminal_count == delivery_count + accepted_count + api_failure_count + transport_count + configuration_count ))
+else
+  [[ "$terminal_count|$delivery_count|$accepted_count|$api_failure_count|$transport_count|$configuration_count" == 'NA|NA|NA|NA|NA|NA' ]]
+  [[ "$delivered_class|$provider_class|$reason_class|$api_status_class|$transport_class|$configuration_class" == 'UNAVAILABLE|UNAVAILABLE|UNAVAILABLE|UNAVAILABLE|UNAVAILABLE|UNAVAILABLE' ]]
+fi
 
+if [[ "$log_source" == 'UNAVAILABLE_AFTER_EXACT_RELEASE' ]]; then
+  if (( attempt_challenges > 0 || issued > 0 )); then
+    attempt_class='DURABLE_CHALLENGE_CREATED_LOG_UNAVAILABLE'
+  elif (( cooldown > 0 )); then
+    attempt_class='DURABLE_COOLDOWN_ACTIVE_LOG_UNAVAILABLE'
+  elif (( boundary > 0 )); then
+    attempt_class='DURABLE_DELIVERY_BOUNDARY_REJECTED_LOG_UNAVAILABLE'
+  elif (( noneligible > 0 )); then
+    attempt_class='DURABLE_REVIEWER_NON_ELIGIBLE_LOG_UNAVAILABLE'
+  elif (( other_audit > 0 )); then
+    attempt_class='DURABLE_OTHER_AUDIT_LOG_UNAVAILABLE'
+  else
+    attempt_class='NO_DURABLE_RESET_EFFECT_LOG_UNAVAILABLE'
+  fi
+else
 attempt_class='BEFORE_POST_OR_NO_DURABLE_EFFECT'
 if (( configuration_count == 1 )); then
   attempt_class='WEB_CONFIGURATION_REJECTED'
@@ -699,6 +817,7 @@ elif (( accepted_count == 1 )); then
 elif (( attempt_challenges > 0 || issued > 0 )); then
   attempt_class='CHALLENGE_CREATED_WEB_TERMINAL_NOT_OBSERVED'
 fi
+fi
 
 fresh='NO'
 blocker='NONE'
@@ -718,9 +837,12 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 
 - source reset run: \`$SOURCE_RUN_ID\`
 - exact diagnostic main: \`$TARGET_SHA\`
-- inspected production API/Web revision: \`$EXPECTED_DEPLOYED_SHA\`
+- source reset revision: \`$SOURCE_REVISION\`
+- active production API/Web revision: \`$active_revision\`
 - result: \`PASS_READ_ONLY_CLASSIFIED\`
 - attempt class: \`$attempt_class\`
+- historical Web log source: \`$log_source\`
+- Web cardinalities classify historical events only: \`$([[ "$log_source" == 'HISTORICAL_CONTAINER' ]] && printf 'YES' || printf 'NO_LOG_SOURCE_UNAVAILABLE')\`
 - challenge rows created in attempt window: \`$attempt_challenges\`
 - CHALLENGE_ISSUED audit in attempt window: \`$issued\`
 - COOLDOWN_ACTIVE audit in attempt window: \`$cooldown\`
@@ -743,8 +865,9 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 - current unexpired pending reset challenges: \`$unexpired_pending\`
 - latest challenge status: \`$latest_status\`
 - latest challenge expired by clock: \`$latest_expired\`
-- fresh reset safe now: \`$fresh\`
-- blocker: \`$blocker\`
+- fresh reset challenge slot clear: \`$fresh\`
+- challenge-slot blocker: \`$blocker\`
+- reset authorized now: \`NO_CURRENT_MAIL_PATH_AND_SMTP_IMAP_NOT_REPROVEN\`
 - reviewer identity / account hash / correlation id exposure: \`NONE\`
 - reset token / hash / user-id output: \`NONE\`
 - reset replay / mail sent by classifier: \`NONE\`

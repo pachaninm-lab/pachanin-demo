@@ -91,18 +91,37 @@ for (const token of [
   `SOURCE_RUN_ID='${sourceRun}'`,
   `ATTEMPT_SINCE='${attemptSince}'`,
   `ATTEMPT_UNTIL='${attemptUntil}'`,
-  `EXPECTED_DEPLOYED_SHA='${sourceRevision}'`,
+  `SOURCE_REVISION='${sourceRevision}'`,
   '[[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]',
-  'git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$TARGET_SHA"',
+  'git merge-base --is-ancestor "$SOURCE_REVISION" "$TARGET_SHA"',
+  'git merge-base --is-ancestor "$active_revision" "$TARGET_SHA"',
   '[[ -z "$(git status --porcelain=v1)" ]]',
   'for attempt in 1 2 3; do',
   '/usr/bin/ssh-keyscan -T 10 -p "$port" "$host"',
   'StrictHostKeyChecking=yes',
   'UserKnownHostsFile="$known_hosts"',
   "docker ps -q --filter 'label=com.docker.compose.service=web'",
+  'docker ps -aq',
+  'project_web_output="$(docker ps -aq',
+  'mapfile -t project_web_ids <<< "$project_web_output"',
   "--filter 'label=com.docker.compose.service=api'",
   'org.opencontainers.image.revision',
-  '[[ "$api_revision" == "$expected_revision" && "$web_revision" == "$expected_revision" ]]',
+  '[[ "$web_revision" == "$api_revision" ]]',
+  "printf 'ACTIVE_REVISION|%s\\n' \"$active_revision\"",
+  'source_revision="$1"',
+  'historical_web_ids',
+  'candidate_started_at="$(docker inspect --format \'{{ .State.StartedAt }}\' "$candidate_id")"',
+  'candidate_finished_at="$(docker inspect --format \'{{ .State.FinishedAt }}\' "$candidate_id")"',
+  '[[ "$candidate_started_at" == 0001-01-01T00:00:00* ]]',
+  'candidate_started_epoch <= attempt_until_epoch',
+  'candidate_finished_epoch >= attempt_since_epoch',
+  "remote_source_cardinality='ZERO'",
+  "remote_source_cardinality='ONE'",
+  "remote_source_cardinality='MULTIPLE'",
+  'ATTEMPT_REMOTE_FAILURE|%s|%s|%s|%s',
+  "log_source='HISTORICAL_CONTAINER'",
+  "log_source='UNAVAILABLE_AFTER_EXACT_RELEASE'",
+  'historical_web_id="${historical_web_ids[0]}"',
   'docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - "$attempt_since" "$attempt_until" <<\'NODE\'',
   'process.env.STAFF_DATABASE_URL',
   'process.env.AUTH_DATABASE_URL',
@@ -139,9 +158,11 @@ for (const token of [
   "grep -F 'password_reset_request_api_failure'",
   "grep -F 'password_reset_request_transport_failure'",
   "grep -F 'password_reset_request_configuration_error'",
-  'docker logs --since "$attempt_since" --until "$attempt_until" "$web_id"',
-  'web_logs="$(docker logs --since "$attempt_since" --until "$attempt_until" "$web_id" 2>&1)"',
+  'docker logs --since "$attempt_since" --until "$attempt_until" "$historical_web_id"',
+  'web_logs="$(docker logs --since "$attempt_since" --until "$attempt_until" "$historical_web_id" 2>&1)"',
+  '[[ "$(docker inspect --format \'{{ index .Config.Labels "org.opencontainers.image.revision" }}\' "$historical_web_id")" == "$source_revision" ]]',
   "remote_substage='TERMINAL_LOG_READ'",
+  "remote_substage='TERMINAL_LOG_UNAVAILABLE'",
   "remote_substage='TERMINAL_LOG_BINDING'",
   "remote_substage='UNBOUND_CONFIGURATION_EVENT'",
   '\\"accountHash\\":\\"$reviewer_web_hash\\"',
@@ -167,11 +188,29 @@ for (const token of [
   "attempt_class='DELIVERY_BOUNDARY_REJECTED'",
   "attempt_class='COOLDOWN_ACTIVE_NO_NEW_DELIVERY'",
   "attempt_class='BEFORE_POST_OR_NO_DURABLE_EFFECT'",
+  "attempt_class='DURABLE_CHALLENGE_CREATED_LOG_UNAVAILABLE'",
+  "attempt_class='DURABLE_COOLDOWN_ACTIVE_LOG_UNAVAILABLE'",
+  "attempt_class='DURABLE_DELIVERY_BOUNDARY_REJECTED_LOG_UNAVAILABLE'",
+  "attempt_class='DURABLE_REVIEWER_NON_ELIGIBLE_LOG_UNAVAILABLE'",
+  "attempt_class='DURABLE_OTHER_AUDIT_LOG_UNAVAILABLE'",
+  "attempt_class='NO_DURABLE_RESET_EFFECT_LOG_UNAVAILABLE'",
+  "terminal_count='NA'",
+  "delivered_class='UNAVAILABLE'",
+  "'NA|NA|NA|NA|NA|NA'",
+  "'UNAVAILABLE|UNAVAILABLE|UNAVAILABLE|UNAVAILABLE|UNAVAILABLE|UNAVAILABLE'",
+  'web_ids_after',
+  'api_ids_after',
+  '[[ "${web_ids_after[0]}" == "$active_web_id" && "${api_ids_after[0]}" == "$api_id" ]]',
+  '[[ "$(docker inspect --format \'{{ index .Config.Labels "org.opencontainers.image.revision" }}\' "$active_web_id")" == "$active_revision" ]]',
   'RESET_ATTEMPT_LOG|PASS',
   'RESET_REPLAY|NONE',
   'MAIL_SENT_BY_CLASSIFIER|NO',
   'PRODUCTION_MUTATION|NONE',
-  'fresh reset safe now:',
+  'historical Web log source:',
+  'Web cardinalities classify historical events only:',
+  'active production API/Web revision:',
+  'fresh reset challenge slot clear:',
+  'reset authorized now: \\`NO_CURRENT_MAIL_PATH_AND_SMTP_IMAP_NOT_REPROVEN\\`',
   'configuration-error event cardinality:',
   'configuration class:',
   'reviewer identity / account hash / correlation id exposure: \\\`NONE\\\`',
@@ -194,18 +233,35 @@ for (const pattern of [
   /\bprintenv\b/,
   /\/proc\/(?:[0-9]+|\$[^/]+)\/environ/,
   /PC_P0_REVIEWER_(?:EMAIL|PASSWORD|TOTP)/,
+  /EXPECTED_DEPLOYED_SHA/,
   /process\.stdout\.write\([^\n]*(?:reviewer_email|email|token_hash|userId|user_id|accountHash|correlationId)/i,
   /printf[^\n]*(?:binding_marker|reviewer_web_hash|reviewer_api_hash|reviewer_correlation|bound_line|web_logs|db_output)/,
   /gh issue comment[\s\S]{0,1600}(?:\$email|\$userId|\$reviewer_email|\$output|\$reason\b|\$delivery_line)/,
   /gh issue comment[\s\S]{0,1600}(?:\$reviewer_web_hash|\$reviewer_api_hash|\$reviewer_correlation|\$binding_marker|\$db_output|\$web_logs)/,
+  /gh issue comment[\s\S]{0,1600}(?:\$historical_web_id|\$candidate_id|\$project_web_ids|\$historical_web_ids)/,
   /docker logs[^\n]*(?:--tail\s+all|--follow|-f\b)/,
   /docker logs[\s\S]{0,160}\|\| true/,
+  /candidate_revision=[^\n]*\|\| true/,
 ]) forbid('runner', pattern);
 
 const dockerExecCount = (files.runner.match(/docker exec\b/g) ?? []).length;
 if (dockerExecCount !== 1) failures.push(`runner: expected exactly one read-only docker exec, found ${dockerExecCount}`);
 const dockerLogsCount = (files.runner.match(/docker logs\b/g) ?? []).length;
 if (dockerLogsCount !== 1) failures.push(`runner: production logs must be captured exactly once, found ${dockerLogsCount} reads`);
+const historicalGateIndex = files.runner.indexOf('if [[ "$log_source" == \'HISTORICAL_CONTAINER\' ]]; then');
+const dockerLogsIndex = files.runner.indexOf('docker logs --since "$attempt_since" --until "$attempt_until" "$historical_web_id"');
+const unavailableIndex = files.runner.indexOf("remote_substage='TERMINAL_LOG_UNAVAILABLE'");
+if (historicalGateIndex < 0 || dockerLogsIndex <= historicalGateIndex || unavailableIndex <= dockerLogsIndex) {
+  failures.push('runner: historical log read is not confined to the explicit historical-source branch');
+}
+if (/mapfile[^\n]*<\s*<\(docker ps -aq/.test(files.runner)) {
+  failures.push('runner: historical container discovery must not hide docker ps failure in process substitution');
+}
+const zeroStartIndex = files.runner.indexOf('[[ "$candidate_started_at" == 0001-01-01T00:00:00* ]]');
+const startEpochIndex = files.runner.indexOf('candidate_started_epoch="$(date -u -d "$candidate_started_at" +%s)"');
+if (zeroStartIndex < 0 || startEpochIndex <= zeroStartIndex) {
+  failures.push('runner: never-started source containers must be skipped before timestamp conversion');
+}
 
 const shellSyntax = spawnSync('bash', ['-n', runnerPath], { encoding: 'utf8' });
 if (shellSyntax.status !== 0) failures.push(`runner: bash syntax invalid: ${shellSyntax.stderr.trim()}`);
@@ -278,4 +334,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('PASS: reviewer reset attempt classifier is owner-only, exact-main/source-revision guarded, fixed-window, aggregate-only and read-only; it cannot replay reset, send mail, disclose identity/token material or mutate production.');
+console.log('PASS: reviewer reset attempt classifier is owner-only, exact-main/dynamic-active/source-revision guarded, fixed-window, post-release-aware, aggregate-only and read-only; it cannot replay reset, send mail, disclose identity/token material or mutate production.');
