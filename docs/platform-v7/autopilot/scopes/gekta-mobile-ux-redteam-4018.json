@@ -9,7 +9,7 @@
     "branch": "main",
     "commit": "a8bba0460674bf4ab58eb6dea9ebb6f43dca1268"
   },
-  "purpose": "Red-team and correct the mobile standalone Gekta and public floating-entry UX from production iPhone evidence: make the chat visual-viewport and keyboard aware, keep scroll affordances clear of the composer, reduce first-screen starter overload, make the drawer and project controls touch-safe, stop fixed navigation from squeezing history, and ensure the public platform presents one floating communication surface instead of stacked AI launchers.",
+  "purpose": "Red-team and correct the mobile standalone Gekta and public floating-entry UX from production iPhone evidence: make the chat visual-viewport and keyboard aware, keep scroll affordances clear of the composer, reduce first-screen starter overload, make the drawer and project controls touch-safe, stop fixed navigation from squeezing history, ensure the public platform presents one floating communication surface instead of stacked AI launchers, and make the visible mobile footer links meet the product 44px touch-target contract.",
   "allowedPaths": [
     "apps/web/components/gekta/GektaViewportAuthority.tsx",
     "apps/web/components/gekta/GektaProductShell.tsx",
@@ -20,6 +20,7 @@
     "apps/web/components/gekta/GektaSidebar.tsx",
     "apps/web/components/gekta/GektaProjectList.tsx",
     "apps/web/components/gekta/GektaFloatingEntry.tsx",
+    "apps/web/components/platform-v7/PlatformV7HomeMobileDensity.css",
     "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
     "docs/platform-v7/autopilot/scopes/gekta-mobile-ux-redteam-4018.json"
   ],
