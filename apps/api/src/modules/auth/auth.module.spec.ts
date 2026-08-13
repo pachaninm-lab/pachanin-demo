@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 import { AuthModule } from './auth.module';
 import { AuthPrismaService } from './auth-prisma.service';
 import { PersistentAuthRepository } from './persistent-auth.repository';
+import { GektaRegistrationController } from './gekta-registration.controller';
+import { GektaRegistrationService } from './gekta-registration.service';
 import { ProductSessionService } from './product-session.service';
 
 jest.setTimeout(10_000);
@@ -29,6 +31,8 @@ describe('AuthModule database wiring', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AuthModule] }).compile();
     try {
       expect(moduleRef.get(ProductSessionService)).toBeInstanceOf(ProductSessionService);
+      expect(moduleRef.get(GektaRegistrationService)).toBeInstanceOf(GektaRegistrationService);
+      expect(moduleRef.get(GektaRegistrationController)).toBeInstanceOf(GektaRegistrationController);
     } finally {
       await moduleRef.close();
     }

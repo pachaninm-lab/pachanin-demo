@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-registration-20260813",
+  "branch": "claude/gekta-registration",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "claude/gekta-product-session-scope",
+    "commit": "9cabe10a17d75a78c6c40c5797d623da5a4057d7"
+  },
+  "purpose": "Регистрация в Гекте без организации и ИНН. Корпоративная регистрация неприменима: она требует ИНН, создаёт организацию и ставит заявку в очередь на проверку. Вторая система аккаунтов не создаётся — те же public.users, тот же bcrypt, та же таблица одноразовых токенов подтверждения email, тот же MFA и тот же журнал аудита. NOT NULL на application_id сохранён CHECK-ограничением ровно для корпоративного challenge. Функция заведения личности не принимает ни ИНН, ни организацию, ни тенант, ни роль. Занятый email и повторная доставка отвечают неразличимо; bearer-токен письма и заявленный телефон выдаются только BFF с внутренним ключом. Account-level throttle дополняет IP rate limit. MFA обязателен, существующий фактор не заменяется паролем, backup-коды одноразовые: активная сессия не выдаётся, пока не пройдены все три шага.",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260813070000_gekta_registration_identity/migration.sql",
+    "apps/api/src/modules/auth/auth.module.ts",
+    "apps/api/src/modules/auth/auth.module.spec.ts",
+    "apps/api/src/modules/auth/gekta-registration.controller.ts",
+    "apps/api/src/modules/auth/gekta-registration.service.ts",
+    "apps/api/src/modules/auth/gekta-registration.spec.ts",
+    "apps/api/src/modules/auth/persistent-auth.repository.spec.ts",
+    "apps/api/src/modules/auth/persistent-auth.repository.ts",
+    "apps/api/src/modules/auth/product-session.service.ts",
+    "apps/api/src/modules/auth/product-session.spec.ts",
+    "scripts/platform-v7-rls-integration.sh",
+    "docs/platform-v7/autopilot/scopes/gekta-registration-20260813.json"
+  ],
+  "forbiddenChanges": [
+    "ИНН, организация, тенант или роль в продуктовой регистрации",
+    "вторая система пользователей, паролей, email verification или MFA",
+    "ослабление NOT NULL на application_id для корпоративного challenge",
+    "активная сессия до подтверждения email и MFA",
+    "различимый ответ на занятый и свободный email",
+    "публичная выдача verification bearer-токена или заявленного телефона",
+    "сброс существующего MFA-фактора одним только паролем",
+    "повторное использование backup-кода или выпуск новых backup-кодов при обычном входе",
+    "SMS-подтверждение телефона или формулировка «номер подтверждён»",
+    "открытый пароль в базе или в журнале"
+  ],
+  "requiredChecks": [
+    "PostgreSQL 16 RLS tenant isolation",
+    "API unit tests + TypeScript check",
+    "exact-head CI"
+  ],
+  "deploymentState": "not-deployed"
+}

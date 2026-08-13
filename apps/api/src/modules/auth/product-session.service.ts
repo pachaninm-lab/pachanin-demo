@@ -3,10 +3,25 @@ import { randomUUID } from 'crypto';
 import { RequestProductUser, isProductSessionScope } from '../../common/types/product-session';
 import { signAccessToken, verifyAccessClaims } from './access-token';
 import { appendAuthAudit } from './auth-audit';
-import { hashClientValue, secureEqual } from './auth-crypto';
-import { issueRefreshCredential, resolvePresentedCredential } from './opaque-token-authority';
+import {
+  buildOtpAuthUri,
+  decryptMfaSecret,
+  encryptMfaSecret,
+  generateBackupCodes,
+  generateTotpSecret,
+  hashClientValue,
+  secureEqual,
+  verifyTotp,
+} from './auth-crypto';
+import {
+  digestMfaBackupCode,
+  issueMfaChallengeCredential,
+  issueRefreshCredential,
+  resolvePresentedCredential,
+} from './opaque-token-authority';
 import {
   AuthSqlClient,
+  CredentialStateRow,
   PersistentAuthRepository,
   ProductSessionContextRow,
 } from './persistent-auth.repository';
@@ -26,73 +41,198 @@ import {
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-
-export type IssuedProductSession = {
-  sessionId: string;
-  accessToken: string;
-  refreshToken: string;
-  user: { id: string; email: string; fullName: string };
-};
+const MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class ProductSessionService {
   constructor(private readonly repository: PersistentAuthRepository) {}
 
   /**
-   * Создание активной продуктовой сессии. Вызывается только после того, как
-   * вызывающий код уже доказал личность: подтверждённый email и пройденный MFA.
-   * Сам метод личность не проверяет и поэтому наружу как маршрут не выставлен.
+   * Сессия, ожидающая подтверждения MFA.
+   *
+   * MFA у Гекты обязателен, поэтому сессия создаётся сразу в MFA_PENDING и до
+   * успешной проверки кода не выдаёт ни одного токена. Секрет TOTP шифруется
+   * тем же ключом и той же функцией, что и у платформы.
    */
-  async issueSession(
+  async issueMfaSession(
     tx: AuthSqlClient,
     input: {
       userId: string;
       email: string;
-      fullName: string;
       credentialVersion: number;
+      enrollment: boolean;
       userAgent?: string;
       ip?: string;
     },
-  ): Promise<IssuedProductSession> {
+  ): Promise<{
+    sessionId: string;
+    challengeToken: string;
+    expiresAt: string;
+    setupSecret?: string;
+    otpAuthUri?: string;
+  }> {
     const sessionId = `ses_${randomUUID()}`;
-    const familyId = `rf_${randomUUID()}`;
     await this.repository.createProductSession(tx, {
       id: sessionId,
       userId: input.userId,
       scope: 'GEKTA',
-      status: 'ACTIVE',
-      refreshFamilyId: familyId,
+      status: 'MFA_PENDING',
+      refreshFamilyId: `rf_${randomUUID()}`,
       credentialVersion: input.credentialVersion,
       userAgentHash: hashClientValue(input.userAgent),
       ipHash: hashClientValue(input.ip),
       expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     });
 
-    const issuedRefresh = issueRefreshCredential();
-    await this.repository.createRefreshToken(tx, {
-      id: issuedRefresh.credentialId,
-      sessionId,
-      familyId,
-      tokenHash: issuedRefresh.storedDigest,
-      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
-      userAgentHash: hashClientValue(input.userAgent),
-      ipHash: hashClientValue(input.ip),
-    });
+    let setupSecret: string | undefined;
+    if (input.enrollment) {
+      setupSecret = generateTotpSecret();
+      const encrypted = encryptMfaSecret(setupSecret);
+      await this.repository.setMfaSecret(tx, input.userId, encrypted.ciphertext, encrypted.keyVersion);
+    }
 
+    const issuedChallenge = issueMfaChallengeCredential();
+    const expiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS);
+    await this.repository.createMfaChallenge(tx, {
+      id: issuedChallenge.credentialId,
+      sessionId,
+      userId: input.userId,
+      challengeTokenHash: issuedChallenge.storedDigest,
+      type: input.enrollment ? 'TOTP_ENROLL' : 'TOTP_VERIFY',
+      expiresAt,
+    });
     await appendAuthAudit(this.repository, tx, {
       userId: input.userId,
       sessionId,
-      action: 'auth.product_session.issue',
+      action: 'auth.product_session.mfa_required',
       outcome: 'SUCCESS',
-      metadata: this.clientMetadata(input.userAgent, input.ip, { scope: 'GEKTA' }),
+      metadata: this.clientMetadata(input.userAgent, input.ip, {
+        scope: 'GEKTA',
+        enrollment: input.enrollment,
+      }),
     });
 
     return {
       sessionId,
-      accessToken: signAccessToken(input.userId, sessionId, input.credentialVersion),
-      refreshToken: issuedRefresh.rawToken,
-      user: { id: input.userId, email: input.email, fullName: input.fullName },
+      challengeToken: issuedChallenge.rawToken,
+      expiresAt: expiresAt.toISOString(),
+      ...(setupSecret
+        ? { setupSecret, otpAuthUri: buildOtpAuthUri(input.email, setupSecret) }
+        : {}),
     };
+  }
+
+  /**
+   * Проверка кода MFA для продуктовой сессии.
+   *
+   * Отличается от платформенной только разрешением личности: та же таблица
+   * challenge'ей, тот же счётчик попыток, та же активация сессии и та же
+   * выдача резервных кодов.
+   */
+  async verifyMfa(
+    challengeToken: string,
+    code: string,
+    userAgent?: string,
+    ip?: string,
+  ) {
+    const parsed = resolvePresentedCredential(challengeToken, 'mc');
+    if (!parsed) throw new UnauthorizedException('Invalid MFA challenge');
+
+    const result = await this.repository.transaction(async (tx) => {
+      const context = await this.repository.getProductMfaChallengeForUpdate(tx, parsed.credentialId);
+      if (
+        !context
+        || !secureEqual(context.challenge_token_hash, parsed.storedDigest)
+        || !['TOTP_ENROLL', 'TOTP_VERIFY'].includes(context.challenge_type)
+        || context.challenge_status !== 'PENDING'
+        || context.challenge_expires_at <= new Date()
+        || context.session_status !== 'MFA_PENDING'
+        || context.user_status !== 'ACTIVE'
+      ) {
+        return { kind: 'invalid' as const };
+      }
+
+      const credential = await this.repository.getCredentialState(tx, context.user_id, true);
+      const enrollment = context.challenge_type === 'TOTP_ENROLL';
+      const credentialMatchesChallenge = credential
+        && (enrollment ? !credential.mfa_enabled : credential.mfa_enabled);
+      const verification = credentialMatchesChallenge
+        ? this.verifyMfaCode(credential, code, !enrollment)
+        : null;
+      if (!verification) {
+        // Попытка последняя, если счётчик уже достиг предела: тот же порог и
+        // та же терминальность, что у платформенной проверки.
+        const terminal = context.challenge_attempts + 1 >= context.challenge_max_attempts;
+        await this.repository.recordMfaFailure(tx, context.challenge_id, terminal);
+        if (terminal) {
+          await this.repository.revokeSession(tx, context.session_id, 'MFA_ATTEMPTS_EXHAUSTED');
+        }
+        await appendAuthAudit(this.repository, tx, {
+          userId: context.user_id,
+          sessionId: context.session_id,
+          action: 'auth.product_session.mfa',
+          outcome: 'FAILURE',
+          reason: terminal ? 'MFA_ATTEMPTS_EXHAUSTED' : 'MFA_CODE_INVALID',
+          metadata: this.clientMetadata(userAgent, ip, {
+            attempts: context.challenge_attempts + 1,
+          }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      const backup = enrollment ? generateBackupCodes() : null;
+      const persistedBackupHashes = enrollment
+        ? backup?.hashes
+        : verification.method === 'BACKUP'
+          ? verification.remainingBackupHashes
+          : undefined;
+      await this.repository.activateMfaSession(tx, {
+        challengeId: context.challenge_id,
+        sessionId: context.session_id,
+        userId: context.user_id,
+        method: verification.method,
+        enableMfa: enrollment,
+        backupHashes: persistedBackupHashes,
+      });
+
+      const issuedRefresh = issueRefreshCredential();
+      await this.repository.createRefreshToken(tx, {
+        id: issuedRefresh.credentialId,
+        sessionId: context.session_id,
+        familyId: context.refresh_family_id,
+        tokenHash: issuedRefresh.storedDigest,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+        userAgentHash: hashClientValue(userAgent),
+        ipHash: hashClientValue(ip),
+      });
+      await appendAuthAudit(this.repository, tx, {
+        userId: context.user_id,
+        sessionId: context.session_id,
+        action: 'auth.product_session.mfa',
+        outcome: 'SUCCESS',
+        metadata: this.clientMetadata(userAgent, ip, {
+          scope: 'GEKTA',
+          method: verification.method,
+          enrollment,
+        }),
+      });
+
+      return {
+        kind: 'active' as const,
+        sessionId: context.session_id,
+        accessToken: signAccessToken(
+          context.user_id,
+          context.session_id,
+          context.current_credential_version,
+        ),
+        refreshToken: issuedRefresh.rawToken,
+        ...(backup ? { backupCodes: backup.codes } : {}),
+        user: { id: context.user_id, email: context.email, fullName: context.full_name },
+      };
+    });
+
+    if (result.kind === 'invalid') throw new UnauthorizedException('Invalid MFA challenge or code');
+    return result;
   }
 
   /**
@@ -285,10 +425,48 @@ export class ProductSessionService {
     }
     if (context.session_status !== 'ACTIVE') return 'SESSION_NOT_ACTIVE';
     if (context.user_status !== 'ACTIVE') return 'USER_NOT_ACTIVE';
+    if (
+      !context.current_mfa_enabled
+      || !context.mfa_verified_at
+      || !['TOTP', 'BACKUP'].includes(context.mfa_level)
+    ) return 'MFA_REQUIRED';
     if (context.session_credential_version !== context.current_credential_version) {
       return 'CREDENTIAL_VERSION_CHANGED';
     }
     return null;
+  }
+
+  private verifyMfaCode(
+    credential: CredentialStateRow,
+    code: string,
+    allowBackup: boolean,
+  ): { method: 'TOTP' } | { method: 'BACKUP'; remainingBackupHashes: string[] } | null {
+    let secret: string | null = null;
+    if (credential.mfa_secret_ciphertext) {
+      try {
+        secret = decryptMfaSecret(credential.mfa_secret_ciphertext);
+      } catch {
+        // A damaged TOTP ciphertext must not turn into factor replacement.
+        // Existing one-time backup codes remain a valid recovery path.
+        secret = null;
+      }
+    }
+    if (secret && verifyTotp(secret, code)) return { method: 'TOTP' };
+
+    // Enrollment proves possession of the newly presented TOTP secret. An old
+    // recovery code must never be able to approve a replacement authenticator.
+    if (!allowBackup) return null;
+
+    const hashes = Array.isArray(credential.mfa_backup_hashes)
+      ? credential.mfa_backup_hashes.filter((item): item is string => typeof item === 'string')
+      : [];
+    const candidate = digestMfaBackupCode(code);
+    const matchedIndex = hashes.findIndex((item) => secureEqual(item, candidate));
+    if (matchedIndex < 0) return null;
+    return {
+      method: 'BACKUP',
+      remainingBackupHashes: hashes.filter((_, index) => index !== matchedIndex),
+    };
   }
 
   private clientMetadata(
