@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-first-user-consent-race-3072",
+  "branch": "fix/gekta-first-user-consent-race-3072",
+  "status": "active",
+  "authorizedBy": "merged-governance-pr-4072",
+  "baseline": {
+    "branch": "main",
+    "commit": "7848653faa788bb96f962ea81242f69ae34c1232"
+  },
+  "purpose": "Make the protected first-user journey wait for the authoritative anonymous-entitlement response before deciding whether legal consent is required, then prove the consent POST succeeded before sending the first live question.",
+  "allowedPaths": [
+    "scripts/production-gekta-first-user-acceptance.mjs",
+    "scripts/check-production-gekta-first-user-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json"
+  ],
+  "forbiddenChanges": [
+    "consent bypass or pre-acceptance answer submission",
+    "anonymous quota, registration, email, MFA or owner-grant weakening",
+    "credential, token, email, phone, password, MFA secret or cookie output",
+    "production mutation outside the existing protected first-user workflow"
+  ],
+  "requiredChecks": [
+    "production first-user source contract",
+    "executor syntax validation",
+    "platform-v7 source-controlled scope guard",
+    "exact-main protected live first-user acceptance"
+  ],
+  "deploymentState": "not-deployed"
+}
