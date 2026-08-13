@@ -8,11 +8,11 @@ set -Eeuo pipefail
 DEFAULT_HOST='195.19.12.120'
 LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 RELEASE_ISSUE_NUMBER='3072'
+EXPECTED_DEPLOYED_SHA='d2dd7972105cc59002263455b5ae0eb8d8f2d386'
 
 key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-stage-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-stage-known-hosts"
 TARGET_SHA='unknown'
-EXPECTED_DEPLOYED_SHA='unknown'
 result_published=0
 last_stage='BOOTSTRAP'
 scan=''
@@ -56,10 +56,10 @@ guard_main() {
 
 TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
-EXPECTED_DEPLOYED_SHA="$TARGET_SHA"
 git fetch --no-tags origin main >/dev/null
 [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
 [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$TARGET_SHA"
 [[ -z "$(git status --porcelain=v1)" ]]
 last_stage='MAIN_GUARD'
 
