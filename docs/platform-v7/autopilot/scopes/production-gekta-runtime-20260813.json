@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/production-gekta-runtime-20260813",
+  "status": "active",
+  "operationalStatus": "GEKTA_REGISTRATION_PROTECTED_RUNTIME",
+  "issue": 4033,
+  "releaseIssue": 3072,
+  "title": "Production Gekta registration runtime provision and exact-SHA activation",
+  "allowedPaths": [
+    ".github/workflows/production-p0-password-reset-runtime-provision.yml",
+    "docs/platform-v7/autopilot/scopes/production-gekta-runtime-20260813.json",
+    "scripts/check-production-gekta-runtime-provision.mjs",
+    "scripts/production-full-stack-exact-sha.sh",
+    "scripts/provision-production-gekta-runtime.sh"
+  ],
+  "boundaries": {
+    "productionMutation": "BOUNDED_SECRET_FILE_PROVISION_THEN_EXACT_RELEASE",
+    "databaseMutation": false,
+    "deploymentMutation": true,
+    "credentialMutation": true,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the owner-only command is accepted only on release issue 3072 and exact current main is rechecked before any REG.RU mutation",
+    "the protected PC_PROD_HOST must be nonempty, must equal one of the live domain's current DNS IPv4 answers and must present the pinned SSH host fingerprint",
+    "GEKTA_PHONE_ENCRYPTION_KEY is an independent 32-byte key and GEKTA_PHONE_LOOKUP_PEPPER is an independent 48-byte key stored only in a root-owned 0600 API runtime file",
+    "MFA_LOGIN_TICKET_SECRET and GEKTA_ANONYMOUS_SESSION_SECRET are distinct independent 48-byte keys stored only in a root-owned 0600 Web runtime file",
+    "API and Web consume only their own Gekta runtime file; post-release inspection proves this least privilege boundary without emitting values",
+    "existing valid protected files are preserved idempotently; duplicate directory authorities must be byte-identical and conflicting authorities fail closed without mutation",
+    "symlinks, broad paths, incomplete pairs, malformed values and unsafe permissions fail closed",
+    "workflow logs and retained artifacts publish only bounded created/existing, reconciliation and readiness markers and never secret or PII values",
+    "the exact full-stack release refuses to proceed unless both protected Gekta runtime files are valid and immutable API/Web revisions match exact current main",
+    "emergency rollback and verify-intake remain independent of the newly provisioned files and restore the recorded baseline override without injecting them",
+    "production hosting remains the existing REG.RU contour and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

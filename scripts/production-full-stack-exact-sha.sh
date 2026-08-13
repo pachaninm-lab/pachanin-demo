@@ -32,6 +32,8 @@ auth_opaque_token_env_file=""
 staff_database_env_file=""
 password_reset_delivery_env_file=""
 transactional_mail_env_file=""
+gekta_api_runtime_env_file=""
+gekta_web_runtime_env_file=""
 
 resolve_compose_authority() {
   if [[ -n "$prod_dir" && -n "$prod_compose" ]]; then return; fi
@@ -149,8 +151,80 @@ if not port.isdigit() or not 1 <= int(port) <= 65535 or not email.fullmatch(send
 PY
 }
 
+resolve_gekta_runtime_env_files() {
+  gekta_api_runtime_env_file="${PC_GEKTA_API_RUNTIME_ENV_FILE:-$prod_dir/.pc-gekta-api-runtime.env}"
+  gekta_web_runtime_env_file="${PC_GEKTA_WEB_RUNTIME_ENV_FILE:-$prod_dir/.pc-gekta-web-runtime.env}"
+  [[ "$gekta_api_runtime_env_file" == "$prod_dir"/* ]] || fail GEKTA_API_RUNTIME_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 68
+  [[ "$gekta_web_runtime_env_file" == "$prod_dir"/* ]] || fail GEKTA_WEB_RUNTIME_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 69
+  [[ -f "$gekta_api_runtime_env_file" && ! -L "$gekta_api_runtime_env_file" ]] || fail GEKTA_API_RUNTIME_ENV_FILE_MISSING 70
+  [[ -f "$gekta_web_runtime_env_file" && ! -L "$gekta_web_runtime_env_file" ]] || fail GEKTA_WEB_RUNTIME_ENV_FILE_MISSING 71
+  [[ "$(stat -c '%a:%u:%g' "$gekta_api_runtime_env_file")" == '600:0:0' ]] || fail GEKTA_API_RUNTIME_ENV_FILE_PERMISSIONS_INVALID 72
+  [[ "$(stat -c '%a:%u:%g' "$gekta_web_runtime_env_file")" == '600:0:0' ]] || fail GEKTA_WEB_RUNTIME_ENV_FILE_PERMISSIONS_INVALID 73
+  python3 - "$gekta_api_runtime_env_file" <<'PY' || fail GEKTA_API_RUNTIME_ENV_FILE_CONTENT_INVALID 74
+import re
+import sys
+
+raw = open(sys.argv[1], encoding='utf-8').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+    raise SystemExit(1)
+lines = raw.rstrip('\n').split('\n')
+if len(lines) != 2:
+    raise SystemExit(1)
+values = {}
+for line in lines:
+    name, separator, value = line.partition('=')
+    if not separator or name in values:
+        raise SystemExit(1)
+    values[name] = value
+if set(values) != {'GEKTA_PHONE_ENCRYPTION_KEY', 'GEKTA_PHONE_LOOKUP_PEPPER'}:
+    raise SystemExit(1)
+if not re.fullmatch(r'[A-Fa-f0-9]{64}', values['GEKTA_PHONE_ENCRYPTION_KEY']):
+    raise SystemExit(1)
+if not re.fullmatch(r'[A-Fa-f0-9]{96}', values['GEKTA_PHONE_LOOKUP_PEPPER']):
+    raise SystemExit(1)
+PY
+  python3 - "$gekta_web_runtime_env_file" <<'PY' || fail GEKTA_WEB_RUNTIME_ENV_FILE_CONTENT_INVALID 75
+import re
+import sys
+
+raw = open(sys.argv[1], encoding='utf-8').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+    raise SystemExit(1)
+lines = raw.rstrip('\n').split('\n')
+if len(lines) != 2:
+    raise SystemExit(1)
+values = {}
+for line in lines:
+    name, separator, value = line.partition('=')
+    if not separator or name in values or not re.fullmatch(r'[A-Fa-f0-9]{96}', value):
+        raise SystemExit(1)
+    values[name] = value
+if set(values) != {'MFA_LOGIN_TICKET_SECRET', 'GEKTA_ANONYMOUS_SESSION_SECRET'}:
+    raise SystemExit(1)
+if values['MFA_LOGIN_TICKET_SECRET'] == values['GEKTA_ANONYMOUS_SESSION_SECRET']:
+    raise SystemExit(1)
+PY
+  python3 - "$gekta_api_runtime_env_file" "$gekta_web_runtime_env_file" <<'PY' || fail GEKTA_RUNTIME_PURPOSE_SEPARATION_INVALID 76
+import sys
+
+def values(path):
+    return dict(line.split('=', 1) for line in open(path, encoding='utf-8').read().rstrip('\n').split('\n'))
+
+api = values(sys.argv[1])
+web = values(sys.argv[2])
+purpose_secrets = {
+    api['GEKTA_PHONE_LOOKUP_PEPPER'],
+    web['MFA_LOGIN_TICKET_SECRET'],
+    web['GEKTA_ANONYMOUS_SESSION_SECRET'],
+}
+if len(purpose_secrets) != 3:
+    raise SystemExit(1)
+PY
+}
+
 if [[ "$ACTION" == deploy ]]; then
   resolve_password_reset_runtime_env_files
+  resolve_gekta_runtime_env_files
 fi
 
 IFS=',' read -r -a raw_files <<< "$prod_compose"
@@ -229,12 +303,14 @@ services:
       - ${auth_opaque_token_env_file}
       - ${staff_database_env_file}
       - ${password_reset_delivery_env_file}
+      - ${gekta_api_runtime_env_file}
   web:
     image: ${web_image}
     pull_policy: never
     env_file:
       - ${password_reset_delivery_env_file}
       - ${transactional_mail_env_file}
+      - ${gekta_web_runtime_env_file}
   ${migration_service}:
     image: ${migration_image}
     pull_policy: never
