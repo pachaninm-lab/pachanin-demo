@@ -150,31 +150,81 @@ export function csrfToken(): string {
  */
 export type AccountResponse<T> = { ok: boolean; status: number; data: T | null };
 
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function refreshAccountSession(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    try {
+      const response = await fetch('/api/gekta/auth/refresh', {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'x-csrf-token': csrfToken() },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
+async function accountRequest(
+  path: string,
+  init: { method: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; signal?: AbortSignal },
+): Promise<Response> {
+  const method = init.method;
+  return fetch(`/api/gekta/account/${path}`, {
+    method,
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
+      ...(method === 'GET' ? {} : { 'x-csrf-token': csrfToken() }),
+      ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+    ...(init.signal ? { signal: init.signal } : {}),
+  });
+}
+
 export async function accountApi<T>(
   path: string,
   init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; signal?: AbortSignal },
 ): Promise<AccountResponse<T>> {
   const method = init?.method ?? 'GET';
   try {
-    const response = await fetch(`/api/gekta/account/${path}`, {
-      method,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        // DELETE — тоже небезопасный метод: без токена мост отклонит его как
-        // межсайтовый. Content-Type ставится только там, где есть тело.
-        ...(method === 'GET' ? {} : { 'x-csrf-token': csrfToken() }),
-        ...(init?.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-      },
-      ...(init?.body === undefined ? {} : { body: JSON.stringify(init.body) }),
-      ...(init?.signal ? { signal: init.signal } : {}),
-    });
+    const request = { method, body: init?.body, signal: init?.signal };
+    let response = await accountRequest(path, request);
+    // Product refresh tokens rotate. All simultaneous 401s share one refresh,
+    // otherwise the second refresh looks like reuse and revokes the family.
+    if (response.status === 401 && await refreshAccountSession()) {
+      response = await accountRequest(path, request);
+    }
     if (!response.ok) return { ok: false, status: response.status, data: null };
     const text = await response.text();
     return { ok: true, status: response.status, data: (text ? JSON.parse(text) : null) as T };
   } catch {
     return { ok: false, status: 0, data: null };
+  }
+}
+
+export async function logoutGektaAccount(): Promise<boolean> {
+  try {
+    const response = await fetch('/api/gekta/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'x-csrf-token': csrfToken() },
+    });
+    try { window.localStorage.removeItem(GEKTA_HISTORY_IMPORT_FLAG); } catch {}
+    return response.ok;
+  } catch {
+    try { window.localStorage.removeItem(GEKTA_HISTORY_IMPORT_FLAG); } catch {}
+    return false;
   }
 }
 

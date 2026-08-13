@@ -23,6 +23,17 @@ import {
   type ConversationState,
 } from '@/lib/platform-v7/tai-conversation-state';
 import { conversationIdFrom, replayConversationState } from '@/lib/platform-v7/tai-conversation-session';
+import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import {
+  GEKTA_ANONYMOUS_COOKIE,
+  GEKTA_ANONYMOUS_COOKIE_MAX_AGE_SECONDS,
+  admitReservedAnswer,
+  parseAnonymousSession,
+  serializeAnonymousSession,
+  type GektaAnonymousSession,
+} from '@/lib/gekta/anonymous-session';
+import { resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
+import { GEKTA_AUTH_TIMEOUT_MS, gektaApiBase } from '@/lib/server/gekta-auth-route';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -123,6 +134,12 @@ export async function POST(request: NextRequest) {
   const envelope = readPublicEnvelope(rawBody);
   if (!envelope.question) return knowledgePost(rebuildRequestWithoutStream(request, rawBody));
 
+  const admission = envelope.context === 'gekta-standalone'
+    ? await authorizeGektaAnswer(request)
+    : { response: null, anonymousSession: null };
+  if (admission.response) return admission.response;
+  const admitted = (response: NextResponse) => applyGektaAdmission(response, admission.anonymousSession);
+
   const routingContext = await buildAssistantRoutingContext(request, {
     locale: envelope.locale,
     recentMessages: envelope.history,
@@ -136,38 +153,38 @@ export async function POST(request: NextRequest) {
   const locale = envelope.locale;
 
   if (containsSensitiveInput(envelope.question, envelope.history)) {
-    return streamDirectAnswer(sensitiveInputCopy(locale), {
+    return admitted(streamDirectAnswer(sensitiveInputCopy(locale), {
       source: 'policy',
       answerMode,
       currentDataRequired: false,
       modelIdentity: null,
       truncated: false,
       safetyFlags: ['SENSITIVE_INPUT_BLOCKED'],
-    });
+    }));
   }
 
   if (outcome.decision === 'BLOCK_SAFETY') {
-    return streamDirectAnswer(safetyBoundaryCopy(locale), {
+    return admitted(streamDirectAnswer(safetyBoundaryCopy(locale), {
       source: 'policy',
       answerMode,
       currentDataRequired: false,
       modelIdentity: null,
       truncated: false,
       safetyFlags: ['SAFETY_BOUNDARY_BLOCKED'],
-    });
+    }));
   }
 
   let grounding: PublicKnowledgeAnswer;
   if (answerMode === 'verified_platform') {
     const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody));
-    if (!groundingResponse.ok) return groundingResponse;
+    if (!groundingResponse.ok) return admitted(groundingResponse);
     try {
       grounding = await groundingResponse.json() as PublicKnowledgeAnswer;
     } catch {
-      return NextResponse.json(
+      return admitted(NextResponse.json(
         { code: 'PUBLIC_ASSISTANT_GROUNDING_INVALID', message: 'Verified public grounding is unavailable.' },
         { status: 503, headers: { 'Cache-Control': 'no-store' } },
-      );
+      ));
     }
     if (grounding.resolution === 'redirected') {
       answerMode = 'general_agro';
@@ -177,7 +194,104 @@ export async function POST(request: NextRequest) {
     grounding = generalAgroGrounding(locale);
   }
 
-  return streamModelFirstAnswer(request, grounding, envelope, routingContext, answerMode);
+  return admitted(streamModelFirstAnswer(request, grounding, envelope, routingContext, answerMode));
+}
+
+async function authorizeGektaAnswer(request: NextRequest): Promise<{
+  response: NextResponse | null;
+  anonymousSession: GektaAnonymousSession | null;
+}> {
+  const ticket = String(request.headers.get('x-gekta-answer-ticket') || '').trim();
+  if (!ticket || ticket.length > 256) {
+    return {
+      response: NextResponse.json(
+        { code: 'GEKTA_ANSWER_RESERVATION_REQUIRED' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } },
+      ),
+      anonymousSession: null,
+    };
+  }
+
+  if (ticket === 'account') {
+    const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
+    const upstream = gektaApiBase();
+    if (!accessToken || !upstream) {
+      return {
+        response: NextResponse.json(
+          { code: accessToken ? 'GEKTA_SERVICE_UNAVAILABLE' : 'GEKTA_ACCOUNT_SESSION_REQUIRED' },
+          { status: accessToken ? 503 : 401, headers: { 'Cache-Control': 'no-store' } },
+        ),
+        anonymousSession: null,
+      };
+    }
+    try {
+      const entitlement = await fetch(`${upstream}/gekta/entitlement`, {
+        method: 'GET',
+        headers: { authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(GEKTA_AUTH_TIMEOUT_MS),
+      });
+      const payload = await entitlement.json().catch(() => null) as { entitlement?: { canAsk?: boolean } } | null;
+      if (!entitlement.ok || payload?.entitlement?.canAsk !== true) {
+        const status = entitlement.status === 401 || entitlement.status === 403
+          ? entitlement.status
+          : entitlement.ok ? 403 : 503;
+        return {
+          response: NextResponse.json(
+            { code: status === 503 ? 'GEKTA_SERVICE_UNAVAILABLE' : 'GEKTA_ACCESS_DENIED' },
+            { status, headers: { 'Cache-Control': 'no-store' } },
+          ),
+          anonymousSession: null,
+        };
+      }
+      return { response: null, anonymousSession: null };
+    } catch {
+      return {
+        response: NextResponse.json(
+          { code: 'GEKTA_SERVICE_UNAVAILABLE' },
+          { status: 503, headers: { 'Cache-Control': 'no-store' } },
+        ),
+        anonymousSession: null,
+      };
+    }
+  }
+
+  const current = parseAnonymousSession(request.cookies.get(GEKTA_ANONYMOUS_COOKIE)?.value);
+  if (!current || !resolveAnonymousEntitlement({ used: current.used }, new Date()).canAsk) {
+    return {
+      response: NextResponse.json(
+        { code: 'GEKTA_ACCESS_DENIED' },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } },
+      ),
+      anonymousSession: null,
+    };
+  }
+  const consumed = admitReservedAnswer(current, ticket);
+  if (!consumed) {
+    return {
+      response: NextResponse.json(
+        { code: 'GEKTA_ANSWER_RESERVATION_INVALID' },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } },
+      ),
+      anonymousSession: null,
+    };
+  }
+  return { response: null, anonymousSession: consumed };
+}
+
+function applyGektaAdmission(
+  response: NextResponse,
+  anonymousSession: GektaAnonymousSession | null,
+): NextResponse {
+  if (!anonymousSession) return response;
+  response.cookies.set(GEKTA_ANONYMOUS_COOKIE, serializeAnonymousSession(anonymousSession), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: GEKTA_ANONYMOUS_COOKIE_MAX_AGE_SECONDS,
+  });
+  return response;
 }
 
 function resolveAnswerMode(

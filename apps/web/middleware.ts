@@ -446,6 +446,7 @@ export async function middleware(req: NextRequest) {
     isPublic(p)
     || PUBLIC_API_EXACT.has(p)
     || p.startsWith('/api/auth/')
+    || p.startsWith('/api/gekta/auth/')
     || p.startsWith('/api/runtime-')
     || isTokenAuthenticatedInternalPath(p)
   ) {
