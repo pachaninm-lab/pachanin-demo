@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-runtime-sha-handoff-20260813",
+  "status": "active",
+  "operationalStatus": "GEKTA_RUNTIME_EVENT_SHA_HANDOFF",
+  "issue": 4033,
+  "releaseIssue": 3072,
+  "title": "Keep the Gekta runtime release pinned without SHA job outputs",
+  "allowedPaths": [
+    ".github/workflows/production-p0-password-reset-runtime-provision.yml",
+    "docs/platform-v7/autopilot/scopes/production-gekta-runtime-sha-handoff-20260813.json",
+    "scripts/check-production-gekta-runtime-provision.mjs"
+  ],
+  "boundaries": {
+    "productionMutation": "OWNER_ONLY_PROVISION_AND_EXACT_RELEASE_AFTER_MERGE",
+    "deploymentMutation": true,
+    "credentialMutation": true,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the immutable issue-comment event SHA is consumed directly by every exact-SHA job",
+    "no SHA crosses the GitHub job-output secret-masking boundary",
+    "authority, provision, image publication and post-release verification all fail closed if current main differs from the event SHA",
+    "the owner-only production command remains restricted to release issue 3072",
+    "no protected value, raw environment or PII is emitted"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
