@@ -1076,6 +1076,12 @@
       "scripts/production-p0-web-container-smtp-delivery-proof.sh",
       "scripts/check-production-p0-web-container-smtp-delivery-proof.mjs",
       "docs/platform-v7/autopilot/scopes/production-p0-web-container-smtp-delivery-proof-3785.json"
+    ],
+    "fix/gekta-production-runner-resume-4018": [
+      ".github/workflows/production-pc-prod-runner-resume-owner-command.yml",
+      "scripts/production-pc-prod-runner-resume.sh",
+      "scripts/check-production-pc-prod-runner-resume.mjs",
+      "docs/platform-v7/autopilot/scopes/gekta-production-runner-resume-4018.json"
     ]
   },
   "currentAcceptance": [
