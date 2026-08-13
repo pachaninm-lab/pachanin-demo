@@ -26,6 +26,7 @@ P0_REGISTRATION_DECISION_MIGRATION="$MIGRATIONS_DIR/20260808140000_p0_registrati
 P0_MEMBERSHIP_RECOVERY_MIGRATION="$MIGRATIONS_DIR/20260808150000_p0_invitation_recovery_authority/migration.sql"
 P0_ACCOUNT_LIFECYCLE_MIGRATION="$MIGRATIONS_DIR/20260808160000_p0_account_lifecycle_authority/migration.sql"
 PRODUCT_SESSION_SCOPE_MIGRATION="$MIGRATIONS_DIR/20260813060000_gekta_product_session_scope/migration.sql"
+GEKTA_REGISTRATION_MIGRATION="$MIGRATIONS_DIR/20260813070000_gekta_registration_identity/migration.sql"
 
 : "${RLS_INTEGRATION_ADMIN_URL:?Set RLS_INTEGRATION_ADMIN_URL to a dedicated throwaway PostgreSQL database}"
 
@@ -164,6 +165,7 @@ admin -f "$P0_REGISTRATION_DECISION_MIGRATION" >/dev/null
 admin -f "$P0_MEMBERSHIP_RECOVERY_MIGRATION" >/dev/null
 admin -f "$P0_ACCOUNT_LIFECYCLE_MIGRATION" >/dev/null
 admin -f "$PRODUCT_SESSION_SCOPE_MIGRATION" >/dev/null
+admin -f "$GEKTA_REGISTRATION_MIGRATION" >/dev/null
 
 echo "== seeding two tenants, a member of staff and two admission applications =="
 admin <<'SQL'
@@ -330,6 +332,131 @@ BEGIN
   END IF;
 END;
 $scope_checks$;
+SQL
+
+echo
+echo "== Gekta registration: no organization is created and none can be borrowed =="
+admin <<'SQL'
+DO $gekta_registration_checks$
+DECLARE
+  failures integer := 0;
+  measured text;
+  created_user text;
+  verified boolean;
+BEGIN
+  -- Регистрация в Гекте заводит пользователя и ничего кроме него.
+  SELECT user_id INTO created_user
+  FROM auth.prepare_gekta_registration_identity(
+    'user-gekta-new', 'gekta-new@example.test', '+7 900 000-00-00',
+    repeat('x', 60), 'Агроном');
+
+  measured := coalesce(created_user, 'NONE')
+              || '/' || (SELECT count(*) FROM public."user_orgs" WHERE "userId" = 'user-gekta-new')::text
+              || '/' || (SELECT count(*) FROM public."organizations" WHERE "id" = 'user-gekta-new')::text
+              || '/' || coalesce((SELECT "status" FROM public."users" WHERE "id" = 'user-gekta-new'), 'NONE');
+  IF measured = 'user-gekta-new/0/0/PENDING_EMAIL_VERIFICATION' THEN
+    RAISE NOTICE 'PASS  R1 Gekta registration creates a subject with no membership -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  R1 Gekta registration creates a subject with no membership -> % (want user-gekta-new/0/0/PENDING_EMAIL_VERIFICATION)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- Занятый email отвечает ровно тем же, чем свободный: перечислить
+  -- пользователей платформы через форму регистрации нельзя.
+  measured := coalesce((
+    SELECT outcome FROM auth.prepare_gekta_registration_identity(
+      'user-gekta-dup', 'a@example.test', NULL, repeat('x', 60), 'Кто-то')
+  ), 'NONE');
+  IF measured = 'SUPPRESSED' THEN
+    RAISE NOTICE 'PASS  R2 an existing email is suppressed rather than reported -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  R2 an existing email is suppressed rather than reported -> % (want SUPPRESSED)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- Продуктовый challenge не может сослаться на корпоративную заявку.
+  BEGIN
+    INSERT INTO auth.registration_email_challenges(id, application_id, user_id, token_hash, scope, expires_at)
+    VALUES ('rec-bad-gekta', 'app-any', 'user-gekta-new', 'digest-bad-1', 'GEKTA', now()+interval '1 hour');
+    RAISE WARNING 'FAIL  R3 a product challenge referencing an application was accepted';
+    failures := failures + 1;
+  EXCEPTION WHEN check_violation OR foreign_key_violation THEN
+    RAISE NOTICE 'PASS  R3 a product challenge referencing an application is rejected';
+  END;
+
+  -- Корпоративный challenge по-прежнему невозможен без заявки.
+  BEGIN
+    INSERT INTO auth.registration_email_challenges(id, application_id, user_id, token_hash, expires_at)
+    VALUES ('rec-bad-platform', NULL, 'user-a', 'digest-bad-2', now()+interval '1 hour');
+    RAISE WARNING 'FAIL  R4 a platform challenge without an application was accepted';
+    failures := failures + 1;
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS  R4 a platform challenge without an application is rejected';
+  END;
+
+  -- Вход в Гекту доступен только субъекту без членства: пользователь
+  -- платформы должен входить обычным путём.
+  measured := coalesce((SELECT user_id FROM auth.resolve_gekta_login_credential('gekta-new@example.test')), 'NONE');
+  IF measured = 'user-gekta-new' THEN
+    RAISE NOTICE 'PASS  R5 Gekta login credential resolves a product subject -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  R5 Gekta login credential resolves a product subject -> % (want user-gekta-new)', measured;
+    failures := failures + 1;
+  END IF;
+
+  measured := coalesce((SELECT user_id FROM auth.resolve_gekta_login_credential('a@example.test')), 'NONE');
+  IF measured = 'NONE' THEN
+    RAISE NOTICE 'PASS  R6 Gekta login credential refuses a platform member -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  R6 Gekta login credential refuses a platform member -> % (want NONE)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- Email не подтверждается, пока одноразовый токен не потреблён.
+  INSERT INTO auth.registration_email_challenges(id, application_id, user_id, token_hash, scope, status, expires_at)
+  VALUES ('rec-gekta-1', NULL, 'user-gekta-new', 'digest-gekta-1', 'GEKTA', 'PENDING', now()+interval '1 hour');
+  -- Вызов и чтение результата — отдельные операторы: внутри одного выражения
+  -- PostgreSQL не гарантирует порядок вычисления подзапросов, поэтому статус
+  -- мог быть прочитан до того, как функция его изменит.
+  SELECT updated INTO verified FROM auth.mark_gekta_email_verified('rec-gekta-1', 'user-gekta-new');
+  measured := verified::text || '/' || (SELECT "status" FROM public."users" WHERE "id" = 'user-gekta-new');
+  IF measured = 'false/PENDING_EMAIL_VERIFICATION' THEN
+    RAISE NOTICE 'PASS  R7 an unconsumed challenge does not verify the email -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  R7 an unconsumed challenge does not verify the email -> % (want false/PENDING_EMAIL_VERIFICATION)', measured;
+    failures := failures + 1;
+  END IF;
+
+  UPDATE auth.registration_email_challenges SET status = 'CONSUMED', consumed_at = now() WHERE id = 'rec-gekta-1';
+  -- Вызов и сравнение разнесены намеренно: порядок вычисления операндов AND в
+  -- PostgreSQL не определён, поэтому побочный эффект внутри условия мог бы
+  -- вовсе не выполниться.
+  SELECT updated INTO verified FROM auth.mark_gekta_email_verified('rec-gekta-1', 'user-gekta-new');
+  measured := verified::text || '/' || (SELECT "status" FROM public."users" WHERE "id" = 'user-gekta-new');
+  IF measured = 'true/ACTIVE' THEN
+    RAISE NOTICE 'PASS  R8 a consumed challenge activates the subject -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  R8 a consumed challenge activates the subject -> % (want true/ACTIVE)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- Активный пользователь Гекты по-прежнему не разрешается платформенным
+  -- резолвером: членства у него нет.
+  measured := coalesce((
+    SELECT user_id FROM auth.resolve_session_identity_v2('user-gekta-new', 'm-a', 'org-a', 'tenant-a')
+  ), 'NONE');
+  IF measured = 'NONE' THEN
+    RAISE NOTICE 'PASS  R9 an active Gekta subject cannot borrow a membership -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  R9 an active Gekta subject cannot borrow a membership -> % (want NONE)', measured;
+    failures := failures + 1;
+  END IF;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'Gekta registration checks: % failed', failures;
+  END IF;
+END;
+$gekta_registration_checks$;
 SQL
 
 AUTH_URL="$(runtime_url pc_auth_runtime)"
