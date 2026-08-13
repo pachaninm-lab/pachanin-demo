@@ -80,7 +80,12 @@ jobs:
             if (!wrapper.includes(required)) throw new Error(`missing process-scoped swap invariant: ${required}`);
           }
           if (!bootstrap.includes('/usr/local/libexec/gekta-qwen-g3c-base.py')) throw new Error('audited base install missing');
-          const probeBlock = workflow.split("if [[ \"$ACTION\" == probe ]]")[1]?.split('else')[0] || '';
+          const probeBegin = '# G3C_' + 'PROBE_READ_ONLY_BEGIN';
+          const probeEnd = '# G3C_' + 'PROBE_READ_ONLY_END';
+          if (workflow.split(probeBegin).length !== 2 || workflow.split(probeEnd).length !== 2) {
+            throw new Error('read-only probe markers invalid');
+          }
+          const probeBlock = workflow.split(probeBegin)[1].split(probeEnd)[0];
           for (const forbidden of ['sudo ', 'systemctl restart', 'systemctl start', 'systemctl stop', 'kill ', 'pkill ']) {
             if (probeBlock.includes(forbidden)) throw new Error(`read-only probe gained mutation authority: ${forbidden}`);
           }
@@ -180,6 +185,7 @@ jobs:
           [[ "$remote_base_sha" == "$EXPECTED_BASE_SHA" ]] || { echo 'GEKTA_G3C_ERROR=bootstrap_base_sha_mismatch' > "$RUNNER_TEMP/g3c-result"; cat "$RUNNER_TEMP/g3c-result"; exit 31; }
           case "$ACTION" in ubatch512|rollback|status|probe) ;; *) exit 32 ;; esac
 
+          # G3C_PROBE_READ_ONLY_BEGIN
           if [[ "$ACTION" == probe ]]; then
             set +e
             "${ssh_base[@]}" /bin/bash -s > "$RUNNER_TEMP/g3c-raw" 2>&1 <<'REMOTE'
@@ -234,6 +240,7 @@ jobs:
           REMOTE
             rc=$?
             set -e
+          # G3C_PROBE_READ_ONLY_END
           else
             set +e
             "${ssh_base[@]}" "sudo -n /usr/local/sbin/gekta-qwen-g3c $ACTION" > "$RUNNER_TEMP/g3c-raw" 2>&1
