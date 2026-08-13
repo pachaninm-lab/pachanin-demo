@@ -6,6 +6,7 @@ import { GektaPhoneService } from './gekta-phone.service';
 import { GektaWorkspaceService } from './gekta-workspace.service';
 import { GektaOperatorGuard, RequireGektaPermission, permissionsFor, resolveGektaRoles } from './gekta-operator.guard';
 import { GektaSessionGuard, type GektaSessionRequest } from './gekta-session.guard';
+import { AllowProductSession } from '../../common/decorators/product-session.decorator';
 
 type AuthedRequest = { user?: { id?: string; sub?: string; gektaRoles?: string[]; staffRoles?: string[] } };
 
@@ -38,6 +39,7 @@ function rolesOf(request: AuthedRequest): string[] {
  * подставить нельзя.
  */
 @Controller('gekta')
+@AllowProductSession()
 @UseGuards(GektaSessionGuard)
 export class GektaController {
   constructor(
