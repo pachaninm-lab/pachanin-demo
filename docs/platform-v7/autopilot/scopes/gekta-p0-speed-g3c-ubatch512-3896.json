@@ -1,14 +1,15 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "perf/gekta-p0-speed-g3c-ubatch512-3896",
+  "branch": "fix/gekta-g3c-process-swap-gate-3896",
   "status": "active",
-  "purpose": "Create a one-factor fail-closed Gekta SPEED #3896 G3C controller to test only llama.cpp physical ubatch 128 to 512 on the already-proven threads16 runtime, with deterministic rollback and no application, model, context, scheduler or quality mutation.",
-  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-12",
-  "authorityBaseExactMain": "6624c744ad8cf4ef7d9c54ac5153ee88a586d3f6",
+  "purpose": "Correct only the Gekta SPEED #3896 G3C memory admission signal so the one-factor llama.cpp physical ubatch 128 to 512 experiment remains fail-closed on model-process swap and MemAvailable, with deterministic rollback and no application, model, context, scheduler or quality mutation.",
+  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-13",
+  "authorityBaseExactMain": "398070e5799b7137ed765069aab741639ced4f28",
   "newRecurringCostRub": 0,
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3c-ubatch512-3896.json",
     "scripts/gekta-qwen-g3c-runtime.py",
+    "scripts/gekta-qwen-g3c-runtime-v2.py",
     "scripts/gekta-qwen-g3c-bootstrap.sh",
     ".github/workflows/gekta-p0-speed-g3c-candidate.yml"
   ],
@@ -18,8 +19,8 @@
     "GitHub runtime transport remains the dedicated TAI model SSH key plus pinned model-host key",
     "sudo authority is restricted to the installed helper with exact arguments ubatch512 rollback or status",
     "candidate changes only ubatch-size from 128 to 512 while preserving threads16 threads-batch16 parallel1 ctx8192 batch512 executable argv environment model endpoint model key and every unrelated value",
-    "candidate requires zero swap and at least 3 GiB MemAvailable after restart",
-    "candidate state is reversible and any failed restart readiness memory or exact-argv verification triggers automatic rollback",
+    "candidate requires llama-server process VmSwap equal to zero and at least 3 GiB MemAvailable; system-wide swap usage is evidence only and is not itself an admission failure",
+    "candidate state is reversible and any failed restart readiness memory process-swap or exact-argv verification triggers automatic rollback",
     "controller commands are owner-only and bound to issue 3896",
     "published evidence is bounded and never includes paths raw argv environment values API keys prompts responses model bytes or customer data",
     "new recurring cost remains zero"
