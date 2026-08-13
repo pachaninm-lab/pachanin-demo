@@ -445,6 +445,10 @@ export async function middleware(req: NextRequest) {
   if (
     isPublic(p)
     || PUBLIC_API_EXACT.has(p)
+    // Gekta route handlers are transport-public: each account/operator bridge
+    // still requires an httpOnly token and the Nest API remains the authority.
+    // Product sessions intentionally have no platform session marker.
+    || p.startsWith('/api/gekta/')
     || p.startsWith('/api/auth/')
     || p.startsWith('/api/runtime-')
     || isTokenAuthenticatedInternalPath(p)

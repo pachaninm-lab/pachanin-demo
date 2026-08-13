@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET, POST } from '@/app/api/gekta/entitlement/route';
 import { GEKTA_ANONYMOUS_COOKIE, parseAnonymousSession, serializeAnonymousSession } from '@/lib/gekta/anonymous-session';
 import { GEKTA_ENTITLEMENT_STATES, isBlockedState, resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
@@ -14,13 +14,17 @@ const ORIGIN = 'https://example.test';
  * environment's Request implementation drops header init, so build exactly that
  * surface instead of fighting the polyfill.
  */
-function request(method: 'GET' | 'POST', cookie?: string, body?: unknown, site = 'same-origin') {
-  const headers = new Headers({ 'content-type': 'application/json', 'sec-fetch-site': site });
+function request(method: 'GET' | 'POST', cookie?: string, body?: unknown, site = 'same-origin', accessToken = '') {
+  const headers = new Headers({ 'content-type': 'application/json', 'sec-fetch-site': site, 'x-pc-locale': 'ru' });
   return {
     method,
     url: `${ORIGIN}/api/gekta/entitlement`,
     headers,
-    cookies: { get: (name: string) => (cookie && name === GEKTA_ANONYMOUS_COOKIE ? { name, value: cookie } : undefined) },
+    cookies: { get: (name: string) => {
+      if (cookie && name === GEKTA_ANONYMOUS_COOKIE) return { name, value: cookie };
+      if (accessToken && name === 'pc_access_token') return { name, value: accessToken };
+      return undefined;
+    } },
     json: async () => {
       if (body === undefined) throw new SyntaxError('no body');
       return body;
@@ -48,6 +52,7 @@ async function askOnce(cookie: string): Promise<{ cookie: string; allowed: boole
 describe('Gekta anonymous entitlement', () => {
   const originalSecret = process.env.GEKTA_ANONYMOUS_SESSION_SECRET;
   const originalLimit = process.env.GEKTA_ANONYMOUS_FREE_ANSWERS;
+  const originalApiUrl = process.env.API_URL;
 
   beforeEach(() => {
     process.env.GEKTA_ANONYMOUS_SESSION_SECRET = 'test-secret-value-at-least-16-chars';
@@ -59,6 +64,9 @@ describe('Gekta anonymous entitlement', () => {
     else process.env.GEKTA_ANONYMOUS_SESSION_SECRET = originalSecret;
     if (originalLimit === undefined) delete process.env.GEKTA_ANONYMOUS_FREE_ANSWERS;
     else process.env.GEKTA_ANONYMOUS_FREE_ANSWERS = originalLimit;
+    if (originalApiUrl === undefined) delete process.env.API_URL;
+    else process.env.API_URL = originalApiUrl;
+    vi.unstubAllGlobals();
   });
 
   it('declares every access state the product plans for', () => {
@@ -148,12 +156,41 @@ describe('Gekta anonymous entitlement', () => {
     expect((await POST(request('POST', undefined, { action: 'grant-everything' }))).status).toBe(400);
   });
 
-  it('hides the registration action until a registration entry point exists', async () => {
+  it('publishes the working registration entry point at the anonymous gate', async () => {
     const body = await (await GET(request('GET'))).json();
-    expect(body.registrationUrl).toBeNull();
+    expect(body.registrationUrl).toBe('/gekta/register');
     const gate = read('components/gekta/GektaAccessGate.tsx');
     expect(gate).toContain('registrationUrl ? (');
     expect(gate).toContain('Бесплатные ответы закончились');
+  });
+
+  it('uses account entitlement when an access cookie exists and never resets to anonymous quota', async () => {
+    process.env.API_URL = 'https://api.example.test';
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({
+      entitlement: { state: 'TRIAL_ACTIVE', canAsk: true, expiresAt: '2026-09-12T00:00:00.000Z', serverTime: '2026-08-13T00:00:00.000Z' },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await GET(request('GET', undefined, undefined, 'same-origin', 'access-token-value'));
+    const body = await response.json();
+    expect(body.entitlement.state).toBe('TRIAL_ACTIVE');
+    expect(body.entitlement.remaining).toBeNull();
+    expect(response.headers.get('set-cookie')).toBeNull();
+
+    const reserve = await POST(request('POST', undefined, { action: 'reserve' }, 'same-origin', 'access-token-value'));
+    const reserved = await reserve.json();
+    expect(reserved.allowed).toBe(true);
+    expect(reserved.ticket).toBe('account');
+    expect(fetchMock).toHaveBeenCalledWith('https://api.example.test/gekta/entitlement', expect.objectContaining({ method: 'GET' }));
+  });
+
+  it('fails closed instead of granting a new anonymous quota when account lookup is unauthorized', async () => {
+    process.env.API_URL = 'https://api.example.test';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 401 })));
+    const response = await GET(request('GET', undefined, undefined, 'same-origin', 'expired-access-token'));
+    expect(response.status).toBe(401);
+    expect(response.headers.get('set-cookie')).toBeNull();
+    expect((await response.json()).error).toBe('authentication_required');
   });
 
   it('asks the server before every generation and never decides access in the browser', () => {

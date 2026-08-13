@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowDown, Menu, Plus } from 'lucide-react';
+import { ArrowDown, LogIn, LogOut, Menu, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PublicAssistantDocument } from '@/components/platform-v7/PublicAssistantAttachmentPicker';
@@ -22,6 +22,7 @@ import {
 import {
   accountApi,
   chunkImport,
+  csrfToken,
   importAlreadyDone,
   importablePayload,
   markImportDone,
@@ -56,9 +57,9 @@ const ACCOUNT_TICKET = 'account';
 type HistoryTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 
 const CHAT_UI = {
-  ru: { assistant: 'Гекта', you: 'Ты', working: 'Гекта анализирует…', copy: 'Копировать', copied: 'Скопировано', retry: 'Повторить', sources: 'Источники', send: 'Отправить', stop: 'Остановить', boundary: 'История анонимного режима хранится в этом браузере. Не отправляй пароли, токены, банковские реквизиты и лишние персональные данные.', error: 'Ответ не получен. Проверь соединение и повтори запрос.', timeout: 'Время ожидания ответа истекло. Повтори запрос.', stopped: 'Ответ остановлен.', reconnecting: 'Соединение прервалось до начала ответа. Переподключаюсь…', starters: 'Примеры вопросов', openMenu: 'Открыть историю', closeMenu: 'Закрыть историю', newChat: 'Новый диалог', productHome: 'Гекта — на главную продукта', clearConfirm: 'Удалить всю историю Гекты из этого браузера?', deleteConfirm: 'Удалить этот диалог?' },
-  en: { assistant: 'Gekta', you: 'You', working: 'Gekta is analysing…', copy: 'Copy', copied: 'Copied', retry: 'Retry', sources: 'Sources', send: 'Send', stop: 'Stop', boundary: 'Anonymous history is stored in this browser. Do not send passwords, tokens, banking credentials or unnecessary personal data.', error: 'No answer was received. Check the connection and retry.', timeout: 'The response timed out. Retry the request.', stopped: 'Answer stopped.', reconnecting: 'The connection dropped before the answer started. Reconnecting…', starters: 'Example questions', openMenu: 'Open history', closeMenu: 'Close history', newChat: 'New chat', productHome: 'Gekta — product home', clearConfirm: 'Delete all Gekta history from this browser?', deleteConfirm: 'Delete this conversation?' },
-  zh: { assistant: 'Gekta', you: '你', working: 'Gekta 正在分析…', copy: '复制', copied: '已复制', retry: '重试', sources: '来源', send: '发送', stop: '停止', boundary: '匿名历史记录保存在此浏览器中。请勿发送密码、令牌、银行凭据或不必要的个人信息。', error: '未收到回答。请检查连接后重试。', timeout: '等待回答超时，请重试。', stopped: '回答已停止。', reconnecting: '回答开始前连接中断，正在重新连接…', starters: '示例问题', openMenu: '打开历史记录', closeMenu: '关闭历史记录', newChat: '新对话', productHome: 'Gekta — 产品主页', clearConfirm: '从此浏览器删除全部 Gekta 历史记录？', deleteConfirm: '删除此对话？' },
+  ru: { assistant: 'Гекта', you: 'Ты', working: 'Гекта анализирует…', copy: 'Копировать', copied: 'Скопировано', retry: 'Повторить', sources: 'Источники', send: 'Отправить', stop: 'Остановить', boundary: 'История анонимного режима хранится в этом браузере. Не отправляй пароли, токены, банковские реквизиты и лишние персональные данные.', error: 'Ответ не получен. Проверь соединение и повтори запрос.', timeout: 'Время ожидания ответа истекло. Повтори запрос.', stopped: 'Ответ остановлен.', reconnecting: 'Соединение прервалось до начала ответа. Переподключаюсь…', starters: 'Примеры вопросов', openMenu: 'Открыть историю', closeMenu: 'Закрыть историю', newChat: 'Новый диалог', productHome: 'Гекта — на главную продукта', clearConfirm: 'Удалить всю историю Гекты из этого браузера?', deleteConfirm: 'Удалить этот диалог?', login: 'Войти', account: 'Аккаунт Гекты', accountHint: 'История и доступ синхронизируются с защищённым аккаунтом.', logout: 'Выйти из аккаунта', loggingOut: 'Выхожу…' },
+  en: { assistant: 'Gekta', you: 'You', working: 'Gekta is analysing…', copy: 'Copy', copied: 'Copied', retry: 'Retry', sources: 'Sources', send: 'Send', stop: 'Stop', boundary: 'Anonymous history is stored in this browser. Do not send passwords, tokens, banking credentials or unnecessary personal data.', error: 'No answer was received. Check the connection and retry.', timeout: 'The response timed out. Retry the request.', stopped: 'Answer stopped.', reconnecting: 'The connection dropped before the answer started. Reconnecting…', starters: 'Example questions', openMenu: 'Open history', closeMenu: 'Close history', newChat: 'New chat', productHome: 'Gekta — product home', clearConfirm: 'Delete all Gekta history from this browser?', deleteConfirm: 'Delete this conversation?', login: 'Sign in', account: 'Gekta account', accountHint: 'History and access are synced to your protected account.', logout: 'Sign out', loggingOut: 'Signing out…' },
+  zh: { assistant: 'Gekta', you: '你', working: 'Gekta 正在分析…', copy: '复制', copied: '已复制', retry: '重试', sources: '来源', send: '发送', stop: '停止', boundary: '匿名历史记录保存在此浏览器中。请勿发送密码、令牌、银行凭据或不必要的个人信息。', error: '未收到回答。请检查连接后重试。', timeout: '等待回答超时，请重试。', stopped: '回答已停止。', reconnecting: '回答开始前连接中断，正在重新连接…', starters: '示例问题', openMenu: '打开历史记录', closeMenu: '关闭历史记录', newChat: '新对话', productHome: 'Gekta — 产品主页', clearConfirm: '从此浏览器删除全部 Gekta 历史记录？', deleteConfirm: '删除此对话？', login: '登录', account: 'Gekta 账户', accountHint: '历史记录和访问权限会同步到受保护的账户。', logout: '退出账户', loggingOut: '正在退出…' },
 } as const;
 
 function id(prefix: string): string {
@@ -172,6 +173,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const [consentRequired, setConsentRequired] = React.useState(false);
   const [voiceInputEnabled, setVoiceInputEnabled] = React.useState(true);
   const [speechEnabled, setSpeechEnabled] = React.useState(true);
+  const [logoutPending, setLogoutPending] = React.useState(false);
   const hydrated = React.useRef(false);
   // Пока сервер не подтвердил аккаунт, авторитет истории — этот браузер.
   const [workspaceMode, setWorkspaceMode] = React.useState<WorkspaceMode>('local');
@@ -803,6 +805,22 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     router.push(GEKTA_PATHS[next]);
   }, [locale, router]);
 
+  const logout = React.useCallback(async () => {
+    setLogoutPending(true);
+    try {
+      await fetch('/api/gekta/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'x-csrf-token': csrfToken() },
+      });
+    } finally {
+      // Drop all account data held in React memory after the cookie boundary
+      // has been cleared, even if the response body itself was interrupted.
+      window.location.assign(GEKTA_PATHS[locale]);
+    }
+  }, [locale]);
+
   const sidebarProps = {
     locale,
     conversations: visibleConversations,
@@ -840,6 +858,15 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
             </Link>
             <div className='ml-auto flex items-center gap-2'>
               <GektaRemainingBadge locale={locale} entitlement={entitlement} />
+              {workspaceMode === 'local' ? (
+                <Link
+                  href={`/gekta/register?mode=login${locale === 'ru' ? '' : `&lang=${locale}`}`}
+                  className='flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-emerald-900 hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
+                  data-gekta-login-entry='true'
+                >
+                  <LogIn className='h-4 w-4' aria-hidden='true' /><span className='hidden sm:inline'>{ui.login}</span>
+                </Link>
+              ) : null}
               <button type='button' onClick={newChat} className='flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700' data-gekta-header-new-chat='true'><Plus className='h-4 w-4' aria-hidden='true' /><span className='hidden sm:inline'>{ui.newChat}</span></button>
             </div>
           </header>
@@ -865,6 +892,15 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
           hasHistory={conversations.length > 0}
           voiceInputEnabled={voiceInputEnabled}
           voiceOutputEnabled={speechEnabled}
+          extraSections={workspaceMode === 'server' ? (
+            <section className='mt-6 rounded-2xl border border-emerald-900/15 bg-emerald-50 p-4' data-gekta-account-settings='true'>
+              <h3 className='text-sm font-semibold text-emerald-950'>{ui.account}</h3>
+              <p className='mt-1 text-xs leading-5 text-emerald-900/70'>{ui.accountHint}</p>
+              <button type='button' onClick={() => void logout()} disabled={logoutPending} className='mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-emerald-900/20 bg-white px-4 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-60'>
+                <LogOut className='h-4 w-4' aria-hidden='true' />{logoutPending ? ui.loggingOut : ui.logout}
+              </button>
+            </section>
+          ) : undefined}
           onVoiceInput={changeVoiceInput}
           onVoiceOutput={changeVoiceOutput}
           onAnswerLocale={changeAnswerLocale}

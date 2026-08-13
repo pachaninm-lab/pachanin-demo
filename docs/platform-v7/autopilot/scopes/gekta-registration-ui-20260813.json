@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-registration-ui-20260813",
+  "branch": "codex/gekta-registration-ui-20260813",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "claude/gekta-registration",
+    "commit": "e3a7c1641ad30d65bdb1ef2a366cff6d797267d3"
+  },
+  "purpose": "Довести уже созданный серверный контур регистрации Гекты до работающего пользовательского пути: отдельная страница регистрации и входа, серверная доставка одноразовой email-ссылки, обязательная MFA без выдачи challenge-токена в браузер, httpOnly access/refresh cookie, ротация refresh, выход, переход на серверную историю и аккаунтный entitlement. Контур не создаёт вторую систему пользователей и не делает продуктовую сессию платформенной.",
+  "allowedPaths": [
+    "apps/web/app/gekta/register/page.tsx",
+    "apps/web/app/api/gekta/auth/register/route.ts",
+    "apps/web/app/api/gekta/auth/register/email/resend/route.ts",
+    "apps/web/app/api/gekta/auth/email/verify/route.ts",
+    "apps/web/app/api/gekta/auth/login/route.ts",
+    "apps/web/app/api/gekta/auth/mfa/verify/route.ts",
+    "apps/web/app/api/gekta/auth/refresh/route.ts",
+    "apps/web/app/api/gekta/auth/logout/route.ts",
+    "apps/web/app/api/gekta/entitlement/route.ts",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/components/gekta/GektaRegistrationClient.tsx",
+    "apps/web/lib/gekta/server-workspace.ts",
+    "apps/web/lib/server/gekta-auth-bff.ts",
+    "apps/web/lib/server/gekta-auth-session.ts",
+    "apps/web/lib/server/gekta-mfa-ticket.ts",
+    "apps/web/lib/server/gekta-registration-mail.ts",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/gektaEntitlement.test.ts",
+    "apps/web/tests/unit/gektaRegistrationFlow.test.ts",
+    "apps/web/tests/unit/gektaMfaTicket.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-registration-ui-20260813.json"
+  ],
+  "forbiddenChanges": [
+    "организация, тенант, членство или платформенная роль у пользователя Гекты",
+    "доступ продуктовой сессии к закрытым страницам или API Прозрачной Цены",
+    "challenge, access, refresh или email bearer-токен в JavaScript, URL после потребления, localStorage или логах",
+    "активная сессия до подтверждения email и MFA",
+    "неразличимая галочка вместо отдельных согласий с условиями и обработкой данных",
+    "утверждение, что заявленный телефон подтверждён",
+    "анонимная квота как источник истины для вошедшего аккаунта",
+    "фиктивная отправка письма, MFA, trial, оплата или production-развёртывание"
+  ],
+  "requiredChecks": [
+    "web TypeScript check",
+    "Gekta auth BFF and encrypted MFA-ticket unit tests",
+    "anonymous and account entitlement regression",
+    "registration route and mobile 320/375/390/430 contract",
+    "React client-boundary review",
+    "git diff --check",
+    "exact-head CI and REG.RU acceptance"
+  ],
+  "deploymentState": "not-deployed"
+}

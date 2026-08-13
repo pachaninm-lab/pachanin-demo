@@ -150,26 +150,46 @@ export function csrfToken(): string {
  */
 export type AccountResponse<T> = { ok: boolean; status: number; data: T | null };
 
+let refreshInFlight: Promise<boolean> | null = null;
+
+function refreshProductSession(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = fetch('/api/gekta/auth/refresh', {
+    method: 'POST',
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { 'x-csrf-token': csrfToken() },
+  }).then((response) => response.ok).catch(() => false).finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
 export async function accountApi<T>(
   path: string,
   init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; signal?: AbortSignal },
 ): Promise<AccountResponse<T>> {
   const method = init?.method ?? 'GET';
+  const body = init?.body === undefined ? undefined : JSON.stringify(init.body);
+  const execute = () => fetch(`/api/gekta/account/${path}`, {
+    method,
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
+      // DELETE — тоже небезопасный метод: без токена мост отклонит его как
+      // межсайтовый. Content-Type ставится только там, где есть тело.
+      ...(method === 'GET' ? {} : { 'x-csrf-token': csrfToken() }),
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    ...(body === undefined ? {} : { body }),
+    ...(init?.signal ? { signal: init.signal } : {}),
+  });
   try {
-    const response = await fetch(`/api/gekta/account/${path}`, {
-      method,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        // DELETE — тоже небезопасный метод: без токена мост отклонит его как
-        // межсайтовый. Content-Type ставится только там, где есть тело.
-        ...(method === 'GET' ? {} : { 'x-csrf-token': csrfToken() }),
-        ...(init?.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-      },
-      ...(init?.body === undefined ? {} : { body: JSON.stringify(init.body) }),
-      ...(init?.signal ? { signal: init.signal } : {}),
-    });
+    let response = await execute();
+    // Access tokens are short-lived. Refresh rotation is single-flight so two
+    // concurrent account reads cannot replay the same refresh credential.
+    if (response.status === 401 && await refreshProductSession()) response = await execute();
     if (!response.ok) return { ok: false, status: response.status, data: null };
     const text = await response.text();
     return { ok: true, status: response.status, data: (text ? JSON.parse(text) : null) as T };
