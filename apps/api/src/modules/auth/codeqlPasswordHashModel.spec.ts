@@ -146,9 +146,9 @@ describe('CodeQL password-hash model correction', () => {
     const lock = JSON.parse(readFileSync(join(REPO_ROOT,
       'codeql/insufficient-password-hash-corrected/upstream.lock.json'), 'utf8'));
 
-    expect(lock.codeqlCli).toBe('2.26.2');
-    expect(lock.queriesPack).toEqual({ name: 'codeql/javascript-queries', version: '2.4.2' });
-    expect(lock.upstreamTag).toBe('codeql-cli/v2.26.2');
+    expect(lock.codeqlCli).toBe('2.26.3');
+    expect(lock.queriesPack).toEqual({ name: 'codeql/javascript-queries', version: '2.4.3' });
+    expect(lock.upstreamTag).toBe('codeql-cli/v2.26.3');
     expect(lock.upstream.query).toContain('CWE-916/InsufficientPasswordHash.ql');
     expect(lock.replacedRuleId).toBe('js/insufficient-password-hash');
     expect(lock.semanticDiff.length).toBeGreaterThan(0);
