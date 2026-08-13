@@ -6,6 +6,7 @@ import type { GektaConversation } from '@/components/gekta/GektaChatTypes';
 
 const root = resolve(__dirname, '../..');
 const workspace = readFileSync(resolve(root, 'components/gekta/GektaChatWorkspace.tsx'), 'utf8');
+const serverWorkspace = readFileSync(resolve(root, 'lib/gekta/server-workspace.ts'), 'utf8');
 
 const NOW = '2026-08-12T12:00:00.000Z';
 
@@ -179,6 +180,12 @@ describe('Gekta keeps one authority for the history', () => {
     expect(workspace).toContain("if (workspaceMode === 'server') {\n      const decision = await accountApi");
     expect(workspace).toContain('return ACCOUNT_TICKET;');
     expect(workspace).toContain('if (ticket === ACCOUNT_TICKET) return;');
+  });
+
+  it('coordinates rotating refresh tokens across browser tabs', () => {
+    expect(serverWorkspace).toContain("locks.request('gekta-product-session-refresh'");
+    expect(serverWorkspace).toContain('const afterWait = await retry();');
+    expect(serverWorkspace).toContain('if (afterWait.status !== 401) return afterWait;');
   });
 
   it('does not show a free-answer counter to an account that has none', () => {

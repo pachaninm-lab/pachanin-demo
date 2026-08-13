@@ -11,6 +11,7 @@ import {
   reserveAnswer,
   serializeAnonymousSession,
   createAnonymousSession,
+  issueTicket,
 } from '@/lib/gekta/anonymous-session';
 import {
   clearGektaMfaCookieOptions,
@@ -21,6 +22,7 @@ import {
   sealGektaEmailTicket,
   sealGektaMfaTicket,
 } from '@/lib/server/gekta-mfa-ticket';
+import { requestIp as trustedRequestIp } from '@/lib/server/gekta-auth-route';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const fixtureValue = (purpose: string, length = 48) => `${purpose}-fixture-${'x'.repeat(length)}`;
@@ -161,6 +163,18 @@ describe('Gekta registration security boundary', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('derives rate-limit identity only from Caddy\'s nearest forwarded hop', () => {
+    const headers = new Headers({
+      'x-nf-client-connection-ip': '198.51.100.20',
+      'cf-connecting-ip': '198.51.100.21',
+      'x-real-ip': '198.51.100.22',
+      'x-forwarded-for': '198.51.100.23, 203.0.113.7',
+    });
+    expect(trustedRequestIp({ headers } as Request)).toBe('203.0.113.7');
+    expect(trustedRequestIp({ headers: new Headers({ 'cf-connecting-ip': '198.51.100.21' }) } as Request)).toBe('');
+    expect(trustedRequestIp({ headers: new Headers({ 'x-forwarded-for': '198.51.100.23, forged' }) } as Request)).toBe('');
+  });
+
   it('does not claim that a verification email was sent when delivery failed', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
@@ -243,8 +257,14 @@ describe('Gekta registration security boundary', () => {
 
 describe('Gekta answer admission', () => {
   beforeEach(() => {
+    process.env.API_URL = 'https://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = DELIVERY_KEY;
     process.env.GEKTA_ANONYMOUS_SESSION_SECRET = ANONYMOUS_TEST_KEY;
     delete process.env.TAI_RESTRICTED_QWEN_PUBLIC_ENABLED;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('rejects a direct standalone generation that has no server reservation', async () => {
@@ -254,15 +274,49 @@ describe('Gekta answer admission', () => {
   });
 
   it('consumes the matching signed reservation at generation admission', async () => {
-    const reserved = reserveAnswer(createAnonymousSession(), 'answer-ticket');
+    const ticket = issueTicket();
+    const reserved = reserveAnswer(createAnonymousSession(), ticket);
     const serialized = serializeAnonymousSession(reserved);
-    expect(parseAnonymousSession(serialized)).toMatchObject({ pending: 'answer-ticket' });
+    expect(parseAnonymousSession(serialized)).toMatchObject({ pending: ticket });
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      expect(String(input)).toBe('https://api.example.test/gekta/internal/anonymous-answer/admit');
+      return new Response(JSON.stringify({ allowed: true }), { status: 200 });
+    }));
     const response = await chatPost(chatRequest({
-      ticket: 'answer-ticket',
+      ticket,
       cookie: `${GEKTA_ANONYMOUS_COOKIE}=${serialized}`,
     }));
     expect(response.status).toBe(200);
     const rawCookie = /gekta_anon=([^;]+)/u.exec(response.headers.get('set-cookie') || '')?.[1] || '';
     expect(parseAnonymousSession(decodeURIComponent(rawCookie))).toMatchObject({ used: 1, pending: null });
+  });
+
+  it('rejects a replay even when the browser resends its old signed cookie', async () => {
+    const ticket = issueTicket();
+    const serialized = serializeAnonymousSession(reserveAnswer(createAnonymousSession(), ticket));
+    const durable = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ allowed: true }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ allowed: false }), { status: 200 }));
+    vi.stubGlobal('fetch', durable);
+
+    const input = { ticket, cookie: `${GEKTA_ANONYMOUS_COOKIE}=${serialized}` };
+    expect((await chatPost(chatRequest(input))).status).toBe(200);
+    const replay = await chatPost(chatRequest(input));
+    expect(replay.status).toBe(409);
+    expect(await replay.json()).toEqual({ code: 'GEKTA_ANSWER_RESERVATION_INVALID' });
+    expect(durable).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails closed when distributed admission is unavailable', async () => {
+    const ticket = issueTicket();
+    const serialized = serializeAnonymousSession(reserveAnswer(createAnonymousSession(), ticket));
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 503 })));
+
+    const response = await chatPost(chatRequest({
+      ticket,
+      cookie: `${GEKTA_ANONYMOUS_COOKIE}=${serialized}`,
+    }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ code: 'GEKTA_SERVICE_UNAVAILABLE' });
   });
 });
