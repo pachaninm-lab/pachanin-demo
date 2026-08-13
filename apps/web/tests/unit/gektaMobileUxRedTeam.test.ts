@@ -24,7 +24,10 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(product).toContain("[data-gekta-chat-workspace='true'].overflow-hidden");
   });
 
-  it('keeps the scroll affordance clear of the variable-height composer', () => {
+  it('keeps mobile header actions and the scroll affordance inside the 44px contract', () => {
+    expect(product).toContain("[data-gekta-header-new-chat='true']");
+    expect(product).toContain('min-width: 44px');
+    expect(product).toContain('min-height: 44px');
     expect(composer).toContain("data-gekta-composer-root='true'");
     expect(product).toContain("bottom: calc(var(--gekta-composer-height, 116px) + 12px) !important");
     expect(product).toContain('width: 44px');
