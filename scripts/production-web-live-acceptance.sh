@@ -132,23 +132,42 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   fi
 
   stream_id="gektaaccept${TARGET_SHA:0:12}${attempt}"
+  cookie_jar="$(mktemp)"
+  reserve_body="$(mktemp)"
   stream_headers="$(mktemp)"
   stream_body="$(mktemp)"
+  reserve_code="$(curl -sS -c "$cookie_jar" -b "$cookie_jar" -o "$reserve_body" -w '%{http_code}' --max-time 20 \
+    -H 'Content-Type: application/json' -H 'Accept: application/json' \
+    --data '{"action":"reserve"}' \
+    "$LIVE_BASE/api/gekta/entitlement" || true)"
+  answer_ticket="$(node -e '
+    const fs = require("node:fs");
+    const payload = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    if (payload?.allowed === true && typeof payload.ticket === "string") process.stdout.write(payload.ticket);
+  ' "$reserve_body" 2>/dev/null || true)"
+  reserve_ok=0
+  if [[ "$reserve_code" == 200 && "$answer_ticket" =~ ^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$ ]]; then
+    reserve_ok=1
+  fi
   stream_code="$(curl -sS -D "$stream_headers" -o "$stream_body" -w '%{http_code}' --no-buffer --max-time 155 \
+    -c "$cookie_jar" -b "$cookie_jar" \
     -H 'Content-Type: application/json' -H 'Accept: text/event-stream' \
+    -H "x-gekta-answer-ticket: $answer_ticket" \
     --data "{\"message\":\"Ответь одним коротким предложением: что проверить при падении урожайности озимой пшеницы?\",\"locale\":\"ru\",\"context\":\"gekta-standalone\",\"conversationId\":\"$stream_id\",\"history\":[]}" \
     "$LIVE_BASE/api/agro-chat?stream=1" || true)"
   stream_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$stream_headers" | tr -d '\r')"
   stream_ok=0
-  if [[ "$stream_code" == 200 ]] \
+  if (( reserve_ok == 1 )) \
+    && [[ "$stream_code" == 200 ]] \
     && grep -Eiq '^text/event-stream' <<< "$stream_type" \
     && grep -Fq '"event":"meta"' "$stream_body" \
     && grep -Fq '"event":"token"' "$stream_body" \
     && grep -Fq '"event":"done"' "$stream_body" \
+    && grep -Fq '"complete":true' "$stream_body" \
     && ! grep -Eiq 'tenantId|roleId|subjectId|llama\.cpp|Qwen3|reasoning_content|tool_calls' "$stream_body"; then
     stream_ok=1
   fi
-  rm -f "$stream_headers" "$stream_body"
+  rm -f "$cookie_jar" "$reserve_body" "$stream_headers" "$stream_body"
 
   if (( manifest_ok == 1 && crawler_ok == 1 && compat_ok == 1 && indexation_ok == 1 && stream_ok == 1 )) \
     && [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]] \
