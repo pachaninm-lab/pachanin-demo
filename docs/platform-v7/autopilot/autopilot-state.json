@@ -1121,7 +1121,8 @@
       "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json"
     ],
     "fix/codeql-v2-26-3-upstream-lock-4072": [
-      "codeql/insufficient-password-hash-corrected/upstream.lock.json"
+      "codeql/insufficient-password-hash-corrected/upstream.lock.json",
+      "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts"
     ]
   },
   "currentAcceptance": [
