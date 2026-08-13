@@ -284,8 +284,15 @@ BRACE_EXPANSION_5_0_9_SCOPE='package.json
 pnpm-lock.yaml
 docs/platform-v7/autopilot/security-exceptions.json'
 
+PC_CROP_CODEQL_PROVENANCE_SCOPE='codeql/insufficient-password-hash-corrected/upstream.lock.json
+apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts'
+
 if [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$BRACE_EXPANSION_5_0_9_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "fix/pc-crop-codeql-provenance-3785" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PC_CROP_CODEQL_PROVENANCE_SCOPE")
 fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ]; then
