@@ -14,6 +14,9 @@ const failures = [];
 const requireToken = (name, token) => {
   if (!files[name].includes(token)) failures.push(`${name}: missing ${JSON.stringify(token)}`);
 };
+const requirePattern = (name, pattern, label) => {
+  if (!pattern.test(files[name])) failures.push(`${name}: missing ${label}`);
+};
 const forbid = (name, pattern) => {
   if (pattern.test(files[name])) failures.push(`${name}: forbidden ${pattern}`);
 };
@@ -30,8 +33,12 @@ for (const token of [
   'PC_REVIEWER_RESET_AUTH_DURABLE_COMMAND: ${{ github.event.comment.body }}',
   `node ${checkerPath}`,
   `bash -n ${runnerPath}`,
-  `bash ${runnerPath}`,
 ]) requireToken('workflow', token);
+requirePattern(
+  'workflow',
+  /^\s*run:\s*bash\s+scripts\/production-p0-reviewer-reset-auth-durable\.sh\s*$/m,
+  'exact diagnose runner invocation',
+);
 
 for (const token of [
   "COMMAND='/production p0-reviewer-reset-auth-durable-diagnose 31648675850 31648772066'",
@@ -87,12 +94,14 @@ for (const pattern of [
   /docker\s+(?:compose|restart|stop|kill|rm|rmi|update|run|start|create)\b/,
   /\bpsql\b/,
   /\b(?:curl|wget)\b/,
-  /\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\s+(?:INTO|TABLE|SCHEMA|ROLE|DATABASE|FROM)?\b/i,
   /source\s+[^\n]*\.env/,
   /\bprintenv\b/,
   /\/proc\/[0-9$]+\/environ/,
   /process\.stdout\.write\([^\n]*(?:reviewer_email|email|token_hash|userId|user_id|authUrl|staffUrl|dealUrl)/i,
   /gh\s+issue\s+comment[^\n]*(?:email|token|passwordHash|totp|authUrl|staffUrl|dealUrl)/i,
+  /\$(?:executeRaw|executeRawUnsafe)\b/,
+  /\b(?:staffDb|authDb)\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\b/,
+  /(?:^|[`;'"\n])\s*(?:INSERT\s+INTO|UPDATE\s+(?:auth|public)\.|DELETE\s+FROM|ALTER\s+(?:TABLE|ROLE|SCHEMA|DATABASE)|CREATE\s+(?:TABLE|ROLE|SCHEMA|DATABASE)|DROP\s+(?:TABLE|ROLE|SCHEMA|DATABASE)|TRUNCATE\s+(?:TABLE\s+)?|GRANT\b|REVOKE\b|SET\s+ROLE\b)/im,
 ]) forbid('runner', pattern);
 
 const shellSyntax = spawnSync('bash', ['-n', runnerPath], { encoding: 'utf8' });
@@ -117,9 +126,13 @@ try {
       || scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
       || scope.boundaries?.productionMutation !== 'NONE'
       || scope.boundaries?.databaseMutation !== false
+      || scope.boundaries?.identityMutation !== false
+      || scope.boundaries?.passwordMutation !== false
       || scope.boundaries?.credentialMutation !== false
       || scope.boundaries?.sessionMutation !== false
       || scope.boundaries?.mfaMutation !== false
+      || scope.boundaries?.runtimeBusinessBehaviorChange !== false
+      || scope.boundaries?.securityGateDisabled !== false
       || scope.boundaries?.piiOutput !== false
       || scope.boundaries?.credentialOutput !== false
       || scope.boundaries?.ownerOnly !== true
