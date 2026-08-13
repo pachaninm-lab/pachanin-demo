@@ -1,13 +1,13 @@
-name: Production P0 Reviewer Reset Durable Incident Diagnostic
+name: Production P0 Reviewer Reset Auth Datasource Durable Diagnostic
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - '.github/workflows/production-p0-reviewer-reset-incident-diagnostic.yml'
-      - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-incident-diagnostic-3785.json'
-      - 'scripts/check-production-p0-reviewer-reset-incident-diagnostic.mjs'
-      - 'scripts/production-p0-reviewer-reset-incident-diagnostic.sh'
+      - '.github/workflows/production-p0-reviewer-reset-auth-durable.yml'
+      - 'scripts/production-p0-reviewer-reset-auth-durable.sh'
+      - 'scripts/check-production-p0-reviewer-reset-auth-durable.mjs'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-auth-durable-3785.json'
   issue_comment:
     types: [created]
 
@@ -15,12 +15,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-p0-reviewer-reset-incident-diagnostic
+  group: production-p0-reviewer-reset-auth-durable
   cancel-in-progress: false
 
 jobs:
   contract:
-    name: Validate reviewer reset durable incident diagnostic contract
+    name: Validate reviewer reset auth-datasource durable diagnostic contract
     if: >-
       github.event_name == 'pull_request' ||
       (
@@ -29,7 +29,7 @@ jobs:
         github.event.comment.user.login == github.repository_owner &&
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
-        github.event.comment.body == '/production p0-reviewer-reset-durable-diagnose 31648675850 31648772066'
+        github.event.comment.body == '/production p0-reviewer-reset-auth-durable-diagnose 31648675850 31648772066'
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -42,11 +42,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node scripts/check-production-p0-reviewer-reset-incident-diagnostic.mjs
-      - run: bash -n scripts/production-p0-reviewer-reset-incident-diagnostic.sh
+      - run: node scripts/check-production-p0-reviewer-reset-auth-durable.mjs
+      - run: bash -n scripts/production-p0-reviewer-reset-auth-durable.sh
 
   diagnose:
-    name: Read-only REG.RU reviewer reset durable incident diagnostic
+    name: Read-only REG.RU reviewer reset auth-datasource durable diagnostic
     needs: contract
     if: >-
       needs.contract.result == 'success' &&
@@ -55,7 +55,7 @@ jobs:
       github.event.comment.user.login == github.repository_owner &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
-      github.event.comment.body == '/production p0-reviewer-reset-durable-diagnose 31648675850 31648772066'
+      github.event.comment.body == '/production p0-reviewer-reset-auth-durable-diagnose 31648675850 31648772066'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -63,7 +63,6 @@ jobs:
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
-      PC_REVIEWER_RESET_INCIDENT_COMMAND: ${{ github.event.comment.body }}
       PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
       PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
       PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -71,12 +70,13 @@ jobs:
       PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      PC_REVIEWER_RESET_AUTH_DURABLE_COMMAND: ${{ github.event.comment.body }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Classify durable reset mutation boundary without replay
+      - name: Inspect reviewer reset durable state through auth datasource only
         shell: bash
-        run: bash scripts/production-p0-reviewer-reset-incident-diagnostic.sh
+        run: bash scripts/production-p0-reviewer-reset-auth-durable.sh

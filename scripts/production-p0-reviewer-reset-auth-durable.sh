@@ -4,12 +4,12 @@ set -Eeuo pipefail
 : "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
 : "${GH_TOKEN:?GH_TOKEN is required}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
-: "${PC_REVIEWER_RESET_INCIDENT_COMMAND:?PC_REVIEWER_RESET_INCIDENT_COMMAND is required}"
+: "${PC_REVIEWER_RESET_AUTH_DURABLE_COMMAND:?PC_REVIEWER_RESET_AUTH_DURABLE_COMMAND is required}"
 
 DEFAULT_HOST='195.19.12.120'
 LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 RELEASE_ISSUE_NUMBER='3072'
-COMMAND='/production p0-reviewer-reset-durable-diagnose 31648675850 31648772066'
+COMMAND='/production p0-reviewer-reset-auth-durable-diagnose 31648675850 31648772066'
 FIRST_RUN_ID='31648675850'
 SECOND_RUN_ID='31648772066'
 FIRST_SINCE='2026-08-12T22:51:40Z'
@@ -18,10 +18,10 @@ SECOND_SINCE='2026-08-12T22:53:10Z'
 SECOND_UNTIL='2026-08-12T22:54:05Z'
 EXPECTED_DEPLOYED_SHA='d2dd7972105cc59002263455b5ae0eb8d8f2d386'
 
-[[ "$PC_REVIEWER_RESET_INCIDENT_COMMAND" == "$COMMAND" ]]
+[[ "$PC_REVIEWER_RESET_AUTH_DURABLE_COMMAND" == "$COMMAND" ]]
 
-key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-durable-key"
-known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-durable-known-hosts"
+key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-auth-durable-key"
+known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-auth-durable-known-hosts"
 TARGET_SHA='unknown'
 stage='INITIAL'
 failure_detail='NONE'
@@ -52,7 +52,7 @@ publish_failure() {
   local rc="$?"
   trap - ERR
   if [[ "$result_published" == '0' ]]; then
-    gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset durable incident diagnostic
+    gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset auth-datasource durable diagnostic
 
 - failed reset runs: \`$FIRST_RUN_ID, $SECOND_RUN_ID\`
 - exact diagnostic main: \`$TARGET_SHA\`
@@ -162,7 +162,7 @@ ssh "${ssh_opts[@]}" "$user@$host" \
 stage='SSH_CONFIRMED'
 
 guard_main
-stage='REMOTE_DURABLE_INSPECTION'
+stage='REMOTE_AUTH_DURABLE_INSPECTION'
 if output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$EXPECTED_DEPLOYED_SHA' '$FIRST_SINCE' '$FIRST_UNTIL' '$SECOND_SINCE' '$SECOND_UNTIL'" <<'REMOTE'
 set -Eeuo pipefail
 expected_revision="$1"
@@ -198,7 +198,9 @@ const { PrismaClient } = require('@prisma/client');
 const [firstSince, firstUntil, secondSince, secondUntil] = process.argv.slice(2);
 const safeCount = (value) => Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 100;
 const explicitFailureCodes = new Set([
-  'DATABASE_URL_MISSING',
+  'AUTH_DATABASE_URL_MISSING',
+  'AUTH_DATABASE_URL_NOT_ISOLATED',
+  'STAFF_DATABASE_URL_MISSING',
   'STAFF_PRINCIPAL_BOUNDARY',
   'REVIEWER_CARDINALITY',
   'REVIEWER_READINESS_CHANGED',
@@ -230,8 +232,13 @@ let authDb;
 
 (async () => {
   const staffUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
-  const authUrl = String(process.env.DATABASE_URL || '').trim();
-  if (!staffUrl || !authUrl) fail('DATABASE_URL_MISSING');
+  const authUrl = String(process.env.AUTH_DATABASE_URL || '').trim();
+  const dealUrl = String(process.env.DATABASE_URL || '').trim();
+  if (!staffUrl) fail('STAFF_DATABASE_URL_MISSING');
+  if (!authUrl) fail('AUTH_DATABASE_URL_MISSING');
+  if (!dealUrl || authUrl === dealUrl) fail('AUTH_DATABASE_URL_NOT_ISOLATED');
+  process.stdout.write('AUTH_DATASOURCE|PASS\n');
+
   staffDb = new PrismaClient({ datasources: { db: { url: staffUrl } } });
   authDb = new PrismaClient({ datasources: { db: { url: authUrl } } });
 
@@ -271,6 +278,8 @@ let authDb;
   const authPrincipalRows = await authDb.$queryRawUnsafe(`
     SELECT NOT rolsuper AS no_super,
            NOT rolbypassrls AS no_bypass,
+           NOT rolinherit AS no_inherit,
+           has_schema_privilege(current_user, 'auth', 'USAGE') AS auth_usage,
            has_table_privilege(current_user, 'auth.password_reset_challenges', 'SELECT') AS reset_select,
            has_table_privilege(current_user, 'auth.audit_events', 'SELECT') AS audit_select,
            coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_password_reset_subject(text)'), 'EXECUTE'), false) AS subject_execute
@@ -280,6 +289,7 @@ let authDb;
   if (!authPrincipal || !Object.values(authPrincipal).every((value) => value === true)) {
     fail('AUTH_PRINCIPAL_BOUNDARY');
   }
+  process.stdout.write('AUTH_PRINCIPAL|PASS\n');
 
   const subjectRows = await authDb.$queryRawUnsafe(
     `SELECT user_id FROM auth.resolve_password_reset_subject($1)`, email,
@@ -336,14 +346,14 @@ let authDb;
   }
 
   process.stdout.write([
-    'RESET_DURABLE', 'PASS', passwordReady,
+    'RESET_AUTH_DURABLE', 'PASS', passwordReady,
     firstChallenges, secondChallenges, combinedChallenges, unexpiredPending,
     latestStatus, latestExpired,
     firstIssued, secondIssued, firstCooldown, secondCooldown, otherAudit,
   ].join('|') + '\n');
   process.stdout.write('PRODUCTION_MUTATION|NONE\n');
 })().catch((error) => {
-  process.stdout.write(`RESET_DURABLE|FAIL_${safeFailureCode(error)}\n`);
+  process.stdout.write(`RESET_AUTH_DURABLE|FAIL_${safeFailureCode(error)}\n`);
   process.stdout.write('PRODUCTION_MUTATION|NONE\n');
   process.exitCode = 1;
 }).finally(async () => {
@@ -360,12 +370,14 @@ fi
 stage='RESULT_VALIDATION'
 
 parity="$(grep '^PARITY|' <<< "$output" | tail -n1 || true)"
-marker="$(grep '^RESET_DURABLE|' <<< "$output" | tail -n1 || true)"
+datasource="$(grep '^AUTH_DATASOURCE|' <<< "$output" | tail -n1 || true)"
+principal="$(grep '^AUTH_PRINCIPAL|' <<< "$output" | tail -n1 || true)"
+marker="$(grep '^RESET_AUTH_DURABLE|' <<< "$output" | tail -n1 || true)"
 mutation="$(grep '^PRODUCTION_MUTATION|' <<< "$output" | tail -n1 || true)"
 if (( remote_rc != 0 )); then
   if [[ "$parity" != 'PARITY|PASS' ]]; then
     failure_detail='PARITY_OR_PRE_NODE_FAILURE'
-  elif [[ "$marker" =~ ^RESET_DURABLE\|FAIL_([A-Z0-9_-]{1,64})$ ]]; then
+  elif [[ "$marker" =~ ^RESET_AUTH_DURABLE\|FAIL_([A-Z0-9_-]{1,64})$ ]]; then
     failure_detail="${BASH_REMATCH[1]}"
   else
     failure_detail='REMOTE_NO_SAFE_MARKER'
@@ -375,10 +387,12 @@ if (( remote_rc != 0 )); then
 fi
 
 [[ "$parity" == 'PARITY|PASS' ]]
+[[ "$datasource" == 'AUTH_DATASOURCE|PASS' ]]
+[[ "$principal" == 'AUTH_PRINCIPAL|PASS' ]]
 [[ "$mutation" == 'PRODUCTION_MUTATION|NONE' ]]
 
 IFS='|' read -r tag result password_ready first_challenges second_challenges combined_challenges unexpired_pending latest_status latest_expired first_issued second_issued first_cooldown second_cooldown other_audit <<< "$marker"
-[[ "$tag" == 'RESET_DURABLE' && "$result" == 'PASS' ]]
+[[ "$tag" == 'RESET_AUTH_DURABLE' && "$result" == 'PASS' ]]
 for value in "$password_ready" "$first_challenges" "$second_challenges" "$combined_challenges" "$unexpired_pending" "$latest_expired" "$first_issued" "$second_issued" "$first_cooldown" "$second_cooldown" "$other_audit"; do
   [[ "$value" =~ ^[0-9]{1,3}$ ]]
 done
@@ -401,12 +415,14 @@ else
 fi
 
 guard_main
-gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset durable incident diagnostic
+gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset auth-datasource durable diagnostic
 
 - failed reset runs: \`$FIRST_RUN_ID, $SECOND_RUN_ID\`
 - exact diagnostic main: \`$TARGET_SHA\`
 - inspected deployed revision: \`$EXPECTED_DEPLOYED_SHA\`
 - result: \`PASS_READ_ONLY_CLASSIFIED\`
+- auth datasource isolation: \`PASS\`
+- auth principal boundary: \`PASS\`
 - first-window challenges: \`$first_challenges\`
 - second-window challenges: \`$second_challenges\`
 - combined-window challenges: \`$combined_challenges\`
