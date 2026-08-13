@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { connect as tlsConnect, type TLSSocket } from 'node:tls';
 
 const MAIL_TIMEOUT_MS = 5_000;
@@ -21,6 +22,43 @@ function safeReason(error: unknown) {
 
 function encodeHeader(value: string) {
   return `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
+}
+
+function smtpMailbox(value: string) {
+  const normalized = String(value || '').trim();
+  if (!/^[^@\s<>]+@[^@\s<>]+$/u.test(normalized)) {
+    throw new Error('smtp_mailbox_invalid');
+  }
+  return normalized;
+}
+
+function encodeCanonicalText(value: string) {
+  const canonical = String(value || '').replace(/\r\n?|\n/gu, '\r\n');
+  const encoded = Buffer.from(canonical, 'utf8').toString('base64');
+  return encoded.match(/.{1,76}/gu)?.join('\r\n') || '';
+}
+
+/**
+ * SMTP DATA must use canonical CRLF lines. Encoding the UTF-8 body as base64
+ * also prevents a verification URL or translated copy from creating bare-LF,
+ * 8-bit or dot-stuffing ambiguities after the server has accepted DATA.
+ */
+export function buildSmtpMimeMessage(mail: TransactionalMail, fromInput: string) {
+  const from = smtpMailbox(fromInput);
+  const to = smtpMailbox(mail.to);
+  const messageDomain = from.slice(from.lastIndexOf('@') + 1);
+  return [
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${randomUUID()}@${messageDomain}>`,
+    `From: <${from}>`,
+    `To: ${to}`,
+    `Subject: ${encodeHeader(mail.subject)}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    encodeCanonicalText(mail.text),
+  ].join('\r\n');
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit) {
@@ -108,16 +146,7 @@ async function sendViaSmtp(mail: TransactionalMail): Promise<MailDeliveryResult>
   const user = process.env.PC_SMTP_USER as string;
   const pass = process.env.PC_SMTP_PASS as string;
   const from = String(process.env.PC_MAIL_FROM || user).trim();
-  const mime = [
-    `From: <${from}>`,
-    `To: ${mail.to}`,
-    `Subject: ${encodeHeader(mail.subject)}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset=UTF-8',
-    'Content-Transfer-Encoding: 8bit',
-    '',
-    mail.text,
-  ].join('\r\n');
+  const mime = buildSmtpMimeMessage(mail, from);
 
   return new Promise((resolve) => {
     const socket = tlsConnect({ host, port, servername: host, rejectUnauthorized: true });
