@@ -1107,6 +1107,12 @@
       "scripts/production-p0-reviewer-reset-attempt-classifier.sh",
       "scripts/check-production-p0-reviewer-reset-attempt-classifier.mjs",
       "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-classifier-3785.json"
+    ],
+    "fix/gekta-brand-touch-target-4018": [
+      "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+      "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
+      "docs/platform-v7/autopilot/scopes/gekta-brand-touch-target-4018.json"
     ]
   },
   "currentAcceptance": [
