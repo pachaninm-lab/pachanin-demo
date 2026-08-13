@@ -53,6 +53,17 @@ const MAX_CONVERSATIONS = 60;
 const MAX_MESSAGES = 80;
 /** Заглушка тикета для аккаунта: у него нет квоты анонимного режима. */
 const ACCOUNT_TICKET = 'account';
+/** Порог, ниже которого поиск не уходит на сервер: один символ найдёт всё. */
+const GEKTA_SEARCH_MIN_LENGTH = 2;
+const GEKTA_SEARCH_MAX_LENGTH = 120;
+const GEKTA_SEARCH_DEBOUNCE_MS = 350;
+
+type ServerSearchState = Readonly<{
+  state: 'idle' | 'loading' | 'error';
+  query: string;
+  /** null — поиска не было, показывается обычная недавняя история. */
+  results: readonly GektaConversation[] | null;
+}>;
 
 type HistoryTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 
@@ -177,6 +188,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const hydrated = React.useRef(false);
   // Пока сервер не подтвердил аккаунт, авторитет истории — этот браузер.
   const [workspaceMode, setWorkspaceMode] = React.useState<WorkspaceMode>('local');
+  const [serverSearch, setServerSearch] = React.useState<ServerSearchState>({ state: 'idle', query: '', results: null });
   const serverConversationIds = React.useRef(new Map<string, string>());
   const sentMessageIds = React.useRef(new Set<string>());
   /**
@@ -315,14 +327,62 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   }, [messages, sending]);
 
 
+  /**
+   * Поиск по истории аккаунта.
+   *
+   * Сервер отдаёт последние диалоги пачкой, поэтому фильтрация только по
+   * загруженному списку не находит ничего за её пределами. При запросе от двух
+   * символов поиск уходит на сервер: он же остаётся authority владения — ищет
+   * строго внутри аккаунта вызывающего. Пустой запрос возвращает обычную
+   * недавнюю историю.
+   */
+  React.useEffect(() => {
+    const query = search.trim().slice(0, GEKTA_SEARCH_MAX_LENGTH);
+    if (workspaceMode !== 'server' || query.length < GEKTA_SEARCH_MIN_LENGTH) {
+      setServerSearch({ state: 'idle', query: '', results: null });
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setServerSearch((current) => ({ ...current, state: 'loading' }));
+      void (async () => {
+        const found = await accountApi<{ conversations: ServerConversationRow[] }>(
+          `conversations?search=${encodeURIComponent(query)}`,
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
+        if (!found.ok) {
+          setServerSearch({ state: 'error', query, results: null });
+          return;
+        }
+        const now = new Date().toISOString();
+        setServerSearch({
+          state: 'idle',
+          query,
+          results: (found.data?.conversations ?? []).flatMap((row) => toConversation(row, now) ?? []),
+        });
+      })();
+    }, GEKTA_SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [search, workspaceMode]);
+
   const visibleConversations = React.useMemo(() => {
     const needle = search.trim().toLocaleLowerCase();
-    return conversations
+    // Результат сервера уже отобран запросом и может содержать диалоги за
+    // пределами загруженной страницы; локальный список остаётся источником,
+    // пока серверный ответ не пришёл.
+    const source = serverSearch.results ?? conversations;
+    return source
       .filter((conversation) => conversation.locale === locale)
       .filter((conversation) => !activeProjectId || conversation.projectId === activeProjectId)
-      .filter((conversation) => !needle || conversation.title.toLocaleLowerCase().includes(needle))
+      .filter((conversation) => !needle || serverSearch.results !== null || conversation.title.toLocaleLowerCase().includes(needle))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }, [activeProjectId, conversations, locale, search]);
+  }, [activeProjectId, conversations, locale, search, serverSearch.results]);
 
   const localeProjects = React.useMemo(() => projects.filter((project) => project.locale === locale).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), [projects, locale]);
 
@@ -823,6 +883,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     activeId,
     activeProjectId,
     search,
+    searchState: serverSearch.state,
     projectCounts,
     onSearch: setSearch,
     onNew: newChat,
