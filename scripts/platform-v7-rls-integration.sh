@@ -25,6 +25,7 @@ P0_INVITATION_ACCEPTANCE_MIGRATION="$MIGRATIONS_DIR/20260808140000_p0_invitation
 P0_REGISTRATION_DECISION_MIGRATION="$MIGRATIONS_DIR/20260808140000_p0_registration_decision_authority/migration.sql"
 P0_MEMBERSHIP_RECOVERY_MIGRATION="$MIGRATIONS_DIR/20260808150000_p0_invitation_recovery_authority/migration.sql"
 P0_ACCOUNT_LIFECYCLE_MIGRATION="$MIGRATIONS_DIR/20260808160000_p0_account_lifecycle_authority/migration.sql"
+PRODUCT_SESSION_SCOPE_MIGRATION="$MIGRATIONS_DIR/20260813060000_gekta_product_session_scope/migration.sql"
 
 : "${RLS_INTEGRATION_ADMIN_URL:?Set RLS_INTEGRATION_ADMIN_URL to a dedicated throwaway PostgreSQL database}"
 
@@ -162,6 +163,7 @@ admin -f "$P0_INVITATION_ACCEPTANCE_MIGRATION" >/dev/null
 admin -f "$P0_REGISTRATION_DECISION_MIGRATION" >/dev/null
 admin -f "$P0_MEMBERSHIP_RECOVERY_MIGRATION" >/dev/null
 admin -f "$P0_ACCOUNT_LIFECYCLE_MIGRATION" >/dev/null
+admin -f "$PRODUCT_SESSION_SCOPE_MIGRATION" >/dev/null
 
 echo "== seeding two tenants, a member of staff and two admission applications =="
 admin <<'SQL'
@@ -205,6 +207,11 @@ ON CONFLICT (user_id) DO UPDATE SET mfa_enabled = EXCLUDED.mfa_enabled;
 
 INSERT INTO auth.sessions(id,user_id,membership_id,organization_id,tenant_id,status,refresh_family_id,credential_version,mfa_level,mfa_verified_at,expires_at,created_at,updated_at)
 VALUES ('sess-staff','user-staff','m-staff','org-a','tenant-a','ACTIVE','fam-1',1,'TOTP',now(),now()+interval '1 hour',now(),now());
+
+-- Сессия продукта Гекта: тот же пользователь, но без членства, организации и
+-- тенанта. Нужна, чтобы измерить, что платформенные запросы её не разрешают.
+INSERT INTO auth.sessions(id,user_id,membership_id,organization_id,tenant_id,scope,status,refresh_family_id,credential_version,mfa_level,mfa_verified_at,expires_at,created_at,updated_at)
+VALUES ('sess-gekta','user-new',NULL,NULL,NULL,'GEKTA','ACTIVE','fam-gekta',1,'TOTP',now(),now()+interval '1 hour',now(),now());
 
 -- A platform-wide admission capability.
 INSERT INTO auth.staff_access_requests(
@@ -269,6 +276,60 @@ VALUES ('sas-3','sag-3','user-staff','expired-secret-digest','ACTIVE','CONTROL_P
   '["organization:list","organization:read"]'::jsonb,
   'expired review window','TICKET-3','TOTP',
   now()-interval '3 hours', now()-interval '2 hours');
+SQL
+
+echo
+echo "== session scope constraint: a platform session still cannot lose its organization =="
+admin <<'SQL'
+DO $scope_checks$
+DECLARE
+  failures integer := 0;
+BEGIN
+  -- Прежние три NOT NULL сохранены для платформенной сессии. Проверяется не
+  -- намерение, а реакция базы: вставка обязана провалиться.
+  BEGIN
+    INSERT INTO auth.sessions(id,user_id,membership_id,organization_id,tenant_id,status,refresh_family_id,credential_version,expires_at)
+    VALUES ('sess-bad-platform','user-staff',NULL,NULL,NULL,'ACTIVE','fam-bad',1,now()+interval '1 hour');
+    RAISE WARNING 'FAIL  S1 platform session without an organization was accepted';
+    failures := failures + 1;
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS  S1 platform session without an organization is rejected';
+  END;
+
+  -- Продуктовая сессия не может нести организационную принадлежность даже по
+  -- ошибке приложения.
+  BEGIN
+    INSERT INTO auth.sessions(id,user_id,membership_id,organization_id,tenant_id,scope,status,refresh_family_id,credential_version,expires_at)
+    VALUES ('sess-bad-gekta','user-staff','m-staff','org-a','tenant-a','GEKTA','ACTIVE','fam-bad',1,now()+interval '1 hour');
+    RAISE WARNING 'FAIL  S2 product session carrying an organization was accepted';
+    failures := failures + 1;
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS  S2 product session carrying an organization is rejected';
+  END;
+
+  -- Область действия ограничена перечнем: третьего значения не существует.
+  BEGIN
+    INSERT INTO auth.sessions(id,user_id,membership_id,organization_id,tenant_id,scope,status,refresh_family_id,credential_version,expires_at)
+    VALUES ('sess-bad-scope','user-staff',NULL,NULL,NULL,'ADMIN','ACTIVE','fam-bad',1,now()+interval '1 hour');
+    RAISE WARNING 'FAIL  S3 unknown session scope was accepted';
+    failures := failures + 1;
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS  S3 unknown session scope is rejected';
+  END;
+
+  -- Уже существовавшие строки остались платформенными.
+  IF (SELECT count(*) FROM auth.sessions WHERE id = 'sess-staff' AND scope = 'PLATFORM') = 1 THEN
+    RAISE NOTICE 'PASS  S4 an existing session stayed platform-scoped';
+  ELSE
+    RAISE WARNING 'FAIL  S4 an existing session did not stay platform-scoped';
+    failures := failures + 1;
+  END IF;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'session scope constraints: % failed', failures;
+  END IF;
+END;
+$scope_checks$;
 SQL
 
 AUTH_URL="$(runtime_url pc_auth_runtime)"

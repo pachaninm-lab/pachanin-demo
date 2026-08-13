@@ -9,6 +9,7 @@ import { OrganizationInvitationService } from './organization-invitation.service
 import { PasswordResetRepository } from './password-reset.repository';
 import { PasswordResetService } from './password-reset.service';
 import { PersistentAuthRepository } from './persistent-auth.repository';
+import { ProductSessionService } from './product-session.service';
 import { RegistrationApplicationService } from './registration-application.service';
 import { RegistrationDecisionService } from './registration-decision.service';
 
@@ -27,11 +28,13 @@ import { RegistrationDecisionService } from './registration-decision.service';
     RegistrationApplicationService,
     RegistrationDecisionService,
     AuthService,
+    ProductSessionService,
     OrganizationTeamService,
     OrganizationInvitationService,
   ],
   exports: [
     AuthService,
+    ProductSessionService,
     OrganizationTeamService,
     OrganizationInvitationService,
     PasswordResetService,

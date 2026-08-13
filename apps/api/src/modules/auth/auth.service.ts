@@ -6,7 +6,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
-import * as jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import {
   FINANCIAL_MFA_THRESHOLD_KOPECKS,
@@ -14,7 +13,8 @@ import {
   Role,
   ROLES_REQUIRING_MFA,
 } from '../../common/types/request-user';
-import { requireSecret } from '../../common/config/secrets';
+import { AccessClaims, signAccessToken, verifyAccessClaims } from './access-token';
+import { appendAuthAudit } from './auth-audit';
 import { LoginDto } from './dto/login.dto';
 import {
   buildOtpAuthUri,
@@ -47,8 +47,6 @@ import {
   SessionContextRow,
 } from './persistent-auth.repository';
 
-const JWT_SECRET = requireSecret('JWT_SECRET');
-const ACCESS_TOKEN_TTL = '15m';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
@@ -57,8 +55,6 @@ const MFA_FRESHNESS_MS = 15 * 60 * 1000;
 const MAX_FAILED_LOGINS = 5;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-password-sentinel', 10);
-const ACCESS_ISSUER = 'transparent-price-api';
-const ACCESS_AUDIENCE = 'transparent-price-platform';
 
 const KNOWN_ROLES = new Set<string>(Object.values(Role));
 const PRIVILEGED_MFA_ROLES = new Set<string>(ROLES_REQUIRING_MFA);
@@ -81,12 +77,6 @@ type AuthUserProjection = {
   membershipId: string;
   isOrgAdmin: boolean;
   mfaVerified: boolean;
-};
-
-type AccessClaims = jwt.JwtPayload & {
-  sub: string;
-  sid: string;
-  typ: 'access';
 };
 
 type MfaVerifyInput = {
@@ -719,24 +709,7 @@ export class AuthService {
   }
 
   async verifyAccessToken(token: string): Promise<RequestUser> {
-    let claims: AccessClaims;
-    try {
-      const raw = jwt.verify(token, JWT_SECRET, {
-        issuer: ACCESS_ISSUER,
-        audience: ACCESS_AUDIENCE,
-      });
-      if (
-        typeof raw === 'string'
-        || raw.typ !== 'access'
-        || typeof raw.sub !== 'string'
-        || typeof raw.sid !== 'string'
-      ) {
-        throw new Error('Invalid access claims');
-      }
-      claims = raw as AccessClaims;
-    } catch {
-      throw new UnauthorizedException('Invalid or expired access token');
-    }
+    const claims: AccessClaims = verifyAccessClaims(token);
 
     const context = await this.repository.getSessionContext(
       this.repository.prisma,
@@ -1017,21 +990,7 @@ export class AuthService {
   }
 
   private signAccessToken(userId: string, sessionId: string, credentialVersion: number): string {
-    return jwt.sign(
-      {
-        typ: 'access',
-        sid: sessionId,
-        cv: credentialVersion,
-      },
-      JWT_SECRET,
-      {
-        subject: userId,
-        issuer: ACCESS_ISSUER,
-        audience: ACCESS_AUDIENCE,
-        expiresIn: ACCESS_TOKEN_TTL,
-        jwtid: randomUUID(),
-      },
-    );
+    return signAccessToken(userId, sessionId, credentialVersion);
   }
 
   private userProjection(identity: IdentityRow | SessionContextRow | MfaChallengeRow, mfaVerified: boolean): AuthUserProjection {
@@ -1143,19 +1102,8 @@ export class AuthService {
       metadata?: Record<string, unknown> | null;
     },
   ): Promise<void> {
-    const id = `auth_evt_${randomUUID()}`;
-    const { chainKey, prevHash, nextSequence } = await this.repository.latestAuditChainPosition(
-      tx,
-      input.userId,
-      input.sessionId,
-    );
     // The position is part of the signed fact: a replayed or reordered event
     // cannot present the same hash from a different place in the chain.
-    const hash = sha256(stableJson({
-      id, ...input, prevHash, chainKey, chainSequence: nextSequence.toString(),
-    }));
-    await this.repository.insertAudit(tx, {
-      id, ...input, hash, prevHash, chainSequence: nextSequence,
-    });
+    await appendAuthAudit(this.repository, tx, input);
   }
 }

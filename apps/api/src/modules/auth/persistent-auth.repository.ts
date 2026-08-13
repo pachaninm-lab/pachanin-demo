@@ -106,6 +106,46 @@ export type SessionContextRow = IdentityRow & {
   current_mfa_enabled: boolean;
 };
 
+/**
+ * Сессия продукта Гекта. У неё нет ни членства, ни организации, ни тенанта,
+ * поэтому auth.resolve_session_identity_v2 её не разрешает вовсе — эта функция
+ * внутренне соединяется с user_orgs и organizations. Личность приходит из
+ * такой же ограниченной SECURITY DEFINER функции
+ * auth.resolve_product_session_identity_v1: public."users" закрыт row-level
+ * security, и рантайм не читает эту таблицу напрямую ни здесь, ни где-либо ещё.
+ *
+ * Отдельный тип строки — не дубликат: он физически не содержит полей
+ * organization_id, tenant_id, membership_id и role, поэтому продуктовая сессия
+ * не может быть по ошибке передана туда, где ожидается платформенная.
+ */
+export type ProductSessionContextRow = {
+  user_id: string;
+  email: string;
+  full_name: string;
+  user_status: string;
+  session_id: string;
+  session_scope: string;
+  session_status: string;
+  refresh_family_id: string;
+  session_credential_version: number;
+  mfa_level: string;
+  mfa_verified_at: Date | null;
+  session_expires_at: Date;
+  revoked_at: Date | null;
+  revocation_reason: string | null;
+  current_credential_version: number;
+  current_mfa_enabled: boolean;
+};
+
+export type ProductRefreshContextRow = ProductSessionContextRow & {
+  refresh_token_id: string;
+  refresh_token_hash: string;
+  refresh_token_status: string;
+  refresh_token_expires_at: Date;
+  refresh_token_consumed_at: Date | null;
+  refresh_token_family_id: string;
+};
+
 export type RefreshContextRow = SessionContextRow & {
   refresh_token_id: string;
   refresh_token_hash: string;
@@ -472,6 +512,57 @@ export class PersistentAuthRepository {
     `);
   }
 
+  /**
+   * Сессия продукта создаётся без членства, организации и тенанта. Три колонки
+   * не просто опускаются — они явно записываются как NULL, чтобы ограничение
+   * auth_sessions_scope_identity_check отвергло любую попытку выдать
+   * продуктовой сессии организационную принадлежность.
+   */
+  async createProductSession(
+    client: AuthSqlClient,
+    input: {
+      id: string;
+      userId: string;
+      scope: 'GEKTA';
+      status: 'MFA_PENDING' | 'ACTIVE';
+      refreshFamilyId: string;
+      credentialVersion: number;
+      userAgentHash?: string | null;
+      ipHash?: string | null;
+      expiresAt: Date;
+    },
+  ): Promise<void> {
+    await client.$executeRaw(Prisma.sql`
+      INSERT INTO auth.sessions (
+        id,
+        user_id,
+        membership_id,
+        organization_id,
+        tenant_id,
+        scope,
+        status,
+        refresh_family_id,
+        credential_version,
+        user_agent_hash,
+        ip_hash,
+        expires_at
+      ) VALUES (
+        ${input.id},
+        ${input.userId},
+        NULL,
+        NULL,
+        NULL,
+        ${input.scope},
+        ${input.status},
+        ${input.refreshFamilyId},
+        ${input.credentialVersion},
+        ${input.userAgentHash ?? null},
+        ${input.ipHash ?? null},
+        ${input.expiresAt}
+      )
+    `);
+  }
+
   async createRefreshToken(
     client: AuthSqlClient,
     input: {
@@ -620,6 +711,91 @@ export class PersistentAuthRepository {
       WHERE id = ${challengeId} AND status = 'PENDING'
     `);
     if (updated !== 1) throw new Error('Membership selection challenge conflict');
+  }
+
+  /**
+   * Чтение продуктовой сессии. Условие scope = 'GEKTA' стоит в самом запросе:
+   * платформенная сессия не может быть прочитана как продуктовая, даже если
+   * её идентификатор подставят в продуктовый маршрут.
+   */
+  async getProductSessionContext(
+    client: AuthSqlClient,
+    sessionId: string,
+    userId?: string,
+  ): Promise<ProductSessionContextRow | null> {
+    const userFilter = userId ? Prisma.sql` AND s.user_id = ${userId}` : Prisma.empty;
+    const rows = await client.$queryRaw<ProductSessionContextRow[]>(Prisma.sql`
+      SELECT
+        subject.user_id AS user_id,
+        subject.email AS email,
+        subject.full_name AS full_name,
+        subject.user_status AS user_status,
+        s.id AS session_id,
+        s.scope AS session_scope,
+        s.status AS session_status,
+        s.refresh_family_id,
+        s.credential_version AS session_credential_version,
+        s.mfa_level,
+        s.mfa_verified_at,
+        s.expires_at AS session_expires_at,
+        s.revoked_at,
+        s.revocation_reason,
+        cs.credential_version AS current_credential_version,
+        cs.mfa_enabled AS current_mfa_enabled
+      FROM auth.sessions s
+      JOIN LATERAL auth.resolve_product_session_identity_v1(s.user_id) subject ON TRUE
+      JOIN auth.credential_states cs ON cs.user_id = s.user_id
+      WHERE s.id = ${sessionId}
+        AND s.scope = 'GEKTA'${userFilter}
+    `);
+    return rows[0] ?? null;
+  }
+
+  async getProductRefreshContextForUpdate(
+    client: AuthSqlClient,
+    refreshTokenId: string,
+  ): Promise<ProductRefreshContextRow | null> {
+    const rows = await client.$queryRaw<ProductRefreshContextRow[]>(Prisma.sql`
+      SELECT
+        subject.user_id AS user_id,
+        subject.email AS email,
+        subject.full_name AS full_name,
+        subject.user_status AS user_status,
+        s.id AS session_id,
+        s.scope AS session_scope,
+        s.status AS session_status,
+        s.refresh_family_id,
+        s.credential_version AS session_credential_version,
+        s.mfa_level,
+        s.mfa_verified_at,
+        s.expires_at AS session_expires_at,
+        s.revoked_at,
+        s.revocation_reason,
+        cs.credential_version AS current_credential_version,
+        cs.mfa_enabled AS current_mfa_enabled,
+        rt.id AS refresh_token_id,
+        rt.token_hash AS refresh_token_hash,
+        rt.status AS refresh_token_status,
+        rt.expires_at AS refresh_token_expires_at,
+        rt.consumed_at AS refresh_token_consumed_at,
+        rt.family_id AS refresh_token_family_id
+      FROM auth.refresh_tokens rt
+      JOIN auth.sessions s ON s.id = rt.session_id
+      JOIN LATERAL auth.resolve_product_session_identity_v1(s.user_id) subject ON TRUE
+      JOIN auth.credential_states cs ON cs.user_id = s.user_id
+      WHERE rt.id = ${refreshTokenId}
+        AND s.scope = 'GEKTA'
+      FOR UPDATE OF rt, s
+    `);
+    return rows[0] ?? null;
+  }
+
+  /** Область действия сессии по её идентификатору: нужна для выбора ветки проверки токена. */
+  async getSessionScope(client: AuthSqlClient, sessionId: string): Promise<string | null> {
+    const rows = await client.$queryRaw<{ scope: string }[]>(Prisma.sql`
+      SELECT s.scope FROM auth.sessions s WHERE s.id = ${sessionId}
+    `);
+    return rows[0]?.scope ?? null;
   }
 
   async getSessionContext(

@@ -5,11 +5,24 @@ import { GektaOperatorService } from './gekta-operator.service';
 import { GektaPhoneService } from './gekta-phone.service';
 import { GektaWorkspaceService } from './gekta-workspace.service';
 import { GektaOperatorGuard, RequireGektaPermission, permissionsFor, resolveGektaRoles } from './gekta-operator.guard';
+import { GektaSessionGuard, type GektaSessionRequest } from './gekta-session.guard';
+import { AllowProductSession } from '../../common/decorators/product-session.decorator';
 
 type AuthedRequest = { user?: { id?: string; sub?: string; gektaRoles?: string[]; staffRoles?: string[] } };
 
 function userIdOf(request: AuthedRequest): string {
   const id = request.user?.id ?? request.user?.sub;
+  if (!id) throw new Error('unauthenticated');
+  return id;
+}
+
+/**
+ * Идентификатор пользователя кабинета берётся из актора, который уже разобрал
+ * GektaSessionGuard. Ни платформенная, ни продуктовая сессия не читаются здесь
+ * напрямую: иначе появился бы второй способ решить, кто вызывает.
+ */
+function accountUserIdOf(request: GektaSessionRequest): string {
+  const id = request.gektaActor?.userId;
   if (!id) throw new Error('unauthenticated');
   return id;
 }
@@ -26,7 +39,8 @@ function rolesOf(request: AuthedRequest): string[] {
  * подставить нельзя.
  */
 @Controller('gekta')
-@UseGuards(JwtAuthGuard)
+@AllowProductSession()
+@UseGuards(GektaSessionGuard)
 export class GektaController {
   constructor(
     private readonly access: GektaAccessService,
@@ -35,24 +49,24 @@ export class GektaController {
   ) {}
 
   @Get('entitlement')
-  async entitlement(@Req() request: AuthedRequest) {
-    const userId = userIdOf(request);
+  async entitlement(@Req() request: GektaSessionRequest) {
+    const userId = accountUserIdOf(request);
     await this.access.ensureAccount(userId);
     return { entitlement: await this.access.resolveEntitlement(userId) };
   }
 
-  private async accountIdFor(request: AuthedRequest): Promise<string> {
-    const account = await this.access.ensureAccount(userIdOf(request));
+  private async accountIdFor(request: GektaSessionRequest): Promise<string> {
+    const account = await this.access.ensureAccount(accountUserIdOf(request));
     return account.id;
   }
 
   @Get('phone')
-  async phoneState(@Req() request: AuthedRequest) {
+  async phoneState(@Req() request: GektaSessionRequest) {
     return this.phone.currentIdentity(await this.accountIdFor(request));
   }
 
   @Post('phone')
-  async declarePhone(@Req() request: AuthedRequest, @Body() body: { phone?: string }) {
+  async declarePhone(@Req() request: GektaSessionRequest, @Body() body: { phone?: string }) {
     const accountId = await this.accountIdFor(request);
     const identity = await this.phone.declarePhone(accountId, String(body?.phone ?? ''));
     // Состояние возвращается как есть: DECLARED никогда не показывается как подтверждённое.
@@ -60,29 +74,29 @@ export class GektaController {
   }
 
   @Get('projects')
-  async listProjects(@Req() request: AuthedRequest) {
+  async listProjects(@Req() request: GektaSessionRequest) {
     return { projects: await this.workspace.listProjects(await this.accountIdFor(request)) };
   }
 
   @Post('projects')
-  async createProject(@Req() request: AuthedRequest, @Body() body: { name?: string; description?: string; locale?: string }) {
+  async createProject(@Req() request: GektaSessionRequest, @Body() body: { name?: string; description?: string; locale?: string }) {
     const accountId = await this.accountIdFor(request);
     return this.workspace.createProject(accountId, String(body?.name ?? ''), String(body?.description ?? ''), String(body?.locale ?? 'ru'));
   }
 
   @Patch('projects/:id')
-  async renameProject(@Req() request: AuthedRequest, @Param('id') id: string, @Body() body: { name?: string; description?: string }) {
+  async renameProject(@Req() request: GektaSessionRequest, @Param('id') id: string, @Body() body: { name?: string; description?: string }) {
     const accountId = await this.accountIdFor(request);
     return this.workspace.renameProject(accountId, id, String(body?.name ?? ''), body?.description);
   }
 
   @Delete('projects/:id')
-  async deleteProject(@Req() request: AuthedRequest, @Param('id') id: string) {
+  async deleteProject(@Req() request: GektaSessionRequest, @Param('id') id: string) {
     return this.workspace.deleteProject(await this.accountIdFor(request), id);
   }
 
   @Get('conversations')
-  async listConversations(@Req() request: AuthedRequest, @Query('projectId') projectId?: string, @Query('search') search?: string) {
+  async listConversations(@Req() request: GektaSessionRequest, @Query('projectId') projectId?: string, @Query('search') search?: string) {
     const accountId = await this.accountIdFor(request);
     return {
       conversations: await this.workspace.listConversations(accountId, {
@@ -93,18 +107,18 @@ export class GektaController {
   }
 
   @Get('conversations/:id')
-  async getConversation(@Req() request: AuthedRequest, @Param('id') id: string) {
+  async getConversation(@Req() request: GektaSessionRequest, @Param('id') id: string) {
     return this.workspace.getConversation(await this.accountIdFor(request), id);
   }
 
   @Post('conversations')
-  async createConversation(@Req() request: AuthedRequest, @Body() body: { title?: string; locale?: string; projectId?: string | null }) {
+  async createConversation(@Req() request: GektaSessionRequest, @Body() body: { title?: string; locale?: string; projectId?: string | null }) {
     const accountId = await this.accountIdFor(request);
     return this.workspace.createConversation(accountId, String(body?.title ?? ''), String(body?.locale ?? 'ru'), body?.projectId ?? null);
   }
 
   @Post('conversations/:id/messages')
-  async appendMessage(@Req() request: AuthedRequest, @Param('id') id: string, @Body() body: { role?: string; body?: string; citations?: unknown; attachments?: unknown }) {
+  async appendMessage(@Req() request: GektaSessionRequest, @Param('id') id: string, @Body() body: { role?: string; body?: string; citations?: unknown; attachments?: unknown }) {
     const accountId = await this.accountIdFor(request);
     const role = body?.role === 'assistant' ? 'assistant' : 'user';
     const message = await this.workspace.appendMessage(accountId, id, {
@@ -119,24 +133,24 @@ export class GektaController {
   }
 
   @Patch('conversations/:id')
-  async updateConversation(@Req() request: AuthedRequest, @Param('id') id: string, @Body() body: { title?: string; projectId?: string | null }) {
+  async updateConversation(@Req() request: GektaSessionRequest, @Param('id') id: string, @Body() body: { title?: string; projectId?: string | null }) {
     const accountId = await this.accountIdFor(request);
     if (body?.projectId !== undefined) return this.workspace.moveConversation(accountId, id, body.projectId);
     return this.workspace.renameConversation(accountId, id, String(body?.title ?? ''));
   }
 
   @Delete('conversations/:id')
-  async deleteConversation(@Req() request: AuthedRequest, @Param('id') id: string) {
+  async deleteConversation(@Req() request: GektaSessionRequest, @Param('id') id: string) {
     return this.workspace.deleteConversation(await this.accountIdFor(request), id);
   }
 
   @Delete('conversations')
-  async clearHistory(@Req() request: AuthedRequest) {
+  async clearHistory(@Req() request: GektaSessionRequest) {
     return this.workspace.clearHistory(await this.accountIdFor(request));
   }
 
   @Post('history/import')
-  async importHistory(@Req() request: AuthedRequest, @Body() body: { conversations?: unknown }) {
+  async importHistory(@Req() request: GektaSessionRequest, @Body() body: { conversations?: unknown }) {
     const accountId = await this.accountIdFor(request);
     const incoming = Array.isArray(body?.conversations) ? body.conversations : [];
     return this.workspace.importAnonymousHistory(accountId, incoming as never);

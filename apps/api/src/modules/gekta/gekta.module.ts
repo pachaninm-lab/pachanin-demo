@@ -5,6 +5,7 @@ import { GektaOperatorService } from './gekta-operator.service';
 import { GektaPhoneService } from './gekta-phone.service';
 import { GektaWorkspaceService } from './gekta-workspace.service';
 import { GektaOperatorGuard } from './gekta-operator.guard';
+import { GektaSessionGuard } from './gekta-session.guard';
 import { GektaController, GektaOperatorController } from './gekta.controller';
 import { AuthModule } from '../auth/auth.module';
 import { StaffAccessModule } from '../staff-access/staff-access.module';
@@ -23,6 +24,7 @@ import { Reflector } from '@nestjs/core';
   imports: [PrismaModule, AuthModule, StaffAccessModule],
   controllers: [GektaController, GektaOperatorController],
   providers: [
+    GektaSessionGuard,
     GektaAccessService,
     GektaOperatorService,
     GektaPhoneService,
