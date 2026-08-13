@@ -67,8 +67,8 @@ jobs:
           ]:
               if forbidden in text:
                   raise SystemExit(f'forbidden observer control: {forbidden}')
-          if text.count('sudo -n /usr/local/sbin/gekta-qwen-g3c ubatch512') != 2:
-              # one contract literal + one execution literal
+          if text.count('sudo -n /usr/local/sbin/gekta-qwen-g3c ubatch512') != 3:
+              # required literal + cardinality literal + one execution literal
               raise SystemExit('candidate authority cardinality changed')
           PY
 
@@ -312,10 +312,7 @@ jobs:
           actual_env = {k: v for k, v in actual_env_pairs}
           env_keys_match = expected_env.keys() == actual_env.keys()
           env_map_match = expected_env == actual_env
-
-          def env_digest(mapping):
-              packed = b'\0'.join(k + b'=' + mapping[k] for k in sorted(mapping)) + b'\0'
-              return sha(packed)
+          env_diff_count = len({k for k in set(expected_env) | set(actual_env) if expected_env.get(k) != actual_env.get(k)})
 
           exe_bytes = pathlib.Path(f'/proc/{pid}/exe').resolve(strict=True).read_bytes()
           exe_sha = sha(exe_bytes)
@@ -353,8 +350,7 @@ jobs:
           print('G3C_OBSERVER_EXE_SHA_MATCH=' + str(int(exe_sha == str(data['exe_sha256']))))
           print('G3C_OBSERVER_ENV_KEYS_MATCH=' + str(int(env_keys_match)))
           print('G3C_OBSERVER_ENV_MAP_MATCH=' + str(int(env_map_match)))
-          print('G3C_OBSERVER_EXPECTED_ENV_SHA256=' + env_digest(expected_env))
-          print('G3C_OBSERVER_ACTUAL_ENV_SHA256=' + env_digest(actual_env))
+          print('G3C_OBSERVER_ENV_DIFF_COUNT=' + str(env_diff_count))
           print('G3C_OBSERVER_THREADS=' + flag(actual_argv, 'threads').decode('ascii', 'replace'))
           print('G3C_OBSERVER_THREADS_BATCH=' + flag(actual_argv, 'threads_batch').decode('ascii', 'replace'))
           print('G3C_OBSERVER_PARALLEL=' + flag(actual_argv, 'parallel').decode('ascii', 'replace'))
@@ -378,8 +374,7 @@ jobs:
           grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/helper-raw" > "$RUNNER_TEMP/helper-result" || true
           [[ -s "$RUNNER_TEMP/helper-result" ]] || printf '%s\n' 'GEKTA_G3C_ERROR=bounded_helper_evidence_missing' > "$RUNNER_TEMP/helper-result"
 
-          # This is a diagnostic run, never a keep decision. Force the proven baseline
-          # whether the helper auto-rolled back or the candidate unexpectedly passed.
+          # Diagnostic only: never keep 512 from this observation run.
           set +e
           "${ssh_base[@]}" 'sudo -n /usr/local/sbin/gekta-qwen-g3c rollback' > "$RUNNER_TEMP/rollback-raw" 2>&1
           rollback_rc=$?
@@ -406,7 +401,6 @@ jobs:
             cat "$RUNNER_TEMP/post-status-bounded"
           } > "$RUNNER_TEMP/g3c-observer-evidence"
 
-          # Observation must have happened and production must end at exact baseline.
           grep -qx 'G3C_OBSERVER_RESULT=OBSERVED' "$RUNNER_TEMP/g3c-observer-evidence"
           grep -qx 'GEKTA_G3C_STATE=BASELINE' "$RUNNER_TEMP/post-status-bounded"
           [[ "$observer_rc" -eq 0 && "$rollback_rc" -eq 0 ]]
