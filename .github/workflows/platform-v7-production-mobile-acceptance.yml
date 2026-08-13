@@ -32,9 +32,7 @@ jobs:
     name: Resolve accepted protected Web release
     if: >-
       github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      (github.event.workflow_run.name == 'Production Web Exact-SHA Release' ||
-       github.event.workflow_run.name == 'Production Web Owner Exact-SHA Command')
+      github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
       actions: read
@@ -67,9 +65,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == workflow_run \
-            && ( "$RELEASE_WORKFLOW" == 'Production Web Exact-SHA Release' \
-              || "$RELEASE_WORKFLOW" == 'Production Web Owner Exact-SHA Command' ) ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run && -n "${ACCEPTED_SHA:-}" ]]; then
             target_sha="$ACCEPTED_SHA"
           elif [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
             target_sha="$RELEASE_TARGET_SHA"
