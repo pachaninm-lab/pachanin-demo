@@ -54,8 +54,33 @@ resolve_auth_opaque_token_env_file() {
   [[ "$auth_opaque_token_env_file" == "$prod_dir"/* ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 17
   [[ -f "$auth_opaque_token_env_file" && ! -L "$auth_opaque_token_env_file" ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_MISSING 18
   [[ "$(stat -c '%a:%u:%g' "$auth_opaque_token_env_file")" == '600:0:0' ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_PERMISSIONS_INVALID 19
-  [[ "$(wc -l < "$auth_opaque_token_env_file" | tr -d '[:space:]')" == 1 ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_CONTENT_INVALID 21
-  grep -Eq '^AUTH_OPAQUE_TOKEN_DIGEST_KEY=[A-Fa-f0-9]{64,}$' "$auth_opaque_token_env_file" || fail AUTH_OPAQUE_TOKEN_ENV_FILE_CONTENT_INVALID 22
+  python3 - "$auth_opaque_token_env_file" <<'PY' || fail AUTH_OPAQUE_TOKEN_ENV_FILE_CONTENT_INVALID 22
+import hashlib
+import hmac
+import re
+import sys
+
+raw = open(sys.argv[1], 'rb').read()
+if not raw.endswith(b'\n') or b'\r' in raw or b'\0' in raw:
+    raise SystemExit(1)
+try:
+    lines = raw[:-1].decode('ascii').split('\n')
+except UnicodeDecodeError:
+    raise SystemExit(1)
+if len(lines) != 2:
+    raise SystemExit(1)
+opaque_match = re.fullmatch(r'AUTH_OPAQUE_TOKEN_DIGEST_KEY=([A-Fa-f0-9]{64,})', lines[0])
+pepper_match = re.fullmatch(r'AUTH_TOKEN_PEPPER=([a-f0-9]{64})', lines[1])
+if not opaque_match or not pepper_match:
+    raise SystemExit(1)
+expected = hmac.new(
+    opaque_match.group(1).encode('ascii'),
+    b'pc-auth-generic-hash-pepper:v1',
+    hashlib.sha256,
+).hexdigest()
+if not hmac.compare_digest(pepper_match.group(1), expected):
+    raise SystemExit(1)
+PY
 }
 
 resolve_auth_opaque_token_env_file
@@ -352,6 +377,21 @@ wait_api() {
     sleep 4
   done
   return 1
+}
+
+verify_api_auth_hash_keys() {
+  local id="$1"
+  [[ -n "$id" ]] || return 1
+  docker exec -i "$id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
+const { createHmac, timingSafeEqual } = require('node:crypto');
+const opaque = String(process.env.AUTH_OPAQUE_TOKEN_DIGEST_KEY ?? '').trim();
+const pepper = String(process.env.AUTH_TOKEN_PEPPER ?? '').trim();
+if (!/^[A-Fa-f0-9]{64,}$/.test(opaque) || !/^[a-f0-9]{64}$/.test(pepper)) process.exit(1);
+const expected = createHmac('sha256', opaque).update('pc-auth-generic-hash-pepper:v1', 'utf8').digest();
+const actual = Buffer.from(pepper, 'hex');
+if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) process.exit(1);
+process.stdout.write('API_AUTH_HASH_KEYS=VALID\n');
+NODE
 }
 
 redact_api_startup_log() {
@@ -679,6 +719,8 @@ if ! wait_api; then
   emit_api_startup_diagnostics
   fail API_READINESS_FAILED 30
 fi
+new_api_id="$("${dc_target[@]}" ps -q api | head -1)"
+verify_api_auth_hash_keys "$new_api_id" || fail API_AUTH_HASH_KEYS_INVALID 77
 "${dc_target[@]}" up -d --no-deps --pull never web
 wait_web || fail WEB_HEALTH_FAILED 31
 

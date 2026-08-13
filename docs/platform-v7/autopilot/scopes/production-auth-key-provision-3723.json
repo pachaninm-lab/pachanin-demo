@@ -2,9 +2,13 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "agent/production-auth-key-discovery-3727",
   "status": "active",
-  "purpose": "Repair the proven production API startup dependency by provisioning one root-owned opaque-token digest key on the REG.RU VPS and consuming it through the exact full-stack release override without disclosing or rotating it.",
-  "approvedBy": "owner-direct-registration-production-recovery-2026-08-08",
-  "authorityBaseExactMain": "76493b11f84ebf9b24d047eafe49dfaded7b3f87",
+  "purpose": "Repair the proven PC-CROP AUTH_TOKEN_PEPPER_MISSING production blocker by preserving the existing root-owned opaque-token key, deriving one purpose-separated generic auth hash pepper from it, and consuming both only through the exact full-stack release override without disclosure or rotation.",
+  "approvedBy": "owner-direct-pc-crop-production-registration-continuation-2026-08-13",
+  "authorityBaseExactMain": "c5e83f1d066311937260af81a374b0b124b5aa57",
+  "impactClassifierRun": 31728508551,
+  "impactEvidenceComment": 5284486928,
+  "impactProductionRevision": "65303fa3c2268a7f9db59e76b76412933174ebd2",
+  "impactCompatibilityClass": "SAFE_EMPTY_PERSISTED_GENERIC_HASH_STATE",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
@@ -16,9 +20,22 @@
   ],
   "forbiddenCapabilities": [
     "secret value disclosure or repository storage",
-    "secret rotation when valid key material already exists",
+    "opaque root or derived pepper rotation when valid key material already exists",
+    "new opaque root creation or fallback when the protected existing opaque root file is missing",
+    "raw opaque root reuse as AUTH_TOKEN_PEPPER or derivation without the fixed pc-auth-generic-hash-pepper:v1 domain label",
     "production host, SSH identity or protected Compose path disclosure",
+    "password reset, SMTP, IMAP, database write, deployment or container lifecycle mutation inside the provisioning workflow",
     "release gate weakening",
     "application product-code change"
+  ],
+  "acceptance": [
+    "a valid legacy one-line root-owned 0600 auth key file is migrated atomically to the exact two-line contract while preserving its opaque-token root byte-for-byte",
+    "the protected opaque root file must already exist and match the active API byte-for-byte; a missing, ambiguous or mismatched authority fails closed without creating replacement key material",
+    "immediately before a legacy-file migration or a current-file pre-deploy validation, the active isolated auth database is queried through an enforced READ ONLY transaction and every persisted generic-hash state aggregate must remain zero",
+    "the active API and Web revisions must remain equal, be an ancestor of exact current main and main must remain unchanged before and after the bounded protected-file operation",
+    "AUTH_TOKEN_PEPPER is the deterministic HMAC-SHA-256 child of the retained opaque-token root under pc-auth-generic-hash-pepper:v1 and is never printed, committed, hashed for evidence or passed through GitHub secrets",
+    "a valid current two-line file is verified without rewrite, while malformed or relationship-mismatched files fail closed",
+    "the exact full-stack release independently verifies ownership, permissions, two-line shape and derivation relationship before injection, then verifies the effective API container environment before Web rollout",
+    "only safe provision state and validity markers are published; new recurring cost remains zero"
   ]
 }
