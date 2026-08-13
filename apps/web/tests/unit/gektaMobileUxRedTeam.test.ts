@@ -48,6 +48,9 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(empty).toContain('...starters.slice(3)');
     expect(empty).toContain('...copy.extraStarters');
     expect(empty).toContain("min-h-[82px]");
+    expect(empty).not.toContain('hidden={!expanded}');
+    expect(empty).toContain("className={expanded ? 'mt-4 grid");
+    expect(empty).toContain(": 'hidden'}");
   });
 
   it('keeps the drawer inside the visual viewport and gives it usable width', () => {

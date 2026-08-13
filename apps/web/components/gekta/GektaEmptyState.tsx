@@ -62,7 +62,7 @@ export function GektaEmptyState({ locale, hero, starters, onStarter }: {
           </button>
         ) : null}
 
-        <div id='gekta-more-examples' hidden={!expanded} className='mt-4 grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'>
+        <div id='gekta-more-examples' className={expanded ? 'mt-4 grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3' : 'hidden'}>
           {moreStarters.map((starter) => <StarterButton key={`${starter.label}-${starter.prompt}`} starter={starter} onStarter={onStarter} />)}
         </div>
       </section>
