@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-mobile-acceptance-visible-starters-4018",
+  "branch": "chatgpt/gekta-mobile-acceptance-visible-starters-4018",
+  "issue": 4018,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "2c492309037d5a7ae41fca7b8eb6e11732bdd135"
+  },
+  "purpose": "Correct the production mobile acceptance contract after live exact-SHA evidence showed that the three intended starter prompts are visible while additional progressive-disclosure prompts remain hidden in the DOM. Count only visible starter controls and explicitly assert that the additional examples container is hidden before disclosure. No product UI or runtime behavior changes.",
+  "allowedPaths": [
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-mobile-acceptance-visible-starters-4018.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/gekta",
+    "mode": "acceptance-contract-only",
+    "productUi": "unchanged",
+    "modelBoundary": "unchanged",
+    "accountData": "unchanged",
+    "languages": ["ru", "en", "zh"],
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "Gekta product rendering or starter content",
+    "PC-CROP registration, reviewer, MFA or password-reset runtime",
+    "Deal, role, tenant, RBAC, RLS or PostgreSQL authority",
+    "model runtime, prompt, inference routing or latency experiments",
+    "agro-chat API behavior or attachment backend contracts",
+    "production credentials, protected release authority or direct REG.RU mutation",
+    "paid external services or new infrastructure",
+    "claims that a false-negative acceptance run is a product failure"
+  ],
+  "requiredChecks": [
+    "web typecheck",
+    "web-unit",
+    "platform-v7 autopilot guard",
+    "production mobile acceptance at 320/375/390/430",
+    "exact public revision gate",
+    "three visible starter prompts before disclosure",
+    "additional examples hidden before disclosure",
+    "git diff --check"
+  ],
+  "deploymentState": "test-contract-follow-up",
+  "maturityBoundary": "This scope changes only the acceptance assertion. It does not attest or modify product capability, backend behavior, model runtime, authorization, data storage or production infrastructure."
+}
