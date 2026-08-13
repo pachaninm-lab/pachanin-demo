@@ -308,6 +308,17 @@ async function pageJson(page, pathName, init = {}) {
   }, { pathName, init });
 }
 
+function isEntitlementResponse(response, method) {
+  try {
+    const url = new URL(response.url());
+    return url.origin === LIVE_BASE
+      && url.pathname === '/api/gekta/entitlement'
+      && response.request().method() === method;
+  } catch {
+    return false;
+  }
+}
+
 async function pageAnonymousStream(page, { ticket, message, conversationId }) {
   return page.evaluate(async ({ ticket, message, conversationId }) => {
     try {
@@ -368,10 +379,35 @@ function entitlementWindow(payload) {
 
 async function anonymousQuotaAndHistory(page, identity) {
   stage = 'anonymous-live-answer';
+  const entitlementResponsePromise = page.waitForResponse(
+    (response) => isEntitlementResponse(response, 'GET'),
+    { timeout: 30_000 },
+  );
   await page.goto(`${LIVE_BASE}/gekta?chat=new&acceptance=${encodeURIComponent(RUN_ID)}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   await page.locator('[data-gekta-chat-workspace="true"]').waitFor({ state: 'visible', timeout: 30_000 });
-  const consent = page.locator('[data-gekta-consent-accept="true"]');
-  if (await consent.isVisible().catch(() => false)) await consent.click();
+  const entitlementResponse = await entitlementResponsePromise;
+  const consentPayload = await entitlementResponse.json().catch(() => null);
+  assert(
+    entitlementResponse.status() === 200 && typeof consentPayload?.legalVersion === 'string',
+    'GEKTA_ANONYMOUS_ENTITLEMENT_BOOTSTRAP_FAILED',
+  );
+  if (consentPayload?.consent?.version !== consentPayload.legalVersion) {
+    const consent = page.locator('[data-gekta-consent-accept="true"]');
+    await consent.waitFor({ state: 'visible', timeout: 10_000 });
+    const consentResponsePromise = page.waitForResponse(
+      (response) => isEntitlementResponse(response, 'POST'),
+      { timeout: 30_000 },
+    );
+    await consent.click();
+    const consentResponse = await consentResponsePromise;
+    const acceptedConsent = await consentResponse.json().catch(() => null);
+    assert(
+      consentResponse.status() === 200
+        && acceptedConsent?.consent?.version === consentPayload.legalVersion,
+      'GEKTA_ANONYMOUS_CONSENT_FAILED',
+    );
+    await page.locator('[data-gekta-consent="true"]').waitFor({ state: 'detached', timeout: 10_000 });
+  }
   await page.locator('#gekta-composer-input').fill(identity.prompt);
   await page.getByRole('button', { name: 'Отправить', exact: true }).click();
   await page.getByRole('button', { name: 'Копировать', exact: true }).waitFor({ state: 'visible', timeout: 150_000 });
