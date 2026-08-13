@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST as chatPost } from '@/app/api/agro-chat/route';
 import { POST as registerPost } from '@/app/api/gekta/auth/register/route';
+import { GET as verificationGet } from '@/app/api/gekta/auth/email/verify/route';
 import {
   GEKTA_ANONYMOUS_COOKIE,
   parseAnonymousSession,
@@ -13,8 +14,11 @@ import {
 } from '@/lib/gekta/anonymous-session';
 import {
   clearGektaMfaCookieOptions,
+  gektaEmailCookieOptions,
   gektaMfaCookieOptions,
+  openGektaEmailTicket,
   openGektaMfaTicket,
+  sealGektaEmailTicket,
   sealGektaMfaTicket,
 } from '@/lib/server/gekta-mfa-ticket';
 
@@ -36,7 +40,7 @@ function bffRequest(body: Record<string, unknown>): Request {
       'x-csrf-token': 'csrf-test',
       'content-type': 'application/json',
     }),
-    json: async () => body,
+    text: async () => JSON.stringify(body),
   } as unknown as Request;
 }
 
@@ -123,7 +127,7 @@ describe('Gekta registration security boundary', () => {
     expect(response.status).toBe(202);
     expect(await response.text()).not.toContain('rev_secret_bearer_token');
     expect(new Headers(calls[0].init?.headers).get('x-registration-delivery-key')).toBe(DELIVERY_KEY);
-    expect(String(calls[1].init?.body)).toContain('https://gekta.example.test/gekta/register?verify=rev_secret_bearer_token');
+    expect(String(calls[1].init?.body)).toContain('https://gekta.example.test/api/gekta/auth/email/verify?token=rev_secret_bearer_token');
   });
 
   it('returns the same accepted response when the API suppresses an existing email', async () => {
@@ -136,6 +140,43 @@ describe('Gekta registration security boundary', () => {
     expect(response.status).toBe(202);
     expect(await response.json()).toMatchObject({ accepted: true, status: 'EMAIL_VERIFICATION_REQUIRED' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an oversized auth body before calling the API', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const response = await registerPost({
+      method: 'POST',
+      url: 'https://gekta.example.test/api/gekta/auth/register',
+      headers: new Headers({
+        cookie: 'pc_csrf_token=csrf-test',
+        'x-csrf-token': 'csrf-test',
+        'content-length': String(17 * 1_024),
+      }),
+      text: async () => JSON.stringify({ email: 'new@example.test' }),
+    } as unknown as Request);
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('does not claim that a verification email was sent when delivery failed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith('/gekta/auth/register')) {
+        return Response.json({
+          status: 'EMAIL_VERIFICATION_REQUIRED',
+          emailDelivery: { email: 'new@example.test', token: 'rev_secret_bearer_token' },
+        });
+      }
+      if (url === 'https://api.resend.com/emails') return new Response('unavailable', { status: 503 });
+      return new Response(null, { status: 500 });
+    }));
+    const response = await registerPost(bffRequest({
+      fullName: 'Иван Агроном', phone: '+7 916 000-00-00', email: 'new@example.test',
+      password: 'Sever0oborot!2026', acceptedServiceTerms: true, acceptedPersonalData: true,
+    }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE' });
   });
 
   it('encrypts the pending challenge and declared phone in a short-lived strict cookie', () => {
@@ -157,13 +198,42 @@ describe('Gekta registration security boundary', () => {
     expect(openGektaMfaTicket(`${ticket.slice(0, -1)}x`, 1_001)).toBeNull();
     expect(gektaMfaCookieOptions()).toMatchObject({ httpOnly: true, sameSite: 'strict', path: '/api/gekta/auth' });
     expect(clearGektaMfaCookieOptions().maxAge).toBe(0);
+    expect(() => sealGektaMfaTicket({
+      challengeToken: 'mc_challenge-token-at-least-16',
+      email: 'new@example.test',
+      enrollment: true,
+      setupSecret: 'TOTPSECRET',
+    })).toThrow('Invalid Gekta MFA ticket input');
   });
 
-  it('removes the email bearer from the URL before verification and never exposes the MFA challenge to JS', () => {
+  it('turns the email bearer into a purpose-bound HttpOnly ticket without consuming it on GET', async () => {
+    const raw = 'rev_email-bearer-token-at-least-32-characters';
+    const sealed = sealGektaEmailTicket(raw, 1_000);
+    expect(sealed).not.toContain(raw);
+    expect(openGektaEmailTicket(sealed, 1_001)).toBe(raw);
+    expect(openGektaEmailTicket(sealed, 2_801)).toBeNull();
+    expect(gektaEmailCookieOptions()).toMatchObject({
+      httpOnly: true,
+      sameSite: 'strict',
+      path: '/api/gekta/auth/email/verify',
+    });
+
+    const response = verificationGet(new Request(`https://gekta.example.test/api/gekta/auth/email/verify?token=${raw}&lang=en`));
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe('https://gekta.example.test/gekta/register?lang=en&confirm=email');
+    expect(response.headers.get('location')).not.toContain(raw);
+    expect(response.headers.get('set-cookie')).not.toContain(raw);
+    expect(response.headers.get('referrer-policy')).toBe('no-referrer');
+  });
+
+  it('requires an explicit browser POST and never exposes bearer challenges to client code', () => {
     const client = read('components/gekta/GektaRegistrationClient.tsx');
     const verifyRoute = read('app/api/gekta/auth/email/verify/route.ts');
-    expect(client.indexOf("params.delete('verify')")).toBeLessThan(client.indexOf("post('/api/gekta/auth/email/verify'"));
-    expect(client).toContain("window.history.replaceState(window.history.state, '', clean)");
+    expect(client).not.toContain("params.get('verify')");
+    expect(client).toContain("step === 'verify'");
+    expect(client).toContain("post('/api/gekta/auth/email/verify', {})");
+    expect(verifyRoute).toContain('export function GET(request: Request)');
+    expect(verifyRoute).toContain('openGektaEmailTicket');
     expect(verifyRoute).toContain('sealGektaMfaTicket');
     expect(verifyRoute).not.toMatch(/challengeToken:\s*payload\.challengeToken[,\s]*\n\s*correlationId/u);
   });

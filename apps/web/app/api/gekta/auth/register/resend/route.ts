@@ -8,6 +8,7 @@ import {
   gektaAuthJson,
   gektaForwardHeaders,
   registrationDeliveryKey,
+  readGektaAuthJson,
   safeLocale,
   validEmail,
 } from '@/lib/server/gekta-auth-route';
@@ -27,9 +28,9 @@ type ApiPayload = { emailDelivery?: { email?: string; token?: string }; cooldown
 export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
   if (!assertCsrf(request).ok) return gektaAuthJson({ accepted: false, code: 'CSRF_REJECTED', correlationId }, 403);
-  const body = await request.json().catch(() => ({} as Record<string, unknown>));
-  const email = String(body.email || '').trim().toLowerCase();
-  const locale = safeLocale(body.locale);
+  const body = await readGektaAuthJson(request);
+  const email = String(body?.email || '').trim().toLowerCase();
+  const locale = safeLocale(body?.locale);
   if (!validEmail(email)) return gektaAuthJson({ accepted: false, code: 'INVALID_EMAIL', correlationId }, 400);
 
   const upstream = gektaApiBase();
@@ -44,8 +45,12 @@ export async function POST(request: Request) {
       headers: gektaForwardHeaders(request, correlationId, { deliveryKey }),
       body: JSON.stringify({ email }),
       cache: 'no-store',
+      redirect: 'manual',
       signal: AbortSignal.timeout(GEKTA_AUTH_TIMEOUT_MS),
     });
+    if (response.status >= 300 && response.status < 400) {
+      return gektaAuthJson({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 502);
+    }
     const payload = await response.json().catch(() => ({} as ApiPayload)) as ApiPayload;
     if (!response.ok) {
       return gektaAuthJson({
@@ -59,8 +64,8 @@ export async function POST(request: Request) {
     if (delivery?.email && delivery.token) {
       const origin = resolveRequestTargetOrigin(request);
       if (!origin) return gektaAuthJson({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 503);
-      const verifyUrl = new URL('/gekta/register', origin);
-      verifyUrl.searchParams.set('verify', delivery.token);
+      const verifyUrl = new URL('/api/gekta/auth/email/verify', origin);
+      verifyUrl.searchParams.set('token', delivery.token);
       verifyUrl.searchParams.set('lang', locale);
       const copy = COPY[locale];
       const result = await sendTransactionalMail({
@@ -75,6 +80,9 @@ export async function POST(request: Request) {
         provider: result.provider,
         reason: result.reason,
       }));
+      if (!result.delivered) {
+        return gektaAuthJson({ accepted: false, code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE', correlationId }, 503);
+      }
     }
 
     return gektaAuthJson({ accepted: true, cooldownSeconds: payload.cooldownSeconds || 60, correlationId }, 202);

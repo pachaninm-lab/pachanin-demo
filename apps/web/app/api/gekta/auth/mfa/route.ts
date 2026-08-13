@@ -6,6 +6,7 @@ import {
   gektaApiBase,
   gektaAuthJson,
   gektaForwardHeaders,
+  readGektaAuthJson,
 } from '@/lib/server/gekta-auth-route';
 import {
   GEKTA_MFA_PENDING_COOKIE,
@@ -49,8 +50,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
   if (!assertCsrf(request).ok) return gektaAuthJson({ ok: false, code: 'CSRF_REJECTED', correlationId }, 403);
-  const body = await request.json().catch(() => ({} as Record<string, unknown>));
-  const code = String(body.code || '').trim();
+  const body = await readGektaAuthJson(request);
+  const code = String(body?.code || '').trim();
   const ticket = await pendingTicket();
   if (!ticket || !code || code.length > 128) {
     const response = gektaAuthJson({ ok: false, code: 'MFA_INVALID', correlationId }, 401);
@@ -66,8 +67,12 @@ export async function POST(request: Request) {
       headers: gektaForwardHeaders(request, correlationId),
       body: JSON.stringify({ challengeToken: ticket.challengeToken, code }),
       cache: 'no-store',
+      redirect: 'manual',
       signal: AbortSignal.timeout(GEKTA_AUTH_TIMEOUT_MS),
     });
+    if (response.status >= 300 && response.status < 400) {
+      return gektaAuthJson({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', correlationId }, 502);
+    }
     const payload = await response.json().catch(() => ({} as ActivePayload)) as ActivePayload;
     if (
       !response.ok
@@ -89,6 +94,7 @@ export async function POST(request: Request) {
       method: 'GET',
       headers: accountHeaders,
       cache: 'no-store',
+      redirect: 'manual',
       signal: AbortSignal.timeout(GEKTA_AUTH_TIMEOUT_MS),
     });
     const entitlementPayload = entitlementResponse.ok
@@ -102,6 +108,7 @@ export async function POST(request: Request) {
           headers: accountHeaders,
           body: JSON.stringify({ phone: ticket.declaredPhone }),
           cache: 'no-store',
+          redirect: 'manual',
           signal: AbortSignal.timeout(GEKTA_AUTH_TIMEOUT_MS),
         })
       : null;

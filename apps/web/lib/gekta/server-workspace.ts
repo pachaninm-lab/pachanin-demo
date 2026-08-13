@@ -176,13 +176,14 @@ async function accountRequest(
   path: string,
   init: { method: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; signal?: AbortSignal },
 ): Promise<Response> {
+  const method = init.method;
   return fetch(`/api/gekta/account/${path}`, {
-    method: init.method,
+    method,
     credentials: 'same-origin',
     cache: 'no-store',
     headers: {
       Accept: 'application/json',
-      ...(init.method === 'GET' ? {} : { 'x-csrf-token': csrfToken() }),
+      ...(method === 'GET' ? {} : { 'x-csrf-token': csrfToken() }),
       ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
     },
     ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
