@@ -16,14 +16,9 @@ import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 import { resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
 import { isBillingEnabled } from '@/lib/gekta/merchant';
 
-/**
- * Registration entry point for Gekta. Left unset until an account flow that
- * actually restores access exists, so the product never shows a gate action
- * that leads nowhere.
- */
 function registrationUrl(): string | null {
   const configured = process.env.GEKTA_REGISTRATION_URL?.trim();
-  return configured && /^\/[^/]/u.test(configured) ? configured : null;
+  return configured && /^\/[^/]/u.test(configured) ? configured : '/gekta/register';
 }
 
 export const dynamic = 'force-dynamic';

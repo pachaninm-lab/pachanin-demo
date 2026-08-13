@@ -148,18 +148,20 @@ describe('Gekta anonymous entitlement', () => {
     expect((await POST(request('POST', undefined, { action: 'grant-everything' }))).status).toBe(400);
   });
 
-  it('hides the registration action until a registration entry point exists', async () => {
+  it('publishes the real registration action once the account flow exists', async () => {
     const body = await (await GET(request('GET'))).json();
-    expect(body.registrationUrl).toBeNull();
+    expect(body.registrationUrl).toBe('/gekta/register');
     const gate = read('components/gekta/GektaAccessGate.tsx');
     expect(gate).toContain('registrationUrl ? (');
     expect(gate).toContain('Бесплатные ответы закончились');
+    expect(gate).toContain('localizedRegistrationUrl(registrationUrl, locale)');
   });
 
   it('asks the server before every generation and never decides access in the browser', () => {
     const workspace = read('components/gekta/GektaChatWorkspace.tsx');
     expect(workspace).toContain('const ticket = await reserveAnswer();');
     expect(workspace).toContain('if (!ticket) return;');
+    expect(workspace).toContain("'x-gekta-answer-ticket': ticket");
     expect(workspace).toContain("if (finalMessage.status === 'answered') await settleAnswer(ticket);");
     expect(workspace).toContain('entitlement && !entitlement.canAsk ? <GektaAccessGate');
     expect(workspace).not.toContain('localStorage.getItem(\'gekta-quota');

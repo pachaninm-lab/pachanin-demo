@@ -29,6 +29,16 @@ export type AuthenticatedSessionPayload = {
   };
 };
 
+export type GektaAuthenticatedSessionPayload = {
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    email: string;
+    fullName?: string;
+  };
+};
+
 export type SurfaceRole =
   | 'operator'
   | 'buyer'
@@ -127,6 +137,36 @@ export async function applyAuthenticatedSession(
   });
 
   return { role, redirectTo: platformHome(role, payload.user.isOrgAdmin === true) };
+}
+
+/** Product session: the same auth cookies, without a fabricated organization. */
+export function applyGektaAuthenticatedSession(
+  response: NextResponse,
+  payload: GektaAuthenticatedSessionPayload,
+): boolean {
+  if (
+    !payload.accessToken
+    || !payload.refreshToken
+    || !payload.user?.id
+    || !payload.user.email
+  ) return false;
+
+  const expiresIn = 15 * 60;
+  const exp = Math.floor(Date.now() / 1_000) + expiresIn;
+  response.cookies.set(ACCESS_COOKIE, payload.accessToken, { ...cookieSecurity(), maxAge: expiresIn });
+  response.cookies.set(REFRESH_COOKIE, payload.refreshToken, { ...cookieSecurity(), maxAge: 30 * 24 * 60 * 60 });
+  response.cookies.set(
+    SESSION_COOKIE,
+    encodeURIComponent(JSON.stringify({ role: 'gekta', exp, email: payload.user.email })),
+    { ...sessionMarkerCookie(), maxAge: expiresIn },
+  );
+  response.cookies.set(CSRF_COOKIE, generateCsrfToken(), { ...csrfCookieSecurity(), maxAge: 8 * 60 * 60 });
+
+  // A product session carries no organization. A stale cabinet presentation
+  // must not survive after the shared auth cookies switch to that session.
+  response.cookies.set(CABINET_SESSION_COOKIE, '', { path: '/', expires: new Date(0), maxAge: 0 });
+  response.cookies.set('pc-role', '', { path: '/', expires: new Date(0), maxAge: 0 });
+  return true;
 }
 
 export function clearAuthenticatedSession(response: NextResponse) {

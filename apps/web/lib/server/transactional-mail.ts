@@ -57,6 +57,13 @@ function smtpConfigured() {
   return Boolean(process.env.PC_SMTP_HOST && process.env.PC_SMTP_USER && process.env.PC_SMTP_PASS);
 }
 
+export function isTransactionalMailConfigured() {
+  return Boolean(
+    (process.env.RESEND_API_KEY && (process.env.RESEND_FROM_EMAIL || process.env.PC_MAIL_FROM))
+    || smtpConfigured(),
+  );
+}
+
 async function readResponse(socket: TLSSocket): Promise<string> {
   return new Promise((resolve, reject) => {
     let buffer = '';
