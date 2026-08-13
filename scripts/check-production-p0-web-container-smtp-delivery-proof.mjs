@@ -1,10 +1,12 @@
 import fs from 'node:fs';
 
 const workflowPath = '.github/workflows/production-p0-web-container-smtp-delivery-proof.yml';
+const scriptPath = 'scripts/production-p0-web-container-smtp-delivery-proof.sh';
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-web-container-smtp-delivery-proof-3785.json';
 const mailPath = 'apps/web/lib/server/transactional-mail.ts';
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
+const script = fs.readFileSync(scriptPath, 'utf8');
 const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
 const mail = fs.readFileSync(mailPath, 'utf8');
 
@@ -20,11 +22,21 @@ for (const needle of [
   "github.event.issue.number == 3072",
   "github.event.comment.user.login == github.repository_owner",
   "github.event.comment.author_association == 'OWNER'",
+  "github.actor == github.repository_owner",
+  "github.triggering_actor == github.repository_owner",
   "github.event.comment.body == '/production p0-web-container-smtp-delivery-proof current-main'",
   "MAILBOX_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}",
   "MAILBOX_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}",
   "EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE || secrets.PC_PROD_P0_EMAIL_TEMPLATE }}",
-  "acceptance.xn----8sbjf4befbjgs9b.xn--p1ai",
+  'bash scripts/production-p0-web-container-smtp-delivery-proof.sh',
+  'bash -n scripts/production-p0-web-container-smtp-delivery-proof.sh',
+]) requireText(workflow, needle, 'workflow');
+
+for (const needle of [
+  "ACCEPTANCE_MAIL_DOMAIN='acceptance.xn----8sbjf4befbjgs9b.xn--p1ai'",
+  "SMTP_HOST='mail.hosting.reg.ru'",
+  "SMTP_PORT='465'",
+  "IMAP_PORT='993'",
   "docker ps -q --filter 'label=com.docker.compose.service=web'",
   'docker exec -i "$web_id" /nodejs/bin/node --input-type=commonjs -',
   "EHLO transparent-price.local",
@@ -33,14 +45,17 @@ for (const needle of [
   "RCPT TO:<${recipient}>",
   "await command('DATA', [354], 'DATA')",
   "socket.write(`${mime}\\r\\n.\\r\\n`)",
-  "IMAP_RECEIPT_RESULT=PASS",
-  "WEB_SMTP_DELIVERY_RESULT=PASS",
-  "PRODUCTION_MUTATION=ACCEPTANCE_MAIL_ONLY",
-  "StrictHostKeyChecking=yes",
   "WEB_SMTP_RESPONSE_5000_BUDGET",
   "WEB_SMTP_APP_7500_BUDGET",
-]) requireText(workflow, needle, 'workflow');
+  "IMAP_RECEIPT_RESULT",
+  "readonly=True",
+  "PRODUCTION_MUTATION='NONE'",
+  "PRODUCTION_MUTATION=ACCEPTANCE_MAIL_ONLY",
+  "StrictHostKeyChecking=yes",
+  "reviewer identity / reset / password / TOTP / session access: \\`NONE\\`",
+]) requireText(script, needle, 'script');
 
+const combined = `${workflow}\n${script}`;
 for (const forbidden of [
   /password-reset\/request/i,
   /api\/auth\/forgot-password/i,
@@ -52,7 +67,7 @@ for (const forbidden of [
   /StrictHostKeyChecking=no/,
   /UserKnownHostsFile=\/dev\/null/,
 ]) {
-  if (forbidden.test(workflow)) fail(`workflow contains forbidden operation ${forbidden}`);
+  if (forbidden.test(combined)) fail(`proof contains forbidden operation ${forbidden}`);
 }
 
 for (const needle of [
@@ -65,7 +80,7 @@ for (const needle of [
   'MAIL_TIMEOUT_MS + 2_500',
 ]) requireText(mail, needle, 'transactional-mail');
 
-const expectedPaths = [workflowPath, 'scripts/check-production-p0-web-container-smtp-delivery-proof.mjs', scopePath].sort();
+const expectedPaths = [workflowPath, scriptPath, 'scripts/check-production-p0-web-container-smtp-delivery-proof.mjs', scopePath].sort();
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') fail('unexpected scope schemaVersion');
 if (scope.branch !== 'diag/p0-web-container-smtp-delivery-proof-3785') fail('unexpected scope branch');
 if (scope.issue !== 3785 || scope.releaseIssue !== 3072) fail('scope authority mismatch');
