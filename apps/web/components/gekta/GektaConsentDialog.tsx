@@ -43,6 +43,7 @@ export function GektaConsentDialog({ locale, onAccept }: { locale: GektaLocale; 
   const ui = UI[locale];
   // Accepting is the only way out: this notice has no dismiss action.
   const panelRef = useDialogFocus(true, onAccept);
+  const legalLinkClass = 'inline-flex min-h-11 items-center font-medium text-emerald-800 underline underline-offset-2 sm:min-h-0';
 
   return (
     <div className='fixed inset-0 z-[95] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-4'>
@@ -58,9 +59,9 @@ export function GektaConsentDialog({ locale, onAccept }: { locale: GektaLocale; 
         <p className='mt-2 text-sm leading-6 text-slate-600'>{ui.body}</p>
         <p className='mt-3 text-xs leading-5 text-slate-500'>
           {ui.accept}{' '}
-          <Link href='/legal/usloviya-ispolzovaniya-gekta' className='font-medium text-emerald-800 underline underline-offset-2'>{ui.terms}</Link>{' '}
+          <Link href='/legal/usloviya-ispolzovaniya-gekta' className={legalLinkClass}>{ui.terms}</Link>{' '}
           {ui.and}{' '}
-          <Link href='/legal/politika-konfidencialnosti' className='font-medium text-emerald-800 underline underline-offset-2'>{ui.privacy}</Link>.
+          <Link href='/legal/politika-konfidencialnosti' className={legalLinkClass}>{ui.privacy}</Link>.
         </p>
         <button
           type='button'
