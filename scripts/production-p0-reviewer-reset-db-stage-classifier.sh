@@ -172,6 +172,9 @@ printf 'PARITY|PASS\n'
 docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
 const { PrismaClient } = require('@prisma/client');
 let db;
+let authDb;
+let reviewerEmail = '';
+let authUserId = '';
 const safeCode = (error) => {
   const raw = String(error?.meta?.code || error?.code || 'UNKNOWN');
   return /^[A-Za-z0-9_-]{1,20}$/.test(raw) ? raw : 'UNKNOWN';
@@ -276,19 +279,122 @@ const isSafeCount = (value) => Number.isInteger(Number(value)) && Number(value) 
     result('RESET_SUBJECT_CALL', false, safeCode(error));
   }
 
+  try {
+    const rows = await db.$queryRawUnsafe(`SELECT auth.staff_reviewer_password_reset_subject() AS reviewer_email`);
+    reviewerEmail = String(rows[0]?.reviewer_email || '');
+    const ok = rows.length === 1 && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,63}$/.test(reviewerEmail) && reviewerEmail.length <= 254;
+    result('RESET_SUBJECT_CAPTURE', ok, ok ? '' : 'EMPTY');
+    if (!ok) reviewerEmail = '';
+  } catch (error) {
+    reviewerEmail = '';
+    result('RESET_SUBJECT_CAPTURE', false, safeCode(error));
+  }
+
+  const authUrl = String(process.env.DATABASE_URL || '').trim();
+  if (!authUrl) {
+    result('AUTH_DATABASE_URL', false, 'NODB');
+  } else {
+    result('AUTH_DATABASE_URL', true);
+    authDb = new PrismaClient({ datasources: { db: { url: authUrl } } });
+  }
+
+  if (authDb) {
+    try {
+      const rows = await authDb.$queryRawUnsafe(`
+        SELECT
+          NOT rolsuper AS no_super,
+          NOT rolbypassrls AS no_bypass,
+          has_table_privilege(current_user, 'auth.password_reset_challenges', 'SELECT') AS reset_select,
+          has_table_privilege(current_user, 'auth.audit_events', 'SELECT') AS audit_select,
+          coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_password_reset_subject(text)'), 'EXECUTE'), false) AS subject_execute
+        FROM pg_roles WHERE rolname = current_user
+      `);
+      const r = rows[0];
+      const ok = rows.length === 1 && Object.values(r).every((v) => v === true);
+      result('AUTH_PRINCIPAL', ok, ok ? '' : 'BOUNDARY');
+    } catch (error) {
+      result('AUTH_PRINCIPAL', false, safeCode(error));
+    }
+  } else {
+    result('AUTH_PRINCIPAL', false, 'SKIPPED');
+  }
+
+  if (authDb && reviewerEmail) {
+    try {
+      const rows = await authDb.$queryRawUnsafe(
+        `SELECT user_id FROM auth.resolve_password_reset_subject($1)`, reviewerEmail,
+      );
+      const ok = rows.length === 1 && Boolean(String(rows[0]?.user_id || ''));
+      if (ok) authUserId = String(rows[0].user_id);
+      result('AUTH_SUBJECT_CALL', ok, ok ? '' : 'EMPTY');
+    } catch (error) {
+      authUserId = '';
+      result('AUTH_SUBJECT_CALL', false, safeCode(error));
+    }
+  } else {
+    result('AUTH_SUBJECT_CALL', false, 'SKIPPED');
+  }
+
+  if (authDb && authUserId) {
+    try {
+      const rows = await authDb.$queryRawUnsafe(`
+        SELECT
+          count(*) FILTER (WHERE created_at >= $2::timestamptz AND created_at <= $3::timestamptz)::int AS first_count,
+          count(*) FILTER (WHERE created_at >= $4::timestamptz AND created_at <= $5::timestamptz)::int AS second_count,
+          count(*) FILTER (WHERE created_at >= $2::timestamptz AND created_at <= $5::timestamptz)::int AS combined_count,
+          count(*) FILTER (WHERE status = 'PENDING' AND expires_at > now())::int AS unexpired_pending_count,
+          coalesce((SELECT c.status FROM auth.password_reset_challenges c WHERE c.user_id = $1 ORDER BY c.created_at DESC, c.id DESC LIMIT 1), 'NONE') AS latest_status,
+          coalesce((SELECT c.expires_at <= now() FROM auth.password_reset_challenges c WHERE c.user_id = $1 ORDER BY c.created_at DESC, c.id DESC LIMIT 1), true) AS latest_expired
+        FROM auth.password_reset_challenges
+        WHERE user_id = $1
+      `, authUserId, '2026-08-12T22:51:40Z', '2026-08-12T22:52:30Z', '2026-08-12T22:53:10Z', '2026-08-12T22:54:05Z');
+      const ok = rows.length === 1;
+      result('CHALLENGE_READ', ok, ok ? '' : 'UNEXPECTED');
+    } catch (error) {
+      result('CHALLENGE_READ', false, safeCode(error));
+    }
+  } else {
+    result('CHALLENGE_READ', false, 'SKIPPED');
+  }
+
+  if (authDb && authUserId) {
+    try {
+      const rows = await authDb.$queryRawUnsafe(`
+        SELECT
+          count(*) FILTER (WHERE created_at >= $2::timestamptz AND created_at <= $3::timestamptz AND reason = 'CHALLENGE_ISSUED')::int AS first_issued,
+          count(*) FILTER (WHERE created_at >= $4::timestamptz AND created_at <= $5::timestamptz AND reason = 'CHALLENGE_ISSUED')::int AS second_issued,
+          count(*) FILTER (WHERE created_at >= $2::timestamptz AND created_at <= $3::timestamptz AND reason = 'COOLDOWN_ACTIVE')::int AS first_cooldown,
+          count(*) FILTER (WHERE created_at >= $4::timestamptz AND created_at <= $5::timestamptz AND reason = 'COOLDOWN_ACTIVE')::int AS second_cooldown,
+          count(*) FILTER (
+            WHERE created_at >= $2::timestamptz AND created_at <= $5::timestamptz
+              AND coalesce(reason, '') NOT IN ('CHALLENGE_ISSUED', 'COOLDOWN_ACTIVE')
+          )::int AS other_count
+        FROM auth.audit_events
+        WHERE user_id = $1 AND action = 'auth.password_reset.request'
+      `, authUserId, '2026-08-12T22:51:40Z', '2026-08-12T22:52:30Z', '2026-08-12T22:53:10Z', '2026-08-12T22:54:05Z');
+      const ok = rows.length === 1;
+      result('AUDIT_READ', ok, ok ? '' : 'UNEXPECTED');
+    } catch (error) {
+      result('AUDIT_READ', false, safeCode(error));
+    }
+  } else {
+    result('AUDIT_READ', false, 'SKIPPED');
+  }
+
   process.stdout.write('PRODUCTION_MUTATION|NONE\n');
 })().catch((error) => {
   result('DB_CLASSIFIER', false, safeCode(error));
   process.stdout.write('PRODUCTION_MUTATION|NONE\n');
 }).finally(async () => {
   if (db) await db.$disconnect().catch(() => undefined);
+  if (authDb) await authDb.$disconnect().catch(() => undefined);
 });
 NODE
 REMOTE
 )"
 last_stage='REMOTE_CLASSIFIER'
 
-for required in PARITY DATABASE_URL PRINCIPAL_BOUNDARY PREFLIGHT_DEFINITION READINESS_DEFINITION RESET_SUBJECT_DEFINITION PREFLIGHT_CALL READINESS_CALL RESET_SUBJECT_CALL; do
+for required in PARITY DATABASE_URL PRINCIPAL_BOUNDARY PREFLIGHT_DEFINITION READINESS_DEFINITION RESET_SUBJECT_DEFINITION PREFLIGHT_CALL READINESS_CALL RESET_SUBJECT_CALL RESET_SUBJECT_CAPTURE AUTH_DATABASE_URL AUTH_PRINCIPAL AUTH_SUBJECT_CALL CHALLENGE_READ AUDIT_READ; do
   line="$(grep "^${required}|" <<< "$output" | tail -n1)"
   stage_pattern="^${required}\\|(PASS|FAIL_[A-Za-z0-9_-]{1,28})$"
   [[ "$line" =~ $stage_pattern ]]
@@ -297,7 +403,7 @@ mutation="$(grep '^PRODUCTION_MUTATION|' <<< "$output" | tail -n1)"
 [[ "$mutation" == 'PRODUCTION_MUTATION|NONE' ]]
 
 guard_main
-summary="$(grep -E '^(PARITY|DATABASE_URL|PRINCIPAL_BOUNDARY|PREFLIGHT_DEFINITION|READINESS_DEFINITION|RESET_SUBJECT_DEFINITION|PREFLIGHT_CALL|READINESS_CALL|RESET_SUBJECT_CALL)\|' <<< "$output" | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+summary="$(grep -E '^(PARITY|DATABASE_URL|PRINCIPAL_BOUNDARY|PREFLIGHT_DEFINITION|READINESS_DEFINITION|RESET_SUBJECT_DEFINITION|PREFLIGHT_CALL|READINESS_CALL|RESET_SUBJECT_CALL|RESET_SUBJECT_CAPTURE|AUTH_DATABASE_URL|AUTH_PRINCIPAL|AUTH_SUBJECT_CALL|CHALLENGE_READ|AUDIT_READ)\|' <<< "$output" | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
 summary_pattern='^[A-Z0-9_|-]+([[:space:]][A-Z0-9_|-]+)*$'
 [[ "$summary" =~ $summary_pattern ]]
 
