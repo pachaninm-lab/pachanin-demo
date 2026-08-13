@@ -41,6 +41,17 @@ required(script, 'Number(r?.[name]) === expected[index]', 'exact readiness compa
 required(script, "result('PREFLIGHT_CALL', ok, ok ? '' : 'UNEXPECTED')", 'preflight unexpected-state classifier');
 required(script, "result('READINESS_CALL', ok, ok ? '' : 'UNEXPECTED')", 'readiness unexpected-state classifier');
 required(script, 'SELECT auth.staff_reviewer_password_reset_subject() IS NOT NULL AS eligible', 'reset subject boolean call');
+required(script, "process.env.DATABASE_URL", 'auth database URL boundary');
+required(script, "has_table_privilege(current_user, 'auth.password_reset_challenges', 'SELECT')", 'challenge read privilege probe');
+required(script, "has_table_privilege(current_user, 'auth.audit_events', 'SELECT')", 'audit read privilege probe');
+required(script, "to_regprocedure('auth.resolve_password_reset_subject(text)')", 'password reset subject resolver execute probe');
+required(script, 'SELECT user_id FROM auth.resolve_password_reset_subject($1)', 'auth subject call');
+required(script, 'FROM auth.password_reset_challenges', 'challenge read stage');
+required(script, 'FROM auth.audit_events', 'audit read stage');
+required(script, "result('AUTH_PRINCIPAL'", 'auth principal classifier');
+required(script, "result('AUTH_SUBJECT_CALL'", 'auth subject classifier');
+required(script, "result('CHALLENGE_READ'", 'challenge classifier');
+required(script, "result('AUDIT_READ'", 'audit classifier');
 required(script, 'PRODUCTION_MUTATION|NONE', 'no-mutation marker');
 required(script, 'reviewer identity exposure: \\`NONE\\`', 'identity redaction result');
 required(script, 'last completed stage:', 'transport classifier');
