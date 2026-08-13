@@ -1113,6 +1113,12 @@
       "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
       "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
       "docs/platform-v7/autopilot/scopes/gekta-brand-touch-target-4018.json"
+    ],
+    "fix/pc-crop-security-baseline-3785": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "codeql/insufficient-password-hash-corrected/upstream.lock.json",
+      "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts"
     ]
   },
   "currentAcceptance": [
