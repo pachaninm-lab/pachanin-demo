@@ -60,11 +60,15 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(sidebar).toContain('overflow-y-auto overscroll-contain');
   });
 
-  it('keeps project controls touch-safe and reveals destructive actions on touch', () => {
+  it('keeps project controls touch-safe and replaces browser-native prompts with inline actions', () => {
     expect(projects).toContain("className='flex h-11 w-11 items-center");
     expect(projects).toContain('opacity-100');
     expect(projects).toContain('md:opacity-0');
     expect(projects).toContain('addDescription');
+    expect(projects).toContain('deletePendingId');
+    expect(projects).toContain('renameDraft');
+    expect(projects).not.toContain('window.prompt');
+    expect(projects).not.toContain('window.confirm');
   });
 
   it('never stacks a standalone G button on top of public assistant/contact launchers', () => {
@@ -74,9 +78,10 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(floating).toContain("body:has([role='dialog'][aria-modal='true']) .pc-gekta-floating");
   });
 
-  it('keeps the public mobile footer links inside the 44px touch contract', () => {
+  it('keeps the public mobile footer links inside the 44px touch contract without double bottom reserve', () => {
     expect(floating).toContain('.pc-v7-public-entry .pc-v6-footer nav a');
     expect(floating).toContain('min-height: 44px');
     expect(floating).toContain('display: inline-flex');
+    expect(floating).toContain('padding-bottom: 0 !important');
   });
 });
