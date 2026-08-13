@@ -17,9 +17,10 @@ export function GektaViewportAuthority() {
     const root = document.documentElement;
     const viewport = window.visualViewport;
     let observedComposer: HTMLElement | null = null;
+    let rootObserver: MutationObserver | null = null;
 
     const syncViewport = () => {
-      const height = Math.max(320, Math.round(viewport?.height ?? window.innerHeight));
+      const height = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
       const top = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
       root.style.setProperty(VIEWPORT_HEIGHT, `${height}px`);
       root.style.setProperty(VIEWPORT_TOP, `${top}px`);
@@ -43,7 +44,11 @@ export function GektaViewportAuthority() {
       }
       composerObserver.disconnect();
       observedComposer = composer;
-      if (composer) composerObserver.observe(composer);
+      if (composer) {
+        composerObserver.observe(composer);
+        rootObserver?.disconnect();
+        rootObserver = null;
+      }
       syncComposer();
     };
 
@@ -53,15 +58,17 @@ export function GektaViewportAuthority() {
     viewport?.addEventListener('scroll', syncViewport);
     window.addEventListener('resize', syncViewport);
 
-    const rootObserver = new MutationObserver(bindComposer);
-    const workspace = document.querySelector("[data-gekta-chat-workspace='true']");
-    if (workspace) rootObserver.observe(workspace, { childList: true, subtree: true });
+    if (!observedComposer) {
+      rootObserver = new MutationObserver(bindComposer);
+      const workspace = document.querySelector("[data-gekta-chat-workspace='true']");
+      if (workspace) rootObserver.observe(workspace, { childList: true, subtree: true });
+    }
 
     return () => {
       viewport?.removeEventListener('resize', syncViewport);
       viewport?.removeEventListener('scroll', syncViewport);
       window.removeEventListener('resize', syncViewport);
-      rootObserver.disconnect();
+      rootObserver?.disconnect();
       composerObserver.disconnect();
       root.style.removeProperty(VIEWPORT_HEIGHT);
       root.style.removeProperty(VIEWPORT_TOP);
