@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-runtime-mail-authority-handoff-20260813",
+  "status": "active",
+  "operationalStatus": "GEKTA_RUNTIME_MAIL_AUTHORITY_HANDOFF",
+  "issue": 4033,
+  "releaseIssue": 3072,
+  "title": "Reuse the protected production mail authority for Gekta registration",
+  "allowedPaths": [
+    ".github/workflows/production-p0-password-reset-runtime-provision.yml",
+    "docs/platform-v7/autopilot/scopes/production-gekta-runtime-mail-authority-handoff-20260813.json",
+    "scripts/check-production-p0-password-reset-runtime-provision.mjs",
+    "scripts/provision-production-p0-password-reset-runtime.sh"
+  ],
+  "boundaries": {
+    "productionMutation": "OWNER_ONLY_PROTECTED_RUNTIME_PROVISION_AND_EXACT_RELEASE_AFTER_MERGE",
+    "deploymentMutation": true,
+    "credentialMutation": "REUSE_EXISTING_ROOT_OWNED_0600_MAIL_AUTHORITY_OR_ACCEPT_EXPLICIT_PROTECTED_INPUT",
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "repository secrets remain the preferred protected mail input when present",
+    "when repository mail secrets are absent, an existing valid root-owned runtime file is reused without reading it into GitHub Actions",
+    "the runtime never reads the protected mail file into GitHub Actions and never emits credential values",
+    "if no protected mail file exists and no explicit protected input is available, provisioning fails before delivery keys or runtime files are installed",
+    "the owner-only production command remains restricted to release issue 3072 and exact current main"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

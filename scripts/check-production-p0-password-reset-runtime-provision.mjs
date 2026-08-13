@@ -82,6 +82,8 @@ requireAll('provisioner', [
   'PASSWORD_RESET_RUNTIME_VALID=1',
   'AUTH_MAIL_RUNTIME_VALID=1',
   'RUNTIME_AUTHORITY_RECONCILED=%s',
+  'TRANSACTIONAL_MAIL_SOURCE=%s',
+  'PROTECTED_MAIL_INPUT_REQUIRED',
   'PC_RECONCILE_ACTIVE_RUNTIME',
   'valid_delivery_path()',
   'valid_mail_file()',
@@ -97,7 +99,8 @@ requireAll('workflow', [
   'github.event.comment.user.login == github.repository_owner',
   '[[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]',
   '[[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]',
-  'ERROR_CODE=MAIL_CREDENTIALS_MISSING',
+  'channel=EXISTING_RUNTIME',
+  '${{ steps.mail.outputs.channel }}" == EXISTING_RUNTIME',
   'secrets.PC_PROD_DIR',
   'secrets.PC_PROD_COMPOSE',
   'secrets.PC_PROD_RESEND_API_KEY',
@@ -119,6 +122,7 @@ requireAll('workflow', [
   'prod_dir_authority="$PROD_DIR_SECRET"',
   'RUNTIME_AUTHORITY_RECONCILED=[01]',
   'REGISTRATION_DELIVERY_PROVISION=(CREATED|EXISTING)',
+  'TRANSACTIONAL_MAIL_SOURCE=(EXISTING_FILE|PROTECTED_INPUT)',
   'actions/upload-artifact@v4',
   'retention-days: 90',
   'publish_images:',
@@ -309,12 +313,16 @@ const runFixture = ({ name, mail, expectedChannel, expectSuccess, preexistingMai
   if (result.status !== 0 || !result.stdout.includes('PASSWORD_RESET_RUNTIME_VALID=1')
     || !result.stdout.includes('AUTH_MAIL_RUNTIME_VALID=1')
     || !result.stdout.includes('REGISTRATION_DELIVERY_PROVISION=CREATED')
-    || !result.stdout.includes(`TRANSACTIONAL_MAIL_CHANNEL=${expectedChannel}`)) {
+    || !result.stdout.includes(`TRANSACTIONAL_MAIL_CHANNEL=${expectedChannel}`)
+    || !result.stdout.includes('TRANSACTIONAL_MAIL_SOURCE=PROTECTED_INPUT')) {
     failures.push(`${paths.provisioner}: ${name} fixture failed: ${result.stderr.trim()}`);
     return;
   }
   for (const file of [delivery, mailFile]) {
     if (!fs.existsSync(file) || (fs.statSync(file).mode & 0o777) !== 0o600) failures.push(`${paths.provisioner}: ${name} protected file mode regression`);
+  }
+  if (fs.existsSync(mailFile) && fs.readFileSync(mailFile, 'utf8') !== mail) {
+    failures.push(`${paths.provisioner}: ${name} transactional mail materialization mismatch`);
   }
   const deliveryMatch = /^PASSWORD_RESET_DELIVERY_KEY=([A-Fa-f0-9]{96})\nREGISTRATION_DELIVERY_KEY=([A-Fa-f0-9]{96})\n$/.exec(
     fs.readFileSync(delivery, 'utf8'),
@@ -334,6 +342,64 @@ const runFixture = ({ name, mail, expectedChannel, expectSuccess, preexistingMai
     || !second.stdout.includes('REGISTRATION_DELIVERY_PROVISION=EXISTING')
     || !second.stdout.includes('TRANSACTIONAL_MAIL_PROVISION=EXISTING')) {
     failures.push(`${paths.provisioner}: ${name} idempotence regression: ${second.stderr.trim()}`);
+  }
+};
+
+const runExistingProtectedMailWithoutInputFixture = () => {
+  const productionDir = path.join(fixtureRoot, 'existing-protected-mail-no-input');
+  fs.mkdirSync(productionDir);
+  const delivery = path.join(productionDir, '.pc-password-reset-delivery.env');
+  const mailFile = path.join(productionDir, '.pc-transactional-mail.env');
+  const mail = `PC_SMTP_HOST=smtp.example.test\nPC_SMTP_USER=mailer@example.test\n${smtpFixturePasswordName}=${fixtureCredential('existing')}\nPC_SMTP_PORT=465\n`;
+  fs.writeFileSync(mailFile, mail, { mode: 0o600 });
+  fs.chmodSync(mailFile, 0o600);
+  const result = spawnSync('bash', [paths.provisioner, 'provision'], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${fixtureBin}:${process.env.PATH}`,
+      PC_PROD_DIR_B64: '',
+      PC_RECONCILE_ACTIVE_RUNTIME: '1',
+      PC_FIXTURE_ACTIVE_DIR: productionDir,
+    },
+  });
+  const protectedValues = mail.split('\n').filter(Boolean).map((line) => line.split('=', 2)[1]).filter(Boolean);
+  const output = `${result.stdout}\n${result.stderr}`;
+  for (const sentinel of protectedValues) {
+    if (output.includes(sentinel)) failures.push(`${paths.provisioner}: existing protected mail fixture disclosed a credential`);
+  }
+  if (result.status !== 0
+    || !result.stdout.includes('PASSWORD_RESET_RUNTIME_VALID=1')
+    || !result.stdout.includes('AUTH_MAIL_RUNTIME_VALID=1')
+    || !result.stdout.includes('REGISTRATION_DELIVERY_PROVISION=CREATED')
+    || !result.stdout.includes('TRANSACTIONAL_MAIL_PROVISION=EXISTING')
+    || !result.stdout.includes('TRANSACTIONAL_MAIL_CHANNEL=SMTP')
+    || !result.stdout.includes('TRANSACTIONAL_MAIL_SOURCE=EXISTING_FILE')) {
+    failures.push(`${paths.provisioner}: existing protected mail without input failed: ${result.stderr.trim()}`);
+  }
+  if (!fs.existsSync(delivery) || (fs.statSync(delivery).mode & 0o777) !== 0o600
+    || fs.readFileSync(mailFile, 'utf8') !== mail || (fs.statSync(mailFile).mode & 0o777) !== 0o600) {
+    failures.push(`${paths.provisioner}: existing protected mail was mutated or delivery keys were not installed safely`);
+  }
+};
+
+const runMissingProtectedMailWithoutInputFixture = () => {
+  const productionDir = path.join(fixtureRoot, 'missing-protected-mail-no-input');
+  fs.mkdirSync(productionDir);
+  const result = spawnSync('bash', [paths.provisioner, 'provision'], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${fixtureBin}:${process.env.PATH}`,
+      PC_PROD_DIR_B64: '',
+      PC_RECONCILE_ACTIVE_RUNTIME: '1',
+      PC_FIXTURE_ACTIVE_DIR: productionDir,
+    },
+  });
+  if (result.status === 0 || !result.stderr.includes('ERROR_CODE=PROTECTED_MAIL_INPUT_REQUIRED')
+    || fs.existsSync(path.join(productionDir, '.pc-password-reset-delivery.env'))
+    || fs.existsSync(path.join(productionDir, '.pc-transactional-mail.env'))) {
+    failures.push(`${paths.provisioner}: missing protected mail input did not fail before mutation`);
   }
 };
 
@@ -421,6 +487,8 @@ try {
     expectSuccess: false,
     preexistingMailMode: 0o644,
   });
+  runExistingProtectedMailWithoutInputFixture();
+  runMissingProtectedMailWithoutInputFixture();
   runAuthorityReconcileFixture();
 } finally {
   for (const file of inputPaths) fs.rmSync(file, { force: true });
