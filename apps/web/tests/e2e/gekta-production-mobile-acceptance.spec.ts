@@ -95,7 +95,8 @@ test.describe('Gekta exact production mobile acceptance', () => {
       await expect(page.locator('[data-gekta-chat-workspace="true"]')).toBeVisible();
       await expectNoHorizontalOverflow(page);
 
-      await expect(page.locator('[data-gekta-starter="true"]')).toHaveCount(3);
+      await expect(page.locator('[data-gekta-starter="true"]').filter({ visible: true })).toHaveCount(3);
+      await expect(page.locator('#gekta-more-examples')).toBeHidden();
       await expect(page.locator('[data-gekta-more-examples="true"]')).toBeVisible();
 
       await openSeededConversation(page);
