@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
 const product = read('components/gekta/GektaProductShell.tsx');
+const workspace = read('components/gekta/GektaChatWorkspace.tsx');
 const viewport = read('components/gekta/GektaViewportAuthority.tsx');
 const composer = read('components/gekta/GektaComposer.tsx');
 const attachments = read('components/gekta/GektaAttachments.tsx');
@@ -26,6 +27,8 @@ describe('Gekta mobile UX red-team contracts', () => {
 
   it('keeps mobile header actions and the scroll affordance inside the 44px contract', () => {
     expect(product).toContain("[data-gekta-header-new-chat='true']");
+    expect(workspace).toContain("className='flex min-h-11 min-w-0 items-center");
+    expect(workspace).toContain("data-gekta-brand-home='true'");
     expect(product).toContain('min-width: 44px');
     expect(product).toContain('min-height: 44px');
     expect(composer).toContain("data-gekta-composer-root='true'");
