@@ -11,6 +11,7 @@ LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 RELEASE_ISSUE_NUMBER='3072'
 ATTEMPT_COMMAND='/production p0-reviewer-reset-attempt-classify 31706325376 current-main'
 AUTH_HASH_RUNTIME_COMMAND='/production p0-auth-hash-runtime-classify current-main'
+AUTH_HASH_IMPACT_COMMAND='/production p0-auth-hash-impact-classify current-main'
 SOURCE_RUN_ID='31706325376'
 ATTEMPT_SINCE='2026-08-13T13:43:10Z'
 ATTEMPT_UNTIL='2026-08-13T13:43:26Z'
@@ -19,6 +20,7 @@ SOURCE_REVISION='7c768ad7c54523837b06999a8f69bdffe2a840db'
 case "$PC_REVIEWER_RESET_ATTEMPT_COMMAND" in
   "$ATTEMPT_COMMAND") classifier_mode='RESET_ATTEMPT' ;;
   "$AUTH_HASH_RUNTIME_COMMAND") classifier_mode='AUTH_HASH_RUNTIME' ;;
+  "$AUTH_HASH_IMPACT_COMMAND") classifier_mode='AUTH_HASH_IMPACT' ;;
   *) exit 2 ;;
 esac
 
@@ -71,6 +73,20 @@ publish_failure() {
 - reviewer identity / reset token / credential exposure: \`NONE\`
 - reset replay / mail send: \`NONE\`
 - raw Docker / Compose / filesystem output: \`NOT_PUBLISHED\`
+- production mutation: \`NONE\`
+- exit code: \`$rc\`" >/dev/null || true
+    elif [[ "$classifier_mode" == 'AUTH_HASH_IMPACT' ]]; then
+      gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 auth-hash persisted-impact classifier
+
+- exact diagnostic main: \`$TARGET_SHA\`
+- source reset revision: \`$SOURCE_REVISION\`
+- result: \`FAIL_CLOSED\`
+- failure stage: \`$stage\`
+- failure detail: \`$failure_detail\`
+- database row / identity / hash / count exposure: \`NONE\`
+- protected value / URL / credential exposure: \`NONE\`
+- reset replay / mail send: \`NONE\`
+- raw Docker / database output: \`NOT_PUBLISHED\`
 - production mutation: \`NONE\`
 - exit code: \`$rc\`" >/dev/null || true
     else
@@ -592,11 +608,12 @@ fi
 
 guard_main
 stage='REMOTE_ATTEMPT_CLASSIFICATION'
-if output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$SOURCE_REVISION' '$ATTEMPT_SINCE' '$ATTEMPT_UNTIL'" <<'REMOTE'
+if output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$SOURCE_REVISION' '$ATTEMPT_SINCE' '$ATTEMPT_UNTIL' '$classifier_mode'" <<'REMOTE'
 set -Eeuo pipefail
 source_revision="$1"
 attempt_since="$2"
 attempt_until="$3"
+classifier_mode="$4"
 remote_substage='REMOTE_PRECONDITION'
 remote_source_cardinality='UNKNOWN'
 remote_terminal_cardinality='UNKNOWN'
@@ -618,6 +635,7 @@ exec 2>/dev/null
 [[ "$source_revision" == '7c768ad7c54523837b06999a8f69bdffe2a840db' ]]
 [[ "$attempt_since" == '2026-08-13T13:43:10Z' ]]
 [[ "$attempt_until" == '2026-08-13T13:43:26Z' ]]
+[[ "$classifier_mode" =~ ^(RESET_ATTEMPT|AUTH_HASH_IMPACT)$ ]]
 [[ "$(id -u)" -eq 0 ]]
 command -v docker >/dev/null 2>&1
 
@@ -640,6 +658,7 @@ active_revision="$api_revision"
 printf 'ACTIVE_REVISION|%s\n' "$active_revision"
 printf 'PARITY|PASS\n'
 
+if [[ "$classifier_mode" == 'RESET_ATTEMPT' ]]; then
 remote_substage='HISTORICAL_LOG_SOURCE_DISCOVERY'
 project_web_output="$(docker ps -aq \
   --filter "label=com.docker.compose.project=$project" \
@@ -694,17 +713,34 @@ esac
 unset project_web_output project_web_ids historical_web_ids candidate_id candidate_revision
 unset candidate_started_at candidate_finished_at candidate_started_epoch candidate_finished_epoch
 unset attempt_since_epoch attempt_until_epoch
+else
+  remote_source_cardinality='UNKNOWN'
+  log_source='NOT_RUN'
+  historical_web_id=''
+fi
 
 remote_substage='DATABASE_AGGREGATES'
 if db_output="$(
-docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - "$attempt_since" "$attempt_until" <<'NODE'
+docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - "$classifier_mode" "$attempt_since" "$attempt_until" <<'NODE'
 const { createHash, createHmac } = require('node:crypto');
 const { PrismaClient } = require('@prisma/client');
-const [attemptSince, attemptUntil] = process.argv.slice(2);
+const [classifierMode, attemptSince, attemptUntil] = process.argv.slice(2);
 const safeCount = (value) => Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 100;
+const safeSecret = /^[A-Za-z0-9._~+/=-]{32,512}$/;
+const secretState = (value) => {
+  const raw = String(value || '');
+  if (!raw) return 'MISSING';
+  return raw === raw.trim() && safeSecret.test(raw) ? 'READY' : 'UNSAFE';
+};
+const presenceState = (value) => value === true ? 'NONZERO' : 'ZERO';
 const explicitFailureCodes = new Set([
+  'CLASSIFIER_MODE_INVALID',
   'AUTH_DATABASE_URL_MISSING',
   'AUTH_DATABASE_URL_NOT_ISOLATED',
+  'AUTH_DATABASE_URL_INVALID',
+  'AUTH_IMPACT_PRINCIPAL_BOUNDARY',
+  'AUTH_IMPACT_AGGREGATE_CARDINALITY',
+  'AUTH_IMPACT_AGGREGATE_INVALID',
   'STAFF_DATABASE_URL_MISSING',
   'STAFF_PRINCIPAL_BOUNDARY',
   'REVIEWER_CARDINALITY',
@@ -739,16 +775,124 @@ let staffDb;
 let authDb;
 
 (async () => {
-  const staffUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
+  if (!['RESET_ATTEMPT', 'AUTH_HASH_IMPACT'].includes(classifierMode)) {
+    fail('CLASSIFIER_MODE_INVALID');
+  }
   const authUrl = String(process.env.AUTH_DATABASE_URL || '').trim();
   const dealUrl = String(process.env.DATABASE_URL || '').trim();
-  if (!staffUrl) fail('STAFF_DATABASE_URL_MISSING');
   if (!authUrl) fail('AUTH_DATABASE_URL_MISSING');
   if (!dealUrl || authUrl === dealUrl) fail('AUTH_DATABASE_URL_NOT_ISOLATED');
+  let readOnlyAuthUrl;
+  try {
+    readOnlyAuthUrl = new URL(authUrl);
+    const existingOptions = readOnlyAuthUrl.searchParams.get('options');
+    readOnlyAuthUrl.searchParams.set(
+      'options',
+      `${existingOptions ? `${existingOptions} ` : ''}-c default_transaction_read_only=on`,
+    );
+  } catch {
+    fail('AUTH_DATABASE_URL_INVALID');
+  }
+  authDb = new PrismaClient({ datasources: { db: { url: readOnlyAuthUrl.toString() } } });
   process.stdout.write('AUTH_DATASOURCE|PASS\n');
 
+  if (classifierMode === 'AUTH_HASH_IMPACT') {
+    const genericPepperState = secretState(process.env.AUTH_TOKEN_PEPPER);
+    const opaqueKeyState = secretState(process.env.AUTH_OPAQUE_TOKEN_DIGEST_KEY);
+    const aggregate = await authDb.$transaction(async (tx) => {
+      const principalRows = await tx.$queryRawUnsafe(`
+        SELECT current_setting('transaction_read_only') = 'on' AS read_only,
+               NOT rolsuper AS no_super,
+               NOT rolbypassrls AS no_bypass,
+               NOT rolinherit AS no_inherit,
+               has_schema_privilege(current_user, 'auth', 'USAGE') AS auth_usage,
+               has_table_privilege(current_user, 'auth.login_throttles', 'SELECT') AS login_select,
+               has_table_privilege(current_user, 'auth.registration_applications', 'SELECT') AS registration_select,
+               has_table_privilege(current_user, 'auth.registration_public_attempts', 'SELECT') AS attempt_select,
+               has_table_privilege(current_user, 'auth.organization_invitations', 'SELECT') AS invitation_select,
+               has_table_privilege(current_user, 'auth.organization_membership_command_events', 'SELECT') AS membership_event_select,
+               has_table_privilege(current_user, 'auth.mfa_recovery_challenges', 'SELECT') AS mfa_recovery_select
+        FROM pg_roles WHERE rolname = current_user
+      `);
+      const principal = principalRows[0];
+      if (!principal || !Object.values(principal).every((value) => value === true)) {
+        fail('AUTH_IMPACT_PRINCIPAL_BOUNDARY');
+      }
+
+      const aggregateRows = await tx.$queryRawUnsafe(`
+        SELECT
+          EXISTS (SELECT 1 FROM auth.login_throttles) AS login_rows,
+          EXISTS (
+            SELECT 1 FROM auth.login_throttles
+            WHERE failures > 0 OR locked_until > now()
+          ) AS active_login_rows,
+          EXISTS (SELECT 1 FROM auth.registration_applications) AS registration_rows,
+          EXISTS (
+            SELECT 1 FROM auth.registration_applications
+            WHERE status NOT IN ('REJECTED', 'ACTIVATED', 'EXPIRED', 'CANCELLED')
+              AND expires_at > now()
+          ) AS live_registration_rows,
+          EXISTS (SELECT 1 FROM auth.registration_public_attempts) AS registration_attempt_rows,
+          EXISTS (SELECT 1 FROM auth.organization_invitations) AS invitation_rows,
+          EXISTS (
+            SELECT 1 FROM auth.organization_invitations
+            WHERE status = 'PENDING' AND expires_at > now()
+          ) AS live_invitation_rows,
+          EXISTS (SELECT 1 FROM auth.organization_membership_command_events) AS membership_event_rows,
+          EXISTS (SELECT 1 FROM auth.mfa_recovery_challenges) AS mfa_recovery_rows,
+          EXISTS (
+            SELECT 1 FROM auth.mfa_recovery_challenges
+            WHERE status = 'PENDING' AND expires_at > now()
+          ) AS live_mfa_recovery_rows
+      `);
+      if (aggregateRows.length !== 1) fail('AUTH_IMPACT_AGGREGATE_CARDINALITY');
+      const row = aggregateRows[0];
+      if (Object.values(row).some((value) => typeof value !== 'boolean')) {
+        fail('AUTH_IMPACT_AGGREGATE_INVALID');
+      }
+      return row;
+    }, { isolationLevel: 'Serializable' });
+
+    const historyStates = [
+      aggregate.login_rows,
+      aggregate.registration_rows,
+      aggregate.registration_attempt_rows,
+      aggregate.invitation_rows,
+      aggregate.membership_event_rows,
+      aggregate.mfa_recovery_rows,
+    ];
+    const liveStates = [
+      aggregate.active_login_rows,
+      aggregate.live_registration_rows,
+      aggregate.live_invitation_rows,
+      aggregate.live_mfa_recovery_rows,
+    ];
+    let compatibilityClass = 'SAFE_EMPTY_PERSISTED_GENERIC_HASH_STATE';
+    if (genericPepperState !== 'MISSING' || opaqueKeyState !== 'READY') {
+      compatibilityClass = 'RUNTIME_AUTHORITY_STATE_CHANGED';
+    } else if (liveStates.some(Boolean)) {
+      compatibilityClass = 'LIVE_GENERIC_HASH_STATE_PRESENT';
+    } else if (historyStates.some(Boolean)) {
+      compatibilityClass = 'HISTORICAL_GENERIC_HASH_STATE_PRESENT';
+    }
+
+    process.stdout.write('AUTH_PRINCIPAL|PASS\n');
+    process.stdout.write('AUTH_TRANSACTION|READ_ONLY\n');
+    process.stdout.write([
+      'AUTH_HASH_IMPACT_DB', 'PASS', genericPepperState, opaqueKeyState,
+      presenceState(aggregate.login_rows), presenceState(aggregate.active_login_rows),
+      presenceState(aggregate.registration_rows), presenceState(aggregate.live_registration_rows),
+      presenceState(aggregate.registration_attempt_rows), presenceState(aggregate.invitation_rows),
+      presenceState(aggregate.live_invitation_rows), presenceState(aggregate.membership_event_rows),
+      presenceState(aggregate.mfa_recovery_rows), presenceState(aggregate.live_mfa_recovery_rows),
+      compatibilityClass, 'NONE',
+    ].join('|') + '\n');
+    return;
+  }
+
+  const staffUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
+  if (!staffUrl) fail('STAFF_DATABASE_URL_MISSING');
   staffDb = new PrismaClient({ datasources: { db: { url: staffUrl } } });
-  authDb = new PrismaClient({ datasources: { db: { url: authUrl } } });
 
   const staffPrincipalRows = await staffDb.$queryRawUnsafe(`
     SELECT current_user = 'pc_staff_runtime' AS runtime_ok,
@@ -887,7 +1031,8 @@ let authDb;
     issued, cooldown, boundary, noneligible, other,
   ].join('|') + '\n');
 })().catch((error) => {
-  process.stdout.write(`RESET_ATTEMPT_DB|FAIL_${safeFailureCode(error)}\n`);
+  const marker = classifierMode === 'AUTH_HASH_IMPACT' ? 'AUTH_HASH_IMPACT_DB' : 'RESET_ATTEMPT_DB';
+  process.stdout.write(`${marker}|FAIL_${safeFailureCode(error)}\n`);
   process.exitCode = 1;
 }).finally(async () => {
   if (staffDb) await staffDb.$disconnect().catch(() => undefined);
@@ -901,10 +1046,45 @@ else
 fi
 
 if (( db_rc != 0 )); then
-  db_failure="$(grep '^RESET_ATTEMPT_DB|FAIL_' <<< "$db_output" | tail -n1 || true)"
-  [[ "$db_failure" =~ ^RESET_ATTEMPT_DB\|FAIL_[A-Z0-9_-]{1,64}$ ]]
+  if [[ "$classifier_mode" == 'AUTH_HASH_IMPACT' ]]; then
+    db_failure="$(grep '^AUTH_HASH_IMPACT_DB|FAIL_' <<< "$db_output" | tail -n1 || true)"
+    [[ "$db_failure" =~ ^AUTH_HASH_IMPACT_DB\|FAIL_[A-Z0-9_-]{1,64}$ ]]
+  else
+    db_failure="$(grep '^RESET_ATTEMPT_DB|FAIL_' <<< "$db_output" | tail -n1 || true)"
+    [[ "$db_failure" =~ ^RESET_ATTEMPT_DB\|FAIL_[A-Z0-9_-]{1,64}$ ]]
+  fi
   printf '%s\n' "$db_failure"
   false
+fi
+
+if [[ "$classifier_mode" == 'AUTH_HASH_IMPACT' ]]; then
+  datasource_marker="$(grep '^AUTH_DATASOURCE|' <<< "$db_output" | tail -n1 || true)"
+  principal_marker="$(grep '^AUTH_PRINCIPAL|' <<< "$db_output" | tail -n1 || true)"
+  transaction_marker="$(grep '^AUTH_TRANSACTION|' <<< "$db_output" | tail -n1 || true)"
+  db_safe_marker="$(grep '^AUTH_HASH_IMPACT_DB|' <<< "$db_output" | tail -n1 || true)"
+  [[ "$datasource_marker" == 'AUTH_DATASOURCE|PASS' ]]
+  [[ "$principal_marker" == 'AUTH_PRINCIPAL|PASS' ]]
+  [[ "$transaction_marker" == 'AUTH_TRANSACTION|READ_ONLY' ]]
+  [[ "$db_safe_marker" =~ ^AUTH_HASH_IMPACT_DB\|PASS\|(MISSING|READY|UNSAFE)\|(MISSING|READY|UNSAFE)(\|(ZERO|NONZERO)){10}\|(SAFE_EMPTY_PERSISTED_GENERIC_HASH_STATE|LIVE_GENERIC_HASH_STATE_PRESENT|HISTORICAL_GENERIC_HASH_STATE_PRESENT|RUNTIME_AUTHORITY_STATE_CHANGED)\|NONE$ ]]
+
+  remote_substage='REVISION_AFTER'
+  mapfile -t web_ids_after < <(docker ps -q \
+    --filter "label=com.docker.compose.project=$project" \
+    --filter 'label=com.docker.compose.service=web')
+  mapfile -t api_ids_after < <(docker ps -q \
+    --filter "label=com.docker.compose.project=$project" \
+    --filter 'label=com.docker.compose.service=api')
+  (( ${#web_ids_after[@]} == 1 && ${#api_ids_after[@]} == 1 ))
+  [[ "${web_ids_after[0]}" == "$active_web_id" && "${api_ids_after[0]}" == "$api_id" ]]
+  [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" == "$active_revision" ]]
+  [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$active_web_id")" == "$active_revision" ]]
+
+  trap - ERR
+  printf '%s\n' "$datasource_marker" "$principal_marker" "$transaction_marker" "$db_safe_marker"
+  printf 'RESET_REPLAY|NONE\n'
+  printf 'MAIL_SENT_BY_CLASSIFIER|NO\n'
+  printf 'PRODUCTION_MUTATION|NONE\n'
+  exit 0
 fi
 datasource_marker="$(grep '^AUTH_DATASOURCE|' <<< "$db_output" | tail -n1 || true)"
 principal_marker="$(grep '^AUTH_PRINCIPAL|' <<< "$db_output" | tail -n1 || true)"
@@ -1140,7 +1320,12 @@ parity="$(grep '^PARITY|' <<< "$output" | tail -n1 || true)"
 active_marker="$(grep '^ACTIVE_REVISION|' <<< "$output" | tail -n1 || true)"
 datasource="$(grep '^AUTH_DATASOURCE|' <<< "$output" | tail -n1 || true)"
 principal="$(grep '^AUTH_PRINCIPAL|' <<< "$output" | tail -n1 || true)"
-db_marker="$(grep '^RESET_ATTEMPT_DB|' <<< "$output" | tail -n1 || true)"
+transaction_marker="$(grep '^AUTH_TRANSACTION|' <<< "$output" | tail -n1 || true)"
+if [[ "$classifier_mode" == 'AUTH_HASH_IMPACT' ]]; then
+  db_marker="$(grep '^AUTH_HASH_IMPACT_DB|' <<< "$output" | tail -n1 || true)"
+else
+  db_marker="$(grep '^RESET_ATTEMPT_DB|' <<< "$output" | tail -n1 || true)"
+fi
 log_marker="$(grep '^RESET_ATTEMPT_LOG|' <<< "$output" | tail -n1 || true)"
 replay_marker="$(grep '^RESET_REPLAY|' <<< "$output" | tail -n1 || true)"
 mail_marker="$(grep '^MAIL_SENT_BY_CLASSIFIER|' <<< "$output" | tail -n1 || true)"
@@ -1149,6 +1334,8 @@ if (( remote_rc != 0 )); then
   remote_failure="$(grep '^ATTEMPT_REMOTE_FAILURE|' <<< "$output" | tail -n1 || true)"
   if [[ "$parity" != 'PARITY|PASS' ]]; then
     failure_detail='PARITY_OR_PRE_NODE_FAILURE'
+  elif [[ "$db_marker" =~ ^AUTH_HASH_IMPACT_DB\|FAIL_([A-Z0-9_-]{1,64})$ ]]; then
+    failure_detail="${BASH_REMATCH[1]}"
   elif [[ "$db_marker" =~ ^RESET_ATTEMPT_DB\|FAIL_([A-Z0-9_-]{1,64})$ ]]; then
     failure_detail="${BASH_REMATCH[1]}"
   elif [[ "$remote_failure" =~ ^ATTEMPT_REMOTE_FAILURE\|([A-Z0-9_-]{1,64})\|(ZERO|ONE|MULTIPLE|UNKNOWN)\|(ZERO|ONE|MULTIPLE|UNKNOWN|UNAVAILABLE)\|(ZERO|ONE|MULTIPLE|UNKNOWN|UNAVAILABLE)$ ]]; then
@@ -1169,6 +1356,63 @@ git merge-base --is-ancestor "$active_revision" "$TARGET_SHA"
 [[ "$replay_marker" == 'RESET_REPLAY|NONE' ]]
 [[ "$mail_marker" == 'MAIL_SENT_BY_CLASSIFIER|NO' ]]
 [[ "$mutation_marker" == 'PRODUCTION_MUTATION|NONE' ]]
+
+if [[ "$classifier_mode" == 'AUTH_HASH_IMPACT' ]]; then
+  [[ "$transaction_marker" == 'AUTH_TRANSACTION|READ_ONLY' ]]
+  IFS='|' read -r db_tag db_result generic_pepper opaque_key login_rows active_login_rows \
+    registration_rows live_registration_rows registration_attempt_rows invitation_rows \
+    live_invitation_rows membership_event_rows mfa_recovery_rows live_mfa_recovery_rows \
+    compatibility_class production_mutation <<< "$db_marker"
+  [[ "$db_tag" == 'AUTH_HASH_IMPACT_DB' && "$db_result" == 'PASS' ]]
+  [[ "$generic_pepper" =~ ^(MISSING|READY|UNSAFE)$ ]]
+  [[ "$opaque_key" =~ ^(MISSING|READY|UNSAFE)$ ]]
+  for value in "$login_rows" "$active_login_rows" "$registration_rows" \
+    "$live_registration_rows" "$registration_attempt_rows" "$invitation_rows" \
+    "$live_invitation_rows" "$membership_event_rows" "$mfa_recovery_rows" \
+    "$live_mfa_recovery_rows"; do
+    [[ "$value" =~ ^(ZERO|NONZERO)$ ]]
+  done
+  [[ "$compatibility_class" =~ ^(SAFE_EMPTY_PERSISTED_GENERIC_HASH_STATE|LIVE_GENERIC_HASH_STATE_PRESENT|HISTORICAL_GENERIC_HASH_STATE_PRESENT|RUNTIME_AUTHORITY_STATE_CHANGED)$ ]]
+  [[ "$production_mutation" == 'NONE' ]]
+
+  provisioning_gate='BLOCKED'
+  if [[ "$compatibility_class" == 'SAFE_EMPTY_PERSISTED_GENERIC_HASH_STATE' ]]; then
+    provisioning_gate='CANDIDATE_PASS'
+  fi
+
+  guard_main
+  stage='AUTH_HASH_IMPACT_RESULT_PUBLISH'
+  gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 auth-hash persisted-impact classifier
+
+- exact diagnostic main: \`$TARGET_SHA\`
+- active production API/Web revision: \`$active_revision\`
+- active API AUTH_TOKEN_PEPPER: \`$generic_pepper\`
+- dedicated opaque-token authority: \`$opaque_key\`
+- database transaction mode: \`READ_ONLY\`
+- login-throttle rows: \`$login_rows\`
+- active failed-login / lockout rows: \`$active_login_rows\`
+- registration-application rows: \`$registration_rows\`
+- live nonterminal registration rows: \`$live_registration_rows\`
+- registration public-attempt rows: \`$registration_attempt_rows\`
+- organization-invitation rows: \`$invitation_rows\`
+- live pending invitation rows: \`$live_invitation_rows\`
+- membership-command idempotency rows: \`$membership_event_rows\`
+- MFA-recovery rows: \`$mfa_recovery_rows\`
+- live pending MFA-recovery rows: \`$live_mfa_recovery_rows\`
+- compatibility class: \`$compatibility_class\`
+- bounded auth-key provisioning gate: \`$provisioning_gate\`
+- bearer reset / verification / MFA / refresh token digests remain on dedicated opaque authority: \`YES_BY_RUNTIME_AUTHORITY_SEPARATION\`
+- session, client-IP and audit hashes are not validation authority: \`EXCLUDED_FROM_COMPATIBILITY_GATE\`
+- database row / identity / hash / count exposure: \`NONE\`
+- protected value / URL / credential exposure: \`NONE\`
+- raw Docker / database output: \`NOT_PUBLISHED\`
+- reset replay / mail send: \`NONE\`
+- reset authorized now: \`NO_CURRENT_MAIL_PATH_AND_SMTP_IMAP_NOT_REPROVEN\`
+- production mutation: \`NONE\`
+- new recurring cost: \`0 RUB\`" >/dev/null
+  result_published=1
+  exit 0
+fi
 
 IFS='|' read -r db_tag db_result password_ready mfa_ready login_ready attempt_challenges unexpired_pending latest_status latest_expired issued cooldown boundary noneligible other_audit <<< "$db_marker"
 [[ "$db_tag" == 'RESET_ATTEMPT_DB' && "$db_result" == 'PASS' ]]
