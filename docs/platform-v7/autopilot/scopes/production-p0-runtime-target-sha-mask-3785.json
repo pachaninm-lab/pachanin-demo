@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-runtime-target-sha-mask-3785",
+  "status": "active",
+  "operationalStatus": "P0_RUNTIME_EXACT_SHA_SECRET_MASK_SAFE_HANDOFF",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "PC-CROP production runtime exact-SHA handoff immune to protected-value masking",
+  "allowedPaths": [
+    ".github/workflows/production-p0-password-reset-runtime-provision.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-runtime-target-sha-mask-3785.json",
+    "scripts/check-production-p0-password-reset-runtime-provision.mjs"
+  ],
+  "boundaries": {
+    "productionMutation": "BOUNDED_EXISTING_RUNTIME_PROVISION_THEN_EXACT_RELEASE",
+    "databaseMutation": "EXACT_RELEASE_MIGRATIONS_ONLY",
+    "deploymentMutation": true,
+    "credentialMutation": true,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "reviewerResetMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "securityGateDisabled": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the owner-only issue 3072 command binds every downstream job directly to the GitHub event SHA and rechecks that SHA against current main before any REG.RU mutation",
+    "the exact SHA is never transported through a job output that GitHub may drop when a short protected value is a substring of the commit SHA",
+    "missing, stale or drifting event SHA fails closed before SSH and before production mutation",
+    "the existing protected runtime provision, pinned SSH host identity, exact image publication, exact release and post-release readiness boundaries remain unchanged",
+    "no credential, PII, reviewer identity, password, TOTP or raw protected environment value is emitted",
+    "production hosting remains the existing REG.RU contour and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

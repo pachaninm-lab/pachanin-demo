@@ -134,6 +134,9 @@ requireAll('workflow', [
   "api.get('REGISTRATION_DELIVERY_KEY', '').strip()",
   'purpose_keys_distinct',
   'docker inspect "$web_id" "$api_id" | python3 -c "$classifier"',
+  '[[ "$GITHUB_SHA" == "$target_sha" ]]',
+  'TARGET_SHA: ${{ github.sha }}',
+  'ref: ${{ github.sha }}',
 ]);
 forbid('provisioner', [
   /echo\s+.*key_material/i,
@@ -152,7 +155,17 @@ forbid('workflow', [
   /echo\s+.*(?:RESEND_API_KEY_SECRET|SMTP_PASS_SECRET)/i,
   /echo\s+.*PROD_DIR_SECRET/i,
   /GITHUB_OUTPUT[^\n]*(?:RESEND_API_KEY|SMTP_PASS)/i,
+  /needs\.authority\.outputs\.target_sha/,
+  /echo\s+"sha=\$target_sha"\s*>>\s*"\$GITHUB_OUTPUT"/,
+  /^\s+outputs:\s*\n\s+target_sha:/m,
 ]);
+
+if ((content.workflow.match(/TARGET_SHA: \$\{\{ github\.sha \}\}/g) || []).length !== 3) {
+  failures.push(`${paths.workflow}: exact event SHA must be consumed directly by all three downstream jobs`);
+}
+if ((content.workflow.match(/ref: \$\{\{ github\.sha \}\}/g) || []).length < 1) {
+  failures.push(`${paths.workflow}: mutation checkout is not pinned to the exact event SHA`);
+}
 
 for (const file of [paths.executor, paths.provisioner]) {
   const result = spawnSync('bash', ['-n', file], { encoding: 'utf8' });
