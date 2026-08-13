@@ -46,6 +46,7 @@ requireAll('workflow', [
   'https://процент-агро.рф/gekta/console',
   'existing PLATFORM_OWNER session with fresh MFA',
   'Enforce bounded evidence',
+  'grep -PRiq',
   'Guard exact main before artifact publication',
   'Remove protected acceptance material',
   'GEKTA_FIRST_USER_ACCEPTANCE=PASS',
@@ -53,6 +54,7 @@ requireAll('workflow', [
 
 forbid('workflow', [
   /workflow_dispatch:/u,
+  /grep -PERiq/u,
   /PC_PROD_GE?KTA_(?:OWNER|REVIEWER)_(?:EMAIL|PASSWORD|TOTP|SECRET)/iu,
   /(?:echo|printf)[^\n]*(?:IMAP_PASSWORD|MFA_SECRET|VERIFY_TOKEN|BACKUP_CODES)/iu,
   /continue-on-error:\s*true[\s\S]{0,180}Execute first-user journey/iu,
@@ -70,6 +72,9 @@ requireAll('executor', [
   "(response) => isEntitlementResponse(response, 'POST')",
   "GEKTA_ANONYMOUS_ENTITLEMENT_BOOTSTRAP_FAILED",
   "GEKTA_ANONYMOUS_CONSENT_FAILED",
+  "const persistedConsent = await pageJson(page, '/api/gekta/entitlement');",
+  "persistedConsent.data?.consent?.version === consentPayload.legalVersion",
+  "GEKTA_ANONYMOUS_CONSENT_PERSISTENCE_FAILED",
   "page.getByRole('button', { name: 'Отправить', exact: true })",
   "GEKTA_LIVE_ANONYMOUS_ANSWER=PASS",
   "fetch('/api/agro-chat?stream=1'",

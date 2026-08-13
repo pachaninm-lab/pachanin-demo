@@ -407,6 +407,13 @@ async function anonymousQuotaAndHistory(page, identity) {
       'GEKTA_ANONYMOUS_CONSENT_FAILED',
     );
     await page.locator('[data-gekta-consent="true"]').waitFor({ state: 'detached', timeout: 10_000 });
+    const persistedConsent = await pageJson(page, '/api/gekta/entitlement');
+    assert(
+      persistedConsent.status === 200
+        && persistedConsent.data?.legalVersion === consentPayload.legalVersion
+        && persistedConsent.data?.consent?.version === consentPayload.legalVersion,
+      'GEKTA_ANONYMOUS_CONSENT_PERSISTENCE_FAILED',
+    );
   }
   await page.locator('#gekta-composer-input').fill(identity.prompt);
   await page.getByRole('button', { name: 'Отправить', exact: true }).click();
