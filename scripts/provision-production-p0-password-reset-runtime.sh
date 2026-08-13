@@ -14,9 +14,11 @@ decode() {
 
 [[ "$ACTION" == provision ]] || fail INVALID_ACTION 2
 [[ "$RECONCILE_ACTIVE_RUNTIME" =~ ^[01]$ ]] || fail INVALID_RECONCILE_MODE 16
-[[ "$MAIL_INPUT" == /tmp/pc-password-reset-mail-*.env ]] || fail MAIL_INPUT_PATH_INVALID 3
-[[ -f "$MAIL_INPUT" && ! -L "$MAIL_INPUT" ]] || fail MAIL_INPUT_INVALID 4
-[[ "$(stat -c '%a:%u:%g' "$MAIL_INPUT")" == '600:0:0' ]] || fail MAIL_INPUT_PERMISSIONS_INVALID 5
+if [[ -n "$MAIL_INPUT" ]]; then
+  [[ "$MAIL_INPUT" == /tmp/pc-password-reset-mail-*.env ]] || fail MAIL_INPUT_PATH_INVALID 3
+  [[ -f "$MAIL_INPUT" && ! -L "$MAIL_INPUT" ]] || fail MAIL_INPUT_INVALID 4
+  [[ "$(stat -c '%a:%u:%g' "$MAIL_INPUT")" == '600:0:0' ]] || fail MAIL_INPUT_PERMISSIONS_INVALID 5
+fi
 
 prod_dir="$(decode "$PROD_DIR_B64")"
 active_dir=""
@@ -128,8 +130,11 @@ valid_mail_file() {
   valid_mail_path "$mail_file"
 }
 
-input_channel="$(validate_mail_file "$MAIL_INPUT")" || fail MAIL_INPUT_CONTENT_INVALID 10
-[[ "$input_channel" =~ ^(RESEND|SMTP)$ ]] || fail MAIL_INPUT_CONTENT_INVALID 10
+input_channel=""
+if [[ -n "$MAIL_INPUT" ]]; then
+  input_channel="$(validate_mail_file "$MAIL_INPUT")" || fail MAIL_INPUT_CONTENT_INVALID 10
+  [[ "$input_channel" =~ ^(RESEND|SMTP)$ ]] || fail MAIL_INPUT_CONTENT_INVALID 10
+fi
 
 authority_reconciled=0
 if [[ "$RECONCILE_ACTIVE_RUNTIME" == 1 && "$active_dir" != "$prod_dir" ]]; then
@@ -172,6 +177,7 @@ fi
 
 delivery_status=EXISTING
 mail_status=EXISTING
+mail_source=EXISTING_FILE
 if [[ -e "$delivery_file" ]]; then
   valid_delivery_file || fail EXISTING_DELIVERY_FILE_INVALID 11
   delivery_exists=1
@@ -186,6 +192,11 @@ else
   mail_exists=0
 fi
 
+if [[ "$mail_exists" == 0 && -z "$MAIL_INPUT" ]]; then
+  fail PROTECTED_MAIL_INPUT_REQUIRED 31
+fi
+
+delivery_temp=""
 if [[ "$delivery_exists" == 0 ]]; then
   password_reset_key="$(openssl rand -hex 48)"
   registration_key="$(openssl rand -hex 48)"
@@ -213,6 +224,7 @@ else
   mv "$mail_temp" "$mail_file"
   mail_status=CREATED
   mail_channel="$input_channel"
+  mail_source=PROTECTED_INPUT
 fi
 
 valid_delivery_file || fail DELIVERY_FILE_VERIFICATION_FAILED 14
@@ -223,6 +235,7 @@ printf 'PASSWORD_RESET_DELIVERY_PROVISION=%s\n' "$delivery_status"
 printf 'REGISTRATION_DELIVERY_PROVISION=%s\n' "$delivery_status"
 printf 'TRANSACTIONAL_MAIL_PROVISION=%s\n' "$mail_status"
 printf 'TRANSACTIONAL_MAIL_CHANNEL=%s\n' "$mail_channel"
+printf 'TRANSACTIONAL_MAIL_SOURCE=%s\n' "$mail_source"
 printf 'PASSWORD_RESET_RUNTIME_VALID=1\n'
 printf 'AUTH_MAIL_RUNTIME_VALID=1\n'
 printf 'RUNTIME_AUTHORITY_RECONCILED=%s\n' "$authority_reconciled"
