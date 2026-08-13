@@ -1,4 +1,4 @@
-name: Production P0 Reviewer Reset and Auth-Hash Runtime Classifier
+name: Production P0 Reviewer Reset and Auth-Hash Safety Classifier
 
 on:
   pull_request:
@@ -30,7 +30,8 @@ jobs:
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
         (github.event.comment.body == '/production p0-reviewer-reset-attempt-classify 31706325376 current-main' ||
-         github.event.comment.body == '/production p0-auth-hash-runtime-classify current-main')
+         github.event.comment.body == '/production p0-auth-hash-runtime-classify current-main' ||
+         github.event.comment.body == '/production p0-auth-hash-impact-classify current-main')
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -57,7 +58,8 @@ jobs:
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
       (github.event.comment.body == '/production p0-reviewer-reset-attempt-classify 31706325376 current-main' ||
-       github.event.comment.body == '/production p0-auth-hash-runtime-classify current-main')
+       github.event.comment.body == '/production p0-auth-hash-runtime-classify current-main' ||
+       github.event.comment.body == '/production p0-auth-hash-impact-classify current-main')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -79,6 +81,6 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Classify reset evidence or auth-hash runtime authority without mutation
+      - name: Classify reset evidence, auth-hash authority or persisted impact without mutation
         shell: bash
         run: bash scripts/production-p0-reviewer-reset-attempt-classifier.sh

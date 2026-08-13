@@ -12,6 +12,7 @@ const autopilotPath = 'docs/platform-v7/autopilot/autopilot-state.json';
 const branch = 'diag/p0-reviewer-reset-attempt-classifier-3785';
 const command = '/production p0-reviewer-reset-attempt-classify 31706325376 current-main';
 const authHashRuntimeCommand = '/production p0-auth-hash-runtime-classify current-main';
+const authHashImpactCommand = '/production p0-auth-hash-impact-classify current-main';
 const sourceRun = 31706325376;
 const sourceRevision = '7c768ad7c54523837b06999a8f69bdffe2a840db';
 const attemptSince = '2026-08-13T13:43:10Z';
@@ -42,7 +43,7 @@ const sameStringSet = (actual, expected) => (
 
 for (const path of allowedPaths) requireToken('workflow', `      - '${path}'`);
 for (const token of [
-  'name: Production P0 Reviewer Reset and Auth-Hash Runtime Classifier',
+  'name: Production P0 Reviewer Reset and Auth-Hash Safety Classifier',
   'pull_request:',
   'issue_comment:',
   'permissions:\n  contents: read',
@@ -52,6 +53,7 @@ for (const token of [
   'github.triggering_actor == github.repository_owner',
   `github.event.comment.body == '${command}'`,
   `github.event.comment.body == '${authHashRuntimeCommand}'`,
+  `github.event.comment.body == '${authHashImpactCommand}'`,
   "github.event_name == 'pull_request'",
   'needs.contract.result == \'success\'',
   'persist-credentials: false',
@@ -69,6 +71,10 @@ if (commandOccurrences !== 2) failures.push(`workflow: expected command twice, f
 const authHashRuntimeCommandOccurrences = files.workflow.split(authHashRuntimeCommand).length - 1;
 if (authHashRuntimeCommandOccurrences !== 2) {
   failures.push(`workflow: expected auth-hash runtime command twice, found ${authHashRuntimeCommandOccurrences}`);
+}
+const authHashImpactCommandOccurrences = files.workflow.split(authHashImpactCommand).length - 1;
+if (authHashImpactCommandOccurrences !== 2) {
+  failures.push(`workflow: expected auth-hash impact command twice, found ${authHashImpactCommandOccurrences}`);
 }
 const secretNames = [...files.workflow.matchAll(/secrets\.([A-Z0-9_]+)/g)].map((match) => match[1]);
 const allowedSecrets = [
@@ -97,12 +103,14 @@ for (const token of [
   "RELEASE_ISSUE_NUMBER='3072'",
   `ATTEMPT_COMMAND='${command}'`,
   `AUTH_HASH_RUNTIME_COMMAND='${authHashRuntimeCommand}'`,
+  `AUTH_HASH_IMPACT_COMMAND='${authHashImpactCommand}'`,
   `SOURCE_RUN_ID='${sourceRun}'`,
   `ATTEMPT_SINCE='${attemptSince}'`,
   `ATTEMPT_UNTIL='${attemptUntil}'`,
   `SOURCE_REVISION='${sourceRevision}'`,
   "classifier_mode='RESET_ATTEMPT'",
   "classifier_mode='AUTH_HASH_RUNTIME'",
+  "classifier_mode='AUTH_HASH_IMPACT'",
   '[[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]',
   'git merge-base --is-ancestor "$SOURCE_REVISION" "$TARGET_SHA"',
   'git merge-base --is-ancestor "$active_revision" "$TARGET_SHA"',
@@ -137,6 +145,34 @@ for (const token of [
   "candidate purpose separation from opaque/JWT/MFA keys:",
   "protected value / file path / hash / length exposure: \\`NONE\\`",
   "raw Docker / Compose / filesystem output: \\`NOT_PUBLISHED\\`",
+  "if [[ \"$classifier_mode\" == 'AUTH_HASH_IMPACT' ]]; then",
+  "docker exec -i \"$api_id\" /nodejs/bin/node --input-type=commonjs - \"$classifier_mode\" \"$attempt_since\" \"$attempt_until\" <<'NODE'",
+  "const [classifierMode, attemptSince, attemptUntil] = process.argv.slice(2)",
+  "default_transaction_read_only=on",
+  "current_setting('transaction_read_only') = 'on'",
+  "has_table_privilege(current_user, 'auth.login_throttles', 'SELECT')",
+  "has_table_privilege(current_user, 'auth.registration_applications', 'SELECT')",
+  "has_table_privilege(current_user, 'auth.registration_public_attempts', 'SELECT')",
+  "has_table_privilege(current_user, 'auth.organization_invitations', 'SELECT')",
+  "has_table_privilege(current_user, 'auth.organization_membership_command_events', 'SELECT')",
+  "has_table_privilege(current_user, 'auth.mfa_recovery_challenges', 'SELECT')",
+  "EXISTS (SELECT 1 FROM auth.login_throttles) AS login_rows",
+  "failures > 0 OR locked_until > now()",
+  "EXISTS (SELECT 1 FROM auth.registration_applications) AS registration_rows",
+  "status NOT IN ('REJECTED', 'ACTIVATED', 'EXPIRED', 'CANCELLED')",
+  "EXISTS (SELECT 1 FROM auth.registration_public_attempts) AS registration_attempt_rows",
+  "EXISTS (SELECT 1 FROM auth.organization_invitations) AS invitation_rows",
+  "EXISTS (SELECT 1 FROM auth.organization_membership_command_events) AS membership_event_rows",
+  "EXISTS (SELECT 1 FROM auth.mfa_recovery_challenges) AS mfa_recovery_rows",
+  "compatibilityClass = 'RUNTIME_AUTHORITY_STATE_CHANGED'",
+  "compatibilityClass = 'LIVE_GENERIC_HASH_STATE_PRESENT'",
+  "compatibilityClass = 'HISTORICAL_GENERIC_HASH_STATE_PRESENT'",
+  "SAFE_EMPTY_PERSISTED_GENERIC_HASH_STATE",
+  "AUTH_TRANSACTION|READ_ONLY",
+  "AUTH_HASH_IMPACT_DB",
+  "bounded auth-key provisioning gate:",
+  "database row / identity / hash / count exposure: \\`NONE\\`",
+  "session, client-IP and audit hashes are not validation authority: \\`EXCLUDED_FROM_COMPATIBILITY_GATE\\`",
   "docker ps -q --filter 'label=com.docker.compose.service=web'",
   'docker ps -aq',
   'project_web_output="$(docker ps -aq',
@@ -159,7 +195,6 @@ for (const token of [
   "log_source='HISTORICAL_CONTAINER'",
   "log_source='UNAVAILABLE_AFTER_EXACT_RELEASE'",
   'historical_web_id="${historical_web_ids[0]}"',
-  'docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - "$attempt_since" "$attempt_until" <<\'NODE\'',
   'process.env.STAFF_DATABASE_URL',
   'process.env.AUTH_DATABASE_URL',
   'process.env.DATABASE_URL',
@@ -307,6 +342,77 @@ if (nodeBlocks.length !== 1) failures.push(`runner: expected one embedded Node b
 else {
   const nodeSyntax = spawnSync('node', ['--check', '-'], { input: nodeBlocks[0][1], encoding: 'utf8' });
   if (nodeSyntax.status !== 0) failures.push(`runner: embedded Node syntax invalid: ${nodeSyntax.stderr.trim()}`);
+
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-auth-hash-impact-classifier-'));
+  try {
+    const prismaModule = path.join(fixtureRoot, 'node_modules', '@prisma', 'client');
+    fs.mkdirSync(prismaModule, { recursive: true });
+    fs.writeFileSync(path.join(prismaModule, 'index.js'), `
+class PrismaClient {
+  constructor(options) {
+    const url = String(options?.datasources?.db?.url || '');
+    if (!url.includes('default_transaction_read_only')) throw new Error('fixture read-only URL missing');
+  }
+  async $transaction(callback, options) {
+    if (options?.isolationLevel !== 'Serializable') throw new Error('fixture isolation mismatch');
+    return callback({
+      $queryRawUnsafe: async (sql) => {
+        if (sql.includes("current_setting('transaction_read_only')")) {
+          return [{
+            read_only: true, no_super: true, no_bypass: true, no_inherit: true,
+            auth_usage: true, login_select: true, registration_select: true,
+            attempt_select: true, invitation_select: true,
+            membership_event_select: true, mfa_recovery_select: true,
+          }];
+        }
+        if (sql.includes('EXISTS (SELECT 1 FROM auth.login_throttles)')) {
+          return [{
+            login_rows: false, active_login_rows: false,
+            registration_rows: false, live_registration_rows: false,
+            registration_attempt_rows: false, invitation_rows: false,
+            live_invitation_rows: false, membership_event_rows: false,
+            mfa_recovery_rows: false, live_mfa_recovery_rows: false,
+          }];
+        }
+        throw new Error('fixture unexpected query');
+      },
+    });
+  }
+  async $disconnect() {}
+}
+module.exports = { PrismaClient };
+`);
+    const fixture = spawnSync(
+      'node', ['--input-type=commonjs', '-', 'AUTH_HASH_IMPACT', attemptSince, attemptUntil],
+      {
+        input: nodeBlocks[0][1],
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          NODE_PATH: path.join(fixtureRoot, 'node_modules'),
+          AUTH_DATABASE_URL: 'postgresql://auth:fixture@db.invalid:5432/auth',
+          DATABASE_URL: 'postgresql://deal:fixture@db.invalid:5432/deal',
+          AUTH_TOKEN_PEPPER: '',
+          AUTH_OPAQUE_TOKEN_DIGEST_KEY: '2'.repeat(96),
+        },
+      },
+    );
+    const expected = [
+      'AUTH_DATASOURCE|PASS',
+      'AUTH_PRINCIPAL|PASS',
+      'AUTH_TRANSACTION|READ_ONLY',
+      [
+        'AUTH_HASH_IMPACT_DB', 'PASS', 'MISSING', 'READY',
+        ...Array(10).fill('ZERO'),
+        'SAFE_EMPTY_PERSISTED_GENERIC_HASH_STATE', 'NONE',
+      ].join('|'),
+    ].join('\n');
+    if (fixture.status !== 0 || fixture.stdout.trim() !== expected || fixture.stderr.trim()) {
+      failures.push(`runner: embedded Node read-only impact fixture failed: ${fixture.stdout.trim()} ${fixture.stderr.trim()}`);
+    }
+  } finally {
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  }
 }
 const pythonBlocks = [...files.runner.matchAll(/<<'PY'\n([\s\S]*?)\nPY/g)];
 if (pythonBlocks.length !== 1) failures.push(`runner: expected one embedded Python block, found ${pythonBlocks.length}`);
@@ -439,8 +545,8 @@ esac
     fs.rmSync(fixtureRoot, { recursive: true, force: true });
   }
 }
-const argvProbe = spawnSync('node', ['--input-type=commonjs', '-', attemptSince, attemptUntil], {
-  input: `const expected=${JSON.stringify([attemptSince, attemptUntil])}; if (JSON.stringify(process.argv.slice(2)) !== JSON.stringify(expected)) process.exit(1);`,
+const argvProbe = spawnSync('node', ['--input-type=commonjs', '-', 'AUTH_HASH_IMPACT', attemptSince, attemptUntil], {
+  input: `const expected=${JSON.stringify(['AUTH_HASH_IMPACT', attemptSince, attemptUntil])}; if (JSON.stringify(process.argv.slice(2)) !== JSON.stringify(expected)) process.exit(1);`,
   encoding: 'utf8',
 });
 if (argvProbe.status !== 0) failures.push('runner: stdin argv binding probe failed');
@@ -451,7 +557,7 @@ try {
   if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
       || scope.branch !== branch
       || scope.status !== 'active'
-      || scope.operationalStatus !== 'P0_REVIEWER_RESET_ATTEMPT_AND_AUTH_HASH_RUNTIME_READ_ONLY_CLASSIFIER'
+      || scope.operationalStatus !== 'P0_REVIEWER_RESET_ATTEMPT_AUTH_HASH_RUNTIME_AND_IMPACT_READ_ONLY_CLASSIFIER'
       || scope.issue !== 3785
       || scope.releaseIssue !== 3072
       || scope.sourceRun !== sourceRun
@@ -484,7 +590,7 @@ try {
   for (const [key, value] of Object.entries(expectedBoundaries)) {
     if (scope.boundaries?.[key] !== value) failures.push(`scope: boundary mismatch for ${key}`);
   }
-  if (!Array.isArray(scope.acceptance) || scope.acceptance.length < 8) failures.push('scope: acceptance contract incomplete');
+  if (!Array.isArray(scope.acceptance) || scope.acceptance.length < 18) failures.push('scope: acceptance contract incomplete');
 } catch (error) {
   failures.push(`scope: invalid JSON: ${error.message}`);
 }
@@ -498,9 +604,9 @@ try {
 }
 
 if (failures.length) {
-  console.error('Production P0 reviewer reset and auth-hash runtime classifier contract failed:');
+  console.error('Production P0 reviewer reset and auth-hash safety classifier contract failed:');
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
 
-console.log('PASS: reviewer reset and auth-hash runtime classifiers are owner-only, exact-main/dynamic-active/source-revision guarded and read-only; they cannot replay reset, send mail, disclose identity/secret material or mutate production.');
+console.log('PASS: reviewer reset and auth-hash runtime/impact classifiers are owner-only, exact-main/dynamic-active/source-revision guarded and read-only; they cannot replay reset, send mail, disclose identity/secret material or mutate production.');
