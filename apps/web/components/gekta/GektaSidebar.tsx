@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Home, LifeBuoy, Plus, Search, Settings, ShieldCheck, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Home, LifeBuoy, Plus, Search, Settings, ShieldCheck, Trash2 } from 'lucide-react';
 import { GEKTA_PATHS, type GektaLocale } from '@/lib/gekta/content';
 import type { GektaProject } from '@/lib/gekta/projects';
 import type { GektaConversation } from './GektaChatTypes';
@@ -50,7 +50,7 @@ export function GektaSidebar({ locale, conversations, projects, activeId, active
         <ShieldCheck className='h-4 w-4 text-emerald-700' aria-hidden='true' />{ui.info}
       </Link>
       <Link href='/platform-v7' className={NAV_ITEM}>
-        <span aria-hidden='true' className='grid h-4 w-4 place-items-center text-[10px] font-black text-slate-500'>ПЦ</span>{ui.back}
+        <ArrowUpRight className='h-4 w-4 text-slate-500' aria-hidden='true' />{ui.back}
       </Link>
       <Link href='/platform-v7/contact' className={NAV_ITEM}>
         <LifeBuoy className='h-4 w-4 text-slate-500' aria-hidden='true' />{ui.support}
