@@ -32,9 +32,7 @@ jobs:
     name: Resolve accepted protected Web release
     if: >-
       github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      (github.event.workflow_run.name == 'Production Web Exact-SHA Release' ||
-       github.event.workflow_run.name == 'Production Web Owner Exact-SHA Command')
+      github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
       actions: read
@@ -44,7 +42,7 @@ jobs:
       manual_sha: ''
 
   mobile-acceptance:
-    name: 320x700, 390x844 and 430x932 production acceptance
+    name: 320x700, 375x812, 390x844 and 430x932 production acceptance
     needs: accepted
     if: >-
       always() &&
@@ -67,9 +65,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == workflow_run \
-            && ( "$RELEASE_WORKFLOW" == 'Production Web Exact-SHA Release' \
-              || "$RELEASE_WORKFLOW" == 'Production Web Owner Exact-SHA Command' ) ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run && -n "${ACCEPTED_SHA:-}" ]]; then
             target_sha="$ACCEPTED_SHA"
           elif [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
             target_sha="$RELEASE_TARGET_SHA"
@@ -194,6 +190,7 @@ jobs:
             echo "- exact public revision gate: \`$revision_result\`"
             echo "- manifest revision: \`${MANIFEST_SHA:-missing}\`"
             echo "- Gekta viewport 320×700: \`$result\`"
+            echo "- Gekta viewport 375×812: \`$result\`"
             echo "- Platform V7 + Gekta viewport 390×844: \`$result\`"
             echo "- Platform V7 + Gekta viewport 430×932: \`$result\`"
             echo "- Gekta mobile history, chat, composer and sources: \`$result\`"

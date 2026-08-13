@@ -42,18 +42,45 @@ for (const needle of [
   `EXPECTED_DEPLOYED_SHA='${deployed}'`,
   `LOG_SINCE='${since}'`,
   `LOG_UNTIL='${until}'`,
+  'docker ps -aq',
+  'label=com.docker.compose.project=$project',
+  'label=com.docker.compose.service=web',
+  '"org.opencontainers.image.revision"',
+  "remote_substage='RETAINED_CONTAINER_DISCOVERY'",
+  "remote_substage='RETAINED_CONTAINER_ZERO'",
+  "remote_substage='RETAINED_CONTAINER_MULTIPLE'",
+  "printf 'RETAINED_CONTAINER_CARDINALITY=%s\\n' \"$remote_retained_cardinality\"",
   "docker logs --since \"$log_since\" --until \"$log_until\"",
   "grep -F 'password_reset_delivery_result'",
+  "printf 'DIAGNOSTIC_FAILURE_SUBSTAGE=%s\\n' \"$remote_substage\"",
+  "printf 'DELIVERY_LOG_CARDINALITY=%s\\n' \"$remote_cardinality\"",
+  "remote_cardinality='ZERO'",
+  "remote_cardinality='ONE'",
+  "remote_cardinality='MULTIPLE'",
+  "failure_substage='REMOTE_EXECUTION'",
+  'RETAINED_CONTAINER_CARDINALITY=ONE',
   'DELIVERY_LOG_COUNT=1',
+  'SOURCE_REVISION_RECOVERY=PASS',
   'MAIL_SENT_BY_DIAGNOSTIC=NO',
   'PRODUCTION_MUTATION=NONE',
   'StrictHostKeyChecking=yes',
   'git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$MAIN_SHA"',
 ]) requireText(script, needle, 'script');
 
+for (const stale of [
+  "remote_substage='REVISION_PARITY_BEFORE'",
+  "remote_substage='REVISION_PARITY_AFTER'",
+  'PROD_REVISION_PARITY=PASS',
+]) {
+  if (script.includes(stale)) fail(`stale current-revision parity dependency remains: ${stale}`);
+}
+
 const forbidden = [
   /\bcurl\b/,
   /\bdocker\s+exec\b/,
+  /\bdocker\s+(?:run|rm|start|stop|restart|kill|update|rename)\b/,
+  /\bdocker\s+container\s+(?:rm|start|stop|restart|kill|update|rename)\b/,
+  /\bdocker\s+compose\s+(?:up|down|start|stop|restart|rm|kill)\b/,
   /\bpsql\b/,
   /PrismaClient/,
   /\/api\/auth\/forgot-password/,
@@ -75,6 +102,13 @@ if (scope.deployedRevision !== deployed) fail('scope deployed revision');
 const expectedPaths = [workflowPath, scriptPath, 'scripts/check-production-p0-reviewer-reset-delivery-diagnostic.mjs', scopePath].sort();
 const actualPaths = [...(scope.allowedPaths || [])].sort();
 if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) fail('scope allowedPaths');
+
+const acceptance = Array.isArray(scope.acceptance) ? scope.acceptance.join('\n') : '';
+for (const needle of [
+  'retained historical web container',
+  'current running production revision may have advanced',
+  'exactly one retained web container with OCI revision d2dd7972105cc59002263455b5ae0eb8d8f2d386',
+]) requireText(acceptance, needle, 'scope acceptance');
 
 const b = scope.boundaries || {};
 const requiredFalse = [

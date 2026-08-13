@@ -7,6 +7,18 @@ import type { GektaLocale } from '@/lib/gekta/content';
 import { GektaAttachments } from './GektaAttachments';
 import { GektaVoiceInput } from './GektaVoiceInput';
 
+const COMPACT_PLACEHOLDER: Record<GektaLocale, string> = {
+  ru: 'Задай вопрос по сельскому хозяйству',
+  en: 'Ask about farming or agribusiness',
+  zh: '询问农业生产或农业经营',
+};
+
+const COMPACT_BOUNDARY: Record<GektaLocale, string> = {
+  ru: 'Анонимная история хранится в этом браузере. Не отправляй секретные данные.',
+  en: 'Anonymous history stays in this browser. Do not send secrets.',
+  zh: '匿名记录保存在此浏览器中。请勿发送敏感信息。',
+};
+
 export function GektaComposer({ locale, value, placeholder, sending, stopLabel, sendLabel, boundary, documents, voiceEnabled, onDocuments, onChange, onSubmit, onStop, onError }: {
   locale: GektaLocale;
   value: string;
@@ -29,14 +41,14 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
     const textarea = textareaRef.current;
     if (!textarea) return;
     textarea.style.height = 'auto';
-    textarea.style.height = `${Math.min(180, Math.max(52, textarea.scrollHeight))}px`;
+    textarea.style.height = `${Math.min(144, Math.max(68, textarea.scrollHeight))}px`;
   }, [value]);
 
   return (
-    <div className='mx-auto w-full max-w-[960px] px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 sm:px-6'>
+    <div data-gekta-composer-root='true' className='mx-auto w-full max-w-[960px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 sm:px-6 sm:pb-[max(12px,env(safe-area-inset-bottom))] sm:pt-3'>
       <GektaAttachments locale={locale} disabled={sending} documents={documents} onChange={onDocuments} onError={onError}>
         <label htmlFor='gekta-composer-input' className='sr-only'>{placeholder}</label>
-        <textarea id='gekta-composer-input' ref={textareaRef} value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!sending) onSubmit(); } }} rows={2} maxLength={1200} placeholder={placeholder} aria-describedby='gekta-composer-boundary' className='block max-h-[180px] min-h-[76px] w-full resize-none bg-transparent px-4 pb-14 pt-4 text-[16px] leading-6 text-slate-900 outline-none placeholder:text-slate-400' />
+        <textarea id='gekta-composer-input' ref={textareaRef} value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!sending) onSubmit(); } }} rows={1} maxLength={1200} placeholder={COMPACT_PLACEHOLDER[locale]} aria-describedby='gekta-composer-boundary' className='block max-h-36 min-h-[68px] w-full resize-none bg-transparent px-4 pb-14 pt-3.5 text-[16px] leading-6 text-slate-900 outline-none placeholder:text-[15px] placeholder:text-slate-400' />
         <div className='absolute bottom-3 right-3 flex items-center gap-2'>
           {voiceEnabled && !sending ? (
             <GektaVoiceInput
@@ -54,7 +66,10 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
         </div>
       </GektaAttachments>
       <p className='sr-only' role='status' aria-live='polite'>{voiceStatus}</p>
-      <p id='gekta-composer-boundary' className='mt-2 px-2 text-center text-[11px] leading-4 text-slate-500'>{boundary}</p>
+      <p id='gekta-composer-boundary' className='mt-1.5 px-2 text-center text-[11px] leading-4 text-slate-500'>
+        <span className='sm:hidden'>{COMPACT_BOUNDARY[locale]}</span>
+        <span className='hidden sm:inline'>{boundary}</span>
+      </p>
     </div>
   );
 }

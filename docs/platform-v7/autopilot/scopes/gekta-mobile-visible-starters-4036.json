@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-mobile-visible-starters-4036",
+  "branch": "fix/gekta-mobile-visible-starters-4036",
+  "issue": 4036,
+  "status": "active",
+  "authorizedBy": "production-mobile-acceptance-evidence",
+  "baseline": {
+    "branch": "main",
+    "commit": "0063e27bb78afdc99b22dfe81db0edbf617d18d0"
+  },
+  "purpose": "Fix the production-proven Gekta starter progressive-disclosure defect where a Tailwind display utility overrides the hidden attribute, causing all starter cards to remain exposed before expansion; strengthen production acceptance to verify exactly three visible starters before disclosure and more after expansion.",
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaEmptyState.tsx",
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-mobile-visible-starters-4036.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/gekta",
+    "mode": "web-ux-and-acceptance-only",
+    "modelBoundary": "unchanged",
+    "accountData": "unchanged",
+    "languages": ["ru", "en", "zh"],
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "model runtime, prompt, inference routing or latency experiments",
+    "agro-chat API or attachment backend contracts",
+    "PC-CROP registration, reviewer, MFA or password-reset runtime",
+    "role, tenant, RBAC, RLS or PostgreSQL authority",
+    "production credentials or direct REG.RU mutation",
+    "paid external services or new infrastructure"
+  ],
+  "requiredChecks": [
+    "web typecheck",
+    "gektaMobileUxRedTeam.test.ts",
+    "gekta-production-mobile-acceptance.spec.ts at 320/375/390/430",
+    "exact public revision gate",
+    "git diff --check"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "This scope fixes starter visibility and its acceptance contract only. It does not attest backend, model, identity or transaction capabilities."
+}
