@@ -1101,6 +1101,12 @@
       "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
       "apps/web/tests/unit/gektaServerHistory.test.ts",
       "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json"
+    ],
+    "diag/p0-reviewer-reset-attempt-classifier-3785": [
+      ".github/workflows/production-p0-reviewer-reset-attempt-classifier.yml",
+      "scripts/production-p0-reviewer-reset-attempt-classifier.sh",
+      "scripts/check-production-p0-reviewer-reset-attempt-classifier.mjs",
+      "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-classifier-3785.json"
     ]
   },
   "currentAcceptance": [
