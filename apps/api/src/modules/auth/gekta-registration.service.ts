@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import { randomUUID, timingSafeEqual } from 'crypto';
 import { appendAuthAudit } from './auth-audit';
 import { hashAuthMaterial, hashClientValue, secureEqual } from './auth-crypto';
-import { CURRENT_CONSENT_VERSION } from './consent-policy';
+import { CURRENT_CONSENT_EVIDENCE, CURRENT_CONSENT_VERSION } from './consent-policy';
 import { PersistentAuthRepository } from './persistent-auth.repository';
 import { ProductSessionService } from './product-session.service';
 import {
@@ -31,9 +31,12 @@ import {
  */
 
 const BCRYPT_ROUNDS = 12;
-const MAX_EMAIL_LENGTH = 320;
+const MAX_EMAIL_LENGTH = 254;
 const MAX_NAME_LENGTH = 120;
 const MAX_PHONE_LENGTH = 32;
+const MAX_FAILED_LOGINS = 5;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
 export type GektaRegistrationInput = {
   email: string;
@@ -43,6 +46,14 @@ export type GektaRegistrationInput = {
   acceptedServiceTerms: boolean;
   acceptedPersonalData: boolean;
 };
+
+function deliveryAuthorized(provided?: string): boolean {
+  const expected = Buffer.from(String(process.env.REGISTRATION_DELIVERY_KEY ?? '').trim(), 'utf8');
+  const candidate = Buffer.from(String(provided ?? '').trim(), 'utf8');
+  return expected.length >= 32
+    && candidate.length === expected.length
+    && timingSafeEqual(candidate, expected);
+}
 
 function assertPasswordPolicy(password: string): void {
   const classes = [/[a-z]/u, /[A-Z]/u, /\d/u, /[^A-Za-z0-9]/u].filter((pattern) => pattern.test(password)).length;
@@ -85,10 +96,10 @@ export class GektaRegistrationService {
    * вызывающему только для доставки письма — он не является сессией и сам по
    * себе не даёт доступа.
    */
-  async register(input: GektaRegistrationInput, userAgent?: string, ip?: string) {
+  async register(input: GektaRegistrationInput, userAgent?: string, ip?: string, deliveryKey?: string) {
     const email = String(input.email ?? '').trim().toLowerCase();
     const fullName = String(input.fullName ?? '').trim();
-    if (email.length < 3 || email.length > MAX_EMAIL_LENGTH || !email.includes('@')) {
+    if (email.length < 3 || email.length > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.test(email)) {
       throw new BadRequestException({ code: 'EMAIL_INVALID' });
     }
     if (fullName.length < 2 || fullName.length > MAX_NAME_LENGTH) {
@@ -137,7 +148,10 @@ export class GektaRegistrationService {
         action: 'auth.gekta.register',
         outcome: 'SUCCESS',
         metadata: this.clientMetadata(userAgent, ip, {
-          consentVersion: CURRENT_CONSENT_VERSION,
+          consents: {
+            serviceTerms: { accepted: true, ...CURRENT_CONSENT_EVIDENCE.terms },
+            personalData: { accepted: true, ...CURRENT_CONSENT_EVIDENCE.privacy },
+          },
           phoneState: 'DECLARED',
         }),
       });
@@ -150,7 +164,9 @@ export class GektaRegistrationService {
       status: 'EMAIL_VERIFICATION_REQUIRED' as const,
       email,
       expiresInSeconds: Math.floor(REGISTRATION_EMAIL_TTL_MS / 1000),
-      ...(result.kind === 'created' ? { emailDelivery: { email, token: emailToken.token } } : {}),
+      ...(result.kind === 'created' && deliveryAuthorized(deliveryKey)
+        ? { emailDelivery: { email, token: emailToken.token } }
+        : {}),
     };
   }
 
@@ -189,10 +205,11 @@ export class GektaRegistrationService {
       const identity = await this.repository.getProductRegistrationSubject(tx, challenge.user_id);
       if (!identity) return { kind: 'invalid' as const };
 
-      const enrollment = await this.productSessions.issueEnrollmentSession(tx, {
+      const enrollment = await this.productSessions.issueMfaSession(tx, {
         userId: challenge.user_id,
         email: identity.email,
         credentialVersion: credential.credential_version,
+        enrollmentRequired: true,
         userAgent,
         ip,
       });
@@ -211,8 +228,9 @@ export class GektaRegistrationService {
       status: 'MFA_ENROLLMENT_REQUIRED' as const,
       challengeToken: result.enrollment.challengeToken,
       expiresAt: result.enrollment.expiresAt,
-      setupSecret: result.enrollment.setupSecret,
-      otpAuthUri: result.enrollment.otpAuthUri,
+      enrollmentRequired: true,
+      ...(result.enrollment.setupSecret ? { setupSecret: result.enrollment.setupSecret } : {}),
+      ...(result.enrollment.otpAuthUri ? { otpAuthUri: result.enrollment.otpAuthUri } : {}),
     };
   }
 
@@ -223,7 +241,7 @@ export class GektaRegistrationService {
       status: 'ACTIVE' as const,
       accessToken: activated.accessToken,
       refreshToken: activated.refreshToken,
-      backupCodes: activated.backupCodes,
+      ...(activated.backupCodes ? { backupCodes: activated.backupCodes } : {}),
       user: activated.user,
     };
   }
@@ -237,16 +255,44 @@ export class GektaRegistrationService {
    */
   async login(emailInput: string, password: string, userAgent?: string, ip?: string) {
     const email = String(emailInput ?? '').trim().toLowerCase();
+    const accountHash = hashAuthMaterial(`account:${email}`);
     const credential = await this.repository.findGektaLoginCredential(this.repository.prisma, email);
     const validPassword = await bcrypt.compare(
       String(password ?? ''),
       credential?.password_hash ?? DUMMY_PASSWORD_HASH,
     );
-    if (!credential || !validPassword || credential.user_status !== 'ACTIVE') {
-      throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS' });
-    }
 
     const result = await this.repository.transaction(async (tx) => {
+      await this.repository.ensureLoginThrottle(tx, accountHash);
+      const throttle = await this.repository.getLoginThrottle(tx, accountHash, true);
+      const now = new Date();
+      if (throttle?.locked_until && throttle.locked_until > now) {
+        await appendAuthAudit(this.repository, tx, {
+          userId: credential?.user_id,
+          action: 'auth.gekta.login',
+          outcome: 'DENIED',
+          reason: 'ACCOUNT_TEMPORARILY_LOCKED',
+          metadata: this.clientMetadata(userAgent, ip, { accountHash }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      if (!credential || !validPassword || credential.user_status !== 'ACTIVE') {
+        const failures = (throttle?.failures ?? 0) + 1;
+        const lockedUntil = failures >= MAX_FAILED_LOGINS
+          ? new Date(Date.now() + LOGIN_LOCKOUT_MS)
+          : null;
+        await this.repository.setLoginThrottle(tx, accountHash, lockedUntil ? 0 : failures, lockedUntil);
+        await appendAuthAudit(this.repository, tx, {
+          userId: credential?.user_id,
+          action: 'auth.gekta.login',
+          outcome: 'FAILURE',
+          reason: 'INVALID_CREDENTIALS',
+          metadata: this.clientMetadata(userAgent, ip, { accountHash, locked: Boolean(lockedUntil) }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
       // Пароль перечитывается в той же сериализуемой транзакции: смена пароля
       // между bcrypt и выдачей сессии обесценивает доказательство.
       const current = await this.repository.findGektaLoginCredential(tx, email);
@@ -262,31 +308,50 @@ export class GektaRegistrationService {
       const identity = await this.repository.getProductRegistrationSubject(tx, current.user_id);
       if (!identity) return { kind: 'invalid' as const };
 
+      // Активный MFA без секрета означает повреждённое состояние. Автоматически
+      // перепривязывать аутентификатор по одному паролю нельзя: это обход MFA.
+      if (state.mfa_enabled && !state.mfa_secret_ciphertext) {
+        await appendAuthAudit(this.repository, tx, {
+          userId: current.user_id,
+          action: 'auth.gekta.login',
+          outcome: 'DENIED',
+          reason: 'MFA_STATE_INVALID',
+          metadata: this.clientMetadata(userAgent, ip, { accountHash }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
       // MFA у Гекты обязателен, поэтому вход всегда идёт через проверку кода:
       // активных токенов на этом шаге не выдаётся.
-      const enrollment = await this.productSessions.issueEnrollmentSession(tx, {
+      const enrollmentRequired = !state.mfa_enabled;
+      const mfa = await this.productSessions.issueMfaSession(tx, {
         userId: current.user_id,
         email: identity.email,
         credentialVersion: state.credential_version,
+        enrollmentRequired,
         userAgent,
         ip,
       });
+      await this.repository.clearLoginThrottle(tx, accountHash);
       await this.repository.markLoginSuccess(tx, current.user_id);
       await appendAuthAudit(this.repository, tx, {
         userId: current.user_id,
-        sessionId: enrollment.sessionId,
+        sessionId: mfa.sessionId,
         action: 'auth.gekta.login',
         outcome: 'SUCCESS',
-        metadata: this.clientMetadata(userAgent, ip),
+        metadata: this.clientMetadata(userAgent, ip, { enrollmentRequired }),
       });
-      return { kind: 'mfa' as const, enrollment };
+      return { kind: 'mfa' as const, mfa };
     });
 
     if (result.kind === 'invalid') throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS' });
     return {
       status: 'MFA_REQUIRED' as const,
-      challengeToken: result.enrollment.challengeToken,
-      expiresAt: result.enrollment.expiresAt,
+      challengeToken: result.mfa.challengeToken,
+      expiresAt: result.mfa.expiresAt,
+      enrollmentRequired: result.mfa.enrollmentRequired,
+      ...(result.mfa.setupSecret ? { setupSecret: result.mfa.setupSecret } : {}),
+      ...(result.mfa.otpAuthUri ? { otpAuthUri: result.mfa.otpAuthUri } : {}),
     };
   }
 
@@ -305,4 +370,4 @@ export class GektaRegistrationService {
 
 // Сравнение выполняется всегда, даже когда пользователя нет: иначе время
 // ответа сообщало бы, зарегистрирован ли email.
-const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-password-sentinel', 10);
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-password-sentinel', BCRYPT_ROUNDS);

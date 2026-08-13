@@ -8,7 +8,7 @@
     "branch": "claude/gekta-product-session-scope",
     "commit": "80ab1dd9"
   },
-  "purpose": "Регистрация в Гекте без организации и ИНН. Корпоративная регистрация неприменима: она требует ИНН, создаёт организацию и ставит заявку в очередь на проверку. Вторая система аккаунтов не создаётся — те же public.users, тот же bcrypt, та же таблица одноразовых токенов подтверждения email, тот же MFA и тот же журнал аудита. NOT NULL на application_id сохранён CHECK-ограничением ровно для корпоративного challenge. Функция заведения личности не принимает ни ИНН, ни организацию, ни тенант, ни роль. Занятый email отвечает тем же, чем свободный. MFA обязателен: активная сессия не выдаётся, пока не пройдены все три шага.",
+  "purpose": "Регистрация в Гекте без организации и ИНН. Корпоративная регистрация неприменима: она требует ИНН, создаёт организацию и ставит заявку в очередь на проверку. Вторая система аккаунтов не создаётся — те же public.users, тот же bcrypt, та же таблица одноразовых токенов подтверждения email, тот же MFA и тот же журнал аудита. NOT NULL на application_id сохранён CHECK-ограничением ровно для корпоративного challenge. Функция заведения личности не принимает ни ИНН, ни организацию, ни тенант, ни роль. Занятый email отвечает тем же, чем свободный. MFA обязателен: активная сессия не выдаётся, пока не пройдены все три шага. Повторный вход использует TOTP_VERIFY и не перепривязывает секрет, резервные коды не перевыпускаются, перебор ограничен общей account-hash блокировкой, а токен письма видит только доверенный delivery boundary.",
   "allowedPaths": [
     "apps/api/prisma/migrations/20260813070000_gekta_registration_identity/migration.sql",
     "apps/api/src/modules/auth/auth.module.ts",
@@ -28,11 +28,16 @@
     "ослабление NOT NULL на application_id для корпоративного challenge",
     "активная сессия до подтверждения email и MFA",
     "различимый ответ на занятый и свободный email",
+    "выдача email bearer-токена без x-registration-delivery-key",
+    "перепривязка TOTP или перевыпуск backup codes при обычном входе",
+    "вход без account-hash throttling",
     "SMS-подтверждение телефона или формулировка «номер подтверждён»",
     "открытый пароль в базе или в журнале"
   ],
   "requiredChecks": [
     "PostgreSQL 16 RLS tenant isolation",
+    "Gekta MFA enrollment/verify separation + backup-code regression",
+    "registration delivery-boundary + login-throttle regression",
     "API unit tests + TypeScript check",
     "exact-head CI"
   ],
