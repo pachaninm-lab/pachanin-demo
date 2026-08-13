@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-web-container-smtp-auth-3785",
+  "status": "active",
+  "operationalStatus": "P0_WEB_CONTAINER_SMTP_AUTH_READ_ONLY_DIAGNOSTIC",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify active production Web-container SMTP transport and AUTH without sending mail",
+  "sourceRun": 31667978433,
+  "allowedPaths": [
+    ".github/workflows/production-p0-web-container-smtp-auth-diagnostic.yml",
+    "scripts/check-production-p0-web-container-smtp-auth-diagnostic.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-web-container-smtp-auth-diagnostic-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "credentialMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "mailSend": false,
+    "smtpAuthAttempt": true,
+    "smtpMailFromProbe": true,
+    "smtpRecipientProbe": false,
+    "smtpDataCommand": false,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawProtocolOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "diagnostic is owner-only and bound to release issue 3072 and registration matrix 3785",
+    "diagnostic executes inside exactly one active production Web container selected by Docker Compose service label",
+    "diagnostic consumes the Web container existing PC_SMTP_* environment without printing values",
+    "SMTP authority must be mail.hosting.reg.ru port 465 implicit TLS or diagnostic fails closed",
+    "diagnostic performs only TLS greeting, EHLO transparent-price.local, AUTH PLAIN, MAIL FROM, RSET and QUIT",
+    "diagnostic must never issue RCPT TO or DATA and therefore must not send any message",
+    "diagnostic publishes only bounded stage classes and latency buckets; no credential, email address, container id, image name or raw protocol response is published",
+    "diagnostic does not execute database commands and does not mutate identity, password, MFA, session, runtime files, containers or deployment",
+    "SSH accepts exactly one host key matching the protected SHA-256 fingerprint and keeps StrictHostKeyChecking=yes",
+    "exact current main is checked before and after the production read",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

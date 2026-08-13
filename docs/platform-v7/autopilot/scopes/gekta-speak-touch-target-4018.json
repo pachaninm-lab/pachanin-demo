@@ -7,7 +7,7 @@
   "authorizedBy": "production-mobile-acceptance-31681468469",
   "baseline": {
     "branch": "main",
-    "commit": "e291260bea1a3da6316e200f5c39fd02ab12e056"
+    "commit": "7b49e81567c33a29342f1049848c9d6e3fad3c50"
   },
   "purpose": "Fix the production-proven Gekta mobile touch-target defect where the browser-native speech playback button renders at 36px height while the internal mobile acceptance contract requires primary controls to be at least 44x44 CSS px.",
   "allowedPaths": [
