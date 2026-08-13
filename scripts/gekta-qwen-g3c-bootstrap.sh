@@ -10,8 +10,10 @@ TARGET='/usr/local/sbin/gekta-qwen-g3c'
 BASE_DIR='/usr/local/libexec'
 BASE_TARGET='/usr/local/libexec/gekta-qwen-g3c-base.py'
 SUDOERS='/etc/sudoers.d/gekta-qwen-g3c'
-DROPIN='/etc/systemd/system/tai-qwen3-8b.service.d/100-gekta-g3c.conf'
+DROPIN='/etc/systemd/system/tai-qwen3-8b.service.d/99-gekta-g3c.conf'
+LEGACY_DROPIN='/etc/systemd/system/tai-qwen3-8b.service.d/100-gekta-g3c.conf'
 STATE_DIR='/var/lib/gekta-qwen-g3c'
+PREVIOUS_WRAPPER_GIT_BLOB_SHA='d37a95712969f15d7e8405ba78cb98bcfa62c108'
 
 fail(){ printf 'GEKTA_G3C_BOOTSTRAP_ERROR=%s\n' "$1" >&2; exit 1; }
 [[ "$EUID" -eq 0 ]] || fail root_required
@@ -20,7 +22,7 @@ BASE_SOURCE="$1"
 HELPER_SOURCE="$2"
 [[ -f "$BASE_SOURCE" && ! -L "$BASE_SOURCE" ]] || fail base_source_invalid
 [[ -f "$HELPER_SOURCE" && ! -L "$HELPER_SOURCE" ]] || fail helper_source_invalid
-[[ ! -e "$DROPIN" && ! -e "$STATE_DIR/candidate.json" && ! -e "$STATE_DIR/baseline.json" ]] || fail candidate_state_must_be_clean
+[[ ! -e "$DROPIN" && ! -e "$LEGACY_DROPIN" && ! -e "$STATE_DIR/candidate.json" && ! -e "$STATE_DIR/baseline.json" ]] || fail candidate_state_must_be_clean
 
 SYSTEMCTL="$(command -v systemctl || true)"
 INSTALL="$(command -v install || true)"
@@ -35,6 +37,18 @@ service_user="$($SYSTEMCTL show "$SERVICE" --property=User --value)"
 id "$service_user" >/dev/null 2>&1 || fail service_user_missing
 case "$($SYSTEMCTL show "$SERVICE" --property=Type --value)" in simple|exec) ;; *) fail unsupported_service_type ;; esac
 
+git_blob_sha(){
+  "$PYTHON3" - "$1" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+data = pathlib.Path(sys.argv[1]).read_bytes()
+prefix = b"blob " + str(len(data)).encode("ascii") + b"\0"
+print(hashlib.sha1(prefix + data).hexdigest())
+PY
+}
+
 stage="$(mktemp -d)"; self="$(mktemp)"; sudoers_tmp=''
 trap 'rm -rf "$stage"; rm -f "$self" "$sudoers_tmp" 2>/dev/null || true' EXIT
 "$INSTALL" -m 0644 "$BASE_SOURCE" "$stage/gekta-qwen-g3c-runtime.py"
@@ -42,6 +56,7 @@ trap 'rm -rf "$stage"; rm -f "$self" "$sudoers_tmp" 2>/dev/null || true' EXIT
 "$PYTHON3" "$stage/gekta-qwen-g3c-runtime-v2.py" self-test >"$self" 2>&1 || { cat "$self" >&2 || true; fail helper_self_test_failed; }
 grep -qx 'GEKTA_G3C_SELF_TEST=PASS' "$self" || fail base_self_test_evidence_missing
 grep -qx 'GEKTA_G3C_SWAP_GATE_SELF_TEST=PASS' "$self" || fail swap_gate_self_test_evidence_missing
+grep -qx 'GEKTA_G3C_DROPIN_PRECEDENCE_SELF_TEST=PASS' "$self" || fail dropin_precedence_self_test_evidence_missing
 base_sha="$($SHA256SUM "$BASE_SOURCE" | awk '{print $1}')"
 source_sha="$($SHA256SUM "$HELPER_SOURCE" | awk '{print $1}')"
 [[ "$base_sha" =~ ^[0-9a-f]{64}$ ]] || fail base_source_hash_invalid
@@ -61,10 +76,16 @@ installed_base_sha="$($SHA256SUM "$BASE_TARGET" | awk '{print $1}')"
 if [[ -e "$TARGET" ]]; then
   [[ -f "$TARGET" && ! -L "$TARGET" ]] || fail existing_helper_not_regular
   if "$CMP" -s "$HELPER_SOURCE" "$TARGET"; then
-    : # idempotent v2 bootstrap
+    : # idempotent current bootstrap
   elif "$CMP" -s "$BASE_SOURCE" "$TARGET"; then
     # Exact audited v1 -> v2 controller upgrade. The G3C state was proven clean
     # above, so replacing the dormant helper cannot restart the model service.
+    "$INSTALL" -o root -g root -m 0755 "$HELPER_SOURCE" "$TARGET"
+  elif [[ "$(git_blob_sha "$TARGET")" == "$PREVIOUS_WRAPPER_GIT_BLOB_SHA" ]]; then
+    # Exact audited v2 -> precedence-fixed v2 upgrade. The previous blob is
+    # pinned to the repository version already installed and proven in live G3C
+    # runs. Clean G3C state above guarantees this dormant file replacement does
+    # not restart or mutate the model service.
     "$INSTALL" -o root -g root -m 0755 "$HELPER_SOURCE" "$TARGET"
   else
     fail existing_helper_unrecognized
