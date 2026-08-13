@@ -208,8 +208,16 @@ describe('Схема, а не код, запрещает продуктовой 
     expect(repositorySource).not.toContain('JOIN public."users" subject ON subject."id" = s.user_id');
   });
 
-  it('ограничивает продуктовые чтения областью действия прямо в запросе', () => {
-    const productReads = repositorySource.match(/AND s\.scope = 'GEKTA'/gu) ?? [];
-    expect(productReads.length).toBe(2);
+  it('ограничивает каждое продуктовое чтение областью действия прямо в запросе', () => {
+    // Утверждение о свойстве, а не о количестве: любой новый продуктовый
+    // запрос обязан нести ограничение по scope, иначе платформенную сессию
+    // можно было бы прочитать как продуктовую.
+    const productQueries = repositorySource
+      .split('Prisma.sql`')
+      .filter((query) => query.includes('auth.resolve_product_session_identity_v1(s.user_id)'));
+    expect(productQueries.length).toBeGreaterThanOrEqual(3);
+    for (const query of productQueries) {
+      expect(query.slice(0, query.indexOf('`'))).toContain("s.scope = 'GEKTA'");
+    }
   });
 });

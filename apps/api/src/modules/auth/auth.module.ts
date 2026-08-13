@@ -3,6 +3,8 @@ import { BusinessReputationModule } from '../business-reputation/business-reputa
 import { AuthController } from './auth.controller';
 import { AuthPrismaService } from './auth-prisma.service';
 import { AuthService } from './auth.service';
+import { GektaRegistrationController } from './gekta-registration.controller';
+import { GektaRegistrationService } from './gekta-registration.service';
 import './legacy-admin-identity-boundary';
 import { OrganizationTeamService } from './organization-team.service';
 import { OrganizationInvitationService } from './organization-invitation.service';
@@ -15,7 +17,7 @@ import { RegistrationDecisionService } from './registration-decision.service';
 
 @Module({
   imports: [BusinessReputationModule],
-  controllers: [AuthController],
+  controllers: [AuthController, GektaRegistrationController],
   providers: [
     AuthPrismaService,
     {
@@ -29,12 +31,14 @@ import { RegistrationDecisionService } from './registration-decision.service';
     RegistrationDecisionService,
     AuthService,
     ProductSessionService,
+    GektaRegistrationService,
     OrganizationTeamService,
     OrganizationInvitationService,
   ],
   exports: [
     AuthService,
     ProductSessionService,
+    GektaRegistrationService,
     OrganizationTeamService,
     OrganizationInvitationService,
     PasswordResetService,

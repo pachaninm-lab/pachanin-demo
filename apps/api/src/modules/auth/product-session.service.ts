@@ -8,8 +8,18 @@ import { issueRefreshCredential, resolvePresentedCredential } from './opaque-tok
 import {
   AuthSqlClient,
   PersistentAuthRepository,
+  ProductMfaChallengeRow,
   ProductSessionContextRow,
 } from './persistent-auth.repository';
+import {
+  buildOtpAuthUri,
+  decryptMfaSecret,
+  encryptMfaSecret,
+  generateBackupCodes,
+  generateTotpSecret,
+  verifyTotp,
+} from './auth-crypto';
+import { issueMfaChallengeCredential } from './opaque-token-authority';
 
 /**
  * Сессия продукта: тот же пользователь, тот же пароль, тот же MFA, но без
@@ -26,6 +36,7 @@ import {
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 
 export type IssuedProductSession = {
   sessionId: string;
@@ -93,6 +104,156 @@ export class ProductSessionService {
       refreshToken: issuedRefresh.rawToken,
       user: { id: input.userId, email: input.email, fullName: input.fullName },
     };
+  }
+
+  /**
+   * Сессия, ожидающая подтверждения MFA.
+   *
+   * MFA у Гекты обязателен, поэтому сессия создаётся сразу в MFA_PENDING и до
+   * успешной проверки кода не выдаёт ни одного токена. Секрет TOTP шифруется
+   * тем же ключом и той же функцией, что и у платформы.
+   */
+  async issueEnrollmentSession(
+    tx: AuthSqlClient,
+    input: { userId: string; email: string; credentialVersion: number; userAgent?: string; ip?: string },
+  ): Promise<{ sessionId: string; challengeToken: string; expiresAt: string; setupSecret: string; otpAuthUri: string }> {
+    const sessionId = `ses_${randomUUID()}`;
+    await this.repository.createProductSession(tx, {
+      id: sessionId,
+      userId: input.userId,
+      scope: 'GEKTA',
+      status: 'MFA_PENDING',
+      refreshFamilyId: `rf_${randomUUID()}`,
+      credentialVersion: input.credentialVersion,
+      userAgentHash: hashClientValue(input.userAgent),
+      ipHash: hashClientValue(input.ip),
+      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+    });
+
+    const setupSecret = generateTotpSecret();
+    const encrypted = encryptMfaSecret(setupSecret);
+    await this.repository.setMfaSecret(tx, input.userId, encrypted.ciphertext, encrypted.keyVersion);
+
+    const issuedChallenge = issueMfaChallengeCredential();
+    const expiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS);
+    await this.repository.createMfaChallenge(tx, {
+      id: issuedChallenge.credentialId,
+      sessionId,
+      userId: input.userId,
+      challengeTokenHash: issuedChallenge.storedDigest,
+      type: 'TOTP_ENROLL',
+      expiresAt,
+    });
+    await appendAuthAudit(this.repository, tx, {
+      userId: input.userId,
+      sessionId,
+      action: 'auth.product_session.mfa_required',
+      outcome: 'SUCCESS',
+      metadata: this.clientMetadata(input.userAgent, input.ip, { scope: 'GEKTA', enrollment: true }),
+    });
+
+    return {
+      sessionId,
+      challengeToken: issuedChallenge.rawToken,
+      expiresAt: expiresAt.toISOString(),
+      setupSecret,
+      otpAuthUri: buildOtpAuthUri(input.email, setupSecret),
+    };
+  }
+
+  /**
+   * Проверка кода MFA для продуктовой сессии.
+   *
+   * Отличается от платформенной только разрешением личности: та же таблица
+   * challenge'ей, тот же счётчик попыток, та же активация сессии и та же
+   * выдача резервных кодов.
+   */
+  async verifyMfa(
+    challengeToken: string,
+    code: string,
+    userAgent?: string,
+    ip?: string,
+  ) {
+    const parsed = resolvePresentedCredential(challengeToken, 'mc');
+    if (!parsed) throw new UnauthorizedException('Invalid MFA challenge');
+
+    const result = await this.repository.transaction(async (tx) => {
+      const context = await this.repository.getProductMfaChallengeForUpdate(tx, parsed.credentialId);
+      if (
+        !context
+        || !secureEqual(context.challenge_token_hash, parsed.storedDigest)
+        || context.challenge_status !== 'PENDING'
+        || context.challenge_expires_at <= new Date()
+        || context.session_status !== 'MFA_PENDING'
+        || context.user_status !== 'ACTIVE'
+      ) {
+        return { kind: 'invalid' as const };
+      }
+
+      const credential = await this.repository.getCredentialState(tx, context.user_id, true);
+      const secret = credential?.mfa_secret_ciphertext
+        ? decryptMfaSecret(credential.mfa_secret_ciphertext)
+        : null;
+      if (!secret || !verifyTotp(secret, code)) {
+        // Попытка последняя, если счётчик уже достиг предела: тот же порог и
+        // та же терминальность, что у платформенной проверки.
+        const terminal = context.challenge_attempts + 1 >= context.challenge_max_attempts;
+        await this.repository.recordMfaFailure(tx, context.challenge_id, terminal);
+        await appendAuthAudit(this.repository, tx, {
+          userId: context.user_id,
+          sessionId: context.session_id,
+          action: 'auth.product_session.mfa',
+          outcome: 'FAILURE',
+          reason: 'MFA_CODE_INVALID',
+          metadata: this.clientMetadata(userAgent, ip),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      const backup = generateBackupCodes();
+      await this.repository.activateMfaSession(tx, {
+        challengeId: context.challenge_id,
+        sessionId: context.session_id,
+        userId: context.user_id,
+        method: 'TOTP',
+        enableMfa: true,
+        backupHashes: backup.hashes,
+      });
+
+      const issuedRefresh = issueRefreshCredential();
+      await this.repository.createRefreshToken(tx, {
+        id: issuedRefresh.credentialId,
+        sessionId: context.session_id,
+        familyId: context.refresh_family_id,
+        tokenHash: issuedRefresh.storedDigest,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+        userAgentHash: hashClientValue(userAgent),
+        ipHash: hashClientValue(ip),
+      });
+      await appendAuthAudit(this.repository, tx, {
+        userId: context.user_id,
+        sessionId: context.session_id,
+        action: 'auth.product_session.mfa',
+        outcome: 'SUCCESS',
+        metadata: this.clientMetadata(userAgent, ip, { scope: 'GEKTA' }),
+      });
+
+      return {
+        kind: 'active' as const,
+        sessionId: context.session_id,
+        accessToken: signAccessToken(
+          context.user_id,
+          context.session_id,
+          context.current_credential_version,
+        ),
+        refreshToken: issuedRefresh.rawToken,
+        backupCodes: backup.codes,
+        user: { id: context.user_id, email: context.email, fullName: context.full_name },
+      };
+    });
+
+    if (result.kind === 'invalid') throw new UnauthorizedException('Invalid MFA challenge or code');
+    return result;
   }
 
   /**

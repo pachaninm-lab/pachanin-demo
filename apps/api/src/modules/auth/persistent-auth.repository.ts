@@ -137,6 +137,30 @@ export type ProductSessionContextRow = {
   current_mfa_enabled: boolean;
 };
 
+export type ProductMfaChallengeRow = ProductSessionContextRow & {
+  challenge_id: string;
+  challenge_token_hash: string;
+  challenge_type: string;
+  challenge_status: string;
+  challenge_attempts: number;
+  challenge_max_attempts: number;
+  challenge_expires_at: Date;
+};
+
+export type GektaRegistrationOutcomeRow = {
+  outcome: string;
+  user_id: string | null;
+};
+
+export type GektaEmailChallengeRow = {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  status: string;
+  expires_at: Date;
+  consumed_at: Date | null;
+};
+
 export type ProductRefreshContextRow = ProductSessionContextRow & {
   refresh_token_id: string;
   refresh_token_hash: string;
@@ -786,6 +810,138 @@ export class PersistentAuthRepository {
       WHERE rt.id = ${refreshTokenId}
         AND s.scope = 'GEKTA'
       FOR UPDATE OF rt, s
+    `);
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Продуктовый MFA-challenge. Та же таблица auth.mfa_challenges и та же
+   * блокировка, что у платформы; отличается только разрешение личности и
+   * ограничение по области действия сессии.
+   */
+  async getProductMfaChallengeForUpdate(
+    client: AuthSqlClient,
+    challengeId: string,
+  ): Promise<ProductMfaChallengeRow | null> {
+    const rows = await client.$queryRaw<ProductMfaChallengeRow[]>(Prisma.sql`
+      SELECT
+        subject.user_id AS user_id,
+        subject.email AS email,
+        subject.full_name AS full_name,
+        subject.user_status AS user_status,
+        s.id AS session_id,
+        s.scope AS session_scope,
+        s.status AS session_status,
+        s.refresh_family_id,
+        s.credential_version AS session_credential_version,
+        s.mfa_level,
+        s.mfa_verified_at,
+        s.expires_at AS session_expires_at,
+        s.revoked_at,
+        s.revocation_reason,
+        cs.credential_version AS current_credential_version,
+        cs.mfa_enabled AS current_mfa_enabled,
+        c.id AS challenge_id,
+        c.challenge_token_hash,
+        c.type AS challenge_type,
+        c.status AS challenge_status,
+        c.attempts AS challenge_attempts,
+        c.max_attempts AS challenge_max_attempts,
+        c.expires_at AS challenge_expires_at
+      FROM auth.mfa_challenges c
+      JOIN auth.sessions s ON s.id = c.session_id
+      JOIN LATERAL auth.resolve_product_session_identity_v1(s.user_id) subject ON TRUE
+      JOIN auth.credential_states cs ON cs.user_id = s.user_id
+      WHERE c.id = ${challengeId}
+        AND s.scope = 'GEKTA'
+      FOR UPDATE OF c, s, cs
+    `);
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Заведение личности пользователя Гекты. Ни организации, ни тенанта, ни
+   * роли в сигнатуре нет — их нельзя передать даже по ошибке.
+   */
+  async prepareGektaRegistrationIdentity(
+    client: AuthSqlClient,
+    input: { userId: string; email: string; phone: string | null; passwordHash: string; fullName: string },
+  ): Promise<GektaRegistrationOutcomeRow | null> {
+    const rows = await client.$queryRaw<GektaRegistrationOutcomeRow[]>(Prisma.sql`
+      SELECT outcome, user_id
+      FROM auth.prepare_gekta_registration_identity(
+        ${input.userId}, ${input.email}, ${input.phone}, ${input.passwordHash}, ${input.fullName}
+      )
+    `);
+    return rows[0] ?? null;
+  }
+
+  async createGektaEmailChallenge(
+    client: AuthSqlClient,
+    input: { id: string; userId: string; tokenHash: string; expiresAt: Date },
+  ): Promise<void> {
+    await client.$executeRaw(Prisma.sql`
+      INSERT INTO auth.registration_email_challenges (
+        id, application_id, user_id, token_hash, scope, expires_at
+      ) VALUES (
+        ${input.id}, NULL, ${input.userId}, ${input.tokenHash}, 'GEKTA', ${input.expiresAt}
+      )
+    `);
+  }
+
+  async getGektaEmailChallengeForUpdate(
+    client: AuthSqlClient,
+    challengeId: string,
+  ): Promise<GektaEmailChallengeRow | null> {
+    const rows = await client.$queryRaw<GektaEmailChallengeRow[]>(Prisma.sql`
+      SELECT id, user_id, token_hash, status, expires_at, consumed_at
+      FROM auth.registration_email_challenges
+      WHERE id = ${challengeId}
+        AND scope = 'GEKTA'
+      FOR UPDATE
+    `);
+    return rows[0] ?? null;
+  }
+
+  /** Потребление одноразовое: повторный вызов не изменит ни одной строки. */
+  async consumeGektaEmailChallenge(client: AuthSqlClient, challengeId: string, now: Date): Promise<number> {
+    return client.$executeRaw(Prisma.sql`
+      UPDATE auth.registration_email_challenges
+      SET status = 'CONSUMED', consumed_at = ${now}, updated_at = NOW()
+      WHERE id = ${challengeId} AND scope = 'GEKTA' AND status = 'PENDING'
+    `);
+  }
+
+  async markGektaEmailVerified(client: AuthSqlClient, challengeId: string, userId: string): Promise<boolean> {
+    const rows = await client.$queryRaw<Array<{ updated: boolean }>>(Prisma.sql`
+      SELECT updated FROM auth.mark_gekta_email_verified(${challengeId}, ${userId})
+    `);
+    return rows[0]?.updated === true;
+  }
+
+  /** Личность субъекта Гекты по идентификатору, через ту же ограниченную функцию. */
+  async getProductRegistrationSubject(
+    client: AuthSqlClient,
+    userId: string,
+  ): Promise<{ user_id: string; email: string; full_name: string; user_status: string } | null> {
+    const rows = await client.$queryRaw<Array<{ user_id: string; email: string; full_name: string; user_status: string }>>(Prisma.sql`
+      SELECT user_id, email, full_name, user_status
+      FROM auth.resolve_product_session_identity_v1(${userId})
+    `);
+    return rows[0] ?? null;
+  }
+
+  /**
+   * До-парольный контур входа в Гекту: идентификатор, email, bcrypt-хеш и
+   * состояние субъекта. Пользователь платформы этой функцией не разрешается.
+   */
+  async findGektaLoginCredential(
+    client: AuthSqlClient,
+    email: string,
+  ): Promise<{ user_id: string; email: string; password_hash: string; user_status: string } | null> {
+    const rows = await client.$queryRaw<Array<{ user_id: string; email: string; password_hash: string; user_status: string }>>(Prisma.sql`
+      SELECT user_id, email, password_hash, user_status
+      FROM auth.resolve_gekta_login_credential(${email})
     `);
     return rows[0] ?? null;
   }
