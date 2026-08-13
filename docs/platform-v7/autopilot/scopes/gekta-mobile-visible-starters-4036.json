@@ -7,7 +7,7 @@
   "authorizedBy": "production-mobile-acceptance-evidence",
   "baseline": {
     "branch": "main",
-    "commit": "2c492309037d5a7ae41fca7b8eb6e11732bdd135"
+    "commit": "0063e27bb78afdc99b22dfe81db0edbf617d18d0"
   },
   "purpose": "Fix the production-proven Gekta starter progressive-disclosure defect where a Tailwind display utility overrides the hidden attribute, causing all starter cards to remain exposed before expansion; strengthen production acceptance to verify exactly three visible starters before disclosure and more after expansion.",
   "allowedPaths": [
