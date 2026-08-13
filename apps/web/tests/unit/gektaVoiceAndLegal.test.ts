@@ -49,11 +49,13 @@ describe('Gekta voice', () => {
     expect(composer).toContain("role='status' aria-live='polite'");
   });
 
-  it('offers playback with a stop control and a silent fallback', () => {
+  it('offers playback with a stop control, a 44px touch target and a silent fallback', () => {
     expect(speakButton).toContain('window.speechSynthesis.speak(utterance)');
     expect(speakButton).toContain('window.speechSynthesis.cancel()');
     expect(speakButton).toContain('if (!available) return null;');
     expect(speakButton).toContain('Прослушать');
+    expect(speakButton).toContain('min-h-11');
+    expect(speakButton).not.toContain('min-h-9');
     expect(transcriptFrom([{ 0: { transcript: 'посев  ' } }, { 0: { transcript: 'озимой' } }] as never)).toBe('посев озимой');
     const voices = [{ lang: 'en-US' }, { lang: 'ru-RU' }] as SpeechSynthesisVoice[];
     expect(pickVoice(voices, 'ru')?.lang).toBe('ru-RU');
