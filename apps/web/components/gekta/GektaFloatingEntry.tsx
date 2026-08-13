@@ -10,9 +10,10 @@ const LABEL: Record<GektaLocale, string> = {
  * Icon-only floating entry point to the standalone Gekta product.
  *
  * It is a plain server-rendered anchor: no hydration cost on the marketing
- * surface, and it still disappears whenever a modal dialog owns the screen so a
- * second floating control never duplicates an already-open conversation UI.
- * It is offset above the shared public contact dock so neither overlaps.
+ * surface. Any mounted public assistant/contact launcher is the single floating
+ * communication surface, so this shortcut yields instead of competing with it.
+ * The same authority owns the mobile footer clearance, avoiding two stacked
+ * safe-space reserves once the duplicate launcher is removed.
  */
 export function GektaFloatingEntry({ locale }: { locale: GektaLocale }) {
   return (
@@ -65,10 +66,31 @@ const FLOATING_ENTRY_STYLES = `
   outline: 3px solid #087a3b;
   outline-offset: 3px;
 }
-/* An open modal dialog owns the screen: never stack a second entry point on it. */
+/* One floating surface per page. Both the current unified dock and the legacy
+   public assistant/support launchers outrank this secondary product shortcut. */
+body:has(.pc-public-contact-dock) .pc-gekta-floating,
+body:has(.pc-public-assistant-shortcut) .pc-gekta-floating,
+body:has(.p7-support-chat-button) .pc-gekta-floating,
 body:has([role='dialog'][aria-modal='true']) .pc-gekta-floating,
 body:has(.pc-public-assistant-panel) .pc-gekta-floating {
   display: none;
+}
+@media (max-width: 767px) {
+  /* PlatformV7HomeMobileDensity already gives the footer 88px of bottom
+     clearance. Remove the second page-level 88px reserve visible as a large
+     empty slab in the iPhone evidence, while keeping the launcher unobscured. */
+  .pc-v7-public-entry {
+    padding-bottom: 0 !important;
+  }
+  .pc-v7-public-entry .pc-v6-footer nav {
+    gap: 0 12px;
+  }
+  .pc-v7-public-entry .pc-v6-footer nav a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding-inline: 2px;
+  }
 }
 @media (max-width: 350px) {
   .pc-gekta-floating { right: max(8px, env(safe-area-inset-right, 0px)); width: 52px; height: 52px; }
