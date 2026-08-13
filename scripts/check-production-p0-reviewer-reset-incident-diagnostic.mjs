@@ -49,7 +49,7 @@ for (const token of [
   "docker ps -q --filter 'label=com.docker.compose.service=web'",
   "--filter 'label=com.docker.compose.service=api'",
   'org.opencontainers.image.revision',
-  'docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs',
+  'docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - "$first_since" "$first_until" "$second_since" "$second_until" <<\'NODE\'',
   "process.env.STAFF_DATABASE_URL",
   "process.env.DATABASE_URL",
   "current_user = 'pc_staff_runtime'",
@@ -85,6 +85,7 @@ for (const pattern of [
   /\bprintenv\b/,
   /\/proc\/[0-9$]+\/environ/,
   /process\.stdout\.write\([^\n]*(?:reviewer_email|email|token_hash|userId|user_id)/i,
+  /\/nodejs\/bin\/node --input-type=commonjs -- "\$first_since"/,
 ]) forbid('runner', pattern);
 
 const shellSyntax = spawnSync('bash', ['-n', runnerPath], { encoding: 'utf8' });
@@ -95,6 +96,16 @@ else {
   const nodeSyntax = spawnSync('node', ['--check', '-'], { input: nodeMatch[1], encoding: 'utf8' });
   if (nodeSyntax.status !== 0) failures.push(`runner: embedded Node syntax invalid: ${nodeSyntax.stderr.trim()}`);
 }
+
+const argvProbe = spawnSync(
+  'node',
+  ['--input-type=commonjs', '-', 'first', 'firstUntil', 'second', 'secondUntil'],
+  {
+    input: "const expected=['first','firstUntil','second','secondUntil']; if (JSON.stringify(process.argv.slice(2)) !== JSON.stringify(expected)) process.exit(1);",
+    encoding: 'utf8',
+  },
+);
+if (argvProbe.status !== 0) failures.push('runner: stdin argv binding probe failed');
 
 try {
   const scope = JSON.parse(files.scope);
