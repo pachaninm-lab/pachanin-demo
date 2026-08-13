@@ -40,6 +40,7 @@ jobs:
           python3 - "$file" <<'PY'
           import pathlib
           import sys
+
           text = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
           required = [
               "github.event.issue.number == 3896",
@@ -58,17 +59,27 @@ jobs:
           for token in required:
               if token not in text:
                   raise SystemExit(f'missing observer control: {token}')
-          for forbidden in [
-              'secrets.PC_PROD_SSH_KEY', 'secrets.PC_PROD_SSH_PRIVATE_KEY',
-              'secrets.VPS_SSH_KEY', 'secrets.TAI_MODEL_ROOT_SSH_KEY',
-              'systemctl restart', 'systemctl start', 'systemctl stop',
-              'systemctl daemon-reload', 'systemctl edit', 'systemctl set-property',
-              'ssh-keyscan -H', 'StrictHostKeyChecking=no',
-          ]:
-              if forbidden in text:
-                  raise SystemExit(f'forbidden observer control: {forbidden}')
+
+          # Build forbidden tokens at runtime so the self-check cannot match its own list.
+          forbidden = [
+              'secrets.' + 'PC_PROD_SSH_KEY',
+              'secrets.' + 'PC_PROD_SSH_PRIVATE_KEY',
+              'secrets.' + 'VPS_SSH_KEY',
+              'secrets.' + 'TAI_MODEL_ROOT_SSH_KEY',
+              'systemctl' + ' restart',
+              'systemctl' + ' start',
+              'systemctl' + ' stop',
+              'systemctl' + ' daemon-reload',
+              'systemctl' + ' edit',
+              'systemctl' + ' set-property',
+              'ssh-keyscan' + ' -H',
+              'StrictHostKeyChecking' + '=no',
+          ]
+          for token in forbidden:
+              if token in text:
+                  raise SystemExit(f'forbidden observer control: {token}')
+
           if text.count('sudo -n /usr/local/sbin/gekta-qwen-g3c ubatch512') != 3:
-              # required literal + cardinality literal + one execution literal
               raise SystemExit('candidate authority cardinality changed')
           PY
 
@@ -142,7 +153,7 @@ jobs:
           pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
           [[ -n "$pin_type" && -n "$pin_material" ]] || exit 22
           scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
-          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}' || { echo 'model host key does not match the pinned TAI_MODEL_SSH_HOST_KEY' >&2; exit 22; }
+          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}' || { echo 'model host key does not match pinned TAI_MODEL_SSH_HOST_KEY' >&2; exit 22; }
           printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
           chmod 600 "$HOME/.ssh/model_known_hosts"
           echo "host=$host" >> "$GITHUB_OUTPUT"
@@ -163,21 +174,18 @@ jobs:
 
           remote_helper_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/sbin/gekta-qwen-g3c 2>/dev/null' | awk '{print $1}' || true)"
           remote_base_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/libexec/gekta-qwen-g3c-base.py 2>/dev/null' | awk '{print $1}' || true)"
-          [[ "$remote_helper_sha" == "$EXPECTED_HELPER_SHA" && "$remote_base_sha" == "$EXPECTED_BASE_SHA" ]] || {
-            printf '%s\n' 'G3C_OBSERVER_ERROR=installed_helper_sha_mismatch' > "$RUNNER_TEMP/observer-result"
-            exit 31
-          }
+          [[ "$remote_helper_sha" == "$EXPECTED_HELPER_SHA" && "$remote_base_sha" == "$EXPECTED_BASE_SHA" ]] || exit 31
 
           "${ssh_base[@]}" 'sudo -n /usr/local/sbin/gekta-qwen-g3c status' > "$RUNNER_TEMP/pre-status" 2>&1
-          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/pre-status" > "$RUNNER_TEMP/pre-status-bounded" || true
+          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/pre-status" > "$RUNNER_TEMP/pre-bounded" || true
           for expected in \
             'GEKTA_G3C_STATE=BASELINE' 'GEKTA_G3C_UBATCH=128' \
             'GEKTA_G3C_THREADS=16' 'GEKTA_G3C_THREADS_BATCH=16' \
             'GEKTA_G3C_PARALLEL=1' 'GEKTA_G3C_CTX_SIZE=8192' \
             'GEKTA_G3C_BATCH_SIZE=512' 'GEKTA_G3C_SWAP_USED_KB=0'; do
-            grep -qx "$expected" "$RUNNER_TEMP/pre-status-bounded"
+            grep -qx "$expected" "$RUNNER_TEMP/pre-bounded"
           done
-          baseline_pid="$("${ssh_base[@]}" "systemctl show tai-qwen3-8b.service --property=MainPID --value")"
+          baseline_pid="$("${ssh_base[@]}" 'systemctl show tai-qwen3-8b.service --property=MainPID --value')"
           [[ "$baseline_pid" =~ ^[1-9][0-9]*$ ]]
 
           set +e
@@ -186,68 +194,14 @@ jobs:
           set -e
 
           set +e
-          "${ssh_base[@]}" /bin/bash -s -- "$baseline_pid" > "$RUNNER_TEMP/observer-raw" 2>&1 <<'REMOTE_OBSERVER'
+          "${ssh_base[@]}" /bin/bash -s -- "$baseline_pid" > "$RUNNER_TEMP/observer-raw" 2>&1 <<'REMOTE'
           set -Eeuo pipefail
-          baseline_pid="$1"
-          python3 - "$baseline_pid" <<'PY'
-          import base64
-          import hashlib
-          import json
-          import os
-          import pathlib
-          import re
-          import subprocess
-          import sys
-          import time
+          python3 - "$1" <<'PY'
+          import base64, hashlib, json, os, pathlib, re, subprocess, sys, time
 
           baseline_pid = int(sys.argv[1])
           state = pathlib.Path('/var/lib/gekta-qwen-g3c/candidate.json')
           service = 'tai-qwen3-8b.service'
-
-          def sha(data: bytes) -> str:
-              return hashlib.sha256(data).hexdigest()
-
-          def main_pid() -> int:
-              cp = subprocess.run(
-                  ['/usr/bin/systemctl', 'show', service, '--property=MainPID', '--value'],
-                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
-                  timeout=5, check=False, env={'PATH':'/usr/bin:/bin','LC_ALL':'C'},
-              )
-              value = cp.stdout.strip()
-              return int(value) if cp.returncode == 0 and re.fullmatch(r'[1-9][0-9]*', value) else 0
-
-          deadline = time.monotonic() + 45
-          data = None
-          pid = 0
-          expected_exe = None
-          while time.monotonic() < deadline:
-              if state.is_file():
-                  try:
-                      data = json.loads(state.read_text(encoding='utf-8'))
-                      expected_exe = pathlib.Path(os.fsdecode(base64.b64decode(data['exe_b64'], validate=True))).resolve(strict=True)
-                  except Exception:
-                      data = None
-                      expected_exe = None
-              candidate_pid = main_pid()
-              if data is not None and expected_exe is not None and candidate_pid and candidate_pid != baseline_pid:
-                  try:
-                      if pathlib.Path(f'/proc/{candidate_pid}/exe').resolve(strict=True) == expected_exe:
-                          pid = candidate_pid
-                          break
-                  except OSError:
-                      pass
-              time.sleep(0.2)
-
-          if data is None or expected_exe is None or not pid:
-              print('G3C_OBSERVER_ERROR=candidate_process_not_observed')
-              raise SystemExit(40)
-
-          expected_argv = [base64.b64decode(item, validate=True) for item in data['argv_b64']]
-          expected_env_pairs = [(base64.b64decode(k, validate=True), base64.b64decode(v, validate=True)) for k, v in data['env_b64']]
-          expected_raw = b'\0'.join(expected_argv) + b'\0'
-          actual_raw = pathlib.Path(f'/proc/{pid}/cmdline').read_bytes()
-          actual_argv = [item for item in actual_raw.split(b'\0') if item]
-
           aliases = {
               'threads': (b'--threads', b'-t'),
               'threads_batch': (b'--threads-batch', b'-tb'),
@@ -257,138 +211,126 @@ jobs:
               'ubatch_size': (b'--ubatch-size', b'-ub'),
           }
 
+          def sha(data): return hashlib.sha256(data).hexdigest()
+          def main_pid():
+              cp = subprocess.run(['/usr/bin/systemctl','show',service,'--property=MainPID','--value'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=5, check=False, env={'PATH':'/usr/bin:/bin','LC_ALL':'C'})
+              value = cp.stdout.strip()
+              return int(value) if cp.returncode == 0 and re.fullmatch(r'[1-9][0-9]*', value) else 0
           def flag(argv, name):
-              hits = []
+              hits=[]
               for i, token in enumerate(argv):
                   for alias in aliases[name]:
-                      if token == alias and i + 1 < len(argv):
-                          hits.append(argv[i + 1])
-                      elif token.startswith(alias + b'='):
-                          hits.append(token[len(alias)+1:])
-              if len(hits) != 1:
-                  return b'CARDINALITY'
-              return hits[0]
-
+                      if token == alias and i+1 < len(argv): hits.append(argv[i+1])
+                      elif token.startswith(alias+b'='): hits.append(token[len(alias)+1:])
+              return hits[0] if len(hits)==1 else b'CARDINALITY'
           def normalized(argv):
-              out = list(argv)
-              hits = []
+              out=list(argv); hits=[]
               for i, token in enumerate(out):
                   for alias in aliases['ubatch_size']:
-                      if token == alias and i + 1 < len(out):
-                          hits.append((i, i + 1, alias))
-                      elif token.startswith(alias + b'='):
-                          hits.append((i, None, alias))
-              if len(hits) != 1:
-                  return b''
+                      if token == alias and i+1 < len(out): hits.append((i,i+1,alias))
+                      elif token.startswith(alias+b'='): hits.append((i,None,alias))
+              if len(hits)!=1: return b''
               i, vi, alias = hits[0]
-              if vi is None:
-                  out[i] = alias + b'=<UBATCH>'
-              else:
-                  out[vi] = b'<UBATCH>'
-              return b'\0'.join(out) + b'\0'
+              if vi is None: out[i]=alias+b'=<UBATCH>'
+              else: out[vi]=b'<UBATCH>'
+              return b'\0'.join(out)+b'\0'
 
-          max_len = max(len(expected_argv), len(actual_argv))
-          diff_indexes = [i for i in range(max_len) if (expected_argv[i] if i < len(expected_argv) else None) != (actual_argv[i] if i < len(actual_argv) else None)]
-          first_diff = diff_indexes[0] if diff_indexes else -1
-          first_class = 'NONE'
-          if first_diff == 0:
-              first_class = 'ARGV0'
-          elif first_diff > 0:
-              expected_token = expected_argv[first_diff] if first_diff < len(expected_argv) else None
-              previous = expected_argv[first_diff - 1] if first_diff - 1 < len(expected_argv) else None
-              if expected_token is not None and any(expected_token == alias or expected_token.startswith(alias + b'=') for values in aliases.values() for alias in values):
-                  first_class = 'FLAG_NAME'
-              elif previous is not None:
-                  matched = next((name for name, values in aliases.items() if previous in values), None)
-                  first_class = ('FLAG_VALUE_' + matched.upper()) if matched else 'POSITIONAL'
-              else:
-                  first_class = 'POSITIONAL'
+          data=None; pid=0; expected_exe=None
+          deadline=time.monotonic()+45
+          while time.monotonic() < deadline:
+              try:
+                  if state.is_file():
+                      candidate=json.loads(state.read_text(encoding='utf-8'))
+                      exe=pathlib.Path(os.fsdecode(base64.b64decode(candidate['exe_b64'], validate=True))).resolve(strict=True)
+                      candidate_pid=main_pid()
+                      if candidate_pid and candidate_pid != baseline_pid and pathlib.Path(f'/proc/{candidate_pid}/exe').resolve(strict=True) == exe:
+                          data=candidate; expected_exe=exe; pid=candidate_pid; break
+              except Exception:
+                  pass
+              time.sleep(0.2)
+          if data is None or expected_exe is None or not pid:
+              print('G3C_OBSERVER_ERROR=candidate_process_not_observed'); raise SystemExit(40)
 
-          expected_env = {k: v for k, v in expected_env_pairs}
-          actual_env_pairs = []
+          expected_argv=[base64.b64decode(x, validate=True) for x in data['argv_b64']]
+          expected_env={base64.b64decode(k, validate=True): base64.b64decode(v, validate=True) for k,v in data['env_b64']}
+          expected_raw=b'\0'.join(expected_argv)+b'\0'
+          actual_raw=pathlib.Path(f'/proc/{pid}/cmdline').read_bytes()
+          actual_argv=[x for x in actual_raw.split(b'\0') if x]
+          actual_env={}
           for entry in pathlib.Path(f'/proc/{pid}/environ').read_bytes().split(b'\0'):
               if entry and b'=' in entry:
-                  actual_env_pairs.append(tuple(entry.split(b'=', 1)))
-          actual_env = {k: v for k, v in actual_env_pairs}
-          env_keys_match = expected_env.keys() == actual_env.keys()
-          env_map_match = expected_env == actual_env
-          env_diff_count = len({k for k in set(expected_env) | set(actual_env) if expected_env.get(k) != actual_env.get(k)})
+                  k,v=entry.split(b'=',1); actual_env[k]=v
 
-          exe_bytes = pathlib.Path(f'/proc/{pid}/exe').resolve(strict=True).read_bytes()
-          exe_sha = sha(exe_bytes)
-          status = pathlib.Path(f'/proc/{pid}/status').read_text(encoding='ascii')
-          swap_match = re.search(r'^VmSwap:\s+(\d+)\s+kB$', status, re.MULTILINE)
-          swap_kb = int(swap_match.group(1)) if swap_match else -1
-          mem_available = -1
-          for line in pathlib.Path('/proc/meminfo').read_text(encoding='ascii').splitlines():
-              if line.startswith('MemAvailable:'):
-                  mem_available = int(line.split()[1])
-                  break
+          max_len=max(len(expected_argv),len(actual_argv))
+          diffs=[i for i in range(max_len) if (expected_argv[i] if i<len(expected_argv) else None)!=(actual_argv[i] if i<len(actual_argv) else None)]
+          first=diffs[0] if diffs else -1
+          first_class='NONE'
+          if first==0: first_class='ARGV0'
+          elif first>0:
+              token=expected_argv[first] if first<len(expected_argv) else None
+              prev=expected_argv[first-1] if first-1<len(expected_argv) else None
+              if token is not None and any(token==a or token.startswith(a+b'=') for group in aliases.values() for a in group): first_class='FLAG_NAME'
+              else:
+                  matched=next((n for n,g in aliases.items() if prev in g),None) if prev is not None else None
+                  first_class=('FLAG_VALUE_'+matched.upper()) if matched else 'POSITIONAL'
+
+          expected_norm=normalized(expected_argv); actual_norm=normalized(actual_argv)
+          exe_sha=sha(pathlib.Path(f'/proc/{pid}/exe').resolve(strict=True).read_bytes())
+          status=pathlib.Path(f'/proc/{pid}/status').read_text(encoding='ascii')
+          m=re.search(r'^VmSwap:\s+(\d+)\s+kB$',status,re.MULTILINE)
+          swap_kb=int(m.group(1)) if m else -1
+          env_diff=len({k for k in set(expected_env)|set(actual_env) if expected_env.get(k)!=actual_env.get(k)})
 
           print('G3C_OBSERVER_PID_CHANGED=1')
-          print('G3C_OBSERVER_CMDLINE_MATCH=' + str(int(expected_raw == actual_raw)))
-          print('G3C_OBSERVER_EXPECTED_CMDLINE_SHA256=' + sha(expected_raw))
-          print('G3C_OBSERVER_ACTUAL_CMDLINE_SHA256=' + sha(actual_raw))
-          print('G3C_OBSERVER_EXPECTED_ARGC=' + str(len(expected_argv)))
-          print('G3C_OBSERVER_ACTUAL_ARGC=' + str(len(actual_argv)))
-          print('G3C_OBSERVER_DIFF_COUNT=' + str(len(diff_indexes)))
-          print('G3C_OBSERVER_FIRST_DIFF_INDEX=' + str(first_diff))
-          print('G3C_OBSERVER_FIRST_DIFF_CLASS=' + first_class)
-          if first_diff >= 0:
-              e = expected_argv[first_diff] if first_diff < len(expected_argv) else b''
-              a = actual_argv[first_diff] if first_diff < len(actual_argv) else b''
-              print('G3C_OBSERVER_FIRST_DIFF_EXPECTED_LEN=' + str(len(e)))
-              print('G3C_OBSERVER_FIRST_DIFF_ACTUAL_LEN=' + str(len(a)))
-              print('G3C_OBSERVER_FIRST_DIFF_EXPECTED_SHA256=' + sha(e))
-              print('G3C_OBSERVER_FIRST_DIFF_ACTUAL_SHA256=' + sha(a))
-          expected_normalized = normalized(expected_argv)
-          actual_normalized = normalized(actual_argv)
-          print('G3C_OBSERVER_NORMALIZED_MATCH=' + str(int(bool(expected_normalized) and expected_normalized == actual_normalized)))
-          print('G3C_OBSERVER_EXPECTED_NORMALIZED_SHA256=' + (sha(expected_normalized) if expected_normalized else 'INVALID'))
-          print('G3C_OBSERVER_ACTUAL_NORMALIZED_SHA256=' + (sha(actual_normalized) if actual_normalized else 'INVALID'))
-          print('G3C_OBSERVER_ARGV0_MATCH=' + str(int(bool(expected_argv and actual_argv) and expected_argv[0] == actual_argv[0])))
-          print('G3C_OBSERVER_EXE_SHA_MATCH=' + str(int(exe_sha == str(data['exe_sha256']))))
-          print('G3C_OBSERVER_ENV_KEYS_MATCH=' + str(int(env_keys_match)))
-          print('G3C_OBSERVER_ENV_MAP_MATCH=' + str(int(env_map_match)))
-          print('G3C_OBSERVER_ENV_DIFF_COUNT=' + str(env_diff_count))
-          print('G3C_OBSERVER_THREADS=' + flag(actual_argv, 'threads').decode('ascii', 'replace'))
-          print('G3C_OBSERVER_THREADS_BATCH=' + flag(actual_argv, 'threads_batch').decode('ascii', 'replace'))
-          print('G3C_OBSERVER_PARALLEL=' + flag(actual_argv, 'parallel').decode('ascii', 'replace'))
-          print('G3C_OBSERVER_CTX_SIZE=' + flag(actual_argv, 'ctx_size').decode('ascii', 'replace'))
-          print('G3C_OBSERVER_BATCH_SIZE=' + flag(actual_argv, 'batch_size').decode('ascii', 'replace'))
-          print('G3C_OBSERVER_UBATCH_SIZE=' + flag(actual_argv, 'ubatch_size').decode('ascii', 'replace'))
-          print('G3C_OBSERVER_SWAP_KB=' + str(swap_kb))
-          print('G3C_OBSERVER_MEM_AVAILABLE_KB=' + str(mem_available))
+          print('G3C_OBSERVER_CMDLINE_MATCH='+str(int(expected_raw==actual_raw)))
+          print('G3C_OBSERVER_EXPECTED_CMDLINE_SHA256='+sha(expected_raw))
+          print('G3C_OBSERVER_ACTUAL_CMDLINE_SHA256='+sha(actual_raw))
+          print('G3C_OBSERVER_EXPECTED_ARGC='+str(len(expected_argv)))
+          print('G3C_OBSERVER_ACTUAL_ARGC='+str(len(actual_argv)))
+          print('G3C_OBSERVER_DIFF_COUNT='+str(len(diffs)))
+          print('G3C_OBSERVER_FIRST_DIFF_INDEX='+str(first))
+          print('G3C_OBSERVER_FIRST_DIFF_CLASS='+first_class)
+          if first>=0:
+              e=expected_argv[first] if first<len(expected_argv) else b''; a=actual_argv[first] if first<len(actual_argv) else b''
+              print('G3C_OBSERVER_FIRST_DIFF_EXPECTED_LEN='+str(len(e)))
+              print('G3C_OBSERVER_FIRST_DIFF_ACTUAL_LEN='+str(len(a)))
+              print('G3C_OBSERVER_FIRST_DIFF_EXPECTED_SHA256='+sha(e))
+              print('G3C_OBSERVER_FIRST_DIFF_ACTUAL_SHA256='+sha(a))
+          print('G3C_OBSERVER_NORMALIZED_MATCH='+str(int(bool(expected_norm) and expected_norm==actual_norm)))
+          print('G3C_OBSERVER_ARGV0_MATCH='+str(int(bool(expected_argv and actual_argv) and expected_argv[0]==actual_argv[0])))
+          print('G3C_OBSERVER_EXE_SHA_MATCH='+str(int(exe_sha==str(data['exe_sha256']))))
+          print('G3C_OBSERVER_ENV_MAP_MATCH='+str(int(expected_env==actual_env)))
+          print('G3C_OBSERVER_ENV_DIFF_COUNT='+str(env_diff))
+          print('G3C_OBSERVER_THREADS='+flag(actual_argv,'threads').decode('ascii','replace'))
+          print('G3C_OBSERVER_THREADS_BATCH='+flag(actual_argv,'threads_batch').decode('ascii','replace'))
+          print('G3C_OBSERVER_PARALLEL='+flag(actual_argv,'parallel').decode('ascii','replace'))
+          print('G3C_OBSERVER_CTX_SIZE='+flag(actual_argv,'ctx_size').decode('ascii','replace'))
+          print('G3C_OBSERVER_BATCH_SIZE='+flag(actual_argv,'batch_size').decode('ascii','replace'))
+          print('G3C_OBSERVER_UBATCH_SIZE='+flag(actual_argv,'ubatch_size').decode('ascii','replace'))
+          print('G3C_OBSERVER_SWAP_KB='+str(swap_kb))
           print('G3C_OBSERVER_RESULT=OBSERVED')
           PY
-          REMOTE_OBSERVER
+          REMOTE
           observer_rc=$?
           set -e
           grep -E '^G3C_OBSERVER_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/observer-raw" > "$RUNNER_TEMP/observer-result" || true
           [[ -s "$RUNNER_TEMP/observer-result" ]] || printf '%s\n' 'G3C_OBSERVER_ERROR=bounded_observer_evidence_missing' > "$RUNNER_TEMP/observer-result"
 
           set +e
-          wait "$helper_local_pid"
-          helper_rc=$?
+          wait "$helper_local_pid"; helper_rc=$?
+          "${ssh_base[@]}" 'sudo -n /usr/local/sbin/gekta-qwen-g3c rollback' > "$RUNNER_TEMP/rollback-raw" 2>&1; rollback_rc=$?
           set -e
           grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/helper-raw" > "$RUNNER_TEMP/helper-result" || true
-          [[ -s "$RUNNER_TEMP/helper-result" ]] || printf '%s\n' 'GEKTA_G3C_ERROR=bounded_helper_evidence_missing' > "$RUNNER_TEMP/helper-result"
-
-          # Diagnostic only: never keep 512 from this observation run.
-          set +e
-          "${ssh_base[@]}" 'sudo -n /usr/local/sbin/gekta-qwen-g3c rollback' > "$RUNNER_TEMP/rollback-raw" 2>&1
-          rollback_rc=$?
-          set -e
           grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/rollback-raw" > "$RUNNER_TEMP/rollback-result" || true
 
           "${ssh_base[@]}" 'sudo -n /usr/local/sbin/gekta-qwen-g3c status' > "$RUNNER_TEMP/post-status" 2>&1
-          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/post-status" > "$RUNNER_TEMP/post-status-bounded" || true
+          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/post-status" > "$RUNNER_TEMP/post-bounded" || true
           for expected in \
             'GEKTA_G3C_STATE=BASELINE' 'GEKTA_G3C_UBATCH=128' \
             'GEKTA_G3C_THREADS=16' 'GEKTA_G3C_THREADS_BATCH=16' \
             'GEKTA_G3C_PARALLEL=1' 'GEKTA_G3C_CTX_SIZE=8192' \
             'GEKTA_G3C_BATCH_SIZE=512' 'GEKTA_G3C_SWAP_USED_KB=0'; do
-            grep -qx "$expected" "$RUNNER_TEMP/post-status-bounded"
+            grep -qx "$expected" "$RUNNER_TEMP/post-bounded"
           done
 
           {
@@ -398,11 +340,9 @@ jobs:
             printf 'G3C_OBSERVER_ROLLBACK_RC=%s\n' "$rollback_rc"
             cat "$RUNNER_TEMP/helper-result"
             cat "$RUNNER_TEMP/rollback-result"
-            cat "$RUNNER_TEMP/post-status-bounded"
+            cat "$RUNNER_TEMP/post-bounded"
           } > "$RUNNER_TEMP/g3c-observer-evidence"
-
           grep -qx 'G3C_OBSERVER_RESULT=OBSERVED' "$RUNNER_TEMP/g3c-observer-evidence"
-          grep -qx 'GEKTA_G3C_STATE=BASELINE' "$RUNNER_TEMP/post-status-bounded"
           [[ "$observer_rc" -eq 0 && "$rollback_rc" -eq 0 ]]
 
       - name: Publish bounded observer evidence
@@ -425,13 +365,7 @@ jobs:
             echo '- final state requirement: `BASELINE`'
             echo
             echo '```text'
-            if [[ -s "$RUNNER_TEMP/g3c-observer-evidence" ]]; then
-              cat "$RUNNER_TEMP/g3c-observer-evidence"
-            elif [[ -s "$RUNNER_TEMP/observer-result" ]]; then
-              cat "$RUNNER_TEMP/observer-result"
-            else
-              echo 'G3C_OBSERVER_ERROR=execution_not_reached'
-            fi
+            if [[ -s "$RUNNER_TEMP/g3c-observer-evidence" ]]; then cat "$RUNNER_TEMP/g3c-observer-evidence"; else echo 'G3C_OBSERVER_ERROR=execution_not_reached'; fi
             echo '```'
           } > "$body"
           gh issue comment 3896 --repo "$GITHUB_REPOSITORY" --body-file "$body"
