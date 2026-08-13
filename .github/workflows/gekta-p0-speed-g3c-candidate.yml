@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/gekta-p0-speed-g3c-candidate.yml'
       - 'scripts/gekta-qwen-g3c-runtime.py'
+      - 'scripts/gekta-qwen-g3c-runtime-v2.py'
       - 'scripts/gekta-qwen-g3c-bootstrap.sh'
       - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3c-ubatch512-3896.json'
   issue_comment:
@@ -39,8 +40,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/gekta-qwen-g3c-runtime.py self-test | grep -qx 'GEKTA_G3C_SELF_TEST=PASS'
-          python3 -m py_compile scripts/gekta-qwen-g3c-runtime.py
+          python3 scripts/gekta-qwen-g3c-runtime-v2.py self-test | tee "$RUNNER_TEMP/g3c-self-test"
+          grep -qx 'GEKTA_G3C_SELF_TEST=PASS' "$RUNNER_TEMP/g3c-self-test"
+          grep -qx 'GEKTA_G3C_SWAP_GATE_SELF_TEST=PASS' "$RUNNER_TEMP/g3c-self-test"
+          python3 -m py_compile scripts/gekta-qwen-g3c-runtime.py scripts/gekta-qwen-g3c-runtime-v2.py
           bash -n scripts/gekta-qwen-g3c-bootstrap.sh
       - name: Prove bounded authority contract
         shell: bash
@@ -51,6 +54,7 @@ jobs:
           const workflow = fs.readFileSync('.github/workflows/gekta-p0-speed-g3c-candidate.yml', 'utf8');
           const bootstrap = fs.readFileSync('scripts/gekta-qwen-g3c-bootstrap.sh', 'utf8');
           const runtime = fs.readFileSync('scripts/gekta-qwen-g3c-runtime.py', 'utf8');
+          const wrapper = fs.readFileSync('scripts/gekta-qwen-g3c-runtime-v2.py', 'utf8');
           for (const forbidden of ['PC_PROD_SSH_KEY','PC_PROD_SSH_PRIVATE_KEY','VPS_SSH_KEY','TAI_MODEL_ROOT_SSH_KEY']) {
             if (workflow.includes(`secrets.${forbidden}`)) throw new Error(`forbidden credential: ${forbidden}`);
           }
@@ -68,8 +72,12 @@ jobs:
             '_replace_flag(argv, "ubatch_size", b"128", b"512")',
             '100-gekta-g3c.conf','MIN_MEM_AVAILABLE_KB = 3 * 1024 * 1024','GEKTA_G3C_AUTO_ROLLBACK'
           ]) if (!runtime.includes(required)) throw new Error(`missing G3C invariant: ${required}`);
+          for (const required of ['_process_swap_kb', 'VmSwap:', 'base._mem_facts = _model_mem_facts', 'GEKTA_G3C_SWAP_GATE_SELF_TEST=PASS']) {
+            if (!wrapper.includes(required)) throw new Error(`missing process-scoped swap invariant: ${required}`);
+          }
+          if (!bootstrap.includes('/usr/local/libexec/gekta-qwen-g3c-base.py')) throw new Error('audited base install missing');
           NODE
-          GITHUB_HEAD_REF=perf/gekta-p0-speed-g3c-ubatch512-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
+          GITHUB_HEAD_REF=fix/gekta-g3c-process-swap-gate-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
 
   candidate:
     if: >-
@@ -110,11 +118,13 @@ jobs:
             '/gekta speed-g3c status current-main') action=status ;;
             *) exit 20 ;;
           esac
-          helper_sha="$(sha256sum scripts/gekta-qwen-g3c-runtime.py | awk '{print $1}')"
-          [[ "$helper_sha" =~ ^[0-9a-f]{64}$ ]]
+          helper_sha="$(sha256sum scripts/gekta-qwen-g3c-runtime-v2.py | awk '{print $1}')"
+          base_sha="$(sha256sum scripts/gekta-qwen-g3c-runtime.py | awk '{print $1}')"
+          [[ "$helper_sha" =~ ^[0-9a-f]{64}$ && "$base_sha" =~ ^[0-9a-f]{64}$ ]]
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "action=$action" >> "$GITHUB_OUTPUT"
           echo "helper_sha=$helper_sha" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
       - name: Resolve pinned model-host transport
         id: ssh
         shell: bash
@@ -147,14 +157,17 @@ jobs:
           MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
           EXPECTED_HELPER_SHA: ${{ steps.target.outputs.helper_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.target.outputs.base_sha }}
           ACTION: ${{ steps.target.outputs.action }}
         shell: bash
         run: |
           set -euo pipefail
           ssh_base=(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST")
           remote_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/sbin/gekta-qwen-g3c 2>/dev/null' | awk '{print $1}' || true)"
-          if [[ ! "$remote_sha" =~ ^[0-9a-f]{64}$ ]]; then echo 'GEKTA_G3C_ERROR=bootstrap_required' > "$RUNNER_TEMP/g3c-result"; cat "$RUNNER_TEMP/g3c-result"; exit 30; fi
+          remote_base_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/libexec/gekta-qwen-g3c-base.py 2>/dev/null' | awk '{print $1}' || true)"
+          if [[ ! "$remote_sha" =~ ^[0-9a-f]{64}$ || ! "$remote_base_sha" =~ ^[0-9a-f]{64}$ ]]; then echo 'GEKTA_G3C_ERROR=bootstrap_required' > "$RUNNER_TEMP/g3c-result"; cat "$RUNNER_TEMP/g3c-result"; exit 30; fi
           [[ "$remote_sha" == "$EXPECTED_HELPER_SHA" ]] || { echo 'GEKTA_G3C_ERROR=bootstrap_helper_sha_mismatch' > "$RUNNER_TEMP/g3c-result"; cat "$RUNNER_TEMP/g3c-result"; exit 31; }
+          [[ "$remote_base_sha" == "$EXPECTED_BASE_SHA" ]] || { echo 'GEKTA_G3C_ERROR=bootstrap_base_sha_mismatch' > "$RUNNER_TEMP/g3c-result"; cat "$RUNNER_TEMP/g3c-result"; exit 31; }
           case "$ACTION" in ubatch512|rollback|status) ;; *) exit 32 ;; esac
           set +e; "${ssh_base[@]}" "sudo -n /usr/local/sbin/gekta-qwen-g3c $ACTION" > "$RUNNER_TEMP/g3c-raw" 2>&1; rc=$?; set -e
           grep -E '^GEKTA_G3C_[A-Z0-9_]+=([A-Z0-9_.:-]+|[0-9]+)$' "$RUNNER_TEMP/g3c-raw" > "$RUNNER_TEMP/g3c-result" || true
