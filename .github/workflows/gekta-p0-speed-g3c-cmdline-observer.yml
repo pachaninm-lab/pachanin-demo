@@ -1,0 +1,371 @@
+name: Gekta P0 SPEED G3C Cmdline Observer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-g3c-cmdline-observer.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed-g3c-cmdline-observer
+  cancel-in-progress: false
+
+env:
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove bounded observer contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=.github/workflows/gekta-p0-speed-g3c-cmdline-observer.yml
+          python3 - "$file" <<'PY'
+          import pathlib
+          import sys
+
+          text = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
+          required = [
+              "github.event.issue.number == 3896",
+              "/gekta speed-g3c-observe512 current-main",
+              "secrets.TAI_MODEL_SSH_KEY",
+              "secrets.TAI_MODEL_SSH_HOST_KEY",
+              "StrictHostKeyChecking=yes",
+              "sudo -n /usr/local/sbin/gekta-qwen-g3c ubatch512",
+              "sudo -n /usr/local/sbin/gekta-qwen-g3c rollback",
+              "sudo -n /usr/local/sbin/gekta-qwen-g3c status",
+              "G3C_OBSERVER_NORMALIZED_MATCH",
+              "G3C_OBSERVER_FIRST_DIFF_INDEX",
+              "G3C_OBSERVER_ENV_MAP_MATCH",
+              "G3C_OBSERVER_EXE_SHA_MATCH",
+          ]
+          for token in required:
+              if token not in text:
+                  raise SystemExit(f'missing observer control: {token}')
+
+          # Build forbidden tokens at runtime so the self-check cannot match its own list.
+          forbidden = [
+              'secrets.' + 'PC_PROD_SSH_KEY',
+              'secrets.' + 'PC_PROD_SSH_PRIVATE_KEY',
+              'secrets.' + 'VPS_SSH_KEY',
+              'secrets.' + 'TAI_MODEL_ROOT_SSH_KEY',
+              'systemctl' + ' restart',
+              'systemctl' + ' start',
+              'systemctl' + ' stop',
+              'systemctl' + ' daemon-reload',
+              'systemctl' + ' edit',
+              'systemctl' + ' set-property',
+              'ssh-keyscan' + ' -H',
+              'StrictHostKeyChecking' + '=no',
+          ]
+          for token in forbidden:
+              if token in text:
+                  raise SystemExit(f'forbidden observer control: {token}')
+
+          if text.count('sudo -n /usr/local/sbin/gekta-qwen-g3c ubatch512') != 3:
+              raise SystemExit('candidate authority cardinality changed')
+          PY
+
+  observe:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/gekta speed-g3c-observe512 current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main and installed-helper hashes
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ && "$sha" == "$(git rev-parse HEAD)" ]]
+          helper_sha="$(sha256sum scripts/gekta-qwen-g3c-runtime-v2.py | awk '{print $1}')"
+          base_sha="$(sha256sum scripts/gekta-qwen-g3c-runtime.py | awk '{print $1}')"
+          [[ "$helper_sha" =~ ^[0-9a-f]{64}$ && "$base_sha" =~ ^[0-9a-f]{64}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "helper_sha=$helper_sha" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"
+          user="$(trim "${MODEL_USER_SECRET:-}")"
+          port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model" || { echo 'TAI_MODEL_SSH_KEY is required.' >&2; exit 21; }
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"
+          [[ -n "$pin" ]] || { echo 'TAI_MODEL_SSH_HOST_KEY is required.' >&2; exit 22; }
+          pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"
+          pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
+          [[ -n "$pin_type" && -n "$pin_material" ]] || exit 22
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}' || { echo 'model host key does not match pinned TAI_MODEL_SSH_HOST_KEY' >&2; exit 22; }
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
+          chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Observe one controlled candidate and force exact baseline
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          EXPECTED_HELPER_SHA: ${{ steps.target.outputs.helper_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.target.outputs.base_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_base=(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST")
+
+          remote_helper_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/sbin/gekta-qwen-g3c 2>/dev/null' | awk '{print $1}' || true)"
+          remote_base_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/libexec/gekta-qwen-g3c-base.py 2>/dev/null' | awk '{print $1}' || true)"
+          [[ "$remote_helper_sha" == "$EXPECTED_HELPER_SHA" && "$remote_base_sha" == "$EXPECTED_BASE_SHA" ]] || exit 31
+
+          "${ssh_base[@]}" 'sudo -n /usr/local/sbin/gekta-qwen-g3c status' > "$RUNNER_TEMP/pre-status" 2>&1
+          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/pre-status" > "$RUNNER_TEMP/pre-bounded" || true
+          for expected in \
+            'GEKTA_G3C_STATE=BASELINE' 'GEKTA_G3C_UBATCH=128' \
+            'GEKTA_G3C_THREADS=16' 'GEKTA_G3C_THREADS_BATCH=16' \
+            'GEKTA_G3C_PARALLEL=1' 'GEKTA_G3C_CTX_SIZE=8192' \
+            'GEKTA_G3C_BATCH_SIZE=512' 'GEKTA_G3C_SWAP_USED_KB=0'; do
+            grep -qx "$expected" "$RUNNER_TEMP/pre-bounded"
+          done
+          baseline_pid="$("${ssh_base[@]}" 'systemctl show tai-qwen3-8b.service --property=MainPID --value')"
+          [[ "$baseline_pid" =~ ^[1-9][0-9]*$ ]]
+
+          set +e
+          "${ssh_base[@]}" 'sudo -n /usr/local/sbin/gekta-qwen-g3c ubatch512' > "$RUNNER_TEMP/helper-raw" 2>&1 &
+          helper_local_pid=$!
+          set -e
+
+          set +e
+          "${ssh_base[@]}" /bin/bash -s -- "$baseline_pid" > "$RUNNER_TEMP/observer-raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          python3 - "$1" <<'PY'
+          import base64, hashlib, json, os, pathlib, re, subprocess, sys, time
+
+          baseline_pid = int(sys.argv[1])
+          state = pathlib.Path('/var/lib/gekta-qwen-g3c/candidate.json')
+          service = 'tai-qwen3-8b.service'
+          aliases = {
+              'threads': (b'--threads', b'-t'),
+              'threads_batch': (b'--threads-batch', b'-tb'),
+              'parallel': (b'--parallel', b'-np'),
+              'ctx_size': (b'--ctx-size', b'-c'),
+              'batch_size': (b'--batch-size', b'-b'),
+              'ubatch_size': (b'--ubatch-size', b'-ub'),
+          }
+
+          def sha(data): return hashlib.sha256(data).hexdigest()
+          def main_pid():
+              cp = subprocess.run(['/usr/bin/systemctl','show',service,'--property=MainPID','--value'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=5, check=False, env={'PATH':'/usr/bin:/bin','LC_ALL':'C'})
+              value = cp.stdout.strip()
+              return int(value) if cp.returncode == 0 and re.fullmatch(r'[1-9][0-9]*', value) else 0
+          def flag(argv, name):
+              hits=[]
+              for i, token in enumerate(argv):
+                  for alias in aliases[name]:
+                      if token == alias and i+1 < len(argv): hits.append(argv[i+1])
+                      elif token.startswith(alias+b'='): hits.append(token[len(alias)+1:])
+              return hits[0] if len(hits)==1 else b'CARDINALITY'
+          def normalized(argv):
+              out=list(argv); hits=[]
+              for i, token in enumerate(out):
+                  for alias in aliases['ubatch_size']:
+                      if token == alias and i+1 < len(out): hits.append((i,i+1,alias))
+                      elif token.startswith(alias+b'='): hits.append((i,None,alias))
+              if len(hits)!=1: return b''
+              i, vi, alias = hits[0]
+              if vi is None: out[i]=alias+b'=<UBATCH>'
+              else: out[vi]=b'<UBATCH>'
+              return b'\0'.join(out)+b'\0'
+
+          data=None; pid=0; expected_exe=None
+          deadline=time.monotonic()+45
+          while time.monotonic() < deadline:
+              try:
+                  if state.is_file():
+                      candidate=json.loads(state.read_text(encoding='utf-8'))
+                      exe=pathlib.Path(os.fsdecode(base64.b64decode(candidate['exe_b64'], validate=True))).resolve(strict=True)
+                      candidate_pid=main_pid()
+                      if candidate_pid and candidate_pid != baseline_pid and pathlib.Path(f'/proc/{candidate_pid}/exe').resolve(strict=True) == exe:
+                          data=candidate; expected_exe=exe; pid=candidate_pid; break
+              except Exception:
+                  pass
+              time.sleep(0.2)
+          if data is None or expected_exe is None or not pid:
+              print('G3C_OBSERVER_ERROR=candidate_process_not_observed'); raise SystemExit(40)
+
+          expected_argv=[base64.b64decode(x, validate=True) for x in data['argv_b64']]
+          expected_env={base64.b64decode(k, validate=True): base64.b64decode(v, validate=True) for k,v in data['env_b64']}
+          expected_raw=b'\0'.join(expected_argv)+b'\0'
+          actual_raw=pathlib.Path(f'/proc/{pid}/cmdline').read_bytes()
+          actual_argv=[x for x in actual_raw.split(b'\0') if x]
+          actual_env={}
+          for entry in pathlib.Path(f'/proc/{pid}/environ').read_bytes().split(b'\0'):
+              if entry and b'=' in entry:
+                  k,v=entry.split(b'=',1); actual_env[k]=v
+
+          max_len=max(len(expected_argv),len(actual_argv))
+          diffs=[i for i in range(max_len) if (expected_argv[i] if i<len(expected_argv) else None)!=(actual_argv[i] if i<len(actual_argv) else None)]
+          first=diffs[0] if diffs else -1
+          first_class='NONE'
+          if first==0: first_class='ARGV0'
+          elif first>0:
+              token=expected_argv[first] if first<len(expected_argv) else None
+              prev=expected_argv[first-1] if first-1<len(expected_argv) else None
+              if token is not None and any(token==a or token.startswith(a+b'=') for group in aliases.values() for a in group): first_class='FLAG_NAME'
+              else:
+                  matched=next((n for n,g in aliases.items() if prev in g),None) if prev is not None else None
+                  first_class=('FLAG_VALUE_'+matched.upper()) if matched else 'POSITIONAL'
+
+          expected_norm=normalized(expected_argv); actual_norm=normalized(actual_argv)
+          exe_sha=sha(pathlib.Path(f'/proc/{pid}/exe').resolve(strict=True).read_bytes())
+          status=pathlib.Path(f'/proc/{pid}/status').read_text(encoding='ascii')
+          m=re.search(r'^VmSwap:\s+(\d+)\s+kB$',status,re.MULTILINE)
+          swap_kb=int(m.group(1)) if m else -1
+          env_diff=len({k for k in set(expected_env)|set(actual_env) if expected_env.get(k)!=actual_env.get(k)})
+
+          print('G3C_OBSERVER_PID_CHANGED=1')
+          print('G3C_OBSERVER_CMDLINE_MATCH='+str(int(expected_raw==actual_raw)))
+          print('G3C_OBSERVER_EXPECTED_CMDLINE_SHA256='+sha(expected_raw))
+          print('G3C_OBSERVER_ACTUAL_CMDLINE_SHA256='+sha(actual_raw))
+          print('G3C_OBSERVER_EXPECTED_ARGC='+str(len(expected_argv)))
+          print('G3C_OBSERVER_ACTUAL_ARGC='+str(len(actual_argv)))
+          print('G3C_OBSERVER_DIFF_COUNT='+str(len(diffs)))
+          print('G3C_OBSERVER_FIRST_DIFF_INDEX='+str(first))
+          print('G3C_OBSERVER_FIRST_DIFF_CLASS='+first_class)
+          if first>=0:
+              e=expected_argv[first] if first<len(expected_argv) else b''; a=actual_argv[first] if first<len(actual_argv) else b''
+              print('G3C_OBSERVER_FIRST_DIFF_EXPECTED_LEN='+str(len(e)))
+              print('G3C_OBSERVER_FIRST_DIFF_ACTUAL_LEN='+str(len(a)))
+              print('G3C_OBSERVER_FIRST_DIFF_EXPECTED_SHA256='+sha(e))
+              print('G3C_OBSERVER_FIRST_DIFF_ACTUAL_SHA256='+sha(a))
+          print('G3C_OBSERVER_NORMALIZED_MATCH='+str(int(bool(expected_norm) and expected_norm==actual_norm)))
+          print('G3C_OBSERVER_ARGV0_MATCH='+str(int(bool(expected_argv and actual_argv) and expected_argv[0]==actual_argv[0])))
+          print('G3C_OBSERVER_EXE_SHA_MATCH='+str(int(exe_sha==str(data['exe_sha256']))))
+          print('G3C_OBSERVER_ENV_MAP_MATCH='+str(int(expected_env==actual_env)))
+          print('G3C_OBSERVER_ENV_DIFF_COUNT='+str(env_diff))
+          print('G3C_OBSERVER_THREADS='+flag(actual_argv,'threads').decode('ascii','replace'))
+          print('G3C_OBSERVER_THREADS_BATCH='+flag(actual_argv,'threads_batch').decode('ascii','replace'))
+          print('G3C_OBSERVER_PARALLEL='+flag(actual_argv,'parallel').decode('ascii','replace'))
+          print('G3C_OBSERVER_CTX_SIZE='+flag(actual_argv,'ctx_size').decode('ascii','replace'))
+          print('G3C_OBSERVER_BATCH_SIZE='+flag(actual_argv,'batch_size').decode('ascii','replace'))
+          print('G3C_OBSERVER_UBATCH_SIZE='+flag(actual_argv,'ubatch_size').decode('ascii','replace'))
+          print('G3C_OBSERVER_SWAP_KB='+str(swap_kb))
+          print('G3C_OBSERVER_RESULT=OBSERVED')
+          PY
+          REMOTE
+          observer_rc=$?
+          set -e
+          grep -E '^G3C_OBSERVER_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/observer-raw" > "$RUNNER_TEMP/observer-result" || true
+          [[ -s "$RUNNER_TEMP/observer-result" ]] || printf '%s\n' 'G3C_OBSERVER_ERROR=bounded_observer_evidence_missing' > "$RUNNER_TEMP/observer-result"
+
+          set +e
+          wait "$helper_local_pid"; helper_rc=$?
+          "${ssh_base[@]}" 'sudo -n /usr/local/sbin/gekta-qwen-g3c rollback' > "$RUNNER_TEMP/rollback-raw" 2>&1; rollback_rc=$?
+          set -e
+          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/helper-raw" > "$RUNNER_TEMP/helper-result" || true
+          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/rollback-raw" > "$RUNNER_TEMP/rollback-result" || true
+
+          "${ssh_base[@]}" 'sudo -n /usr/local/sbin/gekta-qwen-g3c status' > "$RUNNER_TEMP/post-status" 2>&1
+          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/post-status" > "$RUNNER_TEMP/post-bounded" || true
+          for expected in \
+            'GEKTA_G3C_STATE=BASELINE' 'GEKTA_G3C_UBATCH=128' \
+            'GEKTA_G3C_THREADS=16' 'GEKTA_G3C_THREADS_BATCH=16' \
+            'GEKTA_G3C_PARALLEL=1' 'GEKTA_G3C_CTX_SIZE=8192' \
+            'GEKTA_G3C_BATCH_SIZE=512' 'GEKTA_G3C_SWAP_USED_KB=0'; do
+            grep -qx "$expected" "$RUNNER_TEMP/post-bounded"
+          done
+
+          {
+            cat "$RUNNER_TEMP/observer-result"
+            printf 'G3C_OBSERVER_REMOTE_RC=%s\n' "$observer_rc"
+            printf 'G3C_OBSERVER_HELPER_RC=%s\n' "$helper_rc"
+            printf 'G3C_OBSERVER_ROLLBACK_RC=%s\n' "$rollback_rc"
+            cat "$RUNNER_TEMP/helper-result"
+            cat "$RUNNER_TEMP/rollback-result"
+            cat "$RUNNER_TEMP/post-bounded"
+          } > "$RUNNER_TEMP/g3c-observer-evidence"
+          grep -qx 'G3C_OBSERVER_RESULT=OBSERVED' "$RUNNER_TEMP/g3c-observer-evidence"
+          [[ "$observer_rc" -eq 0 && "$rollback_rc" -eq 0 ]]
+
+      - name: Publish bounded observer evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/comment.md"
+          {
+            echo '## Gekta P0 SPEED G3C cmdline observer'
+            echo
+            echo "- exact repository main: \`$TARGET_SHA\`"
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo '- experiment: `ubatch 128 -> 512`, observed then forced rollback'
+            echo '- transport: `DEDICATED_MODEL_SSH_PINNED_HOST`'
+            echo '- raw argv/environment disclosure: `NONE`'
+            echo '- final state requirement: `BASELINE`'
+            echo
+            echo '```text'
+            if [[ -s "$RUNNER_TEMP/g3c-observer-evidence" ]]; then cat "$RUNNER_TEMP/g3c-observer-evidence"; else echo 'G3C_OBSERVER_ERROR=execution_not_reached'; fi
+            echo '```'
+          } > "$body"
+          gh issue comment 3896 --repo "$GITHUB_REPOSITORY" --body-file "$body"
