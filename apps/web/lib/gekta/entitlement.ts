@@ -45,7 +45,7 @@ function positiveInteger(raw: string | undefined, fallback: number): number {
  */
 export function getGektaAccessPolicy() {
   return {
-    anonymousFreeAnswers: positiveInteger(process.env.GEKTA_ANONYMOUS_FREE_ANSWERS, 10),
+    anonymousFreeAnswers: Math.min(1_000, positiveInteger(process.env.GEKTA_ANONYMOUS_FREE_ANSWERS, 10)),
     trialDays: positiveInteger(process.env.GEKTA_TRIAL_DAYS, 30),
     /** Fair-use ceiling for a paid plan. Never described to the user as "unlimited". */
     paidFairUseAnswersPerDay: positiveInteger(process.env.GEKTA_PAID_FAIR_USE_ANSWERS_PER_DAY, 300),

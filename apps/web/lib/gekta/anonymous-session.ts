@@ -61,7 +61,10 @@ export function serializeAnonymousSession(session: GektaAnonymousSession): strin
 }
 
 /** Returns null for anything unsigned, tampered with or structurally invalid. */
-export function parseAnonymousSession(raw: string | undefined | null): GektaAnonymousSession | null {
+export function parseAnonymousSession(
+  raw: string | undefined | null,
+  now: Date = new Date(),
+): GektaAnonymousSession | null {
   if (!raw) return null;
   const separator = raw.lastIndexOf('.');
   if (separator <= 0) return null;
@@ -73,9 +76,11 @@ export function parseAnonymousSession(raw: string | undefined | null): GektaAnon
     const decoded: unknown = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return null;
     const value = decoded as Record<string, unknown>;
-    if (typeof value.sid !== 'string' || !value.sid) return null;
-    if (typeof value.used !== 'number' || !Number.isFinite(value.used) || value.used < 0) return null;
-    if (typeof value.issuedAt !== 'number' || !Number.isFinite(value.issuedAt)) return null;
+    if (typeof value.sid !== 'string' || !/^[A-Za-z0-9_-]{20,32}$/u.test(value.sid)) return null;
+    if (typeof value.used !== 'number' || !Number.isSafeInteger(value.used) || value.used < 0) return null;
+    if (typeof value.issuedAt !== 'number' || !Number.isSafeInteger(value.issuedAt)) return null;
+    const age = now.getTime() - value.issuedAt;
+    if (age < -60_000 || age > GEKTA_ANONYMOUS_COOKIE_MAX_AGE_SECONDS * 1_000) return null;
     const pending = typeof value.pending === 'string' && value.pending ? value.pending : null;
     const rawConsent = value.consent;
     let consent: { version: string; at: number } | null = null;
@@ -85,7 +90,7 @@ export function parseAnonymousSession(raw: string | undefined | null): GektaAnon
         consent = { version: record.version, at: record.at };
       }
     }
-    return { sid: value.sid, used: Math.floor(value.used), pending, issuedAt: value.issuedAt, consent };
+    return { sid: value.sid, used: value.used, pending, issuedAt: value.issuedAt, consent };
   } catch {
     return null;
   }

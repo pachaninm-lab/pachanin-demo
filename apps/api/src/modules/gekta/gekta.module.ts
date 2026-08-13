@@ -13,6 +13,7 @@ import { StaffAccessService } from '../staff-access/staff-access.service';
 import { Reflector } from '@nestjs/core';
 import { RateLimitModule } from '../../common/security/rate-limit.module';
 import { GektaAnonymousAdmissionController } from './gekta-anonymous-admission.controller';
+import { GektaAnonymousAdmissionService } from './gekta-anonymous-admission.service';
 
 /**
  * Гекта переиспользует существующие PostgreSQL, Prisma и identity платформы.
@@ -31,6 +32,7 @@ import { GektaAnonymousAdmissionController } from './gekta-anonymous-admission.c
     GektaOperatorService,
     GektaPhoneService,
     GektaWorkspaceService,
+    GektaAnonymousAdmissionService,
     {
       provide: GektaOperatorGuard,
       inject: [Reflector, StaffAccessService],

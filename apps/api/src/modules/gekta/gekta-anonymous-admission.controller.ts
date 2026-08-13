@@ -9,10 +9,9 @@ import {
   Post,
 } from '@nestjs/common';
 import { Public } from '../../common/decorators/public.decorator';
-import { RateLimitService } from '../../common/security/rate-limit.service';
+import { GektaAnonymousAdmissionService } from './gekta-anonymous-admission.service';
 
 const ANSWER_TICKET_MAX_AGE_MS = 10 * 60 * 1_000;
-const ANSWER_TICKET_WINDOW_SECONDS = 15 * 60;
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{20,32}$/u;
 const TICKET_PATTERN = /^([0-9a-z]{8,12})\.([A-Za-z0-9_-]{16})$/u;
 
@@ -36,12 +35,12 @@ function freshTicket(ticket: string, now = Date.now()): boolean {
  * Internal web → API boundary for anonymous answer admission.
  *
  * The browser cookie proves that a reservation was issued, while the
- * PostgreSQL-backed distributed rate-limit function makes its ticket
- * single-use across requests, processes and replicas.
+ * PostgreSQL-backed admission authority makes its ticket single-use and keeps
+ * the whole anonymous-session quota across requests, processes and replicas.
  */
 @Controller('gekta/internal/anonymous-answer')
 export class GektaAnonymousAdmissionController {
-  constructor(private readonly rateLimits: RateLimitService) {}
+  constructor(private readonly admissions: GektaAnonymousAdmissionService) {}
 
   @Public()
   @HttpCode(200)
@@ -58,12 +57,7 @@ export class GektaAnonymousAdmissionController {
       throw new BadRequestException({ code: 'GEKTA_ANSWER_RESERVATION_INVALID' });
     }
 
-    const decision = await this.rateLimits.consume(
-      'gekta_anonymous_answer_ticket',
-      `${sid}|${ticket}`,
-      1,
-      ANSWER_TICKET_WINDOW_SECONDS,
-    );
+    const decision = await this.admissions.consume(sid, ticket);
     return { allowed: decision.allowed };
   }
 }
