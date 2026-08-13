@@ -10,9 +10,8 @@ const LABEL: Record<GektaLocale, string> = {
  * Icon-only floating entry point to the standalone Gekta product.
  *
  * It is a plain server-rendered anchor: no hydration cost on the marketing
- * surface. When the shared contact dock is mounted, that dock is the single
- * floating help/AI surface and this shortcut yields to it instead of creating
- * two competing controls in the same corner.
+ * surface. Any mounted public assistant/contact launcher is the single floating
+ * communication surface, so this shortcut yields instead of competing with it.
  */
 export function GektaFloatingEntry({ locale }: { locale: GektaLocale }) {
   return (
@@ -65,9 +64,11 @@ const FLOATING_ENTRY_STYLES = `
   outline: 3px solid #087a3b;
   outline-offset: 3px;
 }
-/* One floating surface per page. The shared dock already contains the Gekta,
-   support and call actions, so a second circular G would be redundant. */
+/* One floating surface per page. Both the current unified dock and the legacy
+   public assistant/support launchers outrank this secondary product shortcut. */
 body:has(.pc-public-contact-dock) .pc-gekta-floating,
+body:has(.pc-public-assistant-shortcut) .pc-gekta-floating,
+body:has(.p7-support-chat-button) .pc-gekta-floating,
 body:has([role='dialog'][aria-modal='true']) .pc-gekta-floating,
 body:has(.pc-public-assistant-panel) .pc-gekta-floating {
   display: none;
