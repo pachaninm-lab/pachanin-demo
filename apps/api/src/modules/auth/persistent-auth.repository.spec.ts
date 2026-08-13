@@ -42,3 +42,38 @@ describe('persistent MFA compare-and-set authority', () => {
     expect(statement).toContain("status = 'PENDING'");
   });
 });
+
+describe('Gekta email resend serialization', () => {
+  it('uses the same per-email advisory lock as initial registration', async () => {
+    const client = { $queryRaw: jest.fn().mockResolvedValue([]) };
+    const repository = new PersistentAuthRepository({} as never);
+
+    await repository.lockGektaRegistrationEmail(client as never, 'agronom@example.test');
+
+    const statement = sqlText(client.$queryRaw.mock.calls[0][0]);
+    expect(statement).toContain('pg_advisory_xact_lock');
+    expect(statement).toContain('hashtextextended');
+  });
+
+  it('revokes only pending Gekta challenges for that user', async () => {
+    const client = { $executeRaw: jest.fn().mockResolvedValue(1) };
+    const repository = new PersistentAuthRepository({} as never);
+
+    await repository.revokePendingGektaEmailChallenges(client as never, 'user-1');
+
+    const statement = sqlText(client.$executeRaw.mock.calls[0][0]);
+    expect(statement).toContain("scope = 'GEKTA'");
+    expect(statement).toContain("status = 'PENDING'");
+  });
+
+  it('reads the declared phone only through the registration-specific resolver', async () => {
+    const client = { $queryRaw: jest.fn().mockResolvedValue([]) };
+    const repository = new PersistentAuthRepository({} as never);
+
+    await repository.getProductRegistrationSubject(client as never, 'user-1');
+
+    const statement = sqlText(client.$queryRaw.mock.calls[0][0]);
+    expect(statement).toContain('auth.resolve_gekta_registration_subject_v1');
+    expect(statement).toContain('phone');
+  });
+});

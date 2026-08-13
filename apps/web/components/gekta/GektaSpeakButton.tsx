@@ -58,7 +58,7 @@ export function GektaSpeakButton({ locale, text, onEvent }: { locale: GektaLocal
     <button
       type='button'
       onClick={speaking ? stop : play}
-      className='inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
+      className='inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
       aria-label={speaking ? ui.stop : ui.play}
       data-gekta-speak='true'
       aria-pressed={speaking}

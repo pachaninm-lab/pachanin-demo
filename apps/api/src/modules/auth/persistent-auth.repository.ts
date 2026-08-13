@@ -161,6 +161,11 @@ export type GektaEmailChallengeRow = {
   consumed_at: Date | null;
 };
 
+export type GektaEmailChallengeSummaryRow = {
+  id: string;
+  created_at: Date;
+};
+
 export type ProductRefreshContextRow = ProductSessionContextRow & {
   refresh_token_id: string;
   refresh_token_hash: string;
@@ -889,6 +894,44 @@ export class PersistentAuthRepository {
     `);
   }
 
+  /** Serializes initial registration and resend for one normalized email. */
+  async lockGektaRegistrationEmail(client: AuthSqlClient, email: string): Promise<void> {
+    await client.$queryRaw(Prisma.sql`
+      SELECT pg_advisory_xact_lock(
+        hashtextextended(${`registration-email:${email}`}, 0)
+      )
+    `);
+  }
+
+  async getLatestGektaEmailChallengeForUpdate(
+    client: AuthSqlClient,
+    userId: string,
+  ): Promise<GektaEmailChallengeSummaryRow | null> {
+    const rows = await client.$queryRaw<GektaEmailChallengeSummaryRow[]>(Prisma.sql`
+      SELECT id, created_at
+      FROM auth.registration_email_challenges
+      WHERE user_id = ${userId}
+        AND scope = 'GEKTA'
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+      FOR UPDATE
+    `);
+    return rows[0] ?? null;
+  }
+
+  async revokePendingGektaEmailChallenges(
+    client: AuthSqlClient,
+    userId: string,
+  ): Promise<void> {
+    await client.$executeRaw(Prisma.sql`
+      UPDATE auth.registration_email_challenges
+      SET status = 'REVOKED', updated_at = NOW()
+      WHERE user_id = ${userId}
+        AND scope = 'GEKTA'
+        AND status = 'PENDING'
+    `);
+  }
+
   async getGektaEmailChallengeForUpdate(
     client: AuthSqlClient,
     challengeId: string,
@@ -923,10 +966,10 @@ export class PersistentAuthRepository {
   async getProductRegistrationSubject(
     client: AuthSqlClient,
     userId: string,
-  ): Promise<{ user_id: string; email: string; full_name: string; user_status: string } | null> {
-    const rows = await client.$queryRaw<Array<{ user_id: string; email: string; full_name: string; user_status: string }>>(Prisma.sql`
-      SELECT user_id, email, full_name, user_status
-      FROM auth.resolve_product_session_identity_v1(${userId})
+  ): Promise<{ user_id: string; email: string; full_name: string; phone: string | null; user_status: string } | null> {
+    const rows = await client.$queryRaw<Array<{ user_id: string; email: string; full_name: string; phone: string | null; user_status: string }>>(Prisma.sql`
+      SELECT user_id, email, full_name, phone, user_status
+      FROM auth.resolve_gekta_registration_subject_v1(${userId})
     `);
     return rows[0] ?? null;
   }

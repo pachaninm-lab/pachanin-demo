@@ -452,6 +452,29 @@ BEGIN
     failures := failures + 1;
   END IF;
 
+  -- Заявленный номер выдаётся только узкому регистрационному резолверу и
+  -- только для субъекта без членства. Он нужен BFF после email verification,
+  -- чтобы связать номер уже после обязательного MFA.
+  measured := coalesce((
+    SELECT phone FROM auth.resolve_gekta_registration_subject_v1('user-gekta-new')
+  ), 'NONE');
+  IF measured = '+7 900 000-00-00' THEN
+    RAISE NOTICE 'PASS  R10 registration resolver returns the declared phone -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  R10 registration resolver returns the declared phone -> % (want +7 900 000-00-00)', measured;
+    failures := failures + 1;
+  END IF;
+
+  measured := coalesce((
+    SELECT user_id FROM auth.resolve_gekta_registration_subject_v1('user-a')
+  ), 'NONE');
+  IF measured = 'NONE' THEN
+    RAISE NOTICE 'PASS  R11 registration resolver refuses a platform member -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  R11 registration resolver refuses a platform member -> % (want NONE)', measured;
+    failures := failures + 1;
+  END IF;
+
   IF failures > 0 THEN
     RAISE EXCEPTION 'Gekta registration checks: % failed', failures;
   END IF;

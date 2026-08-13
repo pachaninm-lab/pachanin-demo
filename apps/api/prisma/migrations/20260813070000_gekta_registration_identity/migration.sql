@@ -189,6 +189,47 @@ ALTER FUNCTION auth.resolve_gekta_login_credential(text)
   OWNER TO pc_identity_bootstrap;
 REVOKE ALL ON FUNCTION auth.resolve_gekta_login_credential(text) FROM PUBLIC;
 
+-- Данные, нужные web-BFF после подтверждения email.
+--
+-- Телефон не включён в общую личность продуктовой сессии: большинству
+-- маршрутов он не нужен. Этот узкий резолвер используется только внутри
+-- регистрационной транзакции, после одноразового email-токена, чтобы BFF мог
+-- связать заявленный номер с Гектой после успешного MFA. Пользователь с любым
+-- членством здесь не разрешается.
+CREATE OR REPLACE FUNCTION auth.resolve_gekta_registration_subject_v1(
+  p_user_id text
+)
+RETURNS TABLE (
+  user_id text,
+  email text,
+  full_name text,
+  phone text,
+  user_status text
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+SET row_security = on
+AS $function$
+  SELECT
+    subject."id",
+    subject."email",
+    subject."fullName",
+    subject."phone",
+    subject."status"
+  FROM public."users" subject
+  WHERE subject."id" = p_user_id
+    AND subject."deletedAt" IS NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM public."user_orgs" membership WHERE membership."userId" = subject."id"
+    )
+  LIMIT 1;
+$function$;
+ALTER FUNCTION auth.resolve_gekta_registration_subject_v1(text)
+  OWNER TO pc_identity_bootstrap;
+REVOKE ALL ON FUNCTION auth.resolve_gekta_registration_subject_v1(text) FROM PUBLIC;
+
 -- Право выполнения выдаётся ровно тем рантайм-ролям, которые уже выполняют
 -- соответствующие платформенные функции. Новых принципалов не появляется.
 DO $gekta_registration_grants$
@@ -206,6 +247,8 @@ BEGIN
       'GRANT EXECUTE ON FUNCTION auth.mark_gekta_email_verified(text,text) TO %I', runtime_role);
     EXECUTE format(
       'GRANT EXECUTE ON FUNCTION auth.resolve_gekta_login_credential(text) TO %I', runtime_role);
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION auth.resolve_gekta_registration_subject_v1(text) TO %I', runtime_role);
   END LOOP;
 END;
 $gekta_registration_grants$;

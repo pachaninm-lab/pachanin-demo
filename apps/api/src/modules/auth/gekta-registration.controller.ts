@@ -42,7 +42,25 @@ export class GektaRegistrationController {
       phone: String(body?.phone ?? ''),
       acceptedServiceTerms: body?.acceptedServiceTerms === true,
       acceptedPersonalData: body?.acceptedPersonalData === true,
-    }, userAgent, ip, deliveryKey);
+    }, deliveryKey, userAgent, ip);
+  }
+
+  @Public()
+  @HttpCode(202)
+  @RateLimit({ name: 'gekta_register_resend', scope: 'ip', limit: 5, windowSeconds: 300, limitEnv: 'RATE_LIMIT_GEKTA_REGISTER_RESEND', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
+  @Post('register/email/resend')
+  resendEmail(
+    @Body() body: { email?: string },
+    @Headers('x-registration-delivery-key') deliveryKey?: string,
+    @Headers('user-agent') userAgent?: string,
+    @Ip() ip?: string,
+  ) {
+    return this.registration.resendEmail(
+      String(body?.email ?? ''),
+      deliveryKey,
+      userAgent,
+      ip,
+    );
   }
 
   @Public()
@@ -51,10 +69,11 @@ export class GektaRegistrationController {
   @Post('register/email/verify')
   verifyEmail(
     @Body() body: { token?: string },
+    @Headers('x-registration-delivery-key') deliveryKey?: string,
     @Headers('user-agent') userAgent?: string,
     @Ip() ip?: string,
   ) {
-    return this.registration.verifyEmail(String(body?.token ?? ''), userAgent, ip);
+    return this.registration.verifyEmail(String(body?.token ?? ''), userAgent, ip, deliveryKey);
   }
 
   @Public()

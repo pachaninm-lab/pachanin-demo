@@ -3,11 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { signAccessToken } from './access-token';
 import { encryptMfaSecret, generateTotpSecret } from './auth-crypto';
-import {
-  PersistentAuthRepository,
-  type ProductMfaChallengeRow,
-  type ProductSessionContextRow,
-} from './persistent-auth.repository';
+import { PersistentAuthRepository, type ProductSessionContextRow } from './persistent-auth.repository';
 import { ProductSessionService } from './product-session.service';
 import {
   digestMfaBackupCode,
@@ -59,11 +55,11 @@ function repository(row: ProductSessionContextRow | null = productSession()) {
     getProductMfaChallengeForUpdate: jest.fn(),
     getCredentialState: jest.fn(),
     createProductSession: jest.fn(),
-    createRefreshToken: jest.fn(),
-    createMfaChallenge: jest.fn(),
     setMfaSecret: jest.fn(),
+    createMfaChallenge: jest.fn(),
     recordMfaFailure: jest.fn(),
     activateMfaSession: jest.fn(),
+    createRefreshToken: jest.fn(),
     rotateRefreshToken: jest.fn(),
     revokeFamily: jest.fn(),
     revokeSession: jest.fn(),
@@ -78,23 +74,6 @@ function service(repo: ReturnType<typeof repository>) {
 }
 
 const token = () => signAccessToken(USER_ID, SESSION_ID, 1);
-
-function mfaChallenge(
-  issued: ReturnType<typeof issueMfaChallengeCredential>,
-  overrides: Partial<ProductMfaChallengeRow> = {},
-): ProductMfaChallengeRow {
-  return {
-    ...productSession({ session_status: 'MFA_PENDING' }),
-    challenge_id: issued.credentialId,
-    challenge_token_hash: issued.storedDigest,
-    challenge_type: 'TOTP_VERIFY',
-    challenge_status: 'PENDING',
-    challenge_attempts: 0,
-    challenge_max_attempts: 5,
-    challenge_expires_at: new Date(Date.now() + 60_000),
-    ...overrides,
-  };
-}
 
 describe('Продуктовая сессия не является платформенной', () => {
   it('отдаёт актора без организации, тенанта, членства и роли', async () => {
@@ -131,6 +110,9 @@ describe('Продуктовая сессия перестаёт действо�
     ['истекла по времени', { session_expires_at: new Date(Date.now() - 1) }, 'SESSION_EXPIRED'],
     ['не активна', { session_status: 'MFA_PENDING' }, 'SESSION_NOT_ACTIVE'],
     ['пользователь не активен', { user_status: 'SUSPENDED' }, 'USER_NOT_ACTIVE'],
+    ['MFA выключена', { current_mfa_enabled: false }, 'MFA_REQUIRED'],
+    ['MFA не подтверждена сессией', { mfa_verified_at: null }, 'MFA_REQUIRED'],
+    ['метод MFA не зафиксирован', { mfa_level: 'NONE' }, 'MFA_REQUIRED'],
     ['пароль сменился', { current_credential_version: 2 }, 'CREDENTIAL_VERSION_CHANGED'],
   ];
 
@@ -144,6 +126,104 @@ describe('Продуктовая сессия перестаёт действо�
   it('не считает продуктовой сессию с неизвестной областью действия', async () => {
     const repo = repository(productSession({ session_scope: 'PLATFORM' }));
     await expect(service(repo).tryVerifyAccessToken(token())).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+});
+
+describe('Повторный вход проверяет существующий MFA, а не заменяет его', () => {
+  it('создаёт секрет только для первоначального enrollment', async () => {
+    const enrollmentRepo = repository();
+    const enrollment = await service(enrollmentRepo).issueMfaSession(enrollmentRepo.prisma as never, {
+      userId: USER_ID,
+      email: 'agronom@example.test',
+      credentialVersion: 1,
+      enrollment: true,
+    });
+
+    expect(enrollmentRepo.setMfaSecret).toHaveBeenCalledTimes(1);
+    expect(enrollment).toHaveProperty('setupSecret');
+    expect(enrollment).toHaveProperty('otpAuthUri');
+    expect(enrollmentRepo.createMfaChallenge).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: 'TOTP_ENROLL' }),
+    );
+
+    const loginRepo = repository();
+    const login = await service(loginRepo).issueMfaSession(loginRepo.prisma as never, {
+      userId: USER_ID,
+      email: 'agronom@example.test',
+      credentialVersion: 1,
+      enrollment: false,
+    });
+
+    expect(loginRepo.setMfaSecret).not.toHaveBeenCalled();
+    expect(login).not.toHaveProperty('setupSecret');
+    expect(login).not.toHaveProperty('otpAuthUri');
+    expect(loginRepo.createMfaChallenge).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: 'TOTP_VERIFY' }),
+    );
+  });
+
+  it('поглощает один backup-код при login и не генерирует новый набор', async () => {
+    const issued = issueMfaChallengeCredential();
+    const backupCode = 'ABCD-EF12-3456';
+    const repo = repository();
+    repo.getProductMfaChallengeForUpdate.mockResolvedValue({
+      ...productSession({ session_status: 'MFA_PENDING', mfa_verified_at: null }),
+      challenge_id: issued.credentialId,
+      challenge_token_hash: issued.storedDigest,
+      challenge_type: 'TOTP_VERIFY',
+      challenge_status: 'PENDING',
+      challenge_attempts: 0,
+      challenge_max_attempts: 5,
+      challenge_expires_at: new Date(Date.now() + 60_000),
+    });
+    repo.getCredentialState.mockResolvedValue({
+      user_id: USER_ID,
+      credential_version: 1,
+      mfa_enabled: true,
+      // Повреждённый TOTP не должен блокировать одноразовый recovery-код и
+      // тем более не должен запускать переинициализацию второго фактора.
+      mfa_secret_ciphertext: 'corrupt-ciphertext',
+      mfa_backup_hashes: [digestMfaBackupCode(backupCode)],
+    });
+
+    const result = await service(repo).verifyMfa(issued.rawToken, backupCode);
+
+    expect(result).not.toHaveProperty('backupCodes');
+    expect(repo.activateMfaSession).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      method: 'BACKUP',
+      enableMfa: false,
+      backupHashes: [],
+    }));
+  });
+
+  it('не разрешает старому backup-коду подтвердить новый authenticator', async () => {
+    const issued = issueMfaChallengeCredential();
+    const backupCode = 'ABCD-EF12-3456';
+    const repo = repository();
+    repo.getProductMfaChallengeForUpdate.mockResolvedValue({
+      ...productSession({ session_status: 'MFA_PENDING', mfa_verified_at: null }),
+      challenge_id: issued.credentialId,
+      challenge_token_hash: issued.storedDigest,
+      challenge_type: 'TOTP_ENROLL',
+      challenge_status: 'PENDING',
+      challenge_attempts: 0,
+      challenge_max_attempts: 5,
+      challenge_expires_at: new Date(Date.now() + 60_000),
+    });
+    repo.getCredentialState.mockResolvedValue({
+      user_id: USER_ID,
+      credential_version: 1,
+      mfa_enabled: false,
+      mfa_secret_ciphertext: encryptMfaSecret(generateTotpSecret()).ciphertext,
+      mfa_backup_hashes: [digestMfaBackupCode(backupCode)],
+    });
+
+    await expect(service(repo).verifyMfa(issued.rawToken, backupCode))
+      .rejects.toBeInstanceOf(UnauthorizedException);
+    expect(repo.activateMfaSession).not.toHaveBeenCalled();
+    expect(repo.recordMfaFailure).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -193,62 +273,6 @@ describe('Продуктовая сессия пользуется сущест�
     const repo = repository();
     await expect(service(repo).refresh(makeOpaqueToken('mc').token)).rejects.toBeInstanceOf(UnauthorizedException);
     expect(repo.getProductRefreshContextForUpdate).not.toHaveBeenCalled();
-  });
-});
-
-describe('MFA продуктовой сессии различает привязку и повторный вход', () => {
-  it('при повторном входе не меняет TOTP secret и создаёт TOTP_VERIFY', async () => {
-    const repo = repository();
-    const result = await service(repo).issueMfaSession({} as never, {
-      userId: USER_ID,
-      email: 'agronom@example.test',
-      credentialVersion: 1,
-      enrollmentRequired: false,
-    });
-
-    expect(result.enrollmentRequired).toBe(false);
-    expect(result).not.toHaveProperty('setupSecret');
-    expect(result).not.toHaveProperty('otpAuthUri');
-    expect(repo.setMfaSecret).not.toHaveBeenCalled();
-    expect(repo.createMfaChallenge).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      type: 'TOTP_VERIFY',
-    }));
-  });
-
-  it('резервный код работает один раз и не перевыпускает остальные', async () => {
-    const issued = issueMfaChallengeCredential();
-    const backupCode = 'ABCD-1234-EF56';
-    const remainingCode = '9999-AAAA-BBBB';
-    const repo = repository();
-    repo.getProductMfaChallengeForUpdate.mockResolvedValue(mfaChallenge(issued));
-    repo.getCredentialState.mockResolvedValue({
-      mfa_secret_ciphertext: encryptMfaSecret(generateTotpSecret()).ciphertext,
-      mfa_backup_hashes: [digestMfaBackupCode(backupCode), digestMfaBackupCode(remainingCode)],
-    });
-
-    const result = await service(repo).verifyMfa(issued.rawToken, backupCode);
-
-    expect(result).not.toHaveProperty('backupCodes');
-    expect(repo.activateMfaSession).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      method: 'BACKUP',
-      enableMfa: false,
-      backupHashes: [digestMfaBackupCode(remainingCode)],
-    }));
-    expect(repo.setMfaSecret).not.toHaveBeenCalled();
-  });
-
-  it('не принимает старый enrollment challenge после включения MFA', async () => {
-    const issued = issueMfaChallengeCredential();
-    const repo = repository();
-    repo.getProductMfaChallengeForUpdate.mockResolvedValue(mfaChallenge(issued, {
-      challenge_type: 'TOTP_ENROLL',
-      current_mfa_enabled: true,
-    }));
-
-    await expect(service(repo).verifyMfa(issued.rawToken, '000000'))
-      .rejects.toBeInstanceOf(UnauthorizedException);
-    expect(repo.getCredentialState).not.toHaveBeenCalled();
-    expect(repo.activateMfaSession).not.toHaveBeenCalled();
   });
 });
 

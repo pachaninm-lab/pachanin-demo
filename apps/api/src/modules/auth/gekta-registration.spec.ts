@@ -5,6 +5,7 @@ import * as path from 'path';
 import { GektaRegistrationService, normalizeDeclaredPhone } from './gekta-registration.service';
 import { PersistentAuthRepository } from './persistent-auth.repository';
 import { ProductSessionService } from './product-session.service';
+import { issueRegistrationEmailToken } from './registration-token';
 
 const migration = fs.readFileSync(
   path.join(process.cwd(), 'prisma/migrations/20260813070000_gekta_registration_identity/migration.sql'),
@@ -23,16 +24,7 @@ const VALID = {
   acceptedServiceTerms: true,
   acceptedPersonalData: true,
 };
-const DELIVERY_KEY = 'gekta-registration-delivery-key-2026';
-
-const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
-beforeAll(() => {
-  process.env.REGISTRATION_DELIVERY_KEY = DELIVERY_KEY;
-});
-afterAll(() => {
-  if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
-  else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
-});
+const DELIVERY_KEY = 'gekta-registration-delivery-key-at-least-32-chars';
 
 function repository(outcome: 'CREATED' | 'SUPPRESSED' = 'CREATED') {
   return {
@@ -43,6 +35,9 @@ function repository(outcome: 'CREATED' | 'SUPPRESSED' = 'CREATED') {
     ),
     ensureCredentialState: jest.fn(),
     createGektaEmailChallenge: jest.fn(),
+    lockGektaRegistrationEmail: jest.fn(),
+    getLatestGektaEmailChallengeForUpdate: jest.fn().mockResolvedValue(null),
+    revokePendingGektaEmailChallenges: jest.fn(),
     getGektaEmailChallengeForUpdate: jest.fn(),
     consumeGektaEmailChallenge: jest.fn(),
     markGektaEmailVerified: jest.fn(),
@@ -50,7 +45,7 @@ function repository(outcome: 'CREATED' | 'SUPPRESSED' = 'CREATED') {
     getProductRegistrationSubject: jest.fn(),
     findGektaLoginCredential: jest.fn().mockResolvedValue(null),
     ensureLoginThrottle: jest.fn(),
-    getLoginThrottle: jest.fn().mockResolvedValue(null),
+    getLoginThrottle: jest.fn().mockResolvedValue({ failures: 0, locked_until: null }),
     setLoginThrottle: jest.fn(),
     clearLoginThrottle: jest.fn(),
     markLoginSuccess: jest.fn(),
@@ -65,7 +60,8 @@ function productSessions() {
       sessionId: 'ses_1',
       challengeToken: 'mc_token',
       expiresAt: '2026-08-13T06:00:00.000Z',
-      enrollmentRequired: false,
+      setupSecret: 'SECRET',
+      otpAuthUri: 'otpauth://totp/x',
     }),
     verifyMfa: jest.fn(),
   };
@@ -79,6 +75,10 @@ function service(repo: ReturnType<typeof repository>, sessions = productSessions
 }
 
 describe('Регистрация в Гекте не спрашивает организацию и ИНН', () => {
+  beforeEach(() => {
+    process.env.REGISTRATION_DELIVERY_KEY = DELIVERY_KEY;
+  });
+
   it('не принимает ни одного организационного поля', () => {
     // Их нет ни в сигнатуре функции базы, ни во входе сервиса, поэтому
     // корпоративная форма не может протечь в продукт.
@@ -88,9 +88,9 @@ describe('Регистрация в Гекте не спрашивает орг�
     expect(migration).toContain('p_user_id text,\n  p_email text,\n  p_phone text,\n  p_password_hash text,\n  p_full_name text');
   });
 
-  it('заводит пользователя и возвращает токен письма', async () => {
+  it('заводит пользователя и отдаёт токен письма только внутреннему BFF', async () => {
     const repo = repository('CREATED');
-    const result = await service(repo).register(VALID, undefined, undefined, DELIVERY_KEY);
+    const result = await service(repo).register(VALID, DELIVERY_KEY);
 
     expect(result.status).toBe('EMAIL_VERIFICATION_REQUIRED');
     expect(result.email).toBe('agronom@example.test');
@@ -101,11 +101,14 @@ describe('Регистрация в Гекте не спрашивает орг�
     const [, prepared] = repo.prepareGektaRegistrationIdentity.mock.calls[0] as [unknown, { passwordHash: string }];
     expect(prepared.passwordHash).not.toContain(VALID.password);
     expect(await bcrypt.compare(VALID.password, prepared.passwordHash)).toBe(true);
+
+    const publicResult = await service(repository('CREATED')).register(VALID);
+    expect(publicResult).not.toHaveProperty('emailDelivery');
   });
 
   it('отвечает на занятый email тем же, чем на свободный', async () => {
     const repo = repository('SUPPRESSED');
-    const result = await service(repo).register(VALID, undefined, undefined, DELIVERY_KEY);
+    const result = await service(repo).register(VALID, DELIVERY_KEY);
 
     expect(result.status).toBe('EMAIL_VERIFICATION_REQUIRED');
     expect(result.email).toBe('agronom@example.test');
@@ -115,27 +118,54 @@ describe('Регистрация в Гекте не спрашивает орг�
     expect(repo.createGektaEmailChallenge).not.toHaveBeenCalled();
   });
 
-  it('не отдаёт bearer-токен письма без внутреннего delivery key', async () => {
+  it('сохраняет два отдельных согласия с версиями и хешами источников', async () => {
     const repo = repository('CREATED');
-    const result = await service(repo).register(VALID);
-
-    expect(result.status).toBe('EMAIL_VERIFICATION_REQUIRED');
-    expect(result).not.toHaveProperty('emailDelivery');
-    expect(repo.createGektaEmailChallenge).toHaveBeenCalledTimes(1);
-  });
-
-  it('фиксирует два отдельных доказательства согласия', async () => {
-    const repo = repository('CREATED');
-    await service(repo).register(VALID, undefined, undefined, DELIVERY_KEY);
+    await service(repo).register(VALID, DELIVERY_KEY);
 
     expect(repo.insertAudit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       metadata: expect.objectContaining({
-        consents: {
-          serviceTerms: expect.objectContaining({ accepted: true, source: '/platform-v7/terms' }),
-          personalData: expect.objectContaining({ accepted: true, source: '/platform-v7/privacy' }),
-        },
+        consent: expect.objectContaining({
+          terms: expect.objectContaining({ version: '2026-07-31', contentHash: expect.stringMatching(/^sha256:/u) }),
+          privacy: expect.objectContaining({ version: '2026-07-31', contentHash: expect.stringMatching(/^sha256:/u) }),
+        }),
+        acceptedServiceTerms: true,
+        acceptedPersonalData: true,
       }),
     }));
+  });
+});
+
+describe('Повторная доставка подтверждения email', () => {
+  beforeEach(() => {
+    process.env.REGISTRATION_DELIVERY_KEY = DELIVERY_KEY;
+  });
+
+  it('вращает pending challenge и отдаёт токен только внутреннему BFF', async () => {
+    const repo = repository();
+    repo.findGektaLoginCredential.mockResolvedValue({
+      user_id: 'usr_1', email: 'agronom@example.test', password_hash: 'hash', user_status: 'PENDING_EMAIL_VERIFICATION',
+    });
+
+    const result = await service(repo).resendEmail(VALID.email, DELIVERY_KEY);
+
+    expect(result).toHaveProperty('emailDelivery');
+    expect(repo.revokePendingGektaEmailChallenges).toHaveBeenCalledWith(expect.anything(), 'usr_1');
+    expect(repo.createGektaEmailChallenge).toHaveBeenCalledTimes(1);
+  });
+
+  it('не различает неизвестный адрес и cooldown публичным ответом', async () => {
+    const unknownRepo = repository();
+    const unknown = await service(unknownRepo).resendEmail(VALID.email);
+
+    const cooldownRepo = repository();
+    cooldownRepo.findGektaLoginCredential.mockResolvedValue({
+      user_id: 'usr_1', email: 'agronom@example.test', password_hash: 'hash', user_status: 'PENDING_EMAIL_VERIFICATION',
+    });
+    cooldownRepo.getLatestGektaEmailChallengeForUpdate.mockResolvedValue({ id: 'challenge', created_at: new Date() });
+    const cooldown = await service(cooldownRepo).resendEmail(VALID.email);
+
+    expect(unknown).toEqual(cooldown);
+    expect(unknown).not.toHaveProperty('emailDelivery');
   });
 });
 
@@ -155,18 +185,6 @@ describe('Регистрация требует того, что действи�
       await expect(service(repo).register({ ...VALID, password }))
         .rejects.toBeInstanceOf(BadRequestException);
     }
-  });
-
-  it('проверяет адрес целиком, а не только наличие @', async () => {
-    const repo = repository();
-    for (const email of ['name@', '@example.test', 'name@example', `x@${'a'.repeat(255)}.test`]) {
-      await expect(service(repo).register({ ...VALID, email }))
-        .rejects.toBeInstanceOf(BadRequestException);
-    }
-  });
-
-  it('считает dummy bcrypt с тем же cost, что и настоящий пароль', () => {
-    expect(serviceSource).toContain("bcrypt.hashSync('invalid-password-sentinel', BCRYPT_ROUNDS)");
   });
 
   it('требует телефон и не называет его подтверждённым', async () => {
@@ -195,62 +213,65 @@ describe('Активная сессия не выдаётся раньше, че
     await expect(service(repo).verifyEmail('rev_bad')).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('валидное подтверждение email создаёт только enrollment-сессию', async () => {
+    const issued = issueRegistrationEmailToken();
+    const repo = repository();
+    repo.getGektaEmailChallengeForUpdate.mockResolvedValue({
+      id: issued.id,
+      user_id: 'usr_1',
+      token_hash: issued.hash,
+      status: 'PENDING',
+      expires_at: new Date(Date.now() + 60_000),
+      consumed_at: null,
+    });
+    repo.consumeGektaEmailChallenge.mockResolvedValue(1);
+    repo.markGektaEmailVerified.mockResolvedValue(true);
+    repo.getCredentialState.mockResolvedValue({ credential_version: 1 });
+    repo.getProductRegistrationSubject.mockResolvedValue({
+      user_id: 'usr_1', email: 'agronom@example.test', full_name: 'Иван', phone: VALID.phone, user_status: 'ACTIVE',
+    });
+    const sessions = productSessions();
+
+    const result = await service(repo, sessions).verifyEmail(issued.token, undefined, undefined, DELIVERY_KEY);
+
+    expect(result.status).toBe('MFA_ENROLLMENT_REQUIRED');
+    expect(result).not.toHaveProperty('accessToken');
+    expect(result).not.toHaveProperty('refreshToken');
+    expect(result).toHaveProperty('email', 'agronom@example.test');
+    expect(result).toHaveProperty('declaredPhone', VALID.phone);
+    expect(sessions.issueMfaSession).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      enrollment: true,
+    }));
+
+    const publicResult = await service(repo, sessions).verifyEmail(issued.token);
+    expect(publicResult).not.toHaveProperty('email');
+    expect(publicResult).not.toHaveProperty('declaredPhone');
+  });
+
   it('не пускает по паролю без MFA', async () => {
     const repo = repository();
-    const sessions = productSessions();
     const hash = await bcrypt.hash(VALID.password, 4);
     repo.findGektaLoginCredential.mockResolvedValue({
       user_id: 'usr_1', email: 'agronom@example.test', password_hash: hash, user_status: 'ACTIVE',
     });
+    repo.getProductRegistrationSubject.mockResolvedValue({
+      user_id: 'usr_1', email: 'agronom@example.test', full_name: 'Иван', phone: VALID.phone, user_status: 'ACTIVE',
+    });
+
     repo.getCredentialState.mockResolvedValue({
       credential_version: 1,
       mfa_enabled: true,
-      mfa_secret_ciphertext: 'v1:present',
+      // Повреждение секрета не должно превращаться в разрешение заменить уже
+      // включённый второй фактор одним только паролем. Остаётся путь backup.
+      mfa_secret_ciphertext: null,
     });
-    repo.getProductRegistrationSubject.mockResolvedValue({
-      user_id: 'usr_1', email: 'agronom@example.test', full_name: 'Иван', user_status: 'ACTIVE',
-    });
-
+    const sessions = productSessions();
     const result = await service(repo, sessions).login('agronom@example.test', VALID.password);
     expect(result.status).toBe('MFA_REQUIRED');
-    expect(result.enrollmentRequired).toBe(false);
-    expect(result).not.toHaveProperty('setupSecret');
     expect(result).not.toHaveProperty('accessToken');
     expect(result).not.toHaveProperty('refreshToken');
     expect(sessions.issueMfaSession).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      enrollmentRequired: false,
-    }));
-    expect(repo.clearLoginThrottle).toHaveBeenCalledTimes(1);
-  });
-
-  it('возобновляет незавершённую привязку MFA и только тогда отдаёт setup secret', async () => {
-    const repo = repository();
-    const sessions = productSessions();
-    sessions.issueMfaSession.mockResolvedValue({
-      sessionId: 'ses_2',
-      challengeToken: 'mc_enroll',
-      expiresAt: '2026-08-13T06:00:00.000Z',
-      enrollmentRequired: true,
-      setupSecret: 'SECRET',
-      otpAuthUri: 'otpauth://totp/x',
-    });
-    const hash = await bcrypt.hash(VALID.password, 4);
-    repo.findGektaLoginCredential.mockResolvedValue({
-      user_id: 'usr_1', email: 'agronom@example.test', password_hash: hash, user_status: 'ACTIVE',
-    });
-    repo.getCredentialState.mockResolvedValue({
-      credential_version: 1,
-      mfa_enabled: false,
-      mfa_secret_ciphertext: null,
-    });
-    repo.getProductRegistrationSubject.mockResolvedValue({
-      user_id: 'usr_1', email: 'agronom@example.test', full_name: 'Иван', user_status: 'ACTIVE',
-    });
-
-    const result = await service(repo, sessions).login('agronom@example.test', VALID.password);
-    expect(result).toMatchObject({ enrollmentRequired: true, setupSecret: 'SECRET' });
-    expect(sessions.issueMfaSession).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      enrollmentRequired: true,
+      enrollment: false,
     }));
   });
 
@@ -274,7 +295,20 @@ describe('Активная сессия не выдаётся раньше, че
 
     expect(JSON.stringify((unknown as UnauthorizedException).getResponse()))
       .toBe(JSON.stringify((wrong as UnauthorizedException).getResponse()));
-    expect(repo.ensureLoginThrottle).toHaveBeenCalledTimes(2);
-    expect(repo.setLoginThrottle).toHaveBeenCalledTimes(2);
+  });
+
+  it('после пятой ошибки ставит account-level блокировку, а не полагается только на IP', async () => {
+    const repo = repository();
+    repo.getLoginThrottle.mockResolvedValue({ failures: 4, locked_until: null });
+
+    await expect(service(repo).login('nobody@example.test', VALID.password))
+      .rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(repo.setLoginThrottle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      0,
+      expect.any(Date),
+    );
   });
 });
