@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from '../../modules/auth/auth.service';
+import { ProductSessionService } from '../../modules/auth/product-session.service';
 import { StaffAccessService } from '../../modules/staff-access/staff-access.service';
 import { FINANCIAL_MFA_THRESHOLD_KOPECKS } from '../types/request-user';
 import { PUBLIC_ROUTE, PUBLIC_ROUTE_OPTIONS, PublicRouteOptions } from '../decorators/public.decorator';
@@ -28,6 +29,7 @@ export class AppAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly authService: AuthService,
     private readonly staffAccess: StaffAccessService,
+    private readonly productSessions: ProductSessionService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -45,6 +47,17 @@ export class AppAuthGuard implements CanActivate {
     const raw = req.headers.authorization;
     if (!raw?.startsWith('Bearer ')) throw new UnauthorizedException('Missing bearer token');
     const token = raw.slice('Bearer '.length);
+
+    // Сессия продукта не является платформенным актором. Она кладётся в
+    // отдельное поле, а req.user остаётся пустым — поэтому каждый
+    // существующий платформенный guard, читающий req.user, отклоняет её без
+    // единой правки. Продуктовые маршруты читают req.productUser явно.
+    const productUser = await this.productSessions.tryVerifyAccessToken(token);
+    if (productUser) {
+      req.productUser = productUser;
+      return true;
+    }
+
     req.user = await this.authService.verifyAccessToken(token);
 
     const staffHeader = req.headers['x-staff-access-session'];

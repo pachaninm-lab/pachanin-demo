@@ -150,6 +150,83 @@ BEGIN
   END;
 
   ---------------------------------------------------------------------------
+  -- Product session scope. A Gekta session has no membership, organization or
+  -- tenant, so the platform's own resolver must not produce an identity for
+  -- it. This is what keeps the product session out of every platform route
+  -- without a single guard change: the refusal is structural.
+  ---------------------------------------------------------------------------
+  measured := coalesce((
+    SELECT identity.user_id
+    FROM auth.sessions s
+    JOIN LATERAL auth.resolve_session_identity_v2(
+      s.user_id, s.membership_id, s.organization_id, s.tenant_id
+    ) identity ON TRUE
+    JOIN auth.credential_states cs ON cs.user_id = s.user_id
+    WHERE s.id = 'sess-gekta'
+  ), 'NONE');
+  IF measured = 'NONE' THEN
+    RAISE NOTICE 'PASS  02i platform session context refuses a product session -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02i platform session context refuses a product session -> % (want NONE)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- user-new does have a membership (m-new in org-new). The product session
+  -- must not pick it up: a session without an organization stays without one
+  -- even when the same person belongs to one elsewhere.
+  measured := coalesce((
+    SELECT s.id || '/' || coalesce(s.organization_id, 'no-org') || '/' || coalesce(s.membership_id, 'no-membership')
+    FROM auth.sessions s
+    WHERE s.id = 'sess-gekta' AND s.scope = 'GEKTA'
+  ), 'NONE');
+  IF measured = 'sess-gekta/no-org/no-membership' THEN
+    RAISE NOTICE 'PASS  02j product session carries no organization -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02j product session carries no organization -> % (want sess-gekta/no-org/no-membership)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- The read the product runtime actually issues. It resolves the subject
+  -- directly and is bounded by scope, so a platform session identifier
+  -- presented on a product route resolves to nothing.
+  measured := coalesce((
+    SELECT subject.user_id || '/' || s.scope
+    FROM auth.sessions s
+    JOIN LATERAL auth.resolve_product_session_identity_v1(s.user_id) subject ON TRUE
+    JOIN auth.credential_states cs ON cs.user_id = s.user_id
+    WHERE s.id = 'sess-gekta' AND s.scope = 'GEKTA'
+  ), 'NONE');
+  IF measured = 'user-new/GEKTA' THEN
+    RAISE NOTICE 'PASS  02k product session context resolves its subject -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02k product session context resolves its subject -> % (want user-new/GEKTA)', measured;
+    failures := failures + 1;
+  END IF;
+
+  measured := coalesce((
+    SELECT s.id
+    FROM auth.sessions s
+    JOIN LATERAL auth.resolve_product_session_identity_v1(s.user_id) subject ON TRUE
+    WHERE s.id = 'sess-staff' AND s.scope = 'GEKTA'
+  ), 'NONE');
+  IF measured = 'NONE' THEN
+    RAISE NOTICE 'PASS  02l product session context refuses a platform session -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL  02l product session context refuses a platform session -> % (want NONE)', measured;
+    failures := failures + 1;
+  END IF;
+
+  -- Продуктовый резолвер не умеет возвращать организационную принадлежность:
+  -- в его типе таких колонок нет. Проверяется реакция базы, а не намерение.
+  BEGIN
+    PERFORM organization_id FROM auth.resolve_product_session_identity_v1('user-new');
+    RAISE WARNING 'FAIL  02m product identity exposed an organization column';
+    failures := failures + 1;
+  EXCEPTION WHEN undefined_column THEN
+    RAISE NOTICE 'PASS  02m product identity has no organization column';
+  END;
+
+  ---------------------------------------------------------------------------
   -- Tenant A context: its own organization and no other.
   ---------------------------------------------------------------------------
   PERFORM set_config('app.current_user_id', 'user-a', true),
