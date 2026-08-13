@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { connect as tlsConnect, type TLSSocket } from 'node:tls';
+import { domainToASCII } from 'node:url';
 
 const MAIL_TIMEOUT_MS = 5_000;
 
@@ -21,6 +23,41 @@ function safeReason(error: unknown) {
 
 function encodeHeader(value: string) {
   return `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
+}
+
+function smtpMailbox(value: string) {
+  const normalized = String(value || '').trim();
+  if (!/^[^@\s<>]+@[^@\s<>]+$/u.test(normalized) || normalized.includes('\u0000')) {
+    throw new Error('smtp_mailbox_invalid');
+  }
+  return normalized;
+}
+
+function encodeCanonicalText(value: string) {
+  const canonical = String(value || '').replace(/\r\n?|\n/gu, '\r\n');
+  const encoded = Buffer.from(canonical, 'utf8').toString('base64');
+  return encoded.match(/.{1,76}/gu)?.join('\r\n') || '';
+}
+
+export function buildSmtpMimeMessage(mail: TransactionalMail, fromInput: string) {
+  const from = smtpMailbox(fromInput);
+  const to = smtpMailbox(mail.to);
+  const rawDomain = from.slice(from.lastIndexOf('@') + 1);
+  const messageDomain = domainToASCII(rawDomain) || rawDomain;
+  if (!/^[A-Za-z0-9.-]+$/u.test(messageDomain)) throw new Error('smtp_message_id_domain_invalid');
+
+  return [
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${randomUUID()}@${messageDomain}>`,
+    `From: <${from}>`,
+    `To: ${to}`,
+    `Subject: ${encodeHeader(mail.subject)}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    encodeCanonicalText(mail.text),
+  ].join('\r\n');
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit) {
@@ -107,17 +144,17 @@ async function sendViaSmtp(mail: TransactionalMail): Promise<MailDeliveryResult>
   const port = Number(process.env.PC_SMTP_PORT || 465);
   const user = process.env.PC_SMTP_USER as string;
   const pass = process.env.PC_SMTP_PASS as string;
-  const from = String(process.env.PC_MAIL_FROM || user).trim();
-  const mime = [
-    `From: <${from}>`,
-    `To: ${mail.to}`,
-    `Subject: ${encodeHeader(mail.subject)}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset=UTF-8',
-    'Content-Transfer-Encoding: 8bit',
-    '',
-    mail.text,
-  ].join('\r\n');
+
+  let from: string;
+  let to: string;
+  let mime: string;
+  try {
+    from = smtpMailbox(String(process.env.PC_MAIL_FROM || user));
+    to = smtpMailbox(mail.to);
+    mime = buildSmtpMimeMessage({ ...mail, to }, from);
+  } catch (error) {
+    return { delivered: false, provider: 'smtp', reason: `smtp_failed:${safeReason(error)}` };
+  }
 
   return new Promise((resolve) => {
     const socket = tlsConnect({ host, port, servername: host, rejectUnauthorized: true });
@@ -132,7 +169,7 @@ async function sendViaSmtp(mail: TransactionalMail): Promise<MailDeliveryResult>
         await command(socket, 'EHLO transparent-price.local', [250]);
         await command(socket, `AUTH PLAIN ${Buffer.from(`\u0000${user}\u0000${pass}`, 'utf8').toString('base64')}`, [235]);
         await command(socket, `MAIL FROM:<${from}>`, [250]);
-        await command(socket, `RCPT TO:<${mail.to}>`, [250, 251]);
+        await command(socket, `RCPT TO:<${to}>`, [250, 251]);
         await command(socket, 'DATA', [354]);
         socket.write(`${mime}\r\n.\r\n`);
         assertCode(await readResponse(socket), [250]);
