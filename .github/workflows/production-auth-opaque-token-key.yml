@@ -165,10 +165,17 @@ jobs:
           PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -Eeuo pipefail
+          assert_bounded_worktree(){
+            git diff --no-ext-diff --quiet --
+            git diff --cached --no-ext-diff --quiet --
+            while IFS= read -r -d '' untracked; do
+              [[ "$untracked" == "$EVIDENCE_DIR/"* ]]
+            done < <(git ls-files --others --exclude-standard -z)
+          }
           git fetch --no-tags origin main
           [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
-          [[ -z "$(git status --porcelain=v1)" ]]
+          assert_bounded_worktree
           remote_script="/tmp/pc-auth-opaque-token-key-${GITHUB_RUN_ID}.sh"
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
           ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
@@ -176,6 +183,7 @@ jobs:
           git fetch --no-tags origin main
           [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          assert_bounded_worktree
           ssh "${ssh_common[@]}" "$USER@$HOST" \
             "chmod 0700 '$remote_script' && '$remote_script' provision" \
             | tee "$EVIDENCE_DIR/provision.log"
@@ -191,6 +199,7 @@ jobs:
           grep -Fxq AUTH_KEY_MATERIAL_DISCLOSURE=NONE "$EVIDENCE_DIR/provision.log"
           git fetch --no-tags origin main
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          assert_bounded_worktree
       - name: Remove bounded remote asset and local credentials
         if: always()
         env:
