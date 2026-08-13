@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-mobile-consent-acceptance-3048",
+  "branch": "fix/gekta-mobile-consent-acceptance-3048",
+  "issue": 3048,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "77bbdefd8e359c4d7ee4a2a27926bc42b4383789"
+  },
+  "purpose": "Update the Gekta mobile acceptance test for the required consent step while preserving the existing viewport, localization, overflow and 44px assertions.",
+  "allowedPaths": [
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-mobile-consent-acceptance-3048.json"
+  ]
+}
