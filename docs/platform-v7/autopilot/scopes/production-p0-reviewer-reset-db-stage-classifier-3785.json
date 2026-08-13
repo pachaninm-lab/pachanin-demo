@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/p0-reviewer-reset-db-stage-exact-main-3785",
   "status": "active",
-  "operationalStatus": "P0_REVIEWER_RESET_DB_STAGE_CLASSIFIER_EXACT_MAIN",
+  "operationalStatus": "P0_REVIEWER_RESET_DB_STAGE_CLASSIFIER_PROVEN_DEPLOYED",
   "issue": 3785,
   "allowedPaths": [
     ".github/workflows/production-p0-reviewer-reset-db-stage-classifier.yml",
@@ -24,7 +24,7 @@
   },
   "acceptance": [
     "owner-only read-only workflow classifies wrapper, SSH, exact deployed parity, principal boundary, reviewer preflight, reviewer login readiness, and reset-subject stages independently",
-    "the classifier binds expected deployed API and web revisions to exact current main at execution time and fails closed if production parity or main stability is lost",
+    "the classifier inspects the independently proven deployed API/Web revision d2dd7972105cc59002263455b5ae0eb8d8f2d386, requires it to remain an ancestor of diagnostic main, and fails closed if production parity or main stability is lost",
     "SSH host discovery may retry at most three times but accepts only exactly one key matching the existing protected SHA-256 fingerprint and retains StrictHostKeyChecking=yes",
     "no reviewer email, identifier, reset token, password, password hash, TOTP secret, cookie, bearer credential, database URL or raw database error is published",
     "pc_staff_runtime remains table-free and no SET ROLE, BYPASSRLS, SUPERUSER, privilege expansion or reviewer-row access is introduced",
