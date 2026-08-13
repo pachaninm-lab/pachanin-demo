@@ -21,8 +21,10 @@ required(workflow, "github.actor == github.repository_owner", 'owner actor guard
 required(workflow, "github.triggering_actor == github.repository_owner", 'owner rerun guard');
 required(workflow, 'persist-credentials: false', 'credentialless checkout');
 required(workflow, 'PC_PROD_SSH_HOST_FINGERPRINT', 'pinned SSH fingerprint');
-required(script, "EXPECTED_DEPLOYED_SHA='3298ef9e7d661102e4b275a777055331a94ce7ff'", 'fixed deployed baseline');
-required(script, "git merge-base --is-ancestor \"$EXPECTED_DEPLOYED_SHA\" \"$TARGET_SHA\"", 'ancestor guard');
+required(script, "EXPECTED_DEPLOYED_SHA='unknown'", 'uninitialized deployed target');
+required(script, 'EXPECTED_DEPLOYED_SHA="$TARGET_SHA"', 'exact current-main deployed binding');
+required(script, '[[ "$EXPECTED_DEPLOYED_SHA" == "$TARGET_SHA" ]]', 'exact deployed target equality');
+required(script, '[[ "$api_revision" == "$expected_sha" && "$web_revision" == "$expected_sha" ]]', 'exact API/Web production parity');
 required(script, "has_table_privilege('pc_staff_authority', 'auth.staff_assignments', 'SELECT')", 'assignment ACL probe');
 required(script, "has_column_privilege('pc_staff_authority', 'public.users', 'email', 'SELECT')", 'user column ACL probe');
 required(script, "has_function_privilege('pc_staff_runtime', 'auth.staff_reviewer_password_reset_subject()', 'EXECUTE')", 'function execute probe');
@@ -33,6 +35,8 @@ required(script, 'SELECT auth.staff_reviewer_password_reset_subject() IS NOT NUL
 required(script, 'PRODUCTION_MUTATION=NONE', 'no-mutation marker');
 required(script, 'reviewer identity exposure: \\`NONE\\`', 'identity-redaction result');
 
+forbidden(script, /EXPECTED_DEPLOYED_SHA='[0-9a-f]{40}'/, 'hard-coded deployed SHA');
+forbidden(script, /git merge-base --is-ancestor\s+"\$EXPECTED_DEPLOYED_SHA"/, 'stale ancestor-only production gate');
 forbidden(script, /SET\s+ROLE/i, 'SET ROLE');
 forbidden(script, /BYPASSRLS\s*;|ALTER\s+ROLE[^\n]+BYPASSRLS/i, 'RLS bypass');
 forbidden(script, /SELECT\s+[^;]*(?:"email"|\.email)\s+FROM\s+public\."?users"?/i, 'reviewer email row read');
