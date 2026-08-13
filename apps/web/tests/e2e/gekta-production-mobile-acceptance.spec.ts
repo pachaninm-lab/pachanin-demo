@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const viewports = [
   { width: 320, height: 700, name: '320x700' },
+  { width: 375, height: 812, name: '375x812' },
   { width: 390, height: 844, name: '390x844' },
   { width: 430, height: 932, name: '430x932' },
 ] as const;
@@ -60,10 +61,21 @@ async function expectTargetsAtLeast(locator: Locator, minimum: number) {
 
 async function openSeededConversation(page: Page) {
   await page.getByRole('button', { name: 'Открыть историю' }).click();
-  await expect(page.getByRole('dialog', { name: 'Gekta navigation' })).toBeVisible();
-  await expectTargetsAtLeast(page.getByRole('dialog', { name: 'Gekta navigation' }).locator('button, input, select, a'), 44);
+  const dialog = page.getByRole('dialog', { name: 'Gekta navigation' });
+  await expect(dialog).toBeVisible();
+  await expectTargetsAtLeast(dialog.locator('button, input, select, a'), 44);
+
+  const viewport = page.viewportSize();
+  const drawer = page.locator('[data-gekta-mobile-drawer-panel="true"]');
+  const drawerBox = await drawer.boundingBox();
+  expect(drawerBox).not.toBeNull();
+  if (drawerBox && viewport) {
+    expect(drawerBox.width).toBeGreaterThanOrEqual(Math.min(viewport.width * 0.88, 350));
+    expect(drawerBox.width).toBeLessThanOrEqual(viewport.width + 1);
+  }
+
   await page.getByRole('button', { name: SEEDED_TITLE }).click();
-  await expect(page.getByRole('dialog', { name: 'Gekta navigation' })).toHaveCount(0);
+  await expect(dialog).toHaveCount(0);
   await expect(page.locator('[data-gekta-role="assistant"]')).toBeVisible();
 }
 
@@ -83,8 +95,23 @@ test.describe('Gekta exact production mobile acceptance', () => {
       await expect(page.locator('[data-gekta-chat-workspace="true"]')).toBeVisible();
       await expectNoHorizontalOverflow(page);
 
+      await expect(page.locator('[data-gekta-starter="true"]')).toHaveCount(3);
+      await expect(page.locator('[data-gekta-more-examples="true"]')).toBeVisible();
+
       await openSeededConversation(page);
-      await expect(page.locator('#gekta-composer-input')).toBeVisible();
+      const composer = page.locator('#gekta-composer-input');
+      await expect(composer).toBeVisible();
+      const composerFontSize = await composer.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).fontSize));
+      expect(composerFontSize).toBeGreaterThanOrEqual(16);
+
+      const visualViewport = await page.evaluate(() => {
+        const cssHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gekta-visual-viewport-height'));
+        const actualHeight = window.visualViewport?.height ?? window.innerHeight;
+        return { cssHeight, actualHeight };
+      });
+      expect(Number.isFinite(visualViewport.cssHeight)).toBe(true);
+      expect(Math.abs(visualViewport.cssHeight - visualViewport.actualHeight)).toBeLessThanOrEqual(2);
+
       await expectTargetsAtLeast(page.locator('[data-gekta-chat-workspace="true"] header button:visible'), 44);
       await expectTargetsAtLeast(page.locator('[data-gekta-chat-workspace="true"] button[aria-label="Прикрепить файл"]:visible, [data-gekta-chat-workspace="true"] button[aria-label="Отправить"]:visible'), 44);
       await expectTargetsAtLeast(page.locator('[data-gekta-role="assistant"] button:visible'), 44);
@@ -129,5 +156,22 @@ test.describe('Gekta exact production mobile acceptance', () => {
       await expect(page.locator('[data-gekta-chat-workspace="true"] main > header')).toContainText(route.brand);
       await expectNoHorizontalOverflow(page);
     }
+  });
+
+  test('public platform keeps one floating communication surface and no double mobile footer reserve', async ({ page }) => {
+    await page.setViewportSize({ width: 430, height: 932 });
+    const response = await page.goto('/platform-v7', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+    await expectNoHorizontalOverflow(page);
+
+    const competingLauncher = page.locator('.pc-public-contact-dock, .pc-public-assistant-shortcut, .p7-support-chat-button').filter({ visible: true });
+    if (await competingLauncher.count()) {
+      await expect(page.locator('.pc-gekta-floating')).not.toBeVisible();
+    }
+
+    const footerLinks = page.locator('.pc-v7-public-entry .pc-v6-footer nav a:visible');
+    await expectTargetsAtLeast(footerLinks, 44);
+    const pageBottomReserve = await page.locator('.pc-v7-public-entry').evaluate((node) => Number.parseFloat(getComputedStyle(node).paddingBottom));
+    expect(pageBottomReserve).toBeLessThanOrEqual(1);
   });
 });
