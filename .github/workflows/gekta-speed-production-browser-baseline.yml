@@ -1,0 +1,237 @@
+name: Gekta Production Browser Speed Baseline
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-speed-production-browser-baseline.yml'
+      - 'scripts/gekta-speed-browser-baseline.mjs'
+      - 'scripts/tai-speed-baseline.mjs'
+      - 'apps/web/tests/unit/taiSpeedBaseline.test.ts'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-speed-production-browser-baseline.yml'
+      - 'scripts/gekta-speed-browser-baseline.mjs'
+      - 'scripts/tai-speed-baseline.mjs'
+      - 'apps/web/tests/unit/taiSpeedBaseline.test.ts'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: >-
+    gekta-speed-browser-baseline-${{
+      (github.event_name == 'issue_comment'
+        && github.event.issue.number == 3896
+        && github.event.comment.body == '/gekta speed-browser-baseline current-main')
+      && 'measurement' || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  SPEED_ISSUE_NUMBER: 3896
+  EVIDENCE_DIR: artifacts/gekta-speed-browser-baseline
+
+jobs:
+  contract:
+    name: Validate browser speed contract
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Prove existing speed measurement helpers
+        run: pnpm vitest run apps/web/tests/unit/taiSpeedBaseline.test.ts
+
+      - name: Parse browser-authoritative harness
+        run: node --check scripts/gekta-speed-browser-baseline.mjs
+
+      - name: Prove summary contract without network
+        run: |
+          node --input-type=module <<'NODE'
+          const mod = await import('./scripts/gekta-speed-browser-baseline.mjs');
+          const text = mod.renderBrowserSummary({
+            revision: {},
+            probe: {},
+            singleTurn: [{ concurrency: 1, overall: { reservationMs: { p50: 42, p95: 65 } }, bySource: {} }],
+          });
+          if (!text.includes('reservation latency is INCLUDED in user-visible TTFT')) process.exit(1);
+          if (!text.includes('reservation p50 ms: 42')) process.exit(1);
+          NODE
+
+      - name: Refuse an unspecified production target
+        run: |
+          set +e
+          node scripts/gekta-speed-browser-baseline.mjs >/dev/null 2>&1
+          status=$?
+          set -e
+          test "$status" -eq 2
+
+      - name: Assert no production secret is referenced
+        run: |
+          set -euo pipefail
+          if grep -nE 'secrets\.' .github/workflows/gekta-speed-production-browser-baseline.yml; then
+            echo 'Browser speed baseline must not reference repository secrets.' >&2
+            exit 1
+          fi
+
+  baseline:
+    name: Measure production click-to-first-meaningful
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/gekta speed-browser-baseline current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main
+        id: authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$main_sha" == "$(git rev-parse HEAD)" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$main_sha" ]]
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Prove exact deployed Web revision before measurement
+        env:
+          MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="$(mktemp)"
+          status="$(curl --silent --show-error --location --compressed \
+            --connect-timeout 10 --max-time 30 --output "$manifest" --write-out '%{http_code}' \
+            "$LIVE_BASE/manifest-pc-deploy.json?gekta-speed-browser=$GITHUB_RUN_ID-$(date +%s)")"
+          deployed="$(jq -r '.commitSha // empty' "$manifest" 2>/dev/null || true)"
+          rm -f "$manifest"
+          [[ "$status" == 200 && "$deployed" == "$MAIN_SHA" ]] || {
+            echo "GEKTA_EXACT_DEPLOYED_REVISION_MISMATCH main=$MAIN_SHA deployed=${deployed:-unknown} http=$status" >&2
+            exit 20
+          }
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install exact repository dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium runtime
+        run: pnpm --filter @pc/web exec playwright install --with-deps chromium
+
+      - name: Reconfirm exact main before timed waves
+        env:
+          MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$MAIN_SHA" ]] || {
+            echo GEKTA_MAIN_ADVANCED_BEFORE_SPEED_MEASUREMENT >&2
+            exit 21
+          }
+
+      - name: Reserve bounded evidence path
+        env:
+          MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          echo "BASELINE_ARTIFACT=$EVIDENCE_DIR/gekta-speed-browser-${GITHUB_RUN_ID}-${MAIN_SHA}.json" >> "$GITHUB_ENV"
+
+      - name: Measure real reserve plus public SSE stream
+        env:
+          MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          node scripts/gekta-speed-browser-baseline.mjs \
+            --base-url "$LIVE_BASE" \
+            --concurrency '1,2,4' \
+            --repeat '1' \
+            --locales ru,en,zh \
+            --main-sha "$MAIN_SHA" \
+            --cooldown-ms 15000 \
+            --out "$BASELINE_ARTIFACT"
+          echo 'MEASUREMENT_OUTCOME=passed' >> "$GITHUB_ENV"
+
+      - name: Build bounded human summary
+        if: always()
+        run: |
+          set -euo pipefail
+          summary="$RUNNER_TEMP/gekta-speed-browser-summary.txt"
+          if [[ -f "${BASELINE_ARTIFACT:-}" ]]; then
+            node scripts/gekta-speed-browser-baseline.mjs --summarize "$BASELINE_ARTIFACT" | tee "$summary"
+          else
+            echo 'MEASUREMENT_FAILED_NO_ARTIFACT' | tee "$summary"
+          fi
+          echo "SUMMARY_FILE=$summary" >> "$GITHUB_ENV"
+
+      - name: Publish SPEED evidence marker
+        if: always()
+        env:
+          MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/issue-comment.md"
+          {
+            echo '## Gekta P0 SPEED browser baseline'
+            echo
+            echo "- exact repository main: \`$MAIN_SHA\`"
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo '- timing boundary: `reserveAnswer + /api/agro-chat stream`'
+            echo '- initial entitlement bootstrap/consent: `outside timed send path`'
+            echo '- production configuration mutation: `NONE`'
+            echo
+            echo '```text'
+            sed -n '1,120p' "$SUMMARY_FILE"
+            echo '```'
+          } > "$body"
+          gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+
+      - name: Upload bounded speed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gekta-speed-browser-${{ github.run_id }}-${{ steps.authority.outputs.main_sha }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: warn
+          retention-days: 30
