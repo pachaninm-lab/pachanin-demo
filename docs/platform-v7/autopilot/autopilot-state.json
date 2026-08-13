@@ -1076,6 +1076,31 @@
       "scripts/production-p0-web-container-smtp-delivery-proof.sh",
       "scripts/check-production-p0-web-container-smtp-delivery-proof.mjs",
       "docs/platform-v7/autopilot/scopes/production-p0-web-container-smtp-delivery-proof-3785.json"
+    ],
+    "claude/gekta-server-search": [
+      "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "apps/web/components/gekta/GektaSidebar.tsx",
+      "apps/web/tests/unit/gektaOwnerConsole.test.ts",
+      "apps/web/tests/unit/gektaServerHistory.test.ts",
+      "docs/platform-v7/autopilot/scopes/gekta-server-search-20260812.json"
+    ],
+    "codex/gekta-security-review": [
+      "apps/api/prisma/migrations/20260813110000_gekta_anonymous_answer_admission/migration.sql",
+      "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.spec.ts",
+      "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.ts",
+      "apps/api/src/modules/gekta/gekta-anonymous-admission.service.spec.ts",
+      "apps/api/src/modules/gekta/gekta-anonymous-admission.service.ts",
+      "apps/api/src/modules/gekta/gekta.module.ts",
+      "apps/web/app/api/agro-chat/route.ts",
+      "apps/web/app/api/gekta/entitlement/route.ts",
+      "apps/web/lib/gekta/anonymous-session.ts",
+      "apps/web/lib/gekta/entitlement.ts",
+      "apps/web/lib/gekta/server-workspace.ts",
+      "apps/web/lib/server/gekta-auth-route.ts",
+      "apps/web/tests/unit/gektaEntitlement.test.ts",
+      "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+      "apps/web/tests/unit/gektaServerHistory.test.ts",
+      "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json"
     ]
   },
   "currentAcceptance": [
