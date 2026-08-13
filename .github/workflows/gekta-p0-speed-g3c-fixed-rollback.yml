@@ -34,24 +34,34 @@ jobs:
           const fs = require('node:fs');
           const path = '.github/workflows/gekta-p0-speed-g3c-fixed-rollback.yml';
           const text = fs.readFileSync(path, 'utf8');
+          const exact = ['sudo -n /usr/local/sbin/gekta-qwen-g3c', 'rollback'].join(' ');
           const required = [
             "github.event_name == 'push'",
             'github.actor == github.repository_owner',
             'github.triggering_actor == github.repository_owner',
             'StrictHostKeyChecking=yes',
-            'secrets.TAI_MODEL_SSH_KEY',
-            'secrets.TAI_MODEL_SSH_HOST_KEY',
-            'sudo -n /usr/local/sbin/gekta-qwen-g3c rollback',
+            ['secrets', 'TAI_MODEL_SSH_KEY'].join('.'),
+            ['secrets', 'TAI_MODEL_SSH_HOST_KEY'].join('.'),
+            exact,
             'sha256sum /usr/local/sbin/gekta-qwen-g3c',
             'sha256sum /usr/local/libexec/gekta-qwen-g3c-base.py',
           ];
           for (const token of required) if (!text.includes(token)) throw new Error(`missing fixed rollback control: ${token}`);
-          for (const forbidden of [
-            'PC_PROD_SSH_KEY', 'PC_PROD_SSH_PRIVATE_KEY', 'VPS_SSH_KEY', 'TAI_MODEL_ROOT_SSH_KEY',
-            'sudo -s', 'sudo bash', 'sudo sh', 'NOPASSWD: ALL', 'SETENV:', '$ACTION', 'ubatch512 current-main'
-          ]) if (text.includes(forbidden)) throw new Error(`forbidden rollback authority: ${forbidden}`);
-          const exact = 'sudo -n /usr/local/sbin/gekta-qwen-g3c rollback';
-          if (text.split(exact).length !== 3) throw new Error('fixed rollback command must appear exactly in contract and execution');
+          const forbidden = [
+            ['PC_PROD', 'SSH_KEY'].join('_'),
+            ['PC_PROD', 'SSH_PRIVATE_KEY'].join('_'),
+            ['VPS', 'SSH_KEY'].join('_'),
+            ['TAI_MODEL_ROOT', 'SSH_KEY'].join('_'),
+            ['sudo', '-s'].join(' '),
+            ['sudo', 'bash'].join(' '),
+            ['sudo', 'sh'].join(' '),
+            ['NOPASSWD:', 'ALL'].join(' '),
+            ['SET', 'ENV:'].join(''),
+            ['$','ACTION'].join(''),
+            ['ubatch512', 'current-main'].join(' '),
+          ];
+          for (const token of forbidden) if (text.includes(token)) throw new Error(`forbidden rollback authority: ${token}`);
+          if (text.split(exact).length !== 3) throw new Error('fixed rollback command must appear exactly in required contract and execution');
           NODE
 
   rollback:
