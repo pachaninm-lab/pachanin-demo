@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const workflowPath = '.github/workflows/production-p0-reviewer-reset-attempt-classifier.yml';
@@ -9,6 +11,7 @@ const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-rese
 const autopilotPath = 'docs/platform-v7/autopilot/autopilot-state.json';
 const branch = 'diag/p0-reviewer-reset-attempt-classifier-3785';
 const command = '/production p0-reviewer-reset-attempt-classify 31706325376 current-main';
+const authHashRuntimeCommand = '/production p0-auth-hash-runtime-classify current-main';
 const sourceRun = 31706325376;
 const sourceRevision = '7c768ad7c54523837b06999a8f69bdffe2a840db';
 const attemptSince = '2026-08-13T13:43:10Z';
@@ -39,7 +42,7 @@ const sameStringSet = (actual, expected) => (
 
 for (const path of allowedPaths) requireToken('workflow', `      - '${path}'`);
 for (const token of [
-  'name: Production P0 Reviewer Reset Attempt Classifier',
+  'name: Production P0 Reviewer Reset and Auth-Hash Runtime Classifier',
   'pull_request:',
   'issue_comment:',
   'permissions:\n  contents: read',
@@ -48,6 +51,7 @@ for (const token of [
   'github.actor == github.repository_owner',
   'github.triggering_actor == github.repository_owner',
   `github.event.comment.body == '${command}'`,
+  `github.event.comment.body == '${authHashRuntimeCommand}'`,
   "github.event_name == 'pull_request'",
   'needs.contract.result == \'success\'',
   'persist-credentials: false',
@@ -62,6 +66,10 @@ for (const token of [
 
 const commandOccurrences = files.workflow.split(command).length - 1;
 if (commandOccurrences !== 2) failures.push(`workflow: expected command twice, found ${commandOccurrences}`);
+const authHashRuntimeCommandOccurrences = files.workflow.split(authHashRuntimeCommand).length - 1;
+if (authHashRuntimeCommandOccurrences !== 2) {
+  failures.push(`workflow: expected auth-hash runtime command twice, found ${authHashRuntimeCommandOccurrences}`);
+}
 const secretNames = [...files.workflow.matchAll(/secrets\.([A-Z0-9_]+)/g)].map((match) => match[1]);
 const allowedSecrets = [
   'PC_PROD_HOST',
@@ -87,11 +95,14 @@ for (const token of [
   "DEFAULT_HOST='195.19.12.120'",
   "LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'",
   "RELEASE_ISSUE_NUMBER='3072'",
-  `COMMAND='${command}'`,
+  `ATTEMPT_COMMAND='${command}'`,
+  `AUTH_HASH_RUNTIME_COMMAND='${authHashRuntimeCommand}'`,
   `SOURCE_RUN_ID='${sourceRun}'`,
   `ATTEMPT_SINCE='${attemptSince}'`,
   `ATTEMPT_UNTIL='${attemptUntil}'`,
   `SOURCE_REVISION='${sourceRevision}'`,
+  "classifier_mode='RESET_ATTEMPT'",
+  "classifier_mode='AUTH_HASH_RUNTIME'",
   '[[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]',
   'git merge-base --is-ancestor "$SOURCE_REVISION" "$TARGET_SHA"',
   'git merge-base --is-ancestor "$active_revision" "$TARGET_SHA"',
@@ -100,6 +111,32 @@ for (const token of [
   '/usr/bin/ssh-keyscan -T 10 -p "$port" "$host"',
   'StrictHostKeyChecking=yes',
   'UserKnownHostsFile="$known_hosts"',
+  "if [[ \"$classifier_mode\" == 'AUTH_HASH_RUNTIME' ]]; then",
+  "stage='REMOTE_AUTH_HASH_RUNTIME_CLASSIFICATION'",
+  "SOURCE_REVISION = sys.argv[1]",
+  "SAFE_SECRET = re.compile(r'^[A-Za-z0-9._~+/=-]{32,512}$')",
+  "'docker', 'compose', '--project-directory'",
+  "command.extend(['config', '--format', 'json'])",
+  "'com.docker.compose.project.config_files'",
+  "'com.docker.compose.project.working_dir'",
+  "'AUTH_TOKEN_PEPPER'",
+  "'AUTH_HASH_SECRET'",
+  "entry.name.startswith('.env.')",
+  "re.search(r'(^|[._-])auth([._-]|$)', entry.name, re.IGNORECASE)",
+  "purpose_names = ('AUTH_OPAQUE_TOKEN_DIGEST_KEY', 'JWT_SECRET', 'MFA_ENCRYPTION_KEY')",
+  "recovery_class = 'REUSE_AUTH_TOKEN_PEPPER'",
+  "recovery_class = 'MIGRATE_LEGACY_AUTH_HASH_SECRET'",
+  "recovery_class = 'REPROJECT_COMPOSE_AUTHORITY'",
+  "recovery_class = 'NO_EXISTING_AUTHORITY'",
+  "recovery_class = 'PURPOSE_CONFLICT'",
+  "recovery_class = 'AMBIGUOUS_OR_UNSAFE'",
+  "'AUTH_HASH_RUNTIME'",
+  "'ACTIVE_RUNTIME_DRIFT'",
+  "protected AUTH_TOKEN_PEPPER file cardinality:",
+  "protected legacy AUTH_HASH_SECRET file cardinality:",
+  "candidate purpose separation from opaque/JWT/MFA keys:",
+  "protected value / file path / hash / length exposure: \\`NONE\\`",
+  "raw Docker / Compose / filesystem output: \\`NOT_PUBLISHED\\`",
   "docker ps -q --filter 'label=com.docker.compose.service=web'",
   'docker ps -aq',
   'project_web_output="$(docker ps -aq',
@@ -271,6 +308,137 @@ else {
   const nodeSyntax = spawnSync('node', ['--check', '-'], { input: nodeBlocks[0][1], encoding: 'utf8' });
   if (nodeSyntax.status !== 0) failures.push(`runner: embedded Node syntax invalid: ${nodeSyntax.stderr.trim()}`);
 }
+const pythonBlocks = [...files.runner.matchAll(/<<'PY'\n([\s\S]*?)\nPY/g)];
+if (pythonBlocks.length !== 1) failures.push(`runner: expected one embedded Python block, found ${pythonBlocks.length}`);
+else {
+  const pythonSyntax = spawnSync('python3', ['-c', 'import ast,sys; ast.parse(sys.stdin.read())'], {
+    input: pythonBlocks[0][1],
+    encoding: 'utf8',
+  });
+  if (pythonSyntax.status !== 0) failures.push(`runner: embedded Python syntax invalid: ${pythonSyntax.stderr.trim()}`);
+  const pythonRootGuard = "if os.geteuid() != 0:\n        fail('NOT_ROOT')";
+  if (!pythonBlocks[0][1].includes(pythonRootGuard)) {
+    failures.push('runner: embedded Python production root guard missing');
+  }
+  const pythonProtectedFileGuard = (
+    'info.st_uid == 0 and info.st_gid == 0 and stat.S_IMODE(info.st_mode) == 0o600'
+  );
+  if (!pythonBlocks[0][1].includes(pythonProtectedFileGuard)) {
+    failures.push('runner: embedded Python root-owned protected-file guard missing');
+  }
+  for (const pattern of [
+    /\b(?:open|os\.open)\([^\n]*(?:['\"](?:w|a|x|\+)[^'\"]*['\"]|O_(?:WRONLY|RDWR|CREAT|TRUNC|APPEND))/,
+    /\bos\.(?:remove|unlink|rename|replace|chmod|chown|mkdir|makedirs|rmdir)\b/,
+    /\bshutil\.(?:copy|copy2|copyfile|move|rmtree)\b/,
+    /\btempfile\b/,
+    /['\"]docker['\"][^\n]{0,200}['\"](?:up|down|restart|stop|kill|rm|rmi|update|run|start|create|pull|build|prune)['\"]/,
+    /print\([^\n]*(?:production_directory|compose_files|assignments|candidate_value|pepper_value|legacy_value|active_values|compose_values|purpose_values)/,
+    /hashlib|sha(?:256|512)\s*\(/,
+  ]) {
+    if (pattern.test(pythonBlocks[0][1])) failures.push(`runner: embedded Python forbidden ${pattern}`);
+  }
+
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-auth-hash-runtime-classifier-'));
+  try {
+    const fixtureBin = path.join(fixtureRoot, 'bin');
+    const fixtureProduction = path.join(fixtureRoot, 'production');
+    fs.mkdirSync(fixtureBin);
+    fs.mkdirSync(fixtureProduction);
+    const fixtureCompose = path.join(fixtureProduction, 'compose.yml');
+    fs.writeFileSync(fixtureCompose, 'services:\n  api:\n    image: fixture-api\n  web:\n    image: fixture-web\n');
+    fs.chmodSync(fixtureCompose, 0o600);
+
+    const legacySecret = '1'.repeat(96);
+    const opaqueSecret = '2'.repeat(96);
+    const jwtSecret = '3'.repeat(96);
+    const mfaSecret = '4'.repeat(96);
+    const legacyFile = path.join(fixtureProduction, '.env');
+    fs.writeFileSync(legacyFile, `AUTH_HASH_SECRET=${legacySecret}\n`);
+    fs.chmodSync(legacyFile, 0o600);
+
+    const labels = (revision) => ({
+      'com.docker.compose.project': 'pc-fixture',
+      'com.docker.compose.project.working_dir': fixtureProduction,
+      'com.docker.compose.project.config_files': fixtureCompose,
+      'org.opencontainers.image.revision': revision,
+    });
+    const activeEnv = [
+      `AUTH_OPAQUE_TOKEN_DIGEST_KEY=${opaqueSecret}`,
+      `JWT_SECRET=${jwtSecret}`,
+      `MFA_ENCRYPTION_KEY=${mfaSecret}`,
+    ];
+    const documents = {
+      'web-active': [{ Config: { Labels: labels('5b57f4b13de5f1d2f9175032bca1fd1dc8ec84c4'), Env: [] } }],
+      'api-active': [{ Config: { Labels: labels('5b57f4b13de5f1d2f9175032bca1fd1dc8ec84c4'), Env: activeEnv } }],
+      'api-source': [{ Config: { Labels: labels(sourceRevision), Env: activeEnv } }],
+    };
+    const composeConfig = { services: { api: { environment: Object.fromEntries(activeEnv.map((line) => line.split('=', 2))) } } };
+    const mockDocker = path.join(fixtureBin, 'docker');
+    fs.writeFileSync(mockDocker, `#!/usr/bin/env bash
+set -Eeuo pipefail
+case "\${1:-}" in
+  version) printf 'fixture\\n' ;;
+  ps)
+    joined=" $* "
+    if [[ "$joined" == *'com.docker.compose.service=web'* ]]; then
+      printf 'web-active\\n'
+    elif [[ "\${2:-}" == '-aq' ]]; then
+      printf 'api-source\\napi-active\\n'
+    else
+      printf 'api-active\\n'
+    fi
+    ;;
+  inspect)
+    case "\${2:-}" in
+      web-active) printf '%s\\n' '${JSON.stringify(documents['web-active'])}' ;;
+      api-active) printf '%s\\n' '${JSON.stringify(documents['api-active'])}' ;;
+      api-source) printf '%s\\n' '${JSON.stringify(documents['api-source'])}' ;;
+      *) exit 91 ;;
+    esac
+    ;;
+  compose) printf '%s\\n' '${JSON.stringify(composeConfig)}' ;;
+  *) exit 92 ;;
+esac
+`);
+    fs.chmodSync(mockDocker, 0o700);
+    const fixtureSource = pythonBlocks[0][1].replace(
+      pythonProtectedFileGuard,
+      'info.st_uid == os.getuid() and info.st_gid == os.getgid() and stat.S_IMODE(info.st_mode) == 0o600',
+    );
+    const fixtureProgram = [
+      'import os',
+      'os.geteuid = lambda: 0',
+      `exec(compile(${JSON.stringify(fixtureSource)}, '<auth-hash-runtime-fixture>', 'exec'))`,
+      '',
+    ].join('\n');
+    const fixture = spawnSync('python3', ['-', sourceRevision], {
+      input: fixtureProgram,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${fixtureBin}:${process.env.PATH}` },
+    });
+    const expected = [
+      'AUTH_HASH_RUNTIME',
+      'PASS',
+      '5b57f4b13de5f1d2f9175032bca1fd1dc8ec84c4',
+      'MISSING',
+      'ONE',
+      'MISSING',
+      'MISSING',
+      'ZERO',
+      'NONE',
+      'ONE',
+      'READY',
+      'PASS',
+      'MIGRATE_LEGACY_AUTH_HASH_SECRET',
+      'NONE',
+    ].join('|');
+    if (fixture.status !== 0 || fixture.stdout.trim() !== expected || fixture.stderr.trim()) {
+      failures.push(`runner: embedded Python legacy-authority fixture failed: ${fixture.stdout.trim()} ${fixture.stderr.trim()}`);
+    }
+  } finally {
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
 const argvProbe = spawnSync('node', ['--input-type=commonjs', '-', attemptSince, attemptUntil], {
   input: `const expected=${JSON.stringify([attemptSince, attemptUntil])}; if (JSON.stringify(process.argv.slice(2)) !== JSON.stringify(expected)) process.exit(1);`,
   encoding: 'utf8',
@@ -283,7 +451,7 @@ try {
   if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1'
       || scope.branch !== branch
       || scope.status !== 'active'
-      || scope.operationalStatus !== 'P0_REVIEWER_RESET_ATTEMPT_READ_ONLY_CLASSIFIER'
+      || scope.operationalStatus !== 'P0_REVIEWER_RESET_ATTEMPT_AND_AUTH_HASH_RUNTIME_READ_ONLY_CLASSIFIER'
       || scope.issue !== 3785
       || scope.releaseIssue !== 3072
       || scope.sourceRun !== sourceRun
@@ -303,6 +471,7 @@ try {
     mailSend: false,
     databaseReadOnly: true,
     logReadOnly: true,
+    protectedRuntimeFileReadOnly: true,
     runtimeBusinessBehaviorChange: false,
     securityGateDisabled: false,
     piiOutput: false,
@@ -329,9 +498,9 @@ try {
 }
 
 if (failures.length) {
-  console.error('Production P0 reviewer reset attempt classifier contract failed:');
+  console.error('Production P0 reviewer reset and auth-hash runtime classifier contract failed:');
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
 
-console.log('PASS: reviewer reset attempt classifier is owner-only, exact-main/dynamic-active/source-revision guarded, fixed-window, post-release-aware, aggregate-only and read-only; it cannot replay reset, send mail, disclose identity/token material or mutate production.');
+console.log('PASS: reviewer reset and auth-hash runtime classifiers are owner-only, exact-main/dynamic-active/source-revision guarded and read-only; they cannot replay reset, send mail, disclose identity/secret material or mutate production.');

@@ -9,13 +9,18 @@ set -Eeuo pipefail
 DEFAULT_HOST='195.19.12.120'
 LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 RELEASE_ISSUE_NUMBER='3072'
-COMMAND='/production p0-reviewer-reset-attempt-classify 31706325376 current-main'
+ATTEMPT_COMMAND='/production p0-reviewer-reset-attempt-classify 31706325376 current-main'
+AUTH_HASH_RUNTIME_COMMAND='/production p0-auth-hash-runtime-classify current-main'
 SOURCE_RUN_ID='31706325376'
 ATTEMPT_SINCE='2026-08-13T13:43:10Z'
 ATTEMPT_UNTIL='2026-08-13T13:43:26Z'
 SOURCE_REVISION='7c768ad7c54523837b06999a8f69bdffe2a840db'
 
-[[ "$PC_REVIEWER_RESET_ATTEMPT_COMMAND" == "$COMMAND" ]]
+case "$PC_REVIEWER_RESET_ATTEMPT_COMMAND" in
+  "$ATTEMPT_COMMAND") classifier_mode='RESET_ATTEMPT' ;;
+  "$AUTH_HASH_RUNTIME_COMMAND") classifier_mode='AUTH_HASH_RUNTIME' ;;
+  *) exit 2 ;;
+esac
 
 key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-attempt-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-attempt-known-hosts"
@@ -54,7 +59,22 @@ publish_failure() {
   local rc="$?"
   trap - ERR
   if [[ "$result_published" == '0' ]]; then
-    gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset attempt classifier
+    if [[ "$classifier_mode" == 'AUTH_HASH_RUNTIME' ]]; then
+      gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 auth-hash runtime authority classifier
+
+- exact diagnostic main: \`$TARGET_SHA\`
+- source reset revision: \`$SOURCE_REVISION\`
+- result: \`FAIL_CLOSED\`
+- failure stage: \`$stage\`
+- failure detail: \`$failure_detail\`
+- protected value / file path / hash / length exposure: \`NONE\`
+- reviewer identity / reset token / credential exposure: \`NONE\`
+- reset replay / mail send: \`NONE\`
+- raw Docker / Compose / filesystem output: \`NOT_PUBLISHED\`
+- production mutation: \`NONE\`
+- exit code: \`$rc\`" >/dev/null || true
+    else
+      gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset attempt classifier
 
 - source reset run: \`$SOURCE_RUN_ID\`
 - exact diagnostic main: \`$TARGET_SHA\`
@@ -69,6 +89,7 @@ publish_failure() {
 - raw database/runtime output: \`NOT_PUBLISHED\`
 - production mutation: \`NONE\`
 - exit code: \`$rc\`" >/dev/null || true
+    fi
   fi
   exit "$rc"
 }
@@ -165,6 +186,409 @@ ssh_opts=(
 ssh "${ssh_opts[@]}" "$user@$host" \
   'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null' >/dev/null
 stage='SSH_CONFIRMED'
+
+if [[ "$classifier_mode" == 'AUTH_HASH_RUNTIME' ]]; then
+  guard_main
+  stage='REMOTE_AUTH_HASH_RUNTIME_CLASSIFICATION'
+  failure_detail='REMOTE_CLASSIFICATION_FAILED'
+  if ! output="$(ssh "${ssh_opts[@]}" "$user@$host" "python3 - '$SOURCE_REVISION'" <<'PY'
+import hmac
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+
+SOURCE_REVISION = sys.argv[1]
+SAFE_SECRET = re.compile(r'^[A-Za-z0-9._~+/=-]{32,512}$')
+SAFE_FAILURES = {
+    'NOT_ROOT',
+    'DOCKER_UNAVAILABLE',
+    'ACTIVE_WEB_CARDINALITY',
+    'ACTIVE_PROJECT_MISSING',
+    'ACTIVE_API_CARDINALITY',
+    'ACTIVE_REVISION_INVALID',
+    'ACTIVE_REVISION_PARITY',
+    'PRODUCTION_DIRECTORY_INVALID',
+    'COMPOSE_AUTHORITY_INVALID',
+    'COMPOSE_CONFIG_INVALID',
+    'PROTECTED_FILE_SCAN_INVALID',
+    'ACTIVE_RUNTIME_DRIFT',
+    'UNKNOWN',
+}
+
+
+class ClassificationFailure(Exception):
+    pass
+
+
+def fail(code):
+    raise ClassificationFailure(code if code in SAFE_FAILURES else 'UNKNOWN')
+
+
+def run(arguments):
+    completed = subprocess.run(
+        arguments,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding='utf-8',
+    )
+    if completed.returncode != 0:
+        fail('DOCKER_UNAVAILABLE')
+    return completed.stdout
+
+
+def docker_json(*arguments):
+    try:
+        value = json.loads(run(['docker', *arguments]))
+    except (json.JSONDecodeError, UnicodeError):
+        fail('DOCKER_UNAVAILABLE')
+    return value
+
+
+def environment(document):
+    values = {}
+    duplicates = set()
+    for raw in document.get('Config', {}).get('Env', []) or []:
+        name, separator, value = str(raw).partition('=')
+        if not separator:
+            continue
+        if name in values:
+            duplicates.add(name)
+        values[name] = value
+    return values, duplicates
+
+
+def secret_state(values, duplicates, name):
+    if name in duplicates:
+        return 'UNSAFE'
+    if name not in values:
+        return 'MISSING'
+    value = values[name]
+    return 'READY' if SAFE_SECRET.fullmatch(value) and value == value.strip() else 'UNSAFE'
+
+
+def cardinality(count):
+    if count == 0:
+        return 'ZERO'
+    if count == 1:
+        return 'ONE'
+    return 'MULTIPLE'
+
+
+def labels(document):
+    return document.get('Config', {}).get('Labels', {}) or {}
+
+
+def inspect_one(container_id):
+    documents = docker_json('inspect', container_id)
+    if not isinstance(documents, list) or len(documents) != 1:
+        fail('DOCKER_UNAVAILABLE')
+    return documents[0]
+
+
+def running_ids(project, service):
+    output = run([
+        'docker', 'ps', '-q',
+        '--filter', f'label=com.docker.compose.project={project}',
+        '--filter', f'label=com.docker.compose.service={service}',
+    ])
+    return [line for line in output.splitlines() if line]
+
+
+def all_ids(project, service):
+    output = run([
+        'docker', 'ps', '-aq',
+        '--filter', f'label=com.docker.compose.project={project}',
+        '--filter', f'label=com.docker.compose.service={service}',
+    ])
+    return [line for line in output.splitlines() if line]
+
+
+def scan_protected_files(production_directory):
+    assignments = {'AUTH_TOKEN_PEPPER': [], 'AUTH_HASH_SECRET': []}
+    unsafe_scan = {'AUTH_TOKEN_PEPPER': False, 'AUTH_HASH_SECRET': False}
+    try:
+        entries = list(os.scandir(production_directory))
+    except OSError:
+        fail('PROTECTED_FILE_SCAN_INVALID')
+    candidates = [
+        entry for entry in entries
+        if entry.name == '.env'
+        or entry.name.startswith('.env.')
+        or (
+            entry.name.endswith('.env')
+            and re.search(r'(^|[._-])auth([._-]|$)', entry.name, re.IGNORECASE)
+        )
+    ]
+    if len(candidates) > 128:
+        fail('PROTECTED_FILE_SCAN_INVALID')
+    for entry in candidates:
+        try:
+            info = entry.stat(follow_symlinks=False)
+        except OSError:
+            fail('PROTECTED_FILE_SCAN_INVALID')
+        if not stat.S_ISREG(info.st_mode) or entry.is_symlink():
+            continue
+        if info.st_size > 1024 * 1024:
+            for name in unsafe_scan:
+                unsafe_scan[name] = True
+            continue
+        try:
+            raw = open(entry.path, 'rb').read()
+            text = raw.decode('utf-8')
+        except (OSError, UnicodeError):
+            fail('PROTECTED_FILE_SCAN_INVALID')
+        protected_mode = info.st_uid == 0 and info.st_gid == 0 and stat.S_IMODE(info.st_mode) == 0o600
+        if b'\x00' in raw or '\r' in text:
+            protected_mode = False
+        seen_in_file = set()
+        for line in text.splitlines():
+            name, separator, value = line.partition('=')
+            if not separator or name not in assignments:
+                continue
+            valid = (
+                protected_mode
+                and name not in seen_in_file
+                and bool(SAFE_SECRET.fullmatch(value))
+                and value == value.strip()
+            )
+            assignments[name].append((entry.path, value, valid))
+            seen_in_file.add(name)
+    return assignments, unsafe_scan
+
+
+def file_authority(records, scan_unsafe):
+    files = {path for path, _value, _valid in records}
+    card = cardinality(len(files))
+    if scan_unsafe:
+        return card, 'UNSAFE', None
+    if not records:
+        return card, 'NONE', None
+    if any(not valid for _path, _value, valid in records):
+        return card, 'UNSAFE', None
+    values = [value for _path, value, _valid in records]
+    if len(records) == 1 and len(files) == 1:
+        return card, 'READY', values[0]
+    first = values[0]
+    if all(hmac.compare_digest(first, value) for value in values[1:]):
+        return card, 'MULTIPLE_CONSISTENT', None
+    return card, 'CONFLICT', None
+
+
+def compose_environment(production_directory, project, compose_files):
+    command = ['docker', 'compose', '--project-directory', production_directory, '--project-name', project]
+    for path in compose_files:
+        command.extend(['-f', path])
+    command.extend(['config', '--format', 'json'])
+    try:
+        config = json.loads(run(command))
+    except (json.JSONDecodeError, UnicodeError):
+        fail('COMPOSE_CONFIG_INVALID')
+    service = (config.get('services') or {}).get('api')
+    if not isinstance(service, dict):
+        fail('COMPOSE_CONFIG_INVALID')
+    raw_environment = service.get('environment') or {}
+    if isinstance(raw_environment, dict):
+        return {str(name): '' if value is None else str(value) for name, value in raw_environment.items()}, set()
+    if isinstance(raw_environment, list):
+        document = {'Config': {'Env': raw_environment}}
+        return environment(document)
+    fail('COMPOSE_CONFIG_INVALID')
+
+
+try:
+    if os.geteuid() != 0:
+        fail('NOT_ROOT')
+    if SOURCE_REVISION != '7c768ad7c54523837b06999a8f69bdffe2a840db':
+        fail('UNKNOWN')
+    run(['docker', 'version'])
+
+    unscoped_web = [line for line in run([
+        'docker', 'ps', '-q', '--filter', 'label=com.docker.compose.service=web'
+    ]).splitlines() if line]
+    if len(unscoped_web) != 1:
+        fail('ACTIVE_WEB_CARDINALITY')
+    web_id = unscoped_web[0]
+    web_document = inspect_one(web_id)
+    web_labels = labels(web_document)
+    project = str(web_labels.get('com.docker.compose.project') or '')
+    if not project:
+        fail('ACTIVE_PROJECT_MISSING')
+    api_ids = running_ids(project, 'api')
+    if len(api_ids) != 1:
+        fail('ACTIVE_API_CARDINALITY')
+    api_id = api_ids[0]
+    api_document = inspect_one(api_id)
+    api_labels = labels(api_document)
+    active_revision = str(api_labels.get('org.opencontainers.image.revision') or '')
+    web_revision = str(web_labels.get('org.opencontainers.image.revision') or '')
+    if not re.fullmatch(r'[0-9a-f]{40}', active_revision):
+        fail('ACTIVE_REVISION_INVALID')
+    if web_revision != active_revision:
+        fail('ACTIVE_REVISION_PARITY')
+
+    production_directory = str(web_labels.get('com.docker.compose.project.working_dir') or '')
+    if not production_directory or not os.path.isabs(production_directory) or production_directory == '/':
+        fail('PRODUCTION_DIRECTORY_INVALID')
+    if os.path.islink(production_directory) or not os.path.isdir(production_directory):
+        fail('PRODUCTION_DIRECTORY_INVALID')
+    production_directory = os.path.realpath(production_directory)
+    config_label = str(web_labels.get('com.docker.compose.project.config_files') or '')
+    raw_files = [item.strip() for item in config_label.split(',') if item.strip()]
+    if not raw_files:
+        fail('COMPOSE_AUTHORITY_INVALID')
+    compose_files = []
+    for raw_path in raw_files:
+        path = raw_path if os.path.isabs(raw_path) else os.path.join(production_directory, raw_path)
+        if os.path.islink(path) or not os.path.isfile(path):
+            fail('COMPOSE_AUTHORITY_INVALID')
+        real_path = os.path.realpath(path)
+        if os.path.commonpath([production_directory, real_path]) != production_directory:
+            fail('COMPOSE_AUTHORITY_INVALID')
+        compose_files.append(real_path)
+
+    active_values, active_duplicates = environment(api_document)
+    active_pepper = secret_state(active_values, active_duplicates, 'AUTH_TOKEN_PEPPER')
+    compose_values, compose_duplicates = compose_environment(
+        production_directory, project, compose_files
+    )
+    compose_pepper = secret_state(compose_values, compose_duplicates, 'AUTH_TOKEN_PEPPER')
+
+    source_documents = []
+    for candidate_id in all_ids(project, 'api'):
+        candidate = inspect_one(candidate_id)
+        candidate_revision = str(labels(candidate).get('org.opencontainers.image.revision') or '')
+        if candidate_revision == SOURCE_REVISION:
+            source_documents.append(candidate)
+    source_cardinality = cardinality(len(source_documents))
+    if len(source_documents) == 0:
+        source_pepper = 'UNAVAILABLE'
+    elif len(source_documents) == 1:
+        source_values, source_duplicates = environment(source_documents[0])
+        source_pepper = secret_state(source_values, source_duplicates, 'AUTH_TOKEN_PEPPER')
+    else:
+        source_pepper = 'AMBIGUOUS'
+
+    assignments, unsafe_scan = scan_protected_files(production_directory)
+    pepper_cardinality, pepper_authority, pepper_value = file_authority(
+        assignments['AUTH_TOKEN_PEPPER'], unsafe_scan['AUTH_TOKEN_PEPPER']
+    )
+    legacy_cardinality, legacy_authority, legacy_value = file_authority(
+        assignments['AUTH_HASH_SECRET'], unsafe_scan['AUTH_HASH_SECRET']
+    )
+
+    candidate_value = pepper_value if pepper_authority == 'READY' else None
+    if candidate_value is None and pepper_authority == 'NONE' and legacy_authority == 'READY':
+        candidate_value = legacy_value
+    purpose_names = ('AUTH_OPAQUE_TOKEN_DIGEST_KEY', 'JWT_SECRET', 'MFA_ENCRYPTION_KEY')
+    purpose_values = [active_values.get(name, '') for name in purpose_names]
+    if candidate_value is None or any(not SAFE_SECRET.fullmatch(value or '') for value in purpose_values):
+        purpose_separation = 'UNAVAILABLE'
+    elif any(hmac.compare_digest(candidate_value, value) for value in purpose_values):
+        purpose_separation = 'CONFLICT'
+    else:
+        purpose_separation = 'PASS'
+
+    if candidate_value is not None and purpose_separation == 'CONFLICT':
+        recovery_class = 'PURPOSE_CONFLICT'
+    elif pepper_authority == 'READY' and purpose_separation == 'PASS':
+        recovery_class = 'REUSE_AUTH_TOKEN_PEPPER'
+    elif pepper_authority == 'NONE' and legacy_authority == 'READY' and purpose_separation == 'PASS':
+        recovery_class = 'MIGRATE_LEGACY_AUTH_HASH_SECRET'
+    elif pepper_authority == 'NONE' and legacy_authority == 'NONE' and compose_pepper == 'READY':
+        recovery_class = 'REPROJECT_COMPOSE_AUTHORITY'
+    elif pepper_authority == 'NONE' and legacy_authority == 'NONE' and compose_pepper == 'MISSING':
+        recovery_class = 'NO_EXISTING_AUTHORITY'
+    else:
+        recovery_class = 'AMBIGUOUS_OR_UNSAFE'
+
+    web_after = running_ids(project, 'web')
+    api_after = running_ids(project, 'api')
+    if web_after != [web_id] or api_after != [api_id]:
+        fail('ACTIVE_RUNTIME_DRIFT')
+    if str(labels(inspect_one(web_id)).get('org.opencontainers.image.revision') or '') != active_revision:
+        fail('ACTIVE_RUNTIME_DRIFT')
+    if str(labels(inspect_one(api_id)).get('org.opencontainers.image.revision') or '') != active_revision:
+        fail('ACTIVE_RUNTIME_DRIFT')
+
+    print('|'.join([
+        'AUTH_HASH_RUNTIME',
+        'PASS',
+        active_revision,
+        active_pepper,
+        source_cardinality,
+        source_pepper,
+        compose_pepper,
+        pepper_cardinality,
+        pepper_authority,
+        legacy_cardinality,
+        legacy_authority,
+        purpose_separation,
+        recovery_class,
+        'NONE',
+    ]))
+except ClassificationFailure as error:
+    print(f'AUTH_HASH_RUNTIME_REMOTE_FAILURE|{error}')
+    raise SystemExit(1)
+except Exception:
+    print('AUTH_HASH_RUNTIME_REMOTE_FAILURE|UNKNOWN')
+    raise SystemExit(1)
+PY
+)"; then
+    false
+  fi
+
+  stage='AUTH_HASH_RUNTIME_RESULT_VALIDATION'
+  failure_detail='OUTPUT_VALIDATION_FAILED'
+  [[ "$(wc -l <<< "$output" | tr -d '[:space:]')" == '1' ]]
+  IFS='|' read -r marker pass active_revision active_pepper source_cardinality source_pepper \
+    compose_pepper pepper_cardinality pepper_authority legacy_cardinality legacy_authority \
+    purpose_separation recovery_class production_mutation <<< "$output"
+  [[ "$marker" == 'AUTH_HASH_RUNTIME' && "$pass" == 'PASS' ]]
+  [[ "$active_revision" =~ ^[0-9a-f]{40}$ ]]
+  [[ "$active_pepper" =~ ^(MISSING|READY|UNSAFE)$ ]]
+  [[ "$source_cardinality" =~ ^(ZERO|ONE|MULTIPLE)$ ]]
+  [[ "$source_pepper" =~ ^(UNAVAILABLE|MISSING|READY|UNSAFE|AMBIGUOUS)$ ]]
+  [[ "$compose_pepper" =~ ^(MISSING|READY|UNSAFE)$ ]]
+  [[ "$pepper_cardinality" =~ ^(ZERO|ONE|MULTIPLE)$ ]]
+  [[ "$pepper_authority" =~ ^(NONE|READY|UNSAFE|MULTIPLE_CONSISTENT|CONFLICT)$ ]]
+  [[ "$legacy_cardinality" =~ ^(ZERO|ONE|MULTIPLE)$ ]]
+  [[ "$legacy_authority" =~ ^(NONE|READY|UNSAFE|MULTIPLE_CONSISTENT|CONFLICT)$ ]]
+  [[ "$purpose_separation" =~ ^(PASS|CONFLICT|UNAVAILABLE)$ ]]
+  [[ "$recovery_class" =~ ^(REUSE_AUTH_TOKEN_PEPPER|MIGRATE_LEGACY_AUTH_HASH_SECRET|REPROJECT_COMPOSE_AUTHORITY|NO_EXISTING_AUTHORITY|PURPOSE_CONFLICT|AMBIGUOUS_OR_UNSAFE)$ ]]
+  [[ "$production_mutation" == 'NONE' ]]
+  git merge-base --is-ancestor "$active_revision" "$TARGET_SHA"
+  guard_main
+
+  stage='AUTH_HASH_RUNTIME_RESULT_PUBLISH'
+  gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 auth-hash runtime authority classifier
+
+- exact diagnostic main: \`$TARGET_SHA\`
+- active production API/Web revision: \`$active_revision\`
+- active API AUTH_TOKEN_PEPPER: \`$active_pepper\`
+- source-reset API container cardinality: \`$source_cardinality\`
+- source-reset AUTH_TOKEN_PEPPER: \`$source_pepper\`
+- resolved Compose AUTH_TOKEN_PEPPER: \`$compose_pepper\`
+- protected AUTH_TOKEN_PEPPER file cardinality: \`$pepper_cardinality\`
+- protected AUTH_TOKEN_PEPPER authority: \`$pepper_authority\`
+- protected legacy AUTH_HASH_SECRET file cardinality: \`$legacy_cardinality\`
+- protected legacy AUTH_HASH_SECRET authority: \`$legacy_authority\`
+- candidate purpose separation from opaque/JWT/MFA keys: \`$purpose_separation\`
+- recovery class: \`$recovery_class\`
+- protected value / file path / hash / length exposure: \`NONE\`
+- reviewer identity / reset token / credential exposure: \`NONE\`
+- raw Docker / Compose / filesystem output: \`NOT_PUBLISHED\`
+- reset replay / mail send: \`NONE\`
+- reset authorized now: \`NO_CURRENT_MAIL_PATH_AND_SMTP_IMAP_NOT_REPROVEN\`
+- production mutation: \`NONE\`
+- new recurring cost: \`0 RUB\`" >/dev/null
+  result_published=1
+  exit 0
+fi
 
 guard_main
 stage='REMOTE_ATTEMPT_CLASSIFICATION'

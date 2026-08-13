@@ -1,4 +1,4 @@
-name: Production P0 Reviewer Reset Attempt Classifier
+name: Production P0 Reviewer Reset and Auth-Hash Runtime Classifier
 
 on:
   pull_request:
@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   contract:
-    name: Validate reviewer reset attempt classifier contract
+    name: Validate reviewer reset and auth-hash runtime classifier contract
     if: >-
       github.event_name == 'pull_request' ||
       (
@@ -29,7 +29,8 @@ jobs:
         github.event.comment.user.login == github.repository_owner &&
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
-        github.event.comment.body == '/production p0-reviewer-reset-attempt-classify 31706325376 current-main'
+        (github.event.comment.body == '/production p0-reviewer-reset-attempt-classify 31706325376 current-main' ||
+         github.event.comment.body == '/production p0-auth-hash-runtime-classify current-main')
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -46,7 +47,7 @@ jobs:
       - run: bash -n scripts/production-p0-reviewer-reset-attempt-classifier.sh
 
   classify:
-    name: Read-only REG.RU reviewer reset attempt classifier
+    name: Read-only REG.RU reviewer reset and auth-hash runtime classifier
     needs: contract
     if: >-
       needs.contract.result == 'success' &&
@@ -55,7 +56,8 @@ jobs:
       github.event.comment.user.login == github.repository_owner &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
-      github.event.comment.body == '/production p0-reviewer-reset-attempt-classify 31706325376 current-main'
+      (github.event.comment.body == '/production p0-reviewer-reset-attempt-classify 31706325376 current-main' ||
+       github.event.comment.body == '/production p0-auth-hash-runtime-classify current-main')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -77,6 +79,6 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Classify durable challenge and delivery evidence without replay
+      - name: Classify reset evidence or auth-hash runtime authority without mutation
         shell: bash
         run: bash scripts/production-p0-reviewer-reset-attempt-classifier.sh
