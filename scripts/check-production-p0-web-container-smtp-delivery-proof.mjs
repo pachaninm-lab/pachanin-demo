@@ -50,7 +50,7 @@ for (const needle of [
   "IMAP_RECEIPT_RESULT",
   "readonly=True",
   "PRODUCTION_MUTATION='NONE'",
-  "PRODUCTION_MUTATION=ACCEPTANCE_MAIL_ONLY",
+  "console.log(`PRODUCTION_MUTATION=${sent ? 'ACCEPTANCE_MAIL_ONLY' : 'NONE'}`);",
   "StrictHostKeyChecking=yes",
   "reviewer identity / reset / password / TOTP / session access: \\`NONE\\`",
 ]) requireText(script, needle, 'script');
