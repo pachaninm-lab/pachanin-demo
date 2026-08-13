@@ -81,6 +81,7 @@ describe('Gekta legal surface', () => {
     expect(consent).toContain('Понятно, начать');
     expect(consent).toContain("href='/legal/usloviya-ispolzovaniya-gekta'");
     expect(consent).toContain("href='/legal/politika-konfidencialnosti'");
+    expect(consent.match(/className='inline-flex min-h-11 items-center align-middle/g)).toHaveLength(2);
     expect(workspace).toContain("body: JSON.stringify({ action: 'consent' })");
     expect(workspace).toContain('setConsentRequired(body.consent?.version !== body.legalVersion);');
   });

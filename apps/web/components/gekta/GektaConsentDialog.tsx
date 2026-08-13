@@ -58,9 +58,9 @@ export function GektaConsentDialog({ locale, onAccept }: { locale: GektaLocale; 
         <p className='mt-2 text-sm leading-6 text-slate-600'>{ui.body}</p>
         <p className='mt-3 text-xs leading-5 text-slate-500'>
           {ui.accept}{' '}
-          <Link href='/legal/usloviya-ispolzovaniya-gekta' className='font-medium text-emerald-800 underline underline-offset-2'>{ui.terms}</Link>{' '}
+          <Link href='/legal/usloviya-ispolzovaniya-gekta' className='inline-flex min-h-11 items-center align-middle font-medium text-emerald-800 underline underline-offset-2'>{ui.terms}</Link>{' '}
           {ui.and}{' '}
-          <Link href='/legal/politika-konfidencialnosti' className='font-medium text-emerald-800 underline underline-offset-2'>{ui.privacy}</Link>.
+          <Link href='/legal/politika-konfidencialnosti' className='inline-flex min-h-11 items-center align-middle font-medium text-emerald-800 underline underline-offset-2'>{ui.privacy}</Link>.
         </p>
         <button
           type='button'
