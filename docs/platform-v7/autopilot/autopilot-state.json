@@ -1116,6 +1116,8 @@
     ],
     "fix/gekta-first-user-consent-race-3072": [
       ".github/workflows/production-gekta-first-user-acceptance.yml",
+      "apps/web/middleware.ts",
+      "apps/web/tests/unit/gektaEntitlement.test.ts",
       "scripts/production-gekta-first-user-acceptance.mjs",
       "scripts/check-production-gekta-first-user-acceptance.mjs",
       "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json"
