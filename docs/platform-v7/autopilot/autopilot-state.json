@@ -1113,6 +1113,15 @@
       "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
       "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
       "docs/platform-v7/autopilot/scopes/gekta-brand-touch-target-4018.json"
+    ],
+    "fix/gekta-first-user-consent-race-3072": [
+      ".github/workflows/production-gekta-first-user-acceptance.yml",
+      "scripts/production-gekta-first-user-acceptance.mjs",
+      "scripts/check-production-gekta-first-user-acceptance.mjs",
+      "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json"
+    ],
+    "fix/codeql-v2-26-3-upstream-lock-4072": [
+      "codeql/insufficient-password-hash-corrected/upstream.lock.json"
     ]
   },
   "currentAcceptance": [
