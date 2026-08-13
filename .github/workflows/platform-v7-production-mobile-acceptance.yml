@@ -44,7 +44,7 @@ jobs:
       manual_sha: ''
 
   mobile-acceptance:
-    name: 320x700, 390x844 and 430x932 production acceptance
+    name: 320x700, 375x812, 390x844 and 430x932 production acceptance
     needs: accepted
     if: >-
       always() &&
@@ -194,6 +194,7 @@ jobs:
             echo "- exact public revision gate: \`$revision_result\`"
             echo "- manifest revision: \`${MANIFEST_SHA:-missing}\`"
             echo "- Gekta viewport 320×700: \`$result\`"
+            echo "- Gekta viewport 375×812: \`$result\`"
             echo "- Platform V7 + Gekta viewport 390×844: \`$result\`"
             echo "- Platform V7 + Gekta viewport 430×932: \`$result\`"
             echo "- Gekta mobile history, chat, composer and sources: \`$result\`"
