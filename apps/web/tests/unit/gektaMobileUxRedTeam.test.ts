@@ -73,4 +73,10 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(floating).toContain("body:has(.p7-support-chat-button) .pc-gekta-floating");
     expect(floating).toContain("body:has([role='dialog'][aria-modal='true']) .pc-gekta-floating");
   });
+
+  it('keeps the public mobile footer links inside the 44px touch contract', () => {
+    expect(floating).toContain('.pc-v7-public-entry .pc-v6-footer nav a');
+    expect(floating).toContain('min-height: 44px');
+    expect(floating).toContain('display: inline-flex');
+  });
 });
