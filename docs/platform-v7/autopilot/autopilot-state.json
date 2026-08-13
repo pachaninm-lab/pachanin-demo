@@ -1070,6 +1070,12 @@
       "scripts/production-p0-mailbox-protected-input-classifier.sh",
       "scripts/check-production-p0-mailbox-protected-input-classifier.mjs",
       "docs/platform-v7/autopilot/scopes/production-p0-mailbox-protected-input-classifier-3785.json"
+    ],
+    "diag/p0-web-container-smtp-delivery-proof-3785": [
+      ".github/workflows/production-p0-web-container-smtp-delivery-proof.yml",
+      "scripts/production-p0-web-container-smtp-delivery-proof.sh",
+      "scripts/check-production-p0-web-container-smtp-delivery-proof.mjs",
+      "docs/platform-v7/autopilot/scopes/production-p0-web-container-smtp-delivery-proof-3785.json"
     ]
   },
   "currentAcceptance": [
