@@ -16,6 +16,7 @@
     "databaseMutation": false,
     "identityMutation": false,
     "passwordMutation": false,
+    "credentialMutation": false,
     "mfaMutation": false,
     "sessionMutation": false,
     "runtimeBusinessBehaviorChange": false,
