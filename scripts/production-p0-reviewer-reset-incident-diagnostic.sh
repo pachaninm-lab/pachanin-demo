@@ -24,6 +24,7 @@ key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-durable-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-durable-known-hosts"
 TARGET_SHA='unknown'
 stage='INITIAL'
+failure_detail='NONE'
 result_published=0
 scan=''
 scan_raw=''
@@ -58,6 +59,7 @@ publish_failure() {
 - inspected deployed revision: \`$EXPECTED_DEPLOYED_SHA\`
 - result: \`FAIL_CLOSED\`
 - failure stage: \`$stage\`
+- failure detail: \`$failure_detail\`
 - reviewer identity exposure: \`NONE\`
 - auth/reset request replay: \`NONE\`
 - production mutation: \`NONE\`
@@ -161,6 +163,7 @@ stage='SSH_CONFIRMED'
 
 guard_main
 stage='REMOTE_DURABLE_INSPECTION'
+set +e
 output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$EXPECTED_DEPLOYED_SHA' '$FIRST_SINCE' '$FIRST_UNTIL' '$SECOND_SINCE' '$SECOND_UNTIL'" <<'REMOTE'
 set -Eeuo pipefail
 expected_revision="$1"
@@ -195,7 +198,34 @@ docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - "$first_since"
 const { PrismaClient } = require('@prisma/client');
 const [firstSince, firstUntil, secondSince, secondUntil] = process.argv.slice(2);
 const safeCount = (value) => Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 100;
-const fail = (code) => { throw new Error(code); };
+const explicitFailureCodes = new Set([
+  'DATABASE_URL_MISSING',
+  'STAFF_PRINCIPAL_BOUNDARY',
+  'REVIEWER_CARDINALITY',
+  'REVIEWER_READINESS_CHANGED',
+  'REVIEWER_SUBJECT_INVALID',
+  'AUTH_PRINCIPAL_BOUNDARY',
+  'AUTH_SUBJECT_NOT_FOUND',
+  'CHALLENGE_AGGREGATE_CARDINALITY',
+  'CHALLENGE_AGGREGATE_INVALID',
+  'CHALLENGE_STATUS_INVALID',
+  'AUDIT_AGGREGATE_CARDINALITY',
+  'AUDIT_AGGREGATE_INVALID',
+]);
+const fail = (code) => {
+  const error = new Error(code);
+  error.code = code;
+  throw error;
+};
+const safeFailureCode = (error) => {
+  const explicit = String(error?.message || '');
+  if (explicitFailureCodes.has(explicit)) return explicit;
+  for (const candidate of [error?.meta?.code, error?.code]) {
+    const value = String(candidate || '').toUpperCase();
+    if (/^[A-Z0-9]{4,8}$/.test(value)) return `DB_${value}`;
+  }
+  return 'UNKNOWN';
+};
 let staffDb;
 let authDb;
 
@@ -314,8 +344,7 @@ let authDb;
   ].join('|') + '\n');
   process.stdout.write('PRODUCTION_MUTATION|NONE\n');
 })().catch((error) => {
-  const raw = String(error?.message || 'UNKNOWN').replace(/[^A-Z0-9_-]/gi, '').slice(0, 64);
-  process.stdout.write(`RESET_DURABLE|FAIL_${raw || 'UNKNOWN'}\n`);
+  process.stdout.write(`RESET_DURABLE|FAIL_${safeFailureCode(error)}\n`);
   process.stdout.write('PRODUCTION_MUTATION|NONE\n');
   process.exitCode = 1;
 }).finally(async () => {
@@ -325,11 +354,25 @@ let authDb;
 NODE
 REMOTE
 )"
+remote_rc=$?
+set -e
 stage='RESULT_VALIDATION'
 
-parity="$(grep '^PARITY|' <<< "$output" | tail -n1)"
-marker="$(grep '^RESET_DURABLE|' <<< "$output" | tail -n1)"
-mutation="$(grep '^PRODUCTION_MUTATION|' <<< "$output" | tail -n1)"
+parity="$(grep '^PARITY|' <<< "$output" | tail -n1 || true)"
+marker="$(grep '^RESET_DURABLE|' <<< "$output" | tail -n1 || true)"
+mutation="$(grep '^PRODUCTION_MUTATION|' <<< "$output" | tail -n1 || true)"
+if (( remote_rc != 0 )); then
+  if [[ "$parity" != 'PARITY|PASS' ]]; then
+    failure_detail='PARITY_OR_PRE_NODE_FAILURE'
+  elif [[ "$marker" =~ ^RESET_DURABLE\|FAIL_([A-Z0-9_-]{1,64})$ ]]; then
+    failure_detail="${BASH_REMATCH[1]}"
+  else
+    failure_detail='REMOTE_NO_SAFE_MARKER'
+  fi
+  [[ "$failure_detail" =~ ^[A-Z0-9_-]{1,64}$ ]]
+  false
+fi
+
 [[ "$parity" == 'PARITY|PASS' ]]
 [[ "$mutation" == 'PRODUCTION_MUTATION|NONE' ]]
 
