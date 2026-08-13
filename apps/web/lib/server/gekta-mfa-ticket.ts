@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 
 export const GEKTA_MFA_PENDING_COOKIE = 'gekta_mfa_pending';
 export const GEKTA_MFA_PENDING_TTL_SECONDS = 10 * 60;
@@ -18,13 +18,24 @@ export type GektaMfaTicket = Readonly<{
 
 const AAD = Buffer.from('gekta-mfa-ticket-v1', 'utf8');
 const EMAIL_AAD = Buffer.from('gekta-email-ticket-v1', 'utf8');
+const KEY_SALT = Buffer.from('transparent-price/gekta/auth-ticket/v1', 'utf8');
+
+function deriveTicketKey(secret: string, purpose: string): Buffer {
+  return Buffer.from(hkdfSync(
+    'sha256',
+    Buffer.from(secret, 'utf8'),
+    KEY_SALT,
+    Buffer.from(purpose, 'utf8'),
+    32,
+  ));
+}
 
 function key(env: NodeJS.ProcessEnv = process.env): Buffer {
   const secret = String(env.MFA_LOGIN_TICKET_SECRET || '').trim();
   if (secret.length < 32) {
     throw new Error('MFA_LOGIN_TICKET_SECRET must contain at least 32 characters');
   }
-  return createHash('sha256').update(`gekta:${secret}`, 'utf8').digest();
+  return deriveTicketKey(secret, 'mfa-challenge');
 }
 
 function emailKey(env: NodeJS.ProcessEnv = process.env): Buffer {
@@ -32,7 +43,7 @@ function emailKey(env: NodeJS.ProcessEnv = process.env): Buffer {
   if (secret.length < 32) {
     throw new Error('MFA_LOGIN_TICKET_SECRET must contain at least 32 characters');
   }
-  return createHash('sha256').update(`gekta:email-verification:${secret}`, 'utf8').digest();
+  return deriveTicketKey(secret, 'email-verification');
 }
 
 function canonicalBase64Url(value: string, expectedBytes?: number): Buffer | null {
