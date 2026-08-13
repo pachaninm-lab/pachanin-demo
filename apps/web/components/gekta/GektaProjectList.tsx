@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { FolderOpen, FolderPlus, Pencil, Trash2 } from 'lucide-react';
+import { FolderOpen, FolderPlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { GektaLocale } from '@/lib/gekta/content';
 import { GEKTA_PROJECT_LIMITS, type GektaProject } from '@/lib/gekta/projects';
 
@@ -11,6 +11,7 @@ const UI = {
     create: 'Новый проект',
     namePlaceholder: 'Название проекта',
     descriptionPlaceholder: 'Краткое описание (необязательно)',
+    addDescription: 'Добавить описание',
     save: 'Создать',
     cancel: 'Отмена',
     rename: 'Переименовать',
@@ -26,6 +27,7 @@ const UI = {
     create: 'New project',
     namePlaceholder: 'Project name',
     descriptionPlaceholder: 'Short description (optional)',
+    addDescription: 'Add description',
     save: 'Create',
     cancel: 'Cancel',
     rename: 'Rename',
@@ -41,6 +43,7 @@ const UI = {
     create: '新建项目',
     namePlaceholder: '项目名称',
     descriptionPlaceholder: '简要说明（可选）',
+    addDescription: '添加说明',
     save: '创建',
     cancel: '取消',
     rename: '重命名',
@@ -65,29 +68,35 @@ export function GektaProjectList({ locale, projects, activeProjectId, conversati
 }) {
   const ui = UI[locale];
   const [creating, setCreating] = React.useState(false);
+  const [descriptionOpen, setDescriptionOpen] = React.useState(false);
   const [name, setName] = React.useState('');
   const [description, setDescription] = React.useState('');
   const nameRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => { if (creating) nameRef.current?.focus(); }, [creating]);
 
+  const cancel = () => {
+    setCreating(false);
+    setDescriptionOpen(false);
+    setName('');
+    setDescription('');
+  };
+
   const submit = () => {
     if (!name.trim()) return;
     onCreate(name, description);
-    setName('');
-    setDescription('');
-    setCreating(false);
+    cancel();
   };
 
   return (
-    <section className='mt-4' aria-labelledby='gekta-projects-heading' data-gekta-projects='true'>
+    <section className='mt-3' aria-labelledby='gekta-projects-heading' data-gekta-projects='true'>
       <div className='flex items-center justify-between px-2'>
         <h2 id='gekta-projects-heading' className='text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500'>{ui.title}</h2>
         <button
           type='button'
-          onClick={() => setCreating((current) => !current)}
+          onClick={() => { if (creating) cancel(); else setCreating(true); }}
           aria-expanded={creating}
-          className='flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
+          className='flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
           aria-label={ui.create}
           title={ui.create}
           disabled={projects.length >= GEKTA_PROJECT_LIMITS.maxProjects}
@@ -97,7 +106,7 @@ export function GektaProjectList({ locale, projects, activeProjectId, conversati
       </div>
 
       {creating ? (
-        <div className='mt-2 rounded-xl border border-slate-200 bg-white p-2'>
+        <div className='mt-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm'>
           <label className='sr-only' htmlFor='gekta-project-name'>{ui.namePlaceholder}</label>
           <input
             id='gekta-project-name'
@@ -105,23 +114,31 @@ export function GektaProjectList({ locale, projects, activeProjectId, conversati
             value={name}
             maxLength={GEKTA_PROJECT_LIMITS.maxNameChars}
             onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); submit(); } if (event.key === 'Escape') setCreating(false); }}
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); submit(); } if (event.key === 'Escape') cancel(); }}
             placeholder={ui.namePlaceholder}
-            className='min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-emerald-500'
+            className='min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
           />
-          <label className='sr-only' htmlFor='gekta-project-description'>{ui.descriptionPlaceholder}</label>
-          <input
-            id='gekta-project-description'
-            value={description}
-            maxLength={GEKTA_PROJECT_LIMITS.maxDescriptionChars}
-            onChange={(event) => setDescription(event.target.value)}
-            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); submit(); } if (event.key === 'Escape') setCreating(false); }}
-            placeholder={ui.descriptionPlaceholder}
-            className='mt-2 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-emerald-500'
-          />
+          {descriptionOpen ? (
+            <>
+              <label className='sr-only' htmlFor='gekta-project-description'>{ui.descriptionPlaceholder}</label>
+              <input
+                id='gekta-project-description'
+                value={description}
+                maxLength={GEKTA_PROJECT_LIMITS.maxDescriptionChars}
+                onChange={(event) => setDescription(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); submit(); } if (event.key === 'Escape') cancel(); }}
+                placeholder={ui.descriptionPlaceholder}
+                className='mt-2 min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100'
+              />
+            </>
+          ) : (
+            <button type='button' onClick={() => setDescriptionOpen(true)} className='mt-1 flex min-h-11 items-center gap-2 rounded-xl px-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'>
+              <Plus className='h-4 w-4' aria-hidden='true' />{ui.addDescription}
+            </button>
+          )}
           <div className='mt-2 flex gap-2'>
-            <button type='button' onClick={submit} disabled={!name.trim()} className='min-h-11 flex-1 rounded-lg bg-emerald-800 px-3 text-sm font-semibold text-white disabled:opacity-40'>{ui.save}</button>
-            <button type='button' onClick={() => setCreating(false)} className='min-h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700'>{ui.cancel}</button>
+            <button type='button' onClick={submit} disabled={!name.trim()} className='min-h-11 flex-1 rounded-xl bg-emerald-800 px-3 text-sm font-semibold text-white disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'>{ui.save}</button>
+            <button type='button' onClick={cancel} className='min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'>{ui.cancel}</button>
           </div>
         </div>
       ) : null}
@@ -134,13 +151,13 @@ export function GektaProjectList({ locale, projects, activeProjectId, conversati
             </li>
           ) : null}
           {projects.map((project) => (
-            <li key={project.id} className={`group rounded-lg ${activeProjectId === project.id ? 'bg-white' : ''}`}>
+            <li key={project.id} className={`group rounded-xl ${activeProjectId === project.id ? 'bg-white' : ''}`}>
               <div className='flex items-center gap-1'>
                 <button
                   type='button'
                   onClick={() => onOpen(activeProjectId === project.id ? null : project.id)}
                   aria-pressed={activeProjectId === project.id}
-                  className='flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 text-left hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
+                  className='flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl px-2 text-left hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
                 >
                   <FolderOpen className='h-4 w-4 shrink-0 text-emerald-700' aria-hidden='true' />
                   <span className='min-w-0'>
@@ -154,7 +171,7 @@ export function GektaProjectList({ locale, projects, activeProjectId, conversati
                     const next = window.prompt(ui.renamePrompt, project.name);
                     if (next && next.trim()) onRename(project.id, next);
                   }}
-                  className='flex h-11 w-9 items-center justify-center rounded-lg text-slate-400 opacity-0 hover:text-slate-700 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 group-hover:opacity-100'
+                  className='flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-400 opacity-100 hover:bg-white hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 md:w-9 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100'
                   aria-label={`${ui.rename}: ${project.name}`}
                 >
                   <Pencil className='h-3.5 w-3.5' aria-hidden='true' />
@@ -162,7 +179,7 @@ export function GektaProjectList({ locale, projects, activeProjectId, conversati
                 <button
                   type='button'
                   onClick={() => { if (window.confirm(ui.deleteConfirm)) onDelete(project.id); }}
-                  className='flex h-11 w-9 items-center justify-center rounded-lg text-slate-400 opacity-0 hover:text-rose-700 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 group-hover:opacity-100'
+                  className='flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-400 opacity-100 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 md:w-9 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100'
                   aria-label={`${ui.del}: ${project.name}`}
                 >
                   <Trash2 className='h-3.5 w-3.5' aria-hidden='true' />
