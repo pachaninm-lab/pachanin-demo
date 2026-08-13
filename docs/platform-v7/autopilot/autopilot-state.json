@@ -1125,6 +1125,10 @@
     "fix/codeql-v2-26-3-upstream-lock-4072": [
       "codeql/insufficient-password-hash-corrected/upstream.lock.json",
       "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts"
+    ],
+    "governance/codeql-v2-26-3-provenance-test-scope": [
+      "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts",
+      "codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql"
     ]
   },
   "currentAcceptance": [
