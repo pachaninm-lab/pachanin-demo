@@ -73,6 +73,20 @@ body:has([role='dialog'][aria-modal='true']) .pc-gekta-floating,
 body:has(.pc-public-assistant-panel) .pc-gekta-floating {
   display: none;
 }
+/* The screenshot surfaced text-only footer links with undersized tap regions.
+   Keep the visual typography, but enlarge the mobile hit area to the same
+   44px interaction contract used by the header and chat controls. */
+@media (max-width: 767px) {
+  .pc-v7-public-entry .pc-v6-footer nav {
+    gap: 0 12px;
+  }
+  .pc-v7-public-entry .pc-v6-footer nav a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding-inline: 2px;
+  }
+}
 @media (max-width: 350px) {
   .pc-gekta-floating { right: max(8px, env(safe-area-inset-right, 0px)); width: 52px; height: 52px; }
   .pc-gekta-floating-mark { font-size: 23px; }
