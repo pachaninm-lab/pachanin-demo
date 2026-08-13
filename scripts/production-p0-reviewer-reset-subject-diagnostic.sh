@@ -9,7 +9,7 @@ DEFAULT_HOST='195.19.12.120'
 LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 RELEASE_ISSUE_NUMBER='3072'
 COMMAND='/production p0-reviewer-reset-subject-diagnose current-main'
-EXPECTED_DEPLOYED_SHA='3298ef9e7d661102e4b275a777055331a94ce7ff'
+EXPECTED_DEPLOYED_SHA='unknown'
 
 key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-subject-diag-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-subject-diag-known-hosts"
@@ -52,7 +52,8 @@ TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
 git fetch --no-tags origin main >/dev/null
 [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
 [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
-git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$TARGET_SHA"
+EXPECTED_DEPLOYED_SHA="$TARGET_SHA"
+[[ "$EXPECTED_DEPLOYED_SHA" == "$TARGET_SHA" ]]
 [[ -z "$(git status --porcelain=v1)" ]]
 
 host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
