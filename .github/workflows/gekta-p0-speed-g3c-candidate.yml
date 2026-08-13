@@ -170,7 +170,7 @@ jobs:
           [[ "$remote_base_sha" == "$EXPECTED_BASE_SHA" ]] || { echo 'GEKTA_G3C_ERROR=bootstrap_base_sha_mismatch' > "$RUNNER_TEMP/g3c-result"; cat "$RUNNER_TEMP/g3c-result"; exit 31; }
           case "$ACTION" in ubatch512|rollback|status) ;; *) exit 32 ;; esac
           set +e; "${ssh_base[@]}" "sudo -n /usr/local/sbin/gekta-qwen-g3c $ACTION" > "$RUNNER_TEMP/g3c-raw" 2>&1; rc=$?; set -e
-          grep -E '^GEKTA_G3C_[A-Z0-9_]+=([A-Z0-9_.:-]+|[0-9]+)$' "$RUNNER_TEMP/g3c-raw" > "$RUNNER_TEMP/g3c-result" || true
+          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/g3c-raw" > "$RUNNER_TEMP/g3c-result" || true
           [[ -s "$RUNNER_TEMP/g3c-result" ]] || echo 'GEKTA_G3C_ERROR=bounded_evidence_missing' > "$RUNNER_TEMP/g3c-result"
           cat "$RUNNER_TEMP/g3c-result"; exit "$rc"
       - name: Publish bounded G3C evidence
