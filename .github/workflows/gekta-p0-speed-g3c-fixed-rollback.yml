@@ -61,7 +61,7 @@ jobs:
             ['ubatch512', 'current-main'].join(' '),
           ];
           for (const token of forbidden) if (text.includes(token)) throw new Error(`forbidden rollback authority: ${token}`);
-          if (text.split(exact).length !== 3) throw new Error('fixed rollback command must appear exactly in required contract and execution');
+          if (text.split(exact).length !== 2) throw new Error('fixed rollback execution must appear exactly once');
           NODE
 
   rollback:
