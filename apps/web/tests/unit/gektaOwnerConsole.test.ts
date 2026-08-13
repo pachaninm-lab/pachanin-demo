@@ -156,7 +156,7 @@ describe('Gekta console surfaces stay server-authoritative', () => {
   it('sends the CSRF token on every method the bridge treats as unsafe', () => {
     // DELETE тоже небезопасен: без токена удаление диалога вернуло бы 403.
     const client = read('lib/gekta/server-workspace.ts');
-    expect(client).toContain("...(init.method === 'GET' ? {} : { 'x-csrf-token': csrfToken() })");
+    expect(client).toContain("...(method === 'GET' ? {} : { 'x-csrf-token': csrfToken() })");
     expect(client).not.toContain("method === 'GET' || method === 'DELETE' ? {}");
   });
 

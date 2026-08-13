@@ -8,7 +8,7 @@
     "branch": "claude/gekta-registration",
     "commit": "e3a7c1641ad30d65bdb1ef2a366cff6d797267d3"
   },
-  "purpose": "Реальный /gekta/register поверх общего User/password/MFA: отдельные согласия на условия и ПД, обязательный заявленный телефон без fake SMS, одноразовая email-ссылка через существующий transactional mail, обязательная TOTP/backup-code проверка до активной сессии, серверный запуск 30-дневного trial, refresh/logout и перенос истории в аккаунт. Verification bearer остаётся внутри доверенного BFF, удаляется из адресной строки до сетевого запроса и не попадает в публичный registration response. Прямая генерация ответа Гекты теперь требует выданную сервером reservation или действующую product session.",
+  "purpose": "Реальный /gekta/register поверх общего User/password/MFA: отдельные согласия на условия и ПД, обязательный заявленный телефон без fake SMS, одноразовая email-ссылка через существующий transactional mail, обязательная TOTP/backup-code проверка до активной сессии, серверный запуск 30-дневного trial, refresh/logout и перенос истории в аккаунт. Verification bearer на безопасном GET запечатывается в purpose-bound HttpOnly ticket и потребляется только отдельным CSRF-защищённым POST после явного действия пользователя; он не попадает в React или публичный registration response. Прямая генерация ответа Гекты требует выданную сервером reservation или действующую product session.",
   "allowedPaths": [
     "apps/web/app/api/agro-chat/route.ts",
     "apps/web/app/api/gekta/auth/email/verify/route.ts",
