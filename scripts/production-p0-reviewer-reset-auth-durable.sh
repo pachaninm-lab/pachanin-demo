@@ -276,8 +276,7 @@ let authDb;
   }
 
   const authPrincipalRows = await authDb.$queryRawUnsafe(`
-    SELECT current_user IN ('app_auth', 'pc_auth_runtime', 'one_deal_auth') AS expected_runtime,
-           NOT rolsuper AS no_super,
+    SELECT NOT rolsuper AS no_super,
            NOT rolbypassrls AS no_bypass,
            NOT rolinherit AS no_inherit,
            has_schema_privilege(current_user, 'auth', 'USAGE') AS auth_usage,
