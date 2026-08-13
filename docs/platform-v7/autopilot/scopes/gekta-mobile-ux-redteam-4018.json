@@ -21,6 +21,7 @@
     "apps/web/components/gekta/GektaProjectList.tsx",
     "apps/web/components/gekta/GektaFloatingEntry.tsx",
     "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
     "docs/platform-v7/autopilot/scopes/gekta-mobile-ux-redteam-4018.json"
   ],
   "productBoundary": {
@@ -48,6 +49,7 @@
     "gektaProductSeparation.test.ts",
     "publicContactDockRuntime.test.tsx",
     "platformV7UnifiedPublicContactDock.test.ts",
+    "gekta-production-mobile-acceptance.spec.ts at 320/375/390/430",
     "mobile 320/375/390/430 reflow and no horizontal overflow",
     "mobile keyboard composer acceptance",
     "WCAG 2.2 AA focus and target-size acceptance",
