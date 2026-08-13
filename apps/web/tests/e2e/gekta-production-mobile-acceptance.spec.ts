@@ -59,6 +59,18 @@ async function expectTargetsAtLeast(locator: Locator, minimum: number) {
   expect(boxes.every((box) => box.width >= minimum && box.height >= minimum), JSON.stringify(boxes, null, 2)).toBe(true);
 }
 
+function visibleWorkspaceTargets(page: Page) {
+  return page.locator([
+    '[data-gekta-chat-workspace="true"] a:visible',
+    '[data-gekta-chat-workspace="true"] button:visible',
+    '[data-gekta-chat-workspace="true"] input:not([type="hidden"]):visible',
+    '[data-gekta-chat-workspace="true"] select:visible',
+    '[data-gekta-chat-workspace="true"] summary:visible',
+    '[data-gekta-chat-workspace="true"] textarea:visible',
+    '[data-gekta-chat-workspace="true"] [role="button"]:visible',
+  ].join(', '));
+}
+
 async function openSeededConversation(page: Page) {
   await page.getByRole('button', { name: 'Открыть историю' }).click();
   const dialog = page.getByRole('dialog', { name: 'Gekta navigation' });
@@ -122,8 +134,10 @@ test.describe('Gekta exact production mobile acceptance', () => {
       expect(Math.abs(visualViewport.cssHeight - visualViewport.actualHeight)).toBeLessThanOrEqual(2);
 
       await expectTargetsAtLeast(page.locator('[data-gekta-chat-workspace="true"] header button:visible'), 44);
+      await expectTargetsAtLeast(page.locator('[data-gekta-chat-workspace="true"] header a:visible'), 44);
       await expectTargetsAtLeast(page.locator('[data-gekta-chat-workspace="true"] button[aria-label="Прикрепить файл"]:visible, [data-gekta-chat-workspace="true"] button[aria-label="Отправить"]:visible'), 44);
       await expectTargetsAtLeast(page.locator('[data-gekta-role="assistant"] button:visible'), 44);
+      await expectTargetsAtLeast(visibleWorkspaceTargets(page), 44);
 
       const sources = page.locator('[data-gekta-role="assistant"] summary').filter({ hasText: 'Источники' });
       await expect(sources).toHaveCount(1);
@@ -152,20 +166,79 @@ test.describe('Gekta exact production mobile acceptance', () => {
     });
   }
 
-  test('canonical EN and ZH Gekta routes remain mobile and localized at 390px', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    for (const route of [
-      { path: '/gekta/en', lang: 'en', menu: 'Open history', brand: 'GEKTA' },
-      { path: '/gekta/zh', lang: 'zh-CN', menu: '打开历史记录', brand: 'GEKTA' },
-    ]) {
-      const response = await page.goto(route.path, { waitUntil: 'load' });
-      expect(response?.ok()).toBe(true);
-      await expect(page.locator('html')).toHaveAttribute('lang', route.lang);
-      await expect(page.getByRole('button', { name: route.menu })).toBeVisible();
-      await expect(page.locator('[data-gekta-chat-workspace="true"] main > header')).toContainText(route.brand);
-      await expectNoHorizontalOverflow(page);
+  for (const route of [
+    { path: '/gekta/en', locale: 'EN', lang: 'en', menu: 'Open history', closeMenu: 'Close history', brand: 'GEKTA' },
+    { path: '/gekta/zh', locale: 'ZH', lang: 'zh-CN', menu: '打开历史记录', closeMenu: '关闭历史记录', brand: 'GEKTA' },
+  ] as const) {
+    for (const viewport of viewports) {
+      test(`${route.locale} ${viewport.name} remains localized, progressive and 44px-safe`, async ({ page }, testInfo) => {
+        const runtimeFailures: string[] = [];
+        page.on('pageerror', (error) => runtimeFailures.push(error.message));
+        page.on('console', (message) => {
+          if (message.type() === 'error' && /hydration|uncaught|error boundary/i.test(message.text())) runtimeFailures.push(message.text());
+        });
+
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        const response = await page.goto(route.path, { waitUntil: 'load' });
+        expect(response?.ok()).toBe(true);
+        await expect(page.locator('html')).toHaveAttribute('lang', route.lang);
+        await expect(page.getByRole('button', { name: route.menu })).toBeVisible();
+        await expect(page.locator('[data-gekta-chat-workspace="true"] main > header')).toContainText(route.brand);
+        await expectNoHorizontalOverflow(page);
+
+        const visibleStarterCards = page.locator('[data-gekta-starter="true"]:visible');
+        const moreExamples = page.locator('[data-gekta-more-examples="true"]');
+        await expect(visibleStarterCards).toHaveCount(3);
+        await moreExamples.click();
+        expect(await visibleStarterCards.count()).toBeGreaterThan(3);
+        await moreExamples.click();
+        await expect(visibleStarterCards).toHaveCount(3);
+
+        const composer = page.locator('#gekta-composer-input');
+        const composerFontSize = await composer.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).fontSize));
+        expect(composerFontSize).toBeGreaterThanOrEqual(16);
+
+        const visualViewport = await page.evaluate(() => {
+          const cssHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gekta-visual-viewport-height'));
+          const actualHeight = window.visualViewport?.height ?? window.innerHeight;
+          return { cssHeight, actualHeight };
+        });
+        expect(Number.isFinite(visualViewport.cssHeight)).toBe(true);
+        expect(Math.abs(visualViewport.cssHeight - visualViewport.actualHeight)).toBeLessThanOrEqual(2);
+
+        await expectTargetsAtLeast(visibleWorkspaceTargets(page), 44);
+
+        await page.getByRole('button', { name: route.menu }).click();
+        const dialog = page.getByRole('dialog', { name: 'Gekta navigation' });
+        await expect(dialog).toBeVisible();
+        await expectTargetsAtLeast(dialog.locator('button, input, select, a'), 44);
+        const drawer = page.locator('[data-gekta-mobile-drawer-panel="true"]');
+        const drawerBox = await drawer.boundingBox();
+        expect(drawerBox).not.toBeNull();
+        if (drawerBox) {
+          expect(drawerBox.width).toBeGreaterThanOrEqual(Math.min(viewport.width * 0.88, 350));
+          expect(drawerBox.width).toBeLessThanOrEqual(viewport.width + 1);
+        }
+        await drawer.getByRole('button', { name: route.closeMenu }).click();
+        await expect(dialog).toHaveCount(0);
+
+        const workspace = await page.locator('[data-gekta-chat-workspace="true"]').evaluate((node) => {
+          const box = (node as HTMLElement).getBoundingClientRect();
+          return { left: box.left, right: box.right, width: box.width };
+        });
+        expect(workspace.left).toBeGreaterThanOrEqual(-1);
+        expect(workspace.right).toBeLessThanOrEqual(viewport.width + 1);
+        expect(workspace.width).toBeLessThanOrEqual(viewport.width + 1);
+
+        expect(runtimeFailures).toEqual([]);
+        await page.screenshot({
+          path: testInfo.outputPath(`gekta-production-${route.locale.toLowerCase()}-${viewport.name}.png`),
+          fullPage: false,
+          animations: 'disabled',
+        });
+      });
     }
-  });
+  }
 
   test('public platform keeps one floating communication surface and no double mobile footer reserve', async ({ page }) => {
     await page.setViewportSize({ width: 430, height: 932 });
