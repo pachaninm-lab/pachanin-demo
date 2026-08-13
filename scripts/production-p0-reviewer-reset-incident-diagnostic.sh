@@ -163,8 +163,7 @@ stage='SSH_CONFIRMED'
 
 guard_main
 stage='REMOTE_DURABLE_INSPECTION'
-set +e
-output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$EXPECTED_DEPLOYED_SHA' '$FIRST_SINCE' '$FIRST_UNTIL' '$SECOND_SINCE' '$SECOND_UNTIL'" <<'REMOTE'
+if output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$EXPECTED_DEPLOYED_SHA' '$FIRST_SINCE' '$FIRST_UNTIL' '$SECOND_SINCE' '$SECOND_UNTIL'" <<'REMOTE'
 set -Eeuo pipefail
 expected_revision="$1"
 first_since="$2"
@@ -353,9 +352,11 @@ let authDb;
 });
 NODE
 REMOTE
-)"
-remote_rc=$?
-set -e
+)"; then
+  remote_rc=0
+else
+  remote_rc=$?
+fi
 stage='RESULT_VALIDATION'
 
 parity="$(grep '^PARITY|' <<< "$output" | tail -n1 || true)"
