@@ -191,7 +191,7 @@ web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontai
 [[ "$api_revision" == "$expected_revision" && "$web_revision" == "$expected_revision" ]]
 printf 'PARITY|PASS\n'
 
-docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs -- "$first_since" "$first_until" "$second_since" "$second_until" <<'NODE'
+docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - "$first_since" "$first_until" "$second_since" "$second_until" <<'NODE'
 const { PrismaClient } = require('@prisma/client');
 const [firstSince, firstUntil, secondSince, secondUntil] = process.argv.slice(2);
 const safeCount = (value) => Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 100;
