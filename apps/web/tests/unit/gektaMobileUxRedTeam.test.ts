@@ -27,8 +27,7 @@ describe('Gekta mobile UX red-team contracts', () => {
 
   it('keeps mobile header actions and the scroll affordance inside the 44px contract', () => {
     expect(product).toContain("[data-gekta-header-new-chat='true']");
-    expect(workspace).toContain("className='flex min-h-11 min-w-0 items-center");
-    expect(workspace).toContain("data-gekta-brand-home='true'");
+    expect(workspace).toMatch(/className='[^']*min-h-11[^']*' aria-label=\{ui\.productHome\} data-gekta-brand-home='true'/);
     expect(product).toContain('min-width: 44px');
     expect(product).toContain('min-height: 44px');
     expect(composer).toContain("data-gekta-composer-root='true'");
