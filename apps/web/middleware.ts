@@ -99,6 +99,11 @@ const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 const PUBLIC_API_EXACT = new Set([
   '/api/health/ready',
   '/api/agro-chat',
+  // A brand-new Gekta visitor has no platform session yet. The exact
+  // entitlement route creates its signed anonymous quota cookie and remains
+  // route-authoritative for same-origin writes; broader Gekta APIs stay
+  // behind their own product or platform sessions.
+  '/api/gekta/entitlement',
   '/api/public-platform-assistant',
   '/api/public-platform-assistant/attachments',
   '/api/restricted-public-platform-assistant',
