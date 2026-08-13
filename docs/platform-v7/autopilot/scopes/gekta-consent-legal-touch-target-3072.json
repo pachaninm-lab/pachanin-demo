@@ -1,25 +1,31 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "scopeId": "gekta-consent-legal-touch-target-3072",
+  "scopeId": "gekta-final-production-blockers-3072",
   "branch": "fix/gekta-consent-legal-touch-target-3072",
   "issue": 3072,
   "status": "active",
-  "authorizedBy": "production-mobile-acceptance-31740395515",
+  "authorizedBy": "production-mobile-31740395515-and-first-user-31740464033-31741581111",
   "baseline": {
     "branch": "main",
     "commit": "71d37da1f43788cfb959c258dfedd6267522d58f"
   },
-  "purpose": "Fix the production-proven Gekta consent-dialog defect where the Terms and Privacy links render as 34px mobile targets; keep each legal link atomic and at least 44px tall without changing consent, registration, entitlement or legal-document behavior.",
+  "purpose": "Close the two exact-production-proven Gekta blockers: make both consent legal links at least 44px tall on 320/375/390/430, and serialize multilingual verification mail as canonical CRLF/base64 MIME so REG.RU does not accept malformed bare-LF 8bit DATA without an IMAP-deliverable message.",
   "allowedPaths": [
     "apps/web/components/gekta/GektaConsentDialog.tsx",
+    "apps/web/lib/server/transactional-mail.ts",
     "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+    "apps/web/tests/unit/transactionalMailSmtpMime.test.ts",
     "docs/platform-v7/autopilot/scopes/gekta-consent-legal-touch-target-3072.json"
   ],
   "productBoundary": {
-    "publicRoute": "/gekta",
-    "mode": "web-ux-and-regression-only",
+    "publicRoutes": [
+      "/gekta",
+      "/gekta/register"
+    ],
+    "mode": "web-ux-and-smtp-wire-format-regression-only",
     "backendBoundary": "unchanged",
     "identityBoundary": "unchanged",
+    "mailRuntimeBoundary": "existing protected SMTP credentials and provider only",
     "languages": [
       "ru",
       "en",
@@ -27,22 +33,32 @@
     ],
     "newRecurringCostRub": 0
   },
+  "productionEvidence": {
+    "mobileRun": 31740395515,
+    "firstUserRuns": [
+      31740464033,
+      31741581111
+    ],
+    "smtpDeliveryProof": "PASS_ACTIVE_WEB_CONTAINER_TO_ISOLATED_IMAP",
+    "runtimeState": "VALID_SMTP"
+  },
   "forbiddenChanges": [
     "consent persistence, document versions or legal copy",
-    "registration, login, email verification, MFA, trial or owner grants",
-    "anonymous quota, history, projects or entitlement behavior",
-    "model runtime, prompt, inference routing or agro-chat API behavior",
-    "production credentials or direct REG.RU mutation outside protected release authority",
+    "registration identity, email token, MFA, trial, owner grants or entitlement semantics",
+    "SMTP provider, runtime credentials, recipient selection or protected release authority",
+    "anonymous quota, history, projects or agro-chat behavior",
     "billing, SMS, payments, NPD, acquiring or new infrastructure"
   ],
   "requiredChecks": [
     "web typecheck",
     "gektaVoiceAndLegal.test.ts",
+    "transactionalMailSmtpMime.test.ts",
     "existing exact-production Gekta mobile acceptance at 320/375/390/430",
+    "real registration email verification through isolated IMAP",
     "RU/EN/ZH mobile smoke",
     "exact-head CI and Production-like Kubernetes Acceptance",
     "git diff --check"
   ],
   "deploymentState": "not-deployed",
-  "maturityBoundary": "This scope fixes only the two production-proven consent-dialog touch targets. Completion still requires protected exact-SHA release and live 320/375/390/430 mobile acceptance PASS."
+  "maturityBoundary": "Completion requires protected exact-SHA release, live 320/375/390/430 mobile PASS, and the full first-user registration/MFA/trial/owner-grant/logout-login acceptance PASS."
 }
