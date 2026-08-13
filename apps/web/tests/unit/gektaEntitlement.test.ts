@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { middleware as applyMiddleware } from '../../middleware';
 import { GET, POST } from '@/app/api/gekta/entitlement/route';
 import {
   GEKTA_ANONYMOUS_COOKIE,
@@ -59,7 +60,7 @@ describe('Gekta anonymous entitlement', () => {
   const originalLimit = process.env.GEKTA_ANONYMOUS_FREE_ANSWERS;
 
   beforeEach(() => {
-    process.env.GEKTA_ANONYMOUS_SESSION_SECRET = 'test-secret-value-at-least-16-chars';
+    process.env.GEKTA_ANONYMOUS_SESSION_SECRET = 'x'.repeat(32);
     delete process.env.GEKTA_ANONYMOUS_FREE_ANSWERS;
   });
 
@@ -99,6 +100,28 @@ describe('Gekta anonymous entitlement', () => {
     expect(cookieHeader).toContain('HttpOnly');
     expect(cookieHeader).toContain('SameSite=lax');
     expect(parseAnonymousSession(cookieFrom(response))).not.toBeNull();
+  });
+
+  it('admits only the exact anonymous entitlement route before the generic API session gate', async () => {
+    const middleware = read('middleware.ts');
+    const start = middleware.indexOf('const PUBLIC_API_EXACT = new Set([');
+    const end = middleware.indexOf(']);', start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const publicApiBlock = middleware.slice(start, end + 3);
+    expect(publicApiBlock.split("'/api/gekta/entitlement'")).toHaveLength(2);
+    expect(publicApiBlock).not.toContain("'/api/gekta/'");
+    expect(middleware.indexOf('|| PUBLIC_API_EXACT.has(p)')).toBeLessThan(
+      middleware.indexOf("if (p.startsWith('/api/'))"),
+    );
+
+    const anonymous = await applyMiddleware(new NextRequest(`${ORIGIN}/api/gekta/entitlement`));
+    expect(anonymous.status).toBe(200);
+    expect(anonymous.headers.get('x-middleware-next')).toBe('1');
+
+    const account = await applyMiddleware(new NextRequest(`${ORIGIN}/api/gekta/account/entitlement`));
+    expect(account.status).toBe(401);
+    await expect(account.json()).resolves.toMatchObject({ message: 'unauthenticated' });
   });
 
   it('counts completed answers, not sends, and gates on the tenth', async () => {
