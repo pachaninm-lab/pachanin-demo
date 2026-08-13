@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-speak-touch-target-4042",
+  "branch": "fix/gekta-speak-touch-target-4042",
+  "issue": 4042,
+  "status": "active",
+  "authorizedBy": "production-mobile-acceptance-evidence",
+  "baseline": {
+    "branch": "main",
+    "commit": "e291260bea1a3da6316e200f5c39fd02ab12e056"
+  },
+  "purpose": "Fix the production-proven Gekta speech playback touch target: the visible Listen/Прослушать action is 36px high while the mobile UX contract requires at least 44px. Preserve speech behavior and strengthen the unit regression contract.",
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaSpeakButton.tsx",
+    "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-speak-touch-target-4042.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/gekta",
+    "mode": "web-ux-only",
+    "speechLogic": "unchanged",
+    "modelRuntime": "unchanged",
+    "apiBackend": "unchanged",
+    "identityRegistration": "unchanged",
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "speech synthesis behavior or data handling",
+    "model runtime, prompt, inference routing or latency experiments",
+    "agro-chat API or attachment backend contracts",
+    "PC-CROP registration, reviewer, MFA or password-reset runtime",
+    "role, tenant, RBAC, RLS or PostgreSQL authority",
+    "production credentials or direct REG.RU mutation",
+    "paid external services or new infrastructure"
+  ],
+  "requiredChecks": [
+    "web typecheck",
+    "gektaVoiceAndLegal.test.ts",
+    "production mobile acceptance 320/375/390/430",
+    "platform-v7 autopilot guard",
+    "git diff --check"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "This scope changes only the speech playback control's touch target and its regression contract."
+}
