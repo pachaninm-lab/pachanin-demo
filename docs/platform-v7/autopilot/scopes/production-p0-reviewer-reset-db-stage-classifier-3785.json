@@ -1,8 +1,8 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "diag/p0-reviewer-reset-db-stage-classifier-3785",
+  "branch": "fix/p0-reviewer-reset-db-stage-exact-main-3785",
   "status": "active",
-  "operationalStatus": "P0_REVIEWER_RESET_DB_STAGE_CLASSIFIER_BOUNDED",
+  "operationalStatus": "P0_REVIEWER_RESET_DB_STAGE_CLASSIFIER_PROVEN_DEPLOYED",
   "issue": 3785,
   "allowedPaths": [
     ".github/workflows/production-p0-reviewer-reset-db-stage-classifier.yml",
@@ -24,7 +24,8 @@
   },
   "acceptance": [
     "owner-only read-only workflow classifies wrapper, SSH, exact deployed parity, principal boundary, reviewer preflight, reviewer login readiness, and reset-subject stages independently",
-    "the classifier inspects the already-proven deployed revision 3298ef9e7d661102e4b275a777055331a94ce7ff and fails closed if that revision is no longer running",
+    "the classifier inspects the independently proven deployed API/Web revision d2dd7972105cc59002263455b5ae0eb8d8f2d386, requires it to remain an ancestor of diagnostic main, and fails closed if production parity or main stability is lost",
+    "SSH host discovery may retry at most three times but accepts only exactly one key matching the existing protected SHA-256 fingerprint and retains StrictHostKeyChecking=yes",
     "no reviewer email, identifier, reset token, password, password hash, TOTP secret, cookie, bearer credential, database URL or raw database error is published",
     "pc_staff_runtime remains table-free and no SET ROLE, BYPASSRLS, SUPERUSER, privilege expansion or reviewer-row access is introduced",
     "function metadata is checked for SECURITY DEFINER, pc_staff_authority ownership, row_security=on and runtime EXECUTE before aggregate-only calls are classified",

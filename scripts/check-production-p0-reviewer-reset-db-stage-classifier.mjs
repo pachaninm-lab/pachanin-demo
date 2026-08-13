@@ -21,8 +21,13 @@ required(workflow, 'github.actor == github.repository_owner', 'owner actor guard
 required(workflow, 'github.triggering_actor == github.repository_owner', 'owner rerun guard');
 required(workflow, 'persist-credentials: false', 'credentialless checkout');
 required(workflow, 'PC_PROD_SSH_HOST_FINGERPRINT', 'pinned SSH fingerprint');
-required(script, "EXPECTED_DEPLOYED_SHA='2b1350ff67a988bfc0151c1dbca1038a8389b8b6'", 'fixed deployed baseline');
-required(script, 'git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$TARGET_SHA"', 'ancestor guard');
+required(script, "EXPECTED_DEPLOYED_SHA='d2dd7972105cc59002263455b5ae0eb8d8f2d386'", 'proven deployed baseline');
+required(script, '[[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]', 'exact checkout guard');
+required(script, '[[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]', 'exact origin main guard');
+required(script, 'git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$TARGET_SHA"', 'deployed revision ancestry guard');
+required(script, 'for attempt in 1 2 3; do', 'bounded host-key discovery retry');
+required(script, '[[ "$pinned_ready" == \'1\' ]]', 'pinned host-key retry terminal guard');
+required(script, 'StrictHostKeyChecking=yes', 'strict SSH host verification');
 required(script, "current_user = 'pc_staff_runtime'", 'confined runtime principal');
 required(script, "to_regprocedure('auth.staff_reviewer_preflight()')", 'preflight execute probe');
 required(script, "to_regprocedure('auth.staff_reviewer_login_readiness()')", 'readiness execute probe');
@@ -40,6 +45,8 @@ required(script, 'PRODUCTION_MUTATION|NONE', 'no-mutation marker');
 required(script, 'reviewer identity exposure: \\`NONE\\`', 'identity redaction result');
 required(script, 'last completed stage:', 'transport classifier');
 
+forbidden(script, /EXPECTED_DEPLOYED_SHA='2b1350ff67a988bfc0151c1dbca1038a8389b8b6'/, 'stale deployed SHA');
+forbidden(script, /EXPECTED_DEPLOYED_SHA="\$TARGET_SHA"/, 'unnecessary current-main production binding');
 forbidden(script, /SET\s+ROLE/i, 'SET ROLE');
 forbidden(script, /ALTER\s+ROLE[^\n]+BYPASSRLS|GRANT\s+[^\n]+BYPASSRLS/i, 'RLS bypass');
 forbidden(script, /ALTER\s+ROLE[^\n;]*\bSUPERUSER\b/i, 'SUPERUSER escalation');
@@ -48,7 +55,7 @@ forbidden(script, /process\.stdout\.write\([^\n]*(?:email|token|password|totp|da
 forbidden(script, /gh\s+issue\s+comment[^\n]*(?:email|token|passwordHash|totp|databaseUrl)/i, 'identity or secret issue output');
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') throw new Error('scope schema mismatch');
-if (scope.branch !== 'diag/p0-reviewer-reset-db-stage-classifier-3785') throw new Error('scope branch mismatch');
+if (scope.branch !== 'fix/p0-reviewer-reset-db-stage-exact-main-3785') throw new Error('scope branch mismatch');
 if (scope.issue !== 3785) throw new Error('scope issue mismatch');
 if (scope.boundaries?.productionMutation !== 'NONE') throw new Error('scope must be no-mutation');
 if (scope.boundaries?.newRecurringCostRub !== 0) throw new Error('scope recurring cost must be zero');
