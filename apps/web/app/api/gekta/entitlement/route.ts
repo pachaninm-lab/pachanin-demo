@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     return respond(settled, { entitlement, allowed: false, ticket: null, registrationUrl: registrationUrl(), billingEnabled: isBillingEnabled() }, now);
   }
 
-  const ticket = issueTicket();
+  const ticket = issueTicket(now);
   const reserved = reserveAnswer(settled, ticket);
   // The reserved answer is not free: report what is left after it.
   const projected = resolveAnonymousEntitlement({ used: settled.used + 1 }, now);

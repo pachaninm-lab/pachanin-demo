@@ -172,6 +172,22 @@ async function refreshAccountSession(): Promise<boolean> {
   return refreshInFlight;
 }
 
+async function recoverAccountSession(
+  retry: () => Promise<Response>,
+  initial: Response,
+): Promise<Response> {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
+  if (!locks) return await refreshAccountSession() ? retry() : initial;
+
+  return locks.request('gekta-product-session-refresh', async () => {
+    // Another tab may have rotated the shared HttpOnly cookies while this tab
+    // waited. Recheck first so we do not rotate the new refresh token again.
+    const afterWait = await retry();
+    if (afterWait.status !== 401) return afterWait;
+    return await refreshAccountSession() ? retry() : afterWait;
+  });
+}
+
 async function accountRequest(
   path: string,
   init: { method: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; signal?: AbortSignal },
@@ -199,10 +215,10 @@ export async function accountApi<T>(
   try {
     const request = { method, body: init?.body, signal: init?.signal };
     let response = await accountRequest(path, request);
-    // Product refresh tokens rotate. All simultaneous 401s share one refresh,
-    // otherwise the second refresh looks like reuse and revokes the family.
-    if (response.status === 401 && await refreshAccountSession()) {
-      response = await accountRequest(path, request);
+    // Product refresh tokens rotate. Web Locks coordinate every tab; the
+    // module promise remains the safe fallback within one browser context.
+    if (response.status === 401) {
+      response = await recoverAccountSession(() => accountRequest(path, request), response);
     }
     if (!response.ok) return { ok: false, status: response.status, data: null };
     const text = await response.text();

@@ -33,7 +33,12 @@ import {
   type GektaAnonymousSession,
 } from '@/lib/gekta/anonymous-session';
 import { resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
-import { GEKTA_AUTH_TIMEOUT_MS, gektaApiBase } from '@/lib/server/gekta-auth-route';
+import {
+  GEKTA_AUTH_TIMEOUT_MS,
+  gektaApiBase,
+  gektaForwardHeaders,
+  registrationDeliveryKey,
+} from '@/lib/server/gekta-auth-route';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -276,7 +281,47 @@ async function authorizeGektaAnswer(request: NextRequest): Promise<{
       anonymousSession: null,
     };
   }
+
+  const durableAdmission = await consumeAnonymousReservation(request, current.sid, ticket);
+  if (durableAdmission !== 'allowed') {
+    const unavailable = durableAdmission === 'unavailable';
+    return {
+      response: NextResponse.json(
+        { code: unavailable ? 'GEKTA_SERVICE_UNAVAILABLE' : 'GEKTA_ANSWER_RESERVATION_INVALID' },
+        { status: unavailable ? 503 : 409, headers: { 'Cache-Control': 'no-store' } },
+      ),
+      anonymousSession: null,
+    };
+  }
   return { response: null, anonymousSession: consumed };
+}
+
+async function consumeAnonymousReservation(
+  request: NextRequest,
+  sid: string,
+  ticket: string,
+): Promise<'allowed' | 'denied' | 'unavailable'> {
+  const upstream = gektaApiBase();
+  const deliveryKey = registrationDeliveryKey();
+  if (!upstream || deliveryKey.length < 32) return 'unavailable';
+
+  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  try {
+    const response = await fetch(`${upstream}/gekta/internal/anonymous-answer/admit`, {
+      method: 'POST',
+      headers: gektaForwardHeaders(request, correlationId, { deliveryKey }),
+      body: JSON.stringify({ sid, ticket }),
+      cache: 'no-store',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(GEKTA_AUTH_TIMEOUT_MS),
+    });
+    if (response.status >= 300 && response.status < 400) return 'unavailable';
+    if (!response.ok) return 'unavailable';
+    const payload = await response.json().catch(() => null) as { allowed?: boolean } | null;
+    return payload?.allowed === true ? 'allowed' : 'denied';
+  } catch {
+    return 'unavailable';
+  }
 }
 
 function applyGektaAdmission(

@@ -3,7 +3,16 @@ import { resolve } from 'node:path';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GET, POST } from '@/app/api/gekta/entitlement/route';
-import { GEKTA_ANONYMOUS_COOKIE, parseAnonymousSession, serializeAnonymousSession } from '@/lib/gekta/anonymous-session';
+import {
+  GEKTA_ANONYMOUS_COOKIE,
+  admitReservedAnswer,
+  createAnonymousSession,
+  isFreshAnswerTicket,
+  issueTicket,
+  parseAnonymousSession,
+  reserveAnswer,
+  serializeAnonymousSession,
+} from '@/lib/gekta/anonymous-session';
 import { GEKTA_ENTITLEMENT_STATES, isBlockedState, resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
@@ -120,6 +129,22 @@ describe('Gekta anonymous entitlement', () => {
     expect(state.entitlement.remaining).toBe(6);
   });
 
+  it('expires an answer ticket before its distributed replay bucket can reset', () => {
+    const issued = new Date('2026-08-13T10:00:00.000Z');
+    const ticket = issueTicket(issued);
+    const reserved = reserveAnswer(createAnonymousSession(issued), ticket);
+    expect(isFreshAnswerTicket(ticket, new Date(issued.getTime() + 10 * 60_000))).toBe(true);
+    expect(admitReservedAnswer(reserved, ticket, new Date(issued.getTime() + 10 * 60_000 + 1))).toBeNull();
+  });
+
+  it('rejects an expired or implausibly future-dated anonymous session', () => {
+    const issued = new Date('2026-01-01T00:00:00.000Z');
+    const serialized = serializeAnonymousSession(createAnonymousSession(issued));
+    expect(parseAnonymousSession(serialized, new Date(issued.getTime() + 180 * 24 * 60 * 60_000))).not.toBeNull();
+    expect(parseAnonymousSession(serialized, new Date(issued.getTime() + 180 * 24 * 60 * 60_000 + 1))).toBeNull();
+    expect(parseAnonymousSession(serialized, new Date(issued.getTime() - 60_001))).toBeNull();
+  });
+
   it('refuses a forged or edited counter instead of trusting it', async () => {
     const honest = await askOnce(cookieFrom(await GET(request('GET'))));
     const session = parseAnonymousSession(honest.cookie);
@@ -140,6 +165,8 @@ describe('Gekta anonymous entitlement', () => {
     const body = await (await GET(request('GET'))).json();
     expect(body.entitlement.limit).toBe(3);
     expect(resolveAnonymousEntitlement({ used: 3 }, new Date()).state).toBe('REGISTRATION_REQUIRED');
+    process.env.GEKTA_ANONYMOUS_FREE_ANSWERS = '1001';
+    expect((await (await GET(request('GET'))).json()).entitlement.limit).toBe(1000);
   });
 
   it('rejects cross-site writes and unknown actions', async () => {
