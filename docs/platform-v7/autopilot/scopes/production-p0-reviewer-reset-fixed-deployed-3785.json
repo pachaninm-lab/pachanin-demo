@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-reset-fixed-deployed-d2dd-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_PASSWORD_RESET_FIXED_DEPLOYED_REVISION",
+  "issue": 3785,
+  "title": "Ordinary reviewer password-reset request on the exact proven deployed REG.RU revision",
+  "deployedRevision": "d2dd7972105cc59002263455b5ae0eb8d8f2d386",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-fixed-deployed.yml",
+    "scripts/production-p0-reviewer-reset-fixed-deployed.sh",
+    "scripts/check-production-p0-reviewer-reset-fixed-deployed.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-fixed-deployed-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NORMAL_PASSWORD_RESET_REQUEST_ONLY",
+    "identityMutation": false,
+    "staffAssignmentMutation": false,
+    "membershipMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "deploymentMutation": false,
+    "databasePrivilegeMutation": false,
+    "arbitraryTarget": false,
+    "deployedRevisionMustBeAncestorOfMain": true,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "resetTokenOutput": false,
+    "strictSshHostVerification": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the owner-only command is fixed to /production p0-reviewer-reset-request deployed-d2dd797 and accepts no arbitrary SHA",
+    "production API and Web must both remain on exact d2dd7972105cc59002263455b5ae0eb8d8f2d386 before and after the reset request",
+    "the fixed deployed revision must remain an ancestor of repository main",
+    "the confined pc_staff_runtime remains table-free and only existing aggregate SECURITY DEFINER reviewer functions may resolve the subject inside REG.RU",
+    "reviewer readiness must be exactly one owner, one usable reviewer, one assignment, one active identity, one verified membership, zero usable password, zero TOTP enrollment and zero login-ready reviewer before the request",
+    "the browser-facing forgot-password route must bootstrap a valid CSRF cookie and accept the real request with same-origin Origin and double-submit CSRF",
+    "success requires HTTP 202 accepted and a synchronous password_reset_delivery_result with delivered=true for the same private correlation id",
+    "reviewer email, identifiers, correlation id, reset token, password, TOTP material, cookies, delivery credentials and raw logs never cross the REG.RU SSH boundary",
+    "SSH discovery may retry at most three times but only the protected pinned SHA-256 fingerprint is accepted and StrictHostKeyChecking=yes remains mandatory",
+    "the operation performs no deployment, direct password write, MFA/session mutation, RLS weakening, arbitrary SQL or recurring-cost change"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
