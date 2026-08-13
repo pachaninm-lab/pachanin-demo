@@ -12,6 +12,8 @@ const LABEL: Record<GektaLocale, string> = {
  * It is a plain server-rendered anchor: no hydration cost on the marketing
  * surface. Any mounted public assistant/contact launcher is the single floating
  * communication surface, so this shortcut yields instead of competing with it.
+ * The same authority owns the mobile footer clearance, avoiding two stacked
+ * safe-space reserves once the duplicate launcher is removed.
  */
 export function GektaFloatingEntry({ locale }: { locale: GektaLocale }) {
   return (
@@ -72,6 +74,23 @@ body:has(.p7-support-chat-button) .pc-gekta-floating,
 body:has([role='dialog'][aria-modal='true']) .pc-gekta-floating,
 body:has(.pc-public-assistant-panel) .pc-gekta-floating {
   display: none;
+}
+@media (max-width: 767px) {
+  /* PlatformV7HomeMobileDensity already gives the footer 88px of bottom
+     clearance. Remove the second page-level 88px reserve visible as a large
+     empty slab in the iPhone evidence, while keeping the launcher unobscured. */
+  .pc-v7-public-entry {
+    padding-bottom: 0 !important;
+  }
+  .pc-v7-public-entry .pc-v6-footer nav {
+    gap: 0 12px;
+  }
+  .pc-v7-public-entry .pc-v6-footer nav a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding-inline: 2px;
+  }
 }
 @media (max-width: 350px) {
   .pc-gekta-floating { right: max(8px, env(safe-area-inset-right, 0px)); width: 52px; height: 52px; }
