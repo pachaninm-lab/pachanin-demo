@@ -23,8 +23,10 @@ import {
 } from '@/lib/server/gekta-mfa-ticket';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
-const DELIVERY_KEY = 'gekta-registration-delivery-key-at-least-32-chars';
-const MFA_SECRET = 'gekta-mfa-ticket-secret-at-least-32-characters';
+const fixtureValue = (purpose: string, length = 48) => `${purpose}-fixture-${'x'.repeat(length)}`;
+const DELIVERY_KEY = fixtureValue('delivery');
+const MFA_TEST_KEY = fixtureValue('mfa-ticket');
+const ANONYMOUS_TEST_KEY = fixtureValue('anonymous');
 
 function setEnv(name: string, value: string | undefined) {
   if (value === undefined) delete process.env[name];
@@ -81,11 +83,11 @@ describe('Gekta registration security boundary', () => {
   beforeEach(() => {
     process.env.API_URL = 'https://api.example.test';
     process.env.REGISTRATION_DELIVERY_KEY = DELIVERY_KEY;
-    process.env.RESEND_API_KEY = 'resend-test-key';
+    process.env.RESEND_API_KEY = fixtureValue('resend');
     process.env.RESEND_FROM_EMAIL = 'Gekta <no-reply@example.test>';
     process.env.PC_PUBLIC_ORIGIN = 'https://gekta.example.test';
-    process.env.MFA_LOGIN_TICKET_SECRET = MFA_SECRET;
-    process.env.GEKTA_ANONYMOUS_SESSION_SECRET = 'anonymous-test-secret-at-least-16';
+    process.env.MFA_LOGIN_TICKET_SECRET = MFA_TEST_KEY;
+    process.env.GEKTA_ANONYMOUS_SESSION_SECRET = ANONYMOUS_TEST_KEY;
   });
 
   afterEach(() => {
@@ -241,7 +243,7 @@ describe('Gekta registration security boundary', () => {
 
 describe('Gekta answer admission', () => {
   beforeEach(() => {
-    process.env.GEKTA_ANONYMOUS_SESSION_SECRET = 'anonymous-test-secret-at-least-16';
+    process.env.GEKTA_ANONYMOUS_SESSION_SECRET = ANONYMOUS_TEST_KEY;
     delete process.env.TAI_RESTRICTED_QWEN_PUBLIC_ENABLED;
   });
 
