@@ -3,7 +3,16 @@ import { resolve } from 'node:path';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GET, POST } from '@/app/api/gekta/entitlement/route';
-import { GEKTA_ANONYMOUS_COOKIE, parseAnonymousSession, serializeAnonymousSession } from '@/lib/gekta/anonymous-session';
+import {
+  GEKTA_ANONYMOUS_COOKIE,
+  admitReservedAnswer,
+  createAnonymousSession,
+  isFreshAnswerTicket,
+  issueTicket,
+  parseAnonymousSession,
+  reserveAnswer,
+  serializeAnonymousSession,
+} from '@/lib/gekta/anonymous-session';
 import { GEKTA_ENTITLEMENT_STATES, isBlockedState, resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
@@ -118,6 +127,14 @@ describe('Gekta anonymous entitlement', () => {
     const state = await (await GET(request('GET', cookie))).json();
     // Four settled by the following reservations; the fifth is still outstanding.
     expect(state.entitlement.remaining).toBe(6);
+  });
+
+  it('expires an answer ticket before its distributed replay bucket can reset', () => {
+    const issued = new Date('2026-08-13T10:00:00.000Z');
+    const ticket = issueTicket(issued);
+    const reserved = reserveAnswer(createAnonymousSession(issued), ticket);
+    expect(isFreshAnswerTicket(ticket, new Date(issued.getTime() + 10 * 60_000))).toBe(true);
+    expect(admitReservedAnswer(reserved, ticket, new Date(issued.getTime() + 10 * 60_000 + 1))).toBeNull();
   });
 
   it('refuses a forged or edited counter instead of trusting it', async () => {

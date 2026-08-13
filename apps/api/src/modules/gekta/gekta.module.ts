@@ -11,6 +11,8 @@ import { AuthModule } from '../auth/auth.module';
 import { StaffAccessModule } from '../staff-access/staff-access.module';
 import { StaffAccessService } from '../staff-access/staff-access.service';
 import { Reflector } from '@nestjs/core';
+import { RateLimitModule } from '../../common/security/rate-limit.module';
+import { GektaAnonymousAdmissionController } from './gekta-anonymous-admission.controller';
 
 /**
  * Гекта переиспользует существующие PostgreSQL, Prisma и identity платформы.
@@ -21,8 +23,8 @@ import { Reflector } from '@nestjs/core';
  * ролей у продукта нет.
  */
 @Module({
-  imports: [PrismaModule, AuthModule, StaffAccessModule],
-  controllers: [GektaController, GektaOperatorController],
+  imports: [PrismaModule, RateLimitModule, AuthModule, StaffAccessModule],
+  controllers: [GektaController, GektaOperatorController, GektaAnonymousAdmissionController],
   providers: [
     GektaSessionGuard,
     GektaAccessService,

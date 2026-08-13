@@ -15,6 +15,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export const GEKTA_ANONYMOUS_COOKIE = 'gekta_anon';
 export const GEKTA_ANONYMOUS_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
+export const GEKTA_ANSWER_TICKET_MAX_AGE_MS = 10 * 60 * 1_000;
 
 export type GektaAnonymousSession = Readonly<{
   /** Opaque session id. Never derived from anything about the device or person. */
@@ -94,8 +95,17 @@ export function recordConsent(session: GektaAnonymousSession, version: string, n
   return { ...session, consent: { version, at: now.getTime() } };
 }
 
-export function issueTicket(): string {
-  return randomBytes(12).toString('base64url');
+export function issueTicket(now: Date = new Date()): string {
+  return `${now.getTime().toString(36)}.${randomBytes(12).toString('base64url')}`;
+}
+
+export function isFreshAnswerTicket(ticket: string, now: Date = new Date()): boolean {
+  const match = /^([0-9a-z]{8,12})\.([A-Za-z0-9_-]{16})$/u.exec(ticket);
+  if (!match) return false;
+  const issuedAt = Number.parseInt(match[1] || '', 36);
+  if (!Number.isSafeInteger(issuedAt)) return false;
+  const age = now.getTime() - issuedAt;
+  return age >= -60_000 && age <= GEKTA_ANSWER_TICKET_MAX_AGE_MS;
 }
 
 /**
@@ -124,7 +134,8 @@ export function completeAnswer(session: GektaAnonymousSession, ticket: string): 
 export function admitReservedAnswer(
   session: GektaAnonymousSession,
   ticket: string,
+  now: Date = new Date(),
 ): GektaAnonymousSession | null {
-  if (!ticket || session.pending !== ticket) return null;
+  if (!ticket || session.pending !== ticket || !isFreshAnswerTicket(ticket, now)) return null;
   return { ...session, used: session.used + 1, pending: null };
 }

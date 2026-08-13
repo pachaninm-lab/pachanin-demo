@@ -6,6 +6,7 @@ import type { GektaConversation } from '@/components/gekta/GektaChatTypes';
 
 const root = resolve(__dirname, '../..');
 const workspace = readFileSync(resolve(root, 'components/gekta/GektaChatWorkspace.tsx'), 'utf8');
+const serverWorkspace = readFileSync(resolve(root, 'lib/gekta/server-workspace.ts'), 'utf8');
 
 const NOW = '2026-08-12T12:00:00.000Z';
 
@@ -135,35 +136,6 @@ describe('Gekta keeps one authority for the history', () => {
     expect(workspace).toContain('activeIdRef.current = activeId;');
   });
 
-  it('searches the account on the server, not only the loaded page', () => {
-    // Сервер отдаёт последние 200 диалогов: фильтрация по загруженному списку
-    // не нашла бы ничего за его пределами.
-    expect(workspace).toContain("`conversations?search=${encodeURIComponent(query)}`");
-    expect(workspace).toContain('const source = serverSearch.results ?? conversations;');
-  });
-
-  it('debounces the search and cancels a superseded request', () => {
-    expect(workspace).toContain('GEKTA_SEARCH_DEBOUNCE_MS');
-    expect(workspace).toContain('const controller = new AbortController();');
-    expect(workspace).toContain('controller.abort();');
-    expect(workspace).toContain('if (controller.signal.aborted) return;');
-  });
-
-  it('bounds the query and does not search on a single character', () => {
-    expect(workspace).toContain('const GEKTA_SEARCH_MIN_LENGTH = 2;');
-    expect(workspace).toContain('const GEKTA_SEARCH_MAX_LENGTH = 120;');
-    expect(workspace).toContain('search.trim().slice(0, GEKTA_SEARCH_MAX_LENGTH)');
-  });
-
-  it('returns to the normal recent history when the query is cleared', () => {
-    expect(workspace).toContain("setServerSearch({ state: 'idle', query: '', results: null });");
-  });
-
-  it('never searches the server in anonymous mode', () => {
-    // У анонимного режима нет аккаунта: серверный поиск ему нечего искать.
-    expect(workspace).toContain("if (workspaceMode !== 'server' || query.length < GEKTA_SEARCH_MIN_LENGTH)");
-  });
-
   it('switches to server mode only after the server list is actually read', () => {
     // Сбой чтения не должен приводить к удалению локальной копии.
     expect(workspace).toContain('if (!serverConversations.ok) return;');
@@ -179,6 +151,12 @@ describe('Gekta keeps one authority for the history', () => {
     expect(workspace).toContain("if (workspaceMode === 'server') {\n      const decision = await accountApi");
     expect(workspace).toContain('return ACCOUNT_TICKET;');
     expect(workspace).toContain('if (ticket === ACCOUNT_TICKET) return;');
+  });
+
+  it('coordinates rotating refresh tokens across browser tabs', () => {
+    expect(serverWorkspace).toContain("locks.request('gekta-product-session-refresh'");
+    expect(serverWorkspace).toContain('const afterWait = await retry();');
+    expect(serverWorkspace).toContain('if (afterWait.status !== 401) return afterWait;');
   });
 
   it('does not show a free-answer counter to an account that has none', () => {

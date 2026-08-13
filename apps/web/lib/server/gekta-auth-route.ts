@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
 
 export const GEKTA_AUTH_TIMEOUT_MS = 7_000;
@@ -39,11 +40,15 @@ export function registrationDeliveryKey(): string {
 }
 
 export function requestIp(request: Request): string {
-  return request.headers.get('x-nf-client-connection-ip')
-    || request.headers.get('cf-connecting-ip')
-    || request.headers.get('x-real-ip')
-    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || '';
+  // REG.RU production has one trusted edge: Caddy. It appends/overwrites the
+  // nearest hop in X-Forwarded-For; provider-specific headers are public input
+  // here and must never choose an API rate-limit bucket.
+  const nearest = String(request.headers.get('x-forwarded-for') || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .at(-1) || '';
+  return isIP(nearest) ? nearest : '';
 }
 
 export function gektaForwardHeaders(
