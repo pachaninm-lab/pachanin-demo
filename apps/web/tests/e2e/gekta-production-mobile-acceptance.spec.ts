@@ -95,8 +95,17 @@ test.describe('Gekta exact production mobile acceptance', () => {
       await expect(page.locator('[data-gekta-chat-workspace="true"]')).toBeVisible();
       await expectNoHorizontalOverflow(page);
 
-      await expect(page.locator('[data-gekta-starter="true"]')).toHaveCount(3);
-      await expect(page.locator('[data-gekta-more-examples="true"]')).toBeVisible();
+      const starterCards = page.locator('[data-gekta-starter="true"]');
+      const visibleStarterCards = page.locator('[data-gekta-starter="true"]:visible');
+      const moreExamples = page.locator('[data-gekta-more-examples="true"]');
+      await expect(visibleStarterCards).toHaveCount(3);
+      await expect(moreExamples).toBeVisible();
+      await moreExamples.click();
+      await expect(page.locator('#gekta-more-examples')).toBeVisible();
+      expect(await starterCards.count()).toBeGreaterThan(3);
+      expect(await visibleStarterCards.count()).toBeGreaterThan(3);
+      await moreExamples.click();
+      await expect(visibleStarterCards).toHaveCount(3);
 
       await openSeededConversation(page);
       const composer = page.locator('#gekta-composer-input');
