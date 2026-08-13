@@ -201,3 +201,22 @@ describe('Gekta phone card stays honest about verification', () => {
     expect(card).toContain('Хранилище телефонов не настроено');
   });
 });
+
+describe('Gekta history search states are visible in every language', () => {
+  const sidebar = read('components/gekta/GektaSidebar.tsx');
+
+  it('announces loading, failure and empty results', () => {
+    expect(sidebar).toContain("role='status'");
+    expect(sidebar).toContain("aria-live='polite'");
+    expect(sidebar).toContain('ui.searching');
+    expect(sidebar).toContain('ui.searchFailed');
+    expect(sidebar).toContain('ui.searchEmpty');
+  });
+
+  it('translates every search state into RU, EN and ZH', () => {
+    for (const key of ['searching', 'searchFailed', 'searchEmpty']) {
+      // Три локали продукта: пропуск любой оставил бы состояние без текста.
+      expect(sidebar.match(new RegExp(`${key}:`, 'gu'))?.length).toBe(3);
+    }
+  });
+});
