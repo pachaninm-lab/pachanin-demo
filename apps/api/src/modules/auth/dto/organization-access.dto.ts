@@ -16,6 +16,8 @@ import {
 
 export { ORGANIZATION_HUMAN_ROLES, type OrganizationHumanRole } from '../organization-role-policy';
 
+type AuthMailLocale = 'ru' | 'en' | 'zh';
+
 export class CreateOrganizationInvitationDto {
   @IsEmail()
   @MaxLength(254)
@@ -23,6 +25,10 @@ export class CreateOrganizationInvitationDto {
 
   @IsIn([...ORGANIZATION_HUMAN_ROLES])
   role!: OrganizationHumanRole;
+
+  @IsOptional()
+  @IsIn(['ru', 'en', 'zh'])
+  locale?: AuthMailLocale;
 }
 
 export class AcceptOrganizationInvitationDto {
@@ -70,6 +76,10 @@ export class OrganizationInvitationCommandDto {
   @MinLength(8)
   @MaxLength(500)
   reason!: string;
+
+  @IsOptional()
+  @IsIn(['ru', 'en', 'zh'])
+  locale?: AuthMailLocale;
 }
 
 export class OrganizationMembershipRoleDto extends OrganizationInvitationCommandDto {
@@ -97,6 +107,10 @@ export class ConfirmMfaRecoveryDto {
   @MinLength(8)
   @MaxLength(256)
   password!: string;
+
+  @IsOptional()
+  @IsIn(['ru', 'en', 'zh'])
+  locale?: AuthMailLocale;
 }
 
 export class OrganizationJoinDecisionDto extends OrganizationInvitationCommandDto {

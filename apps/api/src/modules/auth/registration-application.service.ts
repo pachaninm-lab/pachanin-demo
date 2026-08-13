@@ -6,7 +6,13 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { randomUUID, timingSafeEqual } from 'crypto';
+import { randomUUID } from 'crypto';
+import { AuthMailOutboxService } from '../auth-mail/auth-mail-outbox.service';
+import {
+  normalizeAuthMailLocale,
+  registrationJoinReviewMail,
+  registrationVerificationMail,
+} from '../auth-mail/auth-mail-templates';
 import { Role } from '../../common/types/request-user';
 import { AuthPrismaService } from './auth-prisma.service';
 import { CURRENT_CONSENT_EVIDENCE, isCurrentConsent } from './consent-policy';
@@ -105,18 +111,6 @@ type RestartedIdentityRow = {
   tenant_id: string | null;
 };
 
-function safeSecretEqual(leftValue: string, rightValue: string): boolean {
-  const left = Buffer.from(leftValue, 'utf8');
-  const right = Buffer.from(rightValue, 'utf8');
-  return left.length === right.length && timingSafeEqual(left, right);
-}
-
-function deliveryAuthorized(provided?: string): boolean {
-  const expected = String(process.env.REGISTRATION_DELIVERY_KEY ?? '').trim();
-  const candidate = String(provided ?? '').trim();
-  return expected.length >= 32 && candidate.length >= 32 && safeSecretEqual(candidate, expected);
-}
-
 function normalizePhone(value: string): string {
   const trimmed = value.trim();
   const digits = trimmed.replace(/\D/g, '');
@@ -143,24 +137,6 @@ export function roleForWorkspace(workspace: PublicWorkspaceClass): Role {
   return WORKSPACE_ROLE[workspace];
 }
 
-/**
- * The canonical, non-secret payload that decides replay versus conflict for a
- * public registration submission.
- *
- * The credential is deliberately absent. A password belongs to the credential
- * contour — bcrypt when it is written, bcrypt when it is verified — and
- * nowhere else: it is not an input to an idempotency, audit or correlation
- * fingerprint, so no stored hash can ever become an offline oracle for it.
- *
- * The consequence is intended and load-bearing: a retry that reuses the same
- * key with the same non-secret payload but a *different* password returns the
- * first result rather than conflicting. A caller cannot use an idempotency key
- * to learn anything about a credential, because the key's fingerprint does not
- * depend on one.
- *
- * Extracted as a pure function so the property is asserted directly instead of
- * by a test that would just re-derive the implementation.
- */
 export function registrationIdempotencyPayload(dto: RegisterDto, idempotencyKey: string) {
   return {
     purpose: 'auth.registration.public_submit',
@@ -192,6 +168,7 @@ export class RegistrationApplicationService {
   constructor(
     private readonly prisma: AuthPrismaService,
     private readonly authRepository: PersistentAuthRepository,
+    private readonly mailOutbox: AuthMailOutboxService,
   ) {}
 
   async submit(
@@ -199,7 +176,6 @@ export class RegistrationApplicationService {
     context: {
       idempotencyKey?: string;
       correlationId: string;
-      deliveryKey?: string;
       ip?: string;
       userAgent?: string;
     },
@@ -210,6 +186,7 @@ export class RegistrationApplicationService {
     }
 
     const normalized = registrationIdempotencyPayload(dto, idempotencyKey);
+    const mailLocale = normalizeAuthMailLocale(dto.locale);
     if (!isCurrentConsent(normalized.termsVersion, normalized.privacyVersion)) {
       throw new BadRequestException({ code: 'CONSENT_VERSION_NOT_CURRENT' });
     }
@@ -466,6 +443,18 @@ export class RegistrationApplicationService {
         reason: 'PUBLIC_REQUEST_ACCEPTED',
         metadata: { applicationId, correlationId: context.correlationId, consent: CURRENT_CONSENT_EVIDENCE },
       });
+      await this.mailOutbox.enqueue(tx, {
+        kind: 'REGISTRATION_EMAIL_VERIFICATION',
+        idempotencyKey: `auth-mail:registration:${applicationId}:verify:${emailToken.id}`,
+        correlationId: context.correlationId,
+        envelope: registrationVerificationMail({
+          to: normalized.email,
+          token: emailToken.token,
+          statusToken,
+          locale: mailLocale,
+        }),
+        expiresAt: emailExpiresAt,
+      });
 
       return {
         existing: {
@@ -476,16 +465,13 @@ export class RegistrationApplicationService {
           idempotency_key: idempotencyKey,
           outcome: 'APPLICATION_CREATED',
         } satisfies ExistingSubmissionRow,
-        emailDelivery: deliveryAuthorized(context.deliveryKey)
-          ? { email: normalized.email, token: emailToken.token, expiresInSeconds: Math.floor(REGISTRATION_EMAIL_TTL_MS / 1000) }
-          : undefined,
       } as const;
     });
 
-    return this.submissionResponse(result.existing, result.emailDelivery);
+    return this.submissionResponse(result.existing);
   }
 
-  async verifyEmail(tokenInput: string, correlationId: string, deliveryKey?: string) {
+  async verifyEmail(tokenInput: string, correlationId: string) {
     const parsed = parseRegistrationEmailToken(tokenInput);
     if (!parsed) throw new BadRequestException({ code: 'REGISTRATION_EMAIL_TOKEN_INVALID' });
     const now = new Date();
@@ -579,16 +565,7 @@ export class RegistrationApplicationService {
         metadata: { applicationId: challenge.application_id, correlationId },
       });
 
-      let joinNotificationDelivery: {
-        recipients: string[];
-        applicantName: string;
-        applicantEmail: string;
-        requestedWorkspace: string;
-      } | undefined;
-      if (
-        challenge.application_kind === 'JOIN_EXISTING_ORGANIZATION'
-        && deliveryAuthorized(deliveryKey)
-      ) {
+      if (challenge.application_kind === 'JOIN_EXISTING_ORGANIZATION') {
         const notificationRows = await tx.$queryRaw<Array<{
           recipient_email: string | null;
           applicant_name: string;
@@ -598,14 +575,22 @@ export class RegistrationApplicationService {
             ${challenge.application_id}, ${challenge.user_id}, ${challenge.organization_id}
           )
         `);
-        joinNotificationDelivery = {
-          recipients: notificationRows
-            .map((row) => row.recipient_email)
-            .filter((email): email is string => Boolean(email)),
-          applicantName: notificationRows[0]?.applicant_name ?? '',
-          applicantEmail: challenge.applicant_email,
-          requestedWorkspace: challenge.requested_workspace,
-        };
+        for (const recipient of notificationRows) {
+          if (!recipient.recipient_email) continue;
+          const recipientHash = hashAuthMaterial(`join-review-recipient:${recipient.recipient_email}`).slice(0, 24);
+          await this.mailOutbox.enqueue(tx, {
+            kind: 'REGISTRATION_JOIN_REVIEW',
+            idempotencyKey: `auth-mail:registration:${challenge.application_id}:join-review:${recipientHash}`,
+            correlationId,
+            envelope: registrationJoinReviewMail({
+              to: recipient.recipient_email,
+              applicantName: recipient.applicant_name || '',
+              applicantEmail: challenge.applicant_email,
+              requestedWorkspace: challenge.requested_workspace,
+            }),
+            expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+          });
+        }
       }
 
       return {
@@ -614,14 +599,14 @@ export class RegistrationApplicationService {
         status: 'ORGANIZATION_VERIFICATION_PENDING',
         nextAction: nextAction('ORGANIZATION_VERIFICATION_PENDING'),
         statusToken: deriveRegistrationStatusToken(challenge.application_id, challenge.idempotency_key),
-        joinNotificationDelivery,
         correlationId,
       };
     });
   }
 
-  async resendEmail(emailInput: string, correlationId: string, deliveryKey?: string) {
+  async resendEmail(emailInput: string, correlationId: string, localeInput?: unknown) {
     const email = String(emailInput || '').trim().toLowerCase();
+    const locale = normalizeAuthMailLocale(localeInput);
     const emailToken = issueRegistrationEmailToken();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + REGISTRATION_EMAIL_TTL_MS);
@@ -633,6 +618,7 @@ export class RegistrationApplicationService {
         membership_id: string;
         organization_id: string;
         version: bigint;
+        idempotency_key: string;
         latest_challenge_at: Date | null;
       }>>(Prisma.sql`
         SELECT
@@ -641,6 +627,7 @@ export class RegistrationApplicationService {
           application.membership_id,
           application.organization_id,
           application.version,
+          application.idempotency_key,
           challenge.created_at AS latest_challenge_at
         FROM auth.registration_applications application
         LEFT JOIN LATERAL (
@@ -712,6 +699,18 @@ export class RegistrationApplicationService {
         reason: 'EMAIL_VERIFICATION_RESENT',
         metadata: { applicationId: application.id, correlationId },
       });
+      await this.mailOutbox.enqueue(tx, {
+        kind: 'REGISTRATION_EMAIL_VERIFICATION',
+        idempotencyKey: `auth-mail:registration:${application.id}:resend:${emailToken.id}`,
+        correlationId,
+        envelope: registrationVerificationMail({
+          to: email,
+          token: emailToken.token,
+          statusToken: deriveRegistrationStatusToken(application.id, application.idempotency_key),
+          locale,
+        }),
+        expiresAt,
+      });
       return { deliver: true as const };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
 
@@ -719,9 +718,7 @@ export class RegistrationApplicationService {
       accepted: true,
       cooldownSeconds: 60,
       correlationId,
-      emailDelivery: result.deliver && deliveryAuthorized(deliveryKey)
-        ? { email, token: emailToken.token, expiresInSeconds: Math.floor(REGISTRATION_EMAIL_TTL_MS / 1000) }
-        : undefined,
+      queued: result.deliver,
     };
   }
 
@@ -841,7 +838,6 @@ export class RegistrationApplicationService {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
   }
 
-
   private async lockRegistrationKeys(client: AuthSqlClient, keys: string[]): Promise<void> {
     for (const key of [...new Set(keys)].sort()) {
       await client.$queryRaw<Array<{ acquired: number }>>(Prisma.sql`
@@ -919,27 +915,23 @@ export class RegistrationApplicationService {
     return rows[0] ?? null;
   }
 
-  private submissionResponse(
-    submission: ExistingSubmissionRow,
-    emailDelivery?: { email: string; token: string; expiresInSeconds: number },
-  ) {
+  private submissionResponse(submission: ExistingSubmissionRow) {
     const publicResponse = {
       accepted: true,
       status: 'EMAIL_VERIFICATION_REQUIRED',
       nextAction: 'VERIFY_EMAIL',
       correlationId: submission.correlation_id,
     };
-    if (!emailDelivery || submission.outcome !== 'APPLICATION_CREATED' || !submission.id) {
+    if (submission.outcome !== 'APPLICATION_CREATED' || !submission.id) {
       return publicResponse;
     }
     return {
       ...publicResponse,
       applicationId: submission.id,
       statusToken: deriveRegistrationStatusToken(submission.id, submission.idempotency_key),
-      emailDelivery,
+      emailQueued: true,
     };
   }
-
 
   private async insertEvent(
     client: AuthSqlClient,

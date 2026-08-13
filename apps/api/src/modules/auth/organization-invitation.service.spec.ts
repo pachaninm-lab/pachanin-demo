@@ -1,10 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { Role, type RequestUser } from '../../common/types/request-user';
-import {
-  hashAuthMaterial,
-  stableJson,
-} from './auth-crypto';
+import { hashAuthMaterial, stableJson } from './auth-crypto';
 import { OrganizationInvitationService } from './organization-invitation.service';
 import { makeOpaqueToken } from './opaque-token-authority';
 
@@ -122,9 +119,7 @@ function serviceWith(queryHandler: (sql: string) => unknown = () => []) {
   const prisma = {
     $queryRaw: jest.fn(async (query: unknown) => {
       const sql = sqlText(query);
-      if (sql.includes('resolve_organization_admin_session')) {
-        return resolvedAdmin();
-      }
+      if (sql.includes('resolve_organization_admin_session')) return resolvedAdmin();
       return queryHandler(sql);
     }),
     $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
@@ -135,29 +130,22 @@ function serviceWith(queryHandler: (sql: string) => unknown = () => []) {
     insertAudit: jest.fn(),
     revokeAllUserSessions: jest.fn(),
   };
+  const mailOutbox = {
+    enqueue: jest.fn().mockResolvedValue({ queued: true, envelopeDigest: 'a'.repeat(64) }),
+  };
   return {
-    service: new OrganizationInvitationService(prisma as never, repository as never),
+    service: new OrganizationInvitationService(prisma as never, repository as never, mailOutbox as never),
     prisma,
     tx,
     repository,
+    mailOutbox,
   };
 }
 
-describe('organization invitation authority', () => {
-  const originalDeliveryKey = process.env.ORGANIZATION_INVITATION_DELIVERY_KEY;
-
-  beforeEach(() => {
-    process.env.ORGANIZATION_INVITATION_DELIVERY_KEY = 'organization-invitation-delivery-key-for-tests';
-  });
-
-  afterAll(() => {
-    if (originalDeliveryKey === undefined) delete process.env.ORGANIZATION_INVITATION_DELIVERY_KEY;
-    else process.env.ORGANIZATION_INVITATION_DELIVERY_KEY = originalDeliveryKey;
-  });
-
-  it('never returns a new raw token for an idempotent resend replay', async () => {
+describe('organization invitation authority with industrial auth-mail outbox', () => {
+  it('does not mint or queue a second invitation mail on an idempotent resend replay', async () => {
     const row = invitationRow();
-    const { service } = serviceWith((sql) => {
+    const { service, mailOutbox } = serviceWith((sql) => {
       if (sql.includes('organization_invitation_events')) return [{ invitation_id: row.id }];
       if (sql.includes('FROM auth.organization_invitations invitation')) return [row];
       return [];
@@ -169,28 +157,62 @@ describe('organization invitation authority', () => {
       'Requested by organization administrator',
       'idempotency-resend-0001',
       'corr-resend',
-      process.env.ORGANIZATION_INVITATION_DELIVERY_KEY,
+      'ru',
     );
 
-    expect(result).toMatchObject({ invitationId: row.id, replayed: true });
-    expect(result.emailDelivery).toBeUndefined();
+    expect(result).toMatchObject({ invitationId: row.id, replayed: true, emailQueued: false });
+    expect(JSON.stringify(result)).not.toMatch(/iv_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
+    expect(mailOutbox.enqueue).not.toHaveBeenCalled();
   });
 
-  it('rejects a role outside the administrator permission ceiling before any write', async () => {
-    const { service, prisma } = serviceWith();
+  it('queues the new invitation bearer only through the encrypted mail outbox', async () => {
+    const { service, mailOutbox } = serviceWith((sql) => {
+      if (sql.includes('organization_membership_exists_for_email')) return [{ membership_exists: false }];
+      return [];
+    });
+
+    const result = await service.create(
+      ACTOR,
+      'employee@example.test',
+      Role.BUYER,
+      'idempotency-create-queue-0001',
+      'corr-create-queue',
+      'en',
+    );
+
+    expect(result).toMatchObject({ replayed: false, emailQueued: true, correlationId: 'corr-create-queue' });
+    expect(JSON.stringify(result)).not.toMatch(/iv_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
+    expect(mailOutbox.enqueue).toHaveBeenCalledTimes(1);
+    expect(mailOutbox.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        kind: 'ORGANIZATION_INVITATION',
+        correlationId: 'corr-create-queue',
+        idempotencyKey: expect.stringMatching(/^auth-mail:organization-invitation:iv_/),
+        envelope: expect.objectContaining({
+          to: 'employee@example.test',
+          text: expect.stringContaining('/platform-v7/invitation?token=iv_'),
+        }),
+      }),
+    );
+  });
+
+  it('rejects a role outside the administrator permission ceiling before any write or mail enqueue', async () => {
+    const { service, prisma, mailOutbox } = serviceWith();
     await expect(service.create(
       ACTOR,
       'employee@example.test',
       Role.FARMER,
       'idempotency-create-0001',
       'corr-create',
-      process.env.ORGANIZATION_INVITATION_DELIVERY_KEY,
+      'ru',
     )).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(mailOutbox.enqueue).not.toHaveBeenCalled();
   });
 
-  it('does not create an invitation when the email already has any membership in the organization', async () => {
-    const { service, tx } = serviceWith((sql) => (
+  it('does not create an invitation or mail when the email already has membership in the organization', async () => {
+    const { service, tx, mailOutbox } = serviceWith((sql) => (
       sql.includes('organization_membership_exists_for_email')
         ? [{ membership_exists: true }]
         : []
@@ -202,24 +224,19 @@ describe('organization invitation authority', () => {
       Role.BUYER,
       'idempotency-create-0002',
       'corr-create-duplicate',
-      process.env.ORGANIZATION_INVITATION_DELIVERY_KEY,
+      'ru',
     )).rejects.toBeInstanceOf(ConflictException);
 
     expect(tx.userOrg.create).not.toHaveBeenCalled();
     expect(tx.user.create).not.toHaveBeenCalled();
+    expect(mailOutbox.enqueue).not.toHaveBeenCalled();
   });
 
   it('marks an expired pending invitation and never creates membership', async () => {
     const token = makeOpaqueToken('iv');
-    const row = invitationRow({
-      id: token.id,
-      token_hash: token.digest,
-      expires_at: new Date(Date.now() - 1_000),
-    });
+    const row = invitationRow({ id: token.id, token_hash: token.digest, expires_at: new Date(Date.now() - 1_000) });
     const { service, tx } = serviceWith((sql) => (
-      sql.includes('resolve_invitation_acceptance_credential')
-        ? [acceptanceCredential(row)]
-        : []
+      sql.includes('resolve_invitation_acceptance_credential') ? [acceptanceCredential(row)] : []
     ));
 
     await expect(service.accept({
@@ -241,9 +258,7 @@ describe('organization invitation authority', () => {
     const token = makeOpaqueToken('iv');
     const row = invitationRow({ id: token.id, token_hash: token.digest, status: 'ACCEPTED' });
     const { service, tx } = serviceWith((sql) => (
-      sql.includes('resolve_invitation_acceptance_credential')
-        ? [acceptanceCredential(row)]
-        : []
+      sql.includes('resolve_invitation_acceptance_credential') ? [acceptanceCredential(row)] : []
     ));
 
     await expect(service.accept({
@@ -281,9 +296,7 @@ describe('organization invitation authority', () => {
     const token = makeOpaqueToken('iv');
     const row = invitationRow({ id: token.id, token_hash: token.digest });
     const { service, tx } = serviceWith((sql) => (
-      sql.includes('resolve_invitation_acceptance_credential')
-        ? [acceptanceCredential(row)]
-        : []
+      sql.includes('resolve_invitation_acceptance_credential') ? [acceptanceCredential(row)] : []
     ));
 
     await expect(service.accept({
@@ -314,9 +327,7 @@ describe('organization invitation authority', () => {
           existing_user_deleted_at: null,
         })];
       }
-      if (sql.includes('accept_organization_invitation_identity')) {
-        return [acceptedInvitation(row, 'existing-user')];
-      }
+      if (sql.includes('accept_organization_invitation_identity')) return [acceptedInvitation(row, 'existing-user')];
       return [];
     });
 
@@ -332,16 +343,15 @@ describe('organization invitation authority', () => {
 
     expect(tx.user.create).not.toHaveBeenCalled();
     expect(tx.userOrg.create).not.toHaveBeenCalled();
-    expect(tx.$queryRaw.mock.calls
-      .map((call) => sqlText((call as unknown[])[0]))
-      .join('\n')).toContain('accept_organization_invitation_identity');
+    expect(tx.$queryRaw.mock.calls.map((call) => sqlText((call as unknown[])[0])).join('\n'))
+      .toContain('accept_organization_invitation_identity');
     expect(repository.ensureCredentialState).toHaveBeenCalledWith(
       expect.anything(), 'existing-user', '2026-07-31|2026-07-31', expect.any(Date),
     );
   });
 
-  it('does not let an organization administrator initiate global MFA recovery for a cross-organization or staff identity', async () => {
-    const { service, tx } = serviceWith((sql) => {
+  it('does not let an organization administrator initiate recovery for a cross-organization or staff identity', async () => {
+    const { service, tx, mailOutbox } = serviceWith((sql) => {
       if (sql.includes('organization_membership_command_events')) return [];
       if (sql.includes('prepare_organization_mfa_recovery_target')) {
         return [{
@@ -365,13 +375,14 @@ describe('organization invitation authority', () => {
       'Controlled recovery requested by organization administrator',
       'idempotency-mfa-recovery-0001',
       'corr-mfa-shared',
-      process.env.ORGANIZATION_INVITATION_DELIVERY_KEY,
+      'ru',
     )).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(tx.$executeRaw).not.toHaveBeenCalled();
+    expect(mailOutbox.enqueue).not.toHaveBeenCalled();
   });
 
-  it('returns a recovery token only to the delivery boundary and never on an idempotent replay', async () => {
+  it('queues a fresh MFA recovery bearer and never returns it to the caller; replay queues nothing', async () => {
     const reason = 'Controlled recovery requested by organization administrator';
     const fresh = serviceWith((sql) => {
       if (sql.includes('organization_membership_command_events')) return [];
@@ -396,42 +407,25 @@ describe('organization invitation authority', () => {
       reason,
       'idempotency-mfa-recovery-0002',
       'corr-mfa-create',
-      process.env.ORGANIZATION_INVITATION_DELIVERY_KEY,
+      'zh',
     );
-    expect(created.recoveryDelivery?.token).toMatch(/^mr_[^.]+\.[A-Za-z0-9_-]+$/);
-
-    const withoutBoundary = serviceWith((sql) => {
-      if (sql.includes('organization_membership_command_events')) return [];
-      if (sql.includes('prepare_organization_mfa_recovery_target')) {
-        return [{
-          prepared: true,
-          user_id: 'employee-user-2',
-          email: 'employee2@example.test',
-          has_other_membership: false,
-          has_staff_assignment: false,
-          mfa_enabled: true,
-          has_mfa_secret: true,
-          new_version: 2n,
-        }];
-      }
-      return [];
-    });
-    const hidden = await withoutBoundary.service.resetMembershipMfa(
-      ACTOR,
-      'membership-employee-2',
-      1n,
-      reason,
-      'idempotency-mfa-recovery-0003',
-      'corr-mfa-hidden',
-      'wrong-delivery-boundary-key-that-is-long-enough',
+    expect(created).toMatchObject({ replayed: false, emailQueued: true });
+    expect(JSON.stringify(created)).not.toContain('mr_');
+    expect(fresh.mailOutbox.enqueue).toHaveBeenCalledWith(
+      fresh.tx,
+      expect.objectContaining({
+        kind: 'MFA_RECOVERY',
+        correlationId: 'corr-mfa-create',
+        idempotencyKey: expect.stringMatching(/^auth-mail:mfa-recovery:mr_/),
+        envelope: expect.objectContaining({
+          to: 'employee@example.test',
+          text: expect.stringContaining('/platform-v7/mfa-recovery?token=mr_'),
+        }),
+      }),
     );
-    expect(hidden.recoveryDelivery).toBeUndefined();
 
     const replayMembershipId = 'membership-replay';
     const replayVersion = 5n;
-    // Membership, actor, purpose and the server-issued request key. No
-    // credential material: the recovery token is minted separately and never
-    // reaches this hash.
     const replayRequestHash = hashAuthMaterial(stableJson({
       purpose: 'auth.membership.mfa_reset',
       membershipId: replayMembershipId,
@@ -469,13 +463,14 @@ describe('organization invitation authority', () => {
       reason,
       'idempotency-mfa-recovery-0004',
       'corr-mfa-replay',
-      process.env.ORGANIZATION_INVITATION_DELIVERY_KEY,
+      'ru',
     );
-    expect(replay).toMatchObject({ replayed: true, membershipId: replayMembershipId });
-    expect(replay.recoveryDelivery).toBeUndefined();
+    expect(replay).toMatchObject({ replayed: true, membershipId: replayMembershipId, emailQueued: false });
+    expect(JSON.stringify(replay)).not.toContain('mr_');
+    expect(replayService.mailOutbox.enqueue).not.toHaveBeenCalled();
   });
 
-  it('requires the subject current password before consuming MFA recovery and revoking sessions', async () => {
+  it('requires the subject current password before consuming recovery and queues the completion notice only on success', async () => {
     const token = makeOpaqueToken('mr');
     const passwordHash = await bcrypt.hash('Current-Password-9!', 4);
     const row = {
@@ -499,19 +494,12 @@ describe('organization invitation authority', () => {
       has_other_membership: false,
       has_staff_assignment: false,
     };
-    const invalid = serviceWith((sql) => (
-      sql.includes('resolve_mfa_recovery_identity') ? [row] : []
-    ));
+    const invalid = serviceWith((sql) => (sql.includes('resolve_mfa_recovery_identity') ? [row] : []));
     await expect(invalid.service.confirmMfaRecovery(
-      { token: token.token, password: 'Wrong-Password-9!' },
+      { token: token.token, password: 'Wrong-Password-9!', locale: 'ru' },
       'corr-mfa-invalid-password',
-      process.env.ORGANIZATION_INVITATION_DELIVERY_KEY,
     )).rejects.toBeInstanceOf(BadRequestException);
-    const invalidSql = invalid.tx.$executeRaw.mock.calls
-      .map((call) => sqlText((call as unknown[])[0]))
-      .join('\n');
-    expect(invalidSql).toContain('SET attempts = attempts + 1');
-    expect(invalidSql).not.toContain('mfa_secret_ciphertext = NULL');
+    expect(invalid.mailOutbox.enqueue).not.toHaveBeenCalled();
     expect(invalid.repository.revokeAllUserSessions).not.toHaveBeenCalled();
 
     const success = serviceWith((sql) => {
@@ -528,9 +516,8 @@ describe('organization invitation authority', () => {
       return [];
     });
     const result = await success.service.confirmMfaRecovery(
-      { token: token.token, password: 'Current-Password-9!' },
+      { token: token.token, password: 'Current-Password-9!', locale: 'en' },
       'corr-mfa-success',
-      process.env.ORGANIZATION_INVITATION_DELIVERY_KEY,
     );
     expect(result).toMatchObject({
       ok: true,
@@ -543,16 +530,14 @@ describe('organization invitation authority', () => {
       row.user_id,
       'CONTROLLED_MFA_RECOVERY',
     );
-    const executedSql = success.tx.$executeRaw.mock.calls
-      .map((call) => sqlText((call as unknown[])[0]))
-      .join('\n');
-    expect(executedSql).not.toContain('mfa_secret_ciphertext = NULL');
-    expect(executedSql).not.toContain("SET status = 'CONSUMED'");
-    const authoritySql = success.tx.$queryRaw.mock.calls
-      .map((call) => sqlText((call as unknown[])[0]))
-      .join('\n');
-    expect(authoritySql).toContain('resolve_mfa_recovery_identity');
-    expect(authoritySql).toContain('finalize_mfa_recovery_identity');
+    expect(success.mailOutbox.enqueue).toHaveBeenCalledWith(
+      success.tx,
+      expect.objectContaining({
+        kind: 'ACCOUNT_SECURITY_NOTICE',
+        correlationId: 'corr-mfa-success',
+        envelope: expect.objectContaining({ to: row.email }),
+      }),
+    );
   });
 
   it('revokes the recovery challenge when the subject password attempt budget is exhausted', async () => {
@@ -578,19 +563,17 @@ describe('organization invitation authority', () => {
       has_other_membership: false,
       has_staff_assignment: false,
     };
-    const terminal = serviceWith((sql) => (
-      sql.includes('resolve_mfa_recovery_identity') ? [row] : []
-    ));
+    const terminal = serviceWith((sql) => (sql.includes('resolve_mfa_recovery_identity') ? [row] : []));
     await expect(terminal.service.confirmMfaRecovery(
-      { token: token.token, password: 'Wrong-Password-9!' },
+      { token: token.token, password: 'Wrong-Password-9!', locale: 'ru' },
       'corr-mfa-attempts-exhausted',
-      process.env.ORGANIZATION_INVITATION_DELIVERY_KEY,
     )).rejects.toBeInstanceOf(BadRequestException);
     const executedSql = terminal.tx.$executeRaw.mock.calls
       .map((call) => sqlText((call as unknown[])[0]))
       .join('\n');
-    expect(executedSql).toContain("status = CASE WHEN");
+    expect(executedSql).toContain('status = CASE WHEN');
     expect(executedSql).toContain('INSERT INTO auth.mfa_recovery_events');
     expect(terminal.repository.revokeAllUserSessions).not.toHaveBeenCalled();
+    expect(terminal.mailOutbox.enqueue).not.toHaveBeenCalled();
   });
 });

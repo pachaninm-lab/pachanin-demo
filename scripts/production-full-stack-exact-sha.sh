@@ -32,6 +32,11 @@ auth_opaque_token_env_file=""
 staff_database_env_file=""
 password_reset_delivery_env_file=""
 transactional_mail_env_file=""
+auth_mail_authority_dir="/var/lib/pc-secret-authority"
+auth_mail_runtime_dir="$auth_mail_authority_dir/runtime"
+auth_mail_transport_authority="$auth_mail_authority_dir/auth-mail-transport.env"
+auth_mail_provision_script="${PC_AUTH_MAIL_PROVISION_SCRIPT:-/tmp/pc-auth-mail-provision-${RUN_ID}.sh}"
+auth_mail_worker_service="auth-mail-worker"
 
 resolve_compose_authority() {
   if [[ -n "$prod_dir" && -n "$prod_compose" ]]; then return; fi
@@ -149,9 +154,73 @@ if not port.isdigit() or not 1 <= int(port) <= 65535 or not email.fullmatch(send
 PY
 }
 
-if [[ "$ACTION" == deploy ]]; then
-  resolve_password_reset_runtime_env_files
-fi
+ensure_canonical_auth_mail_transport() {
+  install -d -m 0700 -o 0 -g 0 "$auth_mail_authority_dir"
+  if [[ ! -e "$auth_mail_transport_authority" ]]; then
+    [[ -n "$transactional_mail_env_file" && -f "$transactional_mail_env_file" && ! -L "$transactional_mail_env_file" ]] \
+      || fail AUTH_MAIL_TRANSPORT_AUTHORITY_MISSING 68
+    tmp_transport="$(mktemp "$auth_mail_authority_dir/.auth-mail-transport-migrate.XXXXXX")"
+    python3 - "$transactional_mail_env_file" <<'PY' > "$tmp_transport" || { rm -f "$tmp_transport"; fail AUTH_MAIL_LEGACY_SMTP_NOT_CANONICAL 69; }
+import sys
+values = {}
+for raw in open(sys.argv[1], encoding='utf-8'):
+    name, sep, value = raw.rstrip('\n').partition('=')
+    if sep:
+        values[name] = value
+required = {'PC_SMTP_HOST', 'PC_SMTP_USER', 'PC_SMTP_PASS'}
+allowed = required | {'PC_SMTP_PORT', 'PC_MAIL_FROM'}
+if not required.issubset(values) or not set(values).issubset(allowed):
+    raise SystemExit(1)
+host = values['PC_SMTP_HOST'].strip().lower()
+port = values.get('PC_SMTP_PORT', '465').strip()
+user = values['PC_SMTP_USER'].strip()
+sender = values.get('PC_MAIL_FROM', user).strip()
+password = values['PC_SMTP_PASS']
+if host != 'mail.hosting.reg.ru' or port != '465':
+    raise SystemExit(1)
+if user != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or sender != user:
+    raise SystemExit(1)
+if not 8 <= len(password) <= 512 or any(c in password for c in '\r\n\0'):
+    raise SystemExit(1)
+print(f'PC_SMTP_HOST={host}')
+print('PC_SMTP_PORT=465')
+print(f'PC_SMTP_USER={user}')
+print(f'PC_SMTP_PASS={password}')
+print(f'PC_MAIL_FROM={sender}')
+PY
+    chmod 0600 "$tmp_transport"; chown 0:0 "$tmp_transport"
+    mv -f "$tmp_transport" "$auth_mail_transport_authority"
+  fi
+  [[ -f "$auth_mail_transport_authority" && ! -L "$auth_mail_transport_authority" ]] \
+    || fail AUTH_MAIL_TRANSPORT_AUTHORITY_INVALID 70
+  [[ "$(stat -c '%a:%u:%g' "$auth_mail_transport_authority")" == '600:0:0' ]] \
+    || fail AUTH_MAIL_TRANSPORT_AUTHORITY_PERMISSIONS 71
+  python3 - "$auth_mail_transport_authority" <<'PY' || fail AUTH_MAIL_TRANSPORT_AUTHORITY_CONTENT 72
+import sys
+values = {}
+for raw in open(sys.argv[1], encoding='utf-8'):
+    name, sep, value = raw.rstrip('\n').partition('=')
+    if sep:
+        values[name] = value
+if set(values) != {'PC_SMTP_HOST','PC_SMTP_PORT','PC_SMTP_USER','PC_SMTP_PASS','PC_MAIL_FROM'}:
+    raise SystemExit(1)
+if values['PC_SMTP_HOST'] != 'mail.hosting.reg.ru' or values['PC_SMTP_PORT'] != '465':
+    raise SystemExit(1)
+if values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or values['PC_MAIL_FROM'] != values['PC_SMTP_USER']:
+    raise SystemExit(1)
+if not 8 <= len(values['PC_SMTP_PASS']) <= 512 or any(c in values['PC_SMTP_PASS'] for c in '\r\n\0'):
+    raise SystemExit(1)
+PY
+}
+
+auth_mail_projection_ready() {
+  [[ -d "$auth_mail_runtime_dir" && ! -L "$auth_mail_runtime_dir" ]] || return 1
+  [[ "$(stat -c '%a:%u:%g' "$auth_mail_runtime_dir")" == '700:0:0' ]] || return 1
+  [[ -d "$auth_mail_runtime_dir/keyring" && ! -L "$auth_mail_runtime_dir/keyring" ]] || return 1
+  [[ -f "$auth_mail_runtime_dir/current-key-version" && -f "$auth_mail_runtime_dir/database-url" && -f "$auth_mail_runtime_dir/transport.env" ]] || return 1
+  [[ -n "$(find "$auth_mail_runtime_dir/keyring" -maxdepth 1 -type f -name 'v*.key' -print -quit)" ]] || return 1
+}
+
 
 IFS=',' read -r -a raw_files <<< "$prod_compose"
 compose_files=()
@@ -206,21 +275,46 @@ baseline_api_image="$(docker inspect --format '{{.Config.Image}}' "$api_id")"
 baseline_web_image="$(docker inspect --format '{{.Config.Image}}' "$web_id")"
 baseline_api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
 baseline_web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+mapfile -t baseline_worker_ids < <(docker ps -q \
+  --filter "label=com.docker.compose.project=$prod_project" \
+  --filter "label=com.docker.compose.service=$auth_mail_worker_service")
+(( ${#baseline_worker_ids[@]} <= 1 )) || fail AUTH_MAIL_WORKER_AUTHORITY_AMBIGUOUS 73
+baseline_worker_present=0
+baseline_worker_image=''
+baseline_worker_revision=''
+if (( ${#baseline_worker_ids[@]} == 1 )); then
+  baseline_worker_present=1
+  baseline_worker_id="${baseline_worker_ids[0]}"
+  baseline_worker_image="$(docker inspect --format '{{.Config.Image}}' "$baseline_worker_id")"
+  baseline_worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$baseline_worker_id")"
+  is_revision "$baseline_worker_revision" || fail AUTH_MAIL_WORKER_BASELINE_REVISION_INVALID 74
+fi
 
 snapshot_unrelated() {
   local output="$1"
   docker ps --format '{{.ID}} {{.Labels}}' | awk '
     $0 !~ /com.docker.compose.service=api(,|$)/ &&
     $0 !~ /com.docker.compose.service=web(,|$)/ &&
+    $0 !~ /com.docker.compose.service=auth-mail-worker(,|$)/ &&
     $0 !~ /com.docker.compose.service=watchtower(,|$)/ {print $1}' | sort > "$output"
 }
 
 write_override() {
-  local api_image="$1" web_image="$2" migration_image="$3" destination="$4" include_password_reset_runtime="${5:-0}"
-  [[ "$include_password_reset_runtime" =~ ^[01]$ ]] || fail PASSWORD_RESET_RUNTIME_OVERRIDE_MODE_INVALID 67
+  local mode="$1" api_image="$2" web_image="$3" migration_image="$4" worker_image="$5" destination="$6"
+  [[ "$mode" =~ ^(migration|legacy|auth-mail)$ ]] || fail AUTH_MAIL_OVERRIDE_MODE_INVALID 75
   umask 077
-  if [[ "$include_password_reset_runtime" == 1 ]]; then
-    cat > "$destination.tmp" <<YAML
+  case "$mode" in
+    migration)
+      cat > "$destination.tmp" <<YAML
+services:
+  ${migration_service}:
+    image: ${migration_image}
+    pull_policy: never
+YAML
+      ;;
+    legacy)
+      [[ -n "$password_reset_delivery_env_file" && -n "$transactional_mail_env_file" ]] || fail LEGACY_MAIL_ROLLBACK_AUTHORITY_MISSING 76
+      cat > "$destination.tmp" <<YAML
 services:
   api:
     image: ${api_image}
@@ -239,8 +333,11 @@ services:
     image: ${migration_image}
     pull_policy: never
 YAML
-  else
-    cat > "$destination.tmp" <<YAML
+      ;;
+    auth-mail)
+      auth_mail_projection_ready || fail AUTH_MAIL_RUNTIME_PROJECTION_MISSING 77
+      [[ -n "$worker_image" ]] || fail AUTH_MAIL_WORKER_IMAGE_MISSING 78
+      cat > "$destination.tmp" <<YAML
 services:
   api:
     image: ${api_image}
@@ -248,16 +345,113 @@ services:
     env_file:
       - ${auth_opaque_token_env_file}
       - ${staff_database_env_file}
+    environment:
+      AUTH_MAIL_OUTBOX_KEYRING_DIR: /run/pc-auth-mail/keyring
+      AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE: /run/pc-auth-mail/current-key-version
+      PC_PUBLIC_SITE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+    volumes:
+      - ${auth_mail_runtime_dir}/keyring:/run/pc-auth-mail/keyring:ro
+      - ${auth_mail_runtime_dir}/current-key-version:/run/pc-auth-mail/current-key-version:ro
   web:
     image: ${web_image}
     pull_policy: never
+  ${auth_mail_worker_service}:
+    image: ${worker_image}
+    pull_policy: never
+    command:
+      - dist/apps/api/src/auth-mail-worker.js
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      RUNTIME_COMPONENT: auth-mail-worker
+      AUTH_MAIL_WORKER_ENABLED: "true"
+      AUTH_MAIL_WORKER_HEALTH_PORT: "3003"
+      AUTH_MAIL_OUTBOX_KEYRING_DIR: /run/pc-auth-mail/keyring
+      AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE: /run/pc-auth-mail/current-key-version
+      AUTH_MAIL_DATABASE_URL_FILE: /run/pc-auth-mail/database-url
+      AUTH_MAIL_TRANSPORT_FILE: /run/pc-auth-mail/transport.env
+    volumes:
+      - ${auth_mail_runtime_dir}/keyring:/run/pc-auth-mail/keyring:ro
+      - ${auth_mail_runtime_dir}/current-key-version:/run/pc-auth-mail/current-key-version:ro
+      - ${auth_mail_runtime_dir}/database-url:/run/pc-auth-mail/database-url:ro
+      - ${auth_mail_runtime_dir}/transport.env:/run/pc-auth-mail/transport.env:ro
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
   ${migration_service}:
     image: ${migration_image}
     pull_policy: never
 YAML
-  fi
+      ;;
+  esac
   mv "$destination.tmp" "$destination"
   chmod 0600 "$destination"
+}
+
+verify_auth_mail_compose_contract() {
+  local cfg
+  cfg="$(mktemp)"
+  "${dc_target[@]}" config --format json > "$cfg"
+  python3 - "$cfg" "$API_IMAGE" <<'PY' || { rm -f "$cfg"; fail AUTH_MAIL_COMPOSE_CONTRACT_FAILED 79; }
+import json, sys
+cfg = json.load(open(sys.argv[1], encoding='utf-8'))
+expected_image = sys.argv[2]
+services = cfg.get('services') or {}
+for name in ('api', 'web', 'auth-mail-worker'):
+    if name not in services:
+        raise SystemExit(f'missing service {name}')
+
+def env(service):
+    raw = service.get('environment') or {}
+    if isinstance(raw, list):
+        return {str(item).partition('=')[0]: str(item).partition('=')[2] for item in raw}
+    return {str(k): '' if v is None else str(v) for k, v in raw.items()}
+
+web_env = env(services['web'])
+forbidden_web = {
+    'PC_SMTP_HOST','PC_SMTP_PORT','PC_SMTP_USER','PC_SMTP_PASS','PC_MAIL_FROM',
+    'RESEND_API_KEY','RESEND_FROM_EMAIL','PASSWORD_RESET_DELIVERY_KEY','REGISTRATION_DELIVERY_KEY',
+    'AUTH_MAIL_OUTBOX_KEYRING_DIR','AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE',
+    'AUTH_MAIL_DATABASE_URL_FILE','AUTH_MAIL_TRANSPORT_FILE',
+}
+if forbidden_web.intersection(web_env):
+    raise SystemExit('web receives mail authority')
+
+api_env = env(services['api'])
+if api_env.get('AUTH_MAIL_OUTBOX_KEYRING_DIR') != '/run/pc-auth-mail/keyring':
+    raise SystemExit('api keyring directory missing')
+if api_env.get('AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE') != '/run/pc-auth-mail/current-key-version':
+    raise SystemExit('api key version file missing')
+for key in ('PC_SMTP_PASS','RESEND_API_KEY','PASSWORD_RESET_DELIVERY_KEY','REGISTRATION_DELIVERY_KEY','AUTH_MAIL_DATABASE_URL_FILE','AUTH_MAIL_TRANSPORT_FILE'):
+    if key in api_env:
+        raise SystemExit(f'api forbidden mail authority: {key}')
+
+worker = services['auth-mail-worker']
+if str(worker.get('image') or '') != expected_image:
+    raise SystemExit('worker image is not exact API image')
+command = worker.get('command') or []
+command_text = ' '.join(command) if isinstance(command, list) else str(command)
+if 'dist/apps/api/src/auth-mail-worker.js' not in command_text:
+    raise SystemExit('worker command missing')
+worker_env = env(worker)
+expected = {
+    'RUNTIME_COMPONENT': 'auth-mail-worker',
+    'AUTH_MAIL_WORKER_ENABLED': 'true',
+    'AUTH_MAIL_OUTBOX_KEYRING_DIR': '/run/pc-auth-mail/keyring',
+    'AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE': '/run/pc-auth-mail/current-key-version',
+    'AUTH_MAIL_DATABASE_URL_FILE': '/run/pc-auth-mail/database-url',
+    'AUTH_MAIL_TRANSPORT_FILE': '/run/pc-auth-mail/transport.env',
+}
+for key, value in expected.items():
+    if worker_env.get(key) != value:
+        raise SystemExit(f'worker environment mismatch: {key}')
+if not worker.get('healthcheck'):
+    raise SystemExit('worker healthcheck missing')
+PY
+  rm -f "$cfg"
 }
 
 dc_target=("${dc[@]}" -f "$full_override")
@@ -273,6 +467,18 @@ wait_api() {
   for attempt in $(seq 1 30); do
     id="$("${dc_target[@]}" ps -q api | head -1)"
     if [[ -n "$id" ]] && docker exec "$id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"; then return 0; fi
+    sleep 4
+  done
+  return 1
+}
+
+
+wait_worker() {
+  local id state attempt
+  for attempt in $(seq 1 30); do
+    id="$("${dc_target[@]}" ps -q "$auth_mail_worker_service" | head -1)"
+    state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null || true)"
+    if [[ "$state" == healthy ]] && docker exec "$id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"; then return 0; fi
     sleep 4
   done
   return 1
@@ -330,35 +536,52 @@ container_revision() {
 }
 
 rollback_images() {
-  local restored_api_id restored_web_id
+  local restored_api_id restored_web_id restored_worker_id='' rollback_worker_ids=()
   [[ -f "$STATE_FILE" ]] || return 1
   # shellcheck disable=SC1090
   source "$STATE_FILE"
   is_revision "$BASELINE_API_REVISION" || return 1
   is_revision "$BASELINE_WEB_REVISION" || return 1
-  write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override"
-  "${dc_target[@]}" config --quiet
-  "${dc_target[@]}" up -d --no-deps --pull never api web
-  wait_api && wait_web || return 1
+
+  if [[ "$BASELINE_WORKER_PRESENT" == 1 ]]; then
+    is_revision "$BASELINE_WORKER_REVISION" || return 1
+    auth_mail_projection_ready || return 1
+    write_override auth-mail "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$BASELINE_WORKER_IMAGE" "$full_override"
+    "${dc_target[@]}" config --quiet
+    "${dc_target[@]}" up -d --no-deps --pull never api "$auth_mail_worker_service" web
+    wait_api && wait_worker && wait_web || return 1
+  else
+    resolve_password_reset_runtime_env_files || return 1
+    write_override legacy "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" '' "$full_override"
+    "${dc_target[@]}" config --quiet
+    mapfile -t rollback_worker_ids < <(docker ps -aq \
+      --filter "label=com.docker.compose.project=$prod_project" \
+      --filter "label=com.docker.compose.service=$auth_mail_worker_service")
+    for worker_id in "${rollback_worker_ids[@]:-}"; do
+      [[ -n "$worker_id" ]] && docker rm -f "$worker_id" >/dev/null || true
+    done
+    "${dc_target[@]}" up -d --no-deps --pull never api web
+    wait_api && wait_web || return 1
+  fi
+
   restored_api_id="$("${dc_target[@]}" ps -q api | head -1)"
   restored_web_id="$("${dc_target[@]}" ps -q web | head -1)"
   [[ -n "$restored_api_id" && -n "$restored_web_id" ]] || return 1
-  # The label name must reach Docker wrapped in real double quotes. Escaping
-  # them inside a single-quoted shell word does not escape anything — the shell
-  # passes the backslashes through literally and Go rejects the template with
-  # `unexpected "\" in operand`. That made both reads fail, left both variables
-  # empty, and so made the comparisons below unsatisfiable: this rollback path
-  # could never report success, whatever had actually happened to the
-  # containers. Every other template in this file already quotes it correctly.
   restored_api_revision="$(container_revision "$restored_api_id")" || return 2
   restored_web_revision="$(container_revision "$restored_web_id")" || return 2
-  # Unreadable and wrong are different failures and must not share an exit code.
-  # Conflating them is what let a broken verifier be reported as a failed
-  # restore, sending the investigation at the containers instead of the check.
   is_revision "$restored_api_revision" || return 2
   is_revision "$restored_web_revision" || return 2
   [[ "$restored_api_revision" == "$BASELINE_API_REVISION" ]] || return 3
   [[ "$restored_web_revision" == "$BASELINE_WEB_REVISION" ]] || return 3
+
+  restored_worker_revision=''
+  if [[ "$BASELINE_WORKER_PRESENT" == 1 ]]; then
+    restored_worker_id="$("${dc_target[@]}" ps -q "$auth_mail_worker_service" | head -1)"
+    [[ -n "$restored_worker_id" ]] || return 1
+    restored_worker_revision="$(container_revision "$restored_worker_id")" || return 2
+    is_revision "$restored_worker_revision" || return 2
+    [[ "$restored_worker_revision" == "$BASELINE_WORKER_REVISION" ]] || return 3
+  fi
 }
 
 verify_durable_intake_local_postgres() {
@@ -522,6 +745,7 @@ if [[ "$ACTION" == rollback ]]; then
   printf 'ROLLBACK_COMPLETE=1\n'
   printf 'RESTORED_API_REVISION=%s\n' "$restored_api_revision"
   printf 'RESTORED_WEB_REVISION=%s\n' "$restored_web_revision"
+  printf 'RESTORED_AUTH_MAIL_WORKER_REVISION=%s\n' "${restored_worker_revision:-none}"
   printf 'ROLLBACK_CONTAINER_REVISIONS_VERIFIED=1\n'
   exit 0
 fi
@@ -530,6 +754,8 @@ printf 'COMPOSE_AUTHORITY_RESOLVED=1\n'
 printf 'MIGRATION_SERVICE_RESOLVED=1\n'
 printf 'BASELINE_API_REVISION=%s\n' "$baseline_api_revision"
 printf 'BASELINE_WEB_REVISION=%s\n' "$baseline_web_revision"
+printf 'BASELINE_AUTH_MAIL_WORKER_PRESENT=%s\n' "$baseline_worker_present"
+printf 'BASELINE_AUTH_MAIL_WORKER_REVISION=%s\n' "${baseline_worker_revision:-none}"
 
 if [[ "$ACTION" == audit ]]; then
   printf 'AUDIT_COMPLETE=1\n'
@@ -540,6 +766,8 @@ fi
 verify_image "$API_IMAGE"
 verify_image "$WEB_IMAGE"
 verify_image "$MIGRATION_IMAGE"
+docker run --rm --entrypoint /nodejs/bin/node "$API_IMAGE" -e "require('node:fs').accessSync('/app/dist/apps/api/src/auth-mail-worker.js')" >/dev/null
+printf 'AUTH_MAIL_WORKER_ARTIFACT=PASS\n'
 
 # Shared release-authority root: traverse-only for the runner group. `chmod 0700`
 # here preserved the group and stripped its `--x`, which is exactly the state the
@@ -553,6 +781,9 @@ BASELINE_API_IMAGE='$baseline_api_image'
 BASELINE_WEB_IMAGE='$baseline_web_image'
 BASELINE_API_REVISION='$baseline_api_revision'
 BASELINE_WEB_REVISION='$baseline_web_revision'
+BASELINE_WORKER_PRESENT='$baseline_worker_present'
+BASELINE_WORKER_IMAGE='$baseline_worker_image'
+BASELINE_WORKER_REVISION='$baseline_worker_revision'
 MIGRATION_IMAGE='$MIGRATION_IMAGE'
 STATE
 chmod 0600 "$STATE_FILE"
@@ -593,16 +824,35 @@ else
   fail BACKUP_AUTHORITY_UNAVAILABLE 26
 fi
 
-write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1
+if [[ "$baseline_worker_present" == 0 ]]; then
+  resolve_password_reset_runtime_env_files
+fi
+ensure_canonical_auth_mail_transport
+[[ -f "$auth_mail_provision_script" && ! -L "$auth_mail_provision_script" ]] || fail AUTH_MAIL_PROVISION_ASSET_MISSING 80
+chmod 0700 "$auth_mail_provision_script"
+
+write_override migration "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" '' "$full_override"
 "${dc_target[@]}" config --quiet
 mutated=1
 "${dc_target[@]}" run --rm --no-deps --pull never "$migration_service"
 printf 'MIGRATION_COMPLETE=1\n'
+
+"$auth_mail_provision_script" bootstrap | grep -E '^AUTH_MAIL_(PROVISION|SECRET_AUTHORITY|SMTP_AUTHORITY|CURRENT_KEY_VERSION|GITHUB_SECRET_REQUIRED)='
+auth_mail_projection_ready || fail AUTH_MAIL_RUNTIME_PROJECTION_MISSING 81
+printf 'AUTH_MAIL_RUNTIME_PROVISION=PASS\n'
+
+write_override auth-mail "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$API_IMAGE" "$full_override"
+"${dc_target[@]}" config --quiet
+verify_auth_mail_compose_contract
+printf 'AUTH_MAIL_COMPOSE_CONTRACT=PASS\n'
+
 "${dc_target[@]}" up -d --no-deps --pull never api
 if ! wait_api; then
   emit_api_startup_diagnostics
   fail API_READINESS_FAILED 30
 fi
+"${dc_target[@]}" up -d --no-deps --pull never "$auth_mail_worker_service"
+wait_worker || fail AUTH_MAIL_WORKER_READINESS_FAILED 82
 "${dc_target[@]}" up -d --no-deps --pull never web
 wait_web || fail WEB_HEALTH_FAILED 31
 
@@ -618,11 +868,16 @@ rm -f "$before_ids" "$after_ids"
 
 new_api_id="$("${dc_target[@]}" ps -q api | head -1)"
 new_web_id="$("${dc_target[@]}" ps -q web | head -1)"
+new_worker_id="$("${dc_target[@]}" ps -q "$auth_mail_worker_service" | head -1)"
+[[ -n "$new_api_id" && -n "$new_web_id" && -n "$new_worker_id" ]] || fail TARGET_RUNTIME_MISSING 16
 new_api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$new_api_id")"
 new_web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$new_web_id")"
-[[ "$new_api_revision" == "$TARGET_SHA" && "$new_web_revision" == "$TARGET_SHA" ]] || fail RUNNING_REVISION_MISMATCH 33
+new_worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$new_worker_id")"
+[[ "$new_api_revision" == "$TARGET_SHA" && "$new_web_revision" == "$TARGET_SHA" && "$new_worker_revision" == "$TARGET_SHA" ]] || fail RUNNING_REVISION_MISMATCH 33
 trap - ERR
 printf 'DEPLOYED_API_REVISION=%s\n' "$new_api_revision"
 printf 'DEPLOYED_WEB_REVISION=%s\n' "$new_web_revision"
+printf 'DEPLOYED_AUTH_MAIL_WORKER_REVISION=%s\n' "$new_worker_revision"
+printf 'AUTH_MAIL_RUNTIME=PASS\n'
 printf 'WATCHTOWER_RETIRED=1\n'
 printf 'DEPLOYMENT_COMPLETE=1\n'

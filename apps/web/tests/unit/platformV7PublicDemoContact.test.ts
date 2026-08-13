@@ -35,11 +35,15 @@ describe('platform-v7 public production deal flow and question flow', () => {
     expect(contactSurface).not.toContain('демонстрационном доступе');
   });
 
-  it('validates inquiry input server-side and supports email delivery when configured', () => {
+  it('validates inquiry input and queues it through the durable API without Web mail credentials', () => {
     expect(inquiryRoute).toContain('QUESTION_TYPES');
     expect(inquiryRoute).toContain('validate(inquiry)');
     expect(inquiryRoute).toContain('bot_trap');
-    expect(inquiryRoute).toContain('RESEND_API_KEY');
+    expect(inquiryRoute).toContain("fetch(`${upstream}/public-inquiries`");
+    expect(inquiryRoute).toContain("transport: 'durable_api_outbox'");
     expect(inquiryRoute).toContain('NextResponse.redirect(url, 303)');
+    expect(inquiryRoute).not.toContain('RESEND_API_KEY');
+    expect(inquiryRoute).not.toContain('PC_SMTP_PASS');
+    expect(inquiryRoute).not.toContain("from 'node:tls'");
   });
 });

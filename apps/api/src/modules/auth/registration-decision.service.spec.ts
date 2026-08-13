@@ -18,10 +18,19 @@ const REVIEWER: RequestUser = {
 
 function createService() {
   const prisma = { $queryRaw: jest.fn().mockResolvedValue([]) };
-  const repository = {};
+  const repository = {
+    latestAuditChainPosition: jest.fn().mockResolvedValue({ chainKey: 'auth-global', prevHash: null, nextSequence: 1n }),
+    insertAudit: jest.fn(),
+    revokeAllUserSessions: jest.fn(),
+  };
+  const mailOutbox = {
+    enqueue: jest.fn().mockResolvedValue({ queued: true, envelopeDigest: 'a'.repeat(64) }),
+  };
   return {
-    service: new RegistrationDecisionService(prisma as never, repository as never),
+    service: new RegistrationDecisionService(prisma as never, repository as never, mailOutbox as never),
     prisma,
+    repository,
+    mailOutbox,
   };
 }
 
@@ -36,21 +45,18 @@ function lifecycleReceiptMigration(): string {
 describe('platform registration reviewer boundary', () => {
   it('rejects a client organization ADMIN without a durable staff assignment', async () => {
     const { service, prisma } = createService();
-
     await expect(service.listPlatformReviewQueue(REVIEWER)).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 
   it.each(['PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF'])('accepts the assigned %s reviewer', async (staffRole) => {
     const { service, prisma } = createService();
-
     await expect(service.listPlatformReviewQueue({ ...REVIEWER, staffRoles: [staffRole] })).resolves.toEqual({ applications: [] });
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
   });
 
   it('still rejects assigned reviewers without fresh MFA', async () => {
     const { service, prisma } = createService();
-
     await expect(service.listPlatformReviewQueue({
       ...REVIEWER,
       staffRoles: ['PLATFORM_OWNER'],
@@ -63,9 +69,7 @@ describe('platform registration reviewer boundary', () => {
   it('refuses activation when the stored role does not match the canonical public workspace mapping', async () => {
     const { service } = createService();
     const tx = { $executeRaw: jest.fn() };
-    const approve = (service as unknown as {
-      approve: (...args: unknown[]) => Promise<void>;
-    }).approve.bind(service);
+    const approve = (service as unknown as { approve: (...args: unknown[]) => Promise<void> }).approve.bind(service);
 
     await expect(approve(
       tx,
@@ -89,7 +93,6 @@ describe('platform registration reviewer boundary', () => {
       'correlation-1',
       'PLATFORM_REVIEWER',
     )).rejects.toBeInstanceOf(ForbiddenException);
-
     expect(tx.$executeRaw).not.toHaveBeenCalled();
   });
 
@@ -105,34 +108,30 @@ describe('platform registration reviewer boundary', () => {
           correlation_id: 'correlation-1', organization_status: 'VERIFIED', tenant_id: 'tenant-1',
         }]),
     };
-    const prisma = {
-      $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
-    };
-    const service = new RegistrationDecisionService(prisma as never, {} as never);
+    const prisma = { $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)) };
+    const service = new RegistrationDecisionService(prisma as never, {} as never, { enqueue: jest.fn() } as never);
 
     await expect(service.decide(
       'join-application-1', 'APPROVE', 'Verified organization join request',
-      { ...REVIEWER, staffRoles: ['PLATFORM_OWNER'] }, 'idempotency-decision-join-0001', 'correlation-1',
+      { ...REVIEWER, staffRoles: ['PLATFORM_OWNER'] }, 'idempotency-decision-join-0001', 'correlation-1', 'ru',
     )).rejects.toBeInstanceOf(ForbiddenException);
-
     expect(tx.$queryRaw).toHaveBeenCalledTimes(3);
   });
 
-  it('marks an exact platform decision retry as replayed before reading delivery metadata', async () => {
-    const tx = {
-      $queryRaw: jest.fn().mockResolvedValue([{ application_id: 'application-1' }]),
+  it('marks an exact platform decision retry as replayed and does not enqueue a second notice', async () => {
+    const tx = { $queryRaw: jest.fn().mockResolvedValue([{ application_id: 'application-1' }]) };
+    const prisma = { $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)) };
+    const mailOutbox = { enqueue: jest.fn() };
+    const service = new RegistrationDecisionService(prisma as never, {} as never, mailOutbox as never);
+    const replayResult = {
+      applicationId: 'application-1', status: 'ACTIVATED', replayed: true,
+      notificationQueued: false, notificationSuppressed: true,
     };
-    const prisma = {
-      $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
-    };
-    const service = new RegistrationDecisionService(prisma as never, {} as never);
-    const replayResult = { applicationId: 'application-1', status: 'ACTIVATED', replayed: true };
     const readResult = jest.fn().mockResolvedValue(replayResult);
     Object.assign(service as unknown as Record<string, unknown>, {
       requirePlatformDecisionAuthority: jest.fn().mockResolvedValue(undefined),
       readResult,
     });
-    const deliveryKey = 'registration-delivery-key-for-replay-test';
 
     await expect(service.decide(
       'application-1',
@@ -141,21 +140,14 @@ describe('platform registration reviewer boundary', () => {
       { ...REVIEWER, staffRoles: ['PLATFORM_OWNER'] },
       'idempotency-decision-replay-0001',
       'correlation-replay-1',
-      deliveryKey,
+      'en',
     )).resolves.toEqual(replayResult);
 
-    expect(readResult).toHaveBeenCalledWith(
-      tx,
-      'application-1',
-      deliveryKey,
-      true,
-    );
+    expect(readResult).toHaveBeenCalledWith(tx, 'application-1', true);
+    expect(mailOutbox.enqueue).not.toHaveBeenCalled();
   });
 
-  it('omits notification delivery metadata when readResult is replayed', async () => {
-    const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
-    const deliveryKey = 'registration-delivery-key-for-read-result-test';
-    process.env.REGISTRATION_DELIVERY_KEY = deliveryKey;
+  it('exposes only queue state from readResult, never delivery metadata', async () => {
     const { service } = createService();
     const client = {
       $queryRaw: jest.fn().mockResolvedValue([{
@@ -163,36 +155,24 @@ describe('platform registration reviewer boundary', () => {
         status: 'ACTIVATED',
         version: 2n,
         correlation_id: 'correlation-1',
-        email: 'applicant@example.test',
-        decision_reason: 'Verified organization details',
       }]),
     };
     const readResult = (service as unknown as {
-      readResult: (
-        tx: typeof client,
-        applicationId: string,
-        providedDeliveryKey?: string,
-        replayed?: boolean,
-      ) => Promise<Record<string, unknown>>;
+      readResult: (tx: typeof client, applicationId: string, replayed?: boolean) => Promise<Record<string, unknown>>;
     }).readResult.bind(service);
 
-    try {
-      await expect(readResult(client, 'application-1', deliveryKey)).resolves.toMatchObject({
-        replayed: false,
-        notificationDelivery: { email: 'applicant@example.test' },
-      });
-      const replay = await readResult(client, 'application-1', deliveryKey, true);
-      expect(replay).toMatchObject({ replayed: true });
-      expect(replay).not.toHaveProperty('notificationDelivery');
-    } finally {
-      if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
-      else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
-    }
+    await expect(readResult(client, 'application-1')).resolves.toMatchObject({
+      replayed: false,
+      notificationQueued: true,
+      notificationSuppressed: false,
+    });
+    const replay = await readResult(client, 'application-1', true);
+    expect(replay).toMatchObject({ replayed: true, notificationQueued: false, notificationSuppressed: true });
+    expect(replay).not.toHaveProperty('notificationDelivery');
   });
 
   it('keeps the causal receipt inside a membership-free bounded PostgreSQL authority', () => {
     const migration = lifecycleReceiptMigration();
-
     expect(migration).toContain('CREATE ROLE pc_registration_receipt_authority');
     expect(migration).toContain('NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS');
     expect(migration).toContain('SECURITY DEFINER');
@@ -204,13 +184,11 @@ describe('platform registration reviewer boundary', () => {
     expect(migration).not.toMatch(/(?:DISABLE|NO\s+FORCE)\s+ROW\s+LEVEL\s+SECURITY/i);
   });
 
-  it('writes approval audit before the receipt and reads the result in the same transaction', async () => {
+  it('writes approval audit, causal receipt and queued notice before returning the result', async () => {
     const order: string[] = [];
     const tx = { $queryRaw: jest.fn().mockResolvedValue([]) };
-    const prisma = {
-      $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
-    };
-    const service = new RegistrationDecisionService(prisma as never, {} as never);
+    const prisma = { $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)) };
+    const service = new RegistrationDecisionService(prisma as never, {} as never, { enqueue: jest.fn() } as never);
     const application = {
       id: 'application-1', kind: 'NEW_ORGANIZATION', user_id: 'applicant-1',
       organization_id: 'organization-1', membership_id: 'membership-1', requested_workspace: 'seller',
@@ -223,6 +201,7 @@ describe('platform registration reviewer boundary', () => {
       approve: jest.fn(async () => { order.push('approve'); }),
       audit: jest.fn(async () => { order.push('audit'); }),
       emitRegistrationLifecycleReceipt: jest.fn(async () => { order.push('receipt'); }),
+      queueDecisionNotification: jest.fn(async () => { order.push('notice'); }),
       readResult: jest.fn(async () => { order.push('read'); return { status: 'ACTIVATED' }; }),
     });
 
@@ -233,9 +212,10 @@ describe('platform registration reviewer boundary', () => {
       { ...REVIEWER, staffRoles: ['PLATFORM_OWNER'] },
       'idempotency-decision-0001',
       'correlation-1',
+      'zh',
     )).resolves.toEqual({ status: 'ACTIVATED' });
 
-    expect(order).toEqual(['authority', 'approve', 'audit', 'receipt', 'read']);
+    expect(order).toEqual(['authority', 'approve', 'audit', 'receipt', 'notice', 'read']);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 });

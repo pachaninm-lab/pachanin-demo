@@ -8,6 +8,11 @@ import {
   FINANCIAL_MFA_THRESHOLD_KOPECKS,
   Role,
 } from '../../src/common/types/request-user';
+import {
+  decryptAuthMailEnvelope,
+  resetAuthMailKeyCacheForTests,
+} from '../../src/modules/auth-mail/auth-mail-crypto';
+import { AuthMailOutboxService } from '../../src/modules/auth-mail/auth-mail-outbox.service';
 import { sha256, stableJson } from '../../src/modules/auth/auth-crypto';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
@@ -16,6 +21,7 @@ import { RegistrationApplicationService } from '../../src/modules/auth/registrat
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 
 const PASSWORD = 'Correct-Horse-9!';
+const TEST_AUTH_MAIL_KEY = 'ab'.repeat(32);
 
 type Runtime = {
   prisma: PrismaService;
@@ -34,7 +40,7 @@ function runtime(): Runtime {
     authPrisma,
     repository,
     auth: new AuthService(repository),
-    registration: new RegistrationApplicationService(authPrisma, repository),
+    registration: new RegistrationApplicationService(authPrisma, repository, new AuthMailOutboxService()),
   };
 }
 
@@ -69,6 +75,9 @@ function totp(secret: string, unixMs = Date.now()): string {
 }
 
 describe('persistent PostgreSQL identity, session rotation, revocation and MFA', () => {
+  const previousMailKey = process.env.AUTH_MAIL_OUTBOX_KEY;
+  process.env.AUTH_MAIL_OUTBOX_KEY = TEST_AUTH_MAIL_KEY;
+  resetAuthMailKeyCacheForTests();
   const first = runtime();
   const second = runtime();
   const fixturePrisma = process.env.ONE_DEAL_ADMIN_URL
@@ -94,6 +103,9 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       second.authPrisma.$disconnect(),
       ownsFixturePrisma ? fixturePrisma.$disconnect() : Promise.resolve(),
     ]);
+    resetAuthMailKeyCacheForTests();
+    if (previousMailKey === undefined) delete process.env.AUTH_MAIL_OUTBOX_KEY;
+    else process.env.AUTH_MAIL_OUTBOX_KEY = previousMailKey;
   });
 
   async function seedIdentity(
@@ -598,7 +610,8 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       acceptTerms: true as const,
       acceptPrivacy: true as const,
     });
-    const publicKeys = ['accepted', 'correlationId', 'nextAction', 'status'];
+    const suppressedKeys = ['accepted', 'correlationId', 'nextAction', 'status'];
+    const createdKeys = ['accepted', 'applicationId', 'correlationId', 'emailQueued', 'nextAction', 'status', 'statusToken'];
 
     const existingAccount = await seedIdentity('enumeration-existing-account', Role.BUYER);
     const existingAccountDto = dto(
@@ -614,7 +627,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       idempotencyKey: 'registration-enumeration-existing-0001',
       correlationId: 'ignored-replay-correlation',
     });
-    expect(Object.keys(suppressed).sort()).toEqual(publicKeys);
+    expect(Object.keys(suppressed).sort()).toEqual(suppressedKeys);
     expect(suppressedReplay).toEqual(suppressed);
     await expect(second.registration.submit({ ...existingAccountDto, phone: '+79990001123' }, {
       idempotencyKey: 'registration-enumeration-existing-0001',
@@ -631,7 +644,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         correlationId: 'registration-enumeration-new-org-correlation',
       },
     );
-    expect(Object.keys(newOrganization).sort()).toEqual(publicKeys);
+    expect(Object.keys(newOrganization).sort()).toEqual(createdKeys);
     await expect(first.auth.login({ email: newOrganizationEmail, password: PASSWORD }))
       .rejects.toThrow(/Invalid credentials/i);
 
@@ -643,7 +656,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         correlationId: 'registration-enumeration-join-org-correlation',
       },
     );
-    expect(Object.keys(joinOrganization).sort()).toEqual(publicKeys);
+    expect(Object.keys(joinOrganization).sort()).toEqual(createdKeys);
 
     const attempts = await first.prisma.$queryRaw<Array<{
       idempotency_key: string;
@@ -680,28 +693,51 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       TRUNCATE TABLE auth.registration_public_attempts
     `).rejects.toThrow(/append-only/i);
 
-    const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
-    process.env.REGISTRATION_DELIVERY_KEY = 'registration-delivery-key-32-characters-minimum';
-    try {
-      const internal = await first.registration.submit(
-        dto('enumeration-delivery@auth.test', '780000000013', 'Enumeration Delivery Organization'),
-        {
-          idempotencyKey: 'registration-enumeration-delivery-0001',
-          correlationId: 'registration-enumeration-delivery-correlation',
-          deliveryKey: process.env.REGISTRATION_DELIVERY_KEY,
-        },
-      ) as any;
-      expect(internal.emailDelivery).toMatchObject({ email: 'enumeration-delivery@auth.test' });
-      expect(internal.statusToken).toMatch(/^rst_reg_/);
-      expect(internal).not.toHaveProperty('kind');
-      expect(internal).not.toHaveProperty('requestedWorkspace');
-      const publicStatus = await first.registration.status(internal.statusToken);
-      expect(publicStatus).not.toHaveProperty('kind');
-      expect(publicStatus).not.toHaveProperty('requestedWorkspace');
-    } finally {
-      if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
-      else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
-    }
+    const deliveryCorrelationId = 'registration-enumeration-delivery-correlation';
+    const internal = await first.registration.submit(
+      dto('enumeration-delivery@auth.test', '780000000013', 'Enumeration Delivery Organization'),
+      {
+        idempotencyKey: 'registration-enumeration-delivery-0001',
+        correlationId: deliveryCorrelationId,
+      },
+    ) as any;
+    expect(internal).toMatchObject({ emailQueued: true, statusToken: expect.stringMatching(/^rst_reg_/) });
+    expect(internal).not.toHaveProperty('emailDelivery');
+    expect(JSON.stringify(internal)).not.toContain('rev_');
+    const mailRows = await first.prisma.$queryRaw<Array<{
+      message_kind: string;
+      payload_ciphertext: string;
+      payload_iv: string;
+      payload_tag: string;
+      payload_key_version: number;
+      idempotency_key: string;
+      correlation_id: string;
+    }>>`
+      SELECT message_kind, payload_ciphertext, payload_iv, payload_tag,
+             payload_key_version, idempotency_key, correlation_id
+      FROM auth.mail_outbox
+      WHERE correlation_id = ${deliveryCorrelationId}
+        AND message_kind = 'REGISTRATION_VERIFICATION'
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    expect(mailRows).toHaveLength(1);
+    const mail = mailRows[0];
+    const envelope = decryptAuthMailEnvelope({
+      ciphertext: mail.payload_ciphertext,
+      iv: mail.payload_iv,
+      tag: mail.payload_tag,
+      keyVersion: mail.payload_key_version as 1,
+    }, {
+      kind: mail.message_kind,
+      idempotencyKey: mail.idempotency_key,
+      correlationId: mail.correlation_id,
+    });
+    expect(envelope.to).toBe('enumeration-delivery@auth.test');
+    expect(envelope.text).toMatch(/verify=rev_[^.]+\.[A-Za-z0-9_-]+/);
+    const publicStatus = await first.registration.status(internal.statusToken);
+    expect(publicStatus).not.toHaveProperty('kind');
+    expect(publicStatus).not.toHaveProperty('requestedWorkspace');
   });
 
   it('persists expiration and safely restarts an abandoned application without duplicate identity rows', async () => {
@@ -805,9 +841,6 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     expect(new Set(rows.map((row) => row.hash)).size).toBe(rows.length);
     expect(rows.every((row) => /^[a-f0-9]{64}$/.test(row.hash))).toBe(true);
 
-    // chain_key is generated by PostgreSQL, so ordering by (chain_key,
-    // chain_sequence) is the chain's own order rather than a wall clock that
-    // NOW() makes identical for every event in one transaction.
     const chains = new Map<string, typeof rows>();
     for (const row of rows) {
       expect(row.chain_key).toBe(row.session_id ?? row.user_id ?? 'auth-global');
@@ -824,8 +857,6 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       }
     }
 
-    // No fork: a parent hash is claimed by at most one child, across every
-    // chain, not merely within one.
     const parents = rows.map((row) => row.prev_hash).filter((value): value is string => value !== null);
     expect(new Set(parents).size).toBe(parents.length);
 
@@ -860,19 +891,8 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
   });
 
   it('keeps one chain intact under fifty concurrent auth audit writers', async () => {
-    // Writes go through the same repository calls the service uses, so this
-    // exercises the real chain authority: advisory lock, tail lookup ordered by
-    // chain_sequence, and the insert that claims the next position.
-    //
-    // Prisma's default pool is nproc*2+1, so fifty writers sharing the shared
-    // client would queue on connections rather than contend for the chain. A
-    // dedicated client with a pool wider than the writer count makes the
-    // contention real and the outcome deterministic.
     const chainUser = `auth-user-audit-concurrency-${randomUUID()}`;
     const WRITERS = 50;
-    // Build the URL structurally: DATABASE_URL may or may not already carry a
-    // query string, and concatenating "&connection_limit=..." onto one that
-    // does not turns the parameter into part of the database name.
     const pooledUrl = new URL(String(process.env.DATABASE_URL));
     pooledUrl.searchParams.set('connection_limit', String(WRITERS + 10));
     const pooled = new PrismaClient({
@@ -881,10 +901,6 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     expect(pooledUrl.searchParams.get('connection_limit')).toBe(String(WRITERS + 10));
     const concurrent = new PersistentAuthRepository(pooled);
 
-    // Records how many writers were inside a transaction at once. With the
-    // shared client's default pool this could never exceed nproc*2+1, so the
-    // observed peak is what proves the dedicated pool is in use and the writers
-    // genuinely contend instead of queueing for connections.
     let inFlight = 0;
     let peakInFlight = 0;
 
@@ -923,10 +939,8 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       Array.from({ length: WRITERS }, (_, index) => appendOne(index)),
     );
 
-    // All fifty completed, each claiming a distinct position; none was lost.
     expect(claimed).toHaveLength(WRITERS);
     expect(new Set(claimed).size).toBe(WRITERS);
-    // More concurrent transactions than the shared client's pool could hold.
     expect(peakInFlight).toBeGreaterThan(cpus().length * 2 + 1);
 
     const chain = await first.prisma.$queryRaw<Array<{
@@ -939,18 +953,15 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     `;
 
     expect(chain).toHaveLength(WRITERS);
-    // Starts correctly, and every position is present exactly once.
     expect(chain[0].prev_hash).toBeNull();
     expect(chain.map((row) => Number(row.chain_sequence))).toEqual(
       Array.from({ length: WRITERS }, (_, index) => index + 1),
     );
-    // No fork and no break: each link names its predecessor.
     for (let index = 1; index < chain.length; index += 1) {
       expect(chain[index].prev_hash).toBe(chain[index - 1].hash);
     }
     expect(new Set(chain.map((row) => row.hash)).size).toBe(WRITERS);
 
-    // A rolled-back writer must leave no gap and no duplicate behind.
     await expect(concurrent.transaction(async (tx) => {
       const position = await concurrent.latestAuditChainPosition(tx, chainUser, null);
       await concurrent.insertAudit(tx, {
@@ -974,7 +985,6 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       Array.from({ length: WRITERS }, (_, index) => index + 1),
     );
 
-    // The chain invariants are enforced by PostgreSQL, not only by this test.
     await expect(first.prisma.$executeRaw`
       INSERT INTO auth.audit_events (id, user_id, action, outcome, hash, prev_hash, chain_sequence)
       VALUES (${`auth_evt_${randomUUID()}`}, ${chainUser}, 'auth.audit.fork', 'SUCCESS',
@@ -986,9 +996,6 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
               ${sha256(`duplicate-${chainUser}`)}, NULL, ${WRITERS})
     `).rejects.toThrow(/Key \(chain_key, chain_sequence\)=/);
 
-    // Retry is scoped to chain contention only. A duplicate primary key is a
-    // real defect, so it must surface immediately rather than be retried until
-    // the budget is exhausted.
     const existing = chain[0];
     const [{ id: existingId }] = await first.prisma.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM auth.audit_events WHERE hash = ${existing.hash}
@@ -1006,7 +1013,6 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         chainSequence: position.nextSequence,
       });
     })).rejects.toThrow(/audit_events_pkey|already exists/);
-    // Surfaced on the first attempt, not after sixty-four retries.
     expect(Date.now() - startedAt).toBeLessThan(10_000);
 
     const unchanged = await first.prisma.$queryRaw<Array<{ chain_sequence: bigint }>>`

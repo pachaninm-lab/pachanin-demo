@@ -68,10 +68,10 @@ export class AuthController {
   @Post('password-reset/request')
   requestPasswordReset(
     @Body() dto: RequestPasswordResetDto,
-    @Headers('x-password-reset-delivery-key') deliveryKey?: string,
+    @Headers('x-correlation-id') correlationId?: string,
     @Ip() ip?: string,
   ) {
-    return this.passwordReset.request(dto.email, ip, deliveryKey);
+    return this.passwordReset.request(dto.email, ip, correlationId || randomUUID(), dto.locale);
   }
 
   @Public()
@@ -80,10 +80,10 @@ export class AuthController {
   @Post('password-reset/confirm')
   confirmPasswordReset(
     @Body() dto: ConfirmPasswordResetDto,
-    @Headers('x-password-reset-delivery-key') deliveryKey?: string,
+    @Headers('x-correlation-id') correlationId?: string,
     @Ip() ip?: string,
   ) {
-    return this.passwordReset.confirm(dto.token, dto.newPassword, ip, deliveryKey);
+    return this.passwordReset.confirm(dto.token, dto.newPassword, ip, correlationId || randomUUID());
   }
 
   @Public()
@@ -94,14 +94,12 @@ export class AuthController {
     @Body() dto: RegisterDto,
     @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-registration-delivery-key') deliveryKey?: string,
     @Headers('user-agent') userAgent?: string,
     @Ip() ip?: string,
   ) {
     return this.registrationApplications.submit(dto, {
       idempotencyKey,
       correlationId: correlationId || randomUUID(),
-      deliveryKey,
       userAgent,
       ip,
     });
@@ -114,9 +112,8 @@ export class AuthController {
   verifyRegistrationEmail(
     @Body() dto: VerifyRegistrationEmailDto,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-registration-delivery-key') deliveryKey?: string,
   ) {
-    return this.registrationApplications.verifyEmail(dto.token, correlationId || randomUUID(), deliveryKey);
+    return this.registrationApplications.verifyEmail(dto.token, correlationId || randomUUID());
   }
 
   @Public()
@@ -126,9 +123,8 @@ export class AuthController {
   resendRegistrationEmail(
     @Body() dto: ResendRegistrationEmailDto,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-registration-delivery-key') deliveryKey?: string,
   ) {
-    return this.registrationApplications.resendEmail(dto.email, correlationId || randomUUID(), deliveryKey);
+    return this.registrationApplications.resendEmail(dto.email, correlationId || randomUUID(), dto.locale);
   }
 
   @Public()
@@ -251,7 +247,6 @@ export class AuthController {
     @CurrentUser() user: RequestUser,
     @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-organization-invitation-delivery-key') deliveryKey?: string,
   ) {
     return this.organizationInvitations.create(
       user,
@@ -259,7 +254,7 @@ export class AuthController {
       dto.role,
       String(idempotencyKey || ''),
       correlationId || randomUUID(),
-      deliveryKey,
+      dto.locale,
     );
   }
 
@@ -271,7 +266,6 @@ export class AuthController {
     @CurrentUser() user: RequestUser,
     @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-organization-invitation-delivery-key') deliveryKey?: string,
   ) {
     return this.organizationInvitations.resend(
       user,
@@ -279,7 +273,7 @@ export class AuthController {
       dto.reason,
       String(idempotencyKey || ''),
       correlationId || randomUUID(),
-      deliveryKey,
+      dto.locale,
     );
   }
 
@@ -360,7 +354,6 @@ export class AuthController {
     @CurrentUser() user: RequestUser,
     @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-organization-invitation-delivery-key') deliveryKey?: string,
   ) {
     return this.organizationInvitations.resetMembershipMfa(
       user,
@@ -369,7 +362,7 @@ export class AuthController {
       dto.reason,
       String(idempotencyKey || ''),
       correlationId || randomUUID(),
-      deliveryKey,
+      dto.locale,
     );
   }
 
@@ -379,14 +372,12 @@ export class AuthController {
   confirmMfaRecovery(
     @Body() dto: ConfirmMfaRecoveryDto,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-organization-invitation-delivery-key') deliveryKey?: string,
     @Headers('user-agent') userAgent?: string,
     @Ip() ip?: string,
   ) {
     return this.organizationInvitations.confirmMfaRecovery(
       dto,
       correlationId || randomUUID(),
-      deliveryKey,
       ip,
       userAgent,
     );

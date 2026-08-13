@@ -77,6 +77,10 @@ export class RegisterDto {
   @IsIn([...PUBLIC_WORKSPACE_CLASSES])
   workspace!: PublicWorkspaceClass;
 
+  @IsOptional()
+  @IsIn(['ru', 'en', 'zh'])
+  locale?: 'ru' | 'en' | 'zh';
+
   @IsString()
   @IsStrongPassword()
   password!: string;

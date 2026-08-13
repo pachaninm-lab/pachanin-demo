@@ -13,6 +13,7 @@ on:
       - '.github/workflows/docker-publish.yml'
       - '.github/workflows/production-full-stack-exact-sha.yml'
       - 'scripts/production-full-stack-exact-sha.sh'
+      - 'scripts/provision-production-auth-mail-runtime.sh'
       - 'scripts/production-full-stack-live-acceptance.sh'
       - 'scripts/check-production-full-stack-release.mjs'
       - 'docs/ops/production-full-stack-release.md'
@@ -24,6 +25,7 @@ on:
       - '.github/workflows/docker-publish.yml'
       - '.github/workflows/production-full-stack-exact-sha.yml'
       - 'scripts/production-full-stack-exact-sha.sh'
+      - 'scripts/provision-production-auth-mail-runtime.sh'
       - 'scripts/production-full-stack-live-acceptance.sh'
       - 'scripts/check-production-full-stack-release.mjs'
   workflow_run:
@@ -254,6 +256,7 @@ jobs:
           set -euo pipefail
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
           scp "${scp_common[@]}" scripts/production-full-stack-exact-sha.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh"
+          scp "${scp_common[@]}" scripts/provision-production-auth-mail-runtime.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-auth-mail-provision-${GITHUB_RUN_ID}.sh"
 
       - name: Authenticate production host to exact private registry
         env:
@@ -285,13 +288,13 @@ jobs:
           raw="$(mktemp)"; clean="$EVIDENCE_DIR/production-action.log"
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
+            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh /tmp/pc-auth-mail-provision-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
           rc=$?
           set -e
           sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' "$raw" > "$clean"
           rm -f "$raw"
           cat "$clean"
-          for field in DEPLOYMENT_COMPLETE MIGRATION_COMPLETE DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION BASELINE_API_REVISION BASELINE_WEB_REVISION WATCHTOWER_RETIRED BACKUP_MODE; do
+          for field in DEPLOYMENT_COMPLETE MIGRATION_COMPLETE DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION DEPLOYED_AUTH_MAIL_WORKER_REVISION BASELINE_API_REVISION BASELINE_WEB_REVISION BASELINE_AUTH_MAIL_WORKER_PRESENT BASELINE_AUTH_MAIL_WORKER_REVISION AUTH_MAIL_RUNTIME WATCHTOWER_RETIRED BACKUP_MODE; do
             value="$(sed -n "s/^${field}=//p" "$clean" | tail -1)"
             echo "$(printf '%s' "$field" | tr '[:upper:]' '[:lower:]')=${value:-unknown}" >> "$GITHUB_OUTPUT"
           done
@@ -351,7 +354,7 @@ jobs:
           set -euo pipefail
           if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
             ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-              "set -euo pipefail; DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf '/tmp/pc-registry-${GITHUB_RUN_ID}'; rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh'" \
+              "set -euo pipefail; DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf '/tmp/pc-registry-${GITHUB_RUN_ID}'; rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-provision-${GITHUB_RUN_ID}.sh'" \
               || true
           fi
           docker logout ghcr.io >/dev/null 2>&1 || true
@@ -366,6 +369,8 @@ jobs:
           MIGRATION_COMPLETE: ${{ steps.production.outputs.migration_complete }}
           DEPLOYED_API_REVISION: ${{ steps.production.outputs.deployed_api_revision }}
           DEPLOYED_WEB_REVISION: ${{ steps.production.outputs.deployed_web_revision }}
+          DEPLOYED_AUTH_MAIL_WORKER_REVISION: ${{ steps.production.outputs.deployed_auth_mail_worker_revision }}
+          AUTH_MAIL_RUNTIME: ${{ steps.production.outputs.auth_mail_runtime }}
           BASELINE_API_REVISION: ${{ steps.production.outputs.baseline_api_revision }}
           BASELINE_WEB_REVISION: ${{ steps.production.outputs.baseline_web_revision }}
           WATCHTOWER_RETIRED: ${{ steps.production.outputs.watchtower_retired }}
@@ -391,6 +396,8 @@ jobs:
             echo "- deployment complete: \`${DEPLOYMENT_COMPLETE:-0}\`"
             echo "- API revision: \`${DEPLOYED_API_REVISION:-unknown}\`"
             echo "- web revision: \`${DEPLOYED_WEB_REVISION:-unknown}\`"
+            echo "- auth-mail worker revision: \`${DEPLOYED_AUTH_MAIL_WORKER_REVISION:-unknown}\`"
+            echo "- auth-mail runtime: \`${AUTH_MAIL_RUNTIME:-unknown}\`"
             echo "- live acceptance: \`${live:-${LIVE_OUTCOME:-skipped}}\`"
             echo "- durable intake DB/audit/outbox: \`${durable:-${DATABASE_OUTCOME:-skipped}}\`"
             echo "- live request number: \`${request:-none}\`"
@@ -403,7 +410,7 @@ jobs:
           } > "$record"
           find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
           gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
-          if [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" ]]; then
+          if [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_AUTH_MAIL_WORKER_REVISION:-}" == "$TARGET_SHA" && "${AUTH_MAIL_RUNTIME:-}" == PASS ]]; then
             gh issue close "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --reason completed
           fi
 

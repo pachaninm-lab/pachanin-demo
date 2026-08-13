@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthMailModule } from '../auth-mail/auth-mail.module';
 import { BusinessReputationModule } from '../business-reputation/business-reputation.module';
 import { AuthController } from './auth.controller';
 import { AuthPrismaService } from './auth-prisma.service';
@@ -9,12 +10,14 @@ import { OrganizationInvitationService } from './organization-invitation.service
 import { PasswordResetRepository } from './password-reset.repository';
 import { PasswordResetService } from './password-reset.service';
 import { PersistentAuthRepository } from './persistent-auth.repository';
+import { PublicInquiryController } from './public-inquiry.controller';
+import { PublicInquiryService } from './public-inquiry.service';
 import { RegistrationApplicationService } from './registration-application.service';
 import { RegistrationDecisionService } from './registration-decision.service';
 
 @Module({
-  imports: [BusinessReputationModule],
-  controllers: [AuthController],
+  imports: [BusinessReputationModule, AuthMailModule],
+  controllers: [AuthController, PublicInquiryController],
   providers: [
     AuthPrismaService,
     {
@@ -26,6 +29,7 @@ import { RegistrationDecisionService } from './registration-decision.service';
     PasswordResetService,
     RegistrationApplicationService,
     RegistrationDecisionService,
+    PublicInquiryService,
     AuthService,
     OrganizationTeamService,
     OrganizationInvitationService,

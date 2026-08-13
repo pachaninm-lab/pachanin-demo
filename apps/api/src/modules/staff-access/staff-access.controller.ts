@@ -84,7 +84,6 @@ export class StaffAccessController {
     @Body() body: RegistrationDecisionDto,
     @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
-    @Headers('x-registration-delivery-key') deliveryKey?: string,
   ) {
     await this.access.requirePermission(request.user, StaffPermission.STAFF_REQUEST_APPROVE);
     return this.registrationDecisions.decide(
@@ -94,7 +93,7 @@ export class StaffAccessController {
       request.user,
       String(idempotencyKey || ''),
       correlationId || randomUUID(),
-      deliveryKey,
+      body.locale,
     );
   }
 

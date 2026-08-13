@@ -2,30 +2,48 @@ import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { Role, type RequestUser } from '../../src/common/types/request-user';
+import {
+  decryptAuthMailEnvelope,
+  resetAuthMailKeyCacheForTests,
+} from '../../src/modules/auth-mail/auth-mail-crypto';
+import { AuthMailOutboxService } from '../../src/modules/auth-mail/auth-mail-outbox.service';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { OrganizationInvitationService } from '../../src/modules/auth/organization-invitation.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 
 const PASSWORD = 'Current-Recovery-Password-9!';
-const DELIVERY_KEY = 'organization-invitation-delivery-key-for-mfa-e2e';
+const TEST_MAIL_KEY = 'ab'.repeat(32);
 
-describe('controlled PostgreSQL MFA recovery', () => {
+type EncryptedMailRow = {
+  message_kind: string;
+  payload_ciphertext: string;
+  payload_iv: string;
+  payload_tag: string;
+  payload_key_version: number;
+  idempotency_key: string;
+  correlation_id: string;
+};
+
+describe('controlled PostgreSQL MFA recovery with industrial auth-mail outbox', () => {
   const prisma = new PrismaService();
   const authPrisma = new AuthPrismaService();
   const repository = new PersistentAuthRepository(prisma);
   const auth = new AuthService(repository);
-  const recovery = new OrganizationInvitationService(authPrisma, repository);
-  const previousDeliveryKey = process.env.ORGANIZATION_INVITATION_DELIVERY_KEY;
+  const mailOutbox = new AuthMailOutboxService();
+  const recovery = new OrganizationInvitationService(authPrisma, repository, mailOutbox);
+  const previousMailKey = process.env.AUTH_MAIL_OUTBOX_KEY;
 
   beforeAll(async () => {
-    process.env.ORGANIZATION_INVITATION_DELIVERY_KEY = DELIVERY_KEY;
+    process.env.AUTH_MAIL_OUTBOX_KEY = TEST_MAIL_KEY;
+    resetAuthMailKeyCacheForTests();
     await Promise.all([prisma.$connect(), authPrisma.$connect()]);
   });
 
   afterAll(async () => {
-    if (previousDeliveryKey === undefined) delete process.env.ORGANIZATION_INVITATION_DELIVERY_KEY;
-    else process.env.ORGANIZATION_INVITATION_DELIVERY_KEY = previousDeliveryKey;
+    resetAuthMailKeyCacheForTests();
+    if (previousMailKey === undefined) delete process.env.AUTH_MAIL_OUTBOX_KEY;
+    else process.env.AUTH_MAIL_OUTBOX_KEY = previousMailKey;
     await Promise.all([prisma.$disconnect(), authPrisma.$disconnect()]);
   });
 
@@ -163,21 +181,53 @@ describe('controlled PostgreSQL MFA recovery', () => {
     return { actor, targetUserId, targetEmail, targetMembership };
   }
 
-  it('changes no credential until subject proof, then revokes sessions and forces re-enrollment exactly once', async () => {
+  async function recoveryToken(correlationId: string): Promise<string> {
+    const rows = await prisma.$queryRaw<EncryptedMailRow[]>`
+      SELECT message_kind, payload_ciphertext, payload_iv, payload_tag,
+             payload_key_version, idempotency_key, correlation_id
+      FROM auth.mail_outbox
+      WHERE message_kind = 'MFA_RECOVERY'
+        AND correlation_id = ${correlationId}
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    const row = rows[0];
+    expect(row).toBeDefined();
+    const envelope = decryptAuthMailEnvelope({
+      ciphertext: row.payload_ciphertext,
+      iv: row.payload_iv,
+      tag: row.payload_tag,
+      keyVersion: row.payload_key_version as 1,
+    }, {
+      kind: row.message_kind,
+      idempotencyKey: row.idempotency_key,
+      correlationId: row.correlation_id,
+    });
+    const link = envelope.text.split(/\s+/).find((value) => value.startsWith('http'));
+    expect(link).toBeDefined();
+    const token = new URL(String(link)).searchParams.get('token');
+    expect(token).toMatch(/^mr_[^.]+\.[A-Za-z0-9_-]+$/);
+    return String(token);
+  }
+
+  it('keeps the recovery bearer only in the encrypted outbox, then revokes sessions and forces re-enrollment exactly once', async () => {
     const identity = await seed();
     const pendingLogin = await auth.login({ email: identity.targetEmail, password: PASSWORD }) as any;
     expect(pendingLogin).toMatchObject({ mfaRequired: true });
 
+    const correlationId = `mfa-recovery-correlation-${randomUUID()}`;
     const initiated = await recovery.resetMembershipMfa(
       identity.actor,
       identity.targetMembership.id,
       identity.targetMembership.version,
       'Controlled recovery requested after support identity review',
       `mfa-recovery-e2e-${randomUUID()}`,
-      `mfa-recovery-correlation-${randomUUID()}`,
-      DELIVERY_KEY,
+      correlationId,
+      'ru',
     );
-    expect(initiated.recoveryDelivery?.token).toMatch(/^mr_[^.]+\.[A-Za-z0-9_-]+$/);
+    expect(initiated).toMatchObject({ mfaRecoveryInitiated: true, emailQueued: true });
+    expect(JSON.stringify(initiated)).not.toContain('mr_');
+    const token = await recoveryToken(correlationId);
 
     const [beforeProof] = await prisma.$queryRaw<Array<{
       mfa_enabled: boolean;
@@ -198,10 +248,10 @@ describe('controlled PostgreSQL MFA recovery', () => {
     });
 
     await expect(recovery.confirmMfaRecovery(
-      { token: initiated.recoveryDelivery!.token, password: 'Wrong-Recovery-Password-9!' },
+      { token, password: 'Wrong-Recovery-Password-9!', locale: 'ru' },
       `mfa-recovery-wrong-${randomUUID()}`,
-      DELIVERY_KEY,
     )).rejects.toThrow();
+    const challengeId = token.split('.')[0];
     const [afterWrongPassword] = await prisma.$queryRaw<Array<{
       attempts: number;
       status: string;
@@ -210,7 +260,7 @@ describe('controlled PostgreSQL MFA recovery', () => {
       SELECT challenge.attempts, challenge.status, credential.mfa_secret_ciphertext
       FROM auth.mfa_recovery_challenges challenge
       JOIN auth.credential_states credential ON credential.user_id = challenge.user_id
-      WHERE challenge.id = ${String(initiated.recoveryDelivery!.token).split('.')[0]}
+      WHERE challenge.id = ${challengeId}
     `;
     expect(afterWrongPassword).toEqual({
       attempts: 1,
@@ -219,9 +269,8 @@ describe('controlled PostgreSQL MFA recovery', () => {
     });
 
     const confirmed = await recovery.confirmMfaRecovery(
-      { token: initiated.recoveryDelivery!.token, password: PASSWORD },
+      { token, password: PASSWORD, locale: 'ru' },
       `mfa-recovery-confirm-${randomUUID()}`,
-      DELIVERY_KEY,
     );
     expect(confirmed).toMatchObject({
       ok: true,
@@ -255,16 +304,15 @@ describe('controlled PostgreSQL MFA recovery', () => {
     });
 
     await expect(recovery.confirmMfaRecovery(
-      { token: initiated.recoveryDelivery!.token, password: PASSWORD },
+      { token, password: PASSWORD, locale: 'ru' },
       `mfa-recovery-replay-${randomUUID()}`,
-      DELIVERY_KEY,
     )).rejects.toThrow();
     const reenrollment = await auth.login({ email: identity.targetEmail, password: PASSWORD }) as any;
     expect(reenrollment).toMatchObject({ mfaRequired: true, setupSecret: expect.any(String) });
 
     const [event] = await prisma.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM auth.mfa_recovery_events
-      WHERE challenge_id = ${String(initiated.recoveryDelivery!.token).split('.')[0]}
+      WHERE challenge_id = ${challengeId}
       ORDER BY created_at DESC, id DESC
       LIMIT 1
     `;
@@ -276,16 +324,17 @@ describe('controlled PostgreSQL MFA recovery', () => {
     `).rejects.toThrow(/append-only/i);
   });
 
-  it('requires platform review when the credential is shared with another organization or staff plane', async () => {
+  it('requires platform review and queues nothing when the credential is shared with another organization or staff plane', async () => {
     const identity = await seed({ sharedAuthority: true });
+    const correlationId = `mfa-recovery-shared-correlation-${randomUUID()}`;
     await expect(recovery.resetMembershipMfa(
       identity.actor,
       identity.targetMembership.id,
       identity.targetMembership.version,
       'Controlled recovery requested after support identity review',
       `mfa-recovery-shared-${randomUUID()}`,
-      `mfa-recovery-shared-correlation-${randomUUID()}`,
-      DELIVERY_KEY,
+      correlationId,
+      'ru',
     )).rejects.toThrow();
     const [{ count }] = await prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*)::bigint AS count
@@ -293,5 +342,11 @@ describe('controlled PostgreSQL MFA recovery', () => {
       WHERE user_id = ${identity.targetUserId}
     `;
     expect(Number(count)).toBe(0);
+    const [{ mail_count }] = await prisma.$queryRaw<Array<{ mail_count: bigint }>>`
+      SELECT COUNT(*)::bigint AS mail_count
+      FROM auth.mail_outbox
+      WHERE correlation_id = ${correlationId}
+    `;
+    expect(Number(mail_count)).toBe(0);
   });
 });

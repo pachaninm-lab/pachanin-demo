@@ -7,9 +7,16 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { RequestUser } from '../../common/types/request-user';
 import { isStrongPassword } from '../../common/validators/strong-password.validator';
+import { AuthMailOutboxService } from '../auth-mail/auth-mail-outbox.service';
+import {
+  mfaRecoveryCompletedMail,
+  mfaRecoveryMail,
+  normalizeAuthMailLocale,
+  organizationInvitationMail,
+} from '../auth-mail/auth-mail-templates';
 import {
   issueInvitationCredential,
   issueMfaRecoveryCredential,
@@ -37,6 +44,7 @@ import { PersistentAuthRepository, type AuthSqlClient } from './persistent-auth.
 
 const INVITATION_TTL_MS = 72 * 60 * 60 * 1000;
 const MFA_RECOVERY_TTL_MS = 30 * 60 * 1000;
+const SECURITY_NOTICE_TTL_MS = 24 * 60 * 60 * 1000;
 
 type AdminMembership = {
   id: string;
@@ -96,23 +104,12 @@ function normalizePhone(value?: string): string | null {
   return `${input.startsWith('+') ? '+' : ''}${digits}`;
 }
 
-function safeSecretEqual(leftValue: string, rightValue: string): boolean {
-  const left = Buffer.from(leftValue, 'utf8');
-  const right = Buffer.from(rightValue, 'utf8');
-  return left.length === right.length && timingSafeEqual(left, right);
-}
-
-function deliveryAuthorized(provided?: string): boolean {
-  const expected = String(process.env.ORGANIZATION_INVITATION_DELIVERY_KEY || '').trim();
-  const candidate = String(provided || '').trim();
-  return expected.length >= 32 && candidate.length >= 32 && safeSecretEqual(candidate, expected);
-}
-
 @Injectable()
 export class OrganizationInvitationService {
   constructor(
     private readonly prisma: AuthPrismaService,
     private readonly authRepository: PersistentAuthRepository,
+    private readonly mailOutbox: AuthMailOutboxService,
   ) {}
 
   async list(user: RequestUser) {
@@ -157,11 +154,12 @@ export class OrganizationInvitationService {
     role: OrganizationHumanRole,
     idempotencyKeyInput: string,
     correlationId: string,
-    deliveryKey?: string,
+    localeInput?: unknown,
   ) {
     const admin = await this.requireAdmin(user);
     this.assertRoleWithinCeiling(admin.role, role);
     const idempotencyKey = this.requireIdempotencyKey(idempotencyKeyInput);
+    const locale = normalizeAuthMailLocale(localeInput);
     const email = normalizeEmail(emailInput);
     const emailHash = hashAuthMaterial(`invitation-email:${email}`);
     const requestHash = hashAuthMaterial(stableJson({ organizationId: admin.organizationId, email, role }));
@@ -268,6 +266,19 @@ export class OrganizationInvitationService {
         role,
         correlationId,
       });
+      await this.mailOutbox.enqueue(tx, {
+        kind: 'ORGANIZATION_INVITATION',
+        idempotencyKey: `auth-mail:organization-invitation:${invitationId}:create`,
+        correlationId,
+        envelope: organizationInvitationMail({
+          to: email,
+          token: token.rawToken,
+          organizationName: admin.organization.name,
+          role,
+          locale,
+        }),
+        expiresAt,
+      });
       return {
         invitation: {
           id: invitationId,
@@ -287,15 +298,7 @@ export class OrganizationInvitationService {
       expiresAt: result.invitation.expires_at.toISOString(),
       correlationId: result.invitation.correlation_id,
       replayed: result.replayed,
-      emailDelivery: !result.replayed && deliveryAuthorized(deliveryKey)
-        ? {
-          email,
-          token: token.rawToken,
-          organizationName: admin.organization.name,
-          role,
-          expiresInSeconds: Math.floor(INVITATION_TTL_MS / 1000),
-        }
-        : undefined,
+      emailQueued: !result.replayed,
     };
   }
 
@@ -305,10 +308,11 @@ export class OrganizationInvitationService {
     reason: string,
     idempotencyKeyInput: string,
     correlationId: string,
-    deliveryKey?: string,
+    localeInput?: unknown,
   ) {
     const admin = await this.requireAdmin(user);
     const idempotencyKey = this.requireIdempotencyKey(idempotencyKeyInput);
+    const locale = normalizeAuthMailLocale(localeInput);
     const token = issueInvitationCredential();
     const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
 
@@ -348,6 +352,19 @@ export class OrganizationInvitationService {
         invitationVersion: current.version + 1n,
       });
       await this.audit(tx, user, 'auth.organization.invitation.resend', 'SUCCESS', reason, { invitationId, correlationId });
+      await this.mailOutbox.enqueue(tx, {
+        kind: 'ORGANIZATION_INVITATION',
+        idempotencyKey: `auth-mail:organization-invitation:${current.id}:resend:${idempotencyKey}`,
+        correlationId,
+        envelope: organizationInvitationMail({
+          to: current.invited_email,
+          token: token.rawToken,
+          organizationName: current.organization_name,
+          role: current.role,
+          locale,
+        }),
+        expiresAt,
+      });
       return {
         invitation: { ...current, token_hash: token.storedDigest, expires_at: expiresAt, version: current.version + 1n },
         replayed: false as const,
@@ -360,15 +377,7 @@ export class OrganizationInvitationService {
       expiresAt: result.invitation.expires_at.toISOString(),
       correlationId,
       replayed: result.replayed,
-      emailDelivery: !result.replayed && deliveryAuthorized(deliveryKey)
-        ? {
-          email: result.invitation.invited_email,
-          token: token.rawToken,
-          organizationName: result.invitation.organization_name,
-          role: result.invitation.role,
-          expiresInSeconds: Math.floor(INVITATION_TTL_MS / 1000),
-        }
-        : undefined,
+      emailQueued: !result.replayed,
     };
   }
 
@@ -681,15 +690,12 @@ export class OrganizationInvitationService {
     reason: string,
     idempotencyKeyInput: string,
     correlationId: string,
-    deliveryKey?: string,
+    localeInput?: unknown,
   ) {
     const admin = await this.requireAdmin(user);
     if (membershipId === admin.id) throw new ForbiddenException({ code: 'SELF_MFA_RESET_FORBIDDEN' });
     const idempotencyKey = this.requireIdempotencyKey(idempotencyKeyInput);
-    // Membership, actor, purpose and the server-issued request key — no
-    // credential material of any kind. The recovery token minted below is 256
-    // bits of randomness and belongs to the credential contour, so it never
-    // enters this hash either.
+    const locale = normalizeAuthMailLocale(localeInput);
     const requestHash = hashAuthMaterial(stableJson({
       purpose: 'auth.membership.mfa_reset',
       membershipId,
@@ -825,6 +831,18 @@ export class OrganizationInvitationService {
         newVersion: version + 1n,
         metadata: { targetUserId: target.user_id, stage: 'RECOVERY_CHALLENGE_CREATED' },
       });
+      await this.mailOutbox.enqueue(tx, {
+        kind: 'MFA_RECOVERY',
+        idempotencyKey: `auth-mail:mfa-recovery:${token.credentialId}:create`,
+        correlationId,
+        envelope: mfaRecoveryMail({
+          to: target.email,
+          token: token.rawToken,
+          organizationName: admin.organization.name,
+          locale,
+        }),
+        expiresAt,
+      });
       return {
         challenge: {
           id: token.credentialId,
@@ -852,24 +870,17 @@ export class OrganizationInvitationService {
       version: (version + 1n).toString(),
       correlationId,
       replayed: result.replayed,
-      recoveryDelivery: !result.replayed && deliveryAuthorized(deliveryKey)
-        ? {
-            email: result.challenge.email,
-            token: token.rawToken,
-            expiresInSeconds: Math.floor(MFA_RECOVERY_TTL_MS / 1000),
-          }
-        : undefined,
+      emailQueued: !result.replayed,
     };
   }
 
   async confirmMfaRecovery(
     dto: ConfirmMfaRecoveryDto,
     correlationId: string,
-    deliveryKey?: string,
     ip?: string,
     userAgent?: string,
   ) {
-    if (!deliveryAuthorized(deliveryKey)) throw new BadRequestException({ code: 'MFA_RECOVERY_INVALID' });
+    const locale = normalizeAuthMailLocale(dto.locale);
     const parsed = resolvePresentedCredential(dto.token, 'mr');
     if (!parsed) throw new BadRequestException({ code: 'MFA_RECOVERY_INVALID' });
 
@@ -991,7 +1002,14 @@ export class OrganizationInvitationService {
         ipHash: hashClientValue(ip),
         userAgentHash: hashClientValue(userAgent),
       });
-      return { kind: 'success' as const, email: challenge.email };
+      await this.mailOutbox.enqueue(tx, {
+        kind: 'ACCOUNT_SECURITY_NOTICE',
+        idempotencyKey: `auth-mail:mfa-recovery:${challenge.id}:completed`,
+        correlationId,
+        envelope: mfaRecoveryCompletedMail({ to: challenge.email, locale }),
+        expiresAt: new Date(Date.now() + SECURITY_NOTICE_TTL_MS),
+      });
+      return { kind: 'success' as const };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
 
     if (result.kind === 'invalid') throw new BadRequestException({ code: 'MFA_RECOVERY_INVALID' });
@@ -1000,7 +1018,7 @@ export class OrganizationInvitationService {
       sessionsRevoked: true,
       mfaReenrollmentRequired: true,
       nextAction: 'LOGIN',
-      notificationDelivery: { email: result.email },
+      securityNoticeQueued: true,
       correlationId,
     };
   }

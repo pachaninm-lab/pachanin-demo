@@ -1,6 +1,12 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
-import { randomUUID, timingSafeEqual } from 'crypto';
+import { randomUUID } from 'crypto';
+import { AuthMailOutboxService } from '../auth-mail/auth-mail-outbox.service';
+import {
+  normalizeAuthMailLocale,
+  passwordChangedMail,
+  passwordResetMail,
+} from '../auth-mail/auth-mail-templates';
 import { hashAuthMaterial, hashClientValue, sha256, stableJson } from './auth-crypto';
 import type { AuthSqlClient } from './persistent-auth.repository';
 import { PasswordResetRepository } from './password-reset.repository';
@@ -17,18 +23,6 @@ const UNIVERSAL_RESPONSE = {
   message: 'If the account exists, password reset instructions will be sent.',
 } as const;
 
-function safeEqual(leftValue: string, rightValue: string): boolean {
-  const left = Buffer.from(leftValue, 'utf8');
-  const right = Buffer.from(rightValue, 'utf8');
-  return left.length === right.length && timingSafeEqual(left, right);
-}
-
-function deliveryAuthorized(provided?: string): boolean {
-  const expected = String(process.env.PASSWORD_RESET_DELIVERY_KEY ?? '').trim();
-  const candidate = String(provided ?? '').trim();
-  return expected.length >= 32 && candidate.length >= 32 && safeEqual(candidate, expected);
-}
-
 function assertPasswordPolicy(password: string): void {
   const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((pattern) => pattern.test(password)).length;
   if (password.length < 12 || password.length > 128 || classes < 3) {
@@ -43,24 +37,22 @@ function assertPasswordPolicy(password: string): void {
 export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
 
-  constructor(private readonly repository: PasswordResetRepository) {}
+  constructor(
+    private readonly repository: PasswordResetRepository,
+    private readonly mailOutbox: AuthMailOutboxService,
+  ) {}
 
-  async request(emailInput: string, ip?: string, deliveryKey?: string) {
+  async request(
+    emailInput: string,
+    ip?: string,
+    correlationIdInput?: string,
+    localeInput?: unknown,
+  ) {
     const email = String(emailInput ?? '').trim().toLowerCase();
+    const correlationId = String(correlationIdInput || randomUUID()).trim().slice(0, 128);
+    const locale = normalizeAuthMailLocale(localeInput);
     const accountHash = hashAuthMaterial(`password-reset:${email}`);
     const ipHash = hashClientValue(ip);
-
-    if (!deliveryAuthorized(deliveryKey)) {
-      await this.repository.transaction(async (tx) => {
-        await this.audit(tx, {
-          action: 'auth.password_reset.request',
-          outcome: 'DENIED',
-          reason: 'DELIVERY_BOUNDARY_REJECTED',
-          metadata: { accountHash, ipHash },
-        });
-      });
-      return UNIVERSAL_RESPONSE;
-    }
 
     const user = await this.repository.findUserByEmail(this.repository.prisma, email);
     if (!user || user.status !== 'ACTIVE' || user.deleted_at) {
@@ -69,7 +61,7 @@ export class PasswordResetService {
           action: 'auth.password_reset.request',
           outcome: 'SUCCESS',
           reason: 'UNIVERSAL_NON_ELIGIBLE',
-          metadata: { accountHash, ipHash },
+          metadata: { accountHash, ipHash, correlationId },
         });
       });
       return UNIVERSAL_RESPONSE;
@@ -89,7 +81,7 @@ export class PasswordResetService {
           action: 'auth.password_reset.request',
           outcome: 'SUCCESS',
           reason: 'COOLDOWN_ACTIVE',
-          metadata: { ipHash },
+          metadata: { ipHash, correlationId },
         });
       });
       return UNIVERSAL_RESPONSE;
@@ -122,38 +114,44 @@ export class PasswordResetService {
           action: 'auth.password_reset.request',
           outcome: 'SUCCESS',
           reason: 'CHALLENGE_ISSUED',
-          metadata: { ipHash, expiresAt: expiresAt.toISOString() },
+          metadata: { ipHash, expiresAt: expiresAt.toISOString(), correlationId },
+        });
+        await this.mailOutbox.enqueue(tx, {
+          kind: 'PASSWORD_RESET',
+          idempotencyKey: `auth-mail:password-reset:${issued.id}`,
+          correlationId,
+          envelope: passwordResetMail({
+            to: user.email,
+            token: issued.token,
+            locale,
+          }),
+          expiresAt,
         });
         return true;
       });
     } catch (error) {
-      this.logger.error('Password reset challenge creation failed', error instanceof Error ? error.stack : undefined);
+      this.logger.error('Password reset challenge/outbox transaction failed', error instanceof Error ? error.stack : undefined);
       return UNIVERSAL_RESPONSE;
     }
 
     if (!created) return UNIVERSAL_RESPONSE;
-    return {
-      ...UNIVERSAL_RESPONSE,
-      delivery: {
-        email: user.email,
-        token: issued.token,
-        expiresInSeconds: Math.floor(PASSWORD_RESET_TTL_MS / 1000),
-      },
-    };
+    return UNIVERSAL_RESPONSE;
   }
 
-  async confirm(tokenInput: string, newPassword: string, ip?: string, deliveryKey?: string) {
+  async confirm(
+    tokenInput: string,
+    newPassword: string,
+    ip?: string,
+    correlationIdInput?: string,
+  ) {
     assertPasswordPolicy(newPassword);
-    // Confirmation is a server-to-server delivery boundary: otherwise a caller
-    // holding a leaked reset URL could bypass the mandatory password-change
-    // notification by calling the API directly.
-    if (!deliveryAuthorized(deliveryKey)) throw this.invalidReset();
     const parsed = parsePasswordResetToken(tokenInput);
     if (!parsed) throw this.invalidReset();
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
     const now = new Date();
     const ipHash = hashClientValue(ip);
+    const correlationId = String(correlationIdInput || randomUUID()).trim().slice(0, 128);
 
     try {
       return await this.repository.transaction(async (tx) => {
@@ -186,12 +184,19 @@ export class PasswordResetService {
           action: 'auth.password_reset.confirm',
           outcome: 'SUCCESS',
           reason: 'PASSWORD_REPLACED_SESSIONS_REVOKED',
-          metadata: { ipHash, challengeIdHash: hashAuthMaterial(challenge.id) },
+          metadata: { ipHash, challengeIdHash: hashAuthMaterial(challenge.id), correlationId },
+        });
+        await this.mailOutbox.enqueue(tx, {
+          kind: 'PASSWORD_CHANGED',
+          idempotencyKey: `auth-mail:password-changed:${challenge.id}`,
+          correlationId,
+          envelope: passwordChangedMail(notificationEmail),
+          expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
         });
         return {
           success: true,
           sessionsRevoked: true,
-          notificationDelivery: { email: notificationEmail },
+          securityNoticeQueued: true,
         };
       });
     } catch (error) {
