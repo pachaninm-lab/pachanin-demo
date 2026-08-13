@@ -9,16 +9,19 @@ set -Eeuo pipefail
 DEFAULT_HOST='195.19.12.120'
 LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 RELEASE_ISSUE_NUMBER='3072'
-COMMAND='/production p0-reviewer-reset-incident-diagnose 31635866371'
-INCIDENT_RUN_ID='31635866371'
-INCIDENT_SINCE='2026-08-12T20:05:30Z'
-INCIDENT_UNTIL='2026-08-12T20:06:00Z'
-EXPECTED_DEPLOYED_SHA='58d7e1f80aa4482293e24eb7b0e111f7bf988d29'
+COMMAND='/production p0-reviewer-reset-durable-diagnose 31648675850 31648772066'
+FIRST_RUN_ID='31648675850'
+SECOND_RUN_ID='31648772066'
+FIRST_SINCE='2026-08-12T22:51:40Z'
+FIRST_UNTIL='2026-08-12T22:52:30Z'
+SECOND_SINCE='2026-08-12T22:53:10Z'
+SECOND_UNTIL='2026-08-12T22:54:05Z'
+EXPECTED_DEPLOYED_SHA='d2dd7972105cc59002263455b5ae0eb8d8f2d386'
 
 [[ "$PC_REVIEWER_RESET_INCIDENT_COMMAND" == "$COMMAND" ]]
 
-key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-incident-key"
-known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-incident-known-hosts"
+key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-durable-key"
+known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-durable-known-hosts"
 TARGET_SHA='unknown'
 stage='INITIAL'
 result_published=0
@@ -48,16 +51,17 @@ publish_failure() {
   local rc="$?"
   trap - ERR
   if [[ "$result_published" == '0' ]]; then
-    gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset incident diagnostic
+    gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset durable incident diagnostic
 
-- incident run: \`$INCIDENT_RUN_ID\`
+- failed reset runs: \`$FIRST_RUN_ID, $SECOND_RUN_ID\`
 - exact diagnostic main: \`$TARGET_SHA\`
 - inspected deployed revision: \`$EXPECTED_DEPLOYED_SHA\`
 - result: \`FAIL_CLOSED\`
 - failure stage: \`$stage\`
 - reviewer identity exposure: \`NONE\`
+- auth/reset request replay: \`NONE\`
 - production mutation: \`NONE\`
-- raw environment/log output: \`NOT_PUBLISHED\`
+- raw database/runtime output: \`NOT_PUBLISHED\`
 - exit code: \`$rc\`" >/dev/null || true
   fi
   exit "$rc"
@@ -79,7 +83,6 @@ host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
 user="$(trim "${PC_PROD_SSH_USER:-}")"
 port="$(trim "${PC_PROD_SSH_PORT:-22}")"
 expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
-
 [[ "$host" == "$DEFAULT_HOST" ]]
 [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
 [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
@@ -99,9 +102,7 @@ validate_key() {
 try_key() {
   local raw="$1" plain escaped decoded
   [[ -n "$raw" ]] || return 1
-  plain="$(mktemp)"
-  escaped="$(mktemp)"
-  decoded="$(mktemp)"
+  plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
   printf '%s\n' "$raw" > "$plain"
   validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
   printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
@@ -116,66 +117,64 @@ try_key() {
 try_key "${PC_PROD_SSH_KEY:-}" \
   || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" \
   || try_key "${VPS_SSH_KEY:-}"
-
+stage='SSH_KEY_CONFIRMED'
 guard_main
 
 domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
 grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+stage='DNS_CONFIRMED'
 
-scan="$(mktemp)"
-scan_raw="$(mktemp)"
-match="$(mktemp)"
-scan_ready=0
+scan="$(mktemp)"; scan_raw="$(mktemp)"; match="$(mktemp)"
+pinned_ready=0
 for attempt in 1 2 3; do
-  : > "$scan_raw"
-  : > "$scan"
+  : > "$scan_raw"; : > "$scan"; : > "$match"
   /usr/bin/ssh-keyscan -T 10 -p "$port" "$host" > "$scan_raw" 2>/dev/null || true
   if [[ -s "$scan_raw" ]]; then
     sort -u "$scan_raw" > "$scan"
-    if [[ -s "$scan" ]]; then
-      scan_ready=1
+    while IFS= read -r line; do
+      fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+      [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+    done < "$scan"
+    sort -u -o "$match" "$match"
+    if [[ "$(grep -c . "$match" || true)" == '1' ]]; then
+      pinned_ready=1
       break
     fi
   fi
   (( attempt == 3 )) || sleep "$attempt"
 done
-[[ "$scan_ready" == '1' ]]
-
-while IFS= read -r line; do
-  fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-  [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
-done < "$scan"
-[[ "$(grep -c . "$match" || true)" == '1' ]]
-mv "$match" "$known_hosts"
-match=''
-rm -f -- "$scan" "$scan_raw"
-scan=''
-scan_raw=''
+[[ "$pinned_ready" == '1' ]]
+mv "$match" "$known_hosts"; match=''
+rm -f -- "$scan" "$scan_raw"; scan=''; scan_raw=''
 chmod 0600 "$known_hosts"
+stage='HOST_KEY_CONFIRMED'
 
 guard_main
-ssh -i "$key_path" -p "$port" \
-  -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-  -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
-  "$user@$host" 'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null' \
-  >/dev/null
+ssh_opts=(
+  -i "$key_path" -p "$port"
+  -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+  -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15
+)
+ssh "${ssh_opts[@]}" "$user@$host" \
+  'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null' >/dev/null
 stage='SSH_CONFIRMED'
 
-stage='REMOTE_INSPECTION'
-output="$(ssh -i "$key_path" -p "$port" \
-  -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-  -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
-  "$user@$host" "bash -s -- '$EXPECTED_DEPLOYED_SHA' '$INCIDENT_SINCE' '$INCIDENT_UNTIL'" <<'REMOTE'
+guard_main
+stage='REMOTE_DURABLE_INSPECTION'
+output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$EXPECTED_DEPLOYED_SHA' '$FIRST_SINCE' '$FIRST_UNTIL' '$SECOND_SINCE' '$SECOND_UNTIL'" <<'REMOTE'
 set -Eeuo pipefail
 expected_revision="$1"
-incident_since="$2"
-incident_until="$3"
+first_since="$2"
+first_until="$3"
+second_since="$4"
+second_until="$5"
 [[ "$expected_revision" =~ ^[0-9a-f]{40}$ ]]
-[[ "$incident_since" == '2026-08-12T20:05:30Z' ]]
-[[ "$incident_until" == '2026-08-12T20:06:00Z' ]]
+[[ "$first_since" == '2026-08-12T22:51:40Z' ]]
+[[ "$first_until" == '2026-08-12T22:52:30Z' ]]
+[[ "$second_since" == '2026-08-12T22:53:10Z' ]]
+[[ "$second_until" == '2026-08-12T22:54:05Z' ]]
 [[ "$(id -u)" -eq 0 ]]
 command -v docker >/dev/null 2>&1
-command -v python3 >/dev/null 2>&1
 
 mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
 (( ${#web_ids[@]} == 1 ))
@@ -187,237 +186,201 @@ mapfile -t api_ids < <(docker ps -q \
   --filter 'label=com.docker.compose.service=api')
 (( ${#api_ids[@]} == 1 ))
 api_id="${api_ids[0]}"
-
 api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
 web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
-[[ "$api_revision" == "$expected_revision" ]]
-[[ "$web_revision" == "$expected_revision" ]]
+[[ "$api_revision" == "$expected_revision" && "$web_revision" == "$expected_revision" ]]
+printf 'PARITY|PASS\n'
 
-api_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$api_id")"
-web_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$web_id")"
-[[ "$api_state" =~ ^(healthy|running)$ ]]
-[[ "$web_state" =~ ^(healthy|running)$ ]]
+docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs -- "$first_since" "$first_until" "$second_since" "$second_until" <<'NODE'
+const { PrismaClient } = require('@prisma/client');
+const [firstSince, firstUntil, secondSince, secondUntil] = process.argv.slice(2);
+const safeCount = (value) => Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 100;
+const fail = (code) => { throw new Error(code); };
+let staffDb;
+let authDb;
 
-read -r -d '' env_classifier <<'PY_ENV' || true
-import hmac
-import json
-import sys
+(async () => {
+  const staffUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
+  const authUrl = String(process.env.DATABASE_URL || '').trim();
+  if (!staffUrl || !authUrl) fail('DATABASE_URL_MISSING');
+  staffDb = new PrismaClient({ datasources: { db: { url: staffUrl } } });
+  authDb = new PrismaClient({ datasources: { db: { url: authUrl } } });
 
-documents = json.load(sys.stdin)
-if not isinstance(documents, list) or len(documents) != 2:
-    raise SystemExit(21)
+  const staffPrincipalRows = await staffDb.$queryRawUnsafe(`
+    SELECT current_user = 'pc_staff_runtime' AS runtime_ok,
+           NOT rolsuper AS no_super,
+           NOT rolbypassrls AS no_bypass,
+           NOT has_table_privilege(current_user, 'public.users', 'SELECT') AS no_users,
+           NOT has_table_privilege(current_user, 'auth.password_reset_challenges', 'SELECT') AS no_reset_rows,
+           coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_reviewer_login_readiness()'), 'EXECUTE'), false) AS readiness_execute,
+           coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_reviewer_password_reset_subject()'), 'EXECUTE'), false) AS subject_execute
+    FROM pg_roles WHERE rolname = current_user
+  `);
+  const staffPrincipal = staffPrincipalRows[0];
+  if (!staffPrincipal || !Object.values(staffPrincipal).every((value) => value === true)) {
+    fail('STAFF_PRINCIPAL_BOUNDARY');
+  }
 
-def environment(document):
-    values = {}
-    for item in document.get('Config', {}).get('Env', []) or []:
-        key, separator, value = str(item).partition('=')
-        if separator:
-            values[key] = value
-    return values
+  const reviewerRows = await staffDb.$queryRawUnsafe(`
+    SELECT readiness.password_ready_count,
+           readiness.mfa_enrolled_ready_count,
+           readiness.login_ready_count,
+           auth.staff_reviewer_password_reset_subject() AS reviewer_email
+    FROM auth.staff_reviewer_login_readiness() readiness
+  `);
+  if (reviewerRows.length !== 1) fail('REVIEWER_CARDINALITY');
+  const reviewer = reviewerRows[0];
+  const passwordReady = Number(reviewer.password_ready_count);
+  const mfaReady = Number(reviewer.mfa_enrolled_ready_count);
+  const loginReady = Number(reviewer.login_ready_count);
+  const email = String(reviewer.reviewer_email || '');
+  if (![passwordReady, mfaReady, loginReady].every((value) => value === 0)) fail('REVIEWER_READINESS_CHANGED');
+  if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,63}$/.test(email) || email.length > 254) {
+    fail('REVIEWER_SUBJECT_INVALID');
+  }
 
-web = environment(documents[0])
-api = environment(documents[1])
-web_key = web.get('PASSWORD_RESET_DELIVERY_KEY', '').strip()
-api_key = api.get('PASSWORD_RESET_DELIVERY_KEY', '').strip()
-api_url_ready = bool(web.get('API_URL', '').strip())
-web_key_ready = len(web_key) >= 32
-api_key_ready = len(api_key) >= 32
-key_match = web_key_ready and api_key_ready and hmac.compare_digest(web_key, api_key)
-resend_ready = bool(web.get('RESEND_API_KEY', '').strip()) and bool(
-    web.get('RESEND_FROM_EMAIL', '').strip() or web.get('PC_MAIL_FROM', '').strip()
-)
-smtp_ready = all(bool(web.get(name, '').strip()) for name in ('PC_SMTP_HOST', 'PC_SMTP_USER', 'PC_SMTP_PASS'))
-mail_ready = resend_ready or smtp_ready
-print('RESET_INCIDENT_CONFIG|' + '|'.join('1' if value else '0' for value in (
-    api_url_ready, web_key_ready, api_key_ready, key_match, resend_ready, smtp_ready, mail_ready,
-)))
-PY_ENV
+  const authPrincipalRows = await authDb.$queryRawUnsafe(`
+    SELECT NOT rolsuper AS no_super,
+           NOT rolbypassrls AS no_bypass,
+           has_table_privilege(current_user, 'auth.password_reset_challenges', 'SELECT') AS reset_select,
+           has_table_privilege(current_user, 'auth.audit_events', 'SELECT') AS audit_select,
+           coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_password_reset_subject(text)'), 'EXECUTE'), false) AS subject_execute
+    FROM pg_roles WHERE rolname = current_user
+  `);
+  const authPrincipal = authPrincipalRows[0];
+  if (!authPrincipal || !Object.values(authPrincipal).every((value) => value === true)) {
+    fail('AUTH_PRINCIPAL_BOUNDARY');
+  }
 
-config_marker="$(docker inspect "$web_id" "$api_id" | python3 -c "$env_classifier")"
-[[ "$config_marker" =~ ^RESET_INCIDENT_CONFIG\|[01]\|[01]\|[01]\|[01]\|[01]\|[01]\|[01]$ ]]
+  const subjectRows = await authDb.$queryRawUnsafe(
+    `SELECT user_id FROM auth.resolve_password_reset_subject($1)`, email,
+  );
+  if (subjectRows.length !== 1 || !String(subjectRows[0]?.user_id || '')) fail('AUTH_SUBJECT_NOT_FOUND');
+  const userId = String(subjectRows[0].user_id);
 
-read -r -d '' incident_classifier <<'PY_INCIDENT' || true
-import json
-import re
-import sys
+  const challengeRows = await authDb.$queryRawUnsafe(`
+    SELECT
+      count(*) FILTER (WHERE created_at >= $2::timestamptz AND created_at <= $3::timestamptz)::int AS first_count,
+      count(*) FILTER (WHERE created_at >= $4::timestamptz AND created_at <= $5::timestamptz)::int AS second_count,
+      count(*) FILTER (WHERE created_at >= $2::timestamptz AND created_at <= $5::timestamptz)::int AS combined_count,
+      count(*) FILTER (WHERE status = 'PENDING' AND expires_at > now())::int AS unexpired_pending_count,
+      coalesce((SELECT c.status FROM auth.password_reset_challenges c WHERE c.user_id = $1 ORDER BY c.created_at DESC, c.id DESC LIMIT 1), 'NONE') AS latest_status,
+      coalesce((SELECT c.expires_at <= now() FROM auth.password_reset_challenges c WHERE c.user_id = $1 ORDER BY c.created_at DESC, c.id DESC LIMIT 1), true) AS latest_expired
+    FROM auth.password_reset_challenges
+    WHERE user_id = $1
+  `, userId, firstSince, firstUntil, secondSince, secondUntil);
+  if (challengeRows.length !== 1) fail('CHALLENGE_AGGREGATE_CARDINALITY');
+  const challenge = challengeRows[0];
+  const firstChallenges = Number(challenge.first_count);
+  const secondChallenges = Number(challenge.second_count);
+  const combinedChallenges = Number(challenge.combined_count);
+  const unexpiredPending = Number(challenge.unexpired_pending_count);
+  const latestStatus = String(challenge.latest_status || 'NONE');
+  const latestExpired = challenge.latest_expired === true ? 1 : 0;
+  if (![firstChallenges, secondChallenges, combinedChallenges, unexpiredPending].every(safeCount)) {
+    fail('CHALLENGE_AGGREGATE_INVALID');
+  }
+  if (!['NONE', 'PENDING', 'CONSUMED', 'EXPIRED'].includes(latestStatus)) fail('CHALLENGE_STATUS_INVALID');
 
-uuid_re = re.compile(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
-events = []
-correlations = set()
+  const auditRows = await authDb.$queryRawUnsafe(`
+    SELECT
+      count(*) FILTER (WHERE created_at >= $2::timestamptz AND created_at <= $3::timestamptz AND reason = 'CHALLENGE_ISSUED')::int AS first_issued,
+      count(*) FILTER (WHERE created_at >= $4::timestamptz AND created_at <= $5::timestamptz AND reason = 'CHALLENGE_ISSUED')::int AS second_issued,
+      count(*) FILTER (WHERE created_at >= $2::timestamptz AND created_at <= $3::timestamptz AND reason = 'COOLDOWN_ACTIVE')::int AS first_cooldown,
+      count(*) FILTER (WHERE created_at >= $4::timestamptz AND created_at <= $5::timestamptz AND reason = 'COOLDOWN_ACTIVE')::int AS second_cooldown,
+      count(*) FILTER (
+        WHERE created_at >= $2::timestamptz AND created_at <= $5::timestamptz
+          AND coalesce(reason, '') NOT IN ('CHALLENGE_ISSUED', 'COOLDOWN_ACTIVE')
+      )::int AS other_count
+    FROM auth.audit_events
+    WHERE user_id = $1 AND action = 'auth.password_reset.request'
+  `, userId, firstSince, firstUntil, secondSince, secondUntil);
+  if (auditRows.length !== 1) fail('AUDIT_AGGREGATE_CARDINALITY');
+  const audit = auditRows[0];
+  const firstIssued = Number(audit.first_issued);
+  const secondIssued = Number(audit.second_issued);
+  const firstCooldown = Number(audit.first_cooldown);
+  const secondCooldown = Number(audit.second_cooldown);
+  const otherAudit = Number(audit.other_count);
+  if (![firstIssued, secondIssued, firstCooldown, secondCooldown, otherAudit].every(safeCount)) {
+    fail('AUDIT_AGGREGATE_INVALID');
+  }
 
-def safe_transport(reason):
-    mapping = {
-        'AbortError': 'ABORT',
-        'TimeoutError': 'TIMEOUT',
-        'TypeError': 'TYPE_ERROR',
-        'FetchError': 'FETCH_ERROR',
-    }
-    return mapping.get(reason, 'UNKNOWN')
-
-def delivery_detail(provider, reason, delivered):
-    provider = provider if provider in {'smtp', 'resend', 'none'} else 'none'
-    if delivered:
-        if provider == 'smtp':
-            return 'SMTP_SENT'
-        if provider == 'resend':
-            return 'RESEND_SENT'
-        return 'PROVIDER_SENT'
-    text = str(reason or '')
-    if provider == 'smtp':
-        match = re.search(r'smtp_(\d{3})', text)
-        if match:
-            return f'SMTP_{match.group(1)}'
-        if 'smtp_timeout' in text:
-            return 'SMTP_TIMEOUT'
-        return 'SMTP_UNKNOWN'
-    if provider == 'resend':
-        match = re.search(r'resend_(\d{3})', text)
-        if match:
-            return f'RESEND_{match.group(1)}'
-        if 'AbortError' in text or 'aborted' in text.lower():
-            return 'RESEND_ABORT'
-        return 'RESEND_UNKNOWN'
-    return 'NO_PROVIDER'
-
-for line in sys.stdin:
-    marker = None
-    if 'password_reset_request_configuration_error' in line:
-        marker = 'CONFIGURATION_ERROR'
-    elif 'password_reset_request_api_failure' in line:
-        marker = 'API_FAILURE'
-    elif 'password_reset_request_transport_failure' in line:
-        marker = 'TRANSPORT_FAILURE'
-    elif 'password_reset_delivery_result' in line:
-        marker = 'DELIVERY_RESULT'
-    elif 'password_reset_request_accepted_without_delivery' in line:
-        marker = 'ACCEPTED_WITHOUT_DELIVERY'
-    if marker is None:
-        continue
-    start = line.find('{')
-    try:
-        payload = json.loads(line[start:]) if start >= 0 else {}
-    except json.JSONDecodeError:
-        payload = {}
-    correlation_id = str(payload.get('correlationId', ''))
-    if not uuid_re.fullmatch(correlation_id):
-        continue
-    correlations.add(correlation_id.lower())
-    if marker == 'CONFIGURATION_ERROR':
-        events.append(('CONFIGURATION_ERROR', 'CONFIG'))
-    elif marker == 'API_FAILURE':
-        status = payload.get('status')
-        detail = f'HTTP_{status}' if isinstance(status, int) and 400 <= status <= 599 else 'HTTP_UNKNOWN'
-        events.append(('API_FAILURE', detail))
-    elif marker == 'TRANSPORT_FAILURE':
-        events.append(('TRANSPORT_FAILURE', safe_transport(str(payload.get('reason', 'UNKNOWN')))))
-    elif marker == 'DELIVERY_RESULT':
-        delivered = payload.get('delivered') is True
-        detail = delivery_detail(str(payload.get('provider', 'none')), payload.get('reason'), delivered)
-        events.append(('DELIVERY_OK' if delivered else 'DELIVERY_FAILED', detail))
-    else:
-        events.append(('ACCEPTED_WITHOUT_DELIVERY', 'NONE'))
-
-if not events:
-    result = ('NOT_FOUND', 'NONE')
-elif len(correlations) != 1:
-    result = ('AMBIGUOUS', 'MULTIPLE_CORRELATIONS')
-else:
-    classes = {kind for kind, _ in events}
-    terminal_classes = classes & {'CONFIGURATION_ERROR', 'API_FAILURE', 'TRANSPORT_FAILURE', 'DELIVERY_FAILED', 'ACCEPTED_WITHOUT_DELIVERY', 'DELIVERY_OK'}
-    if len(terminal_classes) != 1:
-        result = ('AMBIGUOUS', 'MIXED_EVENTS')
-    else:
-        kind = next(iter(terminal_classes))
-        details = {detail for event_kind, detail in events if event_kind == kind}
-        result = (kind, next(iter(details)) if len(details) == 1 else 'MULTIPLE_DETAILS')
-
-print(f'RESET_INCIDENT_LOG|{result[0]}|{result[1]}|{len(correlations)}|{len(events)}')
-PY_INCIDENT
-
-incident_marker="$(docker logs --since "$incident_since" --until "$incident_until" "$web_id" 2>&1 \
-  | python3 -c "$incident_classifier")"
-[[ "$incident_marker" =~ ^RESET_INCIDENT_LOG\|(CONFIGURATION_ERROR|API_FAILURE|TRANSPORT_FAILURE|DELIVERY_FAILED|ACCEPTED_WITHOUT_DELIVERY|DELIVERY_OK|NOT_FOUND|AMBIGUOUS)\|[A-Z0-9_]{1,64}\|[0-9]+\|[0-9]+$ ]]
-
-printf 'RESET_INCIDENT_REVISION|%s\n' "$api_revision"
-printf '%s\n' "$config_marker"
-printf '%s\n' "$incident_marker"
-printf 'PRODUCTION_MUTATION=NONE\n'
+  process.stdout.write([
+    'RESET_DURABLE', 'PASS', passwordReady,
+    firstChallenges, secondChallenges, combinedChallenges, unexpiredPending,
+    latestStatus, latestExpired,
+    firstIssued, secondIssued, firstCooldown, secondCooldown, otherAudit,
+  ].join('|') + '\n');
+  process.stdout.write('PRODUCTION_MUTATION|NONE\n');
+})().catch((error) => {
+  const raw = String(error?.message || 'UNKNOWN').replace(/[^A-Z0-9_-]/gi, '').slice(0, 64);
+  process.stdout.write(`RESET_DURABLE|FAIL_${raw || 'UNKNOWN'}\n`);
+  process.stdout.write('PRODUCTION_MUTATION|NONE\n');
+  process.exitCode = 1;
+}).finally(async () => {
+  if (staffDb) await staffDb.$disconnect().catch(() => undefined);
+  if (authDb) await authDb.$disconnect().catch(() => undefined);
+});
+NODE
 REMOTE
 )"
-
 stage='RESULT_VALIDATION'
-revision_marker="$(grep '^RESET_INCIDENT_REVISION|' <<< "$output" | tail -n1)"
-config_marker="$(grep '^RESET_INCIDENT_CONFIG|' <<< "$output" | tail -n1)"
-incident_marker="$(grep '^RESET_INCIDENT_LOG|' <<< "$output" | tail -n1)"
-mutation_marker="$(grep '^PRODUCTION_MUTATION=' <<< "$output" | tail -n1)"
 
-IFS='|' read -r revision_tag deployed_revision <<< "$revision_marker"
-IFS='|' read -r config_tag api_url_ready web_key_ready api_key_ready key_match resend_ready smtp_ready mail_ready <<< "$config_marker"
-IFS='|' read -r incident_tag incident_class incident_detail correlation_count event_count <<< "$incident_marker"
+parity="$(grep '^PARITY|' <<< "$output" | tail -n1)"
+marker="$(grep '^RESET_DURABLE|' <<< "$output" | tail -n1)"
+mutation="$(grep '^PRODUCTION_MUTATION|' <<< "$output" | tail -n1)"
+[[ "$parity" == 'PARITY|PASS' ]]
+[[ "$mutation" == 'PRODUCTION_MUTATION|NONE' ]]
 
-[[ "$revision_tag" == 'RESET_INCIDENT_REVISION' ]]
-[[ "$deployed_revision" == "$EXPECTED_DEPLOYED_SHA" ]]
-[[ "$config_tag" == 'RESET_INCIDENT_CONFIG' ]]
-for value in "$api_url_ready" "$web_key_ready" "$api_key_ready" "$key_match" "$resend_ready" "$smtp_ready" "$mail_ready"; do
-  [[ "$value" =~ ^[01]$ ]]
+IFS='|' read -r tag result password_ready first_challenges second_challenges combined_challenges unexpired_pending latest_status latest_expired first_issued second_issued first_cooldown second_cooldown other_audit <<< "$marker"
+[[ "$tag" == 'RESET_DURABLE' && "$result" == 'PASS' ]]
+for value in "$password_ready" "$first_challenges" "$second_challenges" "$combined_challenges" "$unexpired_pending" "$latest_expired" "$first_issued" "$second_issued" "$first_cooldown" "$second_cooldown" "$other_audit"; do
+  [[ "$value" =~ ^[0-9]{1,3}$ ]]
 done
-[[ "$incident_tag" == 'RESET_INCIDENT_LOG' ]]
-[[ "$incident_class" =~ ^(CONFIGURATION_ERROR|API_FAILURE|TRANSPORT_FAILURE|DELIVERY_FAILED|ACCEPTED_WITHOUT_DELIVERY|DELIVERY_OK|NOT_FOUND|AMBIGUOUS)$ ]]
-[[ "$incident_detail" =~ ^[A-Z0-9_]{1,64}$ ]]
-[[ "$correlation_count" =~ ^[0-9]+$ ]]
-[[ "$event_count" =~ ^[0-9]+$ ]]
-[[ "$mutation_marker" == 'PRODUCTION_MUTATION=NONE' ]]
+[[ "$latest_status" =~ ^(NONE|PENDING|CONSUMED|EXPIRED)$ ]]
 
-blocker='NONE'
-if [[ "$api_url_ready" != '1' ]]; then
-  blocker='WEB_API_URL_MISSING'
-elif [[ "$web_key_ready" != '1' ]]; then
-  blocker='WEB_DELIVERY_KEY_MISSING'
-elif [[ "$api_key_ready" != '1' ]]; then
-  blocker='API_DELIVERY_KEY_MISSING'
-elif [[ "$key_match" != '1' ]]; then
-  blocker='DELIVERY_KEY_MISMATCH'
-elif [[ "$mail_ready" != '1' ]]; then
-  blocker='WEB_MAIL_CHANNEL_MISSING'
-else
-  case "$incident_class" in
-    CONFIGURATION_ERROR) blocker='INCIDENT_CONFIGURATION_ERROR' ;;
-    API_FAILURE) blocker="INCIDENT_UPSTREAM_${incident_detail}" ;;
-    TRANSPORT_FAILURE) blocker="INCIDENT_TRANSPORT_${incident_detail}" ;;
-    DELIVERY_FAILED) blocker="INCIDENT_MAIL_${incident_detail}" ;;
-    ACCEPTED_WITHOUT_DELIVERY) blocker='INCIDENT_ACCEPTED_WITHOUT_DELIVERY' ;;
-    DELIVERY_OK) blocker='RESET_WORKFLOW_EVIDENCE_MISMATCH' ;;
-    NOT_FOUND) blocker='INCIDENT_EVENT_NOT_FOUND' ;;
-    AMBIGUOUS) blocker='INCIDENT_AMBIGUOUS' ;;
-  esac
+historic='NO_CHALLENGE_IN_FAILED_WINDOWS'
+if (( combined_challenges > 0 )); then
+  historic='CHALLENGE_CREATED_IN_FAILED_WINDOWS'
 fi
-[[ "$blocker" =~ ^[A-Z0-9_]{1,96}$ ]]
+fresh='NO'
+blocker='NONE'
+if (( password_ready != 0 )); then
+  blocker='PASSWORD_ALREADY_READY'
+elif (( unexpired_pending > 0 )); then
+  blocker='UNEXPIRED_RESET_EXISTS'
+elif [[ "$latest_status" == 'CONSUMED' ]]; then
+  blocker='CONSUMED_CHALLENGE_WITH_PASSWORD_NOT_READY'
+else
+  fresh='YES'
+fi
 
 guard_main
-gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset incident diagnostic
+gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer reset durable incident diagnostic
 
-- incident run: \`$INCIDENT_RUN_ID\`
-- incident window UTC: \`$INCIDENT_SINCE .. $INCIDENT_UNTIL\`
+- failed reset runs: \`$FIRST_RUN_ID, $SECOND_RUN_ID\`
 - exact diagnostic main: \`$TARGET_SHA\`
-- inspected deployed revision: \`$deployed_revision\`
+- inspected deployed revision: \`$EXPECTED_DEPLOYED_SHA\`
 - result: \`PASS_READ_ONLY_CLASSIFIED\`
-- API URL configured: \`$api_url_ready\`
-- web delivery key ready: \`$web_key_ready\`
-- API delivery key ready: \`$api_key_ready\`
-- delivery keys match: \`$key_match\`
-- Resend ready: \`$resend_ready\`
-- SMTP ready: \`$smtp_ready\`
-- transactional mail ready: \`$mail_ready\`
-- incident class: \`$incident_class\`
-- incident safe detail: \`$incident_detail\`
-- unique correlation count: \`$correlation_count\`
-- relevant event count: \`$event_count\`
+- first-window challenges: \`$first_challenges\`
+- second-window challenges: \`$second_challenges\`
+- combined-window challenges: \`$combined_challenges\`
+- first-window CHALLENGE_ISSUED audit: \`$first_issued\`
+- second-window CHALLENGE_ISSUED audit: \`$second_issued\`
+- first-window COOLDOWN_ACTIVE audit: \`$first_cooldown\`
+- second-window COOLDOWN_ACTIVE audit: \`$second_cooldown\`
+- other reviewer reset audit events in combined window: \`$other_audit\`
+- current password ready: \`$password_ready\`
+- current unexpired pending reset challenges: \`$unexpired_pending\`
+- latest challenge status: \`$latest_status\`
+- latest challenge expired by clock: \`$latest_expired\`
+- historical mutation class: \`$historic\`
+- fresh reset safe now: \`$fresh\`
 - blocker: \`$blocker\`
 - reviewer identity exposure: \`NONE\`
+- token/hash/user-id output: \`NONE\`
 - auth/reset request replay: \`NONE\`
 - production mutation: \`NONE\`
-- raw environment/log output: \`NOT_PUBLISHED\`" >/dev/null
-
+- raw database/runtime output: \`NOT_PUBLISHED\`" >/dev/null
 result_published=1
-stage='DONE'
-printf 'P0_REVIEWER_RESET_INCIDENT_DIAGNOSTIC=PASS\n'
