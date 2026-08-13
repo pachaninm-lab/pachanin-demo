@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "diag/p0-reviewer-reset-subject-acl-3785",
   "status": "active",
-  "operationalStatus": "P0_REVIEWER_RESET_SUBJECT_ACL_DIAGNOSTIC_BOUNDED",
+  "operationalStatus": "P0_REVIEWER_RESET_SUBJECT_ACL_DIAGNOSTIC_EXACT_CURRENT_MAIN",
   "issue": 3785,
   "allowedPaths": [
     ".github/workflows/production-p0-reviewer-reset-subject-diagnostic.yml",
@@ -23,7 +23,7 @@
     "newRecurringCostRub": 0
   },
   "acceptance": [
-    "the owner-only diagnostic targets the already-deployed reviewer-reset bridge revision and fails closed if production has moved",
+    "the owner-only diagnostic requires its checked-out source SHA and deployed API/Web revisions to equal exact current main and fails closed on any drift",
     "the diagnostic reads only PostgreSQL catalog privilege/policy metadata and invokes the existing reset-subject function as a boolean probe",
     "no reviewer email, identifier, password hash, reset token, TOTP secret, cookie, bearer token, database URL or raw database message is published",
     "pc_staff_runtime remains table-free and no SET ROLE, BYPASSRLS, SUPERUSER or direct reviewer-row access is introduced",
