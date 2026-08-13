@@ -115,3 +115,16 @@ export function completeAnswer(session: GektaAnonymousSession, ticket: string): 
   if (!session.pending || session.pending !== ticket) return session;
   return { ...session, used: session.used + 1, pending: null };
 }
+
+/**
+ * Admit the reserved generation itself, not a later client-reported callback.
+ * The ticket is single-use in the signed session carried by the browser, so a
+ * direct chat POST without a reservation cannot bypass the free-answer gate.
+ */
+export function admitReservedAnswer(
+  session: GektaAnonymousSession,
+  ticket: string,
+): GektaAnonymousSession | null {
+  if (!ticket || session.pending !== ticket) return null;
+  return { ...session, used: session.used + 1, pending: null };
+}
