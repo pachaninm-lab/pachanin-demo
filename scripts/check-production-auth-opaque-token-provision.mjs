@@ -96,6 +96,12 @@ requireAll('workflow', [
   'git fetch --no-tags origin main',
   '[[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]',
   '[[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]',
+  'assert_bounded_worktree(){',
+  'git diff --no-ext-diff --quiet --',
+  'git diff --cached --no-ext-diff --quiet --',
+  "while IFS= read -r -d '' untracked; do",
+  '[[ "$untracked" == "$EVIDENCE_DIR/"* ]]',
+  'git ls-files --others --exclude-standard -z',
   'git merge-base --is-ancestor "$active_revision" "$TARGET_SHA"',
   'AUTH_HASH_IMPACT_PREFLIGHT=(SAFE_EMPTY_PERSISTED_GENERIC_HASH_STATE|NO_MUTATION_CURRENT_AUTHORITY)',
   'AUTH_GENERIC_HASH_PEPPER_PROVISION=(EXISTING|MIGRATED)',
@@ -134,6 +140,7 @@ const workflowScpIndex = content.workflow?.indexOf('scp "${scp_common[@]}" scrip
 const workflowMutationIndex = content.workflow?.indexOf('"chmod 0700 \'$remote_script\' && \'$remote_script\' provision"') ?? -1;
 const workflowPreMutationFetchIndex = content.workflow?.lastIndexOf('git fetch --no-tags origin main', workflowMutationIndex) ?? -1;
 const workflowPostMutationFetchIndex = content.workflow?.indexOf('git fetch --no-tags origin main', workflowMutationIndex) ?? -1;
+const boundedWorktreeCalls = content.workflow?.match(/^          assert_bounded_worktree$/gm) ?? [];
 if (
   workflowScpIndex < 0 ||
   workflowPreMutationFetchIndex <= workflowScpIndex ||
@@ -141,6 +148,9 @@ if (
   workflowPostMutationFetchIndex <= workflowMutationIndex
 ) {
   failures.push(`${paths.workflow}: exact main must be fetched immediately before and after the bounded remote operation`);
+}
+if (boundedWorktreeCalls.length !== 3) {
+  failures.push(`${paths.workflow}: bounded worktree guard must run before copy, immediately before mutation and after mutation`);
 }
 
 for (const filePath of [paths.executor, paths.provisioner]) {
@@ -379,15 +389,66 @@ printf '%s:0:0\\n' "$mode"
   fs.rmSync(mockRoot, { recursive: true, force: true });
 }
 
+const guardStart = content.workflow?.indexOf('          assert_bounded_worktree(){\n') ?? -1;
+const guardEnd = guardStart < 0 ? -1 : content.workflow.indexOf('\n          }\n', guardStart);
+if (guardStart < 0 || guardEnd < 0) {
+  failures.push(`${paths.workflow}: bounded worktree guard function could not be extracted`);
+} else {
+  const guardScript = content.workflow
+    .slice(guardStart, guardEnd + '\n          }'.length)
+    .split('\n')
+    .map((line) => line.slice(10))
+    .join('\n');
+  const guardRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-auth-key-worktree-'));
+  const guardEnv = { ...process.env, EVIDENCE_DIR: 'artifacts/production-auth-opaque-token-key' };
+  const git = (...args) => spawnSync('git', args, { cwd: guardRoot, encoding: 'utf8' });
+  const runGuard = () => spawnSync('bash', ['-Eeuo', 'pipefail', '-c', `${guardScript}\nassert_bounded_worktree`], {
+    cwd: guardRoot,
+    env: guardEnv,
+    encoding: 'utf8',
+  });
+  try {
+    if (git('init', '-q').status !== 0 || git('config', 'user.email', 'fixture@example.invalid').status !== 0 || git('config', 'user.name', 'Fixture').status !== 0) {
+      failures.push(`${paths.workflow}: bounded worktree fixture git initialization failed`);
+    } else {
+      const tracked = path.join(guardRoot, 'tracked.txt');
+      fs.writeFileSync(tracked, 'baseline\n');
+      git('add', 'tracked.txt');
+      git('commit', '-qm', 'fixture');
+      if (runGuard().status !== 0) failures.push(`${paths.workflow}: clean worktree did not pass bounded guard`);
+
+      const evidenceDir = path.join(guardRoot, guardEnv.EVIDENCE_DIR);
+      fs.mkdirSync(evidenceDir, { recursive: true });
+      fs.writeFileSync(path.join(evidenceDir, 'evidence.txt'), 'safe evidence\n');
+      if (runGuard().status !== 0) failures.push(`${paths.workflow}: exact evidence subtree was rejected by bounded guard`);
+
+      const unexpected = path.join(guardRoot, 'unexpected.txt');
+      fs.writeFileSync(unexpected, 'unexpected\n');
+      if (runGuard().status === 0) failures.push(`${paths.workflow}: unexpected untracked path passed bounded guard`);
+      fs.rmSync(unexpected);
+
+      fs.writeFileSync(tracked, 'mutated\n');
+      if (runGuard().status === 0) failures.push(`${paths.workflow}: tracked worktree mutation passed bounded guard`);
+      git('add', 'tracked.txt');
+      if (runGuard().status === 0) failures.push(`${paths.workflow}: staged worktree mutation passed bounded guard`);
+    }
+  } finally {
+    fs.rmSync(guardRoot, { recursive: true, force: true });
+  }
+}
+
 try {
   const scope = JSON.parse(content.scope ?? '{}');
   const expectedPaths = Object.values(paths).sort();
   if (scope.branch !== 'agent/production-auth-key-discovery-3727') failures.push(`${paths.scope}: branch mismatch`);
-  if (scope.authorityBaseExactMain !== 'c5e83f1d066311937260af81a374b0b124b5aa57') failures.push(`${paths.scope}: exact-main authority mismatch`);
+  if (scope.authorityBaseExactMain !== '1ce8c51c1545024e4df3b5faa603b900891f523a') failures.push(`${paths.scope}: exact-main authority mismatch`);
   if (scope.impactClassifierRun !== 31728508551) failures.push(`${paths.scope}: impact classifier run mismatch`);
   if (scope.impactEvidenceComment !== 5284486928) failures.push(`${paths.scope}: impact evidence comment mismatch`);
   if (scope.impactProductionRevision !== '65303fa3c2268a7f9db59e76b76412933174ebd2') failures.push(`${paths.scope}: impact production revision mismatch`);
   if (scope.impactCompatibilityClass !== 'SAFE_EMPTY_PERSISTED_GENERIC_HASH_STATE') failures.push(`${paths.scope}: impact compatibility class mismatch`);
+  if (JSON.stringify(scope.preMutationFailureRuns) !== JSON.stringify([31730301382, 31730387466])) failures.push(`${paths.scope}: pre-mutation failure runs mismatch`);
+  if (scope.preMutationFailureClass !== 'LOCAL_EVIDENCE_WORKTREE_GUARD') failures.push(`${paths.scope}: pre-mutation failure class mismatch`);
+  if (scope.preMutationFailureProof !== 'REMOTE_SCRIPT_NOT_EXECUTED_AND_PRODUCTION_MUTATION_NONE') failures.push(`${paths.scope}: pre-mutation failure proof mismatch`);
   if (scope.productionHosting !== 'REG_RU_VPS_ONLY') failures.push(`${paths.scope}: production hosting mismatch`);
   if (scope.newRecurringCostRub !== 0) failures.push(`${paths.scope}: recurring cost must be zero`);
   if (JSON.stringify([...(scope.allowedPaths ?? [])].sort()) !== JSON.stringify(expectedPaths)) {
