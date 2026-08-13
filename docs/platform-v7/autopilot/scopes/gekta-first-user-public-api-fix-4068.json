@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-first-user-public-api-fix-4068",
+  "branch": "agent/gekta-first-user-public-api-fix-4068",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "65303fa3c2268a7f9db59e76b76412933174ebd2"
+  },
+  "purpose": "Restore the first-user Gekta journey for a visitor without any platform session by admitting only the exact anonymous entitlement route through middleware, while retaining route-level signed quota and same-origin enforcement. Repair the bounded production evidence scan so a real acceptance result can be retained without weakening its protected-material checks.",
+  "allowedPaths": [
+    ".github/workflows/production-gekta-first-user-acceptance.yml",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/gektaEntitlement.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-first-user-public-api-fix-4068.json",
+    "scripts/check-production-gekta-first-user-acceptance.mjs"
+  ],
+  "forbiddenChanges": [
+    "a broad public /api/gekta prefix",
+    "weakened anonymous quota signatures, limits or same-origin enforcement",
+    "public account, operator or owner APIs",
+    "billing, SMS, payments, NPD or acquiring",
+    "credential, token, email, password, MFA secret or cookie output",
+    "production mutation outside the existing protected first-user workflow"
+  ],
+  "requiredChecks": [
+    "Gekta entitlement unit regression",
+    "production first-user contract checker",
+    "workflow YAML syntax validation",
+    "platform-v7 source-controlled scope guard",
+    "exact-main protected release and live first-user acceptance"
+  ],
+  "deploymentState": "not-deployed"
+}
