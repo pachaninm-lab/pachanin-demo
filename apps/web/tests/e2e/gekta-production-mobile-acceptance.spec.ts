@@ -121,7 +121,7 @@ test.describe('Gekta exact production mobile acceptance', () => {
       expect(Number.isFinite(visualViewport.cssHeight)).toBe(true);
       expect(Math.abs(visualViewport.cssHeight - visualViewport.actualHeight)).toBeLessThanOrEqual(2);
 
-      await expectTargetsAtLeast(page.locator('[data-gekta-chat-workspace="true"] header button:visible'), 44);
+      await expectTargetsAtLeast(page.locator('[data-gekta-chat-workspace="true"] header button:visible, [data-gekta-chat-workspace="true"] header a:visible'), 44);
       await expectTargetsAtLeast(page.locator('[data-gekta-chat-workspace="true"] button[aria-label="Прикрепить файл"]:visible, [data-gekta-chat-workspace="true"] button[aria-label="Отправить"]:visible'), 44);
       await expectTargetsAtLeast(page.locator('[data-gekta-role="assistant"] button:visible'), 44);
 
