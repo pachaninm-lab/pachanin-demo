@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-web-container-smtp-protected-input-classifier-3785",
+  "status": "active",
+  "operationalStatus": "P0_MAILBOX_PROTECTED_INPUT_CLASSIFIER",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify protected acceptance-mailbox input shape without disclosure or production access",
+  "allowedPaths": [
+    ".github/workflows/production-p0-mailbox-protected-input-classifier.yml",
+    "scripts/production-p0-mailbox-protected-input-classifier.sh",
+    "scripts/check-production-p0-mailbox-protected-input-classifier.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-mailbox-protected-input-classifier-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "passwordResetRequest": false,
+    "credentialMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "runtimeFileMutation": false,
+    "deploymentMutation": false,
+    "mailSend": false,
+    "smtpAccess": false,
+    "imapAccess": false,
+    "sshAccess": false,
+    "webContainerAccess": false,
+    "reviewerIdentityAccess": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "secretMetadataOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the classifier is owner-only and bound to release issue 3072 and registration matrix 3785",
+    "the classifier applies the same protected mailbox user, password and recipient-template shape checks used by the Web-container SMTP delivery proof",
+    "only one whitelisted categorical reason code is published",
+    "secret values, lengths, hashes, mailbox identity, recipient template and credentials are never published",
+    "SMTP, IMAP, SSH, Web-container, database, runtime and deployment access are not performed",
+    "reviewer identity, reviewer reset, password, TOTP and session material are not accessed",
+    "the exact current main guard is checked before and after classification",
+    "new recurring cost remains 0 RUB",
+    "a final main drift suppresses publication and cannot emit stale PASS evidence"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
