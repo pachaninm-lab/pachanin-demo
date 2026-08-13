@@ -72,11 +72,12 @@ for (const forbidden of [
 
 for (const needle of [
   'const MAIL_TIMEOUT_MS = 5_000;',
-  "command(socket, 'EHLO transparent-price.local'",
-  'AUTH PLAIN ${Buffer.from',
-  'MAIL FROM:<${from}>',
-  'RCPT TO:<${mail.to}>',
-  "command(socket, 'DATA', [354])",
+  "'EHLO transparent-price.local'",
+  '`AUTH PLAIN ${Buffer.from(',
+  '`MAIL FROM:<${from}>`',
+  '`RCPT TO:<${mail.to}>`',
+  "'DATA', [354]",
+  'socket.write(`${mime}\\r\\n.\\r\\n`);',
   'MAIL_TIMEOUT_MS + 2_500',
 ]) requireText(mail, needle, 'transactional-mail');
 
