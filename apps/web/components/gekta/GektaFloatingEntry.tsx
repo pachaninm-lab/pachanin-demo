@@ -10,9 +10,9 @@ const LABEL: Record<GektaLocale, string> = {
  * Icon-only floating entry point to the standalone Gekta product.
  *
  * It is a plain server-rendered anchor: no hydration cost on the marketing
- * surface, and it still disappears whenever a modal dialog owns the screen so a
- * second floating control never duplicates an already-open conversation UI.
- * It is offset above the shared public contact dock so neither overlaps.
+ * surface. When the shared contact dock is mounted, that dock is the single
+ * floating help/AI surface and this shortcut yields to it instead of creating
+ * two competing controls in the same corner.
  */
 export function GektaFloatingEntry({ locale }: { locale: GektaLocale }) {
   return (
@@ -65,7 +65,9 @@ const FLOATING_ENTRY_STYLES = `
   outline: 3px solid #087a3b;
   outline-offset: 3px;
 }
-/* An open modal dialog owns the screen: never stack a second entry point on it. */
+/* One floating surface per page. The shared dock already contains the Gekta,
+   support and call actions, so a second circular G would be redundant. */
+body:has(.pc-public-contact-dock) .pc-gekta-floating,
 body:has([role='dialog'][aria-modal='true']) .pc-gekta-floating,
 body:has(.pc-public-assistant-panel) .pc-gekta-floating {
   display: none;
