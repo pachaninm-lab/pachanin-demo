@@ -20,7 +20,6 @@
     "apps/web/components/gekta/GektaSidebar.tsx",
     "apps/web/components/gekta/GektaProjectList.tsx",
     "apps/web/components/gekta/GektaFloatingEntry.tsx",
-    "apps/web/components/platform-v7/PlatformV7HomeMobileDensity.css",
     "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
     "docs/platform-v7/autopilot/scopes/gekta-mobile-ux-redteam-4018.json"
   ],
