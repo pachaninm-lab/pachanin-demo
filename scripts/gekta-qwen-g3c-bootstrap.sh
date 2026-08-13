@@ -13,7 +13,7 @@ SUDOERS='/etc/sudoers.d/gekta-qwen-g3c'
 DROPIN='/etc/systemd/system/tai-qwen3-8b.service.d/99-gekta-g3c.conf'
 LEGACY_DROPIN='/etc/systemd/system/tai-qwen3-8b.service.d/100-gekta-g3c.conf'
 STATE_DIR='/var/lib/gekta-qwen-g3c'
-PREVIOUS_WRAPPER_GIT_BLOB_SHA='d37a95712969f15d7e8405ba78cb98bcfa62c108'
+PREVIOUS_WRAPPER_SHA256='dbab076f9515a493e081b7eefc2ce00666a31637ddce8af9923adc1165b25786'
 
 fail(){ printf 'GEKTA_G3C_BOOTSTRAP_ERROR=%s\n' "$1" >&2; exit 1; }
 [[ "$EUID" -eq 0 ]] || fail root_required
@@ -36,18 +36,6 @@ service_user="$($SYSTEMCTL show "$SERVICE" --property=User --value)"
 [[ "$service_user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$service_user" != root ]] || fail service_user_invalid
 id "$service_user" >/dev/null 2>&1 || fail service_user_missing
 case "$($SYSTEMCTL show "$SERVICE" --property=Type --value)" in simple|exec) ;; *) fail unsupported_service_type ;; esac
-
-git_blob_sha(){
-  "$PYTHON3" - "$1" <<'PY'
-import hashlib
-import pathlib
-import sys
-
-data = pathlib.Path(sys.argv[1]).read_bytes()
-prefix = b"blob " + str(len(data)).encode("ascii") + b"\0"
-print(hashlib.sha1(prefix + data).hexdigest())
-PY
-}
 
 stage="$(mktemp -d)"; self="$(mktemp)"; sudoers_tmp=''
 trap 'rm -rf "$stage"; rm -f "$self" "$sudoers_tmp" 2>/dev/null || true' EXIT
@@ -81,8 +69,8 @@ if [[ -e "$TARGET" ]]; then
     # Exact audited v1 -> v2 controller upgrade. The G3C state was proven clean
     # above, so replacing the dormant helper cannot restart the model service.
     "$INSTALL" -o root -g root -m 0755 "$HELPER_SOURCE" "$TARGET"
-  elif [[ "$(git_blob_sha "$TARGET")" == "$PREVIOUS_WRAPPER_GIT_BLOB_SHA" ]]; then
-    # Exact audited v2 -> precedence-fixed v2 upgrade. The previous blob is
+  elif [[ "$($SHA256SUM "$TARGET" | awk '{print $1}')" == "$PREVIOUS_WRAPPER_SHA256" ]]; then
+    # Exact audited v2 -> precedence-fixed v2 upgrade. The previous SHA-256 is
     # pinned to the repository version already installed and proven in live G3C
     # runs. Clean G3C state above guarantees this dormant file replacement does
     # not restart or mutate the model service.
