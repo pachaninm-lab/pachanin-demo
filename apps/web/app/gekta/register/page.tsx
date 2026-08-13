@@ -10,10 +10,11 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-type Props = Readonly<{ searchParams: Promise<{ lang?: string }> }>;
+type Props = Readonly<{ searchParams: Promise<{ lang?: string; confirm?: string }> }>;
 
 export default async function GektaRegisterPage({ searchParams }: Props) {
-  const { lang } = await searchParams;
+  const { lang, confirm } = await searchParams;
   const locale: GektaLocale = lang === 'en' || lang === 'zh' ? lang : 'ru';
-  return <GektaRegistrationClient initialLocale={locale} />;
+  const initialEmailConfirmation = confirm === 'email' || confirm === 'invalid' ? confirm : null;
+  return <GektaRegistrationClient initialLocale={locale} initialEmailConfirmation={initialEmailConfirmation} />;
 }

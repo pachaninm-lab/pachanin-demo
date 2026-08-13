@@ -8,6 +8,7 @@ import {
   gektaAuthJson,
   gektaForwardHeaders,
   registrationDeliveryKey,
+  readGektaAuthJson,
   safeLocale,
   validEmail,
 } from '@/lib/server/gekta-auth-route';
@@ -47,20 +48,26 @@ export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
   if (!assertCsrf(request).ok) return gektaAuthJson({ accepted: false, code: 'CSRF_REJECTED', correlationId }, 403);
 
-  const body = await request.json().catch(() => ({} as Record<string, unknown>));
+  const body = await readGektaAuthJson(request);
+  if (!body) return gektaAuthJson({ accepted: false, code: 'REGISTRATION_REQUEST_INVALID', correlationId }, 400);
   const email = String(body.email || '').trim().toLowerCase();
   const fullName = String(body.fullName || '').trim();
   const phone = String(body.phone || '').trim();
   const password = String(body.password || '');
   const locale = safeLocale(body.locale);
+  const passwordClasses = [/[a-z]/u, /[A-Z]/u, /\d/u, /[^A-Za-z0-9]/u]
+    .filter((pattern) => pattern.test(password)).length;
+  const phoneDigits = phone.replace(/\D/gu, '');
   if (
     !validEmail(email)
     || fullName.length < 2
     || fullName.length > 120
-    || phone.length < 8
     || phone.length > 32
+    || phoneDigits.length < 10
+    || phoneDigits.length > 15
     || password.length < 12
     || password.length > 128
+    || passwordClasses < 3
     || body.acceptedServiceTerms !== true
     || body.acceptedPersonalData !== true
   ) {
@@ -92,8 +99,12 @@ export async function POST(request: Request) {
         acceptedPersonalData: true,
       }),
       cache: 'no-store',
+      redirect: 'manual',
       signal: AbortSignal.timeout(GEKTA_AUTH_TIMEOUT_MS),
     });
+    if (response.status >= 300 && response.status < 400) {
+      return gektaAuthJson({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 502);
+    }
     const payload = await response.json().catch(() => ({} as ApiPayload)) as ApiPayload;
     if (!response.ok) {
       const status = response.status === 429 ? 429 : response.status >= 500 ? 503 : 400;
@@ -113,8 +124,8 @@ export async function POST(request: Request) {
     if (delivery?.email && delivery.token) {
       const origin = resolveRequestTargetOrigin(request);
       if (!origin) return gektaAuthJson({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 503);
-      const verifyUrl = new URL('/gekta/register', origin);
-      verifyUrl.searchParams.set('verify', delivery.token);
+      const verifyUrl = new URL('/api/gekta/auth/email/verify', origin);
+      verifyUrl.searchParams.set('token', delivery.token);
       verifyUrl.searchParams.set('lang', locale);
       const copy = COPY[locale];
       const delivered = await sendTransactionalMail({
@@ -129,6 +140,9 @@ export async function POST(request: Request) {
         provider: delivered.provider,
         reason: delivered.reason,
       }));
+      if (!delivered.delivered) {
+        return gektaAuthJson({ accepted: false, code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE', correlationId }, 503);
+      }
     } else {
       // Unknown/already-used email and a newly accepted email deliberately have
       // the same public response. The bearer token never crosses this BFF.

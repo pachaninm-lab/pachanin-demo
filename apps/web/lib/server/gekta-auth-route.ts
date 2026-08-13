@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 export const GEKTA_AUTH_TIMEOUT_MS = 7_000;
+const GEKTA_AUTH_MAX_JSON_BYTES = 16 * 1_024;
 
 export function gektaAuthJson(body: Record<string, unknown>, status = 200): NextResponse {
   return NextResponse.json(body, {
@@ -12,6 +13,21 @@ export function gektaAuthJson(body: Record<string, unknown>, status = 200): Next
       'X-Content-Type-Options': 'nosniff',
     },
   });
+}
+
+export async function readGektaAuthJson(request: Request): Promise<Record<string, unknown> | null> {
+  const declared = Number(request.headers.get('content-length') || 0);
+  if (Number.isFinite(declared) && declared > GEKTA_AUTH_MAX_JSON_BYTES) return null;
+  try {
+    const text = await request.text();
+    if (!text || Buffer.byteLength(text, 'utf8') > GEKTA_AUTH_MAX_JSON_BYTES) return null;
+    const value = JSON.parse(text) as unknown;
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export function gektaApiBase(): string {
@@ -56,5 +72,5 @@ export function safeLocale(value: unknown): 'ru' | 'en' | 'zh' {
 }
 
 export function validEmail(value: string): boolean {
-  return value.length <= 320 && /^\S+@\S+\.\S+$/u.test(value);
+  return value.length <= 254 && /^\S+@\S+\.\S+$/u.test(value);
 }

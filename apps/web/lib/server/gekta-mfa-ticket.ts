@@ -1,7 +1,9 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 
 export const GEKTA_MFA_PENDING_COOKIE = 'gekta_mfa_pending';
 export const GEKTA_MFA_PENDING_TTL_SECONDS = 10 * 60;
+export const GEKTA_EMAIL_PENDING_COOKIE = 'gekta_email_pending';
+export const GEKTA_EMAIL_PENDING_TTL_SECONDS = 30 * 60;
 
 export type GektaMfaTicket = Readonly<{
   v: 1;
@@ -15,13 +17,33 @@ export type GektaMfaTicket = Readonly<{
 }>;
 
 const AAD = Buffer.from('gekta-mfa-ticket-v1', 'utf8');
+const EMAIL_AAD = Buffer.from('gekta-email-ticket-v1', 'utf8');
+const KEY_SALT = Buffer.from('transparent-price/gekta/auth-ticket/v1', 'utf8');
+
+function deriveTicketKey(secret: string, purpose: string): Buffer {
+  return Buffer.from(hkdfSync(
+    'sha256',
+    Buffer.from(secret, 'utf8'),
+    KEY_SALT,
+    Buffer.from(purpose, 'utf8'),
+    32,
+  ));
+}
 
 function key(env: NodeJS.ProcessEnv = process.env): Buffer {
   const secret = String(env.MFA_LOGIN_TICKET_SECRET || '').trim();
   if (secret.length < 32) {
     throw new Error('MFA_LOGIN_TICKET_SECRET must contain at least 32 characters');
   }
-  return createHash('sha256').update(`gekta:${secret}`, 'utf8').digest();
+  return deriveTicketKey(secret, 'mfa-challenge');
+}
+
+function emailKey(env: NodeJS.ProcessEnv = process.env): Buffer {
+  const secret = String(env.MFA_LOGIN_TICKET_SECRET || '').trim();
+  if (secret.length < 32) {
+    throw new Error('MFA_LOGIN_TICKET_SECRET must contain at least 32 characters');
+  }
+  return deriveTicketKey(secret, 'email-verification');
 }
 
 function canonicalBase64Url(value: string, expectedBytes?: number): Buffer | null {
@@ -36,10 +58,63 @@ function validInput(input: Omit<GektaMfaTicket, 'v' | 'exp'>): boolean {
   return input.challengeToken.length >= 16
     && input.challengeToken.length <= 1_024
     && /^\S+@\S+\.\S+$/u.test(input.email)
-    && input.email.length <= 320
+    && input.email.length <= 254
+    && (input.enrollment
+      ? Boolean(input.setupSecret && input.otpAuthUri)
+      : input.setupSecret === undefined && input.otpAuthUri === undefined)
     && (input.setupSecret === undefined || (input.setupSecret.length >= 8 && input.setupSecret.length <= 256))
     && (input.otpAuthUri === undefined || (input.otpAuthUri.startsWith('otpauth://') && input.otpAuthUri.length <= 2_048))
     && (input.declaredPhone === undefined || (input.declaredPhone.length >= 8 && input.declaredPhone.length <= 32));
+}
+
+export function sealGektaEmailTicket(
+  token: string,
+  nowSeconds = Math.floor(Date.now() / 1_000),
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  if (token.length < 32 || token.length > 1_024) throw new Error('Invalid Gekta email ticket input');
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', emailKey(env), iv);
+  cipher.setAAD(EMAIL_AAD);
+  const ciphertext = Buffer.concat([
+    cipher.update(JSON.stringify({ v: 1, token, exp: nowSeconds + GEKTA_EMAIL_PENDING_TTL_SECONDS }), 'utf8'),
+    cipher.final(),
+  ]);
+  return ['e1', iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), ciphertext.toString('base64url')].join('.');
+}
+
+export function openGektaEmailTicket(
+  value: string,
+  nowSeconds = Math.floor(Date.now() / 1_000),
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  try {
+    const [version, ivRaw, tagRaw, payloadRaw, extra] = String(value || '').split('.');
+    if (version !== 'e1' || !ivRaw || !tagRaw || !payloadRaw || extra || payloadRaw.length > 4_096) return null;
+    const iv = canonicalBase64Url(ivRaw, 12);
+    const tag = canonicalBase64Url(tagRaw, 16);
+    const ciphertext = canonicalBase64Url(payloadRaw);
+    if (!iv || !tag || !ciphertext || ciphertext.length === 0) return null;
+    const decipher = createDecipheriv('aes-256-gcm', emailKey(env), iv);
+    decipher.setAAD(EMAIL_AAD);
+    decipher.setAuthTag(tag);
+    const payload = JSON.parse(Buffer.concat([
+      decipher.update(ciphertext),
+      decipher.final(),
+    ]).toString('utf8')) as { v?: unknown; token?: unknown; exp?: unknown };
+    if (
+      payload.v !== 1
+      || typeof payload.token !== 'string'
+      || payload.token.length < 32
+      || payload.token.length > 1_024
+      || typeof payload.exp !== 'number'
+      || payload.exp <= nowSeconds
+      || payload.exp - nowSeconds > GEKTA_EMAIL_PENDING_TTL_SECONDS
+    ) return null;
+    return payload.token;
+  } catch {
+    return null;
+  }
 }
 
 export function sealGektaMfaTicket(
@@ -129,6 +204,27 @@ export function clearGektaMfaCookieOptions(env: NodeJS.ProcessEnv = process.env)
     secure: env.NODE_ENV === 'production',
     sameSite: 'strict' as const,
     path: '/api/gekta/auth',
+    expires: new Date(0),
+    maxAge: 0,
+  };
+}
+
+export function gektaEmailCookieOptions(env: NodeJS.ProcessEnv = process.env) {
+  return {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'strict' as const,
+    path: '/api/gekta/auth/email/verify',
+    maxAge: GEKTA_EMAIL_PENDING_TTL_SECONDS,
+  };
+}
+
+export function clearGektaEmailCookieOptions(env: NodeJS.ProcessEnv = process.env) {
+  return {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'strict' as const,
+    path: '/api/gekta/auth/email/verify',
     expires: new Date(0),
     maxAge: 0,
   };
