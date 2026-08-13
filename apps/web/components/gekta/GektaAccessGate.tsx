@@ -80,6 +80,12 @@ function formatExpiry(locale: GektaLocale, iso: string): string {
   return new Date(iso).toLocaleDateString(DATE_LOCALE[locale], { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+function localizedRegistrationUrl(value: string, locale: GektaLocale): string {
+  const url = new URL(value, 'https://gekta.local');
+  url.searchParams.set('lang', locale);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 /**
  * Строка состояния доступа: остаток бесплатных ответов в анонимном режиме или
  * дата окончания пробного доступа. Оба значения приходят с сервера.
@@ -177,7 +183,7 @@ export function GektaAccessGate({ locale, registrationUrl, entitlement, billingE
             <div className='mt-4 flex flex-wrap gap-3'>
               {registrationUrl ? (
                 <a
-                  href={registrationUrl}
+                  href={localizedRegistrationUrl(registrationUrl, locale)}
                   className='inline-flex min-h-11 items-center rounded-full bg-emerald-800 px-5 text-sm font-semibold text-white hover:bg-emerald-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
                   data-gekta-registration-cta='true'
                 >
