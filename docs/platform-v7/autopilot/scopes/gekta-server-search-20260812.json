@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-server-search-20260812",
+  "branch": "claude/gekta-server-search",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "codex/gekta-registration-ui",
+    "commit": "4ce1a6fb653649ab515cfa1f6af9166bbb5fe495"
+  },
+  "purpose": "Поиск по истории Гекты фильтровал только загруженную страницу, а сервер отдаёт последние 200 диалогов: всё, что старше, найти было нельзя. Клиент подключается к уже существующему серверному поиску — debounced, с отменой устаревшего запроса, ограничением длины запроса и состояниями загрузки, ошибки и пустого результата на RU/EN/ZH. Второй поисковый backend не создаётся: используются существующие эндпоинт и мост.",
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/components/gekta/GektaSidebar.tsx",
+    "apps/web/tests/unit/gekta*.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-server-search-20260812.json"
+  ],
+  "forbiddenChanges": [
+    "второй поисковый backend",
+    "поиск по чужим аккаунтам",
+    "перенос проверки владения на клиент",
+    "изменение серверного эндпоинта поиска"
+  ],
+  "requiredChecks": [
+    "web unit-тесты Гекты",
+    "next build",
+    "exact-head CI"
+  ],
+  "deploymentState": "not-deployed"
+}
