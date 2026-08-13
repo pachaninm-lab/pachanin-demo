@@ -48,12 +48,18 @@ for (const needle of [
   "WEB_SMTP_RESPONSE_5000_BUDGET",
   "WEB_SMTP_APP_7500_BUDGET",
   "IMAP_RECEIPT_RESULT",
+  "marker = f'PC-CROP-WEB-DELIVERY-{target_sha[:12]}-{run_id}-{secrets.token_hex(8)}'.upper()",
   "readonly=True",
   "PRODUCTION_MUTATION='NONE'",
   "console.log(`PRODUCTION_MUTATION=${sent ? 'ACCEPTANCE_MAIL_ONLY' : 'NONE'}`);",
   "StrictHostKeyChecking=yes",
   "reviewer identity / reset / password / TOTP / session access: \\`NONE\\`",
 ]) requireText(script, needle, 'script');
+
+const representativeMarker = 'PC-CROP-WEB-DELIVERY-abcdef012345-31703173693-abcdef0123456789'.toUpperCase();
+if (!/^[A-Z0-9-]{20,128}$/.test(representativeMarker)) {
+  fail('normalized acceptance marker does not satisfy its fail-closed transport contract');
+}
 
 const combined = `${workflow}\n${script}`;
 for (const forbidden of [

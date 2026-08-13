@@ -135,7 +135,7 @@ else:
 recipient = ascii_email(recipient)
 if not recipient.endswith('@' + domain):
     raise SystemExit(22)
-marker = f'PC-CROP-WEB-DELIVERY-{target_sha[:12]}-{run_id}-{secrets.token_hex(8)}'
+marker = f'PC-CROP-WEB-DELIVERY-{target_sha[:12]}-{run_id}-{secrets.token_hex(8)}'.upper()
 if not re.fullmatch(r'[A-Z0-9-]{20,128}', marker):
     raise SystemExit(23)
 
