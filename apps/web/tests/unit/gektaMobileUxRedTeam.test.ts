@@ -67,8 +67,10 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(projects).toContain('addDescription');
   });
 
-  it('never stacks a standalone G button on top of the shared public contact dock', () => {
+  it('never stacks a standalone G button on top of public assistant/contact launchers', () => {
     expect(floating).toContain("body:has(.pc-public-contact-dock) .pc-gekta-floating");
+    expect(floating).toContain("body:has(.pc-public-assistant-shortcut) .pc-gekta-floating");
+    expect(floating).toContain("body:has(.p7-support-chat-button) .pc-gekta-floating");
     expect(floating).toContain("body:has([role='dialog'][aria-modal='true']) .pc-gekta-floating");
   });
 });
