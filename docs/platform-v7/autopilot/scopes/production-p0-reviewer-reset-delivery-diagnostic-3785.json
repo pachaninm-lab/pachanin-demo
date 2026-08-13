@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-reset-delivery-substage-31668980756-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_DELIVERY_READ_ONLY_DIAGNOSTIC",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify the failed reviewer password-reset mail delivery without replaying reset or sending mail",
+  "sourceRun": 31667978433,
+  "deployedRevision": "d2dd7972105cc59002263455b5ae0eb8d8f2d386",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-delivery-diagnostic.yml",
+    "scripts/production-p0-reviewer-reset-delivery-diagnostic.sh",
+    "scripts/check-production-p0-reviewer-reset-delivery-diagnostic.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-delivery-diagnostic-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "credentialMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "mailSend": false,
+    "logReadOnly": true,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "diagnostic is owner-only and bound to issue 3072 and source reset run 31667978433",
+    "diagnostic reads only the exact 2026-08-13T04:45:10Z..04:45:24Z web-container log window where the source reset executed",
+    "exactly one password_reset_delivery_result event must exist in the bounded window or the diagnostic fails closed",
+    "production API and web must remain on the independently proven deployed revision d2dd7972105cc59002263455b5ae0eb8d8f2d386",
+    "the deployed revision must remain an ancestor of exact current main throughout the run",
+    "successful classification may expose only delivered flag, final provider and whitelist-derived reason classes",
+    "failed classification may expose only a whitelisted failure substage plus ZERO, ONE, MULTIPLE or UNKNOWN delivery-event cardinality class",
+    "reviewer identity, account hash, correlation id, reset token, raw reason and raw runtime log line must never be published",
+    "the diagnostic sends no email, replays no password reset, executes no database command and mutates no production state",
+    "SSH accepts exactly one host key matching the protected SHA-256 fingerprint and keeps StrictHostKeyChecking=yes",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

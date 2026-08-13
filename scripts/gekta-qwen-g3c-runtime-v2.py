@@ -2,14 +2,11 @@
 """Gekta SPEED #3896 G3C admission-gate v2.
 
 This wrapper preserves the already-audited G3C one-factor controller and changes
-only its memory admission signal. The base controller historically treated any
-system-wide SwapTotal-SwapFree usage as a reason to refuse the experiment. That
-is too broad for a model-process admission gate: unrelated or stale swapped
-pages can exist while llama-server itself has no swapped anonymous private
-memory.
+only its memory admission signal plus the G3C systemd drop-in precedence needed
+to layer after the proven G3B threads16 runtime.
 
-V2 therefore feeds the base controller the llama-server process VmSwap value
-from /proc/<pid>/status while preserving its existing MemAvailable >= 3 GiB
+V2 feeds the base controller the llama-server process VmSwap value from
+/proc/<pid>/status while preserving its existing MemAvailable >= 3 GiB
 threshold, exact argv/environment checks, readiness checks and automatic
 rollback. The ubatch experiment itself remains exactly 128 -> 512.
 """
@@ -25,6 +22,10 @@ import sys
 INSTALLED_WRAPPER = pathlib.Path("/usr/local/sbin/gekta-qwen-g3c")
 INSTALLED_BASE = pathlib.Path("/usr/local/libexec/gekta-qwen-g3c-base.py")
 REPOSITORY_BASE = pathlib.Path(__file__).with_name("gekta-qwen-g3c-runtime.py")
+G3B_DROPIN_NAME = "99-gekta-g3b.conf"
+G3C_DROPIN = pathlib.Path(
+    "/etc/systemd/system/tai-qwen3-8b.service.d/99-gekta-g3c.conf"
+)
 
 
 def _select_base() -> pathlib.Path:
@@ -51,6 +52,9 @@ def _load_base(path: pathlib.Path):
 
 
 base = _load_base(_select_base())
+if G3C_DROPIN.name <= G3B_DROPIN_NAME:
+    raise SystemExit("GEKTA_G3C_ERROR=dropin_precedence_invalid")
+base.DROPIN_PATH = G3C_DROPIN
 _original_mem_facts = base._mem_facts
 
 
@@ -81,6 +85,12 @@ def _model_mem_facts() -> tuple[int, int]:
 base._mem_facts = _model_mem_facts
 
 
+def _dropin_precedence_self_test() -> None:
+    if base.DROPIN_PATH != G3C_DROPIN or G3C_DROPIN.name <= G3B_DROPIN_NAME:
+        raise AssertionError("G3C drop-in must sort after the proven G3B drop-in")
+    print("GEKTA_G3C_DROPIN_PRECEDENCE_SELF_TEST=PASS")
+
+
 def _swap_gate_self_test() -> None:
     base._memory_gate(base.MIN_MEM_AVAILABLE_KB, 0)
     try:
@@ -102,6 +112,7 @@ def _swap_gate_self_test() -> None:
 
 def main() -> int:
     if len(sys.argv) == 2 and sys.argv[1] == "self-test":
+        _dropin_precedence_self_test()
         _swap_gate_self_test()
     return int(base.main())
 
