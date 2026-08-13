@@ -89,7 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           if grep -nE 'secrets\.' .github/workflows/gekta-speed-production-browser-baseline.yml; then
-            echo 'Browser speed baseline must not reference repository secrets.' >&2
+            echo 'Credential reference detected in browser speed workflow.' >&2
             exit 1
           fi
 
