@@ -6,7 +6,8 @@ import type { AuthMailEnvelope } from './auth-mail-crypto';
 const OFFICIAL_HOST = 'mail.hosting.reg.ru';
 const OFFICIAL_PORT = 465;
 const DEFAULT_TIMEOUT_MS = 20_000;
-const PLATFORM_SENDER_ASCII = 'access@xn----8sbjf4befbjgs9b.xn--p1ai';
+const PLATFORM_MAIL_DOMAIN_ASCII = 'xn----8sbjf4befbjgs9b.xn--p1ai';
+const PLATFORM_SENDER_ASCII = `access@${PLATFORM_MAIL_DOMAIN_ASCII}`;
 
 type SmtpConfig = {
   host: string;
@@ -84,12 +85,16 @@ export function resolveAuthMailSmtpConfig(): SmtpConfig {
   const user = asciiMailbox(values.PC_SMTP_USER ?? '').address;
   const from = asciiMailbox(values.PC_MAIL_FROM || values.PC_SMTP_USER || '').address;
   const password = String(values.PC_SMTP_PASS ?? '');
+  const userDomain = user.slice(user.lastIndexOf('@') + 1);
 
   if (host !== OFFICIAL_HOST || port !== OFFICIAL_PORT) {
     throw new Error(`Auth-mail transport must use ${OFFICIAL_HOST}:${OFFICIAL_PORT}`);
   }
-  if (user !== PLATFORM_SENDER_ASCII || from !== PLATFORM_SENDER_ASCII) {
-    throw new Error('Auth-mail transport must authenticate and send as the canonical platform mailbox');
+  if (/[^\x00-\x7F]/.test(user) || userDomain !== PLATFORM_MAIL_DOMAIN_ASCII) {
+    throw new Error('Auth-mail transport must authenticate with an ASCII mailbox on the canonical platform mail domain');
+  }
+  if (from !== PLATFORM_SENDER_ASCII) {
+    throw new Error('Auth-mail transport must send as the canonical platform mailbox');
   }
   if (password.length < 8 || password.length > 512 || /[\r\n\0]/.test(password)) {
     throw new Error('Auth-mail SMTP password has an invalid shape');
