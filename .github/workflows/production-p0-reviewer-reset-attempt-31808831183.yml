@@ -1,0 +1,110 @@
+name: Production P0 Reviewer Reset Attempt 31808831183 Classifier
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-attempt-31808831183.yml'
+      - 'scripts/production-p0-reviewer-reset-attempt-31808831183.sh'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-classifier-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-attempt-31808831183
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate current reviewer reset attempt classifier contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-reviewer-reset-attempt-classify 31808831183 current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate bounded read-only contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const script = fs.readFileSync('scripts/production-p0-reviewer-reset-attempt-31808831183.sh', 'utf8');
+          const scope = fs.readFileSync('docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-classifier-3785.json', 'utf8');
+          const required = [
+            "SOURCE_RUN_ID='31808831183'",
+            "ATTEMPT_SINCE='2026-08-14T14:18:35Z'",
+            "ATTEMPT_UNTIL='2026-08-14T14:18:50Z'",
+            "COMMAND='/production p0-reviewer-reset-attempt-classify 31808831183 current-main'",
+            'default_transaction_read_only=on',
+            "'FRESH_RESET_SAFE_BY_CURRENT_DURABLE_STATE'",
+            "'PRODUCTION_MUTATION|NONE'",
+          ];
+          for (const token of required) {
+            if (!script.includes(token)) throw new Error(`missing contract token: ${token}`);
+          }
+          for (const forbidden of [/docker\s+(rm|restart|kill)/, /docker\s+compose\s+up/, /curl[^\n]+forgot-password/, /reset-password[^\n]+--data/]) {
+            if (forbidden.test(script)) throw new Error(`mutation surface detected: ${forbidden}`);
+          }
+          const parsed = JSON.parse(scope);
+          if (parsed.branch !== 'diag/p0-reviewer-reset-attempt-classifier-3785') throw new Error('scope branch mismatch');
+          if (parsed.issue !== 3785 || parsed.releaseIssue !== 3072) throw new Error('scope issue mismatch');
+          if (parsed.boundaries?.productionMutation !== 'NONE' || parsed.boundaries?.resetReplay !== false || parsed.boundaries?.mailSend !== false) {
+            throw new Error('scope mutation boundary mismatch');
+          }
+          NODE
+      - run: bash -n scripts/production-p0-reviewer-reset-attempt-31808831183.sh
+
+  classify:
+    name: Read-only REG.RU current reviewer reset attempt classifier
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-reviewer-reset-attempt-classify 31808831183 current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_REVIEWER_RESET_ATTEMPT_COMMAND: ${{ github.event.comment.body }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Classify failed reset durable state without replay
+        shell: bash
+        run: bash scripts/production-p0-reviewer-reset-attempt-31808831183.sh
