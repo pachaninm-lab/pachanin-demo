@@ -27,6 +27,7 @@ const page = source('apps/web/app/platform-v7/staff/page.tsx');
 const platformLayout = source('apps/web/app/platform-v7/layout.tsx');
 const platformTemplate = source('apps/web/app/platform-v7/template.tsx');
 const proxy = source('apps/web/app/api/staff/[...path]/route.ts');
+const capabilitiesBff = source('apps/web/app/api/staff/capabilities/me/route.ts');
 const workspaceProxy = source('apps/web/app/api/staff/workspaces/[...path]/route.ts');
 const client = source('apps/web/components/platform-v7/staff/StaffControlCenter.tsx');
 const entry = source('apps/web/components/platform-v7/StaffControlCenterEntry.tsx');
@@ -74,6 +75,18 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
     expect(proxy).not.toContain('accessToken: token');
   });
 
+  it('keeps the capabilities self-BFF read-only, server-token-bound and schema-sanitized', () => {
+    expect(capabilitiesBff).toContain("(await cookies()).get(ACCESS_COOKIE)?.value");
+    expect(capabilitiesBff).toContain('fetch(`${API_ORIGIN}/staff/capabilities/me`');
+    expect(capabilitiesBff).toContain('Authorization: `Bearer ${accessToken}`');
+    expect(capabilitiesBff).toContain('parseStaffCapabilitiesContract(');
+    expect(capabilitiesBff).toContain("redirect: 'manual'");
+    expect(capabilitiesBff).toContain("'Cache-Control': 'no-store, no-cache, must-revalidate'");
+    expect(capabilitiesBff).not.toContain('request.json()');
+    expect(capabilitiesBff).not.toContain('STAFF_ACCESS_COOKIE');
+    expect(capabilitiesBff).not.toContain('x-staff-access-session');
+  });
+
   it('preserves upstream arrays instead of converting list responses into numeric object keys', () => {
     expect(proxy).toContain('json(Array.isArray(payload) ? payload : safePayload, upstream.status)');
     expect(workspaceProxy).toContain('Array.isArray(payload) ? payload : { ...payloadObject, correlationId }');
@@ -90,9 +103,12 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
   });
 
   it('does not expose Staff Control Center navigation to an ordinary user', () => {
-    expect(entry).toContain("fetch('/api/staff/assignments/me'");
+    expect(entry).toContain("fetch('/api/staff/capabilities/me'");
+    expect(entry).toContain('parseStaffCapabilitiesContract(payload)');
+    expect(entry).toContain('setVisible(Boolean(capabilities))');
     expect(entry).toContain('if (!visible || !portalTarget) return null');
-    expect(entry).toContain("['ACTIVE', 'ELIGIBLE'].includes");
+    expect(entry).not.toContain("fetch('/api/staff/assignments/me'");
+    expect(entry).not.toContain("['ACTIVE', 'ELIGIBLE'].includes");
     expect(entry).not.toContain('localStorage');
   });
 
