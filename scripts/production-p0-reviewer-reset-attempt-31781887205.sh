@@ -9,8 +9,10 @@ SOURCE='scripts/production-p0-reviewer-reset-attempt-classifier.sh'
 SOURCE_BLOB='7dcfb19d247aab2f0dc8c8075416673499c9dc84'
 TMP="$RUNNER_TEMP/pc-p0-reviewer-reset-attempt-31781887205.sh"
 OLD_SOURCE_REVISION='7c768ad7c54523837b06999a8f69bdffe2a840db'
+VALIDATE_ONLY="${PC_REVIEWER_RESET_ATTEMPT_VALIDATE_ONLY:-0}"
 
 [[ "$PC_REVIEWER_RESET_ATTEMPT_COMMAND" == "$COMMAND" ]]
+[[ "$VALIDATE_ONLY" == '0' || "$VALIDATE_ONLY" == '1' ]]
 [[ -f "$SOURCE" ]]
 [[ "$(git hash-object "$SOURCE")" == "$SOURCE_BLOB" ]]
 rm -f -- "$TMP"
@@ -18,11 +20,12 @@ trap 'rm -f -- "$TMP"' EXIT
 cp -- "$SOURCE" "$TMP"
 chmod 0700 "$TMP"
 
-python3 - "$TMP" <<'PY'
+python3 - "$TMP" "$OLD_SOURCE_REVISION" <<'PY'
 from pathlib import Path
 import sys
 
 path = Path(sys.argv[1])
+old_source_revision = sys.argv[2]
 text = path.read_text(encoding='utf-8')
 replacements = [
     (
@@ -37,14 +40,14 @@ replacements = [
         "SOURCE_REVISION='dc5bec67faeaec26ce905c0643dc15d35f99bf50'",
     ),
 ]
-for old, new in replacements:
+for index, (old, new) in enumerate(replacements, start=1):
     count = text.count(old)
     if count != 1:
-        raise SystemExit(f'FIXED_BINDING_MISMATCH:{old[:24]}:{count}')
+        raise SystemExit(f'FIXED_BINDING_MISMATCH:R{index}:{count}')
     text = text.replace(old, new, 1)
 
-# The RESET_ATTEMPT remote script independently fail-closes on the same
-# historical revision/window. Rebind those three exact preconditions too.
+# RESET_ATTEMPT independently fail-closes on the historical revision/window.
+# Rebind only those three exact remote preconditions.
 remote_replacements = [
     (
         "[[ \"$source_revision\" == '7c768ad7c54523837b06999a8f69bdffe2a840db' ]]",
@@ -59,52 +62,79 @@ remote_replacements = [
         "[[ \"$attempt_until\" == '2026-08-14T07:57:05Z' ]]",
     ),
 ]
-for old, new in remote_replacements:
+for index, (old, new) in enumerate(remote_replacements, start=1):
     count = text.count(old)
     if count != 1:
-        raise SystemExit(f'REMOTE_BINDING_MISMATCH:{old[:24]}:{count}')
+        raise SystemExit(f'REMOTE_BINDING_MISMATCH:R{index}:{count}')
     text = text.replace(old, new, 1)
 
-# The canonical remote ERR trap already emits a bounded, whitelist-safe
-# ATTEMPT_REMOTE_FAILURE marker. Preserve that marker when parity has not yet
-# completed instead of collapsing it into PARITY_OR_PRE_NODE_FAILURE.
+# Preserve an already emitted bounded remote failure substage when parity has
+# not yet completed. No raw stderr or arbitrary remote text is promoted.
 old = "    failure_detail='PARITY_OR_PRE_NODE_FAILURE'"
-new = """    if [[ \"$remote_failure\" =~ ^ATTEMPT_REMOTE_FAILURE\\|([A-Z0-9_-]{1,64})\\|(ZERO|ONE|MULTIPLE|UNKNOWN)\\|(ZERO|ONE|MULTIPLE|UNKNOWN|UNAVAILABLE)\\|(ZERO|ONE|MULTIPLE|UNKNOWN|UNAVAILABLE)$ ]]; then
-      failure_detail=\"${BASH_REMATCH[1]}_${BASH_REMATCH[2]}_${BASH_REMATCH[3]}_${BASH_REMATCH[4]}\"
+new = r'''    if [[ "$remote_failure" =~ ^ATTEMPT_REMOTE_FAILURE\|([A-Z0-9_-]{1,64})\|(ZERO|ONE|MULTIPLE|UNKNOWN)\|(ZERO|ONE|MULTIPLE|UNKNOWN|UNAVAILABLE)\|(ZERO|ONE|MULTIPLE|UNKNOWN|UNAVAILABLE)$ ]]; then
+      failure_detail="${BASH_REMATCH[1]}_${BASH_REMATCH[2]}_${BASH_REMATCH[3]}_${BASH_REMATCH[4]}"
     else
       failure_detail='PARITY_OR_PRE_NODE_FAILURE'
-    fi"""
+    fi'''
 count = text.count(old)
 if count != 1:
     raise SystemExit(f'SAFE_SUBSTAGE_BINDING_MISMATCH:{count}')
 text = text.replace(old, new, 1)
+
+# Validate the transformed temporary classifier in one place. The previous
+# shell grep chain could fail silently before the canonical classifier started.
+exact_lines = [
+    "ATTEMPT_COMMAND='/production p0-reviewer-reset-attempt-classify 31781887205 current-main'",
+    "SOURCE_RUN_ID='31781887205'",
+    "ATTEMPT_SINCE='2026-08-14T07:56:46Z'",
+    "ATTEMPT_UNTIL='2026-08-14T07:57:05Z'",
+    "SOURCE_REVISION='dc5bec67faeaec26ce905c0643dc15d35f99bf50'",
+    "[[ \"$source_revision\" == 'dc5bec67faeaec26ce905c0643dc15d35f99bf50' ]]",
+    "[[ \"$attempt_since\" == '2026-08-14T07:56:46Z' ]]",
+    "[[ \"$attempt_until\" == '2026-08-14T07:57:05Z' ]]",
+]
+lines = text.splitlines()
+for index, token in enumerate(exact_lines, start=1):
+    count = lines.count(token)
+    if count != 1:
+        raise SystemExit(f'POST_TRANSFORM_LINE_MISMATCH:L{index}:{count}')
+
+fragments = [
+    r'if [[ "$remote_failure" =~ ^ATTEMPT_REMOTE_FAILURE\|',
+    f"if SOURCE_REVISION != '{old_source_revision}':",
+]
+for index, token in enumerate(fragments, start=1):
+    count = text.count(token)
+    if count != 1:
+        raise SystemExit(f'POST_TRANSFORM_FRAGMENT_MISMATCH:F{index}:{count}')
+
+for index, forbidden in enumerate(
+    [
+        '31706325376',
+        '2026-08-13T13:43:10Z',
+        '2026-08-13T13:43:26Z',
+        f"SOURCE_REVISION='{old_source_revision}'",
+        f"[[ \"$source_revision\" == '{old_source_revision}' ]]",
+    ],
+    start=1,
+):
+    if forbidden in text:
+        raise SystemExit(f'POST_TRANSFORM_FORBIDDEN:F{index}')
+
+if text.count(old_source_revision) != 1:
+    raise SystemExit(f'POST_TRANSFORM_OLD_REVISION_COUNT:{text.count(old_source_revision)}')
+
 path.write_text(text, encoding='utf-8')
 PY
 
-# The canonical classifier remains the authority. This one-off wrapper changes
-# only RESET_ATTEMPT historical bindings in RUNNER_TEMP plus validation-only
-# promotion of an already emitted, bounded remote failure substage.
-grep -Fqx "ATTEMPT_COMMAND='/production p0-reviewer-reset-attempt-classify 31781887205 current-main'" "$TMP"
-grep -Fqx "SOURCE_RUN_ID='31781887205'" "$TMP"
-grep -Fqx "ATTEMPT_SINCE='2026-08-14T07:56:46Z'" "$TMP"
-grep -Fqx "ATTEMPT_UNTIL='2026-08-14T07:57:05Z'" "$TMP"
-grep -Fqx "SOURCE_REVISION='dc5bec67faeaec26ce905c0643dc15d35f99bf50'" "$TMP"
-grep -Fqx "[[ \"\$source_revision\" == 'dc5bec67faeaec26ce905c0643dc15d35f99bf50' ]]" "$TMP"
-grep -Fqx "[[ \"\$attempt_since\" == '2026-08-14T07:56:46Z' ]]" "$TMP"
-grep -Fqx "[[ \"\$attempt_until\" == '2026-08-14T07:57:05Z' ]]" "$TMP"
-grep -Fq 'if [[ "$remote_failure" =~ ^ATTEMPT_REMOTE_FAILURE\|' "$TMP"
-[[ "$(grep -Fc 'if [[ "$remote_failure" =~ ^ATTEMPT_REMOTE_FAILURE\|' "$TMP")" == '1' ]]
-! grep -Fq '31706325376' "$TMP"
-! grep -Fq '2026-08-13T13:43:10Z' "$TMP"
-! grep -Fq '2026-08-13T13:43:26Z' "$TMP"
-
-# One old source SHA is intentionally retained inside the unreachable
-# AUTH_HASH_RUNTIME subclassifier. The fixed command above selects only
-# RESET_ATTEMPT, so requiring global absence would be a false-positive guard.
-grep -Fq "if SOURCE_REVISION != '$OLD_SOURCE_REVISION':" "$TMP"
-[[ "$(grep -Fc "$OLD_SOURCE_REVISION" "$TMP")" == '1' ]]
-! grep -Fq "SOURCE_REVISION='$OLD_SOURCE_REVISION'" "$TMP"
-! grep -Fq "[[ \"\$source_revision\" == '$OLD_SOURCE_REVISION' ]]" "$TMP"
-
 bash -n "$TMP"
+
+if [[ "$VALIDATE_ONLY" == '1' ]]; then
+  printf '%s\n' 'PASS: transformed one-off classifier preflight'
+  exit 0
+fi
+
+# The canonical classifier remains the authority. This wrapper changes only
+# the fixed RESET_ATTEMPT historical bindings and bounded failure promotion in
+# RUNNER_TEMP, then executes that temporary copy unchanged.
 bash "$TMP"
