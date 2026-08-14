@@ -6,7 +6,7 @@ on:
     paths:
       - '.github/workflows/production-p0-reviewer-reset-attempt-31808831183.yml'
       - 'scripts/production-p0-reviewer-reset-attempt-31808831183.sh'
-      - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-classifier-3785.json'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-31808831183-3785.json'
   issue_comment:
     types: [created]
 
@@ -47,8 +47,11 @@ jobs:
           set -Eeuo pipefail
           node - <<'NODE'
           const fs = require('node:fs');
-          const script = fs.readFileSync('scripts/production-p0-reviewer-reset-attempt-31808831183.sh', 'utf8');
-          const scope = fs.readFileSync('docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-classifier-3785.json', 'utf8');
+          const scriptPath = 'scripts/production-p0-reviewer-reset-attempt-31808831183.sh';
+          const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-31808831183-3785.json';
+          const workflowPath = '.github/workflows/production-p0-reviewer-reset-attempt-31808831183.yml';
+          const script = fs.readFileSync(scriptPath, 'utf8');
+          const scope = fs.readFileSync(scopePath, 'utf8');
           const required = [
             "SOURCE_RUN_ID='31808831183'",
             "ATTEMPT_SINCE='2026-08-14T14:18:35Z'",
@@ -67,7 +70,11 @@ jobs:
           const parsed = JSON.parse(scope);
           if (parsed.branch !== 'diag/p0-reviewer-reset-attempt-classifier-3785') throw new Error('scope branch mismatch');
           if (parsed.issue !== 3785 || parsed.releaseIssue !== 3072) throw new Error('scope issue mismatch');
-          if (parsed.boundaries?.productionMutation !== 'NONE' || parsed.boundaries?.resetReplay !== false || parsed.boundaries?.mailSend !== false) {
+          if (parsed.sourceRun !== 31808831183 || parsed.sourceRevision !== 'a79f96bdd3fda65a75fef44ae023689729a1a14c') throw new Error('scope source mismatch');
+          if (parsed.attemptSinceUtc !== '2026-08-14T14:18:35Z' || parsed.attemptUntilUtc !== '2026-08-14T14:18:50Z') throw new Error('scope attempt window mismatch');
+          const expectedPaths = [workflowPath, scriptPath, scopePath].sort();
+          if (!Array.isArray(parsed.allowedPaths) || JSON.stringify([...parsed.allowedPaths].sort()) !== JSON.stringify(expectedPaths)) throw new Error('scope path isolation mismatch');
+          if (parsed.boundaries?.productionMutation !== 'NONE' || parsed.boundaries?.resetReplay !== false || parsed.boundaries?.mailSend !== false || parsed.boundaries?.databaseReadOnly !== true) {
             throw new Error('scope mutation boundary mismatch');
           }
           NODE
