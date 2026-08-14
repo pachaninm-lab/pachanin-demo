@@ -1,6 +1,6 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "diag/p0-reviewer-reset-attempt-31781887205-substage-3785",
+  "branch": "diag/p0-reviewer-reset-attempt-31781887205-stale-revision-3785",
   "status": "active",
   "operationalStatus": "P0_REVIEWER_RESET_31781887205_READ_ONLY_SUBSTAGE_CLASSIFIER",
   "issue": 3785,
@@ -11,6 +11,7 @@
   "attemptSinceUtc": "2026-08-14T07:56:46Z",
   "attemptUntilUtc": "2026-08-14T07:57:05Z",
   "safePreParitySubstagePromotion": true,
+  "unrelatedAuthHashHistoricalRevisionCount": 1,
   "allowedPaths": [
     ".github/workflows/production-p0-reviewer-reset-attempt-31781887205.yml",
     "scripts/production-p0-reviewer-reset-attempt-31781887205.sh",
@@ -41,8 +42,8 @@
   "acceptance": [
     "the only production command remains owner-only on release issue 3072 and fixed to reset run 31781887205",
     "the one-off wrapper still pins the already merged canonical read-only reset-attempt classifier by Git blob 7dcfb19d247aab2f0dc8c8075416673499c9dc84",
-    "the wrapper rebinds the five fixed historical declaration literals plus the three matching remote fail-closed revision/window preconditions in RUNNER_TEMP and promotes only the canonical classifier's already-emitted bounded ATTEMPT_REMOTE_FAILURE substage when parity has not completed",
-    "the stale historical revision/window literals must be absent from the transformed temporary classifier before any SSH execution is permitted",
+    "the wrapper rebinds the fixed RESET_ATTEMPT declaration literals plus the matching RESET_ATTEMPT remote fail-closed revision/window preconditions in RUNNER_TEMP and promotes only the canonical classifier's already-emitted bounded ATTEMPT_REMOTE_FAILURE substage when parity has not completed",
+    "the transformed RESET_ATTEMPT declarations and remote preconditions contain no stale reset source revision or attempt-window values; exactly one old source revision remains only in the unreachable AUTH_HASH_RUNTIME subclassifier sentinel",
     "no raw stderr, raw database/runtime output, reviewer identity, correlation id, reset token or hash, credentials or arbitrary text is promoted or published",
     "the classified source revision remains dc5bec67faeaec26ce905c0643dc15d35f99bf50 and the fixed attempt window remains 2026-08-14T07:56:46Z through 2026-08-14T07:57:05Z",
     "the canonical classifier retains exact-current-main, source-ancestor, active-revision stability, pinned SSH host-key and reviewer identity redaction guards",
