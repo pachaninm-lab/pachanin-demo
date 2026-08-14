@@ -10,6 +10,7 @@ const files = {
   runbook: 'docs/ops/production-gekta-first-user-acceptance.md',
   scope: 'docs/platform-v7/autopilot/scopes/production-gekta-runtime-20260813.json',
 };
+const mailIdnaScopePath = 'docs/platform-v7/autopilot/scopes/gekta-first-user-mail-idna-3072.json';
 
 const source = Object.fromEntries(Object.entries(files).map(([name, file]) => [name, readFileSync(file, 'utf8')]));
 
@@ -87,6 +88,11 @@ requireAll('executor', [
   "GEKTA_SEPARATE_CONSENTS_MISSING",
   "PC_P0_IMAP_PASSWORD",
   "imaplib.IMAP4_SSL",
+  "def canonical_address(value):",
+  "domain = domain.encode('idna').decode('ascii').lower()",
+  "target = canonical_address(os.environ['GEKTA_TARGET_EMAIL'])",
+  "canonical = canonical_address(address)",
+  "recipients.append(canonical)",
   "/api/gekta/auth/email/verify",
   "page.getByRole('button', { name: 'Подтвердить email', exact: true })",
   "page.getByRole('heading', { name: 'Защитите аккаунт', exact: true })",
@@ -109,6 +115,8 @@ requireAll('executor', [
 ]);
 
 forbid('executor', [
+  /target\s*=\s*os\.environ\['GEKTA_TARGET_EMAIL'\]\.strip\(\)\.lower\(\)/u,
+  /recipients\.extend\(address\.lower\(\) for _, address in getaddresses/u,
   /x-registration-delivery-key/iu,
   /registrationDeliveryKey/iu,
   /DATABASE_URL/iu,
@@ -170,4 +178,29 @@ requireAll('scope', [
   'billing remains disabled',
 ]);
 
-console.log('PASS: exact-main owner-only Gekta production acceptance proves ten live durably admitted anonymous answers, the registration boundary, real mail verification, mandatory MFA, a 30-day trial, declared phone, server history/search/projects, visible owner phone search and 7/30/lifetime grants, then logout and fresh MFA login without retaining credentials or PII.');
+const mailIdnaScope = JSON.parse(readFileSync(mailIdnaScopePath, 'utf8'));
+const expectedMailIdnaPaths = [files.executor, files.checker, mailIdnaScopePath].sort();
+if (mailIdnaScope.schemaVersion !== 'platform-v7.concurrent-scope.v1') throw new Error('mail-idna scope: schemaVersion');
+if (mailIdnaScope.branch !== 'fix/gekta-first-user-mail-idna-3072') throw new Error('mail-idna scope: branch');
+if (mailIdnaScope.issue !== 3072) throw new Error('mail-idna scope: issue');
+if (mailIdnaScope.baseline?.commit !== '5045702e6d7baeff2f49a50451c3e8a268a8a59d') throw new Error('mail-idna scope: baseline');
+if (mailIdnaScope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY') throw new Error('mail-idna scope: hosting');
+if (JSON.stringify([...mailIdnaScope.allowedPaths].sort()) !== JSON.stringify(expectedMailIdnaPaths)) throw new Error('mail-idna scope: allowedPaths');
+for (const [key, expected] of Object.entries({
+  productionMutation: false,
+  databaseMutation: false,
+  identityMutation: false,
+  mailSend: false,
+  mailRuntimeMutation: false,
+  deploymentMutation: false,
+  productCodeMutation: false,
+  credentialOutput: false,
+  piiOutput: false,
+  ownerOnlyAcceptancePreserved: true,
+  exactMainGuardPreserved: true,
+  newRecurringCostRub: 0,
+})) {
+  if (mailIdnaScope.boundaries?.[key] !== expected) throw new Error(`mail-idna scope: boundary ${key}`);
+}
+
+console.log('PASS: exact-main owner-only Gekta production acceptance proves ten live durably admitted anonymous answers, the registration boundary, IDNA-equivalent real mail verification, mandatory MFA, a 30-day trial, declared phone, server history/search/projects, visible owner phone search and 7/30/lifetime grants, then logout and fresh MFA login without retaining credentials or PII.');
