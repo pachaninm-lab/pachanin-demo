@@ -89,10 +89,13 @@ jobs:
         github.event.comment.body == '/production release current-main' ||
         github.event.comment.body == '/production status current-main'
       )
+    outputs:
+      exact_main_sha: ${{ steps.release.outputs.main_sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - name: Dispatch or inspect exact-current-main release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -103,6 +106,7 @@ jobs:
 
           main_sha=$(gh api "repos/$REPO/commits/main" --jq .sha)
           [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
 
           if [[ "$COMMAND" == '/production release current-main' ]]; then
             dispatch_started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -257,8 +261,9 @@ jobs:
     secrets: inherit
 
   production-auth-mail-cutover-3072:
-    needs: production-full-stack-execution-3072
+    needs: [production-release-control-3072, production-full-stack-execution-3072]
     if: >-
+      needs.production-release-control-3072.result == 'success' &&
       needs.production-full-stack-execution-3072.result == 'success' &&
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 3072 &&
@@ -269,6 +274,6 @@ jobs:
     uses: ./.github/workflows/production-auth-mail-outbox-cutover.yml
     with:
       controller_authorized: true
-      controller_target_sha: ${{ github.sha }}
+      controller_target_sha: ${{ needs.production-release-control-3072.outputs.exact_main_sha }}
       controller_run_id: ${{ github.run_id }}
     secrets: inherit
