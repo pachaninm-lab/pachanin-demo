@@ -4,12 +4,15 @@
   "status": "active",
   "purpose": "Retest the previously reverted Gekta G3A first-safe-block candidate against a clean exact-production BEFORE baseline. Reduce user-visible first-meaningful-text latency by making general-agro answers begin with one short self-contained complete sentence without weakening the existing streaming safety gate, semantic coverage, context handling or production authority.",
   "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-14",
-  "authorityBaseExactMain": "2f27deeceb22e5b0005c1d1c3ab98ac7c24b7604",
+  "authorityBaseExactMain": "24590ce52413ab28e23e6a50036923fbe0baaff0",
   "candidateCodeCommit": "e38de5e70f589d97b4d98f35bc14531e8857dfa8",
   "productionEvidence": {
     "beforeRunId": 31839778862,
-    "beforeTargetRevision": "2f27deeceb22e5b0005c1d1c3ab98ac7c24b7604",
-    "beforeStatus": "in_progress"
+    "beforeArtifactId": 9235052023,
+    "beforeTargetRevision": "24590ce52413ab28e23e6a50036923fbe0baaff0",
+    "beforeMeasurementToolSha": "24590ce52413ab28e23e6a50036923fbe0baaff0",
+    "beforeStatus": "success",
+    "repositoryMainAfterBeforeMeasurement": "7511d04fb5e3442c92eb28e36d3b1c46d63897ec"
   },
   "newRecurringCostRub": 0,
   "allowedPaths": [
