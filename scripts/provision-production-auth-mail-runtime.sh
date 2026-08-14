@@ -56,7 +56,6 @@ validate_key_file() {
   validate_secret_file "$key_file" && grep -Eq '^[A-Fa-f0-9]{64}$' "$key_file"
 }
 
-
 refresh_runtime_projection() {
   local staging="$AUTHORITY_DIR/.runtime-projection.new" key_file key_name
   rm -rf -- "$staging"
@@ -75,9 +74,6 @@ refresh_runtime_projection() {
   install -m 0444 -o 0 -g 0 "$DATABASE_URL_FILE" "$staging/database-url"
   install -m 0444 -o 0 -g 0 "$TRANSPORT_FILE" "$staging/transport.env"
 
-  # The projected files are world-readable only inside this root-only
-  # parent. Docker bind-mounts the individual targets read-only into
-  # nonroot containers; host users cannot traverse AUTHORITY_DIR/runtime.
   [[ "$(stat -c '%a:%u:%g' "$staging")" == '700:0:0' ]] \
     || { echo 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_PROJECTION_PARENT'; exit 34; }
   [[ "$(stat -c '%a:%u:%g' "$staging/keyring")" == '555:0:0' ]] \
@@ -111,9 +107,8 @@ PY
   validate_key_file "$version" || { echo 'AUTH_MAIL_PROVISION=FAIL_KEY_VERSION_CONTENT'; exit 31; }
 }
 
-# Resolve the existing production Compose authority only to bootstrap/rotate the
-# distinct worker database principal. No mail secret is ever sourced from a Web
-# or API container.
+# Resolve the existing production Compose authority. No mail or database secret
+# value is ever printed or sourced from Web.
 mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
 (( ${#web_ids[@]} == 1 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_WEB_AUTHORITY_CARDINALITY'; exit 10; }
 web_id="${web_ids[0]}"
@@ -132,53 +127,66 @@ auth_database_url="$(docker inspect --format '{{range .Config.Env}}{{println .}}
 
 read -r db_host db_port db_name < <(python3 - "$auth_database_url" <<'PY'
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 url = urlsplit(sys.argv[1])
 if url.scheme not in ('postgresql', 'postgres') or not url.hostname or not url.path.strip('/'):
     raise SystemExit(1)
-print(url.hostname, url.port or 5432, url.path.strip('/'))
+print(url.hostname.lower(), url.port or 5432, unquote(url.path.strip('/')))
 PY
 ) || { echo 'AUTH_MAIL_PROVISION=FAIL_AUTH_DATABASE_URL_INVALID'; exit 14; }
 
-# Key bootstrap is idempotent. Rotation is explicit and keeps all previous key
-# versions so already-enqueued ciphertext remains decryptable until retention
-# has redacted every row using the old version.
-if [[ ! -e "$CURRENT_VERSION_FILE" ]]; then
-  [[ "$ACTION" == bootstrap ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_KEYRING_NOT_BOOTSTRAPPED'; exit 15; }
-  create_key_version 1
-  write_atomic_secret "$CURRENT_VERSION_FILE" '1'
-fi
-current_version="$(read_key_version)" || { echo 'AUTH_MAIL_PROVISION=FAIL_CURRENT_KEY_VERSION'; exit 16; }
-validate_key_file "$current_version" || { echo 'AUTH_MAIL_PROVISION=FAIL_CURRENT_KEY_FILE'; exit 17; }
-
-if [[ "$ACTION" == rotate-key ]]; then
-  next_version=$((current_version + 1))
-  (( next_version <= 999 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_KEY_VERSION_EXHAUSTED'; exit 32; }
-  create_key_version "$next_version"
-  write_atomic_secret "$CURRENT_VERSION_FILE" "$next_version"
-  current_version="$next_version"
-fi
-
-# Locate PostgreSQL admin authority only when a DB credential must be born or
-# explicitly rotated. A normal bootstrap never changes an existing password.
-if [[ ! -e "$DATABASE_URL_FILE" || "$ACTION" == rotate-db ]]; then
-  [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]] \
-    || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_AUTHORITY_MISSING'; exit 18; }
-
-  mapfile -t pg_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" | while read -r id; do
+pg_id=''
+postgres_user=''
+postgres_db=''
+resolve_postgres_authority() {
+  [[ -n "$pg_id" ]] && return 0
+  local ids=() id image service
+  while IFS= read -r id; do
+    [[ -n "$id" ]] || continue
     image="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
     service="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "$id" 2>/dev/null || true)"
     if [[ "$image" == postgres:* || "$image" == */postgres:* || "$service" == postgres || "$service" == db || "$service" == database ]]; then
-      printf '%s\n' "$id"
+      ids+=("$id")
     fi
-  done)
-  (( ${#pg_ids[@]} == 1 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_POSTGRES_AUTHORITY_CARDINALITY'; exit 19; }
-  pg_id="${pg_ids[0]}"
+  done < <(docker ps -q --filter "label=com.docker.compose.project=$project")
+  (( ${#ids[@]} == 1 )) || return 1
+  pg_id="${ids[0]}"
   postgres_user="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$pg_id" | sed -n 's/^POSTGRES_USER=//p' | head -1)"
   postgres_db="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$pg_id" | sed -n 's/^POSTGRES_DB=//p' | head -1)"
   [[ -n "$postgres_user" ]] || postgres_user='postgres'
   [[ -n "$postgres_db" ]] || postgres_db="$postgres_user"
+}
 
+auth_mail_database_login_ready() {
+  validate_secret_file "$DATABASE_URL_FILE" || return 1
+  resolve_postgres_authority || return 1
+  local result
+  result="$(python3 - "$DATABASE_URL_FILE" "$db_host" "$db_port" "$db_name" <<'PY' \
+    | docker exec -i "$pg_id" psql -X -qAt -F '|' -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" 2>/dev/null
+import sys
+from urllib.parse import unquote, urlsplit
+path, expected_host, expected_port, expected_db = sys.argv[1:5]
+raw = open(path, encoding='utf-8').read().strip()
+url = urlsplit(raw)
+if url.scheme not in ('postgresql', 'postgres'):
+    raise SystemExit(1)
+if unquote(url.username or '') != 'pc_auth_mail_runtime' or not url.password or not url.hostname or not url.path.strip('/'):
+    raise SystemExit(1)
+if url.hostname.lower() != expected_host.lower() or str(url.port or 5432) != expected_port or unquote(url.path.strip('/')) != expected_db:
+    raise SystemExit(1)
+if any(c in raw for c in '\r\n\0'):
+    raise SystemExit(1)
+print('\\connect ' + raw)
+print('SELECT current_user, rolsuper, rolbypassrls, rolinherit FROM pg_roles WHERE rolname = current_user;')
+PY
+  )" || return 1
+  [[ "$result" == 'pc_auth_mail_runtime|f|f|f' ]]
+}
+
+database_repaired=0
+rotate_database_secret() {
+  resolve_postgres_authority || { echo 'AUTH_MAIL_PROVISION=FAIL_POSTGRES_AUTHORITY_CARDINALITY'; exit 19; }
+  local db_password sql_tmp database_tmp
   db_password="$(python3 - <<'PY'
 import secrets
 print(secrets.token_urlsafe(48))
@@ -212,8 +220,44 @@ PY
   unset db_password
   chmod 0600 "$database_tmp"; chown 0:0 "$database_tmp"
   mv -f "$database_tmp" "$DATABASE_URL_FILE"
+  database_repaired=1
+}
+
+# Key bootstrap is idempotent. Rotation is explicit and keeps old versions so
+# already-enqueued ciphertext remains decryptable until retention redacts it.
+if [[ ! -e "$CURRENT_VERSION_FILE" ]]; then
+  [[ "$ACTION" == bootstrap ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_KEYRING_NOT_BOOTSTRAPPED'; exit 15; }
+  create_key_version 1
+  write_atomic_secret "$CURRENT_VERSION_FILE" '1'
+fi
+current_version="$(read_key_version)" || { echo 'AUTH_MAIL_PROVISION=FAIL_CURRENT_KEY_VERSION'; exit 16; }
+validate_key_file "$current_version" || { echo 'AUTH_MAIL_PROVISION=FAIL_CURRENT_KEY_FILE'; exit 17; }
+
+if [[ "$ACTION" == rotate-key ]]; then
+  next_version=$((current_version + 1))
+  (( next_version <= 999 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_KEY_VERSION_EXHAUSTED'; exit 32; }
+  create_key_version "$next_version"
+  write_atomic_secret "$CURRENT_VERSION_FILE" "$next_version"
+  current_version="$next_version"
+fi
+
+# Bootstrap now verifies the real least-privilege DB login. If a previously
+# persisted root-only credential has become stale, repair only that bounded role
+# and immediately prove the new credential before any worker restart.
+if [[ ! -e "$DATABASE_URL_FILE" ]]; then
+  [[ "$ACTION" == bootstrap ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_AUTHORITY_MISSING'; exit 18; }
+  rotate_database_secret
+elif [[ "$ACTION" == rotate-db ]]; then
+  rotate_database_secret
+elif [[ "$ACTION" == bootstrap ]]; then
+  if ! auth_mail_database_login_ready; then
+    rotate_database_secret
+  fi
 fi
 validate_secret_file "$DATABASE_URL_FILE" || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_SECRET_AUTHORITY'; exit 21; }
+if [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]]; then
+  auth_mail_database_login_ready || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_RUNTIME_LOGIN'; exit 38; }
+fi
 
 # SMTP rotation is human-presence gated. The credential is never accepted in an
 # argument/environment from CI and is tested against official REG.RU authority
@@ -293,7 +337,12 @@ echo 'AUTH_MAIL_PROVISION=PASS'
 echo 'AUTH_MAIL_SECRET_AUTHORITY=SERVER_SIDE_ROOT_ONLY'
 echo 'AUTH_MAIL_SMTP_AUTHORITY=mail.hosting.reg.ru:465'
 echo "AUTH_MAIL_CURRENT_KEY_VERSION=$current_version"
+if (( database_repaired == 1 )); then
+  echo 'AUTH_MAIL_DATABASE_AUTHORITY=REPAIRED'
+else
+  echo 'AUTH_MAIL_DATABASE_AUTHORITY=READY'
+fi
 echo 'AUTH_MAIL_GITHUB_SECRET_REQUIRED=0'
-if [[ "$ACTION" =~ ^rotate-(smtp|db|key)$ ]]; then
+if [[ "$ACTION" =~ ^rotate-(smtp|db|key)$ || "$database_repaired" == 1 ]]; then
   echo 'AUTH_MAIL_RUNTIME_RESTART_REQUIRED=1'
 fi
