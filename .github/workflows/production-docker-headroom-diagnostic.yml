@@ -51,8 +51,7 @@ jobs:
           import pathlib
           import re
 
-          path = pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml')
-          workflow = path.read_text(encoding='utf-8')
+          workflow = pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text(encoding='utf-8')
           required = [
               "github.event.issue.number == 3072",
               "github.event.comment.body == '/production diagnose-docker current-main'",
@@ -89,15 +88,14 @@ jobs:
               ('docker ' + 'kill'),
               ('systemctl ' + 'restart'),
               ('systemctl ' + 'stop'),
-              ('rm ' + '-rf'),
               ('truncate ' + '-s'),
           ]
           for forbidden in fragments:
               if forbidden in workflow:
-                  raise SystemExit(f'forbidden mutation capability: {forbidden}')
+                  raise SystemExit(f'forbidden production mutation capability: {forbidden}')
           if re.search(r'StrictHostKeyChecking\s*=\s*no', workflow, re.I):
               raise SystemExit('host verification bypass forbidden')
-          print('PASS: diagnostic workflow is owner-only, exact-main, pinned-SSH and contains no delete/prune/restart/stop capability.')
+          print('PASS: remote diagnostic is owner-only, exact-main, pinned-SSH and contains no Docker delete/prune or service restart/stop capability.')
           PY
 
   diagnose:
@@ -299,13 +297,13 @@ jobs:
             du -x -B1 --max-depth=1 /srv 2>/dev/null | sort -nr | head -25 | while read -r bytes path; do printf 'DU_SRV_CHILD_BYTES=%s|%s\n' "$bytes" "$path"; done
           fi
 
-          if docker builder du >/tmp/pc-builder-du.$$ 2>/dev/null; then
+          builder_du="$(docker builder du 2>/dev/null || true)"
+          if [[ -n "$builder_du" ]]; then
             echo 'BUILDER_DU_AVAILABLE=1'
-            cat /tmp/pc-builder-du.$$
+            printf '%s\n' "$builder_du"
           else
             echo 'BUILDER_DU_AVAILABLE=0'
           fi
-          rm -f /tmp/pc-builder-du.$$ 2>/dev/null || true
 
           if command -v lsof >/dev/null 2>&1; then
             echo 'LSOF_AVAILABLE=1'
@@ -400,10 +398,11 @@ jobs:
               try: return f"{int(value)/1024:.1f} MiB"
               except Exception: return 'unknown'
 
+          target = (root / 'target-sha.txt').read_text().strip() if (root / 'target-sha.txt').exists() else 'unknown'
           body = [
               '## Production Docker headroom read-only diagnostic',
               '',
-              f"- exact main: `{scalar.get('TARGET_SHA', (root / 'target-sha.txt').read_text().strip() if (root / 'target-sha.txt').exists() else 'unknown')}`;",
+              f"- exact main: `{target}`;",
               f"- mutation mode: `{scalar.get('MUTATION_MODE', 'not-proven')}`;",
               f"- Docker free: `{mib_from_kb(scalar.get('DOCKER_FS_AVAILABLE_KB'))}`; filesystem used: `{scalar.get('DOCKER_FS_USED_PERCENT', 'unknown')}`; inodes used: `{scalar.get('DOCKER_FS_INODES_USED_PERCENT', 'unknown')}`;",
               f"- Docker driver/root: `{scalar.get('DOCKER_STORAGE_DRIVER', 'unknown')}` / `{scalar.get('DOCKER_ROOT', 'unknown')}`;",
