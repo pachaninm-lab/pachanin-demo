@@ -26,21 +26,34 @@ for (const marker of [
 ]) need(workflow, marker, 'workflow');
 
 for (const marker of [
-  "COMMAND='/production gekta-first-user-mail-diagnose 31800628106 current-main'",
   'git merge-base --is-ancestor "$SOURCE_DEPLOYED_SHA" "$TARGET_SHA"',
-  'docker inspect "$web_id" "$api_id"',
+  'docker ps -aq --filter "label=com.docker.compose.project=$project"',
+  'overlaps_window()',
+  'HISTORICAL_RUNTIME_UNAVAILABLE',
+  'HISTORICAL_RUNTIME_AMBIGUOUS',
+  'CURRENT_KEYS|',
+  'HISTORICAL_KEYS|',
+  'BFF_PATH|',
   'REGISTRATION_DELIVERY_KEY',
   'gekta_registration_email_delivery_result',
   'gekta_registration_public_request_accepted',
-  'docker logs --since "$since" --until "$until"',
+  'docker logs --since "$since" --until "$until" "$historical_web"',
   'client.select(folder, readonly=True)',
-  "folders.append('INBOX')",
+  'client.list()',
+  "'OTHER_FOLDER'",
   'canonical_address',
+  'IMAP_CONNECT_FAILED',
+  'IMAP_AUTH_FAILED',
+  'IMAP_SCAN_FAILED',
   'PRODUCTION_MUTATION=NONE',
   'mail send / resend: \\`NONE\\`',
   'raw logs / raw mailbox: \\`NOT_PUBLISHED\\`',
   'StrictHostKeyChecking=yes',
 ]) need(script, marker, 'script');
+
+if (script.includes('[[ "$web_revision" == "$source_sha" && "$api_revision" == "$source_sha" ]]')) {
+  throw new Error('script still conflates current runtime with historical source revision');
+}
 
 for (const forbidden of [
   /\bdocker\s+(?:run|rm|start|stop|restart|kill|update|compose\s+up)\b/iu,
@@ -58,7 +71,7 @@ for (const forbidden of [
 
 const expectedPaths = [workflowPath, scriptPath, 'scripts/check-production-gekta-first-user-mail-diagnostic.mjs', scopePath].sort();
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') throw new Error('scope schemaVersion');
-if (scope.branch !== 'diag/gekta-first-user-mail-31800628106-3072') throw new Error('scope branch');
+if (scope.branch !== 'fix/gekta-first-user-mail-diagnostic-historical-runtime-3072') throw new Error('scope branch');
 if (scope.issue !== 3072 || scope.sourceRun !== 31800628106) throw new Error('scope authority');
 if (scope.sourceDeployedSha !== 'f4cca72a0716c0fe2c94fd5e838d18be774b9812') throw new Error('scope source revision');
 if (JSON.stringify([...scope.allowedPaths].sort()) !== JSON.stringify(expectedPaths)) throw new Error('scope allowed paths');
@@ -70,8 +83,10 @@ for (const [key, expected] of Object.entries({
   mailSend: false,
   resend: false,
   imapReadOnly: true,
-  containerLogReadOnly: true,
-  containerEnvComparisonReadOnly: true,
+  imapFolderDiscoveryReadOnly: true,
+  historicalContainerInspectReadOnly: true,
+  historicalContainerLogReadOnly: true,
+  currentContainerEnvComparisonReadOnly: true,
   piiOutput: false,
   credentialOutput: false,
   rawLogOutput: false,
@@ -83,4 +98,4 @@ for (const [key, expected] of Object.entries({
   if (scope.boundaries?.[key] !== expected) throw new Error(`scope boundary ${key}`);
 }
 
-console.log('PASS: bounded read-only Gekta first-user mail diagnostic preserves exact-main and pinned deployed-revision authority while classifying delivery-key parity, BFF mail path, configured-vs-INBOX mailbox location, and verification-link shape without resend, runtime mutation, PII or credential disclosure.');
+console.log('PASS: Gekta source-run mail forensic separates current and historical container authority, selects only exact-source containers whose lifecycle overlaps the failed-run window, scans IMAP read-only across configured/INBOX/other folders, and publishes bounded classifications without resend or production mutation.');
