@@ -92,7 +92,15 @@ for (const token of [
   `ATTEMPT_UNTIL='${attemptUntil}'`,
   "SOURCE_REVISION='7c768ad7c54523837b06999a8f69bdffe2a840db'",
   `SOURCE_REVISION='${sourceRevision}'`,
-  "SAFE_SUBSTAGE_BINDING_MISMATCH",
+  'remote_replacements = [',
+  'REMOTE_BINDING_MISMATCH',
+  "[[ \\\"$source_revision\\\" == '7c768ad7c54523837b06999a8f69bdffe2a840db' ]]",
+  `[[ \\\"$source_revision\\\" == '${sourceRevision}' ]]`,
+  "[[ \\\"$attempt_since\\\" == '2026-08-13T13:43:10Z' ]]",
+  `[[ \\\"$attempt_since\\\" == '${attemptSince}' ]]`,
+  "[[ \\\"$attempt_until\\\" == '2026-08-13T13:43:26Z' ]]",
+  `[[ \\\"$attempt_until\\\" == '${attemptUntil}' ]]`,
+  'SAFE_SUBSTAGE_BINDING_MISMATCH',
   "if [[ \\\"$remote_failure\\\" =~ ^ATTEMPT_REMOTE_FAILURE",
   "failure_detail=\\\"${BASH_REMATCH[1]}_${BASH_REMATCH[2]}_${BASH_REMATCH[3]}_${BASH_REMATCH[4]}\\\"",
   "if count != 1:",
@@ -158,4 +166,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exit(1);
 }
-console.log('PASS: fixed run 31781887205 still reuses the pinned canonical read-only classifier and now preserves only its existing bounded pre-parity remote substage marker; reset replay and production mutation remain impossible.');
+console.log('PASS: fixed run 31781887205 reuses the pinned canonical read-only classifier, rebinds both declaration and remote fail-closed historical guards, and preserves only its bounded pre-parity remote substage marker; reset replay and production mutation remain impossible.');
