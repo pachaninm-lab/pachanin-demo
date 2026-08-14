@@ -1,10 +1,17 @@
 name: Production Auth-Mail Outbox Cutover
 
 on:
+  workflow_call:
+    inputs:
+      controller_authorized:
+        description: 'Set only by the bounded owner release-controller bridge.'
+        required: true
+        type: boolean
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/production-auth-mail-outbox-cutover.yml'
+      - '.github/workflows/production-auth-mail-cutover-after-controller.yml'
       - 'scripts/production-auth-mail-outbox-cutover.sh'
       - 'scripts/production-auth-mail-outbox-cutover-core.sh'
       - 'scripts/check-production-auth-mail-outbox-cutover.mjs'
@@ -24,6 +31,7 @@ on:
     branches: [main]
 
 permissions:
+  actions: read
   contents: read
   issues: write
 
@@ -52,6 +60,14 @@ jobs:
   contract:
     name: Validate auth-mail cutover contract
     if: >-
+      (inputs.controller_authorized == true &&
+       github.event_name == 'workflow_run' &&
+       github.event.workflow_run.name == 'platform-v7 safe merge' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'issue_comment' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.actor.login == github.repository_owner &&
+       github.event.workflow_run.triggering_actor.login == github.repository_owner) ||
       github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
@@ -79,9 +95,17 @@ jobs:
     name: Cut over exact production to durable auth-mail worker
     needs: contract
     if: >-
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+      (inputs.controller_authorized == true &&
+       github.event_name == 'workflow_run' &&
+       github.event.workflow_run.name == 'platform-v7 safe merge' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'issue_comment' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.actor.login == github.repository_owner &&
+       github.event.workflow_run.triggering_actor.login == github.repository_owner) ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -94,8 +118,14 @@ jobs:
         id: target
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CONTROLLER_AUTHORIZED: ${{ inputs.controller_authorized == true }}
           TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
           UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_NAME: ${{ github.event.workflow_run.name }}
+          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          UPSTREAM_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
           UPSTREAM_ACTOR: ${{ github.event.workflow_run.actor.login }}
           UPSTREAM_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
@@ -107,21 +137,43 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
-          [[ '${{ github.event.workflow_run.name }}' == 'Production Full-Stack Exact-SHA Release' ]]
-          [[ '${{ github.event.workflow_run.conclusion }}' == success ]]
-          [[ '${{ github.event.workflow_run.head_branch }}' == main ]]
-          printf 'UPSTREAM_PROVENANCE_EVENT=%s\nUPSTREAM_ACTOR_IS_OWNER=%s\nUPSTREAM_TRIGGERING_ACTOR_IS_OWNER=%s\n' \
-            "$UPSTREAM_EVENT" "$UPSTREAM_ACTOR_IS_OWNER" "$UPSTREAM_TRIGGERING_ACTOR_IS_OWNER"
-          if [[ "$UPSTREAM_EVENT" == workflow_run ]]; then
-            :
-          elif [[ "$UPSTREAM_EVENT" == issue_comment && "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" && "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]; then
-            :
-          else
-            echo 'AUTH_MAIL_CUTOVER=FAIL_UPSTREAM_PROVENANCE'
-            exit 16
-          fi
+          [[ "$UPSTREAM_CONCLUSION" == success ]]
+          [[ "$UPSTREAM_HEAD_BRANCH" == main ]]
+          printf 'UPSTREAM_PROVENANCE_NAME=%s\nUPSTREAM_PROVENANCE_EVENT=%s\nUPSTREAM_ACTOR_IS_OWNER=%s\nUPSTREAM_TRIGGERING_ACTOR_IS_OWNER=%s\nCONTROLLER_AUTHORIZED=%s\n' \
+            "$UPSTREAM_NAME" "$UPSTREAM_EVENT" "$UPSTREAM_ACTOR_IS_OWNER" "$UPSTREAM_TRIGGERING_ACTOR_IS_OWNER" "$CONTROLLER_AUTHORIZED"
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]{1,24}$ ]]
+
+          if [[ "$CONTROLLER_AUTHORIZED" == true ]]; then
+            [[ "$UPSTREAM_NAME" == 'platform-v7 safe merge' ]]
+            [[ "$UPSTREAM_EVENT" == issue_comment ]]
+            [[ "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" ]]
+            [[ "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]
+            for required_job in \
+              'production-full-stack-execution-3072 / Validate full-stack release contract' \
+              'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake'; do
+              job_conclusion="$(gh api \
+                -H 'Accept: application/vnd.github+json' \
+                "repos/$REPO/actions/runs/$UPSTREAM_RUN_ID/jobs?filter=latest&per_page=100" \
+                --jq ".jobs | map(select(.name == \"$required_job\")) | .[0].conclusion // empty")"
+              [[ "$job_conclusion" == success ]] || {
+                echo 'AUTH_MAIL_CUTOVER=FAIL_CONTROLLER_RELEASE_EVIDENCE'
+                echo "REQUIRED_JOB=$required_job"
+                exit 17
+              }
+            done
+          else
+            [[ "$UPSTREAM_NAME" == 'Production Full-Stack Exact-SHA Release' ]]
+            if [[ "$UPSTREAM_EVENT" == workflow_run ]]; then
+              :
+            elif [[ "$UPSTREAM_EVENT" == issue_comment && "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" && "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]; then
+              :
+            else
+              echo 'AUTH_MAIL_CUTOVER=FAIL_UPSTREAM_PROVENANCE'
+              exit 16
+            fi
+          fi
+
           git fetch --no-tags origin main
           current_main="$(git rev-parse origin/main)"
           if [[ "$TARGET_SHA" != "$current_main" ]]; then
@@ -274,7 +326,7 @@ jobs:
             echo '### PC-CROP durable auth-mail production cutover'
             echo
             echo "- target SHA: \`${TARGET_SHA}\`"
-            echo "- upstream exact-release run: \`${UPSTREAM_RUN_ID}\`"
+            echo "- upstream release-controller run: \`${UPSTREAM_RUN_ID}\`"
             echo "- cutover: \`${CUTOVER_STATUS:-unknown}\` (rc=\`${CUTOVER_RC:-unknown}\`)"
             echo "- API revision: \`${API_REVISION:-unknown}\`"
             echo "- web revision: \`${WEB_REVISION:-unknown}\`"
