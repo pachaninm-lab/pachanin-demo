@@ -61,6 +61,7 @@ has(migration, 'auth.redact_terminal_mail_outbox', 'terminal ciphertext retentio
 has(apiTsconfig, '"src/**/*.ts"', 'API compiler must include auth-mail-worker entrypoint');
 has(apiDockerfile, 'cp -R /workspace/apps/api/dist /prod/api/dist', 'API image must carry compiled worker entrypoint');
 
+has(cutoverWrapper, 'CORE="${PC_AUTH_MAIL_CUTOVER_CORE:-scripts/production-auth-mail-outbox-cutover-core.sh}"', 'wrapper must accept an explicit remote core path');
 has(cutoverWrapper, 'EXPECTED_CORE_BLOB="d45f60d0feb10c569b2c4388214aae41be508fd1"', 'wrapper must pin reviewed cutover core');
 has(cutoverWrapper, 'PATCH_CARDINALITY_', 'wrapper transformation must fail closed on source drift');
 has(cutoverWrapper, 'PC_AUTH_MAIL_CUTOVER_VALIDATE_ONLY', 'wrapper local validation mode missing');
@@ -87,7 +88,13 @@ has(workflow, "github.event.workflow_run.event == 'workflow_run'", 'production c
 has(workflow, "github.event.workflow_run.head_branch == 'main'", 'production cutover must be main-only');
 has(workflow, 'git rev-parse origin/main', 'workflow must guard against current-main drift');
 has(workflow, 'scripts/check-production-auth-mail-outbox-cutover.mjs', 'workflow contract job missing');
-has(workflow, 'scripts/production-auth-mail-outbox-cutover.sh', 'workflow cutover asset missing');
+has(workflow, 'scripts/production-auth-mail-outbox-cutover.sh', 'workflow cutover wrapper asset missing');
+has(workflow, 'scripts/production-auth-mail-outbox-cutover-core.sh', 'workflow cutover core asset missing');
+has(workflow, "PC_AUTH_MAIL_CUTOVER_CORE='/tmp/pc-auth-mail-cutover-core-${GITHUB_RUN_ID}.sh'", 'workflow must pass the pinned remote core path');
+has(workflow, 'LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY', 'workflow must publish legacy Web mail preservation evidence');
+has(workflow, '[[ "$LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY" == PRESERVED ]]', 'final cutover gate must require preserved legacy Web mail');
+has(workflow, '[[ "$API_SMTP_AUTHORITY" == ABSENT ]]', 'final cutover gate must require no API SMTP authority');
+lacks(workflow, 'WEB_SMTP_AUTHORITY:', 'stale Web SMTP absence evidence variable must be removed');
 has(workflow, 'scripts/provision-production-auth-mail-runtime.sh', 'workflow provision asset missing');
 
 execFileSync('bash', ['scripts/production-auth-mail-outbox-cutover.sh'], {
