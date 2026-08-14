@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-hosted-docker-headroom-recovery-3785",
+  "status": "active",
+  "issue": 3785,
+  "purpose": "Recover only the Docker disk headroom required to deploy the already-merged PC-CROP SMTP IDNA fix after the exact-SHA production release failed with no space left on device and the existing self-hosted bounded reclaim runner lost communication. Use the existing protected pinned production SSH authority from the full-stack release path and delete only old unused canonical grainflow images without changing application, database, customer data, containers, volumes or networks.",
+  "approvedBy": "repository-owner continuation of PC-CROP production registration issue 3785 and production release authority issue 3072 on 2026-08-14",
+  "authorityBaseExactMain": "f75bfd014ec67253713bd501be051fa8447a37a8",
+  "evidenceIssue": 3072,
+  "registrationMatrixIssue": 3785,
+  "newRecurringCostRub": 0,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json",
+    ".github/workflows/production-docker-headroom-recovery.yml",
+    "scripts/production-docker-headroom-recovery.sh"
+  ],
+  "requiredBehavior": [
+    "owner-only recovery command is bound to production release issue 3072 and exact current main",
+    "reuse the protected production SSH principal private key slots pinned VPS fingerprint and canonical production host already used by the full-stack release authority",
+    "delete only local ghcr.io/pachaninm-lab/grainflow-api web migration or tai images that are unused by every running or stopped container",
+    "protect every image referenced by any running or stopped container every image whose OCI revision equals exact current main and the two newest local images per canonical component",
+    "never remove containers volumes networks build cache arbitrary third-party images or model-host artifacts",
+    "stop reclaim when Docker filesystem available space reaches 6 GiB and fail closed if the hard 5 GiB release threshold is still not met",
+    "prove running API and web container identity and OCI revisions remain unchanged after a successful reclaim",
+    "prove container volume and network object counts remain unchanged after a successful reclaim",
+    "publish only bounded capacity counts and reclaimed-byte evidence without image ids paths credentials environment values or customer data",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "docker system prune docker image prune docker builder prune or forced image deletion",
+    "docker container volume or network deletion",
+    "deleting an image referenced by any running or stopped container",
+    "deleting exact-main images or reducing the two-image rollback reserve per canonical component",
+    "changing the self-hosted runner identity sudoers Docker group membership or protected release controller",
+    "database application model-host deal role money registration token or customer-data mutation",
+    "un-pinned SSH host identity password SSH or disabled strict host checking",
+    "new server paid API SaaS or recurring cost"
+  ]
+}
