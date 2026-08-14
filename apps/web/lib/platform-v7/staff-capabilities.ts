@@ -42,6 +42,11 @@ export type StaffCapabilitiesContract = {
     mfaLevel: string;
     expiresAt: string;
   }>;
+  pendingApprovals: {
+    total: number;
+    staffAccessRequests: number;
+    criticalActions: number;
+  };
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -54,6 +59,12 @@ function isStringArray(value: unknown): value is string[] {
 
 function nullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
+}
+
+function safeCount(value: unknown): value is number {
+  return typeof value === 'number'
+    && Number.isSafeInteger(value)
+    && value >= 0;
 }
 
 function parseAssignment(value: unknown): StaffCapabilitiesContract['assignments'][number] | null {
@@ -127,6 +138,21 @@ function parseSession(value: unknown): StaffCapabilitiesContract['activeAccessSe
   };
 }
 
+function parsePendingApprovals(value: unknown): StaffCapabilitiesContract['pendingApprovals'] | null {
+  if (!isRecord(value)) return null;
+  if (
+    !safeCount(value.total)
+    || !safeCount(value.staffAccessRequests)
+    || !safeCount(value.criticalActions)
+  ) return null;
+  if (value.total !== value.staffAccessRequests + value.criticalActions) return null;
+  return {
+    total: value.total,
+    staffAccessRequests: value.staffAccessRequests,
+    criticalActions: value.criticalActions,
+  };
+}
+
 export function parseStaffCapabilitiesContract(value: unknown): StaffCapabilitiesContract | null {
   if (!isRecord(value)) return null;
   if (!isRecord(value.identity) || !isRecord(value.authenticationAssurance)) return null;
@@ -148,9 +174,28 @@ export function parseStaffCapabilitiesContract(value: unknown): StaffCapabilitie
   const assignments = value.assignments.map(parseAssignment);
   const scopes = value.scopes.map(parseScope);
   const sessions = value.activeAccessSessions.map(parseSession);
-  if (assignments.some((item) => item === null) || scopes.some((item) => item === null) || sessions.some((item) => item === null)) {
+  const pendingApprovals = parsePendingApprovals(value.pendingApprovals);
+  if (
+    assignments.some((item) => item === null)
+    || scopes.some((item) => item === null)
+    || sessions.some((item) => item === null)
+    || pendingApprovals === null
+  ) {
     return null;
   }
+
+  const typedAssignments = assignments as StaffCapabilitiesContract['assignments'];
+  const typedScopes = scopes as StaffCapabilitiesContract['scopes'];
+  const typedSessions = sessions as StaffCapabilitiesContract['activeAccessSessions'];
+  const roleSet = new Set(value.roles);
+  const capabilitySet = new Set(value.capabilities);
+  const sessionIds = new Set(typedSessions.map((session) => session.accessSessionId));
+  if (typedAssignments.some((assignment) => !roleSet.has(assignment.role))) return null;
+  if (typedSessions.some((session) => (
+    !roleSet.has(session.staffRole)
+    || session.permissions.some((permission) => !capabilitySet.has(permission))
+  ))) return null;
+  if (typedScopes.some((scope) => !sessionIds.has(scope.accessSessionId))) return null;
 
   return {
     identity: {
@@ -158,16 +203,17 @@ export function parseStaffCapabilitiesContract(value: unknown): StaffCapabilitie
       email: value.identity.email,
       fullName: value.identity.fullName,
     },
-    assignments: assignments as StaffCapabilitiesContract['assignments'],
+    assignments: typedAssignments,
     roles: value.roles,
     capabilities: value.capabilities,
     workspaces: value.workspaces,
-    scopes: scopes as StaffCapabilitiesContract['scopes'],
+    scopes: typedScopes,
     authenticationAssurance: {
       mfaVerified: true,
       mfaVerifiedAt: value.authenticationAssurance.mfaVerifiedAt,
       recentMfa: value.authenticationAssurance.recentMfa,
     },
-    activeAccessSessions: sessions as StaffCapabilitiesContract['activeAccessSessions'],
+    activeAccessSessions: typedSessions,
+    pendingApprovals,
   };
 }
