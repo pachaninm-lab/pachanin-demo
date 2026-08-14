@@ -53,11 +53,14 @@ jobs:
             'GEKTA_G3D_BOOTSTRAP_RUNTIME_MUTATION=NONE',
             'root-owned copies are verified before execution'
           ]) if (!workflow.includes(required)) throw new Error(`missing contract token: ${required}`);
+          const operationalStart = workflow.indexOf('\n  stage:\n');
+          if (operationalStart < 0) throw new Error('stage job missing');
+          const operational = workflow.slice(operationalStart);
           for (const forbidden of [
             'TAI_MODEL_ROOT_SSH_KEY', 'PC_PROD_SSH_KEY', 'VPS_SSH_KEY',
             'sudo -n', 'systemctl restart', 'systemctl stop', 'systemctl start',
             'docker restart', 'kill -', 'pkill', 'NOPASSWD: ALL', 'SETENV:'
-          ]) if (workflow.includes(forbidden)) throw new Error(`forbidden staging capability: ${forbidden}`);
+          ]) if (operational.includes(forbidden)) throw new Error(`forbidden staging capability: ${forbidden}`);
           if (!scope.allowedPaths.includes(file)) throw new Error('scope does not authorize staging workflow');
           if (scope.newRecurringCostRub !== 0) throw new Error('cost boundary changed');
           NODE
