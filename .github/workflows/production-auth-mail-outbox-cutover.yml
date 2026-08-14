@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/production-auth-mail-outbox-cutover.yml'
       - 'scripts/production-auth-mail-outbox-cutover.sh'
+      - 'scripts/production-auth-mail-outbox-cutover-core.sh'
       - 'scripts/check-production-auth-mail-outbox-cutover.mjs'
       - 'scripts/provision-production-auth-mail-runtime.sh'
       - 'apps/api/src/auth-mail-worker.ts'
@@ -71,6 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/production-auth-mail-outbox-cutover.sh
+          bash -n scripts/production-auth-mail-outbox-cutover-core.sh
           bash -n scripts/provision-production-auth-mail-runtime.sh
           node scripts/check-production-auth-mail-outbox-cutover.mjs
 
@@ -198,6 +200,7 @@ jobs:
           set -euo pipefail
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
           scp "${scp_common[@]}" scripts/production-auth-mail-outbox-cutover.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh"
+          scp "${scp_common[@]}" scripts/production-auth-mail-outbox-cutover-core.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-auth-mail-cutover-core-${GITHUB_RUN_ID}.sh"
           scp "${scp_common[@]}" scripts/provision-production-auth-mail-runtime.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh"
 
       - name: Execute fail-closed auth-mail cutover
@@ -215,7 +218,7 @@ jobs:
           raw="$(mktemp)"; clean="$EVIDENCE_DIR/cutover.log"
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "set -euo pipefail; chmod 0700 '/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh'; PC_AUTH_MAIL_PROVISION_SCRIPT='/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' '/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh' cutover '$TARGET_SHA' '$UPSTREAM_RUN_ID'" > "$raw" 2>&1
+            "set -euo pipefail; chmod 0700 '/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-cutover-core-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh'; PC_AUTH_MAIL_CUTOVER_CORE='/tmp/pc-auth-mail-cutover-core-${GITHUB_RUN_ID}.sh' PC_AUTH_MAIL_PROVISION_SCRIPT='/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' '/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh' cutover '$TARGET_SHA' '$UPSTREAM_RUN_ID'" > "$raw" 2>&1
           rc=$?
           set -e
           sed -E \
@@ -225,7 +228,7 @@ jobs:
           rm -f "$raw"
           cat "$clean"
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
-          for field in AUTH_MAIL_CUTOVER TARGET_SHA DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION DEPLOYED_AUTH_MAIL_WORKER_REVISION AUTH_MAIL_WORKER_READY AUTH_MAIL_RUNTIME WEB_SMTP_AUTHORITY API_SMTP_AUTHORITY ROLLBACK_ATTEMPTED ROLLBACK_COMPLETE ERROR_CODE; do
+          for field in AUTH_MAIL_CUTOVER TARGET_SHA DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION DEPLOYED_AUTH_MAIL_WORKER_REVISION AUTH_MAIL_WORKER_READY AUTH_MAIL_RUNTIME LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY API_SMTP_AUTHORITY ROLLBACK_ATTEMPTED ROLLBACK_COMPLETE ERROR_CODE; do
             value="$(sed -n "s/^${field}=//p" "$clean" | tail -1)"
             echo "$(printf '%s' "$field" | tr '[:upper:]' '[:lower:]')=${value:-unknown}" >> "$GITHUB_OUTPUT"
           done
@@ -243,7 +246,7 @@ jobs:
           WORKER_REVISION: ${{ steps.cutover.outputs.deployed_auth_mail_worker_revision }}
           WORKER_READY: ${{ steps.cutover.outputs.auth_mail_worker_ready }}
           AUTH_MAIL_RUNTIME: ${{ steps.cutover.outputs.auth_mail_runtime }}
-          WEB_SMTP_AUTHORITY: ${{ steps.cutover.outputs.web_smtp_authority }}
+          LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY: ${{ steps.cutover.outputs.legacy_web_transactional_mail_authority }}
           API_SMTP_AUTHORITY: ${{ steps.cutover.outputs.api_smtp_authority }}
           ROLLBACK_ATTEMPTED: ${{ steps.cutover.outputs.rollback_attempted }}
           ROLLBACK_COMPLETE: ${{ steps.cutover.outputs.rollback_complete }}
@@ -263,7 +266,7 @@ jobs:
             echo "- auth-mail worker revision: \`${WORKER_REVISION:-unknown}\`"
             echo "- worker ready: \`${WORKER_READY:-unknown}\`"
             echo "- auth-mail runtime: \`${AUTH_MAIL_RUNTIME:-unknown}\`"
-            echo "- Web SMTP authority: \`${WEB_SMTP_AUTHORITY:-unknown}\`"
+            echo "- legacy Web transactional-mail authority: \`${LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY:-unknown}\`"
             echo "- API SMTP authority: \`${API_SMTP_AUTHORITY:-unknown}\`"
             echo "- rollback attempted: \`${ROLLBACK_ATTEMPTED:-unknown}\`"
             echo "- rollback complete: \`${ROLLBACK_COMPLETE:-unknown}\`"
@@ -283,7 +286,7 @@ jobs:
         run: |
           set -euo pipefail
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "rm -f '/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh'" || true
+            "rm -f '/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-cutover-core-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh'" || true
 
       - name: Enforce cutover result
         if: steps.target.outputs.eligible == 'true'
@@ -293,6 +296,10 @@ jobs:
           API_REVISION: ${{ steps.cutover.outputs.deployed_api_revision }}
           WEB_REVISION: ${{ steps.cutover.outputs.deployed_web_revision }}
           WORKER_REVISION: ${{ steps.cutover.outputs.deployed_auth_mail_worker_revision }}
+          WORKER_READY: ${{ steps.cutover.outputs.auth_mail_worker_ready }}
+          AUTH_MAIL_RUNTIME: ${{ steps.cutover.outputs.auth_mail_runtime }}
+          LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY: ${{ steps.cutover.outputs.legacy_web_transactional_mail_authority }}
+          API_SMTP_AUTHORITY: ${{ steps.cutover.outputs.api_smtp_authority }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         shell: bash
         run: |
@@ -302,3 +309,7 @@ jobs:
           [[ "$API_REVISION" == "$TARGET_SHA" ]]
           [[ "$WEB_REVISION" == "$TARGET_SHA" ]]
           [[ "$WORKER_REVISION" == "$TARGET_SHA" ]]
+          [[ "$WORKER_READY" == PASS ]]
+          [[ "$AUTH_MAIL_RUNTIME" == PASS ]]
+          [[ "$LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY" == PRESERVED ]]
+          [[ "$API_SMTP_AUTHORITY" == ABSENT ]]
