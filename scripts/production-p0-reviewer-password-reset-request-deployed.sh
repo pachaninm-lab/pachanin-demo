@@ -7,8 +7,8 @@ set -Eeuo pipefail
 
 COMMAND='/production p0-reviewer-reset-request deployed-7b66f65'
 EXPECTED_DEPLOYED_SHA='7b66f65f8fc7fc4bbedb56c94088ad1473462c92'
-MAIL_PROOF_RUN_ID='31817982012'
-MAIL_PROOF_HEAD_SHA='9aac0ff5d4ee55faa7433a928c6c11d589aa556f'
+MAIL_PROOF_RUN_ID='31820889888'
+MAIL_PROOF_HEAD_SHA='f9ebf5dd6b7424911285378a938a78a06e9cb2fe'
 SOURCE_SCRIPT='scripts/production-p0-reviewer-password-reset-request.sh'
 SOURCE_BLOB_SHA='cbfa6695df00b7b536d153a88e55626d66281063'
 TARGET_SHA='unknown'
