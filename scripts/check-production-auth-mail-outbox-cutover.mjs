@@ -25,6 +25,7 @@ const provision = read('scripts/provision-production-auth-mail-runtime.sh');
 const apiDockerfile = read('infra/docker/Dockerfile.api');
 const apiTsconfig = read('apps/api/tsconfig.json');
 const workflow = read('.github/workflows/production-auth-mail-outbox-cutover.yml');
+const releaseController = read('.github/workflows/platform-v7-safe-merge.yml');
 
 has(service, 'AuthMailOutboxService', 'password reset must depend on durable auth-mail outbox');
 has(service, "kind: 'PASSWORD_RESET'", 'password reset mail kind missing');
@@ -95,13 +96,20 @@ has(provision, "user_domain != platform_domain and not user_domain.endswith('.' 
 has(provision, "values['PC_MAIL_FROM'] != f'access@{platform_domain}'", 'provision MAIL FROM must remain canonical');
 lacks(provision, "values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or values['PC_MAIL_FROM'] != values['PC_SMTP_USER']", 'provision must not collapse SMTP AUTH login into MAIL FROM');
 
-has(workflow, "workflows: ['Production Full-Stack Exact-SHA Release']", 'cutover must chain only after exact full-stack release');
-has(workflow, "github.event.workflow_run.event == 'workflow_run'", 'legacy chained-release provenance must remain supported');
-has(workflow, "github.event.workflow_run.event == 'issue_comment'", 'owner release-controller provenance case missing');
-has(workflow, 'github.event.workflow_run.actor.login == github.repository_owner', 'owner release-controller actor guard missing');
-has(workflow, 'github.event.workflow_run.triggering_actor.login == github.repository_owner', 'owner release-controller triggering-actor guard missing');
-has(workflow, 'AUTH_MAIL_CUTOVER=FAIL_UPSTREAM_PROVENANCE', 'runtime upstream provenance fail-closed marker missing');
-has(workflow, "github.event.workflow_run.head_branch == 'main'", 'production cutover must be main-only');
+has(workflow, "workflows: ['Production Full-Stack Exact-SHA Release']", 'legacy exact-release workflow_run chain must remain supported');
+has(workflow, 'controller_target_sha:', 'direct controller target SHA input missing');
+has(workflow, 'controller_run_id:', 'direct controller run ID input missing');
+has(workflow, "github.event_name == 'issue_comment'", 'direct controller event boundary missing');
+has(workflow, 'github.event.issue.number == 3072', 'direct controller release issue guard missing');
+has(workflow, "github.event.comment.body == '/production release current-main'", 'direct controller command guard missing');
+has(workflow, 'github.actor == github.repository_owner', 'direct controller actor guard missing');
+has(workflow, 'github.triggering_actor == github.repository_owner', 'direct controller triggering-actor guard missing');
+has(workflow, 'inputs.controller_target_sha', 'workflow must consume direct target SHA');
+has(workflow, 'inputs.controller_run_id', 'workflow must consume direct controller run ID');
+has(workflow, "'production-full-stack-execution-3072 / Validate full-stack release contract'", 'controller full-stack contract evidence check missing');
+has(workflow, "'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake'", 'controller production rollout evidence check missing');
+has(workflow, 'AUTH_MAIL_CUTOVER=FAIL_CONTROLLER_RELEASE_EVIDENCE', 'controller release evidence fail-closed marker missing');
+has(workflow, 'AUTH_MAIL_CUTOVER=FAIL_UPSTREAM_PROVENANCE', 'legacy upstream provenance fail-closed marker missing');
 has(workflow, 'git rev-parse origin/main', 'workflow must guard against current-main drift');
 has(workflow, 'scripts/check-production-auth-mail-outbox-cutover.mjs', 'workflow contract job missing');
 has(workflow, 'scripts/production-auth-mail-outbox-cutover.sh', 'workflow cutover wrapper asset missing');
@@ -112,6 +120,17 @@ has(workflow, '[[ "$LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY" == PRESERVED ]]', '
 has(workflow, '[[ "$API_SMTP_AUTHORITY" == ABSENT ]]', 'final cutover gate must require no API SMTP authority');
 lacks(workflow, 'WEB_SMTP_AUTHORITY:', 'stale Web SMTP absence evidence variable must be removed');
 has(workflow, 'scripts/provision-production-auth-mail-runtime.sh', 'workflow provision asset missing');
+
+has(releaseController, 'production-auth-mail-cutover-3072:', 'owner release controller must chain auth-mail cutover');
+has(releaseController, 'needs: production-full-stack-execution-3072', 'auth-mail cutover must depend on successful full-stack release');
+has(releaseController, "needs.production-full-stack-execution-3072.result == 'success'", 'controller cutover must require full-stack success');
+has(releaseController, "uses: ./.github/workflows/production-auth-mail-outbox-cutover.yml", 'controller must call reusable auth-mail cutover directly');
+has(releaseController, 'controller_authorized: true', 'controller authorization input missing');
+has(releaseController, 'controller_target_sha: ${{ github.sha }}', 'controller target SHA propagation missing');
+has(releaseController, 'controller_run_id: ${{ github.run_id }}', 'controller run ID propagation missing');
+has(releaseController, 'github.actor == github.repository_owner', 'controller actor must be repository owner');
+has(releaseController, 'github.triggering_actor == github.repository_owner', 'controller triggering actor must be repository owner');
+assert(!fs.existsSync('.github/workflows/production-auth-mail-cutover-after-controller.yml'), 'standalone auth-mail bridge must be retired after direct chaining');
 
 execFileSync('bash', ['scripts/production-auth-mail-outbox-cutover.sh'], {
   env: { ...process.env, PC_AUTH_MAIL_CUTOVER_VALIDATE_ONLY: '1' },
