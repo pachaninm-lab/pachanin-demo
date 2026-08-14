@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/gekta-p0-speed-g3d-bootstrap-stage.yml'
-      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3d-parallel2-3896.json'
+      - 'docs/platform-v7/autopilot/scopes/gekta-g3d-bootstrap-stage-3896.json'
   issue_comment:
     types: [created]
 
@@ -42,7 +42,7 @@ jobs:
           const fs = require('node:fs');
           const file = '.github/workflows/gekta-p0-speed-g3d-bootstrap-stage.yml';
           const workflow = fs.readFileSync(file, 'utf8');
-          const scope = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3d-parallel2-3896.json', 'utf8'));
+          const scope = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/scopes/gekta-g3d-bootstrap-stage-3896.json', 'utf8'));
           for (const required of [
             '/gekta speed-g3d stage-bootstrap current-main',
             "github.event.comment.author_association == 'OWNER'",
@@ -62,6 +62,7 @@ jobs:
             'docker restart', 'kill -', 'pkill', 'NOPASSWD: ALL', 'SETENV:'
           ]) if (operational.includes(forbidden)) throw new Error(`forbidden staging capability: ${forbidden}`);
           if (!scope.allowedPaths.includes(file)) throw new Error('scope does not authorize staging workflow');
+          if (scope.branch !== 'ops/gekta-g3d-bootstrap-stage-3896' || scope.issue !== 3896) throw new Error('staging scope authority mismatch');
           if (scope.newRecurringCostRub !== 0) throw new Error('cost boundary changed');
           NODE
 
