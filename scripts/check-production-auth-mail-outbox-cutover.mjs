@@ -90,6 +90,10 @@ lacks(cutoverCore, 'docker volume prune', 'cutover must not mutate unrelated vol
 
 has(provision, 'pc_auth_mail_runtime', 'provisioning must maintain dedicated worker DB principal');
 has(provision, 'AUTH_MAIL_PROVISION=PASS', 'provisioning success evidence missing');
+lacks(provision, 'local version="$1" key_file="$KEYRING_DIR/v${version}.key"', 'provision must not expand local version before assignment under nounset');
+has(provision, "user_domain != platform_domain and not user_domain.endswith('.' + platform_domain)", 'provision SMTP login must remain platform-domain bounded');
+has(provision, "values['PC_MAIL_FROM'] != f'access@{platform_domain}'", 'provision MAIL FROM must remain canonical');
+lacks(provision, "values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or values['PC_MAIL_FROM'] != values['PC_SMTP_USER']", 'provision must not collapse SMTP AUTH login into MAIL FROM');
 
 has(workflow, "workflows: ['Production Full-Stack Exact-SHA Release']", 'cutover must chain only after exact full-stack release');
 has(workflow, "github.event.workflow_run.event == 'workflow_run'", 'production cutover must reject PR/push-only upstream runs');
