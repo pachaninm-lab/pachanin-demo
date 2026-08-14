@@ -59,6 +59,24 @@ async function expectTargetsAtLeast(locator: Locator, minimum: number) {
   expect(boxes.every((box) => box.width >= minimum && box.height >= minimum), JSON.stringify(boxes, null, 2)).toBe(true);
 }
 
+
+async function acceptRequiredConsent(page: Page) {
+  const consent = page.locator('[data-gekta-consent="true"]');
+  await expect(consent).toBeVisible();
+
+  const legalLinks = consent.locator([
+    'a[href="/legal/usloviya-ispolzovaniya-gekta"]',
+    'a[href="/legal/politika-konfidencialnosti"]',
+  ].join(', '));
+  await expect(legalLinks).toHaveCount(2);
+  await expectTargetsAtLeast(legalLinks, 44);
+
+  const acceptButton = consent.locator('[data-gekta-consent-accept="true"]');
+  await expectTargetsAtLeast(acceptButton, 44);
+  await acceptButton.click();
+  await expect(consent).toHaveCount(0);
+}
+
 function visibleWorkspaceTargets(page: Page) {
   return page.locator([
     '[data-gekta-chat-workspace="true"] a:visible',
@@ -105,6 +123,7 @@ test.describe('Gekta exact production mobile acceptance', () => {
       const response = await page.goto('/gekta', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
       await expect(page.locator('[data-gekta-chat-workspace="true"]')).toBeVisible();
+      await acceptRequiredConsent(page);
       await expectNoHorizontalOverflow(page);
 
       const starterCards = page.locator('[data-gekta-starter="true"]');
@@ -240,7 +259,7 @@ test.describe('Gekta exact production mobile acceptance', () => {
     }
   }
 
-  test('public platform keeps one floating communication surface and no double mobile footer reserve', async ({ page }) => {
+  test('public platform keeps one floating communication surface and no double mobile footer reserve', async ({ page } ) => {
     await page.setViewportSize({ width: 430, height: 932 });
     const response = await page.goto('/platform-v7', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
