@@ -38,13 +38,17 @@ const protectedShell = source('apps/web/components/platform-v7/PlatformV7Protect
 const requestService = source('apps/api/src/modules/staff-access/staff-access-request.service.ts');
 
 describe('platform-v7 Staff Control Center authority boundary', () => {
-  it('verifies the real server session and never derives staff authority from URL or local storage', () => {
+  it('verifies the real server session and consumes canonical staff capabilities fail-closed', () => {
     expect(page).toContain('cookieStore.get(ACCESS_COOKIE)');
     expect(page).toContain('function resolveApiOrigin()');
     expect(page).toContain("process.env.NODE_ENV === 'production' && url.protocol !== 'https:'");
     expect(page).toContain('fetch(`${API_ORIGIN}/auth/me`');
-    expect(page).toContain('fetch(`${API_ORIGIN}/staff/assignments/me`');
-    expect(page).toContain('staffRoles.length === 0 || identity.mfaVerified !== true');
+    expect(page).toContain('fetch(`${API_ORIGIN}/staff/capabilities/me`');
+    expect(page).toContain('parseStaffCapabilitiesContract(');
+    expect(page).toContain('capabilities.identity.id !== identity.id');
+    expect(page).toContain("capabilities.roles.includes('PLATFORM_OWNER')");
+    expect(page).not.toContain('fetch(`${API_ORIGIN}/staff/assignments/me`');
+    expect(page).not.toContain('staffRoles.length === 0 || identity.mfaVerified !== true');
     expect(page).toContain("verification.status === 'forbidden'");
     expect(page).toContain("redirect: 'manual'");
     expect(page).toContain("redirect('/platform-v7/login?next=%2Fplatform-v7%2Fstaff')");
