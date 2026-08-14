@@ -35,9 +35,9 @@ for (const re of [/workflow_dispatch:/, /schedule:/, /\bpush:/, /StrictHostKeyCh
 
 for (const token of [
   `COMMAND='${command}'`, `SOURCE_BLOB='${canonicalBlob}'`, `OLD_SOURCE_REVISION='${oldRevision}'`,
-  `SOURCE_REVISION='${sourceRevision}'`, `[[ \"$source_revision\" == '${sourceRevision}' ]]`,
+  `SOURCE_REVISION='${sourceRevision}'`, String.raw`[[ \"$source_revision\" == '${sourceRevision}' ]]`,
   'REMOTE_BINDING_MISMATCH', 'SAFE_SUBSTAGE_BINDING_MISMATCH',
-  'if [[ \"$remote_failure\" =~ ^ATTEMPT_REMOTE_FAILURE',
+  String.raw`if [[ \"$remote_failure\" =~ ^ATTEMPT_REMOTE_FAILURE`,
   `grep -Fq \"if SOURCE_REVISION != '$OLD_SOURCE_REVISION':\" \"$TMP\"`,
   `[[ \"$(grep -Fc \"$OLD_SOURCE_REVISION\" \"$TMP\")\" == '1' ]]`,
   `! grep -Fq \"SOURCE_REVISION='$OLD_SOURCE_REVISION'\" \"$TMP\"`,
