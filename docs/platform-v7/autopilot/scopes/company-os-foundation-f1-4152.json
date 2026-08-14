@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "company-os/foundation-f1-4152",
+  "status": "active",
+  "purpose": "Implement the first Company OS vertical slice: a server-authoritative staff capabilities contract and make the existing staff entry consume that contract without creating a second staff-auth system or changing production infrastructure.",
+  "authorityBaseExactMain": "b74a710a2df0baa0a05ed034abbbf78c81aa6190",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/src/modules/staff-access/staff-access.controller.ts",
+    "apps/api/src/modules/staff-access/staff-access.service.ts",
+    "apps/api/test/staff-access/staff-capabilities.contract.spec.ts",
+    "apps/web/app/platform-v7/staff/page.tsx",
+    "apps/web/lib/platform-v7/staff-capabilities.ts",
+    "apps/web/tests/unit/platformV7StaffCapabilitiesContract.test.ts",
+    "docs/company-os/truth-audit-v1.md"
+  ],
+  "requiredInvariants": [
+    "The endpoint is read-only and derives authority only from active server-side staff assignments and existing role permission ceilings.",
+    "The endpoint creates no staff access request, grant, session, role, tenant, organization, capability or database record.",
+    "No client-selected role, tenant, scope, cookie or presentation role can expand authority.",
+    "Staff access fails closed without an active staff assignment and verified MFA.",
+    "The web staff entry stops computing staff authority from assignment arrays and consumes the server-authoritative capabilities contract instead.",
+    "No database schema, migration, production Caddy, DNS, Compose, secret or control-host change is included in F1.",
+    "The follow-up implementation branch cannot edit this scope manifest, the autopilot guard, current serialized IR-10.4 authority, or unrelated platform code.",
+    "Merge, CI and image build are not production deployment evidence."
+  ],
+  "acceptance": [
+    "GET /staff/capabilities/me returns identity, active assignments, roles, deduplicated capability ceiling, workspaces, authentication assurance and active privileged-session metadata without exposing access tokens.",
+    "Owner, non-owner, multi-role, no-assignment and MFA-failure cases are covered by focused tests.",
+    "Direct URL access and presentation-role manipulation cannot increase server permissions.",
+    "No new recurring cost is introduced."
+  ]
+}
