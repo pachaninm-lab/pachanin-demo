@@ -8,6 +8,7 @@ COMMAND='/production p0-reviewer-reset-attempt-classify 31781887205 current-main
 SOURCE='scripts/production-p0-reviewer-reset-attempt-classifier.sh'
 SOURCE_BLOB='7dcfb19d247aab2f0dc8c8075416673499c9dc84'
 TMP="$RUNNER_TEMP/pc-p0-reviewer-reset-attempt-31781887205.sh"
+OLD_SOURCE_REVISION='7c768ad7c54523837b06999a8f69bdffe2a840db'
 
 [[ "$PC_REVIEWER_RESET_ATTEMPT_COMMAND" == "$COMMAND" ]]
 [[ -f "$SOURCE" ]]
@@ -42,9 +43,8 @@ for old, new in replacements:
         raise SystemExit(f'FIXED_BINDING_MISMATCH:{old[:24]}:{count}')
     text = text.replace(old, new, 1)
 
-# The canonical remote script independently fail-closes on the same historical
-# revision/window. Rebind those three exact preconditions too; otherwise the
-# wrapper's stale-literal guard correctly aborts before SSH.
+# The RESET_ATTEMPT remote script independently fail-closes on the same
+# historical revision/window. Rebind those three exact preconditions too.
 remote_replacements = [
     (
         "[[ \"$source_revision\" == '7c768ad7c54523837b06999a8f69bdffe2a840db' ]]",
@@ -82,8 +82,8 @@ path.write_text(text, encoding='utf-8')
 PY
 
 # The canonical classifier remains the authority. This one-off wrapper changes
-# only fixed historical bindings in RUNNER_TEMP plus validation-only promotion
-# of an already emitted, bounded remote failure substage.
+# only RESET_ATTEMPT historical bindings in RUNNER_TEMP plus validation-only
+# promotion of an already emitted, bounded remote failure substage.
 grep -Fqx "ATTEMPT_COMMAND='/production p0-reviewer-reset-attempt-classify 31781887205 current-main'" "$TMP"
 grep -Fqx "SOURCE_RUN_ID='31781887205'" "$TMP"
 grep -Fqx "ATTEMPT_SINCE='2026-08-14T07:56:46Z'" "$TMP"
@@ -97,7 +97,14 @@ grep -Fq 'if [[ "$remote_failure" =~ ^ATTEMPT_REMOTE_FAILURE\|' "$TMP"
 ! grep -Fq '31706325376' "$TMP"
 ! grep -Fq '2026-08-13T13:43:10Z' "$TMP"
 ! grep -Fq '2026-08-13T13:43:26Z' "$TMP"
-! grep -Fq '7c768ad7c54523837b06999a8f69bdffe2a840db' "$TMP"
+
+# One old source SHA is intentionally retained inside the unreachable
+# AUTH_HASH_RUNTIME subclassifier. The fixed command above selects only
+# RESET_ATTEMPT, so requiring global absence would be a false-positive guard.
+grep -Fq "if SOURCE_REVISION != '$OLD_SOURCE_REVISION':" "$TMP"
+[[ "$(grep -Fc "$OLD_SOURCE_REVISION" "$TMP")" == '1' ]]
+! grep -Fq "SOURCE_REVISION='$OLD_SOURCE_REVISION'" "$TMP"
+! grep -Fq "[[ \"\$source_revision\" == '$OLD_SOURCE_REVISION' ]]" "$TMP"
 
 bash -n "$TMP"
 bash "$TMP"
