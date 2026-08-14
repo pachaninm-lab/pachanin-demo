@@ -90,8 +90,14 @@ if (base.split(oldGuard).length !== 2) throw new Error('base stale guard cardina
 if ((base.match(/started_epoch="\$\(date \+%s\)"/g) || []).length !== 1) {
   throw new Error('base pre-POST anchor cardinality must be exactly one');
 }
-if ((base.match(/\/api\/auth\/forgot-password/g) || []).length !== 1) {
-  throw new Error('base reset POST surface cardinality must be exactly one');
-}
+requireAll('base reset surface', base, [
+  'post_status="$(curl',
+  '--data-binary "@$request_body"',
+  '"$live_base/api/auth/forgot-password"',
+  '[[ "$post_status" == \'202\' ]]',
+  '"accepted"[[:space:]]*:[[:space:]]*true',
+  'password_reset_delivery_result',
+  '"delivered"[[:space:]]*:[[:space:]]*true',
+]);
 
 console.log('production P0 reviewer password-reset ancestor authority contract PASS');
