@@ -25,7 +25,7 @@ The current repository already contains a durable staff-access control plane wit
 - staff access requests and approvals;
 - grants and time-bounded access sessions;
 - CONTROL_PLANE / VIEW_AS / ASSISTED / OPERATIONS / JIT_PRIVILEGED / BREAK_GLASS access modes;
-- critical-action requests;
+- critical-action requests and approvals;
 - role permission ceilings (`ROLE_PERMISSION_CEILING`);
 - staff event/audit services and PostgreSQL-backed staff authority;
 - global API authentication that enriches `/staff` requests from server-side staff assignments rather than JWT/client staff-role claims.
@@ -63,9 +63,9 @@ F1 correction:
 
 Status before F1: `MISSING`.
 
-The Master Specification requires a server-authoritative `GET /staff/capabilities/me` contract. No such route existed on the checked baseline.
+The Master Specification §4.3 requires a server-authoritative `GET /staff/capabilities/me` contract with identity, active assignments, workspaces, capabilities, scopes, active access session, authentication assurance and pending approvals. No such canonical route existed on the checked baseline.
 
-F1 adds a dedicated read-only controller/service inside the existing `StaffAccessModule`. It does not alter `StaffAccessService`, role definitions, database schema or migrations.
+F1 adds a dedicated read-only controller/service inside the existing `StaffAccessModule`. It does not alter staff roles, database schema or migrations.
 
 The F1 response contains:
 
@@ -76,7 +76,32 @@ The F1 response contains:
 - task/workspace hints derived server-side from durable roles;
 - authentication assurance (`mfaVerified`, timestamp, recent-MFA indicator);
 - sanitized active privileged-session metadata;
-- active server-resolved scope projections from those sessions.
+- active server-resolved scope projections from those sessions;
+- a minimal `pendingApprovals` summary with counts for staff-access requests and critical actions.
+
+### 4.1. Stale-session authority protection
+
+A stored access session can contain permission metadata issued earlier. F1 does not trust that metadata as a fresh capability source. Before exposing session permissions to the web contract it:
+
+1. requires the session role to still exist in the actor's current active assignments;
+2. intersects session permissions with the current `ROLE_PERMISSION_CEILING` for that durable role;
+3. omits sessions whose role no longer has an active assignment.
+
+Endpoint enforcement remains in the existing guards/services; this clipping prevents stale session metadata from expanding UI authority or approval visibility.
+
+### 4.2. Pending approvals boundary
+
+`pendingApprovals` is intentionally a minimal count-only projection, not the Approval Center payload.
+
+- Staff-access approval counts are calculated only when an active `CONTROL_PLANE` session contains `staff-request:approve` after current-ceiling clipping.
+- Critical-action approval counts are calculated only when an active `CONTROL_PLANE` session contains `critical-action:approve` after current-ceiling clipping.
+- The actor's own requests are excluded.
+- Expired and non-pending requests are excluded.
+- Requests already decided by that actor are excluded.
+- Reason, ticket, requested permissions, target tenant/organization/user/deal and other approval-sensitive payload fields are not returned by this summary.
+- Without an actually active approval-capable CONTROL_PLANE session the corresponding count is exactly zero and no global approval query is executed.
+
+The full cross-domain Approval Center required by the Master Specification remains a later Work OS/Foundation slice.
 
 The response never contains the stored session token hash, raw access credential, raw reason or ticket payload.
 
@@ -144,10 +169,11 @@ Decision: do not add these roles in F1. Role expansion requires a separate capab
 | Active staff assignments | EXISTS | reused |
 | Role permission ceilings | EXISTS | reused |
 | MFA state | EXISTS | reused |
-| Time-bounded privileged access sessions | EXISTS | exposed only as sanitized metadata |
+| Time-bounded privileged access sessions | EXISTS | exposed only as sanitized, current-ceiling-clipped metadata |
 | Break-glass framework | EXISTS | unchanged |
 | Critical-action framework | EXISTS | unchanged |
 | `GET /staff/capabilities/me` | MISSING | implemented |
+| Pending approvals in capabilities contract | MISSING | minimal count-only staff-access + critical-action summary implemented |
 | Web consumption of canonical staff capabilities | PARTIAL | implemented for server page and global staff navigation entry |
 | Dedicated read-only capabilities BFF | MISSING | implemented without privileged staff-session credential access |
 | Company OS control host | MISSING | deferred to separate infrastructure slice |
@@ -167,13 +193,22 @@ Decision: do not add these roles in F1. Role expansion requires a separate capab
 4. No staff access without verified MFA and an active server-side assignment.
 5. `capabilities` is a union of existing `ROLE_PERMISSION_CEILING` values only.
 6. Active scope is derived from server-side privileged sessions only.
-7. Session credential material is never returned.
-8. Server and client web parsing is fail-closed.
-9. `/auth/me` actor id and `/staff/capabilities/me` actor id must match on the server-rendered entry.
-10. The client navigation uses a dedicated read-only BFF and never receives or sends the privileged `x-staff-access-session` credential.
-11. F1 performs no DNS, Caddy, Compose, secret, migration or production mutation.
+7. Session permissions exposed to UI cannot exceed the current durable role ceiling.
+8. Pending approval visibility requires an active approval-capable CONTROL_PLANE session and cannot include self/expired/already-decided requests.
+9. Pending approval summary exposes counts only, not approval-sensitive payload.
+10. Session credential material is never returned.
+11. Server and client web parsing is fail-closed and validates internal role/session/capability consistency.
+12. `/auth/me` actor id and `/staff/capabilities/me` actor id must match on the server-rendered entry.
+13. The client navigation uses a dedicated read-only BFF and never receives or sends the privileged `x-staff-access-session` credential.
+14. F1 performs no DNS, Caddy, Compose, secret, migration or production mutation.
 
-## 9. Next vertical slice after F1 acceptance
+## 9. Scope/maturity boundary
+
+F1 is one foundation **sub-slice**. It does not by itself complete Stage 1 in §18 or the 13-item first vertical slice in §18.1. In particular, F1 does not claim completion of control host, corporate login hardening, Owner Command Center, Employee/Manager routing, Employee 360, Partner 360, Global Search, Universal Timeline, WorkItem, Case, full Approval Center or Unified Evidence contract.
+
+This distinction is mandatory for overall Company OS completion accounting.
+
+## 10. Next vertical slice after F1 acceptance
 
 `F2 — control-host security boundary` should be authorized separately and only after F1 exact-head review/CI:
 
