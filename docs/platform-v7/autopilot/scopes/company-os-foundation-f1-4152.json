@@ -7,8 +7,9 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
-    "apps/api/src/modules/staff-access/staff-access.controller.ts",
-    "apps/api/src/modules/staff-access/staff-access.service.ts",
+    "apps/api/src/modules/staff-access/staff-access.module.ts",
+    "apps/api/src/modules/staff-access/staff-capabilities.controller.ts",
+    "apps/api/src/modules/staff-access/staff-capabilities.service.ts",
     "apps/api/test/staff-access/staff-capabilities.contract.spec.ts",
     "apps/web/app/platform-v7/staff/page.tsx",
     "apps/web/lib/platform-v7/staff-capabilities.ts",
