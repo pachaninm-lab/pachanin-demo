@@ -50,6 +50,12 @@ has(retrySpec, "'SMTP_TRANSIENT_451'", 'observed production 451 must be regressi
 has(retrySpec, "'SMTP_PERMANENT_550'", 'permanent 550 must be regression-tested');
 has(smtp, "code >= 500 ? 'PERMANENT' : code >= 400 ? 'TRANSIENT' : 'PROTOCOL'", 'SMTP 4xx/5xx response classifier missing');
 has(smtp, '`SMTP_${category}_${code}`', 'SMTP response taxonomy missing');
+has(smtp, "const PLATFORM_MAIL_DOMAIN_ASCII = 'xn----8sbjf4befbjgs9b.xn--p1ai';", 'canonical SMTP authentication domain missing');
+has(smtp, 'const PLATFORM_SENDER_ASCII = `access@${PLATFORM_MAIL_DOMAIN_ASCII}`;', 'canonical visible sender missing');
+has(smtp, "const userDomain = user.slice(user.lastIndexOf('@') + 1);", 'SMTP auth login domain extraction missing');
+has(smtp, "/[^\\x00-\\x7F]/.test(user) || userDomain !== PLATFORM_MAIL_DOMAIN_ASCII", 'SMTP auth login must be ASCII and exact-domain bounded');
+has(smtp, 'if (from !== PLATFORM_SENDER_ASCII)', 'SMTP envelope/header sender must remain canonical');
+lacks(smtp, 'user !== PLATFORM_SENDER_ASCII || from !== PLATFORM_SENDER_ASCII', 'SMTP auth identity must not be incorrectly coupled to visible sender');
 
 has(crypto, 'aes-256-gcm', 'outbox bearer envelope must use AEAD encryption');
 has(outbox, 'auth.enqueue_mail_outbox', 'API must enqueue through bounded database authority');
@@ -62,11 +68,21 @@ has(apiTsconfig, '"src/**/*.ts"', 'API compiler must include auth-mail-worker en
 has(apiDockerfile, 'cp -R /workspace/apps/api/dist /prod/api/dist', 'API image must carry compiled worker entrypoint');
 
 has(cutoverWrapper, 'CORE="${PC_AUTH_MAIL_CUTOVER_CORE:-scripts/production-auth-mail-outbox-cutover-core.sh}"', 'wrapper must accept an explicit remote core path');
+has(cutoverWrapper, 'PROVISION="${PC_AUTH_MAIL_PROVISION_SCRIPT:-scripts/provision-production-auth-mail-runtime.sh}"', 'wrapper must preserve and patch the exact provision asset');
 has(cutoverWrapper, 'EXPECTED_CORE_BLOB="d45f60d0feb10c569b2c4388214aae41be508fd1"', 'wrapper must pin reviewed cutover core');
 has(cutoverWrapper, 'PATCH_CARDINALITY_', 'wrapper transformation must fail closed on source drift');
+has(cutoverWrapper, 'AUTH_MAIL_LEGACY_TRANSPORT_IDENTITY', 'legacy transport identity patch guard missing');
+has(cutoverWrapper, 'AUTH_MAIL_TRANSPORT_AUTHORITY_IDENTITY', 'root transport identity patch guard missing');
+has(cutoverWrapper, 'AUTH_MAIL_PROVISION_TRANSPORT_IDENTITY', 'provision transport identity patch guard missing');
+has(cutoverWrapper, "user_domain != 'xn----8sbjf4befbjgs9b.xn--p1ai'", 'patched auth identity must remain exact-domain bounded');
+has(cutoverWrapper, "sender != 'access@xn----8sbjf4befbjgs9b.xn--p1ai'", 'patched worker sender must remain canonical');
+has(cutoverWrapper, "values['PC_MAIL_FROM'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai'", 'patched provision sender must remain canonical');
+has(cutoverWrapper, 'PC_AUTH_MAIL_PROVISION_SCRIPT="$patched_provision" bash "$patched" "$@"', 'cutover must execute only the validated patched provision asset');
 has(cutoverWrapper, 'PC_AUTH_MAIL_CUTOVER_VALIDATE_ONLY', 'wrapper local validation mode missing');
 has(cutoverWrapper, 'LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY=PRESERVED', 'legacy Web mail preservation evidence missing');
 has(cutoverWrapper, '- ${transactional_mail_env_file}', 'wrapper must preserve legacy Web transactional-mail env file');
+has(cutoverWrapper, "LC_ALL=C grep -Eq '^PC_SMTP_USER=[^[:space:]@]{1,64}@xn----8sbjf4befbjgs9b\\.xn--p1ai$'", 'legacy Web SMTP auth identity must stay exact-domain bounded');
+has(cutoverWrapper, "grep -Fxq 'PC_MAIL_FROM=access@xn----8sbjf4befbjgs9b.xn--p1ai'", 'legacy Web visible sender must remain canonical');
 has(cutoverWrapper, "grep -Eq '^AUTH_MAIL_'", 'Web must not receive worker-specific AUTH_MAIL authority');
 
 has(cutoverCore, '/app/dist/apps/api/src/auth-mail-worker.js', 'pre-mutation worker artifact proof missing');
