@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const workflowPath = '.github/workflows/production-p0-reviewer-reset-attempt-31781887205.yml';
@@ -8,13 +10,13 @@ const checkerPath = 'scripts/check-production-p0-reviewer-reset-attempt-31781887
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-31781887205-3785.json';
 const canonicalPath = 'scripts/production-p0-reviewer-reset-attempt-classifier.sh';
 const canonicalBlob = '7dcfb19d247aab2f0dc8c8075416673499c9dc84';
-const branch = 'diag/p0-reviewer-reset-attempt-31781887205-stale-revision-3785';
+const branch = 'fix/p0-reviewer-reset-wrapper-preflight-3785';
 const command = '/production p0-reviewer-reset-attempt-classify 31781887205 current-main';
 const oldRevision = '7c768ad7c54523837b06999a8f69bdffe2a840db';
 const sourceRevision = 'dc5bec67faeaec26ce905c0643dc15d35f99bf50';
 const allowed = [workflowPath, runnerPath, checkerPath, scopePath];
 
-const read = (path) => fs.readFileSync(path, 'utf8');
+const read = (filePath) => fs.readFileSync(filePath, 'utf8');
 const workflow = read(workflowPath);
 const runner = read(runnerPath);
 const canonical = read(canonicalPath);
@@ -30,18 +32,17 @@ for (const token of [
   `github.event.comment.body == '${command}'`, 'needs.contract.result == \'success\'',
   `node ${checkerPath}`, `bash -n ${runnerPath}`, `bash ${runnerPath}`,
 ]) need('workflow', workflow, token);
-for (const path of allowed) need('workflow', workflow, `      - '${path}'`);
+for (const filePath of allowed) need('workflow', workflow, `      - '${filePath}'`);
 for (const re of [/workflow_dispatch:/, /schedule:/, /\bpush:/, /StrictHostKeyChecking=no/, /UserKnownHostsFile=\/dev\/null/]) deny('workflow', workflow, re);
 
 for (const token of [
   `COMMAND='${command}'`, `SOURCE_BLOB='${canonicalBlob}'`, `OLD_SOURCE_REVISION='${oldRevision}'`,
   `SOURCE_REVISION='${sourceRevision}'`, String.raw`[[ \"$source_revision\" == '${sourceRevision}' ]]`,
   'REMOTE_BINDING_MISMATCH', 'SAFE_SUBSTAGE_BINDING_MISMATCH',
+  'POST_TRANSFORM_LINE_MISMATCH', 'POST_TRANSFORM_FRAGMENT_MISMATCH',
+  'POST_TRANSFORM_OLD_REVISION_COUNT', 'PC_REVIEWER_RESET_ATTEMPT_VALIDATE_ONLY',
   String.raw`if [[ \"$remote_failure\" =~ ^ATTEMPT_REMOTE_FAILURE`,
-  `grep -Fq \"if SOURCE_REVISION != '$OLD_SOURCE_REVISION':\" \"$TMP\"`,
-  `[[ \"$(grep -Fc \"$OLD_SOURCE_REVISION\" \"$TMP\")\" == '1' ]]`,
-  `! grep -Fq \"SOURCE_REVISION='$OLD_SOURCE_REVISION'\" \"$TMP\"`,
-  'bash -n "$TMP"', 'bash "$TMP"',
+  'bash -n "$TMP"', 'PASS: transformed one-off classifier preflight', 'bash "$TMP"',
 ]) need('runner', runner, token);
 for (const re of [/\bssh\s/, /\bcurl\s/, /\bdocker\s/, /forgot-password/]) deny('wrapper', runner, re);
 
@@ -62,6 +63,28 @@ for (const key of ['databaseMutation','identityMutation','passwordMutation','cre
   if (b[key] !== false) failures.push(`scope boundary ${key} must remain false`);
 }
 
+// Execute the complete local transform + validation path on every PR. This
+// stops before the canonical classifier, so it cannot use network/SSH/REG.RU.
+const validateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-p0-reset-wrapper-'));
+try {
+  const preflight = spawnSync('bash', [runnerPath], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      RUNNER_TEMP: validateDir,
+      PC_REVIEWER_RESET_ATTEMPT_COMMAND: command,
+      PC_REVIEWER_RESET_ATTEMPT_VALIDATE_ONLY: '1',
+    },
+  });
+  if (preflight.status !== 0) {
+    failures.push(`wrapper transformed preflight failed: status=${preflight.status}; stderr=${preflight.stderr.trim().slice(0, 200)}`);
+  } else if (!preflight.stdout.includes('PASS: transformed one-off classifier preflight')) {
+    failures.push('wrapper transformed preflight did not emit PASS sentinel');
+  }
+} finally {
+  fs.rmSync(validateDir, { recursive: true, force: true });
+}
+
 if (process.env.GITHUB_EVENT_NAME === 'pull_request') {
   const diff = spawnSync('git', ['diff', '--name-only', 'origin/main...HEAD'], { encoding: 'utf8' });
   const changed = diff.stdout.trim().split('\n').filter(Boolean).sort();
@@ -72,4 +95,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exit(1);
 }
-console.log('PASS: the one-off classifier remains read-only, pins the canonical blob, rebinds only RESET_ATTEMPT historical bindings, and permits exactly one unrelated auth-hash historical revision sentinel.');
+console.log('PASS: the one-off classifier remains read-only, pins the canonical blob, validates the full transformed wrapper locally, rebinds only RESET_ATTEMPT historical bindings, and permits exactly one unrelated auth-hash historical revision sentinel.');
