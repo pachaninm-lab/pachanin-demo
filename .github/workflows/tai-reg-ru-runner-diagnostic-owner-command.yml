@@ -218,8 +218,8 @@ jobs:
           nrestarts="$(systemctl show "$service" --property=NRestarts --value)"
           active_usec="$(systemctl show "$service" --property=ActiveEnterTimestampMonotonic --value)"
           [[ "$main_pid" =~ ^[0-9]+$ && "$nrestarts" =~ ^[0-9]+$ && "$active_usec" =~ ^[0-9]+$ ]]
-          listener_count="$(pgrep -u pcactions -f 'Runner.Listener' 2>/dev/null | wc -l | tr -d ' ')"
-          worker_count="$(pgrep -u pcactions -f 'Runner.Worker' 2>/dev/null | wc -l | tr -d ' ')"
+          listener_count="$( (pgrep -u pcactions -f 'Runner.Listener' 2>/dev/null || true) | wc -l | tr -d ' ')"
+          worker_count="$( (pgrep -u pcactions -f 'Runner.Worker' 2>/dev/null || true) | wc -l | tr -d ' ')"
           [[ "$listener_count" =~ ^[0-9]+$ && "$worker_count" =~ ^[0-9]+$ ]]
 
           runner_identity="$(python3 - "$runner_root/.runner" <<'PY'
@@ -270,7 +270,6 @@ jobs:
           endpoint_status BROKER broker.actions.githubusercontent.com https://broker.actions.githubusercontent.com/
 
           python3 - "$runner_root/_diag" "$service" <<'PY'
-          import os
           import re
           import subprocess
           import sys
@@ -367,17 +366,27 @@ jobs:
           classification=DIAGNOSTIC_INCOMPLETE
           if [[ "$(value RUNNER_CONNECTIVITY_DIAGNOSTIC || true)" == PASS ]]; then
             outcome=PASS
+            diag_last="$(value RUNNER_DIAG_LAST_CATEGORY)"
+            journal_last="$(value RUNNER_JOURNAL_LAST_CATEGORY)"
             if [[ "$(value RUNNER_SERVICE_STATE)" != active ]] || [[ "$(value RUNNER_LISTENER_PROCESS_COUNT)" == 0 ]]; then
               classification=LOCAL_RUNNER_PROCESS
             elif [[ "$(value DNS_GITHUB)" != PASS || "$(value DNS_API)" != PASS || "$(value DNS_PIPELINES)" != PASS || "$(value DNS_BROKER)" != PASS || "$(value HTTPS_GITHUB)" != PASS || "$(value HTTPS_API)" != PASS || "$(value HTTPS_PIPELINES)" != PASS || "$(value HTTPS_BROKER)" != PASS ]]; then
               classification=OUTBOUND_CONNECTIVITY
-            elif [[ "$(value RUNNER_DIAG_SESSION_CONFLICT_COUNT)" != 0 || "$(value RUNNER_JOURNAL_SESSION_CONFLICT_COUNT)" != 0 ]]; then
+            elif [[ "$diag_last" == SESSION_CONFLICT ]]; then
               classification=GITHUB_SESSION_CONFLICT
-            elif [[ "$(value RUNNER_DIAG_AUTH_COUNT)" != 0 || "$(value RUNNER_JOURNAL_AUTH_COUNT)" != 0 ]]; then
+            elif [[ "$diag_last" == AUTH ]]; then
               classification=GITHUB_RUNNER_AUTH
-            elif [[ "$(value RUNNER_DIAG_NETWORK_COUNT)" != 0 || "$(value RUNNER_JOURNAL_NETWORK_COUNT)" != 0 ]]; then
+            elif [[ "$diag_last" == DNS || "$diag_last" == NETWORK ]]; then
               classification=RUNNER_NETWORK_ERRORS
-            elif [[ "$(value RUNNER_DIAG_LISTENING_COUNT)" != 0 || "$(value RUNNER_JOURNAL_LISTENING_COUNT)" != 0 ]]; then
+            elif [[ "$diag_last" == LISTENING || "$diag_last" == CONNECTED ]]; then
+              classification=LISTENER_READY_SCHEDULER_PENDING
+            elif [[ "$journal_last" == SESSION_CONFLICT ]]; then
+              classification=GITHUB_SESSION_CONFLICT
+            elif [[ "$journal_last" == AUTH ]]; then
+              classification=GITHUB_RUNNER_AUTH
+            elif [[ "$journal_last" == DNS || "$journal_last" == NETWORK ]]; then
+              classification=RUNNER_NETWORK_ERRORS
+            elif [[ "$journal_last" == LISTENING || "$journal_last" == CONNECTED ]]; then
               classification=LISTENER_READY_SCHEDULER_PENDING
             else
               classification=LISTENER_RUNNING_NO_READY_MARKER
@@ -395,6 +404,8 @@ jobs:
             echo "- GitHub DNS: \`$(value DNS_GITHUB || true) / $(value DNS_API || true) / $(value DNS_PIPELINES || true) / $(value DNS_BROKER || true)\`"
             echo "- GitHub HTTPS: \`$(value HTTPS_GITHUB || true) / $(value HTTPS_API || true) / $(value HTTPS_PIPELINES || true) / $(value HTTPS_BROKER || true)\`"
             echo "- runner diag age sec: \`$(value RUNNER_DIAG_AGE_SEC || true)\`"
+            echo "- diag last: \`$(value RUNNER_DIAG_LAST_CATEGORY || true)\`"
+            echo "- journal last: \`$(value RUNNER_JOURNAL_LAST_CATEGORY || true)\`"
             echo "- diag session/auth/dns/network/listening/connected: \`$(value RUNNER_DIAG_SESSION_CONFLICT_COUNT || true)/$(value RUNNER_DIAG_AUTH_COUNT || true)/$(value RUNNER_DIAG_DNS_COUNT || true)/$(value RUNNER_DIAG_NETWORK_COUNT || true)/$(value RUNNER_DIAG_LISTENING_COUNT || true)/$(value RUNNER_DIAG_CONNECTED_COUNT || true)\`"
             echo "- journal session/auth/dns/network/listening/connected: \`$(value RUNNER_JOURNAL_SESSION_CONFLICT_COUNT || true)/$(value RUNNER_JOURNAL_AUTH_COUNT || true)/$(value RUNNER_JOURNAL_DNS_COUNT || true)/$(value RUNNER_JOURNAL_NETWORK_COUNT || true)/$(value RUNNER_JOURNAL_LISTENING_COUNT || true)/$(value RUNNER_JOURNAL_CONNECTED_COUNT || true)\`"
             echo "- root/containerd available KiB: \`$(value ROOT_AVAILABLE_KIB || true) / $(value CONTAINERD_AVAILABLE_KIB || true)\`"
