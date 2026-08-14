@@ -122,11 +122,14 @@ lacks(workflow, 'WEB_SMTP_AUTHORITY:', 'stale Web SMTP absence evidence variable
 has(workflow, 'scripts/provision-production-auth-mail-runtime.sh', 'workflow provision asset missing');
 
 has(releaseController, 'production-auth-mail-cutover-3072:', 'owner release controller must chain auth-mail cutover');
-has(releaseController, 'needs: production-full-stack-execution-3072', 'auth-mail cutover must depend on successful full-stack release');
+has(releaseController, 'exact_main_sha: ${{ steps.release.outputs.main_sha }}', 'release-control exact SHA job output missing');
+has(releaseController, 'echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"', 'release-control exact SHA step output missing');
+has(releaseController, 'needs: [production-release-control-3072, production-full-stack-execution-3072]', 'auth-mail cutover must depend on release-control and full-stack release');
+has(releaseController, "needs.production-release-control-3072.result == 'success'", 'controller cutover must require release-control success');
 has(releaseController, "needs.production-full-stack-execution-3072.result == 'success'", 'controller cutover must require full-stack success');
 has(releaseController, "uses: ./.github/workflows/production-auth-mail-outbox-cutover.yml", 'controller must call reusable auth-mail cutover directly');
 has(releaseController, 'controller_authorized: true', 'controller authorization input missing');
-has(releaseController, 'controller_target_sha: ${{ github.sha }}', 'controller target SHA propagation missing');
+has(releaseController, 'controller_target_sha: ${{ needs.production-release-control-3072.outputs.exact_main_sha }}', 'controller exact target SHA propagation missing');
 has(releaseController, 'controller_run_id: ${{ github.run_id }}', 'controller run ID propagation missing');
 has(releaseController, 'github.actor == github.repository_owner', 'controller actor must be repository owner');
 has(releaseController, 'github.triggering_actor == github.repository_owner', 'controller triggering actor must be repository owner');
