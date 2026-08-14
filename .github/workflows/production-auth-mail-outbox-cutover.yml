@@ -4,14 +4,22 @@ on:
   workflow_call:
     inputs:
       controller_authorized:
-        description: 'Set only by the bounded owner release-controller bridge.'
+        description: 'Set only by the bounded owner release controller after full-stack success.'
         required: true
         type: boolean
+      controller_target_sha:
+        description: 'Exact main SHA released by the owner controller.'
+        required: true
+        type: string
+      controller_run_id:
+        description: 'Owner release-controller run that contains successful full-stack jobs.'
+        required: true
+        type: string
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/production-auth-mail-outbox-cutover.yml'
-      - '.github/workflows/production-auth-mail-cutover-after-controller.yml'
+      - '.github/workflows/platform-v7-safe-merge.yml'
       - 'scripts/production-auth-mail-outbox-cutover.sh'
       - 'scripts/production-auth-mail-outbox-cutover-core.sh'
       - 'scripts/check-production-auth-mail-outbox-cutover.mjs'
@@ -61,13 +69,12 @@ jobs:
     name: Validate auth-mail cutover contract
     if: >-
       (inputs.controller_authorized == true &&
-       github.event_name == 'workflow_run' &&
-       github.event.workflow_run.name == 'platform-v7 safe merge' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'issue_comment' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.actor.login == github.repository_owner &&
-       github.event.workflow_run.triggering_actor.login == github.repository_owner) ||
+       github.event_name == 'issue_comment' &&
+       github.event.issue.number == 3072 &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.body == '/production release current-main' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner) ||
       github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
@@ -77,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event.pull_request.head.sha }}
+          ref: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.event.pull_request.head.sha }}
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
@@ -96,13 +103,12 @@ jobs:
     needs: contract
     if: >-
       (inputs.controller_authorized == true &&
-       github.event_name == 'workflow_run' &&
-       github.event.workflow_run.name == 'platform-v7 safe merge' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'issue_comment' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.actor.login == github.repository_owner &&
-       github.event.workflow_run.triggering_actor.login == github.repository_owner) ||
+       github.event_name == 'issue_comment' &&
+       github.event.issue.number == 3072 &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.body == '/production release current-main' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main')
@@ -111,7 +117,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - name: Guard exact current main and upstream release authority
@@ -121,32 +127,38 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           CONTROLLER_AUTHORIZED: ${{ inputs.controller_authorized == true }}
-          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
-          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
-          UPSTREAM_NAME: ${{ github.event.workflow_run.name }}
-          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          UPSTREAM_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
-          UPSTREAM_ACTOR: ${{ github.event.workflow_run.actor.login }}
-          UPSTREAM_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
-          UPSTREAM_EVENT_IS_LEGACY_CHAIN: ${{ github.event.workflow_run.event == 'workflow_run' }}
-          UPSTREAM_EVENT_IS_OWNER_CONTROLLER: ${{ github.event.workflow_run.event == 'issue_comment' }}
-          UPSTREAM_ACTOR_IS_OWNER: ${{ github.event.workflow_run.actor.login == github.repository_owner }}
-          UPSTREAM_TRIGGERING_ACTOR_IS_OWNER: ${{ github.event.workflow_run.triggering_actor.login == github.repository_owner }}
+          TARGET_SHA: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || github.event.workflow_run.head_sha }}
+          UPSTREAM_RUN_ID: ${{ inputs.controller_authorized == true && inputs.controller_run_id || github.event.workflow_run.id }}
+          UPSTREAM_NAME: ${{ inputs.controller_authorized == true && 'platform-v7 safe merge' || github.event.workflow_run.name }}
+          UPSTREAM_CONCLUSION: ${{ inputs.controller_authorized == true && 'success' || github.event.workflow_run.conclusion }}
+          UPSTREAM_HEAD_BRANCH: ${{ inputs.controller_authorized == true && 'main' || github.event.workflow_run.head_branch }}
+          UPSTREAM_EVENT: ${{ inputs.controller_authorized == true && github.event_name || github.event.workflow_run.event }}
+          UPSTREAM_ACTOR: ${{ inputs.controller_authorized == true && github.actor || github.event.workflow_run.actor.login }}
+          UPSTREAM_TRIGGERING_ACTOR: ${{ inputs.controller_authorized == true && github.triggering_actor || github.event.workflow_run.triggering_actor.login }}
+          CONTROLLER_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          CONTROLLER_COMMENTER: ${{ github.event.comment.user.login }}
+          CONTROLLER_COMMAND: ${{ github.event.comment.body }}
           REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           [[ "$UPSTREAM_CONCLUSION" == success ]]
           [[ "$UPSTREAM_HEAD_BRANCH" == main ]]
-          printf 'UPSTREAM_PROVENANCE_NAME=%s\nUPSTREAM_PROVENANCE_EVENT=%s\nUPSTREAM_ACTOR_IS_OWNER=%s\nUPSTREAM_TRIGGERING_ACTOR_IS_OWNER=%s\nCONTROLLER_AUTHORIZED=%s\n' \
-            "$UPSTREAM_NAME" "$UPSTREAM_EVENT" "$UPSTREAM_ACTOR_IS_OWNER" "$UPSTREAM_TRIGGERING_ACTOR_IS_OWNER" "$CONTROLLER_AUTHORIZED"
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]{1,24}$ ]]
+          actor_is_owner=false
+          triggering_actor_is_owner=false
+          [[ "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" ]] && actor_is_owner=true
+          [[ "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]] && triggering_actor_is_owner=true
+          printf 'UPSTREAM_PROVENANCE_NAME=%s\nUPSTREAM_PROVENANCE_EVENT=%s\nUPSTREAM_ACTOR_IS_OWNER=%s\nUPSTREAM_TRIGGERING_ACTOR_IS_OWNER=%s\nCONTROLLER_AUTHORIZED=%s\n' \
+            "$UPSTREAM_NAME" "$UPSTREAM_EVENT" "$actor_is_owner" "$triggering_actor_is_owner" "$CONTROLLER_AUTHORIZED"
 
           if [[ "$CONTROLLER_AUTHORIZED" == true ]]; then
             [[ "$UPSTREAM_NAME" == 'platform-v7 safe merge' ]]
             [[ "$UPSTREAM_EVENT" == issue_comment ]]
+            [[ "$CONTROLLER_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" ]]
+            [[ "$CONTROLLER_COMMENTER" == "$REPOSITORY_OWNER" ]]
+            [[ "$CONTROLLER_COMMAND" == '/production release current-main' ]]
             [[ "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" ]]
             [[ "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]
             for required_job in \
