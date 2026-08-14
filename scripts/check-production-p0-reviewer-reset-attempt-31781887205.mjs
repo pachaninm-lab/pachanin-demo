@@ -8,7 +8,7 @@ const checkerPath = 'scripts/check-production-p0-reviewer-reset-attempt-31781887
 const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-31781887205-3785.json';
 const canonicalPath = 'scripts/production-p0-reviewer-reset-attempt-classifier.sh';
 const canonicalBlob = '7dcfb19d247aab2f0dc8c8075416673499c9dc84';
-const branch = 'diag/p0-reviewer-reset-attempt-31781887205-3785';
+const branch = 'diag/p0-reviewer-reset-attempt-31781887205-substage-3785';
 const command = '/production p0-reviewer-reset-attempt-classify 31781887205 current-main';
 const sourceRun = 31781887205;
 const sourceRevision = 'dc5bec67faeaec26ce905c0643dc15d35f99bf50';
@@ -92,6 +92,9 @@ for (const token of [
   `ATTEMPT_UNTIL='${attemptUntil}'`,
   "SOURCE_REVISION='7c768ad7c54523837b06999a8f69bdffe2a840db'",
   `SOURCE_REVISION='${sourceRevision}'`,
+  "SAFE_SUBSTAGE_BINDING_MISMATCH",
+  "if [[ \\\"$remote_failure\\\" =~ ^ATTEMPT_REMOTE_FAILURE",
+  "failure_detail=\\\"${BASH_REMATCH[1]}_${BASH_REMATCH[2]}_${BASH_REMATCH[3]}_${BASH_REMATCH[4]}\\\"",
   "if count != 1:",
   "raise SystemExit(f'FIXED_BINDING_MISMATCH:",
   'bash -n "$TMP"',
@@ -128,6 +131,7 @@ if (scope) {
   if (scope.sourceRun !== sourceRun) failures.push('scope: sourceRun mismatch');
   if (scope.sourceRevision !== sourceRevision) failures.push('scope: sourceRevision mismatch');
   if (scope.attemptSinceUtc !== attemptSince || scope.attemptUntilUtc !== attemptUntil) failures.push('scope: attempt window mismatch');
+  if (scope.safePreParitySubstagePromotion !== true) failures.push('scope: safe pre-parity substage promotion must be explicit');
   if (JSON.stringify(actualAllowed) !== JSON.stringify(expectedAllowed)) failures.push('scope: allowedPaths mismatch');
   const b = scope.boundaries || {};
   for (const key of ['databaseMutation', 'identityMutation', 'passwordMutation', 'credentialMutation', 'mfaMutation', 'sessionMutation', 'resetReplay', 'mailSend', 'runtimeBusinessBehaviorChange', 'securityGateDisabled', 'piiOutput', 'credentialOutput', 'rawLogOutput']) {
@@ -143,7 +147,8 @@ if (process.env.GITHUB_EVENT_NAME === 'pull_request') {
   if (diff.status !== 0) failures.push(`git diff failed: ${diff.stderr.trim()}`);
   else {
     const changed = diff.stdout.trim().split('\n').filter(Boolean).sort();
-    if (JSON.stringify(changed) !== JSON.stringify([...allowedPaths].sort())) {
+    const expectedChanged = [runnerPath, checkerPath, scopePath].sort();
+    if (JSON.stringify(changed) !== JSON.stringify(expectedChanged)) {
       failures.push(`PR scope mismatch: ${JSON.stringify(changed)}`);
     }
   }
@@ -153,4 +158,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exit(1);
 }
-console.log('PASS: fixed run 31781887205 reuses the pinned canonical read-only classifier, changes only fixed historical literals in runner temp, and cannot replay reset or mutate production.');
+console.log('PASS: fixed run 31781887205 still reuses the pinned canonical read-only classifier and now preserves only its existing bounded pre-parity remote substage marker; reset replay and production mutation remain impossible.');
