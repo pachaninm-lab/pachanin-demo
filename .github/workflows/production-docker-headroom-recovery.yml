@@ -69,6 +69,8 @@ jobs:
               'scripts/production-docker-headroom-recovery.sh',
               'RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1',
               'DOCKER_OBJECT_COUNTS_UNCHANGED=1',
+              'echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"',
+              'mkdir -p "$EVIDENCE_DIR"',
           ]
           required_script = [
               'REQUIRED_KB=$((5 * 1024 * 1024))',
@@ -88,6 +90,9 @@ jobs:
           for needle in required_script:
               if needle not in script:
                   raise SystemExit(f'missing recovery boundary: {needle}')
+          cross_job_target = 'needs.resolve.outputs.' + 'target_sha'
+          if cross_job_target in workflow:
+              raise SystemExit('cross-job target SHA output is forbidden because GitHub secret masking can redact ordinary SHAs')
           forbidden = [
               r'docker\s+system\s+prune',
               r'docker\s+image\s+prune',
@@ -117,8 +122,6 @@ jobs:
       github.event.comment.body == '/production reclaim-docker current-main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    outputs:
-      target_sha: ${{ steps.target.outputs.sha }}
     steps:
       - name: Enforce repository-owner command authority
         env:
@@ -132,8 +135,7 @@ jobs:
           [[ "$COMMENTER" == "$OWNER" ]]
           [[ "$ACTOR" == "$OWNER" ]]
           [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
-      - name: Resolve exact current main
-        id: target
+      - name: Resolve exact current main authority
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -141,7 +143,7 @@ jobs:
           set -Eeuo pipefail
           target_sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
           [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
-          echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo 'Current-main authority resolved without cross-job SHA output.'
 
   reclaim:
     name: Reclaim only unused canonical production images
@@ -158,19 +160,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve.outputs.target_sha }}
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Revalidate exact current main
+      - name: Bind and revalidate exact current main inside reclaim job
         env:
-          TARGET_SHA: ${{ needs.resolve.outputs.target_sha }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
           git fetch --no-tags origin main
-          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
-          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target_sha" == "$(git rev-parse origin/main)" ]]
+          git checkout --detach "$target_sha"
+          [[ "$(git rev-parse HEAD)" == "$target_sha" ]]
+          echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"
+          printf '%s\n' "$target_sha" > "$EVIDENCE_DIR/target-sha.txt"
 
       - name: Resolve protected key and pinned VPS identity
         id: ssh
@@ -259,10 +267,11 @@ jobs:
         env:
           HOST: ${{ steps.ssh.outputs.host }}
           PORT: ${{ steps.ssh.outputs.port }}
-          TARGET_SHA: ${{ needs.resolve.outputs.target_sha }}
         shell: bash
         run: |
           set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
           raw="$(mktemp)"
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
@@ -326,19 +335,20 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ needs.resolve.outputs.target_sha }}
           RECOVERY_OUTCOME: ${{ steps.recovery.outcome }}
           AFTER_KB: ${{ steps.recovery.outputs.after_kb }}
         shell: bash
         run: |
           set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
           status=FAIL_CLOSED
           [[ "$RECOVERY_OUTCOME" != success ]] || status=PASS
           after="${AFTER_KB:-unknown}"
+          target="${TARGET_SHA:-unresolved}"
           {
             echo "## Production Docker headroom recovery run \`$GITHUB_RUN_ID\`"
             echo
-            echo "- target SHA: \`$TARGET_SHA\`"
+            echo "- target SHA: \`$target\`"
             echo "- result: \`$status\`"
             echo "- available after (KiB): \`$after\`"
             echo "- policy: bounded unused canonical images only"
