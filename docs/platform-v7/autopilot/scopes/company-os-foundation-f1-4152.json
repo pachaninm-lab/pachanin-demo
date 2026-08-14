@@ -13,7 +13,9 @@
     "apps/api/test/staff-access/staff-capabilities.contract.spec.ts",
     "apps/web/app/platform-v7/staff/page.tsx",
     "apps/web/lib/platform-v7/staff-capabilities.ts",
+    "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
     "apps/web/tests/unit/platformV7StaffCapabilitiesContract.test.ts",
+    "apps/web/tests/unit/platformV7StaffControlCenter.test.ts",
     "docs/company-os/truth-audit-v1.md"
   ],
   "requiredInvariants": [
@@ -22,6 +24,7 @@
     "No client-selected role, tenant, scope, cookie or presentation role can expand authority.",
     "Staff access fails closed without an active staff assignment and verified MFA.",
     "The web staff entry stops computing staff authority from assignment arrays and consumes the server-authoritative capabilities contract instead.",
+    "Existing static authority regression tests are updated to assert the new capabilities endpoint rather than the superseded frontend assignment interpretation.",
     "No database schema, migration, production Caddy, DNS, Compose, secret or control-host change is included in F1.",
     "The follow-up implementation branch cannot edit this scope manifest, the autopilot guard, current serialized IR-10.4 authority, or unrelated platform code.",
     "Merge, CI and image build are not production deployment evidence."
@@ -30,6 +33,7 @@
     "GET /staff/capabilities/me returns identity, active assignments, roles, deduplicated capability ceiling, workspaces, authentication assurance and active privileged-session metadata without exposing access tokens.",
     "Owner, non-owner, multi-role, no-assignment and MFA-failure cases are covered by focused tests.",
     "Direct URL access and presentation-role manipulation cannot increase server permissions.",
+    "Existing staff-control and first-customer boundary tests assert fail-closed consumption of the capabilities contract.",
     "No new recurring cost is introduced."
   ]
 }
