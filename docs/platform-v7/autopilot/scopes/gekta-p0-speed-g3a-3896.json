@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "revert/gekta-p0-speed-g3a-regression-3896",
   "status": "rejected-reverted",
-  "purpose": "Reject and revert the Gekta G3A first-safe-block candidate after a clean same-corpus production AFTER showed a c=1 p95 first-meaningful regression. Restore the exact pre-candidate prompt and focused-test state without changing StreamingAnswerGate, model runtime, safety, RU/EN/ZH, history/context, timeouts or any non-Gekta authority.",
+  "purpose": "Reject the Gekta G3A first-safe-block candidate after a clean same-corpus production AFTER showed a c=1 p95 first-meaningful regression, and restore the exact pre-candidate prompt and focused-test state without changing StreamingAnswerGate, model runtime, safety, RU/EN/ZH, history/context, timeouts or any non-Gekta authority.",
   "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-15",
   "authorityBaseExactMain": "4a06d3ec7f128fa694e1a9bd306b1a86897b44a3",
   "candidateMergeCommit": "b08381504dd2c4604fca26e9544c31753371b198",
@@ -51,7 +51,7 @@
   "requiredBehavior": [
     "StreamingAnswerGate remains unchanged and continues to release only syntactically complete safe blocks",
     "Qwen thinking remains disabled",
-    "the G3A first-safe-block prompt instruction is removed after the production latency rejection",
+    "the G3A first-safe-block prompt instruction is absent from general-agro answers",
     "the exact pre-candidate general-agro prompt behavior is restored",
     "RU EN and ZH remain supported",
     "bounded history correction topic shift disease completeness current-information privacy write and secret boundaries remain unchanged",
@@ -69,11 +69,13 @@
     "external model API SaaS new server or recurring cost"
   ],
   "acceptance": [
-    "revert restores the exact pre-candidate service and focused-test blobs",
-    "exact-head CI security and production-like gates pass",
-    "revert is merged without unrelated code",
-    "exact-main REG.RU release completes",
-    "post-revert browser-authoritative production baseline proves the deployed application is immutable during measurement"
+    "service implementation equals the exact pre-candidate blob fc35c5f5663afa66c55a4c249ce371253405481a",
+    "focused service specification equals the exact pre-candidate blob efeca16ad091181650f8eb94f9f206c6d093c312",
+    "general-agro system prompt contains no G3A first-safe-block instruction",
+    "verified-platform prompt behavior is unchanged",
+    "StreamingAnswerGate model runtime timeouts and non-Gekta authority are untouched",
+    "changed paths are limited to the three declared allowed paths",
+    "production rejection evidence records c1 first-meaningful p95 regression from 10434.3 ms to 12040.9 ms"
   ],
   "history": {
     "originalCandidateCommit": "5250e9f470d9b44b3b932d949d754abff5be09c5",
