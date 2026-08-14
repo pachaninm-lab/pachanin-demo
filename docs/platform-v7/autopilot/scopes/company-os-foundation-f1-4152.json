@@ -3,7 +3,7 @@
   "branch": "company-os/foundation-f1-4152",
   "status": "active",
   "purpose": "Implement the first Company OS vertical slice: a server-authoritative staff capabilities contract and make the existing staff entry consume that contract without creating a second staff-auth system or changing production infrastructure.",
-  "authorityBaseExactMain": "b74a710a2df0baa0a05ed034abbbf78c81aa6190",
+  "authorityBaseExactMain": "7511d04fb5e3442c92eb28e36d3b1c46d63897ec",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
