@@ -20,7 +20,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: platform-v7-safe-merge
+  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 3072 && github.event.comment.user.login == github.repository_owner && github.event.comment.body == '/production release current-main' && 'platform-v7-production-release-current-main' || 'platform-v7-safe-merge' }}
   cancel-in-progress: false
 
 jobs:
