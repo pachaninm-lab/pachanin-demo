@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-CORE="scripts/production-auth-mail-outbox-cutover-core.sh"
+CORE="${PC_AUTH_MAIL_CUTOVER_CORE:-scripts/production-auth-mail-outbox-cutover-core.sh}"
 EXPECTED_CORE_BLOB="d45f60d0feb10c569b2c4388214aae41be508fd1"
 
 fail() { printf 'AUTH_MAIL_CUTOVER_WRAPPER_ERROR=%s\n' "$1" >&2; exit "${2:-1}"; }
