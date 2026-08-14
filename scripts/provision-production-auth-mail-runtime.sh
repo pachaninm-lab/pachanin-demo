@@ -51,7 +51,8 @@ read_key_version() {
 }
 
 validate_key_file() {
-  local version="$1" key_file="$KEYRING_DIR/v${version}.key"
+  local version="$1" key_file
+  key_file="$KEYRING_DIR/v${version}.key"
   validate_secret_file "$key_file" && grep -Eq '^[A-Fa-f0-9]{64}$' "$key_file"
 }
 
@@ -97,7 +98,8 @@ refresh_runtime_projection() {
 }
 
 create_key_version() {
-  local version="$1" key_file="$KEYRING_DIR/v${version}.key" tmp
+  local version="$1" key_file tmp
+  key_file="$KEYRING_DIR/v${version}.key"
   [[ ! -e "$key_file" ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_KEY_VERSION_ALREADY_EXISTS'; exit 30; }
   tmp="$(mktemp "$KEYRING_DIR/.v${version}.XXXXXX")"; cleanup_files+=("$tmp")
   python3 - <<'PY' > "$tmp"
