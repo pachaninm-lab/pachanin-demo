@@ -2,6 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/pc-crop-hosted-docker-headroom-recovery-3785",
   "status": "active",
+  "issue": 3785,
   "purpose": "Recover only the Docker disk headroom required to deploy the already-merged PC-CROP SMTP IDNA fix after the exact-SHA production release failed with no space left on device and the existing self-hosted bounded reclaim runner lost communication. Use the existing protected pinned production SSH authority from the full-stack release path and delete only old unused canonical grainflow images without changing application, database, customer data, containers, volumes or networks.",
   "approvedBy": "repository-owner continuation of PC-CROP production registration issue 3785 and production release authority issue 3072 on 2026-08-14",
   "authorityBaseExactMain": "f75bfd014ec67253713bd501be051fa8447a37a8",
