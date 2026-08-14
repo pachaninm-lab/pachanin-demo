@@ -29,6 +29,79 @@ def replace_once(old: str, new: str, label: str) -> None:
         raise SystemExit(f"PATCH_CARDINALITY_{label}={count}")
     source = source.replace(old, new, 1)
 
+# Production Web has a proven REG.RU SMTP login and a separately governed
+# canonical envelope/header sender. Do not collapse those two authorities.
+replace_once(
+"""user=values['PC_SMTP_USER'].strip()
+sender=values.get('PC_MAIL_FROM',user).strip()
+password=values['PC_SMTP_PASS']
+if host != 'mail.hosting.reg.ru' or port != '465':
+    raise SystemExit(1)
+if user != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or sender != user:
+    raise SystemExit(1)
+if not 8 <= len(password) <= 512 or any(c in password for c in '\\r\\n\\0'):
+    raise SystemExit(1)
+print(f'PC_SMTP_HOST={host}')
+print('PC_SMTP_PORT=465')
+print(f'PC_SMTP_USER={user}')
+print(f'PC_SMTP_PASS={password}')
+print(f'PC_MAIL_FROM={sender}')
+""",
+"""user=values['PC_SMTP_USER'].strip()
+sender=values.get('PC_MAIL_FROM',user).strip()
+password=values['PC_SMTP_PASS']
+if host != 'mail.hosting.reg.ru' or port != '465':
+    raise SystemExit(1)
+def canonical_mailbox(value):
+    local, sep, domain = value.rpartition('@')
+    if not sep or not local or any(c in value for c in '\\r\\n\\0<>'):
+        raise SystemExit(1)
+    try:
+        ascii_domain = domain.encode('idna').decode('ascii').lower()
+    except Exception:
+        raise SystemExit(1)
+    return f'{local}@{ascii_domain}', ascii_domain
+user, user_domain = canonical_mailbox(user)
+sender, _ = canonical_mailbox(sender)
+platform_domain='xn----8sbjf4befbjgs9b.xn--p1ai'
+if sender != f'access@{platform_domain}':
+    raise SystemExit(1)
+if user_domain != platform_domain and not user_domain.endswith('.' + platform_domain):
+    raise SystemExit(1)
+if not 8 <= len(password) <= 512 or any(c in password for c in '\\r\\n\\0'):
+    raise SystemExit(1)
+print(f'PC_SMTP_HOST={host}')
+print('PC_SMTP_PORT=465')
+print(f'PC_SMTP_USER={user}')
+print(f'PC_SMTP_PASS={password}')
+print(f'PC_MAIL_FROM={sender}')
+""",
+"LEGACY_SMTP_LOGIN_SENDER_SEPARATION",
+)
+
+replace_once(
+"""if values['PC_SMTP_HOST'] != 'mail.hosting.reg.ru' or values['PC_SMTP_PORT'] != '465':
+    raise SystemExit(1)
+if values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or values['PC_MAIL_FROM'] != values['PC_SMTP_USER']:
+    raise SystemExit(1)
+if not 8 <= len(values['PC_SMTP_PASS']) <= 512 or any(c in values['PC_SMTP_PASS'] for c in '\\r\\n\\0'):
+    raise SystemExit(1)
+""",
+"""if values['PC_SMTP_HOST'] != 'mail.hosting.reg.ru' or values['PC_SMTP_PORT'] != '465':
+    raise SystemExit(1)
+user=values['PC_SMTP_USER']
+local, sep, user_domain=user.rpartition('@')
+platform_domain='xn----8sbjf4befbjgs9b.xn--p1ai'
+if not sep or not local or (user_domain != platform_domain and not user_domain.endswith('.' + platform_domain)):
+    raise SystemExit(1)
+if values['PC_MAIL_FROM'] != f'access@{platform_domain}':
+    raise SystemExit(1)
+if not 8 <= len(values['PC_SMTP_PASS']) <= 512 or any(c in values['PC_SMTP_PASS'] for c in '\\r\\n\\0'):
+    raise SystemExit(1)
+""",
+"AUTHORITY_LOGIN_SENDER_SEPARATION",
+)
+
 replace_once(
 """  web:
     image: ${web_image}
@@ -63,9 +136,10 @@ if web.get('PC_SMTP_HOST') != 'mail.hosting.reg.ru':
     raise SystemExit('web legacy smtp host mismatch')
 if web.get('PC_SMTP_PORT') != '465':
     raise SystemExit('web legacy smtp port mismatch')
-if web.get('PC_SMTP_USER') != 'access@xn----8sbjf4befbjgs9b.xn--p1ai':
-    raise SystemExit('web legacy smtp user mismatch')
-if web.get('PC_MAIL_FROM') != web.get('PC_SMTP_USER'):
+user=web.get('PC_SMTP_USER') or ''
+if '@' not in user or any(c in user for c in '\\r\\n\\0<>'):
+    raise SystemExit('web legacy smtp user invalid')
+if web.get('PC_MAIL_FROM') != 'access@xn----8sbjf4befbjgs9b.xn--p1ai':
     raise SystemExit('web legacy smtp sender mismatch')
 password = web.get('PC_SMTP_PASS') or ''
 if not 8 <= len(password) <= 512 or any(c in password for c in '\\r\\n\\0'):
@@ -103,7 +177,7 @@ replace_once(
   web_env="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web")"
   grep -Fxq 'PC_SMTP_HOST=mail.hosting.reg.ru' <<< "$web_env" || return 1
   grep -Fxq 'PC_SMTP_PORT=465' <<< "$web_env" || return 1
-  grep -Fxq 'PC_SMTP_USER=access@xn----8sbjf4befbjgs9b.xn--p1ai' <<< "$web_env" || return 1
+  grep -Eq '^PC_SMTP_USER=[^[:space:]@<>]+@[^[:space:]@<>]+$' <<< "$web_env" || return 1
   grep -Fxq 'PC_MAIL_FROM=access@xn----8sbjf4befbjgs9b.xn--p1ai' <<< "$web_env" || return 1
   grep -Eq '^PC_SMTP_PASS=.{8,512}$' <<< "$web_env" || return 1
   grep -Eq '^AUTH_MAIL_' <<< "$web_env" && return 1
@@ -131,6 +205,8 @@ if source.count("- ${transactional_mail_env_file}") != 2:
     raise SystemExit("TRANSACTIONAL_MAIL_ENV_CARDINALITY_INVALID")
 if "API_SMTP_AUTHORITY=ABSENT" not in source:
     raise SystemExit("API_SMTP_ABSENCE_MARKER_MISSING")
+if "LEGACY_SMTP_NOT_CANONICAL" not in source:
+    raise SystemExit("LEGACY_SMTP_FAIL_CLOSED_MARKER_MISSING")
 
 Path(target_path).write_text(source, encoding='utf-8')
 PY
