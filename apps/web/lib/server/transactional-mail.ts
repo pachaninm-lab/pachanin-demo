@@ -30,7 +30,19 @@ function smtpMailbox(value: string) {
   if (!/^[^@\s<>]+@[^@\s<>]+$/u.test(normalized) || normalized.includes('\u0000')) {
     throw new Error('smtp_mailbox_invalid');
   }
-  return normalized;
+
+  const separator = normalized.lastIndexOf('@');
+  const local = normalized.slice(0, separator);
+  const rawDomain = normalized.slice(separator + 1);
+  if (!/^[\x21-\x7e]+$/u.test(local)) {
+    throw new Error('smtp_mailbox_smtputf8_required');
+  }
+
+  const asciiDomain = domainToASCII(rawDomain);
+  if (!asciiDomain || !/^[A-Za-z0-9.-]+$/u.test(asciiDomain)) {
+    throw new Error('smtp_mailbox_domain_invalid');
+  }
+  return `${local}@${asciiDomain.toLowerCase()}`;
 }
 
 function encodeCanonicalText(value: string) {
@@ -42,9 +54,7 @@ function encodeCanonicalText(value: string) {
 export function buildSmtpMimeMessage(mail: TransactionalMail, fromInput: string) {
   const from = smtpMailbox(fromInput);
   const to = smtpMailbox(mail.to);
-  const rawDomain = from.slice(from.lastIndexOf('@') + 1);
-  const messageDomain = domainToASCII(rawDomain) || rawDomain;
-  if (!/^[A-Za-z0-9.-]+$/u.test(messageDomain)) throw new Error('smtp_message_id_domain_invalid');
+  const messageDomain = from.slice(from.lastIndexOf('@') + 1);
 
   return [
     `Date: ${new Date().toUTCString()}`,
@@ -149,6 +159,8 @@ async function sendViaSmtp(mail: TransactionalMail): Promise<MailDeliveryResult>
   let to: string;
   let mime: string;
   try {
+    // This SMTP client does not negotiate SMTPUTF8. Canonicalize IDN domains
+    // to A-labels and fail closed for non-ASCII local parts before MAIL FROM.
     from = smtpMailbox(String(process.env.PC_MAIL_FROM || user));
     to = smtpMailbox(mail.to);
     mime = buildSmtpMimeMessage({ ...mail, to }, from);
