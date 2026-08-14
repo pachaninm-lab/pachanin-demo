@@ -270,7 +270,14 @@ if set(values) != required:
     raise SystemExit(1)
 if values['PC_SMTP_HOST'] != 'mail.hosting.reg.ru' or values['PC_SMTP_PORT'] != '465':
     raise SystemExit(1)
-if values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or values['PC_MAIL_FROM'] != values['PC_SMTP_USER']:
+user = values['PC_SMTP_USER']
+local, sep, user_domain = user.rpartition('@')
+platform_domain = 'xn----8sbjf4befbjgs9b.xn--p1ai'
+if not sep or not local or any(c in user for c in '\r\n\0<>'):
+    raise SystemExit(1)
+if user_domain != platform_domain and not user_domain.endswith('.' + platform_domain):
+    raise SystemExit(1)
+if values['PC_MAIL_FROM'] != f'access@{platform_domain}':
     raise SystemExit(1)
 PY
 
