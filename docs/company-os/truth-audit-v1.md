@@ -38,7 +38,7 @@ Status before F1: `PARTIAL`.
 
 Existing route: `/platform-v7/staff`.
 
-Before F1 the web page performed these steps:
+Before F1 the server-rendered staff page performed these steps:
 
 1. revalidated the access token through `/auth/me`;
 2. called `/staff/assignments/me`;
@@ -47,9 +47,17 @@ Before F1 the web page performed these steps:
 5. checked `identity.mfaVerified` in the web layer;
 6. rendered the current staff shell and operational/owner surfaces.
 
-Risk: the API still remained authoritative for assignments, but the web entry duplicated authority interpretation instead of consuming one canonical capabilities contract.
+Separately, the global `StaffControlCenterEntry` client navigation fetched `/api/staff/assignments/me` and independently interpreted `ACTIVE/ELIGIBLE` assignment statuses to decide whether the staff entry icon should be visible.
 
-F1 correction: the web entry keeps `/auth/me` revalidation but consumes `/staff/capabilities/me` for staff authority. The capabilities response is parsed fail-closed and the actor id must match `/auth/me`.
+Risk: the API remained authoritative for assignments, but two web surfaces duplicated authority interpretation instead of consuming one canonical capabilities contract.
+
+F1 correction:
+
+- the server-rendered staff page keeps `/auth/me` revalidation but consumes `/staff/capabilities/me` for staff authority;
+- the capabilities response is parsed fail-closed and its actor id must match `/auth/me`;
+- the global navigation entry consumes `/api/staff/capabilities/me` through a dedicated same-origin read-only BFF;
+- that BFF forwards only the server-held access token, rejects redirects, validates the upstream response against the strict capabilities contract and never touches the privileged staff access-session cookie/header;
+- navigation visibility is therefore based on a successfully parsed MFA-verified server capabilities contract, not on client interpretation of assignment status.
 
 ## 4. Capabilities endpoint
 
@@ -88,7 +96,7 @@ Status: `MISSING` / outside F1.
 - host-only privileged cookies scoped to the control host;
 - separate production Caddy/DNS acceptance for the control host;
 - final phishing-resistant WebAuthn/passkey policy for high privilege;
-- complete Company OS capability-driven navigation and specialist workspaces;
+- complete Company OS capability-driven specialist navigation and workspaces beyond the existing staff entry;
 - complete employee lifecycle authority and JML automation;
 - full Party/Relationship/Partner 360 model;
 - WorkItem/SLA/Case operating system;
@@ -140,7 +148,8 @@ Decision: do not add these roles in F1. Role expansion requires a separate capab
 | Break-glass framework | EXISTS | unchanged |
 | Critical-action framework | EXISTS | unchanged |
 | `GET /staff/capabilities/me` | MISSING | implemented |
-| Web consumption of canonical staff capabilities | PARTIAL | implemented for staff entry |
+| Web consumption of canonical staff capabilities | PARTIAL | implemented for server page and global staff navigation entry |
+| Dedicated read-only capabilities BFF | MISSING | implemented without privileged staff-session credential access |
 | Company OS control host | MISSING | deferred to separate infrastructure slice |
 | Employee/Manager/Owner target workspaces | PARTIAL | not accepted by F1 |
 | Unified Company OS Evidence Plane | PARTIAL | not accepted by F1 |
@@ -159,9 +168,10 @@ Decision: do not add these roles in F1. Role expansion requires a separate capab
 5. `capabilities` is a union of existing `ROLE_PERMISSION_CEILING` values only.
 6. Active scope is derived from server-side privileged sessions only.
 7. Session credential material is never returned.
-8. Web parsing is fail-closed.
-9. `/auth/me` actor id and `/staff/capabilities/me` actor id must match.
-10. F1 performs no DNS, Caddy, Compose, secret, migration or production mutation.
+8. Server and client web parsing is fail-closed.
+9. `/auth/me` actor id and `/staff/capabilities/me` actor id must match on the server-rendered entry.
+10. The client navigation uses a dedicated read-only BFF and never receives or sends the privileged `x-staff-access-session` credential.
+11. F1 performs no DNS, Caddy, Compose, secret, migration or production mutation.
 
 ## 9. Next vertical slice after F1 acceptance
 
