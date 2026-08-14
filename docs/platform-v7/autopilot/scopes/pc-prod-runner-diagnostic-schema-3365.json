@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-prod-runner-diagnostic-schema-3365",
+  "status": "active",
+  "purpose": "Correct the read-only pc-prod runner diagnostic to the upstream GitHub Actions runner v2.336.0 persisted-settings schema and collect connectivity evidence even when runner identity metadata is absent or mismatched.",
+  "approvedBy": "repository-owner direct continuation of Gekta SPEED #3896 and REG.RU release recovery on 2026-08-14",
+  "authorityBaseExactMain": "720be1a8c51041c1e2641f30c4d32cde91ad19d7",
+  "upstreamAuthority": "actions/runner v2.336.0 src/Runner.Common/ConfigurationStore.cs RunnerSettings DataContract",
+  "newRecurringCostRub": 0,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-runner-diagnostic-v2-owner-command.yml",
+    "docs/platform-v7/autopilot/scopes/pc-prod-runner-diagnostic-schema-3365.json"
+  ],
+  "requiredBehavior": [
+    "owner-only command is bound to issue 3365 and exact literal /tai diagnose-pc-prod-runner-v2 current-main",
+    "execute only from a GitHub-hosted runner through the existing protected REG.RU root SSH key and pinned host fingerprint",
+    "resolve exact current main before diagnostics",
+    "use upstream RunnerSettings names AgentName ServerUrl GitHubUrl ServerUrlV2, while accepting legacy lowercase aliases only as diagnostic compatibility",
+    "derive the expected runner name from the single existing pc-prod systemd service and report identity match/mismatch without aborting network evidence",
+    "allow network probes only to fixed GitHub hosts or hosts derived from runner settings that pass strict GitHub-owned hostname suffix allowlists",
+    "aggregate only allowlisted diagnostic categories from the latest Runner diagnostic and recent systemd journal; never publish raw diagnostic text",
+    "collect read-only service process filesystem and inode evidence",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "systemctl start stop restart enable disable daemon-reload or service mutation",
+    "runner registration re-registration removal token consumption config.sh or svc.sh invocation",
+    "reading or publishing .credentials .credentials_rsaparams OAuth tokens registration tokens or raw runner settings",
+    "publishing raw journal or runner diagnostic log lines",
+    "probing arbitrary hosts paths ports URLs or user-controlled remote commands",
+    "Docker container image volume network build-cache registry or configuration mutation",
+    "application deployment rollback restart or configuration mutation",
+    "database model-host deal role money registration credential or customer-data mutation",
+    "new server paid API SaaS or recurring cost"
+  ]
+}
