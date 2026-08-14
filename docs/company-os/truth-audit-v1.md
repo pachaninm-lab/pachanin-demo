@@ -9,8 +9,10 @@ New recurring cost: 0 ₽
 ## 1. Exact source baseline
 
 - Specification baseline: `23c22f39085b69015211f1eee7cc2509ac135022`.
-- Exact live `main` checked before F1 authorization: `b74a710a2df0baa0a05ed034abbbf78c81aa6190`.
-- The specification baseline is 36 commits behind that live `main` and is not used as implementation authority.
+- Initial live `main` checked before F1 authorization: `b74a710a2df0baa0a05ed034abbbf78c81aa6190`.
+- Governance and implementation branches were then synchronized to live `main` `7511d04fb5e3442c92eb28e36d3b1c46d63897ec` before F1 review.
+- The specification baseline is 43 commits behind that synchronized live baseline and is not used as implementation authority.
+- The concurrent delta `b74a710… → 7511d04…` changes three auth-mail/Gekta diagnostic workflow files only; it does not intersect the F1 API/web code paths.
 - F1 is intentionally additive and does not rewrite the existing platform or staff identity architecture.
 
 ## 2. Existing authority that must be reused
