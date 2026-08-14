@@ -96,7 +96,11 @@ has(provision, "values['PC_MAIL_FROM'] != f'access@{platform_domain}'", 'provisi
 lacks(provision, "values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or values['PC_MAIL_FROM'] != values['PC_SMTP_USER']", 'provision must not collapse SMTP AUTH login into MAIL FROM');
 
 has(workflow, "workflows: ['Production Full-Stack Exact-SHA Release']", 'cutover must chain only after exact full-stack release');
-has(workflow, "github.event.workflow_run.event == 'workflow_run'", 'production cutover must reject PR/push-only upstream runs');
+has(workflow, "github.event.workflow_run.event == 'workflow_run'", 'legacy chained-release provenance must remain supported');
+has(workflow, "github.event.workflow_run.event == 'issue_comment'", 'owner release-controller provenance case missing');
+has(workflow, 'github.event.workflow_run.actor.login == github.repository_owner', 'owner release-controller actor guard missing');
+has(workflow, 'github.event.workflow_run.triggering_actor.login == github.repository_owner', 'owner release-controller triggering-actor guard missing');
+has(workflow, 'AUTH_MAIL_CUTOVER=FAIL_UPSTREAM_PROVENANCE', 'runtime upstream provenance fail-closed marker missing');
 has(workflow, "github.event.workflow_run.head_branch == 'main'", 'production cutover must be main-only');
 has(workflow, 'git rev-parse origin/main', 'workflow must guard against current-main drift');
 has(workflow, 'scripts/check-production-auth-mail-outbox-cutover.mjs', 'workflow contract job missing');

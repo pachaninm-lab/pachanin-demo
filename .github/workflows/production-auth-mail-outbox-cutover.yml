@@ -55,8 +55,15 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'workflow_run' &&
-       github.event.workflow_run.head_branch == 'main')
+       github.event.workflow_run.head_branch == 'main' &&
+       (
+         github.event.workflow_run.event == 'workflow_run' ||
+         (
+           github.event.workflow_run.event == 'issue_comment' &&
+           github.event.workflow_run.actor.login == github.repository_owner &&
+           github.event.workflow_run.triggering_actor.login == github.repository_owner
+         )
+       ))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -82,8 +89,15 @@ jobs:
     if: >-
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'workflow_run' &&
-      github.event.workflow_run.head_branch == 'main'
+      github.event.workflow_run.head_branch == 'main' &&
+      (
+        github.event.workflow_run.event == 'workflow_run' ||
+        (
+          github.event.workflow_run.event == 'issue_comment' &&
+          github.event.workflow_run.actor.login == github.repository_owner &&
+          github.event.workflow_run.triggering_actor.login == github.repository_owner
+        )
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -98,13 +112,24 @@ jobs:
         env:
           TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
           UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id }}
+          UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+          UPSTREAM_ACTOR: ${{ github.event.workflow_run.actor.login }}
+          UPSTREAM_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           [[ '${{ github.event.workflow_run.name }}' == 'Production Full-Stack Exact-SHA Release' ]]
           [[ '${{ github.event.workflow_run.conclusion }}' == success ]]
-          [[ '${{ github.event.workflow_run.event }}' == workflow_run ]]
           [[ '${{ github.event.workflow_run.head_branch }}' == main ]]
+          if [[ "$UPSTREAM_EVENT" == workflow_run ]]; then
+            :
+          elif [[ "$UPSTREAM_EVENT" == issue_comment && "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" && "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]; then
+            :
+          else
+            echo 'AUTH_MAIL_CUTOVER=FAIL_UPSTREAM_PROVENANCE'
+            exit 16
+          fi
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]{1,24}$ ]]
           git fetch --no-tags origin main
