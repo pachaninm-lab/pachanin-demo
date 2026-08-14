@@ -6,7 +6,8 @@ import type { AuthMailEnvelope } from './auth-mail-crypto';
 const OFFICIAL_HOST = 'mail.hosting.reg.ru';
 const OFFICIAL_PORT = 465;
 const DEFAULT_TIMEOUT_MS = 20_000;
-const PLATFORM_SENDER_ASCII = 'access@xn----8sbjf4befbjgs9b.xn--p1ai';
+const PLATFORM_DOMAIN_ASCII = 'xn----8sbjf4befbjgs9b.xn--p1ai';
+const PLATFORM_SENDER_ASCII = `access@${PLATFORM_DOMAIN_ASCII}`;
 
 type SmtpConfig = {
   host: string;
@@ -58,6 +59,13 @@ function asciiMailbox(input: string): { address: string; needsSmtpUtf8: boolean 
   return { address: `${local}@${asciiDomain.toLowerCase()}`, needsSmtpUtf8 };
 }
 
+function isPlatformAuthMailbox(address: string): boolean {
+  const separator = address.lastIndexOf('@');
+  if (separator <= 0) return false;
+  const domain = address.slice(separator + 1).toLowerCase();
+  return domain === PLATFORM_DOMAIN_ASCII || domain.endsWith(`.${PLATFORM_DOMAIN_ASCII}`);
+}
+
 let cachedConfig: SmtpConfig | null = null;
 
 export function resolveAuthMailSmtpConfig(): SmtpConfig {
@@ -81,15 +89,19 @@ export function resolveAuthMailSmtpConfig(): SmtpConfig {
 
   const host = String(values.PC_SMTP_HOST ?? '').trim().toLowerCase();
   const port = Number(values.PC_SMTP_PORT || OFFICIAL_PORT);
-  const user = asciiMailbox(values.PC_SMTP_USER ?? '').address;
+  const userMailbox = asciiMailbox(values.PC_SMTP_USER ?? '');
+  const user = userMailbox.address;
   const from = asciiMailbox(values.PC_MAIL_FROM || values.PC_SMTP_USER || '').address;
   const password = String(values.PC_SMTP_PASS ?? '');
 
   if (host !== OFFICIAL_HOST || port !== OFFICIAL_PORT) {
     throw new Error(`Auth-mail transport must use ${OFFICIAL_HOST}:${OFFICIAL_PORT}`);
   }
-  if (user !== PLATFORM_SENDER_ASCII || from !== PLATFORM_SENDER_ASCII) {
-    throw new Error('Auth-mail transport must authenticate and send as the canonical platform mailbox');
+  if (userMailbox.needsSmtpUtf8 || !isPlatformAuthMailbox(user)) {
+    throw new Error('Auth-mail transport must authenticate with a platform-domain mailbox');
+  }
+  if (from !== PLATFORM_SENDER_ASCII) {
+    throw new Error('Auth-mail transport must send as the canonical platform sender');
   }
   if (password.length < 8 || password.length > 512 || /[\r\n\0]/.test(password)) {
     throw new Error('Auth-mail SMTP password has an invalid shape');
