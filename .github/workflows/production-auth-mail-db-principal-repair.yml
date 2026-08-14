@@ -74,7 +74,11 @@ jobs:
               'API_RESTARTED YES',
               'WEB_RESTARTED YES',
           ]
-          bad = [marker for marker in forbidden if marker in text]
+          repair_marker = '\n  repair:\n'
+          if repair_marker not in text:
+              raise SystemExit('repair job missing')
+          operational_text = text.split(repair_marker, 1)[1]
+          bad = [marker for marker in forbidden if marker in operational_text]
           if bad:
               raise SystemExit('forbidden repair surface: ' + ' | '.join(bad))
           PY
