@@ -56,7 +56,6 @@ validate_key_file() {
   validate_secret_file "$key_file" && grep -Eq '^[A-Fa-f0-9]{64}$' "$key_file"
 }
 
-
 refresh_runtime_projection() {
   local staging="$AUTHORITY_DIR/.runtime-projection.new" key_file key_name
   rm -rf -- "$staging"
@@ -111,34 +110,65 @@ PY
   validate_key_file "$version" || { echo 'AUTH_MAIL_PROVISION=FAIL_KEY_VERSION_CONTENT'; exit 31; }
 }
 
-# Resolve the existing production Compose authority only to bootstrap/rotate the
-# distinct worker database principal. No mail secret is ever sourced from a Web
-# or API container.
+# Resolve the active Compose authority and the exact migration datasource.
+# auth.mail_outbox is created by the main Prisma migration chain (DATABASE_URL),
+# so the worker principal must be born and connected on that same datasource.
 mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
 (( ${#web_ids[@]} == 1 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_WEB_AUTHORITY_CARDINALITY'; exit 10; }
 web_id="${web_ids[0]}"
 project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
 working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
-[[ -n "$project" && "$working_dir" == /* && "$working_dir" != / && -d "$working_dir" && ! -L "$working_dir" ]] \
+config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
+[[ -n "$project" && "$working_dir" == /* && "$working_dir" != / && -d "$working_dir" && ! -L "$working_dir" && -n "$config_files" ]] \
   || { echo 'AUTH_MAIL_PROVISION=FAIL_COMPOSE_AUTHORITY_INVALID'; exit 11; }
 working_dir="$(realpath -e -- "$working_dir")"
 
-mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
-(( ${#api_ids[@]} == 1 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_API_AUTHORITY_CARDINALITY'; exit 12; }
-api_id="${api_ids[0]}"
-auth_database_url="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" \
-  | sed -n 's/^AUTH_DATABASE_URL=//p' | head -1)"
-[[ -n "$auth_database_url" ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_AUTH_DATABASE_URL_MISSING'; exit 13; }
+IFS=',' read -r -a raw_compose_files <<< "$config_files"
+compose_files=()
+for raw_file in "${raw_compose_files[@]}"; do
+  file="${raw_file#"${raw_file%%[![:space:]]*}"}"
+  file="${file%"${file##*[![:space:]]}"}"
+  [[ -n "$file" ]] || continue
+  [[ "$file" == /* ]] || file="$working_dir/$file"
+  [[ -f "$file" && ! -L "$file" ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_COMPOSE_FILE_INVALID'; exit 12; }
+  compose_files+=("$(realpath -e -- "$file")")
+done
+(( ${#compose_files[@]} >= 1 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_COMPOSE_AUTHORITY_EMPTY'; exit 13; }
 
-read -r db_host db_port db_name < <(python3 - "$auth_database_url" <<'PY'
-import sys
+dc=(docker compose --project-directory "$working_dir" --project-name "$project")
+for file in "${compose_files[@]}"; do dc+=(-f "$file"); done
+
+compose_json="$(mktemp "$AUTHORITY_DIR/.auth-mail-compose.XXXXXX")"; cleanup_files+=("$compose_json")
+"${dc[@]}" config --format json > "$compose_json"
+migration_inventory="$(python3 - "$compose_json" <<'PY'
+import json, re, sys
 from urllib.parse import urlsplit
-url = urlsplit(sys.argv[1])
-if url.scheme not in ('postgresql', 'postgres') or not url.hostname or not url.path.strip('/'):
+services=(json.load(open(sys.argv[1], encoding='utf-8')).get('services') or {})
+candidates=[]
+for name, service in services.items():
+    image=str(service.get('image') or '')
+    command=service.get('command')
+    command=' '.join(command) if isinstance(command, list) else str(command or '')
+    if re.search(r'(^|[-_])(migrate|migration)([-_]|$)', name, re.I) or 'grainflow-migration' in image or ('prisma' in command and 'migrate' in command):
+        candidates.append(name)
+if len(candidates) != 1:
     raise SystemExit(1)
-print(url.hostname, url.port or 5432, url.path.strip('/'))
+name=candidates[0]
+env=services[name].get('environment') or {}
+if isinstance(env, list):
+    env=dict(item.split('=',1) for item in env if isinstance(item,str) and '=' in item)
+value=str(env.get('DATABASE_URL') or '').strip()
+url=urlsplit(value)
+if url.scheme not in ('postgresql','postgres') or not url.username or not url.password or not url.hostname or not url.path.strip('/'):
+    raise SystemExit(1)
+print(name)
+print(value)
 PY
-) || { echo 'AUTH_MAIL_PROVISION=FAIL_AUTH_DATABASE_URL_INVALID'; exit 14; }
+)" || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_DATABASE_AUTHORITY'; exit 14; }
+migration_service="$(printf '%s\n' "$migration_inventory" | sed -n '1p')"
+migration_database_url="$(printf '%s\n' "$migration_inventory" | sed -n '2p')"
+[[ -n "$migration_service" && -n "$migration_database_url" ]] \
+  || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_DATABASE_AUTHORITY'; exit 14; }
 
 # Key bootstrap is idempotent. Rotation is explicit and keeps all previous key
 # versions so already-enqueued ciphertext remains decryptable until retention
@@ -159,26 +189,12 @@ if [[ "$ACTION" == rotate-key ]]; then
   current_version="$next_version"
 fi
 
-# Locate PostgreSQL admin authority only when a DB credential must be born or
-# explicitly rotated. A normal bootstrap never changes an existing password.
-if [[ ! -e "$DATABASE_URL_FILE" || "$ACTION" == rotate-db ]]; then
-  [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]] \
-    || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_AUTHORITY_MISSING'; exit 18; }
-
-  mapfile -t pg_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" | while read -r id; do
-    image="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
-    service="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "$id" 2>/dev/null || true)"
-    if [[ "$image" == postgres:* || "$image" == */postgres:* || "$service" == postgres || "$service" == db || "$service" == database ]]; then
-      printf '%s\n' "$id"
-    fi
-  done)
-  (( ${#pg_ids[@]} == 1 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_POSTGRES_AUTHORITY_CARDINALITY'; exit 19; }
-  pg_id="${pg_ids[0]}"
-  postgres_user="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$pg_id" | sed -n 's/^POSTGRES_USER=//p' | head -1)"
-  postgres_db="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$pg_id" | sed -n 's/^POSTGRES_DB=//p' | head -1)"
-  [[ -n "$postgres_user" ]] || postgres_user='postgres'
-  [[ -n "$postgres_db" ]] || postgres_db="$postgres_user"
-
+# Reconcile the dedicated worker credential against the exact migration
+# datasource. Bootstrap deliberately rotates this server-side credential:
+# it corrects stale/wrong datasource authority without accepting any secret
+# from CI, and the runtime projection is refreshed before the worker starts.
+database_authority_state='EXISTING'
+if [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]]; then
   db_password="$(python3 - <<'PY'
 import secrets
 print(secrets.token_urlsafe(48))
@@ -187,33 +203,65 @@ PY
   sql_tmp="$(mktemp "$AUTHORITY_DIR/.auth-mail-role.XXXXXX")"; cleanup_files+=("$sql_tmp")
   DB_PASSWORD="$db_password" python3 - <<'PY' > "$sql_tmp"
 import os
-password = os.environ['DB_PASSWORD'].replace("'", "''")
-print("ALTER ROLE pc_auth_mail_runtime WITH LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '%s';" % password)
+password=os.environ['DB_PASSWORD'].replace("'", "''")
+print("DO $$ BEGIN "
+      "IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_auth_mail_runtime') THEN RAISE EXCEPTION 'pc_auth_mail_runtime missing'; END IF; "
+      "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_auth_mail_runtime' AND (rolinherit OR rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole)) THEN RAISE EXCEPTION 'pc_auth_mail_runtime unsafe'; END IF; "
+      "ALTER ROLE pc_auth_mail_runtime LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '%s'; "
+      "END $$;" % password)
 PY
   chmod 0600 "$sql_tmp"
-  if ! docker exec -i "$pg_id" psql -X -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" >/dev/null < "$sql_tmp"; then
+  if ! "${dc[@]}" run --rm --no-deps --pull never -T "$migration_service" \
+      node_modules/prisma/build/index.js db execute --stdin --schema prisma/schema.prisma \
+      < "$sql_tmp" >/dev/null 2>&1; then
     unset db_password
     echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_ROLE_PASSWORD'
     exit 20
   fi
 
   database_tmp="$(mktemp "$AUTHORITY_DIR/.auth-mail-db.XXXXXX")"; cleanup_files+=("$database_tmp")
-  DB_PASSWORD="$db_password" python3 - "$auth_database_url" <<'PY' > "$database_tmp"
+  DB_PASSWORD="$db_password" python3 - "$migration_database_url" <<'PY' > "$database_tmp"
 import os, sys
 from urllib.parse import quote, urlsplit, urlunsplit
-url = urlsplit(sys.argv[1])
-user = quote('pc_auth_mail_runtime', safe='')
-password = quote(os.environ['DB_PASSWORD'], safe='')
-host = url.hostname or ''
-port = f':{url.port}' if url.port else ''
-netloc = f'{user}:{password}@{host}{port}'
-print(urlunsplit((url.scheme, netloc, url.path, url.query, url.fragment)))
+url=urlsplit(sys.argv[1])
+user=quote('pc_auth_mail_runtime', safe='')
+password=quote(os.environ['DB_PASSWORD'], safe='')
+host=url.hostname or ''
+if ':' in host and not host.startswith('['):
+    host=f'[{host}]'
+if url.port:
+    host=f'{host}:{url.port}'
+netloc=f'{user}:{password}@{host}'
+print(urlunsplit((url.scheme, netloc, url.path, url.query, '')))
 PY
   unset db_password
   chmod 0600 "$database_tmp"; chown 0:0 "$database_tmp"
   mv -f "$database_tmp" "$DATABASE_URL_FILE"
+  database_authority_state='MIGRATION_DATASOURCE_RECONCILED'
+elif [[ ! -e "$DATABASE_URL_FILE" ]]; then
+  echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_AUTHORITY_MISSING'
+  exit 18
 fi
+
 validate_secret_file "$DATABASE_URL_FILE" || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_SECRET_AUTHORITY'; exit 21; }
+python3 - "$DATABASE_URL_FILE" "$migration_database_url" <<'PY' >/dev/null \
+  || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_DATASOURCE_MISMATCH'; exit 38; }
+import sys
+from urllib.parse import urlsplit
+worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
+migration=urlsplit(sys.argv[2])
+def authority(url):
+    return (
+        (url.hostname or '').lower(),
+        url.port or 5432,
+        url.path,
+        url.query,
+    )
+if worker.scheme not in ('postgresql','postgres') or worker.username != 'pc_auth_mail_runtime' or not worker.password:
+    raise SystemExit(1)
+if authority(worker) != authority(migration):
+    raise SystemExit(1)
+PY
 
 # SMTP rotation is human-presence gated. The credential is never accepted in an
 # argument/environment from CI and is tested against official REG.RU authority
@@ -294,6 +342,11 @@ echo 'AUTH_MAIL_SECRET_AUTHORITY=SERVER_SIDE_ROOT_ONLY'
 echo 'AUTH_MAIL_SMTP_AUTHORITY=mail.hosting.reg.ru:465'
 echo "AUTH_MAIL_CURRENT_KEY_VERSION=$current_version"
 echo 'AUTH_MAIL_GITHUB_SECRET_REQUIRED=0'
+if [[ "$database_authority_state" == 'MIGRATION_DATASOURCE_RECONCILED' ]]; then
+  echo 'AUTH_MAIL_DATABASE_AUTHORITY=MIGRATION_DATASOURCE_RECONCILED'
+else
+  echo 'AUTH_MAIL_DATABASE_AUTHORITY=MIGRATION_DATASOURCE_EXISTING'
+fi
 if [[ "$ACTION" =~ ^rotate-(smtp|db|key)$ ]]; then
   echo 'AUTH_MAIL_RUNTIME_RESTART_REQUIRED=1'
 fi
