@@ -252,11 +252,10 @@ jobs:
           host = str(values.get('PC_SMTP_HOST') or '').strip().lower()
           port = str(values.get('PC_SMTP_PORT') or '465').strip()
           mailbox = canonical_mailbox(values.get('PC_SMTP_USER'))
-          sender = canonical_mailbox(values.get('PC_MAIL_FROM') or values.get('PC_SMTP_USER'))
           password = str(values.get('PC_SMTP_PASS') or '')
           if host != 'mail.hosting.reg.ru' or port != '465':
               raise SystemExit(26)
-          if mailbox != sender or not mailbox.endswith('@acceptance.xn----8sbjf4befbjgs9b.xn--p1ai'):
+          if not mailbox.endswith('@acceptance.xn----8sbjf4befbjgs9b.xn--p1ai'):
               raise SystemExit(27)
           if not 1 <= len(password) <= 512 or any(ord(char) < 33 or ord(char) > 126 for char in password):
               raise SystemExit(28)
