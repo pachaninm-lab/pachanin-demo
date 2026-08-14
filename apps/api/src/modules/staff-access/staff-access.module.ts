@@ -10,6 +10,8 @@ import { StaffAssignmentService } from './staff-assignment.service';
 import { StaffAuditService } from './staff-audit.service';
 import { StaffAuditWriterService } from './staff-audit-writer.service';
 import { StaffAuthorityPrismaService } from './staff-authority-prisma.service';
+import { StaffCapabilitiesController } from './staff-capabilities.controller';
+import { StaffCapabilitiesService } from './staff-capabilities.service';
 import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
 import { StaffEmergencyService } from './staff-emergency.service';
 import { StaffProjectionService } from './staff-projection.service';
@@ -21,7 +23,7 @@ import { StaffWorkspaceService } from './staff-workspace.service';
 
 @Module({
   imports: [AuthModule],
-  controllers: [StaffAccessController, StaffWorkspaceController],
+  controllers: [StaffAccessController, StaffCapabilitiesController, StaffWorkspaceController],
   providers: [
     StaffAuthorityPrismaService,
     {
@@ -35,6 +37,7 @@ import { StaffWorkspaceService } from './staff-workspace.service';
     StaffAssignmentService,
     StaffAuditService,
     StaffAuditWriterService,
+    StaffCapabilitiesService,
     StaffEmergencyService,
     StaffProjectionService,
     StaffSupportService,
