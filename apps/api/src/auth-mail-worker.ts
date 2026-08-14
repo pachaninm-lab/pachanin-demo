@@ -8,6 +8,7 @@ import {
   resolveAuthMailOutboxKey,
   resolveCurrentAuthMailKeyVersion,
 } from './modules/auth-mail/auth-mail-crypto';
+import { isRetryableAuthMailFailure } from './modules/auth-mail/auth-mail-retry-policy';
 import {
   AuthMailTransportError,
   resolveAuthMailSmtpConfig,
@@ -175,7 +176,8 @@ async function markFailure(
 ): Promise<'RETRY' | 'DEAD_LETTER'> {
   const attemptCount = entry.attempt_count + 1;
   const expired = entry.expires_at.getTime() <= Date.now();
-  const terminal = expired || attemptCount >= entry.max_attempts;
+  const retryable = isRetryableAuthMailFailure(errorCode);
+  const terminal = !retryable || expired || attemptCount >= entry.max_attempts;
   if (terminal) {
     const count = await prisma.$executeRaw(Prisma.sql`
       UPDATE auth.mail_outbox
