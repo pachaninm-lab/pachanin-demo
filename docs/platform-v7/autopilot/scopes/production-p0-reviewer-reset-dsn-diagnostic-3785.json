@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-reset-dsn-31757284161-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_DSN_READ_ONLY_DIAGNOSTIC",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify downstream DSN evidence for the fixed production reviewer reset without replaying it",
+  "sourceRun": 31757284161,
+  "deployedRevision": "df395bf02604d2445be625b59dd01099590d58d7",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-dsn-diagnostic.yml",
+    "scripts/production-p0-reviewer-reset-dsn-diagnostic.sh",
+    "scripts/check-production-p0-reviewer-reset-dsn-diagnostic.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-dsn-diagnostic-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "credentialMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "mailSend": false,
+    "mailboxMutation": false,
+    "mailboxReadOnly": true,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "diagnostic is owner-only and bound to release issue 3072 and source reset run 31757284161",
+    "the inspected production API and Web containers must still be exact deployed revision df395bf02604d2445be625b59dd01099590d58d7 or the diagnostic fails closed",
+    "the deployed revision must remain an ancestor of exact current main while the diagnostic runs",
+    "the diagnostic uses only the existing protected REG.RU transactional-mail runtime and never exports mailbox identity or secret material",
+    "IMAP SELECT is read-only and message inspection uses BODY.PEEK only, so mailbox flags and message state are not intentionally changed",
+    "the diagnostic filters delivery-status reports and matches the exact Russian password-reset subject plus the bounded original-message timestamp window 2026-08-14T00:25:00Z..00:27:00Z",
+    "the diagnostic publishes only cardinality classes, delivery action, RFC enhanced-status class, remote-MTA class, sender-authority relation and fixed safety evidence",
+    "the diagnostic never publishes mailbox addresses, credentials, message bodies, reset tokens or raw DSN text",
+    "no password reset is replayed, no email is sent, no database command is executed and production runtime behavior is not changed",
+    "SSH accepts exactly one host key matching the protected SHA-256 fingerprint and keeps StrictHostKeyChecking=yes",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
