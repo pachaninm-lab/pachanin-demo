@@ -37,7 +37,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Prove fixed scope and upstream schema markers
+      - name: Prove fixed scope and remote upstream schema markers
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -60,22 +60,31 @@ jobs:
               raise SystemExit('upstream authority mismatch')
           if set(scope.get('allowedPaths') or []) != expected_paths:
               raise SystemExit('scope path mismatch')
-          required = [
-              '/tai diagnose-pc-prod-runner-v2 current-main',
-              "payload.get('AgentName')",
-              "payload.get('ServerUrl')",
-              "payload.get('GitHubUrl')",
-              "payload.get('ServerUrlV2')",
-              "StrictHostKeyChecking=yes",
-              "RUNNER_CONNECTIVITY_DIAGNOSTIC_V2=PASS",
-          ]
-          for marker in required:
-              if marker not in workflow:
-                  raise SystemExit(f'missing diagnostic marker: {marker}')
+          if "/tai diagnose-pc-prod-runner-v2 current-main" not in workflow:
+              raise SystemExit('owner command missing')
+          if "StrictHostKeyChecking=yes" not in workflow:
+              raise SystemExit('pinned SSH enforcement missing')
           try:
               remote = workflow.split("<<'REMOTE'\n", 1)[1].split("\n          REMOTE", 1)[0]
           except IndexError as exc:
               raise SystemExit('fixed remote diagnostic block missing') from exc
+          required_remote = [
+              "text('AgentName', 'agentName')",
+              "text('ServerUrl', 'serverUrl')",
+              "text('GitHubUrl', 'gitHubUrl')",
+              "text('ServerUrlV2', 'serverUrlV2')",
+              "host.endswith('.actions.githubusercontent.com')",
+              "host.endswith('.githubapp.com')",
+              "endpoint_status GITHUB github.com",
+              "endpoint_status API api.github.com",
+              "journalctl",
+              "df -Pk",
+              "df -Pi",
+              "RUNNER_CONNECTIVITY_DIAGNOSTIC_V2=PASS",
+          ]
+          for marker in required_remote:
+              if marker not in remote:
+                  raise SystemExit(f'missing remote diagnostic marker: {marker}')
           forbidden_remote = [
               'systemctl start', 'systemctl stop', 'systemctl restart', 'systemctl enable',
               'systemctl disable', 'systemctl daemon-reload', './config.sh', './svc.sh',
@@ -221,7 +230,8 @@ jobs:
           worker_count="$( (pgrep -u pcactions -f 'Runner.Worker' 2>/dev/null || true) | wc -l | tr -d ' ')"
           [[ "$listener_count" =~ ^[0-9]+$ && "$worker_count" =~ ^[0-9]+$ ]]
 
-          python3 - "$runner_root/.runner" "$expected_name" > /tmp/pc-runner-config-status.$$ <<'PY'
+          config_status="$(mktemp)"
+          python3 - "$runner_root/.runner" "$expected_name" > "$config_status" <<'PY'
           import json
           import re
           import sys
@@ -256,11 +266,12 @@ jobs:
                   return None
               try:
                   parsed = urlparse(value)
+                  port = parsed.port
               except ValueError:
                   return None
               if parsed.scheme != 'https' or parsed.username or parsed.password:
                   return None
-              if parsed.port not in (None, 443):
+              if port not in (None, 443):
                   return None
               host = (parsed.hostname or '').lower().rstrip('.')
               if not re.fullmatch(r'[a-z0-9.-]{1,253}', host):
@@ -309,13 +320,11 @@ jobs:
           if server_v2_status == 'TRUSTED':
               print(f'RUNNER_SERVER_V2_HOST={server_v2_host}')
           PY
-          config_rc=$?
-          [[ "$config_rc" -eq 0 ]]
-          cat /tmp/pc-runner-config-status.$$
-          config_value(){ sed -n "s/^$1=//p" /tmp/pc-runner-config-status.$$ | tail -1; }
+          cat "$config_status"
+          config_value(){ sed -n "s/^$1=//p" "$config_status" | tail -1; }
           runner_server_host="$(config_value RUNNER_SERVER_HOST || true)"
           runner_server_v2_host="$(config_value RUNNER_SERVER_V2_HOST || true)"
-          rm -f /tmp/pc-runner-config-status.$$
+          rm -f "$config_status"
 
           endpoint_status(){
             local key="$1" host="$2" dns=SKIPPED https=SKIPPED code=000
