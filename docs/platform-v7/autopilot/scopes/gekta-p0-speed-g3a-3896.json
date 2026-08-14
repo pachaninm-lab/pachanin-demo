@@ -1,7 +1,7 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "revert/gekta-p0-speed-g3a-regression-3896",
-  "status": "rejected-reverted",
+  "status": "active",
   "purpose": "Reject the Gekta G3A first-safe-block candidate after a clean same-corpus production AFTER showed a c=1 p95 first-meaningful regression, and restore the exact pre-candidate prompt and focused-test state without changing StreamingAnswerGate, model runtime, safety, RU/EN/ZH, history/context, timeouts or any non-Gekta authority.",
   "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-15",
   "authorityBaseExactMain": "4a06d3ec7f128fa694e1a9bd306b1a86897b44a3",
