@@ -39,9 +39,11 @@ for (const token of [
   `COMMAND='${command}'`, `SOURCE_BLOB='${canonicalBlob}'`, `OLD_SOURCE_REVISION='${oldRevision}'`,
   `SOURCE_REVISION='${sourceRevision}'`, String.raw`[[ \"$source_revision\" == '${sourceRevision}' ]]`,
   'REMOTE_BINDING_MISMATCH', 'SAFE_SUBSTAGE_BINDING_MISMATCH',
-  'POST_TRANSFORM_LINE_MISMATCH', 'POST_TRANSFORM_FRAGMENT_MISMATCH',
-  'POST_TRANSFORM_OLD_REVISION_COUNT', 'PC_REVIEWER_RESET_ATTEMPT_VALIDATE_ONLY',
-  String.raw`if [[ \"$remote_failure\" =~ ^ATTEMPT_REMOTE_FAILURE`,
+  'POST_TRANSFORM_LINE_MISMATCH', 'POST_TRANSFORM_SUBSTAGE_MISMATCH',
+  'POST_TRANSFORM_FRAGMENT_MISMATCH', 'POST_TRANSFORM_OLD_REVISION_COUNT',
+  'PC_REVIEWER_RESET_ATTEMPT_VALIDATE_ONLY',
+  'if [[ "$remote_failure" =~ ^ATTEMPT_REMOTE_FAILURE\\|',
+  'failure_detail="${BASH_REMATCH[1]}_${BASH_REMATCH[2]}_${BASH_REMATCH[3]}_${BASH_REMATCH[4]}"',
   'bash -n "$TMP"', 'PASS: transformed one-off classifier preflight', 'bash "$TMP"',
 ]) need('runner', runner, token);
 for (const re of [/\bssh\s/, /\bcurl\s/, /\bdocker\s/, /forgot-password/]) deny('wrapper', runner, re);
