@@ -36,8 +36,8 @@ replacements = [
         "SMTP_CODE_FAMILY='NONE'\nENHANCED_STATUS='NONE'\nREASON_CLASS='NONE'\nMAIL_SENT='NO'",
     ),
     (
-        "- SMTP code family: \\`$SMTP_CODE_FAMILY\\`\n- mail sent: \\`$MAIL_SENT\\`",
-        "- SMTP code family: \\`$SMTP_CODE_FAMILY\\`\n- enhanced SMTP status: \\`$ENHANCED_STATUS\\`\n- safe reason class: \\`$REASON_CLASS\\`\n- mail sent: \\`$MAIL_SENT\\`",
+        "- SMTP code family:",
+        "- enhanced SMTP status: $ENHANCED_STATUS\n- safe reason class: $REASON_CLASS\n- SMTP code family:",
     ),
     (
         "import sys\n\ncfg_path, recipient_path = sys.argv[1:3]",
