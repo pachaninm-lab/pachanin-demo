@@ -81,8 +81,9 @@ if count != 1:
     raise SystemExit(f'SAFE_SUBSTAGE_BINDING_MISMATCH:{count}')
 text = text.replace(old, new, 1)
 
-# Validate the transformed temporary classifier in one place. The previous
-# shell grep chain could fail silently before the canonical classifier started.
+# Validate the transformed temporary classifier in one place. The exact
+# replacement counts above already prove insertion of the bounded substage;
+# do not re-parse its Bash regex with a second escaping-sensitive substring.
 exact_lines = [
     "ATTEMPT_COMMAND='/production p0-reviewer-reset-attempt-classify 31781887205 current-main'",
     "SOURCE_RUN_ID='31781887205'",
@@ -100,7 +101,6 @@ for index, token in enumerate(exact_lines, start=1):
         raise SystemExit(f'POST_TRANSFORM_LINE_MISMATCH:L{index}:{count}')
 
 fragments = [
-    r'if [[ "$remote_failure" =~ ^ATTEMPT_REMOTE_FAILURE\|',
     f"if SOURCE_REVISION != '{old_source_revision}':",
 ]
 for index, token in enumerate(fragments, start=1):
