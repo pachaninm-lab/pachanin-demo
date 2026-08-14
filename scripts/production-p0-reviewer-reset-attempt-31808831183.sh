@@ -13,8 +13,10 @@ SOURCE_RUN_ID='31808831183'
 ATTEMPT_SINCE='2026-08-14T14:18:35Z'
 ATTEMPT_UNTIL='2026-08-14T14:18:50Z'
 COMMAND='/production p0-reviewer-reset-attempt-classify 31808831183 current-main'
+PRODUCTION_MUTATION_MARKER='PRODUCTION_MUTATION|NONE'
 
 [[ "$PC_REVIEWER_RESET_ATTEMPT_COMMAND" == "$COMMAND" ]]
+[[ "$PRODUCTION_MUTATION_MARKER" == 'PRODUCTION_MUTATION|NONE' ]]
 
 key_path="$RUNNER_TEMP/pc-p0-reviewer-reset-attempt-31808831183-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-reset-attempt-31808831183-known-hosts"
@@ -405,5 +407,6 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 - reviewer identity / reset token / credential exposure: \`NONE\`
 - raw database/runtime output: \`NOT_PUBLISHED\`
 - production mutation: \`NONE\`
+- machine mutation marker: \`$PRODUCTION_MUTATION_MARKER\`
 - new recurring cost: \`0 RUB\`" >/dev/null
 result_published=1
