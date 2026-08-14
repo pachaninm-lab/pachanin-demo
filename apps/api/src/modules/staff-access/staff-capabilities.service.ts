@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
 import {
   StaffAccessRepository,
@@ -8,6 +9,7 @@ import {
 import {
   isStaffRole,
   ROLE_PERMISSION_CEILING,
+  StaffAccessMode,
   StaffPermission,
   StaffRole,
 } from './staff-access.types';
@@ -94,6 +96,14 @@ type SafeAccessSession = {
   expiresAt: string;
 };
 
+type PendingApprovalCountRow = { count: bigint };
+
+type PendingApprovalSummary = {
+  total: number;
+  staffAccessRequests: number;
+  criticalActions: number;
+};
+
 @Injectable()
 export class StaffCapabilitiesService {
   constructor(private readonly repository: StaffAccessRepository) {}
@@ -122,8 +132,11 @@ export class StaffCapabilitiesService {
 
     const sessionRows = await this.repository.listActiveSessions(this.repository.prisma, user.id);
     const activeAccessSessions = sessionRows
-      .filter((session): session is StaffSessionRow & { staff_role: StaffRole } => isStaffRole(session.staff_role))
+      .filter((session): session is StaffSessionRow & { staff_role: StaffRole } => (
+        isStaffRole(session.staff_role) && roles.includes(session.staff_role)
+      ))
       .map((session) => this.safeSession(session));
+    const pendingApprovals = await this.pendingApprovals(user.id, activeAccessSessions);
 
     return {
       identity: {
@@ -151,6 +164,7 @@ export class StaffCapabilitiesService {
         recentMfa: this.hasRecentMfa(user.mfaVerifiedAt),
       },
       activeAccessSessions,
+      pendingApprovals,
     };
   }
 
@@ -165,11 +179,13 @@ export class StaffCapabilitiesService {
   }
 
   private safeSession(session: StaffSessionRow & { staff_role: StaffRole }): SafeAccessSession {
+    const currentRoleCeiling = new Set(ROLE_PERMISSION_CEILING[session.staff_role]);
     return {
       accessSessionId: session.id,
       staffRole: session.staff_role,
       accessMode: session.access_mode,
-      permissions: this.safePermissions(session.permissions),
+      permissions: this.safePermissions(session.permissions)
+        .filter((permission) => currentRoleCeiling.has(permission)),
       effectiveTenantId: session.effective_tenant_id,
       effectiveOrganizationId: session.effective_organization_id,
       effectiveUserId: session.effective_user_id,
@@ -178,6 +194,71 @@ export class StaffCapabilitiesService {
       mfaLevel: session.mfa_level,
       expiresAt: session.expires_at.toISOString(),
     };
+  }
+
+  private async pendingApprovals(
+    userId: string,
+    sessions: SafeAccessSession[],
+  ): Promise<PendingApprovalSummary> {
+    const controlPlanePermissions = new Set(
+      sessions
+        .filter((session) => session.accessMode === StaffAccessMode.CONTROL_PLANE)
+        .flatMap((session) => session.permissions),
+    );
+    const canApproveStaffAccess = controlPlanePermissions.has(StaffPermission.STAFF_REQUEST_APPROVE);
+    const canApproveCriticalAction = controlPlanePermissions.has(StaffPermission.CRITICAL_ACTION_APPROVE);
+
+    const zero: PendingApprovalCountRow[] = [{ count: 0n }];
+    const [staffRows, criticalRows] = await Promise.all([
+      canApproveStaffAccess
+        ? this.repository.prisma.$queryRaw<PendingApprovalCountRow[]>(Prisma.sql`
+            SELECT COUNT(*)::bigint AS count
+            FROM auth.staff_access_requests request
+            JOIN auth.staff_assignments assignment ON assignment.id = request.assignment_id
+            WHERE request.status = 'PENDING'
+              AND request.expires_at > NOW()
+              AND request.requester_user_id <> ${userId}
+              AND assignment.status IN ('ELIGIBLE', 'ACTIVE')
+              AND assignment.valid_from <= NOW()
+              AND (assignment.valid_until IS NULL OR assignment.valid_until > NOW())
+              AND NOT EXISTS (
+                SELECT 1
+                FROM auth.staff_access_approvals approval
+                WHERE approval.request_id = request.id
+                  AND approval.approver_user_id = ${userId}
+              )
+          `)
+        : Promise.resolve(zero),
+      canApproveCriticalAction
+        ? this.repository.prisma.$queryRaw<PendingApprovalCountRow[]>(Prisma.sql`
+            SELECT COUNT(*)::bigint AS count
+            FROM auth.staff_critical_action_requests request
+            WHERE request.status = 'PENDING'
+              AND request.expires_at > NOW()
+              AND request.requester_user_id <> ${userId}
+              AND NOT EXISTS (
+                SELECT 1
+                FROM auth.staff_critical_action_approvals approval
+                WHERE approval.critical_request_id = request.id
+                  AND approval.approver_user_id = ${userId}
+              )
+          `)
+        : Promise.resolve(zero),
+    ]);
+
+    const staffAccessRequests = this.safeCount(staffRows[0]?.count);
+    const criticalActions = this.safeCount(criticalRows[0]?.count);
+    return {
+      total: staffAccessRequests + criticalActions,
+      staffAccessRequests,
+      criticalActions,
+    };
+  }
+
+  private safeCount(value: bigint | undefined): number {
+    if (typeof value !== 'bigint' || value < 0n) return 0;
+    const limit = BigInt(Number.MAX_SAFE_INTEGER);
+    return Number(value > limit ? limit : value);
   }
 
   private safePermissions(value: unknown): StaffPermission[] {
