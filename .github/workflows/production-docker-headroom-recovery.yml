@@ -273,8 +273,8 @@ jobs:
             mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
             (( \${#api_ids[@]} == 1 && \${#web_ids[@]} == 1 ))
             before_api_id=\"\${api_ids[0]}\"; before_web_id=\"\${web_ids[0]}\"
-            before_api_revision=\"\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \"\$before_api_id\")\"
-            before_web_revision=\"\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \"\$before_web_id\")\"
+            before_api_revision=\"\$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' \"\$before_api_id\")\"
+            before_web_revision=\"\$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' \"\$before_web_id\")\"
             before_containers=\"\$(docker ps -aq | wc -l | tr -d '[:space:]')\"
             before_volumes=\"\$(docker volume ls -q | wc -l | tr -d '[:space:]')\"
             before_networks=\"\$(docker network ls -q | wc -l | tr -d '[:space:]')\"
@@ -282,8 +282,8 @@ jobs:
             after_api_id=\"\$(docker ps -q --filter 'label=com.docker.compose.service=api')\"
             after_web_id=\"\$(docker ps -q --filter 'label=com.docker.compose.service=web')\"
             [[ \"\$after_api_id\" == \"\$before_api_id\" && \"\$after_web_id\" == \"\$before_web_id\" ]]
-            after_api_revision=\"\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \"\$after_api_id\")\"
-            after_web_revision=\"\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \"\$after_web_id\")\"
+            after_api_revision=\"\$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' \"\$after_api_id\")\"
+            after_web_revision=\"\$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' \"\$after_web_id\")\"
             [[ \"\$after_api_revision\" == \"\$before_api_revision\" && \"\$after_web_revision\" == \"\$before_web_revision\" ]]
             after_containers=\"\$(docker ps -aq | wc -l | tr -d '[:space:]')\"
             after_volumes=\"\$(docker volume ls -q | wc -l | tr -d '[:space:]')\"
