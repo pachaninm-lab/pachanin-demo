@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-smtp-451-detail-4136",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_SMTP_451_DETAIL",
+  "issue": 4136,
+  "registrationMatrixIssue": 3785,
+  "releaseIssue": 3072,
+  "sourceBlob": "d4fade37d316e15e9d1bc33fa2fde89929f7db55",
+  "title": "Classify reviewer RCPT 451 enhanced status and safe reason without publishing raw SMTP or sending mail",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-smtp-451-detail.yml",
+    "scripts/production-p0-reviewer-smtp-451-detail.sh",
+    "scripts/check-production-p0-reviewer-smtp-451-detail.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-smtp-451-detail-4136.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "passwordResetRequest": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "mailSend": false,
+    "smtpDataCommand": false,
+    "reviewerIdentityAccess": true,
+    "reviewerIdentityOutput": false,
+    "credentialOutput": false,
+    "rawProtocolOutput": false,
+    "enhancedStatusOutput": true,
+    "safeReasonClassOutput": true,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the detail workflow is owner-only on release issue 3072 and uses the exact command /production p0-reviewer-smtp-451-detail current-main",
+    "the wrapper pins the already merged no-mail reviewer SMTP stage probe by exact Git blob d4fade37d316e15e9d1bc33fa2fde89929f7db55",
+    "only a RUNNER_TEMP copy is transformed and its embedded Python is compiled locally before REG.RU access",
+    "the transformed probe remains bounded through RCPT TO followed by RSET and QUIT and contains no SMTP DATA send",
+    "the raw SMTP response remains only inside the production process and is reduced to numeric SMTP code, enhanced status and a fixed whitelist reason class",
+    "published reason classes are limited to RATE_LIMIT, GREYLIST_TEMPORARY, ANTI_ABUSE_POLICY, DESTINATION_ROUTING_TEMPFAIL, RECIPIENT_TEMPFAIL, TEMPORARY_POLICY, UNCLASSIFIED_451 or NONE",
+    "reviewer address, sender, credentials and raw SMTP response are never published",
+    "no reset replay, database write, password/MFA/session change, deployment or container lifecycle mutation is allowed",
+    "production mutation is NONE and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
