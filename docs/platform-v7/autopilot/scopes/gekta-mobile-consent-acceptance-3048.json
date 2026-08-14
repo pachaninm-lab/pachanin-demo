@@ -7,7 +7,7 @@
   "authorizedBy": "explicit-user-instruction",
   "baseline": {
     "branch": "main",
-    "commit": "77bbdefd8e359c4d7ee4a2a27926bc42b4383789"
+    "commit": "df395bf02604d2445be625b59dd01099590d58d7"
   },
   "purpose": "Update the Gekta mobile acceptance test for the required consent step while preserving the existing viewport, localization, overflow and 44px assertions.",
   "allowedPaths": [
