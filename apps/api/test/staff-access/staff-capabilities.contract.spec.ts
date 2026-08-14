@@ -58,8 +58,11 @@ function accessSession(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function fixture(assignments: unknown[], sessions: unknown[] = []) {
-  const prisma = {};
+function fixture(assignments: unknown[], sessions: unknown[] = [], pendingCounts: bigint[] = []) {
+  const queryRaw = jest.fn();
+  for (const count of pendingCounts) queryRaw.mockResolvedValueOnce([{ count }]);
+  queryRaw.mockResolvedValue([{ count: 0n }]);
+  const prisma = { $queryRaw: queryRaw };
   const repository = {
     prisma,
     listActiveAssignments: jest.fn().mockResolvedValue(assignments),
@@ -69,6 +72,7 @@ function fixture(assignments: unknown[], sessions: unknown[] = []) {
     service: new StaffCapabilitiesService(repository),
     repository,
     prisma,
+    queryRaw,
   };
 }
 
@@ -92,6 +96,7 @@ describe('Company OS staff capabilities contract', () => {
       StaffWorkspace.PLATFORM,
       StaffWorkspace.GOVERNANCE,
     ]));
+    expect(result.pendingApprovals).toEqual({ total: 0, staffAccessRequests: 0, criticalActions: 0 });
     expect(repository.listActiveAssignments).toHaveBeenCalledWith(prisma, 'staff-1');
     expect(repository.listActiveSessions).toHaveBeenCalledWith(prisma, 'staff-1');
   });
@@ -124,6 +129,67 @@ describe('Company OS staff capabilities contract', () => {
     expect(serialized).not.toContain('must-never-leave-api');
     expect(serialized).not.toContain('token_hash');
     expect(serialized).not.toContain('bounded operations');
+  });
+
+  it('clips stale session permission metadata to the current durable role ceiling', async () => {
+    const { service, queryRaw } = fixture(
+      [assignment('assignment-support', StaffRole.SUPPORT_L1)],
+      [accessSession({
+        staff_role: StaffRole.SUPPORT_L1,
+        access_mode: StaffAccessMode.CONTROL_PLANE,
+        permissions: [StaffPermission.USER_READ, StaffPermission.STAFF_REQUEST_APPROVE],
+      })],
+    );
+
+    const result = await service.getMine(actor());
+
+    expect(result.activeAccessSessions[0]?.permissions).toEqual([StaffPermission.USER_READ]);
+    expect(result.activeAccessSessions[0]?.permissions).not.toContain(StaffPermission.STAFF_REQUEST_APPROVE);
+    expect(result.pendingApprovals).toEqual({ total: 0, staffAccessRequests: 0, criticalActions: 0 });
+    expect(queryRaw).not.toHaveBeenCalled();
+  });
+
+  it('returns only counts for actionable pending approvals under an active CONTROL_PLANE approval session', async () => {
+    const { service, queryRaw } = fixture(
+      [assignment('assignment-admin', StaffRole.PLATFORM_ADMIN)],
+      [accessSession({
+        staff_role: StaffRole.PLATFORM_ADMIN,
+        access_mode: StaffAccessMode.CONTROL_PLANE,
+        permissions: [StaffPermission.STAFF_REQUEST_APPROVE, StaffPermission.CRITICAL_ACTION_APPROVE],
+      })],
+      [3n, 2n],
+    );
+
+    const result = await service.getMine(actor());
+
+    expect(result.pendingApprovals).toEqual({
+      total: 5,
+      staffAccessRequests: 3,
+      criticalActions: 2,
+    });
+    expect(queryRaw).toHaveBeenCalledTimes(2);
+    const serialized = JSON.stringify(result.pendingApprovals);
+    expect(serialized).not.toContain('reason');
+    expect(serialized).not.toContain('ticket');
+    expect(serialized).not.toContain('target');
+    expect(serialized).not.toContain('requestedPermissions');
+  });
+
+  it('does not expose approval counts from a non-CONTROL_PLANE session even if raw grant metadata contains approval permission', async () => {
+    const { service, queryRaw } = fixture(
+      [assignment('assignment-admin', StaffRole.PLATFORM_ADMIN)],
+      [accessSession({
+        staff_role: StaffRole.PLATFORM_ADMIN,
+        access_mode: StaffAccessMode.JIT_PRIVILEGED,
+        permissions: [StaffPermission.STAFF_REQUEST_APPROVE, StaffPermission.CRITICAL_ACTION_APPROVE],
+      })],
+      [7n, 9n],
+    );
+
+    const result = await service.getMine(actor());
+
+    expect(result.pendingApprovals).toEqual({ total: 0, staffAccessRequests: 0, criticalActions: 0 });
+    expect(queryRaw).not.toHaveBeenCalled();
   });
 
   it('unions and deduplicates capabilities for multiple durable assignments', async () => {
@@ -161,6 +227,24 @@ describe('Company OS staff capabilities contract', () => {
     expect(result.capabilities).toEqual([...ROLE_PERMISSION_CEILING.SUPPORT_L1].sort());
     expect(result.capabilities).not.toContain(StaffPermission.STAFF_ASSIGNMENT_WRITE);
     expect(result.workspaces).not.toContain(StaffWorkspace.OWNER);
+  });
+
+  it('ignores active sessions whose staff role no longer has an active assignment', async () => {
+    const { service, queryRaw } = fixture(
+      [assignment('assignment-support', StaffRole.SUPPORT_L1)],
+      [accessSession({
+        staff_role: StaffRole.PLATFORM_ADMIN,
+        access_mode: StaffAccessMode.CONTROL_PLANE,
+        permissions: [StaffPermission.STAFF_REQUEST_APPROVE],
+      })],
+    );
+
+    const result = await service.getMine(actor());
+
+    expect(result.activeAccessSessions).toEqual([]);
+    expect(result.scopes).toEqual([]);
+    expect(result.pendingApprovals.total).toBe(0);
+    expect(queryRaw).not.toHaveBeenCalled();
   });
 
   it('fails closed when there is no active server-side staff assignment', async () => {
