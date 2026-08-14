@@ -255,3 +255,20 @@ jobs:
     with:
       owner_release_authorized: true
     secrets: inherit
+
+  production-auth-mail-cutover-3072:
+    needs: production-full-stack-execution-3072
+    if: >-
+      needs.production-full-stack-execution-3072.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production release current-main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    uses: ./.github/workflows/production-auth-mail-outbox-cutover.yml
+    with:
+      controller_authorized: true
+      controller_target_sha: ${{ github.sha }}
+      controller_run_id: ${{ github.run_id }}
+    secrets: inherit
