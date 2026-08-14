@@ -94,7 +94,7 @@ jobs:
             exit 1
           fi
 
-      - name: Assert deployed-to-tool scope is fail closed
+      - name: Assert immutable measurement authority is fail closed
         run: |
           set -euo pipefail
           workflow=.github/workflows/gekta-speed-production-browser-baseline.yml
@@ -102,6 +102,10 @@ jobs:
           grep -Fq ".github/workflows/gekta-speed-production-browser-baseline.yml) ;;" "$workflow"
           grep -Fq "GEKTA_SPEED_UNSAFE_TOOLING_DELTA" "$workflow"
           grep -Fq "git merge-base --is-ancestor" "$workflow"
+          grep -Fq "GEKTA_MEASUREMENT_TOOL_DRIFT_DURING_SPEED_MEASUREMENT" "$workflow"
+          grep -Fq "GEKTA_DEPLOYED_APP_DRIFT_DURING_MEASUREMENT" "$workflow"
+          grep -Fq "repositoryMainAdvancedDuringMeasurement" "$workflow"
+          grep -Fq "production authority remains the unchanged deployed application SHA" "$workflow"
 
   baseline:
     name: Measure production click-to-first-meaningful
@@ -129,7 +133,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Resolve exact measurement-tool main
+      - name: Resolve immutable measurement-tool authority
         id: authority
         shell: bash
         run: |
@@ -209,16 +213,26 @@ jobs:
       - name: Install Chromium runtime
         run: pnpm --filter @pc/web exec playwright install --with-deps chromium
 
-      - name: Reconfirm tool main and deployed application before timed waves
+      - name: Reconfirm immutable tool and deployed application before timed waves
         env:
           TOOL_SHA: ${{ steps.authority.outputs.tool_sha }}
           DEPLOYED_SHA: ${{ steps.deployed.outputs.deployed_sha }}
         run: |
           set -euo pipefail
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TOOL_SHA" ]] || {
-            echo GEKTA_MAIN_ADVANCED_BEFORE_SPEED_MEASUREMENT >&2
+          [[ "$(git rev-parse HEAD)" == "$TOOL_SHA" ]] || {
+            echo GEKTA_MEASUREMENT_TOOL_DRIFT_BEFORE_SPEED_MEASUREMENT >&2
             exit 24
           }
+
+          repository_main_before="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null || true)"
+          if [[ ! "$repository_main_before" =~ ^[0-9a-f]{40}$ ]]; then
+            repository_main_before=unproven
+            echo GEKTA_REPOSITORY_MAIN_BEFORE_SPEED_MEASUREMENT_UNPROVEN
+          elif [[ "$repository_main_before" != "$TOOL_SHA" ]]; then
+            echo "GEKTA_REPOSITORY_MAIN_ADVANCED_BEFORE_SPEED_MEASUREMENT tool=$TOOL_SHA current=$repository_main_before informational=true"
+          fi
+          echo "REPOSITORY_MAIN_BEFORE=$repository_main_before" >> "$GITHUB_ENV"
+
           manifest="$(mktemp)"
           status="$(curl --silent --show-error --location --compressed \
             --connect-timeout 10 --max-time 30 --output "$manifest" --write-out '%{http_code}' \
@@ -260,25 +274,40 @@ jobs:
             --arg tool "$TOOL_SHA" \
             --arg app "$DEPLOYED_SHA" \
             --arg scope "$MEASUREMENT_SCOPE" \
-            '.measurementAuthority = {measurementToolSha: $tool, deployedApplicationSha: $app, scope: $scope}
+            '.measurementAuthority = {
+                measurementToolSha: $tool,
+                deployedApplicationSha: $app,
+                scope: $scope,
+                repositoryMainAtToolResolutionSha: $tool
+              }
              | .revision.measurementToolSha = $tool
              | .revision.deployedApplicationSha = $app
              | .revision.repositoryMainSha = $tool
              | .revision.attestation = (if .revision.webRevision == $app then "web_revision_matches_deployed_application" else "web_revision_does_not_match_deployed_application" end)' \
             "$BASELINE_ARTIFACT" > "$enriched"
           mv "$enriched" "$BASELINE_ARTIFACT"
-          echo 'MEASUREMENT_OUTCOME=passed' >> "$GITHUB_ENV"
+          echo 'MEASUREMENT_OUTCOME=timed_waves_completed' >> "$GITHUB_ENV"
 
-      - name: Reconfirm authority after timed waves
+      - name: Reconfirm immutable deployed application after timed waves
         env:
           TOOL_SHA: ${{ steps.authority.outputs.tool_sha }}
           DEPLOYED_SHA: ${{ steps.deployed.outputs.deployed_sha }}
         run: |
           set -euo pipefail
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TOOL_SHA" ]] || {
-            echo GEKTA_MAIN_ADVANCED_DURING_SPEED_MEASUREMENT >&2
+          [[ "$(git rev-parse HEAD)" == "$TOOL_SHA" ]] || {
+            echo GEKTA_MEASUREMENT_TOOL_DRIFT_DURING_SPEED_MEASUREMENT >&2
             exit 26
           }
+
+          repository_main_after="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null || true)"
+          if [[ ! "$repository_main_after" =~ ^[0-9a-f]{40}$ ]]; then
+            repository_main_after=unproven
+            echo GEKTA_REPOSITORY_MAIN_AFTER_SPEED_MEASUREMENT_UNPROVEN
+          elif [[ "$repository_main_after" != "$TOOL_SHA" ]]; then
+            echo "GEKTA_REPOSITORY_MAIN_ADVANCED_DURING_SPEED_MEASUREMENT tool=$TOOL_SHA current=$repository_main_after informational=true"
+          fi
+          echo "REPOSITORY_MAIN_AFTER=$repository_main_after" >> "$GITHUB_ENV"
+
           manifest="$(mktemp)"
           status="$(curl --silent --show-error --location --compressed \
             --connect-timeout 10 --max-time 30 --output "$manifest" --write-out '%{http_code}' \
@@ -289,6 +318,19 @@ jobs:
             echo "GEKTA_DEPLOYED_APP_DRIFT_DURING_MEASUREMENT expected=$DEPLOYED_SHA actual=${current_deployed:-unknown}" >&2
             exit 27
           }
+
+          enriched="$(mktemp)"
+          jq \
+            --arg before "${REPOSITORY_MAIN_BEFORE:-unproven}" \
+            --arg after "$repository_main_after" \
+            --arg tool "$TOOL_SHA" \
+            '.measurementAuthority.repositoryMainBeforeTimedWavesSha = $before
+             | .measurementAuthority.repositoryMainAfterTimedWavesSha = $after
+             | .measurementAuthority.repositoryMainAdvancedDuringMeasurement =
+                 ($before != "unproven" and $after != "unproven" and $after != $tool)' \
+            "$BASELINE_ARTIFACT" > "$enriched"
+          mv "$enriched" "$BASELINE_ARTIFACT"
+          echo 'MEASUREMENT_OUTCOME=passed' >> "$GITHUB_ENV"
 
       - name: Build bounded human summary
         if: always()
@@ -306,9 +348,13 @@ jobs:
                | .revision.attestation = (if .revision.webRevision == $app then "web_revision_matches_main" else "web_revision_proven_not_matching_main" end)' \
               "$BASELINE_ARTIFACT" > "$view"
             {
-              echo "measurement tool main: $TOOL_SHA"
+              echo "measurement tool SHA: $TOOL_SHA"
               echo "deployed application revision: $DEPLOYED_SHA"
               echo "measurement authority scope: $MEASUREMENT_SCOPE"
+              echo "repository main before timed waves: ${REPOSITORY_MAIN_BEFORE:-unproven}"
+              echo "repository main after timed waves: ${REPOSITORY_MAIN_AFTER:-unproven}"
+              echo "production authority remains the unchanged deployed application SHA"
+              echo "measurement outcome: ${MEASUREMENT_OUTCOME:-unknown}"
               node scripts/gekta-speed-browser-baseline.mjs --summarize "$view" \
                 | sed -e 's/^repository main:/deployed application authority:/' \
                       -e 's/web_revision_matches_main/web_revision_matches_deployed_application/g' \
@@ -332,16 +378,19 @@ jobs:
           {
             echo '## Gekta P0 SPEED browser baseline'
             echo
-            echo "- measurement tool main: \`$TOOL_SHA\`"
+            echo "- measurement tool SHA: \`$TOOL_SHA\`"
             echo "- deployed application revision: \`$DEPLOYED_SHA\`"
             echo "- measurement authority scope: \`$MEASUREMENT_SCOPE\`"
             echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo "- measurement outcome: \`${MEASUREMENT_OUTCOME:-unknown}\`"
             echo '- timing boundary: `reserveAnswer + /api/agro-chat stream`'
             echo '- initial entitlement bootstrap/consent: `outside timed send path`'
+            echo '- repository `main` movement after tool pinning: `informational only`'
+            echo '- production authority: `unchanged deployed application SHA`'
             echo '- production configuration mutation: `NONE`'
             echo
             echo '```text'
-            sed -n '1,140p' "$SUMMARY_FILE"
+            sed -n '1,160p' "$SUMMARY_FILE"
             echo '```'
           } > "$body"
           gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
