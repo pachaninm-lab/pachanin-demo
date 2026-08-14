@@ -90,7 +90,8 @@ jobs:
           for needle in required_script:
               if needle not in script:
                   raise SystemExit(f'missing recovery boundary: {needle}')
-          if 'needs.resolve.outputs.target_sha' in workflow:
+          cross_job_target = 'needs.resolve.outputs.' + 'target_sha'
+          if cross_job_target in workflow:
               raise SystemExit('cross-job target SHA output is forbidden because GitHub secret masking can redact ordinary SHAs')
           forbidden = [
               r'docker\s+system\s+prune',
