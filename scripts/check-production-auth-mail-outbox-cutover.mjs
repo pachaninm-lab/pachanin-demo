@@ -40,8 +40,8 @@ lacks(webReset, 'sendTransactionalMail', 'Web password-reset route must not send
 lacks(webReset, 'payload.delivery', 'Web password-reset route must not receive reset bearer delivery payload');
 lacks(webReset, 'PC_SMTP_PASS', 'Web password-reset route must not read SMTP authority');
 
-has(gektaRegister, 'sendTransactionalMail', 'Gekta still depends on legacy Web transactional mail');
-has(gektaRegister, 'isTransactionalMailConfigured', 'Gekta legacy mail configuration guard missing');
+has(gektaRegister, 'sendTransactionalMail', 'shared Web transactional mail still has non-migrated callers');
+has(gektaRegister, 'isTransactionalMailConfigured', 'shared legacy mail configuration guard missing');
 
 has(worker, 'isRetryableAuthMailFailure', 'worker must classify failures before retry/dead-letter');
 has(worker, 'const terminal = !retryable || expired || attemptCount >= entry.max_attempts;', 'permanent failures must dead-letter immediately');
@@ -50,6 +50,10 @@ has(retrySpec, "'SMTP_TRANSIENT_451'", 'observed production 451 must be regressi
 has(retrySpec, "'SMTP_PERMANENT_550'", 'permanent 550 must be regression-tested');
 has(smtp, "code >= 500 ? 'PERMANENT' : code >= 400 ? 'TRANSIENT' : 'PROTOCOL'", 'SMTP 4xx/5xx response classifier missing');
 has(smtp, '`SMTP_${category}_${code}`', 'SMTP response taxonomy missing');
+has(smtp, 'function isPlatformAuthMailbox(address: string): boolean', 'SMTP auth mailbox domain guard missing');
+has(smtp, '!isPlatformAuthMailbox(user)', 'SMTP auth login must remain inside the platform domain');
+has(smtp, 'from !== PLATFORM_SENDER_ASCII', 'MAIL FROM must remain the canonical platform sender');
+lacks(smtp, 'user !== PLATFORM_SENDER_ASCII || from !== PLATFORM_SENDER_ASCII', 'SMTP AUTH login must not be collapsed into MAIL FROM');
 
 has(crypto, 'aes-256-gcm', 'outbox bearer envelope must use AEAD encryption');
 has(outbox, 'auth.enqueue_mail_outbox', 'API must enqueue through bounded database authority');
@@ -64,6 +68,10 @@ has(apiDockerfile, 'cp -R /workspace/apps/api/dist /prod/api/dist', 'API image m
 has(cutoverWrapper, 'CORE="${PC_AUTH_MAIL_CUTOVER_CORE:-scripts/production-auth-mail-outbox-cutover-core.sh}"', 'wrapper must accept an explicit remote core path');
 has(cutoverWrapper, 'EXPECTED_CORE_BLOB="d45f60d0feb10c569b2c4388214aae41be508fd1"', 'wrapper must pin reviewed cutover core');
 has(cutoverWrapper, 'PATCH_CARDINALITY_', 'wrapper transformation must fail closed on source drift');
+has(cutoverWrapper, 'LEGACY_SMTP_LOGIN_SENDER_SEPARATION', 'legacy transport normalization must separate SMTP login and sender');
+has(cutoverWrapper, 'AUTHORITY_LOGIN_SENDER_SEPARATION', 'projected worker authority must preserve login/sender separation');
+has(cutoverWrapper, "sender != f'access@{platform_domain}'", 'legacy transport must keep canonical MAIL FROM');
+has(cutoverWrapper, "user_domain != platform_domain and not user_domain.endswith('.' + platform_domain)", 'legacy SMTP login must remain platform-domain bounded');
 has(cutoverWrapper, 'PC_AUTH_MAIL_CUTOVER_VALIDATE_ONLY', 'wrapper local validation mode missing');
 has(cutoverWrapper, 'LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY=PRESERVED', 'legacy Web mail preservation evidence missing');
 has(cutoverWrapper, '- ${transactional_mail_env_file}', 'wrapper must preserve legacy Web transactional-mail env file');
@@ -75,8 +83,8 @@ has(cutoverCore, 'trap on_error ERR', 'cutover core must fail-closed into rollba
 has(cutoverCore, 'AUTH_MAIL_WORKER_READY=PASS', 'production evidence must prove worker readiness');
 has(cutoverCore, 'AUTH_MAIL_DATABASE_URL_FILE: /run/pc-auth-mail/database-url', 'worker database authority must be file-mounted');
 has(cutoverCore, 'AUTH_MAIL_TRANSPORT_FILE: /run/pc-auth-mail/transport.env', 'worker SMTP authority must be file-mounted');
-has(cutoverCore, '- ${gekta_api_runtime_env_file}', 'cutover must preserve current Gekta API runtime authority');
-has(cutoverCore, '- ${gekta_web_runtime_env_file}', 'cutover must preserve current Gekta Web runtime authority');
+has(cutoverCore, '- ${gekta_api_runtime_env_file}', 'cutover must preserve current API runtime authority');
+has(cutoverCore, '- ${gekta_web_runtime_env_file}', 'cutover must preserve current Web runtime authority');
 lacks(cutoverCore, 'docker system prune', 'cutover must not perform unbounded Docker cleanup');
 lacks(cutoverCore, 'docker volume prune', 'cutover must not mutate unrelated volumes');
 
