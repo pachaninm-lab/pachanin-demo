@@ -60,18 +60,28 @@ jobs:
               raise SystemExit('scope base mismatch')
           if set(scope.get('allowedPaths') or []) != expected_paths:
               raise SystemExit('scope path mismatch')
-          required = [
+          required_workflow = [
               "/tai recover-pc-prod-runner current-main",
+              "StrictHostKeyChecking=yes",
+              "<<'REMOTE'",
+          ]
+          for marker in required_workflow:
+              if marker not in workflow:
+                  raise SystemExit(f'missing workflow recovery marker: {marker}')
+          try:
+              remote = workflow.split("<<'REMOTE'\n", 1)[1].split("\n          REMOTE", 1)[0]
+          except IndexError as exc:
+              raise SystemExit('fixed remote recovery block is missing') from exc
+          required_remote = [
               "systemctl restart \"$service\"",
               "systemctl is-active --quiet \"$service\"",
               "sudo -u pcactions -H docker version",
               "df -Pk",
-              "StrictHostKeyChecking=yes",
           ]
-          for marker in required:
-              if marker not in workflow:
-                  raise SystemExit(f'missing recovery marker: {marker}')
-          forbidden = [
+          for marker in required_remote:
+              if marker not in remote:
+                  raise SystemExit(f'missing remote recovery marker: {marker}')
+          forbidden_remote = [
               'docker system prune',
               'docker image prune',
               'docker builder prune',
@@ -83,9 +93,9 @@ jobs:
               'config.sh',
               'svc.sh install',
           ]
-          for marker in forbidden:
-              if marker in workflow:
-                  raise SystemExit(f'forbidden recovery capability: {marker}')
+          for marker in forbidden_remote:
+              if marker in remote:
+                  raise SystemExit(f'forbidden remote recovery capability: {marker}')
           PY
 
   recover:
