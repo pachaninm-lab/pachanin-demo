@@ -55,15 +55,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       (
-         github.event.workflow_run.event == 'workflow_run' ||
-         (
-           github.event.workflow_run.event == 'issue_comment' &&
-           github.event.workflow_run.actor.login == github.repository_owner &&
-           github.event.workflow_run.triggering_actor.login == github.repository_owner
-         )
-       ))
+       github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -89,15 +81,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      (
-        github.event.workflow_run.event == 'workflow_run' ||
-        (
-          github.event.workflow_run.event == 'issue_comment' &&
-          github.event.workflow_run.actor.login == github.repository_owner &&
-          github.event.workflow_run.triggering_actor.login == github.repository_owner
-        )
-      )
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -115,6 +99,10 @@ jobs:
           UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
           UPSTREAM_ACTOR: ${{ github.event.workflow_run.actor.login }}
           UPSTREAM_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
+          UPSTREAM_EVENT_IS_LEGACY_CHAIN: ${{ github.event.workflow_run.event == 'workflow_run' }}
+          UPSTREAM_EVENT_IS_OWNER_CONTROLLER: ${{ github.event.workflow_run.event == 'issue_comment' }}
+          UPSTREAM_ACTOR_IS_OWNER: ${{ github.event.workflow_run.actor.login == github.repository_owner }}
+          UPSTREAM_TRIGGERING_ACTOR_IS_OWNER: ${{ github.event.workflow_run.triggering_actor.login == github.repository_owner }}
           REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
@@ -122,6 +110,8 @@ jobs:
           [[ '${{ github.event.workflow_run.name }}' == 'Production Full-Stack Exact-SHA Release' ]]
           [[ '${{ github.event.workflow_run.conclusion }}' == success ]]
           [[ '${{ github.event.workflow_run.head_branch }}' == main ]]
+          printf 'UPSTREAM_PROVENANCE_EVENT=%s\nUPSTREAM_ACTOR_IS_OWNER=%s\nUPSTREAM_TRIGGERING_ACTOR_IS_OWNER=%s\n' \
+            "$UPSTREAM_EVENT" "$UPSTREAM_ACTOR_IS_OWNER" "$UPSTREAM_TRIGGERING_ACTOR_IS_OWNER"
           if [[ "$UPSTREAM_EVENT" == workflow_run ]]; then
             :
           elif [[ "$UPSTREAM_EVENT" == issue_comment && "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" && "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]; then
