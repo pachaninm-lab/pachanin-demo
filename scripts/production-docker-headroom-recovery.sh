@@ -38,8 +38,11 @@ from pathlib import Path
 target_sha, run_id, report_path, required_raw, target_raw = sys.argv[1:]
 required_kb = int(required_raw)
 target_kb = int(target_raw)
-canonical = re.compile(r'^ghcr[.]io/pachaninm-lab/grainflow-(api|web|migration|tai):[A-Za-z0-9_.-]+$')
+canonical_tag = re.compile(r'^ghcr[.]io/pachaninm-lab/grainflow-(api|web|migration|tai):[A-Za-z0-9_.-]+$')
+canonical_digest = re.compile(r'^ghcr[.]io/pachaninm-lab/grainflow-(api|web|migration|tai)@sha256:[0-9a-f]{64}$')
 image_id_re = re.compile(r'^sha256:[0-9a-f]{64}$')
+reclaim_components = {'api', 'web', 'migration'}
+
 
 def command(argv, check=True):
     result = subprocess.run(argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -47,12 +50,14 @@ def command(argv, check=True):
         raise RuntimeError(f'command_failed:{argv[0]}:{argv[1] if len(argv) > 1 else ""}')
     return result
 
+
 def available_kb():
     result = command(['df', '-Pk', '--', '/var/lib/docker'])
     lines = [line.split() for line in result.stdout.splitlines() if line.strip()]
     if len(lines) != 2 or len(lines[1]) < 4 or not lines[1][3].isdigit():
         raise RuntimeError('docker_df_invalid')
     return int(lines[1][3])
+
 
 def container_image_ids():
     container_ids = [line.strip() for line in command(['docker', 'ps', '-aq', '--no-trunc']).stdout.splitlines() if line.strip()]
@@ -67,6 +72,7 @@ def container_image_ids():
         result.add(image_id)
     return result
 
+
 def inspect_image(image_id):
     result = command(['docker', 'image', 'inspect', image_id], check=False)
     if result.returncode != 0:
@@ -76,23 +82,43 @@ def inspect_image(image_id):
         raise RuntimeError('image_inspect_ambiguous')
     return data[0]
 
-def classify_image(item):
-    tags = item.get('RepoTags') or []
-    if not isinstance(tags, list) or not tags:
+
+def image_refs(item):
+    refs = []
+    for key in ('RepoTags', 'RepoDigests'):
+        values = item.get(key) or []
+        if not isinstance(values, list):
+            return ()
+        for value in values:
+            if isinstance(value, str) and value and value not in ('<none>', '<none>:<none>'):
+                refs.append(value)
+    return tuple(sorted(set(refs)))
+
+
+def classify_release_image(item):
+    refs = image_refs(item)
+    if not refs:
         return None
+    tag_matches = []
     components = set()
-    normalized_tags = []
-    for raw in tags:
-        if not isinstance(raw, str):
-            return None
-        match = canonical.fullmatch(raw)
-        if not match:
-            return None
-        components.add(match.group(1))
-        normalized_tags.append(raw)
-    if len(components) != 1:
+    for ref in refs:
+        tag_match = canonical_tag.fullmatch(ref)
+        digest_match = canonical_digest.fullmatch(ref)
+        if tag_match:
+            tag_matches.append(ref)
+            components.add(tag_match.group(1))
+            continue
+        if digest_match:
+            components.add(digest_match.group(1))
+            continue
         return None
-    return next(iter(components)), tuple(sorted(set(normalized_tags)))
+    if not tag_matches or len(components) != 1:
+        return None
+    component = next(iter(components))
+    if component not in reclaim_components:
+        return None
+    return component, tuple(sorted(set(tag_matches))), refs
+
 
 before_kb = available_kb()
 protected = container_image_ids()
@@ -105,16 +131,26 @@ for image_id in image_ids:
     item = inspect_image(image_id)
     if item is None:
         continue
-    classification = classify_image(item)
+    classification = classify_release_image(item)
     if classification is None:
         continue
-    component, tags = classification
-    labels = (item.get('Config') or {}).get('Labels') or {}
+    component, tags, refs = classification
+    config = item.get('Config') if isinstance(item.get('Config'), dict) else {}
+    labels = config.get('Labels') if isinstance(config.get('Labels'), dict) else {}
     revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
     created = str(item.get('Created') or '')
-    if not created:
+    size = item.get('Size')
+    if not created or not isinstance(size, int) or size < 0:
         continue
-    records.append({'id': image_id, 'component': component, 'tags': tags, 'created': created, 'revision': revision})
+    records.append({
+        'id': image_id,
+        'component': component,
+        'tags': tags,
+        'refs': refs,
+        'created': created,
+        'revision': revision,
+        'size': size,
+    })
     if revision == target_sha:
         protected.add(image_id)
 
@@ -126,37 +162,48 @@ for component_records in by_component.values():
         protected.add(record['id'])
 
 eligible = [record for record in records if record['id'] not in protected]
-eligible.sort(key=lambda row: row['created'])
+eligible.sort(key=lambda row: (row['created'], row['component'], row['id']))
 deleted = 0
 skipped = 0
+attempted = 0
 
 for record in eligible:
     if available_kb() >= target_kb:
         break
+
     current_refs = container_image_ids()
-    if record['id'] in current_refs:
+    if record['id'] in current_refs or record['id'] in protected:
         protected.add(record['id'])
         skipped += 1
         continue
+
     item = inspect_image(record['id'])
     if item is None:
         skipped += 1
         continue
-    classification = classify_image(item)
+    classification = classify_release_image(item)
     if classification is None:
         skipped += 1
         continue
-    component, tags = classification
+    component, tags, refs = classification
     if component != record['component']:
         skipped += 1
         continue
-    labels = (item.get('Config') or {}).get('Labels') or {}
+
+    config = item.get('Config') if isinstance(item.get('Config'), dict) else {}
+    labels = config.get('Labels') if isinstance(config.get('Labels'), dict) else {}
     revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
     if revision == target_sha:
         protected.add(record['id'])
         skipped += 1
         continue
-    result = command(['docker', 'image', 'rm', *tags], check=False)
+
+    # Delete by the immutable full image ID, not by a mutable tag. No --force is
+    # allowed. Docker must reject the operation if any container still references
+    # the image; the explicit container-ID guard above is re-evaluated immediately
+    # before every deletion as an additional fail-closed boundary.
+    attempted += 1
+    result = command(['docker', 'image', 'rm', record['id']], check=False)
     if result.returncode != 0:
         skipped += 1
         continue
@@ -172,6 +219,8 @@ payload = {
     'targetSha': target_sha,
     'runId': int(run_id),
     'mode': 'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM',
+    'deleteAuthority': 'FULL_IMAGE_ID_NO_FORCE',
+    'reclaimComponents': sorted(reclaim_components),
     'requiredAvailableKb': required_kb,
     'targetAvailableKb': target_kb,
     'beforeAvailableKb': before_kb,
@@ -180,6 +229,7 @@ payload = {
     'eligibleImageCount': len(eligible),
     'containerProtectedImageCount': container_protected_count,
     'protectedImageCount': len(protected),
+    'attemptedImageCount': attempted,
     'deletedImageCount': deleted,
     'skippedImageCount': skipped,
     'reclaimedBytes': reclaimed_bytes,
@@ -206,9 +256,11 @@ if value.get('schemaVersion') != 'pc.production-docker-headroom-recovery.v1': ra
 if value.get('targetSha') != sha: raise SystemExit('target mismatch')
 if value.get('runId') != int(run_id): raise SystemExit('run mismatch')
 if value.get('mode') != 'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM': raise SystemExit('mode mismatch')
+if value.get('deleteAuthority') != 'FULL_IMAGE_ID_NO_FORCE': raise SystemExit('delete authority mismatch')
+if value.get('reclaimComponents') != ['api', 'migration', 'web']: raise SystemExit('component scope mismatch')
 if value.get('requiredAvailableKb') != int(required_raw): raise SystemExit('required threshold mismatch')
 if value.get('targetAvailableKb') != int(target_raw): raise SystemExit('target threshold mismatch')
-for key in ('beforeAvailableKb','afterAvailableKb','canonicalImageCount','eligibleImageCount','containerProtectedImageCount','protectedImageCount','deletedImageCount','skippedImageCount','reclaimedBytes'):
+for key in ('beforeAvailableKb','afterAvailableKb','canonicalImageCount','eligibleImageCount','containerProtectedImageCount','protectedImageCount','attemptedImageCount','deletedImageCount','skippedImageCount','reclaimedBytes'):
     if not isinstance(value.get(key), int) or value[key] < 0: raise SystemExit(f'invalid integer field: {key}')
 if value.get('targetReached') is not (value['afterAvailableKb'] >= value['targetAvailableKb']): raise SystemExit('targetReached mismatch')
 if value.get('passed') is not (value['afterAvailableKb'] >= value['requiredAvailableKb']): raise SystemExit('passed mismatch')
@@ -223,6 +275,8 @@ print(f"DOCKER_HEADROOM_BEFORE_KB={value['beforeAvailableKb']}")
 print(f"DOCKER_HEADROOM_AFTER_KB={value['afterAvailableKb']}")
 print(f"DOCKER_HEADROOM_REQUIRED_KB={value['requiredAvailableKb']}")
 print(f"DOCKER_HEADROOM_TARGET_KB={value['targetAvailableKb']}")
+print(f"DOCKER_HEADROOM_DELETE_AUTHORITY={value['deleteAuthority']}")
+print(f"DOCKER_HEADROOM_ATTEMPTED_IMAGES={value['attemptedImageCount']}")
 print(f"DOCKER_HEADROOM_DELETED_IMAGES={value['deletedImageCount']}")
 print(f"DOCKER_HEADROOM_SKIPPED_IMAGES={value['skippedImageCount']}")
 print(f"DOCKER_HEADROOM_RECLAIMED_BYTES={value['reclaimedBytes']}")
