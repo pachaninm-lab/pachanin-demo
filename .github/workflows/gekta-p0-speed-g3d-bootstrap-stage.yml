@@ -119,7 +119,7 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "runtime_sha=$runtime_sha" >> "$GITHUB_OUTPUT"
           echo "bootstrap_sha=$bootstrap_sha" >> "$GITHUB_OUTPUT"
-          echo "stage_dir=/tmp/gekta-g3d-bootstrap-$sha" >> "$GITHUB_OUTPUT"
+          echo "stage_dir=/tmp/gekta-g3d-bootstrap-$sha-$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
 
       - name: Resolve pinned model-host transport
         id: ssh
@@ -166,9 +166,11 @@ jobs:
           ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "set -euo pipefail; umask 077; test ! -e '$STAGE_DIR'; mkdir '$STAGE_DIR'"
           scp "${scp_opts[@]}" scripts/gekta-qwen-g3d-runtime.py "$MODEL_USER@$MODEL_HOST:$STAGE_DIR/runtime.py"
           scp "${scp_opts[@]}" scripts/gekta-qwen-g3d-bootstrap.sh "$MODEL_USER@$MODEL_HOST:$STAGE_DIR/bootstrap.sh"
-          remote="$(ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "set -euo pipefail; chmod 0400 '$STAGE_DIR/runtime.py' '$STAGE_DIR/bootstrap.sh'; printf 'runtime='; sha256sum '$STAGE_DIR/runtime.py' | awk '{print \\$1}'; printf 'bootstrap='; sha256sum '$STAGE_DIR/bootstrap.sh' | awk '{print \\$1}'")"
-          [[ "$(sed -n 's/^runtime=//p' <<<"$remote")" == "$RUNTIME_SHA" ]]
-          [[ "$(sed -n 's/^bootstrap=//p' <<<"$remote")" == "$BOOTSTRAP_SHA" ]]
+          remote="$(ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "set -euo pipefail; chmod 0400 '$STAGE_DIR/runtime.py' '$STAGE_DIR/bootstrap.sh'; sha256sum '$STAGE_DIR/runtime.py' '$STAGE_DIR/bootstrap.sh'")"
+          remote_runtime="$(sed -n '1{s/[[:space:]].*$//;p}' <<<"$remote")"
+          remote_bootstrap="$(sed -n '2{s/[[:space:]].*$//;p}' <<<"$remote")"
+          [[ "$remote_runtime" == "$RUNTIME_SHA" ]]
+          [[ "$remote_bootstrap" == "$BOOTSTRAP_SHA" ]]
           printf 'GEKTA_G3D_BOOTSTRAP_STAGE=READY\n' > "$RUNNER_TEMP/stage-result"
           printf 'GEKTA_G3D_BOOTSTRAP_RUNTIME_MUTATION=NONE\n' >> "$RUNNER_TEMP/stage-result"
           printf 'GEKTA_G3D_BOOTSTRAP_TARGET_SHA=%s\n' "$TARGET_SHA" >> "$RUNNER_TEMP/stage-result"
@@ -186,7 +188,7 @@ jobs:
         run: |
           set -euo pipefail
           result="$RUNNER_TEMP/stage-result"
-          root_dir="/root/gekta-g3d-bootstrap-$TARGET_SHA"
+          root_dir="/root/gekta-g3d-bootstrap-$TARGET_SHA-$GITHUB_RUN_ID"
           body="$RUNNER_TEMP/stage-comment.md"
           {
             echo '## Gekta P0 SPEED G3D bootstrap staged'
