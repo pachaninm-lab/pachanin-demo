@@ -51,7 +51,8 @@ read_key_version() {
 }
 
 validate_key_file() {
-  local version="$1" key_file="$KEYRING_DIR/v${version}.key"
+  local version="$1" key_file
+  key_file="$KEYRING_DIR/v${version}.key"
   validate_secret_file "$key_file" && grep -Eq '^[A-Fa-f0-9]{64}$' "$key_file"
 }
 
@@ -97,7 +98,8 @@ refresh_runtime_projection() {
 }
 
 create_key_version() {
-  local version="$1" key_file="$KEYRING_DIR/v${version}.key" tmp
+  local version="$1" key_file tmp
+  key_file="$KEYRING_DIR/v${version}.key"
   [[ ! -e "$key_file" ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_KEY_VERSION_ALREADY_EXISTS'; exit 30; }
   tmp="$(mktemp "$KEYRING_DIR/.v${version}.XXXXXX")"; cleanup_files+=("$tmp")
   python3 - <<'PY' > "$tmp"
@@ -268,7 +270,14 @@ if set(values) != required:
     raise SystemExit(1)
 if values['PC_SMTP_HOST'] != 'mail.hosting.reg.ru' or values['PC_SMTP_PORT'] != '465':
     raise SystemExit(1)
-if values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or values['PC_MAIL_FROM'] != values['PC_SMTP_USER']:
+user = values['PC_SMTP_USER']
+local, sep, user_domain = user.rpartition('@')
+platform_domain = 'xn----8sbjf4befbjgs9b.xn--p1ai'
+if not sep or not local or any(c in user for c in '\r\n\0<>'):
+    raise SystemExit(1)
+if user_domain != platform_domain and not user_domain.endswith('.' + platform_domain):
+    raise SystemExit(1)
+if values['PC_MAIL_FROM'] != f'access@{platform_domain}':
     raise SystemExit(1)
 PY
 
