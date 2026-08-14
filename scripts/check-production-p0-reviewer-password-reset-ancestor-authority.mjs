@@ -1,6 +1,14 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 
+process.on('uncaughtException', (error) => {
+  const message = String(error?.message || 'unknown contract failure')
+    .replace(/[\r\n%]/g, ' ')
+    .slice(0, 240);
+  console.error(`::error title=PC-CROP ancestor authority contract::${message}`);
+  process.exit(1);
+});
+
 const workflowPath = '.github/workflows/production-p0-reviewer-password-reset-ancestor-authority.yml';
 const wrapperPath = 'scripts/production-p0-reviewer-password-reset-ancestor-authority.sh';
 const basePath = 'scripts/production-p0-reviewer-password-reset-request.sh';
