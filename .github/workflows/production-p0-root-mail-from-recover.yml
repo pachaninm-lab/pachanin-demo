@@ -69,7 +69,7 @@ jobs:
               'SMTP_ROOT_FROM_PROBE=PASS',
               'MAIL_RUNTIME_REWRITE=PASS',
               'ROOT_ONLY_AUTH_MAIL_RUNTIME_FILE',
-              'docker inspect',
+              "['docker','inspect'",
               'PRODUCTION_DB_MUTATION=NONE',
               'PRODUCTION_DEPLOYMENT_MUTATION=NONE',
           )
