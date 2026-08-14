@@ -34,9 +34,10 @@ for (const token of [
   `COMMAND='${command}'`, `SOURCE_BLOB='${sourceBlob}'`, 'PC_REVIEWER_SMTP_451_DETAIL_VALIDATE_ONLY',
   "ENHANCED_STATUS='NONE'", "REASON_CLASS='NONE'", 'UNCLASSIFIED_451', 'RATE_LIMIT',
   'GREYLIST_TEMPORARY', 'ANTI_ABUSE_POLICY', 'DESTINATION_ROUTING_TEMPFAIL', 'RECIPIENT_TEMPFAIL',
-  'TEMPORARY_POLICY', "compile(source, '<probe.py>', 'exec')", 'remains pre-DATA', 'bash "$TMP"',
+  'TEMPORARY_POLICY', "compile(source, '<probe.py>', 'exec')", 'remains pre-DATA',
+  'FORBIDDEN_PROBE_OPERATION', "'api/auth/forgot-password'", 'bash "$TMP"',
 ]) need('runner', runner, token);
-for (const re of [/api\/auth\/forgot-password/i, /password-reset\/request/i, /StrictHostKeyChecking=no/, /UserKnownHostsFile=\/dev\/null/]) deny('runner', runner, re);
+for (const re of [/password-reset\/request/i, /StrictHostKeyChecking=no/, /UserKnownHostsFile=\/dev\/null/]) deny('runner', runner, re);
 
 const hash = spawnSync('git', ['hash-object', sourcePath], { encoding: 'utf8' });
 if (hash.status !== 0 || hash.stdout.trim() !== sourceBlob) failures.push('source stage-probe blob mismatch');
