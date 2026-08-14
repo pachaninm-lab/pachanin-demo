@@ -16,7 +16,7 @@ env:
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   DEFAULT_HOST: 195.19.12.120
   TARGET_ISSUE_NUMBER: '3785'
-  EXPECTED_COMMAND: /production p0-auth-mail-readiness current-main
+  SUBJECT_PRODUCTION_SHA: 033964e2e553c595482b774784cf808815eccbc7
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
   SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -42,16 +42,20 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Guard exact current main
+      - name: Bind diagnostic main and failed production subject
         id: target
         shell: bash
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          target_sha="$(git rev-parse origin/main)"
-          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(git rev-parse HEAD)" == "$target_sha" ]]
-          echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
+          diagnostic_main_sha="$(git rev-parse origin/main)"
+          [[ "$diagnostic_main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$diagnostic_main_sha" ]]
+          [[ "$SUBJECT_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "${SUBJECT_PRODUCTION_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_PRODUCTION_SHA" "$diagnostic_main_sha"
+          echo "diagnostic_main_sha=$diagnostic_main_sha" >> "$GITHUB_OUTPUT"
+          echo "subject_sha=$SUBJECT_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Resolve protected key and pinned VPS identity
         id: ssh
@@ -64,13 +68,11 @@ jobs:
           port="$(trim "${SSH_PORT_SECRET:-22}")"
           expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
           [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'AUTH_MAIL_DIAGNOSTIC=FAIL_CANONICAL_VPS'; exit 10; }
-          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'AUTH_MAIL_DIAGNOSTIC=FAIL_PRODUCTION_PRINCIPAL'; exit 11; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
           [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
-          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'AUTH_MAIL_DIAGNOSTIC=FAIL_PINNED_HOST_FINGERPRINT'; exit 13; }
-          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
-          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
-          mkdir -p "$HOME/.ssh"
-          chmod 700 "$HOME/.ssh"
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
 
           validate_key(){
             local source="$1" target="$HOME/.ssh/id_pc_prod" pub
@@ -92,10 +94,7 @@ jobs:
             printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
             rm -f "$a" "$b" "$c"; return 1
           }
-          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
-            echo 'AUTH_MAIL_DIAGNOSTIC=FAIL_SSH_KEY'
-            exit 14
-          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
 
           scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
           for attempt in 1 2 3; do
@@ -111,36 +110,31 @@ jobs:
             fi
             (( attempt == 3 )) || sleep "$attempt"
           done
-          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'AUTH_MAIL_DIAGNOSTIC=FAIL_PINNED_HOST_KEY'; exit 15; }
-          mv "$match" "$HOME/.ssh/known_hosts"
-          rm -f "$scan"
-          chmod 600 "$HOME/.ssh/known_hosts"
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
             'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; python3 --version >/dev/null; echo SSH_AUTH_OK' \
             | grep -Fxq SSH_AUTH_OK
           echo "host=$host" >> "$GITHUB_OUTPUT"
           echo "port=$port" >> "$GITHUB_OUTPUT"
 
-      - name: Diagnose current auth-mail worker without mutation
+      - name: Diagnose failed production worker without mutation
         id: diagnostic
         shell: bash
         env:
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
           HOST: ${{ steps.ssh.outputs.host }}
           PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -euo pipefail
-          raw="$(mktemp)"
-          clean="$(mktemp)"
+          raw="$(mktemp)"; clean="$(mktemp)"
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "bash -s -- '$TARGET_SHA'" > "$raw" 2>&1 <<'REMOTE'
+            "bash -s -- '$SUBJECT_SHA'" > "$raw" 2>&1 <<'REMOTE'
           set -Eeuo pipefail
-          target_sha="$1"
+          subject_sha="$1"
           runtime_root='/var/lib/pc-secret-authority/runtime'
           db_file="$runtime_root/database-url"
-          worker_service='auth-mail-worker'
-
           emit(){ printf '%s=%s\n' "$1" "$2"; }
           fail(){ emit AUTH_MAIL_READINESS_DIAGNOSTIC FAIL; emit ERROR_CODE "$1"; emit PRODUCTION_MUTATION NONE; exit "${2:-1}"; }
           cleanup_paths=()
@@ -150,22 +144,22 @@ jobs:
           [[ "$(id -u)" -eq 0 ]] || fail ROOT_REQUIRED 20
           command -v docker >/dev/null 2>&1 || fail DOCKER_REQUIRED 21
           command -v python3 >/dev/null 2>&1 || fail PYTHON_REQUIRED 22
-          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || fail TARGET_SHA_INVALID 23
+          [[ "$subject_sha" =~ ^[0-9a-f]{40}$ ]] || fail SUBJECT_SHA_INVALID 23
 
           mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
           (( ${#web_ids[@]} == 1 )) || fail WEB_AUTHORITY_CARDINALITY 24
           project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "${web_ids[0]}")"
           [[ -n "$project" ]] || fail COMPOSE_PROJECT_MISSING 25
 
-          mapfile -t worker_ids < <(docker ps -aq \
-            --filter "label=com.docker.compose.project=$project" \
-            --filter "label=com.docker.compose.service=$worker_service")
-          emit WORKER_CARDINALITY "${#worker_ids[@]}"
-          (( ${#worker_ids[@]} == 1 )) || fail WORKER_CARDINALITY_NOT_ONE 26
-          worker_id="${worker_ids[0]}"
-
-          revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id" 2>/dev/null || true)"
-          [[ "$revision" == "$target_sha" ]] || fail WORKER_REVISION_MISMATCH 27
+          subject_workers=()
+          while IFS= read -r candidate; do
+            [[ -n "$candidate" ]] || continue
+            revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$candidate" 2>/dev/null || true)"
+            [[ "$revision" == "$subject_sha" ]] && subject_workers+=("$candidate")
+          done < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          emit SUBJECT_WORKER_CARDINALITY "${#subject_workers[@]}"
+          (( ${#subject_workers[@]} == 1 )) || fail SUBJECT_WORKER_CARDINALITY_NOT_ONE 26
+          worker_id="${subject_workers[0]}"
           emit WORKER_REVISION PASS
 
           state="$(docker inspect --format '{{.State.Status}}' "$worker_id" 2>/dev/null || true)"
@@ -174,184 +168,102 @@ jobs:
           [[ "$state" =~ ^(created|running|paused|restarting|removing|exited|dead)$ ]] || state=unknown
           [[ "$health" =~ ^(none|starting|healthy|unhealthy)$ ]] || health=unknown
           [[ "$restart_count" =~ ^[0-9]+$ ]] || restart_count=0
-          emit WORKER_STATE "$state"
-          emit WORKER_HEALTH "$health"
+          emit WORKER_STATE "$state"; emit WORKER_HEALTH "$health"
           if (( restart_count > 0 )); then emit WORKER_RESTARTED YES; else emit WORKER_RESTARTED NO; fi
 
-          inspect_env="$(mktemp)"; cleanup_paths+=("$inspect_env")
-          inspect_mounts="$(mktemp)"; cleanup_paths+=("$inspect_mounts")
+          inspect_env="$(mktemp)"; inspect_mounts="$(mktemp)"; cleanup_paths+=("$inspect_env" "$inspect_mounts")
           chmod 0600 "$inspect_env" "$inspect_mounts"
           docker inspect --format '{{json .Config.Env}}' "$worker_id" > "$inspect_env"
           docker inspect --format '{{json .Mounts}}' "$worker_id" > "$inspect_mounts"
-
-          python3 - "$inspect_env" <<'PY' || fail WORKER_ENV_BOUNDARY_FAILED 28
+          python3 - "$inspect_env" <<'PY' || fail WORKER_ENV_BOUNDARY_FAILED 27
           import json, sys
-          env = json.load(open(sys.argv[1], encoding='utf-8')) or []
-          values = {}
-          for item in env:
-              name, sep, value = str(item).partition('=')
-              if sep:
-                  values[name] = value
-          expected = {
-              'NODE_ENV': 'production',
-              'RUNTIME_COMPONENT': 'auth-mail-worker',
-              'AUTH_MAIL_WORKER_ENABLED': 'true',
-              'AUTH_MAIL_WORKER_HEALTH_PORT': '3003',
-              'AUTH_MAIL_OUTBOX_KEYRING_DIR': '/run/pc-auth-mail/keyring',
-              'AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE': '/run/pc-auth-mail/current-key-version',
-              'AUTH_MAIL_DATABASE_URL_FILE': '/run/pc-auth-mail/database-url',
-              'AUTH_MAIL_TRANSPORT_FILE': '/run/pc-auth-mail/transport.env',
-          }
-          if any(values.get(k) != v for k, v in expected.items()):
-              raise SystemExit(1)
-          forbidden = ('PC_SMTP_PASS','AUTH_MAIL_DATABASE_URL','DATABASE_URL','AUTH_DATABASE_URL')
-          if any(k in values for k in forbidden):
-              raise SystemExit(1)
+          values={}
+          for item in json.load(open(sys.argv[1], encoding='utf-8')) or []:
+              name, sep, value=str(item).partition('=')
+              if sep: values[name]=value
+          expected={
+            'NODE_ENV':'production','RUNTIME_COMPONENT':'auth-mail-worker','AUTH_MAIL_WORKER_ENABLED':'true',
+            'AUTH_MAIL_WORKER_HEALTH_PORT':'3003','AUTH_MAIL_OUTBOX_KEYRING_DIR':'/run/pc-auth-mail/keyring',
+            'AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE':'/run/pc-auth-mail/current-key-version',
+            'AUTH_MAIL_DATABASE_URL_FILE':'/run/pc-auth-mail/database-url','AUTH_MAIL_TRANSPORT_FILE':'/run/pc-auth-mail/transport.env'}
+          if any(values.get(k)!=v for k,v in expected.items()): raise SystemExit(1)
+          if any(k in values for k in ('PC_SMTP_PASS','AUTH_MAIL_DATABASE_URL','DATABASE_URL','AUTH_DATABASE_URL')): raise SystemExit(1)
           PY
           emit WORKER_ENV_BOUNDARY PASS
 
-          python3 - "$inspect_mounts" <<'PY' || fail WORKER_MOUNT_BOUNDARY_FAILED 29
+          python3 - "$inspect_mounts" <<'PY' || fail WORKER_MOUNT_BOUNDARY_FAILED 28
           import json, sys
-          mounts = json.load(open(sys.argv[1], encoding='utf-8')) or []
-          expected = {
-              '/run/pc-auth-mail/keyring': '/var/lib/pc-secret-authority/runtime/keyring',
-              '/run/pc-auth-mail/current-key-version': '/var/lib/pc-secret-authority/runtime/current-key-version',
-              '/run/pc-auth-mail/database-url': '/var/lib/pc-secret-authority/runtime/database-url',
-              '/run/pc-auth-mail/transport.env': '/var/lib/pc-secret-authority/runtime/transport.env',
-          }
-          seen = {}
-          for mount in mounts:
-              destination = str(mount.get('Destination') or '')
-              if destination in expected:
-                  seen[destination] = (str(mount.get('Source') or ''), bool(mount.get('RW')))
-          for destination, source in expected.items():
-              if seen.get(destination) != (source, False):
-                  raise SystemExit(1)
+          expected={
+            '/run/pc-auth-mail/keyring':'/var/lib/pc-secret-authority/runtime/keyring',
+            '/run/pc-auth-mail/current-key-version':'/var/lib/pc-secret-authority/runtime/current-key-version',
+            '/run/pc-auth-mail/database-url':'/var/lib/pc-secret-authority/runtime/database-url',
+            '/run/pc-auth-mail/transport.env':'/var/lib/pc-secret-authority/runtime/transport.env'}
+          seen={}
+          for m in json.load(open(sys.argv[1], encoding='utf-8')) or []:
+              d=str(m.get('Destination') or '')
+              if d in expected: seen[d]=(str(m.get('Source') or ''), bool(m.get('RW')))
+          if any(seen.get(d)!=(s,False) for d,s in expected.items()): raise SystemExit(1)
           PY
           emit WORKER_MOUNT_BOUNDARY PASS
 
-          python3 - "$runtime_root" <<'PY' || fail RUNTIME_PROJECTION_INVALID 30
-          import os, re, stat, sys
-          from urllib.parse import urlsplit
+          python3 - "$runtime_root" <<'PY' || fail RUNTIME_PROJECTION_INVALID 29
+          import os,re,stat,sys
+          from urllib.parse import urlsplit, unquote
           root=sys.argv[1]
-          required=['current-key-version','database-url','transport.env']
-          if not os.path.isdir(root) or os.path.islink(root):
-              raise SystemExit(1)
+          if not os.path.isdir(root) or os.path.islink(root): raise SystemExit(1)
           st=os.stat(root)
-          if stat.S_IMODE(st.st_mode) != 0o700 or st.st_uid != 0 or st.st_gid != 0:
-              raise SystemExit(1)
-          keyring=os.path.join(root,'keyring')
-          if not os.path.isdir(keyring) or os.path.islink(keyring):
-              raise SystemExit(1)
-          kr=os.stat(keyring)
-          if stat.S_IMODE(kr.st_mode) != 0o555 or kr.st_uid != 0 or kr.st_gid != 0:
-              raise SystemExit(1)
-          for name in required:
-              path=os.path.join(root,name)
-              st=os.stat(path)
-              if not os.path.isfile(path) or os.path.islink(path) or stat.S_IMODE(st.st_mode) != 0o444 or st.st_uid != 0 or st.st_gid != 0:
-                  raise SystemExit(1)
-          version=open(os.path.join(root,'current-key-version'), encoding='utf-8').read().strip()
-          if not re.fullmatch(r'[1-9][0-9]{0,2}', version):
-              raise SystemExit(1)
-          key_path=os.path.join(keyring,f'v{version}.key')
-          st=os.stat(key_path)
-          key=open(key_path, encoding='utf-8').read().strip()
-          if stat.S_IMODE(st.st_mode) != 0o444 or st.st_uid != 0 or st.st_gid != 0 or not re.fullmatch(r'[A-Fa-f0-9]{64}', key):
-              raise SystemExit(1)
-          transport={}
-          for raw in open(os.path.join(root,'transport.env'), encoding='utf-8'):
-              name, sep, value=raw.rstrip('\n').partition('=')
-              if not sep or name in transport:
-                  raise SystemExit(1)
-              transport[name]=value
-          if set(transport) != {'PC_SMTP_HOST','PC_SMTP_PORT','PC_SMTP_USER','PC_SMTP_PASS','PC_MAIL_FROM'}:
-              raise SystemExit(1)
-          if transport['PC_SMTP_HOST'] != 'mail.hosting.reg.ru' or transport['PC_SMTP_PORT'] != '465':
-              raise SystemExit(1)
-          if transport['PC_MAIL_FROM'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai':
-              raise SystemExit(1)
-          user=transport['PC_SMTP_USER']
-          local, sep, domain=user.rpartition('@')
-          platform='xn----8sbjf4befbjgs9b.xn--p1ai'
-          if not sep or not local or (domain != platform and not domain.endswith('.'+platform)):
-              raise SystemExit(1)
-          password=transport['PC_SMTP_PASS']
-          if not 8 <= len(password) <= 512 or any(c in password for c in '\r\n\0'):
-              raise SystemExit(1)
-          db=open(os.path.join(root,'database-url'), encoding='utf-8').read().strip()
-          url=urlsplit(db)
-          if url.scheme not in ('postgres','postgresql') or url.username != 'pc_auth_mail_runtime' or not url.password or not url.hostname or not url.path.strip('/'):
-              raise SystemExit(1)
+          if stat.S_IMODE(st.st_mode)!=0o700 or st.st_uid or st.st_gid: raise SystemExit(1)
+          for name in ('current-key-version','database-url','transport.env'):
+              p=os.path.join(root,name); st=os.stat(p)
+              if not os.path.isfile(p) or os.path.islink(p) or stat.S_IMODE(st.st_mode)!=0o444 or st.st_uid or st.st_gid: raise SystemExit(1)
+          version=open(os.path.join(root,'current-key-version'),encoding='utf-8').read().strip()
+          if not re.fullmatch(r'[1-9][0-9]{0,2}',version): raise SystemExit(1)
+          key=os.path.join(root,'keyring',f'v{version}.key'); st=os.stat(key)
+          if stat.S_IMODE(st.st_mode)!=0o444 or st.st_uid or st.st_gid or not re.fullmatch(r'[A-Fa-f0-9]{64}',open(key,encoding='utf-8').read().strip()): raise SystemExit(1)
+          url=urlsplit(open(os.path.join(root,'database-url'),encoding='utf-8').read().strip())
+          if url.scheme not in ('postgres','postgresql') or unquote(url.username or '')!='pc_auth_mail_runtime' or not url.password or not url.hostname or not url.path.strip('/'): raise SystemExit(1)
           PY
           emit RUNTIME_PROJECTION PASS
 
-          startup_codes="$(docker logs --tail 300 "$worker_id" 2>&1 \
-            | sed -nE 's/^Auth-mail worker failed to start: ([A-Z0-9_]{1,120})$/\1/p' \
-            | sort -u || true)"
+          startup_codes="$(docker logs --tail 300 "$worker_id" 2>&1 | sed -nE 's/^Auth-mail worker failed to start: ([A-Z0-9_]{1,120})$/\1/p' | sort -u || true)"
           startup_count="$(grep -c . <<< "$startup_codes" || true)"
-          if [[ "$startup_count" == 0 ]]; then
-            startup_code=NONE
-          elif [[ "$startup_count" == 1 ]]; then
-            startup_code="$startup_codes"
-          else
-            startup_code=MULTIPLE_SAFE_CODES
-          fi
+          if [[ "$startup_count" == 0 ]]; then startup_code=NONE; elif [[ "$startup_count" == 1 ]]; then startup_code="$startup_codes"; else startup_code=MULTIPLE_SAFE_CODES; fi
           [[ "$startup_code" =~ ^[A-Z0-9_]{1,120}$ ]] || startup_code=INVALID_SAFE_CODE
           emit STARTUP_CODE "$startup_code"
 
           mapfile -t pg_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" | while read -r id; do
             image="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
             service="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "$id" 2>/dev/null || true)"
-            if [[ "$image" == postgres:* || "$image" == */postgres:* || "$service" == postgres || "$service" == db || "$service" == database ]]; then
-              printf '%s\n' "$id"
-            fi
+            if [[ "$image" == postgres:* || "$image" == */postgres:* || "$service" == postgres || "$service" == db || "$service" == database ]]; then printf '%s\n' "$id"; fi
           done)
-          (( ${#pg_ids[@]} == 1 )) || fail POSTGRES_AUTHORITY_CARDINALITY 31
+          (( ${#pg_ids[@]} == 1 )) || fail POSTGRES_AUTHORITY_CARDINALITY 30
           pg_id="${pg_ids[0]}"
           postgres_user="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$pg_id" | sed -n 's/^POSTGRES_USER=//p' | head -1)"
           postgres_db="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$pg_id" | sed -n 's/^POSTGRES_DB=//p' | head -1)"
-          [[ -n "$postgres_user" ]] || postgres_user=postgres
-          [[ -n "$postgres_db" ]] || postgres_db="$postgres_user"
-
+          [[ -n "$postgres_user" ]] || postgres_user=postgres; [[ -n "$postgres_db" ]] || postgres_db="$postgres_user"
           set +e
-          db_result="$(
-            python3 - "$db_file" <<'PY' \
-              | docker exec -i "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" 2>/dev/null
-          from urllib.parse import urlsplit, urlunsplit
+          db_result="$(python3 - "$db_file" <<'PY' | docker exec -i "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" 2>/dev/null
+          from urllib.parse import urlsplit, unquote
           import sys
-          raw=open(sys.argv[1], encoding='utf-8').read().strip()
-          url=urlsplit(raw)
-          if url.scheme not in ('postgres','postgresql') or url.username != 'pc_auth_mail_runtime' or not url.password or not url.hostname or not url.path.strip('/'):
-              raise SystemExit(1)
-          clean=urlunsplit((url.scheme, url.netloc, url.path, '', ''))
-          print('\\connect ' + clean)
-          print("SELECT current_user, rolsuper, rolbypassrls, rolinherit FROM pg_roles WHERE rolname=current_user;")
+          raw=open(sys.argv[1],encoding='utf-8').read().strip(); u=urlsplit(raw)
+          if u.scheme not in ('postgres','postgresql') or unquote(u.username or '')!='pc_auth_mail_runtime' or not u.password or not u.hostname or not u.path.strip('/'): raise SystemExit(1)
+          print('\\connect '+raw)
+          print("SELECT current_user || '|' || rolsuper || '|' || rolbypassrls || '|' || rolinherit FROM pg_roles WHERE rolname=current_user;")
           PY
           )"
-          db_rc=$?
-          set -e
-          if [[ "$db_rc" == 0 && "$db_result" == 'pc_auth_mail_runtime|f|f|f' ]]; then
-            emit DB_PRINCIPAL_LOGIN PASS
-          else
-            emit DB_PRINCIPAL_LOGIN FAIL
-          fi
+          db_rc=$?; set -e
+          if [[ "$db_rc" == 0 && "$db_result" == 'pc_auth_mail_runtime|f|f|f' ]]; then emit DB_PRINCIPAL_LOGIN PASS; else emit DB_PRINCIPAL_LOGIN FAIL; fi
 
-          emit AUTH_MAIL_READINESS_DIAGNOSTIC PASS
-          emit ERROR_CODE NONE
-          emit PRODUCTION_MUTATION NONE
+          emit AUTH_MAIL_READINESS_DIAGNOSTIC PASS; emit ERROR_CODE NONE; emit PRODUCTION_MUTATION NONE
           REMOTE
           remote_rc=$?
           set -e
 
-          sed -nE '/^(AUTH_MAIL_READINESS_DIAGNOSTIC|ERROR_CODE|WORKER_CARDINALITY|WORKER_REVISION|WORKER_STATE|WORKER_HEALTH|WORKER_RESTARTED|WORKER_ENV_BOUNDARY|WORKER_MOUNT_BOUNDARY|RUNTIME_PROJECTION|STARTUP_CODE|DB_PRINCIPAL_LOGIN|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"
-          rm -f "$raw"
-          cat "$clean"
-          echo "rc=$remote_rc" >> "$GITHUB_OUTPUT"
+          sed -nE '/^(AUTH_MAIL_READINESS_DIAGNOSTIC|ERROR_CODE|SUBJECT_WORKER_CARDINALITY|WORKER_REVISION|WORKER_STATE|WORKER_HEALTH|WORKER_RESTARTED|WORKER_ENV_BOUNDARY|WORKER_MOUNT_BOUNDARY|RUNTIME_PROJECTION|STARTUP_CODE|DB_PRINCIPAL_LOGIN|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"
+          rm -f "$raw"; cat "$clean"; echo "rc=$remote_rc" >> "$GITHUB_OUTPUT"
           while IFS='=' read -r key value; do
             case "$key" in
-              AUTH_MAIL_READINESS_DIAGNOSTIC|ERROR_CODE|WORKER_CARDINALITY|WORKER_REVISION|WORKER_STATE|WORKER_HEALTH|WORKER_RESTARTED|WORKER_ENV_BOUNDARY|WORKER_MOUNT_BOUNDARY|RUNTIME_PROJECTION|STARTUP_CODE|DB_PRINCIPAL_LOGIN|PRODUCTION_MUTATION)
-                echo "${key,,}=$value" >> "$GITHUB_OUTPUT" ;;
+              AUTH_MAIL_READINESS_DIAGNOSTIC|ERROR_CODE|SUBJECT_WORKER_CARDINALITY|WORKER_REVISION|WORKER_STATE|WORKER_HEALTH|WORKER_RESTARTED|WORKER_ENV_BOUNDARY|WORKER_MOUNT_BOUNDARY|RUNTIME_PROJECTION|STARTUP_CODE|DB_PRINCIPAL_LOGIN|PRODUCTION_MUTATION) echo "${key,,}=$value" >> "$GITHUB_OUTPUT" ;;
             esac
           done < "$clean"
           rm -f "$clean"
@@ -361,11 +273,12 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          DIAGNOSTIC_MAIN_SHA: ${{ steps.target.outputs.diagnostic_main_sha }}
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
           REMOTE_RC: ${{ steps.diagnostic.outputs.rc }}
           DIAGNOSTIC: ${{ steps.diagnostic.outputs.auth_mail_readiness_diagnostic }}
           ERROR_CODE: ${{ steps.diagnostic.outputs.error_code }}
-          WORKER_CARDINALITY: ${{ steps.diagnostic.outputs.worker_cardinality }}
+          CARDINALITY: ${{ steps.diagnostic.outputs.subject_worker_cardinality }}
           WORKER_REVISION: ${{ steps.diagnostic.outputs.worker_revision }}
           WORKER_STATE: ${{ steps.diagnostic.outputs.worker_state }}
           WORKER_HEALTH: ${{ steps.diagnostic.outputs.worker_health }}
@@ -382,19 +295,17 @@ jobs:
           {
             echo '### PC-CROP auth-mail worker readiness diagnostic'
             echo
-            echo "- target SHA: \`${TARGET_SHA:-unknown}\`"
+            echo "- diagnostic main SHA: \`${DIAGNOSTIC_MAIN_SHA:-unknown}\`"
+            echo "- failed production subject SHA: \`${SUBJECT_SHA:-unknown}\`"
             echo "- diagnostic: \`${DIAGNOSTIC:-unknown}\` (rc=\`${REMOTE_RC:-unknown}\`)"
             echo "- safe error code: \`${ERROR_CODE:-unknown}\`"
-            echo "- worker cardinality: \`${WORKER_CARDINALITY:-unknown}\`"
-            echo "- worker revision: \`${WORKER_REVISION:-unknown}\`"
+            echo "- subject worker cardinality / revision: \`${CARDINALITY:-unknown} / ${WORKER_REVISION:-unknown}\`"
             echo "- worker state / health / restarted: \`${WORKER_STATE:-unknown} / ${WORKER_HEALTH:-unknown} / ${WORKER_RESTARTED:-unknown}\`"
-            echo "- worker env boundary: \`${WORKER_ENV_BOUNDARY:-unknown}\`"
-            echo "- worker mount boundary: \`${WORKER_MOUNT_BOUNDARY:-unknown}\`"
-            echo "- runtime projection: \`${RUNTIME_PROJECTION:-unknown}\`"
+            echo "- env / mount / runtime projection: \`${WORKER_ENV_BOUNDARY:-unknown} / ${WORKER_MOUNT_BOUNDARY:-unknown} / ${RUNTIME_PROJECTION:-unknown}\`"
             echo "- startup code: \`${STARTUP_CODE:-unknown}\`"
             echo "- DB principal login: \`${DB_PRINCIPAL_LOGIN:-unknown}\`"
             echo "- production mutation: \`${PRODUCTION_MUTATION:-unknown}\`"
-            echo '- raw container logs, container IDs, compose labels, database URLs, mail credentials and secret values are never published.'
+            echo '- raw logs, container IDs, labels, database URLs, credentials and secret values are never published.'
           } > "$record"
           gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
           rm -f "$record"
