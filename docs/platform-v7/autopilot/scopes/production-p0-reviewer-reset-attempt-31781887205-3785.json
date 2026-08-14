@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-reset-attempt-31781887205-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_31781887205_READ_ONLY_CLASSIFIER",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify failed reviewer reset run 31781887205 without reset replay or production mutation",
+  "sourceRun": 31781887205,
+  "sourceRevision": "dc5bec67faeaec26ce905c0643dc15d35f99bf50",
+  "attemptSinceUtc": "2026-08-14T07:56:46Z",
+  "attemptUntilUtc": "2026-08-14T07:57:05Z",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-attempt-31781887205.yml",
+    "scripts/production-p0-reviewer-reset-attempt-31781887205.sh",
+    "scripts/check-production-p0-reviewer-reset-attempt-31781887205.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-31781887205-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "credentialMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "resetReplay": false,
+    "mailSend": false,
+    "databaseReadOnly": true,
+    "logReadOnly": true,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the only production command is owner-only on release issue 3072 and fixed to reset run 31781887205",
+    "the one-off wrapper pins the already merged canonical read-only reset-attempt classifier by Git blob 7dcfb19d247aab2f0dc8c8075416673499c9dc84",
+    "the wrapper changes only five fixed historical literals in a RUNNER_TEMP copy: command, source run, source revision and UTC attempt bounds",
+    "the classified source revision is dc5bec67faeaec26ce905c0643dc15d35f99bf50 and the fixed attempt window is 2026-08-14T07:56:46Z through 2026-08-14T07:57:05Z",
+    "the canonical classifier retains exact-current-main, source-ancestor, active-revision stability, pinned SSH host-key and reviewer identity redaction guards",
+    "only reviewer-bound aggregate auth evidence and whitelist-derived bounded source-log classes may be published; reviewer identity, correlation id, reset token or hash, credentials, raw rows and raw logs remain unpublished",
+    "no reset request, HTTP auth call, password change, MFA or session change, mail send, database write, privilege change, deployment or container lifecycle operation is performed",
+    "production mutation is NONE and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
