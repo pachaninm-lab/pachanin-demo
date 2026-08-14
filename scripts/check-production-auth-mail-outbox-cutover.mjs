@@ -37,13 +37,13 @@ lacks(webReset, 'sendTransactionalMail', 'Web must not send reset SMTP directly'
 lacks(webReset, 'payload.delivery', 'Web must not receive reset bearer delivery payload');
 lacks(webReset, 'PC_SMTP_PASS', 'Web route must not read SMTP authority');
 
-has(worker, "isRetryableAuthMailFailure", 'worker must classify failures before retry/dead-letter');
+has(worker, 'isRetryableAuthMailFailure', 'worker must classify failures before retry/dead-letter');
 has(worker, 'const terminal = !retryable || expired || attemptCount >= entry.max_attempts;', 'permanent failures must dead-letter immediately');
 has(retryPolicy, '/^SMTP_PERMANENT_5\\d\\d$/.test(errorCode)', 'SMTP 5xx terminal policy missing');
 has(retrySpec, "'SMTP_TRANSIENT_451'", 'observed production 451 must be regression-tested');
 has(retrySpec, "'SMTP_PERMANENT_550'", 'permanent 550 must be regression-tested');
-has(smtp, 'SMTP_TRANSIENT_', 'SMTP 4xx classifier missing');
-has(smtp, 'SMTP_PERMANENT_', 'SMTP 5xx classifier missing');
+has(smtp, "code >= 500 ? 'PERMANENT' : code >= 400 ? 'TRANSIENT' : 'PROTOCOL'", 'SMTP 4xx/5xx response classifier missing');
+has(smtp, '`SMTP_${category}_${code}`', 'SMTP response taxonomy missing');
 
 has(crypto, 'aes-256-gcm', 'outbox bearer envelope must use AEAD encryption');
 has(outbox, 'auth.enqueue_mail_outbox', 'API must enqueue through bounded database authority');
@@ -54,7 +54,7 @@ has(migration, 'auth.redact_terminal_mail_outbox', 'terminal ciphertext retentio
 
 has(apiTsconfig, '"src/**/*.ts"', 'API compiler must include auth-mail-worker entrypoint');
 has(apiDockerfile, 'cp -R /workspace/apps/api/dist /prod/api/dist', 'API image must carry compiled worker entrypoint');
-has(cutover, "/app/dist/apps/api/src/auth-mail-worker.js", 'pre-mutation worker artifact proof missing');
+has(cutover, '/app/dist/apps/api/src/auth-mail-worker.js', 'pre-mutation worker artifact proof missing');
 has(cutover, 'restore_baseline()', 'cutover must carry rollback routine');
 has(cutover, 'trap on_error ERR', 'cutover must fail-closed into rollback');
 has(cutover, 'WEB_SMTP_AUTHORITY=ABSENT', 'production evidence must prove Web SMTP authority removal');
@@ -71,7 +71,7 @@ has(provision, 'AUTH_MAIL_PROVISION=PASS', 'provisioning success evidence missin
 
 has(workflow, "workflows: ['Production Full-Stack Exact-SHA Release']", 'cutover must chain only after exact full-stack release');
 has(workflow, "github.event.workflow_run.event == 'workflow_run'", 'production cutover must reject PR/push-only upstream runs');
-has(workflow, 'github.event.workflow_run.head_branch == \'main\'', 'production cutover must be main-only');
+has(workflow, "github.event.workflow_run.head_branch == 'main'", 'production cutover must be main-only');
 has(workflow, 'git rev-parse origin/main', 'workflow must guard against current-main drift');
 has(workflow, 'scripts/check-production-auth-mail-outbox-cutover.mjs', 'workflow contract job missing');
 has(workflow, 'scripts/production-auth-mail-outbox-cutover.sh', 'workflow cutover asset missing');
