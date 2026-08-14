@@ -94,6 +94,39 @@ def classify_image(item):
         return None
     return next(iter(components)), tuple(sorted(set(normalized_tags)))
 
+def remove_failure_class(result):
+    text = f'{result.stdout}\n{result.stderr}'.lower()
+    if 'no space left on device' in text:
+        return 'NO_SPACE'
+    if 'dependent child' in text:
+        return 'DEPENDENT_CHILD'
+    if 'container' in text and ('using its referenced image' in text or 'is being used by' in text):
+        return 'CONTAINER_REFERENCE'
+    if 'conflict' in text:
+        return 'CONFLICT'
+    return 'OTHER'
+
+def safe_after_mutation_attestation(image_id, component):
+    if image_id in container_image_ids():
+        return None, 'CONTAINER_REFERENCE'
+    item = inspect_image(image_id)
+    if item is None:
+        return None, None
+    labels = (item.get('Config') or {}).get('Labels') or {}
+    revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
+    if revision == target_sha:
+        return None, 'TARGET_REVISION'
+    tags = item.get('RepoTags') or []
+    if not isinstance(tags, list):
+        return None, 'UNEXPECTED_TAG_STATE'
+    for raw in tags:
+        if not isinstance(raw, str):
+            return None, 'UNEXPECTED_TAG_STATE'
+        match = canonical.fullmatch(raw)
+        if not match or match.group(1) != component:
+            return None, 'UNEXPECTED_TAG_STATE'
+    return item, None
+
 before_kb = available_kb()
 protected = container_image_ids()
 container_protected_count = len(protected)
@@ -126,9 +159,12 @@ for component_records in by_component.values():
         protected.add(record['id'])
 
 eligible = [record for record in records if record['id'] not in protected]
-eligible.sort(key=lambda row: row['created'])
+# Newest-first avoids legacy parent/child deletion conflicts while still preserving
+# the exact-main image and two newest canonical rollback images per component.
+eligible.sort(key=lambda row: row['created'], reverse=True)
 deleted = 0
 skipped = 0
+remove_failures = defaultdict(int)
 
 for record in eligible:
     if available_kb() >= target_kb:
@@ -136,6 +172,7 @@ for record in eligible:
     current_refs = container_image_ids()
     if record['id'] in current_refs:
         protected.add(record['id'])
+        remove_failures['CONTAINER_REFERENCE'] += 1
         skipped += 1
         continue
     item = inspect_image(record['id'])
@@ -144,25 +181,76 @@ for record in eligible:
         continue
     classification = classify_image(item)
     if classification is None:
+        remove_failures['UNEXPECTED_TAG_STATE'] += 1
         skipped += 1
         continue
     component, tags = classification
     if component != record['component']:
+        remove_failures['UNEXPECTED_TAG_STATE'] += 1
         skipped += 1
         continue
     labels = (item.get('Config') or {}).get('Labels') or {}
     revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
     if revision == target_sha:
         protected.add(record['id'])
+        remove_failures['TARGET_REVISION'] += 1
         skipped += 1
         continue
+
+    # First use Docker's normal tag-aware removal. Never force deletion.
     result = command(['docker', 'image', 'rm', *tags], check=False)
     if result.returncode != 0:
+        remove_failures[remove_failure_class(result)] += 1
+
+    item_after, attestation_error = safe_after_mutation_attestation(record['id'], component)
+    if attestation_error:
+        remove_failures[attestation_error] += 1
+        skipped += 1
+        continue
+    if item_after is None:
+        deleted += 1
+        continue
+
+    # A failed multi-tag removal may leave only canonical tags behind. Remove any
+    # remaining canonical tags individually, re-attesting the image after each step.
+    remaining_tags = tuple(sorted(set(item_after.get('RepoTags') or [])))
+    individual_failed = False
+    for tag in remaining_tags:
+        tag_result = command(['docker', 'image', 'rm', tag], check=False)
+        if tag_result.returncode != 0:
+            remove_failures[remove_failure_class(tag_result)] += 1
+            individual_failed = True
+            break
+        item_after, attestation_error = safe_after_mutation_attestation(record['id'], component)
+        if attestation_error:
+            remove_failures[attestation_error] += 1
+            individual_failed = True
+            break
+        if item_after is None:
+            break
+    if individual_failed:
+        skipped += 1
+        continue
+    if item_after is None:
+        deleted += 1
+        continue
+
+    # If all canonical tags are gone but Docker still retains the same attested,
+    # unused image object, remove that exact image ID without --force.
+    final_tags = item_after.get('RepoTags') or []
+    if final_tags:
+        remove_failures['STILL_TAGGED'] += 1
+        skipped += 1
+        continue
+    id_result = command(['docker', 'image', 'rm', record['id']], check=False)
+    if id_result.returncode != 0:
+        remove_failures[remove_failure_class(id_result)] += 1
         skipped += 1
         continue
     if inspect_image(record['id']) is None:
         deleted += 1
     else:
+        remove_failures['STILL_PRESENT'] += 1
         skipped += 1
 
 after_kb = available_kb()
@@ -182,6 +270,7 @@ payload = {
     'protectedImageCount': len(protected),
     'deletedImageCount': deleted,
     'skippedImageCount': skipped,
+    'removeFailureCounts': dict(sorted(remove_failures.items())),
     'reclaimedBytes': reclaimed_bytes,
     'targetReached': after_kb >= target_kb,
     'passed': after_kb >= required_kb,
@@ -210,6 +299,10 @@ if value.get('requiredAvailableKb') != int(required_raw): raise SystemExit('requ
 if value.get('targetAvailableKb') != int(target_raw): raise SystemExit('target threshold mismatch')
 for key in ('beforeAvailableKb','afterAvailableKb','canonicalImageCount','eligibleImageCount','containerProtectedImageCount','protectedImageCount','deletedImageCount','skippedImageCount','reclaimedBytes'):
     if not isinstance(value.get(key), int) or value[key] < 0: raise SystemExit(f'invalid integer field: {key}')
+failures = value.get('removeFailureCounts')
+if not isinstance(failures, dict): raise SystemExit('remove failure counts invalid')
+for key, count in failures.items():
+    if not isinstance(key, str) or not key or not isinstance(count, int) or count < 0: raise SystemExit('remove failure entry invalid')
 if value.get('targetReached') is not (value['afterAvailableKb'] >= value['targetAvailableKb']): raise SystemExit('targetReached mismatch')
 if value.get('passed') is not (value['afterAvailableKb'] >= value['requiredAvailableKb']): raise SystemExit('passed mismatch')
 PY_VALIDATE
@@ -223,8 +316,12 @@ print(f"DOCKER_HEADROOM_BEFORE_KB={value['beforeAvailableKb']}")
 print(f"DOCKER_HEADROOM_AFTER_KB={value['afterAvailableKb']}")
 print(f"DOCKER_HEADROOM_REQUIRED_KB={value['requiredAvailableKb']}")
 print(f"DOCKER_HEADROOM_TARGET_KB={value['targetAvailableKb']}")
+print(f"DOCKER_HEADROOM_CANONICAL_IMAGES={value['canonicalImageCount']}")
+print(f"DOCKER_HEADROOM_ELIGIBLE_IMAGES={value['eligibleImageCount']}")
 print(f"DOCKER_HEADROOM_DELETED_IMAGES={value['deletedImageCount']}")
 print(f"DOCKER_HEADROOM_SKIPPED_IMAGES={value['skippedImageCount']}")
+for key, count in sorted(value['removeFailureCounts'].items()):
+    print(f"DOCKER_HEADROOM_REMOVE_FAILURE_{key}={count}")
 print(f"DOCKER_HEADROOM_RECLAIMED_BYTES={value['reclaimedBytes']}")
 print(f"DOCKER_HEADROOM_TARGET_REACHED={str(value['targetReached']).lower()}")
 print(f"DOCKER_HEADROOM_RECOVERY={'PASS' if value['passed'] else 'FAIL'}")
