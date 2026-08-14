@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-first-user-mail-diagnostic-31800628106-3072",
+  "branch": "diag/gekta-first-user-mail-31800628106-3072",
+  "status": "active",
+  "issue": 3072,
+  "sourceRun": 31800628106,
+  "sourceDeployedSha": "f4cca72a0716c0fe2c94fd5e838d18be774b9812",
+  "baseline": {
+    "branch": "main",
+    "commit": "40dc1c8636444f2883176a4a60eae926c7237e68"
+  },
+  "purpose": "Classify the deterministic GEKTA_VERIFICATION_EMAIL_NOT_FOUND failure for run 31800628106 without repeating registration or mutating production.",
+  "allowedPaths": [
+    ".github/workflows/production-gekta-first-user-mail-diagnostic.yml",
+    "scripts/production-gekta-first-user-mail-diagnostic.sh",
+    "scripts/check-production-gekta-first-user-mail-diagnostic.mjs",
+    "docs/platform-v7/autopilot/scopes/gekta-first-user-mail-diagnostic-31800628106-3072.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "runtimeMutation": false,
+    "deploymentMutation": false,
+    "mailSend": false,
+    "resend": false,
+    "imapReadOnly": true,
+    "containerLogReadOnly": true,
+    "containerEnvComparisonReadOnly": true,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawLogOutput": false,
+    "rawMailboxOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
