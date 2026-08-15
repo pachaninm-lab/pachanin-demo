@@ -1,0 +1,409 @@
+name: Company OS Control Host Readiness
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: company-os-control-host-readiness
+  cancel-in-progress: false
+
+env:
+  TARGET_ISSUE: '4159'
+  EXPECTED_COMMAND: '/company-os control-host-readiness'
+  CONTROL_DOMAIN: 'control.xn----8sbjf4befbjgs9b.xn--p1ai'
+  PRIMARY_DOMAIN: 'xn----8sbjf4befbjgs9b.xn--p1ai'
+  CANONICAL_VPS: '195.19.12.120'
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
+
+jobs:
+  readiness:
+    name: Read-only REG.RU control-host readiness
+    if: >-
+      github.event.issue.number == 4159 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/company-os control-host-readiness' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bind exact current main
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Observe public DNS and TLS without mutation
+        id: public
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/company-os-control-readiness"
+          mkdir -p "$evidence"
+
+          a_records="$(getent ahostsv4 "$CONTROL_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+          aaaa_records="$(getent ahostsv6 "$CONTROL_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+          primary_records="$(getent ahostsv4 "$PRIMARY_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+
+          if [[ -z "$a_records" ]]; then
+            dns_a=ABSENT
+          elif [[ "$(grep -c . <<< "$a_records")" == 1 ]] && grep -Fxq "$CANONICAL_VPS" <<< "$a_records"; then
+            dns_a=CANONICAL
+          else
+            dns_a=MISMATCH
+          fi
+
+          if [[ -z "$aaaa_records" ]]; then
+            dns_aaaa=ABSENT
+          else
+            dns_aaaa=PRESENT_UNVERIFIED
+          fi
+
+          if grep -Fxq "$CANONICAL_VPS" <<< "$primary_records"; then
+            primary_dns=CANONICAL
+          else
+            primary_dns=MISMATCH
+          fi
+
+          tls=NOT_CHECKED
+          https=NOT_CHECKED
+          if [[ "$dns_a" == CANONICAL ]]; then
+            if timeout 15 bash -c "printf '' | openssl s_client -connect '$CONTROL_DOMAIN:443' -servername '$CONTROL_DOMAIN' -verify_return_error 2>/dev/null | openssl x509 -noout -checkend 0 -ext subjectAltName 2>/dev/null" > "$evidence/cert.txt" 2>/dev/null; then
+              if grep -Fq "DNS:$CONTROL_DOMAIN" "$evidence/cert.txt"; then
+                tls=VALID_FOR_CONTROL_HOST
+              else
+                tls=CERTIFICATE_NAME_MISMATCH
+              fi
+            else
+              tls=NOT_READY
+            fi
+            if code="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 15 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/" 2>/dev/null)"; then
+              [[ "$code" =~ ^[0-9]{3}$ ]] && https="HTTP_$code" || https=INVALID_RESPONSE
+            else
+              https=NOT_READY
+            fi
+          fi
+
+          printf '%s\n' \
+            "DNS_A=$dns_a" \
+            "DNS_AAAA=$dns_aaaa" \
+            "PRIMARY_DNS=$primary_dns" \
+            "TLS=$tls" \
+            "HTTPS=$https" \
+            > "$evidence/public.env"
+          echo "dns_a=$dns_a" >> "$GITHUB_OUTPUT"
+          echo "dns_aaaa=$dns_aaaa" >> "$GITHUB_OUTPUT"
+          echo "tls=$tls" >> "$GITHUB_OUTPUT"
+          echo "https=$https" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned production SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/company-os-control-readiness"
+          mkdir -p "$HOME/.ssh" "$evidence"
+          chmod 700 "$HOME/.ssh"
+
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$CANONICAL_VPS}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+
+          ssh_state=UNAVAILABLE
+          if [[ "$host" != "$CANONICAL_VPS" || -z "$user" || ! "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ || ! "$port" =~ ^[0-9]+$ || "$port" -lt 1 || "$port" -gt 65535 || ! "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]; then
+            echo "ssh_state=PROTECTED_INPUT_INVALID" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+
+          if ! try_slot "${SSH_KEY_PRIMARY:-}" && ! try_slot "${SSH_KEY_SECONDARY:-}" && ! try_slot "${SSH_KEY_FALLBACK:-}"; then
+            echo "ssh_state=PROTECTED_KEY_UNAVAILABLE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          scan="$(mktemp)"; match="$(mktemp)"; pinned=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" == "$expected" ]] && printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          rm -f "$scan"
+          if [[ "$pinned" != 1 ]]; then
+            rm -f "$match"
+            echo "ssh_state=PINNED_HOST_UNAVAILABLE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mv "$match" "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          if ! ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+              'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo READY' \
+              > "$evidence/ssh.txt" 2>/dev/null; then
+            echo "ssh_state=AUTH_UNAVAILABLE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          grep -Fxq READY "$evidence/ssh.txt" || { echo "ssh_state=AUTH_UNAVAILABLE" >> "$GITHUB_OUTPUT"; exit 0; }
+          echo "ssh_state=READY" >> "$GITHUB_OUTPUT"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+
+      - name: Read production topology only
+        id: topology
+        if: steps.ssh.outputs.ssh_state == 'READY'
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          USER: ${{ steps.ssh.outputs.user }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/company-os-control-readiness"
+          remote="$evidence/remote.env"
+
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            bash -s -- "${PROD_DIR_SECRET:-}" "${PROD_COMPOSE_SECRET:-}" "${PROD_PROJECT_SECRET:-}" "$CONTROL_DOMAIN" <<'REMOTE' > "$remote"
+          set -euo pipefail
+          prod_dir="$1"
+          compose_file="$2"
+          project="$3"
+          control_domain="$4"
+
+          caddy_active=NO
+          caddy_valid=UNKNOWN
+          caddy_control_declared=NO
+          if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet caddy; then caddy_active=YES; fi
+          if command -v caddy >/dev/null 2>&1 && [[ -r /etc/caddy/Caddyfile ]]; then
+            if caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then caddy_valid=YES; else caddy_valid=NO; fi
+            if grep -Fq "$control_domain" /etc/caddy/Caddyfile; then caddy_control_declared=YES; fi
+          fi
+
+          compose_state=UNKNOWN
+          web_service=NO
+          web_running=NO
+          web_image_id=UNKNOWN
+          web_revision=UNKNOWN
+          gate_state=UNKNOWN
+          service_count=0
+
+          if [[ -n "$prod_dir" && -d "$prod_dir" ]]; then
+            cd "$prod_dir"
+            args=()
+            if [[ -n "$compose_file" ]]; then args+=( -f "$compose_file" ); fi
+            if [[ -n "$project" ]]; then args+=( -p "$project" ); fi
+            if services="$(docker compose "${args[@]}" config --services 2>/dev/null)"; then
+              compose_state=READY
+              service_count="$(grep -c . <<< "$services" || true)"
+              if grep -Fxq web <<< "$services"; then
+                web_service=YES
+                web_id="$(docker compose "${args[@]}" ps -q web 2>/dev/null || true)"
+                if [[ -n "$web_id" ]]; then
+                  status="$(docker inspect --format '{{.State.Status}}' "$web_id" 2>/dev/null || true)"
+                  [[ "$status" == running ]] && web_running=YES
+                  image_id="$(docker inspect --format '{{.Image}}' "$web_id" 2>/dev/null || true)"
+                  [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]] && web_image_id="$image_id"
+                  if [[ "$web_image_id" != UNKNOWN ]]; then
+                    revision="$(docker image inspect "$web_image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"
+                    [[ "$revision" =~ ^[0-9a-f]{40}$ ]] && web_revision="$revision"
+                  fi
+                  gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" 2>/dev/null | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+                  if [[ "$gate" == 'PC_CONTROL_HOST_ENABLED=true' ]]; then gate_state=ENABLED
+                  elif [[ -z "$gate" || "$gate" == 'PC_CONTROL_HOST_ENABLED=false' ]]; then gate_state=DISABLED_OR_ABSENT
+                  else gate_state=UNKNOWN
+                  fi
+                fi
+              fi
+            fi
+          fi
+
+          printf '%s\n' \
+            "CADDY_ACTIVE=$caddy_active" \
+            "CADDY_VALID=$caddy_valid" \
+            "CADDY_CONTROL_DECLARED=$caddy_control_declared" \
+            "COMPOSE_STATE=$compose_state" \
+            "COMPOSE_SERVICE_COUNT=$service_count" \
+            "WEB_SERVICE=$web_service" \
+            "WEB_RUNNING=$web_running" \
+            "WEB_IMAGE_ID=$web_image_id" \
+            "WEB_REVISION=$web_revision" \
+            "CONTROL_GATE=$gate_state"
+          REMOTE
+
+          for key in CADDY_ACTIVE CADDY_VALID CADDY_CONTROL_DECLARED COMPOSE_STATE COMPOSE_SERVICE_COUNT WEB_SERVICE WEB_RUNNING WEB_IMAGE_ID WEB_REVISION CONTROL_GATE; do
+            value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
+            [[ -n "$value" ]] || value=UNKNOWN
+            echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Classify readiness and publish sanitized evidence
+        id: result
+        shell: bash
+        env:
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          DNS_A: ${{ steps.public.outputs.dns_a }}
+          DNS_AAAA: ${{ steps.public.outputs.dns_aaaa }}
+          TLS_STATE: ${{ steps.public.outputs.tls }}
+          HTTPS_STATE: ${{ steps.public.outputs.https }}
+          SSH_STATE: ${{ steps.ssh.outputs.ssh_state }}
+          CADDY_ACTIVE: ${{ steps.topology.outputs.caddy_active }}
+          CADDY_VALID: ${{ steps.topology.outputs.caddy_valid }}
+          CADDY_CONTROL: ${{ steps.topology.outputs.caddy_control_declared }}
+          COMPOSE_STATE: ${{ steps.topology.outputs.compose_state }}
+          WEB_SERVICE: ${{ steps.topology.outputs.web_service }}
+          WEB_RUNNING: ${{ steps.topology.outputs.web_running }}
+          WEB_IMAGE_ID: ${{ steps.topology.outputs.web_image_id }}
+          WEB_REVISION: ${{ steps.topology.outputs.web_revision }}
+          CONTROL_GATE: ${{ steps.topology.outputs.control_gate }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/company-os-control-readiness"
+          mkdir -p "$evidence"
+
+          result=BLOCKED_READINESS
+          reason=UNCLASSIFIED
+          if [[ "$DNS_A" == ABSENT ]]; then
+            result=OWNER_DNS_ACTION_REQUIRED
+            reason=CONTROL_A_RECORD_ABSENT
+          elif [[ "$DNS_A" == MISMATCH ]]; then
+            result=OWNER_DNS_ACTION_REQUIRED
+            reason=CONTROL_A_RECORD_MISMATCH
+          elif [[ "$DNS_AAAA" == PRESENT_UNVERIFIED ]]; then
+            result=OWNER_DNS_ACTION_REQUIRED
+            reason=CONTROL_AAAA_REQUIRES_REVIEW
+          elif [[ "$SSH_STATE" != READY ]]; then
+            result=BLOCKED_READINESS
+            reason="SSH_${SSH_STATE}"
+          elif [[ "$CADDY_ACTIVE" != YES || "$CADDY_VALID" != YES || "$COMPOSE_STATE" != READY || "$WEB_SERVICE" != YES || "$WEB_RUNNING" != YES ]]; then
+            result=BLOCKED_READINESS
+            reason=PRODUCTION_TOPOLOGY_NOT_READY
+          elif [[ "$CONTROL_GATE" == ENABLED ]]; then
+            result=BLOCKED_READINESS
+            reason=CONTROL_GATE_PREMATURELY_ENABLED
+          else
+            result=READY_FOR_EDGE_CUTOVER
+            reason=DNS_AND_PRODUCTION_BASELINE_READY
+          fi
+
+          cat > "$evidence/summary.txt" <<EOF
+          COMPANY_OS_CONTROL_HOST_READINESS=$result
+          REASON=$reason
+          MAIN_SHA=$MAIN_SHA
+          DNS_A=$DNS_A
+          DNS_AAAA=$DNS_AAAA
+          TLS=$TLS_STATE
+          HTTPS=$HTTPS_STATE
+          SSH=$SSH_STATE
+          CADDY_ACTIVE=${CADDY_ACTIVE:-UNKNOWN}
+          CADDY_VALID=${CADDY_VALID:-UNKNOWN}
+          CADDY_CONTROL_DECLARED=${CADDY_CONTROL:-UNKNOWN}
+          COMPOSE_STATE=${COMPOSE_STATE:-UNKNOWN}
+          WEB_SERVICE=${WEB_SERVICE:-UNKNOWN}
+          WEB_RUNNING=${WEB_RUNNING:-UNKNOWN}
+          WEB_IMAGE_ID=${WEB_IMAGE_ID:-UNKNOWN}
+          WEB_REVISION=${WEB_REVISION:-UNKNOWN}
+          CONTROL_GATE=${CONTROL_GATE:-UNKNOWN}
+          PRODUCTION_MUTATION=NONE
+          EOF
+
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          cat "$evidence/summary.txt" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload sanitized readiness evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: company-os-control-host-readiness-${{ steps.target.outputs.main_sha }}
+          path: ${{ runner.temp }}/company-os-control-readiness/summary.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Record readiness on authority issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RESULT: ${{ steps.result.outputs.result }}
+          REASON: ${{ steps.result.outputs.reason }}
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          DNS_A: ${{ steps.public.outputs.dns_a }}
+          DNS_AAAA: ${{ steps.public.outputs.dns_aaaa }}
+          TLS_STATE: ${{ steps.public.outputs.tls }}
+          HTTPS_STATE: ${{ steps.public.outputs.https }}
+          SSH_STATE: ${{ steps.ssh.outputs.ssh_state }}
+          CADDY_CONTROL: ${{ steps.topology.outputs.caddy_control_declared }}
+          CONTROL_GATE: ${{ steps.topology.outputs.control_gate }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          cat > "$body" <<EOF
+          ## Company OS F2B read-only readiness
+
+          - result: **$RESULT**
+          - reason: \`$REASON\`
+          - exact main: \`$MAIN_SHA\`
+          - control DNS A: \`$DNS_A\`
+          - control DNS AAAA: \`$DNS_AAAA\`
+          - TLS: \`$TLS_STATE\`
+          - HTTPS: \`$HTTPS_STATE\`
+          - pinned production SSH: \`$SSH_STATE\`
+          - control host already declared in Caddy: \`${CADDY_CONTROL:-UNKNOWN}\`
+          - application control gate: \`${CONTROL_GATE:-UNKNOWN}\`
+          - production mutation: **NONE**
+          - evidence run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          EOF
+          gh issue comment "$TARGET_ISSUE" --repo "$REPO" --body-file "$body"
