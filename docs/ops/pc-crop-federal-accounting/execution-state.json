@@ -7,14 +7,14 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-15T19:55:00.000Z",
+  "updatedAt": "2026-08-15T20:40:00.000Z",
   "observedMainSha": "2f4dca2d18b2301cd8936eae02b284a91ee9483d",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 5.4,
+  "overallProgressPercent": 5.7,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
-  "status": "WAVE_1_AWAITING_MERGE_WAVE_2_SLICE_1_IMPLEMENTED",
+  "status": "WAVE_1_AND_2_IMPLEMENTED_AWAITING_MERGE",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
   "workstreams": [
     {
@@ -90,11 +90,40 @@
       "id": 3,
       "name": "Security baseline / threat model / IAM / RLS",
       "weightPercent": 8,
-      "provenSharePercent": 0,
-      "creditedPercent": 0,
-      "blockedBy": [
-        "GOV-1"
-      ]
+      "provenSharePercent": 60,
+      "creditedPercent": 0.3,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 3 spans framework mapping, threat model, IAM, RLS, security requirements registry, step-up, session inventory, connector identity, OAuth hardening, signed releases, document immutability, JIT/break-glass, supply chain, SOC events, incident response and recovery. Only the accounting-contour RLS read authority is built, so the stage credit is multiplied by that component share.",
+        "componentBuilt": "tenant- and organization-scoped read authority for the accounting tables",
+        "componentSharePercent": 8
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "migration 20260815210000: pc_accounting_authority principal, app_pc_crop_membership_id() SECURITY DEFINER resolver, scoped SELECT policies on both tables"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": true,
+          "evidence": "nine isolation checks wired into the RLS integration gate; each proven to fail under deliberate sabotage of the policy and of the grant"
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
     },
     {
       "id": 4,
@@ -290,7 +319,7 @@
   ],
   "weightCheck": {
     "sum": 100,
-    "creditedTotal": 5.4
+    "creditedTotal": 5.7
   },
   "completedEvidence": [
     {
@@ -357,6 +386,16 @@
       "id": "EXE-013",
       "what": "Money representation corrected before it set",
       "detail": "The policy first typed kopecks as JavaScript number. domain-core/money.ts forbids number arithmetic on money and every persisted money column in the schema is BIGINT, so the policy and its tests were moved to bigint before the convention could diverge."
+    },
+    {
+      "id": "EXE-014",
+      "what": "Accounting read authority proven isolating, and the proof proven able to fail",
+      "detail": "Six scenarios verified by hand and nine wired into the RLS integration gate: own-row read, forged organization claim, forged tenant, a dual-organization member in each direction, delegation recipient, absent context, write refusal and withheld-column refusal. Two deliberate sabotages — a policy trusting app.current_org_id alone, and an added UPDATE grant — each make the gate exit non-zero, so the checks are a regression gate rather than decoration."
+    },
+    {
+      "id": "EXE-015",
+      "what": "Implicit cross-migration dependency made explicit",
+      "detail": "The SECURITY DEFINER resolver needs pc_identity_bootstrap to retain SELECT on user_orgs. Withdrawing it was measured: the function raises permission denied, failing closed but breaking the whole read path. The migration now grants the four consulted columns itself instead of relying on the identity contour at a distance."
     }
   ],
   "blockers": [

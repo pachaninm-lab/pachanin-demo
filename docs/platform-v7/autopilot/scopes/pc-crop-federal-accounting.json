@@ -16,7 +16,10 @@
     "docs/ops/pc-crop-federal-accounting/**",
     "apps/api/prisma/migrations/20260815200000_pc_crop_signing_authority/**",
     "apps/api/src/modules/auth/signing-authority.policy.ts",
-    "apps/api/src/modules/auth/signing-authority.policy.spec.ts"
+    "apps/api/src/modules/auth/signing-authority.policy.spec.ts",
+    "apps/api/prisma/migrations/20260815210000_pc_crop_accounting_read_authority/**",
+    "scripts/sql/pc-crop-accounting-rls-checks.sql",
+    "scripts/platform-v7-rls-integration.sh"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -35,7 +38,11 @@
     "An empty allowed-document-type list means nothing is permitted and is refused at write time, never read as a wildcard.",
     "Signing requires fresh MFA, a non-stale document, an active membership, matching tenant, organization and membership, a permitted document type, amount and signing mode, and a valid bound certificate.",
     "documents.sign remains unmintable by job profile or delegation; the authority evaluator is the only gate and never accepts the capability as a substitute.",
-    "signing_authorities has RLS enabled and forced with no policy until a later slice provisions a principal alongside its API."
+    "signing_authorities has RLS enabled and forced with no policy until a later slice provisions a principal alongside its API.",
+    "Accounting read policies never trust app.current_org_id or app.current_tenant_id on their own; membership is resolved from user_orgs rows by a SECURITY DEFINER function, because a setting the confined principal can write is not an authority.",
+    "pc_accounting_authority is read-only, column-scoped, and never receives the free-text delegation reason column.",
+    "One user holding memberships in two organizations reads only the organization it is currently acting in; switching organizations carries nothing across.",
+    "The isolation checks are wired into the RLS integration gate and are proven to fail when the policy or the grant is sabotaged."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -51,7 +58,9 @@
     "Every deny reason is reported together rather than one at a time, so a disabled action can explain itself completely.",
     "A security hold refuses an otherwise fully valid signature.",
     "Nine signing-authority invariants are proven against a live PostgreSQL 16, not only asserted in tests.",
-    "prisma migrate diff reports no drift after applying both PC-CROP migrations."
+    "prisma migrate diff reports no drift after applying both PC-CROP migrations.",
+    "Nine isolation checks run in the RLS integration gate: own-row read, forged organization, forged tenant, dual-organization member in each direction, delegation recipient, absent context, write refusal and withheld-column refusal.",
+    "Deliberate sabotage of the policy (trusting the setting alone) and of the grant (adding UPDATE) each make the gate exit non-zero."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",

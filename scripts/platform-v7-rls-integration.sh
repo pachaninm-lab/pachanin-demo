@@ -493,6 +493,16 @@ echo
 echo "== staff runtime: pc_staff_runtime =="
 psql "$STAFF_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/scripts/sql/identity-rls-staff-checks.sql" 2>&1
 
+# The PC-CROP accounting contour. Run through the admin connection because
+# pc_accounting_authority is NOLOGIN until the slice that wires an API
+# provisions its credential; the check does SET ROLE itself, which exercises
+# the same enforcement path since the role is NOBYPASSRLS and both tables are
+# FORCE ROW LEVEL SECURITY.
+echo
+echo "== accounting contour: pc_accounting_authority =="
+psql "$RLS_INTEGRATION_ADMIN_URL" -v ON_ERROR_STOP=1 -q \
+  -f "$ROOT_DIR/scripts/sql/pc-crop-accounting-rls-checks.sql" 2>&1
+
 echo
 echo "identity isolation gate: PASS"
 
