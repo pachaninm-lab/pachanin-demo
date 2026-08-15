@@ -1,77 +1,49 @@
 {
-  "status": "approved",
-  "statusNote": "Approved by the repository owner as a separate concurrent workstream. Activation is recorded in autopilot-state.json approvedConcurrentScopes under branch claude/autonomous-execution-contract-oc7ds7. Only Wave 1 is activated; all later waves remain unapproved and must request their own scope.",
-  "id": "pc-crop-federal-accounting",
-  "title": "PC-CROP Federal Accounting programme — Wave 1 only",
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "claude/autonomous-execution-contract-oc7ds7",
-  "approvedAt": "2026-08-15",
-  "approvedAgainstMain": "eb5ea52249c7495d88f3768432158a59160647fc",
-  "supersedesProposalAgainstMain": "9b07e3190ab48476cba46082a99c01d5fba1bedc",
-  "sourceContract": {
-    "id": "CLAUDE_CODE_PC_CROP_AUTONOMOUS_EXECUTION_FINAL_2026-08-15",
-    "sha256": "b3e892eac9532129cea90d8cbfe4e1af048259ad190dd987fcdb058df38125d4"
-  },
-  "truthAudit": "docs/ops/pc-crop-federal-accounting/gap-matrix.md",
-  "blockerHistory": "docs/ops/pc-crop-federal-accounting/governance-blocker.md",
-
-  "notCompetingRationale": "Wave 1 touches identity (job_profile and capability resolution). It shares no implementation file with IR-10.4 Settlement PostgreSQL Authority, whose scope is apps/api/src/modules/settlement-engine/**, deal-command*, and the 20260713 settlement migration. The AGENTS.md rule against competing implementation PRs is not waived; it does not apply because the file sets are disjoint.",
-
-  "wave1": {
-    "name": "Identity: job_profile + membership capabilities",
-    "allowedFiles": [
-      "apps/api/prisma/schema.prisma",
-      "apps/api/prisma/migrations/*_pc_crop_job_profile_capabilities/**",
-      "apps/api/src/modules/auth/organization-job-profile.ts",
-      "apps/api/src/modules/auth/organization-job-profile.spec.ts",
-      "apps/api/src/modules/auth/membership-capability.resolver.ts",
-      "apps/api/src/modules/auth/membership-capability.resolver.spec.ts",
-      "docs/ops/pc-crop-federal-accounting/**",
-      "docs/platform-v7/autopilot/scopes/pc-crop-federal-accounting.json",
-      "docs/platform-v7/autopilot/autopilot-state.json"
-    ],
-    "explicitlyForbidden": [
-      "apps/web/**",
-      "packages/**",
-      "pnpm-lock.yaml",
-      "package.json",
-      "apps/api/src/modules/settlement-engine/**",
-      "apps/api/src/modules/auth/organization-role-policy.ts",
-      "production mutation",
-      "any weakening of MFA, RLS, session or governance"
-    ],
-    "invariants": [
-      "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
-      "The 9 market roles in ORGANIZATION_HUMAN_ROLES and their ROLE_CEILING are unchanged.",
-      "ACCOUNTING keeps its existing bank/financial meaning and is not repurposed as the organization accountant.",
-      "Registration authority #3785 must not regress.",
-      "Migration is expand-only: additive columns and tables, no destructive change, no backfill that alters existing authority.",
-      "Capability resolution is deny-by-default."
-    ],
-    "requiredChecks": [
-      "node scripts/p7-autopilot-dispatcher.mjs",
-      "bash scripts/p7-autopilot-guard.sh",
-      "node scripts/check-production-hosting-authority.mjs",
-      "pnpm typecheck",
-      "pnpm test",
-      "registration regression for the 9 market roles (#3785)"
-    ]
-  },
-
-  "notYetApproved": [
-    "Wave 2 documents and contracts",
-    "Wave 3 accounting task-first UX",
-    "Wave 4 money",
-    "Wave 5 Connection Center and Integration Core",
-    "Wave 6 1C connector",
-    "Wave 7 EDO",
-    "Wave 8 Grain and Transport",
-    "Wave 9 Gekta work bridge",
-    "Wave 10 anti-fraud",
-    "Wave 11 federal operations",
-    "Wave 12 production acceptance"
+  "status": "active",
+  "purpose": "PC-CROP federal accounting programme, Wave 1 only: introduce job_profile as an axis orthogonal to user_orgs.role and a deny-by-default membership capability resolver, so later accounting waves have an authorization foundation. Approved by the owner on 2026-08-15 as a separate concurrent workstream that does not compete with IR-10.4.",
+  "authorityBaseExactMain": "eb5ea52249c7495d88f3768432158a59160647fc",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260815190000_pc_crop_job_profile_capabilities/**",
+    "apps/api/src/modules/auth/organization-job-profile.ts",
+    "apps/api/src/modules/auth/organization-job-profile.spec.ts",
+    "apps/api/src/modules/auth/membership-capability.resolver.ts",
+    "apps/api/src/modules/auth/membership-capability.resolver.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/**"
   ],
-
-  "maturityLanguage": "pre-integration",
-  "newMandatoryCostsRub": 0,
-  "productionActivation": "none-requested"
+  "requiredInvariants": [
+    "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
+    "ORGANIZATION_HUMAN_ROLES and ROLE_CEILING in organization-role-policy.ts are unchanged; the nine market roles and registration authority #3785 do not regress.",
+    "ACCOUNTING keeps its existing bank/settlement meaning and is never repurposed as the organization bookkeeper; the compatibility pairing is role = GUEST with job_profile = ACCOUNTANT.",
+    "Capability resolution is deny-by-default: a revoked or pending membership, a non-active user, a forged profile name and the server-derived BANK_CALLBACK actor all resolve to no capabilities.",
+    "documents.sign is never granted by a job profile or a delegation; it stays gated by a signing authority record, and the database rejects it inside a delegation.",
+    "The migration is expand-only: one nullable column and one new table, no drop, no retype, no backfill, and no change to an existing grant, policy or constraint.",
+    "No column-level privilege is added to any existing identity principal, so no current runtime can read more than before.",
+    "The new table has RLS enabled and forced with no policy, denying every non-superuser principal until a later slice provisions one alongside its API.",
+    "No apps/web, packages, lockfile, settlement-engine or production change is included.",
+    "Merge, CI and image build are not production deployment evidence."
+  ],
+  "acceptance": [
+    "The eleven job profiles are exposed and share no identifier with the nine market roles.",
+    "Profile assignment is bounded by a ceiling: a director cannot mint an owner or another director, and non-administrative profiles can assign nothing.",
+    "Every one of the eleven profiles is proven to resolve without documents.sign, including OWNER.",
+    "A delegation carrying documents.sign is rejected in code and by a database CHECK constraint.",
+    "Delegations are honoured only inside their window, with the end bound exclusive, and only while status is ACTIVE.",
+    "A delegation cannot revive a revoked membership.",
+    "Resolution is identical across all nine market roles for the same job profile, proving the role axis never widens the accounting contour.",
+    "The external accountant is denied period close, reconciliation and provider configuration while keeping daily bookkeeping.",
+    "Exact-head API typecheck introduces no new error, the full API unit suite passes, and the forward-only migration gate passes before merge.",
+    "No new recurring cost is introduced."
+  ],
+  "notYetApproved": [
+    "Waves 2-12 of the programme. Each must request its own scope manifest.",
+    "Any apps/web surface, including the accounting dashboard and Connection Center.",
+    "Any vendor activation for 1C, EDO, FGIS Zerno or IS EPD."
+  ],
+  "separationOfAuthority": true,
+  "notes": "This manifest records an owner decision; it does not create authority on its own. The truth audit that motivated it is docs/ops/pc-crop-federal-accounting/gap-matrix.md and the blocker it resolves is documented in governance-blocker.md."
 }

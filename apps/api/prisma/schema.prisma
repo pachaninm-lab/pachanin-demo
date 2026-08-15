@@ -86,6 +86,11 @@ model UserOrg {
   userId         String
   organizationId String
   role               String
+  /// Second axis alongside `role`. `role` keeps its market meaning — including
+  /// ACCOUNTING, which is the bank/settlement actor — while `jobProfile` says
+  /// what the person does inside the organization. A bookkeeper is expected to
+  /// be `role = GUEST` with `jobProfile = ACCOUNTANT`.
+  jobProfile         String?   @map("job_profile")
   status             String    @default("ACTIVE")
   requestedWorkspace String?   @map("requested_workspace")
   isDefault          Boolean   @default(false)
@@ -98,10 +103,42 @@ model UserOrg {
   user         User         @relation(fields: [userId], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
 
+  delegationsGranted  MembershipDelegation[] @relation("MembershipDelegationFrom")
+  delegationsReceived MembershipDelegation[] @relation("MembershipDelegationTo")
+
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
   @@index([organizationId])
+  @@index([organizationId, jobProfile])
   @@map("user_orgs")
+}
+
+/// Time-bounded delegation of a capability subset between two memberships of
+/// the same organization. Legal signing authority is never delegable: the
+/// database rejects `documents.sign` in `capabilities`.
+model MembershipDelegation {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  organizationId        String
+  fromMembershipId      String
+  toMembershipId        String
+  capabilities          String[]
+  startsAt              DateTime  @db.Timestamptz(6)
+  endsAt                DateTime  @db.Timestamptz(6)
+  status                String    @default("ACTIVE")
+  reason                String?
+  createdByMembershipId String
+  revokedAt             DateTime? @db.Timestamptz(6)
+  version               BigInt    @default(0)
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  fromMembership UserOrg @relation("MembershipDelegationFrom", fields: [fromMembershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  toMembership   UserOrg @relation("MembershipDelegationTo", fields: [toMembershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@index([organizationId, toMembershipId, status, endsAt])
+  @@index([tenantId])
+  @@map("membership_delegations")
 }
 
 model UkepCertificate {
