@@ -266,6 +266,18 @@ function getFragmentEntries(dictionary: TranslationDictionary): FragmentEntry[] 
 
 const STRUCTURED_TOKENS: ReadonlyArray<readonly [RegExp, string, string]> = [
   [/Н(?=\d+\s*:)/g, 'W', '第'],
+  [/(\d{1,2})\s+янв\./giu, '$1 Jan', '1月$1日'],
+  [/(\d{1,2})\s+фев(?:р)?\./giu, '$1 Feb', '2月$1日'],
+  [/(\d{1,2})\s+мар\./giu, '$1 Mar', '3月$1日'],
+  [/(\d{1,2})\s+апр\./giu, '$1 Apr', '4月$1日'],
+  [/(\d{1,2})\s+ма[йя]/giu, '$1 May', '5月$1日'],
+  [/(\d{1,2})\s+июн\./giu, '$1 Jun', '6月$1日'],
+  [/(\d{1,2})\s+июл\./giu, '$1 Jul', '7月$1日'],
+  [/(\d{1,2})\s+авг\./giu, '$1 Aug', '8月$1日'],
+  [/(\d{1,2})\s+сен(?:т)?\./giu, '$1 Sep', '9月$1日'],
+  [/(\d{1,2})\s+окт\./giu, '$1 Oct', '10月$1日'],
+  [/(\d{1,2})\s+ноя(?:б)?\./giu, '$1 Nov', '11月$1日'],
+  [/(\d{1,2})\s+дек\./giu, '$1 Dec', '12月$1日'],
   [
     /цифровая инфраструктура исполнения сделок в растениеводстве/giu,
     'digital infrastructure for crop-trade execution',
