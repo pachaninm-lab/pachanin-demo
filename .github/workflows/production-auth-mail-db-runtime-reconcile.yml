@@ -299,7 +299,12 @@ jobs:
           if set(values) != expected: raise SystemExit(1)
           root='xn----8sbjf4befbjgs9b.xn--p1ai'
           if values['PC_SMTP_HOST'] != 'mail.hosting.reg.ru' or values['PC_SMTP_PORT'] != '465': raise SystemExit(1)
-          if values['PC_SMTP_USER'] != f'access@{root}' or values['PC_MAIL_FROM'] != f'access@{root}': raise SystemExit(1)
+          user=values['PC_SMTP_USER']
+          if user.count('@') != 1: raise SystemExit(1)
+          local, domain=user.rsplit('@', 1)
+          if not local or len(local) > 64 or domain.lower() != root: raise SystemExit(1)
+          if any(ord(c) > 127 or c.isspace() or c in '<>\r\n\0' for c in local): raise SystemExit(1)
+          if values['PC_MAIL_FROM'] != f'access@{root}': raise SystemExit(1)
           if not 8 <= len(values['PC_SMTP_PASS']) <= 512 or any(c in values['PC_SMTP_PASS'] for c in '\r\n\0'): raise SystemExit(1)
           PY
 
