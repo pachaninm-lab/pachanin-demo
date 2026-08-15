@@ -110,18 +110,29 @@ tmp="$(mktemp -d /root/pc-auth-mail-compose-classifier.XXXXXX)"
 chmod 0700 "$tmp"
 cleanup_remote(){ rm -rf -- "$tmp"; }
 trap cleanup_remote EXIT
+stop_class(){
+  local code="$1" file_count="${2:-0}"
+  [[ "$code" =~ ^[A-Z0-9_]{1,120}$ ]] || code='CLASSIFIER_OUTPUT_INVALID'
+  [[ "$file_count" =~ ^[0-9]{1,3}$ ]] || file_count='0'
+  printf 'CONTRACT_CLASS=%s\n' "$code"
+  printf 'COMPOSE_FILE_COUNT=%s\n' "$file_count"
+  printf 'PRODUCTION_SUBJECT_EXACT=1\n'
+  printf 'RAW_CONFIG_PUBLISHED=0\n'
+  printf 'PRODUCTION_MUTATION=NONE\n'
+  exit 0
+}
 
 mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
 mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
-(( ${#web_ids[@]} == 1 && ${#api_ids[@]} == 1 )) || { echo 'CONTRACT_CLASS=RUNTIME_CARDINALITY_INVALID'; exit 0; }
+(( ${#web_ids[@]} == 1 && ${#api_ids[@]} == 1 )) || stop_class 'RUNTIME_CARDINALITY_INVALID' 0
 web_id="${web_ids[0]}"; api_id="${api_ids[0]}"
 web_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
 api_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
-[[ "$web_rev" == "$subject_sha" && "$api_rev" == "$subject_sha" ]] || { echo 'CONTRACT_CLASS=PRODUCTION_SUBJECT_MISMATCH'; exit 0; }
+[[ "$web_rev" == "$subject_sha" && "$api_rev" == "$subject_sha" ]] || stop_class 'PRODUCTION_SUBJECT_MISMATCH' 0
 project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
 prod_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
 config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
-[[ -n "$project" && "$prod_dir" == /* && -d "$prod_dir" && ! -L "$prod_dir" && -n "$config_files" ]] || { echo 'CONTRACT_CLASS=COMPOSE_AUTHORITY_INVALID'; exit 0; }
+[[ -n "$project" && "$prod_dir" == /* && -d "$prod_dir" && ! -L "$prod_dir" && -n "$config_files" ]] || stop_class 'COMPOSE_AUTHORITY_INVALID' 0
 prod_dir="$(realpath -e -- "$prod_dir")"
 IFS=',' read -r -a raw_files <<< "$config_files"
 compose=(docker compose --project-directory "$prod_dir" --project-name "$project")
@@ -130,15 +141,15 @@ for raw in "${raw_files[@]}"; do
   file="${raw#"${raw%%[![:space:]]*}"}"; file="${file%"${file##*[![:space:]]}"}"
   [[ -n "$file" ]] || continue
   [[ "$file" == /* ]] || file="$prod_dir/$file"
-  [[ -f "$file" && ! -L "$file" ]] || { echo 'CONTRACT_CLASS=COMPOSE_FILE_INVALID'; exit 0; }
+  [[ -f "$file" && ! -L "$file" ]] || stop_class 'COMPOSE_FILE_INVALID' "$count"
   resolved="$(realpath -e -- "$file")"
-  [[ "$resolved" == "$prod_dir"/* ]] || { echo 'CONTRACT_CLASS=COMPOSE_FILE_OUTSIDE_PROD'; exit 0; }
+  [[ "$resolved" == "$prod_dir"/* ]] || stop_class 'COMPOSE_FILE_OUTSIDE_PROD' "$count"
   compose+=(-f "$resolved"); ((count+=1))
 done
-(( count >= 1 )) || { echo 'CONTRACT_CLASS=COMPOSE_AUTHORITY_EMPTY'; exit 0; }
+(( count >= 1 )) || stop_class 'COMPOSE_AUTHORITY_EMPTY' 0
 
 cfg="$tmp/config.json"
-if ! "${compose[@]}" config --format json > "$cfg" 2>/dev/null; then echo 'CONTRACT_CLASS=COMPOSE_RENDER_FAILED'; exit 0; fi
+if ! "${compose[@]}" config --format json > "$cfg" 2>/dev/null; then stop_class 'COMPOSE_RENDER_FAILED' "$count"; fi
 api_image="$(docker inspect --format '{{.Config.Image}}' "$api_id")"
 web_image="$(docker inspect --format '{{.Config.Image}}' "$web_id")"
 
@@ -196,11 +207,7 @@ print('PASS')
 PY
 )"
 [[ "$class" =~ ^[A-Z0-9_]{1,120}$ ]]
-printf 'CONTRACT_CLASS=%s\n' "$class"
-printf 'COMPOSE_FILE_COUNT=%s\n' "$count"
-printf 'PRODUCTION_SUBJECT_EXACT=1\n'
-printf 'RAW_CONFIG_PUBLISHED=0\n'
-printf 'PRODUCTION_MUTATION=NONE\n'
+stop_class "$class" "$count"
 REMOTE
 )"
 
