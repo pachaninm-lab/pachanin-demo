@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-production-i18n-final-runtime-fix-2198",
+  "branch": "fix/p7-production-i18n-final-runtime-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "89709f84049c2b0ff48a1ab3ded81db1bed423dd"
+  },
+  "purpose": "Close the two deterministic residual production i18n failures from run 31908526554 without weakening acceptance: translate Russian structured short-month tokens and make public Platform V7 metadata locale-authoritative for RU/EN/ZH.",
+  "allowedPaths": [
+    "apps/web/app/pc-public-entry/platform-v7/page.tsx",
+    "apps/web/lib/platform-v7/i18n/translation-runtime.ts",
+    "apps/web/tests/unit/platformV7ProductionI18nFinalFix.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-production-i18n-final-runtime-fix-2198.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/platform-v7",
+    "languages": ["ru", "en", "zh"],
+    "runtimeMutation": "public-copy-and-metadata-only",
+    "accountData": "unchanged",
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "PC-CROP registration, reviewer, MFA, password-reset or session runtime",
+    "Deal, role, tenant, RBAC, RLS, PostgreSQL or money authority",
+    "Gekta model/runtime/prompt/latency changes",
+    "production credentials, release authority, Caddy, DNS or direct REG.RU mutation",
+    "acceptance weakening, Cyrillic allowlist expansion or skipped browser coverage",
+    "paid external services or new infrastructure"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "existing platformV7TranslationRuntime structured-date regression",
+    "new all-month structured-date regression contract",
+    "locale-authoritative public metadata contract",
+    "web typecheck and build",
+    "production-like Kubernetes acceptance where triggered",
+    "exact-SHA REG.RU production release",
+    "production EN/ZH Chromium/WebKit acceptance"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "This scope closes public Platform V7 EN/ZH production localization only. Authenticated role-cockpit localization remains outside this public acceptance unless valid production identities are exercised separately."
+}
