@@ -56,8 +56,8 @@ replace_once(
 # the legacy app_service auth principal. Admit only that single legacy alias,
 # while preserving every privilege/RLS check and all later read-only evidence.
 replace_once(
-    "const knownRoles=new Set(['pc_auth_runtime','one_deal_auth','app_auth']);",
-    "const knownRoles=new Set(['pc_auth_runtime','one_deal_auth','app_auth','app_service']);",
+    "const knownRoles = new Set(['pc_auth_runtime','one_deal_auth','app_auth']);",
+    "const knownRoles = new Set(['pc_auth_runtime','one_deal_auth','app_auth','app_service']);",
     'LEGACY_ALIAS_ALLOWLIST',
 )
 replace_once(
