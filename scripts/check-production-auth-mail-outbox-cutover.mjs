@@ -75,7 +75,10 @@ has(cutoverWrapper, "sender != f'access@{platform_domain}'", 'legacy transport m
 has(cutoverWrapper, "user_domain != platform_domain and not user_domain.endswith('.' + platform_domain)", 'legacy SMTP login must remain platform-domain bounded');
 has(cutoverWrapper, 'PC_AUTH_MAIL_CUTOVER_VALIDATE_ONLY', 'wrapper local validation mode missing');
 has(cutoverWrapper, 'LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY=PRESERVED', 'legacy Web mail preservation evidence missing');
-has(cutoverWrapper, '- ${transactional_mail_env_file}', 'wrapper must preserve legacy Web transactional-mail env file');
+has(cutoverWrapper, 'WEB_CANONICAL_TRANSPORT_AUTHORITY', 'cutover must project canonical transport authority into Web');
+assert((cutoverWrapper.match(/- \$\{transactional_mail_env_file\}/g) || []).length === 1, 'raw transactional-mail env must remain only in legacy baseline override');
+assert((cutoverWrapper.match(/- \$\{AUTH_MAIL_TRANSPORT_AUTHORITY\}/g) || []).length === 1, 'canonical auth-mail transport must be injected into cutover Web exactly once');
+has(cutoverWrapper, '- ${gekta_web_runtime_env_file}\n      - ${AUTH_MAIL_TRANSPORT_AUTHORITY}', 'canonical Web transport authority must have final env_file precedence');
 has(cutoverWrapper, "grep -Eq '^AUTH_MAIL_'", 'Web must not receive worker-specific AUTH_MAIL authority');
 has(cutoverWrapper, 'API_NETWORK_CARDINALITY_INVALID', 'cutover must require exactly one authoritative API network');
 has(cutoverWrapper, 'API_NETWORK_NAME_INVALID', 'cutover must reject unsafe API network names');
@@ -90,6 +93,16 @@ lacks(cutoverWrapper, "printf 'API_NETWORK_NAME=", 'public cutover evidence must
 has(cutoverWrapper, 'FAIL_ROLLBACK_DISPATCH', 'explicit fail() must dispatch through rollback after mutation is armed');
 has(cutoverWrapper, 'CENTRAL_ROLLBACK_STATE_MACHINE', 'cutover must centralize explicit and ERR failure rollback');
 has(cutoverWrapper, 'ARM_ROLLBACK_BEFORE_MUTATION', 'rollback must be armed before cutover override mutation');
+has(cutoverWrapper, 'PRE_RUNTIME_OVERRIDE_ONLY_ROLLBACK', 'pre-runtime failures must use override-only rollback');
+has(cutoverWrapper, 'snapshot_cutover_override()', 'pre-cutover override snapshot function missing');
+has(cutoverWrapper, 'restore_cutover_override_snapshot()', 'pre-runtime exact override restore function missing');
+has(cutoverWrapper, 'if [[ "${CUTOVER_RUNTIME_MUTATION_STARTED:-0}" == 0 ]]', 'rollback must distinguish pre-runtime from runtime mutation');
+has(cutoverWrapper, 'snapshot_cutover_override || fail CUTOVER_OVERRIDE_SNAPSHOT_FAILED 49\nCUTOVER_ROLLBACK_ARMED=1\nwrite_auth_mail_override', 'snapshot must be proven before rollback is armed and override is mutated');
+has(cutoverWrapper, 'CUTOVER_RUNTIME_MUTATION_STARTED=1\n"${dc_target[@]}" up -d --no-deps --pull never api', 'runtime mutation marker must be set immediately before first cutover compose up');
+const preRuntimeRestoreStart = cutoverWrapper.indexOf('restore_cutover_override_snapshot() {');
+const preRuntimeRestoreEnd = cutoverWrapper.indexOf('cleanup_cutover_override_snapshot() {');
+assert(preRuntimeRestoreStart >= 0 && preRuntimeRestoreEnd > preRuntimeRestoreStart, 'pre-runtime restore function boundaries missing');
+lacks(cutoverWrapper.slice(preRuntimeRestoreStart, preRuntimeRestoreEnd), 'docker ', 'pre-runtime override restore must not recreate containers');
 has(cutoverWrapper, 'DISARM_ROLLBACK_ON_SUCCESS', 'rollback state must be disarmed only after successful cutover');
 has(cutoverWrapper, 'ROLLBACK_ATTEMPTED=1', 'post-mutation failure evidence must record rollback attempt');
 has(cutoverWrapper, 'ROLLBACK_COMPLETE=1', 'successful rollback evidence missing');
