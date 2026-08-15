@@ -147,8 +147,12 @@ describe('P0 first-customer completion boundaries', () => {
 
   it('does not render the staff control plane for an ordinary authenticated business user', () => {
     const staffPage = read('apps/web/app/platform-v7/staff/page.tsx');
-    expect(staffPage).toContain('fetch(`${API_ORIGIN}/staff/assignments/me`');
-    expect(staffPage).toContain('staffRoles.length === 0 || identity.mfaVerified !== true');
+    expect(staffPage).toContain('fetch(`${API_ORIGIN}/staff/capabilities/me`');
+    expect(staffPage).toContain('parseStaffCapabilitiesContract(');
+    expect(staffPage).toContain('capabilities.identity.id !== identity.id');
+    expect(staffPage).not.toContain('fetch(`${API_ORIGIN}/staff/assignments/me`');
+    expect(staffPage).not.toContain('staffRoles.length === 0 || identity.mfaVerified !== true');
+    expect(staffPage).toContain("capabilitiesResponse.status === 403");
     expect(staffPage).toContain("verification.status === 'forbidden'");
     expect(staffPage).toContain('platformHome(role, verification.identity.isOrgAdmin === true)');
   });
