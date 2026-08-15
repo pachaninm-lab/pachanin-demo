@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-auth-mail-runtime-wiring-31901032491-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_AUTH_MAIL_RUNTIME_WIRING_31901032491",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Inspect current exact-revision auth-mail API wiring after reset run 31901032491",
+  "sourceRun": 31901032491,
+  "sourceRevision": "056ed4461dafb5e7dab2efc9ea5a0d5877523169",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-auth-mail-runtime-wiring-31901032491.yml",
+    "scripts/production-p0-reviewer-auth-mail-runtime-wiring-31901032491.sh",
+    "scripts/check-production-p0-reviewer-auth-mail-runtime-wiring-31901032491.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-auth-mail-runtime-wiring-31901032491-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "resetReplay": false,
+    "mailSend": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "dockerInspectReadOnly": true,
+    "hostMetadataReadOnly": true,
+    "secretValueOutput": false,
+    "rawInspectOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "only the currently running API container at immutable reset revision 056ed4461dafb5e7dab2efc9ea5a0d5877523169 is inspected",
+    "the diagnostic proves whether that same API container was already running when reset run 31901032491 executed",
+    "API auth-mail environment names and fixed mount destinations are reduced to booleans; no environment values are published",
+    "host auth-mail authority existence is reduced to directory/keyring/version-marker readiness booleans; no key bytes or protected values are read into output",
+    "auth-mail worker presence and immutable-revision parity are reduced to count/exact booleans",
+    "no docker exec, database query, reset request, SMTP operation, deployment or container lifecycle mutation is allowed",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
