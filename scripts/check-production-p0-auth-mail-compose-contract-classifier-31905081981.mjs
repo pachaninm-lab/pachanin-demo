@@ -40,7 +40,8 @@ for(const token of [
   'RAW_CONFIG_PUBLISHED=0',
   'PRODUCTION_MUTATION=NONE',
   'stop_class()',
-  'WEB_FORBIDDEN_',
+  'WEB_LEGACY_SMTP_',
+  'WEB_WORKER_AUTHORITY_FORBIDDEN',
   'API_FORBIDDEN_',
   'WORKER_ENV_',
 ]) need('script',script,token);
@@ -59,4 +60,4 @@ if(process.env.GITHUB_EVENT_NAME==='pull_request'){
   if(diff.status!==0||outside.length||!changed.includes(scriptPath)||!changed.includes(checkerPath)) failures.push(`PR scope mismatch ${JSON.stringify(changed)}`);
 }
 if(failures.length){for(const f of failures) console.error(`FAIL: ${f}`); process.exit(1);}
-console.log('PASS: auth-mail Compose classifier tolerates unrelated main drift, requires protected auth-mail parity, and remains owner-only/read-only/secret-safe.');
+console.log('PASS: auth-mail Compose classifier mirrors the active wrapper contract and remains owner-only/read-only/secret-safe.');
