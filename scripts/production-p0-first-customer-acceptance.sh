@@ -54,9 +54,27 @@ one(
     except Exception:
         return None
 
+def canonical_imap_login(value):
+    try:
+        value = str(value or '').strip()
+        if value.count('@') != 1:
+            return None
+        local, domain = value.rsplit('@', 1)
+        local.encode('ascii')
+        domain = domain.encode('idna').decode('ascii').lower()
+        result = f'{local}@{domain}'
+        if len(result) > 254 or not re.fullmatch(r'[^\\s@]{1,64}@[^\\s@]{1,189}', result):
+            return None
+        return result
+    except Exception:
+        return None
+
 target = canonical_mailbox(os.environ['P0_TARGET_EMAIL'])
 if target is None:
-    raise SystemExit('VERIFICATION_TARGET_INVALID')""",
+    raise SystemExit('VERIFICATION_TARGET_INVALID')
+username = canonical_imap_login(username)
+if username is None:
+    raise SystemExit('IMAP_LOGIN_IDENTITY_INVALID')""",
     'IMAP_IDNA_TARGET',
 )
 one(
@@ -109,7 +127,11 @@ required=[
     "SET TRANSACTION READ ONLY",
     "P0_AUTH_RUNTIME_PRINCIPAL_INVALID",
     "def canonical_mailbox(value):",
+    "def canonical_imap_login(value):",
     "domain.encode('idna').decode('ascii').lower()",
+    "username = canonical_imap_login(username)",
+    "IMAP_LOGIN_IDENTITY_INVALID",
+    "client.login(username, password)",
     "recipients.append(canonical)",
     "REMOTE_BLOCKER_PERSIST",
 ]
@@ -118,6 +140,8 @@ if missing:
     raise SystemExit('SECURITY_INVARIANT_MISSING='+'|'.join(missing))
 if s.count("'app_service'") != 1:
     raise SystemExit('LEGACY_ALIAS_CARDINALITY_INVALID')
+if s.count('username = canonical_imap_login(username)') != 1:
+    raise SystemExit('IMAP_LOGIN_CANONICALIZATION_CARDINALITY_INVALID')
 if s.count('$TMP_ROOT/remote-blocker') != 4:
     raise SystemExit('REMOTE_BLOCKER_BOUNDARY_CARDINALITY_INVALID')
 if "BLOCKER_CODE=\"$remote_blocker\"" not in s:
@@ -131,6 +155,7 @@ bash -n "$tmp"
 if [[ "${PC_P0_FIRST_CUSTOMER_ALIAS_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_FIRST_CUSTOMER_AUTH_ALIAS_PATCH=PASS\n'
   printf 'P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS\n'
+  printf 'P0_FIRST_CUSTOMER_IMAP_LOGIN_IDNA_PATCH=PASS\n'
   printf 'P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=PASS\n'
   exit 0
 fi
