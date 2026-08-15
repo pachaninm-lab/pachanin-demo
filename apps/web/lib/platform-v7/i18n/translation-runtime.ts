@@ -266,6 +266,18 @@ function getFragmentEntries(dictionary: TranslationDictionary): FragmentEntry[] 
 
 const STRUCTURED_TOKENS: ReadonlyArray<readonly [RegExp, string, string]> = [
   [/Н(?=\d+\s*:)/g, 'W', '第'],
+  [/янв\./giu, 'Jan', '1月'],
+  [/февр\./giu, 'Feb', '2月'],
+  [/мар\./giu, 'Mar', '3月'],
+  [/апр\./giu, 'Apr', '4月'],
+  [/ма[йя](?![А-Яа-яЁё])/giu, 'May', '5月'],
+  [/июн\./giu, 'Jun', '6月'],
+  [/июл\./giu, 'Jul', '7月'],
+  [/авг\./giu, 'Aug', '8月'],
+  [/сент\./giu, 'Sep', '9月'],
+  [/окт\./giu, 'Oct', '10月'],
+  [/нояб\./giu, 'Nov', '11月'],
+  [/дек\./giu, 'Dec', '12月'],
   [
     /цифровая инфраструктура исполнения сделок в растениеводстве/giu,
     'digital infrastructure for crop-trade execution',
