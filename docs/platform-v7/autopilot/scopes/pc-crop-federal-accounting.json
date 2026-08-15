@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "claude/autonomous-execution-contract-oc7ds7",
   "status": "active",
-  "purpose": "PC-CROP federal accounting programme, Wave 1 only: introduce job_profile as an axis orthogonal to user_orgs.role and a deny-by-default membership capability resolver, so later accounting waves have an authorization foundation. Approved by the owner on 2026-08-15 as a separate concurrent workstream that does not compete with IR-10.4.",
+  "purpose": "PC-CROP federal accounting programme. Wave 1: job_profile as an axis orthogonal to user_orgs.role plus a deny-by-default membership capability resolver. Wave 2 first slice: signing authority, the gate that Wave 1 deliberately left closed. Approved by the owner on 2026-08-15 as a separate concurrent workstream that does not compete with IR-10.4.",
   "authorityBaseExactMain": "eb5ea52249c7495d88f3768432158a59160647fc",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -13,7 +13,10 @@
     "apps/api/src/modules/auth/organization-job-profile.spec.ts",
     "apps/api/src/modules/auth/membership-capability.resolver.ts",
     "apps/api/src/modules/auth/membership-capability.resolver.spec.ts",
-    "docs/ops/pc-crop-federal-accounting/**"
+    "docs/ops/pc-crop-federal-accounting/**",
+    "apps/api/prisma/migrations/20260815200000_pc_crop_signing_authority/**",
+    "apps/api/src/modules/auth/signing-authority.policy.ts",
+    "apps/api/src/modules/auth/signing-authority.policy.spec.ts"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -25,7 +28,14 @@
     "No column-level privilege is added to any existing identity principal, so no current runtime can read more than before.",
     "The new table has RLS enabled and forced with no policy, denying every non-superuser principal until a later slice provisions one alongside its API.",
     "No apps/web, packages, lockfile, settlement-engine or production change is included.",
-    "Merge, CI and image build are not production deployment evidence."
+    "Merge, CI and image build are not production deployment evidence.",
+    "The platform never stores a signing private key; an authority record names a certificate by fingerprint only.",
+    "ukep_certificates is neither moved, renamed nor duplicated; the certificate stays user-level while authority is membership-level.",
+    "A delegated signer without a non-blank machine-readable power-of-attorney reference is refused by the policy and by a database CHECK constraint.",
+    "An empty allowed-document-type list means nothing is permitted and is refused at write time, never read as a wildcard.",
+    "Signing requires fresh MFA, a non-stale document, an active membership, matching tenant, organization and membership, a permitted document type, amount and signing mode, and a valid bound certificate.",
+    "documents.sign remains unmintable by job profile or delegation; the authority evaluator is the only gate and never accepts the capability as a substitute.",
+    "signing_authorities has RLS enabled and forced with no policy until a later slice provisions a principal alongside its API."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -37,7 +47,11 @@
     "Resolution is identical across all nine market roles for the same job profile, proving the role axis never widens the accounting contour.",
     "The external accountant is denied period close, reconciliation and provider configuration while keeping daily bookkeeping.",
     "Exact-head API typecheck introduces no new error, the full API unit suite passes, and the forward-only migration gate passes before merge.",
-    "No new recurring cost is introduced."
+    "No new recurring cost is introduced.",
+    "Every deny reason is reported together rather than one at a time, so a disabled action can explain itself completely.",
+    "A security hold refuses an otherwise fully valid signature.",
+    "Nine signing-authority invariants are proven against a live PostgreSQL 16, not only asserted in tests.",
+    "prisma migrate diff reports no drift after applying both PC-CROP migrations."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",
@@ -45,5 +59,6 @@
     "Any vendor activation for 1C, EDO, FGIS Zerno or IS EPD."
   ],
   "separationOfAuthority": true,
-  "notes": "This manifest records an owner decision; it does not create authority on its own. The truth audit that motivated it is docs/ops/pc-crop-federal-accounting/gap-matrix.md and the blocker it resolves is documented in governance-blocker.md."
+  "notes": "This manifest records an owner decision; it does not create authority on its own. The truth audit that motivated it is docs/ops/pc-crop-federal-accounting/gap-matrix.md and the blocker it resolves is documented in governance-blocker.md.",
+  "title": "PC-CROP federal accounting programme — Waves 1 and 2 (signing authority slice)"
 }

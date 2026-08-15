@@ -38,6 +38,12 @@
 | EV-027 | Единственное настоящее падение — дрейф `prisma migrate diff`; воспроизведён локально на PostgreSQL 16 до исправления | job 95053443095 + локальный прогон | 2026-08-15 |
 | EV-028 | Три «красных» агрегирующих гейта — артефакты отмены вытесненного прогона: шаг `test "cancelled" = success` на старом SHA `f76138e6` | jobs 95054272429, 95054479144 | 2026-08-15 |
 | EV-029 | Инварианты Wave 1 проверены на живой БД: 5 CHECK-ограничений, RLS enable+force с 0 policy, отказ на `documents.sign` в делегировании, self-делегирование, перевёрнутое окно, пустой набор, cross-tenant FK, подделанный `job_profile` | psql на локальном PostgreSQL 16 | 2026-08-15 |
+| EV-030 | Wave 2 срез 1 (signing authority): 38 тестов, полный API-пакет 1352 passed / 0 failed | `npx jest` | 2026-08-15 |
+| EV-031 | Drift-гейт после обеих миграций PC-CROP: exit 0, «empty migration» | `prisma migrate diff --exit-code` на локальном PostgreSQL 16 | 2026-08-15 |
+| EV-032 | 9 инвариантов signing authority отбиты живой БД: делегирование без/с пустой МЧД, пустой список типов документов, неизвестный режим подписи, перевёрнутое окно, отрицательный лимит, неизвестный тип authority, cross-tenant организация, дубль активной authority на тот же сертификат | psql, PostgreSQL 16 | 2026-08-15 |
+| EV-033 | `signing_authorities`: RLS enabled + forced, 0 policy — отказ всем непривилегированным принципалам | `pg_class` / `pg_policies` | 2026-08-15 |
+| EV-034 | Конвенция денег: `domain-core/money.ts` запрещает арифметику на `number`, все money-колонки схемы — BIGINT; полиси переведён на `bigint` до фиксации расхождения | чтение `money.ts` + `schema.prisma` | 2026-08-15 |
+| EV-035 | Forward-only гейт проходит с обеими миграциями PC-CROP в списке | `platform-v7-forward-only-migration-check.mjs` | 2026-08-15 |
 
 ---
 

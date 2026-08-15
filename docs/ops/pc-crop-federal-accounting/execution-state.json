@@ -7,14 +7,14 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-15T19:05:00.000Z",
+  "updatedAt": "2026-08-15T19:55:00.000Z",
   "observedMainSha": "2f4dca2d18b2301cd8936eae02b284a91ee9483d",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 4.8,
+  "overallProgressPercent": 5.4,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
-  "status": "WAVE_1_IMPLEMENTED_AWAITING_MERGE",
+  "status": "WAVE_1_AWAITING_MERGE_WAVE_2_SLICE_1_IMPLEMENTED",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
   "workstreams": [
     {
@@ -100,12 +100,49 @@
       "id": 4,
       "name": "Documents / contracts / regulatory / tax profiles",
       "weightPercent": 7,
-      "provenSharePercent": 0,
-      "creditedPercent": 0,
-      "blockedBy": [
-        "GOV-1",
-        "GOV-2"
-      ]
+      "provenSharePercent": 60,
+      "creditedPercent": 0.6,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 4 spans documents, contract versions, regulatory registry, tax profiles, format registry, numbering policy and signing authority. Only the signing authority component is built, so the stage credit is multiplied by that component share instead of crediting the whole workstream.",
+        "componentsInScope": [
+          "server-authoritative accounting documents",
+          "contract versions and commercial legal terms",
+          "document format registry",
+          "numbering policy",
+          "organization accounting/tax profile",
+          "regulatory rule versions",
+          "signing authority"
+        ],
+        "componentBuilt": "signing authority",
+        "componentSharePercent": 15
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "signing-authority.policy.ts, expand-only migration 20260815200000, SigningAuthority model"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": true,
+          "evidence": "38 dedicated tests; full API suite 1352 passed / 0 failed; nine invariants proven on live PostgreSQL 16; drift gate exit 0"
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
     },
     {
       "id": 5,
@@ -253,7 +290,7 @@
   ],
   "weightCheck": {
     "sum": 100,
-    "creditedTotal": 4.8
+    "creditedTotal": 5.4
   },
   "completedEvidence": [
     {
@@ -310,6 +347,16 @@
       "id": "EXE-011",
       "what": "Wave 1 CI proven green end to end",
       "detail": "The only real failure was a Prisma migrate-diff drift caused by hand-written constraint and index names, missing ON UPDATE CASCADE, clock_timestamp defaults and a partial index Prisma cannot express. Reproduced on a local PostgreSQL 16 before fixing. Three further red aggregate gates were cancellation artifacts of the superseded run, each running test \"cancelled\" = success on the old SHA."
+    },
+    {
+      "id": "EXE-012",
+      "what": "Wave 2 slice 1 implemented and proven",
+      "detail": "Signing authority policy plus expand-only migration 20260815200000. Nine invariants refused by a live PostgreSQL 16: delegated signer without or with blank MChD reference, empty document-type list, unknown signing mode, inverted window, negative amount limit, unknown authority type, cross-tenant organization reference, and a duplicate active authority for the same certificate. RLS enabled and forced with zero policies. Drift gate exit 0."
+    },
+    {
+      "id": "EXE-013",
+      "what": "Money representation corrected before it set",
+      "detail": "The policy first typed kopecks as JavaScript number. domain-core/money.ts forbids number arithmetic on money and every persisted money column in the schema is BIGINT, so the policy and its tests were moved to bigint before the convention could diverge."
     }
   ],
   "blockers": [
@@ -461,5 +508,9 @@
     "reason": "ENV-PROD network policy; no production surface reachable."
   },
   "newMandatoryCostsRub": 0,
-  "completedEvidenceNote": "EXE-* ids are internal to this file. The auditable observation log with its own EV-* ids and sources is evidence-index.md; the two sequences are deliberately distinct."
+  "completedEvidenceNote": "EXE-* ids are internal to this file. The auditable observation log with its own EV-* ids and sources is evidence-index.md; the two sequences are deliberately distinct.",
+  "projectedOnMergeOfPr4216": {
+    "note": "Not credited until proven. Merge adds the +15% stage to workstreams 1, 2 and 4.",
+    "wouldBecomePercent": 6.79
+  }
 }

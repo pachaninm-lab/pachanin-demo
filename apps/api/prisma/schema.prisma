@@ -45,6 +45,7 @@ model Organization {
   fgisGrainExchanges                FgisGrainExchange[]
   fgisGrainAcknowledgements         FgisGrainAcknowledgement[]
   membershipDelegations             MembershipDelegation[]
+  signingAuthorities                SigningAuthority[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -106,6 +107,7 @@ model UserOrg {
 
   delegationsGranted  MembershipDelegation[] @relation("MembershipDelegationFrom")
   delegationsReceived MembershipDelegation[] @relation("MembershipDelegationTo")
+  signingAuthorities  SigningAuthority[]
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -141,6 +143,41 @@ model MembershipDelegation {
   @@index([organizationId, toMembershipId, status, endsAt])
   @@index([tenantId])
   @@map("membership_delegations")
+}
+
+/// What one membership may sign inside one organization. The platform never
+/// holds a private key: this record names a certificate by fingerprint and
+/// bounds its use by document type, amount, validity window and signing mode.
+/// A delegated signer is invalid without a machine-readable power of attorney.
+model SigningAuthority {
+  id                     String    @id @default(cuid())
+  tenantId               String
+  organizationId         String
+  membershipId           String
+  authorityType          String
+  mchdReference          String?
+  validFrom              DateTime  @db.Timestamptz(6)
+  validTo                DateTime  @db.Timestamptz(6)
+  allowedDocumentTypes   String[]
+  /// Kopecks. Null means the authority carries no monetary ceiling.
+  amountLimitKopecks     BigInt?
+  certificateFingerprint String
+  allowedSigningModes    String[]
+  status                 String    @default("ACTIVE")
+  lastVerifiedAt         DateTime? @db.Timestamptz(6)
+  grantedByMembershipId  String
+  revokedAt              DateTime? @db.Timestamptz(6)
+  version                BigInt    @default(0)
+  createdAt              DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  membership   UserOrg      @relation(fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([organizationId, membershipId, status, validTo])
+  @@index([tenantId])
+  @@index([certificateFingerprint])
+  @@map("signing_authorities")
 }
 
 model UkepCertificate {

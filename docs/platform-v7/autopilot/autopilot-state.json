@@ -207,6 +207,9 @@
       "apps/api/src/modules/auth/organization-job-profile.spec.ts",
       "apps/api/src/modules/auth/membership-capability.resolver.ts",
       "apps/api/src/modules/auth/membership-capability.resolver.spec.ts",
+      "apps/api/prisma/migrations/*_pc_crop_signing_authority/**",
+      "apps/api/src/modules/auth/signing-authority.policy.ts",
+      "apps/api/src/modules/auth/signing-authority.policy.spec.ts",
       "docs/ops/pc-crop-federal-accounting/**",
       "docs/platform-v7/autopilot/scopes/pc-crop-federal-accounting.json",
       "docs/platform-v7/autopilot/autopilot-state.json"

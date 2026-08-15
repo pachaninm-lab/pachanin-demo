@@ -1,8 +1,12 @@
-# Next minimal concurrent scope — Wave 2 (proposal, not active)
+# Wave 2, срез 1 — signing authority (ОДОБРЕН и РЕАЛИЗОВАН)
 
-Статус: **предложение**. Полномочий не создаёт.
-Активация — акт владельца: запись в `approvedConcurrentScopes` и манифест v1 в
-`docs/platform-v7/autopilot/scopes/`.
+Статус: **одобрен владельцем 2026-08-15** («Мержу #4216, продолжай Wave 2») и **реализован**.
+Активация зафиксирована в `approvedConcurrentScopes` и в манифесте v1
+`docs/platform-v7/autopilot/scopes/pc-crop-federal-accounting.json`.
+
+Реализация: `signing-authority.policy.ts` + миграция `20260815200000_pc_crop_signing_authority`.
+38 тестов, полный API-пакет 1352 passed / 0 failed, 9 инвариантов доказаны на живом PostgreSQL 16,
+drift-гейт возвращает 0.
 
 > Этот файл намеренно лежит в `docs/ops/`, а не в `scopes/`.
 > `p7-source-controlled-scope.mjs` бросает исключение на манифесте, чей `branch`
