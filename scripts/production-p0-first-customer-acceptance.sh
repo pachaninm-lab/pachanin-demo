@@ -37,6 +37,36 @@ one(
     r"AUTH_PRINCIPAL\|(pc_auth_runtime|one_deal_auth|app_auth|app_service)$",
     'AUTH_ROLE_OUTPUT_GUARD',
 )
+one(
+    "target = os.environ['P0_TARGET_EMAIL'].strip().lower()",
+    """def canonical_mailbox(value):
+    try:
+        value = str(value or '').strip().lower()
+        if value.count('@') != 1:
+            return None
+        local, domain = value.rsplit('@', 1)
+        local.encode('ascii')
+        domain = domain.encode('idna').decode('ascii').lower()
+        result = f'{local}@{domain}'
+        if len(result) > 254 or not re.fullmatch(r'[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9.-]{1,189}', result):
+            return None
+        return result
+    except Exception:
+        return None
+
+target = canonical_mailbox(os.environ['P0_TARGET_EMAIL'])
+if target is None:
+    raise SystemExit('VERIFICATION_TARGET_INVALID')""",
+    'IMAP_IDNA_TARGET',
+)
+one(
+    "                recipients.extend(address.lower() for _, address in getaddresses(message.get_all(header, [])))",
+    """                for _, address in getaddresses(message.get_all(header, [])):
+                    canonical = canonical_mailbox(address)
+                    if canonical:
+                        recipients.append(canonical)""",
+    'IMAP_IDNA_RECIPIENTS',
+)
 
 required=[
     "principal.rolsuper !== false",
@@ -47,6 +77,9 @@ required=[
     "table?.relforcerowsecurity !== true",
     "SET TRANSACTION READ ONLY",
     "P0_AUTH_RUNTIME_PRINCIPAL_INVALID",
+    "def canonical_mailbox(value):",
+    "domain.encode('idna').decode('ascii').lower()",
+    "recipients.append(canonical)",
 ]
 missing=[x for x in required if x not in s]
 if missing:
@@ -61,6 +94,7 @@ bash -n "$tmp"
 
 if [[ "${PC_P0_FIRST_CUSTOMER_ALIAS_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_FIRST_CUSTOMER_AUTH_ALIAS_PATCH=PASS\n'
+  printf 'P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS\n'
   exit 0
 fi
 
