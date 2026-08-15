@@ -7,14 +7,14 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-15T18:30:00.000Z",
+  "updatedAt": "2026-08-15T19:15:00.000Z",
   "observedMainSha": "eb5ea52249c7495d88f3768432158a59160647fc",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 1.8,
+  "overallProgressPercent": 4.8,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
-  "status": "WAVE_1_APPROVED_IN_PROGRESS",
+  "status": "WAVE_1_IMPLEMENTED_AWAITING_MERGE",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
   "workstreams": [
     {
@@ -56,12 +56,35 @@
       "id": 2,
       "name": "Identity / organization / job profiles / capabilities",
       "weightPercent": 5,
-      "provenSharePercent": 0,
-      "creditedPercent": 0,
-      "blockedBy": [
-        "GOV-1",
-        "GOV-2"
-      ]
+      "provenSharePercent": 60,
+      "creditedPercent": 3.0,
+      "milestoneModel": "code-workstream",
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "organization-job-profile.ts, membership-capability.resolver.ts, expand-only migration 20260815190000, schema.prisma +37/-0"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": true,
+          "evidence": "76 dedicated tests; full API suite 1312 passed / 0 failed; auth module 279 passed across 24 suites; forward-only migration gate passed"
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
     },
     {
       "id": 3,
@@ -230,7 +253,7 @@
   ],
   "weightCheck": {
     "sum": 100,
-    "creditedTotal": 1.8
+    "creditedTotal": 4.8
   },
   "completedEvidence": [
     {
@@ -272,6 +295,16 @@
       "id": "EV-008",
       "what": "Defect found in mandated check script",
       "detail": "The AGENTS.md-mandated dispatcher rewrites progress.json and drops noSelfModifyingWorkflow and noDirectPushToMain from rules, and weakens the codex task prompt. Reverted; not committed. See risk-register.md R-11."
+    },
+    {
+      "id": "EV-009",
+      "what": "Wave 1 implemented and proven green",
+      "detail": "Scope guard passes with GITHUB_HEAD_REF set. Typecheck adds no new error over clean main (same two pre-existing tsconfig deprecations). No regression in the 9 market roles or registration authority #3785."
+    },
+    {
+      "id": "EV-010",
+      "what": "Scope manifest schema defect caught before CI",
+      "detail": "The first manifest draft used ad-hoc keys. p7-source-controlled-scope.mjs requires schemaVersion platform-v7.concurrent-scope.v1 with allowedPaths and status active, and throws on a branch-matching manifest that fails validation. Rewritten to the canonical schema and verified to resolve."
     }
   ],
   "blockers": [
@@ -373,22 +406,22 @@
   "nextActions": [
     {
       "order": 1,
-      "action": "Owner decides GOV-1..GOV-4 (register scope or decline programme).",
+      "action": "Merge PR #4216 through the governance path (noAutoMerge stands: human review required).",
       "owner": "human"
     },
     {
       "order": 2,
-      "action": "If approved: Wave 1 identity/job_profile/capabilities as first vertical slice (schema + domain policy + unit tests), expand->dual-compatible->migrate per section K.",
+      "action": "Wave 1 follow-up slice: signing authority record plus the reading principal and tenant-scoped RLS policy for membership_delegations, wired to the API that needs them.",
       "owner": "agent"
     },
     {
       "order": 3,
-      "action": "Regression against registration authority #3785 and the 9 market roles before any auth PR (section T).",
+      "action": "Request the next minimal concurrent scope (Wave 2 server-authoritative documents), which depends on nothing external.",
       "owner": "agent"
     },
     {
       "order": 4,
-      "action": "Rebase onto live main before each PR; main moved once during this audit alone.",
+      "action": "Rebase onto live main before each push; main moved twice during this session.",
       "owner": "agent"
     }
   ],
