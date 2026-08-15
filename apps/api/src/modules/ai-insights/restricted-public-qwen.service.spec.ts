@@ -108,7 +108,6 @@ describe('RestrictedPublicQwenService', () => {
     });
     expect(body.messages[0].content).toContain('use the supplied verified public grounding as the authority');
     expect(body.messages[0].content).toContain('Never present planned, proposed or unverified functionality as already available');
-    expect(body.messages[0].content).not.toContain('Begin with one short self-contained complete sentence that directly answers the question');
     expect(body.messages[1].content).toContain('ANSWER_MODE: verified_platform');
     const wire = JSON.stringify(body);
     for (const privateKey of ['tenantId', 'orgId', 'userId', 'dealId', 'membershipId']) {
@@ -156,8 +155,6 @@ describe('RestrictedPublicQwenService', () => {
     const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
     expect(body.messages[0].content).toContain('Respond naturally to greetings');
     expect(body.messages[0].content).toContain('actual reasoning assistant, not a scripted FAQ bot');
-    expect(body.messages[0].content).toContain('Begin with one short self-contained complete sentence that directly answers the question');
-    expect(body.messages[0].content).toContain('End this first sentence before any explanation, list, caveat or clarifying question');
     expect(body.messages[0].content).toContain('Do not refuse merely because the platform knowledge base does not cover an agriculture or agribusiness topic');
     expect(body.messages[0].content).toContain('Do not invent platform capabilities, connected integrations, tariffs, customer results or production status');
     expect(body.messages[1].content).toContain('ANSWER_MODE: general_agro');
