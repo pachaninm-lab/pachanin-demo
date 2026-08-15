@@ -1,0 +1,65 @@
+{
+  "status": "proposed",
+  "statusNote": "PROPOSED ONLY. Not active. Activation requires the repository owner to reference this file from approvedConcurrentScopes in autopilot-state.json. No agent may treat this file as a grant until that happens.",
+  "id": "pc-crop-federal-accounting",
+  "title": "PC-CROP Federal Accounting / 1C / EDO / Gekta / Anti-Fraud programme",
+  "proposedAt": "2026-08-15",
+  "proposedAgainstMain": "9b07e3190ab48476cba46082a99c01d5fba1bedc",
+  "sourceContract": {
+    "id": "CLAUDE_CODE_PC_CROP_AUTONOMOUS_EXECUTION_FINAL_2026-08-15",
+    "sha256": "b3e892eac9532129cea90d8cbfe4e1af048259ad190dd987fcdb058df38125d4"
+  },
+  "truthAudit": "docs/ops/pc-crop-federal-accounting/gap-matrix.md",
+  "blocker": "docs/ops/pc-crop-federal-accounting/governance-blocker.md",
+
+  "requestedDecision": [
+    "Approve or decline the programme as a concurrent scope.",
+    "If approved, decide whether it starts before IR-10.4 is green, or waits.",
+    "Confirm or waive the AGENTS.md rule 'Claude should not write competing implementation PRs' for this programme.",
+    "Confirm that apps/web and packages remain forbidden, or grant a bounded exception per wave."
+  ],
+
+  "proposedFirstSliceOnly": {
+    "wave": 1,
+    "name": "Identity: job_profile + capabilities (schema + domain policy + unit tests)",
+    "rationale": "Smallest vertical slice that unblocks waves 2-14. Does not touch the 9 market roles, does not touch money, does not require any vendor credential.",
+    "requestedWritableFiles": [
+      "apps/api/prisma/schema.prisma",
+      "apps/api/prisma/migrations/<new>_pc_crop_job_profile_capabilities/**",
+      "apps/api/src/modules/auth/organization-job-profile.ts",
+      "apps/api/src/modules/auth/organization-job-profile.spec.ts",
+      "apps/api/src/modules/auth/membership-capability.resolver.ts",
+      "apps/api/src/modules/auth/membership-capability.resolver.spec.ts",
+      "docs/ops/pc-crop-federal-accounting/**"
+    ],
+    "explicitlyNotRequested": [
+      "apps/web/**",
+      "packages/**",
+      "pnpm-lock.yaml",
+      "package.json",
+      "apps/api/src/modules/settlement-engine/**",
+      "apps/api/src/modules/auth/organization-role-policy.ts"
+    ],
+    "invariantsPreserved": [
+      "ORGANIZATION_HUMAN_ROLES and ROLE_CEILING unchanged (registration authority #3785).",
+      "job_profile is an axis orthogonal to user_orgs.role; nullable; no default.",
+      "ACCOUNTING remains the bank/settlement role and is not repurposed.",
+      "No RLS, MFA or session weakening.",
+      "No Gekta runtime tuning change (#3896).",
+      "Expand-only migration; no destructive column changes."
+    ],
+    "requiredChecks": [
+      "node scripts/p7-autopilot-dispatcher.mjs",
+      "bash scripts/p7-autopilot-guard.sh",
+      "node scripts/check-production-hosting-authority.mjs",
+      "pnpm typecheck",
+      "pnpm test",
+      "registration regression for the 9 market roles (#3785)",
+      "apps/api/test/tenant-leakage.e2e-spec.ts"
+    ]
+  },
+
+  "maturityLanguage": "pre-integration",
+  "newMandatoryCostsRub": 0,
+  "productionActivation": "none-requested"
+}
