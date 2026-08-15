@@ -25,7 +25,7 @@ publish_failure(){
     gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 auth-mail Compose contract classifier
 
 - source cutover run: \`31905081981\`
-- production subject: \`$SUBJECT_SHA\`
+- auth-mail code baseline: \`$SUBJECT_SHA\`
 - diagnostic main: \`$CURRENT_MAIN\`
 - result: \`FAIL_CLOSED\`
 - raw Compose / environment / credentials: \`NOT_PUBLISHED\`
@@ -51,14 +51,13 @@ CURRENT_MAIN="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
 git fetch --no-tags origin main >/dev/null
 [[ "$(git rev-parse HEAD)" == "$CURRENT_MAIN" && "$(git rev-parse origin/main)" == "$CURRENT_MAIN" ]]
 git merge-base --is-ancestor "$SUBJECT_SHA" "$CURRENT_MAIN"
-mapfile -t changed < <(git diff --name-only "$SUBJECT_SHA..$CURRENT_MAIN" | sort)
-allowed=(
-  '.github/workflows/production-p0-auth-mail-compose-contract-classifier-31905081981.yml'
-  'docs/platform-v7/autopilot/scopes/production-p0-auth-mail-compose-contract-31905081981-3785.json'
-  'scripts/check-production-p0-auth-mail-compose-contract-classifier-31905081981.mjs'
-  'scripts/production-p0-auth-mail-compose-contract-classifier-31905081981.sh'
-)
-[[ "${changed[*]}" == "${allowed[*]}" ]]
+git diff --quiet "$SUBJECT_SHA..$CURRENT_MAIN" -- \
+  scripts/production-auth-mail-outbox-cutover-core.sh \
+  scripts/production-auth-mail-outbox-cutover.sh \
+  .github/workflows/production-auth-mail-outbox-cutover.yml \
+  scripts/provision-production-auth-mail-runtime.sh \
+  apps/api/src/auth-mail-worker.ts \
+  apps/api/prisma/migrations/20260812010000_p0_industrial_auth_mail_outbox/migration.sql
 [[ -z "$(git status --porcelain=v1)" ]]
 
 host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"; user="$(trim "${PC_PROD_SSH_USER:-}")"; port="$(trim "${PC_PROD_SSH_PORT:-22}")"; expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
@@ -98,10 +97,8 @@ done
 mv "$match" "$known_hosts"; match=''; rm -f "$scan"; scan=''; chmod 0600 "$known_hosts"
 guard_main
 
-remote="$(ssh -i "$key_path" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 "$user@$host" "bash -s -- '$SUBJECT_SHA'" <<'REMOTE'
+remote="$(ssh -i "$key_path" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 "$user@$host" 'bash -s' <<'REMOTE'
 set -Eeuo pipefail
-subject_sha="$1"
-[[ "$subject_sha" =~ ^[0-9a-f]{40}$ ]]
 [[ "$(id -u)" -eq 0 ]]
 command -v docker >/dev/null 2>&1
 command -v python3 >/dev/null 2>&1
@@ -110,13 +107,18 @@ tmp="$(mktemp -d /root/pc-auth-mail-compose-classifier.XXXXXX)"
 chmod 0700 "$tmp"
 cleanup_remote(){ rm -rf -- "$tmp"; }
 trap cleanup_remote EXIT
+production_revision='unknown'
+revision_coherent=0
 stop_class(){
   local code="$1" file_count="${2:-0}"
   [[ "$code" =~ ^[A-Z0-9_]{1,120}$ ]] || code='CLASSIFIER_OUTPUT_INVALID'
   [[ "$file_count" =~ ^[0-9]{1,3}$ ]] || file_count='0'
+  [[ "$production_revision" == unknown || "$production_revision" =~ ^[0-9a-f]{40}$ ]] || production_revision='unknown'
+  [[ "$revision_coherent" =~ ^[01]$ ]] || revision_coherent=0
   printf 'CONTRACT_CLASS=%s\n' "$code"
   printf 'COMPOSE_FILE_COUNT=%s\n' "$file_count"
-  printf 'PRODUCTION_SUBJECT_EXACT=1\n'
+  printf 'PRODUCTION_REVISION=%s\n' "$production_revision"
+  printf 'PRODUCTION_REVISION_COHERENT=%s\n' "$revision_coherent"
   printf 'RAW_CONFIG_PUBLISHED=0\n'
   printf 'PRODUCTION_MUTATION=NONE\n'
   exit 0
@@ -128,7 +130,10 @@ mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=a
 web_id="${web_ids[0]}"; api_id="${api_ids[0]}"
 web_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
 api_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
-[[ "$web_rev" == "$subject_sha" && "$api_rev" == "$subject_sha" ]] || stop_class 'PRODUCTION_SUBJECT_MISMATCH' 0
+[[ "$web_rev" =~ ^[0-9a-f]{40}$ && "$api_rev" =~ ^[0-9a-f]{40}$ ]] || stop_class 'PRODUCTION_REVISION_INVALID' 0
+[[ "$web_rev" == "$api_rev" ]] || stop_class 'RUNTIME_REVISION_MISMATCH' 0
+production_revision="$api_rev"
+revision_coherent=1
 project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
 prod_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
 config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
@@ -154,7 +159,7 @@ api_image="$(docker inspect --format '{{.Config.Image}}' "$api_id")"
 web_image="$(docker inspect --format '{{.Config.Image}}' "$web_id")"
 
 class="$(python3 - "$cfg" "$api_image" "$web_image" <<'PY'
-import json,re,sys
+import json,sys
 cfg=json.load(open(sys.argv[1],encoding='utf-8'))
 api_image,web_image=sys.argv[2:4]
 services=cfg.get('services') or {}
@@ -169,15 +174,8 @@ for name in ('api','web','auth-mail-worker'):
 if str(services['api'].get('image') or '') != api_image: done('API_IMAGE_MISMATCH')
 if str(services['web'].get('image') or '') != web_image: done('WEB_IMAGE_MISMATCH')
 web=env(services['web'])
-if web.get('PC_SMTP_HOST') != 'mail.hosting.reg.ru': done('WEB_SMTP_HOST_MISMATCH')
-if web.get('PC_SMTP_PORT') != '465': done('WEB_SMTP_PORT_MISMATCH')
-user=web.get('PC_SMTP_USER') or ''
-if not re.fullmatch(r'[^\s@<>]{1,64}@[^\s@<>]{1,189}',user): done('WEB_SMTP_USER_INVALID')
-if user.rsplit('@',1)[1].lower() != 'xn----8sbjf4befbjgs9b.xn--p1ai': done('WEB_SMTP_USER_DOMAIN_MISMATCH')
-if web.get('PC_MAIL_FROM') != 'access@xn----8sbjf4befbjgs9b.xn--p1ai': done('WEB_SMTP_SENDER_MISMATCH')
-password=web.get('PC_SMTP_PASS') or ''
-if not 8 <= len(password) <= 512: done('WEB_SMTP_PASSWORD_SHAPE_INVALID')
-if any(k.startswith('AUTH_MAIL_') for k in web): done('WEB_WORKER_AUTHORITY_LEAK')
+for key in ('PC_SMTP_HOST','PC_SMTP_PORT','PC_SMTP_USER','PC_SMTP_PASS','PC_MAIL_FROM','RESEND_API_KEY','RESEND_FROM_EMAIL','AUTH_MAIL_OUTBOX_KEYRING_DIR','AUTH_MAIL_DATABASE_URL_FILE','AUTH_MAIL_TRANSPORT_FILE'):
+    if key in web: done('WEB_FORBIDDEN_'+key)
 if 'PASSWORD_RESET_DELIVERY_KEY' not in web: done('WEB_RESET_BOUNDARY_MISSING')
 api=env(services['api'])
 if api.get('AUTH_MAIL_OUTBOX_KEYRING_DIR') != '/run/pc-auth-mail/keyring': done('API_KEYRING_MISSING')
@@ -214,24 +212,36 @@ REMOTE
 guard_main
 contract_class="$(sed -nE 's/^CONTRACT_CLASS=([A-Z0-9_]{1,120})$/\1/p' <<< "$remote")"
 compose_count="$(sed -nE 's/^COMPOSE_FILE_COUNT=([0-9]{1,3})$/\1/p' <<< "$remote")"
+production_revision="$(sed -nE 's/^PRODUCTION_REVISION=(unknown|[0-9a-f]{40})$/\1/p' <<< "$remote")"
+revision_coherent="$(sed -nE 's/^PRODUCTION_REVISION_COHERENT=([01])$/\1/p' <<< "$remote")"
 [[ "$contract_class" =~ ^[A-Z0-9_]{1,120}$ ]]
 [[ "$compose_count" =~ ^[0-9]{1,3}$ ]]
-grep -Fxq 'PRODUCTION_SUBJECT_EXACT=1' <<< "$remote"
+[[ "$production_revision" == unknown || "$production_revision" =~ ^[0-9a-f]{40}$ ]]
+[[ "$revision_coherent" =~ ^[01]$ ]]
 grep -Fxq 'RAW_CONFIG_PUBLISHED=0' <<< "$remote"
 grep -Fxq 'PRODUCTION_MUTATION=NONE' <<< "$remote"
 [[ "$(grep -c '^CONTRACT_CLASS=' <<< "$remote")" == 1 ]]
 [[ "$(grep -c '^COMPOSE_FILE_COUNT=' <<< "$remote")" == 1 ]]
+[[ "$(grep -c '^PRODUCTION_REVISION=' <<< "$remote")" == 1 ]]
+[[ "$(grep -c '^PRODUCTION_REVISION_COHERENT=' <<< "$remote")" == 1 ]]
+if [[ "$revision_coherent" == 1 ]]; then
+  [[ "$production_revision" =~ ^[0-9a-f]{40}$ ]]
+  git cat-file -e "${production_revision}^{commit}"
+  git merge-base --is-ancestor "$production_revision" "$CURRENT_MAIN"
+fi
 
 result_published=1
 gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 auth-mail Compose contract classifier
 
 - source cutover run: \`31905081981\`
-- production subject: \`$SUBJECT_SHA\`
+- auth-mail code baseline: \`$SUBJECT_SHA\`
 - diagnostic main: \`$CURRENT_MAIN\`
+- production revision: \`$production_revision\`
+- production revision coherent: \`$revision_coherent\`
 - result: \`PASS_READ_ONLY\`
 - contract class: \`$contract_class\`
 - Compose authority file count: \`$compose_count\`
 - raw Compose / environment / credentials: \`NOT_PUBLISHED\`
 - reset / mail / database / container / deployment mutation: \`NONE\`
 - new recurring cost: \`0 RUB\`" >/dev/null
-printf 'P0_AUTH_MAIL_COMPOSE_CLASSIFIER=PASS\nCONTRACT_CLASS=%s\nPRODUCTION_MUTATION=NONE\n' "$contract_class"
+printf 'P0_AUTH_MAIL_COMPOSE_CLASSIFIER=PASS\nCONTRACT_CLASS=%s\nPRODUCTION_REVISION=%s\nPRODUCTION_MUTATION=NONE\n' "$contract_class" "$production_revision"
