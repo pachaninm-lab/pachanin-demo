@@ -60,7 +60,7 @@ replace_once(
     'EVIDENCE_TITLE',
 )
 
-if source.count('trap - ERR') != 2:
+if source.count('trap - ERR') != 3:
     raise SystemExit('ERR_TRAP_SUSPEND_CARDINALITY_INVALID')
 if source.count('trap unexpected ERR') != 3:
     raise SystemExit('ERR_TRAP_RESTORE_CARDINALITY_INVALID')
