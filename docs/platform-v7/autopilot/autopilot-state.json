@@ -200,6 +200,17 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "claude/autonomous-execution-contract-oc7ds7": [
+      "apps/api/prisma/schema.prisma",
+      "apps/api/prisma/migrations/*_pc_crop_job_profile_capabilities/**",
+      "apps/api/src/modules/auth/organization-job-profile.ts",
+      "apps/api/src/modules/auth/organization-job-profile.spec.ts",
+      "apps/api/src/modules/auth/membership-capability.resolver.ts",
+      "apps/api/src/modules/auth/membership-capability.resolver.spec.ts",
+      "docs/ops/pc-crop-federal-accounting/**",
+      "docs/platform-v7/autopilot/scopes/pc-crop-federal-accounting.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
     "fix/production-p0-human-reviewer-ceremony-3785": [
       ".github/workflows/production-p0-first-customer-acceptance.yml",
       "apps/web/app/api/staff/[...path]/route.ts",

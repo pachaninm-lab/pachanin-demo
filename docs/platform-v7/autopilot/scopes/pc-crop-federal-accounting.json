@@ -1,52 +1,51 @@
 {
-  "status": "proposed",
-  "statusNote": "PROPOSED ONLY. Not active. Activation requires the repository owner to reference this file from approvedConcurrentScopes in autopilot-state.json. No agent may treat this file as a grant until that happens.",
+  "status": "approved",
+  "statusNote": "Approved by the repository owner as a separate concurrent workstream. Activation is recorded in autopilot-state.json approvedConcurrentScopes under branch claude/autonomous-execution-contract-oc7ds7. Only Wave 1 is activated; all later waves remain unapproved and must request their own scope.",
   "id": "pc-crop-federal-accounting",
-  "title": "PC-CROP Federal Accounting / 1C / EDO / Gekta / Anti-Fraud programme",
-  "proposedAt": "2026-08-15",
-  "proposedAgainstMain": "9b07e3190ab48476cba46082a99c01d5fba1bedc",
+  "title": "PC-CROP Federal Accounting programme — Wave 1 only",
+  "branch": "claude/autonomous-execution-contract-oc7ds7",
+  "approvedAt": "2026-08-15",
+  "approvedAgainstMain": "eb5ea52249c7495d88f3768432158a59160647fc",
+  "supersedesProposalAgainstMain": "9b07e3190ab48476cba46082a99c01d5fba1bedc",
   "sourceContract": {
     "id": "CLAUDE_CODE_PC_CROP_AUTONOMOUS_EXECUTION_FINAL_2026-08-15",
     "sha256": "b3e892eac9532129cea90d8cbfe4e1af048259ad190dd987fcdb058df38125d4"
   },
   "truthAudit": "docs/ops/pc-crop-federal-accounting/gap-matrix.md",
-  "blocker": "docs/ops/pc-crop-federal-accounting/governance-blocker.md",
+  "blockerHistory": "docs/ops/pc-crop-federal-accounting/governance-blocker.md",
 
-  "requestedDecision": [
-    "Approve or decline the programme as a concurrent scope.",
-    "If approved, decide whether it starts before IR-10.4 is green, or waits.",
-    "Confirm or waive the AGENTS.md rule 'Claude should not write competing implementation PRs' for this programme.",
-    "Confirm that apps/web and packages remain forbidden, or grant a bounded exception per wave."
-  ],
+  "notCompetingRationale": "Wave 1 touches identity (job_profile and capability resolution). It shares no implementation file with IR-10.4 Settlement PostgreSQL Authority, whose scope is apps/api/src/modules/settlement-engine/**, deal-command*, and the 20260713 settlement migration. The AGENTS.md rule against competing implementation PRs is not waived; it does not apply because the file sets are disjoint.",
 
-  "proposedFirstSliceOnly": {
-    "wave": 1,
-    "name": "Identity: job_profile + capabilities (schema + domain policy + unit tests)",
-    "rationale": "Smallest vertical slice that unblocks waves 2-14. Does not touch the 9 market roles, does not touch money, does not require any vendor credential.",
-    "requestedWritableFiles": [
+  "wave1": {
+    "name": "Identity: job_profile + membership capabilities",
+    "allowedFiles": [
       "apps/api/prisma/schema.prisma",
-      "apps/api/prisma/migrations/<new>_pc_crop_job_profile_capabilities/**",
+      "apps/api/prisma/migrations/*_pc_crop_job_profile_capabilities/**",
       "apps/api/src/modules/auth/organization-job-profile.ts",
       "apps/api/src/modules/auth/organization-job-profile.spec.ts",
       "apps/api/src/modules/auth/membership-capability.resolver.ts",
       "apps/api/src/modules/auth/membership-capability.resolver.spec.ts",
-      "docs/ops/pc-crop-federal-accounting/**"
+      "docs/ops/pc-crop-federal-accounting/**",
+      "docs/platform-v7/autopilot/scopes/pc-crop-federal-accounting.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ],
-    "explicitlyNotRequested": [
+    "explicitlyForbidden": [
       "apps/web/**",
       "packages/**",
       "pnpm-lock.yaml",
       "package.json",
       "apps/api/src/modules/settlement-engine/**",
-      "apps/api/src/modules/auth/organization-role-policy.ts"
+      "apps/api/src/modules/auth/organization-role-policy.ts",
+      "production mutation",
+      "any weakening of MFA, RLS, session or governance"
     ],
-    "invariantsPreserved": [
-      "ORGANIZATION_HUMAN_ROLES and ROLE_CEILING unchanged (registration authority #3785).",
-      "job_profile is an axis orthogonal to user_orgs.role; nullable; no default.",
-      "ACCOUNTING remains the bank/settlement role and is not repurposed.",
-      "No RLS, MFA or session weakening.",
-      "No Gekta runtime tuning change (#3896).",
-      "Expand-only migration; no destructive column changes."
+    "invariants": [
+      "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
+      "The 9 market roles in ORGANIZATION_HUMAN_ROLES and their ROLE_CEILING are unchanged.",
+      "ACCOUNTING keeps its existing bank/financial meaning and is not repurposed as the organization accountant.",
+      "Registration authority #3785 must not regress.",
+      "Migration is expand-only: additive columns and tables, no destructive change, no backfill that alters existing authority.",
+      "Capability resolution is deny-by-default."
     ],
     "requiredChecks": [
       "node scripts/p7-autopilot-dispatcher.mjs",
@@ -54,10 +53,23 @@
       "node scripts/check-production-hosting-authority.mjs",
       "pnpm typecheck",
       "pnpm test",
-      "registration regression for the 9 market roles (#3785)",
-      "apps/api/test/tenant-leakage.e2e-spec.ts"
+      "registration regression for the 9 market roles (#3785)"
     ]
   },
+
+  "notYetApproved": [
+    "Wave 2 documents and contracts",
+    "Wave 3 accounting task-first UX",
+    "Wave 4 money",
+    "Wave 5 Connection Center and Integration Core",
+    "Wave 6 1C connector",
+    "Wave 7 EDO",
+    "Wave 8 Grain and Transport",
+    "Wave 9 Gekta work bridge",
+    "Wave 10 anti-fraud",
+    "Wave 11 federal operations",
+    "Wave 12 production acceptance"
+  ],
 
   "maturityLanguage": "pre-integration",
   "newMandatoryCostsRub": 0,

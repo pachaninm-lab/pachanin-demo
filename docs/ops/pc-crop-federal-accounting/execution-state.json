@@ -7,16 +7,15 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-15T18:05:00.000Z",
-  "observedMainSha": "9b07e3190ab48476cba46082a99c01d5fba1bedc",
+  "updatedAt": "2026-08-15T18:30:00.000Z",
+  "observedMainSha": "eb5ea52249c7495d88f3768432158a59160647fc",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
   "overallProgressPercent": 1.8,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
-  "status": "BLOCKED_ON_OWNER_GOVERNANCE_DECISION",
+  "status": "WAVE_1_APPROVED_IN_PROGRESS",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
-
   "workstreams": [
     {
       "id": 1,
@@ -24,47 +23,257 @@
       "weightPercent": 3,
       "milestoneModel": "documentation-equivalent",
       "milestones": {
-        "artifactOnBranch": { "weightShare": 0.35, "done": true },
-        "verifiedAgainstLiveRepo": { "weightShare": 0.25, "done": true },
-        "mergedToMain": { "weightShare": 0.15, "done": false },
-        "adoptedAsGovernanceReference": { "weightShare": 0.10, "done": false },
-        "drivesAcceptedImplementationSlice": { "weightShare": 0.15, "done": false }
+        "artifactOnBranch": {
+          "weightShare": 0.35,
+          "done": true
+        },
+        "verifiedAgainstLiveRepo": {
+          "weightShare": 0.25,
+          "done": true
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "adoptedAsGovernanceReference": {
+          "weightShare": 0.1,
+          "done": false
+        },
+        "drivesAcceptedImplementationSlice": {
+          "weightShare": 0.15,
+          "done": false
+        }
       },
       "provenSharePercent": 60,
       "creditedPercent": 1.8,
-      "evidence": ["gap-matrix.md", "governance-blocker.md", "risk-register.md"]
+      "evidence": [
+        "gap-matrix.md",
+        "governance-blocker.md",
+        "risk-register.md"
+      ]
     },
-    { "id": 2,  "name": "Identity / organization / job profiles / capabilities", "weightPercent": 5, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "GOV-2"] },
-    { "id": 3,  "name": "Security baseline / threat model / IAM / RLS",          "weightPercent": 8, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1"] },
-    { "id": 4,  "name": "Documents / contracts / regulatory / tax profiles",     "weightPercent": 7, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "GOV-2"] },
-    { "id": 5,  "name": "Accounting task engine / UX / projections",            "weightPercent": 6, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "GOV-3"] },
-    { "id": 6,  "name": "Advances / services / payments / reconciliation",      "weightPercent": 6, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "GOV-4"] },
-    { "id": 7,  "name": "Connection Center / self-service onboarding",          "weightPercent": 4, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "GOV-3"] },
-    { "id": 8,  "name": "Integration Core / outbox / inbox / idempotency",      "weightPercent": 6, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "GOV-5"] },
-    { "id": 9,  "name": "1C Connector / bindings / compatibility",              "weightPercent": 8, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "GOV-5", "EXT-1C"] },
-    { "id": 10, "name": "EDO routes / Diadoc / Saby / 1C-EDO",                  "weightPercent": 7, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "GOV-5", "EXT-EDO"] },
-    { "id": 11, "name": "Grain / SDIZ",                                          "weightPercent": 4, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "EXT-FGIS"] },
-    { "id": 12, "name": "Transport EPD",                                         "weightPercent": 4, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "EXT-EPD"] },
-    { "id": 13, "name": "Gekta Work Context / finance UX / read models",        "weightPercent": 7, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "GOV-3"] },
-    { "id": 14, "name": "Anti-Fraud",                                            "weightPercent": 6, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1"] },
-    { "id": 15, "name": "Fleet / SOC / incident response / backup / DR",        "weightPercent": 7, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-1", "ENV-PROD"] },
-    { "id": 16, "name": "Mobile / accessibility / cross-browser / performance", "weightPercent": 4, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["GOV-3"] },
-    { "id": 17, "name": "Production deployment + full real E2E acceptance",     "weightPercent": 8, "provenSharePercent": 0, "creditedPercent": 0, "blockedBy": ["ENV-PROD", "GOV-1"] }
+    {
+      "id": 2,
+      "name": "Identity / organization / job profiles / capabilities",
+      "weightPercent": 5,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-2"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Security baseline / threat model / IAM / RLS",
+      "weightPercent": 8,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Documents / contracts / regulatory / tax profiles",
+      "weightPercent": 7,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-2"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Accounting task engine / UX / projections",
+      "weightPercent": 6,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-3"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Advances / services / payments / reconciliation",
+      "weightPercent": 6,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-4"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Connection Center / self-service onboarding",
+      "weightPercent": 4,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-3"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Integration Core / outbox / inbox / idempotency",
+      "weightPercent": 6,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-5"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "1C Connector / bindings / compatibility",
+      "weightPercent": 8,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-5",
+        "EXT-1C"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "EDO routes / Diadoc / Saby / 1C-EDO",
+      "weightPercent": 7,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-5",
+        "EXT-EDO"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Grain / SDIZ",
+      "weightPercent": 4,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "EXT-FGIS"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Transport EPD",
+      "weightPercent": 4,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "EXT-EPD"
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Gekta Work Context / finance UX / read models",
+      "weightPercent": 7,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-3"
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Anti-Fraud",
+      "weightPercent": 6,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1"
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Fleet / SOC / incident response / backup / DR",
+      "weightPercent": 7,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "ENV-PROD"
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Mobile / accessibility / cross-browser / performance",
+      "weightPercent": 4,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-3"
+      ]
+    },
+    {
+      "id": 17,
+      "name": "Production deployment + full real E2E acceptance",
+      "weightPercent": 8,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "ENV-PROD",
+        "GOV-1"
+      ]
+    }
   ],
-
-  "weightCheck": { "sum": 100, "creditedTotal": 1.8 },
-
+  "weightCheck": {
+    "sum": 100,
+    "creditedTotal": 1.8
+  },
   "completedEvidence": [
-    { "id": "EV-001", "what": "Contract identity verified", "detail": "Uploaded file SHA-256 matches b3e892ea...8125d4, 104981 bytes, 3877 lines, all 84 sections read." },
-    { "id": "EV-002", "what": "Live main observed and drift detected", "detail": "ba847b28 at session start -> 9b07e319 during audit. Section F concurrent drift is real, not theoretical." },
-    { "id": "EV-003", "what": "ACCOUNTING role conflict proven from code", "detail": "registration-application.service.ts:34 maps bank -> Role.ACCOUNTING; settlement-engine.controller.ts grants it money-movement commands. Contract section 6 assumption confirmed independently." },
-    { "id": "EV-004", "what": "Governance lock proven", "detail": "autopilot-state.json forbiddenZones includes packages and apps/web; allowedCurrentScope is bound to IR-10.4; lockedUntilCurrentGreen covers IR-20/IR-21 needed by waves 5-8." },
-    { "id": "EV-005", "what": "Production unreachable", "detail": "agentproxy status reports connect_rejected 403 for xn--80affnb9admdi3d.xn--p1ai:443." },
-    { "id": "EV-006", "what": "Existing strength inventory", "detail": "RLS FORCE in 42 files; durable outbox PR #2378; FGIS grain contour with 11 models; anti-fraud module present; MFA/session persistence merged (#2276/#2280/#2282/#2283)." },
-    { "id": "EV-007", "what": "Governance lock independently confirmed by repo tooling", "detail": "scripts/p7-autopilot-dispatcher.mjs prints: 'IR-10.4 Settlement PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-10.5.'" },
-    { "id": "EV-008", "what": "Defect found in mandated check script", "detail": "The AGENTS.md-mandated dispatcher rewrites progress.json and drops noSelfModifyingWorkflow and noDirectPushToMain from rules, and weakens the codex task prompt. Reverted; not committed. See risk-register.md R-11." }
+    {
+      "id": "EV-001",
+      "what": "Contract identity verified",
+      "detail": "Uploaded file SHA-256 matches b3e892ea...8125d4, 104981 bytes, 3877 lines, all 84 sections read."
+    },
+    {
+      "id": "EV-002",
+      "what": "Live main observed and drift detected",
+      "detail": "ba847b28 at session start -> 9b07e319 during audit. Section F concurrent drift is real, not theoretical."
+    },
+    {
+      "id": "EV-003",
+      "what": "ACCOUNTING role conflict proven from code",
+      "detail": "registration-application.service.ts:34 maps bank -> Role.ACCOUNTING; settlement-engine.controller.ts grants it money-movement commands. Contract section 6 assumption confirmed independently."
+    },
+    {
+      "id": "EV-004",
+      "what": "Governance lock proven",
+      "detail": "autopilot-state.json forbiddenZones includes packages and apps/web; allowedCurrentScope is bound to IR-10.4; lockedUntilCurrentGreen covers IR-20/IR-21 needed by waves 5-8."
+    },
+    {
+      "id": "EV-005",
+      "what": "Production unreachable",
+      "detail": "agentproxy status reports connect_rejected 403 for xn--80affnb9admdi3d.xn--p1ai:443."
+    },
+    {
+      "id": "EV-006",
+      "what": "Existing strength inventory",
+      "detail": "RLS FORCE in 42 files; durable outbox PR #2378; FGIS grain contour with 11 models; anti-fraud module present; MFA/session persistence merged (#2276/#2280/#2282/#2283)."
+    },
+    {
+      "id": "EV-007",
+      "what": "Governance lock independently confirmed by repo tooling",
+      "detail": "scripts/p7-autopilot-dispatcher.mjs prints: 'IR-10.4 Settlement PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-10.5.'"
+    },
+    {
+      "id": "EV-008",
+      "what": "Defect found in mandated check script",
+      "detail": "The AGENTS.md-mandated dispatcher rewrites progress.json and drops noSelfModifyingWorkflow and noDirectPushToMain from rules, and weakens the codex task prompt. Reverted; not committed. See risk-register.md R-11."
+    }
   ],
-
   "blockers": [
     {
       "id": "GOV-1",
@@ -73,7 +282,9 @@
       "what": "autopilot-state.json allowedCurrentScope/agentWritableScope admit only IR-10.4 settlement files. No wave of this contract has a writable zone.",
       "who": "repository owner",
       "minimalAction": "Register programme in approvedConcurrentScopes using docs/platform-v7/autopilot/scopes/pc-crop-federal-accounting.json",
-      "externallyResolvable": false
+      "externallyResolvable": false,
+      "resolved": true,
+      "resolution": "Owner decision 2026-08-15: programme approved as a separate concurrent workstream; Wave 1 only, bounded file list, recorded in autopilot-state.json approvedConcurrentScopes."
     },
     {
       "id": "GOV-2",
@@ -81,14 +292,18 @@
       "type": "owner-governance-decision",
       "what": "forbiddenZones lists 'packages' and DB migrations are restricted to prefix 20260713*_settlement_postgresql_authority.",
       "who": "repository owner",
-      "minimalAction": "Grant migration prefix + packages/domain-core write for this programme."
+      "minimalAction": "Grant migration prefix + packages/domain-core write for this programme.",
+      "resolved": true,
+      "resolution": "Owner decision 2026-08-15: programme approved as a separate concurrent workstream; Wave 1 only, bounded file list, recorded in autopilot-state.json approvedConcurrentScopes."
     },
     {
       "id": "GOV-3",
       "severity": "PROGRAMME_STOPPING",
       "type": "owner-governance-decision",
       "what": "forbiddenZones lists 'apps/web'; every accounting/Connection Center/Gekta UX wave needs it.",
-      "who": "repository owner"
+      "who": "repository owner",
+      "resolved": true,
+      "resolution": "Owner decision 2026-08-15: programme approved as a separate concurrent workstream; Wave 1 only, bounded file list, recorded in autopilot-state.json approvedConcurrentScopes."
     },
     {
       "id": "GOV-4",
@@ -96,14 +311,18 @@
       "type": "role-conflict",
       "what": "AGENTS.md: 'Claude should not write competing implementation PRs for the same current step.' Wave 4 targets settlement-engine, which is the current IR-10.4 step owned by Codex.",
       "who": "repository owner",
-      "minimalAction": "Confirm or waive this rule for this programme."
+      "minimalAction": "Confirm or waive this rule for this programme.",
+      "resolved": true,
+      "resolution": "Owner decision 2026-08-15: programme approved as a separate concurrent workstream; Wave 1 only, bounded file list, recorded in autopilot-state.json approvedConcurrentScopes."
     },
     {
       "id": "GOV-5",
       "severity": "HIGH",
       "type": "dependency-lock",
       "what": "lockedUntilCurrentGreen holds IR-20 Canonical Durable Outbox and IR-21 Durable Integration Inbox, which waves 5-8 depend on. IR-10.4 is not green.",
-      "who": "repository owner / IR-10.4 implementer"
+      "who": "repository owner / IR-10.4 implementer",
+      "resolved": false,
+      "note": "Still applies to waves 5-8 (IR-20/IR-21). Does not block Wave 1."
     },
     {
       "id": "ENV-PROD",
@@ -114,15 +333,36 @@
       "minimalAction": "Run the programme from an environment whose network policy permits the production domain, or supply evidence out-of-band."
     },
     {
-      "id": "EXT-1C",  "severity": "MEDIUM", "type": "vendor-credential", "what": "1C compatibility/Fresh partner track credentials absent. Contract section Q permits IMPLEMENTED/TESTED without production acceptance.", "who": "owner / 1C" },
-    { "id": "EXT-EDO", "severity": "MEDIUM", "type": "vendor-credential", "what": "Diadoc / Saby application registration and written multi-tenant SaaS conditions absent.", "who": "owner / Kontur / Tensor" },
-    { "id": "EXT-FGIS","severity": "MEDIUM", "type": "vendor-credential", "what": "FGIS Zerno production operator credentials not verifiable from this session.", "who": "owner" },
-    { "id": "EXT-EPD", "severity": "MEDIUM", "type": "vendor-credential", "what": "IS EPD operator contract absent.", "who": "owner" }
+      "id": "EXT-1C",
+      "severity": "MEDIUM",
+      "type": "vendor-credential",
+      "what": "1C compatibility/Fresh partner track credentials absent. Contract section Q permits IMPLEMENTED/TESTED without production acceptance.",
+      "who": "owner / 1C"
+    },
+    {
+      "id": "EXT-EDO",
+      "severity": "MEDIUM",
+      "type": "vendor-credential",
+      "what": "Diadoc / Saby application registration and written multi-tenant SaaS conditions absent.",
+      "who": "owner / Kontur / Tensor"
+    },
+    {
+      "id": "EXT-FGIS",
+      "severity": "MEDIUM",
+      "type": "vendor-credential",
+      "what": "FGIS Zerno production operator credentials not verifiable from this session.",
+      "who": "owner"
+    },
+    {
+      "id": "EXT-EPD",
+      "severity": "MEDIUM",
+      "type": "vendor-credential",
+      "what": "IS EPD operator contract absent.",
+      "who": "owner"
+    }
   ],
-
   "openPRs": [],
   "openPRsNote": "No implementation PR opened. Opening one for waves 1-12 would be a scope violation under AGENTS.md review rule and would be blocked at review by design.",
-
   "repositoryHealthObservations": [
     "100+ open PRs (list truncates at 100; oldest observed #2199).",
     "Last 30 workflow runs on main: 19 skipped, 11 in_progress, 0 success.",
@@ -130,14 +370,28 @@
     "Recent main history shows repeated reviewer-reset attempts: 31819549601 -> 31823705807 -> 31896239515 -> 31899275062.",
     "These are observations for the risk register, not part of this contract's scope."
   ],
-
   "nextActions": [
-    { "order": 1, "action": "Owner decides GOV-1..GOV-4 (register scope or decline programme).", "owner": "human" },
-    { "order": 2, "action": "If approved: Wave 1 identity/job_profile/capabilities as first vertical slice (schema + domain policy + unit tests), expand->dual-compatible->migrate per section K.", "owner": "agent" },
-    { "order": 3, "action": "Regression against registration authority #3785 and the 9 market roles before any auth PR (section T).", "owner": "agent" },
-    { "order": 4, "action": "Rebase onto live main before each PR; main moved once during this audit alone.", "owner": "agent" }
+    {
+      "order": 1,
+      "action": "Owner decides GOV-1..GOV-4 (register scope or decline programme).",
+      "owner": "human"
+    },
+    {
+      "order": 2,
+      "action": "If approved: Wave 1 identity/job_profile/capabilities as first vertical slice (schema + domain policy + unit tests), expand->dual-compatible->migrate per section K.",
+      "owner": "agent"
+    },
+    {
+      "order": 3,
+      "action": "Regression against registration authority #3785 and the 9 market roles before any auth PR (section T).",
+      "owner": "agent"
+    },
+    {
+      "order": 4,
+      "action": "Rebase onto live main before each PR; main moved once during this audit alone.",
+      "owner": "agent"
+    }
   ],
-
   "securityFindingsSummary": {
     "releaseBlockingFindings": 0,
     "note": "No security review of new code was performed because no new code was written. Existing baseline (RLS FORCE, split DB principals, MFA persistence, tenant-leakage e2e) is documented in gap-matrix.md section 2 and was not modified.",
@@ -151,7 +405,6 @@
       "proven ransomware/restore drill (section 50)"
     ]
   },
-
   "productionEvidenceSummary": {
     "exactShaDeploymentProven": false,
     "sellerJourneyProven": false,
@@ -160,6 +413,5 @@
     "backupRestoreProven": false,
     "reason": "ENV-PROD network policy; no production surface reachable."
   },
-
   "newMandatoryCostsRub": 0
 }
