@@ -19,15 +19,21 @@ for(const marker of [
   "'pc_auth_runtime', 'one_deal_auth', 'app_auth', 'app_service'",
   'AUTH_ROLE_ALLOWLIST',
   'AUTH_ROLE_OUTPUT_GUARD',
-  'SECURITY_INVARIANT_MISSING',
+  'IMAP_IDNA_TARGET',
+  'IMAP_IDNA_RECIPIENTS',
+  'def canonical_mailbox(value):',
+  "domain.encode('idna').decode('ascii').lower()",
   'PC_P0_FIRST_CUSTOMER_ALIAS_VALIDATE_ONLY',
+  'P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS',
 ]) if(!wrapper.includes(marker)) fail(`wrapper marker missing: ${marker}`);
 
 const validation=spawnSync('bash',[ACCEPTANCE],{
   encoding:'utf8',
   env:{...process.env,PC_P0_FIRST_CUSTOMER_ALIAS_VALIDATE_ONLY:'1'},
 });
-if(validation.status!==0 || !validation.stdout.includes('P0_FIRST_CUSTOMER_AUTH_ALIAS_PATCH=PASS')) {
+if(validation.status!==0
+  || !validation.stdout.includes('P0_FIRST_CUSTOMER_AUTH_ALIAS_PATCH=PASS')
+  || !validation.stdout.includes('P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS')) {
   fail(`wrapper validation failed: ${(validation.stderr||validation.stdout||'').trim().slice(0,600)}`);
 }
 
@@ -55,3 +61,4 @@ try {
 if(!fs.readFileSync(ACCEPTANCE,'utf8').includes("'app_service'")) fail('wrapper restore failed');
 console.log('P0_FIRST_CUSTOMER_ACCEPTANCE_CONTRACT=PASS');
 console.log('P0_FIRST_CUSTOMER_AUTH_ALIAS_COMPATIBILITY=HARDENED_LEGACY_APP_SERVICE');
+console.log('P0_FIRST_CUSTOMER_IMAP_RECIPIENT_CANONICALIZATION=IDNA_ASCII');
