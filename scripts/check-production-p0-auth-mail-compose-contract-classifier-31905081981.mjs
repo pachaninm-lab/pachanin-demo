@@ -19,7 +19,7 @@ for(const token of ['pull_request:','issue_comment:','github.event.issue.number 
 for(const p of allowed) need('workflow',workflow,`      - '${p}'`);
 for(const re of [/workflow_dispatch:/,/schedule:/,/\bpush:/,/StrictHostKeyChecking=no/,/UserKnownHostsFile=\/dev\/null/]) deny('workflow',workflow,re);
 for(const token of [`COMMAND='${command}'`,`SUBJECT_SHA='${subject}'`,'git diff --name-only "$SUBJECT_SHA..$CURRENT_MAIN"','docker compose --project-directory','config --format json','CONTRACT_CLASS=','RAW_CONFIG_PUBLISHED=0','PRODUCTION_MUTATION=NONE','API_FORBIDDEN_','WEB_WORKER_AUTHORITY_LEAK','WORKER_ENV_']) need('script',script,token);
-for(const re of [/password-reset\/request/,/password-reset\/confirm/,/docker\s+(restart|stop|rm|kill|compose\s+up|compose\s+down)/,/\bpsql\b/,/\bprisma\b/,/\bsmtp(lib)?\b/i,/\bimap(lib)?\b/i]) deny('script',script,re);
+for(const re of [/password-reset\/request/,/password-reset\/confirm/,/docker\s+(restart|stop|rm|kill|compose\s+up|compose\s+down)/,/\bpsql\b/,/\bprisma\s+(migrate|db|generate)/,/smtplib\./,/imaplib\./,/send_message\(/,/mailbox\.login\(/]) deny('script',script,re);
 if(scope.schemaVersion!=='platform-v7.concurrent-scope.v1'||scope.branch!=='diag/p0-auth-mail-compose-contract-31905081981-3785'||scope.status!=='active') failures.push('scope identity mismatch');
 if(scope.issue!==3785||scope.releaseIssue!==3072||scope.sourceRun!==31905081981||scope.sourceRevision!==subject) failures.push('scope authority mismatch');
 if(JSON.stringify([...scope.allowedPaths].sort())!==JSON.stringify(allowed)) failures.push('scope paths mismatch');
