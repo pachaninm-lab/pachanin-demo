@@ -6,6 +6,7 @@ import {
   platformHome,
   type AuthenticatedSessionPayload,
 } from '../../../../lib/server/auth-session-response';
+import { isControlHostRequest } from '../../../../lib/platform-v7/control-host';
 import {
   MFA_PENDING_COOKIE,
   clearMfaPendingCookieOptions,
@@ -76,7 +77,11 @@ function forwardedHeaders(request: Request, correlationId: string) {
   };
 }
 
-async function completeSession(payload: ApiLoginPayload, correlationId: string) {
+async function completeSession(
+  payload: ApiLoginPayload,
+  correlationId: string,
+  controlPlane: boolean,
+) {
   if (
     !payload.accessToken
     || !payload.refreshToken
@@ -87,37 +92,49 @@ async function completeSession(payload: ApiLoginPayload, correlationId: string) 
     || !payload.user.tenantId
     || !payload.user.membershipId
   ) {
-    console.error('auth_service_incomplete_session', JSON.stringify({ correlationId }));
+    console.error('auth_service_incomplete_session', JSON.stringify({ correlationId, controlPlane }));
     return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
   }
 
   const role = normalizeSurfaceRole(payload.user.role, payload.user.surfaceRole);
   if (!role) {
-    console.error('auth_service_unauthorized_role', JSON.stringify({ correlationId }));
+    console.error('auth_service_unauthorized_role', JSON.stringify({ correlationId, controlPlane }));
     return json({ ok: false, code: 'AUTH_SERVICE_INVALID_ROLE', message: UNIVERSAL_ERROR, correlationId }, 403);
   }
+  const redirectTo = controlPlane
+    ? '/platform-v7/staff'
+    : payload.staffOwner
+      ? '/platform-v7/staff'
+      : platformHome(role, payload.user.isOrgAdmin === true);
   const response = json({
     ok: true,
     mfaRequired: false,
-    redirectTo: payload.staffOwner
-      ? '/platform-v7/staff'
-      : platformHome(role, payload.user.isOrgAdmin === true),
+    redirectTo,
     correlationId,
   });
-  const session = await applyAuthenticatedSession(response, payload as AuthenticatedSessionPayload);
+  const session = await applyAuthenticatedSession(
+    response,
+    payload as AuthenticatedSessionPayload,
+    { controlPlane },
+  );
   if (!session) {
-    console.error('cabinet_session_signing_failed', JSON.stringify({ correlationId }));
+    console.error('cabinet_session_signing_failed', JSON.stringify({ correlationId, controlPlane }));
     return json({ ok: false, code: 'SESSION_CONFIGURATION_ERROR', message: UNIVERSAL_ERROR, correlationId }, 503);
   }
   response.cookies.set(MFA_PENDING_COOKIE, '', clearMfaPendingCookieOptions());
   response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, '', clearMembershipSelectionCookieOptions());
+  if (controlPlane) console.info('control_plane_login_success', JSON.stringify({ correlationId }));
   return response;
 }
 
 export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const controlPlane = isControlHostRequest(request);
   const csrf = assertCsrf(request);
-  if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
+  if (!csrf.ok) {
+    if (controlPlane) console.warn('control_plane_login_denied', JSON.stringify({ correlationId, reason: 'csrf' }));
+    return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
+  }
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
@@ -127,7 +144,7 @@ export async function POST(request: Request) {
   }
 
   if (!API_URL) {
-    console.error('auth_service_not_configured', JSON.stringify({ correlationId }));
+    console.error('auth_service_not_configured', JSON.stringify({ correlationId, controlPlane }));
     return json({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', message: UNIVERSAL_ERROR, correlationId }, 503);
   }
 
@@ -143,6 +160,7 @@ export async function POST(request: Request) {
 
     if (!apiResponse.ok) {
       const rateLimited = apiResponse.status === 429;
+      if (controlPlane) console.warn('control_plane_login_denied', JSON.stringify({ correlationId, reason: rateLimited ? 'rate_limited' : 'credentials' }));
       return json({
         ok: false,
         code: rateLimited ? 'RATE_LIMITED' : 'INVALID_CREDENTIALS',
@@ -162,7 +180,7 @@ export async function POST(request: Request) {
         ))
         : [];
       if (!payload.challengeToken || memberships.length < 2 || memberships.length > 50) {
-        console.error('auth_service_invalid_membership_selection', JSON.stringify({ correlationId }));
+        console.error('auth_service_invalid_membership_selection', JSON.stringify({ correlationId, controlPlane }));
         return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
       }
       const response = json({
@@ -179,7 +197,7 @@ export async function POST(request: Request) {
 
     if (payload.mfaRequired) {
       if (!payload.challengeToken || !payload.user?.email || !payload.user.role) {
-        console.error('auth_service_incomplete_mfa_challenge', JSON.stringify({ correlationId }));
+        console.error('auth_service_incomplete_mfa_challenge', JSON.stringify({ correlationId, controlPlane }));
         return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
       }
 
@@ -187,7 +205,7 @@ export async function POST(request: Request) {
       try {
         ticket = sealMfaLoginTicket({ challengeToken: payload.challengeToken, user: payload.user });
       } catch {
-        console.error('mfa_ticket_secret_not_configured', JSON.stringify({ correlationId }));
+        console.error('mfa_ticket_secret_not_configured', JSON.stringify({ correlationId, controlPlane }));
         return json({ ok: false, code: 'MFA_UNAVAILABLE', message: UNIVERSAL_ERROR, correlationId }, 503);
       }
 
@@ -206,10 +224,11 @@ export async function POST(request: Request) {
       return response;
     }
 
-    return completeSession(payload, correlationId);
+    return completeSession(payload, correlationId, controlPlane);
   } catch (error) {
     console.error('auth_login_transport_failure', JSON.stringify({
       correlationId,
+      controlPlane,
       reason: error instanceof Error ? error.name : 'unknown',
     }));
     return json({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', message: UNIVERSAL_ERROR, correlationId }, 503);
