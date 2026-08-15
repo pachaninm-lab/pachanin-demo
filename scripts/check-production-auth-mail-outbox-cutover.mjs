@@ -77,6 +77,15 @@ has(cutoverWrapper, 'PC_AUTH_MAIL_CUTOVER_VALIDATE_ONLY', 'wrapper local validat
 has(cutoverWrapper, 'LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY=PRESERVED', 'legacy Web mail preservation evidence missing');
 has(cutoverWrapper, '- ${transactional_mail_env_file}', 'wrapper must preserve legacy Web transactional-mail env file');
 has(cutoverWrapper, "grep -Eq '^AUTH_MAIL_'", 'Web must not receive worker-specific AUTH_MAIL authority');
+has(cutoverWrapper, 'API_NETWORK_CARDINALITY_INVALID', 'cutover must require exactly one authoritative API network');
+has(cutoverWrapper, 'API_NETWORK_NAME_INVALID', 'cutover must reject unsafe API network names');
+has(cutoverWrapper, 'auth_mail_api_runtime', 'worker compose override must bind the API runtime network explicitly');
+has(cutoverWrapper, 'external: true', 'worker API network must be an existing external production network');
+has(cutoverWrapper, 'name: ${api_network_name}', 'worker API network alias must resolve to the authoritative runtime network');
+has(cutoverWrapper, 'verify_worker_network_parity()', 'cutover must verify runtime worker/API network equality');
+has(cutoverWrapper, 'AUTH_MAIL_WORKER_NETWORK_PARITY_FAILED', 'cutover must fail closed when runtime network parity is absent');
+has(cutoverWrapper, 'AUTH_MAIL_WORKER_NETWORK=PASS', 'production evidence must prove worker/API network parity without exposing the network name');
+lacks(cutoverWrapper, "printf 'API_NETWORK_NAME=", 'public cutover evidence must not print the production network name');
 
 has(cutoverCore, '/app/dist/apps/api/src/auth-mail-worker.js', 'pre-mutation worker artifact proof missing');
 has(cutoverCore, 'restore_baseline()', 'cutover core must carry rollback routine');
