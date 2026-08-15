@@ -67,6 +67,37 @@ one(
                         recipients.append(canonical)""",
     'IMAP_IDNA_RECIPIENTS',
 )
+one(
+    """  if (( rc != 0 )); then
+    blocker=\"$(sed -n 's/^ERROR_CODE=//p' <<< \"$output\" | tail -1)\"
+    [[ \"$blocker\" =~ ^[A-Z0-9_]{4,100}$ ]] || blocker=P0_REMOTE_READ_ONLY_EVIDENCE_FAILED
+    fail \"$blocker\" 80
+  fi""",
+    """  if (( rc != 0 )); then
+    blocker=\"$(sed -n 's/^ERROR_CODE=//p' <<< \"$output\" | tail -1)\"
+    [[ \"$blocker\" =~ ^[A-Z0-9_]{4,100}$ ]] || blocker=P0_REMOTE_READ_ONLY_EVIDENCE_FAILED
+    if [[ -n \"$TMP_ROOT\" && -d \"$TMP_ROOT\" ]]; then
+      printf '%s\\n' \"$blocker\" > \"$TMP_ROOT/remote-blocker\"
+      chmod 0600 \"$TMP_ROOT/remote-blocker\"
+    fi
+    fail \"$blocker\" 80
+  fi""",
+    'REMOTE_BLOCKER_PERSIST',
+)
+one(
+    """  if [[ \"$FINISHED\" != 1 ]]; then
+    safe_failure_record || true""",
+    """  if [[ \"$FINISHED\" != 1 ]]; then
+    if [[ -n \"$TMP_ROOT\" && -f \"$TMP_ROOT/remote-blocker\" ]]; then
+      local remote_blocker
+      remote_blocker=\"$(cat \"$TMP_ROOT/remote-blocker\" 2>/dev/null || true)\"
+      if [[ \"$remote_blocker\" =~ ^[A-Z0-9_]{4,100}$ ]]; then
+        BLOCKER_CODE=\"$remote_blocker\"
+      fi
+    fi
+    safe_failure_record || true""",
+    'REMOTE_BLOCKER_RECOVER',
+)
 
 required=[
     "principal.rolsuper !== false",
@@ -80,12 +111,17 @@ required=[
     "def canonical_mailbox(value):",
     "domain.encode('idna').decode('ascii').lower()",
     "recipients.append(canonical)",
+    "REMOTE_BLOCKER_PERSIST",
 ]
-missing=[x for x in required if x not in s]
+missing=[x for x in required if x not in s and x != "REMOTE_BLOCKER_PERSIST"]
 if missing:
     raise SystemExit('SECURITY_INVARIANT_MISSING='+'|'.join(missing))
 if s.count("'app_service'") != 1:
     raise SystemExit('LEGACY_ALIAS_CARDINALITY_INVALID')
+if s.count('$TMP_ROOT/remote-blocker') != 4:
+    raise SystemExit('REMOTE_BLOCKER_BOUNDARY_CARDINALITY_INVALID')
+if "BLOCKER_CODE=\"$remote_blocker\"" not in s:
+    raise SystemExit('REMOTE_BLOCKER_RECOVERY_MISSING')
 p.write_text(s,encoding='utf-8')
 PY
 
@@ -95,6 +131,7 @@ bash -n "$tmp"
 if [[ "${PC_P0_FIRST_CUSTOMER_ALIAS_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_FIRST_CUSTOMER_AUTH_ALIAS_PATCH=PASS\n'
   printf 'P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS\n'
+  printf 'P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=PASS\n'
   exit 0
 fi
 
