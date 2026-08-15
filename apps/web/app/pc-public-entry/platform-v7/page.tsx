@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import './home-approved-contact-dock.css';
 import PlatformV7RootPage from '@/app/platform-v7/page';
 import {
@@ -56,6 +56,13 @@ function firstSearchParam(value: string | string[] | undefined): string | undefi
 }
 
 async function resolveMetadataLocale(searchParams: SearchParams): Promise<AppLocale> {
+  // Middleware resolves the original public URL before Next.js applies the
+  // internal /platform-v7 -> /pc-public-entry/platform-v7 rewrite. The
+  // x-pc-locale request header therefore preserves explicit ?lang= authority
+  // even when the rewritten destination does not receive reliable searchParams.
+  const requestLocale = (await headers()).get('x-pc-locale');
+  if (isAppLocale(requestLocale)) return requestLocale;
+
   const params = await searchParams;
   const queryLocale = firstSearchParam(params.lang);
   if (isAppLocale(queryLocale)) return queryLocale;
