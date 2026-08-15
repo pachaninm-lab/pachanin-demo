@@ -27,6 +27,7 @@ const publicRoutes = [
 ] as const;
 
 const allowedCyrillicTokens = [
+  'Процент-Агро',
   'Прозрачная Цена',
   'ФГИС',
   'СДИЗ',
