@@ -76,8 +76,8 @@ has(cutoverWrapper, "user_domain != platform_domain and not user_domain.endswith
 has(cutoverWrapper, 'PC_AUTH_MAIL_CUTOVER_VALIDATE_ONLY', 'wrapper local validation mode missing');
 has(cutoverWrapper, 'LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY=PRESERVED', 'legacy Web mail preservation evidence missing');
 has(cutoverWrapper, 'WEB_CANONICAL_TRANSPORT_AUTHORITY', 'cutover must project canonical transport authority into Web');
-assert((cutoverWrapper.match(/- \$\{transactional_mail_env_file\}/g) || []).length === 1, 'raw transactional-mail env must remain only in legacy baseline override');
-assert((cutoverWrapper.match(/- \$\{AUTH_MAIL_TRANSPORT_AUTHORITY\}/g) || []).length === 1, 'canonical auth-mail transport must be injected into cutover Web exactly once');
+has(cutoverWrapper, 'if source.count("- ${transactional_mail_env_file}") != 1:', 'patched cutover must enforce raw transactional-mail baseline cardinality');
+has(cutoverWrapper, 'if source.count("- ${AUTH_MAIL_TRANSPORT_AUTHORITY}") != 1:', 'patched cutover must enforce canonical Web transport cardinality');
 has(cutoverWrapper, '- ${gekta_web_runtime_env_file}\n      - ${AUTH_MAIL_TRANSPORT_AUTHORITY}', 'canonical Web transport authority must have final env_file precedence');
 has(cutoverWrapper, "grep -Eq '^AUTH_MAIL_'", 'Web must not receive worker-specific AUTH_MAIL authority');
 has(cutoverWrapper, 'API_NETWORK_CARDINALITY_INVALID', 'cutover must require exactly one authoritative API network');
@@ -104,7 +104,7 @@ const preRuntimeRestoreEnd = cutoverWrapper.indexOf('cleanup_cutover_override_sn
 assert(preRuntimeRestoreStart >= 0 && preRuntimeRestoreEnd > preRuntimeRestoreStart, 'pre-runtime restore function boundaries missing');
 lacks(cutoverWrapper.slice(preRuntimeRestoreStart, preRuntimeRestoreEnd), 'docker ', 'pre-runtime override restore must not recreate containers');
 has(cutoverWrapper, 'DISARM_ROLLBACK_ON_SUCCESS', 'rollback state must be disarmed only after successful cutover');
-has(cutoverWrapper, 'ROLLBACK_ATTEMPTED=1', 'post-mutation failure evidence must record rollback attempt');
+has(cutoverWrapper, 'ROLLBACK_ATTEMPTED=1', 'post-mutation failure evidence missing');
 has(cutoverWrapper, 'ROLLBACK_COMPLETE=1', 'successful rollback evidence missing');
 has(cutoverWrapper, 'ROLLBACK_FAILED=1', 'failed rollback evidence missing');
 has(cutoverWrapper, 'wait_worker || fail AUTH_MAIL_WORKER_READINESS_FAILED 40', 'worker readiness explicit-fail path must remain covered');
