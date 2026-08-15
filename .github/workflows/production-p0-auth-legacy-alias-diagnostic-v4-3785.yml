@@ -86,7 +86,7 @@ jobs:
               'github.event.comment.performed_via_github_app.id == 1144995',
               "github.event.comment.body == '/production p0-auth-legacy-alias-diagnostic-v4 280c'",
           ]:
-              if authority.count(value) != 2:
+              if authority.count(value) != 3:
                   raise SystemExit('owner command authority invariant missing: ' + value)
           PY
           bash "$wrapper"
