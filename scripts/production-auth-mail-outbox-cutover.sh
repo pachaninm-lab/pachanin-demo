@@ -295,6 +295,101 @@ verify_worker_network_parity || fail AUTH_MAIL_WORKER_NETWORK_PARITY_FAILED 48
 "CUTOVER_WORKER_NETWORK_PARITY",
 )
 
+# Explicit exit from fail() does not invoke Bash ERR traps. Replace the
+# post-mutation failure path with one centralized, idempotent rollback state
+# machine. The rollback is armed immediately before the cutover override is
+# written; every explicit fail() or implicit ERR after that point uses the same
+# handler and publishes deterministic machine-readable rollback evidence.
+replace_once(
+"""fail() { printf 'ERROR_CODE=%s\\n' "$1" >&2; exit "${2:-1}"; }
+""",
+"""CUTOVER_ROLLBACK_ARMED=0
+CUTOVER_ROLLBACK_ACTIVE=0
+fail() {
+  local code="$1" rc="${2:-1}"
+  printf 'ERROR_CODE=%s\\n' "$code" >&2
+  if [[ "${CUTOVER_ROLLBACK_ARMED:-0}" == 1 && "${CUTOVER_ROLLBACK_ACTIVE:-0}" == 0 ]]; then
+    rollback_and_exit "$rc"
+  fi
+  exit "$rc"
+}
+""",
+"FAIL_ROLLBACK_DISPATCH",
+)
+
+replace_once(
+"""on_error() {
+  rc=$?
+  trap - ERR
+  rollback_status=0
+  restore_baseline || rollback_status=$?
+  printf 'AUTH_MAIL_CUTOVER=FAIL\\n' >&2
+  printf 'ROLLBACK_ATTEMPTED=1\\n' >&2
+  printf 'ROLLBACK_COMPLETE=%s\\n' "$([[ "$rollback_status" == 0 ]] && echo 1 || echo 0)" >&2
+  exit "$rc"
+}
+trap on_error ERR
+""",
+"""rollback_and_exit() {
+  local rc="${1:-1}" rollback_status=0
+  if [[ "${CUTOVER_ROLLBACK_ACTIVE:-0}" == 1 ]]; then
+    exit "$rc"
+  fi
+  CUTOVER_ROLLBACK_ACTIVE=1
+  trap - ERR
+  restore_baseline || rollback_status=$?
+  printf 'AUTH_MAIL_CUTOVER=FAIL\\n' >&2
+  printf 'ROLLBACK_ATTEMPTED=1\\n' >&2
+  if [[ "$rollback_status" == 0 ]]; then
+    printf 'ROLLBACK_COMPLETE=1\\n' >&2
+    printf 'ROLLBACK_FAILED=0\\n' >&2
+  else
+    printf 'ROLLBACK_COMPLETE=0\\n' >&2
+    printf 'ROLLBACK_FAILED=1\\n' >&2
+  fi
+  exit "$rc"
+}
+on_error() {
+  local rc=$?
+  trap - ERR
+  if [[ "${CUTOVER_ROLLBACK_ARMED:-0}" == 1 ]]; then
+    rollback_and_exit "$rc"
+  fi
+  printf 'AUTH_MAIL_CUTOVER=FAIL\\n' >&2
+  printf 'ROLLBACK_ATTEMPTED=0\\n' >&2
+  printf 'ROLLBACK_COMPLETE=0\\n' >&2
+  printf 'ROLLBACK_FAILED=0\\n' >&2
+  exit "$rc"
+}
+trap on_error ERR
+""",
+"CENTRAL_ROLLBACK_STATE_MACHINE",
+)
+
+replace_once(
+"""printf 'AUTH_MAIL_RUNTIME_PROVISION=PASS\\n'
+
+write_auth_mail_override "$target_api_image" "$target_web_image" "$target_api_image" "$migration_image"
+""",
+"""printf 'AUTH_MAIL_RUNTIME_PROVISION=PASS\\n'
+
+CUTOVER_ROLLBACK_ARMED=1
+write_auth_mail_override "$target_api_image" "$target_web_image" "$target_api_image" "$migration_image"
+""",
+"ARM_ROLLBACK_BEFORE_MUTATION",
+)
+
+replace_once(
+"""trap - ERR
+printf 'AUTH_MAIL_CUTOVER=PASS\\n'
+""",
+"""CUTOVER_ROLLBACK_ARMED=0
+trap - ERR
+printf 'AUTH_MAIL_CUTOVER=PASS\\n'
+""",
+"DISARM_ROLLBACK_ON_SUCCESS",
+)
+
 replace_once(
 "printf 'WEB_SMTP_AUTHORITY=ABSENT\\n'\n",
 "printf 'LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY=PRESERVED\\n'\n",
@@ -325,6 +420,14 @@ if source.count("AUTH_MAIL_WORKER_NETWORK=PASS") != 1:
     raise SystemExit("WORKER_NETWORK_EVIDENCE_INVALID")
 if "API_NETWORK_CARDINALITY_INVALID" not in source or "AUTH_MAIL_WORKER_NETWORK_PARITY_FAILED" not in source:
     raise SystemExit("WORKER_NETWORK_FAIL_CLOSED_MARKER_MISSING")
+if source.count("CUTOVER_ROLLBACK_ARMED=1") != 1 or source.count("CUTOVER_ROLLBACK_ARMED=0") != 2:
+    raise SystemExit("ROLLBACK_ARM_STATE_INVALID")
+if source.count("rollback_and_exit") != 3:
+    raise SystemExit("ROLLBACK_HANDLER_CARDINALITY_INVALID")
+if source.count("ROLLBACK_ATTEMPTED=1") != 1 or source.count("ROLLBACK_FAILED=1") != 1:
+    raise SystemExit("ROLLBACK_FAILURE_EVIDENCE_INVALID")
+if "wait_worker || fail AUTH_MAIL_WORKER_READINESS_FAILED 40" not in source:
+    raise SystemExit("READINESS_FAILURE_PATH_MISSING")
 
 Path(target_path).write_text(source, encoding='utf-8')
 PY
