@@ -136,11 +136,11 @@ replace_once(
     pull_policy: never
     env_file:
       - ${password_reset_delivery_env_file}
-      - ${transactional_mail_env_file}
       - ${gekta_web_runtime_env_file}
+      - ${AUTH_MAIL_TRANSPORT_AUTHORITY}
   ${AUTH_MAIL_WORKER_SERVICE}:
 """,
-"WEB_LEGACY_MAIL_ENV",
+"WEB_CANONICAL_TRANSPORT_AUTHORITY",
 )
 
 replace_once(
@@ -270,41 +270,93 @@ restore_baseline() {
 )
 
 replace_once(
-"""    \"${dc_target[@]}\" up -d --no-deps --pull never api \"$AUTH_MAIL_WORKER_SERVICE\" web || return 1
-    wait_api && wait_worker && wait_web || return 1
-    verify_runtime_revisions \"$baseline_api_revision\" \"$baseline_web_revision\" \"$pre_worker_revision\" || return 1
+"""  [[ "${current_api_networks[0]}" == "${current_worker_networks[0]}" && "${current_api_networks[0]}" == "$api_network_name" ]]
+}
+
+restore_baseline() {
 """,
-"""    \"${dc_target[@]}\" up -d --no-deps --pull never api \"$AUTH_MAIL_WORKER_SERVICE\" web || return 1
+"""  [[ "${current_api_networks[0]}" == "${current_worker_networks[0]}" && "${current_api_networks[0]}" == "$api_network_name" ]]
+}
+
+snapshot_cutover_override() {
+  [[ -f "$full_override" && ! -L "$full_override" ]] || return 1
+  [[ "$(stat -c '%a:%u:%g' "$full_override")" == '600:0:0' ]] || return 1
+  [[ -z "${CUTOVER_OVERRIDE_SNAPSHOT:-}" ]] || return 1
+  CUTOVER_OVERRIDE_SNAPSHOT="$(mktemp "$prod_dir/.pc-auth-mail-cutover-override-snapshot.XXXXXX")" || return 1
+  cp --preserve=mode,ownership -- "$full_override" "$CUTOVER_OVERRIDE_SNAPSHOT" || {
+    rm -f -- "$CUTOVER_OVERRIDE_SNAPSHOT"
+    CUTOVER_OVERRIDE_SNAPSHOT=''
+    return 1
+  }
+  chmod 0600 "$CUTOVER_OVERRIDE_SNAPSHOT" || return 1
+  chown 0:0 "$CUTOVER_OVERRIDE_SNAPSHOT" || return 1
+  cmp -s -- "$full_override" "$CUTOVER_OVERRIDE_SNAPSHOT"
+}
+
+restore_cutover_override_snapshot() {
+  local restore_tmp=''
+  [[ -n "${CUTOVER_OVERRIDE_SNAPSHOT:-}" ]] || return 1
+  [[ -f "$CUTOVER_OVERRIDE_SNAPSHOT" && ! -L "$CUTOVER_OVERRIDE_SNAPSHOT" ]] || return 1
+  [[ "$(stat -c '%a:%u:%g' "$CUTOVER_OVERRIDE_SNAPSHOT")" == '600:0:0' ]] || return 1
+  restore_tmp="$(mktemp "$prod_dir/.pc-auth-mail-cutover-override-restore.XXXXXX")" || return 1
+  install -m 0600 -o 0 -g 0 "$CUTOVER_OVERRIDE_SNAPSHOT" "$restore_tmp" || { rm -f -- "$restore_tmp"; return 1; }
+  cmp -s -- "$CUTOVER_OVERRIDE_SNAPSHOT" "$restore_tmp" || { rm -f -- "$restore_tmp"; return 1; }
+  mv -f -- "$restore_tmp" "$full_override" || { rm -f -- "$restore_tmp"; return 1; }
+  [[ -f "$full_override" && ! -L "$full_override" ]] || return 1
+  [[ "$(stat -c '%a:%u:%g' "$full_override")" == '600:0:0' ]] || return 1
+  cmp -s -- "$CUTOVER_OVERRIDE_SNAPSHOT" "$full_override"
+}
+
+cleanup_cutover_override_snapshot() {
+  if [[ -n "${CUTOVER_OVERRIDE_SNAPSHOT:-}" ]]; then
+    rm -f -- "$CUTOVER_OVERRIDE_SNAPSHOT" || return 1
+    CUTOVER_OVERRIDE_SNAPSHOT=''
+  fi
+  return 0
+}
+
+restore_baseline() {
+""",
+"PRE_RUNTIME_OVERRIDE_ONLY_ROLLBACK",
+)
+
+replace_once(
+"""    "${dc_target[@]}" up -d --no-deps --pull never api "$AUTH_MAIL_WORKER_SERVICE" web || return 1
+    wait_api && wait_worker && wait_web || return 1
+    verify_runtime_revisions "$baseline_api_revision" "$baseline_web_revision" "$pre_worker_revision" || return 1
+""",
+"""    "${dc_target[@]}" up -d --no-deps --pull never api "$AUTH_MAIL_WORKER_SERVICE" web || return 1
     wait_api && wait_worker && wait_web || return 1
     verify_worker_network_parity || return 1
-    verify_runtime_revisions \"$baseline_api_revision\" \"$baseline_web_revision\" \"$pre_worker_revision\" || return 1
+    verify_runtime_revisions "$baseline_api_revision" "$baseline_web_revision" "$pre_worker_revision" || return 1
 """,
 "ROLLBACK_WORKER_NETWORK_PARITY",
 )
 
 replace_once(
-"""\"${dc_target[@]}\" up -d --no-deps --pull never \"$AUTH_MAIL_WORKER_SERVICE\"
+""""${dc_target[@]}" up -d --no-deps --pull never "$AUTH_MAIL_WORKER_SERVICE"
 wait_worker || fail AUTH_MAIL_WORKER_READINESS_FAILED 40
-\"${dc_target[@]}\" up -d --no-deps --pull never web
+"${dc_target[@]}" up -d --no-deps --pull never web
 """,
-"""\"${dc_target[@]}\" up -d --no-deps --pull never \"$AUTH_MAIL_WORKER_SERVICE\"
+""""${dc_target[@]}" up -d --no-deps --pull never "$AUTH_MAIL_WORKER_SERVICE"
 wait_worker || fail AUTH_MAIL_WORKER_READINESS_FAILED 40
 verify_worker_network_parity || fail AUTH_MAIL_WORKER_NETWORK_PARITY_FAILED 48
-\"${dc_target[@]}\" up -d --no-deps --pull never web
+"${dc_target[@]}" up -d --no-deps --pull never web
 """,
 "CUTOVER_WORKER_NETWORK_PARITY",
 )
 
 # Explicit exit from fail() does not invoke Bash ERR traps. Replace the
 # post-mutation failure path with one centralized, idempotent rollback state
-# machine. The rollback is armed immediately before the cutover override is
-# written; every explicit fail() or implicit ERR after that point uses the same
-# handler and publishes deterministic machine-readable rollback evidence.
+# machine. Before the first runtime compose mutation, rollback restores only
+# the exact pre-cutover override bytes and never recreates containers.
 replace_once(
 """fail() { printf 'ERROR_CODE=%s\\n' "$1" >&2; exit "${2:-1}"; }
 """,
 """CUTOVER_ROLLBACK_ARMED=0
 CUTOVER_ROLLBACK_ACTIVE=0
+CUTOVER_RUNTIME_MUTATION_STARTED=0
+CUTOVER_OVERRIDE_SNAPSHOT=''
 fail() {
   local code="$1" rc="${2:-1}"
   printf 'ERROR_CODE=%s\\n' "$code" >&2
@@ -337,7 +389,12 @@ trap on_error ERR
   fi
   CUTOVER_ROLLBACK_ACTIVE=1
   trap - ERR
-  restore_baseline || rollback_status=$?
+  if [[ "${CUTOVER_RUNTIME_MUTATION_STARTED:-0}" == 0 ]]; then
+    restore_cutover_override_snapshot || rollback_status=$?
+  else
+    restore_baseline || rollback_status=$?
+  fi
+  cleanup_cutover_override_snapshot || rollback_status=1
   printf 'AUTH_MAIL_CUTOVER=FAIL\\n' >&2
   printf 'ROLLBACK_ATTEMPTED=1\\n' >&2
   if [[ "$rollback_status" == 0 ]]; then
@@ -373,6 +430,7 @@ write_auth_mail_override "$target_api_image" "$target_web_image" "$target_api_im
 """,
 """printf 'AUTH_MAIL_RUNTIME_PROVISION=PASS\\n'
 
+snapshot_cutover_override || fail CUTOVER_OVERRIDE_SNAPSHOT_FAILED 49
 CUTOVER_ROLLBACK_ARMED=1
 write_auth_mail_override "$target_api_image" "$target_web_image" "$target_api_image" "$migration_image"
 """,
@@ -380,10 +438,24 @@ write_auth_mail_override "$target_api_image" "$target_web_image" "$target_api_im
 )
 
 replace_once(
+"""printf 'AUTH_MAIL_COMPOSE_CONTRACT=PASS\\n'
+
+"${dc_target[@]}" up -d --no-deps --pull never api
+""",
+"""printf 'AUTH_MAIL_COMPOSE_CONTRACT=PASS\\n'
+
+CUTOVER_RUNTIME_MUTATION_STARTED=1
+"${dc_target[@]}" up -d --no-deps --pull never api
+""",
+"MARK_RUNTIME_MUTATION_BEFORE_API",
+)
+
+replace_once(
 """trap - ERR
 printf 'AUTH_MAIL_CUTOVER=PASS\\n'
 """,
-"""CUTOVER_ROLLBACK_ARMED=0
+"""cleanup_cutover_override_snapshot || fail CUTOVER_OVERRIDE_SNAPSHOT_CLEANUP_FAILED 50
+CUTOVER_ROLLBACK_ARMED=0
 trap - ERR
 printf 'AUTH_MAIL_CUTOVER=PASS\\n'
 """,
@@ -406,8 +478,10 @@ if "WEB_SMTP_AUTHORITY=ABSENT" in source:
     raise SystemExit("STALE_WEB_ABSENCE_MARKER_PRESENT")
 if source.count("LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY=PRESERVED") != 1:
     raise SystemExit("LEGACY_WEB_EVIDENCE_MARKER_INVALID")
-if source.count("- ${transactional_mail_env_file}") != 2:
-    raise SystemExit("TRANSACTIONAL_MAIL_ENV_CARDINALITY_INVALID")
+if source.count("- ${transactional_mail_env_file}") != 1:
+    raise SystemExit("LEGACY_TRANSACTIONAL_MAIL_ENV_CARDINALITY_INVALID")
+if source.count("- ${AUTH_MAIL_TRANSPORT_AUTHORITY}") != 1:
+    raise SystemExit("CANONICAL_WEB_TRANSPORT_AUTHORITY_CARDINALITY_INVALID")
 if "API_SMTP_AUTHORITY=ABSENT" not in source:
     raise SystemExit("API_SMTP_ABSENCE_MARKER_MISSING")
 if "LEGACY_SMTP_NOT_CANONICAL" not in source:
@@ -426,6 +500,12 @@ if source.count("rollback_and_exit") != 3:
     raise SystemExit("ROLLBACK_HANDLER_CARDINALITY_INVALID")
 if source.count("ROLLBACK_ATTEMPTED=1") != 1 or source.count("ROLLBACK_FAILED=1") != 1:
     raise SystemExit("ROLLBACK_FAILURE_EVIDENCE_INVALID")
+if source.count("CUTOVER_RUNTIME_MUTATION_STARTED=1") != 1 or source.count("CUTOVER_RUNTIME_MUTATION_STARTED=0") != 1:
+    raise SystemExit("RUNTIME_MUTATION_STATE_INVALID")
+if source.count("snapshot_cutover_override") != 2 or source.count("restore_cutover_override_snapshot") != 2:
+    raise SystemExit("OVERRIDE_SNAPSHOT_CARDINALITY_INVALID")
+if source.count("cleanup_cutover_override_snapshot") != 3:
+    raise SystemExit("OVERRIDE_SNAPSHOT_CLEANUP_CARDINALITY_INVALID")
 if "wait_worker || fail AUTH_MAIL_WORKER_READINESS_FAILED 40" not in source:
     raise SystemExit("READINESS_FAILURE_PATH_MISSING")
 
