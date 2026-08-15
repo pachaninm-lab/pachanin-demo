@@ -9,13 +9,16 @@ import {
   STAFF_ENDPOINT_POLICIES,
   StaffAuditClass,
   StaffAuthorizationClass,
-  StaffEndpointPolicy,
+  type StaffEndpointPolicy,
   staffEndpointPolicyKey,
 } from './staff-endpoint-policy';
 import { STAFF_PERMISSIONS_KEY } from './staff-permissions.decorator';
 import { StaffWorkspaceController } from './staff-workspace.controller';
 
-type ControllerType = new (...args: never[]) => unknown;
+type ControllerType = {
+  name: string;
+  prototype: Record<string, unknown>;
+};
 
 type ActualRoute = {
   method: 'GET' | 'POST';
@@ -52,7 +55,7 @@ function actualRoutes(): ActualRoute[] {
   for (const controller of controllers) {
     const basePath = String(Reflect.getMetadata(PATH_METADATA, controller) ?? '');
     const classGuards = metadataArray<unknown>(GUARDS_METADATA, controller);
-    const prototype = controller.prototype as Record<string, unknown>;
+    const prototype = controller.prototype;
     for (const handlerName of Object.getOwnPropertyNames(prototype)) {
       if (handlerName === 'constructor') continue;
       const handler = prototype[handlerName];
@@ -97,6 +100,23 @@ function sorted<T extends string>(values: readonly T[]): T[] {
   return [...values].sort();
 }
 
+function policyMetadataErrors(route: ActualRoute, entry: StaffEndpointPolicy): string[] {
+  const errors: string[] = [];
+  const key = staffEndpointPolicyKey(route.method, route.path);
+  if (entry.requiresAccessSession) {
+    if (!route.guards.includes(StaffAccessGuard)) errors.push(`${key}: StaffAccessGuard missing`);
+    if (JSON.stringify(sorted(route.modes)) !== JSON.stringify(sorted(entry.modes))) errors.push(`${key}: modes mismatch`);
+    if (JSON.stringify(sorted(route.permissions)) !== JSON.stringify(sorted(entry.permissions))) errors.push(`${key}: permissions mismatch`);
+    if (entry.modes.length === 0) errors.push(`${key}: privileged policy has no modes`);
+    if (entry.permissions.length === 0) errors.push(`${key}: privileged policy has no permissions`);
+  } else {
+    if (route.guards.includes(StaffAccessGuard)) errors.push(`${key}: unexpected StaffAccessGuard`);
+    if (route.modes.length > 0) errors.push(`${key}: unexpected privileged modes`);
+    if (route.permissions.length > 0) errors.push(`${key}: unexpected privileged permissions`);
+  }
+  return errors;
+}
+
 describe('Company OS staff endpoint authorization and audit policy gate', () => {
   const routes = actualRoutes();
 
@@ -112,18 +132,7 @@ describe('Company OS staff endpoint authorization and audit policy gate', () => 
       ));
       expect(entry).toBeDefined();
       if (!entry) continue;
-
-      if (entry.requiresAccessSession) {
-        expect(route.guards).toContain(StaffAccessGuard);
-        expect(sorted(route.modes)).toEqual(sorted(entry.modes));
-        expect(sorted(route.permissions)).toEqual(sorted(entry.permissions));
-        expect(entry.modes.length).toBeGreaterThan(0);
-        expect(entry.permissions.length).toBeGreaterThan(0);
-      } else {
-        expect(route.guards).not.toContain(StaffAccessGuard);
-        expect(route.modes).toEqual([]);
-        expect(route.permissions).toEqual([]);
-      }
+      expect(policyMetadataErrors(route, entry)).toEqual([]);
     }
   });
 
@@ -208,7 +217,7 @@ describe('Company OS staff endpoint authorization and audit policy gate', () => 
     );
   });
 
-  it('negative fixture: contradictory privileged metadata is rejected by the gate contract', () => {
+  it('negative fixture: contradictory privileged metadata fails the same policy checker', () => {
     const target = routes.find((route) => route.path === '/staff/registration/applications');
     expect(target).toBeDefined();
     if (!target) return;
@@ -216,6 +225,6 @@ describe('Company OS staff endpoint authorization and audit policy gate', () => 
     expect(entry).toBeDefined();
     if (!entry) return;
     const forged = { ...target, modes: [StaffAccessMode.VIEW_AS] };
-    expect(sorted(forged.modes)).not.toEqual(sorted(entry.modes));
+    expect(policyMetadataErrors(forged, entry)).toContain('GET /staff/registration/applications: modes mismatch');
   });
 });
