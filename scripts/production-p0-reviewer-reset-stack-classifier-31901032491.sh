@@ -94,11 +94,10 @@ all="$(mktemp)"; block="$(mktemp)"; trap 'rm -f "$all" "$block"' EXIT
 for id in "${matching[@]}"; do docker logs --since "$since" --until "$until" "$id" 2>&1 >> "$all" || true; done
 marker_count="$(grep -Fc 'Password reset challenge/outbox transaction failed' "$all" || true)"
 [[ "$marker_count" =~ ^[0-9]+$ && "$marker_count" -ge 1 && "$marker_count" -le 4 ]]
-awk '
-  /Password reset challenge\/outbox transaction failed/ {capture=1; left=28}
-  capture {print; left--}
-  capture && left <= 0 {exit}
-' "$all" > "$block"
+marker_line="$(grep -Fn 'Password reset challenge/outbox transaction failed' "$all" | head -n1 | cut -d: -f1)"
+[[ "$marker_line" =~ ^[0-9]+$ && "$marker_line" -ge 1 ]]
+end_line=$((marker_line + 27))
+sed -n "${marker_line},${end_line}p" "$all" > "$block"
 [[ -s "$block" ]]
 
 error_type='UNKNOWN'
