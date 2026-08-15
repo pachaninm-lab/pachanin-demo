@@ -264,7 +264,14 @@ function getFragmentEntries(dictionary: TranslationDictionary): FragmentEntry[] 
   return entries;
 }
 
-const STRUCTURED_TOKENS: ReadonlyArray<readonly [RegExp, string, string]> = [];
+const STRUCTURED_TOKENS: ReadonlyArray<readonly [RegExp, string, string]> = [
+  [/Н(?=\d+\s*:)/g, 'W', '第'],
+  [
+    /цифровая инфраструктура исполнения сделок в растениеводстве/giu,
+    'digital infrastructure for crop-trade execution',
+    '种植业交易执行数字基础设施',
+  ],
+];
 const PLATE_TRANSLIT: Record<string, string> = { А: 'A', В: 'B', Е: 'E', К: 'K', М: 'M', Н: 'H', О: 'O', Р: 'P', С: 'C', Т: 'T', У: 'Y', Х: 'X' };
 const CODE_TOKEN_RE = /(?<![А-Яа-яЁёA-Za-z])(?=[^\s]*[АВЕКМНОРСТУХ])(?=[^\s]*[\d•*])[АВЕКМНОРСТУХA-Z0-9•*.\-]{2,}(?![А-Яа-яЁёa-z])/g;
 
@@ -272,8 +279,12 @@ function transliterateCodes(value: string): string {
   return value.replace(CODE_TOKEN_RE, (token) => token.replace(/[АВЕКМНОРСТУХ]/g, (ch) => PLATE_TRANSLIT[ch] ?? ch));
 }
 
-function applyStructuredTokens(value: string, _language: TranslatedLanguageCode): string {
-  return transliterateCodes(value);
+function applyStructuredTokens(value: string, language: TranslatedLanguageCode): string {
+  let next = value;
+  for (const [pattern, en, zh] of STRUCTURED_TOKENS) {
+    next = next.replace(pattern, language === 'en' ? en : zh);
+  }
+  return transliterateCodes(next);
 }
 
 const fragmentRegexCache = new Map<string, RegExp>();
