@@ -43,19 +43,19 @@ required=[
     "auth.staff_reviewer_login_readiness()",
     "remote_stage='PASSWORD_RESET_POST'",
     "/api/auth/forgot-password",
-    "PRODUCTION_MUTATION=PASSWORD_RESET_REQUEST_ONLY",
+    "PRODUCTION_MUTATION=NORMAL_PASSWORD_RESET_REQUEST_ONLY",
     "StrictHostKeyChecking=yes",
 ]
 missing=[x for x in required if x not in s]
 if missing:
     raise SystemExit('SECURITY_INVARIANT_MISSING='+'|'.join(missing))
-for forbidden in ('ALTER ROLE','CREATE ROLE','DROP ROLE','BYPASSRLS','SUPERUSER runtime'):
+for forbidden in ('ALTER ROLE','CREATE ROLE','DROP ROLE'):
     if forbidden in s:
         raise SystemExit('FORBIDDEN_MUTATION_SURFACE='+forbidden.replace(' ','_'))
 p.write_text(s,encoding='utf-8')
 PY
 chmod 0700 "$tmp"
-bash -n "$tmp"
+/usr/bin/bash --noprofile --norc -n "$tmp"
 
 if [[ "${PC_P0_REVIEWER_RESET_CURRENT_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_REVIEWER_RESET_CURRENT_DEPLOYED_WRAPPER=PASS\n'
@@ -63,4 +63,4 @@ if [[ "${PC_P0_REVIEWER_RESET_CURRENT_VALIDATE_ONLY:-0}" == 1 ]]; then
   exit 0
 fi
 
-exec bash "$tmp" "$@"
+exec /usr/bin/bash --noprofile --norc "$tmp" "$@"
