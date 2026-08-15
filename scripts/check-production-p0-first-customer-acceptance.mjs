@@ -21,10 +21,15 @@ for(const marker of [
   'AUTH_ROLE_OUTPUT_GUARD',
   'IMAP_IDNA_TARGET',
   'IMAP_IDNA_RECIPIENTS',
+  'REMOTE_BLOCKER_PERSIST',
+  'REMOTE_BLOCKER_RECOVER',
+  '$TMP_ROOT/remote-blocker',
+  'REMOTE_BLOCKER_BOUNDARY_CARDINALITY_INVALID',
   'def canonical_mailbox(value):',
   "domain.encode('idna').decode('ascii').lower()",
   'PC_P0_FIRST_CUSTOMER_ALIAS_VALIDATE_ONLY',
   'P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS',
+  'P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=PASS',
 ]) if(!wrapper.includes(marker)) fail(`wrapper marker missing: ${marker}`);
 
 const validation=spawnSync('bash',[ACCEPTANCE],{
@@ -33,7 +38,8 @@ const validation=spawnSync('bash',[ACCEPTANCE],{
 });
 if(validation.status!==0
   || !validation.stdout.includes('P0_FIRST_CUSTOMER_AUTH_ALIAS_PATCH=PASS')
-  || !validation.stdout.includes('P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS')) {
+  || !validation.stdout.includes('P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS')
+  || !validation.stdout.includes('P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=PASS')) {
   fail(`wrapper validation failed: ${(validation.stderr||validation.stdout||'').trim().slice(0,600)}`);
 }
 
@@ -58,7 +64,12 @@ try {
   fs.rmSync(dir,{recursive:true,force:true});
 }
 
-if(!fs.readFileSync(ACCEPTANCE,'utf8').includes("'app_service'")) fail('wrapper restore failed');
+const restored=fs.readFileSync(ACCEPTANCE,'utf8');
+if(!restored.includes("'app_service'")) fail('wrapper restore failed');
+if(!restored.includes('REMOTE_BLOCKER_PERSIST') || !restored.includes('REMOTE_BLOCKER_RECOVER')) {
+  fail('remote blocker propagation wrapper restore failed');
+}
 console.log('P0_FIRST_CUSTOMER_ACCEPTANCE_CONTRACT=PASS');
 console.log('P0_FIRST_CUSTOMER_AUTH_ALIAS_COMPATIBILITY=HARDENED_LEGACY_APP_SERVICE');
 console.log('P0_FIRST_CUSTOMER_IMAP_RECIPIENT_CANONICALIZATION=IDNA_ASCII');
+console.log('P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=SHARED_TMP_FAIL_CLOSED');
