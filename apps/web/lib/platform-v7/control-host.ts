@@ -9,19 +9,24 @@ const CONTROL_PAGE_EXACT = new Set([
 ]);
 
 const CONTROL_API_EXACT = new Set([
+  '/api/auth/forgot-password',
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/me',
   '/api/auth/membership-select',
-  '/api/auth/refresh',
-]);
-
-const CONTROL_API_PREFIX = [
-  '/api/auth/forgot-password',
   '/api/auth/mfa-login',
   '/api/auth/mfa-recovery',
   '/api/auth/mfa-step-up',
+  '/api/auth/refresh',
   '/api/auth/reset-password',
+]);
+
+const CONTROL_API_PREFIX = [
+  '/api/auth/forgot-password/',
+  '/api/auth/mfa-login/',
+  '/api/auth/mfa-recovery/',
+  '/api/auth/mfa-step-up/',
+  '/api/auth/reset-password/',
   '/api/staff/',
 ] as const;
 
@@ -81,7 +86,7 @@ export function requiresCanonicalControlHost(
 export function isControlRealmPathAllowed(pathname: string): boolean {
   if (pathname === '/platform-v7/staff' || pathname.startsWith('/platform-v7/staff/')) return true;
   if (CONTROL_PAGE_EXACT.has(pathname) || CONTROL_API_EXACT.has(pathname)) return true;
-  if (CONTROL_API_PREFIX.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`) || pathname.startsWith(prefix))) return true;
+  if (CONTROL_API_PREFIX.some((prefix) => pathname.startsWith(prefix))) return true;
   if (pathname.startsWith('/_next/')) return true;
   if (pathname === '/favicon.ico' || pathname.startsWith('/icon') || pathname.startsWith('/apple-icon')) return true;
   return !pathname.startsWith('/api/') && SAFE_STATIC_FILE.test(pathname);
