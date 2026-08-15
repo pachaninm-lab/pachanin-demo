@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-first-customer-preflight-diagnostic-3785.yml'
+      - 'scripts/production-p0-first-customer-preflight-diagnostic-3785.sh'
   issue_comment:
     types: [created]
 
@@ -12,10 +13,6 @@ permissions:
   contents: read
 
 env:
-  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
-  DEFAULT_HOST: 195.19.12.120
-  RELEASE_ISSUE_NUMBER: '3072'
-  SUBJECT_PRODUCTION_SHA: 280c63ab70d428bfe893bade9ad6acc4446c88c5
   DIAGNOSTIC_COMMAND: /production p0-first-customer-preflight-diagnostic 280c
 
 jobs:
@@ -33,44 +30,45 @@ jobs:
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 8
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Enforce immutable read-only boundary
+      - name: Validate shell and immutable read-only contract
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 - <<'PY'
+          script='scripts/production-p0-first-customer-preflight-diagnostic-3785.sh'
+          bash -n "$script"
+          python3 - "$script" <<'PY'
           from pathlib import Path
-          path = Path('.github/workflows/production-p0-first-customer-preflight-diagnostic-3785.yml')
-          text = path.read_text(encoding='utf-8')
+          import sys
+          text = Path(sys.argv[1]).read_text(encoding='utf-8')
           required = [
-              'SUBJECT_PRODUCTION_SHA: 280c63ab70d428bfe893bade9ad6acc4446c88c5',
+              "SUBJECT_PRODUCTION_SHA='280c63ab70d428bfe893bade9ad6acc4446c88c5'",
+              "COMMAND='/production p0-first-customer-preflight-diagnostic 280c'",
               'SET TRANSACTION READ ONLY',
               'SET LOCAL ROLE pc_registration_receipt_authority',
-              'COMPOSE_PHASE', 'AUTH_PHASE', 'ADMIN_PHASE',
-              'ERROR_CODE', 'PRODUCTION_MUTATION', 'NONE',
+              'P0_PREFLIGHT_DIAGNOSTIC',
+              'COMPOSE_PHASE', 'AUTH_PHASE', 'ADMIN_PHASE', 'ERROR_CODE',
+              "PRODUCTION_MUTATION='NONE'",
               'StrictHostKeyChecking=yes', 'UserKnownHostsFile=',
               'org.opencontainers.image.revision',
-              'row_security_active', 'auth.emit_registration_lifecycle_receipt(text,text)',
+              'row_security_active',
+              'auth.emit_registration_lifecycle_receipt(text,text)',
           ]
           missing = [item for item in required if item not in text]
           if missing:
               raise SystemExit('missing invariant: ' + ' | '.join(missing))
-          diagnostic = text.split('\n  diagnostic:\n', 1)[1]
           forbidden = [
               'docker compose up', 'docker compose down', 'docker restart', 'docker rm',
               'docker run', '--force-recreate', 'prisma migrate', 'prisma db execute',
               'curl -X POST', 'curl --request POST', 'INSERT INTO', 'UPDATE auth.',
-              'DELETE FROM', 'TRUNCATE ', 'ALTER ROLE', 'CREATE ROLE', 'DROP ROLE',
+              'DELETE FROM', 'TRUNCATE TABLE', 'ALTER ROLE', 'CREATE ROLE', 'DROP ROLE',
               'GRANT ', 'REVOKE ', 'gh secret set', 'gh variable set', 'set -x',
           ]
-          bad = [item for item in forbidden if item in diagnostic]
+          bad = [item for item in forbidden if item in text]
           if bad:
               raise SystemExit('mutation surface forbidden: ' + ' | '.join(bad))
           PY
@@ -79,8 +77,8 @@ jobs:
     name: Classify exact deployed first-customer preflight without mutation
     needs: contract
     if: >-
-      github.event_name == 'issue_comment' &&
       needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
       github.event.issue.number == 3072 &&
       github.event.comment.user.login == github.repository_owner &&
       github.actor == github.repository_owner &&
@@ -93,328 +91,20 @@ jobs:
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
-      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
-      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
-      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
-      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      PC_P0_PREFLIGHT_DIAGNOSTIC_COMMAND: /production p0-first-customer-preflight-diagnostic 280c
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Bind diagnostic main to immutable production subject
-        id: target
+      - name: Execute bounded read-only classifier
         shell: bash
-        run: |
-          set -Eeuo pipefail
-          git fetch --no-tags origin main
-          diagnostic_main="$(git rev-parse origin/main)"
-          [[ "$diagnostic_main" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$(git rev-parse HEAD)" == "$diagnostic_main" ]]
-          [[ "$SUBJECT_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
-          git cat-file -e "${SUBJECT_PRODUCTION_SHA}^{commit}"
-          git merge-base --is-ancestor "$SUBJECT_PRODUCTION_SHA" "$diagnostic_main"
-          [[ -z "$(git status --porcelain=v1)" ]]
-          echo "diagnostic_main=$diagnostic_main" >> "$GITHUB_OUTPUT"
-
-      - name: Resolve protected key and pinned REG.RU identity
-        id: ssh
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
-          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
-          user="$(trim "${SSH_USER_SECRET:-}")"
-          port="$(trim "${SSH_PORT_SECRET:-22}")"
-          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
-          [[ "$host" == "$DEFAULT_HOST" ]]
-          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
-          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
-          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$host"
-
-          key="$RUNNER_TEMP/pc-p0-preflight-diagnostic-key"
-          known_hosts="$RUNNER_TEMP/pc-p0-preflight-diagnostic-known-hosts"
-          validate_key(){
-            local source="$1" public_key
-            tr -d '\r' < "$source" > "$key"
-            chmod 0600 "$key"
-            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1
-            public_key="$(mktemp)"
-            ssh-keygen -y -P '' -f "$key" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
-            rm -f "$public_key"
-          }
-          try_slot(){
-            local raw="$1" plain escaped decoded
-            [[ -n "$raw" ]] || return 1
-            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
-            printf '%s\n' "$raw" > "$plain"
-            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
-            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
-            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
-            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null && validate_key "$decoded" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
-            rm -f "$plain" "$escaped" "$decoded"
-            return 1
-          }
-          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
-
-          scan="$(mktemp)"; match="$(mktemp)"; pinned=0
-          for attempt in 1 2 3; do
-            : > "$scan"; : > "$match"
-            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
-            while IFS= read -r line; do
-              [[ -n "$line" ]] || continue
-              fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-              [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
-            done < "$scan"
-            sort -u -o "$match" "$match"
-            [[ "$(grep -c . "$match" || true)" == 1 ]] && { pinned=1; break; }
-            (( attempt == 3 )) || sleep "$attempt"
-          done
-          [[ "$pinned" == 1 ]]
-          mv "$match" "$known_hosts"; rm -f "$scan"; chmod 0600 "$known_hosts"
-          ssh -i "$key" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 "$user@$host" \
-            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; echo SSH_AUTH_OK' | grep -Fxq SSH_AUTH_OK
-          echo "host=$host" >> "$GITHUB_OUTPUT"
-          echo "user=$user" >> "$GITHUB_OUTPUT"
-          echo "port=$port" >> "$GITHUB_OUTPUT"
-          echo "key=$key" >> "$GITHUB_OUTPUT"
-          echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"
-
-      - name: Run bounded read-only remote preflight classifier
-        id: classify
-        env:
-          HOST: ${{ steps.ssh.outputs.host }}
-          USER: ${{ steps.ssh.outputs.user }}
-          PORT: ${{ steps.ssh.outputs.port }}
-          KEY: ${{ steps.ssh.outputs.key }}
-          KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          raw="$(mktemp)"; safe="$(mktemp)"
-          trap 'rm -f -- "$raw" "$safe"' EXIT
-          set +e
-          ssh -i "$KEY" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS" -o ConnectTimeout=15 "$USER@$HOST" \
-            "bash -s -- '$SUBJECT_PRODUCTION_SHA'" > "$raw" 2>/dev/null <<'REMOTE'
-          set -Eeuo pipefail
-          umask 077
-          target_sha="$1"
-          tmp="$(mktemp -d /tmp/pc-p0-preflight-diagnostic.XXXXXX)"
-          compose_phase=NOT_RUN
-          auth_phase=NOT_RUN
-          admin_phase=NOT_RUN
-          cleanup(){ rm -rf -- "$tmp"; }
-          trap cleanup EXIT
-          emit(){ printf '%s=%s\n' "$1" "$2"; }
-          finish_fail(){
-            local code="$1" rc="${2:-80}"
-            [[ "$code" =~ ^[A-Z0-9_]{4,100}$ ]] || code=UNEXPECTED_REMOTE_ERROR
-            emit P0_PREFLIGHT_DIAGNOSTIC FAIL
-            emit COMPOSE_PHASE "$compose_phase"
-            emit AUTH_PHASE "$auth_phase"
-            emit ADMIN_PHASE "$admin_phase"
-            emit ERROR_CODE "$code"
-            emit PRODUCTION_MUTATION NONE
-            exit "$rc"
-          }
-          unexpected(){ local rc=$?; trap - ERR; finish_fail UNEXPECTED_REMOTE_ERROR "$rc"; }
-          trap unexpected ERR
-
-          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || finish_fail SUBJECT_SHA_INVALID 20
-          [[ "$(id -u)" -eq 0 ]] || finish_fail ROOT_REQUIRED 21
-          command -v docker >/dev/null 2>&1 || finish_fail DOCKER_REQUIRED 22
-          command -v python3 >/dev/null 2>&1 || finish_fail PYTHON_REQUIRED 23
-
-          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
-          (( ${#web_ids[@]} == 1 )) || finish_fail WEB_RUNTIME_CARDINALITY 24
-          web_id="${web_ids[0]}"
-          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
-          [[ "$project" =~ ^[A-Za-z0-9_.-]{1,128}$ ]] || finish_fail COMPOSE_PROJECT_INVALID 25
-          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
-          (( ${#api_ids[@]} == 1 )) || finish_fail API_RUNTIME_CARDINALITY 26
-          api_id="${api_ids[0]}"
-          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
-          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
-          [[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" ]] || finish_fail PRODUCTION_REVISION_MISMATCH 27
-
-          working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
-          config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
-          [[ "$working_dir" == /* && "$working_dir" != / && -d "$working_dir" && ! -L "$working_dir" && -n "$config_files" ]] || finish_fail COMPOSE_AUTHORITY_INVALID 28
-          working_dir="$(realpath -e -- "$working_dir")"
-          dc=(docker compose --project-directory "$working_dir" --project-name "$project")
-          IFS=',' read -r -a raw_files <<< "$config_files"
-          compose_count=0
-          for raw_file in "${raw_files[@]}"; do
-            file="${raw_file#"${raw_file%%[![:space:]]*}"}"; file="${file%"${file##*[![:space:]]}"}"
-            [[ -n "$file" ]] || continue
-            [[ "$file" == /* ]] || file="$working_dir/$file"
-            [[ -f "$file" && ! -L "$file" ]] || finish_fail COMPOSE_FILE_INVALID 29
-            file="$(realpath -e -- "$file")"
-            [[ "$file" == "$working_dir"/* ]] || finish_fail COMPOSE_FILE_OUTSIDE_AUTHORITY 30
-            dc+=(-f "$file"); compose_count=$((compose_count+1))
-          done
-          (( compose_count >= 1 )) || finish_fail COMPOSE_FILE_CARDINALITY 31
-          compose_json="$tmp/compose.json"; migration_meta="$tmp/migration.meta"; migration_db="$tmp/migration.db"
-          chmod 0600 "$compose_json" "$migration_meta" "$migration_db"
-          "${dc[@]}" config --format json > "$compose_json" || finish_fail COMPOSE_RENDER_FAILED 32
-          python3 - "$compose_json" "$migration_meta" "$migration_db" <<'PY' || finish_fail MIGRATION_DATASOURCE_DISCOVERY_FAILED 33
-          import json,re,sys
-          cfg=json.load(open(sys.argv[1],encoding='utf-8')); services=cfg.get('services') or {}; candidates=[]
-          for name,service in services.items():
-              image=str(service.get('image') or '')
-              command=service.get('command'); command=' '.join(command) if isinstance(command,list) else str(command or '')
-              if re.search(r'(^|[-_])(migrate|migration)([-_]|$)',name,re.I) or 'grainflow-migration' in image or ('prisma' in command and 'migrate' in command):
-                  candidates.append((name,image,service))
-          if len(candidates)!=1: raise SystemExit(1)
-          name,image,service=candidates[0]
-          env=service.get('environment') or {}
-          url=env.get('DATABASE_URL') if isinstance(env,dict) else None
-          if not image or not isinstance(url,str) or not url.strip() or '\n' in url or '\r' in url or '\0' in url: raise SystemExit(1)
-          open(sys.argv[2],'w',encoding='utf-8').write(name+'\n'+image+'\n')
-          open(sys.argv[3],'w',encoding='utf-8').write(url)
-          PY
-          migration_image="$(sed -n '2p' "$migration_meta")"
-          migration_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$migration_image" 2>/dev/null || true)"
-          [[ "$migration_revision" == "$target_sha" ]] || finish_fail MIGRATION_IMAGE_REVISION_MISMATCH 34
-          compose_phase=PASS
-
-          auth_result="$(docker exec -i "$api_id" /nodejs/bin/node - <<'NODE' 2>/dev/null
-          const { PrismaClient } = require('@prisma/client');
-          const safe = (code) => process.stdout.write(`AUTH_RESULT=${code}\n`);
-          let db;
-          (async()=>{
-            const url=String(process.env.AUTH_DATABASE_URL||'').trim();
-            if(!url) return safe('AUTH_DATABASE_URL_MISSING');
-            db=new PrismaClient({datasources:{db:{url}}});
-            const verdict=await db.$transaction(async tx=>{
-              await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
-              const principals=await tx.$queryRawUnsafe(`SELECT role.rolname AS role_name, role.rolsuper, role.rolbypassrls, has_schema_privilege(current_user,'public','USAGE') AS schema_usage, has_table_privilege(current_user,'public.user_orgs','SELECT') AS membership_select FROM pg_catalog.pg_roles role WHERE role.rolname=current_user`);
-              const tables=await tx.$queryRawUnsafe(`SELECT relrowsecurity, relforcerowsecurity FROM pg_catalog.pg_class WHERE oid='public.user_orgs'::regclass`);
-              const p=principals[0], t=tables[0];
-              const known=new Set(['pc_auth_runtime','one_deal_auth','app_auth']);
-              if(!p||!known.has(p.role_name)||p.rolsuper!==false||p.rolbypassrls!==false||p.schema_usage!==true||p.membership_select!==true) return 'AUTH_RUNTIME_PRINCIPAL_INVALID';
-              if(!t||t.relrowsecurity!==true||t.relforcerowsecurity!==true) return 'USER_ORGS_RLS_INVALID';
-              return 'PASS';
-            });
-            safe(verdict);
-          })().catch(()=>safe('AUTH_RUNTIME_READ_ONLY_EVIDENCE_FAILED')).finally(async()=>{if(db)await db.$disconnect().catch(()=>{});});
-          NODE
-          )"
-          auth_code="$(sed -nE 's/^AUTH_RESULT=([A-Z0-9_]{4,100})$/\1/p' <<< "$auth_result" | tail -1)"
-          [[ -n "$auth_code" ]] || finish_fail AUTH_RESULT_MISSING 35
-          [[ "$auth_code" == PASS ]] || finish_fail "$auth_code" 36
-          auth_phase=PASS
-
-          admin_result="$(cat "$migration_db" | docker exec -i "$api_id" /nodejs/bin/node -e '
-          const {PrismaClient}=require("@prisma/client"); const fs=require("node:fs");
-          const safe=c=>process.stdout.write(`ADMIN_RESULT=${c}\n`); let db;
-          (async()=>{const url=fs.readFileSync(0,"utf8").trim(); if(!url)return safe("MIGRATION_DATABASE_URL_MISSING"); db=new PrismaClient({datasources:{db:{url}}});
-          const verdict=await db.$transaction(async tx=>{await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY"); try{await tx.$executeRawUnsafe("SET LOCAL ROLE pc_registration_receipt_authority");}catch{return "RECEIPT_ROLE_SET_FAILED";}
-          const principals=await tx.$queryRawUnsafe(`SELECT rolname,rolcanlogin,rolinherit,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole,(SELECT count(*)::int FROM pg_catalog.pg_auth_members m WHERE m.roleid=r.oid) AS member_count FROM pg_catalog.pg_roles r WHERE rolname=current_user`);
-          const p=principals[0]; if(!p||p.rolname!=="pc_registration_receipt_authority"||p.rolcanlogin!==false||p.rolinherit!==false||p.rolsuper!==false||p.rolbypassrls!==false||p.rolcreatedb!==false||p.rolcreaterole!==false||Number(p.member_count)!==0)return "RECEIPT_PRINCIPAL_INVALID";
-          const tables=await tx.$queryRawUnsafe(`SELECT relrowsecurity,relforcerowsecurity,row_security_active(\047public.outbox_entries\047) AS rls_active FROM pg_catalog.pg_class WHERE oid=\047public.outbox_entries\047::regclass`); const t=tables[0]; if(!t||t.relrowsecurity!==true||t.relforcerowsecurity!==true||t.rls_active!==true)return "OUTBOX_RLS_INVALID";
-          const scope=await tx.$queryRawUnsafe(`SELECT EXISTS(SELECT 1 FROM public."outbox_entries" e WHERE e."type" IS DISTINCT FROM \047auth.registration.lifecycle.receipt\047 OR COALESCE(e."idempotencyKey",\047\047) NOT LIKE \047registration-lifecycle:%\047) AS outside`); if(scope[0]?.outside!==false)return "OUTBOX_SCOPE_INVALID";
-          const policies=await tx.$queryRawUnsafe(`SELECT policyname,cmd,roles::text AS roles_text,qual,with_check FROM pg_catalog.pg_policies WHERE schemaname=\047public\047 AND tablename=\047outbox_entries\047 AND policyname IN (\047outbox_entries_registration_receipt_select\047,\047outbox_entries_registration_receipt_insert\047)`); if(policies.length!==2)return "OUTBOX_POLICY_INVALID";
-          const priv=await tx.$queryRawUnsafe(`SELECT has_table_privilege(current_user,\047public.outbox_entries\047,\047SELECT\047) AS os,has_table_privilege(current_user,\047public.outbox_entries\047,\047INSERT\047) AS oi,has_table_privilege(current_user,\047auth.registration_applications\047,\047SELECT\047) AS aps,has_table_privilege(current_user,\047auth.registration_application_events\047,\047SELECT\047) AS evs,has_table_privilege(current_user,\047auth.audit_events\047,\047SELECT\047) AS aus,(has_table_privilege(current_user,\047public.outbox_entries\047,\047UPDATE\047) OR has_table_privilege(current_user,\047public.outbox_entries\047,\047DELETE\047) OR has_table_privilege(current_user,\047public.outbox_entries\047,\047TRUNCATE\047) OR has_table_privilege(current_user,\047auth.registration_applications\047,\047INSERT\047) OR has_table_privilege(current_user,\047auth.registration_applications\047,\047UPDATE\047) OR has_table_privilege(current_user,\047auth.registration_applications\047,\047DELETE\047)) AS forbidden`); const v=priv[0]; if(!v||v.os!==true||v.oi!==true||v.aps!==true||v.evs!==true||v.aus!==true||v.forbidden!==false)return "RECEIPT_PRIVILEGE_INVALID";
-          const triggers=await tx.$queryRawUnsafe(`SELECT count(*)::int AS n FROM pg_catalog.pg_trigger tr JOIN pg_catalog.pg_class c ON c.oid=tr.tgrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=\047auth\047 AND c.relname=\047audit_events\047 AND tr.tgname IN (\047auth_audit_events_append_only\047,\047auth_audit_events_no_truncate\047) AND tr.tgenabled<>\047D\047`); if(Number(triggers[0]?.n)!==2)return "AUDIT_APPEND_ONLY_INVALID";
-          const producers=await tx.$queryRawUnsafe(`SELECT pg_get_functiondef(p.oid) AS definition,p.prosecdef,p.proconfig,o.rolname AS owner_name,EXISTS(SELECT 1 FROM aclexplode(COALESCE(p.proacl,acldefault(\047f\047,p.proowner))) a WHERE a.grantee=0 AND a.privilege_type=\047EXECUTE\047) AS public_execute FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace JOIN pg_catalog.pg_roles o ON o.oid=p.proowner WHERE n.nspname=\047auth\047 AND p.oid=to_regprocedure(\047auth.emit_registration_lifecycle_receipt(text,text)\047)`); const f=producers[0]; const def=String(f?.definition||""); const cfg=(f?.proconfig||[]).map(String); if(!f||f.prosecdef!==true||f.owner_name!=="pc_registration_receipt_authority"||f.public_execute!==false||!cfg.some(x=>x==="row_security=on")||!cfg.some(x=>x.startsWith("search_path="))||!def.includes("auth.registration.lifecycle.receipt")||!def.includes("registration-lifecycle:"))return "CAUSAL_RECEIPT_PRODUCER_INVALID"; return "PASS";},{maxWait:5000,timeout:30000}); safe(verdict);})().catch(()=>safe("ADMIN_RUNTIME_READ_ONLY_EVIDENCE_FAILED")).finally(async()=>{if(db)await db.$disconnect().catch(()=>{});});
-          ' 2>/dev/null)"
-          admin_code="$(sed -nE 's/^ADMIN_RESULT=([A-Z0-9_]{4,100})$/\1/p' <<< "$admin_result" | tail -1)"
-          [[ -n "$admin_code" ]] || finish_fail ADMIN_RESULT_MISSING 37
-          [[ "$admin_code" == PASS ]] || finish_fail "$admin_code" 38
-          admin_phase=PASS
-
-          emit P0_PREFLIGHT_DIAGNOSTIC PASS
-          emit COMPOSE_PHASE PASS
-          emit AUTH_PHASE PASS
-          emit ADMIN_PHASE PASS
-          emit ERROR_CODE NONE
-          emit PRODUCTION_MUTATION NONE
-          REMOTE
-          rc=$?
-          set -e
-
-          grep -E '^(P0_PREFLIGHT_DIAGNOSTIC|COMPOSE_PHASE|AUTH_PHASE|ADMIN_PHASE|ERROR_CODE|PRODUCTION_MUTATION)=(PASS|FAIL|NOT_RUN|NONE|[A-Z0-9_]{4,100})$' "$raw" > "$safe" || true
-          [[ "$(grep -c '^P0_PREFLIGHT_DIAGNOSTIC=' "$safe" || true)" == 1 ]]
-          [[ "$(grep -c '^COMPOSE_PHASE=' "$safe" || true)" == 1 ]]
-          [[ "$(grep -c '^AUTH_PHASE=' "$safe" || true)" == 1 ]]
-          [[ "$(grep -c '^ADMIN_PHASE=' "$safe" || true)" == 1 ]]
-          [[ "$(grep -c '^ERROR_CODE=' "$safe" || true)" == 1 ]]
-          grep -Fxq 'PRODUCTION_MUTATION=NONE' "$safe"
-          if grep -Eqi '(postgres(?:ql)?://|password|token|secret|cookie|@|container|network)' "$safe"; then exit 90; fi
-          cat "$safe"
-          result="$(sed -n 's/^P0_PREFLIGHT_DIAGNOSTIC=//p' "$safe")"
-          compose="$(sed -n 's/^COMPOSE_PHASE=//p' "$safe")"
-          auth="$(sed -n 's/^AUTH_PHASE=//p' "$safe")"
-          admin="$(sed -n 's/^ADMIN_PHASE=//p' "$safe")"
-          error="$(sed -n 's/^ERROR_CODE=//p' "$safe")"
-          echo "result=$result" >> "$GITHUB_OUTPUT"
-          echo "compose=$compose" >> "$GITHUB_OUTPUT"
-          echo "auth=$auth" >> "$GITHUB_OUTPUT"
-          echo "admin=$admin" >> "$GITHUB_OUTPUT"
-          echo "error=$error" >> "$GITHUB_OUTPUT"
-          echo "remote_rc=$rc" >> "$GITHUB_OUTPUT"
-
-      - name: Reconfirm diagnostic main and production subject ancestry
-        env:
-          DIAGNOSTIC_MAIN: ${{ steps.target.outputs.diagnostic_main }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          git fetch --no-tags origin main
-          [[ "$(git rev-parse origin/main)" == "$DIAGNOSTIC_MAIN" ]]
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$DIAGNOSTIC_MAIN" ]]
-          git merge-base --is-ancestor "$SUBJECT_PRODUCTION_SHA" "$DIAGNOSTIC_MAIN"
-
-      - name: Publish bounded classifier result
-        env:
-          RESULT: ${{ steps.classify.outputs.result }}
-          COMPOSE: ${{ steps.classify.outputs.compose }}
-          AUTH: ${{ steps.classify.outputs.auth }}
-          ADMIN: ${{ steps.classify.outputs.admin }}
-          ERROR_CODE: ${{ steps.classify.outputs.error }}
-          REMOTE_RC: ${{ steps.classify.outputs.remote_rc }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          [[ "$RESULT" == PASS || "$RESULT" == FAIL ]]
-          [[ "$COMPOSE" =~ ^(PASS|FAIL|NOT_RUN)$ ]]
-          [[ "$AUTH" =~ ^(PASS|FAIL|NOT_RUN)$ ]]
-          [[ "$ADMIN" =~ ^(PASS|FAIL|NOT_RUN)$ ]]
-          [[ "$ERROR_CODE" =~ ^(NONE|[A-Z0-9_]{4,100})$ ]]
-          [[ "$REMOTE_RC" =~ ^[0-9]+$ ]]
-          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 first-customer read-only preflight diagnostic
-
-- deployed subject: \`$SUBJECT_PRODUCTION_SHA\`
-- result: \`$RESULT\`
-- compose / migration authority: \`$COMPOSE\`
-- auth RLS authority: \`$AUTH\`
-- causal receipt authority: \`$ADMIN\`
-- blocker: \`$ERROR_CODE\`
-- remote rc: \`$REMOTE_RC\`
-- production mutation: \`NONE\`" >/dev/null
-
-      - name: Remove protected runner credentials
-        if: always()
-        env:
-          KEY: ${{ steps.ssh.outputs.key }}
-          KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
-        shell: bash
-        run: |
-          set +e
-          [[ -z "${KEY:-}" ]] || rm -f -- "$KEY"
-          [[ -z "${KNOWN_HOSTS:-}" ]] || rm -f -- "$KNOWN_HOSTS"
-
-      - name: Enforce diagnostic terminal result
-        env:
-          RESULT: ${{ steps.classify.outputs.result }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          [[ "$RESULT" == PASS || "$RESULT" == FAIL ]]
+        run: bash scripts/production-p0-first-customer-preflight-diagnostic-3785.sh
