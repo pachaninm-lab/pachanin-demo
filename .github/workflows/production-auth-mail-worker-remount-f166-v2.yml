@@ -1,0 +1,251 @@
+name: Production Auth-Mail Worker Remount f166 v2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-auth-mail-worker-remount-f166-v2.yml'
+      - 'scripts/production-auth-mail-worker-remount-f166-v2.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-auth-mail-worker-remount-f166-v2
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  SUBJECT_PRODUCTION_SHA: f166f50e8526cf43f3193e771be05ebc66888494
+  REMEDIATION_COMMAND: /production p0-auth-mail-worker-remount-f166-v2
+  REMEDIATION_SCRIPT: scripts/production-auth-mail-worker-remount-f166-v2.sh
+  REMEDIATION_SCRIPT_BLOB: da0e11907843f3da8f73c6b75fb7e4ccbccbc5fd
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate deterministic worker-only remount v2
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git hash-object "$REMEDIATION_SCRIPT")" == "$REMEDIATION_SCRIPT_BLOB" ]]
+          bash -n "$REMEDIATION_SCRIPT"
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('scripts/production-auth-mail-worker-remount-f166-v2.sh').read_text(encoding='utf-8')
+          required=[
+            'AUTH_MAIL_PRISMACLIENTINITIALIZATIONERROR',
+            'docker image inspect',
+            'compose.auth-mail-worker-f166.override.json',
+            "'external':True",
+            '--force-recreate auth-mail-worker',
+            'WORKER_READY PASS',
+            'API_WEB_UNCHANGED PASS',
+            'DB_CREDENTIAL_MUTATED 0',
+            'PRODUCTION_MUTATION AUTH_MAIL_WORKER_STABLE_OVERRIDE_WRITTEN_AND_RECREATED',
+          ]
+          missing=[x for x in required if x not in text]
+          if missing: raise SystemExit('missing invariant: '+' | '.join(missing))
+          forbidden=[
+            'ALTER ROLE','CREATE ROLE','DROP ROLE','UPDATE auth.','INSERT INTO','DELETE FROM',
+            'provision-production-auth-mail-runtime','docker restart','docker system prune',
+            'PASSWORD_RESET_REPLAYED','sendAuthMailSmtp','claimBatch','expireStale','redactTerminal'
+          ]
+          bad=[x for x in forbidden if x in text]
+          if bad: raise SystemExit('unsafe remediation surface: '+' | '.join(bad))
+          PY
+
+  remediate:
+    name: Recreate only f166 worker through deterministic stable override
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-mail-worker-remount-f166-v2' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bind exact current main and fixed remediation asset
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          [[ "$SUBJECT_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "${SUBJECT_PRODUCTION_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_PRODUCTION_SHA" "$main_sha"
+          [[ "$(git hash-object "$REMEDIATION_SCRIPT")" == "$REMEDIATION_SCRIPT_BLOB" ]]
+          bash -n "$REMEDIATION_SCRIPT"
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "subject_sha=$SUBJECT_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]] || exit 15
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; python3 --version >/dev/null; echo SSH_AUTH_OK' | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Execute bounded worker-only remediation v2
+        id: repair
+        shell: bash
+        env:
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "bash -s -- '$SUBJECT_SHA'" < "$REMEDIATION_SCRIPT" > "$raw" 2>&1
+          rc=$?
+          set -e
+          sed -nE '/^(AUTH_MAIL_WORKER_REMOUNT_F166_V2|ERROR_CODE|PRE_REVISION_PARITY|PRE_STARTUP_CODE|RUNTIME_PROJECTION|WORKER_IMAGE_REVISION|NETWORK_PARITY|OVERLAY_CONTRACT|STABLE_OVERLAY_WRITTEN|WORKER_RECREATED|WORKER_REVISION|WORKER_READY|WORKER_COMPOSE_AUTHORITY|API_WEB_UNCHANGED|DB_CREDENTIAL_MUTATED|API_WEB_MUTATED|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,200}$/p' "$raw" > "$clean"
+          rm -f "$raw"
+          cat "$clean"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r k v; do
+            case "$k" in
+              AUTH_MAIL_WORKER_REMOUNT_F166_V2|ERROR_CODE|PRE_REVISION_PARITY|PRE_STARTUP_CODE|RUNTIME_PROJECTION|WORKER_IMAGE_REVISION|NETWORK_PARITY|OVERLAY_CONTRACT|STABLE_OVERLAY_WRITTEN|WORKER_RECREATED|WORKER_REVISION|WORKER_READY|WORKER_COMPOSE_AUTHORITY|API_WEB_UNCHANGED|DB_CREDENTIAL_MUTATED|API_WEB_MUTATED|PRODUCTION_MUTATION)
+                echo "${k,,}=$v" >> "$GITHUB_OUTPUT";;
+            esac
+          done < "$clean"
+          rm -f "$clean"
+
+      - name: Publish sanitized v2 remount evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.repair.outputs.auth_mail_worker_remount_f166_v2 }}
+          ERROR_CODE: ${{ steps.repair.outputs.error_code }}
+          PRE_REVISION: ${{ steps.repair.outputs.pre_revision_parity }}
+          PRE_STARTUP: ${{ steps.repair.outputs.pre_startup_code }}
+          RUNTIME: ${{ steps.repair.outputs.runtime_projection }}
+          IMAGE_REVISION: ${{ steps.repair.outputs.worker_image_revision }}
+          NETWORK: ${{ steps.repair.outputs.network_parity }}
+          OVERLAY: ${{ steps.repair.outputs.overlay_contract }}
+          WRITTEN: ${{ steps.repair.outputs.stable_overlay_written }}
+          RECREATED: ${{ steps.repair.outputs.worker_recreated }}
+          REVISION: ${{ steps.repair.outputs.worker_revision }}
+          READY: ${{ steps.repair.outputs.worker_ready }}
+          WORKER_AUTHORITY: ${{ steps.repair.outputs.worker_compose_authority }}
+          API_WEB_UNCHANGED: ${{ steps.repair.outputs.api_web_unchanged }}
+          DB_MUTATED: ${{ steps.repair.outputs.db_credential_mutated }}
+          API_WEB_MUTATED: ${{ steps.repair.outputs.api_web_mutated }}
+          MUTATION: ${{ steps.repair.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"
+          {
+            echo '### PC-CROP auth-mail worker remount f166 v2'; echo
+            echo "- result / safe error: \`${RESULT:-unknown} / ${ERROR_CODE:-unknown}\`"
+            echo "- pre revision / startup: \`${PRE_REVISION:-unknown} / ${PRE_STARTUP:-unknown}\`"
+            echo "- runtime / image revision / network: \`${RUNTIME:-unknown} / ${IMAGE_REVISION:-unknown} / ${NETWORK:-unknown}\`"
+            echo "- deterministic overlay contract / written: \`${OVERLAY:-unknown} / ${WRITTEN:-unknown}\`"
+            echo "- worker recreated / revision / ready: \`${RECREATED:-unknown} / ${REVISION:-unknown} / ${READY:-unknown}\`"
+            echo "- worker compose authority / API-Web unchanged: \`${WORKER_AUTHORITY:-unknown} / ${API_WEB_UNCHANGED:-unknown}\`"
+            echo "- DB credential mutated / API-Web mutated: \`${DB_MUTATED:-unknown} / ${API_WEB_MUTATED:-unknown}\`"
+            echo "- production mutation: \`${MUTATION:-unknown}\`"
+            echo '- no database URL/password/hash, SMTP credential, recipient, token, raw log, container ID or network name is published.'
+          } > "$record"
+          gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce bounded v2 remediation result
+        shell: bash
+        env:
+          REMOTE_RC: ${{ steps.repair.outputs.rc }}
+          RESULT: ${{ steps.repair.outputs.auth_mail_worker_remount_f166_v2 }}
+          READY: ${{ steps.repair.outputs.worker_ready }}
+          WORKER_AUTHORITY: ${{ steps.repair.outputs.worker_compose_authority }}
+          API_WEB_UNCHANGED: ${{ steps.repair.outputs.api_web_unchanged }}
+          DB_MUTATED: ${{ steps.repair.outputs.db_credential_mutated }}
+          API_WEB_MUTATED: ${{ steps.repair.outputs.api_web_mutated }}
+          MUTATION: ${{ steps.repair.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "${REMOTE_RC:-1}" == 0 ]]
+          [[ "$RESULT" == PASS ]]
+          [[ "$READY" == PASS ]]
+          [[ "$WORKER_AUTHORITY" == PASS ]]
+          [[ "$API_WEB_UNCHANGED" == PASS ]]
+          [[ "$DB_MUTATED" == 0 ]]
+          [[ "$API_WEB_MUTATED" == 0 ]]
+          [[ "$MUTATION" == AUTH_MAIL_WORKER_STABLE_OVERRIDE_WRITTEN_AND_RECREATED ]]
