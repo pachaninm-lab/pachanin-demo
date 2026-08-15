@@ -1,0 +1,275 @@
+name: Production P0 First-Customer Legacy Mail Correlation v4
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-first-customer-legacy-mail-correlation-v4.yml'
+      - 'scripts/production-p0-legacy-web-mail-readonly.sh'
+      - 'scripts/production-p0-imap-mail-correlation-readonly.py'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-p0-first-customer-legacy-mail-correlation-v4
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  SUBJECT_SHA: 55f78afe5f01f1aa2732a984b5cc0ccb1ccfcc71
+  WINDOW_START: '2026-08-15T12:56:00Z'
+  WINDOW_END: '2026-08-15T13:01:00Z'
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate owner-authorized mail correlation v4
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Validate bounded contract and authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-p0-legacy-web-mail-readonly.sh
+          python3 -m py_compile scripts/production-p0-imap-mail-correlation-readonly.py
+          python3 - <<'PY'
+          from pathlib import Path
+          workflow=Path('.github/workflows/production-p0-first-customer-legacy-mail-correlation-v4.yml').read_text(encoding='utf-8')
+          shell=Path('scripts/production-p0-legacy-web-mail-readonly.sh').read_text(encoding='utf-8')
+          imap=Path('scripts/production-p0-imap-mail-correlation-readonly.py').read_text(encoding='utf-8')
+          for marker in [
+              "github.event.comment.user.login == github.repository_owner",
+              "github.event.comment.author_association == 'OWNER'",
+              'github.event.comment.performed_via_github_app.id == 1144995',
+              "github.event.comment.body == '/production p0-first-customer-legacy-mail-correlation-v4 31885882933'",
+              'registration_email_delivery_result',
+              'readonly=True',
+              'BODY.PEEK[]',
+              'PRODUCTION_MUTATION NONE',
+          ]:
+              if marker not in '\n'.join((workflow,shell,imap)):
+                  raise SystemExit('missing invariant: '+marker)
+          forbidden=['docker restart','docker rm','docker compose up','docker compose down','ALTER ROLE','CREATE ROLE','DROP ROLE','INSERT INTO','UPDATE auth.','DELETE FROM','TRUNCATE ','sendTransactionalMail(','sendAuthMailSmtp(','EXPUNGE','APPEND ']
+          bad=[item for item in forbidden if item in shell or item in imap]
+          if bad:
+              raise SystemExit('mutation surface forbidden: '+' | '.join(bad))
+          PY
+
+  diagnostic:
+    name: Correlate failed registration mail without mutation
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+        github.event.comment.performed_via_github_app.id == 1144995
+      ) &&
+      github.event.comment.body == '/production p0-first-customer-legacy-mail-correlation-v4 31885882933'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+      PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+      PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind source boundary
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" == "$(git rev-parse HEAD)" ]]
+          git cat-file -e "${SUBJECT_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_SHA" "$main_sha"
+          git diff --quiet "$SUBJECT_SHA..$main_sha" -- \
+            apps/web/app/api/auth/register/route.ts \
+            apps/web/lib/server/transactional-mail.ts \
+            apps/api/src/modules/auth/registration-application.service.ts
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned production SSH
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          key="$HOME/.ssh/id_pc_prod"
+          validate_key() {
+            local source="$1" public_key
+            tr -d '\r' < "$source" > "$key"
+            chmod 600 "$key"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$key" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_slot() {
+            local raw="$1" plain escaped decoded
+            [[ -n "$raw" ]] || return 1
+            plain="$(mktemp)"
+            escaped="$(mktemp)"
+            decoded="$(mktemp)"
+            printf '%s\n' "$raw" > "$plain"
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null && validate_key "$decoded" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            rm -f "$plain" "$escaped" "$decoded"
+            return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+          scan="$(mktemp)"
+          match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do
+            [[ -n "$line" ]] || continue
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          sort -u -o "$match" "$match"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$key" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null'
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Read legacy Web delivery result
+        id: web
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER_SECRET@$HOST" "bash -s -- '$SUBJECT_SHA' '$WINDOW_START' '$WINDOW_END'" \
+            < scripts/production-p0-legacy-web-mail-readonly.sh > "$RUNNER_TEMP/web-safe"
+          cat "$RUNNER_TEMP/web-safe"
+          while IFS='=' read -r key value; do
+            [[ "$value" =~ ^[A-Za-z0-9_.:-]{1,100}$ ]]
+            case "$key" in
+              WEB_DIAGNOSTIC|WEB_ERROR|WEB_EVENTS|WEB_DELIVERED|WEB_PROVIDER|WEB_REASON|WEB_ACCOUNT_HASH|PRODUCTION_MUTATION)
+                echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+          done < "$RUNNER_TEMP/web-safe"
+          rm -f "$RUNNER_TEMP/web-safe"
+
+      - name: Read mailbox correlation safely
+        id: imap
+        shell: bash
+        env:
+          P0_ACCOUNT_HASH: ${{ steps.web.outputs.web_account_hash }}
+          P0_WINDOW_START: ${{ env.WINDOW_START }}
+          P0_WINDOW_END: ${{ env.WINDOW_END }}
+        run: |
+          set -euo pipefail
+          python3 scripts/production-p0-imap-mail-correlation-readonly.py > "$RUNNER_TEMP/imap-safe"
+          cat "$RUNNER_TEMP/imap-safe"
+          while IFS='=' read -r key value; do
+            [[ "$value" =~ ^[A-Za-z0-9_.:-]{1,100}$ ]]
+            case "$key" in
+              IMAP_CONNECT|IMAP_LOGIN|IMAP_SELECT|IMAP_SEARCH|IMAP_WINDOW_MESSAGES|IMAP_RECIPIENT_MATCH|IMAP_LINK_MATCH|IMAP_TOKEN_SHAPE|IMAP_ERROR|PRODUCTION_MUTATION)
+                echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+          done < "$RUNNER_TEMP/imap-safe"
+          rm -f "$RUNNER_TEMP/imap-safe"
+
+      - name: Publish bounded evidence
+        if: always()
+        shell: bash
+        env:
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          WEB_RESULT: ${{ steps.web.outputs.web_diagnostic }}
+          WEB_ERROR: ${{ steps.web.outputs.web_error }}
+          WEB_EVENTS: ${{ steps.web.outputs.web_events }}
+          WEB_DELIVERED: ${{ steps.web.outputs.web_delivered }}
+          WEB_PROVIDER: ${{ steps.web.outputs.web_provider }}
+          WEB_REASON: ${{ steps.web.outputs.web_reason }}
+          IMAP_CONNECT: ${{ steps.imap.outputs.imap_connect }}
+          IMAP_LOGIN: ${{ steps.imap.outputs.imap_login }}
+          IMAP_SELECT: ${{ steps.imap.outputs.imap_select }}
+          IMAP_SEARCH: ${{ steps.imap.outputs.imap_search }}
+          IMAP_WINDOW: ${{ steps.imap.outputs.imap_window_messages }}
+          IMAP_RECIPIENT: ${{ steps.imap.outputs.imap_recipient_match }}
+          IMAP_LINK: ${{ steps.imap.outputs.imap_link_match }}
+          IMAP_TOKEN: ${{ steps.imap.outputs.imap_token_shape }}
+          IMAP_ERROR: ${{ steps.imap.outputs.imap_error }}
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"
+          {
+            echo '### PC-CROP legacy mail correlation v4 · run 31885882933'
+            echo
+            echo "- diagnostic main: \`${MAIN_SHA:-unknown}\`"
+            echo "- subject production SHA: \`$SUBJECT_SHA\`"
+            echo "- Web classifier / safe error: \`${WEB_RESULT:-unknown} / ${WEB_ERROR:-unknown}\`"
+            echo "- Web events / delivered=true: \`${WEB_EVENTS:-unknown} / ${WEB_DELIVERED:-unknown}\`"
+            echo "- Web provider / reason: \`${WEB_PROVIDER:-unknown} / ${WEB_REASON:-unknown}\`"
+            echo "- IMAP connect/login/select/search: \`${IMAP_CONNECT:-unknown} / ${IMAP_LOGIN:-unknown} / ${IMAP_SELECT:-unknown} / ${IMAP_SEARCH:-unknown}\`"
+            echo "- IMAP window / recipient / link / token-shape: \`${IMAP_WINDOW:-unknown} / ${IMAP_RECIPIENT:-unknown} / ${IMAP_LINK:-unknown} / ${IMAP_TOKEN:-unknown}\`"
+            echo "- IMAP safe error: \`${IMAP_ERROR:-unknown}\`"
+            echo '- production mutation: `NONE`'
+          } > "$record"
+          gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce read-only boundary
+        shell: bash
+        env:
+          WEB_MUTATION: ${{ steps.web.outputs.production_mutation }}
+          IMAP_MUTATION: ${{ steps.imap.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "$WEB_MUTATION" == NONE ]]
+          [[ "$IMAP_MUTATION" == NONE ]]
