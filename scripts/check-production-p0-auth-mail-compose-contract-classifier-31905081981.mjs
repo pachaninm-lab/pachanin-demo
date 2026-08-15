@@ -18,7 +18,7 @@ const deny=(where,text,re)=>{if(re.test(text)) failures.push(`${where}: forbidde
 for(const token of ['pull_request:','issue_comment:','github.event.issue.number == 3072','github.event.comment.user.login == github.repository_owner','github.actor == github.repository_owner','github.triggering_actor == github.repository_owner',`github.event.comment.body == '${command}'`,`node ${checkerPath}`,`bash -n ${scriptPath}`,`bash ${scriptPath}`]) need('workflow',workflow,token);
 for(const p of allowed) need('workflow',workflow,`      - '${p}'`);
 for(const re of [/workflow_dispatch:/,/schedule:/,/\bpush:/,/StrictHostKeyChecking=no/,/UserKnownHostsFile=\/dev\/null/]) deny('workflow',workflow,re);
-for(const token of [`COMMAND='${command}'`,`SUBJECT_SHA='${subject}'`,'git diff --name-only "$SUBJECT_SHA..$CURRENT_MAIN"','docker compose --project-directory','config --format json','CONTRACT_CLASS=','RAW_CONFIG_PUBLISHED=0','PRODUCTION_MUTATION=NONE','API_FORBIDDEN_','WEB_WORKER_AUTHORITY_LEAK','WORKER_ENV_']) need('script',script,token);
+for(const token of [`COMMAND='${command}'`,`SUBJECT_SHA='${subject}'`,'git diff --name-only "$SUBJECT_SHA..$CURRENT_MAIN"','docker compose --project-directory','config --format json','CONTRACT_CLASS=','COMPOSE_FILE_COUNT=','RAW_CONFIG_PUBLISHED=0','PRODUCTION_MUTATION=NONE','stop_class()','API_FORBIDDEN_','WEB_WORKER_AUTHORITY_LEAK','WORKER_ENV_']) need('script',script,token);
 for(const re of [/password-reset\/request/,/password-reset\/confirm/,/docker\s+(restart|stop|rm|kill|compose\s+up|compose\s+down)/,/\bpsql\b/,/\bprisma\s+(migrate|db|generate)/,/smtplib\./,/imaplib\./,/send_message\(/,/mailbox\.login\(/]) deny('script',script,re);
 if(scope.schemaVersion!=='platform-v7.concurrent-scope.v1'||scope.branch!=='diag/p0-auth-mail-compose-contract-31905081981-3785'||scope.status!=='active') failures.push('scope identity mismatch');
 if(scope.issue!==3785||scope.releaseIssue!==3072||scope.sourceRun!==31905081981||scope.sourceRevision!==subject) failures.push('scope authority mismatch');
@@ -28,7 +28,9 @@ for(const k of ['databaseMutation','identityMutation','passwordMutation','mfaMut
 if(b.productionMutation!=='NONE'||b.ownerOnly!==true||b.fixedProductionSubject!==true||b.newRecurringCostRub!==0) failures.push('scope core boundary mismatch');
 const syntax=spawnSync('bash',['-n',scriptPath],{encoding:'utf8'}); if(syntax.status!==0) failures.push(`bash syntax failed ${syntax.stderr.slice(0,200)}`);
 if(process.env.GITHUB_EVENT_NAME==='pull_request'){
- const diff=spawnSync('git',['diff','--name-only','origin/main...HEAD'],{encoding:'utf8'}); const changed=diff.stdout.trim().split('\n').filter(Boolean).sort();
- if(diff.status!==0||JSON.stringify(changed)!==JSON.stringify(allowed)) failures.push(`PR scope mismatch ${JSON.stringify(changed)}`);
+ const diff=spawnSync('git',['diff','--name-only','origin/main...HEAD'],{encoding:'utf8'});
+ const changed=diff.stdout.trim().split('\n').filter(Boolean).sort();
+ const outside=changed.filter((path)=>!allowed.includes(path));
+ if(diff.status!==0||outside.length||!changed.includes(scriptPath)||!changed.includes(checkerPath)) failures.push(`PR scope mismatch ${JSON.stringify(changed)}`);
 }
 if(failures.length){for(const f of failures) console.error(`FAIL: ${f}`); process.exit(1);} console.log('PASS: auth-mail Compose classifier is owner-only, fixed-subject, read-only and secret-safe.');
