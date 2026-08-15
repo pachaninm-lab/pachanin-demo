@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
 import { assertCsrf } from '@/lib/server-request-security';
 import { sendTransactionalMail } from '@/lib/server/transactional-mail';
 
@@ -297,6 +298,12 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
   const { path: pathSegments = [] } = await context.params;
   const path = normalizePath(pathSegments);
   const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+
+  if (requiresCanonicalControlHost(request)) {
+    const response = json({ ok: false, code: 'CONTROL_HOST_REQUIRED', correlationId }, 421);
+    clearStaffSession(response);
+    return response;
+  }
 
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   if (!accessToken) {
