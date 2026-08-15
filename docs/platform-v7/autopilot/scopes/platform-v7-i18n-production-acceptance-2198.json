@@ -6,7 +6,7 @@
   "approvedBy": "independent-authority-pr",
   "issue": 2198,
   "implementationPullRequest": 4232,
-  "implementationHead": "c1e1cc1b884d5dcfb4b3b26d8a24946b96fb10a8",
+  "implementationHeadAtAuthorization": "c1e1cc1b884d5dcfb4b3b26d8a24946b96fb10a8",
   "authorityBaseExactMain": "89709f84049c2b0ff48a1ab3ded81db1bed423dd",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -21,6 +21,7 @@
     "The public page metadata resolves locale server-side with explicit ?lang= precedence over the persisted locale cookie.",
     "Dynamic Russian month abbreviations translate structurally for EN and ZH without broad transliteration of ordinary Cyrillic copy.",
     "Exact-head CI must pass before merge.",
+    "Any implementation-head advancement remains bounded to the exact branch and allowedPaths declared here.",
     "After merge, canonical images, exact-SHA REG.RU release and exact production EN/ZH browser acceptance must all pass before completion is claimed."
   ],
   "boundaries": {
