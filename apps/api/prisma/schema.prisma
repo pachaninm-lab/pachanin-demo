@@ -44,6 +44,7 @@ model Organization {
   fgisGrainSdizProjections          FgisGrainSdizProjection[]
   fgisGrainExchanges                FgisGrainExchange[]
   fgisGrainAcknowledgements         FgisGrainAcknowledgement[]
+  membershipDelegations             MembershipDelegation[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -133,8 +134,9 @@ model MembershipDelegation {
   createdAt             DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
-  fromMembership UserOrg @relation("MembershipDelegationFrom", fields: [fromMembershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
-  toMembership   UserOrg @relation("MembershipDelegationTo", fields: [toMembershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  fromMembership UserOrg      @relation("MembershipDelegationFrom", fields: [fromMembershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  toMembership   UserOrg      @relation("MembershipDelegationTo", fields: [toMembershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
 
   @@index([organizationId, toMembershipId, status, endsAt])
   @@index([tenantId])

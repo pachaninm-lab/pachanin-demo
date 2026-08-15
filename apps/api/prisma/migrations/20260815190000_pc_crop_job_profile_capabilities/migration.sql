@@ -11,6 +11,12 @@
 -- bookkeeper. A bookkeeper is expected to carry role = 'GUEST' together with
 -- job_profile = 'ACCOUNTANT'.
 --
+-- Structural names and defaults below mirror exactly what Prisma derives from
+-- schema.prisma, so `prisma migrate diff` reports no drift. The CHECK
+-- constraints and the row level security block are additions Prisma does not
+-- model; they are invariants this slice must not lose, and they do not create
+-- drift.
+--
 -- Column-level privileges are deliberately not extended to the existing
 -- narrowly scoped identity principals. They keep the exact column set they were
 -- granted, so this migration cannot widen what any current runtime can read.
@@ -45,9 +51,8 @@ BEGIN
 END
 $job_profile_constraint$;
 
-CREATE INDEX IF NOT EXISTS user_orgs_job_profile_idx
-  ON public."user_orgs" ("organizationId", "job_profile")
-  WHERE "job_profile" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "user_orgs_organizationId_job_profile_idx"
+  ON public."user_orgs" ("organizationId", "job_profile");
 
 -- Time-bounded delegation of a capability subset from one membership to
 -- another, used when a bookkeeper is on leave. Legal signing authority is not
@@ -55,53 +60,74 @@ CREATE INDEX IF NOT EXISTS user_orgs_job_profile_idx
 -- site cannot turn a stand-in into a signatory.
 
 CREATE TABLE IF NOT EXISTS public."membership_delegations" (
-  "id"                     TEXT        PRIMARY KEY,
-  "tenantId"               TEXT        NOT NULL,
-  "organizationId"         TEXT        NOT NULL,
-  "fromMembershipId"       TEXT        NOT NULL,
-  "toMembershipId"         TEXT        NOT NULL,
-  "capabilities"           TEXT[]      NOT NULL,
-  "startsAt"               TIMESTAMPTZ NOT NULL,
-  "endsAt"                 TIMESTAMPTZ NOT NULL,
-  "status"                 TEXT        NOT NULL DEFAULT 'ACTIVE',
-  "reason"                 TEXT,
-  "createdByMembershipId"  TEXT        NOT NULL,
-  "revokedAt"              TIMESTAMPTZ,
-  "version"                BIGINT      NOT NULL DEFAULT 0,
-  "createdAt"              TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-  "updatedAt"              TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  "id"                    TEXT           NOT NULL,
+  "tenantId"              TEXT           NOT NULL,
+  "organizationId"        TEXT           NOT NULL,
+  "fromMembershipId"      TEXT           NOT NULL,
+  "toMembershipId"        TEXT           NOT NULL,
+  "capabilities"          TEXT[],
+  "startsAt"              TIMESTAMPTZ(6) NOT NULL,
+  "endsAt"                TIMESTAMPTZ(6) NOT NULL,
+  "status"                TEXT           NOT NULL DEFAULT 'ACTIVE',
+  "reason"                TEXT,
+  "createdByMembershipId" TEXT           NOT NULL,
+  "revokedAt"             TIMESTAMPTZ(6),
+  "version"               BIGINT         NOT NULL DEFAULT 0,
+  "createdAt"             TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt"             TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT membership_delegation_window_check
-    CHECK ("endsAt" > "startsAt"),
-  CONSTRAINT membership_delegation_status_check
-    CHECK ("status" IN ('ACTIVE', 'REVOKED', 'EXPIRED')),
-  CONSTRAINT membership_delegation_not_self_check
-    CHECK ("fromMembershipId" <> "toMembershipId"),
-  CONSTRAINT membership_delegation_capabilities_present_check
-    CHECK (cardinality("capabilities") > 0),
-  -- Signing is gated by a signing authority record, never by delegation.
-  CONSTRAINT membership_delegation_no_signing_check
-    CHECK (NOT ('documents.sign' = ANY ("capabilities"))),
-
-  CONSTRAINT membership_delegation_from_membership_fkey
-    FOREIGN KEY ("fromMembershipId", "organizationId")
-    REFERENCES public."user_orgs" ("id", "organizationId")
-    ON DELETE CASCADE,
-  CONSTRAINT membership_delegation_to_membership_fkey
-    FOREIGN KEY ("toMembershipId", "organizationId")
-    REFERENCES public."user_orgs" ("id", "organizationId")
-    ON DELETE CASCADE,
-  CONSTRAINT membership_delegation_organization_fkey
-    FOREIGN KEY ("organizationId", "tenantId")
-    REFERENCES public."organizations" ("id", "tenantId")
-    ON DELETE CASCADE
+  CONSTRAINT "membership_delegations_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX IF NOT EXISTS membership_delegations_recipient_window_idx
-  ON public."membership_delegations"
-  ("organizationId", "toMembershipId", "status", "endsAt");
+DO $delegation_invariants$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'membership_delegation_window_check'
+  ) THEN
+    ALTER TABLE public."membership_delegations"
+      ADD CONSTRAINT membership_delegation_window_check
+      CHECK ("endsAt" > "startsAt");
+  END IF;
 
-CREATE INDEX IF NOT EXISTS membership_delegations_tenant_idx
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'membership_delegation_status_check'
+  ) THEN
+    ALTER TABLE public."membership_delegations"
+      ADD CONSTRAINT membership_delegation_status_check
+      CHECK ("status" IN ('ACTIVE', 'REVOKED', 'EXPIRED'));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'membership_delegation_not_self_check'
+  ) THEN
+    ALTER TABLE public."membership_delegations"
+      ADD CONSTRAINT membership_delegation_not_self_check
+      CHECK ("fromMembershipId" <> "toMembershipId");
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'membership_delegation_capabilities_present_check'
+  ) THEN
+    ALTER TABLE public."membership_delegations"
+      ADD CONSTRAINT membership_delegation_capabilities_present_check
+      CHECK ("capabilities" IS NOT NULL AND cardinality("capabilities") > 0);
+  END IF;
+
+  -- Signing is gated by a signing authority record, never by delegation.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'membership_delegation_no_signing_check'
+  ) THEN
+    ALTER TABLE public."membership_delegations"
+      ADD CONSTRAINT membership_delegation_no_signing_check
+      CHECK (NOT ('documents.sign' = ANY ("capabilities")));
+  END IF;
+END
+$delegation_invariants$;
+
+CREATE INDEX IF NOT EXISTS "membership_delegations_organizationId_toMembershipId_status_idx"
+  ON public."membership_delegations" ("organizationId", "toMembershipId", "status", "endsAt");
+
+CREATE INDEX IF NOT EXISTS "membership_delegations_tenantId_idx"
   ON public."membership_delegations" ("tenantId");
 
 -- Only one active delegation may run between the same pair at the same moment,
@@ -111,6 +137,43 @@ CREATE UNIQUE INDEX IF NOT EXISTS membership_delegations_active_pair_idx
   ("organizationId", "fromMembershipId", "toMembershipId", "startsAt")
   WHERE "status" = 'ACTIVE';
 
+DO $delegation_foreign_keys$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'membership_delegations_fromMembershipId_organizationId_fkey'
+  ) THEN
+    ALTER TABLE public."membership_delegations"
+      ADD CONSTRAINT "membership_delegations_fromMembershipId_organizationId_fkey"
+      FOREIGN KEY ("fromMembershipId", "organizationId")
+      REFERENCES public."user_orgs" ("id", "organizationId")
+      ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'membership_delegations_toMembershipId_organizationId_fkey'
+  ) THEN
+    ALTER TABLE public."membership_delegations"
+      ADD CONSTRAINT "membership_delegations_toMembershipId_organizationId_fkey"
+      FOREIGN KEY ("toMembershipId", "organizationId")
+      REFERENCES public."user_orgs" ("id", "organizationId")
+      ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'membership_delegations_organizationId_tenantId_fkey'
+  ) THEN
+    ALTER TABLE public."membership_delegations"
+      ADD CONSTRAINT "membership_delegations_organizationId_tenantId_fkey"
+      FOREIGN KEY ("organizationId", "tenantId")
+      REFERENCES public."organizations" ("id", "tenantId")
+      ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END
+$delegation_foreign_keys$;
+
 ALTER TABLE public."membership_delegations" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."membership_delegations" FORCE ROW LEVEL SECURITY;
 
@@ -119,7 +182,7 @@ ALTER TABLE public."membership_delegations" FORCE ROW LEVEL SECURITY;
 -- tenant-scoped policy are provisioned in the slice that introduces the API
 -- which needs them, so this table cannot be reached before that review.
 
-DO $delegation_schema_usage$
+DO $delegation_privilege_boundary$
 DECLARE
   role_name text;
 BEGIN
@@ -134,4 +197,4 @@ BEGIN
     END IF;
   END LOOP;
 END
-$delegation_schema_usage$;
+$delegation_privilege_boundary$;
