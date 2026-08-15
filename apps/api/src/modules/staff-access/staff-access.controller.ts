@@ -67,6 +67,9 @@ export class StaffAccessController {
   }
 
   @Get('registration/applications')
+  @UseGuards(StaffAccessGuard)
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.STAFF_REQUEST_READ)
   @RateLimit({ name: 'staff_registration_application_list', scope: 'user', limit: 60, windowSeconds: 60 })
   async registrationApplications(@Req() request: StaffRequest) {
     await this.access.requirePermission(request.user, StaffPermission.STAFF_REQUEST_READ);
