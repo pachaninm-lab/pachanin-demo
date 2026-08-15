@@ -99,11 +99,11 @@ export function platformHome(role: SurfaceRole, isOrganizationAdmin = false) {
   return routes[role];
 }
 
-function sameSiteForSession<T extends { sameSite: 'lax' | 'strict' }>(
+function sameSiteForSession<T extends object>(
   base: T,
   controlPlane: boolean,
-): T {
-  return controlPlane ? { ...base, sameSite: 'strict' } : base;
+): T & { sameSite: 'lax' | 'strict' } {
+  return { ...base, sameSite: controlPlane ? 'strict' : 'lax' };
 }
 
 export async function applyAuthenticatedSession(
