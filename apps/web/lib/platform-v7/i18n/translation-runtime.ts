@@ -266,6 +266,7 @@ function getFragmentEntries(dictionary: TranslationDictionary): FragmentEntry[] 
 
 const STRUCTURED_TOKENS: ReadonlyArray<readonly [RegExp, string, string]> = [
   [/Н(?=\d+\s*:)/g, 'W', '第'],
+  [/(\d[\d\s]*(?:[.,]\d+)?\s+)т(?![А-Яа-яЁё])/giu, '$1t', '$1吨'],
   [/(?<![А-Яа-яЁё])янв\.(?![А-Яа-яЁё])/giu, 'Jan', '1月'],
   [/(?<![А-Яа-яЁё])февр\.(?![А-Яа-яЁё])/giu, 'Feb', '2月'],
   [/(?<![А-Яа-яЁё])мар\.(?![А-Яа-яЁё])/giu, 'Mar', '3月'],
