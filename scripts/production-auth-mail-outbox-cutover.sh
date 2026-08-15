@@ -102,6 +102,26 @@ if not 8 <= len(values['PC_SMTP_PASS']) <= 512 or any(c in values['PC_SMTP_PASS'
 "AUTHORITY_LOGIN_SENDER_SEPARATION",
 )
 
+# The production API network is the sole network authority for the durable
+# auth-mail worker. Resolve it from the exact deployed API and fail closed on
+# cardinality or unexpected names; never emit the network name as evidence.
+replace_once(
+"""[[ "$target_api_revision" == "$TARGET_SHA" && "$target_web_revision" == "$TARGET_SHA" ]] || fail TARGET_RELEASE_NOT_EXACT 28
+
+mapfile -t pre_worker_ids < <(docker ps -q \\
+""",
+"""[[ "$target_api_revision" == "$TARGET_SHA" && "$target_web_revision" == "$TARGET_SHA" ]] || fail TARGET_RELEASE_NOT_EXACT 28
+mapfile -t api_network_names < <(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$api_id" | sed '/^[[:space:]]*$/d' | sort -u)
+(( ${#api_network_names[@]} == 1 )) || fail API_NETWORK_CARDINALITY_INVALID 45
+api_network_name="${api_network_names[0]}"
+[[ "$api_network_name" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]] || fail API_NETWORK_NAME_INVALID 46
+docker network inspect "$api_network_name" >/dev/null 2>&1 || fail API_NETWORK_NOT_FOUND 47
+
+mapfile -t pre_worker_ids < <(docker ps -q \\
+""",
+"API_NETWORK_AUTHORITY",
+)
+
 replace_once(
 """  web:
     image: ${web_image}
@@ -121,6 +141,38 @@ replace_once(
   ${AUTH_MAIL_WORKER_SERVICE}:
 """,
 "WEB_LEGACY_MAIL_ENV",
+)
+
+replace_once(
+"""    healthcheck:
+      test: [\"CMD\", \"/nodejs/bin/node\", \"-e\", \"fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+  ${migration_service}:
+    image: ${migration}
+    pull_policy: never
+YAML
+""",
+"""    healthcheck:
+      test: [\"CMD\", \"/nodejs/bin/node\", \"-e\", \"fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - auth_mail_api_runtime
+  ${migration_service}:
+    image: ${migration}
+    pull_policy: never
+networks:
+  auth_mail_api_runtime:
+    external: true
+    name: ${api_network_name}
+YAML
+""",
+"WORKER_API_NETWORK_OVERRIDE",
 )
 
 replace_once(
@@ -192,9 +244,67 @@ replace_once(
 )
 
 replace_once(
+"""  return 0
+}
+
+restore_baseline() {
+""",
+"""  return 0
+}
+
+verify_worker_network_parity() {
+  local current_api current_worker
+  local -a current_api_networks current_worker_networks
+  current_api="$(docker ps -q --filter "label=com.docker.compose.project=$prod_project" --filter 'label=com.docker.compose.service=api' | head -1)"
+  current_worker="$(docker ps -q --filter "label=com.docker.compose.project=$prod_project" --filter "label=com.docker.compose.service=$AUTH_MAIL_WORKER_SERVICE" | head -1)"
+  [[ -n "$current_api" && -n "$current_worker" ]] || return 1
+  mapfile -t current_api_networks < <(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$current_api" | sed '/^[[:space:]]*$/d' | sort -u)
+  mapfile -t current_worker_networks < <(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$current_worker" | sed '/^[[:space:]]*$/d' | sort -u)
+  (( ${#current_api_networks[@]} == 1 && ${#current_worker_networks[@]} == 1 )) || return 1
+  [[ "${current_api_networks[0]}" == "${current_worker_networks[0]}" && "${current_api_networks[0]}" == "$api_network_name" ]]
+}
+
+restore_baseline() {
+""",
+"WORKER_RUNTIME_NETWORK_PARITY",
+)
+
+replace_once(
+"""    \"${dc_target[@]}\" up -d --no-deps --pull never api \"$AUTH_MAIL_WORKER_SERVICE\" web || return 1
+    wait_api && wait_worker && wait_web || return 1
+    verify_runtime_revisions \"$baseline_api_revision\" \"$baseline_web_revision\" \"$pre_worker_revision\" || return 1
+""",
+"""    \"${dc_target[@]}\" up -d --no-deps --pull never api \"$AUTH_MAIL_WORKER_SERVICE\" web || return 1
+    wait_api && wait_worker && wait_web || return 1
+    verify_worker_network_parity || return 1
+    verify_runtime_revisions \"$baseline_api_revision\" \"$baseline_web_revision\" \"$pre_worker_revision\" || return 1
+""",
+"ROLLBACK_WORKER_NETWORK_PARITY",
+)
+
+replace_once(
+"""\"${dc_target[@]}\" up -d --no-deps --pull never \"$AUTH_MAIL_WORKER_SERVICE\"
+wait_worker || fail AUTH_MAIL_WORKER_READINESS_FAILED 40
+\"${dc_target[@]}\" up -d --no-deps --pull never web
+""",
+"""\"${dc_target[@]}\" up -d --no-deps --pull never \"$AUTH_MAIL_WORKER_SERVICE\"
+wait_worker || fail AUTH_MAIL_WORKER_READINESS_FAILED 40
+verify_worker_network_parity || fail AUTH_MAIL_WORKER_NETWORK_PARITY_FAILED 48
+\"${dc_target[@]}\" up -d --no-deps --pull never web
+""",
+"CUTOVER_WORKER_NETWORK_PARITY",
+)
+
+replace_once(
 "printf 'WEB_SMTP_AUTHORITY=ABSENT\\n'\n",
 "printf 'LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY=PRESERVED\\n'\n",
 "WEB_EVIDENCE_MARKER",
+)
+
+replace_once(
+"printf 'AUTH_MAIL_WORKER_READY=PASS\\n'\n",
+"printf 'AUTH_MAIL_WORKER_NETWORK=PASS\\n'\nprintf 'AUTH_MAIL_WORKER_READY=PASS\\n'\n",
+"WORKER_NETWORK_EVIDENCE",
 )
 
 if "WEB_SMTP_AUTHORITY=ABSENT" in source:
@@ -207,6 +317,14 @@ if "API_SMTP_AUTHORITY=ABSENT" not in source:
     raise SystemExit("API_SMTP_ABSENCE_MARKER_MISSING")
 if "LEGACY_SMTP_NOT_CANONICAL" not in source:
     raise SystemExit("LEGACY_SMTP_FAIL_CLOSED_MARKER_MISSING")
+if source.count("auth_mail_api_runtime") != 2:
+    raise SystemExit("WORKER_API_NETWORK_ALIAS_CARDINALITY_INVALID")
+if source.count("verify_worker_network_parity") != 3:
+    raise SystemExit("WORKER_NETWORK_PARITY_CARDINALITY_INVALID")
+if source.count("AUTH_MAIL_WORKER_NETWORK=PASS") != 1:
+    raise SystemExit("WORKER_NETWORK_EVIDENCE_INVALID")
+if "API_NETWORK_CARDINALITY_INVALID" not in source or "AUTH_MAIL_WORKER_NETWORK_PARITY_FAILED" not in source:
+    raise SystemExit("WORKER_NETWORK_FAIL_CLOSED_MARKER_MISSING")
 
 Path(target_path).write_text(source, encoding='utf-8')
 PY
