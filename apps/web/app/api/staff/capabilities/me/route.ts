@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 
 export const runtime = 'nodejs';
@@ -35,6 +36,9 @@ function json(body: Record<string, unknown>, status = 200) {
 
 export async function GET(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  if (requiresCanonicalControlHost(request)) {
+    return json({ code: 'CONTROL_HOST_REQUIRED', correlationId }, 421);
+  }
   const accessToken = (await cookies()).get(ACCESS_COOKIE)?.value || '';
 
   if (!accessToken || accessToken.startsWith('demo.')) {
