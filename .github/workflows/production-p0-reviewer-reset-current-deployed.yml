@@ -32,8 +32,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash -n scripts/production-p0-reviewer-reset-current-deployed.sh
-          PC_P0_REVIEWER_RESET_CURRENT_VALIDATE_ONLY=1 bash scripts/production-p0-reviewer-reset-current-deployed.sh
+          env -u BASH_ENV -u ENV /usr/bin/bash --noprofile --norc -n scripts/production-p0-reviewer-reset-current-deployed.sh
+          env -u BASH_ENV -u ENV PC_P0_REVIEWER_RESET_CURRENT_VALIDATE_ONLY=1 /usr/bin/bash --noprofile --norc scripts/production-p0-reviewer-reset-current-deployed.sh
           python3 - <<'PY'
           from pathlib import Path
           w=Path('.github/workflows/production-p0-reviewer-reset-current-deployed.yml').read_text(encoding='utf-8')
@@ -47,6 +47,8 @@ jobs:
               "CORE_BLOB='320a91d228bc957eaf61220c256f2108f81a8c1f'",
               "TARGET_SHA='056ed4461dafb5e7dab2efc9ea5a0d5877523169'",
               'P0_REVIEWER_RESET_CURRENT_DEPLOYED_WRAPPER=PASS',
+              'PRODUCTION_MUTATION=NORMAL_PASSWORD_RESET_REQUEST_ONLY',
+              'env -u BASH_ENV -u ENV',
           ]
           missing=[x for x in required if x not in merged]
           if missing:
@@ -103,4 +105,4 @@ jobs:
           fi
       - name: Request normal password reset under fail-closed deployed readiness gate
         shell: bash
-        run: bash scripts/production-p0-reviewer-reset-current-deployed.sh
+        run: env -u BASH_ENV -u ENV /usr/bin/bash --noprofile --norc scripts/production-p0-reviewer-reset-current-deployed.sh
