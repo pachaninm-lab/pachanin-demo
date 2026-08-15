@@ -52,7 +52,7 @@ jobs:
             'docker run','--rm','SCRIPT_ENTRY_PREFLIGHT','PRISMA_MODULE_PREFLIGHT',
             'BOOTSTRAP_ARTIFACT','KEYRING_PREFLIGHT','SMTP_CONFIG_PREFLIGHT',
             'DB_CONNECT_PREFLIGHT','PRINCIPAL_PREFLIGHT','HEALTH_PORT_PREFLIGHT',
-            'EPHEMERAL_CONTAINER_REMOVED','/tmp/auth-mail-bootstrap-v7.js',
+            'EPHEMERAL_CONTAINER_REMOVED','/app/auth-mail-bootstrap-v7.js',
             'PRODUCTION_MUTATION EPHEMERAL_DIAGNOSTIC_CONTAINER_ONLY'
           ]
           missing=[x for x in required if x not in text]
@@ -244,8 +244,8 @@ jobs:
             --mount type=bind,src="$runtime/current-key-version",dst=/run/pc-auth-mail/current-key-version,readonly \
             --mount type=bind,src="$runtime/database-url",dst=/run/pc-auth-mail/database-url,readonly \
             --mount type=bind,src="$runtime/transport.env",dst=/run/pc-auth-mail/transport.env,readonly \
-            --mount type=bind,src="$script",dst=/tmp/auth-mail-bootstrap-v7.js,readonly \
-            "$api_image" /tmp/auth-mail-bootstrap-v7.js > "$stdout_file" 2> "$stderr_file"
+            --mount type=bind,src="$script",dst=/app/auth-mail-bootstrap-v7.js,readonly \
+            "$api_image" /app/auth-mail-bootstrap-v7.js > "$stdout_file" 2> "$stderr_file"
           container_rc=$?
           set -e
 
