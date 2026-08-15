@@ -34,6 +34,46 @@ if s.count(old_command) != 1:
     raise SystemExit(f'OLD_COMMAND_CARDINALITY={s.count(old_command)}')
 s=s.replace(old_sha,target_sha)
 s=s.replace(old_command,target_command)
+
+remote_start="stage='REMOTE_EXECUTION'\noutput="
+if s.count(remote_start) != 1:
+    raise SystemExit(f'REMOTE_START_CARDINALITY={s.count(remote_start)}')
+s=s.replace(
+    remote_start,
+    "stage='REMOTE_EXECUTION'\ntrap - ERR\nset +e\noutput=",
+    1,
+)
+
+remote_end="REMOTE\n)\"\n\nif failure_marker="
+if s.count(remote_end) != 1:
+    raise SystemExit(f'REMOTE_END_CARDINALITY={s.count(remote_end)}')
+s=s.replace(
+    remote_end,
+    "REMOTE\n)\"\nremote_rc=$?\nset -e\ntrap publish_failure ERR\n\nif failure_marker=",
+    1,
+)
+
+failure_block="""if failure_marker="$(grep '^REMOTE_FAILURE_STAGE=' <<< "$output" | tail -n1)" && [[ -n "$failure_marker" ]]; then
+  stage="${failure_marker#REMOTE_FAILURE_STAGE=}"
+  false
+fi
+marker="""
+if s.count(failure_block) != 1:
+    raise SystemExit(f'FAILURE_BLOCK_CARDINALITY={s.count(failure_block)}')
+s=s.replace(
+    failure_block,
+    """if failure_marker="$(grep '^REMOTE_FAILURE_STAGE=' <<< "$output" | tail -n1)" && [[ -n "$failure_marker" ]]; then
+  stage="${failure_marker#REMOTE_FAILURE_STAGE=}"
+  false
+fi
+if (( remote_rc != 0 )); then
+  stage='REMOTE_EXECUTION_UNCLASSIFIED'
+  false
+fi
+marker=""",
+    1,
+)
+
 required=[
     f"TARGET_SHA='{target_sha}'",
     f"COMMAND='{target_command}'",
@@ -45,6 +85,9 @@ required=[
     "/api/auth/forgot-password",
     "PRODUCTION_MUTATION=NORMAL_PASSWORD_RESET_REQUEST_ONLY",
     "StrictHostKeyChecking=yes",
+    "trap - ERR\nset +e\noutput=",
+    "remote_rc=$?\nset -e\ntrap publish_failure ERR",
+    "REMOTE_EXECUTION_UNCLASSIFIED",
 ]
 missing=[x for x in required if x not in s]
 if missing:
