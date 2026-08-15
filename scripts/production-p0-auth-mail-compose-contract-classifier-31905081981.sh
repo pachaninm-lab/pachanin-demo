@@ -174,8 +174,14 @@ for name in ('api','web','auth-mail-worker'):
 if str(services['api'].get('image') or '') != api_image: done('API_IMAGE_MISMATCH')
 if str(services['web'].get('image') or '') != web_image: done('WEB_IMAGE_MISMATCH')
 web=env(services['web'])
-for key in ('PC_SMTP_HOST','PC_SMTP_PORT','PC_SMTP_USER','PC_SMTP_PASS','PC_MAIL_FROM','RESEND_API_KEY','RESEND_FROM_EMAIL','AUTH_MAIL_OUTBOX_KEYRING_DIR','AUTH_MAIL_DATABASE_URL_FILE','AUTH_MAIL_TRANSPORT_FILE'):
-    if key in web: done('WEB_FORBIDDEN_'+key)
+if web.get('PC_SMTP_HOST') != 'mail.hosting.reg.ru': done('WEB_LEGACY_SMTP_HOST_MISMATCH')
+if web.get('PC_SMTP_PORT') != '465': done('WEB_LEGACY_SMTP_PORT_MISMATCH')
+user=web.get('PC_SMTP_USER') or ''
+if '@' not in user or any(c in user for c in '\r\n\0<>'): done('WEB_LEGACY_SMTP_USER_INVALID')
+if web.get('PC_MAIL_FROM') != 'access@xn----8sbjf4befbjgs9b.xn--p1ai': done('WEB_LEGACY_SMTP_SENDER_MISMATCH')
+password=web.get('PC_SMTP_PASS') or ''
+if not 8 <= len(password) <= 512 or any(c in password for c in '\r\n\0'): done('WEB_LEGACY_SMTP_PASSWORD_INVALID')
+if any(key.startswith('AUTH_MAIL_') for key in web): done('WEB_WORKER_AUTHORITY_FORBIDDEN')
 if 'PASSWORD_RESET_DELIVERY_KEY' not in web: done('WEB_RESET_BOUNDARY_MISSING')
 api=env(services['api'])
 if api.get('AUTH_MAIL_OUTBOX_KEYRING_DIR') != '/run/pc-auth-mail/keyring': done('API_KEYRING_MISSING')
