@@ -65,11 +65,15 @@ export function requestAuthorityHost(request: Pick<Request, 'headers'>): string 
   return normalizeAuthorityHost(request.headers.get('host'));
 }
 
+export function isCanonicalControlAuthority(request: Pick<Request, 'headers'>): boolean {
+  return requestAuthorityHost(request) === CONTROL_PLATFORM_HOST;
+}
+
 export function isControlHostRequest(
   request: Pick<Request, 'headers'>,
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return controlHostEnabled(env) && requestAuthorityHost(request) === CONTROL_PLATFORM_HOST;
+  return controlHostEnabled(env) && isCanonicalControlAuthority(request);
 }
 
 export function isPrimaryPlatformHostRequest(request: Pick<Request, 'headers'>): boolean {
@@ -80,7 +84,7 @@ export function requiresCanonicalControlHost(
   request: Pick<Request, 'headers'>,
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return controlHostEnabled(env) && requestAuthorityHost(request) !== CONTROL_PLATFORM_HOST;
+  return controlHostEnabled(env) && !isCanonicalControlAuthority(request);
 }
 
 export function isControlRealmPathAllowed(pathname: string): boolean {
