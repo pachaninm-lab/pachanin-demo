@@ -332,6 +332,28 @@ describe('membership capability resolver', () => {
       expect(result.has('admin' as Capability)).toBe(false);
     });
 
+    it('is not applied to a membership that has no job profile', () => {
+      const result = resolveMembershipCapabilities(
+        membership({
+          jobProfile: null,
+          delegations: [delegation({ capabilities: [Capability.DOCUMENTS_PREPARE] })],
+        }),
+      );
+      expect(result.has(Capability.DOCUMENTS_PREPARE)).toBe(false);
+      expect(result.size).toBe(3);
+    });
+
+    it('is not applied when the job profile is unrecognised', () => {
+      const result = resolveMembershipCapabilities(
+        membership({
+          jobProfile: 'SUPERUSER',
+          delegations: [delegation({ capabilities: [Capability.DOCUMENTS_PREPARE] })],
+        }),
+      );
+      expect(result.has(Capability.DOCUMENTS_PREPARE)).toBe(false);
+      expect(result.size).toBe(3);
+    });
+
     it('cannot revive a revoked membership', () => {
       const result = resolveMembershipCapabilities(
         membership({

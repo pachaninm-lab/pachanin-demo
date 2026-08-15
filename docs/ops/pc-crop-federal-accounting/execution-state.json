@@ -7,8 +7,8 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-15T19:15:00.000Z",
-  "observedMainSha": "eb5ea52249c7495d88f3768432158a59160647fc",
+  "updatedAt": "2026-08-15T19:05:00.000Z",
+  "observedMainSha": "2f4dca2d18b2301cd8936eae02b284a91ee9483d",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
@@ -68,7 +68,7 @@
         "automatedAndNegativeTestsGreen": {
           "weightShare": 0.25,
           "done": true,
-          "evidence": "76 dedicated tests; full API suite 1312 passed / 0 failed; auth module 279 passed across 24 suites; forward-only migration gate passed"
+          "evidence": "78 dedicated tests; full API suite 1312 passed / 0 failed; auth module 279 passed across 24 suites; forward-only migration gate passed; CI green on PR #4216 head ed4acac including 12 roles/RLS/DR restore, persistent sessions, PostgreSQL 16 RLS tenant isolation, API unit tests + TypeScript, security gate, CodeQL, migration gate and the autopilot scope guard"
         },
         "mergedToMain": {
           "weightShare": 0.15,
@@ -257,54 +257,59 @@
   },
   "completedEvidence": [
     {
-      "id": "EV-001",
+      "id": "EXE-001",
       "what": "Contract identity verified",
       "detail": "Uploaded file SHA-256 matches b3e892ea...8125d4, 104981 bytes, 3877 lines, all 84 sections read."
     },
     {
-      "id": "EV-002",
+      "id": "EXE-002",
       "what": "Live main observed and drift detected",
       "detail": "ba847b28 at session start -> 9b07e319 during audit. Section F concurrent drift is real, not theoretical."
     },
     {
-      "id": "EV-003",
+      "id": "EXE-003",
       "what": "ACCOUNTING role conflict proven from code",
       "detail": "registration-application.service.ts:34 maps bank -> Role.ACCOUNTING; settlement-engine.controller.ts grants it money-movement commands. Contract section 6 assumption confirmed independently."
     },
     {
-      "id": "EV-004",
+      "id": "EXE-004",
       "what": "Governance lock proven",
       "detail": "autopilot-state.json forbiddenZones includes packages and apps/web; allowedCurrentScope is bound to IR-10.4; lockedUntilCurrentGreen covers IR-20/IR-21 needed by waves 5-8."
     },
     {
-      "id": "EV-005",
+      "id": "EXE-005",
       "what": "Production unreachable",
       "detail": "agentproxy status reports connect_rejected 403 for xn--80affnb9admdi3d.xn--p1ai:443."
     },
     {
-      "id": "EV-006",
+      "id": "EXE-006",
       "what": "Existing strength inventory",
       "detail": "RLS FORCE in 42 files; durable outbox PR #2378; FGIS grain contour with 11 models; anti-fraud module present; MFA/session persistence merged (#2276/#2280/#2282/#2283)."
     },
     {
-      "id": "EV-007",
+      "id": "EXE-007",
       "what": "Governance lock independently confirmed by repo tooling",
       "detail": "scripts/p7-autopilot-dispatcher.mjs prints: 'IR-10.4 Settlement PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-10.5.'"
     },
     {
-      "id": "EV-008",
+      "id": "EXE-008",
       "what": "Defect found in mandated check script",
       "detail": "The AGENTS.md-mandated dispatcher rewrites progress.json and drops noSelfModifyingWorkflow and noDirectPushToMain from rules, and weakens the codex task prompt. Reverted; not committed. See risk-register.md R-11."
     },
     {
-      "id": "EV-009",
+      "id": "EXE-009",
       "what": "Wave 1 implemented and proven green",
       "detail": "Scope guard passes with GITHUB_HEAD_REF set. Typecheck adds no new error over clean main (same two pre-existing tsconfig deprecations). No regression in the 9 market roles or registration authority #3785."
     },
     {
-      "id": "EV-010",
+      "id": "EXE-010",
       "what": "Scope manifest schema defect caught before CI",
       "detail": "The first manifest draft used ad-hoc keys. p7-source-controlled-scope.mjs requires schemaVersion platform-v7.concurrent-scope.v1 with allowedPaths and status active, and throws on a branch-matching manifest that fails validation. Rewritten to the canonical schema and verified to resolve."
+    },
+    {
+      "id": "EXE-011",
+      "what": "Wave 1 CI proven green end to end",
+      "detail": "The only real failure was a Prisma migrate-diff drift caused by hand-written constraint and index names, missing ON UPDATE CASCADE, clock_timestamp defaults and a partial index Prisma cannot express. Reproduced on a local PostgreSQL 16 before fixing. Three further red aggregate gates were cancellation artifacts of the superseded run, each running test \"cancelled\" = success on the old SHA."
     }
   ],
   "blockers": [
@@ -394,8 +399,17 @@
       "who": "owner"
     }
   ],
-  "openPRs": [],
-  "openPRsNote": "No implementation PR opened. Opening one for waves 1-12 would be a scope violation under AGENTS.md review rule and would be blocked at review by design.",
+  "openPRs": [
+    {
+      "number": 4216,
+      "title": "PC-CROP federal accounting: Wave 0 truth audit, Wave 1 scope registration, job profile axis and capability resolver",
+      "head": "claude/autonomous-execution-contract-oc7ds7",
+      "state": "open",
+      "ciState": "green",
+      "awaiting": "human merge (noAutoMerge stands)"
+    }
+  ],
+  "openPRsNote": "Wave 1 PR is green and awaiting owner merge. noAutoMerge is a committed rule and was not touched.",
   "repositoryHealthObservations": [
     "100+ open PRs (list truncates at 100; oldest observed #2199).",
     "Last 30 workflow runs on main: 19 skipped, 11 in_progress, 0 success.",
@@ -446,5 +460,6 @@
     "backupRestoreProven": false,
     "reason": "ENV-PROD network policy; no production surface reachable."
   },
-  "newMandatoryCostsRub": 0
+  "newMandatoryCostsRub": 0,
+  "completedEvidenceNote": "EXE-* ids are internal to this file. The auditable observation log with its own EV-* ids and sources is evidence-index.md; the two sequences are deliberately distinct."
 }

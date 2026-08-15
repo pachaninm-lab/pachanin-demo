@@ -295,7 +295,11 @@ export function resolveMembershipCapabilities(
 
   const profileGrant = activeProfileCapabilities(input.jobProfile);
   if (profileGrant.length === 0) {
-    // Active membership with no recognised job profile: baseline only.
+    // Active membership with no recognised job profile: baseline only, and
+    // delegations are deliberately not applied. Delegation stands in for
+    // someone who already holds a job, so it must not become a side door that
+    // hands authority to a membership that was never given one. Returning here
+    // rather than falling through keeps that explicit.
     return new Set(BASELINE);
   }
 
