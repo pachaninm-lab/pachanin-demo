@@ -24,8 +24,11 @@ jobs:
         github.event_name == 'issue_comment' &&
         github.event.issue.number == 3072 &&
         github.event.comment.user.login == github.repository_owner &&
-        github.actor == github.repository_owner &&
-        github.triggering_actor == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
         github.event.comment.body == '/production p0-auth-legacy-alias-diagnostic-v4 280c'
       )
     runs-on: ubuntu-24.04
@@ -76,6 +79,15 @@ jobs:
           bad = [value for value in forbidden if value in combined]
           if bad:
               raise SystemExit('mutation surface forbidden: ' + ' | '.join(bad))
+          authority = Path('.github/workflows/production-p0-auth-legacy-alias-diagnostic-v4-3785.yml').read_text(encoding='utf-8')
+          for value in [
+              "github.event.comment.user.login == github.repository_owner",
+              "github.event.comment.author_association == 'OWNER'",
+              'github.event.comment.performed_via_github_app.id == 1144995',
+              "github.event.comment.body == '/production p0-auth-legacy-alias-diagnostic-v4 280c'",
+          ]:
+              if authority.count(value) != 2:
+                  raise SystemExit('owner command authority invariant missing: ' + value)
           PY
           bash "$wrapper"
 
@@ -87,8 +99,11 @@ jobs:
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 3072 &&
       github.event.comment.user.login == github.repository_owner &&
-      github.actor == github.repository_owner &&
-      github.triggering_actor == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+        github.event.comment.performed_via_github_app.id == 1144995
+      ) &&
       github.event.comment.body == '/production p0-auth-legacy-alias-diagnostic-v4 280c'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
