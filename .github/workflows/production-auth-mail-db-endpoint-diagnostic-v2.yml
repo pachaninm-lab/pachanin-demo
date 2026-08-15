@@ -1,0 +1,375 @@
+name: Production Auth-Mail DB Endpoint Diagnostic v2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-auth-mail-db-endpoint-diagnostic-v2.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-auth-mail-db-endpoint-diagnostic-v2
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  SUBJECT_PRODUCTION_SHA: 033964e2e553c595482b774784cf808815eccbc7
+  DIAGNOSTIC_COMMAND: /production p0-auth-mail-db-endpoint-v2 current-main
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate read-only endpoint diagnostic v2 contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Enforce read-only surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/production-auth-mail-db-endpoint-diagnostic-v2.yml').read_text(encoding='utf-8')
+          required=[
+            'SUBJECT_PRODUCTION_SHA: 033964e2e553c595482b774784cf808815eccbc7',
+            'DIAGNOSTIC_COMMAND: /production p0-auth-mail-db-endpoint-v2 current-main',
+            'PRODUCTION_MUTATION NONE',
+            'CURRENT_CREDENTIAL_LOGIN',
+            'PRISMA_CONNECT_CLASS',
+            'WORKER_ENDPOINT_TCP',
+            'LOCAL_ROLE_CONTRACT',
+          ]
+          missing=[x for x in required if x not in text]
+          if missing: raise SystemExit('missing invariant: '+' | '.join(missing))
+          diagnostic=text.split('\n  diagnostic:\n',1)[1]
+          forbidden=[
+            'ALTER ROLE','CREATE ROLE','DROP ROLE','INSERT INTO','UPDATE auth.','DELETE FROM','TRUNCATE ',
+            'rotate-db','rotate-smtp','rotate-key','docker compose','docker restart','docker rm','docker run',
+            'PASSWORD_RESET_REPLAYED YES','PRODUCTION_MUTATION DB_'
+          ]
+          bad=[x for x in forbidden if x in diagnostic]
+          if bad: raise SystemExit('mutation surface forbidden: '+' | '.join(bad))
+          PY
+
+  diagnostic:
+    name: Read-only auth-mail DB endpoint differential
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-mail-db-endpoint-v2 current-main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bind current main to immutable production subject
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          git cat-file -e "${SUBJECT_PRODUCTION_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_PRODUCTION_SHA" "$main_sha"
+          # Only code that defines the deployed worker/database/cutover contract is immutable.
+          # The provisioning script is excluded because this diagnostic never executes it.
+          git diff --quiet "$SUBJECT_PRODUCTION_SHA..$main_sha" -- \
+            apps/api/src/auth-mail-worker.ts \
+            apps/api/prisma/migrations/20260812010000_p0_industrial_auth_mail_outbox/migration.sql \
+            scripts/production-auth-mail-outbox-cutover-core.sh
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "subject_sha=$SUBJECT_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned production SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]] || exit 15
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; python3 --version >/dev/null; echo SSH_AUTH_OK' | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Classify DB endpoint and credential without mutation
+        id: diagnostic
+        shell: bash
+        env:
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "bash -s -- '$SUBJECT_SHA'" > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          subject_sha="$1"
+          runtime_db='/var/lib/pc-secret-authority/runtime/database-url'
+          tmp="$(mktemp -d /tmp/pc-auth-mail-db-v2.XXXXXX)"
+          trap 'rm -rf -- "$tmp"' EXIT
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          fail(){ emit AUTH_MAIL_DB_ENDPOINT_V2 FAIL; emit ERROR_CODE "$1"; emit PRODUCTION_MUTATION NONE; exit "${2:-1}"; }
+          [[ "$(id -u)" -eq 0 ]] || fail ROOT_REQUIRED 20
+          [[ "$subject_sha" =~ ^[0-9a-f]{40}$ ]] || fail SUBJECT_SHA_INVALID 21
+          [[ -f "$runtime_db" && ! -L "$runtime_db" && "$(stat -c '%a:%u:%g' "$runtime_db")" == '444:0:0' ]] || fail DB_RUNTIME_FILE_INVALID 22
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 )) || fail WEB_CARDINALITY 23
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          [[ -n "$project" ]] || fail PROJECT_MISSING 24
+          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 )) || fail API_CARDINALITY 25
+          api_id="${api_ids[0]}"
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" == "$subject_sha" ]] || fail API_REVISION_DRIFT 26
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" == "$subject_sha" ]] || fail WEB_REVISION_DRIFT 27
+
+          mapfile -t workers < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          (( ${#workers[@]} == 1 )) || fail WORKER_CARDINALITY 28
+          worker_id="${workers[0]}"
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id" 2>/dev/null || true)" == "$subject_sha" ]] || fail WORKER_REVISION_DRIFT 29
+          worker_state="$(docker inspect --format '{{.State.Status}}' "$worker_id" 2>/dev/null || true)"
+          worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$worker_id" 2>/dev/null || true)"
+          [[ "$worker_state" =~ ^(created|running|paused|restarting|exited|dead)$ ]] || worker_state=unknown
+          [[ "$worker_health" =~ ^(none|starting|healthy|unhealthy)$ ]] || worker_health=unknown
+          emit WORKER_STATE "$worker_state"; emit WORKER_HEALTH "$worker_health"
+
+          mapfile -t pg_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" | while read -r id; do
+            image="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
+            service="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "$id" 2>/dev/null || true)"
+            if [[ "$image" == postgres:* || "$image" == */postgres:* || "$service" == postgres || "$service" == db || "$service" == database ]]; then printf '%s\n' "$id"; fi
+          done)
+          (( ${#pg_ids[@]} == 1 )) || fail POSTGRES_CARDINALITY 30
+          pg_id="${pg_ids[0]}"
+          postgres_user="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$pg_id" | sed -n 's/^POSTGRES_USER=//p' | head -1)"
+          postgres_db="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$pg_id" | sed -n 's/^POSTGRES_DB=//p' | head -1)"
+          [[ -n "$postgres_user" ]] || postgres_user=postgres
+          [[ -n "$postgres_db" ]] || postgres_db="$postgres_user"
+
+          api_auth="$tmp/api-auth"; chmod 600 "$api_auth"
+          docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AUTH_DATABASE_URL=//p' | head -1 > "$api_auth"
+          [[ -s "$api_auth" ]] || fail API_AUTH_URL_MISSING 31
+
+          python3 - "$runtime_db" "$api_auth" "$worker_id" "$api_id" "$pg_id" <<'PY' > "$tmp/class"
+          import json, subprocess, sys
+          from urllib.parse import urlsplit, unquote
+          dbf, apif, wid, aid, pid=sys.argv[1:]
+          w=urlsplit(open(dbf,encoding='utf-8').read().strip()); a=urlsplit(open(apif,encoding='utf-8').read().strip())
+          if w.scheme not in ('postgres','postgresql') or unquote(w.username or '')!='pc_auth_mail_runtime' or not w.password or not w.hostname or not w.path.strip('/'): raise SystemExit(1)
+          if a.scheme not in ('postgres','postgresql') or not a.hostname or not a.path.strip('/'): raise SystemExit(1)
+          def ins(x): return json.loads(subprocess.check_output(['docker','inspect',x],text=True))[0]
+          wi,ai,pi=ins(wid),ins(aid),ins(pid)
+          def nets(o): return set((o.get('NetworkSettings') or {}).get('Networks') or {})
+          def names(o):
+              out=set(); labels=(o.get('Config') or {}).get('Labels') or {}
+              for x in (str(o.get('Name') or '').lstrip('/'), str(labels.get('com.docker.compose.service') or '')):
+                  if x: out.add(x.lower())
+              for d in ((o.get('NetworkSettings') or {}).get('Networks') or {}).values():
+                  if d.get('IPAddress'): out.add(str(d['IPAddress']).lower())
+                  out.update(str(x).lower() for x in (d.get('Aliases') or []))
+              return out
+          host=(w.hostname or '').lower(); port=w.port or 5432
+          kind='LOOPBACK' if host in {'localhost','127.0.0.1','::1'} else ('POSTGRES' if host in names(pi) else 'OTHER')
+          parity=(host==(a.hostname or '').lower() and port==(a.port or 5432) and w.path==a.path)
+          print('WORKER_DB_USER=PASS')
+          print('DB_ENDPOINT_KIND='+kind)
+          print('DB_PORT_CLASS='+('POSTGRES_DEFAULT' if port==5432 else 'NONDEFAULT'))
+          print('AUTH_ENDPOINT_PARITY='+('PASS' if parity else 'FAIL'))
+          print('WORKER_API_SHARED_NETWORK='+('PASS' if nets(wi)&nets(ai) else 'FAIL'))
+          print('WORKER_POSTGRES_SHARED_NETWORK='+('PASS' if nets(wi)&nets(pi) else 'FAIL'))
+          print('TARGET_HOST='+host)
+          print('TARGET_PORT='+str(port))
+          print('TARGET_DB='+unquote(w.path.lstrip('/')))
+          PY
+          sed -nE '/^(WORKER_DB_USER|DB_ENDPOINT_KIND|DB_PORT_CLASS|AUTH_ENDPOINT_PARITY|WORKER_API_SHARED_NETWORK|WORKER_POSTGRES_SHARED_NETWORK)=[A-Za-z0-9_.:-]{1,160}$/p' "$tmp/class"
+          target_host="$(sed -n 's/^TARGET_HOST=//p' "$tmp/class")"
+          target_port="$(sed -n 's/^TARGET_PORT=//p' "$tmp/class")"
+          target_db="$(sed -n 's/^TARGET_DB=//p' "$tmp/class")"
+          [[ -n "$target_host" && "$target_port" =~ ^[0-9]{1,5}$ && -n "$target_db" ]] || fail TARGET_CLASS_INVALID 32
+
+          role_meta="$(docker exec "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" -c "SELECT rolcanlogin||'|'||rolsuper||'|'||rolbypassrls||'|'||rolinherit||'|'||(rolpassword IS NOT NULL) FROM pg_authid WHERE rolname='pc_auth_mail_runtime';" 2>/dev/null)" || fail ROLE_METADATA_QUERY_FAILED 33
+          if [[ "$role_meta" == 'true|false|false|false|true' || "$role_meta" == 't|f|f|f|t' ]]; then emit LOCAL_ROLE_CONTRACT PASS; else emit LOCAL_ROLE_CONTRACT FAIL; fi
+
+          login_out="$tmp/login.out"; login_err="$tmp/login.err"; chmod 600 "$login_out" "$login_err"
+          set +e
+          python3 - "$runtime_db" <<'PY' | docker exec -i "$pg_id" env PGCONNECT_TIMEOUT=5 psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" >"$login_out" 2>"$login_err"
+          import sys
+          raw=open(sys.argv[1],encoding='utf-8').read().strip()
+          print('\\connect '+raw)
+          print('SELECT current_user;')
+          PY
+          login_rc=$?
+          set -e
+          if [[ "$login_rc" == 0 ]] && grep -Fxq pc_auth_mail_runtime "$login_out"; then emit CURRENT_CREDENTIAL_LOGIN PASS
+          elif grep -Eqi 'password authentication failed|authentication failed' "$login_err"; then emit CURRENT_CREDENTIAL_LOGIN AUTH_FAILED
+          elif grep -Eqi 'no pg_hba.conf entry' "$login_err"; then emit CURRENT_CREDENTIAL_LOGIN HBA_DENIED
+          elif grep -Eqi 'does not exist' "$login_err"; then emit CURRENT_CREDENTIAL_LOGIN ROLE_OR_DATABASE_MISSING
+          elif grep -Eqi 'permission denied for database' "$login_err"; then emit CURRENT_CREDENTIAL_LOGIN CONNECT_DENIED
+          elif grep -Eqi 'could not translate host name|Name or service not known' "$login_err"; then emit CURRENT_CREDENTIAL_LOGIN DNS_FAILED
+          elif grep -Eqi 'connection refused|could not connect|timeout expired|timed out' "$login_err"; then emit CURRENT_CREDENTIAL_LOGIN NETWORK_FAILED
+          elif grep -Eqi 'SSL|TLS|certificate' "$login_err"; then emit CURRENT_CREDENTIAL_LOGIN TLS_FAILED
+          else emit CURRENT_CREDENTIAL_LOGIN OTHER_FAILED
+          fi
+
+          if [[ "$worker_state" == running ]]; then
+            set +e
+            tcp="$(docker exec "$worker_id" /nodejs/bin/node - "$target_host" "$target_port" 2>/dev/null <<'NODE'
+          const dns=require('node:dns').promises, net=require('node:net');
+          const host=process.argv[2], port=Number(process.argv[3]);
+          (async()=>{try{await dns.lookup(host)}catch{process.stdout.write('DNS_FAILED');return}await new Promise(r=>{const s=net.createConnection({host,port,timeout:4000});s.once('connect',()=>{process.stdout.write('PASS');s.destroy();r()});s.once('timeout',()=>{process.stdout.write('TCP_FAILED');s.destroy();r()});s.once('error',()=>{process.stdout.write('TCP_FAILED');r()})})})().catch(()=>process.stdout.write('TCP_FAILED'));
+          NODE
+            )"
+            set -e
+            [[ "$tcp" =~ ^(PASS|DNS_FAILED|TCP_FAILED)$ ]] || tcp=UNAVAILABLE
+          else tcp=UNAVAILABLE; fi
+          emit WORKER_ENDPOINT_TCP "$tcp"
+
+          python3 - "$runtime_db" > "$tmp/prisma.js" <<'PY'
+          import json,sys
+          raw=open(sys.argv[1],encoding='utf-8').read().strip()
+          print("const {PrismaClient}=require('@prisma/client');")
+          print('const url='+json.dumps(raw)+';')
+          print("const p=new PrismaClient({datasources:{db:{url}}});")
+          print("(async()=>{try{await p.$connect();const rows=await p.$queryRawUnsafe('SELECT current_user');process.stdout.write('PRISMA_CONNECT_CLASS='+(rows?.[0]?.current_user==='pc_auth_mail_runtime'?'PASS':'WRONG_PRINCIPAL')+'\\n')}catch(e){const c=String(e?.errorCode||e?.code||e?.name||'UNKNOWN').replace(/[^A-Za-z0-9_]/g,'_').toUpperCase().slice(0,80);process.stdout.write('PRISMA_CONNECT_CLASS='+c+'\\n')}finally{await p.$disconnect().catch(()=>{})}})();")
+          PY
+          prisma="$(docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - < "$tmp/prisma.js" 2>/dev/null | sed -nE 's/^PRISMA_CONNECT_CLASS=([A-Z0-9_]{1,80})$/\1/p' | head -1 || true)"
+          [[ -n "$prisma" ]] || prisma=NO_SAFE_RESULT
+          emit PRISMA_CONNECT_CLASS "$prisma"
+          emit AUTH_MAIL_DB_ENDPOINT_V2 PASS
+          emit ERROR_CODE NONE
+          emit PRODUCTION_MUTATION NONE
+          REMOTE
+          remote_rc=$?
+          set -e
+          sed -nE '/^(AUTH_MAIL_DB_ENDPOINT_V2|ERROR_CODE|WORKER_STATE|WORKER_HEALTH|WORKER_DB_USER|DB_ENDPOINT_KIND|DB_PORT_CLASS|AUTH_ENDPOINT_PARITY|WORKER_API_SHARED_NETWORK|WORKER_POSTGRES_SHARED_NETWORK|LOCAL_ROLE_CONTRACT|CURRENT_CREDENTIAL_LOGIN|WORKER_ENDPOINT_TCP|PRISMA_CONNECT_CLASS|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"
+          rm -f "$raw"; cat "$clean"; echo "rc=$remote_rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r key value; do
+            case "$key" in AUTH_MAIL_DB_ENDPOINT_V2|ERROR_CODE|WORKER_STATE|WORKER_HEALTH|WORKER_DB_USER|DB_ENDPOINT_KIND|DB_PORT_CLASS|AUTH_ENDPOINT_PARITY|WORKER_API_SHARED_NETWORK|WORKER_POSTGRES_SHARED_NETWORK|LOCAL_ROLE_CONTRACT|CURRENT_CREDENTIAL_LOGIN|WORKER_ENDPOINT_TCP|PRISMA_CONNECT_CLASS|PRODUCTION_MUTATION) echo "${key,,}=$value" >> "$GITHUB_OUTPUT";; esac
+          done < "$clean"
+          rm -f "$clean"
+
+      - name: Publish sanitized v2 evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
+          REMOTE_RC: ${{ steps.diagnostic.outputs.rc }}
+          DIAGNOSTIC: ${{ steps.diagnostic.outputs.auth_mail_db_endpoint_v2 }}
+          ERROR_CODE: ${{ steps.diagnostic.outputs.error_code }}
+          WORKER_STATE: ${{ steps.diagnostic.outputs.worker_state }}
+          WORKER_HEALTH: ${{ steps.diagnostic.outputs.worker_health }}
+          DB_ENDPOINT_KIND: ${{ steps.diagnostic.outputs.db_endpoint_kind }}
+          AUTH_ENDPOINT_PARITY: ${{ steps.diagnostic.outputs.auth_endpoint_parity }}
+          WORKER_API_SHARED_NETWORK: ${{ steps.diagnostic.outputs.worker_api_shared_network }}
+          WORKER_POSTGRES_SHARED_NETWORK: ${{ steps.diagnostic.outputs.worker_postgres_shared_network }}
+          LOCAL_ROLE_CONTRACT: ${{ steps.diagnostic.outputs.local_role_contract }}
+          CURRENT_CREDENTIAL_LOGIN: ${{ steps.diagnostic.outputs.current_credential_login }}
+          WORKER_ENDPOINT_TCP: ${{ steps.diagnostic.outputs.worker_endpoint_tcp }}
+          PRISMA_CONNECT_CLASS: ${{ steps.diagnostic.outputs.prisma_connect_class }}
+          PRODUCTION_MUTATION: ${{ steps.diagnostic.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"
+          {
+            echo '### PC-CROP auth-mail DB endpoint diagnostic v2'
+            echo
+            echo "- diagnostic main SHA: \`${MAIN_SHA:-unknown}\`"
+            echo "- production subject SHA: \`${SUBJECT_SHA:-unknown}\`"
+            echo "- result: \`${DIAGNOSTIC:-unknown}\` (rc=\`${REMOTE_RC:-unknown}\`)"
+            echo "- safe error code: \`${ERROR_CODE:-unknown}\`"
+            echo "- worker state / health: \`${WORKER_STATE:-unknown} / ${WORKER_HEALTH:-unknown}\`"
+            echo "- endpoint kind / API parity: \`${DB_ENDPOINT_KIND:-unknown} / ${AUTH_ENDPOINT_PARITY:-unknown}\`"
+            echo "- worker↔API / worker↔PostgreSQL network: \`${WORKER_API_SHARED_NETWORK:-unknown} / ${WORKER_POSTGRES_SHARED_NETWORK:-unknown}\`"
+            echo "- local role contract: \`${LOCAL_ROLE_CONTRACT:-unknown}\`"
+            echo "- current credential login: \`${CURRENT_CREDENTIAL_LOGIN:-unknown}\`"
+            echo "- worker endpoint TCP: \`${WORKER_ENDPOINT_TCP:-unknown}\`"
+            echo "- Prisma connect classifier: \`${PRISMA_CONNECT_CLASS:-unknown}\`"
+            echo "- production mutation: \`${PRODUCTION_MUTATION:-unknown}\`"
+            echo '- no URLs, hostnames, database names, passwords/hashes, container IDs, raw errors or mail/reviewer credentials are published.'
+          } > "$record"
+          gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce read-only result
+        shell: bash
+        env:
+          REMOTE_RC: ${{ steps.diagnostic.outputs.rc }}
+          DIAGNOSTIC: ${{ steps.diagnostic.outputs.auth_mail_db_endpoint_v2 }}
+          PRODUCTION_MUTATION: ${{ steps.diagnostic.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "${REMOTE_RC:-1}" == 0 ]]
+          [[ "$DIAGNOSTIC" == PASS ]]
+          [[ "$PRODUCTION_MUTATION" == NONE ]]
