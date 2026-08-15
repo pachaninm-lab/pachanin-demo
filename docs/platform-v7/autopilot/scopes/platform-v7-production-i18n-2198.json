@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-production-i18n-2198",
+  "branch": "qa/platform-v7-production-i18n-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "2f4dca2d18b2301cd8936eae02b284a91ee9483d"
+  },
+  "purpose": "Add fail-closed exact-SHA REG.RU production evidence for the already implemented Platform V7 EN/ZH localization and CJK typography, without changing product copy, authorization, backend behavior or production release authority.",
+  "allowedPaths": [
+    ".github/workflows/platform-v7-production-i18n-acceptance.yml",
+    "apps/web/playwright.production-i18n.config.ts",
+    "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-production-i18n-2198.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/platform-v7",
+    "mode": "production-read-only-acceptance-only",
+    "runtimeMutation": "none",
+    "accountData": "unchanged",
+    "languages": ["en", "zh"],
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "application UI, copy, translation dictionaries or CJK styles",
+    "PC-CROP registration, reviewer, MFA, password-reset or session runtime",
+    "Deal, role, tenant, RBAC, RLS, PostgreSQL or money authority",
+    "Gekta model/runtime/prompt/latency changes",
+    "production credentials, release authority, Caddy, DNS or direct REG.RU mutation",
+    "paid external services or new infrastructure",
+    "claims that merge or CI alone proves production localization"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "workflow syntax",
+    "web typecheck",
+    "production i18n Playwright contract",
+    "EN/ZH zero residual Cyrillic except explicitly allowed brand/regulatory tokens",
+    "320/375/390/430 plus desktop reflow and no horizontal overflow",
+    "CJK computed typography checks",
+    "exact public revision gate before browser acceptance",
+    "git diff --check"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "This scope creates read-only production acceptance evidence only. It does not change application behavior and does not attest authenticated role-cockpit localization until those protected surfaces are exercised with valid production identities."
+}
