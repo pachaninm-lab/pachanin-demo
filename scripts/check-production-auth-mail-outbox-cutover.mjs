@@ -87,6 +87,16 @@ has(cutoverWrapper, 'AUTH_MAIL_WORKER_NETWORK_PARITY_FAILED', 'cutover must fail
 has(cutoverWrapper, 'AUTH_MAIL_WORKER_NETWORK=PASS', 'production evidence must prove worker/API network parity without exposing the network name');
 lacks(cutoverWrapper, "printf 'API_NETWORK_NAME=", 'public cutover evidence must not print the production network name');
 
+has(cutoverWrapper, 'FAIL_ROLLBACK_DISPATCH', 'explicit fail() must dispatch through rollback after mutation is armed');
+has(cutoverWrapper, 'CENTRAL_ROLLBACK_STATE_MACHINE', 'cutover must centralize explicit and ERR failure rollback');
+has(cutoverWrapper, 'ARM_ROLLBACK_BEFORE_MUTATION', 'rollback must be armed before cutover override mutation');
+has(cutoverWrapper, 'DISARM_ROLLBACK_ON_SUCCESS', 'rollback state must be disarmed only after successful cutover');
+has(cutoverWrapper, 'ROLLBACK_ATTEMPTED=1', 'post-mutation failure evidence must record rollback attempt');
+has(cutoverWrapper, 'ROLLBACK_COMPLETE=1', 'successful rollback evidence missing');
+has(cutoverWrapper, 'ROLLBACK_FAILED=1', 'failed rollback evidence missing');
+has(cutoverWrapper, 'wait_worker || fail AUTH_MAIL_WORKER_READINESS_FAILED 40', 'worker readiness explicit-fail path must remain covered');
+has(cutoverWrapper, 'CUTOVER_ROLLBACK_ARMED=1', 'post-mutation rollback state must be armed');
+
 has(cutoverCore, '/app/dist/apps/api/src/auth-mail-worker.js', 'pre-mutation worker artifact proof missing');
 has(cutoverCore, 'restore_baseline()', 'cutover core must carry rollback routine');
 has(cutoverCore, 'trap on_error ERR', 'cutover core must fail-closed into rollback');
