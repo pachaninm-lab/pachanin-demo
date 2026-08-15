@@ -1,0 +1,214 @@
+name: Production Auth-Mail Worker Mount Parity f166
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-auth-mail-worker-mount-parity-f166.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-auth-mail-worker-mount-parity-f166
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  SUBJECT_PRODUCTION_SHA: f166f50e8526cf43f3193e771be05ebc66888494
+  COMMAND: /production p0-auth-mail-worker-mount-parity-f166
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate read-only mount-parity boundary
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/production-auth-mail-worker-mount-parity-f166.yml')
+          t=p.read_text(encoding='utf-8')
+          required=['DB_BIND_CONTENT_PARITY','DB_BIND_INODE_PARITY','TRANSPORT_BIND_CONTENT_PARITY','CURRENT_VERSION_BIND_CONTENT_PARITY','PRODUCTION_MUTATION NONE','/proc/$pid/root/run/pc-auth-mail/database-url']
+          missing=[x for x in required if x not in t]
+          if missing: raise SystemExit('missing:'+','.join(missing))
+          d=t.split('\n  diagnose:\n',1)[1]
+          forbidden=['docker restart','docker rm','--force-recreate','docker compose up','ALTER ROLE','CREATE ROLE','DROP ROLE','UPDATE auth.','INSERT INTO','DELETE FROM','PC_SMTP_PASS=','curl -X','wget ','mail.hosting.reg.ru']
+          bad=[x for x in forbidden if x in d]
+          if bad: raise SystemExit('mutation surface:'+','.join(bad))
+          PY
+
+  diagnose:
+    name: Prove retained worker sees current root projection
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-mail-worker-mount-parity-f166' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bind exact current main and retained subject
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          [[ "$SUBJECT_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "${SUBJECT_PRODUCTION_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_PRODUCTION_SHA" "$main_sha"
+          echo "subject_sha=$SUBJECT_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){ local src="$1" target="$HOME/.ssh/id_pc_prod" pub; tr -d '\r' < "$src" > "$target"; chmod 600 "$target"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          try_slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ok=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do [[ -n "$line" ]] || continue; fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+            sort -u -o "$match" "$match"; [[ "$(grep -c . "$match" || true)" == 1 ]] && { ok=1; break; }; (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ok" == 1 ]] || exit 15
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; sha256sum --version >/dev/null; echo SSH_AUTH_OK' | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Compare host authority with retained worker mount namespace
+        id: diagnostic
+        shell: bash
+        env:
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" "bash -s -- '$SUBJECT_SHA'" > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          subject_sha="$1"; runtime='/var/lib/pc-secret-authority/runtime'
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          fail(){ emit MOUNT_PARITY_DIAGNOSTIC FAIL; emit ERROR_CODE "$1"; emit PRODUCTION_MUTATION NONE; exit "${2:-1}"; }
+          [[ "$(id -u)" -eq 0 ]] || fail ROOT_REQUIRED 20
+          [[ "$subject_sha" =~ ^[0-9a-f]{40}$ ]] || fail SUBJECT_INVALID 21
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web'); (( ${#web_ids[@]} == 1 )) || fail WEB_CARDINALITY 22
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "${web_ids[0]}")"; [[ -n "$project" ]] || fail PROJECT_MISSING 23
+          mapfile -t worker_ids < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker'); (( ${#worker_ids[@]} == 1 )) || fail WORKER_CARDINALITY 24
+          worker="${worker_ids[0]}"; revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker")"; [[ "$revision" == "$subject_sha" ]] || fail WORKER_REVISION_CHANGED 25
+          emit WORKER_REVISION PASS
+          state="$(docker inspect --format '{{.State.Status}}' "$worker")"; health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$worker")"; restarts="$(docker inspect --format '{{.RestartCount}}' "$worker")"
+          [[ "$state" == restarting || "$state" == running ]] || fail WORKER_STATE_CHANGED 26
+          startup="$(docker logs --tail 300 "$worker" 2>&1 | sed -nE 's/^Auth-mail worker failed to start: ([A-Z0-9_]{1,120})$/\1/p' | sort -u || true)"; [[ "$startup" == AUTH_MAIL_PRISMACLIENTINITIALIZATIONERROR ]] || fail STARTUP_CLASS_CHANGED 27
+          emit WORKER_STATE "$state"; emit WORKER_HEALTH "$health"; if (( restarts > 0 )); then emit WORKER_RESTARTED YES; else emit WORKER_RESTARTED NO; fi; emit STARTUP_CODE AUTH_MAIL_PRISMACLIENTINITIALIZATIONERROR
+          for f in database-url transport.env current-key-version; do [[ -f "$runtime/$f" && ! -L "$runtime/$f" ]] || fail HOST_RUNTIME_FILE_INVALID 28; done
+          inspect="$(mktemp)"; trap 'rm -f "$inspect"' EXIT; docker inspect --format '{{json .Mounts}}' "$worker" > "$inspect"
+          python3 - "$inspect" "$runtime" <<'PY' || fail MOUNT_SPEC_INVALID 29
+          import json,sys
+          mounts=json.load(open(sys.argv[1],encoding='utf-8')) or []; root=sys.argv[2]
+          exp={'/run/pc-auth-mail/database-url':root+'/database-url','/run/pc-auth-mail/transport.env':root+'/transport.env','/run/pc-auth-mail/current-key-version':root+'/current-key-version'}
+          seen={str(m.get('Destination') or ''):(str(m.get('Source') or ''),bool(m.get('RW'))) for m in mounts}
+          if any(seen.get(dst)!=(src,False) for dst,src in exp.items()): raise SystemExit(1)
+          PY
+          emit MOUNT_SPEC PASS
+          capture=0; db_content=FAIL; db_inode=FAIL; transport_content=FAIL; version_content=FAIL
+          host_db_hash="$(sha256sum "$runtime/database-url" | awk '{print $1}')"; host_db_inode="$(stat -Lc '%d:%i' "$runtime/database-url")"
+          host_transport_hash="$(sha256sum "$runtime/transport.env" | awk '{print $1}')"; host_version_hash="$(sha256sum "$runtime/current-key-version" | awk '{print $1}')"
+          for attempt in $(seq 1 160); do
+            pid="$(docker inspect --format '{{.State.Pid}}' "$worker" 2>/dev/null || true)"
+            if [[ "$pid" =~ ^[1-9][0-9]*$ && -e "/proc/$pid/root/run/pc-auth-mail/database-url" ]]; then
+              set +e
+              db_hash="$(sha256sum "/proc/$pid/root/run/pc-auth-mail/database-url" 2>/dev/null | awk '{print $1}')"; r1=$?
+              db_inode="$(stat -Lc '%d:%i' "/proc/$pid/root/run/pc-auth-mail/database-url" 2>/dev/null)"; r2=$?
+              transport_hash="$(sha256sum "/proc/$pid/root/run/pc-auth-mail/transport.env" 2>/dev/null | awk '{print $1}')"; r3=$?
+              version_hash="$(sha256sum "/proc/$pid/root/run/pc-auth-mail/current-key-version" 2>/dev/null | awk '{print $1}')"; r4=$?
+              set -e
+              if (( r1==0 && r2==0 && r3==0 && r4==0 )); then capture=1; [[ "$db_hash" == "$host_db_hash" ]] && db_content=PASS; [[ "$db_inode" == "$host_db_inode" ]] && db_inode=PASS; [[ "$transport_hash" == "$host_transport_hash" ]] && transport_content=PASS; [[ "$version_hash" == "$host_version_hash" ]] && version_content=PASS; break; fi
+            fi
+            sleep 0.1
+          done
+          (( capture == 1 )) || fail MOUNT_NAMESPACE_NOT_CAPTURED 30
+          emit DB_BIND_CONTENT_PARITY "$db_content"; emit DB_BIND_INODE_PARITY "$db_inode"; emit TRANSPORT_BIND_CONTENT_PARITY "$transport_content"; emit CURRENT_VERSION_BIND_CONTENT_PARITY "$version_content"
+          emit MOUNT_PARITY_DIAGNOSTIC PASS; emit ERROR_CODE NONE; emit PRODUCTION_MUTATION NONE
+          REMOTE
+          rc=$?; set -e
+          sed -nE '/^(MOUNT_PARITY_DIAGNOSTIC|ERROR_CODE|WORKER_REVISION|WORKER_STATE|WORKER_HEALTH|WORKER_RESTARTED|STARTUP_CODE|MOUNT_SPEC|DB_BIND_CONTENT_PARITY|DB_BIND_INODE_PARITY|TRANSPORT_BIND_CONTENT_PARITY|CURRENT_VERSION_BIND_CONTENT_PARITY|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,180}$/p' "$raw" > "$clean"
+          rm -f "$raw"; cat "$clean"; echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r k v; do [[ -n "$k" ]] && echo "${k,,}=$v" >> "$GITHUB_OUTPUT"; done < "$clean"; rm -f "$clean"
+
+      - name: Publish sanitized parity evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.diagnostic.outputs.mount_parity_diagnostic }}
+          ERROR_CODE: ${{ steps.diagnostic.outputs.error_code }}
+          STATE: ${{ steps.diagnostic.outputs.worker_state }}
+          HEALTH: ${{ steps.diagnostic.outputs.worker_health }}
+          STARTUP: ${{ steps.diagnostic.outputs.startup_code }}
+          MOUNT: ${{ steps.diagnostic.outputs.mount_spec }}
+          DB_CONTENT: ${{ steps.diagnostic.outputs.db_bind_content_parity }}
+          DB_INODE: ${{ steps.diagnostic.outputs.db_bind_inode_parity }}
+          TRANSPORT: ${{ steps.diagnostic.outputs.transport_bind_content_parity }}
+          VERSION: ${{ steps.diagnostic.outputs.current_version_bind_content_parity }}
+          MUTATION: ${{ steps.diagnostic.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          { echo '### PC-CROP persistent worker mount parity'; echo; echo "- result / safe error: \`${RESULT:-unknown} / ${ERROR_CODE:-unknown}\`"; echo "- state / health / startup: \`${STATE:-unknown} / ${HEALTH:-unknown} / ${STARTUP:-unknown}\`"; echo "- mount spec: \`${MOUNT:-unknown}\`"; echo "- database content / inode parity: \`${DB_CONTENT:-unknown} / ${DB_INODE:-unknown}\`"; echo "- transport / current-key-version content parity: \`${TRANSPORT:-unknown} / ${VERSION:-unknown}\`"; echo "- production mutation: \`${MUTATION:-unknown}\`"; echo '- no hash, URL, password, SMTP credential, recipient, token, raw log or container ID is published.'; } > "$body"
+          gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"; rm -f "$body"
+
+      - name: Enforce read-only diagnostic completion
+        shell: bash
+        env:
+          RC: ${{ steps.diagnostic.outputs.rc }}
+          RESULT: ${{ steps.diagnostic.outputs.mount_parity_diagnostic }}
+          MUTATION: ${{ steps.diagnostic.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "${RC:-1}" == 0 ]]
+          [[ "$RESULT" == PASS ]]
+          [[ "$MUTATION" == NONE ]]
