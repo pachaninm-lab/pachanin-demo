@@ -238,7 +238,7 @@ jobs:
           mv "$match" "$HOME/.ssh/known_hosts"
           rm -f "$scan"
           chmod 600 "$HOME/.ssh/known_hosts"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$host" \
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$host" \
             'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; echo SSH_AUTH_OK' \
             > "$EVIDENCE_DIR/ssh-auth.txt"
           grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
@@ -252,7 +252,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes)
           scp "${scp_common[@]}" scripts/production-full-stack-exact-sha.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh"
 
       - name: Authenticate production host to exact private registry
@@ -265,9 +265,93 @@ jobs:
           set -euo pipefail
           [[ -n "${GH_TOKEN:-}" ]]
           registry_config="/tmp/pc-registry-${GITHUB_RUN_ID}"
-          printf '%s' "$GH_TOKEN" | ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+          printf '%s' "$GH_TOKEN" | ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
             "set -euo pipefail; rm -rf '$registry_config'; install -d -m 0700 '$registry_config'; DOCKER_CONFIG='$registry_config' docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin >/dev/null"
           printf '%s\n' HOSTED_REGISTRY_LOGIN=PASS > "$EVIDENCE_DIR/registry-login.txt"
+
+      - name: Repair confirmed stale Redis network attachment
+        id: redis_network
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" 'bash -se' > "$raw" 2>&1 <<'REMOTE'
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          stale_network(){
+            local id="$1" mode network_id
+            mode="$(docker inspect --format '{{.HostConfig.NetworkMode}}' "$id")"
+            case "$mode" in
+              default|host|none|container:*) ;;
+              *) docker network inspect "$mode" >/dev/null 2>&1 || return 0 ;;
+            esac
+            while IFS= read -r network_id; do
+              [[ -n "$network_id" ]] || continue
+              docker network inspect "$network_id" >/dev/null 2>&1 || return 0
+            done < <(docker inspect --format '{{range .NetworkSettings.Networks}}{{.NetworkID}}{{println}}{{end}}' "$id")
+            return 1
+          }
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 )) || { echo 'REDIS_NETWORK_REPAIR=AMBIGUOUS_WEB_AUTHORITY'; exit 81; }
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
+          config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
+          [[ -n "$project" && -d "$working_dir" && -n "$config_files" ]] || { echo 'REDIS_NETWORK_REPAIR=COMPOSE_AUTHORITY_INVALID'; exit 82; }
+
+          mapfile -t redis_ids < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=redis')
+          (( ${#redis_ids[@]} == 1 )) || { echo 'REDIS_NETWORK_REPAIR=AMBIGUOUS_REDIS_AUTHORITY'; exit 83; }
+          redis_id="${redis_ids[0]}"
+          if ! stale_network "$redis_id"; then
+            echo 'REDIS_NETWORK_REPAIR=NOT_REQUIRED'
+            exit 0
+          fi
+
+          state="$(docker inspect --format '{{.State.Status}}' "$redis_id")"
+          [[ "$state" != running ]] || { echo 'REDIS_NETWORK_REPAIR=REFUSED_RUNNING_REDIS'; exit 84; }
+          before_image="$(docker inspect --format '{{.Image}}' "$redis_id")"
+          full_override="$working_dir/compose.production-full-stack-image.override.yml"
+          IFS=',' read -r -a raw_files <<< "$config_files"
+          dc=(docker compose --project-directory "$working_dir" --project-name "$project")
+          file_count=0
+          for raw_file in "${raw_files[@]}"; do
+            file="$(trim "$raw_file")"
+            [[ -n "$file" ]] || continue
+            [[ "$file" == /* ]] || file="$working_dir/$file"
+            [[ -f "$file" ]] || { echo 'REDIS_NETWORK_REPAIR=COMPOSE_FILE_MISSING'; exit 85; }
+            [[ "$file" == "$full_override" ]] && continue
+            dc+=(-f "$file")
+            file_count=$((file_count + 1))
+          done
+          (( file_count >= 1 )) || { echo 'REDIS_NETWORK_REPAIR=COMPOSE_AUTHORITY_EMPTY'; exit 86; }
+          "${dc[@]}" config --quiet
+          "${dc[@]}" up -d --no-deps --pull never --force-recreate redis
+          new_redis_id="$("${dc[@]}" ps -q redis | head -1)"
+          [[ -n "$new_redis_id" ]] || { echo 'REDIS_NETWORK_REPAIR=RECREATE_MISSING'; exit 87; }
+          [[ "$(docker inspect --format '{{.Image}}' "$new_redis_id")" == "$before_image" ]] || { echo 'REDIS_NETWORK_REPAIR=IMAGE_CHANGED'; exit 88; }
+          ready=0
+          for attempt in $(seq 1 30); do
+            status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$new_redis_id" 2>/dev/null || true)"
+            if [[ "$status" == healthy || "$status" == running ]]; then ready=1; break; fi
+            sleep 2
+          done
+          (( ready == 1 )) || { echo 'REDIS_NETWORK_REPAIR=NOT_READY'; exit 89; }
+          stale_network "$new_redis_id" && { echo 'REDIS_NETWORK_REPAIR=STALE_AFTER_RECREATE'; exit 90; }
+          echo 'REDIS_NETWORK_REPAIR=PASS'
+          REMOTE
+          rc=$?
+          set -e
+          cat "$raw" | tee "$EVIDENCE_DIR/redis-network-repair.log"
+          rm -f "$raw"
+          (( rc == 0 )) || exit "$rc"
+          status="$(sed -n 's/^REDIS_NETWORK_REPAIR=//p' "$EVIDENCE_DIR/redis-network-repair.log" | tail -1)"
+          [[ "$status" == PASS || "$status" == NOT_REQUIRED ]]
+          echo "status=$status" >> "$GITHUB_OUTPUT"
 
       - name: Execute migration and exact API/web rollout
         id: production
@@ -284,7 +368,7 @@ jobs:
           enc(){ printf '%s' "$1" | base64 -w0; }
           raw="$(mktemp)"; clean="$EVIDENCE_DIR/production-action.log"
           set +e
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
             "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
           rc=$?
           set -e
@@ -323,7 +407,7 @@ jobs:
           correlation="$(sed -n 's/^LIVE_CORRELATION_ID=//p' "$EVIDENCE_DIR/live.log" | tail -1)"
           [[ "$request" =~ ^PC-[0-9]{8}-[0-9A-F]{12}$ ]]
           [[ "$correlation" =~ ^[A-Za-z0-9._:-]{8,128}$ ]]
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
             "/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh verify-intake '$TARGET_SHA' '$GITHUB_RUN_ID' '$request' '$correlation'" \
             | tee "$EVIDENCE_DIR/durable-intake-db.log"
           grep -Fxq DURABLE_INTAKE_DB=PASS "$EVIDENCE_DIR/durable-intake-db.log"
@@ -337,7 +421,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
             "/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh rollback '$TARGET_SHA' '$GITHUB_RUN_ID'" \
             | tee "$EVIDENCE_DIR/live-failure-rollback.log"
 
@@ -350,7 +434,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
-            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
               "set -euo pipefail; DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf '/tmp/pc-registry-${GITHUB_RUN_ID}'; rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh'" \
               || true
           fi
@@ -362,6 +446,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
+          REDIS_NETWORK_REPAIR: ${{ steps.redis_network.outputs.status }}
           DEPLOYMENT_COMPLETE: ${{ steps.production.outputs.deployment_complete }}
           MIGRATION_COMPLETE: ${{ steps.production.outputs.migration_complete }}
           DEPLOYED_API_REVISION: ${{ steps.production.outputs.deployed_api_revision }}
@@ -386,6 +471,7 @@ jobs:
             echo "## Full-stack release run \`$GITHUB_RUN_ID\`"
             echo
             echo "- target SHA: \`${TARGET_SHA:-unknown}\`"
+            echo "- Redis network repair: \`${REDIS_NETWORK_REPAIR:-unknown}\`"
             echo "- backup: \`${BACKUP_MODE:-unknown}\`"
             echo "- migration complete: \`${MIGRATION_COMPLETE:-0}\`"
             echo "- deployment complete: \`${DEPLOYMENT_COMPLETE:-0}\`"
