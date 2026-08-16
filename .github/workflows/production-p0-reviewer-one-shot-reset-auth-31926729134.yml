@@ -1,0 +1,180 @@
+name: Production P0 Reviewer One-Shot Reset Authorization 31926729134
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-one-shot-reset-auth-31926729134.yml'
+      - 'scripts/production-p0-reviewer-one-shot-reset-auth-31926729134.sh'
+      - 'scripts/production-p0-reviewer-password-reset-request.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-one-shot-reset-auth-31926729134
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate one-shot authorization-bound reset contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-reset-request authorized-31926729134'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+      actions: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate reviewed reset source contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-production-p0-reviewer-password-reset-request.mjs
+          bash -n scripts/production-p0-reviewer-password-reset-request.sh
+
+      - name: Validate one-shot wrapper and mutation boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          script='scripts/production-p0-reviewer-one-shot-reset-auth-31926729134.sh'
+          bash -n "$script"
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('scripts/production-p0-reviewer-one-shot-reset-auth-31926729134.sh').read_text(encoding='utf-8')
+          required=[
+              "COMMAND='/production p0-reviewer-reset-request authorized-31926729134'",
+              "AUTHORIZATION_RUN_ID='31926729134'",
+              "AUTHORIZATION_HEAD_SHA='be51f265d1c16b42a214c822181eeb3781994232'",
+              "AUTHORIZATION_WORKFLOW_ID='335371310'",
+              "BASELINE_SHA='50990d616463c3aa7a4888fc182bc6064931b080'",
+              "SOURCE_BLOB_SHA='7a586ded1b40ab3812335b351d0e8cc519020aa4'",
+              'RUN_ATTEMPT_NOT_ONE',
+              'auth_preflight_count',
+              'RUNTIME_DEPLOYED_SHA',
+              'RESET_CRITICAL_CODE_DRIFT',
+              'git diff --quiet "$BASELINE_SHA..$RUNTIME_DEPLOYED_SHA" -- apps/api/src apps/api/prisma infra/docker',
+              'SOURCE_SCRIPT_AUTHORITY_INVALID',
+              'handoff_to_source=1',
+              'NORMAL_PASSWORD_RESET_REQUEST_ONLY',
+              'replay: \\`FORBIDDEN\\`',
+              'StrictHostKeyChecking=yes',
+          ]
+          missing=[x for x in required if x not in text]
+          if missing: raise SystemExit('missing one-shot invariant: '+' | '.join(missing))
+          forbidden=[
+              'INSERT INTO','UPDATE auth.','DELETE FROM','TRUNCATE ','ALTER ROLE','CREATE ROLE','DROP ROLE',
+              'docker restart','docker compose','docker service','StrictHostKeyChecking=no','UserKnownHostsFile=/dev/null',
+              'PC_RECONCILE_ACTIVE_RUNTIME','REVIEWER_PASSWORD=', 'REVIEWER_TOTP=',
+          ]
+          bad=[x for x in forbidden if x in text]
+          if bad: raise SystemExit('unsafe wrapper surface: '+' | '.join(bad))
+          PY
+
+      - name: Verify exact owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: /production p0-reviewer-reset-request authorized-31926729134
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  request:
+    name: Execute exactly one authorized reviewer password-reset request
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact current-main checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+
+      - name: Execute authorization-bound one-shot reset
+        shell: bash
+        run: bash scripts/production-p0-reviewer-one-shot-reset-auth-31926729134.sh
