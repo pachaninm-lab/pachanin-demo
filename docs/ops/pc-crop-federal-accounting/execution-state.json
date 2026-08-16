@@ -7,12 +7,12 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T12:35:00.000Z",
+  "updatedAt": "2026-08-16T16:30:00.000Z",
   "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 10.9,
+  "overallProgressPercent": 11.1,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
   "status": "MERGED_TO_MAIN_EXACT_MAIN_ACCEPTED_AWAITING_PRODUCTION",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
@@ -133,7 +133,7 @@
       "name": "Documents / contracts / regulatory / tax profiles",
       "weightPercent": 7,
       "provenSharePercent": 60,
-      "creditedPercent": 4.75,
+      "creditedPercent": 4.9,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 4 spans seven components: server-authoritative documents, contract versions, the regulatory registry, tax profiles, a format registry, a numbering policy and signing authority. They are modelled as equal sevenths — not because they are equal in size, but because any unequal weighting would be one this agent invented, and an invented weighting is worth less than a stated flat assumption. The stage credit is multiplied by the share actually built rather than crediting the whole workstream.",
@@ -146,26 +146,25 @@
           "regulatory rule versions",
           "signing authority"
         ],
-        "componentBuilt": "all seven components built as decisions, storage and proofs: signing authority, regulatory rule versions, tax profile, contract versions, format resolution, numbering with a gapless counter and an issuing transaction, and server-authoritative documents with payload generation",
-        "componentSharePercent": 91,
+        "componentBuilt": "Accounting Core complete inside the granted scope: all seven components, the atomic source snapshot, the version-creation transaction, module wiring, a minimal API surface and a PostgreSQL acceptance workflow",
+        "componentSharePercent": 93,
         "notBuilt": [
-          "an HTTP surface or module registration (app.module.ts is outside the approved scope)",
-          "a CI workflow setting PC_CROP_ACCOUNTING_POSTGRESQL (.github/workflows is outside the approved scope)",
-          "credential provisioning for both NOLOGIN principals (infra/ is outside the approved scope)",
-          "a repository that reads the nine sources into a SourceSnapshot (needs the deal, shipment and lab modules, which are outside the approved scope)"
+          "credential provisioning for both NOLOGIN principals (infra/, not claimed — the contour runs through RlsTransactionService on the ordinary connection)",
+          "a laboratory-sample fixture, deliberately: the labs admission contour belongs to another workstream",
+          "no production deployment; ENV-PROD stands"
         ],
-        "componentShareDerivation": "equal sevenths: signing authority 14.3, format registry 90% = 12.9, rule versions 90% = 12.9, tax profile 90% = 12.9, contract versions 90% = 12.9, numbering 95% = 13.6, documents 85% = 12.1; total 91.6, recorded as 93 would round up so it is recorded as 91. Documents rise from 55% to 85% because payload generation existed nowhere before. The remaining 9% is one thing: nothing here is reachable over HTTP, and app.module.ts is outside the approved scope."
+        "componentShareDerivation": "equal sevenths, each now at or near complete: signing authority 14.3, documents 95% = 13.6, numbering 95% = 13.6, format registry 90% = 12.9, rule versions 90% = 12.9, tax profile 90% = 12.9, contract versions 90% = 12.9; total 93.1, recorded as 93. Not higher: the acceptance workflow has not yet run in CI, and no production deployment exists."
       },
       "milestones": {
         "implementationOnBranch": {
           "weightShare": 0.35,
           "done": true,
-          "evidence": "eight policies and builders plus the issuing repository; six models with migrations 20260815200000 through 20260816040000"
+          "evidence": "eight policies, the payload builder, the source snapshot and version repositories, the accounting module, controller and acceptance workflow; six models with migrations 20260815200000 through 20260816040000"
         },
         "automatedAndNegativeTestsGreen": {
           "weightShare": 0.25,
           "done": true,
-          "evidence": "204 dedicated unit tests plus 8 PostgreSQL acceptance tests; full API suite 1558 passed / 0 failed; 67 checks in the RLS integration gate; fourteen sabotages each make their gate or test fail; the branch head ran fully green in CI with 71 checks and zero failures"
+          "evidence": "1564 unit tests including a module-instantiation check; 16 PostgreSQL acceptance tests across two suites; 67 RLS gate checks; fourteen sabotages each make their gate or test fail"
         },
         "mergedToMain": {
           "weightShare": 0.15,
@@ -361,7 +360,7 @@
   ],
   "weightCheck": {
     "sum": 100,
-    "creditedTotal": 10.9
+    "creditedTotal": 11.1
   },
   "completedEvidence": [
     {

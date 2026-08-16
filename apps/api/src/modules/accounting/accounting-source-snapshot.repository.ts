@@ -113,184 +113,180 @@ export class AccountingSourceSnapshotRepository {
     context: { orgId: string },
     input: { dealId: string; at: Date },
   ): Promise<SnapshotResult> {
-    {
-      {
-        const deals = await tx.$queryRaw<DealRow[]>`
-          SELECT d."id",
-                 d."dealNumber",
-                 d."sellerOrgId",
-                 d."buyerOrgId",
-                 d."currency",
-                 d."totalKopecks",
-                 CASE WHEN d."pricePerTonDec" IS NULL THEN NULL
-                      ELSE (round(d."pricePerTonDec" * 100))::bigint END
-                   AS "pricePerTonKopecks",
-                 d."culture", d."cropClass", d."gost", d."version",
-                 s."inn" AS "sellerInn",
-                 b."inn" AS "buyerInn",
-                 (coalesce(s."version", 0) + coalesce(b."version", 0))::bigint
-                   AS "requisitesVersion"
-            FROM public."deals" d
-            LEFT JOIN public."organizations" s ON s."id" = d."sellerOrgId"
-            LEFT JOIN public."organizations" b ON b."id" = d."buyerOrgId"
-           WHERE d."id" = ${input.dealId}
-        `;
-        const deal = deals[0];
-        if (deal === undefined) {
-          return {
-            assembled: false,
-            missing: [SnapshotFailure.DEAL_NOT_FOUND],
-          };
-        }
-
-        // No version column on this table — see the note above. The revision
-        // is built from id and updatedAt, which is the strongest identifier
-        // the row actually offers.
-        const weights = await tx.$queryRaw<
-          { id: string; weightActualTons: number | null; updatedAt: Date }[]
-        >`
-          SELECT "id", "weightActualTons", "updatedAt"
-            FROM public."acceptance_records"
-           WHERE "dealId" = ${input.dealId}
-             AND "status" = 'ACCEPTED'
-           ORDER BY "updatedAt" DESC
-           LIMIT 1
-        `;
-        const samples = await tx.$queryRaw<
-          { id: string; gost: string | null; version: bigint }[]
-        >`
-          SELECT "id", "gost", "version"
-            FROM public."lab_samples"
-           WHERE "dealId" = ${input.dealId}
-             AND "finalizedAt" IS NOT NULL
-           ORDER BY "finalizedAt" DESC
-           LIMIT 1
-        `;
-        const profiles = await tx.$queryRaw<
-          { versionTag: string; vatStatus: string; vatExemptionGround: string | null }[]
-        >`
-          SELECT "versionTag", "vatStatus", "vatExemptionGround"
-            FROM public."organization_tax_profiles"
-           WHERE "organizationId" = ${context.orgId}
-             AND "effectiveFrom" <= ${input.at}
-             AND ("effectiveTo" IS NULL OR "effectiveTo" > ${input.at})
-        `;
-        const contracts = await tx.$queryRaw<
-          { contractNumber: string; versionNumber: number }[]
-        >`
-          SELECT "contractNumber", "versionNumber"
-            FROM public."contract_versions"
-           WHERE "organizationId" = ${context.orgId}
-             AND "dealId" = ${input.dealId}
-             AND "status" = 'SIGNED'
-             AND "effectiveFrom" <= ${input.at}
-             AND ("effectiveTo" IS NULL OR "effectiveTo" > ${input.at})
-        `;
-        const rules = await tx.$queryRaw<
-          { ruleKey: string; versionTag: string }[]
-        >`
-          SELECT "ruleKey", "versionTag"
-            FROM public."regulatory_rule_versions"
-           WHERE "ruleKey" = 'UPD_FORMAT'
-             AND "status" = 'ACTIVE'
-             AND "effectiveFrom" <= ${input.at}
-             AND ("effectiveTo" IS NULL OR "effectiveTo" > ${input.at})
-        `;
-
-        const missing: SnapshotFailure[] = [];
-        const netWeightGrams = tonsToGrams(
-          weights[0]?.weightActualTons ?? null,
-        );
-        if (netWeightGrams === null) {
-          missing.push(SnapshotFailure.NO_ACCEPTED_WEIGHT);
-        }
-        if (samples.length === 0) {
-          missing.push(SnapshotFailure.NO_QUALITY_SAMPLE);
-        }
-        // Exactly one of each is required. Two rows in force is the ambiguity
-        // the registries refuse at write time; finding it here would mean a
-        // constraint had been lost, so it is reported rather than resolved.
-        if (profiles.length !== 1) {
-          missing.push(SnapshotFailure.NO_TAX_PROFILE);
-        }
-        if (contracts.length !== 1) {
-          missing.push(SnapshotFailure.NO_CONTRACT_VERSION);
-        }
-        if (rules.length !== 1) {
-          missing.push(SnapshotFailure.NO_REGULATORY_RULE);
-        }
-        if (missing.length > 0) {
-          return { assembled: false, missing };
-        }
-
-        const profile = profiles[0];
-        const contract = contracts[0];
-        const rule = rules[0];
-        const sample = samples[0];
-
-        const snapshot: SourceSnapshot = {
-          deal: {
-            revision: `deal@${deal.version}`,
-            value: {
-              dealId: deal.id,
-              dealNumber: deal.dealNumber,
-              sellerOrgId: deal.sellerOrgId,
-              buyerOrgId: deal.buyerOrgId,
-              currency: deal.currency,
-              totalKopecks: deal.totalKopecks,
-            },
-          },
-          execution: {
-            revision: `deal@${deal.version}`,
-            value: {
-              culture: deal.culture,
-              cropClass: deal.cropClass,
-              gost: deal.gost ?? sample.gost,
-            },
-          },
-          weight: {
-            revision: `acceptance@${weights[0].id}@${weights[0].updatedAt.toISOString()}`,
-            value: { netWeightGrams },
-          },
-          quality: {
-            revision: `sample@${sample.version}`,
-            value: { qualityPassportId: sample.id },
-          },
-          price: {
-            revision: `deal@${deal.version}`,
-            value: { pricePerTonKopecks: deal.pricePerTonKopecks },
-          },
-          contractVersion: {
-            revision: `${contract.contractNumber}#${contract.versionNumber}`,
-            value: { contractNumber: contract.contractNumber },
-          },
-          counterpartyRequisites: {
-            revision: `req@${deal.requisitesVersion}`,
-            value: { sellerInn: deal.sellerInn, buyerInn: deal.buyerInn },
-          },
-          taxProfile: {
-            revision: `${context.orgId}@${profile.versionTag}`,
-            // The VAT line itself is decided by organization-tax-profile.policy
-            // against the rule in force; this carries only what was recorded.
-            value: {
-              vatLine:
-                profile.vatStatus === 'EXEMPT'
-                  ? `Без НДС (${profile.vatExemptionGround})`
-                  : profile.vatStatus === 'NOT_PAYER'
-                    ? 'Без НДС'
-                    : 'НДС',
-              vatAmountKopecks: null,
-            },
-          },
-          regulatoryRule: {
-            revision: `${rule.ruleKey}@${rule.versionTag}`,
-            value: { formatRevision: `${rule.ruleKey}@${rule.versionTag}` },
-          },
+  const deals = await tx.$queryRaw<DealRow[]>`
+        SELECT d."id",
+               d."dealNumber",
+               d."sellerOrgId",
+               d."buyerOrgId",
+               d."currency",
+               d."totalKopecks",
+               CASE WHEN d."pricePerTonDec" IS NULL THEN NULL
+                    ELSE (round(d."pricePerTonDec" * 100))::bigint END
+                 AS "pricePerTonKopecks",
+               d."culture", d."cropClass", d."gost", d."version",
+               s."inn" AS "sellerInn",
+               b."inn" AS "buyerInn",
+               (coalesce(s."version", 0) + coalesce(b."version", 0))::bigint
+                 AS "requisitesVersion"
+          FROM public."deals" d
+          LEFT JOIN public."organizations" s ON s."id" = d."sellerOrgId"
+          LEFT JOIN public."organizations" b ON b."id" = d."buyerOrgId"
+         WHERE d."id" = ${input.dealId}
+      `;
+      const deal = deals[0];
+      if (deal === undefined) {
+        return {
+          assembled: false,
+          missing: [SnapshotFailure.DEAL_NOT_FOUND],
         };
-
-        return { assembled: true, snapshot };
       }
-    }
+
+      // No version column on this table — see the note above. The revision
+      // is built from id and updatedAt, which is the strongest identifier
+      // the row actually offers.
+      const weights = await tx.$queryRaw<
+        { id: string; weightActualTons: number | null; updatedAt: Date }[]
+      >`
+        SELECT "id", "weightActualTons", "updatedAt"
+          FROM public."acceptance_records"
+         WHERE "dealId" = ${input.dealId}
+           AND "status" = 'ACCEPTED'
+         ORDER BY "updatedAt" DESC
+         LIMIT 1
+      `;
+      const samples = await tx.$queryRaw<
+        { id: string; gost: string | null; version: bigint }[]
+      >`
+        SELECT "id", "gost", "version"
+          FROM public."lab_samples"
+         WHERE "dealId" = ${input.dealId}
+           AND "finalizedAt" IS NOT NULL
+         ORDER BY "finalizedAt" DESC
+         LIMIT 1
+      `;
+      const profiles = await tx.$queryRaw<
+        { versionTag: string; vatStatus: string; vatExemptionGround: string | null }[]
+      >`
+        SELECT "versionTag", "vatStatus", "vatExemptionGround"
+          FROM public."organization_tax_profiles"
+         WHERE "organizationId" = ${context.orgId}
+           AND "effectiveFrom" <= ${input.at}
+           AND ("effectiveTo" IS NULL OR "effectiveTo" > ${input.at})
+      `;
+      const contracts = await tx.$queryRaw<
+        { contractNumber: string; versionNumber: number }[]
+      >`
+        SELECT "contractNumber", "versionNumber"
+          FROM public."contract_versions"
+         WHERE "organizationId" = ${context.orgId}
+           AND "dealId" = ${input.dealId}
+           AND "status" = 'SIGNED'
+           AND "effectiveFrom" <= ${input.at}
+           AND ("effectiveTo" IS NULL OR "effectiveTo" > ${input.at})
+      `;
+      const rules = await tx.$queryRaw<
+        { ruleKey: string; versionTag: string }[]
+      >`
+        SELECT "ruleKey", "versionTag"
+          FROM public."regulatory_rule_versions"
+         WHERE "ruleKey" = 'UPD_FORMAT'
+           AND "status" = 'ACTIVE'
+           AND "effectiveFrom" <= ${input.at}
+           AND ("effectiveTo" IS NULL OR "effectiveTo" > ${input.at})
+      `;
+
+      const missing: SnapshotFailure[] = [];
+      const netWeightGrams = tonsToGrams(
+        weights[0]?.weightActualTons ?? null,
+      );
+      if (netWeightGrams === null) {
+        missing.push(SnapshotFailure.NO_ACCEPTED_WEIGHT);
+      }
+      if (samples.length === 0) {
+        missing.push(SnapshotFailure.NO_QUALITY_SAMPLE);
+      }
+      // Exactly one of each is required. Two rows in force is the ambiguity
+      // the registries refuse at write time; finding it here would mean a
+      // constraint had been lost, so it is reported rather than resolved.
+      if (profiles.length !== 1) {
+        missing.push(SnapshotFailure.NO_TAX_PROFILE);
+      }
+      if (contracts.length !== 1) {
+        missing.push(SnapshotFailure.NO_CONTRACT_VERSION);
+      }
+      if (rules.length !== 1) {
+        missing.push(SnapshotFailure.NO_REGULATORY_RULE);
+      }
+      if (missing.length > 0) {
+        return { assembled: false, missing };
+      }
+
+      const profile = profiles[0];
+      const contract = contracts[0];
+      const rule = rules[0];
+      const sample = samples[0];
+
+      const snapshot: SourceSnapshot = {
+        deal: {
+          revision: `deal@${deal.version}`,
+          value: {
+            dealId: deal.id,
+            dealNumber: deal.dealNumber,
+            sellerOrgId: deal.sellerOrgId,
+            buyerOrgId: deal.buyerOrgId,
+            currency: deal.currency,
+            totalKopecks: deal.totalKopecks,
+          },
+        },
+        execution: {
+          revision: `deal@${deal.version}`,
+          value: {
+            culture: deal.culture,
+            cropClass: deal.cropClass,
+            gost: deal.gost ?? sample.gost,
+          },
+        },
+        weight: {
+          revision: `acceptance@${weights[0].id}@${weights[0].updatedAt.toISOString()}`,
+          value: { netWeightGrams },
+        },
+        quality: {
+          revision: `sample@${sample.version}`,
+          value: { qualityPassportId: sample.id },
+        },
+        price: {
+          revision: `deal@${deal.version}`,
+          value: { pricePerTonKopecks: deal.pricePerTonKopecks },
+        },
+        contractVersion: {
+          revision: `${contract.contractNumber}#${contract.versionNumber}`,
+          value: { contractNumber: contract.contractNumber },
+        },
+        counterpartyRequisites: {
+          revision: `req@${deal.requisitesVersion}`,
+          value: { sellerInn: deal.sellerInn, buyerInn: deal.buyerInn },
+        },
+        taxProfile: {
+          revision: `${context.orgId}@${profile.versionTag}`,
+          // The VAT line itself is decided by organization-tax-profile.policy
+          // against the rule in force; this carries only what was recorded.
+          value: {
+            vatLine:
+              profile.vatStatus === 'EXEMPT'
+                ? `Без НДС (${profile.vatExemptionGround})`
+                : profile.vatStatus === 'NOT_PAYER'
+                  ? 'Без НДС'
+                  : 'НДС',
+            vatAmountKopecks: null,
+          },
+        },
+        regulatoryRule: {
+          revision: `${rule.ruleKey}@${rule.versionTag}`,
+          value: { formatRevision: `${rule.ruleKey}@${rule.versionTag}` },
+        },
+      };
+
+      return { assembled: true, snapshot };
   }
 
   async assemble(
