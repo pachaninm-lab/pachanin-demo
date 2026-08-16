@@ -1,68 +1,64 @@
 # Continuation Handoff — PC-CROP Federal Accounting
 
-Назначение (§G контракта): позволить продолжить работу **без повторного анализа**.
+Назначение (§G): продолжить **без повторного анализа**.
 Читать этот файл первым, затем `execution-state.json`, затем `gap-matrix.md`.
+
+Прогресс: **6.2%** по матрице §H. PR #4216 открыт, не смержен.
 
 ---
 
-## 1. Где остановились и почему
+## 1. Что построено
 
-Выполнен Wave 0 (Truth Audit). Waves 1–12 не начаты.
-Причина — не исчерпание работы, а `GOV-1..GOV-5` в `governance-blocker.md`:
-committed governance репозитория не даёт агенту writable-зоны ни для одного wave,
-а §C самого контракта ставит governance выше контракта.
+| Срез | Что даёт | Где |
+|---|---|---|
+| Wave 0 | Truth audit против live-кода | `gap-matrix.md` |
+| Wave 1 | `job_profile` как ось, отдельная от `role`; deny-by-default резолвер capability; делегирования | `organization-job-profile.ts`, `membership-capability.resolver.ts`, миграция `…190000` |
+| Wave 2.1 | Signing authority: окно, типы документов, потолок, режимы, привязка к сертификату | `signing-authority.policy.ts`, миграция `…200000` |
+| Wave 2.2 | Чтение под RLS: принципал, резолвер членства, tenant-scoped policy | миграция `…210000`, `scripts/sql/pc-crop-accounting-rls-checks.sql` |
+| Wave 2.3 | Разделение обязанностей: правило двух лиц, запрет самоодобрения, запрет эскалации через делегирование | `accounting-authority-command.policy.ts`, миграция `…220000` |
 
-Засчитано по §H: **1.8%** из 100%.
+## 2. Инварианты, которые нельзя потерять
 
-## 2. Что НЕ надо переделывать
+Каждый доказан на живом PostgreSQL 16, а не только тестом.
 
-Эти факты установлены чтением live-кода и перепроверять их не требуется:
+1. **`documents.sign` не выдаётся ничем.** Ни профилем, ни делегированием; CHECK-constraint отказывается хранить её в делегировании. Единственный путь к подписи — `evaluateSigningAuthority`, и он отдельным тестом отказывается принимать capability как замену authority.
+2. **`ACCOUNTING` — банковская роль.** `registration-application.service.ts:34`. Бухгалтер = `role GUEST` + `job_profile ACCOUNTANT`. Девять рыночных ролей и `ROLE_CEILING` не трогать.
+3. **RLS не доверяет настройке.** `app.current_org_id` подделываем самим принципалом; членство читается из `user_orgs` через `app_pc_crop_membership_id()`. Подделка организации и тенанта не даёт ничего.
+4. **Правило двух лиц в БД.** ACTIVE-authority обязана называть одобрившего, который не получатель и не выдавший, и это реальное членство той же организации.
+5. **Делегирование не превышает делегирующего.** Цепочка теряет полномочия, но не приобретает.
+6. **Отзыв легче выдачи.** Держатель всегда может снять свою authority свежей MFA без второго лица.
+7. **Деньги только `bigint`.** `domain-core/money.ts` запрещает арифметику на `number`.
 
-1. `UserOrg` — это membership; `job_profile`/`capabilities`/`delegations` отсутствуют.
-2. `ACCOUNTING` — банковская роль (`registration-application.service.ts:34`), не бухгалтер.
-   9 рыночных ролей в `organization-role-policy.ts` трогать нельзя.
-3. RLS FORCE присутствует в 42 файлах; tenant-leakage e2e существует.
-4. Durable outbox есть (`OutboxEntry`, `workers/runtime-outbox-db`, PR #2378).
-   Durable **inbox** общего назначения — нет (IR-21, заблокирован).
-5. ФГИС-контур зрелый: 11 моделей `FgisGrain*`. Дублировать нельзя.
-6. `/platform-v7/accounting` и `/platform-v7/settings/connections` не существуют.
-7. Модуль `anti-fraud` существует, но `fraud_*` сущностей в схеме нет.
-8. Production недостижим из окружения с сетевой политикой, отклоняющей CONNECT к домену.
+## 3. Что дальше, в порядке ценности
 
-## 3. Первый шаг после разблокировки
+1. **Write-принципал и write-policy** для обеих таблиц. Сейчас команды описаны политикой, но БД принимает записи только от суперпользователя — принципала на запись нет.
+2. **Wiring в API.** Резолвер и обе политики — чистые функции, никуда не подключены. Нужен модуль/контроллер и провижининг credential для `pc_accounting_authority` (сейчас NOLOGIN).
+3. **Остаток Wave 2**: server-authoritative документы, версии, хеши, STALE-детекция.
+4. Wave 3 (task engine) и Wave 9 (ГЕКТА read models) требуют `apps/web` — **не одобрен**.
 
-Wave 1, вертикальный срез по §K (expand → dual-compatible → migrate → verify → contract):
-
-1. `job_profile` как **отдельная ось** от `user_orgs.role`, nullable, дефолт отсутствует.
-2. `membership_capabilities` — резолвер capability из (`role`, `job_profile`, delegations).
-3. Юнит-тесты резолвера: матрица 11 job_profile × ~45 capability, включая negative-кейсы.
-4. Regression #3785 (9 ролей) и прогон tenant-leakage до открытия PR.
-5. Только затем — миграция и API.
-
-Точка входа для чтения: `apps/api/src/modules/auth/organization-role-policy.ts`.
-
-## 4. Обязательные проверки перед любым PR
-
-По `AGENTS.md`:
+## 4. Обязательные проверки перед PR
 
 ```
-node scripts/p7-autopilot-dispatcher.mjs
-bash scripts/p7-autopilot-guard.sh
-node scripts/check-production-hosting-authority.mjs
-pnpm typecheck
-pnpm test
+GITHUB_HEAD_REF=claude/autonomous-execution-contract-oc7ds7 bash scripts/p7-autopilot-guard.sh
+node scripts/platform-v7-forward-only-migration-check.mjs
+cd apps/api && npx jest && npx tsc -p tsconfig.json --noEmit
 ```
 
-Плюс §F: `git fetch origin main` и сверка базы непосредственно перед PR —
-main сдвигался в течение одного аудита.
+Локальный PostgreSQL 16 на порту 5433 воспроизводит drift-гейт дословно:
+`npx prisma migrate diff --from-url $DB --to-schema-datamodel prisma/schema.prisma --script --exit-code`
+Если умер — `sudo -u pgtest /usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/pgdata-pccrop -o "-p 5433 -k /var/tmp" start`.
 
-## 5. Формулировки
+`tsc` даёт две ошибки `tsconfig.json` (TS5101/TS5107) — они pre-existing на чистом main, не мои.
 
-Держаться `maturityLanguage`: `pre-integration`, `industrial-integration-ready-no-go`.
-Запрещены (`AGENTS.md`): `production-ready`, `fully live`, `ЭДО подключён`, `ФГИС подключён`,
-`банк подключён`, `платформа гарантирует оплату`.
+## 5. Правила, выученные дорого
 
-## 6. Расходы
+- **Не пушить, пока идёт длинный job.** Push отменяет `Multi-node kind` (~15 мин), и агрегирующий гейт краснеет шагом `test "cancelled" = success`. Четыре таких артефакта уже было, один — мой.
+- **Миграцию писать под каноничный DDL Prisma.** Свои имена FK/индексов, забытый `ON UPDATE CASCADE`, `clock_timestamp()` вместо `CURRENT_TIMESTAMP` и частичный индекс — всё это дрейф. Генерировать эталон: `prisma migrate diff --from-empty --to-schema-datamodel`.
+- **Манифест scope обязан быть схемы `platform-v7.concurrent-scope.v1`.** Резолвер бросает исключение на манифесте, чья ветка совпадает, но валидация не проходит.
+- **`p7-autopilot-dispatcher.mjs` вычищает `noSelfModifyingWorkflow` и `noDirectPushToMain`** из `progress.json` при запуске. Всегда проверять `git diff` после него. См. R-11.
 
-Новых обязательных расходов не введено: **0 ₽**.
-Внешние опции (1С-партнёрство, Диадок, Saby, оператор ЭПД) остаются НЕАКТИВИРОВАННЫМИ.
+## 6. Границы
+
+Не тронуты и не одобрены: `apps/web/**`, `packages/**`, lockfiles, `settlement-engine/**`, `organization-role-policy.ts`, production-мутации.
+Merge — акт владельца, `noAutoMerge: true` стоит.
+Новых обязательных расходов: **0 ₽**.
