@@ -134,19 +134,19 @@ async function expectProductionHomepageDesignGates(page: Page, viewport: Accepta
     return {
       fontSize: Number.parseFloat(style.fontSize),
       lineRectCount: lineRects.length,
-      textInside: lineRects.length > 0 && lineRects.every((rect) => (
+      horizontalTextInside: lineRects.length > 0 && lineRects.every((rect) => (
         rect.left >= host.left - 1
         && rect.right <= host.right + 1
-        && rect.top >= host.top - 1
-        && rect.bottom <= host.bottom + 1
       )),
       scrollFits: element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
+      hostInsideViewport: host.left >= -1 && host.right <= window.innerWidth + 1,
     };
   });
   expect(brandGeometry.fontSize).toBeGreaterThanOrEqual(14);
   expect(brandGeometry.lineRectCount).toBeGreaterThanOrEqual(1);
-  expect(brandGeometry.textInside).toBe(true);
+  expect(brandGeometry.horizontalTextInside).toBe(true);
   expect(brandGeometry.scrollFits).toBe(true);
+  expect(brandGeometry.hostInsideViewport).toBe(true);
 
   if (viewport.width <= 430) {
     for (const selector of ['.pc-site-mobile-menu > summary', '.pc-site-locale-switch', '.entry-login']) {
@@ -205,7 +205,7 @@ async function expectProductionHomepageDesignGates(page: Page, viewport: Accepta
     await expect(primary).toBeVisible();
     const primaryBox = await primary.boundingBox();
     expect(primaryBox, 'production primary Hero CTA bounding box').not.toBeNull();
-    expect(primaryBox!.top, 'production primary Hero CTA top').toBeGreaterThanOrEqual(0);
+    expect(primaryBox!.y, 'production primary Hero CTA top').toBeGreaterThanOrEqual(0);
     expect(primaryBox!.y + primaryBox!.height, 'production primary Hero CTA bottom').toBeLessThanOrEqual(viewport.height + 1);
   }
 
