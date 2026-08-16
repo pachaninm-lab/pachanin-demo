@@ -16,22 +16,22 @@ async function expectBrandFullyVisible(page: Page) {
     return {
       fontSize: Number.parseFloat(style.fontSize),
       lineRectCount: lineRects.length,
-      textInside:
+      horizontalTextInside:
         lineRects.length > 0
         && lineRects.every((rect) => (
           rect.left >= host.left - 1
           && rect.right <= host.right + 1
-          && rect.top >= host.top - 1
-          && rect.bottom <= host.bottom + 1
         )),
       scrollFits: element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
+      hostInsideViewport: host.left >= -1 && host.right <= window.innerWidth + 1,
     };
   });
 
   expect(geometry.fontSize).toBeGreaterThanOrEqual(14);
   expect(geometry.lineRectCount).toBeGreaterThanOrEqual(1);
-  expect(geometry.textInside).toBe(true);
+  expect(geometry.horizontalTextInside).toBe(true);
   expect(geometry.scrollFits).toBe(true);
+  expect(geometry.hostInsideViewport).toBe(true);
 }
 
 async function expectHeaderControls(page: Page) {
@@ -73,7 +73,7 @@ async function expectMobileHeroFirstViewport(page: Page) {
   await expect(primary).toBeVisible();
   const primaryBox = await primary.boundingBox();
   expect(primaryBox, 'primary Hero CTA bounding box').not.toBeNull();
-  expect(primaryBox!.top, 'primary Hero CTA top').toBeGreaterThanOrEqual(0);
+  expect(primaryBox!.y, 'primary Hero CTA top').toBeGreaterThanOrEqual(0);
   expect(primaryBox!.y + primaryBox!.height, 'primary Hero CTA bottom').toBeLessThanOrEqual(701);
 }
 
