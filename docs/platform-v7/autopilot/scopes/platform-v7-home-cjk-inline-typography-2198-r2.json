@@ -9,8 +9,9 @@
     "branch": "main",
     "commit": "4a97c573ee6e7627ffb306873644bf0ed70fda4f"
   },
-  "purpose": "Rebase the bounded CJK typography fix onto the post-4277 main so the combined public design/i18n state is independently verified. Provide the required local CJK system-font stack and zero letter spacing without remote fonts, legacy render-blocking typography imports, copy changes, layout changes or product redesign.",
+  "purpose": "Rebase the bounded CJK typography fix onto the post-4277 main so the combined public design/i18n state is independently verified. Provide the required local CJK system-font stack and zero letter spacing without remote fonts, legacy render-blocking typography imports, copy changes, layout changes or product redesign. Ensure the focused CJK regression is executed by the existing web-unit gate rather than merely existing in source.",
   "allowedPaths": [
+    ".github/workflows/web-unit.yml",
     "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
     "apps/web/styles/platform-v7-public-cjk-runtime.css",
     "apps/web/tests/unit/platformV7PublicCjkTypography.test.ts",
@@ -21,7 +22,8 @@
     "productionState": "NOT_ATTESTED_DUE_TO_EARLIER_SERIAL_FAILURE",
     "sourceContract": "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts requires PingFang SC, Noto Sans SC or Microsoft YaHei on .pc-v7-public-entry for zh",
     "currentSourceGap": "apps/web/app/platform-v7/page.tsx defines only the generic system/Segoe UI/Arial stack on the public root",
-    "precedingFix": "PR #4277 merged as 4a97c573ee6e7627ffb306873644bf0ed70fda4f"
+    "precedingFix": "PR #4277 merged as 4a97c573ee6e7627ffb306873644bf0ed70fda4f",
+    "testExecutionGap": ".github/workflows/web-unit.yml enumerates unit tests explicitly, so platformV7PublicCjkTypography.test.ts must be added to that list"
   },
   "forbiddenChanges": [
     "approved master copy, hierarchy, sizing, spacing, breakpoints or interaction design",
@@ -34,7 +36,7 @@
   ],
   "requiredChecks": [
     "source-controlled scope guard",
-    "focused CJK typography unit contract",
+    "focused CJK typography unit contract executed by web-unit",
     "web-unit, typecheck and build",
     "design-system, security and governance gates",
     "production i18n acceptance on a deployed descendant before claiming production PASS"
