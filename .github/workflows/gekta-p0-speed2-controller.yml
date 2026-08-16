@@ -62,6 +62,11 @@ jobs:
           if missing:
               raise SystemExit('missing controller invariant: ' + ' | '.join(missing))
 
+          # Inspect the executable workflow surface, not this validator's own
+          # forbidden-string literals. The prior version self-matched its list.
+          validator_start = workflow.index('          forbidden_workflow = [')
+          validator_end = workflow.index('          required_script = [')
+          runtime_workflow = workflow[:validator_start] + workflow[validator_end:]
           forbidden_workflow = [
               'sudo ',
               'systemctl restart',
@@ -74,7 +79,7 @@ jobs:
               'PC_PROD_SSH_KEY',
               'VPS_SSH_KEY',
           ]
-          bad = [x for x in forbidden_workflow if x in workflow]
+          bad = [x for x in forbidden_workflow if x in runtime_workflow]
           if bad:
               raise SystemExit('forbidden mutation/authority primitive: ' + ' | '.join(bad))
 
