@@ -99,13 +99,22 @@ type DealRow = {
 export class AccountingSourceSnapshotRepository {
   constructor(private readonly transactions: RlsTransactionService) {}
 
-  async assemble(
-    user: RequestUser | undefined,
+  /**
+   * Assemble within a transaction the caller already holds.
+   *
+   * Exposed so that creating a document version can read the sources and write
+   * the row under one transaction. Opening a second transaction here would
+   * leave a window in which a source moves between the read and the write, and
+   * the stored revisions would then describe a read the payload did not come
+   * from — which is exactly the failure the snapshot exists to prevent.
+   */
+  async assembleWithin(
+    tx: Prisma.TransactionClient,
+    context: { orgId: string },
     input: { dealId: string; at: Date },
   ): Promise<SnapshotResult> {
-    return this.transactions.withTrustedContext(
-      user,
-      async (tx, context) => {
+    {
+      {
         const deals = await tx.$queryRaw<DealRow[]>`
           SELECT d."id",
                  d."dealNumber",
@@ -280,7 +289,17 @@ export class AccountingSourceSnapshotRepository {
         };
 
         return { assembled: true, snapshot };
-      },
+      }
+    }
+  }
+
+  async assemble(
+    user: RequestUser | undefined,
+    input: { dealId: string; at: Date },
+  ): Promise<SnapshotResult> {
+    return this.transactions.withTrustedContext(
+      user,
+      async (tx, context) => this.assembleWithin(tx, context, input),
       {
         // One snapshot of the database for all nine reads. Under READ
         // COMMITTED each statement would take its own, and the document would
