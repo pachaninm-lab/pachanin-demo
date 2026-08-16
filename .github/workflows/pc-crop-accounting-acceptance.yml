@@ -55,7 +55,11 @@ concurrency:
 env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
-  RLS_INTEGRATION_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/rlsgate?schema=public
+  # psql rejects ?schema=, which is a Prisma parameter and not a libpq one. The two
+  # tools do not share a URL dialect, so they do not share a variable: the first run
+  # of this workflow proved it by failing on exactly that.
+  PSQL_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+  RLS_INTEGRATION_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/rlsgate
   EVIDENCE_DIR: artifacts/pc-crop-accounting
 
 jobs:
@@ -151,12 +155,20 @@ jobs:
             src/modules/accounting/accounting-source-snapshot.postgresql.spec.ts \
             2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
 
+      - name: Install the PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # No `|| true` on the create: swallowing its exit code is what let the first
+      # run report a database that was never created, and the gate then failed one
+      # step later with an error about something else.
       - name: Run the RLS isolation gate
         shell: bash
         run: |
-          set -o pipefail
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE rlsgate;' \
-            2>&1 | tee "$EVIDENCE_DIR/rlsgate-create.log" || true
+          set -euo pipefail
+          psql "$PSQL_ADMIN_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE rlsgate;' \
+            2>&1 | tee "$EVIDENCE_DIR/rlsgate-create.log"
           bash scripts/platform-v7-rls-integration.sh 2>&1 \
             | tee "$EVIDENCE_DIR/rls-isolation.log"
 
