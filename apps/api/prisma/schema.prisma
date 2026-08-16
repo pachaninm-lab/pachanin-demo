@@ -48,6 +48,7 @@ model Organization {
   signingAuthorities                SigningAuthority[]
   accountingDocuments               AccountingDocument[]
   accountingDocumentVersions        AccountingDocumentVersion[]
+  accountingNumberCounters          AccountingNumberCounter[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -268,6 +269,39 @@ model AccountingDocumentVersion {
   @@index([organizationId, documentId])
   @@index([tenantId])
   @@map("accounting_document_versions")
+}
+
+/// The sequence behind accounting document numbering, one row per
+/// organization, document type and period.
+///
+/// Deliberately a row rather than a PostgreSQL sequence. A sequence keeps
+/// counting through a rolled-back transaction, so an issue that failed halfway
+/// leaves a hole where no document ever existed — and a hole in a numbered
+/// sequence is exactly what an inspection reads as a removed document. A row
+/// held under `SELECT … FOR UPDATE` for the length of the issuing transaction
+/// rolls back with it.
+model AccountingNumberCounter {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  documentType   String
+  /// The calendar year for an annual sequence, 0 for a continuous one. Keeping
+  /// it in the key means a new year starts a new row instead of resetting a
+  /// shared one, so last year's sequence stays readable.
+  periodYear     Int
+  lastOrdinal    Int      @default(0)
+  prefix         String   @default("")
+  resetPolicy    String   @default("ANNUAL")
+  padding        Int      @default(6)
+  version        BigInt   @default(0)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([organizationId, documentType, periodYear])
+  @@index([tenantId])
+  @@map("accounting_number_counters")
 }
 
 model UkepCertificate {

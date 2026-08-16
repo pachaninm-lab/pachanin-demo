@@ -655,6 +655,95 @@ BEGIN
       RAISE NOTICE 'PASS 30 current version never goes backwards';
   END;
 
+  ---------------------------------------------------------------------------
+  -- 31. A numbering sequence is created scoped to the writer's organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_number_counters"(
+      "id","tenantId","organizationId","documentType","periodYear",
+      "prefix","resetPolicy","padding"
+    ) VALUES ('pc-cnt-a','tenant-a','org-a','UPD',2026,'УПД','ANNUAL',6);
+    RAISE NOTICE 'PASS 31 numbering sequence created';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 31 numbering sequence created -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 32. The column-level UPDATE grant is enough to lock the row. This is the
+  --     claim the gapless sequence rests on: if row locking needed a
+  --     table-wide grant, the principal would have had to be widened.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM 1 FROM public."accounting_number_counters"
+      WHERE "id" = 'pc-cnt-a' FOR UPDATE;
+    RAISE NOTICE 'PASS 32 counter can be locked with a column-level update grant';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 32 counter can be locked with a column-level update grant -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 33. Taking a number is permitted; putting one back is not, because a
+  --     lower ordinal re-issues a number already on somebody else's paper.
+  ---------------------------------------------------------------------------
+  UPDATE public."accounting_number_counters"
+     SET "lastOrdinal" = 42 WHERE "id" = 'pc-cnt-a';
+  BEGIN
+    UPDATE public."accounting_number_counters"
+       SET "lastOrdinal" = 41 WHERE "id" = 'pc-cnt-a';
+    RAISE WARNING 'FAIL 33 counter never goes backwards -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception OR insufficient_privilege THEN
+      RAISE NOTICE 'PASS 33 counter never goes backwards';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 34. The scheme is not writable by this principal at all, so a live
+  --     sequence cannot be reshaped even before the guard is consulted.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_number_counters"
+       SET "padding" = 3 WHERE "id" = 'pc-cnt-a';
+    RAISE WARNING 'FAIL 34 numbering scheme is not writable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 34 numbering scheme is not writable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 34 numbering scheme is not writable -> the column grant admitted the write and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 35. A sequence is never deleted; restarting one re-issues numbers.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."accounting_number_counters" WHERE "id" = 'pc-cnt-a';
+    RAISE WARNING 'FAIL 35 counter cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 35 counter cannot be deleted';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 36. And it cannot be created for another organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_number_counters"(
+      "id","tenantId","organizationId","documentType","periodYear"
+    ) VALUES ('pc-cnt-cross','tenant-b','org-b','UPD',2026);
+    RAISE WARNING 'FAIL 36 cross-organization counter refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 36 cross-organization counter refused';
+  END;
+
   IF failures > 0 THEN
     RAISE EXCEPTION 'pc-crop accounting documents: % check(s) failed', failures;
   END IF;
@@ -671,7 +760,7 @@ DECLARE
   measured text;
 BEGIN
   ---------------------------------------------------------------------------
-  -- 31. Documents and versions are read on the same terms as the rest of the
+  -- 37. Documents and versions are read on the same terms as the rest of the
   --     contour: the organization the caller actually holds a membership in,
   --     never the one it claims.
   ---------------------------------------------------------------------------
@@ -681,39 +770,39 @@ BEGIN
   measured := (SELECT count(*) FROM public."accounting_documents")::text || '/' ||
               (SELECT count(*) FROM public."accounting_document_versions")::text;
   IF measured = '1/2' THEN
-    RAISE NOTICE 'PASS 31 member reads its own documents and versions -> %', measured;
+    RAISE NOTICE 'PASS 37 member reads its own documents and versions -> %', measured;
   ELSE
-    RAISE WARNING 'FAIL 31 member reads its own documents and versions -> % (want 1/2)', measured;
+    RAISE WARNING 'FAIL 37 member reads its own documents and versions -> % (want 1/2)', measured;
     failures := failures + 1;
   END IF;
 
   ---------------------------------------------------------------------------
-  -- 32. The same caller claiming org-b reads nothing, and the org-b document
+  -- 38. The same caller claiming org-b reads nothing, and the org-b document
   --     created earlier proves the read is scoped rather than simply empty.
   ---------------------------------------------------------------------------
   PERFORM set_config('app.current_org_id', 'org-b', true),
           set_config('app.current_tenant_id', 'tenant-b', true);
   measured := (SELECT count(*) FROM public."accounting_documents")::text;
   IF measured = '0' THEN
-    RAISE NOTICE 'PASS 32 forged organization reads no documents -> %', measured;
+    RAISE NOTICE 'PASS 38 forged organization reads no documents -> %', measured;
   ELSE
-    RAISE WARNING 'FAIL 32 forged organization reads no documents -> % (want 0)', measured;
+    RAISE WARNING 'FAIL 38 forged organization reads no documents -> % (want 0)', measured;
     failures := failures + 1;
   END IF;
 
   ---------------------------------------------------------------------------
-  -- 33. The read principal stays read-only on the new tables too.
+  -- 39. The read principal stays read-only on the new tables too.
   ---------------------------------------------------------------------------
   PERFORM set_config('app.current_org_id', 'org-a', true),
           set_config('app.current_tenant_id', 'tenant-a', true);
   BEGIN
     UPDATE public."accounting_documents" SET "status" = 'CANCELLED'
      WHERE "id" = 'pc-doc-a';
-    RAISE WARNING 'FAIL 33 read principal cannot write documents -> update succeeded';
+    RAISE WARNING 'FAIL 39 read principal cannot write documents -> update succeeded';
     failures := failures + 1;
   EXCEPTION
     WHEN insufficient_privilege THEN
-      RAISE NOTICE 'PASS 33 read principal cannot write documents';
+      RAISE NOTICE 'PASS 39 read principal cannot write documents';
   END;
 
   IF failures > 0 THEN
@@ -730,7 +819,7 @@ DECLARE
   failures integer := 0;
 BEGIN
   ---------------------------------------------------------------------------
-  -- 34. The trigger binds the superuser as well. A column grant only
+  -- 40. The trigger binds the superuser as well. A column grant only
   --     constrains the role it was withheld from, and row level security is
   --     bypassed here entirely — so this is the only one of the three
   --     mechanisms that still holds when the connection is fully privileged.
@@ -739,25 +828,25 @@ BEGIN
     UPDATE public."accounting_document_versions"
        SET "payloadHash" = 'sha256-rewritten-by-owner'
      WHERE "id" = 'pc-ver-a1';
-    RAISE WARNING 'FAIL 34 signed version is immutable to the superuser -> update succeeded';
+    RAISE WARNING 'FAIL 40 signed version is immutable to the superuser -> update succeeded';
     failures := failures + 1;
   EXCEPTION
     WHEN raise_exception THEN
-      RAISE NOTICE 'PASS 34 signed version is immutable to the superuser';
+      RAISE NOTICE 'PASS 40 signed version is immutable to the superuser';
   END;
 
   ---------------------------------------------------------------------------
-  -- 35. And the snapshot on an unsigned version is equally beyond it.
+  -- 41. And the snapshot on an unsigned version is equally beyond it.
   ---------------------------------------------------------------------------
   BEGIN
     UPDATE public."accounting_document_versions"
        SET "recordedRevisions" = '{"WEIGHT":"weight-999"}'::jsonb
      WHERE "id" = 'pc-ver-a2';
-    RAISE WARNING 'FAIL 35 revision snapshot is immutable to the superuser -> update succeeded';
+    RAISE WARNING 'FAIL 41 revision snapshot is immutable to the superuser -> update succeeded';
     failures := failures + 1;
   EXCEPTION
     WHEN raise_exception THEN
-      RAISE NOTICE 'PASS 35 revision snapshot is immutable to the superuser';
+      RAISE NOTICE 'PASS 41 revision snapshot is immutable to the superuser';
   END;
 
   IF failures > 0 THEN
