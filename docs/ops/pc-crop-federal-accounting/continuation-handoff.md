@@ -3,7 +3,7 @@
 Назначение (§G): продолжить **без повторного анализа**.
 Читать этот файл первым, затем `execution-state.json`, затем `gap-matrix.md`.
 
-Прогресс: **11.1%** по матрице §H. PR #4216 **смержен** в main как `066dc5e3e`.
+Прогресс: **10.9%** по матрице §H. PR #4216 **смержен** в main как `066dc5e3e`.
 
 > **Смержено 2026-08-16** по явному одноразовому разрешению владельца, с проверкой
 > `expected_head_sha=69561ac97` через REST API. Exact-main приёмка на `066dc5e3e`
@@ -40,7 +40,7 @@
 | Wave 2.13 | Генерация payload: содержимое и снимок ревизий из одного чтения, каноническое хеширование, деньги переизлагаются | `accounting-document-payload.builder.ts` |
 | Wave 3.1 | Снимок девяти источников под REPEATABLE READ; ревизии из настоящих счётчиков строк | `accounting/accounting-source-snapshot.repository.ts` |
 | Wave 3.2 | Создание версии в одной транзакции со снимком; номер под блокировкой; членство резолвит БД | `accounting/accounting-document-version.repository.ts` |
-| Wave 3.3 | Модуль, контроллер и приёмочный workflow — контур стал достижим | `accounting.module.ts`, `accounting.controller.ts`, `.github/workflows/pc-crop-accounting-acceptance.yml` |
+| Wave 3.3 | Модуль, контроллер и приёмочный workflow. Контур собран и протестирован, но **по HTTP пока недостижим**: две строки wiring вынесены в отдельный PR (см. §7) | `accounting.module.ts`, `accounting.controller.ts`, `.github/workflows/pc-crop-accounting-acceptance.yml` |
 
 ## 2. Инварианты, которые нельзя потерять
 
@@ -77,8 +77,13 @@
 **Accounting Core завершён внутри выданного разрешения.** Снимок, транзакция версии,
 модуль, контроллер и приёмочный workflow построены.
 
-1. **Дождаться первого прогона `pc-crop-accounting-acceptance.yml`.** До него приёмочные
-   спеки доказаны только локально: workflow добавлен, но ещё ни разу не отработал в CI.
+1. **Довести PR #4288 до зелёного.** Первый прогон `pc-crop-accounting-acceptance.yml`
+   упал по двум настоящим дефектам, оба исправлены: `postgres:16` вместо зеркала репозитория
+   (EV-129) и `--to-schema-datamodel apps/api/prisma/schema.prisma` под `pnpm --filter`,
+   который уже работает в `apps/api` (EV-130). Второй — ровно тот класс расхождения
+   «локально проходит, в CI падает», ради которого workflow и заводился.
+
+1a. **После #4288 — отдельный PR ровно на `apps/api/src/app.module.ts`** (см. §7).
 
 2. **Дальше по порядку владельца:** WorkTask / task-first accounting → `/platform-v7/accounting`
    → `/deals/[id]/accounting` → проекции ролей → авансы, услуги, платежи, сверка, закрытие
@@ -123,3 +128,29 @@ cd apps/api && npx jest && npx tsc -p tsconfig.json --noEmit
 Не тронуты и не одобрены: `apps/web/**`, `packages/**`, lockfiles, `settlement-engine/**`, `organization-role-policy.ts`, production-мутации.
 Merge — акт владельца, `noAutoMerge: true` стоит.
 Новых обязательных расходов: **0 ₽**.
+
+## 7. Почему wiring в `app.module.ts` едет отдельным PR
+
+`.github/workflows/pc-crop-01b3.yml` объявляет `apps/api/src/app.module.ts` в своих
+`paths`, а первым же шагом отказывает, если в диффе PR есть **что-либо** вне семи файлов
+слайса commodity-profiles:
+
+```
+elif grep -Ev '^(\.github/workflows/pc-crop-01b3\.yml|apps/api/src/app\.module\.ts|…)$' \
+     changed-files.txt > out-of-scope.txt; then exit 1
+```
+
+Это чужой контроль. Ослаблять его я не стал и обходить тоже: расширить allowlist —
+значит выдать себе исключение из чужого гейта, а завести модуль в граф приложения мимо
+`app.module.ts` — значит менять граф, уклоняясь от проверки, которая на него и смотрит.
+Единственная форма, которую этот гейт принимает от постороннего, — PR, где кроме
+`app.module.ts` нет ничего. Поэтому:
+
+1. **#4288** — весь Accounting Core без строки wiring. Контур компилируется, тесты и
+   приёмка на живой БД проходят, но по HTTP он **недостижим**, и в матрице §H засчитан
+   именно так (доля компонента снижена 93 → 91, общий прогресс 11.1 → 10.9).
+2. **Следующий PR** — ровно две строки в `apps/api/src/app.module.ts`, ничего больше.
+   Такой дифф проходит проверку 01b3 дословно, и её собственная приёмка на нём отработает.
+
+Ветка `paths` приёмочного workflow на `app.module.ts` оставлена: второй PR должен
+запустить и её тоже.

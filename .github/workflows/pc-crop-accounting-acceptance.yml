@@ -46,6 +46,12 @@ on:
 permissions:
   contents: read
 
+# A superseded run is not evidence about the head that superseded it, and letting
+# it finish only produces a cancellation artifact somebody has to read past.
+concurrency:
+  group: pc-crop-accounting-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
@@ -59,7 +65,13 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:16
+        # The repository mirror, by digest. Anonymous Docker Hub pulls are rate
+        # limited, and when the pull fails the service container never starts —
+        # the job dies before its first assertion, which is indistinguishable
+        # from a failed acceptance. Debian-based, matching the other blocking
+        # acceptance suites: Alpine and Debian differ in libc and collation, so
+        # sort order and index behaviour are not interchangeable.
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
         env:
           POSTGRES_DB: grainflow
           POSTGRES_USER: postgres
@@ -111,7 +123,7 @@ jobs:
           set -o pipefail
           pnpm --filter @pc/api exec prisma migrate diff \
             --from-url "$DATABASE_URL" \
-            --to-schema-datamodel apps/api/prisma/schema.prisma \
+            --to-schema-datamodel prisma/schema.prisma \
             --script --exit-code 2>&1 | tee "$EVIDENCE_DIR/drift.log"
 
       - name: Run accounting unit contracts

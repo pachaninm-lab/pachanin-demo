@@ -7,14 +7,14 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T16:30:00.000Z",
+  "updatedAt": "2026-08-16T19:10:00.000Z",
   "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 11.1,
+  "overallProgressPercent": 10.9,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
-  "status": "MERGED_TO_MAIN_EXACT_MAIN_ACCEPTED_AWAITING_PRODUCTION",
+  "status": "ACCOUNTING_CORE_ON_BRANCH_PR_4288_OPEN_AWAITING_GREEN",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
   "workstreams": [
     {
@@ -133,7 +133,7 @@
       "name": "Documents / contracts / regulatory / tax profiles",
       "weightPercent": 7,
       "provenSharePercent": 60,
-      "creditedPercent": 4.9,
+      "creditedPercent": 4.78,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 4 spans seven components: server-authoritative documents, contract versions, the regulatory registry, tax profiles, a format registry, a numbering policy and signing authority. They are modelled as equal sevenths — not because they are equal in size, but because any unequal weighting would be one this agent invented, and an invented weighting is worth less than a stated flat assumption. The stage credit is multiplied by the share actually built rather than crediting the whole workstream.",
@@ -146,20 +146,21 @@
           "regulatory rule versions",
           "signing authority"
         ],
-        "componentBuilt": "Accounting Core complete inside the granted scope: all seven components, the atomic source snapshot, the version-creation transaction, module wiring, a minimal API surface and a PostgreSQL acceptance workflow",
-        "componentSharePercent": 93,
+        "componentBuilt": "Accounting Core built inside the granted scope: all seven components, the atomic source snapshot, the version-creation transaction, a minimal API surface and a PostgreSQL acceptance workflow. Module wiring is NOT on this branch: pc-crop-01b3.yml claims apps/api/src/app.module.ts and refuses any diff carrying anything else, so the two wiring lines go in a separate single-file PR rather than weakening another workstream's control. Until that lands the contour compiles, is tested and is unreachable over HTTP.",
+        "componentSharePercent": 91,
         "notBuilt": [
+          "module wiring into app.module.ts — deferred to a single-file PR that pc-crop-01b3.yml's bounded-scope rule accepts",
           "credential provisioning for both NOLOGIN principals (infra/, not claimed — the contour runs through RlsTransactionService on the ordinary connection)",
           "a laboratory-sample fixture, deliberately: the labs admission contour belongs to another workstream",
           "no production deployment; ENV-PROD stands"
         ],
-        "componentShareDerivation": "equal sevenths, each now at or near complete: signing authority 14.3, documents 95% = 13.6, numbering 95% = 13.6, format registry 90% = 12.9, rule versions 90% = 12.9, tax profile 90% = 12.9, contract versions 90% = 12.9; total 93.1, recorded as 93. Not higher: the acceptance workflow has not yet run in CI, and no production deployment exists."
+        "componentShareDerivation": "equal sevenths: signing authority 14.3, documents 95% = 13.6, numbering 95% = 13.6, format registry 90% = 12.9, rule versions 90% = 12.9, tax profile 90% = 12.9, contract versions 90% = 12.9; total 93.1, reduced to 91 because the contour is not reachable until the separate wiring PR lands and the acceptance workflow has not yet completed a green run in CI. Its first run failed on two real defects (unmirrored postgres image, wrong schema path under pnpm --filter), both fixed."
       },
       "milestones": {
         "implementationOnBranch": {
           "weightShare": 0.35,
           "done": true,
-          "evidence": "eight policies, the payload builder, the source snapshot and version repositories, the accounting module, controller and acceptance workflow; six models with migrations 20260815200000 through 20260816040000"
+          "evidence": "eight policies, the payload builder, the source snapshot and version repositories, the accounting module, controller and acceptance workflow; six models with migrations 20260815200000 through 20260816040000. Wiring into app.module.ts is not part of this branch."
         },
         "automatedAndNegativeTestsGreen": {
           "weightShare": 0.25,
