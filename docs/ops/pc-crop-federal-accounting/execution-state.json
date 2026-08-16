@@ -7,14 +7,14 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T19:10:00.000Z",
+  "updatedAt": "2026-08-16T19:30:00.000Z",
   "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 10.9,
+  "overallProgressPercent": 11.3,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
-  "status": "ACCOUNTING_CORE_ON_BRANCH_PR_4288_OPEN_AWAITING_GREEN",
+  "status": "ACCOUNTING_CORE_GREEN_IN_CI_WORK_TASK_ON_BRANCH",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
   "workstreams": [
     {
@@ -133,7 +133,7 @@
       "name": "Documents / contracts / regulatory / tax profiles",
       "weightPercent": 7,
       "provenSharePercent": 60,
-      "creditedPercent": 4.78,
+      "creditedPercent": 4.88,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 4 spans seven components: server-authoritative documents, contract versions, the regulatory registry, tax profiles, a format registry, a numbering policy and signing authority. They are modelled as equal sevenths — not because they are equal in size, but because any unequal weighting would be one this agent invented, and an invented weighting is worth less than a stated flat assumption. The stage credit is multiplied by the share actually built rather than crediting the whole workstream.",
@@ -147,14 +147,14 @@
           "signing authority"
         ],
         "componentBuilt": "Accounting Core built inside the granted scope: all seven components, the atomic source snapshot, the version-creation transaction, a minimal API surface and a PostgreSQL acceptance workflow. Module wiring is NOT on this branch: pc-crop-01b3.yml claims apps/api/src/app.module.ts and refuses any diff carrying anything else, so the two wiring lines go in a separate single-file PR rather than weakening another workstream's control. Until that lands the contour compiles, is tested and is unreachable over HTTP.",
-        "componentSharePercent": 91,
+        "componentSharePercent": 93,
         "notBuilt": [
           "module wiring into app.module.ts — deferred to a single-file PR that pc-crop-01b3.yml's bounded-scope rule accepts",
           "credential provisioning for both NOLOGIN principals (infra/, not claimed — the contour runs through RlsTransactionService on the ordinary connection)",
           "a laboratory-sample fixture, deliberately: the labs admission contour belongs to another workstream",
           "no production deployment; ENV-PROD stands"
         ],
-        "componentShareDerivation": "equal sevenths: signing authority 14.3, documents 95% = 13.6, numbering 95% = 13.6, format registry 90% = 12.9, rule versions 90% = 12.9, tax profile 90% = 12.9, contract versions 90% = 12.9; total 93.1, reduced to 91 because the contour is not reachable until the separate wiring PR lands and the acceptance workflow has not yet completed a green run in CI. Its first run failed on two real defects (unmirrored postgres image, wrong schema path under pnpm --filter), both fixed."
+        "componentShareDerivation": "equal sevenths: signing authority 14.3, documents 95% = 13.6, numbering 95% = 13.6, format registry 90% = 12.9, rule versions 90% = 12.9, tax profile 90% = 12.9, contract versions 90% = 12.9; total 93.1. Recorded as 93 now that the acceptance workflow has completed a green run in CI on 954fb9b15 rather than only locally. Not higher: the contour is still unreachable over HTTP until the separate app.module.ts wiring PR lands, and no production deployment exists."
       },
       "milestones": {
         "implementationOnBranch": {
@@ -188,12 +188,55 @@
       "id": 5,
       "name": "Accounting task engine / UX / projections",
       "weightPercent": 6,
-      "provenSharePercent": 0,
-      "creditedPercent": 0,
-      "blockedBy": [
-        "GOV-1",
-        "GOV-3"
-      ]
+      "provenSharePercent": 35,
+      "creditedPercent": 0.34,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 5 spans six components: the task model with its closing rules, the deriver that raises tasks from live sources, a repository and API surface, the dashboard itself, the per-role projections, and the KPI and tab read models. Modelled as equal sixths — a stated flat assumption rather than a weighting this agent invented.",
+        "componentsInScope": [
+          "work task model and the rules for closing one",
+          "derivation from live sources",
+          "repository and API surface",
+          "the /platform-v7/accounting dashboard",
+          "accountant, director, seller and buyer projections",
+          "KPI counters and tab read models"
+        ],
+        "componentBuilt": "The first component only: the table, the guard that refuses to close a derived task on assent, the pure policy for transitions, assignment, buckets and the task card, and eleven RLS gate checks. The remaining five are not built, and four of them need apps/web, which is outside the granted scope.",
+        "componentSharePercent": 16,
+        "componentShareDerivation": "one of six equal components, 16.7, recorded as 16 without rounding up.",
+        "notBuilt": [
+          "the deriver: nothing yet raises a task from a live source, so the table fills only when something writes to it",
+          "repository and controller for tasks",
+          "every screen — apps/web is outside the granted scope",
+          "role projections and KPI read models"
+        ]
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "migration 20260816190000, work-task.policy.ts, 32 unit contracts, 16 PostgreSQL acceptance tests, RLS gate checks 68-78"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": false,
+          "evidence": "green locally including two sabotages, but not yet in CI: the acceptance workflow has not run on a head carrying these files."
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
     },
     {
       "id": 6,

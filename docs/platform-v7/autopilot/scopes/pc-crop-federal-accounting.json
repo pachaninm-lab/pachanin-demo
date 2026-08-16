@@ -45,6 +45,7 @@
     "apps/api/src/modules/auth/accounting-document-issuing.postgresql.spec.ts",
     "apps/api/src/modules/auth/accounting-document-payload.builder.ts",
     "apps/api/src/modules/auth/accounting-document-payload.builder.spec.ts",
+    "apps/api/prisma/migrations/20260816190000_pc_crop_accounting_work_tasks/**",
     "apps/api/src/modules/accounting/**",
     "apps/api/src/app.module.ts",
     ".github/workflows/pc-crop-accounting-acceptance.yml"
@@ -125,7 +126,13 @@
     "Existing Deal, Shipment and Lab repositories are read through their published getById(id, user) interfaces and are never modified.",
     "The SourceSnapshot is assembled atomically, so the payload and the recorded revisions describe one read.",
     "noSelfModifyingWorkflow, noDirectPushToMain, noAutoMerge, controlledPilotOnly, the scope guard and every security and release gate remain untouched. The owner's merge authorisation for #4216 was one-time and specific; it does not extend to later pull requests.",
-    "Existing accepted platform authority — Integration Core, FGIS, auth/RLS/outbox/DR — is extended, never re-implemented, and is never recorded as absent merely because it predates this workstream."
+    "Existing accepted platform authority — Integration Core, FGIS, auth/RLS/outbox/DR — is extended, never re-implemented, and is never recorded as absent merely because it predates this workstream.",
+    "A derived work task is never closed by assent: the database checks that the condition it names has cleared, and refuses a task type it has no verifier for rather than waving it through.",
+    "Cancelling a derived work task is refused, because cancelling is closing under another word.",
+    "A system-reported task closes on an event that is not the event that raised it; the same event cannot be both the alarm and the all-clear.",
+    "The resolution time is stamped by the database, never supplied by the caller, so a closure cannot be antedated.",
+    "A work task is never deleted: one that was raised and removed is indistinguishable from one that was never raised.",
+    "A derived work task carries no author and a manual one must carry its author; the confined write principal cannot raise a derived task at all."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -169,7 +176,12 @@
     "Removing FOR UPDATE from the counter read makes the concurrency test fail while all six single-threaded tests still pass, so that test measures the lock and nothing else.",
     "The PostgreSQL spec is gated on PC_CROP_ACCOUNTING_POSTGRESQL=1, matching the convention of the other acceptance specs. No CI workflow sets that flag yet: .github/workflows is outside this scope and adding one collides with noSelfModifyingWorkflow, so the proof is recorded as a local run against live PostgreSQL 16.",
     "Twenty-one payload tests, including three that feed the builder's own snapshot back into the staleness policy: it reads CURRENT against the revisions it was built from, goes STALE when one moves, and leaves no source unverifiable.",
-    "The same content assembled in a different key order yields the same hash; any changed value yields a different one."
+    "The same content assembled in a different key order yields the same hash; any changed value yields a different one.",
+    "Thirty-two unit contracts for the task policy, including that an unknown condition counts as still holding rather than as permission.",
+    "Sixteen PostgreSQL acceptance tests run as the migration owner — the strongest principal there is — and it still cannot dismiss a derived task.",
+    "Dropping the work task guard makes twelve of those sixteen fail; the four that survive are the ones measuring CHECK constraints and the unique index, which is the separation intended.",
+    "Eleven further RLS gate checks, 68 to 78, covering manual creation, refusal of a hand-written derived task, forged attribution, cross-organization refusal, the column grant boundary, taking a task up, closure attribution, no delete, scoped reads, forged organization and the read principal's inability to close anything.",
+    "Widening the work task column grant to a full UPDATE makes check 72 fail and report that the grant admitted the write and only the guard stopped it."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",
