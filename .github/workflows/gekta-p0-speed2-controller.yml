@@ -461,7 +461,7 @@ jobs:
 
           canary="$RUNNER_TEMP/speed2-real-canary.json"
           jq -s '
-            def med(xs): (xs | sort) as $s | ($s|length) as $n | if $n == 0 then null elif ($n % 2)==1 then $s[($n/2|floor)] else (($s[$n/2-1]+$s[$n/2])/2) end;
+            def med(xs): (xs | sort) as $s | ($s|length) as $n | if $n == 0 then null elif ($n % 2)==1 then $s[($n/2|floor)] else (($s[(($n/2)-1)]+$s[($n/2)])/2) end;
             . as $rows |
             ($rows | map(.sample.firstMeaningfulTextMs)) as $fm |
             ($rows | map(.model.promptEvalMs)) as $pp |
