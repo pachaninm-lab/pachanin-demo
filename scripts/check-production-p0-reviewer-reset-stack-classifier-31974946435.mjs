@@ -9,7 +9,7 @@ const scopePath = 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-rese
 const sourceScript = 'scripts/production-p0-reviewer-reset-stack-classifier-31901032491.sh';
 const sourceBlobSha = '499bf064866f83a658ccbdfecaa885541d44c780';
 const command = '/production p0-reviewer-reset-stack-classify 31974946435 current-main';
-const branch = 'fix/p0-reviewer-reset-stack-31974946435-v2-3785';
+const branch = 'fix/p0-reviewer-reset-stack-stage-v3-31974946435-3785';
 const allowed = [workflowPath, scriptPath, checkerPath, scopePath];
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const script = fs.readFileSync(scriptPath, 'utf8');
@@ -45,20 +45,46 @@ for (const token of [
   "mapfile -t api_ids < <(docker ps -aq --filter 'label=com.docker.compose.service=api')",
   '[[ "$marker_count" =~ ^[0-9]+$ && "$marker_count" -ge 1 && "$marker_count" -le 4 ]]',
   'docker logs --since "$since" --until "$until"',
-  "source_stage='AUTH_MAIL_ENQUEUE'",
-  "source_stage='PASSWORD_RESET_REPOSITORY'",
-  "reason_class='PERMISSION_DENIED'",
-  "reason_class='ROW_LEVEL_SECURITY'",
-  "reason_class='ENQUEUE_FUNCTION_MISSING'",
+  "remote_stage='REMOTE_BEGIN'",
+  "remote_stage='DOCKER_LIST'",
+  "remote_stage='REVISION_MATCH'",
+  "remote_stage='LOG_FETCH'",
+  "remote_stage='MARKER_COUNT'",
+  "remote_stage='CONTEXT_EXTRACT'",
+  "remote_stage='CLASSIFY'",
+  "remote_stage='SANITIZE'",
+  "remote_stage='PUBLISH'",
+  "remote_stage='SSH_TRANSPORT'",
+  'REMOTE_BEGIN|DOCKER_LIST|REVISION_MATCH|LOG_FETCH|MARKER_COUNT|CONTEXT_EXTRACT|SANITIZE|CLASSIFY|PUBLISH',
+  'trap remote_fail ERR',
+  "printf 'REMOTE_STAGE=%s\\n'",
+  "printf 'REMOTE_RC=%s\\n'",
+  'FAIL_CLOSED_STAGE_CLASSIFIED',
+  'remote_rc=$?',
+  'set +e',
+  'set -e',
+  '2>/dev/null',
+  "'ssh-capture-start'",
+  "'ssh-capture-end'",
   'PRODUCTION_MUTATION=NONE',
   'raw logs / PII / credentials',
-  'PATCHED_SOURCE_REINTRODUCED_OVERCONSTRAINT',
+  'PATCHED_SOURCE_REINTRODUCED_UNSAFE_OR_OVERCONSTRAINED',
 ]) need('script', script, token);
+
 for (const regex of [
   /password-reset\/request/, /forgot-password/, /password-reset\/confirm/, /\bcurl\s/,
   /docker\s+exec/, /docker\s+(restart|stop|rm|kill)/, /docker\s+compose\s+(up|down|restart)/,
   /\bpsql\b/, /\bINSERT\b/i, /\bUPDATE\b/i, /\bDELETE\b/i, /\bALTER\b/i, /\bGRANT\b/i, /\bREVOKE\b/i,
+  /echo \"\$output\"/, /printf ['"]%s\\n['"] \"\$output\"/,
 ]) deny('script', script, regex);
+
+if (!script.includes('case "$remote_stage" in')) failures.push('script: remote stage whitelist case missing');
+if (!script.includes("*) remote_stage='REMOTE_BEGIN' ;;")) failures.push('script: remote fail-closed stage fallback missing');
+if (!script.includes("*) remote_stage='SSH_TRANSPORT' ;;")) failures.push('script: local SSH transport fallback missing');
+if (!script.includes("gh issue comment \"$RELEASE_ISSUE_NUMBER\"")) failures.push('script: sanitized issue publication missing');
+if (!script.includes('result_published=1')) failures.push('script: failure publication dedupe missing');
+if (!script.includes("[[ \"$remote_marker_rc\" =~ ^[0-9]+$ ]]")) failures.push('script: numeric remote RC validation missing');
+if (!script.includes("[[ \"$remote_mutation\" == 'PRODUCTION_MUTATION=NONE' ]]")) failures.push('script: production mutation marker validation missing');
 
 const sourceHash = spawnSync('git', ['hash-object', sourceScript], { encoding: 'utf8' });
 if (sourceHash.status !== 0 || String(sourceHash.stdout).trim() !== sourceBlobSha) failures.push('source classifier blob mismatch');
@@ -73,11 +99,15 @@ const b = scope.boundaries || {};
 for (const key of ['databaseMutation','identityMutation','passwordMutation','mfaMutation','sessionMutation','resetReplay','mailSend','deploymentMutation','containerLifecycleMutation','databaseRead','piiOutput','credentialOutput','rawLogOutput']) {
   if (b[key] !== false) failures.push(`scope boundary ${key}`);
 }
-if (b.productionMutation !== 'NONE' || b.logReadOnly !== true || b.ownerOnly !== true || b.exactMainGuard !== true || b.exactHistoricalRevision !== true || b.boundedUtcWindow !== true || b.newRecurringCostRub !== 0) {
-  failures.push('scope core boundary mismatch');
-}
+if (b.productionMutation !== 'NONE' || b.logReadOnly !== true || b.ownerOnly !== true || b.exactMainGuard !== true || b.exactHistoricalRevision !== true || b.boundedUtcWindow !== true || b.newRecurringCostRub !== 0) failures.push('scope core boundary mismatch');
 const acceptanceText = JSON.stringify(scope.acceptance || []);
-if (!acceptanceText.includes('between one and four password-reset transaction failure markers')) failures.push('scope historical replica cardinality contract missing');
+for (const clause of [
+  'between one and four password-reset transaction failure markers',
+  'publish a whitelisted REMOTE_STAGE and numeric RC',
+  'never publish captured SSH output or raw Docker logs',
+]) {
+  if (!acceptanceText.includes(clause)) failures.push(`scope acceptance missing ${clause}`);
+}
 
 const syntax = spawnSync('bash', ['-n', scriptPath], { encoding: 'utf8' });
 if (syntax.status !== 0) failures.push(`bash syntax failed: ${String(syntax.stderr).slice(0, 200)}`);
@@ -92,4 +122,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exit(1);
 }
-console.log('PASS: reset 31974946435 classifier reuses the pinned proven historical-container scanner, accepts bounded 1..4 replica markers, remains owner-bound, exact-revision, exact-window, log-read-only, secret-safe and mutation-free.');
+console.log('PASS: reset 31974946435 classifier v3 keeps strict safety invariants while checking semantic SSH/stage guards instead of brittle heredoc escaping.');
