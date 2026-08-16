@@ -175,7 +175,12 @@ jobs:
         continue-on-error: true
         env:
           PLAYWRIGHT_BASE_URL: ${{ env.LIVE_BASE }}
-        run: pnpm --filter @pc/web exec playwright test --config=playwright.production-i18n.config.ts
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/platform-v7-production-i18n
+          pnpm --filter @pc/web exec playwright test --config=playwright.production-i18n.config.ts \
+            2>&1 | tee artifacts/platform-v7-production-i18n/browser-matrix.log
 
       - name: Publish i18n acceptance record
         if: always()
@@ -198,6 +203,23 @@ jobs:
           dictionary_result="$(as_result "$DICTIONARY_OUTCOME")"
           runtime_result="$(as_result "$RUNTIME_OUTCOME")"
           browser_result="$(as_result "$BROWSER_OUTCOME")"
+
+          # The Playwright step is aggregate. A failure proves only that the browser
+          # matrix failed somewhere. It does NOT, by itself, prove that every child
+          # UX gate failed. Child gates may be claimed PASS only when the complete
+          # matrix passes; otherwise they remain NOT_ATTESTED until independent
+          # evidence identifies the exact failing assertion(s).
+          if [[ "$browser_result" == PASS ]]; then
+            browser_child_result=PASS
+            browser_child_note=''
+          elif [[ "$browser_result" == FAIL ]]; then
+            browser_child_result=NOT_ATTESTED
+            browser_child_note=' (aggregate browser matrix failed; inspect artifact for the exact failing assertion)'
+          else
+            browser_child_result=NOT_RUN
+            browser_child_note=''
+          fi
+
           record=artifacts/platform-v7-production-i18n/issue-comment.md
           {
             echo "## Platform V7 production i18n acceptance \`$GITHUB_RUN_ID\`"
@@ -208,13 +230,14 @@ jobs:
             echo "- EN/ZH dictionary parity / no residual source Cyrillic contract: \`$dictionary_result\`"
             echo "- dynamic DOM + embedded dictionary fallback unit contract: \`$runtime_result\`"
             echo "- public EN/ZH browser matrix: \`$browser_result\`"
-            echo "- Chromium 320/375/390/430 + desktop: \`$browser_result\`"
-            echo "- WebKit 320/375/390/430 + desktop: \`$browser_result\`"
-            echo "- visible Cyrillic outside allowed brand/ФГИС/СДИЗ/ЭДО: \`$browser_result\`"
-            echo "- horizontal overflow after localization: \`$browser_result\`"
-            echo "- Chinese computed typography on public home: \`$browser_result\`"
-            echo "- locale persistence after query selection and clean reload: \`$browser_result\`"
+            echo "- Chromium 320/375/390/430 + desktop: \`$browser_child_result\`$browser_child_note"
+            echo "- WebKit 320/375/390/430 + desktop: \`$browser_child_result\`$browser_child_note"
+            echo "- visible Cyrillic outside allowed brand/ФГИС/СДИЗ/ЭДО: \`$browser_child_result\`$browser_child_note"
+            echo "- horizontal overflow after localization: \`$browser_child_result\`$browser_child_note"
+            echo "- Chinese computed typography on public home: \`$browser_child_result\`$browser_child_note"
+            echo "- locale persistence after query selection and clean reload: \`$browser_child_result\`$browser_child_note"
             echo "- protected role-cockpit production matrix: \`NOT_ATTESTED\` (requires valid production identities; this workflow does not bypass auth)"
+            echo "- browser diagnostic log: workflow artifact \`browser-matrix.log\`"
             echo "- screenshots and traces: workflow artifact"
             echo "- workflow run ID: \`$GITHUB_RUN_ID\`"
           } > "$record"
