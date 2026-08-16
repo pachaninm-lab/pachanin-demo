@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-p0-regru-smtp587-auth-diagnostic
+  group: production-p0-regru-smtp587-auth-diagnostic-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
 
 env:
