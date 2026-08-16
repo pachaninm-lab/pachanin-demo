@@ -42,7 +42,9 @@
     "apps/api/src/modules/auth/document-format.policy.ts",
     "apps/api/src/modules/auth/document-format.policy.spec.ts",
     "apps/api/src/modules/auth/accounting-document-issuing.repository.ts",
-    "apps/api/src/modules/auth/accounting-document-issuing.postgresql.spec.ts"
+    "apps/api/src/modules/auth/accounting-document-issuing.postgresql.spec.ts",
+    "apps/api/src/modules/auth/accounting-document-payload.builder.ts",
+    "apps/api/src/modules/auth/accounting-document-payload.builder.spec.ts"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -111,7 +113,12 @@
     "The counter is locked before the numbering policy is consulted, because the policy's answer derives from the ordinal it reads; asking first and locking after would let two issuers derive the same number from one stale read.",
     "A sequence nobody configured is refused, not started implicitly: starting one would pick a numbering scheme on the organization's behalf, and the scheme is fixed once it issues.",
     "A refused issue costs no number, which is the point of allocating at issue rather than at creation.",
-    "The issuing repository re-checks no tenancy of its own; the row level policies already refuse what it must not see, and a second copy would be a weaker one that drifts."
+    "The issuing repository re-checks no tenancy of its own; the row level policies already refuse what it must not see, and a second copy would be a weaker one that drifts.",
+    "The payload and the revision snapshot are produced together from one read. Building the document and then asking each source for its current revision would record what is true at the moment of asking rather than what went into the document, and a source that moved in between would make the version report CURRENT forever.",
+    "The document restates money and never recomputes it: the total comes from the deal as recorded, because a second arithmetic here can disagree with the ledger's and produce exactly the discrepancy an accounting document exists to rule out.",
+    "Serialisation is canonical before hashing, so identical content always hashes identically; a hash that changes without the content changing trains people to ignore it.",
+    "bigint is serialised as a decimal string, so money never becomes a number on the way to the hash.",
+    "A document type with no builder is refused rather than rendered generically: a form the platform cannot defend should not carry its name."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -153,7 +160,9 @@
     "Sixteen format tests: current, superseded, missing publication, unknown type, ambiguous registry, unrecorded format, a past document judged against the format in force when it was made, and each of the five refusals on send.",
     "Eight PostgreSQL 16 acceptance tests for issuing, including eight concurrent issuers receiving eight distinct contiguous numbers.",
     "Removing FOR UPDATE from the counter read makes the concurrency test fail while all six single-threaded tests still pass, so that test measures the lock and nothing else.",
-    "The PostgreSQL spec is gated on PC_CROP_ACCOUNTING_POSTGRESQL=1, matching the convention of the other acceptance specs. No CI workflow sets that flag yet: .github/workflows is outside this scope and adding one collides with noSelfModifyingWorkflow, so the proof is recorded as a local run against live PostgreSQL 16."
+    "The PostgreSQL spec is gated on PC_CROP_ACCOUNTING_POSTGRESQL=1, matching the convention of the other acceptance specs. No CI workflow sets that flag yet: .github/workflows is outside this scope and adding one collides with noSelfModifyingWorkflow, so the proof is recorded as a local run against live PostgreSQL 16.",
+    "Twenty-one payload tests, including three that feed the builder's own snapshot back into the staleness policy: it reads CURRENT against the revisions it was built from, goes STALE when one moves, and leaves no source unverifiable.",
+    "The same content assembled in a different key order yields the same hash; any changed value yields a different one."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",

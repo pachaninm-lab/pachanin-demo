@@ -234,6 +234,8 @@
       "apps/api/src/modules/auth/document-format.policy.spec.ts",
       "apps/api/src/modules/auth/accounting-document-issuing.repository.ts",
       "apps/api/src/modules/auth/accounting-document-issuing.postgresql.spec.ts",
+      "apps/api/src/modules/auth/accounting-document-payload.builder.ts",
+      "apps/api/src/modules/auth/accounting-document-payload.builder.spec.ts",
       "scripts/sql/pc-crop-accounting-rls-checks.sql",
       "scripts/platform-v7-rls-integration.sh",
       "docs/ops/pc-crop-federal-accounting/**",
