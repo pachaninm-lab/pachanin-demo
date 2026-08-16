@@ -80,6 +80,75 @@ export class DocumentTransmissionRepository {
   constructor(private readonly transactions: RlsTransactionService) {}
 
   /**
+   * What would happen if this version were sent right now, and why not.
+   *
+   * A read, and the only transmission surface that exists yet. There is no send
+   * route, because sending needs an attested adapter and none exists: exposing
+   * one that always refuses, or one wired to the fake, would be the fictitious
+   * «Подключено» the contract forbids. Answering "not yet, and here is the
+   * list" is the true thing the screen can show today.
+   */
+  async describeReadiness(
+    user: RequestUser | undefined,
+    input: {
+      versionId: string;
+      freshness: FreshnessAssessment;
+      formatAllowed: boolean;
+      formatReasons: readonly string[];
+      adapterMaturity: AdapterMaturity;
+    },
+  ): Promise<{
+    found: boolean;
+    sendable: boolean;
+    refusals: readonly TransmissionRefusal[];
+    sentAt: Date | null;
+    externalReceiptId: string | null;
+  }> {
+    const version = await this.transactions.withTrustedContext(
+      user,
+      async (tx, context) => {
+        const rows = await tx.$queryRaw<VersionRow[]>`
+          SELECT v."id", d."documentType", d."documentNumber", v."payloadHash",
+                 v."signedAt", v."sentAt", v."externalReceiptId",
+                 d."counterpartyOrgId"
+            FROM public."accounting_document_versions" v
+            JOIN public."accounting_documents" d ON d."id" = v."documentId"
+           WHERE v."id" = ${input.versionId}
+             AND v."organizationId" = ${context.orgId}
+        `;
+        return rows[0];
+      },
+    );
+
+    if (version === undefined) {
+      return {
+        found: false,
+        sendable: false,
+        refusals: [],
+        sentAt: null,
+        externalReceiptId: null,
+      };
+    }
+
+    const decision = evaluateTransmission({
+      signedAt: version.signedAt,
+      freshness: input.freshness,
+      formatAllowed: input.formatAllowed,
+      formatReasons: input.formatReasons as never,
+      adapterMaturity: input.adapterMaturity,
+      acceptedExternalId: version.externalReceiptId,
+    });
+
+    return {
+      found: true,
+      sendable: decision.permitted,
+      refusals: decision.refusals,
+      sentAt: version.sentAt,
+      externalReceiptId: version.externalReceiptId,
+    };
+  }
+
+  /**
    * Hand a signed version to an adapter.
    *
    * The freshness assessment and the format verdict are passed in because they

@@ -108,6 +108,41 @@ describePostgres('handing a signed version to an adapter', () => {
     await prisma.$disconnect();
   });
 
+  it('reports readiness without a transport, and names what is missing', async () => {
+    // The only transmission surface exposed today. It answers with the truth —
+    // unsigned and no attested adapter — rather than with a button that would
+    // imply somebody is connected.
+    const readiness = await repo.describeReadiness(actor(), {
+      versionId: VERSION,
+      freshness: currentFreshness(),
+      formatAllowed: true,
+      formatReasons: [],
+      adapterMaturity: AdapterMaturity.NOT_ATTESTED,
+    });
+
+    expect(readiness.found).toBe(true);
+    expect(readiness.sendable).toBe(false);
+    expect(readiness.refusals).toEqual(
+      expect.arrayContaining([
+        TransmissionRefusal.VERSION_NOT_SIGNED,
+        TransmissionRefusal.ADAPTER_NOT_LIVE,
+      ]),
+    );
+    expect(readiness.sentAt).toBeNull();
+  });
+
+  it('reports a version that is not there as not there', async () => {
+    const readiness = await repo.describeReadiness(actor(), {
+      versionId: `${RUN}.absent`,
+      freshness: currentFreshness(),
+      formatAllowed: true,
+      formatReasons: [],
+      adapterMaturity: AdapterMaturity.NOT_ATTESTED,
+    });
+    expect(readiness.found).toBe(false);
+    expect(readiness.sendable).toBe(false);
+  });
+
   it('refuses to send an unsigned version', async () => {
     const sent = await repo.send(actor(), new FakeAccountingDocumentTransport(), input());
     expect(sent.outcome).toBe(SendOutcome.REFUSED_BY_POLICY);

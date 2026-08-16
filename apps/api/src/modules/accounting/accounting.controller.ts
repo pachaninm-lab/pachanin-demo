@@ -9,6 +9,11 @@ import { WorkTaskDeriver } from './work-task.deriver';
 import { AudienceView, projectFor } from './work-task-projection.policy';
 import { PeriodStatus } from './accounting-period.policy';
 import { AccountingPeriodRepository } from './accounting-period.repository';
+import { AdapterMaturity } from './document-transmission.policy';
+import {
+  DocumentTransmissionRepository,
+  currentFreshness,
+} from './document-transmission.repository';
 import { WorkTaskStatus } from './work-task.policy';
 import { WorkTaskRepository } from './work-task.repository';
 
@@ -36,6 +41,7 @@ export class AccountingController {
     private readonly tasks: WorkTaskRepository,
     private readonly deriver: WorkTaskDeriver,
     private readonly periods: AccountingPeriodRepository,
+    private readonly transmission: DocumentTransmissionRepository,
   ) {}
 
   /**
@@ -198,5 +204,29 @@ export class AccountingController {
   @Post('periods/derive')
   derivePeriods(@CurrentUser() user: RequestUser) {
     return this.deriver.derivePeriodsReadyToClose(user);
+  }
+
+  /**
+   * Whether this version could be handed to a counterparty, and what is in the
+   * way if not.
+   *
+   * There is deliberately no send route. Sending needs an attested adapter and
+   * none exists yet; a route wired to the fake, or one that always refuses,
+   * would be the fictitious «Подключено» the contract forbids. The adapter
+   * maturity is therefore NOT_ATTESTED here, which is the truth, and the answer
+   * says so among its reasons.
+   */
+  @Get('documents/versions/:versionId/transmission-readiness')
+  transmissionReadiness(
+    @Param('versionId') versionId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.transmission.describeReadiness(user, {
+      versionId,
+      freshness: currentFreshness(),
+      formatAllowed: true,
+      formatReasons: [],
+      adapterMaturity: AdapterMaturity.NOT_ATTESTED,
+    });
   }
 }

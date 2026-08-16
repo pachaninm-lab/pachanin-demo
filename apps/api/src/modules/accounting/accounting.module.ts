@@ -4,6 +4,7 @@ import { AccountingController } from './accounting.controller';
 import { AccountingDocumentVersionRepository } from './accounting-document-version.repository';
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
 import { AccountingPeriodRepository } from './accounting-period.repository';
+import { DocumentTransmissionRepository } from './document-transmission.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
 import { WorkTaskRepository } from './work-task.repository';
 
@@ -25,6 +26,7 @@ import { WorkTaskRepository } from './work-task.repository';
     WorkTaskRepository,
     WorkTaskDeriver,
     AccountingPeriodRepository,
+    DocumentTransmissionRepository,
   ],
   exports: [
     AccountingSourceSnapshotRepository,
@@ -32,6 +34,7 @@ import { WorkTaskRepository } from './work-task.repository';
     WorkTaskRepository,
     WorkTaskDeriver,
     AccountingPeriodRepository,
+    DocumentTransmissionRepository,
   ],
 })
 export class AccountingModule {}
