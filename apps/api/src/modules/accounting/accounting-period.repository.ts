@@ -8,6 +8,7 @@ import {
   PeriodStatus,
   type PeriodView,
   describeReadiness,
+  deriveSuccessorWindow,
   evaluatePeriodClose,
   evaluatePeriodOpen,
 } from './accounting-period.policy';
@@ -36,6 +37,12 @@ export interface PeriodResult {
   readonly refusals: readonly PeriodRefusal[];
   readonly databaseReason: string | null;
   readonly periodId: string | null;
+  /**
+   * The period opened to succeed the one just closed, when the closed window
+   * was a calendar month. Null otherwise, and null is not an error: a window
+   * the platform cannot continue without guessing is one it declines to guess.
+   */
+  readonly successorPeriodId?: string | null;
 }
 
 interface PeriodRow {
@@ -260,13 +267,55 @@ export class AccountingPeriodRepository {
         };
       }
 
+      // The month is closed; the next one has to exist for anything to be
+      // filed into. Opened here rather than left to a caller, because a gap
+      // between periods is invisible until somebody tries to close the month
+      // that fell into it.
+      let successorPeriodId: string | null = null;
+      if (input.to === PeriodStatus.CLOSED) {
+        successorPeriodId = await this.openSuccessor(tx, context, row);
+      }
+
       return {
         outcome: PeriodOutcome.DONE,
         refusals: [],
         databaseReason: null,
         periodId: row.id,
+        successorPeriodId,
       };
     });
+  }
+
+  /**
+   * Open the window after a closed one, if it can be derived without guessing.
+   *
+   * Idempotent against the unique index on (organization, start): two closes
+   * racing, or a retry, produce one successor rather than a conflict the caller
+   * has to interpret.
+   */
+  private async openSuccessor(
+    tx: Prisma.TransactionClient,
+    context: { orgId: string; tenantId: string },
+    row: PeriodRow,
+  ): Promise<string | null> {
+    const successor = deriveSuccessorWindow(row);
+    if (successor.window === null) return null;
+
+    const membership = await this.tasks.membershipWithin(tx);
+    const id = `apr_${context.orgId}_${successor.window.periodStart.toISOString()}`.slice(
+      0,
+      190,
+    );
+    const written = await tx.$executeRaw`
+      INSERT INTO public."accounting_periods"
+        ("id","tenantId","organizationId","periodStart","periodEnd",
+         "openedByMembershipId","createdAt","updatedAt")
+      VALUES (${id}, ${context.tenantId}, ${context.orgId},
+              ${successor.window.periodStart}, ${successor.window.periodEnd},
+              ${membership}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT ("organizationId", "periodStart") DO NOTHING
+    `;
+    return written === 0 ? null : id;
   }
 
   /** Every period of this organization with what is standing in its way. */

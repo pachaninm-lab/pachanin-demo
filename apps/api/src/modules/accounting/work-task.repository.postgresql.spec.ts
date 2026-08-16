@@ -190,6 +190,41 @@ describePostgres('raising and working tasks', () => {
     expect(stale.outcome).toBe(TransitionOutcome.VERSION_CONFLICT);
   });
 
+  it('lets a person write their own note, and refuses a blank one', async () => {
+    const blank = await repo.raiseManual(actor(), {
+      title: '   ',
+      humanDescription: 'о',
+    });
+    expect(blank.outcome).toBe(RaiseOutcome.REFUSED);
+
+    const written = await repo.raiseManual(actor(), {
+      title: 'Позвонить покупателю',
+      humanDescription: 'Уточнить реквизиты для УПД.',
+    });
+    expect(written.outcome).toBe(RaiseOutcome.RAISED);
+
+    const open = await repo.listOpen(actor());
+    const note = open.find((t) => t.id === written.taskId);
+    expect(note?.origin).toBe('MANUAL');
+    // A manual note is the one thing a person may close by deciding it is done.
+    expect(note?.resolutionMode).toBe('HUMAN_JUDGEMENT');
+  });
+
+  it('refuses a note from a membership with no accounting profile', async () => {
+    await prisma.$executeRaw`
+      UPDATE public."user_orgs" SET "job_profile" = NULL WHERE "id" = ${MEMBERSHIP}
+    `;
+    const refused = await repo.raiseManual(actor(), {
+      title: 'т',
+      humanDescription: 'о',
+    });
+    await prisma.$executeRaw`
+      UPDATE public."user_orgs" SET "job_profile" = 'CHIEF_ACCOUNTANT'
+       WHERE "id" = ${MEMBERSHIP}
+    `;
+    expect(refused.outcome).toBe(RaiseOutcome.REFUSED);
+  });
+
   it('reports a task that is not there rather than inventing one', async () => {
     const result = await repo.transition(actor(), {
       taskId: `${RUN}.absent`,
@@ -199,7 +234,7 @@ describePostgres('raising and working tasks', () => {
     expect(result.outcome).toBe(TransitionOutcome.TASK_NOT_FOUND);
   });
 
-  it('closes once the document is signed, and the condition is released', async () => {
+  it('closes the document task once signed, and leaves the manual note alone', async () => {
     await prisma.$executeRaw`
       INSERT INTO public."signing_authorities"
         ("id","tenantId","organizationId","membershipId","authorityType",
@@ -220,15 +255,20 @@ describePostgres('raising and working tasks', () => {
       WHERE "id" = ${`${RUN}.v1`}
     `;
 
-    const [task] = await repo.listOpen(actor());
+    const documentTask = (await repo.listOpen(actor())).find(
+      (t) => t.taskType === 'DOCUMENT_NOT_SIGNED',
+    )!;
     const result = await repo.transition(actor(), {
-      taskId: task.id,
+      taskId: documentTask.id,
       to: WorkTaskStatus.RESOLVED,
-      expectedVersion: task.version,
+      expectedVersion: documentTask.version,
     });
     expect(result.outcome).toBe(TransitionOutcome.MOVED);
 
-    expect(await repo.listOpen(actor())).toHaveLength(0);
+    // The document task is gone; the person's own note is untouched, because
+    // one closing has nothing to do with the other.
+    const left = await repo.listOpen(actor());
+    expect(left.map((t) => t.taskType)).toEqual(['MANUAL_NOTE']);
 
     // Released, so the deriver would raise a fresh task if the document ever
     // went back to unsigned — and it does not raise one now, because it is not.

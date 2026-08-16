@@ -176,16 +176,36 @@ describePostgres('opening and closing a period', () => {
     });
     expect(closed.outcome).toBe(PeriodOutcome.DONE);
 
-    // The month is closed, so there is nothing left to offer.
+    // June is closed, so it is no longer offered — but closing it opened July,
+    // which has also already ended with nothing in it. The loop continues by
+    // itself, which is the behaviour a month-end is supposed to have.
     expect(await deriver.derivePeriodsReadyToClose(actor())).toEqual({
-      examined: 0,
-      raised: 0,
+      examined: 1,
+      raised: 1,
       alreadyOpen: 0,
     });
+    const offered = await periods.list(actor());
+    expect(
+      offered.find((p) => p.status === PeriodStatus.CLOSED)?.periodStart,
+    ).toEqual(START);
+  });
+
+  it('opens the month after the one it just closed', async () => {
+    // A gap between periods is invisible until somebody tries to close the
+    // month that fell into it, so the successor is opened by the close itself.
+    const all = await periods.list(actor());
+    const successor = all.find(
+      (p) => p.periodStart.getTime() === new Date('2026-07-01T00:00:00.000Z').getTime(),
+    );
+    expect(successor).toBeDefined();
+    expect(successor?.periodEnd).toEqual(new Date('2026-08-01T00:00:00.000Z'));
+    expect(successor?.status).toBe(PeriodStatus.OPEN);
   });
 
   it('loses a stale version rather than closing twice', async () => {
-    const [closed] = await periods.list(actor());
+    const closed = (await periods.list(actor())).find(
+      (p) => p.status === PeriodStatus.CLOSED,
+    )!;
     const result = await periods.advance(actor(), {
       periodId: closed.id,
       to: PeriodStatus.CLOSED,

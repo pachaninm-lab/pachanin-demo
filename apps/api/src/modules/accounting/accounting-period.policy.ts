@@ -135,6 +135,74 @@ export function evaluatePeriodOpen(request: OpenRequest): PeriodDecision {
   return { permitted: refusals.length === 0, refusals };
 }
 
+export const SuccessorRefusal = {
+  /** The window is not one calendar month, so its successor is a guess. */
+  NOT_A_CALENDAR_MONTH: 'NOT_A_CALENDAR_MONTH',
+} as const;
+export type SuccessorRefusal =
+  (typeof SuccessorRefusal)[keyof typeof SuccessorRefusal];
+
+export interface SuccessorWindow {
+  readonly periodStart: Date;
+  readonly periodEnd: Date;
+}
+
+export interface SuccessorDecision {
+  readonly window: SuccessorWindow | null;
+  readonly refusals: readonly SuccessorRefusal[];
+}
+
+/**
+ * The window that follows this one.
+ *
+ * Only for a period that is exactly one calendar month, starting at midnight
+ * UTC on the first. Anything else gets nothing rather than a guess: carrying the
+ * predecessor's length forward would give February's successor twenty-eight
+ * days, and a period boundary that is wrong by three days is wrong in every
+ * document the month contains.
+ *
+ * The successor starts exactly where this one ends, which is why the windows
+ * are half-open in the first place.
+ */
+export function deriveSuccessorWindow(period: {
+  periodStart: Date;
+  periodEnd: Date;
+}): SuccessorDecision {
+  const start = period.periodStart;
+  const end = period.periodEnd;
+
+  const startsOnAMonth =
+    start.getUTCDate() === 1 &&
+    start.getUTCHours() === 0 &&
+    start.getUTCMinutes() === 0 &&
+    start.getUTCSeconds() === 0 &&
+    start.getUTCMilliseconds() === 0;
+
+  const expectedEnd = Date.UTC(
+    start.getUTCFullYear(),
+    start.getUTCMonth() + 1,
+    1,
+    0,
+    0,
+    0,
+    0,
+  );
+
+  if (!startsOnAMonth || end.getTime() !== expectedEnd) {
+    return { window: null, refusals: [SuccessorRefusal.NOT_A_CALENDAR_MONTH] };
+  }
+
+  return {
+    window: {
+      periodStart: new Date(expectedEnd),
+      periodEnd: new Date(
+        Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 2, 1, 0, 0, 0, 0),
+      ),
+    },
+    refusals: [],
+  };
+}
+
 export const PeriodReadiness = {
   READY_TO_CLOSE: 'READY_TO_CLOSE',
   WAITING_ON_WORK: 'WAITING_ON_WORK',

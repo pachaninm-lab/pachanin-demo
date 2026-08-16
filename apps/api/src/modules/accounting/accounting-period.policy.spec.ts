@@ -1,6 +1,8 @@
 import { Capability } from '../auth/membership-capability.resolver';
 import {
   PeriodReadiness,
+  SuccessorRefusal,
+  deriveSuccessorWindow,
   PeriodRefusal,
   PeriodStatus,
   type PeriodView,
@@ -161,5 +163,49 @@ describe('readiness', () => {
     expect(
       describeReadiness(period({ status: PeriodStatus.CLOSED }), 5, 5, NOW),
     ).toBe(PeriodReadiness.CLOSED);
+  });
+});
+
+describe('the window that follows', () => {
+  it('gives the next calendar month, not the same number of days', () => {
+    // February is the case that matters: carrying twenty-eight days forward
+    // would put March's boundary three days early, and a boundary that is wrong
+    // is wrong in every document the month contains.
+    const decision = deriveSuccessorWindow({
+      periodStart: new Date('2026-02-01T00:00:00.000Z'),
+      periodEnd: new Date('2026-03-01T00:00:00.000Z'),
+    });
+
+    expect(decision.window).toEqual({
+      periodStart: new Date('2026-03-01T00:00:00.000Z'),
+      periodEnd: new Date('2026-04-01T00:00:00.000Z'),
+    });
+  });
+
+  it('starts exactly where its predecessor ended', () => {
+    const decision = deriveSuccessorWindow({
+      periodStart: new Date('2026-12-01T00:00:00.000Z'),
+      periodEnd: new Date('2027-01-01T00:00:00.000Z'),
+    });
+    expect(decision.window?.periodStart).toEqual(
+      new Date('2027-01-01T00:00:00.000Z'),
+    );
+    expect(decision.window?.periodEnd).toEqual(new Date('2027-02-01T00:00:00.000Z'));
+  });
+
+  it('refuses to guess a successor for a window that is not a calendar month', () => {
+    for (const [start, end] of [
+      ['2026-07-15T00:00:00.000Z', '2026-08-15T00:00:00.000Z'],
+      ['2026-07-01T00:00:00.000Z', '2026-07-15T00:00:00.000Z'],
+      ['2026-07-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'],
+      ['2026-07-01T06:00:00.000Z', '2026-08-01T00:00:00.000Z'],
+    ] as const) {
+      const decision = deriveSuccessorWindow({
+        periodStart: new Date(start),
+        periodEnd: new Date(end),
+      });
+      expect(decision.window).toBeNull();
+      expect(decision.refusals).toEqual([SuccessorRefusal.NOT_A_CALENDAR_MONTH]);
+    }
   });
 });

@@ -272,6 +272,63 @@ export class WorkTaskRepository {
   }
 
   /**
+   * A person's own note to themselves.
+   *
+   * Manual only, and the database agrees: the insert policy admits nothing else
+   * from this principal, so a caller cannot dress a claim about the world up as
+   * one. Whoever raised it is resolved by the database, not named in the call.
+   */
+  async raiseManual(
+    user: RequestUser | undefined,
+    input: {
+      title: string;
+      humanDescription: string;
+      dealId?: string | null;
+      documentId?: string | null;
+      deadlineAt?: Date | null;
+    },
+  ): Promise<RaiseResult> {
+    if (input.title.trim() === '' || input.humanDescription.trim() === '') {
+      // A task nobody can read is not a task. The CHECK constraint says the
+      // same thing; this says it before a round trip.
+      return {
+        outcome: RaiseOutcome.REFUSED,
+        taskId: null,
+        refusals: [DerivationRefusal.BLANK_DERIVATION_KEY],
+      };
+    }
+
+    return this.transactions.withTrustedContext(user, async (tx, context) => {
+      const capabilities = await this.resolveCapabilities(tx, new Date());
+      if (!capabilities.includes('accounting.task.manage')) {
+        return { outcome: RaiseOutcome.REFUSED, taskId: null, refusals: [] };
+      }
+
+      const membership = await this.membershipWithin(tx);
+      const id = `awt_manual_${context.orgId}_${Date.now()}_${Math.random()
+        .toString(16)
+        .slice(2, 10)}`.slice(0, 190);
+
+      await tx.$executeRaw`
+        INSERT INTO public."accounting_work_tasks"
+          ("id","tenantId","organizationId","taskType","origin","resolutionMode",
+           "priority","title","humanDescription","responsibleCapability",
+           "dealId","documentId","deadlineAt","createdByMembershipId",
+           "createdAt","updatedAt")
+        VALUES (
+          ${id}, ${context.tenantId}, ${context.orgId}, 'MANUAL_NOTE',
+          'MANUAL', 'HUMAN_JUDGEMENT', 100, ${input.title},
+          ${input.humanDescription}, 'accounting.task.manage',
+          ${input.dealId ?? null}, ${input.documentId ?? null},
+          ${input.deadlineAt ?? null}, ${membership},
+          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `;
+
+      return { outcome: RaiseOutcome.RAISED, taskId: id, refusals: [] };
+    });
+  }
+
+  /**
    * The organization's open tasks, most urgent first.
    *
    * No status filter parameter. The dashboard asks "what is outstanding", and a
