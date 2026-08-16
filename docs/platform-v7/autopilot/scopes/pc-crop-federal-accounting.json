@@ -40,7 +40,9 @@
     "apps/api/src/modules/auth/contract-version.policy.spec.ts",
     "apps/api/prisma/migrations/20260816040000_pc_crop_contract_versions/**",
     "apps/api/src/modules/auth/document-format.policy.ts",
-    "apps/api/src/modules/auth/document-format.policy.spec.ts"
+    "apps/api/src/modules/auth/document-format.policy.spec.ts",
+    "apps/api/src/modules/auth/accounting-document-issuing.repository.ts",
+    "apps/api/src/modules/auth/accounting-document-issuing.postgresql.spec.ts"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -105,7 +107,11 @@
     "The format registry is the regulatory rule registry, not a second table: a format version is a rule with an effective window, and a separate table would be a second source of truth that drifts.",
     "Format staleness is a separate outcome from content staleness: a document whose figures are current but whose envelope is the previous format is rejected on receipt, and reporting both as one word would send somebody hunting a change that never happened.",
     "A document type with no registered format rule is refused, never treated as needing no format; the mapping is explicit rather than derived from the type name.",
-    "A superseded format blocks transmission but not storage: the document signed last quarter is evidence exactly as it stands."
+    "A superseded format blocks transmission but not storage: the document signed last quarter is evidence exactly as it stands.",
+    "The counter is locked before the numbering policy is consulted, because the policy's answer derives from the ordinal it reads; asking first and locking after would let two issuers derive the same number from one stale read.",
+    "A sequence nobody configured is refused, not started implicitly: starting one would pick a numbering scheme on the organization's behalf, and the scheme is fixed once it issues.",
+    "A refused issue costs no number, which is the point of allocating at issue rather than at creation.",
+    "The issuing repository re-checks no tenancy of its own; the row level policies already refuse what it must not see, and a second copy would be a weaker one that drifts."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -144,7 +150,10 @@
     "Check 56b measures rows touched rather than an exception, because the update policy makes a closed row unreachable rather than refusing it; a guard answering instead is reported as a failure of the policy layer.",
     "Nine contract checks in the gate: amendment must name its predecessor, a draft carries no signature, first signed version recorded, draft amendment coexists with the signed version, two signed versions refused, signed terms unwritable, closing and superseding permitted, delete refused, cross-organization refused.",
     "Two contract sabotages each make the gate exit non-zero: dropping the guard, and widening the column grant.",
-    "Sixteen format tests: current, superseded, missing publication, unknown type, ambiguous registry, unrecorded format, a past document judged against the format in force when it was made, and each of the five refusals on send."
+    "Sixteen format tests: current, superseded, missing publication, unknown type, ambiguous registry, unrecorded format, a past document judged against the format in force when it was made, and each of the five refusals on send.",
+    "Eight PostgreSQL 16 acceptance tests for issuing, including eight concurrent issuers receiving eight distinct contiguous numbers.",
+    "Removing FOR UPDATE from the counter read makes the concurrency test fail while all six single-threaded tests still pass, so that test measures the lock and nothing else.",
+    "The PostgreSQL spec is gated on PC_CROP_ACCOUNTING_POSTGRESQL=1, matching the convention of the other acceptance specs. No CI workflow sets that flag yet: .github/workflows is outside this scope and adding one collides with noSelfModifyingWorkflow, so the proof is recorded as a local run against live PostgreSQL 16."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",
