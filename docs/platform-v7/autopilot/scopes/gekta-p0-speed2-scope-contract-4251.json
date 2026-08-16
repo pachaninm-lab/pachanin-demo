@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-speed2-scope-contract-4251",
+  "status": "active",
+  "issue": 4251,
+  "purpose": "Fix the SPEED-2 PR contract so an experiment scope is not forced to authorize unrelated controller/canary files that the branch does not modify; changed-path authority remains enforced by p7-autopilot-guard.",
+  "approvedBy": "repository-owner SPEED-2 authority issue #4251 on 2026-08-16",
+  "authorityBaseExactMain": "6a3a3efb62bf72d783660bbc95db83419bf83628",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/gekta-p0-speed2-controller.yml",
+    "scripts/gekta-speed2-real-canary.mjs",
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed2-scope-contract-4251.json"
+  ],
+  "requiredBehavior": [
+    "retain all owner provenance exact-main deployed-SHA pinned-SSH privacy and production fail-closed controls",
+    "require every SPEED-2 branch scope to authorize its own scope file",
+    "do not require a branch to authorize controller or canary files unless they are actually in that branch's changed paths",
+    "leave changed-path enforcement to the existing p7-autopilot-guard",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "weaken owner provenance exact-main deployed-SHA pinned-SSH privacy or production fail-closed controls",
+    "bypass p7-autopilot-guard or branch protection",
+    "runtime model application prompt database service or production mutation",
+    "arbitrary shell sudo root SSH or unrelated product scope"
+  ]
+}
