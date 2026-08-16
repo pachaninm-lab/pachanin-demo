@@ -7,14 +7,14 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T07:30:00.000Z",
-  "observedMainSha": "2f4dca2d18b2301cd8936eae02b284a91ee9483d",
+  "updatedAt": "2026-08-16T12:35:00.000Z",
+  "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 9.1,
+  "overallProgressPercent": 10.9,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
-  "status": "WAVE_1_AND_2_IMPLEMENTED_AWAITING_MERGE",
+  "status": "MERGED_TO_MAIN_EXACT_MAIN_ACCEPTED_AWAITING_PRODUCTION",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
   "workstreams": [
     {
@@ -57,7 +57,7 @@
       "name": "Identity / organization / job profiles / capabilities",
       "weightPercent": 5,
       "provenSharePercent": 60,
-      "creditedPercent": 3.0,
+      "creditedPercent": 3.75,
       "milestoneModel": "code-workstream",
       "milestones": {
         "implementationOnBranch": {
@@ -72,7 +72,8 @@
         },
         "mergedToMain": {
           "weightShare": 0.15,
-          "done": false
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
         },
         "exactShaProductionDeployment": {
           "weightShare": 0.1,
@@ -91,7 +92,7 @@
       "name": "Security baseline / threat model / IAM / RLS",
       "weightPercent": 8,
       "provenSharePercent": 60,
-      "creditedPercent": 0.3,
+      "creditedPercent": 0.38,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 3 lists sixteen components: framework mapping, threat model, IAM, RLS, security requirements registry, step-up, session inventory, connector identity, OAuth hardening, signed releases, document immutability, JIT/break-glass, supply chain, SOC events, incident response and recovery. Modelled as equal sixteenths, which is a stated flat assumption rather than an invented weighting.",
@@ -112,7 +113,8 @@
         },
         "mergedToMain": {
           "weightShare": 0.15,
-          "done": false
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
         },
         "exactShaProductionDeployment": {
           "weightShare": 0.1,
@@ -131,7 +133,7 @@
       "name": "Documents / contracts / regulatory / tax profiles",
       "weightPercent": 7,
       "provenSharePercent": 60,
-      "creditedPercent": 3.8,
+      "creditedPercent": 4.75,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 4 spans seven components: server-authoritative documents, contract versions, the regulatory registry, tax profiles, a format registry, a numbering policy and signing authority. They are modelled as equal sevenths — not because they are equal in size, but because any unequal weighting would be one this agent invented, and an invented weighting is worth less than a stated flat assumption. The stage credit is multiplied by the share actually built rather than crediting the whole workstream.",
@@ -167,7 +169,8 @@
         },
         "mergedToMain": {
           "weightShare": 0.15,
-          "done": false
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
         },
         "exactShaProductionDeployment": {
           "weightShare": 0.1,
@@ -287,7 +290,7 @@
       "name": "Anti-Fraud",
       "weightPercent": 6,
       "provenSharePercent": 60,
-      "creditedPercent": 0.2,
+      "creditedPercent": 0.25,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 14 lists eight components: fraud signals, cases, decisions, versioned rules, beneficiary-change defence, duplicate and replay detection, insider controls and security holds. Modelled as equal eighths. The regulatory rule registry built in this programme is NOT the 'versioned rules' component: those are fraud rules, and crediting one for the other would be the kind of adjacency that makes a matrix stop meaning anything.",
@@ -308,7 +311,8 @@
         },
         "mergedToMain": {
           "weightShare": 0.15,
-          "done": false
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
         },
         "exactShaProductionDeployment": {
           "weightShare": 0.1,
@@ -357,7 +361,7 @@
   ],
   "weightCheck": {
     "sum": 100,
-    "creditedTotal": 9.1
+    "creditedTotal": 10.9
   },
   "completedEvidence": [
     {
@@ -607,5 +611,12 @@
       "found": "Both carried a bare component share with no model behind it (12 and 15). Under an explicit equal-share model they are 7 and 6.",
       "effect": "Overall falls from 9.5 to 9.0 in a revision that added the issuing transaction. A matrix that only rises is not a measurement."
     }
-  ]
+  ],
+  "exactMainAcceptance": {
+    "sha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
+    "localGates": "forward-only exit 0; drift exit 0 on a clean database; 1559 unit tests; 67 RLS gate checks PASS; no new type errors",
+    "ciAtReport": "76 checks: 60 success, 9 skipped, 4 still running, 3 failure",
+    "failuresNotCausedHere": "Confirm REG.RU preflight chain result, Publish REG.RU preflight status and Least-privilege preflight contract. Root cause is check-tai-bootstrap-preflight.mjs rejecting docs/platform-v7/autopilot/scopes/tai-bootstrap-canonical-images-20260806.json with \"branch mismatch\". That manifest belongs to another workstream and this PR never touched it. Reproduced locally on the previous main 7015115b3, before the merge: identical file, identical message, identical exit code. The other two cascade from it (CONTRACT_RESULT: failure -> PUBLISH_RESULT: failure).",
+    "notProductionAcceptance": true
+  }
 }
