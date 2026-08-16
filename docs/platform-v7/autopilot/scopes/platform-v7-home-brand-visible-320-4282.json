@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-home-brand-visible-320-4282",
+  "branch": "fix/p7-home-brand-visible-320-4282",
+  "issue": 4282,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "4a97c573ee6e7627ffb306873644bf0ed70fda4f"
+  },
+  "purpose": "Fix the production-design release blocker proven by exact browser evidence: the strategic homepage clips the canonical brand at 320 and 375 px. Keep the full brand visible with homepage-scoped narrow-width reflow while preserving menu, locale, login, touch targets and zero horizontal overflow.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/styles/platform-v7-home-mobile-brand.css",
+    "apps/web/tests/e2e/platform-v7-home-brand-visibility.spec.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-home-brand-visible-320-4282.json"
+  ],
+  "evidence": {
+    "designSystemRun": 31959951170,
+    "artifact": "platform-v7-design-system-v8-acceptance",
+    "observed320": "brand visible as Прозра…",
+    "observed375": "brand visible as Прозрач…/ellipsis",
+    "observed390": "full Прозрачная Цена visible",
+    "masterGate": "Final Design Project v4.0: brand name must not be clipped at 320 px"
+  },
+  "forbiddenChanges": [
+    "hero CTA wording or later approved homepage action-copy changes",
+    "approved content hierarchy, deal card semantics or connection flow",
+    "authentication, registration, MFA, RBAC, RLS, tenant or organization authority",
+    "API, database, Deal, money, evidence or Gekta semantics",
+    "production release infrastructure or acceptance weakening",
+    "touch targets below 44x44",
+    "new paid or recurring services"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "dedicated Playwright brand visibility assertion at 320/375/390/430",
+    "zero horizontal overflow and >=44px header controls",
+    "Platform V7 Design System v8 Acceptance",
+    "web build/typecheck, security and governance gates",
+    "production evidence before claiming production design PASS"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "Source and browser acceptance are necessary but not production evidence. The branch must be resynchronized after concurrent design merges before final merge."
+}
