@@ -9,7 +9,7 @@
     "branch": "main",
     "commit": "4a97c573ee6e7627ffb306873644bf0ed70fda4f"
   },
-  "purpose": "Close two proven homepage production-design blockers in one bounded final contour: keep the full canonical brand visible at 320/375 px and enforce the Final Design Project v4.0 14 CSS px minimum across every visible Hero Deal-card text node, while preserving controls, copy, semantics and zero horizontal overflow.",
+  "purpose": "Close the remaining proven homepage production-design blockers and encode the explicit Final Design Project v4.0 mobile release gates: keep the full canonical brand visible at 320/375 px; enforce a 14 CSS px minimum across every visible Hero Deal-card text node; keep the 320px Hero H1 within five rendered lines; and keep the primary Hero CTA fully inside the 320x700 first viewport, while preserving controls, copy, semantics and zero horizontal overflow.",
   "allowedPaths": [
     "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
     "apps/web/playwright.acceptance.config.ts",
@@ -27,6 +27,8 @@
     "observed390": "full Прозрачная Цена visible before the bounded fix",
     "brandMasterGate": "Final Design Project v4.0: brand name must not be clipped at 320 px",
     "heroMasterGate": "Final Design Project v4.0: Hero Deal card font must not be below 14px",
+    "heroLineCountMasterGate": "Final Design Project v4.0: one H1 must occupy no more than five lines at 320 px",
+    "heroPrimaryCtaMasterGate": "Final Design Project v4.0: primary CTA must be above the fold at 320 px",
     "heroDiagnosticPr": 4285,
     "heroDiagnosticBrowserAcceptance": "PASS on pre-sync diagnostic head 85510877ff5c4682502499d13240f9b8e32d0801"
   },
@@ -44,6 +46,8 @@
     "source-controlled scope guard",
     "dedicated Playwright brand visibility assertion at 320/375/390/430",
     "computed Hero Deal-card font-size acceptance at 320/375/390/430/768/1440",
+    "320x700 rendered H1 line-count acceptance <=5",
+    "320x700 primary Hero CTA fully inside first viewport",
     "zero horizontal overflow and >=44px header controls",
     "Platform V7 Design System v8 Acceptance",
     "web build/typecheck, security and governance gates",
