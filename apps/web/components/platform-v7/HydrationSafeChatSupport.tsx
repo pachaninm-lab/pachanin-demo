@@ -6,6 +6,8 @@ import { PlatformV7TranslationRuntimeBridge } from '@/components/platform-v7/Pla
 import { PublicAssistantMobileLayoutAuthority } from '@/components/platform-v7/PublicAssistantMobileLayoutAuthority';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/styles/platform-v7-public-cjk-runtime.css';
+import '@/styles/platform-v7-home-mobile-brand.css';
+import '@/styles/platform-v7-home-hero-card-legibility.css';
 
 export type HydrationSafeChatSupportProps = {
   verifiedRole?: PlatformRole;

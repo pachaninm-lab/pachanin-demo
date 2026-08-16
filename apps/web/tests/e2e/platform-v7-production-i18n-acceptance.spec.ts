@@ -15,6 +15,8 @@ const viewports = [
   { width: 1440, height: 900, name: '1440x900' },
 ] as const;
 
+type AcceptanceViewport = (typeof viewports)[number];
+
 const publicRoutes = [
   { path: '/platform-v7', name: 'home' },
   { path: '/platform-v7/login', name: 'login' },
@@ -118,8 +120,100 @@ async function expectChineseTypography(page: Page) {
   expect(headingStyle.lineHeight).toBeGreaterThanOrEqual(headingStyle.fontSize * 1.05);
 }
 
+async function expectProductionHomepageDesignGates(page: Page, viewport: AcceptanceViewport) {
+  const brand = page.locator("[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong");
+  await expect(brand).toBeVisible();
+  await expect(brand).toHaveText('Прозрачная Цена');
+  const brandGeometry = await brand.evaluate((node) => {
+    const element = node as HTMLElement;
+    const host = element.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const lineRects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+    const style = window.getComputedStyle(element);
+    return {
+      fontSize: Number.parseFloat(style.fontSize),
+      lineRectCount: lineRects.length,
+      horizontalTextInside: lineRects.length > 0 && lineRects.every((rect) => (
+        rect.left >= host.left - 1
+        && rect.right <= host.right + 1
+      )),
+      scrollFits: element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
+      hostInsideViewport: host.left >= -1 && host.right <= window.innerWidth + 1,
+    };
+  });
+  expect(brandGeometry.fontSize).toBeGreaterThanOrEqual(14);
+  expect(brandGeometry.lineRectCount).toBeGreaterThanOrEqual(1);
+  expect(brandGeometry.horizontalTextInside).toBe(true);
+  expect(brandGeometry.scrollFits).toBe(true);
+  expect(brandGeometry.hostInsideViewport).toBe(true);
+
+  if (viewport.width <= 430) {
+    for (const selector of ['.pc-site-mobile-menu > summary', '.pc-site-locale-switch', '.entry-login']) {
+      const control = page.locator(selector).first();
+      await expect(control).toBeVisible();
+      const box = await control.boundingBox();
+      expect(box, `${selector} production bounding box`).not.toBeNull();
+      expect(box!.width, `${selector} production width`).toBeGreaterThanOrEqual(44);
+      expect(box!.height, `${selector} production height`).toBeGreaterThanOrEqual(44);
+    }
+  }
+
+  const card = page.locator('[data-testid="platform-v7-deal-card"]');
+  await expect(card).toBeVisible();
+  const tinyText = await card.evaluate((root) => {
+    const offenders: Array<{ text: string; fontSize: number; tag: string }> = [];
+    const seen = new Set<Element>();
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let current = walker.nextNode();
+    while (current) {
+      const text = current.textContent?.replace(/\s+/gu, ' ').trim() ?? '';
+      const element = current.parentElement;
+      if (text && element && !seen.has(element)) {
+        seen.add(element);
+        const style = window.getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        const visible = style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0;
+        const fontSize = Number.parseFloat(style.fontSize);
+        if (visible && Number.isFinite(fontSize) && fontSize < 13.99) {
+          offenders.push({ text: text.slice(0, 80), fontSize, tag: element.tagName.toLowerCase() });
+        }
+      }
+      current = walker.nextNode();
+    }
+    return offenders;
+  });
+  expect(tinyText, JSON.stringify(tinyText, null, 2)).toEqual([]);
+
+  if (viewport.width === 320 && viewport.height === 700) {
+    const heading = page.locator('#pc-v6-title');
+    await expect(heading).toBeVisible();
+    const lineCount = await heading.evaluate((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+      const uniqueLineTops: number[] = [];
+      for (const rect of rects) {
+        if (!uniqueLineTops.some((top) => Math.abs(top - rect.top) <= 1)) uniqueLineTops.push(rect.top);
+      }
+      return uniqueLineTops.length;
+    });
+    expect(lineCount, 'production 320px Hero H1 line count').toBeGreaterThanOrEqual(1);
+    expect(lineCount, 'production 320px Hero H1 line count').toBeLessThanOrEqual(5);
+
+    const primary = page.locator('.pc-v6-actions .pc-v6-primary').first();
+    await expect(primary).toBeVisible();
+    const primaryBox = await primary.boundingBox();
+    expect(primaryBox, 'production primary Hero CTA bounding box').not.toBeNull();
+    expect(primaryBox!.y, 'production primary Hero CTA top').toBeGreaterThanOrEqual(0);
+    expect(primaryBox!.y + primaryBox!.height, 'production primary Hero CTA bottom').toBeLessThanOrEqual(viewport.height + 1);
+  }
+
+  await expectNoHorizontalOverflow(page);
+}
+
 async function captureEvidence(page: Page, testInfo: TestInfo, locale: string, viewport: string, route: string) {
-  if (!['390x844', '1440x900'].includes(viewport)) return;
+  if (!['320x700', '390x844', '1440x900'].includes(viewport)) return;
   if (!['home', 'register'].includes(route)) return;
   await page.screenshot({
     path: testInfo.outputPath(`${testInfo.project.name}-${locale}-${viewport}-${route}.png`),
@@ -143,6 +237,7 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
           const response = await page.goto(localizedUrl(route.path, locale.code, marker), { waitUntil: 'load' });
           expect(response?.ok(), `${route.path} did not return a successful final response`).toBe(true);
           await expectLocalizedSurface(page, locale.htmlLang);
+          if (route.name === 'home') await expectProductionHomepageDesignGates(page, viewport);
           if (locale.code === 'zh' && route.name === 'home') await expectChineseTypography(page);
           await captureEvidence(page, testInfo, locale.code, viewport.name, route.name);
         }
@@ -151,6 +246,23 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
       });
     }
   }
+
+  test('RU 320x700: exact production homepage master design gates', async ({ page }, testInfo) => {
+    const viewport = viewports[0];
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+    const response = await page.goto(
+      localizedUrl('/platform-v7', 'ru', `${testInfo.project.name}-ru-${viewport.name}-home-design`),
+      { waitUntil: 'load' },
+    );
+    expect(response?.ok()).toBe(true);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+    await expectProductionHomepageDesignGates(page, viewport);
+    await captureEvidence(page, testInfo, 'ru', viewport.name, 'home');
+    expect(pageErrors).toEqual([]);
+  });
 
   for (const locale of locales) {
     test(`${locale.label}: query-selected locale persists after clean reload`, async ({ page }, testInfo) => {
