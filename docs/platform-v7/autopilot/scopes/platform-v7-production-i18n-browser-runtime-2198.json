@@ -11,6 +11,7 @@
   },
   "purpose": "Fix the residual public-browser localization defects proven by exact production acceptance run 31922127060. Restore the existing source-controlled translation runtime on the shared hydration boundary, including dynamic DOM and exact contact/header labels, without weakening acceptance or changing authentication, authorization, routing, data, API, database, release authority, infrastructure or product design.",
   "allowedPaths": [
+    ".github/workflows/web-unit.yml",
     "apps/web/components/platform-v7/PlatformV7TranslationRuntimeBridge.tsx",
     "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
     "apps/web/tests/unit/platformV7ProductionI18nRuntimeBridge.test.tsx",
@@ -44,7 +45,8 @@
   ],
   "requiredChecks": [
     "source-controlled scope guard",
-    "web unit and typecheck",
+    "web-unit must execute the exact production i18n bridge regression",
+    "web typecheck and build",
     "security and governance gates",
     "Production-like Kubernetes Acceptance",
     "canonical image publication after merge",
