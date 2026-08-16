@@ -1,0 +1,10 @@
+/* Final Design Project v4.0: the Hero Deal card must never collapse into a tiny dashboard.
+ * Preserve the existing hierarchy and layout, but enforce a 14 CSS px floor for visible service text.
+ */
+[data-testid='platform-v7-deal-card'] :where(span, small, b) {
+  font-size: 14px !important;
+}
+
+[data-testid='platform-v7-deal-card'] :where(span, small, b, strong) {
+  overflow-wrap: anywhere;
+}
