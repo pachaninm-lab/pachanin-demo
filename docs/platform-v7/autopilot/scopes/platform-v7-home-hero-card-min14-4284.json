@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-home-hero-card-min14-4284",
+  "branch": "fix/p7-home-hero-card-min14-4284",
+  "issue": 4284,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "4a97c573ee6e7627ffb306873644bf0ed70fda4f"
+  },
+  "purpose": "Restore the Final Design Project v4.0 Hero Deal-card legibility gate by enforcing a 14 CSS px minimum for every visible text node in the compact Hero Deal card and proving the result with real browser computed styles across required widths.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/styles/platform-v7-home-hero-card-legibility.css",
+    "apps/web/tests/e2e/platform-v7-hero-card-min14.spec.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-home-hero-card-min14-4284.json"
+  ],
+  "evidence": {
+    "masterGate": "Final Design Project v4.0: Hero Deal card font must not be below 14px",
+    "sourceDrift": [
+      "Hero Deal header/body labels: 12px",
+      "Hero Deal progress labels: 10px",
+      "Hero Deal secondary text: 12px",
+      "Hero Deal proof: 12.5px",
+      "mobile Hero Deal status: 10.5px"
+    ]
+  },
+  "forbiddenChanges": [
+    "Hero copy, semantic entity count or later approved CTA wording",
+    "authentication, registration, MFA, RBAC, RLS, tenant or organization authority",
+    "API, database, Deal, money, evidence or Gekta semantics",
+    "production release infrastructure or acceptance weakening",
+    "hiding Hero Deal content to satisfy the typography gate",
+    "new paid or recurring services"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "computed browser font-size acceptance at 320/375/390/430/768/1440",
+    "zero horizontal overflow at every tested width",
+    "Platform V7 Design System v8 Acceptance",
+    "web build/typecheck, security and governance gates",
+    "resynchronize after concurrent design merges before final merge"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "This branch is intentionally parallel. Its pre-sync CI is diagnostic only; final merge requires a new exact-head acceptance after CJK and mobile-brand design changes are in main."
+}
