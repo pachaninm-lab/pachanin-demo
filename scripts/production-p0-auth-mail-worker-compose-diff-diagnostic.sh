@@ -56,7 +56,12 @@ diff_paths="$(python3 - "$baseline" "$merged" "$api_image" <<'PY'
 import copy,json,re,sys
 b=json.load(open(sys.argv[1])); n=json.load(open(sys.argv[2])); image=sys.argv[3]
 bs=(b.get('services') or {}).get('auth-mail-worker'); ns=(n.get('services') or {}).get('auth-mail-worker')
-if not isinstance(bs,dict) or not isinstance(ns,dict): print('service_shape'); raise SystemExit
+if not isinstance(bs,dict) or not isinstance(ns,dict):
+  if isinstance(bs,dict) and ns is None: print('target_service_missing')
+  elif bs is None and isinstance(ns,dict): print('baseline_service_missing')
+  elif bs is None and ns is None: print('both_services_missing')
+  else: print('service_shape_invalid')
+  raise SystemExit
 bb=copy.deepcopy(bs); nn=copy.deepcopy(ns)
 bb['image']=image; nn['image']=image
 bb.pop('pull_policy',None); nn.pop('pull_policy',None)
