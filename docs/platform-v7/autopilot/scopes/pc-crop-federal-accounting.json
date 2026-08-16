@@ -47,6 +47,7 @@
     "apps/api/src/modules/auth/accounting-document-payload.builder.spec.ts",
     "apps/api/prisma/migrations/20260816190000_pc_crop_accounting_work_tasks/**",
     "apps/api/prisma/migrations/20260816200000_pc_crop_accounting_periods/**",
+    "apps/api/prisma/migrations/20260816210000_pc_crop_work_task_period_link/**",
     "apps/api/src/modules/accounting/**",
     "apps/api/src/app.module.ts",
     ".github/workflows/pc-crop-accounting-acceptance.yml"
@@ -138,7 +139,8 @@
     "A period is closed from CLOSING, never straight from OPEN, so outstanding work is counted against a window nobody is still adding to.",
     "A close is refused while a derived work task for a document in the window is still open.",
     "A closed period does not reopen, and the row policy does not even select it for update.",
-    "The window of a period being closed no longer moves, and the column grant does not include it."
+    "The window of a period being closed no longer moves, and the column grant does not include it.",
+    "PERIOD_READY_TO_CLOSE closes only when the period is actually CLOSED, and closing a period is itself refused while work is outstanding, so the two rules compose rather than repeat."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -190,7 +192,8 @@
     "Widening the work task column grant to a full UPDATE makes check 72 fail and report that the grant admitted the write and only the guard stopped it.",
     "Twelve unit contracts for the period policy, including that readiness is a fact about the month rather than about who is looking.",
     "Ten PostgreSQL acceptance tests as the migration owner: overlap refused, clean handover accepted, close-from-open refused, close blocked by outstanding work, window immutable, close stamped by the database, no new rendering, no signature, no reopen, and a document outside the window untouched.",
-    "Seven further RLS gate checks, 79 to 85, covering opening, forged attribution, the window column grant, running a close, the unreachability of a closed period, no delete and cross-organization refusal. Eighty-five checks in the contour in total."
+    "Seven further RLS gate checks, 79 to 85, covering opening, forged attribution, the window column grant, running a close, the unreachability of a closed period, no delete and cross-organization refusal. Eighty-five checks in the contour in total.",
+    "Two further PostgreSQL acceptance tests: the ready-to-close task refuses to resolve until the period is closed, and a task pointing at another organization's month is refused by the guard even though every foreign key on the row is satisfied."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",

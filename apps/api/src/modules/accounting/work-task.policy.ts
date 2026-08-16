@@ -107,6 +107,17 @@ export const DERIVED_TASK_CONTRACTS: Readonly<Record<string, DerivedTaskContract
     responsibleCapability: Capability.PAYMENTS_MATCH,
     priority: 30,
   },
+  PERIOD_READY_TO_CLOSE: {
+    // The second condition the database can check for itself, and the one
+    // somebody most wants to tick off: the work is done, the close is the last
+    // step. A checkbox here would record a month as finished that nobody
+    // finished. It clears when the period is actually CLOSED, which the
+    // period's own guard refuses while work is outstanding — so the two rules
+    // compose rather than repeat.
+    resolutionMode: WorkTaskResolutionMode.SYSTEM_VERIFIED,
+    responsibleCapability: Capability.ACCOUNTING_PACKAGE_CLOSE,
+    priority: 45,
+  },
   DEAL_READY_TO_CLOSE: {
     resolutionMode: WorkTaskResolutionMode.SYSTEM_REPORTED,
     responsibleCapability: Capability.ACCOUNTING_PACKAGE_CLOSE,
@@ -119,7 +130,10 @@ export const DERIVED_TASK_CONTRACTS: Readonly<Record<string, DerivedTaskContract
  * guard by a test, because a type that claims SYSTEM_VERIFIED here and has no
  * verifier there produces a task nobody can ever close.
  */
-export const SYSTEM_VERIFIED_TASK_TYPES: readonly string[] = ['DOCUMENT_NOT_SIGNED'];
+export const SYSTEM_VERIFIED_TASK_TYPES: readonly string[] = [
+  'DOCUMENT_NOT_SIGNED',
+  'PERIOD_READY_TO_CLOSE',
+];
 
 export interface WorkTaskView {
   readonly id: string;
@@ -132,6 +146,7 @@ export interface WorkTaskView {
   readonly deadlineAt: Date | null;
   readonly sourceEventId: string | null;
   readonly documentId: string | null;
+  readonly periodId?: string | null;
 }
 
 export const TransitionRefusal = {
@@ -351,6 +366,7 @@ const PRIMARY_ACTION_BY_TYPE: Readonly<Record<string, string>> = {
   ONE_C_TRANSFER_FAILED: 'RETRY_ONE_C_TRANSFER',
   ONE_C_NOT_TRANSFERRED: 'TRANSFER_TO_ONE_C',
   PAYMENT_NOT_MATCHED: 'MATCH_PAYMENT',
+  PERIOD_READY_TO_CLOSE: 'CLOSE_PERIOD',
   DEAL_READY_TO_CLOSE: 'CLOSE_PERIOD_PACKAGE',
 };
 

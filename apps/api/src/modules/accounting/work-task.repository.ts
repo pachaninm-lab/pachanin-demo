@@ -73,6 +73,7 @@ interface TaskRow {
   deadlineAt: Date | null;
   sourceEventId: string | null;
   documentId: string | null;
+  periodId: string | null;
   version: bigint;
 }
 
@@ -87,6 +88,7 @@ function toView(row: TaskRow): WorkTaskView {
     assignedMembershipId: row.assignedMembershipId,
     deadlineAt: row.deadlineAt,
     documentId: row.documentId,
+    periodId: row.periodId,
     sourceEventId: row.sourceEventId,
   };
 }
@@ -163,16 +165,29 @@ export class WorkTaskRepository {
     tx: Prisma.TransactionClient,
     row: TaskRow,
   ): Promise<boolean> {
-    if (row.taskType !== 'DOCUMENT_NOT_SIGNED') return true;
-    if (row.documentId === null) return true;
+    if (row.taskType === 'DOCUMENT_NOT_SIGNED') {
+      if (row.documentId === null) return true;
+      const signed = await tx.$queryRaw<{ signed: bigint }[]>`
+        SELECT count(*) AS signed
+          FROM public."accounting_document_versions"
+         WHERE "documentId" = ${row.documentId}
+           AND "signedAt" IS NOT NULL
+      `;
+      return Number(signed[0]?.signed ?? 0n) === 0;
+    }
 
-    const signed = await tx.$queryRaw<{ signed: bigint }[]>`
-      SELECT count(*) AS signed
-        FROM public."accounting_document_versions"
-       WHERE "documentId" = ${row.documentId}
-         AND "signedAt" IS NOT NULL
-    `;
-    return Number(signed[0]?.signed ?? 0n) === 0;
+    if (row.taskType === 'PERIOD_READY_TO_CLOSE') {
+      if (row.periodId === null) return true;
+      const closed = await tx.$queryRaw<{ closed: bigint }[]>`
+        SELECT count(*) AS closed
+          FROM public."accounting_periods"
+         WHERE "id" = ${row.periodId}
+           AND "status" = 'CLOSED'
+      `;
+      return Number(closed[0]?.closed ?? 0n) === 0;
+    }
+
+    return true;
   }
 
   /**
@@ -191,6 +206,7 @@ export class WorkTaskRepository {
       humanDescription: string;
       dealId?: string | null;
       documentId?: string | null;
+      periodId?: string | null;
       shipmentId?: string | null;
       sourceEventId?: string | null;
       deadlineAt?: Date | null;
@@ -215,7 +231,7 @@ export class WorkTaskRepository {
         INSERT INTO public."accounting_work_tasks"
           ("id","tenantId","organizationId","taskType","origin","resolutionMode",
            "derivationKey","openDerivationKey","priority","title","humanDescription",
-           "responsibleCapability","dealId","documentId","shipmentId",
+           "responsibleCapability","dealId","documentId","periodId","shipmentId",
            "sourceEventId","deadlineAt","createdAt","updatedAt")
         VALUES (
           ${id}, ${context.tenantId}, ${context.orgId}, ${input.taskType},
@@ -223,6 +239,7 @@ export class WorkTaskRepository {
           ${input.derivationKey}, ${contract.priority}, ${input.title},
           ${input.humanDescription}, ${contract.responsibleCapability},
           ${input.dealId ?? null}, ${input.documentId ?? null},
+          ${input.periodId ?? null},
           ${input.shipmentId ?? null}, ${input.sourceEventId ?? null},
           ${input.deadlineAt ?? null}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON CONFLICT ("organizationId", "openDerivationKey") DO NOTHING
@@ -250,7 +267,7 @@ export class WorkTaskRepository {
       const rows = await tx.$queryRaw<(TaskRow & { title: string; humanDescription: string })[]>`
         SELECT "id","taskType","origin","resolutionMode","status",
                "responsibleCapability","assignedMembershipId","deadlineAt",
-               "sourceEventId","documentId","version","title","humanDescription"
+               "sourceEventId","documentId","periodId","version","title","humanDescription"
           FROM public."accounting_work_tasks"
          WHERE "organizationId" = ${context.orgId}
            AND "status" NOT IN ('RESOLVED', 'CANCELLED')
@@ -307,7 +324,7 @@ export class WorkTaskRepository {
       const rows = await tx.$queryRaw<TaskRow[]>`
         SELECT "id","taskType","origin","resolutionMode","status",
                "responsibleCapability","assignedMembershipId","deadlineAt",
-               "sourceEventId","documentId","version"
+               "sourceEventId","documentId","periodId","version"
           FROM public."accounting_work_tasks"
          WHERE "id" = ${input.taskId}
            AND "organizationId" = ${context.orgId}

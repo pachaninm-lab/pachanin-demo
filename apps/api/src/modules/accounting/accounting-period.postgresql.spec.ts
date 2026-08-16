@@ -219,19 +219,82 @@ describePostgres('a closed accounting period', () => {
     ).rejects.toThrow(/period this document belongs to is closed/);
   });
 
+  it('closes the ready-to-close task only once the period is actually closed', async () => {
+    // The second verified condition, and the one somebody most wants to tick
+    // off: the work is done and the close is the last step. Raised against the
+    // August period, which is still open.
+    await prisma.$executeRaw`
+      INSERT INTO public."accounting_work_tasks"
+        ("id","tenantId","organizationId","taskType","origin","resolutionMode",
+         "derivationKey","openDerivationKey","title","humanDescription",
+         "responsibleCapability","periodId","createdAt","updatedAt")
+      VALUES (${`${RUN}.close`}, ${TENANT}, ${ORG}, 'PERIOD_READY_TO_CLOSE',
+              'DERIVED', 'SYSTEM_VERIFIED', ${`${RUN}.pk`}, ${`${RUN}.pk`},
+              'Месяц готов к закрытию', 'Все документы за август подписаны.',
+              'accounting.package.close', ${`${RUN}.aug`}, now(), now())
+    `;
+
+    await expect(
+      prisma.$executeRaw`
+        UPDATE public."accounting_work_tasks"
+           SET "status" = 'RESOLVED', "version" = "version" + 1
+         WHERE "id" = ${`${RUN}.close`}
+      `,
+    ).rejects.toThrow(/period this task is about is not closed yet/);
+
+    await move(`${RUN}.aug`, 'CLOSING');
+    await move(`${RUN}.aug`, 'CLOSED');
+
+    await prisma.$executeRaw`
+      UPDATE public."accounting_work_tasks"
+         SET "status" = 'RESOLVED', "version" = "version" + 1
+       WHERE "id" = ${`${RUN}.close`}
+    `;
+    const rows = await prisma.$queryRaw<{ status: string }[]>`
+      SELECT "status" FROM public."accounting_work_tasks"
+       WHERE "id" = ${`${RUN}.close`}
+    `;
+    expect(rows[0].status).toBe('RESOLVED');
+  });
+
+  it('refuses a task pointing at another organization’s month', async () => {
+    // Every foreign key on such a row is satisfied; only the guard catches it.
+    await prisma.$executeRaw`
+      INSERT INTO public."organizations"
+        ("id","inn","name","type","status","kycStatus","tenantId","createdAt","updatedAt")
+      VALUES (${`${ORG}.other`}, ${String(Date.now()).slice(-10)}, 'Other',
+              'LEGAL', 'VERIFIED', 'VERIFIED', ${TENANT}, now(), now())
+    `;
+    await expect(
+      prisma.$executeRaw`
+        INSERT INTO public."accounting_work_tasks"
+          ("id","tenantId","organizationId","taskType","origin","resolutionMode",
+           "derivationKey","openDerivationKey","title","humanDescription",
+           "responsibleCapability","periodId","createdAt","updatedAt")
+        VALUES (${`${RUN}.stolen`}, ${TENANT}, ${`${ORG}.other`},
+                'PERIOD_READY_TO_CLOSE', 'DERIVED', 'SYSTEM_VERIFIED',
+                ${`${RUN}.sk`}, ${`${RUN}.sk`}, 'т', 'о',
+                'accounting.package.close', ${`${RUN}.aug`}, now(), now())
+      `,
+    ).rejects.toThrow(/must belong to that period/);
+    await prisma.$executeRaw`DELETE FROM public."organizations" WHERE "id" = ${`${ORG}.other`}`;
+  });
+
   it('does not reopen', async () => {
     await expect(move(`${RUN}.jul`, 'OPEN')).rejects.toThrow(/does not reopen/);
     await expect(move(`${RUN}.jul`, 'CLOSING')).rejects.toThrow(/does not reopen/);
   });
 
-  it('leaves a document raised outside the window alone', async () => {
+  it('leaves a document raised outside every closed window alone', async () => {
     const outside = `${RUN}.outside`;
     await prisma.$executeRaw`
       INSERT INTO public."accounting_documents"
         ("id","tenantId","organizationId","documentType","status",
          "createdByMembershipId","createdAt","updatedAt")
+      -- September: no period covers it, so nothing here is frozen. August was
+      -- closed by the test above, which is exactly why this date is not August.
       VALUES (${outside}, ${TENANT}, ${ORG}, 'UPD', 'DRAFT', ${MEMBERSHIP},
-              '2026-08-15T00:00:00Z', now())
+              '2026-09-15T00:00:00Z', now())
     `;
     await prisma.$executeRaw`
       INSERT INTO public."accounting_document_versions"

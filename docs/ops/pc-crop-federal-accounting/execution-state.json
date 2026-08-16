@@ -7,7 +7,7 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T19:45:00.000Z",
+  "updatedAt": "2026-08-16T19:50:00.000Z",
   "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
@@ -189,7 +189,7 @@
       "name": "Accounting task engine / UX / projections",
       "weightPercent": 6,
       "provenSharePercent": 35,
-      "creditedPercent": 1.28,
+      "creditedPercent": 1.32,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 5 spans six components: the task model with its closing rules, the deriver that raises tasks from live sources, a repository and API surface, the dashboard itself, the per-role projections, and the KPI and tab read models. Modelled as equal sixths — a stated flat assumption rather than a weighting this agent invented.",
@@ -202,8 +202,8 @@
           "KPI counters and tab read models"
         ],
         "componentBuilt": "The task model with its closing rules, a repository that raises idempotently and moves a task under an expected version with capabilities resolved from the database, the first deriver, the per-audience projections and KPI counters, and four API routes. The screens themselves are not built and need apps/web, which is outside the granted scope.",
-        "componentSharePercent": 61,
-        "componentShareDerivation": "six equal components scored individually: model and closing rules 100, deriver 15 (one condition of eight registered types), repository and API 90, dashboard 0 (apps/web is outside the scope), role projections 90 (three audiences as pure functions with a test that walks every human-facing string for leaked identifiers; no screen renders them yet), KPI and tab read models 75 (counted from one classification pass, served by a route, not yet materialised). Sum 370 over six is 61.7, recorded as 61 without rounding up.",
+        "componentSharePercent": 63,
+        "componentShareDerivation": "six equal components scored individually: model and closing rules 100, deriver 27 (two of eight registered types now carry a verifier the database can check: an unsigned document and a month ready to close; only the first is raised automatically), repository and API 90, dashboard 0 (apps/web is outside the scope), role projections 90, KPI and tab read models 75. Sum 382 over six is 63.7, recorded as 63 without rounding up.",
         "notBuilt": [
           "seven of the eight registered derived types have no deriver: only DOCUMENT_NOT_SIGNED is raised, because it is the only condition the database can also verify, and raising the rest now would create tasks nothing can close",
           "no route to create a manual task",
@@ -243,7 +243,7 @@
       "name": "Advances / services / payments / reconciliation",
       "weightPercent": 6,
       "provenSharePercent": 35,
-      "creditedPercent": 0.38,
+      "creditedPercent": 0.42,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 6 spans five components: advances, third-party services, payments, reconciliation and period close. Equal fifths — a stated flat assumption.",
@@ -255,8 +255,8 @@
           "period close"
         ],
         "componentBuilt": "Period close only, and deliberately scoped to what the platform is authority for: a closed period freezes the document set the platform owns — no new version of a document raised inside it, no signature on one. It is not an accounting ledger close and the code says so, because a screen reading «период закрыт» would otherwise be taken for the ledger and somebody would file on it.",
-        "componentSharePercent": 18,
-        "componentShareDerivation": "one of five equal components at 90 percent — the close works and is proven, but nothing opens periods automatically and there is no route to run one yet. 90 of 500 is 18.",
+        "componentSharePercent": 20,
+        "componentShareDerivation": "one of five equal components at 100 percent for the close itself — it works, it is proven, and it now composes with the task contour through PERIOD_READY_TO_CLOSE — minus the missing API route and automatic period opening. 100 of 500 is 20.",
         "notBuilt": [
           "advances, third-party services, payments and reconciliation: all four touch money movement, which is the settlement contour's authority. Re-implementing it here would create the second source of truth this programme exists to remove, and settlement-engine is outside the scope in any case",
           "no API route opens or closes a period; the acceptance drives the tables directly",

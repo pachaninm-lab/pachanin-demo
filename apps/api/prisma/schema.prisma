@@ -481,6 +481,9 @@ model AccountingWorkTask {
   shipmentId            String?
   documentId            String?
   integrationJobId      String?
+  /// The period a task is about, when it is about one. Nullable because most
+  /// tasks are about a document.
+  periodId              String?
   /// The event that raised this, kept so a task traces back to the fact that
   /// produced it rather than only to its own creation.
   sourceEventId         String?
@@ -506,6 +509,7 @@ model AccountingWorkTask {
   createdBy    UserOrg?            @relation("AccountingWorkTaskAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
   resolvedBy   UserOrg?            @relation("AccountingWorkTaskResolver", fields: [resolvedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
   document     AccountingDocument? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  period       AccountingPeriod?   @relation(fields: [periodId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, openDerivationKey], map: "accounting_work_tasks_open_condition_idx")
   @@index([organizationId, status, priority])
@@ -552,6 +556,7 @@ model AccountingPeriod {
 
   organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
   openedBy     UserOrg      @relation("AccountingPeriodOpener", fields: [openedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  workTasks    AccountingWorkTask[]
   closedBy     UserOrg?     @relation("AccountingPeriodCloser", fields: [closedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
 
   @@unique([organizationId, periodStart])
