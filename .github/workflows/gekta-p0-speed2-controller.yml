@@ -34,11 +34,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Validate Python diagnostic
+      - name: Compile Python diagnostic
         shell: bash
         run: |
           set -euo pipefail
           python3 -m py_compile scripts/gekta-speed2-model-diagnose.py
+
+      - name: Validate bounded controller contract
+        shell: bash
+        run: |
+          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           import json
@@ -46,6 +51,16 @@ jobs:
           workflow = Path('.github/workflows/gekta-p0-speed2-controller.yml').read_text(encoding='utf-8')
           script = Path('scripts/gekta-speed2-model-diagnose.py').read_text(encoding='utf-8')
           scope = json.loads(Path('docs/platform-v7/autopilot/scopes/gekta-p0-speed2-s2-0-controller-4251.json').read_text(encoding='utf-8'))
+
+          def fail(code: str, detail: str = '') -> None:
+              safe = detail.replace('\n', ' ')[:500]
+              print(f'::error title=SPEED2_CONTRACT_{code}::{safe or code}')
+              raise SystemExit(1)
+
+          parts = workflow.split('\n  control:\n', 1)
+          if len(parts) != 2:
+              fail('CONTROL_SECTION_MISSING')
+          runtime_workflow = '\n  control:\n' + parts[1]
 
           required_workflow = [
               "/gekta speed2 status current-main",
@@ -58,15 +73,10 @@ jobs:
               "actions/upload-artifact@v4",
               "gekta.speed2.s2-0.controller-evidence.v1",
           ]
-          missing = [x for x in required_workflow if x not in workflow]
+          missing = [x for x in required_workflow if x not in runtime_workflow]
           if missing:
-              raise SystemExit('missing controller invariant: ' + ' | '.join(missing))
+              fail('MISSING_WORKFLOW_INVARIANT', ' | '.join(missing))
 
-          # Inspect the executable workflow surface, not this validator's own
-          # forbidden-string literals. The prior version self-matched its list.
-          validator_start = workflow.index('          forbidden_workflow = [')
-          validator_end = workflow.index('          required_script = [')
-          runtime_workflow = workflow[:validator_start] + workflow[validator_end:]
           forbidden_workflow = [
               'sudo ',
               'systemctl restart',
@@ -81,7 +91,7 @@ jobs:
           ]
           bad = [x for x in forbidden_workflow if x in runtime_workflow]
           if bad:
-              raise SystemExit('forbidden mutation/authority primitive: ' + ' | '.join(bad))
+              fail('FORBIDDEN_WORKFLOW_PRIMITIVE', ' | '.join(bad))
 
           required_script = [
               'tai-qwen3-8b.service',
@@ -101,7 +111,7 @@ jobs:
           ]
           missing = [x for x in required_script if x not in script]
           if missing:
-              raise SystemExit('missing diagnostic invariant: ' + ' | '.join(missing))
+              fail('MISSING_DIAGNOSTIC_INVARIANT', ' | '.join(missing))
 
           forbidden_script = [
               'systemctl", "restart',
@@ -113,21 +123,21 @@ jobs:
           ]
           bad = [x for x in forbidden_script if x in script]
           if bad:
-              raise SystemExit('forbidden diagnostic primitive: ' + ' | '.join(bad))
+              fail('FORBIDDEN_DIAGNOSTIC_PRIMITIVE', ' | '.join(bad))
 
           if scope.get('schemaVersion') != 'platform-v7.concurrent-scope.v1':
-              raise SystemExit('scope schema mismatch')
+              fail('SCOPE_SCHEMA')
           if scope.get('branch') != 'agent/gekta-speed2-s2-0-controller-4251':
-              raise SystemExit('scope branch mismatch')
+              fail('SCOPE_BRANCH')
           if scope.get('issue') != 4251 or scope.get('newRecurringCostRub') != 0:
-              raise SystemExit('scope authority mismatch')
+              fail('SCOPE_AUTHORITY')
           expected = {
               '.github/workflows/gekta-p0-speed2-controller.yml',
               'scripts/gekta-speed2-model-diagnose.py',
               'docs/platform-v7/autopilot/scopes/gekta-p0-speed2-s2-0-controller-4251.json',
           }
           if set(scope.get('allowedPaths', [])) != expected:
-              raise SystemExit('scope path mismatch')
+              fail('SCOPE_PATHS')
           PY
 
       - name: Prove scope guard
