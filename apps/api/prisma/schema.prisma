@@ -107,7 +107,8 @@ model UserOrg {
 
   delegationsGranted  MembershipDelegation[] @relation("MembershipDelegationFrom")
   delegationsReceived MembershipDelegation[] @relation("MembershipDelegationTo")
-  signingAuthorities  SigningAuthority[]
+  signingAuthorities  SigningAuthority[] @relation("SigningAuthorityHolder")
+  signingAuthoritiesApproved SigningAuthority[] @relation("SigningAuthoritySecondApprover")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -166,13 +167,17 @@ model SigningAuthority {
   status                 String    @default("ACTIVE")
   lastVerifiedAt         DateTime? @db.Timestamptz(6)
   grantedByMembershipId  String
+  /// The independent approver behind a two-person grant. An ACTIVE authority
+  /// must name one, and it may be neither the beneficiary nor the granter.
+  secondApprovalMembershipId String?
   revokedAt              DateTime? @db.Timestamptz(6)
   version                BigInt    @default(0)
   createdAt              DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
-  membership   UserOrg      @relation(fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  membership     UserOrg      @relation("SigningAuthorityHolder", fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  secondApprover UserOrg?     @relation("SigningAuthoritySecondApprover", fields: [secondApprovalMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization   Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
 
   @@index([organizationId, membershipId, status, validTo])
   @@index([tenantId])

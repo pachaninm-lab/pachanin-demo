@@ -19,7 +19,10 @@
     "apps/api/src/modules/auth/signing-authority.policy.spec.ts",
     "apps/api/prisma/migrations/20260815210000_pc_crop_accounting_read_authority/**",
     "scripts/sql/pc-crop-accounting-rls-checks.sql",
-    "scripts/platform-v7-rls-integration.sh"
+    "scripts/platform-v7-rls-integration.sh",
+    "apps/api/prisma/migrations/20260815220000_pc_crop_authority_two_person_rule/**",
+    "apps/api/src/modules/auth/accounting-authority-command.policy.ts",
+    "apps/api/src/modules/auth/accounting-authority-command.policy.spec.ts"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -42,7 +45,11 @@
     "Accounting read policies never trust app.current_org_id or app.current_tenant_id on their own; membership is resolved from user_orgs rows by a SECURITY DEFINER function, because a setting the confined principal can write is not an authority.",
     "pc_accounting_authority is read-only, column-scoped, and never receives the free-text delegation reason column.",
     "One user holding memberships in two organizations reads only the organization it is currently acting in; switching organizations carries nothing across.",
-    "The isolation checks are wired into the RLS integration gate and are proven to fail when the policy or the grant is sabotaged."
+    "The isolation checks are wired into the RLS integration gate and are proven to fail when the policy or the grant is sabotaged.",
+    "A signing authority is never self-granted: the refusal keys on the user, not the membership, so one person holding two memberships cannot approve their own grant by switching hats.",
+    "An ACTIVE signing authority must name a second approver who is neither the beneficiary nor the granter, and that approver must be a real membership of the same organization. Enforced by database constraints, not only by the command policy.",
+    "Revoking is deliberately easier than granting: the holder may always retire their own authority with fresh MFA alone and no second approval.",
+    "A delegation can never exceed the delegator: only capabilities the actor currently holds may be passed on, so a chain of delegations loses authority but never gains it."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -60,7 +67,10 @@
     "Nine signing-authority invariants are proven against a live PostgreSQL 16, not only asserted in tests.",
     "prisma migrate diff reports no drift after applying both PC-CROP migrations.",
     "Nine isolation checks run in the RLS integration gate: own-row read, forged organization, forged tenant, dual-organization member in each direction, delegation recipient, absent context, write refusal and withheld-column refusal.",
-    "Deliberate sabotage of the policy (trusting the setting alone) and of the grant (adding UPDATE) each make the gate exit non-zero."
+    "Deliberate sabotage of the policy (trusting the setting alone) and of the grant (adding UPDATE) each make the gate exit non-zero.",
+    "Four two-person-rule violations are refused by the database: an ACTIVE authority with no approver, an approver who is the beneficiary, an approver who is the granter, and a fabricated approver id.",
+    "A revoked authority may still carry a null approver, so historical rows stay writable.",
+    "Delegation escalation through a chain is refused: a delegate cannot pass on more than it received."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",
