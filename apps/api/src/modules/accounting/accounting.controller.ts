@@ -7,6 +7,8 @@ import { AccountingDocumentVersionRepository } from './accounting-document-versi
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
 import { AudienceView, projectFor } from './work-task-projection.policy';
+import { PeriodStatus } from './accounting-period.policy';
+import { AccountingPeriodRepository } from './accounting-period.repository';
 import { WorkTaskStatus } from './work-task.policy';
 import { WorkTaskRepository } from './work-task.repository';
 
@@ -33,6 +35,7 @@ export class AccountingController {
     private readonly versions: AccountingDocumentVersionRepository,
     private readonly tasks: WorkTaskRepository,
     private readonly deriver: WorkTaskDeriver,
+    private readonly periods: AccountingPeriodRepository,
   ) {}
 
   /**
@@ -143,5 +146,57 @@ export class AccountingController {
         typeof value === 'bigint' ? value.toString() : value,
       ),
     );
+  }
+
+  /**
+   * Every period with what is standing in the way of closing it.
+   *
+   * Readiness is reported alongside the counts that produced it, so a screen
+   * can say why rather than only that.
+   */
+  @Get('periods')
+  async listPeriods(@CurrentUser() user: RequestUser) {
+    const periods = await this.periods.list(user);
+    return periods.map((period) => ({
+      ...period,
+      version: period.version.toString(),
+    }));
+  }
+
+  @Post('periods')
+  openPeriod(
+    @CurrentUser() user: RequestUser,
+    @Body() body: { periodStart: string; periodEnd: string },
+  ) {
+    return this.periods.open(user, {
+      periodStart: new Date(body.periodStart),
+      periodEnd: new Date(body.periodEnd),
+    });
+  }
+
+  /**
+   * Move a period one step towards closed.
+   *
+   * The counts a close depends on are not in the body. A close is exactly the
+   * moment somebody would like those numbers to be zero, so the server reads
+   * them itself.
+   */
+  @Post('periods/:periodId/advance')
+  advancePeriod(
+    @Param('periodId') periodId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { to: PeriodStatus; expectedVersion: string },
+  ) {
+    return this.periods.advance(user, {
+      periodId,
+      to: body.to,
+      expectedVersion: BigInt(body.expectedVersion),
+    });
+  }
+
+  /** Raise tasks for months that are ready to be closed. */
+  @Post('periods/derive')
+  derivePeriods(@CurrentUser() user: RequestUser) {
+    return this.deriver.derivePeriodsReadyToClose(user);
   }
 }

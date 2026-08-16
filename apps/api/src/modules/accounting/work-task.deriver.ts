@@ -87,4 +87,74 @@ export class WorkTaskDeriver {
 
     return { examined: unsigned.length, raised, alreadyOpen };
   }
+
+  /**
+   * Raise a task for every period that has ended with nothing left standing in
+   * the way of closing it.
+   *
+   * The condition here is "ready", not "closed", and the two must not be
+   * confused: the task exists precisely to tell somebody the last step is
+   * theirs to take. It clears when the period is actually closed, which the
+   * period's own guard refuses while work is outstanding — so a task raised by
+   * this pass cannot be closed by anything other than the close itself.
+   */
+  async derivePeriodsReadyToClose(
+    user: RequestUser | undefined,
+  ): Promise<DerivationRun> {
+    const ready = await this.transactions.withTrustedContext(
+      user,
+      async (tx, context) =>
+        tx.$queryRaw<{ id: string; periodStart: Date; periodEnd: Date }[]>`
+          SELECT p."id", p."periodStart", p."periodEnd"
+            FROM public."accounting_periods" p
+           WHERE p."organizationId" = ${context.orgId}
+             AND p."status" <> 'CLOSED'
+             AND p."periodEnd" <= CURRENT_TIMESTAMP
+             AND NOT EXISTS (
+               SELECT 1
+                 FROM public."accounting_work_tasks" t
+                 JOIN public."accounting_documents" d ON d."id" = t."documentId"
+                WHERE t."organizationId" = p."organizationId"
+                  AND t."origin" = 'DERIVED'
+                  AND t."status" NOT IN ('RESOLVED', 'CANCELLED')
+                  AND d."createdAt" >= p."periodStart"
+                  AND d."createdAt" < p."periodEnd"
+             )
+             AND NOT EXISTS (
+               SELECT 1
+                 FROM public."accounting_documents" d
+                WHERE d."organizationId" = p."organizationId"
+                  AND d."status" <> 'CANCELLED'
+                  AND d."createdAt" >= p."periodStart"
+                  AND d."createdAt" < p."periodEnd"
+                  AND EXISTS (
+                    SELECT 1 FROM public."accounting_document_versions" v
+                     WHERE v."documentId" = d."id"
+                  )
+                  AND NOT EXISTS (
+                    SELECT 1 FROM public."accounting_document_versions" v
+                     WHERE v."documentId" = d."id" AND v."signedAt" IS NOT NULL
+                  )
+             )
+        `,
+    );
+
+    let raised = 0;
+    let alreadyOpen = 0;
+
+    for (const period of ready) {
+      const month = period.periodStart.toISOString().slice(0, 7);
+      const result = await this.tasks.raiseDerived(user, {
+        taskType: 'PERIOD_READY_TO_CLOSE',
+        derivationKey: `period:${period.id}:ready`,
+        title: 'Месяц готов к закрытию',
+        humanDescription: `За ${month} все документы подписаны и задач не осталось.`,
+        periodId: period.id,
+      });
+      if (result.outcome === 'RAISED') raised += 1;
+      if (result.outcome === 'ALREADY_OPEN') alreadyOpen += 1;
+    }
+
+    return { examined: ready.length, raised, alreadyOpen };
+  }
 }

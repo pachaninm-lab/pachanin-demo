@@ -104,6 +104,26 @@ export class WorkTaskRepository {
    * set could state ACCOUNTING_TASK_MANAGE, and every check downstream of that
    * would be answering a question the caller had already decided.
    */
+  /**
+   * The same resolution, for another repository working inside one transaction.
+   * Exposed rather than copied: two readings of "what may this actor do" is one
+   * reading too many.
+   */
+  async capabilitiesWithin(
+    tx: Prisma.TransactionClient,
+    now: Date = new Date(),
+  ): Promise<readonly string[]> {
+    return this.resolveCapabilities(tx, now);
+  }
+
+  /** The acting membership, as the database resolves it. */
+  async membershipWithin(tx: Prisma.TransactionClient): Promise<string | null> {
+    const rows = await tx.$queryRaw<{ membership: string | null }[]>`
+      SELECT public.app_pc_crop_membership_id() AS membership
+    `;
+    return rows[0]?.membership ?? null;
+  }
+
   private async resolveCapabilities(
     tx: Prisma.TransactionClient,
     now: Date,

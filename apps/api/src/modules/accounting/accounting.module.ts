@@ -3,6 +3,7 @@ import { PrismaModule } from '../../common/prisma/prisma.module';
 import { AccountingController } from './accounting.controller';
 import { AccountingDocumentVersionRepository } from './accounting-document-version.repository';
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
+import { AccountingPeriodRepository } from './accounting-period.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
 import { WorkTaskRepository } from './work-task.repository';
 
@@ -23,12 +24,14 @@ import { WorkTaskRepository } from './work-task.repository';
     AccountingDocumentVersionRepository,
     WorkTaskRepository,
     WorkTaskDeriver,
+    AccountingPeriodRepository,
   ],
   exports: [
     AccountingSourceSnapshotRepository,
     AccountingDocumentVersionRepository,
     WorkTaskRepository,
     WorkTaskDeriver,
+    AccountingPeriodRepository,
   ],
 })
 export class AccountingModule {}
