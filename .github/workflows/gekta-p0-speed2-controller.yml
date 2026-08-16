@@ -1,0 +1,415 @@
+name: Gekta P0 SPEED-2 Controller
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed2-controller.yml'
+      - 'scripts/gekta-speed2-model-diagnose.py'
+      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed2-s2-0-controller-4251.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed2-controller
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  SPEED_ISSUE_NUMBER: '4251'
+  TRUSTED_CONNECTOR_APP_ID: '1144995'
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+
+jobs:
+  contract:
+    name: Validate SPEED-2 bounded controller
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate Python diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/gekta-speed2-model-diagnose.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          workflow = Path('.github/workflows/gekta-p0-speed2-controller.yml').read_text(encoding='utf-8')
+          script = Path('scripts/gekta-speed2-model-diagnose.py').read_text(encoding='utf-8')
+          scope = json.loads(Path('docs/platform-v7/autopilot/scopes/gekta-p0-speed2-s2-0-controller-4251.json').read_text(encoding='utf-8'))
+
+          required_workflow = [
+              "/gekta speed2 status current-main",
+              "/gekta speed2 diagnose current-main",
+              "github.event.issue.number == 4251",
+              "github.event.comment.author_association == 'OWNER'",
+              "performed_via_github_app.id == 1144995",
+              "StrictHostKeyChecking=yes",
+              "manifest-pc-deploy.json",
+              "actions/upload-artifact@v4",
+              "gekta.speed2.s2-0.controller-evidence.v1",
+          ]
+          missing = [x for x in required_workflow if x not in workflow]
+          if missing:
+              raise SystemExit('missing controller invariant: ' + ' | '.join(missing))
+
+          forbidden_workflow = [
+              'sudo ',
+              'systemctl restart',
+              'systemctl stop',
+              'systemctl start',
+              'kill ',
+              'pkill ',
+              'docker ',
+              'TAI_MODEL_ROOT_SSH_KEY',
+              'PC_PROD_SSH_KEY',
+              'VPS_SSH_KEY',
+          ]
+          bad = [x for x in forbidden_workflow if x in workflow]
+          if bad:
+              raise SystemExit('forbidden mutation/authority primitive: ' + ' | '.join(bad))
+
+          required_script = [
+              'tai-qwen3-8b.service',
+              'cmdline_sha256',
+              'environment_sha256',
+              'executable_sha256',
+              'cache_prompt_effective',
+              'cache_reuse',
+              'accepted_speed3896_baseline_matches',
+              'global_swap_used',
+              'vm_swap',
+              'prompt_tokens_total',
+              'prompt_seconds_total',
+              'Synthetic cache probe',
+              'prompt_content_published',
+              'credentials_published',
+          ]
+          missing = [x for x in required_script if x not in script]
+          if missing:
+              raise SystemExit('missing diagnostic invariant: ' + ' | '.join(missing))
+
+          forbidden_script = [
+              'systemctl", "restart',
+              'systemctl", "stop',
+              'systemctl", "start',
+              'subprocess.run(["sudo"',
+              'os.system(',
+              'shell=True',
+          ]
+          bad = [x for x in forbidden_script if x in script]
+          if bad:
+              raise SystemExit('forbidden diagnostic primitive: ' + ' | '.join(bad))
+
+          if scope.get('schemaVersion') != 'platform-v7.concurrent-scope.v1':
+              raise SystemExit('scope schema mismatch')
+          if scope.get('branch') != 'agent/gekta-speed2-s2-0-controller-4251':
+              raise SystemExit('scope branch mismatch')
+          if scope.get('issue') != 4251 or scope.get('newRecurringCostRub') != 0:
+              raise SystemExit('scope authority mismatch')
+          expected = {
+              '.github/workflows/gekta-p0-speed2-controller.yml',
+              'scripts/gekta-speed2-model-diagnose.py',
+              'docs/platform-v7/autopilot/scopes/gekta-p0-speed2-s2-0-controller-4251.json',
+          }
+          if set(scope.get('allowedPaths', [])) != expected:
+              raise SystemExit('scope path mismatch')
+          PY
+
+      - name: Prove scope guard
+        shell: bash
+        env:
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: origin/main
+        run: |
+          set -euo pipefail
+          bash scripts/p7-autopilot-guard.sh
+
+  control:
+    name: Run SPEED-2 status or S2-0 diagnosis
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4251 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+        (github.actor == 'chatgpt-codex-connector[bot]' &&
+         github.triggering_actor == 'chatgpt-codex-connector[bot]' &&
+         github.event.comment.performed_via_github_app.id == 1144995)
+      ) &&
+      (
+        github.event.comment.body == '/gekta speed2 status current-main' ||
+        github.event.comment.body == '/gekta speed2 diagnose current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove owner provenance and resolve exact current main
+        id: authority
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$main_sha" == "$(git rev-parse HEAD)" ]]
+          [[ "$main_sha" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$COMMENT_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            provenance=OWNER_DIRECT
+          else
+            [[ "$GITHUB_ACTOR" == 'chatgpt-codex-connector[bot]' ]]
+            [[ "${{ github.triggering_actor }}" == 'chatgpt-codex-connector[bot]' ]]
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            provenance=OWNER_CONNECTOR_APP
+          fi
+
+          case "$COMMENT_BODY" in
+            '/gekta speed2 status current-main') op=status ;;
+            '/gekta speed2 diagnose current-main') op=diagnose ;;
+            *) exit 12 ;;
+          esac
+
+          script_sha="$(sha256sum scripts/gekta-speed2-model-diagnose.py | awk '{print $1}')"
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "operation=$op" >> "$GITHUB_OUTPUT"
+          echo "provenance=$provenance" >> "$GITHUB_OUTPUT"
+          echo "script_sha=$script_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve actual deployed application SHA
+        id: deployed
+        shell: bash
+        env:
+          MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          manifest="$RUNNER_TEMP/manifest.json"
+          status="$(curl --silent --show-error --location --compressed \
+            --connect-timeout 10 --max-time 30 \
+            --output "$manifest" --write-out '%{http_code}' \
+            "$LIVE_BASE/manifest-pc-deploy.json?gekta-speed2=$GITHUB_RUN_ID-$(date +%s)")"
+          deployed_sha="$(jq -r '.commitSha // empty' "$manifest" 2>/dev/null || true)"
+          rm -f "$manifest"
+          [[ "$status" == 200 && "$deployed_sha" =~ ^[0-9a-f]{40}$ ]] || exit 20
+
+          git cat-file -e "${deployed_sha}^{commit}" 2>/dev/null || git fetch --no-tags origin "$deployed_sha"
+          git cat-file -e "${deployed_sha}^{commit}"
+          git merge-base --is-ancestor "$deployed_sha" "$MAIN_SHA" || exit 21
+
+          echo "deployed_sha=$deployed_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+
+          host="$(trim "${MODEL_HOST_SECRET:-}")"
+          user="$(trim "${MODEL_USER_SECRET:-}")"
+          port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port >= 1 && port <= 65535))
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model" || exit 22
+
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"
+          [[ -n "$pin" ]] || exit 23
+          pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"
+          pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}' || exit 24
+
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
+          chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Execute bounded model-host diagnostic
+        id: diagnostic
+        shell: bash
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          OPERATION: ${{ steps.authority.outputs.operation }}
+        run: |
+          set -uo pipefail
+          raw="$RUNNER_TEMP/speed2-model-diagnostic.json"
+          ssh_err="$RUNNER_TEMP/speed2-ssh.err"
+          set +e
+          ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "$MODEL_USER@$MODEL_HOST" \
+            python3 - "$OPERATION" \
+            < scripts/gekta-speed2-model-diagnose.py > "$raw" 2>"$ssh_err"
+          rc=$?
+          set -e
+
+          if [[ ! -s "$raw" ]]; then
+            printf '%s\n' '{"schema":"gekta.speed2.s2-0.model-diagnostic.v1","result":"FAIL_CLOSED","error_code":"REMOTE_TRANSPORT_FAILED","privacy":{"prompt_content_published":false,"credentials_published":false,"raw_environment_published":false,"raw_argv_published":false}}' > "$raw"
+            rc=40
+          fi
+
+          jq -e '
+            .schema == "gekta.speed2.s2-0.model-diagnostic.v1" and
+            .privacy.prompt_content_published == false and
+            .privacy.credentials_published == false and
+            .privacy.raw_environment_published == false and
+            .privacy.raw_argv_published == false
+          ' "$raw" >/dev/null || {
+            printf '%s\n' '{"schema":"gekta.speed2.s2-0.model-diagnostic.v1","result":"FAIL_CLOSED","error_code":"EVIDENCE_CONTRACT_FAILED","privacy":{"prompt_content_published":false,"credentials_published":false,"raw_environment_published":false,"raw_argv_published":false}}' > "$raw"
+            rc=40
+          }
+
+          rm -f "$ssh_err"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "path=$raw" >> "$GITHUB_OUTPUT"
+
+      - name: Build machine-readable S2-0 evidence
+        id: evidence
+        if: always()
+        shell: bash
+        env:
+          MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
+          DEPLOYED_SHA: ${{ steps.deployed.outputs.deployed_sha }}
+          OPERATION: ${{ steps.authority.outputs.operation }}
+          PROVENANCE: ${{ steps.authority.outputs.provenance }}
+          SCRIPT_SHA: ${{ steps.authority.outputs.script_sha }}
+          DIAG_PATH: ${{ steps.diagnostic.outputs.path }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/gekta-speed2-s2-0-evidence.json"
+          diag='{"schema":"gekta.speed2.s2-0.model-diagnostic.v1","result":"FAIL_CLOSED","error_code":"DIAGNOSTIC_OUTPUT_MISSING","privacy":{"prompt_content_published":false,"credentials_published":false,"raw_environment_published":false,"raw_argv_published":false}}'
+          if [[ -n "${DIAG_PATH:-}" && -s "$DIAG_PATH" ]]; then
+            diag="$(cat "$DIAG_PATH")"
+          fi
+
+          jq -n \
+            --arg schema 'gekta.speed2.s2-0.controller-evidence.v1' \
+            --arg main "$MAIN_SHA" \
+            --arg deployed "$DEPLOYED_SHA" \
+            --arg operation "$OPERATION" \
+            --arg provenance "$PROVENANCE" \
+            --arg scriptSha "$SCRIPT_SHA" \
+            --argjson diagnostic "$diag" \
+            '{
+              schema: $schema,
+              authority: {
+                issue: 4251,
+                exact_current_main: $main,
+                deployed_application_sha: $deployed,
+                provenance: $provenance
+              },
+              operation: $operation,
+              diagnostic_script_sha256: $scriptSha,
+              production_configuration_mutation: "NONE",
+              recurring_cost_rub: 0,
+              diagnostic: $diagnostic
+            }' > "$out"
+          jq -e '.diagnostic.privacy.credentials_published == false' "$out" >/dev/null
+          echo "path=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Upload S2-0 evidence artifact
+        if: always() && steps.evidence.outputs.path != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: gekta-speed2-s2-0-${{ github.run_id }}
+          path: ${{ steps.evidence.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish bounded S2-0 evidence
+        if: always() && steps.evidence.outputs.path != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVIDENCE_PATH: ${{ steps.evidence.outputs.path }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/speed2-comment.md"
+          result="$(jq -r '.diagnostic.result // "FAIL_CLOSED"' "$EVIDENCE_PATH")"
+          error_code="$(jq -r '.diagnostic.error_code // "NONE"' "$EVIDENCE_PATH")"
+          {
+            echo '## Gekta SPEED-2 S2-0 production diagnosis'
+            echo
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo "- operation: \`$(jq -r '.operation' "$EVIDENCE_PATH")\`"
+            echo "- exact current main: \`$(jq -r '.authority.exact_current_main' "$EVIDENCE_PATH")\`"
+            echo "- deployed application SHA: \`$(jq -r '.authority.deployed_application_sha' "$EVIDENCE_PATH")\`"
+            echo "- provenance: \`$(jq -r '.authority.provenance' "$EVIDENCE_PATH")\`"
+            echo "- result: \`$result\`"
+            echo "- error code: \`$error_code\`"
+            echo '- production configuration mutation: `NONE`'
+            echo '- new recurring cost: `0 RUB`'
+            echo
+            echo '```json'
+            jq -c '.diagnostic' "$EVIDENCE_PATH"
+            echo '```'
+          } > "$body"
+          gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+
+      - name: Cleanup transport and enforce fail-closed result
+        if: always()
+        shell: bash
+        env:
+          DIAG_RC: ${{ steps.diagnostic.outputs.rc }}
+        run: |
+          rm -f "$HOME/.ssh/id_tai_model" "$HOME/.ssh/model_known_hosts"
+          [[ "${DIAG_RC:-40}" == "0" ]]
