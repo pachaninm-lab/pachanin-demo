@@ -21,17 +21,35 @@
 
 BEGIN;
 
+-- org-b holds only two memberships in the harness, and the two-person rule
+-- needs three distinct people per authority: a holder, a granter and an
+-- independent approver. One extra membership is seeded here rather than in the
+-- harness so the identity checks keep the fixture set they were written
+-- against.
+INSERT INTO public."users"(
+  "id","email","passwordHash","fullName","status","createdAt","updatedAt"
+) VALUES
+  ('pc-user-b2','pc-b2@example.test','hash-pc-b2','Fedor','ACTIVE',now(),now());
+
+INSERT INTO public."user_orgs"(
+  "id","userId","organizationId","role","isDefault","joinedAt"
+) VALUES
+  ('pc-m-b2','pc-user-b2','org-b','FARMER',false,now());
+
+-- Every authority names three different memberships. The database refuses any
+-- other shape, which is the point of the two-person rule and the reason these
+-- fixtures cannot be written the lazy way.
 INSERT INTO public."signing_authorities"(
   "id","tenantId","organizationId","membershipId","authorityType",
   "validFrom","validTo","allowedDocumentTypes","allowedSigningModes",
-  "certificateFingerprint","grantedByMembershipId"
+  "certificateFingerprint","grantedByMembershipId","secondApprovalMembershipId"
 ) VALUES
   ('pc-sa-a','tenant-a','org-a','m-a','ORGANIZATION_HEAD',
    now() - interval '1 day', now() + interval '365 days',
-   ARRAY['UPD'], ARRAY['PROVIDER_UI'], 'pc-fp-a', 'm-a'),
+   ARRAY['UPD'], ARRAY['PROVIDER_UI'], 'pc-fp-a', 'm-staff', 'm-both-a'),
   ('pc-sa-b','tenant-b','org-b','m-b','ORGANIZATION_HEAD',
    now() - interval '1 day', now() + interval '365 days',
-   ARRAY['UPD'], ARRAY['PROVIDER_UI'], 'pc-fp-b', 'm-b');
+   ARRAY['UPD'], ARRAY['PROVIDER_UI'], 'pc-fp-b', 'pc-m-b2', 'm-both-b');
 
 INSERT INTO public."membership_delegations"(
   "id","tenantId","organizationId","fromMembershipId","toMembershipId",
