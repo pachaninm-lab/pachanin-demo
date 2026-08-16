@@ -22,7 +22,8 @@
     "scripts/platform-v7-rls-integration.sh",
     "apps/api/prisma/migrations/20260815220000_pc_crop_authority_two_person_rule/**",
     "apps/api/src/modules/auth/accounting-authority-command.policy.ts",
-    "apps/api/src/modules/auth/accounting-authority-command.policy.spec.ts"
+    "apps/api/src/modules/auth/accounting-authority-command.policy.spec.ts",
+    "apps/api/prisma/migrations/20260815230000_pc_crop_accounting_write_authority/**"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -49,7 +50,11 @@
     "A signing authority is never self-granted: the refusal keys on the user, not the membership, so one person holding two memberships cannot approve their own grant by switching hats.",
     "An ACTIVE signing authority must name a second approver who is neither the beneficiary nor the granter, and that approver must be a real membership of the same organization. Enforced by database constraints, not only by the command policy.",
     "Revoking is deliberately easier than granting: the holder may always retire their own authority with fresh MFA alone and no second approval.",
-    "A delegation can never exceed the delegator: only capabilities the actor currently holds may be passed on, so a chain of delegations loses authority but never gains it."
+    "A delegation can never exceed the delegator: only capabilities the actor currently holds may be passed on, so a chain of delegations loses authority but never gains it.",
+    "Write policies never re-implement the capability model. Who may manage an authority is decided by job profile in code; duplicating that table in SQL would create a second source of truth that drifts.",
+    "A writer cannot attribute its own act to another membership: grantedByMembershipId and createdByMembershipId must equal the writer resolved from user_orgs.",
+    "On an existing row only status and revokedAt are writable, so an authority cannot be re-pointed, widened or extended after the fact.",
+    "Neither table permits DELETE: authorities and delegations are retired by status, never removed."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -70,7 +75,9 @@
     "Deliberate sabotage of the policy (trusting the setting alone) and of the grant (adding UPDATE) each make the gate exit non-zero.",
     "Four two-person-rule violations are refused by the database: an ACTIVE authority with no approver, an approver who is the beneficiary, an approver who is the granter, and a fabricated approver id.",
     "A revoked authority may still carry a null approver, so historical rows stay writable.",
-    "Delegation escalation through a chain is refused: a delegate cannot pass on more than it received."
+    "Delegation escalation through a chain is refused: a delegate cannot pass on more than it received.",
+    "Seven write checks in the gate: own-attributed grant admitted, forged attribution refused, cross-organization write refused, revocation permitted, ceiling immutable, delete refused, delegation must flow from the writer.",
+    "Two write sabotages each make the gate exit non-zero: granting full UPDATE, and dropping the attribution condition from the insert policy."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",

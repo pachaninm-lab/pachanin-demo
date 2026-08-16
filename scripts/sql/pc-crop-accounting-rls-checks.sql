@@ -222,4 +222,138 @@ END;
 $pc_crop_accounting_checks$;
 
 RESET ROLE;
+SET ROLE pc_accounting_command_authority;
+
+DO $pc_crop_accounting_write_checks$
+DECLARE
+  failures integer := 0;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 10. A well-formed grant attributed to the writer is admitted.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."signing_authorities"(
+      "id","tenantId","organizationId","membershipId","authorityType",
+      "validFrom","validTo","allowedDocumentTypes","allowedSigningModes",
+      "certificateFingerprint","grantedByMembershipId","secondApprovalMembershipId"
+    ) VALUES (
+      'pc-w-ok','tenant-a','org-a','m-staff','ORGANIZATION_HEAD',
+      now(), now() + interval '30 days', ARRAY['UPD'], ARRAY['PROVIDER_UI'],
+      'pc-fp-w','m-a','m-both-a');
+    RAISE NOTICE 'PASS 10 own-attributed grant admitted';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 10 own-attributed grant admitted -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 11. Attributing the grant to somebody else is refused. This is the check
+  --     worth having in the database: a forged "granted by" cannot be caught
+  --     afterwards, because the audit trail is the forged field.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."signing_authorities"(
+      "id","tenantId","organizationId","membershipId","authorityType",
+      "validFrom","validTo","allowedDocumentTypes","allowedSigningModes",
+      "certificateFingerprint","grantedByMembershipId","secondApprovalMembershipId"
+    ) VALUES (
+      'pc-w-forge','tenant-a','org-a','m-staff','ORGANIZATION_HEAD',
+      now(), now() + interval '30 days', ARRAY['UPD'], ARRAY['PROVIDER_UI'],
+      'pc-fp-f','m-both-a','m-a');
+    RAISE WARNING 'FAIL 11 forged attribution refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 11 forged attribution refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 12. Writing into another organization is refused even with a real
+  --     membership somewhere else.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."signing_authorities"(
+      "id","tenantId","organizationId","membershipId","authorityType",
+      "validFrom","validTo","allowedDocumentTypes","allowedSigningModes",
+      "certificateFingerprint","grantedByMembershipId","secondApprovalMembershipId"
+    ) VALUES (
+      'pc-w-cross','tenant-b','org-b','m-b','ORGANIZATION_HEAD',
+      now(), now() + interval '30 days', ARRAY['UPD'], ARRAY['PROVIDER_UI'],
+      'pc-fp-x','m-a','m-both-b');
+    RAISE WARNING 'FAIL 12 cross-organization write refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR foreign_key_violation THEN
+      RAISE NOTICE 'PASS 12 cross-organization write refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 13. Revocation is an UPDATE of status, and it is permitted.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."signing_authorities"
+       SET "status" = 'REVOKED', "revokedAt" = now()
+     WHERE "id" = 'pc-w-ok';
+    RAISE NOTICE 'PASS 13 revocation by status update permitted';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 13 revocation by status update permitted -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 14. Everything else on an existing row is immutable. Widening the ceiling
+  --     must be refused by privilege, before any policy is consulted.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."signing_authorities"
+       SET "amountLimitKopecks" = 999999999999
+     WHERE "id" = 'pc-w-ok';
+    RAISE WARNING 'FAIL 14 amount ceiling immutable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 14 amount ceiling immutable';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 15. An authority is retired, never deleted.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."signing_authorities" WHERE "id" = 'pc-w-ok';
+    RAISE WARNING 'FAIL 15 authority cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 15 authority cannot be deleted';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 16. A delegation may only be created by the membership it flows from.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."membership_delegations"(
+      "id","tenantId","organizationId","fromMembershipId","toMembershipId",
+      "capabilities","startsAt","endsAt","createdByMembershipId"
+    ) VALUES (
+      'pc-w-del','tenant-a','org-a','m-both-a','m-staff',
+      ARRAY['accounting.package.close'], now(), now() + interval '3 days', 'm-a');
+    RAISE WARNING 'FAIL 16 delegation must flow from the writer -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 16 delegation must flow from the writer';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop accounting write authority: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: bounded write authority, 0 failures';
+END;
+$pc_crop_accounting_write_checks$;
+
+RESET ROLE;
 ROLLBACK;

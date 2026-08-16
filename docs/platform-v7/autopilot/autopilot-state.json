@@ -214,6 +214,7 @@
       "apps/api/prisma/migrations/*_pc_crop_authority_two_person_rule/**",
       "apps/api/src/modules/auth/accounting-authority-command.policy.ts",
       "apps/api/src/modules/auth/accounting-authority-command.policy.spec.ts",
+      "apps/api/prisma/migrations/*_pc_crop_accounting_write_authority/**",
       "scripts/sql/pc-crop-accounting-rls-checks.sql",
       "scripts/platform-v7-rls-integration.sh",
       "docs/ops/pc-crop-federal-accounting/**",
