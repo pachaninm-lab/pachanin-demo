@@ -38,7 +38,9 @@
     "apps/api/prisma/migrations/20260816030000_pc_crop_organization_tax_profile/**",
     "apps/api/src/modules/auth/contract-version.policy.ts",
     "apps/api/src/modules/auth/contract-version.policy.spec.ts",
-    "apps/api/prisma/migrations/20260816040000_pc_crop_contract_versions/**"
+    "apps/api/prisma/migrations/20260816040000_pc_crop_contract_versions/**",
+    "apps/api/src/modules/auth/document-format.policy.ts",
+    "apps/api/src/modules/auth/document-format.policy.spec.ts"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -99,7 +101,11 @@
     "Every amendment names the version it replaces and only the first names nothing, so the chain back to what was originally agreed is always followable.",
     "Two signed versions of one agreement in force at the same instant is refused; draft amendments may overlap freely because they govern nothing until signed.",
     "An unsigned proposal is reported as such rather than silently ignored, so it never looks identical to having no contract at all.",
-    "A version is never deleted, because an amendment points back along the chain to it."
+    "A version is never deleted, because an amendment points back along the chain to it.",
+    "The format registry is the regulatory rule registry, not a second table: a format version is a rule with an effective window, and a separate table would be a second source of truth that drifts.",
+    "Format staleness is a separate outcome from content staleness: a document whose figures are current but whose envelope is the previous format is rejected on receipt, and reporting both as one word would send somebody hunting a change that never happened.",
+    "A document type with no registered format rule is refused, never treated as needing no format; the mapping is explicit rather than derived from the type name.",
+    "A superseded format blocks transmission but not storage: the document signed last quarter is evidence exactly as it stands."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -137,7 +143,8 @@
     "Two tax profile sabotages each make the gate exit non-zero: dropping the guard, and widening the column grant to a full UPDATE.",
     "Check 56b measures rows touched rather than an exception, because the update policy makes a closed row unreachable rather than refusing it; a guard answering instead is reported as a failure of the policy layer.",
     "Nine contract checks in the gate: amendment must name its predecessor, a draft carries no signature, first signed version recorded, draft amendment coexists with the signed version, two signed versions refused, signed terms unwritable, closing and superseding permitted, delete refused, cross-organization refused.",
-    "Two contract sabotages each make the gate exit non-zero: dropping the guard, and widening the column grant."
+    "Two contract sabotages each make the gate exit non-zero: dropping the guard, and widening the column grant.",
+    "Sixteen format tests: current, superseded, missing publication, unknown type, ambiguous registry, unrecorded format, a past document judged against the format in force when it was made, and each of the five refusals on send."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",

@@ -7,12 +7,12 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T06:25:00.000Z",
+  "updatedAt": "2026-08-16T06:35:00.000Z",
   "observedMainSha": "2f4dca2d18b2301cd8936eae02b284a91ee9483d",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 8.6,
+  "overallProgressPercent": 9.1,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
   "status": "WAVE_1_AND_2_IMPLEMENTED_AWAITING_MERGE",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
@@ -130,7 +130,7 @@
       "name": "Documents / contracts / regulatory / tax profiles",
       "weightPercent": 7,
       "provenSharePercent": 60,
-      "creditedPercent": 2.8,
+      "creditedPercent": 3.3,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 4 spans seven components: server-authoritative documents, contract versions, the regulatory registry, tax profiles, a format registry, a numbering policy and signing authority. They are modelled as equal sevenths — not because they are equal in size, but because any unequal weighting would be one this agent invented, and an invented weighting is worth less than a stated flat assumption. The stage credit is multiplied by the share actually built rather than crediting the whole workstream.",
@@ -143,25 +143,25 @@
           "regulatory rule versions",
           "signing authority"
         ],
-        "componentBuilt": "signing authority (complete); regulatory rule versions; organization tax profile; contract versions (versioned terms, signed-version immutability, amendment chain); numbering policy (rules and a gapless counter; the transactional call site is not written); server-authoritative documents (persistence, immutability and staleness detection; payload generation, the creating service and API wiring are not)",
-        "componentSharePercent": 68,
+        "componentBuilt": "signing authority; regulatory rule versions; organization tax profile; contract versions; format registry (served by the rule registry plus a resolution policy — no second table by design); numbering policy (rules and a gapless counter); server-authoritative documents (persistence, immutability and staleness detection). Every component has been started; none is wired to an API.",
+        "componentSharePercent": 79,
         "notBuilt": [
           "payload generation for accounting documents",
-          "the service that resolves rule, profile and contract, numbers and issues a version inside one transaction",
-          "format registry"
+          "the service that resolves rule, profile, contract and format, numbers and issues a version inside one transaction",
+          "API wiring for every component (blocked: both principals are NOLOGIN and credential provisioning lives in infra/)"
         ],
-        "componentShareDerivation": "equal sevenths: signing authority 14.3 complete, regulatory rule versions 85% = 12.1, tax profile 85% = 12.1, contract versions 85% = 12.1, numbering 70% = 10.0, documents 55% = 7.9; total 68.5, recorded as 68 with no rounding up. The three registries are each credited at 85% because the remaining work is the call site that reads them, counted once under documents rather than four times."
+        "componentShareDerivation": "equal sevenths: signing authority 14.3 complete, format registry 90% = 12.9 (no table needed, only the call site missing), regulatory rule versions 85% = 12.1, tax profile 85% = 12.1, contract versions 85% = 12.1, numbering 70% = 10.0, documents 55% = 7.9; total 81.4 minus nothing, recorded as 79 rather than 81 because the single missing call site is shared by all seven and counting it once under documents alone understates it. No rounding up."
       },
       "milestones": {
         "implementationOnBranch": {
           "weightShare": 0.35,
           "done": true,
-          "evidence": "signing-authority, staleness, numbering, regulatory-rule-registry, organization-tax-profile and contract-version policies; six models with migrations 20260815200000 through 20260816040000"
+          "evidence": "seven policies: signing-authority, staleness, numbering, regulatory-rule-registry, organization-tax-profile, contract-version, document-format; six models with migrations 20260815200000 through 20260816040000"
         },
         "automatedAndNegativeTestsGreen": {
           "weightShare": 0.25,
           "done": true,
-          "evidence": "167 dedicated unit tests; full API suite 1521 passed / 0 failed; 67 checks in the RLS integration gate against live PostgreSQL 16; thirteen sabotages each make the gate exit non-zero; drift gate exit 0; forward-only gate passes with ten PC-CROP migrations"
+          "evidence": "183 dedicated unit tests; full API suite 1537 passed / 0 failed; 67 checks in the RLS integration gate against live PostgreSQL 16; thirteen sabotages each make the gate exit non-zero; drift gate exit 0; forward-only gate passes with ten PC-CROP migrations"
         },
         "mergedToMain": {
           "weightShare": 0.15,
@@ -354,7 +354,7 @@
   ],
   "weightCheck": {
     "sum": 100,
-    "creditedTotal": 8.6
+    "creditedTotal": 9.1
   },
   "completedEvidence": [
     {
