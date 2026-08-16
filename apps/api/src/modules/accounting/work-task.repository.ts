@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
+import { Role } from '../../common/types/request-user';
+import { resolveMembershipCapabilities } from '../auth/membership-capability.resolver';
 import {
   DerivationRefusal,
   TransitionRefusal,
@@ -92,6 +94,62 @@ function toView(row: TaskRow): WorkTaskView {
 @Injectable()
 export class WorkTaskRepository {
   constructor(private readonly transactions: RlsTransactionService) {}
+
+  /**
+   * What this actor may do, resolved from what the database knows.
+   *
+   * Never taken from the request. A caller that could state its own capability
+   * set could state ACCOUNTING_TASK_MANAGE, and every check downstream of that
+   * would be answering a question the caller had already decided.
+   */
+  private async resolveCapabilities(
+    tx: Prisma.TransactionClient,
+    now: Date,
+  ): Promise<readonly string[]> {
+    const rows = await tx.$queryRaw<
+      {
+        role: string;
+        jobProfile: string | null;
+        membershipStatus: string;
+        userStatus: string;
+        membershipId: string;
+      }[]
+    >`
+      SELECT m."role" AS role,
+             m."job_profile" AS "jobProfile",
+             m."status" AS "membershipStatus",
+             u."status" AS "userStatus",
+             m."id" AS "membershipId"
+        FROM public."user_orgs" m
+        JOIN public."users" u ON u."id" = m."userId"
+       WHERE m."id" = public.app_pc_crop_membership_id()
+    `;
+    const row = rows[0];
+    if (row === undefined) return [];
+
+    const delegations = await tx.$queryRaw<
+      { capabilities: string[] | null; startsAt: Date; endsAt: Date; status: string }[]
+    >`
+      SELECT "capabilities", "startsAt", "endsAt", "status"
+        FROM public."membership_delegations"
+       WHERE "toMembershipId" = ${row.membershipId}
+    `;
+
+    const resolved = resolveMembershipCapabilities({
+      role: row.role as Role,
+      jobProfile: row.jobProfile,
+      membershipStatus: row.membershipStatus,
+      userStatus: row.userStatus,
+      delegations: delegations.map((d) => ({
+        capabilities: d.capabilities ?? [],
+        startsAt: d.startsAt,
+        endsAt: d.endsAt,
+        status: d.status,
+      })),
+      now,
+    });
+    return [...resolved];
+  }
 
   /**
    * Read whether a verified condition is still true.
@@ -209,6 +267,26 @@ export class WorkTaskRepository {
   }
 
   /**
+   * Who is looking, as the projection needs them: their membership and what
+   * they may do, both resolved by the database.
+   */
+  async describeViewer(
+    user: RequestUser | undefined,
+  ): Promise<{ membershipId: string; capabilities: readonly string[]; now: Date }> {
+    return this.transactions.withTrustedContext(user, async (tx) => {
+      const now = new Date();
+      const rows = await tx.$queryRaw<{ membership: string | null }[]>`
+        SELECT public.app_pc_crop_membership_id() AS membership
+      `;
+      return {
+        membershipId: rows[0]?.membership ?? '',
+        capabilities: await this.resolveCapabilities(tx, now),
+        now,
+      };
+    });
+  }
+
+  /**
    * Move a task, with the caller's expected version.
    *
    * The version is required rather than optional. Two people working the same
@@ -221,7 +299,6 @@ export class WorkTaskRepository {
       taskId: string;
       to: WorkTaskStatus;
       expectedVersion: bigint;
-      actorCapabilities: readonly string[];
       resolutionEventId?: string | null;
       assignedMembershipId?: string | null;
     },
@@ -274,7 +351,7 @@ export class WorkTaskRepository {
         task: toView(row),
         to: input.to,
         actorMembershipId,
-        actorCapabilities: input.actorCapabilities,
+        actorCapabilities: await this.resolveCapabilities(tx, new Date()),
         resolutionEventId: input.resolutionEventId ?? null,
         conditionStillHolds,
       });

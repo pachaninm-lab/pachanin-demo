@@ -45,8 +45,6 @@ function actor(): RequestUser {
   };
 }
 
-const MANAGER = [Capability.ACCOUNTING_TASK_MANAGE as string];
-
 describePostgres('raising and working tasks', () => {
   beforeAll(async () => {
     prisma = new PrismaService();
@@ -68,7 +66,14 @@ describePostgres('raising and working tasks', () => {
     await prisma.$executeRaw`
       INSERT INTO public."user_orgs"
         ("id","userId","organizationId","role","isDefault","joinedAt")
+      -- A job profile, because capabilities are now resolved from the database
+      -- rather than accepted from the caller. Bookkeeper is the honest fixture:
+      -- role stays a market role, the profile is the accounting axis.
       VALUES (${MEMBERSHIP}, ${USER}, ${ORG}, 'ADMIN', true, now())
+    `;
+    await prisma.$executeRaw`
+      UPDATE public."user_orgs" SET "job_profile" = 'CHIEF_ACCOUNTANT'
+       WHERE "id" = ${MEMBERSHIP}
     `;
     await prisma.$executeRaw`
       INSERT INTO public."accounting_documents"
@@ -136,7 +141,6 @@ describePostgres('raising and working tasks', () => {
       taskId: task.id,
       to: WorkTaskStatus.RESOLVED,
       expectedVersion: task.version,
-      actorCapabilities: MANAGER,
     });
 
     expect(result.outcome).toBe(TransitionOutcome.REFUSED_BY_POLICY);
@@ -146,17 +150,25 @@ describePostgres('raising and working tasks', () => {
     expect(stillOpen).toHaveLength(1);
   });
 
-  it('refuses the policy-level failure without going to the database', async () => {
+  it('refuses a membership with no accounting profile, whatever it claims', async () => {
+    // No job profile: the resolver grants nothing in this contour. The request
+    // carries no capability list to argue with, which is the point.
+    await prisma.$executeRaw`
+      UPDATE public."user_orgs" SET "job_profile" = NULL WHERE "id" = ${MEMBERSHIP}
+    `;
     const [task] = await repo.listOpen(actor());
     const result = await repo.transition(actor(), {
       taskId: task.id,
-      to: WorkTaskStatus.RESOLVED,
+      to: WorkTaskStatus.IN_PROGRESS,
       expectedVersion: task.version,
-      actorCapabilities: [],
     });
+    await prisma.$executeRaw`
+      UPDATE public."user_orgs" SET "job_profile" = 'CHIEF_ACCOUNTANT'
+       WHERE "id" = ${MEMBERSHIP}
+    `;
 
     expect(result.outcome).toBe(TransitionOutcome.REFUSED_BY_POLICY);
-    expect(result.refusals.length).toBeGreaterThan(0);
+    expect(result.refusals).toContain('ACTOR_LACKS_TASK_MANAGE');
   });
 
   it('loses a stale version rather than overwriting the other person', async () => {
@@ -166,7 +178,6 @@ describePostgres('raising and working tasks', () => {
       taskId: task.id,
       to: WorkTaskStatus.IN_PROGRESS,
       expectedVersion: task.version,
-      actorCapabilities: MANAGER,
     });
     expect(moved.outcome).toBe(TransitionOutcome.MOVED);
 
@@ -175,7 +186,6 @@ describePostgres('raising and working tasks', () => {
       taskId: task.id,
       to: WorkTaskStatus.WAITING_COUNTERPARTY,
       expectedVersion: task.version,
-      actorCapabilities: MANAGER,
     });
     expect(stale.outcome).toBe(TransitionOutcome.VERSION_CONFLICT);
   });
@@ -185,7 +195,6 @@ describePostgres('raising and working tasks', () => {
       taskId: `${RUN}.absent`,
       to: WorkTaskStatus.IN_PROGRESS,
       expectedVersion: 0n,
-      actorCapabilities: MANAGER,
     });
     expect(result.outcome).toBe(TransitionOutcome.TASK_NOT_FOUND);
   });
@@ -216,7 +225,6 @@ describePostgres('raising and working tasks', () => {
       taskId: task.id,
       to: WorkTaskStatus.RESOLVED,
       expectedVersion: task.version,
-      actorCapabilities: MANAGER,
     });
     expect(result.outcome).toBe(TransitionOutcome.MOVED);
 

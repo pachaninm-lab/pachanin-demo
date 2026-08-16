@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -6,6 +6,7 @@ import type { RequestUser } from '../../common/types/request-user';
 import { AccountingDocumentVersionRepository } from './accounting-document-version.repository';
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
+import { AudienceView, projectFor } from './work-task-projection.policy';
 import { WorkTaskStatus } from './work-task.policy';
 import { WorkTaskRepository } from './work-task.repository';
 
@@ -88,7 +89,6 @@ export class AccountingController {
     body: {
       to: WorkTaskStatus;
       expectedVersion: string;
-      capabilities?: readonly string[];
       resolutionEventId?: string | null;
       assignedMembershipId?: string | null;
     },
@@ -97,12 +97,12 @@ export class AccountingController {
       taskId,
       to: body.to,
       expectedVersion: BigInt(body.expectedVersion),
-      actorCapabilities: body.capabilities ?? [],
       resolutionEventId: body.resolutionEventId ?? null,
       assignedMembershipId: body.assignedMembershipId ?? null,
-      // Deliberately not taken from the body. Whether the condition still holds
-      // is a fact about the world, and the database checks it; a caller that
-      // could assert it here would be back to closing tasks by agreeing.
+      // Neither the capabilities nor whether the condition still holds are
+      // taken from the body. Both are facts the server can read, and a caller
+      // who could state either would be deciding the question being asked of
+      // them.
     });
   }
 
@@ -114,5 +114,34 @@ export class AccountingController {
   @Post('tasks/derive')
   derive(@CurrentUser() user: RequestUser) {
     return this.deriver.deriveUnsignedDocuments(user);
+  }
+
+  /**
+   * The same tasks, shaped for who is reading them.
+   *
+   * A farmer gets one sentence, a director gets the decisions with the
+   * counterparty and the amount, a bookkeeper gets the queue. Not three
+   * filters over one table: three different questions.
+   */
+  @Get('tasks/projection')
+  async projection(
+    @CurrentUser() user: RequestUser,
+    @Query('view') view?: string,
+  ) {
+    const requested =
+      view === AudienceView.DECISION_QUEUE || view === AudienceView.WORK_QUEUE
+        ? view
+        : AudienceView.PRINCIPAL_SUMMARY;
+
+    const tasks = await this.tasks.listOpen(user);
+    const viewer = await this.tasks.describeViewer(user);
+    const projected = projectFor(tasks, viewer, requested);
+
+    // bigint again: the amounts have to cross JSON, and they are kopecks.
+    return JSON.parse(
+      JSON.stringify(projected, (_key, value) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    );
   }
 }
