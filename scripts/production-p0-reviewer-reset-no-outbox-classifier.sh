@@ -62,6 +62,21 @@ replacements = [
         "SOURCE_REVISION='440e40753e2cac13c93f8e007d9fe17c2b66caba'",
         1,
     ),
+    (
+        "[[ \"$source_revision\" == '7c768ad7c54523837b06999a8f69bdffe2a840db' ]]",
+        "[[ \"$source_revision\" == '440e40753e2cac13c93f8e007d9fe17c2b66caba' ]]",
+        1,
+    ),
+    (
+        "[[ \"$attempt_since\" == '2026-08-13T13:43:10Z' ]]",
+        "[[ \"$attempt_since\" == '2026-08-16T18:24:53Z' ]]",
+        1,
+    ),
+    (
+        "[[ \"$attempt_until\" == '2026-08-13T13:43:26Z' ]]",
+        "[[ \"$attempt_until\" == '2026-08-16T18:28:00Z' ]]",
+        1,
+    ),
     ("- source reset run: \\`$SOURCE_RUN_ID\\`", "- source reset evidence comment: \\`$SOURCE_RUN_ID\\`", 2),
 ]
 for old, new, expected in replacements:
@@ -81,6 +96,9 @@ required = [
     "ATTEMPT_SINCE='2026-08-16T18:24:53Z'",
     "ATTEMPT_UNTIL='2026-08-16T18:28:00Z'",
     "SOURCE_REVISION='440e40753e2cac13c93f8e007d9fe17c2b66caba'",
+    "[[ \"$source_revision\" == '440e40753e2cac13c93f8e007d9fe17c2b66caba' ]]",
+    "[[ \"$attempt_since\" == '2026-08-16T18:24:53Z' ]]",
+    "[[ \"$attempt_until\" == '2026-08-16T18:28:00Z' ]]",
 ]
 missing = [item for item in required if item not in text]
 if missing:
@@ -92,6 +110,9 @@ bash -n "$TEMP_SCRIPT"
 grep -Fq "reason = 'COOLDOWN_ACTIVE'" "$TEMP_SCRIPT"
 grep -Fq "reason = 'DELIVERY_BOUNDARY_REJECTED'" "$TEMP_SCRIPT"
 grep -Fq "reason = 'UNIVERSAL_NON_ELIGIBLE'" "$TEMP_SCRIPT"
+grep -Fq "[[ \"\$source_revision\" == '440e40753e2cac13c93f8e007d9fe17c2b66caba' ]]" "$TEMP_SCRIPT"
+grep -Fq "[[ \"\$attempt_since\" == '2026-08-16T18:24:53Z' ]]" "$TEMP_SCRIPT"
+grep -Fq "[[ \"\$attempt_until\" == '2026-08-16T18:28:00Z' ]]" "$TEMP_SCRIPT"
 
 guard_main
 export PC_REVIEWER_RESET_ATTEMPT_COMMAND="$COMMAND"
