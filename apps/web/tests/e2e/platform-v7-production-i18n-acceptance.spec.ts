@@ -143,7 +143,9 @@ async function expectProductionHomepageDesignGates(page: Page, viewport: Accepta
         && rect.top >= host.top - 1
         && rect.bottom <= host.bottom + 1
       )),
-      scrollFits: element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
+      scrollFits:
+        clippingHost.scrollWidth <= clippingHost.clientWidth + 1
+        && clippingHost.scrollHeight <= clippingHost.clientHeight + 1,
     };
   });
   expect(brandGeometry.fontSize).toBeGreaterThanOrEqual(14);

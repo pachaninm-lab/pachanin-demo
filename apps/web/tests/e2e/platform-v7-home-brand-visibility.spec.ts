@@ -30,7 +30,9 @@ async function expectBrandFullyVisible(page: Page) {
           && rect.top >= host.top - 1
           && rect.bottom <= host.bottom + 1
         )),
-      scrollFits: element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
+      scrollFits:
+        clippingHost.scrollWidth <= clippingHost.clientWidth + 1
+        && clippingHost.scrollHeight <= clippingHost.clientHeight + 1,
     };
   });
 
