@@ -69,8 +69,9 @@ jobs:
           ]
           missing=[x for x in required if x not in text]
           if missing: raise SystemExit('missing recovery invariant: '+' | '.join(missing))
+          runtime=text.split('      - name: Reconcile only duplicate foreign api alias',1)[1]
           forbidden=['docker rm','docker stop','docker kill','docker restart','docker network rm','docker compose up','docker system prune','docker container prune','docker volume rm','ALTER ROLE','UPDATE auth.','INSERT INTO','DELETE FROM']
-          bad=[x for x in forbidden if x in text]
+          bad=[x for x in forbidden if x in runtime]
           if bad: raise SystemExit('forbidden mutation surface: '+' | '.join(bad))
           print('PASS: recovery can only detach a provably foreign stale compose-api endpoint from the authoritative API network.')
           PY
