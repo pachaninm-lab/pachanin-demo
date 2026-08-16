@@ -7,12 +7,12 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T19:30:00.000Z",
+  "updatedAt": "2026-08-16T19:50:00.000Z",
   "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 11.3,
+  "overallProgressPercent": 11.8,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
   "status": "ACCOUNTING_CORE_GREEN_IN_CI_WORK_TASK_ON_BRANCH",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
@@ -189,7 +189,7 @@
       "name": "Accounting task engine / UX / projections",
       "weightPercent": 6,
       "provenSharePercent": 35,
-      "creditedPercent": 0.34,
+      "creditedPercent": 0.76,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 5 spans six components: the task model with its closing rules, the deriver that raises tasks from live sources, a repository and API surface, the dashboard itself, the per-role projections, and the KPI and tab read models. Modelled as equal sixths — a stated flat assumption rather than a weighting this agent invented.",
@@ -201,12 +201,12 @@
           "accountant, director, seller and buyer projections",
           "KPI counters and tab read models"
         ],
-        "componentBuilt": "The first component only: the table, the guard that refuses to close a derived task on assent, the pure policy for transitions, assignment, buckets and the task card, and eleven RLS gate checks. The remaining five are not built, and four of them need apps/web, which is outside the granted scope.",
-        "componentSharePercent": 16,
-        "componentShareDerivation": "one of six equal components, 16.7, recorded as 16 without rounding up.",
+        "componentBuilt": "The task model with its closing rules, a repository that raises idempotently and moves a task under an expected version, the first deriver, and three API routes. The dashboard, the role projections and the KPI read models are not built, and all three need apps/web, which is outside the granted scope.",
+        "componentSharePercent": 36,
+        "componentShareDerivation": "six equal components scored individually: model and closing rules 100, deriver 15 (one condition of eight registered types), repository and API 85 (list, transition, derive; no manual-task creation route), dashboard 0, role projections 0, KPI and tab read models 20 (bucket classification exists as a pure function, with no read model behind it). Sum 220 over six is 36.7, recorded as 36 without rounding up.",
         "notBuilt": [
-          "the deriver: nothing yet raises a task from a live source, so the table fills only when something writes to it",
-          "repository and controller for tasks",
+          "seven of the eight registered derived types have no deriver: only DOCUMENT_NOT_SIGNED is raised, because it is the only condition the database can also verify, and raising the rest now would create tasks nothing can close",
+          "no route to create a manual task",
           "every screen — apps/web is outside the granted scope",
           "role projections and KPI read models"
         ]
@@ -215,7 +215,7 @@
         "implementationOnBranch": {
           "weightShare": 0.35,
           "done": true,
-          "evidence": "migration 20260816190000, work-task.policy.ts, 32 unit contracts, 16 PostgreSQL acceptance tests, RLS gate checks 68-78"
+          "evidence": "migration 20260816190000, work-task.policy.ts, work-task.repository.ts, work-task.deriver.ts, three controller routes; 32 unit contracts, 23 PostgreSQL acceptance tests across two suites, RLS gate checks 68-78"
         },
         "automatedAndNegativeTestsGreen": {
           "weightShare": 0.25,

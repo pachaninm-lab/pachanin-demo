@@ -1,10 +1,13 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import type { RequestUser } from '../../common/types/request-user';
 import { AccountingDocumentVersionRepository } from './accounting-document-version.repository';
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
+import { WorkTaskDeriver } from './work-task.deriver';
+import { WorkTaskStatus } from './work-task.policy';
+import { WorkTaskRepository } from './work-task.repository';
 
 /**
  * The minimum surface the accounting contour needs to be reachable.
@@ -27,6 +30,8 @@ export class AccountingController {
   constructor(
     private readonly snapshots: AccountingSourceSnapshotRepository,
     private readonly versions: AccountingDocumentVersionRepository,
+    private readonly tasks: WorkTaskRepository,
+    private readonly deriver: WorkTaskDeriver,
   ) {}
 
   /**
@@ -53,5 +58,61 @@ export class AccountingController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.versions.create(user, { documentId, at: new Date() });
+  }
+
+  /**
+   * What is outstanding for this organization, most urgent first.
+   *
+   * Serialised by hand because a task carries a bigint version and JSON has no
+   * bigint. Letting the default serialiser reach it would throw at runtime on
+   * the first task ever listed.
+   */
+  @Get('tasks')
+  async listTasks(@CurrentUser() user: RequestUser) {
+    const tasks = await this.tasks.listOpen(user);
+    return tasks.map((task) => ({ ...task, version: task.version.toString() }));
+  }
+
+  /**
+   * Move a task, carrying the version the caller read.
+   *
+   * The version is required. Two people working one task from two screens is
+   * ordinary in an accounting department, and without it the later write
+   * silently discards the earlier decision.
+   */
+  @Post('tasks/:taskId/transition')
+  transition(
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      to: WorkTaskStatus;
+      expectedVersion: string;
+      capabilities?: readonly string[];
+      resolutionEventId?: string | null;
+      assignedMembershipId?: string | null;
+    },
+  ) {
+    return this.tasks.transition(user, {
+      taskId,
+      to: body.to,
+      expectedVersion: BigInt(body.expectedVersion),
+      actorCapabilities: body.capabilities ?? [],
+      resolutionEventId: body.resolutionEventId ?? null,
+      assignedMembershipId: body.assignedMembershipId ?? null,
+      // Deliberately not taken from the body. Whether the condition still holds
+      // is a fact about the world, and the database checks it; a caller that
+      // could assert it here would be back to closing tasks by agreeing.
+    });
+  }
+
+  /**
+   * Raise tasks for whatever is outstanding right now.
+   *
+   * Idempotent: a condition already raised stays one task.
+   */
+  @Post('tasks/derive')
+  derive(@CurrentUser() user: RequestUser) {
+    return this.deriver.deriveUnsignedDocuments(user);
   }
 }

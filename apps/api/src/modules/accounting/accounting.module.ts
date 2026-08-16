@@ -3,6 +3,8 @@ import { PrismaModule } from '../../common/prisma/prisma.module';
 import { AccountingController } from './accounting.controller';
 import { AccountingDocumentVersionRepository } from './accounting-document-version.repository';
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
+import { WorkTaskDeriver } from './work-task.deriver';
+import { WorkTaskRepository } from './work-task.repository';
 
 /**
  * The accounting contour, wired.
@@ -19,10 +21,14 @@ import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot
   providers: [
     AccountingSourceSnapshotRepository,
     AccountingDocumentVersionRepository,
+    WorkTaskRepository,
+    WorkTaskDeriver,
   ],
   exports: [
     AccountingSourceSnapshotRepository,
     AccountingDocumentVersionRepository,
+    WorkTaskRepository,
+    WorkTaskDeriver,
   ],
 })
 export class AccountingModule {}
