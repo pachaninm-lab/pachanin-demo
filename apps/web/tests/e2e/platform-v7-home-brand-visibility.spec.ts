@@ -50,7 +50,34 @@ async function expectHeaderControls(page: Page) {
   }
 }
 
-test.describe('Platform V7 strategic homepage mobile brand visibility', () => {
+async function expectMobileHeroFirstViewport(page: Page) {
+  const heading = page.locator('#pc-v6-title');
+  await expect(heading).toBeVisible();
+  const lineCount = await heading.evaluate((node) => {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const rects = Array.from(range.getClientRects())
+      .filter((rect) => rect.width > 0 && rect.height > 0);
+    const uniqueLineTops: number[] = [];
+    for (const rect of rects) {
+      if (!uniqueLineTops.some((top) => Math.abs(top - rect.top) <= 1)) {
+        uniqueLineTops.push(rect.top);
+      }
+    }
+    return uniqueLineTops.length;
+  });
+  expect(lineCount, '320px Hero H1 line count').toBeGreaterThanOrEqual(1);
+  expect(lineCount, '320px Hero H1 line count').toBeLessThanOrEqual(5);
+
+  const primary = page.locator('.pc-v6-actions .pc-v6-primary').first();
+  await expect(primary).toBeVisible();
+  const primaryBox = await primary.boundingBox();
+  expect(primaryBox, 'primary Hero CTA bounding box').not.toBeNull();
+  expect(primaryBox!.top, 'primary Hero CTA top').toBeGreaterThanOrEqual(0);
+  expect(primaryBox!.y + primaryBox!.height, 'primary Hero CTA bottom').toBeLessThanOrEqual(701);
+}
+
+test.describe('Platform V7 strategic homepage mobile design gates', () => {
   for (const width of [320, 375, 390, 430]) {
     test(`${width}px keeps the full canonical brand and header controls visible`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
@@ -67,4 +94,18 @@ test.describe('Platform V7 strategic homepage mobile brand visibility', () => {
       expect(overflow).toBeLessThanOrEqual(1);
     });
   }
+
+  test('320x700 keeps H1 within five lines and the primary Hero CTA above the fold', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+
+    await expectMobileHeroFirstViewport(page);
+
+    const overflow = await page.evaluate(() => Math.max(
+      document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      document.body.scrollWidth - document.body.clientWidth,
+    ));
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
 });
