@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-home-cjk-inline-typography-2198-r2",
+  "branch": "fix/p7-home-cjk-inline-typography-2198-r2",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "2078a9201259e3371d06673509d0dca357832bac"
+  },
+  "purpose": "Keep the bounded CJK typography fix synchronized with current main after concurrent PC-CROP password-reset migration #4279. Provide the required local CJK system-font stack and zero letter spacing without remote fonts, legacy render-blocking typography imports, copy changes, layout changes or product redesign. Ensure the focused CJK regression is executed by the existing web-unit gate rather than merely existing in source.",
+  "allowedPaths": [
+    ".github/workflows/web-unit.yml",
+    "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+    "apps/web/styles/platform-v7-public-cjk-runtime.css",
+    "apps/web/tests/unit/platformV7PublicCjkTypography.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-home-cjk-inline-typography-2198-r2.json"
+  ],
+  "evidence": {
+    "productionRun": 31947878003,
+    "productionState": "NOT_ATTESTED_DUE_TO_EARLIER_SERIAL_FAILURE",
+    "sourceContract": "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts requires PingFang SC, Noto Sans SC or Microsoft YaHei on .pc-v7-public-entry for zh",
+    "precedingFix": "PR #4277 merged as 4a97c573ee6e7627ffb306873644bf0ed70fda4f",
+    "concurrentMain": "2078a9201259e3371d06673509d0dca357832bac changes only apps/api/prisma/migrations/20260816161500_p0_password_reset_challenge_runtime_grant/migration.sql; design/i18n overlap = none",
+    "testExecutionGap": ".github/workflows/web-unit.yml enumerates unit tests explicitly, so platformV7PublicCjkTypography.test.ts is included in that list"
+  },
+  "forbiddenChanges": [
+    "approved master copy, hierarchy, sizing, spacing, breakpoints or interaction design",
+    "production i18n acceptance allowlist or fail-closed criteria",
+    "authentication, registration, MFA, authorization, RBAC, RLS, tenant or organization authority",
+    "API, database, Deal, money, evidence or business-state authority beyond accepting current main as merge parent",
+    "Gekta model, prompt, inference, latency or entitlement semantics",
+    "release credentials, DNS, SSH, Docker, Caddy or direct REG.RU mutation",
+    "remote font downloads or new paid/recurring services"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "focused CJK typography unit contract executed by web-unit",
+    "web-unit, typecheck and build",
+    "design-system, security and governance gates on synchronized exact head",
+    "production i18n acceptance on a deployed descendant before claiming production PASS"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "Previous exact-head checks remain historical evidence only after main drift. Final merge requires checks on the synchronized head containing current main."
+}
