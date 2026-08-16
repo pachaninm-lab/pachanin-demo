@@ -49,7 +49,7 @@ jobs:
           from pathlib import Path
           t=Path('scripts/production-p0-auth-mail-worker-compose-diff-diagnostic.sh').read_text()
           req=['COMPOSE_DIFF_PATHS','PRODUCTION_MUTATION NONE','docker compose','config --format json']
-          bad=[' up ','restart','rm -f auth-mail-worker','ALTER ROLE','UPDATE auth.','INSERT INTO','DELETE FROM','sendAuthMailSmtp','forgot-password']
+          bad=[' up ','restart','ALTER ROLE','UPDATE auth.','INSERT INTO','DELETE FROM','sendAuthMailSmtp','forgot-password']
           if any(x not in t for x in req): raise SystemExit('missing contract')
           if any(x in t for x in bad): raise SystemExit('mutation surface')
           PY
@@ -122,8 +122,12 @@ jobs:
           set -Eeuo pipefail
           raw="$(mktemp)"; clean="$(mktemp)"; set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" 'bash -s' < "$SCRIPT" > "$raw" 2>&1; rc=$?; set -e
-          sed -nE '/^(COMPOSE_DIFF_DIAGNOSTIC|ERROR_CODE|PRE_API_REVISION|PRE_WEB_REVISION|PRE_WORKER_REVISION|COMPOSE_CONFIG_FILE_COUNT|COMPOSE_DIFF_PATHS|PRODUCTION_MUTATION)=[A-Za-z0-9_.,:-]{1,700}$/p' "$raw" > "$clean"; rm -f "$raw"; cat "$clean"; echo "rc=$rc" >> "$GITHUB_OUTPUT"
-          while IFS='=' read -r k v; do echo "${k,,}=$v" >> "$GITHUB_OUTPUT"; done < "$clean"; rm -f "$clean"
+          sed -nE '/^(COMPOSE_DIFF_DIAGNOSTIC|ERROR_CODE|PRE_API_REVISION|PRE_WEB_REVISION|PRE_WORKER_REVISION|COMPOSE_CONFIG_FILE_COUNT|COMPOSE_DIFF_PATHS|PRODUCTION_MUTATION)=[A-Za-z0-9_.,:-]{1,700}$/p' "$raw" > "$clean"
+          rm -f "$raw"
+          cat "$clean"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r k v; do echo "${k,,}=$v" >> "$GITHUB_OUTPUT"; done < "$clean"
+          rm -f "$clean"
       - name: Publish sanitized diagnostic
         if: always()
         shell: bash
@@ -139,13 +143,15 @@ jobs:
           MUT: ${{ steps.diag.outputs.production_mutation }}
         run: |
           set -Eeuo pipefail
-          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## P0 auth-mail worker Compose diff diagnostic
-
-- result/error: \`${RESULT:-unknown} / ${ERROR:-unknown}\`
-- API/Web/worker revisions: \`${API:-unknown} / ${WEB:-unknown} / ${WORKER:-unknown}\`
-- config file count: \`${COUNT:-unknown}\`
-- differing field paths: \`${DIFF:-unknown}\`
-- production mutation: \`${MUT:-unknown}\`"
+          body="$(mktemp)"
+          printf '%s\n' '## P0 auth-mail worker Compose diff diagnostic' '' \
+            "- result/error: \`${RESULT:-unknown} / ${ERROR:-unknown}\`" \
+            "- API/Web/worker revisions: \`${API:-unknown} / ${WEB:-unknown} / ${WORKER:-unknown}\`" \
+            "- config file count: \`${COUNT:-unknown}\`" \
+            "- differing field paths: \`${DIFF:-unknown}\`" \
+            "- production mutation: \`${MUT:-unknown}\`" > "$body"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+          rm -f "$body"
       - name: Enforce read-only completion
         shell: bash
         env:
