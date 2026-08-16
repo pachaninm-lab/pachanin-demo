@@ -49,14 +49,32 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          file='.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml'
-          grep -Fq 'PRODUCTION_MUTATION: `NONE`' "$file"
-          grep -Fq 'StrictHostKeyChecking=yes' "$file"
-          grep -Fq 'docker inspect' "$file"
-          if grep -Eq 'docker (restart|rm|stop|kill|compose|service)|INSERT INTO|UPDATE auth\.|DELETE FROM|TRUNCATE |ALTER ROLE|MAIL FROM|RCPT TO|/api/auth/forgot-password|--request POST|-X POST|--data-binary' "$file"; then
-            echo 'forbidden mutation surface detected' >&2
-            exit 1
-          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml')
+          text = path.read_text(encoding='utf-8')
+          required = [
+              'PRODUCTION_MUTATION: `NONE`',
+              'StrictHostKeyChecking=yes',
+              'docker inspect',
+              'AUTH_MAIL_WORKER_REVISION',
+              '/production p0-runtime-revision-parity-diagnostic current-runtime',
+          ]
+          missing = [item for item in required if item not in text]
+          if missing:
+              raise SystemExit('missing invariant: ' + ' | '.join(missing))
+          forbidden = [
+              'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',
+              'docker ' + 'kill', 'docker ' + 'compose', 'docker ' + 'service',
+              'INSERT ' + 'INTO', 'UPDATE ' + 'auth.', 'DELETE ' + 'FROM',
+              'TRUNCATE ' + 'TABLE', 'ALTER ' + 'ROLE', 'MAIL ' + 'FROM',
+              'RCPT ' + 'TO', '/api/auth/' + 'forgot-password',
+              '--request ' + 'POST', '-X ' + 'POST', '--data-' + 'binary',
+          ]
+          bad = [item for item in forbidden if item in text]
+          if bad:
+              raise SystemExit('forbidden mutation surface: ' + ' | '.join(bad))
+          PY
 
       - name: Verify exact owner-issued provenance
         if: github.event_name == 'issue_comment'
@@ -241,17 +259,8 @@ jobs:
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           for rev in "$api" "$web" "$worker"; do git cat-file -e "${rev}^{commit}"; done
 
-          gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body "## Production P0 runtime revision parity diagnostic
-
-- exact main: \`$TARGET_SHA\`
-- API revision: \`$api\`
-- Web revision: \`$web\`
-- auth-mail-worker revision: \`$worker\`
-- auth-mail-worker state: \`$state\`
-- auth-mail-worker health: \`$health\`
-- revision parity: \`$parity\`
-- reviewer identity exposure: \`NONE\`
-- PRODUCTION_MUTATION: \`NONE\`" >/dev/null
+          printf -v comment_body '## Production P0 runtime revision parity diagnostic\n\n- exact main: `%s`\n- API revision: `%s`\n- Web revision: `%s`\n- auth-mail-worker revision: `%s`\n- auth-mail-worker state: `%s`\n- auth-mail-worker health: `%s`\n- revision parity: `%s`\n- reviewer identity exposure: `NONE`\n- PRODUCTION_MUTATION: `NONE`' "$TARGET_SHA" "$api" "$web" "$worker" "$state" "$health" "$parity"
+          gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body "$comment_body" >/dev/null
 
           echo "API_REVISION=$api"
           echo "WEB_REVISION=$web"
