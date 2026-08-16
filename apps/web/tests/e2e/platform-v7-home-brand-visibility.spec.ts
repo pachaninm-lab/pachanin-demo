@@ -10,20 +10,26 @@ async function expectBrandFullyVisible(page: Page) {
     const host = element.getBoundingClientRect();
     const range = document.createRange();
     range.selectNodeContents(element);
-    const text = range.getBoundingClientRect();
+    const lineRects = Array.from(range.getClientRects())
+      .filter((rect) => rect.width > 0 && rect.height > 0);
     const style = window.getComputedStyle(element);
     return {
       fontSize: Number.parseFloat(style.fontSize),
+      lineRectCount: lineRects.length,
       textInside:
-        text.left >= host.left - 1
-        && text.right <= host.right + 1
-        && text.top >= host.top - 1
-        && text.bottom <= host.bottom + 1,
+        lineRects.length > 0
+        && lineRects.every((rect) => (
+          rect.left >= host.left - 1
+          && rect.right <= host.right + 1
+          && rect.top >= host.top - 1
+          && rect.bottom <= host.bottom + 1
+        )),
       scrollFits: element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
     };
   });
 
   expect(geometry.fontSize).toBeGreaterThanOrEqual(14);
+  expect(geometry.lineRectCount).toBeGreaterThanOrEqual(1);
   expect(geometry.textInside).toBe(true);
   expect(geometry.scrollFits).toBe(true);
 }
