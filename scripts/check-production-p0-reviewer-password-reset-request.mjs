@@ -7,6 +7,7 @@ const controllerPath = 'apps/api/src/modules/auth/auth.controller.ts';
 const controllerSpecPath = 'apps/api/src/modules/auth/auth.controller.password-reset.spec.ts';
 const migrationPath = 'apps/api/prisma/migrations/20260812154500_p0_reviewer_password_reset_subject/migration.sql';
 const scopePath = 'docs/security/p0-reviewer-password-reset-request-3785.json';
+const concurrentScopePath = 'docs/platform-v7/autopilot/scopes/p0-reviewer-reset-durable-outbox-evidence-3785.json';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const workflow = read(workflowPath);
@@ -15,6 +16,7 @@ const controller = read(controllerPath);
 const controllerSpec = read(controllerSpecPath);
 const migration = read(migrationPath);
 const scope = JSON.parse(read(scopePath));
+const concurrentScope = JSON.parse(read(concurrentScopePath));
 
 const requireAll = (label, haystack, needles) => {
   for (const needle of needles) {
@@ -41,6 +43,7 @@ requireAll('workflow', workflow, [
   controllerPath,
   controllerSpecPath,
   scopePath,
+  concurrentScopePath,
   'PC_PROD_SSH_HOST_FINGERPRINT',
 ]);
 rejectAll('workflow', workflow, [
@@ -88,7 +91,7 @@ requireAll('script', script, [
   'x-correlation-id: $correlation_id',
   'Origin: $live_base',
   '--data-binary "@$request_body"',
-  "label=com.docker.compose.service=auth-mail-worker",
+  'label=com.docker.compose.service=auth-mail-worker',
   "[[ \"$worker_state\" == 'running' ]]",
   "[[ \"$worker_health\" == 'healthy' ]]",
   "AUTH_MAIL_DATABASE_URL_FILE || '/run/pc-auth-mail/database-url'",
@@ -159,6 +162,32 @@ if (scope.secretsInActions !== 'FORBIDDEN') throw new Error('scope must forbid r
 if (scope.terminalSuccess?.durableOutbox !== 'SENT') throw new Error('scope terminal durable outbox status invalid');
 if (!Array.isArray(scope.forbidden) || !scope.forbidden.includes('AUTH_MAIL_PAYLOAD_DECRYPTION_FOR_EVIDENCE')) {
   throw new Error('scope must forbid payload decryption for evidence');
+}
+
+const expectedAllowedPaths = [
+  workflowPath,
+  controllerPath,
+  controllerSpecPath,
+  scopePath,
+  concurrentScopePath,
+  checkerPath,
+  scriptPath,
+].sort();
+if (concurrentScope.schemaVersion !== 'platform-v7.concurrent-scope.v1') throw new Error('concurrent scope schema invalid');
+if (concurrentScope.branch !== 'fix/p0-reviewer-reset-durable-outbox-evidence-3785') throw new Error('concurrent scope branch invalid');
+if (concurrentScope.status !== 'active' || concurrentScope.issue !== 3785 || concurrentScope.releaseIssue !== 3072) {
+  throw new Error('concurrent scope authority invalid');
+}
+if (JSON.stringify([...concurrentScope.allowedPaths].sort()) !== JSON.stringify(expectedAllowedPaths)) {
+  throw new Error('concurrent scope allowedPaths mismatch');
+}
+const b = concurrentScope.boundaries || {};
+if (!b.registrationOnly || !b.reviewerAccessOnly || !b.ownerOnlyOperationalTrigger || !b.exactMainGuard) {
+  throw new Error('concurrent scope operational boundary invalid');
+}
+if (b.newRecurringCostRub !== 0 || b.directPasswordWrite || b.directMfaWrite || b.roleOrTenantMutation
+    || b.authMailPayloadDecryptionForEvidence || b.reviewerPiiOutput || b.credentialOutput || b.rawLogOutput || b.sshHostKeyBypass) {
+  throw new Error('concurrent scope security boundary invalid');
 }
 
 console.log('production P0 reviewer password-reset durable-outbox contract PASS');
