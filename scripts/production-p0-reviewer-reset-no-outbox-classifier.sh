@@ -73,9 +73,9 @@ for old, _new, _expected in replacements:
     if old in text:
         raise SystemExit('PATCH_AUTHORITY_OLD_VALUE_REMAINS')
 required = [
-    "UNIVERSAL_REASON='UNIVERSAL_NON_ELIGIBLE'",
-    "COOLDOWN_REASON='COOLDOWN_ACTIVE'",
-    "DELIVERY_BOUNDARY_REASON='DELIVERY_BOUNDARY_REJECTED'",
+    "reason = 'COOLDOWN_ACTIVE'",
+    "reason = 'DELIVERY_BOUNDARY_REJECTED'",
+    "reason = 'UNIVERSAL_NON_ELIGIBLE'",
     "ATTEMPT_COMMAND='/production p0-reviewer-reset-no-outbox-classify current-main'",
     "SOURCE_RUN_ID='5308999892'",
     "ATTEMPT_SINCE='2026-08-16T18:24:53Z'",
@@ -89,9 +89,9 @@ path.write_text(text, encoding='utf-8')
 PY
 
 bash -n "$TEMP_SCRIPT"
-[[ "$(grep -Fc "UNIVERSAL_REASON='UNIVERSAL_NON_ELIGIBLE'" "$TEMP_SCRIPT")" == '1' ]]
-[[ "$(grep -Fc "COOLDOWN_REASON='COOLDOWN_ACTIVE'" "$TEMP_SCRIPT")" == '1' ]]
-[[ "$(grep -Fc "DELIVERY_BOUNDARY_REASON='DELIVERY_BOUNDARY_REJECTED'" "$TEMP_SCRIPT")" == '1' ]]
+grep -Fq "reason = 'COOLDOWN_ACTIVE'" "$TEMP_SCRIPT"
+grep -Fq "reason = 'DELIVERY_BOUNDARY_REJECTED'" "$TEMP_SCRIPT"
+grep -Fq "reason = 'UNIVERSAL_NON_ELIGIBLE'" "$TEMP_SCRIPT"
 
 guard_main
 export PC_REVIEWER_RESET_ATTEMPT_COMMAND="$COMMAND"
