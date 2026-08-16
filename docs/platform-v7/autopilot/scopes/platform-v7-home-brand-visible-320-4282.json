@@ -9,7 +9,7 @@
     "branch": "main",
     "commit": "4a97c573ee6e7627ffb306873644bf0ed70fda4f"
   },
-  "purpose": "Close the remaining proven homepage production-design blockers and encode the explicit Final Design Project v4.0 mobile release gates: keep the full canonical brand visible at 320/375 px; enforce a 14 CSS px minimum across every visible Hero Deal-card text node; keep the 320px Hero H1 within five rendered lines; and keep the primary Hero CTA fully inside the 320x700 first viewport, while preserving controls, copy, semantics and zero horizontal overflow.",
+  "purpose": "Close the remaining proven homepage production-design blockers and encode the explicit Final Design Project v4.0 mobile release gates in both pre-merge and exact-production browser acceptance: keep the full canonical brand visible at 320/375 px; enforce a 14 CSS px minimum across every visible Hero Deal-card text node; keep the 320px Hero H1 within five rendered lines; and keep the primary Hero CTA fully inside the 320x700 first viewport, while preserving controls, copy, semantics and zero horizontal overflow.",
   "allowedPaths": [
     "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
     "apps/web/playwright.acceptance.config.ts",
@@ -17,6 +17,7 @@
     "apps/web/styles/platform-v7-home-hero-card-legibility.css",
     "apps/web/tests/e2e/platform-v7-home-brand-visibility.spec.ts",
     "apps/web/tests/e2e/platform-v7-hero-card-min14.spec.ts",
+    "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts",
     "docs/platform-v7/autopilot/scopes/platform-v7-home-brand-visible-320-4282.json"
   ],
   "evidence": {
@@ -30,7 +31,8 @@
     "heroLineCountMasterGate": "Final Design Project v4.0: one H1 must occupy no more than five lines at 320 px",
     "heroPrimaryCtaMasterGate": "Final Design Project v4.0: primary CTA must be above the fold at 320 px",
     "heroDiagnosticPr": 4285,
-    "heroDiagnosticBrowserAcceptance": "PASS on pre-sync diagnostic head 85510877ff5c4682502499d13240f9b8e32d0801"
+    "heroDiagnosticBrowserAcceptance": "PASS on pre-sync diagnostic head 85510877ff5c4682502499d13240f9b8e32d0801",
+    "productionAcceptance": "Existing Platform V7 Production i18n Acceptance now executes the same homepage design gates on EN/ZH deployed exact SHA and captures 320x700 evidence"
   },
   "forbiddenChanges": [
     "hero CTA wording or later approved homepage action-copy changes",
@@ -52,8 +54,8 @@
     "Platform V7 Design System v8 Acceptance",
     "web build/typecheck, security and governance gates",
     "resynchronize after concurrent CJK merge before final merge",
-    "production evidence before claiming production design PASS"
+    "exact deployed SHA production EN/ZH browser acceptance including the same homepage design gates before claiming production design PASS"
   ],
   "newRecurringCostRub": 0,
-  "maturityBoundary": "Source and browser acceptance are necessary but not production evidence. Final merge requires resynchronization after concurrent CJK PR #4281 and a fresh exact-head acceptance on the combined state."
+  "maturityBoundary": "Source and pre-merge browser acceptance are necessary but not production evidence. Final merge requires resynchronization after concurrent CJK PR #4281 and a fresh exact-head acceptance on the combined state; production design PASS additionally requires the existing exact-production browser workflow to pass on the deployed descendant."
 }
