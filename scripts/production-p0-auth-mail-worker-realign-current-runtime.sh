@@ -167,7 +167,8 @@ done
 
 baseline="$(mktemp)"
 merged="$(mktemp)"
-cleanup_tmp(){ rm -f -- "$baseline" "$merged" 2>/dev/null || true; }
+contract_diff="$(mktemp)"
+cleanup_tmp(){ rm -f -- "$baseline" "$merged" "$contract_diff" 2>/dev/null || true; }
 trap 'cleanup_tmp' EXIT
 "${dc[@]}" config --format json > "$baseline" || fail BASELINE_COMPOSE_RENDER_FAILED 42
 
@@ -186,21 +187,46 @@ chmod 0600 "$overlay"; chown 0:0 "$overlay"
 
 dc_target=("${dc[@]}" -f "$overlay")
 "${dc_target[@]}" config --format json > "$merged" || { rm -f -- "$overlay"; overlay=''; fail TARGET_COMPOSE_RENDER_FAILED 44; }
-python3 - "$baseline" "$merged" "$api_image" <<'PY' || { rm -f -- "$overlay"; overlay=''; fail TARGET_COMPOSE_CONTRACT_FAILED 45; }
-import json,sys,copy
+if ! python3 - "$baseline" "$merged" "$api_image" "$contract_diff" <<'PY'
+import copy,json,re,sys
 base=json.load(open(sys.argv[1],encoding='utf-8'))
 new=json.load(open(sys.argv[2],encoding='utf-8'))
 image=sys.argv[3]
+out=sys.argv[4]
 bs=(base.get('services') or {}).get('auth-mail-worker')
 ns=(new.get('services') or {}).get('auth-mail-worker')
-if not isinstance(bs,dict) or not isinstance(ns,dict): raise SystemExit(1)
-if str(ns.get('image') or '') != image: raise SystemExit(1)
-b=copy.deepcopy(bs); n=copy.deepcopy(ns)
-b['image']=image
-n['image']=image
-b.pop('pull_policy',None); n.pop('pull_policy',None)
-if b != n: raise SystemExit(1)
+diff=[]
+if not isinstance(bs,dict) or not isinstance(ns,dict):
+    diff=['service']
+else:
+    if str(ns.get('image') or '') != image:
+        diff.append('image')
+    b=copy.deepcopy(bs); n=copy.deepcopy(ns)
+    b['image']=image; n['image']=image
+    b.pop('pull_policy',None); n.pop('pull_policy',None)
+    for key in sorted(set(b) | set(n)):
+        if b.get(key) != n.get(key):
+            diff.append(str(key))
+unique=[]
+for key in diff:
+    if key not in unique:
+        unique.append(key)
+if not unique:
+    detail='NONE'
+elif all(re.fullmatch(r'[A-Za-z0-9_-]{1,64}', key) for key in unique):
+    detail='.'.join(unique)[:180]
+else:
+    detail='UNSAFE_FIELD_NAME'
+with open(out,'w',encoding='ascii') as f:
+    f.write(detail+'\n')
+raise SystemExit(1 if unique else 0)
 PY
+then
+  detail="$(tr -d '\r\n' < "$contract_diff")"
+  [[ "$detail" =~ ^[A-Za-z0-9_.-]{1,180}$ ]] || detail=UNKNOWN
+  rm -f -- "$overlay"; overlay=''
+  fail "TARGET_COMPOSE_CONTRACT_FAILED.${detail}" 45
+fi
 
 mutation_started=1
 "${dc_target[@]}" up -d --no-deps --pull never --force-recreate auth-mail-worker >/dev/null 2>&1 \
