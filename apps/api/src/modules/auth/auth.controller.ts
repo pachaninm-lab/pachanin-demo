@@ -69,9 +69,10 @@ export class AuthController {
   requestPasswordReset(
     @Body() dto: RequestPasswordResetDto,
     @Headers('x-password-reset-delivery-key') deliveryKey?: string,
+    @Headers('x-correlation-id') correlationId?: string,
     @Ip() ip?: string,
   ) {
-    return this.passwordReset.request(dto.email, ip, deliveryKey);
+    return this.passwordReset.request(dto.email, ip, deliveryKey, correlationId, dto.locale);
   }
 
   @Public()
