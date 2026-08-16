@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+const TARGET_SIZE_EPSILON = 0.001;
+
 async function expectBrandFullyVisible(page: Page) {
   const brand = page.locator("[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong");
   await expect(brand).toBeVisible();
@@ -7,7 +9,11 @@ async function expectBrandFullyVisible(page: Page) {
 
   const geometry = await brand.evaluate((node) => {
     const element = node as HTMLElement;
-    const host = element.getBoundingClientRect();
+    // Measure the rendered text against the actual clipping boundary. The strong
+    // element is its own line box and can be fractionally smaller than glyph
+    // ink; .pc-site-brand is the ancestor that may really clip the label.
+    const clippingHost = element.closest<HTMLElement>('.pc-site-brand') ?? element;
+    const host = clippingHost.getBoundingClientRect();
     const range = document.createRange();
     range.selectNodeContents(element);
     const lineRects = Array.from(range.getClientRects())
@@ -45,8 +51,11 @@ async function expectHeaderControls(page: Page) {
     await expect(control).toBeVisible();
     const box = await control.boundingBox();
     expect(box, `${selector} bounding box`).not.toBeNull();
-    expect(box!.width, `${selector} width`).toBeGreaterThanOrEqual(44);
-    expect(box!.height, `${selector} height`).toBeGreaterThanOrEqual(44);
+    // Firefox can report an exact 44 CSS px target as 43.99998 because of
+    // floating-point device-pixel conversion. Keep only a 0.001px tolerance;
+    // materially undersized targets still fail.
+    expect(box!.width, `${selector} width`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
+    expect(box!.height, `${selector} height`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
   }
 }
 
@@ -73,7 +82,7 @@ async function expectMobileHeroFirstViewport(page: Page) {
   await expect(primary).toBeVisible();
   const primaryBox = await primary.boundingBox();
   expect(primaryBox, 'primary Hero CTA bounding box').not.toBeNull();
-  expect(primaryBox!.top, 'primary Hero CTA top').toBeGreaterThanOrEqual(0);
+  expect(primaryBox!.y, 'primary Hero CTA top').toBeGreaterThanOrEqual(0);
   expect(primaryBox!.y + primaryBox!.height, 'primary Hero CTA bottom').toBeLessThanOrEqual(701);
 }
 
