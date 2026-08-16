@@ -50,6 +50,7 @@ model Organization {
   accountingDocumentVersions        AccountingDocumentVersion[]
   accountingNumberCounters          AccountingNumberCounter[]
   taxProfiles                       OrganizationTaxProfile[]
+  contractVersions                  ContractVersion[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -117,6 +118,8 @@ model UserOrg {
   accountingVersionsAuthored  AccountingDocumentVersion[] @relation("AccountingDocumentVersionAuthor")
   accountingVersionsSigned    AccountingDocumentVersion[] @relation("AccountingDocumentVersionSigner")
   taxProfilesAuthored         OrganizationTaxProfile[]    @relation("OrganizationTaxProfileAuthor")
+  contractVersionsAuthored    ContractVersion[]           @relation("ContractVersionAuthor")
+  contractVersionsSigned      ContractVersion[]           @relation("ContractVersionSigner")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -376,6 +379,54 @@ model OrganizationTaxProfile {
   @@index([organizationId, effectiveFrom])
   @@index([tenantId])
   @@map("organization_tax_profiles")
+}
+
+/// A version of the commercial terms a document was generated under.
+///
+/// A УПД states a price, a delivery basis and a payment term, all of which come
+/// from an agreement that can be amended. When it is amended the document does
+/// not become wrong — it becomes a description of terms that no longer apply,
+/// which is quieter and worse. Recording the exact version lets the platform
+/// say which.
+///
+/// A signed version is immutable, like a signed document version and for the
+/// same reason: the signature is evidence of what was agreed, and terms that
+/// move underneath it are evidence of nothing. An amendment is a new version.
+model ContractVersion {
+  id                     String  @id @default(cuid())
+  tenantId               String
+  organizationId         String
+  contractNumber         String
+  versionNumber          Int
+  status                 String  @default("DRAFT")
+  /// SHA-256 of the exact terms this version fixes.
+  termsHash              String
+  terms                  Json
+  /// The counterparty, deliberately not a foreign key: an agreement may be with
+  /// an organization that never registered here.
+  counterpartyOrgId      String?
+  dealId                 String?
+  effectiveFrom          DateTime  @db.Timestamptz(6)
+  /// Exclusive. Null means still in force.
+  effectiveTo            DateTime? @db.Timestamptz(6)
+  signedAt               DateTime? @db.Timestamptz(6)
+  signedByMembershipId   String?
+  /// Null only for the first version; every amendment names what it replaces,
+  /// so the chain back to what was originally agreed is always followable.
+  supersedesVersionNumber Int?
+  createdByMembershipId  String
+  version                BigInt   @default(0)
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy    UserOrg      @relation("ContractVersionAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  signedBy     UserOrg?     @relation("ContractVersionSigner", fields: [signedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([organizationId, contractNumber, versionNumber])
+  @@index([organizationId, contractNumber, effectiveFrom])
+  @@index([tenantId])
+  @@map("contract_versions")
 }
 
 model UkepCertificate {

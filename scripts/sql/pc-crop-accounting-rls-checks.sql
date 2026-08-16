@@ -1216,6 +1216,173 @@ BEGIN
       RAISE NOTICE 'PASS 58 cross-organization tax profile refused';
   END;
 
+  ---------------------------------------------------------------------------
+  -- Versions of the agreement. Shape checks first again: a malformed row that
+  -- also overlaps would be answered by the guard rather than by the constraint
+  -- it is meant to measure. Drafts never overlap, so the malformed ones are
+  -- drafts.
+  ---------------------------------------------------------------------------
+
+  ---------------------------------------------------------------------------
+  -- 59. An amendment that names no predecessor leaves no chain back to what
+  --     was originally agreed.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."contract_versions"(
+      "id","tenantId","organizationId","contractNumber","versionNumber","status",
+      "termsHash","terms","effectiveFrom","createdByMembershipId"
+    ) VALUES (
+      'pc-cv-orphan','tenant-a','org-a','ДП-2026/17',2,'DRAFT',
+      'sha256-t2','{}'::jsonb,'2026-07-01T00:00:00Z','m-a');
+    RAISE WARNING 'FAIL 59 an amendment must name what it replaces -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'PASS 59 an amendment must name what it replaces';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 59 an amendment must name what it replaces -> the overlap guard answered instead of the constraint (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 60. A status and a signature that disagree produce a version that reads as
+  --     signed to one check and unsigned to another.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."contract_versions"(
+      "id","tenantId","organizationId","contractNumber","versionNumber","status",
+      "termsHash","terms","effectiveFrom","signedAt","createdByMembershipId"
+    ) VALUES (
+      'pc-cv-halfsigned','tenant-a','org-a','ДП-2026/17',1,'DRAFT',
+      'sha256-t1','{}'::jsonb,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z','m-a');
+    RAISE WARNING 'FAIL 60 a draft carries no signature -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'PASS 60 a draft carries no signature';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 61. The first signed version of an agreement.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."contract_versions"(
+      "id","tenantId","organizationId","contractNumber","versionNumber","status",
+      "termsHash","terms","effectiveFrom","signedAt","signedByMembershipId",
+      "createdByMembershipId"
+    ) VALUES (
+      'pc-cv-1','tenant-a','org-a','ДП-2026/17',1,'SIGNED',
+      'sha256-t1','{"pricePerTonKopecks":"1250000"}'::jsonb,
+      '2026-01-01T00:00:00Z','2026-01-01T00:00:00Z','m-a','m-a');
+    RAISE NOTICE 'PASS 61 first signed contract version recorded';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 61 first signed contract version recorded -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 62. A draft amendment may sit alongside the signed version it proposes to
+  --     replace. That is what an amendment under negotiation is, and it
+  --     governs nothing until signed.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."contract_versions"(
+      "id","tenantId","organizationId","contractNumber","versionNumber","status",
+      "termsHash","terms","effectiveFrom","supersedesVersionNumber",
+      "createdByMembershipId"
+    ) VALUES (
+      'pc-cv-2draft','tenant-a','org-a','ДП-2026/17',2,'DRAFT',
+      'sha256-t2','{"pricePerTonKopecks":"1300000"}'::jsonb,
+      '2026-01-01T00:00:00Z',1,'m-a');
+    RAISE NOTICE 'PASS 62 a draft amendment coexists with the signed version';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 62 a draft amendment coexists with the signed version -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 63. Two signed versions in force at once makes "which price applied on
+  --     the 3rd" unanswerable.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."contract_versions"(
+      "id","tenantId","organizationId","contractNumber","versionNumber","status",
+      "termsHash","terms","effectiveFrom","signedAt","signedByMembershipId",
+      "supersedesVersionNumber","createdByMembershipId"
+    ) VALUES (
+      'pc-cv-3signed','tenant-a','org-a','ДП-2026/17',3,'SIGNED',
+      'sha256-t3','{}'::jsonb,'2026-03-01T00:00:00Z','2026-03-01T00:00:00Z','m-a',
+      1,'m-a');
+    RAISE WARNING 'FAIL 63 two signed versions in force refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 63 two signed versions in force refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 64. Terms that can move underneath a signature are evidence of nothing.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."contract_versions"
+       SET "termsHash" = 'sha256-rewritten' WHERE "id" = 'pc-cv-1';
+    RAISE WARNING 'FAIL 64 signed terms are not writable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 64 signed terms are not writable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 64 signed terms are not writable -> the column grant admitted the write and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 65. Closing the window and retiring by status is how an amendment takes
+  --     over, so both stay permitted.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."contract_versions"
+       SET "effectiveTo" = '2026-07-01T00:00:00Z', "status" = 'SUPERSEDED'
+     WHERE "id" = 'pc-cv-1';
+    RAISE NOTICE 'PASS 65 a signed version can be closed and superseded';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 65 a signed version can be closed and superseded -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 66. A version is never deleted: an amendment points back along the chain.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."contract_versions" WHERE "id" = 'pc-cv-1';
+    RAISE WARNING 'FAIL 66 a contract version cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 66 a contract version cannot be deleted';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 67. And none of it reaches another organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."contract_versions"(
+      "id","tenantId","organizationId","contractNumber","versionNumber","status",
+      "termsHash","terms","effectiveFrom","createdByMembershipId"
+    ) VALUES (
+      'pc-cv-cross','tenant-b','org-b','ДП-2026/99',1,'DRAFT',
+      'sha256-x','{}'::jsonb,'2026-01-01T00:00:00Z','m-a');
+    RAISE WARNING 'FAIL 67 cross-organization contract version refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR foreign_key_violation THEN
+      RAISE NOTICE 'PASS 67 cross-organization contract version refused';
+  END;
+
   IF failures > 0 THEN
     RAISE EXCEPTION 'pc-crop regulatory rule confinement: % check(s) failed', failures;
   END IF;

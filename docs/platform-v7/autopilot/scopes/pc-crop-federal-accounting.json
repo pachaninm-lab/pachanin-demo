@@ -35,7 +35,10 @@
     "apps/api/prisma/migrations/20260816020000_pc_crop_regulatory_rule_registry/**",
     "apps/api/src/modules/auth/organization-tax-profile.policy.ts",
     "apps/api/src/modules/auth/organization-tax-profile.policy.spec.ts",
-    "apps/api/prisma/migrations/20260816030000_pc_crop_organization_tax_profile/**"
+    "apps/api/prisma/migrations/20260816030000_pc_crop_organization_tax_profile/**",
+    "apps/api/src/modules/auth/contract-version.policy.ts",
+    "apps/api/src/modules/auth/contract-version.policy.spec.ts",
+    "apps/api/prisma/migrations/20260816040000_pc_crop_contract_versions/**"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -91,7 +94,12 @@
     "A recorded tax profile's regime, status, exemption ground and start are unwritable after insert; only the end of its window may be set, once, which is how a successor is declared.",
     "The platform decides no tax law: rates come from a resolved VAT_RATES rule version that cites its legal source, and the policy only enforces agreement between the declared status, the rule in force and what the document claims.",
     "An empty rate list means nothing is lawful, never that any rate is acceptable — the same reading applied to an empty allowed-document-type list.",
-    "An exemption must name its legal ground, and a ground cited by a non-exempt organization is refused, because both directions produce a document that cannot be checked."
+    "An exemption must name its legal ground, and a ground cited by a non-exempt organization is refused, because both directions produce a document that cannot be checked.",
+    "A signed contract version is immutable: the terms and their hash are unwritable after insert, so a signature covers a fixed agreement. An amendment is a new version.",
+    "Every amendment names the version it replaces and only the first names nothing, so the chain back to what was originally agreed is always followable.",
+    "Two signed versions of one agreement in force at the same instant is refused; draft amendments may overlap freely because they govern nothing until signed.",
+    "An unsigned proposal is reported as such rather than silently ignored, so it never looks identical to having no contract at all.",
+    "A version is never deleted, because an amendment points back along the chain to it."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -127,7 +135,9 @@
     "Ambiguity is reported rather than resolved by taking the newest version, so a document is never generated under a rule the platform picked arbitrarily.",
     "Eight tax profile checks in the gate: exemption ground required, ground refused on non-exempt, recording permitted, overlap refused, substance immutable, window closed once and not re-cut, clean successor handover, cross-organization refused.",
     "Two tax profile sabotages each make the gate exit non-zero: dropping the guard, and widening the column grant to a full UPDATE.",
-    "Check 56b measures rows touched rather than an exception, because the update policy makes a closed row unreachable rather than refusing it; a guard answering instead is reported as a failure of the policy layer."
+    "Check 56b measures rows touched rather than an exception, because the update policy makes a closed row unreachable rather than refusing it; a guard answering instead is reported as a failure of the policy layer.",
+    "Nine contract checks in the gate: amendment must name its predecessor, a draft carries no signature, first signed version recorded, draft amendment coexists with the signed version, two signed versions refused, signed terms unwritable, closing and superseding permitted, delete refused, cross-organization refused.",
+    "Two contract sabotages each make the gate exit non-zero: dropping the guard, and widening the column grant."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",
