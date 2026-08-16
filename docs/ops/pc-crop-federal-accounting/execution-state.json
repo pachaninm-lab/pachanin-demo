@@ -7,12 +7,12 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T00:18:00.000Z",
+  "updatedAt": "2026-08-16T01:05:00.000Z",
   "observedMainSha": "2f4dca2d18b2301cd8936eae02b284a91ee9483d",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 6.9,
+  "overallProgressPercent": 6.7,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
   "status": "WAVE_1_AND_2_IMPLEMENTED_AWAITING_MERGE",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
@@ -130,10 +130,10 @@
       "name": "Documents / contracts / regulatory / tax profiles",
       "weightPercent": 7,
       "provenSharePercent": 60,
-      "creditedPercent": 1.1,
+      "creditedPercent": 0.9,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
-        "note": "Workstream 4 spans documents, contract versions, regulatory registry, tax profiles, format registry, numbering policy and signing authority. Only the signing authority component is built, so the stage credit is multiplied by that component share instead of crediting the whole workstream.",
+        "note": "Workstream 4 spans seven components: server-authoritative documents, contract versions, the regulatory registry, tax profiles, a format registry, a numbering policy and signing authority. They are modelled as equal sevenths — not because they are equal in size, but because any unequal weighting would be one this agent invented, and an invented weighting is worth less than a stated flat assumption. The stage credit is multiplied by the share actually built rather than crediting the whole workstream.",
         "componentsInScope": [
           "server-authoritative accounting documents",
           "contract versions and commercial legal terms",
@@ -143,27 +143,29 @@
           "regulatory rule versions",
           "signing authority"
         ],
-        "componentBuilt": "signing authority and document staleness detection",
-        "componentSharePercent": 28,
+        "componentBuilt": "signing authority (complete); server-authoritative documents (persistence, immutability and staleness detection built; payload generation, the creating service and any API wiring are not)",
+        "componentSharePercent": 22,
         "notBuilt": [
-          "persistence for accounting documents and versions",
+          "payload generation for accounting documents",
+          "the service that creates and issues versions",
           "format registry",
           "numbering policy",
           "contract versions",
           "tax profile",
           "regulatory rule versions"
-        ]
+        ],
+        "componentShareDerivation": "signing authority 1/7 = 14.3, documents 55% of 1/7 = 7.9, total 22.2, recorded as 22 with no rounding up. The previous entry recorded 28 for signing authority plus staleness alone, which over-credited a decision policy that had no storage under it; the correction is applied in the same revision that adds the storage, so this workstream falls from 1.1 to 0.9 even though real work landed."
       },
       "milestones": {
         "implementationOnBranch": {
           "weightShare": 0.35,
           "done": true,
-          "evidence": "signing-authority.policy.ts, expand-only migration 20260815200000, SigningAuthority model; accounting-document-staleness.policy.ts"
+          "evidence": "signing-authority.policy.ts and migration 20260815200000; accounting-document-staleness.policy.ts; AccountingDocument and AccountingDocumentVersion models with migration 20260816000000 (constraints, RLS policies, column grants and immutability guards)"
         },
         "automatedAndNegativeTestsGreen": {
           "weightShare": 0.25,
           "done": true,
-          "evidence": "38 dedicated tests; full API suite 1352 passed / 0 failed; nine invariants proven on live PostgreSQL 16; drift gate exit 0; 25 staleness tests"
+          "evidence": "63 dedicated unit tests; full API suite 1417 passed / 0 failed; 35 checks in the RLS integration gate against live PostgreSQL 16; three document sabotages each make the gate exit non-zero; drift gate exit 0"
         },
         "mergedToMain": {
           "weightShare": 0.15,
@@ -356,7 +358,7 @@
   ],
   "weightCheck": {
     "sum": 100,
-    "creditedTotal": 6.9
+    "creditedTotal": 6.7
   },
   "completedEvidence": [
     {

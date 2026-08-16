@@ -46,6 +46,8 @@ model Organization {
   fgisGrainAcknowledgements         FgisGrainAcknowledgement[]
   membershipDelegations             MembershipDelegation[]
   signingAuthorities                SigningAuthority[]
+  accountingDocuments               AccountingDocument[]
+  accountingDocumentVersions        AccountingDocumentVersion[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -109,6 +111,9 @@ model UserOrg {
   delegationsReceived MembershipDelegation[] @relation("MembershipDelegationTo")
   signingAuthorities  SigningAuthority[] @relation("SigningAuthorityHolder")
   signingAuthoritiesApproved SigningAuthority[] @relation("SigningAuthoritySecondApprover")
+  accountingDocumentsAuthored AccountingDocument[]        @relation("AccountingDocumentAuthor")
+  accountingVersionsAuthored  AccountingDocumentVersion[] @relation("AccountingDocumentVersionAuthor")
+  accountingVersionsSigned    AccountingDocumentVersion[] @relation("AccountingDocumentVersionSigner")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -179,10 +184,90 @@ model SigningAuthority {
   secondApprover UserOrg?     @relation("SigningAuthoritySecondApprover", fields: [secondApprovalMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
   organization   Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
 
+  signedVersions AccountingDocumentVersion[]
+
   @@index([organizationId, membershipId, status, validTo])
   @@index([tenantId])
   @@index([certificateFingerprint])
   @@map("signing_authorities")
+}
+
+/// A document the platform produces from its own data — a УПД, an acceptance
+/// act, a payment order. Distinct from `DealDocument`, which is a file somebody
+/// uploaded and attached to a deal: this one is generated, so it can be
+/// regenerated, and every rendering of it records the source revisions it was
+/// generated from. That snapshot is what makes staleness detectable at all.
+model AccountingDocument {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  documentType   String
+  /// Assigned when the document is issued. A null number means it has never
+  /// left draft, and the unique index tolerates many of those precisely
+  /// because null does not collide with null in PostgreSQL.
+  documentNumber String?
+  dealId         String?
+  /// The other side of the document. Deliberately not a foreign key: a
+  /// counterparty may be an organization that never registered here, and a
+  /// document must still be issuable to it.
+  counterpartyOrgId     String?
+  status                String   @default("DRAFT")
+  currentVersionNumber  Int      @default(0)
+  createdByMembershipId String
+  version               BigInt   @default(0)
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy    UserOrg      @relation("AccountingDocumentAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  versions AccountingDocumentVersion[]
+
+  @@unique([organizationId, documentType, documentNumber], map: "accounting_documents_number_identity_idx")
+  @@index([organizationId, status, documentType])
+  @@index([tenantId])
+  @@index([dealId])
+  @@map("accounting_documents")
+}
+
+/// One immutable rendering of an accounting document. A correction is a new
+/// version, never an edit: the payload hash and the revision snapshot are what
+/// a signature covers, so allowing either to move would let a signed document
+/// come to mean something the signer never saw.
+model AccountingDocumentVersion {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  documentId     String
+  versionNumber  Int
+  /// SHA-256 of the exact bytes this version renders to.
+  payloadHash    String
+  /// Revision of every source this version drew from, keyed by the document
+  /// source names in accounting-document-staleness.policy.ts. A source absent
+  /// from this object makes the version unverifiable rather than fresh.
+  recordedRevisions Json
+  /// Kopecks. Money is never a float, and the sign is left unconstrained
+  /// because a correction may legitimately carry a negative total.
+  totalKopecks                    BigInt?
+  signedAt                        DateTime? @db.Timestamptz(6)
+  signedByMembershipId            String?
+  /// Which authority admitted the signature, kept so an audit can ask under
+  /// what mandate a document was signed rather than only by whom.
+  signingAuthorityId              String?
+  signatureCertificateFingerprint String?
+  createdByMembershipId           String
+  createdAt                       DateTime  @default(now()) @db.Timestamptz(6)
+
+  document         AccountingDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organization     Organization       @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy        UserOrg            @relation("AccountingDocumentVersionAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  signedBy         UserOrg?           @relation("AccountingDocumentVersionSigner", fields: [signedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  signingAuthority SigningAuthority?  @relation(fields: [signingAuthorityId], references: [id], onDelete: Restrict)
+
+  @@unique([documentId, versionNumber])
+  @@index([organizationId, documentId])
+  @@index([tenantId])
+  @@map("accounting_document_versions")
 }
 
 model UkepCertificate {

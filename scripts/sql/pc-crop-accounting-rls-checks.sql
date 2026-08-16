@@ -355,5 +355,416 @@ BEGIN
 END;
 $pc_crop_accounting_write_checks$;
 
+---------------------------------------------------------------------------
+-- Accounting documents: a signature is a one-way door.
+--
+-- The claim under test is that once a version is signed, neither the bytes it
+-- covers nor the revision snapshot that made it verifiable can move. Three
+-- mechanisms assert it and each binds a different set of principals, so each
+-- is measured separately: the column grant against the runtime, the row
+-- policy against the runtime, and the trigger against everyone including the
+-- superuser.
+---------------------------------------------------------------------------
+
+DO $pc_crop_accounting_document_checks$
+DECLARE
+  failures integer := 0;
+  affected integer;
+  measured text;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 17. A document attributed to the writer is admitted.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_documents"(
+      "id","tenantId","organizationId","documentType","createdByMembershipId"
+    ) VALUES ('pc-doc-a','tenant-a','org-a','UPD','m-a');
+    RAISE NOTICE 'PASS 17 own-attributed document admitted';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 17 own-attributed document admitted -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 18. The writer cannot record somebody else as the author.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_documents"(
+      "id","tenantId","organizationId","documentType","createdByMembershipId"
+    ) VALUES ('pc-doc-forged','tenant-a','org-a','UPD','m-staff');
+    RAISE WARNING 'FAIL 18 forged document attribution refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 18 forged document attribution refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 19. A member of org-a cannot write into org-b, whatever it claims.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_documents"(
+      "id","tenantId","organizationId","documentType","createdByMembershipId"
+    ) VALUES ('pc-doc-cross','tenant-b','org-b','UPD','m-a');
+    RAISE WARNING 'FAIL 19 cross-organization document refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR foreign_key_violation THEN
+      RAISE NOTICE 'PASS 19 cross-organization document refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 20. A version is admitted unsigned, carrying its revision snapshot.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_document_versions"(
+      "id","tenantId","organizationId","documentId","versionNumber",
+      "payloadHash","recordedRevisions","totalKopecks","createdByMembershipId"
+    ) VALUES (
+      'pc-ver-a1','tenant-a','org-a','pc-doc-a',1,
+      'sha256-first', '{"WEIGHT":"weight-2","PRICE":"price-9"}'::jsonb,
+      125000000, 'm-a');
+    RAISE NOTICE 'PASS 20 unsigned version admitted';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 20 unsigned version admitted -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 21. A version cannot arrive already signed. Signing has to pass through
+  --     the update path, which is where the guard and the column grant are.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_document_versions"(
+      "id","tenantId","organizationId","documentId","versionNumber",
+      "payloadHash","recordedRevisions","createdByMembershipId",
+      "signedAt","signedByMembershipId","signingAuthorityId",
+      "signatureCertificateFingerprint"
+    ) VALUES (
+      'pc-ver-presigned','tenant-a','org-a','pc-doc-a',9,
+      'sha256-presigned', '{}'::jsonb, 'm-a',
+      now(), 'm-a', 'pc-sa-a', 'pc-fp-a');
+    RAISE WARNING 'FAIL 21 pre-signed version refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 21 pre-signed version refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 22. A version cannot hang off a document in another organization while
+  --     claiming this one. Every foreign key on such a row is satisfied, so
+  --     only the guard catches it.
+  ---------------------------------------------------------------------------
+  PERFORM set_config('app.current_user_id', 'user-b', true),
+          set_config('app.current_org_id', 'org-b', true),
+          set_config('app.current_tenant_id', 'tenant-b', true);
+  INSERT INTO public."accounting_documents"(
+    "id","tenantId","organizationId","documentType","createdByMembershipId"
+  ) VALUES ('pc-doc-b','tenant-b','org-b','UPD','m-b');
+
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+  BEGIN
+    INSERT INTO public."accounting_document_versions"(
+      "id","tenantId","organizationId","documentId","versionNumber",
+      "payloadHash","recordedRevisions","createdByMembershipId"
+    ) VALUES (
+      'pc-ver-stolen','tenant-a','org-a','pc-doc-b',1,
+      'sha256-stolen', '{}'::jsonb, 'm-a');
+    RAISE WARNING 'FAIL 22 version bound to its document''s organization -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception OR insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 22 version bound to its document''s organization';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 23. Signing an unsigned version is the one permitted update.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_document_versions"
+       SET "signedAt" = now(),
+           "signedByMembershipId" = 'm-a',
+           "signingAuthorityId" = 'pc-sa-a',
+           "signatureCertificateFingerprint" = 'pc-fp-a'
+     WHERE "id" = 'pc-ver-a1';
+    GET DIAGNOSTICS affected = ROW_COUNT;
+    IF affected = 1 THEN
+      RAISE NOTICE 'PASS 23 unsigned version can be signed';
+    ELSE
+      RAISE WARNING 'FAIL 23 unsigned version can be signed -> % rows', affected;
+      failures := failures + 1;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 23 unsigned version can be signed -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 24. A signed version cannot be signed again. The policy makes the row
+  --     unreachable rather than raising, so the measurement is that nothing
+  --     was touched and the stored signature is the original one.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_document_versions"
+       SET "signedByMembershipId" = 'm-staff',
+           "signatureCertificateFingerprint" = 'pc-fp-someone-else'
+     WHERE "id" = 'pc-ver-a1';
+    GET DIAGNOSTICS affected = ROW_COUNT;
+    measured := affected::text || '/' || coalesce((
+      SELECT "signedByMembershipId"
+      FROM public."accounting_document_versions"
+      WHERE "id" = 'pc-ver-a1'), 'null');
+    IF measured = '0/m-a' THEN
+      RAISE NOTICE 'PASS 24 signed version cannot be re-signed -> %', measured;
+    ELSE
+      RAISE WARNING 'FAIL 24 signed version cannot be re-signed -> % (want 0/m-a)', measured;
+      failures := failures + 1;
+    END IF;
+  EXCEPTION
+    -- The guard firing here means the row was reachable, which is the policy
+    -- failing even though the write was still refused. Reported as a failure
+    -- of this layer: the guard is measured on its own in check 34, and a
+    -- contour that relies on its last line is one mistake from open.
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 24 signed version cannot be re-signed -> the update policy admitted the row and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 25. The payload hash is not writable at all, signed or not. Measured on an
+  --     unsigned version so the refusal is the column grant and not the policy.
+  ---------------------------------------------------------------------------
+  INSERT INTO public."accounting_document_versions"(
+    "id","tenantId","organizationId","documentId","versionNumber",
+    "payloadHash","recordedRevisions","createdByMembershipId"
+  ) VALUES (
+    'pc-ver-a2','tenant-a','org-a','pc-doc-a',2,
+    'sha256-second', '{"WEIGHT":"weight-3"}'::jsonb, 'm-a');
+  BEGIN
+    UPDATE public."accounting_document_versions"
+       SET "payloadHash" = 'sha256-rewritten'
+     WHERE "id" = 'pc-ver-a2';
+    RAISE WARNING 'FAIL 25 payload hash is not writable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 25 payload hash is not writable';
+    -- Reaching the guard means the column grant was widened. The write was
+    -- still refused, but by the last line rather than the first.
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 25 payload hash is not writable -> the column grant admitted the write and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 26. The revision snapshot is not writable either. Losing it would not
+  --     falsify a document, it would make staleness undetectable, which is
+  --     worse because nothing looks wrong.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_document_versions"
+       SET "recordedRevisions" = '{}'::jsonb
+     WHERE "id" = 'pc-ver-a2';
+    RAISE WARNING 'FAIL 26 revision snapshot is not writable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 26 revision snapshot is not writable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 26 revision snapshot is not writable -> the column grant admitted the write and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 27. A version is never deleted; a superseded one is evidence.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."accounting_document_versions" WHERE "id" = 'pc-ver-a2';
+    RAISE WARNING 'FAIL 27 version cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 27 version cannot be deleted';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 28. A document cannot be issued without a number.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_documents"
+       SET "status" = 'ISSUED'
+     WHERE "id" = 'pc-doc-a';
+    RAISE WARNING 'FAIL 28 issuing requires a number -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'PASS 28 issuing requires a number';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 29. Numbered and issued in one step is fine; renumbering afterwards is
+  --     not. A reused or edited number is how a sequence stops being evidence.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_documents"
+       SET "status" = 'ISSUED', "documentNumber" = 'UPD-2026-000001',
+           "currentVersionNumber" = 2
+     WHERE "id" = 'pc-doc-a';
+    RAISE NOTICE 'PASS 29a a document can be numbered and issued';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 29a a document can be numbered and issued -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  BEGIN
+    UPDATE public."accounting_documents"
+       SET "documentNumber" = 'UPD-2026-000002'
+     WHERE "id" = 'pc-doc-a';
+    RAISE WARNING 'FAIL 29b an issued number is never reassigned -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception OR insufficient_privilege THEN
+      RAISE NOTICE 'PASS 29b an issued number is never reassigned';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 30. The pointer to the newest version never goes backwards, which would
+  --     hide renderings that exist.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_documents"
+       SET "currentVersionNumber" = 1
+     WHERE "id" = 'pc-doc-a';
+    RAISE WARNING 'FAIL 30 current version never goes backwards -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception OR insufficient_privilege THEN
+      RAISE NOTICE 'PASS 30 current version never goes backwards';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop accounting documents: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: document immutability, 0 failures';
+END;
+$pc_crop_accounting_document_checks$;
+
 RESET ROLE;
+SET ROLE pc_accounting_authority;
+
+DO $pc_crop_accounting_document_read_checks$
+DECLARE
+  failures integer := 0;
+  measured text;
+BEGIN
+  ---------------------------------------------------------------------------
+  -- 31. Documents and versions are read on the same terms as the rest of the
+  --     contour: the organization the caller actually holds a membership in,
+  --     never the one it claims.
+  ---------------------------------------------------------------------------
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+  measured := (SELECT count(*) FROM public."accounting_documents")::text || '/' ||
+              (SELECT count(*) FROM public."accounting_document_versions")::text;
+  IF measured = '1/2' THEN
+    RAISE NOTICE 'PASS 31 member reads its own documents and versions -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL 31 member reads its own documents and versions -> % (want 1/2)', measured;
+    failures := failures + 1;
+  END IF;
+
+  ---------------------------------------------------------------------------
+  -- 32. The same caller claiming org-b reads nothing, and the org-b document
+  --     created earlier proves the read is scoped rather than simply empty.
+  ---------------------------------------------------------------------------
+  PERFORM set_config('app.current_org_id', 'org-b', true),
+          set_config('app.current_tenant_id', 'tenant-b', true);
+  measured := (SELECT count(*) FROM public."accounting_documents")::text;
+  IF measured = '0' THEN
+    RAISE NOTICE 'PASS 32 forged organization reads no documents -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL 32 forged organization reads no documents -> % (want 0)', measured;
+    failures := failures + 1;
+  END IF;
+
+  ---------------------------------------------------------------------------
+  -- 33. The read principal stays read-only on the new tables too.
+  ---------------------------------------------------------------------------
+  PERFORM set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+  BEGIN
+    UPDATE public."accounting_documents" SET "status" = 'CANCELLED'
+     WHERE "id" = 'pc-doc-a';
+    RAISE WARNING 'FAIL 33 read principal cannot write documents -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 33 read principal cannot write documents';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop accounting document reads: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: document reads, 0 failures';
+END;
+$pc_crop_accounting_document_read_checks$;
+
+RESET ROLE;
+
+DO $pc_crop_accounting_superuser_checks$
+DECLARE
+  failures integer := 0;
+BEGIN
+  ---------------------------------------------------------------------------
+  -- 34. The trigger binds the superuser as well. A column grant only
+  --     constrains the role it was withheld from, and row level security is
+  --     bypassed here entirely — so this is the only one of the three
+  --     mechanisms that still holds when the connection is fully privileged.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_document_versions"
+       SET "payloadHash" = 'sha256-rewritten-by-owner'
+     WHERE "id" = 'pc-ver-a1';
+    RAISE WARNING 'FAIL 34 signed version is immutable to the superuser -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 34 signed version is immutable to the superuser';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 35. And the snapshot on an unsigned version is equally beyond it.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_document_versions"
+       SET "recordedRevisions" = '{"WEIGHT":"weight-999"}'::jsonb
+     WHERE "id" = 'pc-ver-a2';
+    RAISE WARNING 'FAIL 35 revision snapshot is immutable to the superuser -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 35 revision snapshot is immutable to the superuser';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop accounting document guard: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: guard binds every principal, 0 failures';
+END;
+$pc_crop_accounting_superuser_checks$;
+
 ROLLBACK;

@@ -25,7 +25,8 @@
     "apps/api/src/modules/auth/accounting-authority-command.policy.spec.ts",
     "apps/api/prisma/migrations/20260815230000_pc_crop_accounting_write_authority/**",
     "apps/api/src/modules/auth/accounting-document-staleness.policy.ts",
-    "apps/api/src/modules/auth/accounting-document-staleness.policy.spec.ts"
+    "apps/api/src/modules/auth/accounting-document-staleness.policy.spec.ts",
+    "apps/api/prisma/migrations/20260816000000_pc_crop_accounting_documents/**"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -59,7 +60,12 @@
     "Neither table permits DELETE: authorities and delegations are retired by status, never removed.",
     "Staleness is a comparison of recorded source revisions against live ones, never a judgement, so it cannot drift with opinion.",
     "A source the version never recorded is UNVERIFIABLE, not CURRENT; an unknown document type is UNVERIFIABLE too, so a new format cannot bypass the mechanism by not being listed.",
-    "Signing checks the payload hash of the bytes about to be signed against the assessed version, so the verdict and the signature land on the same artefact."
+    "Signing checks the payload hash of the bytes about to be signed against the assessed version, so the verdict and the signature land on the same artefact.",
+    "Accounting documents are a new pair of tables, not an extension of deal_documents, whose tenant column defaults to a request setting and whose version counter destroys superseded content.",
+    "A signature is a one-way door: the payload hash and the revision snapshot of a version are unwritable after insert, and a signed version cannot be updated at all.",
+    "That immutability is asserted three times because each binds different principals — a column grant against the runtime, a row policy against the runtime, and a trigger against every principal including the superuser.",
+    "A version cannot hang off a document in another organization while claiming its own; every foreign key on such a row is satisfied, so only the guard catches it.",
+    "An issued accounting document must carry a number, and an issued number is never reassigned."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -85,7 +91,9 @@
     "Two write sabotages each make the gate exit non-zero: granting full UPDATE, and dropping the attribution condition from the insert policy.",
     "A document goes stale on a changed weight, quality, price, contract version, counterparty requisites, tax profile or regulatory rule, and every moved source is named at once.",
     "A payment order does not go stale because grain quality changed, so the signal stays meaningful.",
-    "A signed version that has since gone stale cannot be sent."
+    "A signed version that has since gone stale cannot be sent.",
+    "Nineteen further checks in the RLS gate cover the documents: attribution, cross-organization refusal, pre-signed insert refusal, parent-organization binding, signing once, unwritable hash and snapshot, no delete, numbering before issue, no renumbering, no backwards version pointer, scoped reads, and the guard binding the superuser.",
+    "Three document sabotages each make the gate exit non-zero: dropping the signedAt condition from the update policy, widening the column grant to a full UPDATE, and dropping the guard trigger. The first two are reported as failures of the layer that regressed rather than passing because a later layer caught them."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",
