@@ -48,6 +48,7 @@
     "apps/api/prisma/migrations/20260816190000_pc_crop_accounting_work_tasks/**",
     "apps/api/prisma/migrations/20260816200000_pc_crop_accounting_periods/**",
     "apps/api/prisma/migrations/20260816210000_pc_crop_work_task_period_link/**",
+    "apps/api/prisma/migrations/20260816220000_pc_crop_document_transmission_receipt/**",
     "apps/api/src/modules/accounting/**",
     "apps/api/src/app.module.ts",
     ".github/workflows/pc-crop-accounting-acceptance.yml"
@@ -140,7 +141,12 @@
     "A close is refused while a derived work task for a document in the window is still open.",
     "A closed period does not reopen, and the row policy does not even select it for update.",
     "The window of a period being closed no longer moves, and the column grant does not include it.",
-    "PERIOD_READY_TO_CLOSE closes only when the period is actually CLOSED, and closing a period is itself refused while work is outstanding, so the two rules compose rather than repeat."
+    "PERIOD_READY_TO_CLOSE closes only when the period is actually CLOSED, and closing a period is itself refused while work is outstanding, so the two rules compose rather than repeat.",
+    "A delivery is recorded once and never revised; overwriting it would let a second delivery hide behind the record of the first.",
+    "A receipt whose issuer is this platform under any of its names is refused by a CHECK as well as by the maturity policy.",
+    "An unsigned version is never marked sent, and a version is never created already sent.",
+    "Recording where a signed version went is not a change to what it says: the payload, the revisions and the signature stay frozen.",
+    "A CHECK is violated only when it evaluates to FALSE, so every column in a completeness constraint is tested for NULL explicitly. Two constraints written without that admitted exactly the rows they forbade."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -193,7 +199,9 @@
     "Twelve unit contracts for the period policy, including that readiness is a fact about the month rather than about who is looking.",
     "Ten PostgreSQL acceptance tests as the migration owner: overlap refused, clean handover accepted, close-from-open refused, close blocked by outstanding work, window immutable, close stamped by the database, no new rendering, no signature, no reopen, and a document outside the window untouched.",
     "Seven further RLS gate checks, 79 to 85, covering opening, forged attribution, the window column grant, running a close, the unreachability of a closed period, no delete and cross-organization refusal. Eighty-five checks in the contour in total.",
-    "Two further PostgreSQL acceptance tests: the ready-to-close task refuses to resolve until the period is closed, and a task pointing at another organization's month is refused by the guard even though every foreign key on the row is satisfied."
+    "Two further PostgreSQL acceptance tests: the ready-to-close task refuses to resolve until the period is closed, and a task pointing at another organization's month is refused by the guard even though every foreign key on the row is satisfied.",
+    "Sixteen unit contracts for the transport port and its shared suite, including two adapters written to fail it.",
+    "Eight PostgreSQL acceptance tests for sending: unsigned refused, non-live adapter refused, an outage leaves the version sendable, a rejection is not a delivery, a delivery is recorded once, the record is immutable, a self-issued receipt is refused, and a half-recorded delivery is refused."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",

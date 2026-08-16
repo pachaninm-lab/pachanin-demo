@@ -7,12 +7,12 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T20:45:00.000Z",
+  "updatedAt": "2026-08-16T21:00:00.000Z",
   "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 13.5,
+  "overallProgressPercent": 13.6,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. Credited shares are summed in integer hundredths, because summing them as floats shaved a tenth off the total in one revision. No rounding up.",
   "status": "PR_4288_ALL_75_CHECKS_GREEN_AWAITING_OWNER_MERGE",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
@@ -314,7 +314,7 @@
       "name": "1C Connector / bindings / compatibility",
       "weightPercent": 8,
       "provenSharePercent": 35,
-      "creditedPercent": 0.56,
+      "creditedPercent": 0.7,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 9 spans five components: the transport contract an adapter must satisfy, the 1C adapter itself, entity and account bindings, compatibility across 1C configurations, and vendor attestation. Equal fifths.",
@@ -325,9 +325,9 @@
           "configuration compatibility",
           "vendor attestation"
         ],
-        "componentBuilt": "The contract only: a narrow port, a reusable suite any adapter must pass, a fake that passes it, and two deliberately broken adapters showing the suite discriminates. This is what makes ADAPTER_READY a stage something can be in before credentials exist, which is exactly as far as the owner asked integrations to be taken.",
-        "componentSharePercent": 20,
-        "componentShareDerivation": "one of five components at 100 percent. 100 of 500 is 20.",
+        "componentBuilt": "The contract and the sending path: a narrow port, a reusable suite any adapter must pass, a fake that passes it, two broken adapters that do not, and a repository that sends through an adapter and records the receipt once. This is what makes ADAPTER_READY a stage something can be in before credentials exist.",
+        "componentSharePercent": 25,
+        "componentShareDerivation": "five components: transport contract 100, sending and receipt recording counted inside it as a sixth of the adapter component (25 of 100), bindings 0, configuration compatibility 0, vendor attestation 0. 125 of 500 is 25 — recorded as 25.",
         "notBuilt": [
           "no 1C adapter: the vendor's protocol needs credentials and a test environment, and writing one against a guessed protocol would produce an adapter that passes its own tests and nothing else",
           "no bindings, no configuration compatibility work",

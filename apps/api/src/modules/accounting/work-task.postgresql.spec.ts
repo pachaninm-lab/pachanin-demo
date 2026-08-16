@@ -414,6 +414,24 @@ describePostgres('a derived work task closes only when its condition clears', ()
     ).rejects.toThrow(/author_matches_origin/);
   });
 
+  it('refuses a manual note that squats on a condition slot', async () => {
+    // A CHECK is violated only when it evaluates to FALSE. Comparing the open
+    // key against a NULL derivation key evaluated to NULL, so the row was
+    // admitted — and a hand-written note holding a condition slot keeps the
+    // deriver from ever raising the real task for it.
+    await expect(
+      prisma.$executeRaw`
+        INSERT INTO public."accounting_work_tasks"
+          ("id","tenantId","organizationId","taskType","origin","resolutionMode",
+           "derivationKey","openDerivationKey","title","humanDescription",
+           "responsibleCapability","createdByMembershipId","createdAt","updatedAt")
+        VALUES (${`${RUN}.squat`}, ${TENANT}, ${ORG}, 'CALL_BUYER', 'MANUAL',
+                'HUMAN_JUDGEMENT', NULL, 'document:someone-elses:unsigned',
+                'т', 'о', 'accounting.task.manage', ${MEMBERSHIP}, now(), now())
+      `,
+    ).rejects.toThrow(/open_key_mirrors_derivation/);
+  });
+
   it('refuses a task that says nothing to a human', async () => {
     await expect(
       prisma.$executeRaw`

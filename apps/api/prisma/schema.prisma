@@ -269,6 +269,13 @@ model AccountingDocumentVersion {
   /// what mandate a document was signed rather than only by whom.
   signingAuthorityId              String?
   signatureCertificateFingerprint String?
+  /// When this version was handed to an external system, and what that system
+  /// called what it took. Written once, from a receipt the far side issued;
+  /// null means it has not been sent, never that sending failed.
+  sentAt                          DateTime? @db.Timestamptz(6)
+  transportCode                   String?
+  externalReceiptId               String?
+  externalReceiptIssuer           String?
   createdByMembershipId           String
   createdAt                       DateTime  @default(now()) @db.Timestamptz(6)
 
