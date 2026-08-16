@@ -55,6 +55,7 @@ for (const token of [
   "remote_stage='SANITIZE'",
   "remote_stage='PUBLISH'",
   "remote_stage='SSH_TRANSPORT'",
+  'REMOTE_BEGIN|DOCKER_LIST|REVISION_MATCH|LOG_FETCH|MARKER_COUNT|CONTEXT_EXTRACT|SANITIZE|CLASSIFY|PUBLISH',
   'trap remote_fail ERR',
   "printf 'REMOTE_STAGE=%s\\n'",
   "printf 'REMOTE_RC=%s\\n'",
@@ -62,11 +63,14 @@ for (const token of [
   'remote_rc=$?',
   'set +e',
   'set -e',
-  '2>/dev/null <<\\\'REMOTE\\\'',
+  '2>/dev/null',
+  "'ssh-capture-start'",
+  "'ssh-capture-end'",
   'PRODUCTION_MUTATION=NONE',
   'raw logs / PII / credentials',
   'PATCHED_SOURCE_REINTRODUCED_UNSAFE_OR_OVERCONSTRAINED',
 ]) need('script', script, token);
+
 for (const regex of [
   /password-reset\/request/, /forgot-password/, /password-reset\/confirm/, /\bcurl\s/,
   /docker\s+exec/, /docker\s+(restart|stop|rm|kill)/, /docker\s+compose\s+(up|down|restart)/,
@@ -74,12 +78,13 @@ for (const regex of [
   /echo \"\$output\"/, /printf ['"]%s\\n['"] \"\$output\"/,
 ]) deny('script', script, regex);
 
-for (const stage of ['REMOTE_BEGIN','DOCKER_LIST','REVISION_MATCH','LOG_FETCH','MARKER_COUNT','CONTEXT_EXTRACT','CLASSIFY','SANITIZE','PUBLISH']) {
-  if (!script.includes(`${stage}|`) && stage !== 'PUBLISH') failures.push(`script: remote trap whitelist missing ${stage}`);
-}
+if (!script.includes('case "$remote_stage" in')) failures.push('script: remote stage whitelist case missing');
+if (!script.includes("*) remote_stage='REMOTE_BEGIN' ;;")) failures.push('script: remote fail-closed stage fallback missing');
 if (!script.includes("*) remote_stage='SSH_TRANSPORT' ;;")) failures.push('script: local SSH transport fallback missing');
 if (!script.includes("gh issue comment \"$RELEASE_ISSUE_NUMBER\"")) failures.push('script: sanitized issue publication missing');
 if (!script.includes('result_published=1')) failures.push('script: failure publication dedupe missing');
+if (!script.includes("[[ \"$remote_marker_rc\" =~ ^[0-9]+$ ]]")) failures.push('script: numeric remote RC validation missing');
+if (!script.includes("[[ \"$remote_mutation\" == 'PRODUCTION_MUTATION=NONE' ]]")) failures.push('script: production mutation marker validation missing');
 
 const sourceHash = spawnSync('git', ['hash-object', sourceScript], { encoding: 'utf8' });
 if (sourceHash.status !== 0 || String(sourceHash.stdout).trim() !== sourceBlobSha) failures.push('source classifier blob mismatch');
@@ -117,4 +122,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exit(1);
 }
-console.log('PASS: reset 31974946435 classifier v3 instruments the pinned historical-container scanner with fail-safe whitelisted remote stages, sanitized issue publication, exact-revision/window guards and production mutation NONE.');
+console.log('PASS: reset 31974946435 classifier v3 keeps strict safety invariants while checking semantic SSH/stage guards instead of brittle heredoc escaping.');
