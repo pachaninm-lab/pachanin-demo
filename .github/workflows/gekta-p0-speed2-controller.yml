@@ -21,11 +21,6 @@ env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   SPEED_ISSUE_NUMBER: '4251'
   TRUSTED_CONNECTOR_APP_ID: '1144995'
-  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
-  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
-  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
-  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
-  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
 
 jobs:
   contract:
@@ -161,6 +156,12 @@ jobs:
     permissions:
       contents: read
       issues: write
+    env:
+      MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+      MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+      MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
