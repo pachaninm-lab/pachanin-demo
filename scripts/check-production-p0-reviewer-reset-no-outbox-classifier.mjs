@@ -27,9 +27,9 @@ if (sourceBlob !== '7dcfb19d247aab2f0dc8c8075416673499c9dc84') {
   throw new Error(`reviewed source blob drifted: ${sourceBlob}`);
 }
 requireAll('source classifier', source, [
-  "UNIVERSAL_REASON='UNIVERSAL_NON_ELIGIBLE'",
-  "COOLDOWN_REASON='COOLDOWN_ACTIVE'",
-  "DELIVERY_BOUNDARY_REASON='DELIVERY_BOUNDARY_REJECTED'",
+  "reason = 'COOLDOWN_ACTIVE'",
+  "reason = 'DELIVERY_BOUNDARY_REJECTED'",
+  "reason = 'UNIVERSAL_NON_ELIGIBLE'",
   "${PC_REVIEWER_RESET_ATTEMPT_COMMAND:?PC_REVIEWER_RESET_ATTEMPT_COMMAND is required}",
   'StrictHostKeyChecking=yes',
 ]);
@@ -46,9 +46,9 @@ requireAll('wrapper', wrapper, [
   'git hash-object "$SOURCE_SCRIPT"',
   'PC_REVIEWER_RESET_ATTEMPT_COMMAND="$COMMAND"',
   'bash "$TEMP_SCRIPT"',
-  "UNIVERSAL_REASON='UNIVERSAL_NON_ELIGIBLE'",
-  "COOLDOWN_REASON='COOLDOWN_ACTIVE'",
-  "DELIVERY_BOUNDARY_REASON='DELIVERY_BOUNDARY_REJECTED'",
+  "reason = 'COOLDOWN_ACTIVE'",
+  "reason = 'DELIVERY_BOUNDARY_REJECTED'",
+  "reason = 'UNIVERSAL_NON_ELIGIBLE'",
 ]);
 forbidAll('wrapper', wrapper, [
   'curl -X POST',
