@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-production-i18n-browser-runtime-2198",
+  "branch": "fix/platform-v7-production-i18n-browser-runtime-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "662c861cca28053b810efda5642a6a1de842ef00"
+  },
+  "purpose": "Fix the residual public-browser localization defects proven by exact production acceptance run 31922127060. Restore the existing source-controlled translation runtime on the shared hydration boundary, including dynamic DOM and exact contact/header labels, without weakening acceptance or changing authentication, authorization, routing, data, API, database, release authority, infrastructure or product design.",
+  "allowedPaths": [
+    ".github/workflows/web-unit.yml",
+    "apps/web/components/platform-v7/PlatformV7TranslationRuntimeBridge.tsx",
+    "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+    "apps/web/tests/unit/platformV7ProductionI18nRuntimeBridge.test.tsx",
+    "docs/platform-v7/autopilot/scopes/platform-v7-production-i18n-browser-runtime-2198.json"
+  ],
+  "productionEvidence": {
+    "failedRun": 31922127060,
+    "failedRevision": "3249191e922a03258fe9edfec38c7df170157393",
+    "exactRevisionGate": "PASS",
+    "dictionaryContract": "PASS",
+    "runtimeUnitContract": "PASS",
+    "browserMatrix": "FAIL",
+    "residuals": [
+      "Открыть Гекту",
+      "Поддержка",
+      "Позвонить по номеру 8 916 277-89-89",
+      "Связь и помощь",
+      "Гекта",
+      "Позвонить",
+      "Прозрачная Цена — на главную"
+    ]
+  },
+  "forbiddenChanges": [
+    "production i18n acceptance allowlist or fail-closed criteria",
+    "authentication, MFA, authorization, RBAC, RLS, tenant or organization authority",
+    "PC-CROP registration, reviewer or password-reset runtime",
+    "Deal, money, evidence, PostgreSQL or business-state authority",
+    "Gekta model, prompt, inference, latency or entitlement semantics",
+    "release credentials, DNS, Caddy or direct REG.RU mutation",
+    "paid services or new recurring cost"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "web-unit must execute the exact production i18n bridge regression",
+    "web typecheck and build",
+    "security and governance gates",
+    "Production-like Kubernetes Acceptance",
+    "canonical image publication after merge",
+    "exact-SHA REG.RU full-stack release",
+    "Platform V7 Production i18n Acceptance PASS on the exact deployed SHA"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "Merge, CI and image publication are not completion. Completion requires exact deployed-main production acceptance. Protected role-cockpit localization must use valid production identities; no auth bypass is authorized."
+}
