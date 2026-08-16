@@ -29,8 +29,10 @@ jobs:
         github.event.issue.number == 3072 &&
         github.event.comment.user.login == github.repository_owner &&
         github.event.comment.author_association == 'OWNER' &&
-        github.actor == github.repository_owner &&
-        github.triggering_actor == github.repository_owner &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          (github.actor == 'chatgpt-codex-connector[bot]' && github.triggering_actor == 'chatgpt-codex-connector[bot]')
+        ) &&
         github.event.comment.body == '/production p0-regru-smtp587-auth-diagnostic current-main'
       )
     runs-on: ubuntu-24.04
@@ -64,12 +66,13 @@ jobs:
               assert forbidden not in runtime, forbidden
           PY
 
-      - name: Verify owner provenance
+      - name: Verify owner or trusted connector provenance
         if: github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
           EXPECTED_BODY: /production p0-regru-smtp587-auth-diagnostic current-main
+          TRUSTED_CONNECTOR_APP_ID: 1144995
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -78,7 +81,12 @@ jobs:
           assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
           body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
           [[ "$user" == "$owner" && "$assoc" == OWNER && "$body" == "$EXPECTED_BODY" ]]
-          [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" ]]; then
+            [[ "${{ github.triggering_actor }}" == "$owner" ]]
+          else
+            [[ "$GITHUB_ACTOR" == 'chatgpt-codex-connector[bot]' && "${{ github.triggering_actor }}" == 'chatgpt-codex-connector[bot]' ]]
+            [[ "$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // empty')" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+          fi
 
       - name: Resolve exact current main
         id: target
