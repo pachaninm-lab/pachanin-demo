@@ -443,8 +443,8 @@ jobs:
                     sample: $sample,
                     model: $timing,
                     decomposition: {
-                      headersToFirstTokenMs: (($sample.firstTokenMs - $sample.headersMs) * 10 | round) / 10,
-                      nonPrefillBeforeFirstTokenMs: (((($sample.firstTokenMs - $sample.headersMs) - $timing.promptEvalMs) | if . < 0 then 0 else . end) * 10 | round) / 10
+                      headersToFirstTokenMs: ((($sample.firstTokenMs - $sample.headersMs) * 10) | round | . / 10),
+                      nonPrefillBeforeFirstTokenMs: (((($sample.firstTokenMs - $sample.headersMs) - $timing.promptEvalMs) | if . < 0 then 0 else . end) * 10 | round | . / 10)
                     }
                   }' >> "$rows"
                 accepted=1
