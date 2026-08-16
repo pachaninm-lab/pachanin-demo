@@ -7,12 +7,12 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T00:12:00.000Z",
+  "updatedAt": "2026-08-16T00:18:00.000Z",
   "observedMainSha": "2f4dca2d18b2301cd8936eae02b284a91ee9483d",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 6.4,
+  "overallProgressPercent": 6.9,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
   "status": "WAVE_1_AND_2_IMPLEMENTED_AWAITING_MERGE",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
@@ -130,7 +130,7 @@
       "name": "Documents / contracts / regulatory / tax profiles",
       "weightPercent": 7,
       "provenSharePercent": 60,
-      "creditedPercent": 0.6,
+      "creditedPercent": 1.1,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 4 spans documents, contract versions, regulatory registry, tax profiles, format registry, numbering policy and signing authority. Only the signing authority component is built, so the stage credit is multiplied by that component share instead of crediting the whole workstream.",
@@ -143,19 +143,27 @@
           "regulatory rule versions",
           "signing authority"
         ],
-        "componentBuilt": "signing authority",
-        "componentSharePercent": 15
+        "componentBuilt": "signing authority and document staleness detection",
+        "componentSharePercent": 28,
+        "notBuilt": [
+          "persistence for accounting documents and versions",
+          "format registry",
+          "numbering policy",
+          "contract versions",
+          "tax profile",
+          "regulatory rule versions"
+        ]
       },
       "milestones": {
         "implementationOnBranch": {
           "weightShare": 0.35,
           "done": true,
-          "evidence": "signing-authority.policy.ts, expand-only migration 20260815200000, SigningAuthority model"
+          "evidence": "signing-authority.policy.ts, expand-only migration 20260815200000, SigningAuthority model; accounting-document-staleness.policy.ts"
         },
         "automatedAndNegativeTestsGreen": {
           "weightShare": 0.25,
           "done": true,
-          "evidence": "38 dedicated tests; full API suite 1352 passed / 0 failed; nine invariants proven on live PostgreSQL 16; drift gate exit 0"
+          "evidence": "38 dedicated tests; full API suite 1352 passed / 0 failed; nine invariants proven on live PostgreSQL 16; drift gate exit 0; 25 staleness tests"
         },
         "mergedToMain": {
           "weightShare": 0.15,
@@ -348,7 +356,7 @@
   ],
   "weightCheck": {
     "sum": 100,
-    "creditedTotal": 6.4
+    "creditedTotal": 6.9
   },
   "completedEvidence": [
     {

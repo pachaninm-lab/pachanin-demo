@@ -23,7 +23,9 @@
     "apps/api/prisma/migrations/20260815220000_pc_crop_authority_two_person_rule/**",
     "apps/api/src/modules/auth/accounting-authority-command.policy.ts",
     "apps/api/src/modules/auth/accounting-authority-command.policy.spec.ts",
-    "apps/api/prisma/migrations/20260815230000_pc_crop_accounting_write_authority/**"
+    "apps/api/prisma/migrations/20260815230000_pc_crop_accounting_write_authority/**",
+    "apps/api/src/modules/auth/accounting-document-staleness.policy.ts",
+    "apps/api/src/modules/auth/accounting-document-staleness.policy.spec.ts"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -54,7 +56,10 @@
     "Write policies never re-implement the capability model. Who may manage an authority is decided by job profile in code; duplicating that table in SQL would create a second source of truth that drifts.",
     "A writer cannot attribute its own act to another membership: grantedByMembershipId and createdByMembershipId must equal the writer resolved from user_orgs.",
     "On an existing row only status and revokedAt are writable, so an authority cannot be re-pointed, widened or extended after the fact.",
-    "Neither table permits DELETE: authorities and delegations are retired by status, never removed."
+    "Neither table permits DELETE: authorities and delegations are retired by status, never removed.",
+    "Staleness is a comparison of recorded source revisions against live ones, never a judgement, so it cannot drift with opinion.",
+    "A source the version never recorded is UNVERIFIABLE, not CURRENT; an unknown document type is UNVERIFIABLE too, so a new format cannot bypass the mechanism by not being listed.",
+    "Signing checks the payload hash of the bytes about to be signed against the assessed version, so the verdict and the signature land on the same artefact."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -77,7 +82,10 @@
     "A revoked authority may still carry a null approver, so historical rows stay writable.",
     "Delegation escalation through a chain is refused: a delegate cannot pass on more than it received.",
     "Seven write checks in the gate: own-attributed grant admitted, forged attribution refused, cross-organization write refused, revocation permitted, ceiling immutable, delete refused, delegation must flow from the writer.",
-    "Two write sabotages each make the gate exit non-zero: granting full UPDATE, and dropping the attribution condition from the insert policy."
+    "Two write sabotages each make the gate exit non-zero: granting full UPDATE, and dropping the attribution condition from the insert policy.",
+    "A document goes stale on a changed weight, quality, price, contract version, counterparty requisites, tax profile or regulatory rule, and every moved source is named at once.",
+    "A payment order does not go stale because grain quality changed, so the signal stays meaningful.",
+    "A signed version that has since gone stale cannot be sent."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",

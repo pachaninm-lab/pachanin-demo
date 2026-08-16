@@ -215,6 +215,8 @@
       "apps/api/src/modules/auth/accounting-authority-command.policy.ts",
       "apps/api/src/modules/auth/accounting-authority-command.policy.spec.ts",
       "apps/api/prisma/migrations/*_pc_crop_accounting_write_authority/**",
+      "apps/api/src/modules/auth/accounting-document-staleness.policy.ts",
+      "apps/api/src/modules/auth/accounting-document-staleness.policy.spec.ts",
       "scripts/sql/pc-crop-accounting-rls-checks.sql",
       "scripts/platform-v7-rls-integration.sh",
       "docs/ops/pc-crop-federal-accounting/**",
