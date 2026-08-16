@@ -2,9 +2,17 @@
  * Final Design Project v4.0 requires the canonical brand to remain fully visible at 320 px.
  * Keep the existing controls; use a two-line brand instead of ellipsis below 390 px.
  */
-[data-testid='platform-v7-root-execution-cockpit'] .pc-site-mobile-menu > summary {
+[data-testid='platform-v7-root-execution-cockpit'] .pc-site-mobile-menu {
+  flex: 0 0 45px !important;
   width: 45px !important;
   min-width: 45px !important;
+}
+
+[data-testid='platform-v7-root-execution-cockpit'] .pc-site-mobile-menu > summary {
+  box-sizing: border-box !important;
+  width: 45px !important;
+  min-width: 45px !important;
+  max-width: 45px !important;
 }
 
 @media (max-width: 380px) {
