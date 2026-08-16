@@ -1,0 +1,163 @@
+name: Production P0 Auth-Mail Worker Compose Diff Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-auth-mail-worker-compose-diff-diagnostic.yml'
+      - 'scripts/production-p0-auth-mail-worker-compose-diff-diagnostic.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-p0-auth-mail-worker-compose-diff-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  COMMAND: /production p0-auth-mail-worker-compose-diff-diagnostic
+  SCRIPT: scripts/production-p0-auth-mail-worker-compose-diff-diagnostic.sh
+  RELEASE_ISSUE_NUMBER: '3072'
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TRUSTED_CONNECTOR_APP_ID: '1144995'
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n "$SCRIPT"
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path('scripts/production-p0-auth-mail-worker-compose-diff-diagnostic.sh').read_text()
+          req=['COMPOSE_DIFF_PATHS','PRODUCTION_MUTATION NONE','docker compose','config --format json']
+          bad=[' up ','restart','ALTER ROLE','UPDATE auth.','INSERT INTO','DELETE FROM','sendAuthMailSmtp','forgot-password']
+          if any(x not in t for x in req): raise SystemExit('missing contract')
+          if any(x in t for x in bad): raise SystemExit('mutation surface')
+          PY
+
+  diagnostic:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+        github.event.comment.performed_via_github_app.id == 1144995
+      ) &&
+      github.event.comment.body == '/production p0-auth-mail-worker-compose-diff-diagnostic'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify provenance and current main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq .owner.login)"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq .user.login)"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq .author_association)"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq .body)"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == OWNER && "$body" == "$COMMAND" ]]
+          if [[ "$GITHUB_ACTOR" != "$owner" || "${{ github.triggering_actor }}" != "$owner" ]]; then [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]; fi
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]]
+          bash -n "$SCRIPT"
+      - name: Resolve protected SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"; user="$(trim "${SSH_USER_SECRET:-}")"; port="$(trim "${SSH_PORT_SECRET:-22}")"; expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" && -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$port" =~ ^[0-9]+$ && "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate(){ local s="$1" t="$HOME/.ssh/id_pc_prod" p; tr -d '\r' < "$s" > "$t"; chmod 600 "$t"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$t" && return 1; p="$(mktemp)"; ssh-keygen -y -P '' -f "$t" > "$p" 2>/dev/null || { rm -f "$p"; return 1; }; rm -f "$p"; }
+          slot(){ local r="$1" a b c; [[ -n "$r" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$r" > "$a"; validate "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${r//\\n/$'\n'}" > "$b"; validate "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$r" | base64 --decode > "$c" 2>/dev/null && validate "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          slot "${SSH_KEY_PRIMARY:-}" || slot "${SSH_KEY_SECONDARY:-}" || slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do [[ -n "$line" ]] || continue; fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+            sort -u -o "$match" "$match"; [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }; (( attempt==3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]]; mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; python3 --version >/dev/null'
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Run read-only compose diff
+        id: diag
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"; set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" 'bash -s' < "$SCRIPT" > "$raw" 2>&1; rc=$?; set -e
+          sed -nE '/^(COMPOSE_DIFF_DIAGNOSTIC|ERROR_CODE|PRE_API_REVISION|PRE_WEB_REVISION|PRE_WORKER_REVISION|COMPOSE_CONFIG_FILE_COUNT|COMPOSE_DIFF_PATHS|PRODUCTION_MUTATION)=[A-Za-z0-9_.,:-]{1,700}$/p' "$raw" > "$clean"
+          rm -f "$raw"
+          cat "$clean"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r k v; do echo "${k,,}=$v" >> "$GITHUB_OUTPUT"; done < "$clean"
+          rm -f "$clean"
+      - name: Publish sanitized diagnostic
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.diag.outputs.compose_diff_diagnostic }}
+          ERROR: ${{ steps.diag.outputs.error_code }}
+          API: ${{ steps.diag.outputs.pre_api_revision }}
+          WEB: ${{ steps.diag.outputs.pre_web_revision }}
+          WORKER: ${{ steps.diag.outputs.pre_worker_revision }}
+          COUNT: ${{ steps.diag.outputs.compose_config_file_count }}
+          DIFF: ${{ steps.diag.outputs.compose_diff_paths }}
+          MUT: ${{ steps.diag.outputs.production_mutation }}
+        run: |
+          set -Eeuo pipefail
+          body="$(mktemp)"
+          printf '%s\n' '## P0 auth-mail worker Compose diff diagnostic' '' \
+            "- result/error: \`${RESULT:-unknown} / ${ERROR:-unknown}\`" \
+            "- API/Web/worker revisions: \`${API:-unknown} / ${WEB:-unknown} / ${WORKER:-unknown}\`" \
+            "- config file count: \`${COUNT:-unknown}\`" \
+            "- differing field paths: \`${DIFF:-unknown}\`" \
+            "- production mutation: \`${MUT:-unknown}\`" > "$body"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+          rm -f "$body"
+      - name: Enforce read-only completion
+        shell: bash
+        env:
+          RC: ${{ steps.diag.outputs.rc }}
+          RESULT: ${{ steps.diag.outputs.compose_diff_diagnostic }}
+          MUT: ${{ steps.diag.outputs.production_mutation }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$RC" == 0 && "$RESULT" == PASS && "$MUT" == NONE ]]
