@@ -62,7 +62,8 @@ jobs:
             "SOURCE_BLOB_SHA='58c689c246d1380efca2af7b62dc9af7403c2faa'",
             'Password reset challenge/outbox transaction failed',
             'PRODUCTION_MUTATION=NONE',
-            'raw logs / PII / credentials / reset material',
+            'raw logs / PII / credentials',
+            'NOT_PUBLISHED',
             'reset replay / mail send',
             'StrictHostKeyChecking=yes',
           ]
