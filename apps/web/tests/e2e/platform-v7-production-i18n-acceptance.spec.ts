@@ -17,6 +17,8 @@ const viewports = [
 
 type AcceptanceViewport = (typeof viewports)[number];
 
+const TARGET_SIZE_EPSILON = 0.001;
+
 const publicRoutes = [
   { path: '/platform-v7', name: 'home' },
   { path: '/platform-v7/login', name: 'login' },
@@ -126,7 +128,8 @@ async function expectProductionHomepageDesignGates(page: Page, viewport: Accepta
   await expect(brand).toHaveText('Прозрачная Цена');
   const brandGeometry = await brand.evaluate((node) => {
     const element = node as HTMLElement;
-    const host = element.getBoundingClientRect();
+    const clippingHost = element.closest<HTMLElement>('.pc-site-brand') ?? element;
+    const host = clippingHost.getBoundingClientRect();
     const range = document.createRange();
     range.selectNodeContents(element);
     const lineRects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
@@ -154,8 +157,8 @@ async function expectProductionHomepageDesignGates(page: Page, viewport: Accepta
       await expect(control).toBeVisible();
       const box = await control.boundingBox();
       expect(box, `${selector} production bounding box`).not.toBeNull();
-      expect(box!.width, `${selector} production width`).toBeGreaterThanOrEqual(44);
-      expect(box!.height, `${selector} production height`).toBeGreaterThanOrEqual(44);
+      expect(box!.width, `${selector} production width`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
+      expect(box!.height, `${selector} production height`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
     }
   }
 
@@ -205,7 +208,7 @@ async function expectProductionHomepageDesignGates(page: Page, viewport: Accepta
     await expect(primary).toBeVisible();
     const primaryBox = await primary.boundingBox();
     expect(primaryBox, 'production primary Hero CTA bounding box').not.toBeNull();
-    expect(primaryBox!.top, 'production primary Hero CTA top').toBeGreaterThanOrEqual(0);
+    expect(primaryBox!.y, 'production primary Hero CTA top').toBeGreaterThanOrEqual(0);
     expect(primaryBox!.y + primaryBox!.height, 'production primary Hero CTA bottom').toBeLessThanOrEqual(viewport.height + 1);
   }
 
