@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { PlatformV7PublicTranslationRuntime } from '@/components/platform-v7/PlatformV7PublicTranslationRuntime';
+import { PlatformV7TranslationRuntimeBridge } from '@/components/platform-v7/PlatformV7TranslationRuntimeBridge';
 import { PublicAssistantMobileLayoutAuthority } from '@/components/platform-v7/PublicAssistantMobileLayoutAuthority';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -45,7 +45,7 @@ export function HydrationSafeChatSupport({
 
   return (
     <>
-      <PlatformV7PublicTranslationRuntime />
+      <PlatformV7TranslationRuntimeBridge />
       {loadLegacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
       <PublicAssistantMobileLayoutAuthority />
       <ContextualSupportOrAssistant {...supportProps} />
