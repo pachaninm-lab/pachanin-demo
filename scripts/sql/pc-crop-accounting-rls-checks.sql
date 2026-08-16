@@ -856,4 +856,190 @@ BEGIN
 END;
 $pc_crop_accounting_superuser_checks$;
 
+---------------------------------------------------------------------------
+-- The regulatory rule registry.
+--
+-- Seeded as the superuser, because publishing a rule is an ops act. The point
+-- of the checks below is that the accounting principals can read it and have
+-- no path to write it: a rule table a tenant could edit is one that could be
+-- used to justify a wrong document after the fact.
+---------------------------------------------------------------------------
+
+INSERT INTO public."regulatory_rule_versions"(
+  "id","ruleKey","versionTag","effectiveFrom","effectiveTo","status","source","payload"
+) VALUES
+  ('pc-rule-2025','VAT_RATES','2025-01',
+   '2025-01-01T00:00:00Z','2026-01-01T00:00:00Z','ACTIVE',
+   'НК РФ ст. 164', '{"rates":["10","20"]}'::jsonb),
+  ('pc-rule-2026','VAT_RATES','2026-01',
+   '2026-01-01T00:00:00Z',NULL,'ACTIVE',
+   'НК РФ ст. 164', '{"rates":["10","20"]}'::jsonb);
+
+DO $pc_crop_regulatory_rule_checks$
+DECLARE
+  failures integer := 0;
+  measured text;
+BEGIN
+  ---------------------------------------------------------------------------
+  -- 42. A successor starting exactly where its predecessor ends is a clean
+  --     handover, not an overlap.
+  ---------------------------------------------------------------------------
+  measured := (SELECT count(*)::text FROM public."regulatory_rule_versions"
+               WHERE "ruleKey" = 'VAT_RATES');
+  IF measured = '2' THEN
+    RAISE NOTICE 'PASS 42 adjacent rule windows coexist -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL 42 adjacent rule windows coexist -> % (want 2)', measured;
+    failures := failures + 1;
+  END IF;
+
+  ---------------------------------------------------------------------------
+  -- 43. Two versions in force at one instant makes "which rate applied"
+  --     unanswerable, so the overlap is refused at write time.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."regulatory_rule_versions"(
+      "id","ruleKey","versionTag","effectiveFrom","effectiveTo","status","source","payload"
+    ) VALUES (
+      'pc-rule-overlap','VAT_RATES','2026-06',
+      '2026-06-01T00:00:00Z',NULL,'ACTIVE','НК РФ ст. 164','{}'::jsonb);
+    RAISE WARNING 'FAIL 43 overlapping rule versions refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 43 overlapping rule versions refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 44. A published rule is immutable. A document recorded this revision as
+  --     the reason it looks the way it does; editing the payload underneath
+  --     would make that record false without changing the revision.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."regulatory_rule_versions"
+       SET "payload" = '{"rates":["0"]}'::jsonb
+     WHERE "id" = 'pc-rule-2026';
+    RAISE WARNING 'FAIL 44 published rule is immutable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 44 published rule is immutable';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 45. Retiring a version by status is still possible, which is how a rule
+  --     is withdrawn without erasing what it said.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."regulatory_rule_versions"
+       SET "status" = 'SUPERSEDED' WHERE "id" = 'pc-rule-2025';
+    RAISE NOTICE 'PASS 45 a rule version can be retired by status';
+    UPDATE public."regulatory_rule_versions"
+       SET "status" = 'ACTIVE' WHERE "id" = 'pc-rule-2025';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 45 a rule version can be retired by status -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 46. A rule with no citation cannot be audited, only trusted.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."regulatory_rule_versions"(
+      "id","ruleKey","versionTag","effectiveFrom","status","source","payload"
+    ) VALUES (
+      'pc-rule-nosource','UPD_FORMAT','5.03',
+      '2026-01-01T00:00:00Z','ACTIVE','   ','{}'::jsonb);
+    RAISE WARNING 'FAIL 46 a rule must cite its source -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'PASS 46 a rule must cite its source';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop regulatory rule registry: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: regulatory rule registry, 0 failures';
+END;
+$pc_crop_regulatory_rule_checks$;
+
+SET ROLE pc_accounting_command_authority;
+
+DO $pc_crop_regulatory_rule_confinement_checks$
+DECLARE
+  failures integer := 0;
+  measured text;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 47. The rules are readable by a confined principal. They are public law,
+  --     and a document that cannot name its rule is unverifiable.
+  ---------------------------------------------------------------------------
+  measured := (SELECT count(*)::text FROM public."regulatory_rule_versions");
+  IF measured = '2' THEN
+    RAISE NOTICE 'PASS 47 confined principal reads the rule registry -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL 47 confined principal reads the rule registry -> % (want 2)', measured;
+    failures := failures + 1;
+  END IF;
+
+  ---------------------------------------------------------------------------
+  -- 48. And has no path to write it. This is the property the registry exists
+  --     for: a rule a tenant can edit is a rule that can be made to justify a
+  --     document after the fact.
+  ---------------------------------------------------------------------------
+  BEGIN
+    -- A rule key nothing else uses, so the only thing that can refuse this is
+    -- the privilege boundary. Aiming it at VAT_RATES would let the overlap
+    -- guard catch it instead, and the check would pass while the layer it
+    -- measures had been widened.
+    INSERT INTO public."regulatory_rule_versions"(
+      "id","ruleKey","versionTag","effectiveFrom","status","source","payload"
+    ) VALUES (
+      'pc-rule-forged','INVENTED_RULE','2026-99',
+      '2030-01-01T00:00:00Z','ACTIVE','invented','{"rates":["0"]}'::jsonb);
+    RAISE WARNING 'FAIL 48 confined principal cannot publish a rule -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 48 confined principal cannot publish a rule';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 48 confined principal cannot publish a rule -> the grant admitted the write and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  BEGIN
+    UPDATE public."regulatory_rule_versions"
+       SET "status" = 'SUPERSEDED' WHERE "id" = 'pc-rule-2026';
+    RAISE WARNING 'FAIL 49 confined principal cannot retire a rule -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 49 confined principal cannot retire a rule';
+  END;
+
+  BEGIN
+    DELETE FROM public."regulatory_rule_versions" WHERE "id" = 'pc-rule-2025';
+    RAISE WARNING 'FAIL 50 confined principal cannot delete a rule -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 50 confined principal cannot delete a rule';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop regulatory rule confinement: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: rule registry is read-only to the runtime, 0 failures';
+END;
+$pc_crop_regulatory_rule_confinement_checks$;
+
+RESET ROLE;
+
 ROLLBACK;

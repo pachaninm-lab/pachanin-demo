@@ -29,7 +29,10 @@
     "apps/api/prisma/migrations/20260816000000_pc_crop_accounting_documents/**",
     "apps/api/src/modules/auth/accounting-document-numbering.policy.ts",
     "apps/api/src/modules/auth/accounting-document-numbering.policy.spec.ts",
-    "apps/api/prisma/migrations/20260816010000_pc_crop_accounting_number_counter/**"
+    "apps/api/prisma/migrations/20260816010000_pc_crop_accounting_number_counter/**",
+    "apps/api/src/modules/auth/regulatory-rule-registry.policy.ts",
+    "apps/api/src/modules/auth/regulatory-rule-registry.policy.spec.ts",
+    "apps/api/prisma/migrations/20260816020000_pc_crop_regulatory_rule_registry/**"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -73,7 +76,13 @@
     "Numbering uses a counter row held under SELECT FOR UPDATE rather than a PostgreSQL sequence, because a sequence keeps counting through a rolled-back issue and leaves a hole where no document ever existed.",
     "A column-level UPDATE grant is sufficient to lock the counter row, so the write principal serialises on it without being able to reshape the scheme. Measured in the gate rather than assumed.",
     "A counter never moves backwards, and its scheme is fixed once the sequence has issued anything; a new scheme means a new period row.",
-    "An imported number that falls inside the space this scheme would later generate must advance the counter past itself, or a future issue collides with a number already on a counterparty's paper."
+    "An imported number that falls inside the space this scheme would later generate must advance the counter past itself, or a future issue collides with a number already on a counterparty's paper.",
+    "The regulatory rule registry is platform-wide, not tenant-scoped: tax law is not an organization's setting, and a rule table a tenant could write is one that could be edited to justify a wrong document after the fact.",
+    "The accounting principals hold SELECT on the rule registry and nothing else; no policy admits a write from any confined role, so publishing a rule stays an ops act that leaves a reviewed diff.",
+    "Two versions of one rule in force at the same instant is refused at write time, because it makes 'which rule applied' unanswerable.",
+    "Effective windows are half-open, so a successor beginning exactly where its predecessor ends is a clean handover rather than an overlap.",
+    "A published rule version is immutable: a document recorded that revision as the reason it looks the way it does, and editing the payload underneath would falsify the record without changing the revision that vouches for it.",
+    "A rule version must cite its legal source, because a rule with no citation can only be trusted, never audited."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -103,7 +112,10 @@
     "Nineteen further checks in the RLS gate cover the documents: attribution, cross-organization refusal, pre-signed insert refusal, parent-organization binding, signing once, unwritable hash and snapshot, no delete, numbering before issue, no renumbering, no backwards version pointer, scoped reads, and the guard binding the superuser.",
     "Three document sabotages each make the gate exit non-zero: dropping the signedAt condition from the update policy, widening the column grant to a full UPDATE, and dropping the guard trigger. The first two are reported as failures of the layer that regressed rather than passing because a later layer caught them.",
     "Forty-one checks run in the gate in total. Six cover the numbering sequence: scoped creation, row locking under a column grant, no backwards movement, an unwritable scheme, no delete, and cross-organization refusal.",
-    "Two counter sabotages each make the gate exit non-zero: widening the grant to a full UPDATE, and dropping the counter guard."
+    "Two counter sabotages each make the gate exit non-zero: widening the grant to a full UPDATE, and dropping the counter guard.",
+    "Nine registry checks in the gate: adjacent windows coexist, overlap refused, published rule immutable, retirement by status permitted, citation required, confined principal reads but cannot insert, update or delete.",
+    "Two registry sabotages each make the gate exit non-zero: granting INSERT to the command principal, and dropping the overlap-and-immutability guard.",
+    "Ambiguity is reported rather than resolved by taking the newest version, so a document is never generated under a rule the platform picked arbitrarily."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",

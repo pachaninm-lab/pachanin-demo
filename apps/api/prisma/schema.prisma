@@ -304,6 +304,40 @@ model AccountingNumberCounter {
   @@map("accounting_number_counters")
 }
 
+/// A rule the platform applies, stored as a sequence of versions rather than
+/// as a constant.
+///
+/// Documents outlive rules. A УПД issued in March under one rate list must
+/// keep describing itself under that list when it is re-read in November, and
+/// a platform that hardcodes the current rate silently rewrites its own
+/// history the day the rate changes. Every accounting document version records
+/// which rule version governed it; this is what that revision points at.
+///
+/// Deliberately not tenant-scoped. Tax law is not an organization's setting,
+/// and a rule table a tenant could write is a rule table a tenant could
+/// rewrite to justify a document after the fact — so the accounting principals
+/// receive SELECT on it and nothing else.
+model RegulatoryRuleVersion {
+  id         String @id @default(cuid())
+  /// What is being versioned, e.g. `VAT_RATES` or `UPD_FORMAT`.
+  ruleKey    String
+  versionTag String
+  effectiveFrom DateTime  @db.Timestamptz(6)
+  /// Exclusive. Null means still in force.
+  effectiveTo   DateTime? @db.Timestamptz(6)
+  status        String    @default("ACTIVE")
+  /// Legal citation, so a document can say why it looks the way it does. A
+  /// rule with no citation can only be trusted, never audited.
+  source        String
+  payload       Json
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@unique([ruleKey, versionTag])
+  @@index([ruleKey, effectiveFrom])
+  @@map("regulatory_rule_versions")
+}
+
 model UkepCertificate {
   id         String    @id @default(cuid())
   userId     String
