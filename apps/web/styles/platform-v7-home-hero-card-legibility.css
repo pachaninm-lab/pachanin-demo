@@ -2,7 +2,7 @@
  * Preserve the existing hierarchy and layout, but enforce a 14 CSS px floor for visible service text.
  */
 [data-testid='platform-v7-deal-card'] :where(span, small, b) {
-  font-size: max(14px, 1em) !important;
+  font-size: 14px !important;
 }
 
 [data-testid='platform-v7-deal-card'] :where(span, small, b, strong) {
