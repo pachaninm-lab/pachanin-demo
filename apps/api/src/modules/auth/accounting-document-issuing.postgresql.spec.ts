@@ -43,35 +43,32 @@ function actor(): RequestUser {
 }
 
 async function seedDocument(id: string, versionNumber = 1): Promise<void> {
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO public."accounting_documents"
-       ("id","tenantId","organizationId","documentType","status",
-        "currentVersionNumber","createdByMembershipId","createdAt","updatedAt")
-     VALUES ($1,$2,$3,'UPD','DRAFT',$4,$5,now(),now())`,
-    id,
-    TENANT,
-    ORG,
-    versionNumber,
-    MEMBERSHIP,
-  );
+  await prisma.$executeRaw`
+    INSERT INTO public."accounting_documents"
+      ("id","tenantId","organizationId","documentType","status",
+       "currentVersionNumber","createdByMembershipId","createdAt","updatedAt")
+    VALUES (${id}, ${TENANT}, ${ORG}, 'UPD', 'DRAFT', ${versionNumber},
+            ${MEMBERSHIP}, now(), now())
+  `;
 }
 
 async function counterOrdinal(): Promise<number> {
-  const rows = await prisma.$queryRawUnsafe<{ lastOrdinal: number }[]>(
-    `SELECT "lastOrdinal" FROM public."accounting_number_counters"
-      WHERE "organizationId" = $1 AND "documentType" = 'UPD' AND "periodYear" = 2026`,
-    ORG,
-  );
+  const rows = await prisma.$queryRaw<{ lastOrdinal: number }[]>`
+    SELECT "lastOrdinal" FROM public."accounting_number_counters"
+     WHERE "organizationId" = ${ORG}
+       AND "documentType" = 'UPD'
+       AND "periodYear" = 2026
+  `;
   return rows[0].lastOrdinal;
 }
 
 async function numbersIssued(): Promise<string[]> {
-  const rows = await prisma.$queryRawUnsafe<{ documentNumber: string }[]>(
-    `SELECT "documentNumber" FROM public."accounting_documents"
-      WHERE "organizationId" = $1 AND "documentNumber" IS NOT NULL
-      ORDER BY "documentNumber"`,
-    ORG,
-  );
+  const rows = await prisma.$queryRaw<{ documentNumber: string }[]>`
+    SELECT "documentNumber" FROM public."accounting_documents"
+     WHERE "organizationId" = ${ORG}
+       AND "documentNumber" IS NOT NULL
+     ORDER BY "documentNumber"
+  `;
   return rows.map((row) => row.documentNumber);
 }
 
@@ -80,38 +77,31 @@ describePostgres('issuing an accounting document', () => {
     prisma = new PrismaService();
     await prisma.$connect();
 
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO public."organizations"
-         ("id","inn","name","type","status","kycStatus","tenantId","createdAt","updatedAt")
-       VALUES ($1,$2,'Acceptance','LEGAL','VERIFIED','VERIFIED',$3,now(),now())`,
-      ORG,
-      String(Date.now()).slice(-10),
-      TENANT,
-    );
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO public."users"
-         ("id","email","passwordHash","fullName","status","createdAt","updatedAt")
-       VALUES ($1,$2,'hash','Acceptance','ACTIVE',now(),now())`,
-      USER,
-      `${RUN}@industrial.invalid`,
-    );
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO public."user_orgs"
-         ("id","userId","organizationId","role","isDefault","joinedAt")
-       VALUES ($1,$2,$3,'ADMIN',true,now())`,
-      MEMBERSHIP,
-      USER,
-      ORG,
-    );
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO public."accounting_number_counters"
-         ("id","tenantId","organizationId","documentType","periodYear",
-          "prefix","resetPolicy","padding","createdAt","updatedAt")
-       VALUES ($1,$2,$3,'UPD',2026,'УПД','ANNUAL',6,now(),now())`,
-      `${RUN}.counter`,
-      TENANT,
-      ORG,
-    );
+    const inn = String(Date.now()).slice(-10);
+    await prisma.$executeRaw`
+      INSERT INTO public."organizations"
+        ("id","inn","name","type","status","kycStatus","tenantId","createdAt","updatedAt")
+      VALUES (${ORG}, ${inn}, 'Acceptance', 'LEGAL', 'VERIFIED', 'VERIFIED',
+              ${TENANT}, now(), now())
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO public."users"
+        ("id","email","passwordHash","fullName","status","createdAt","updatedAt")
+      VALUES (${USER}, ${`${RUN}@industrial.invalid`}, 'hash', 'Acceptance',
+              'ACTIVE', now(), now())
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO public."user_orgs"
+        ("id","userId","organizationId","role","isDefault","joinedAt")
+      VALUES (${MEMBERSHIP}, ${USER}, ${ORG}, 'ADMIN', true, now())
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO public."accounting_number_counters"
+        ("id","tenantId","organizationId","documentType","periodYear",
+         "prefix","resetPolicy","padding","createdAt","updatedAt")
+      VALUES (${`${RUN}.counter`}, ${TENANT}, ${ORG}, 'UPD', 2026,
+              'УПД', 'ANNUAL', 6, now(), now())
+    `;
 
     issuing = new AccountingDocumentIssuingRepository(
       new RlsTransactionService(prisma),
@@ -119,23 +109,19 @@ describePostgres('issuing an accounting document', () => {
   });
 
   afterAll(async () => {
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM public."accounting_documents" WHERE "organizationId" = $1`,
-      ORG,
-    );
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM public."accounting_number_counters" WHERE "organizationId" = $1`,
-      ORG,
-    );
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM public."user_orgs" WHERE "organizationId" = $1`,
-      ORG,
-    );
-    await prisma.$executeRawUnsafe(`DELETE FROM public."users" WHERE "id" = $1`, USER);
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM public."organizations" WHERE "id" = $1`,
-      ORG,
-    );
+    await prisma.$executeRaw`
+      DELETE FROM public."accounting_documents" WHERE "organizationId" = ${ORG}
+    `;
+    await prisma.$executeRaw`
+      DELETE FROM public."accounting_number_counters" WHERE "organizationId" = ${ORG}
+    `;
+    await prisma.$executeRaw`
+      DELETE FROM public."user_orgs" WHERE "organizationId" = ${ORG}
+    `;
+    await prisma.$executeRaw`DELETE FROM public."users" WHERE "id" = ${USER}`;
+    await prisma.$executeRaw`
+      DELETE FROM public."organizations" WHERE "id" = ${ORG}
+    `;
     await prisma.$disconnect();
   });
 
