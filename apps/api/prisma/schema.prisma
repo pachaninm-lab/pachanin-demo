@@ -49,6 +49,7 @@ model Organization {
   accountingDocuments               AccountingDocument[]
   accountingDocumentVersions        AccountingDocumentVersion[]
   accountingNumberCounters          AccountingNumberCounter[]
+  taxProfiles                       OrganizationTaxProfile[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -115,6 +116,7 @@ model UserOrg {
   accountingDocumentsAuthored AccountingDocument[]        @relation("AccountingDocumentAuthor")
   accountingVersionsAuthored  AccountingDocumentVersion[] @relation("AccountingDocumentVersionAuthor")
   accountingVersionsSigned    AccountingDocumentVersion[] @relation("AccountingDocumentVersionSigner")
+  taxProfilesAuthored         OrganizationTaxProfile[]    @relation("OrganizationTaxProfileAuthor")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -336,6 +338,44 @@ model RegulatoryRuleVersion {
   @@unique([ruleKey, versionTag])
   @@index([ruleKey, effectiveFrom])
   @@map("regulatory_rule_versions")
+}
+
+/// An organization's declared tax status, versioned in time.
+///
+/// Versioned because a regime change in July must not retroactively change
+/// what a document issued in March says about itself. Every accounting
+/// document version records which profile version governed it; this is the
+/// second revision source the staleness snapshot points at.
+///
+/// Unlike `regulatory_rule_versions`, this one is the organization's own
+/// declaration and is therefore writable by its members — what it may not do
+/// is change meaning after documents have cited it.
+model OrganizationTaxProfile {
+  id                 String  @id @default(cuid())
+  tenantId           String
+  organizationId     String
+  versionTag         String
+  taxRegime          String
+  vatStatus          String
+  /// Required exactly when the status is EXEMPT: the legal ground, in words.
+  /// An exemption nobody can name is indistinguishable from not charging VAT
+  /// for no reason.
+  vatExemptionGround String?
+  effectiveFrom      DateTime  @db.Timestamptz(6)
+  /// Exclusive. Null means still current.
+  effectiveTo        DateTime? @db.Timestamptz(6)
+  createdByMembershipId String
+  version            BigInt   @default(0)
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy    UserOrg      @relation("OrganizationTaxProfileAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([organizationId, versionTag])
+  @@index([organizationId, effectiveFrom])
+  @@index([tenantId])
+  @@map("organization_tax_profiles")
 }
 
 model UkepCertificate {

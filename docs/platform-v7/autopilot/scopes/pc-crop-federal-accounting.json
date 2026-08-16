@@ -32,7 +32,10 @@
     "apps/api/prisma/migrations/20260816010000_pc_crop_accounting_number_counter/**",
     "apps/api/src/modules/auth/regulatory-rule-registry.policy.ts",
     "apps/api/src/modules/auth/regulatory-rule-registry.policy.spec.ts",
-    "apps/api/prisma/migrations/20260816020000_pc_crop_regulatory_rule_registry/**"
+    "apps/api/prisma/migrations/20260816020000_pc_crop_regulatory_rule_registry/**",
+    "apps/api/src/modules/auth/organization-tax-profile.policy.ts",
+    "apps/api/src/modules/auth/organization-tax-profile.policy.spec.ts",
+    "apps/api/prisma/migrations/20260816030000_pc_crop_organization_tax_profile/**"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -82,7 +85,13 @@
     "Two versions of one rule in force at the same instant is refused at write time, because it makes 'which rule applied' unanswerable.",
     "Effective windows are half-open, so a successor beginning exactly where its predecessor ends is a clean handover rather than an overlap.",
     "A published rule version is immutable: a document recorded that revision as the reason it looks the way it does, and editing the payload underneath would falsify the record without changing the revision that vouches for it.",
-    "A rule version must cite its legal source, because a rule with no citation can only be trusted, never audited."
+    "A rule version must cite its legal source, because a rule with no citation can only be trusted, never audited.",
+    "The tax profile is versioned in time, so a regime change in July does not retroactively change what a document issued in March says about itself.",
+    "The privilege shapes of the rule registry and the tax profile are opposite on purpose: tax law is not an organization's setting and no confined principal may write it, while a tax status is the organization's own declaration and its members may record one.",
+    "A recorded tax profile's regime, status, exemption ground and start are unwritable after insert; only the end of its window may be set, once, which is how a successor is declared.",
+    "The platform decides no tax law: rates come from a resolved VAT_RATES rule version that cites its legal source, and the policy only enforces agreement between the declared status, the rule in force and what the document claims.",
+    "An empty rate list means nothing is lawful, never that any rate is acceptable — the same reading applied to an empty allowed-document-type list.",
+    "An exemption must name its legal ground, and a ground cited by a non-exempt organization is refused, because both directions produce a document that cannot be checked."
   ],
   "acceptance": [
     "The eleven job profiles are exposed and share no identifier with the nine market roles.",
@@ -115,7 +124,10 @@
     "Two counter sabotages each make the gate exit non-zero: widening the grant to a full UPDATE, and dropping the counter guard.",
     "Nine registry checks in the gate: adjacent windows coexist, overlap refused, published rule immutable, retirement by status permitted, citation required, confined principal reads but cannot insert, update or delete.",
     "Two registry sabotages each make the gate exit non-zero: granting INSERT to the command principal, and dropping the overlap-and-immutability guard.",
-    "Ambiguity is reported rather than resolved by taking the newest version, so a document is never generated under a rule the platform picked arbitrarily."
+    "Ambiguity is reported rather than resolved by taking the newest version, so a document is never generated under a rule the platform picked arbitrarily.",
+    "Eight tax profile checks in the gate: exemption ground required, ground refused on non-exempt, recording permitted, overlap refused, substance immutable, window closed once and not re-cut, clean successor handover, cross-organization refused.",
+    "Two tax profile sabotages each make the gate exit non-zero: dropping the guard, and widening the column grant to a full UPDATE.",
+    "Check 56b measures rows touched rather than an exception, because the update policy makes a closed row unreachable rather than refusing it; a guard answering instead is reported as a failure of the policy layer."
   ],
   "notYetApproved": [
     "Waves 2-12 of the programme. Each must request its own scope manifest.",

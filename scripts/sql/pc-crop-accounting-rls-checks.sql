@@ -970,6 +970,7 @@ DO $pc_crop_regulatory_rule_confinement_checks$
 DECLARE
   failures integer := 0;
   measured text;
+  affected integer;
 BEGIN
   PERFORM set_config('app.current_user_id', 'user-a', true),
           set_config('app.current_org_id', 'org-a', true),
@@ -1033,10 +1034,192 @@ BEGIN
       RAISE NOTICE 'PASS 50 confined principal cannot delete a rule';
   END;
 
+  ---------------------------------------------------------------------------
+  -- The organization's own tax status. The privilege shape here is the
+  -- opposite of the rule registry's, on purpose: members may declare a status,
+  -- but a declared version cannot change meaning after documents cite it.
+  --
+  -- The malformed-shape checks run first, before any profile exists. Ordered
+  -- the other way they would overlap the open-ended profile and be refused by
+  -- the guard instead of by the constraint each one measures — a check that
+  -- passes because a neighbouring layer caught it is not measuring anything.
+  ---------------------------------------------------------------------------
+
+  ---------------------------------------------------------------------------
+  -- 51. An exemption nobody can name is indistinguishable from not charging
+  --     VAT for no reason.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."organization_tax_profiles"(
+      "id","tenantId","organizationId","versionTag","taxRegime","vatStatus",
+      "effectiveFrom","createdByMembershipId"
+    ) VALUES (
+      'pc-tax-noground','tenant-a','org-a','2027-01','ESHN','EXEMPT',
+      '2027-01-01T00:00:00Z','m-a');
+    RAISE WARNING 'FAIL 51 an exemption must name its ground -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'PASS 51 an exemption must name its ground';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 51 an exemption must name its ground -> the overlap guard answered instead of the constraint (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 52. And a ground cited by an organization that is not exempt claims a
+  --     status it does not hold.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."organization_tax_profiles"(
+      "id","tenantId","organizationId","versionTag","taxRegime","vatStatus",
+      "vatExemptionGround","effectiveFrom","createdByMembershipId"
+    ) VALUES (
+      'pc-tax-badground','tenant-a','org-a','2028-01','OSNO','PAYER',
+      'ст. 145 НК РФ','2028-01-01T00:00:00Z','m-a');
+    RAISE WARNING 'FAIL 52 only an exempt profile cites a ground -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'PASS 52 only an exempt profile cites a ground';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 52 only an exempt profile cites a ground -> the overlap guard answered instead of the constraint (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 53. A member records a profile for its own organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."organization_tax_profiles"(
+      "id","tenantId","organizationId","versionTag","taxRegime","vatStatus",
+      "effectiveFrom","createdByMembershipId"
+    ) VALUES (
+      'pc-tax-a','tenant-a','org-a','2026-01','OSNO','PAYER',
+      '2026-01-01T00:00:00Z','m-a');
+    RAISE NOTICE 'PASS 53 tax profile recorded';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 53 tax profile recorded -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 54. Two statuses in force at once makes "was this organization charging
+  --     VAT that day" unanswerable.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."organization_tax_profiles"(
+      "id","tenantId","organizationId","versionTag","taxRegime","vatStatus",
+      "effectiveFrom","createdByMembershipId"
+    ) VALUES (
+      'pc-tax-overlap','tenant-a','org-a','2026-06','USN','NOT_PAYER',
+      '2026-06-01T00:00:00Z','m-a');
+    RAISE WARNING 'FAIL 54 overlapping tax profiles refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 54 overlapping tax profiles refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 55. The substance of a recorded profile is not writable at all, so a
+  --     document's cited status cannot change meaning under it.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."organization_tax_profiles"
+       SET "vatStatus" = 'NOT_PAYER' WHERE "id" = 'pc-tax-a';
+    RAISE WARNING 'FAIL 55 a recorded tax status is immutable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 55 a recorded tax status is immutable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 55 a recorded tax status is immutable -> the column grant admitted the write and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 56. Closing the window is how a successor is declared, and it happens
+  --     once: re-cutting it later orphans documents issued under the version
+  --     as it stood.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."organization_tax_profiles"
+       SET "effectiveTo" = '2026-07-01T00:00:00Z' WHERE "id" = 'pc-tax-a';
+    RAISE NOTICE 'PASS 56a a window can be closed once';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 56a a window can be closed once -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  -- Measured as rows touched rather than as an exception: the update policy
+  -- only admits a row whose window is still open, and an unreachable row is
+  -- silently skipped rather than refused. The guard says the same thing to the
+  -- superuser, which is checked separately.
+  BEGIN
+    UPDATE public."organization_tax_profiles"
+       SET "effectiveTo" = '2026-09-01T00:00:00Z' WHERE "id" = 'pc-tax-a';
+    GET DIAGNOSTICS affected = ROW_COUNT;
+    measured := affected::text || '/' || coalesce((
+      SELECT to_char("effectiveTo" AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+      FROM public."organization_tax_profiles" WHERE "id" = 'pc-tax-a'), 'null');
+    IF measured = '0/2026-07-01' THEN
+      RAISE NOTICE 'PASS 56b a closed window is not re-cut -> %', measured;
+    ELSE
+      RAISE WARNING 'FAIL 56b a closed window is not re-cut -> % (want 0/2026-07-01)', measured;
+      failures := failures + 1;
+    END IF;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 56b a closed window is not re-cut -> the update policy admitted the row and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 57. A successor beginning where its predecessor ends is a clean handover.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."organization_tax_profiles"(
+      "id","tenantId","organizationId","versionTag","taxRegime","vatStatus",
+      "vatExemptionGround","effectiveFrom","createdByMembershipId"
+    ) VALUES (
+      'pc-tax-a2','tenant-a','org-a','2026-07','ESHN','EXEMPT',
+      'ст. 145 НК РФ','2026-07-01T00:00:00Z','m-a');
+    RAISE NOTICE 'PASS 57 a successor profile starts where the last one ended';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 57 a successor profile starts where the last one ended -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 58. And none of it can be written into another organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."organization_tax_profiles"(
+      "id","tenantId","organizationId","versionTag","taxRegime","vatStatus",
+      "effectiveFrom","createdByMembershipId"
+    ) VALUES (
+      'pc-tax-cross','tenant-b','org-b','2026-01','OSNO','PAYER',
+      '2026-01-01T00:00:00Z','m-a');
+    RAISE WARNING 'FAIL 58 cross-organization tax profile refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR foreign_key_violation THEN
+      RAISE NOTICE 'PASS 58 cross-organization tax profile refused';
+  END;
+
   IF failures > 0 THEN
     RAISE EXCEPTION 'pc-crop regulatory rule confinement: % check(s) failed', failures;
   END IF;
-  RAISE NOTICE 'pc-crop accounting contour: rule registry is read-only to the runtime, 0 failures';
+  RAISE NOTICE 'pc-crop accounting contour: rule registry read-only, tax profiles versioned, 0 failures';
 END;
 $pc_crop_regulatory_rule_confinement_checks$;
 
