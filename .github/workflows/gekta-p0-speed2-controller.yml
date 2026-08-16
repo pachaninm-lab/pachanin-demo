@@ -469,7 +469,7 @@ jobs:
             ($rows | map(.decomposition.nonPrefillBeforeFirstTokenMs)) as $np |
             {
               schema: "gekta.speed2.real-prefill-canary.v1",
-              result: (if (all(.[]; .sample.ok == true and .sample.qualityPass == true and .sample.modelBacked == true and .sample.source == "local_qwen" and .model.uncontaminated == true)) then "PASS" else "FAIL" end),
+              result: (if (all($rows[]; .sample.ok == true and .sample.qualityPass == true and .sample.modelBacked == true and .sample.source == "local_qwen" and .model.uncontaminated == true)) then "PASS" else "FAIL" end),
               cases: $rows,
               summary: {
                 caseCount: ($rows|length),
