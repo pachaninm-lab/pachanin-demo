@@ -16,6 +16,7 @@ const mailProofRun = 31918077465;
 const mailProofHead = 'ea62c3ffdc2fa323c56e1ad92bbc6b9baeab69d8';
 const sourceBlob = '7a586ded1b40ab3812335b351d0e8cc519020aa4';
 const allowed = [workflowPath, runnerPath, checkerPath, scopePath];
+const hotfixAllowed = [runnerPath, checkerPath];
 
 const read = (filePath) => fs.readFileSync(filePath, 'utf8');
 const workflow = read(workflowPath);
@@ -46,7 +47,7 @@ for (const token of [
   'proof_job_count=', 'bash "$temp_script"',
   'PASS: deployed-50990d reviewer reset wrapper transformed safely',
 ]) need('runner', runner, token);
-for (const re of [/StrictHostKeyChecking=no/, /UserKnownHostsFile=\/dev\/null/, /PASSWORD_RESET_DELIVERY_KEY=/, /SMTP_PASSWORD=/, /reviewer_email=/]) deny('wrapper', runner, re);
+for (const re of [/StrictHostKeyChecking=no/, /UserKnownHostsFile=\/dev\/null/, /PASSWORD_RESET_DELIVERY_KEY=/, /SMTP_PASSWORD=/, /reviewer_email=/, /--jq\s+--arg/]) deny('wrapper', runner, re);
 
 const sourceHash = spawnSync('git', ['hash-object', sourcePath], { encoding: 'utf8' });
 if (sourceHash.status !== 0 || sourceHash.stdout.trim() !== sourceBlob) failures.push('canonical reset source blob mismatch');
@@ -82,7 +83,7 @@ try {
 if (process.env.GITHUB_EVENT_NAME === 'pull_request') {
   const diff = spawnSync('git', ['diff', '--name-only', 'origin/main...HEAD'], { encoding: 'utf8' });
   const changed = diff.stdout.trim().split('\n').filter(Boolean).sort();
-  if (diff.status !== 0 || JSON.stringify(changed) !== JSON.stringify([...allowed].sort())) failures.push(`PR scope mismatch: ${JSON.stringify(changed)}`);
+  if (diff.status !== 0 || JSON.stringify(changed) !== JSON.stringify([...hotfixAllowed].sort())) failures.push(`PR hotfix scope mismatch: ${JSON.stringify(changed)}`);
 }
 
 if (failures.length) {

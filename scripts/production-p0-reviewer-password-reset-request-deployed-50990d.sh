@@ -107,7 +107,7 @@ git merge-base --is-ancestor "$MAIL_PROOF_HEAD_SHA" "$TARGET_SHA"
 
 proof_meta="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MAIL_PROOF_RUN_ID" --jq '[.conclusion,.head_sha,.event] | join("|")')"
 [[ "$proof_meta" == "success|$MAIL_PROOF_HEAD_SHA|issue_comment" ]]
-proof_job_count="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MAIL_PROOF_RUN_ID/jobs?per_page=100" --jq --arg name "$MAIL_PROOF_JOB" '[.jobs[] | select(.name == $name and .conclusion == "success")] | length')"
+proof_job_count="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MAIL_PROOF_RUN_ID/jobs?per_page=100" --jq "[.jobs[] | select(.name == \"$MAIL_PROOF_JOB\" and .conclusion == \"success\")] | length")"
 [[ "$proof_job_count" == '1' ]]
 
 guard_main
