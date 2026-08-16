@@ -12,8 +12,8 @@
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 12.7,
-  "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
+  "overallProgressPercent": 12.8,
+  "overallProgressBasis": "Section H weighted matrix applied to proven state. Credited shares are summed in integer hundredths, because summing them as floats shaved a tenth off the total in one revision. No rounding up.",
   "status": "ACCOUNTING_CORE_GREEN_IN_CI_WORK_TASK_ON_BRANCH",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
   "workstreams": [
