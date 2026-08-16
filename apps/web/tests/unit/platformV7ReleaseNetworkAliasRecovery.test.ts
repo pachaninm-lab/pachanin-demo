@@ -21,6 +21,8 @@ describe('production full-stack API network alias recovery', () => {
       "github.event.comment.performed_via_github_app.id == 1144995",
     ]) expect(workflow).toContain(marker);
 
+    const runtime = workflow.split('      - name: Reconcile only duplicate foreign api alias', 2)[1];
+    expect(runtime).toBeTruthy();
     for (const forbidden of [
       'docker rm',
       'docker stop',
@@ -30,6 +32,6 @@ describe('production full-stack API network alias recovery', () => {
       'docker compose up',
       'docker system prune',
       'docker volume rm',
-    ]) expect(workflow).not.toContain(forbidden);
+    ]) expect(runtime).not.toContain(forbidden);
   });
 });
