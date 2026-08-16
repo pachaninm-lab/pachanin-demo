@@ -207,13 +207,13 @@ jobs:
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer one-shot authorization claimed
 
-- marker: \`$CLAIM_MARKER\`
-- authorization run: \`$AUTHORIZATION_RUN_ID\`
-- exact main: \`$TARGET_SHA\`
-- runtime revision revalidated: \`${{ steps.preflight.outputs.runtime_sha }}\`
-- production reset mutation at claim: \`NONE\`
-- replay from this authorization: \`FORBIDDEN\`
-- next: \`EXECUTE_REVIEWED_NORMAL_PASSWORD_RESET_REQUEST_EXACTLY_ONCE\`" >/dev/null
+          - marker: \`$CLAIM_MARKER\`
+          - authorization run: \`$AUTHORIZATION_RUN_ID\`
+          - exact main: \`$TARGET_SHA\`
+          - runtime revision revalidated: \`${{ steps.preflight.outputs.runtime_sha }}\`
+          - production reset mutation at claim: \`NONE\`
+          - replay from this authorization: \`FORBIDDEN\`
+          - next: \`EXECUTE_REVIEWED_NORMAL_PASSWORD_RESET_REQUEST_EXACTLY_ONCE\`" >/dev/null
 
       - name: Execute reviewed reset source exactly once
         shell: bash
@@ -259,13 +259,13 @@ jobs:
           set -Eeuo pipefail
           gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer one-shot reset authorization consumed
 
-- marker: \`$CLAIM_MARKER\`
-- authorization run: \`$AUTHORIZATION_RUN_ID\`
-- exact main: \`$TARGET_SHA\`
-- runtime revision bound before request: \`${{ steps.preflight.outputs.runtime_sha }}\`
-- source reset flow: \`PASS\`
-- production mutation: \`NORMAL_PASSWORD_RESET_REQUEST_ONLY\`
-- replay: \`FORBIDDEN\`" >/dev/null
+          - marker: \`$CLAIM_MARKER\`
+          - authorization run: \`$AUTHORIZATION_RUN_ID\`
+          - exact main: \`$TARGET_SHA\`
+          - runtime revision bound before request: \`${{ steps.preflight.outputs.runtime_sha }}\`
+          - source reset flow: \`PASS\`
+          - production mutation: \`NORMAL_PASSWORD_RESET_REQUEST_ONLY\`
+          - replay: \`FORBIDDEN\`" >/dev/null
           printf 'P0_REVIEWER_ONE_SHOT_RESET=PASS\n'
           printf 'AUTHORIZATION_RUN_ID=%s\n' "$AUTHORIZATION_RUN_ID"
           printf 'RUNTIME_DEPLOYED_SHA=%s\n' '${{ steps.preflight.outputs.runtime_sha }}'
