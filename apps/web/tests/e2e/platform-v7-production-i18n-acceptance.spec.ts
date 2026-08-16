@@ -247,6 +247,23 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
     }
   }
 
+  test('RU 320x700: exact production homepage master design gates', async ({ page }, testInfo) => {
+    const viewport = viewports[0];
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+    const response = await page.goto(
+      localizedUrl('/platform-v7', 'ru', `${testInfo.project.name}-ru-${viewport.name}-home-design`),
+      { waitUntil: 'load' },
+    );
+    expect(response?.ok()).toBe(true);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+    await expectProductionHomepageDesignGates(page, viewport);
+    await captureEvidence(page, testInfo, 'ru', viewport.name, 'home');
+    expect(pageErrors).toEqual([]);
+  });
+
   for (const locale of locales) {
     test(`${locale.label}: query-selected locale persists after clean reload`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: 390, height: 844 });
