@@ -1,101 +1,65 @@
-'use client';
+name: web-unit
 
-import dynamic from 'next/dynamic';
-import { usePathname } from 'next/navigation';
-import { PlatformV7PublicTranslationRuntime } from '@/components/platform-v7/PlatformV7PublicTranslationRuntime';
-import { PublicAssistantMobileLayoutAuthority } from '@/components/platform-v7/PublicAssistantMobileLayoutAuthority';
-import type { PlatformRole } from '@/stores/usePlatformV7RStore';
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig*.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig*.json'
+  workflow_dispatch:
 
-export type HydrationSafeChatSupportProps = {
-  verifiedRole?: PlatformRole;
-  renderDock?: boolean;
-  legacyPublicPolish?: boolean;
-};
+concurrency:
+  group: web-unit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
-type ContextualSupportProps = Omit<HydrationSafeChatSupportProps, 'legacyPublicPolish'>;
+jobs:
+  web-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
 
-const ContextualSupportOrAssistant = dynamic<ContextualSupportProps>(
-  () => import('@/components/platform-v7/ContextualSupportOrAssistant').then((module) => module.ContextualSupportOrAssistant),
-  { ssr: false, loading: () => null },
-);
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
 
-const LegacyPublicMobileExperiencePolish = dynamic(
-  () => import('@/components/platform-v7/LegacyPublicMobileExperiencePolish').then((module) => module.LegacyPublicMobileExperiencePolish),
-  { ssr: false, loading: () => null },
-);
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-function isStrategicHomepage(pathname: string): boolean {
-  const clean = pathname.split('?')[0].replace(/\/+$/u, '') || '/platform-v7';
-  return clean === '/platform-v7' || clean === '/pc-public-entry/platform-v7';
-}
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-/**
- * Public pages keep the contact-support form. Authenticated platform-v7 workspaces
- * receive one role-scoped conversational assistant with presence, structured
- * decision cards and a persistent synthetic/authoritative data-mode label.
- * The surface remains browser-only so time-aware greetings, focus management and
- * route context never destabilize streamed HTML or hydration.
- */
-export function HydrationSafeChatSupport({
-  legacyPublicPolish,
-  ...supportProps
-}: HydrationSafeChatSupportProps) {
-  const pathname = usePathname() || '/platform-v7';
-  const loadLegacyPublicPolish = legacyPublicPolish ?? !isStrategicHomepage(pathname);
+      - name: Platform-v7 unit checks
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/serverRequestSecurity.test.ts \
+            tests/unit/shellRolePolicy.test.ts \
+            tests/unit/platformV7DriverRoleShellGuard.test.ts \
+            tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts \
+            tests/unit/platformV7RootWorkEntry.test.ts \
+            tests/unit/roleContinuityPanel.test.tsx \
+            tests/unit/platformV7VerifiedSession.test.ts \
+            tests/unit/platformV7CanonicalDealWorkspace.test.ts \
+            tests/unit/surfaceRoleMappingParity.test.ts \
+            tests/unit/platformV7ProductionI18nRuntimeBridge.test.tsx \
+            2>&1 | tee /tmp/web-unit.log
 
-  return (
-    <>
-      <PlatformV7PublicTranslationRuntime />
-      {loadLegacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
-      <PublicAssistantMobileLayoutAuthority />
-      <ContextualSupportOrAssistant {...supportProps} />
-      {loadLegacyPublicPolish ? <style>{terminalPublicSpacingCss}</style> : null}
-    </>
-  );
-}
-
-const terminalPublicSpacingCss = `
-html body .pc-ppe-page .pc-ppe-section {
-  padding-block: 48px;
-}
-html body .pc-ppe-page .pc-ppe-section-header {
-  margin-bottom: 20px;
-}
-html body .pc-ppe-page .pc-ppe-hero {
-  padding-top: 36px;
-  padding-bottom: 36px;
-}
-html body .pc-ppe-page .pc-ppe-explorer-intro {
-  padding-block: 32px;
-}
-html body .pc-ppe-page .pc-ppe-final-cta {
-  padding-top: 48px;
-  padding-bottom: 72px;
-}
-html body .pc-ppe-page :where(.pc-ppe-section, .pc-ppe-final-cta) + :where(.pc-ppe-section, .pc-ppe-final-cta) {
-  margin-top: 0;
-}
-
-@media (max-width: 720px) {
-  html body .pc-ppe-page .pc-ppe-hero {
-    padding-top: 20px;
-    padding-bottom: 24px;
-  }
-  html body .pc-ppe-page .pc-ppe-section {
-    padding-block: 28px;
-  }
-  html body .pc-ppe-page .pc-ppe-section-header {
-    margin-bottom: 16px;
-  }
-  html body .pc-ppe-page .pc-ppe-explorer-intro {
-    padding-block: 20px;
-  }
-  html body .pc-ppe-page .pc-ppe-final-cta {
-    padding-top: 32px;
-    padding-bottom: 72px;
-  }
-  html body .pc-ppe-page .pc-ppe-shell {
-    padding-bottom: 88px;
-  }
-}
-`;
+      - name: Upload web-unit log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-unit-log
+          path: /tmp/web-unit.log
