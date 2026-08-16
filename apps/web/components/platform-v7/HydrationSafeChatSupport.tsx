@@ -24,9 +24,22 @@ const LegacyPublicMobileExperiencePolish = dynamic(
   { ssr: false, loading: () => null },
 );
 
+function normalizePath(pathname: string): string {
+  return pathname.split('?')[0].replace(/\/+$/u, '') || '/platform-v7';
+}
+
 function isStrategicHomepage(pathname: string): boolean {
-  const clean = pathname.split('?')[0].replace(/\/+$/u, '') || '/platform-v7';
+  const clean = normalizePath(pathname);
   return clean === '/platform-v7' || clean === '/pc-public-entry/platform-v7';
+}
+
+function needsLegacyTranslationBridge(pathname: string): boolean {
+  const clean = normalizePath(pathname);
+  return clean === '/platform-v7'
+    || clean === '/pc-public-entry/platform-v7'
+    || clean === '/platform-v7/contact'
+    || clean === '/platform-v7/deal-flow'
+    || clean === '/platform-v7/demo';
 }
 
 /**
@@ -42,10 +55,11 @@ export function HydrationSafeChatSupport({
 }: HydrationSafeChatSupportProps) {
   const pathname = usePathname() || '/platform-v7';
   const loadLegacyPublicPolish = legacyPublicPolish ?? !isStrategicHomepage(pathname);
+  const loadTranslationBridge = needsLegacyTranslationBridge(pathname);
 
   return (
     <>
-      <PlatformV7TranslationRuntimeBridge />
+      {loadTranslationBridge ? <PlatformV7TranslationRuntimeBridge /> : null}
       {loadLegacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
       <PublicAssistantMobileLayoutAuthority />
       <ContextualSupportOrAssistant {...supportProps} />
