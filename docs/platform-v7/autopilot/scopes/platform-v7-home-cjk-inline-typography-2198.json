@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-home-cjk-inline-typography-2198",
+  "branch": "fix/p7-home-cjk-inline-typography-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "066dc5e3ed6d7d8f91583308433d270a7529989e"
+  },
+  "purpose": "Close the source-level CJK typography contract gap before the serial production i18n matrix reaches ZH home. Provide the required local CJK system-font stack and zero letter spacing to public Platform V7 entry surfaces without remote fonts, legacy render-blocking typography imports, copy changes, layout changes or product redesign.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+    "apps/web/styles/platform-v7-public-cjk-runtime.css",
+    "apps/web/tests/unit/platformV7PublicCjkTypography.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-home-cjk-inline-typography-2198.json"
+  ],
+  "evidence": {
+    "productionRun": 31947878003,
+    "productionState": "NOT_ATTESTED_DUE_TO_EARLIER_SERIAL_FAILURE",
+    "sourceContract": "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts requires PingFang SC, Noto Sans SC or Microsoft YaHei on .pc-v7-public-entry for zh",
+    "currentSourceGap": "apps/web/app/platform-v7/page.tsx defines only the generic system/Segoe UI/Arial stack on the public root"
+  },
+  "forbiddenChanges": [
+    "approved master copy, hierarchy, sizing, spacing, breakpoints or interaction design",
+    "production i18n acceptance allowlist or fail-closed criteria",
+    "authentication, registration, MFA, authorization, RBAC, RLS, tenant or organization authority",
+    "API, database, Deal, money, evidence or business-state authority",
+    "Gekta model, prompt, inference, latency or entitlement semantics",
+    "release credentials, DNS, SSH, Docker, Caddy or direct REG.RU mutation",
+    "remote font downloads or new paid/recurring services"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "focused CJK typography unit contract",
+    "web-unit, typecheck and build",
+    "design-system, security and governance gates",
+    "production i18n acceptance on a deployed descendant before claiming production PASS"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "This is a source-level preventive fix. ZH computed typography is not production PASS until exact deployed production browser acceptance reaches and passes that gate."
+}
