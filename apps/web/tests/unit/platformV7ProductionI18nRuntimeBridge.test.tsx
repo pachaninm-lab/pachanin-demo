@@ -60,6 +60,12 @@ describe('Platform V7 production i18n runtime bridge', () => {
     });
   });
 
+  it('renders the register brand home accessible name from locale-native chrome copy', () => {
+    const source = read('apps/web/app/platform-v7/register/RegisterCleanClient.tsx');
+    expect(source).toContain("const chrome = useTranslations('publicEntry.chrome')");
+    expect(source).toContain("brandHomeLabel={chrome('brandHomeLabel')}");
+  });
+
   it('is mounted through the shared public and protected hydration runtime', () => {
     const source = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
     expect(source).toContain("import { PlatformV7TranslationRuntimeBridge }");
