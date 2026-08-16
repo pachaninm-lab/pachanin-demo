@@ -52,6 +52,7 @@ model Organization {
   taxProfiles                       OrganizationTaxProfile[]
   contractVersions                  ContractVersion[]
   accountingWorkTasks               AccountingWorkTask[]
+  accountingPeriods                 AccountingPeriod[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -124,6 +125,8 @@ model UserOrg {
   workTasksAssigned           AccountingWorkTask[]        @relation("AccountingWorkTaskAssignee")
   workTasksAuthored           AccountingWorkTask[]        @relation("AccountingWorkTaskAuthor")
   workTasksResolved           AccountingWorkTask[]        @relation("AccountingWorkTaskResolver")
+  periodsOpened               AccountingPeriod[]          @relation("AccountingPeriodOpener")
+  periodsClosed               AccountingPeriod[]          @relation("AccountingPeriodCloser")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -511,6 +514,50 @@ model AccountingWorkTask {
   @@index([tenantId])
   @@index([dealId])
   @@map("accounting_work_tasks")
+}
+
+/// The platform's statement that its own document set for a stretch of time is
+/// settled — not an accounting ledger close.
+///
+/// «Прозрачная Цена» is not the books and does not replace 1С; what it can say
+/// is that the documents it is authority for stopped moving. So a closed period
+/// freezes exactly that: no new version of a document raised inside it, and no
+/// signature on one. Everything else about the month is somebody else's system.
+///
+/// Closing is refused while derived work for the period is still open, because
+/// a close declared over unfinished work is the report that gets believed and
+/// then contradicted.
+model AccountingPeriod {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  /// Inclusive.
+  periodStart    DateTime @db.Timestamptz(6)
+  /// Exclusive, so a successor beginning exactly where this ends is a clean
+  /// handover rather than an overlap — the same convention the rule registry
+  /// and the tax profiles use.
+  periodEnd      DateTime @db.Timestamptz(6)
+  /// OPEN, CLOSING or CLOSED. CLOSING exists so that the check for outstanding
+  /// work happens against a period nobody is still adding to.
+  status         String   @default("OPEN")
+  closingStartedAt DateTime? @db.Timestamptz(6)
+  /// Stamped by the database, never supplied: a close time the caller picks is
+  /// a close time the caller can antedate.
+  closedAt             DateTime? @db.Timestamptz(6)
+  closedByMembershipId String?
+  openedByMembershipId String
+  version              BigInt   @default(0)
+  createdAt            DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  openedBy     UserOrg      @relation("AccountingPeriodOpener", fields: [openedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  closedBy     UserOrg?     @relation("AccountingPeriodCloser", fields: [closedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([organizationId, periodStart])
+  @@index([organizationId, status, periodStart])
+  @@index([tenantId])
+  @@map("accounting_periods")
 }
 
 model UkepCertificate {

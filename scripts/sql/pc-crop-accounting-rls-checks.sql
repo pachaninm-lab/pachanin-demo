@@ -1612,5 +1612,160 @@ END;
 $pc_crop_work_task_read_checks$;
 
 RESET ROLE;
+SET ROLE pc_accounting_command_authority;
+
+---------------------------------------------------------------------------
+-- Accounting periods. The platform is not the ledger, so what a close freezes
+-- is exactly the document set the platform is authority for. These measure
+-- that the confined principal can run a close and cannot re-cut one.
+---------------------------------------------------------------------------
+
+DO $pc_crop_accounting_period_checks$
+DECLARE
+  failures integer := 0;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 79. A member opens a period for their own organization, attributed to
+  --     themselves.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_periods"(
+      "id","tenantId","organizationId","periodStart","periodEnd",
+      "openedByMembershipId"
+    ) VALUES (
+      'pc-per-a','tenant-a','org-a','2026-01-01T00:00:00Z',
+      '2026-02-01T00:00:00Z','m-a');
+    RAISE NOTICE 'PASS 79 a member opens a period';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 79 a member opens a period -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 80. Attribution cannot be handed to somebody else.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_periods"(
+      "id","tenantId","organizationId","periodStart","periodEnd",
+      "openedByMembershipId"
+    ) VALUES (
+      'pc-per-forged','tenant-a','org-a','2026-03-01T00:00:00Z',
+      '2026-04-01T00:00:00Z','m-staff');
+    RAISE WARNING 'FAIL 80 forged period attribution refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 80 forged period attribution refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 81. The window is not in the column grant. This measures the grant, not
+  --     the guard: if the grant were widened the guard would still refuse, and
+  --     the check must report that rather than pass.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_periods"
+       SET "periodEnd" = '2026-01-15T00:00:00Z', "version" = "version" + 1
+     WHERE "id" = 'pc-per-a';
+    RAISE WARNING 'FAIL 81 a period window is not writable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 81 a period window is not writable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 81 a period window is not writable -> the column grant admitted the write and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 82. Running a close is permitted, and the database stamps the time.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_periods"
+       SET "status" = 'CLOSING', "version" = "version" + 1
+     WHERE "id" = 'pc-per-a';
+    UPDATE public."accounting_periods"
+       SET "status" = 'CLOSED', "closedByMembershipId" = 'm-a',
+           "version" = "version" + 1
+     WHERE "id" = 'pc-per-a';
+    IF (SELECT "closedAt" FROM public."accounting_periods" WHERE "id" = 'pc-per-a')
+       IS NULL THEN
+      RAISE WARNING 'FAIL 82 a close is stamped by the database -> closedAt is null';
+      failures := failures + 1;
+    ELSE
+      RAISE NOTICE 'PASS 82 a period closes and the database stamps the time';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 82 a period closes -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 83. A closed period is not selected for update by this principal at all,
+  --     so reopening never reaches the guard.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_periods"
+       SET "status" = 'OPEN', "version" = "version" + 1
+     WHERE "id" = 'pc-per-a';
+    IF (SELECT "status" FROM public."accounting_periods" WHERE "id" = 'pc-per-a')
+       = 'CLOSED' THEN
+      RAISE NOTICE 'PASS 83 a closed period is unreachable for update';
+    ELSE
+      RAISE WARNING 'FAIL 83 a closed period is unreachable for update -> it moved';
+      failures := failures + 1;
+    END IF;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 83 a closed period is unreachable for update -> the row policy admitted it and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 84. A period is never deleted: the documents inside it would become
+  --     unattributable to any close.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."accounting_periods" WHERE "id" = 'pc-per-a';
+    RAISE WARNING 'FAIL 84 a period cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 84 a period cannot be deleted';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 85. And none of it reaches another organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_periods"(
+      "id","tenantId","organizationId","periodStart","periodEnd",
+      "openedByMembershipId"
+    ) VALUES (
+      'pc-per-cross','tenant-b','org-b','2026-05-01T00:00:00Z',
+      '2026-06-01T00:00:00Z','m-b');
+    RAISE WARNING 'FAIL 85 cross-organization period refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR foreign_key_violation THEN
+      RAISE NOTICE 'PASS 85 cross-organization period refused';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop accounting periods: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: period close, 0 failures';
+END;
+$pc_crop_accounting_period_checks$;
+
+RESET ROLE;
 
 ROLLBACK;

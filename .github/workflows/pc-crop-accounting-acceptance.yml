@@ -155,6 +155,7 @@ jobs:
             src/modules/accounting/accounting-source-snapshot.postgresql.spec.ts \
             src/modules/accounting/work-task.postgresql.spec.ts \
             src/modules/accounting/work-task.repository.postgresql.spec.ts \
+            src/modules/accounting/accounting-period.postgresql.spec.ts \
             2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
 
       - name: Install the PostgreSQL client

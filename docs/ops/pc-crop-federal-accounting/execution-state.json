@@ -7,12 +7,12 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T20:05:00.000Z",
+  "updatedAt": "2026-08-16T19:45:00.000Z",
   "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 12.3,
+  "overallProgressPercent": 12.7,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
   "status": "ACCOUNTING_CORE_GREEN_IN_CI_WORK_TASK_ON_BRANCH",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
@@ -242,12 +242,53 @@
       "id": 6,
       "name": "Advances / services / payments / reconciliation",
       "weightPercent": 6,
-      "provenSharePercent": 0,
-      "creditedPercent": 0,
-      "blockedBy": [
-        "GOV-1",
-        "GOV-4"
-      ]
+      "provenSharePercent": 35,
+      "creditedPercent": 0.38,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 6 spans five components: advances, third-party services, payments, reconciliation and period close. Equal fifths — a stated flat assumption.",
+        "componentsInScope": [
+          "advances",
+          "third-party services",
+          "payments",
+          "reconciliation",
+          "period close"
+        ],
+        "componentBuilt": "Period close only, and deliberately scoped to what the platform is authority for: a closed period freezes the document set the platform owns — no new version of a document raised inside it, no signature on one. It is not an accounting ledger close and the code says so, because a screen reading «период закрыт» would otherwise be taken for the ledger and somebody would file on it.",
+        "componentSharePercent": 18,
+        "componentShareDerivation": "one of five equal components at 90 percent — the close works and is proven, but nothing opens periods automatically and there is no route to run one yet. 90 of 500 is 18.",
+        "notBuilt": [
+          "advances, third-party services, payments and reconciliation: all four touch money movement, which is the settlement contour's authority. Re-implementing it here would create the second source of truth this programme exists to remove, and settlement-engine is outside the scope in any case",
+          "no API route opens or closes a period; the acceptance drives the tables directly",
+          "nothing opens the next period automatically"
+        ]
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "migration 20260816200000, accounting-period.policy.ts, 12 unit contracts, 10 PostgreSQL acceptance tests, RLS gate checks 79-85"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": false,
+          "evidence": "green locally; not yet run in CI on a head carrying these files."
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
     },
     {
       "id": 7,
