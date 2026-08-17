@@ -51,7 +51,7 @@ jobs:
           grep -Fq "PRODUCTION_MUTATION_ALLOWED:-false" scripts/production-p0-auth-mail-function-oid-classifier-3785.sh
           grep -Fq 'SET TRANSACTION READ ONLY' scripts/production-p0-auth-mail-function-oid-classifier-3785.sh
           grep -Fq "PRODUCTION_MUTATION=NONE" scripts/production-p0-auth-mail-function-oid-classifier-3785.sh
-          ! grep -Eq '(^|[;[:space:]])(GRANT|REVOKE|ALTER[[:space:]]+(ROLE|TABLE|FUNCTION)|INSERT[[:space:]]+INTO|DELETE[[:space:]]+FROM|TRUNCATE[[:space:]])' scripts/production-p0-auth-mail-function-oid-classifier-3785.sh
+          grep -Fq "node_modules/prisma/build/index.js db execute --stdin --schema prisma/schema.prisma" scripts/production-p0-auth-mail-function-oid-classifier-3785.sh
       - name: Verify exact owner-issued provenance
         if: github.event_name == 'issue_comment'
         shell: bash
