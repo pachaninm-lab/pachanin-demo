@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "brand": "Gekta",
+  "sourceIssue": 3824,
+  "policy": {
+    "default": "Any active TAI occurrence is a defect unless it matches an approved entry below.",
+    "requiredFields": [
+      "classification",
+      "reason",
+      "owner",
+      "reviewAfter",
+      "removalCondition"
+    ],
+    "allowedClassifications": [
+      "immutable-history",
+      "temporary-compatibility",
+      "external-immutable-identifier",
+      "false-positive"
+    ]
+  },
+  "entries": [
+    {
+      "id": "git-history",
+      "location": "Git commit, tag, pull-request and issue history outside the active working tree",
+      "classification": "immutable-history",
+      "reason": "Rewriting source-control and review history would destroy provenance and invalidate existing evidence.",
+      "owner": "repository-maintainers",
+      "reviewAfter": null,
+      "removalCondition": "never-rewrite"
+    },
+    {
+      "id": "signed-release-evidence",
+      "location": "Already emitted, hashed or signed release/model/production evidence",
+      "classification": "immutable-history",
+      "reason": "The recorded identifier must remain byte-for-byte consistent with the artifact and release it proves.",
+      "owner": "release-authority",
+      "reviewAfter": null,
+      "removalCondition": "retain-under-evidence-policy"
+    },
+    {
+      "id": "executed-database-migrations",
+      "location": "Previously executed immutable migration directories and checksums",
+      "classification": "immutable-history",
+      "reason": "Changing an executed migration creates checksum drift and destroys reproducible database history.",
+      "owner": "database-authority",
+      "reviewAfter": null,
+      "removalCondition": "never-edit; add-forward-migration"
+    },
+    {
+      "id": "historical-legal-documents",
+      "location": "Previously signed contracts, issued invoices, acts and archived legal documents",
+      "classification": "immutable-history",
+      "reason": "Historical legal documents must preserve the product name used when they were executed.",
+      "owner": "legal",
+      "reviewAfter": null,
+      "removalCondition": "retain-under-legal-policy"
+    }
+  ],
+  "temporaryEntries": [],
+  "instructions": [
+    "Do not add a temporary entry without a concrete location or path pattern.",
+    "Every temporary entry must identify the consuming system and telemetry used to prove zero use.",
+    "Every temporary entry must have a real review date and a measurable removal condition.",
+    "A broad path such as apps/tai/** is not an acceptable compatibility exception.",
+    "Public UI copy can never be allowlisted as immutable history."
+  ]
+}

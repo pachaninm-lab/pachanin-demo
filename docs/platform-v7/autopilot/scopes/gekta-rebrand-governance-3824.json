@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-rebrand-governance-3824",
+  "branch": "agent/gekta-rebrand-governance-3824",
+  "issue": 3824,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "5c0020e1fb259929264cd27e25b0b7ad5435243a"
+  },
+  "purpose": "Establish the canonical TAI to Gekta migration contract, inventory tooling and legacy-control records before user-facing or runtime namespace changes.",
+  "canonicalBrand": {
+    "ru": "Гекта",
+    "ruLogo": "ГЕКТА",
+    "latin": "Gekta",
+    "technical": "gekta",
+    "environmentPrefix": "GEKTA_",
+    "primaryRuCta": "Спросить Гекту",
+    "descriptorRu": "Аграрный интеллект для земли, урожая и решений"
+  },
+  "forbiddenSpellings": [
+    "Гекто",
+    "Gekto",
+    "Hekta",
+    "Gecta",
+    "TAI Гекта"
+  ],
+  "allowedPaths": [
+    "docs/gekta/REBRAND_MIGRATION.md",
+    "docs/gekta/legacy-allowlist.v1.json",
+    "docs/gekta/rebrand-manifest.v1.json",
+    "docs/platform-v7/autopilot/scopes/gekta-rebrand-governance-3824.json",
+    "scripts/gekta-rebrand-inventory.mjs"
+  ],
+  "forbiddenChanges": [
+    "apps/landing/**",
+    "production credentials or secrets",
+    "database or immutable migration mutation",
+    "runtime route replacement",
+    "REG.RU deployment",
+    "direct push to main",
+    "global unreviewed substring replacement"
+  ],
+  "requiredChecks": [
+    "node scripts/gekta-rebrand-inventory.mjs --output /tmp/gekta-rebrand-inventory.json",
+    "node scripts/gekta-rebrand-inventory.mjs --summary",
+    "git diff --check"
+  ],
+  "deploymentState": "not-required",
+  "maturityBoundary": "Governance and inventory only. No public, runtime, database, infrastructure or production rebrand is claimed by this scope."
+}
