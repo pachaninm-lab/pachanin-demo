@@ -1,0 +1,65 @@
+name: Production Public Static Readiness Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-static-readiness-contract.yml'
+      - 'scripts/production-public-static-readiness.sh'
+      - 'scripts/production-full-stack-live-acceptance.sh'
+      - 'docs/platform-v7/autopilot/scopes/production-static-readiness-4341.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-static-readiness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Bash syntax and public 10-round static smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Verify exact PR head
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == '${{ github.event.pull_request.head.sha }}' ]]
+
+      - name: Syntax check release scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-public-static-readiness.sh
+          bash -n scripts/production-full-stack-live-acceptance.sh
+
+      - name: Run read-only public static smoke
+        env:
+          PC_STATIC_BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+          PC_STATIC_EVIDENCE_DIR: artifacts/production-static-readiness-pr
+          PC_STATIC_ROUNDS: '10'
+          PC_STATIC_PAUSE_SECONDS: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          bash scripts/production-public-static-readiness.sh '${{ github.event.pull_request.head.sha }}' \
+            | tee artifacts/static-readiness.log
+          grep -Fxq 'STATIC_READINESS=PASS' artifacts/static-readiness.log
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-static-readiness-${{ github.run_id }}
+          path: artifacts
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
