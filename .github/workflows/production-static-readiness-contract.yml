@@ -49,6 +49,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p artifacts
           bash scripts/production-public-static-readiness.sh '${{ github.event.pull_request.head.sha }}' \
             | tee artifacts/static-readiness.log
           grep -Fxq 'STATIC_READINESS=PASS' artifacts/static-readiness.log
