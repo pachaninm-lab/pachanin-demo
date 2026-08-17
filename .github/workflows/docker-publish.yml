@@ -67,6 +67,13 @@ on:
         description: "Canonical services to build: api, web, tai, migration or all"
         default: "all"
         required: false
+  workflow_call:
+    inputs:
+      services:
+        description: "Canonical services to build: api, web, tai, migration or all"
+        type: string
+        default: "all"
+        required: false
 
 permissions:
   contents: read
@@ -81,9 +88,9 @@ jobs:
   build-api:
     name: Build API image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'api') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'api') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -115,7 +122,7 @@ jobs:
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
           cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
+          cache-to: type=gha,mode=max,scope=api,ignore-error=true
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}
@@ -123,9 +130,9 @@ jobs:
   build-web:
     name: Build web image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'web') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'web') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -157,7 +164,7 @@ jobs:
           tags: ${{ steps.meta-web.outputs.tags }}
           labels: ${{ steps.meta-web.outputs.labels }}
           cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
+          cache-to: type=gha,mode=max,scope=web,ignore-error=true
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}
@@ -165,9 +172,9 @@ jobs:
   build-tai:
     name: Build TAI image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'tai') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'tai') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -199,7 +206,7 @@ jobs:
           tags: ${{ steps.meta-tai.outputs.tags }}
           labels: ${{ steps.meta-tai.outputs.labels }}
           cache-from: type=gha,scope=tai
-          cache-to: type=gha,mode=max,scope=tai
+          cache-to: type=gha,mode=max,scope=tai,ignore-error=true
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}
@@ -208,9 +215,9 @@ jobs:
   build-migration:
     name: Build migration image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'migration') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'migration') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -242,7 +249,7 @@ jobs:
           tags: ${{ steps.meta-migration.outputs.tags }}
           labels: ${{ steps.meta-migration.outputs.labels }}
           cache-from: type=gha,scope=migration
-          cache-to: type=gha,mode=max,scope=migration
+          cache-to: type=gha,mode=max,scope=migration,ignore-error=true
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}
