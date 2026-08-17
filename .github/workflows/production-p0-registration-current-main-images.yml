@@ -1,0 +1,205 @@
+name: Production P0 Registration Current-Main Images
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-registration-current-main-images.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-registration-current-main-images.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-registration-current-main-images
+  cancel-in-progress: false
+
+env:
+  RELEASE_ISSUE_NUMBER: 3072
+  EVIDENCE_DIR: artifacts/production-p0-registration-current-main-images
+
+jobs:
+  contract:
+    name: Validate registration image-build authority
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == 'P0_REGISTRATION_IMAGES_RUN=1'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enforce bounded owner-only contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='.github/workflows/production-p0-registration-current-main-images.yml'
+          grep -Fq "github.event.issue.number == 3072" "$file"
+          grep -Fq "github.event.comment.user.login == github.repository_owner" "$file"
+          grep -Fq "github.actor == github.repository_owner" "$file"
+          grep -Fq "github.triggering_actor == github.repository_owner" "$file"
+          grep -Fq "github.event.comment.body == 'P0_REGISTRATION_IMAGES_RUN=1'" "$file"
+          grep -Fq 'gh workflow run docker-publish.yml' "$file"
+          grep -Fq 'for component in api web migration' "$file"
+          grep -Fq 'PRODUCTION_MUTATION=NONE' "$file"
+          ! grep -Eq 'docker compose|ssh |scp |kubectl|prisma migrate|psql|DATABASE_URL' "$file"
+
+  images:
+    name: Build and prove exact-main API/Web/migration images
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == 'P0_REGISTRATION_IMAGES_RUN=1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve immutable current-main target
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+          echo "started_epoch=$(date -u +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch canonical image workflow for frozen main
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          STARTED_EPOCH: ${{ steps.target.outputs.started_epoch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          gh workflow run docker-publish.yml --repo "$GITHUB_REPOSITORY" --ref main -f services=all
+
+          run_id=''
+          for attempt in $(seq 1 36); do
+            runs="$RUNNER_TEMP/canonical-image-runs.json"
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/docker-publish.yml/runs?event=workflow_dispatch&branch=main&per_page=30" > "$runs"
+            run_id="$(node - "$runs" "$TARGET_SHA" "$STARTED_EPOCH" <<'NODE'
+          const fs = require('node:fs');
+          const [path, target, startedRaw] = process.argv.slice(2);
+          const started = Number(startedRaw) - 10;
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const matches = (report.workflow_runs || [])
+            .filter((run) => run.event === 'workflow_dispatch'
+              && run.head_branch === 'main'
+              && run.head_sha === target
+              && Date.parse(run.created_at) / 1000 >= started)
+            .sort((a, b) => Number(b.id) - Number(a.id));
+          if (matches[0]?.id) process.stdout.write(String(matches[0].id));
+          NODE
+            )"
+            [[ "$run_id" =~ ^[0-9]{2,20}$ ]] && break
+            sleep 5
+          done
+          [[ "$run_id" =~ ^[0-9]{2,20}$ ]]
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status --interval 10
+
+      - name: Prove exact immutable images
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SHORT_SHA: ${{ steps.target.outputs.short }}
+          IMAGE_RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+
+          for component in api web migration; do
+            image="ghcr.io/pachaninm-lab/grainflow-${component}:sha-${SHORT_SHA}"
+            docker pull "$image" >/dev/null
+            revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
+            [[ "$revision" == "$TARGET_SHA" ]]
+            digest="$(docker image inspect --format '{{ index .RepoDigests 0 }}' "$image")"
+            [[ "$digest" == *@sha256:* ]]
+            printf '%s\t%s\t%s\n' "$component" "$revision" "$digest" >> "$EVIDENCE_DIR/images.tsv"
+          done
+
+          [[ "$(wc -l < "$EVIDENCE_DIR/images.tsv" | tr -d ' ')" == 3 ]]
+          {
+            printf 'TARGET_SHA=%s\n' "$TARGET_SHA"
+            printf 'IMAGE_WORKFLOW_RUN_ID=%s\n' "$IMAGE_RUN_ID"
+            printf 'API_IMAGE=PASS\nWEB_IMAGE=PASS\nMIGRATION_IMAGE=PASS\n'
+            printf 'PRODUCTION_MUTATION=NONE\n'
+          } > "$EVIDENCE_DIR/result.env"
+
+      - name: Publish bounded registration image evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          IMAGE_RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          {
+            printf '### PC-CROP registration exact-main images\n\n'
+            printf -- '- target SHA: `%s`\n' "${TARGET_SHA:-unknown}"
+            printf -- '- canonical image run: `%s`\n' "${IMAGE_RUN_ID:-unknown}"
+            printf -- '- gate result: `%s`\n' "${JOB_STATUS^^}"
+            printf -- '- required images: `api`, `web`, `migration`\n'
+            printf -- '- production mutation: `NONE`\n'
+            printf -- '- registration journeys executed: `0`\n'
+            printf -- '- secrets or image credentials published: `no`\n'
+          } > "$EVIDENCE_DIR/summary.md"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/summary.md"
+
+      - name: Upload bounded evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-registration-current-main-images-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
