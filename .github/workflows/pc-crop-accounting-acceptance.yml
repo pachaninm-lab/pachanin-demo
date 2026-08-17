@@ -158,6 +158,7 @@ jobs:
             src/modules/accounting/accounting-period.postgresql.spec.ts \
             src/modules/accounting/accounting-period.repository.postgresql.spec.ts \
             src/modules/accounting/document-transmission.postgresql.spec.ts \
+            src/modules/accounting/advance.postgresql.spec.ts \
             2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
 
       - name: Install the PostgreSQL client
