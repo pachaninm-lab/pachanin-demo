@@ -1981,12 +1981,90 @@ BEGIN
       RAISE NOTICE 'PASS 95 an advance cannot be deleted';
   END;
 
+  ---------------------------------------------------------------------------
+  -- 96. The command principal can read the evidence — through the definer
+  --     function and only through it. Without this the whole advance path
+  --     fails closed, so the negative check below has to be paired with it.
+  ---------------------------------------------------------------------------
+  BEGIN
+    IF (
+      SELECT "status" FROM public.app_pc_crop_advance_evidence('pc-op-adv')
+    ) = 'CONFIRMED' THEN
+      RAISE NOTICE 'PASS 96 the command principal reads the cited operation';
+    ELSE
+      RAISE WARNING
+        'FAIL 96 the command principal reads the cited operation -> wrong status';
+      failures := failures + 1;
+    END IF;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE WARNING
+        'FAIL 96 the command principal reads the cited operation -> execute denied';
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 97. The bank ledger itself stays out of reach. The definer function is the
+  --     only door, and it opens for one operation at a time.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM 1 FROM public."bank_operations" WHERE "id" = 'pc-op-adv';
+    RAISE WARNING
+      'FAIL 97 the bank ledger is not readable directly -> select succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 97 the bank ledger is not readable directly';
+  END;
+
   IF failures > 0 THEN
     RAISE EXCEPTION 'pc-crop advances: % check(s) failed', failures;
   END IF;
   RAISE NOTICE 'pc-crop accounting contour: advances, 0 failures';
 END;
 $pc_crop_advance_checks$;
+
+RESET ROLE;
+
+-- The read principal, measured against the same door -------------------------
+--
+-- The definer function runs with the bootstrap role's privilege on
+-- bank_operations. Executing it is therefore a privilege in its own right, and
+-- the read principal of this contour has no business holding it: nothing on the
+-- read path consults a bank operation. Measured here rather than asserted,
+-- because the difference between this and an open EXECUTE is invisible in the
+-- function body.
+SET ROLE pc_accounting_authority;
+
+DO $pc_crop_advance_evidence_boundary$
+DECLARE
+  failures int := 0;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'u-acc-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 98. The read principal cannot execute the evidence definer.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM * FROM public.app_pc_crop_advance_evidence('pc-op-adv');
+    RAISE WARNING
+      'FAIL 98 the read principal cannot reach the bank ledger -> execute succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 98 the read principal cannot reach the bank ledger';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION
+      'pc-crop advance evidence boundary: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE
+    'pc-crop accounting contour: advance evidence boundary, 0 failures';
+END;
+$pc_crop_advance_evidence_boundary$;
 
 RESET ROLE;
 

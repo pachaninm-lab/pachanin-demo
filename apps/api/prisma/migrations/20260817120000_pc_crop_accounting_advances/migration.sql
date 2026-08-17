@@ -156,8 +156,25 @@ BEGIN
 END
 $advance_evidence_owner$;
 
+-- Not PUBLIC. The identity resolver next door may be executed by anybody
+-- because it takes no argument and answers only about the caller's own session;
+-- this one takes an operation id and answers about the bank ledger, so an open
+-- EXECUTE would let any principal that can connect — including read-only
+-- principals of other contours — probe an operation by id through a definer
+-- that runs with the bootstrap role's privilege. Only the principal whose
+-- trigger needs the answer gets it. The table owner keeps EXECUTE by ownership.
 REVOKE ALL ON FUNCTION public.app_pc_crop_advance_evidence(text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.app_pc_crop_advance_evidence(text) TO PUBLIC;
+DO $advance_evidence_execute$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_roles
+     WHERE rolname = 'pc_accounting_command_authority'
+  ) THEN
+    GRANT EXECUTE ON FUNCTION public.app_pc_crop_advance_evidence(text)
+      TO pc_accounting_command_authority;
+  END IF;
+END
+$advance_evidence_execute$;
 
 
 -- What an advance may not become --------------------------------------------
