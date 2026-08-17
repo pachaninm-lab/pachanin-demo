@@ -32,8 +32,10 @@
     "apps/web/lib/gekta/mobile-copy.ts",
     "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
     "apps/web/tests/unit/gektaKeyboardStartContract.test.ts",
+    "apps/web/tests/unit/gektaMobileCopy.test.ts",
     "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
     "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
+    "apps/web/tests/e2e/gekta-hero-density-acceptance.spec.ts",
     "docs/platform-v7/autopilot/scopes/gekta-mobile-viewport-regression-4332.json"
   ],
   "productBoundary": {
@@ -63,7 +65,8 @@
     "web typecheck",
     "gektaMobileUxRedTeam.test.ts",
     "gektaKeyboardStartContract.test.ts",
-    "approved RU/EN/ZH compact hero copy contract",
+    "gektaMobileCopy.test.ts",
+    "gekta-hero-density-acceptance.spec.ts at 320x700 RU/EN/ZH",
     "gektaStandaloneExperience.test.ts",
     "gektaProductSeparation.test.ts",
     "Gekta Mobile UX PR Acceptance / Chromium + WebKit mobile UX contract",
