@@ -13,16 +13,26 @@ const mobileTouchContract = `
     min-height: 44px;
   }
   [data-gekta-chat-workspace='true'].overflow-hidden {
-    height: var(--gekta-visual-viewport-height, 100svh) !important;
+    position: fixed;
+    inset-inline: 0;
+    top: var(--gekta-visual-viewport-top, 0px);
+    z-index: 40;
+    width: 100%;
+    height: var(--gekta-visual-viewport-height, 100dvh) !important;
     min-height: 0 !important;
-    max-height: var(--gekta-visual-viewport-height, 100svh);
+    max-height: var(--gekta-visual-viewport-height, 100dvh);
+    overflow: hidden;
   }
+  [data-gekta-chat-workspace='true'] [data-gekta-scroll-to-bottom='true'],
   [data-gekta-chat-workspace='true'] button[aria-label='Scroll to bottom'] {
     width: 44px;
     height: 44px;
     min-width: 44px;
     min-height: 44px;
     bottom: calc(var(--gekta-composer-height, 116px) + 12px) !important;
+  }
+  html[data-gekta-keyboard-open='true'] #gekta-composer-boundary {
+    display: none !important;
   }
 }
 `;
