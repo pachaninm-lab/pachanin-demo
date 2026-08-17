@@ -78,11 +78,11 @@ export class AuthMailOutboxService {
         ${encrypted.ciphertext},
         ${encrypted.iv},
         ${encrypted.tag},
-        ${encrypted.keyVersion},
+        ${encrypted.keyVersion}::integer,
         ${digest},
         ${idempotencyKey},
         ${correlationId},
-        ${maxAttempts},
+        ${maxAttempts}::integer,
         ${availableAt},
         ${input.expiresAt}
       )
