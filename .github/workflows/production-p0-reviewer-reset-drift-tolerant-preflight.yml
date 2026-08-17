@@ -52,7 +52,7 @@ jobs:
           set -Eeuo pipefail
           script='scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh'
           bash -n "$script"
-          expected_sha256='e0b4175ca945d29965cf2d323f103d52c57ba967662d3bc94cd7ea632ebf226d'
+          expected_sha256='d1e463df928b4a5cb9ea960b96ba16dad80685d7d964abc9ddba487e7f7ff22d'
           actual_sha256="$(sha256sum "$script" | awk '{print $1}')"
           [[ "$actual_sha256" == "$expected_sha256" ]]
           python3 - <<'PY'
@@ -65,6 +65,7 @@ jobs:
               "IMAP_RUN_ID='31923014818'",
               "SMTP_RUN_ID='31923847459'",
               'RESET_CRITICAL_PATHS=(',
+              'apps/api/src/modules/auth/auth.controller.ts',
               '20260816161500_p0_password_reset_challenge_runtime_grant/migration.sql',
               'SET TRANSACTION READ ONLY',
               'has_sequence_privilege',
@@ -86,6 +87,7 @@ jobs:
               'docker restart', 'docker compose', 'docker service',
               'PC_RECONCILE_ACTIVE_RUNTIME', 'StrictHostKeyChecking=no', 'UserKnownHostsFile=/dev/null',
               'apps/api/src apps/api/prisma infra/docker',
+              'apps/api/src/modules/auth/password-reset.controller.ts',
           ]
           bad = [x for x in forbidden if x in text]
           if bad:
