@@ -344,7 +344,8 @@ test.describe('Gekta exact production mobile acceptance', () => {
     const response = await page.goto('/gekta', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
     await page.locator('[data-gekta-starter="true"]').first().click();
-    await acceptConsentIfPresent(page);
+    await acceptRequiredConsent(page);
+    await expect(page.locator('[data-gekta-consent="true"]')).toHaveCount(0);
 
     const composer = page.locator('#gekta-composer-input');
     const draft = 'Строка 1\nСтрока 2\nСтрока 3\nСтрока 4\nСтрока 5';
