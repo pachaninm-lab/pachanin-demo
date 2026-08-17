@@ -5,7 +5,7 @@ set -Eeuo pipefail
 : "${GH_TOKEN:?GH_TOKEN is required}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 
-BASELINE_SHA='50990d616463c3aa7a4888fc182bc6064931b080'
+BASELINE_SHA='440e40753e2cac13c93f8e007d9fe17c2b66caba'
 LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 LIVE_BASE="https://$LIVE_DOMAIN"
 DEFAULT_HOST='195.19.12.120'
