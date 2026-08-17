@@ -4,75 +4,173 @@ import * as React from 'react';
 
 const VIEWPORT_HEIGHT = '--gekta-visual-viewport-height';
 const VIEWPORT_TOP = '--gekta-visual-viewport-top';
+const KEYBOARD_INSET = '--gekta-keyboard-inset';
 const COMPOSER_HEIGHT = '--gekta-composer-height';
+const KEYBOARD_THRESHOLD_PX = 48;
+const MAX_KEYBOARD_INSET_PX = 720;
+
+const SCROLL_TO_LATEST_LABEL = {
+  ru: 'К последнему сообщению',
+  en: 'Go to the latest message',
+  zh: '前往最新消息',
+} as const;
+
+function currentLocale(): keyof typeof SCROLL_TO_LATEST_LABEL {
+  const language = document.documentElement.lang.toLowerCase();
+  if (language.startsWith('zh') || window.location.pathname.startsWith('/gekta/zh')) return 'zh';
+  if (language.startsWith('en') || window.location.pathname.startsWith('/gekta/en')) return 'en';
+  return 'ru';
+}
+
+function isTextEntry(node: Element | null): boolean {
+  return node instanceof HTMLTextAreaElement
+    || (node instanceof HTMLInputElement && !['button', 'checkbox', 'radio', 'submit'].includes(node.type))
+    || (node instanceof HTMLElement && node.isContentEditable);
+}
 
 /**
  * Mobile browser chrome and the on-screen keyboard do not reliably participate
- * in CSS viewport units. Keep a tiny runtime authority for the standalone
- * workspace so fixed/full-height UI follows the actually visible viewport and
- * the scroll-to-bottom affordance always clears the variable-height composer.
+ * in CSS viewport units. This runtime authority follows the actually visible
+ * viewport, batches resize/scroll work into animation frames, measures the
+ * composer, and locks the document while either chat or keyboard owns it.
  */
 export function GektaViewportAuthority() {
   React.useEffect(() => {
     const root = document.documentElement;
     const viewport = window.visualViewport;
+    const initialRootOverflow = root.style.overflow;
+    const initialBodyOverflow = document.body.style.overflow;
+    let bodyLocked = false;
+    let frame = 0;
     let observedComposer: HTMLElement | null = null;
-    let rootObserver: MutationObserver | null = null;
+    let observer: MutationObserver | null = null;
+    let lastViewportWidth = 0;
+    let layoutBaselineHeight = 0;
 
-    const syncViewport = () => {
-      const height = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
-      const top = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
-      root.style.setProperty(VIEWPORT_HEIGHT, `${height}px`);
-      root.style.setProperty(VIEWPORT_TOP, `${top}px`);
-    };
-
-    const syncComposer = () => {
-      const composer = document.querySelector<HTMLElement>("[data-gekta-composer-root='true']");
-      if (!composer) {
-        root.style.removeProperty(COMPOSER_HEIGHT);
-        return;
-      }
+    const composerObserver = new ResizeObserver(() => {
+      const composer = observedComposer;
+      if (!composer) return;
       root.style.setProperty(COMPOSER_HEIGHT, `${Math.ceil(composer.getBoundingClientRect().height)}px`);
-    };
+    });
 
-    const composerObserver = new ResizeObserver(syncComposer);
     const bindComposer = () => {
       const composer = document.querySelector<HTMLElement>("[data-gekta-composer-root='true']");
-      if (composer === observedComposer) {
-        syncComposer();
-        return;
-      }
+      if (composer === observedComposer) return;
       composerObserver.disconnect();
       observedComposer = composer;
       if (composer) {
         composerObserver.observe(composer);
-        rootObserver?.disconnect();
-        rootObserver = null;
+        root.style.setProperty(COMPOSER_HEIGHT, `${Math.ceil(composer.getBoundingClientRect().height)}px`);
+      } else {
+        root.style.removeProperty(COMPOSER_HEIGHT);
       }
-      syncComposer();
     };
 
-    syncViewport();
-    bindComposer();
-    viewport?.addEventListener('resize', syncViewport);
-    viewport?.addEventListener('scroll', syncViewport);
-    window.addEventListener('resize', syncViewport);
+    const setDocumentLock = (locked: boolean) => {
+      if (locked === bodyLocked) return;
+      bodyLocked = locked;
+      if (locked) {
+        root.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+      } else {
+        root.style.overflow = initialRootOverflow;
+        document.body.style.overflow = initialBodyOverflow;
+      }
+    };
 
-    if (!observedComposer) {
-      rootObserver = new MutationObserver(bindComposer);
-      const workspace = document.querySelector("[data-gekta-chat-workspace='true']");
-      if (workspace) rootObserver.observe(workspace, { childList: true, subtree: true });
-    }
+    const syncRuntimeSurfaces = (keyboardOpen: boolean) => {
+      const privacy = document.getElementById('gekta-composer-boundary');
+      if (privacy) privacy.hidden = keyboardOpen;
+
+      const jump = document.querySelector<HTMLElement>("[data-gekta-scroll-to-bottom='true'], button[aria-label='Scroll to bottom']");
+      if (jump) {
+        const label = SCROLL_TO_LATEST_LABEL[currentLocale()];
+        jump.dataset.gektaScrollToBottom = 'true';
+        jump.setAttribute('aria-label', label);
+        jump.setAttribute('title', label);
+      }
+    };
+
+    const syncViewport = () => {
+      frame = 0;
+      bindComposer();
+
+      const visibleHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
+      const visibleTop = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
+      const viewportWidth = Math.max(1, Math.round(viewport?.width ?? window.innerWidth));
+      const layoutHeight = Math.max(
+        1,
+        Math.round(document.documentElement.clientHeight),
+        Math.round(window.innerHeight),
+        visibleHeight + visibleTop,
+      );
+
+      if (!lastViewportWidth || Math.abs(viewportWidth - lastViewportWidth) > 80) {
+        layoutBaselineHeight = layoutHeight;
+      } else {
+        layoutBaselineHeight = Math.max(layoutBaselineHeight, layoutHeight);
+      }
+      lastViewportWidth = viewportWidth;
+
+      const rawInset = layoutBaselineHeight - visibleHeight - visibleTop;
+      const maxInset = Math.min(MAX_KEYBOARD_INSET_PX, Math.round(layoutBaselineHeight * 0.75));
+      const keyboardInset = isTextEntry(document.activeElement)
+        ? Math.max(0, Math.min(maxInset, Math.round(rawInset)))
+        : 0;
+      const keyboardOpen = keyboardInset > KEYBOARD_THRESHOLD_PX;
+
+      root.style.setProperty(VIEWPORT_HEIGHT, `${visibleHeight}px`);
+      root.style.setProperty(VIEWPORT_TOP, `${visibleTop}px`);
+      root.style.setProperty(KEYBOARD_INSET, `${keyboardInset}px`);
+      if (keyboardOpen) root.dataset.gektaKeyboardOpen = 'true';
+      else delete root.dataset.gektaKeyboardOpen;
+
+      const workspace = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']");
+      setDocumentLock(Boolean(workspace?.classList.contains('overflow-hidden') || keyboardOpen));
+      syncRuntimeSurfaces(keyboardOpen);
+    };
+
+    const scheduleViewportSync = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(syncViewport);
+    };
+
+    scheduleViewportSync();
+    viewport?.addEventListener('resize', scheduleViewportSync);
+    viewport?.addEventListener('scroll', scheduleViewportSync);
+    window.addEventListener('resize', scheduleViewportSync);
+    window.addEventListener('orientationchange', scheduleViewportSync);
+    document.addEventListener('focusin', scheduleViewportSync);
+    document.addEventListener('focusout', scheduleViewportSync);
+
+    observer = new MutationObserver(scheduleViewportSync);
+    const workspace = document.querySelector("[data-gekta-chat-workspace='true']");
+    observer.observe(workspace ?? document.body, {
+      attributes: true,
+      attributeFilter: ['class'],
+      childList: true,
+      subtree: true,
+    });
 
     return () => {
-      viewport?.removeEventListener('resize', syncViewport);
-      viewport?.removeEventListener('scroll', syncViewport);
-      window.removeEventListener('resize', syncViewport);
-      rootObserver?.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
+      viewport?.removeEventListener('resize', scheduleViewportSync);
+      viewport?.removeEventListener('scroll', scheduleViewportSync);
+      window.removeEventListener('resize', scheduleViewportSync);
+      window.removeEventListener('orientationchange', scheduleViewportSync);
+      document.removeEventListener('focusin', scheduleViewportSync);
+      document.removeEventListener('focusout', scheduleViewportSync);
+      observer?.disconnect();
       composerObserver.disconnect();
+      root.style.overflow = initialRootOverflow;
+      document.body.style.overflow = initialBodyOverflow;
       root.style.removeProperty(VIEWPORT_HEIGHT);
       root.style.removeProperty(VIEWPORT_TOP);
+      root.style.removeProperty(KEYBOARD_INSET);
       root.style.removeProperty(COMPOSER_HEIGHT);
+      delete root.dataset.gektaKeyboardOpen;
+      const privacy = document.getElementById('gekta-composer-boundary');
+      if (privacy) privacy.hidden = false;
     };
   }, []);
 

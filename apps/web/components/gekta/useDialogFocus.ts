@@ -7,7 +7,7 @@ const FOCUSABLE = 'button:not([disabled]), [href], select, input, textarea, [tab
 /**
  * Modal keyboard contract shared by the Gekta dialogs: focus moves inside on
  * open, Tab cycles within the panel, Escape closes, and focus returns to
- * whatever opened it.
+ * whatever opened it after modal isolation has been removed.
  */
 export function useDialogFocus(active: boolean, onClose: () => void) {
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -20,6 +20,7 @@ export function useDialogFocus(active: boolean, onClose: () => void) {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault();
         event.stopPropagation();
         onClose();
         return;
@@ -41,7 +42,9 @@ export function useDialogFocus(active: boolean, onClose: () => void) {
     document.addEventListener('keydown', onKeyDown, true);
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
-      if (restore instanceof HTMLElement) restore.focus();
+      window.requestAnimationFrame(() => {
+        if (restore instanceof HTMLElement && restore.isConnected && !restore.closest('[inert]')) restore.focus();
+      });
     };
   }, [active, onClose]);
 

@@ -59,6 +59,27 @@ async function expectTargetsAtLeast(locator: Locator, minimum: number) {
   expect(boxes.every((box) => box.width >= minimum && box.height >= minimum), JSON.stringify(boxes, null, 2)).toBe(true);
 }
 
+async function textLineCount(locator: Locator): Promise<number> {
+  return locator.evaluate((element) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        return node.textContent?.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      },
+    });
+    const lineTops = new Set<number>();
+    let node = walker.nextNode();
+    while (node) {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const rect of Array.from(range.getClientRects())) {
+        if (rect.width > 0 && rect.height > 0) lineTops.add(Math.round(rect.top * 2) / 2);
+      }
+      node = walker.nextNode();
+    }
+    return lineTops.size;
+  });
+}
+
 async function acceptRequiredConsent(page: Page) {
   const consent = page.locator('[data-gekta-consent="true"]');
   await expect(consent).toBeVisible();
@@ -76,6 +97,11 @@ async function acceptRequiredConsent(page: Page) {
   await expect(consent).toHaveCount(0);
 }
 
+async function acceptConsentIfPresent(page: Page) {
+  const consent = page.locator('[data-gekta-consent="true"]');
+  if (await consent.count()) await acceptRequiredConsent(page);
+}
+
 function visibleWorkspaceTargets(page: Page) {
   return page.locator([
     '[data-gekta-chat-workspace="true"] a:visible',
@@ -88,23 +114,97 @@ function visibleWorkspaceTargets(page: Page) {
   ].join(', '));
 }
 
-async function openSeededConversation(page: Page) {
-  await page.getByRole('button', { name: 'Открыть историю' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Gekta navigation' });
+async function openDrawerAndAssertModal(page: Page, menu: string, closeMenu: string, viewportWidth: number) {
+  const opener = page.getByRole('button', { name: menu });
+  await opener.click();
+
+  const dialog = page.getByRole('dialog', { name: 'Gekta' });
   await expect(dialog).toBeVisible();
+  const panel = page.locator('[data-gekta-mobile-drawer-panel="true"]');
+  const close = panel.getByRole('button', { name: closeMenu });
+  await expect(close).toBeFocused();
   await expectTargetsAtLeast(dialog.locator('button, input, select, a'), 44);
 
-  const viewport = page.viewportSize();
-  const drawer = page.locator('[data-gekta-mobile-drawer-panel="true"]');
-  const drawerBox = await drawer.boundingBox();
-  expect(drawerBox).not.toBeNull();
-  if (drawerBox && viewport) {
-    expect(drawerBox.width).toBeGreaterThanOrEqual(Math.min(viewport.width * 0.88, 350));
-    expect(drawerBox.width).toBeLessThanOrEqual(viewport.width + 1);
+  const background = page.locator('[data-gekta-chat-workspace="true"] > div').first();
+  await expect(background).toHaveAttribute('inert', '');
+  await expect(background).toHaveAttribute('aria-hidden', 'true');
+  const discovery = page.locator('[data-gekta-server-discovery="true"]');
+  if (await discovery.count()) {
+    await expect(discovery).toHaveAttribute('inert', '');
+    await expect(discovery).toHaveAttribute('aria-hidden', 'true');
   }
 
+  const drawerBox = await panel.boundingBox();
+  expect(drawerBox).not.toBeNull();
+  if (drawerBox) {
+    const expectedWidth = Math.min(viewportWidth * 0.88, 360, viewportWidth - 48);
+    expect(Math.abs(drawerBox.width - expectedWidth)).toBeLessThanOrEqual(2);
+    expect(viewportWidth - drawerBox.width).toBeGreaterThanOrEqual(47);
+  }
+
+  return { opener, dialog, panel, close, background, discovery };
+}
+
+async function closeDrawerWithEscape(page: Page, menu: string, closeMenu: string, viewportWidth: number) {
+  const drawer = await openDrawerAndAssertModal(page, menu, closeMenu, viewportWidth);
+  await page.keyboard.press('Escape');
+  await expect(drawer.dialog).toHaveCount(0);
+  await expect(drawer.opener).toBeFocused();
+  await expect.poll(() => drawer.background.evaluate((node) => node.hasAttribute('inert'))).toBe(false);
+  if (await drawer.discovery.count()) {
+    await expect.poll(() => drawer.discovery.evaluate((node) => node.hasAttribute('inert'))).toBe(false);
+  }
+}
+
+async function openSeededConversation(page: Page, viewportWidth: number) {
+  await closeDrawerWithEscape(page, 'Открыть историю', 'Закрыть историю', viewportWidth);
+  await page.getByRole('button', { name: 'Открыть историю' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Gekta' });
+  await expect(dialog).toBeVisible();
   await page.getByRole('button', { name: SEEDED_TITLE }).click();
   await expect(dialog).toHaveCount(0);
+}
+
+async function expectStartSurface(page: Page, viewportWidth: number) {
+  const composer = page.locator('#gekta-composer-input');
+  const composerRoot = page.locator('[data-gekta-composer-root="true"]');
+  const hero = page.locator('[data-gekta-server-hero="true"]');
+  const examples = page.locator('[data-gekta-examples="true"]');
+  await expect(composer).toBeVisible();
+  await expect(hero).toBeVisible();
+  await expect(examples).toBeVisible();
+  await expect(page.locator('[data-gekta-starter="true"]:visible')).toHaveCount(2);
+  await expect(page.locator('[data-gekta-more-examples="true"]')).toBeVisible();
+  await expect(page.locator("[data-gekta-primary-cta='true'], [data-gekta-floating-entry]")).toHaveCount(0);
+
+  const h1 = hero.locator('h1');
+  if (viewportWidth === 320) expect(await textLineCount(h1)).toBeLessThanOrEqual(5);
+
+  const [heroBox, composerBox, examplesBox] = await Promise.all([
+    hero.boundingBox(),
+    composerRoot.boundingBox(),
+    examples.boundingBox(),
+  ]);
+  expect(heroBox).not.toBeNull();
+  expect(composerBox).not.toBeNull();
+  expect(examplesBox).not.toBeNull();
+  if (heroBox && composerBox && examplesBox) {
+    expect(heroBox.y + heroBox.height).toBeLessThanOrEqual(composerBox.y + 2);
+    expect(composerBox.y + composerBox.height).toBeLessThanOrEqual(examplesBox.y + 2);
+    const viewportHeight = page.viewportSize()?.height ?? Number.POSITIVE_INFINITY;
+    expect(composerBox.y + composerBox.height).toBeLessThanOrEqual(viewportHeight + 1);
+  }
+
+  const initialScroll = await page.locator('[data-gekta-chat-workspace="true"] main > div').first().evaluate((node) => {
+    const style = window.getComputedStyle(node);
+    return { overflowY: style.overflowY, scrollHeight: node.scrollHeight, clientHeight: node.clientHeight };
+  });
+  expect(['auto', 'scroll']).not.toContain(initialScroll.overflowY);
+
+  const composerFontSize = await composer.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).fontSize));
+  expect(composerFontSize).toBeGreaterThanOrEqual(16);
+  const privacyFontSize = await page.locator('#gekta-composer-boundary').evaluate((node) => Number.parseFloat(window.getComputedStyle(node).fontSize));
+  expect(privacyFontSize).toBeGreaterThanOrEqual(14);
 }
 
 test.describe('Gekta exact production mobile acceptance', () => {
@@ -121,27 +221,23 @@ test.describe('Gekta exact production mobile acceptance', () => {
       const response = await page.goto('/gekta', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
       await expect(page.locator('[data-gekta-chat-workspace="true"]')).toBeVisible();
+      await expectStartSurface(page, viewport.width);
       await expectNoHorizontalOverflow(page);
 
-      const starterCards = page.locator('[data-gekta-starter="true"]');
-      const visibleStarterCards = page.locator('[data-gekta-starter="true"]:visible');
       const moreExamples = page.locator('[data-gekta-more-examples="true"]');
-      await expect(visibleStarterCards).toHaveCount(3);
-      await expect(moreExamples).toBeVisible();
       await moreExamples.click();
-      await expect(page.locator('#gekta-more-examples')).toBeVisible();
-      expect(await starterCards.count()).toBeGreaterThan(3);
-      expect(await visibleStarterCards.count()).toBeGreaterThan(3);
+      expect(await page.locator('[data-gekta-starter="true"]:visible').count()).toBeGreaterThan(2);
       await moreExamples.click();
-      await expect(visibleStarterCards).toHaveCount(3);
+      await expect(page.locator('[data-gekta-starter="true"]:visible')).toHaveCount(2);
 
-      await openSeededConversation(page);
+      await openSeededConversation(page, viewport.width);
       await acceptRequiredConsent(page);
       await expect(page.locator('[data-gekta-role="assistant"]')).toBeVisible();
       const composer = page.locator('#gekta-composer-input');
       await expect(composer).toBeVisible();
-      const composerFontSize = await composer.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).fontSize));
-      expect(composerFontSize).toBeGreaterThanOrEqual(16);
+
+      const activeScroll = await page.locator('[data-gekta-chat-workspace="true"] main > div').first().evaluate((node) => window.getComputedStyle(node).overflowY);
+      expect(['auto', 'scroll']).toContain(activeScroll);
 
       const visualViewport = await page.evaluate(() => {
         const cssHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gekta-visual-viewport-height'));
@@ -159,7 +255,6 @@ test.describe('Gekta exact production mobile acceptance', () => {
 
       const sources = page.locator('[data-gekta-role="assistant"] summary').filter({ hasText: 'Источники' });
       await expect(sources).toHaveCount(1);
-      await expect(sources).toContainText('Источники');
       await sources.click();
       const sourceLink = page.locator('[data-gekta-role="assistant"] a[href^="https://example.com/"]');
       await expect(sourceLink).toBeVisible();
@@ -202,19 +297,14 @@ test.describe('Gekta exact production mobile acceptance', () => {
         await expect(page.locator('html')).toHaveAttribute('lang', route.lang);
         await expect(page.getByRole('button', { name: route.menu })).toBeVisible();
         await expect(page.locator('[data-gekta-chat-workspace="true"] main > header')).toContainText(route.brand);
+        await expectStartSurface(page, viewport.width);
         await expectNoHorizontalOverflow(page);
 
-        const visibleStarterCards = page.locator('[data-gekta-starter="true"]:visible');
         const moreExamples = page.locator('[data-gekta-more-examples="true"]');
-        await expect(visibleStarterCards).toHaveCount(3);
         await moreExamples.click();
-        expect(await visibleStarterCards.count()).toBeGreaterThan(3);
+        expect(await page.locator('[data-gekta-starter="true"]:visible').count()).toBeGreaterThan(2);
         await moreExamples.click();
-        await expect(visibleStarterCards).toHaveCount(3);
-
-        const composer = page.locator('#gekta-composer-input');
-        const composerFontSize = await composer.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).fontSize));
-        expect(composerFontSize).toBeGreaterThanOrEqual(16);
+        await expect(page.locator('[data-gekta-starter="true"]:visible')).toHaveCount(2);
 
         const visualViewport = await page.evaluate(() => {
           const cssHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gekta-visual-viewport-height'));
@@ -225,20 +315,11 @@ test.describe('Gekta exact production mobile acceptance', () => {
         expect(Math.abs(visualViewport.cssHeight - visualViewport.actualHeight)).toBeLessThanOrEqual(2);
 
         await expectTargetsAtLeast(visibleWorkspaceTargets(page), 44);
-
-        await page.getByRole('button', { name: route.menu }).click();
-        const dialog = page.getByRole('dialog', { name: 'Gekta navigation' });
-        await expect(dialog).toBeVisible();
-        await expectTargetsAtLeast(dialog.locator('button, input, select, a'), 44);
-        const drawer = page.locator('[data-gekta-mobile-drawer-panel="true"]');
-        const drawerBox = await drawer.boundingBox();
-        expect(drawerBox).not.toBeNull();
-        if (drawerBox) {
-          expect(drawerBox.width).toBeGreaterThanOrEqual(Math.min(viewport.width * 0.88, 350));
-          expect(drawerBox.width).toBeLessThanOrEqual(viewport.width + 1);
-        }
-        await drawer.getByRole('button', { name: route.closeMenu }).click();
-        await expect(dialog).toHaveCount(0);
+        const drawer = await openDrawerAndAssertModal(page, route.menu, route.closeMenu, viewport.width);
+        await drawer.close.click();
+        await expect(drawer.dialog).toHaveCount(0);
+        await expect(drawer.opener).toBeFocused();
+        await expect.poll(() => drawer.background.evaluate((node) => node.hasAttribute('inert'))).toBe(false);
 
         const workspace = await page.locator('[data-gekta-chat-workspace="true"]').evaluate((node) => {
           const box = (node as HTMLElement).getBoundingClientRect();
@@ -257,6 +338,68 @@ test.describe('Gekta exact production mobile acceptance', () => {
       });
     }
   }
+
+  test('390px preserves draft, caret and composer geometry through 20 keyboard cycles', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const response = await page.goto('/gekta', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+    await page.locator('[data-gekta-starter="true"]').first().click();
+    await acceptConsentIfPresent(page);
+
+    const composer = page.locator('#gekta-composer-input');
+    const draft = 'Строка 1\nСтрока 2\nСтрока 3\nСтрока 4\nСтрока 5';
+    await composer.fill(draft);
+    await composer.evaluate((node) => (node as HTMLTextAreaElement).setSelectionRange(17, 17));
+    await composer.focus();
+
+    for (let cycle = 0; cycle < 20; cycle += 1) {
+      await page.setViewportSize({ width: 390, height: 520 });
+      await page.waitForFunction(() => {
+        const cssHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gekta-visual-viewport-height'));
+        const actualHeight = window.visualViewport?.height ?? window.innerHeight;
+        return Math.abs(cssHeight - actualHeight) <= 2;
+      });
+      await expect(page.locator('html')).toHaveAttribute('data-gekta-keyboard-open', 'true');
+
+      const geometry = await page.evaluate(() => {
+        const shell = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']")?.getBoundingClientRect();
+        const surface = document.querySelector<HTMLElement>("[data-gekta-drop-target='true']")?.getBoundingClientRect();
+        const viewport = window.visualViewport;
+        const visibleBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
+        return {
+          shellHeight: shell?.height ?? 0,
+          surfaceBottom: surface?.bottom ?? Number.POSITIVE_INFINITY,
+          gap: surface ? visibleBottom - surface.bottom : Number.NEGATIVE_INFINITY,
+        };
+      });
+      expect(geometry.shellHeight).toBeGreaterThan(64);
+      expect(geometry.surfaceBottom).toBeLessThanOrEqual(522);
+      expect(geometry.gap).toBeGreaterThanOrEqual(7);
+      expect(geometry.gap).toBeLessThanOrEqual(20);
+      await expect(page.locator('#gekta-composer-boundary')).toBeHidden();
+      await expect(composer).toHaveValue(draft);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForFunction(() => {
+        const cssHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gekta-visual-viewport-height'));
+        const actualHeight = window.visualViewport?.height ?? window.innerHeight;
+        return Math.abs(cssHeight - actualHeight) <= 2;
+      });
+      await expect(page.locator('html')).not.toHaveAttribute('data-gekta-keyboard-open', 'true');
+    }
+
+    await expect(page.locator('#gekta-composer-boundary')).toBeVisible();
+    await expect(composer).toHaveValue(draft);
+    const selection = await composer.evaluate((node) => ({
+      start: (node as HTMLTextAreaElement).selectionStart,
+      end: (node as HTMLTextAreaElement).selectionEnd,
+      height: (node as HTMLTextAreaElement).getBoundingClientRect().height,
+    }));
+    expect(selection.start).toBe(17);
+    expect(selection.end).toBe(17);
+    expect(selection.height).toBeLessThanOrEqual(144);
+    await expectNoHorizontalOverflow(page);
+  });
 
   test('public platform keeps one floating communication surface and no double mobile footer reserve', async ({ page }) => {
     await page.setViewportSize({ width: 430, height: 932 });
