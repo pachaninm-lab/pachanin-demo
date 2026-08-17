@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/accounting-route-policy-4321",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — Design System v8 route class registration",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "purpose": "Register the two accounting routes in the Design System v8 route policy, and nothing else. A page absent from that policy is unreachable: app/platform-v7/layout.tsx calls notFound() for any path isKnownProtectedPath() does not recognise, before it looks at a role. The file belongs to pc-crop-01b4's bounded scope, whose allow-list admits a change carrying that file alone — so this scope exists to let exactly one product file travel by itself, with the manifest landing first so the change that follows it can be a single file.",
+  "objective": "Bounded registration of /platform-v7/accounting and /platform-v7/deals/<id>/accounting in the Design System v8 route class, with no other route changing class.",
+  "allowedPaths": [
+    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-federal-accounting-route-policy.json"
+  ],
+  "boundaries": [
+    "No product file travels with this manifest; the registration is a separate pull request so that its diff is one file and pc-crop-01b4's bounded scope stays intact.",
+    "pc-crop-01b4.yml is neither modified nor weakened, and its authority is not taken.",
+    "routes.ts, cabinet-access-policy.ts and layout.tsx are out of scope.",
+    "No API, database, migration, RLS, MFA, production or hosting change.",
+    "The existing dead '/platform-v7/deals/' prefix entry is left as it is: removing its trailing slash would sweep every deal sub-route into the v8 class, which is a decision about other workstreams' screens.",
+    "No route other than the two accounting routes changes class.",
+    "Merge and green CI are not evidence that production changed.",
+    "No new recurring cost."
+  ],
+  "requiredInvariants": [
+    "Authority comes from this manifest's projectLockId and issue, never from the branch name.",
+    "The registration is expressible without wildcards, and this scope contains none.",
+    "noAutoMerge, noDirectPushToMain and noSelfModifyingWorkflow are untouched."
+  ]
+}
