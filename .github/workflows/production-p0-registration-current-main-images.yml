@@ -71,7 +71,8 @@ jobs:
           grep -Fq "contains(inputs.services, 'web')" "$canonical"
           grep -Fq "contains(inputs.services, 'migration')" "$canonical"
 
-          if grep -Fq 'gh workflow run docker-publish.yml' "$file"; then
+          nested_dispatch='gh workflow run docker-publish'.yml
+          if grep -Fq "$nested_dispatch" "$file"; then
             echo 'Nested workflow dispatch is forbidden for this authority' >&2
             exit 1
           fi
