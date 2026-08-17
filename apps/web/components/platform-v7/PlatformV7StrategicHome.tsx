@@ -19,6 +19,7 @@ import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperienceAnalytics';
 import { PublicDealRoleScenario } from './PublicDealRoleScenario';
 import { OrganizationConnectForm } from './OrganizationConnectForm';
+import { PlatformV7AccountingClosureValue } from './PlatformV7AccountingClosureValue';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
 import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
 import { getPlatformV7HomeStoryCopy } from '@/i18n/platform-v7-home-story';
@@ -356,6 +357,8 @@ export async function PlatformV7StrategicHome() {
             </details>
           </div>
         </section>
+
+        <PlatformV7AccountingClosureValue locale={locale} />
 
         <section id='live' className={`pc-v6-section ${styles.section} ${styles.liveSection}`} aria-labelledby='live-title'>
           <SectionHeader id='live-title' eyebrow={story.demo.eyebrow} title={story.demo.title} lead={story.demo.lead} />
