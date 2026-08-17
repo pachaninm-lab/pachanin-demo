@@ -5,9 +5,10 @@
   "issue": 4341,
   "status": "active",
   "authorizedBy": "explicit-user-continuation",
-  "baseline": { "branch": "main", "commit": "acc5bc03f036a1f33cf447d0b11005c4b866563a" },
+  "baseline": { "branch": "main", "commit": "3edb9ad9d46181f7b7c7c7a1805f5c9bc38a6e7e" },
   "purpose": "Eliminate the post-rollout public _next/static 502 window by making public asset readiness a fail-closed part of the exact-SHA production live gate before browser acceptance can begin.",
   "allowedPaths": [
+    ".github/workflows/production-static-readiness-contract.yml",
     "scripts/production-public-static-readiness.sh",
     "scripts/production-full-stack-live-acceptance.sh",
     "docs/platform-v7/autopilot/scopes/production-static-readiness-4341.json"
@@ -32,6 +33,7 @@
     "claiming production PASS while any referenced public static asset returns non-200 or empty content"
   ],
   "requiredChecks": [
+    "exact PR head checkout",
     "bash -n scripts/production-public-static-readiness.sh",
     "bash -n scripts/production-full-stack-live-acceptance.sh",
     "six public routes discover Next static assets",
