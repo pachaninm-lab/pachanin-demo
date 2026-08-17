@@ -55,6 +55,7 @@ model Organization {
   accountingPeriods                 AccountingPeriod[]
   accountingAdvances                AccountingAdvance[]
   accountingAdvanceOffsets          AccountingAdvanceOffset[]
+  accountingDealServices            AccountingDealService[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -131,6 +132,8 @@ model UserOrg {
   periodsClosed               AccountingPeriod[]          @relation("AccountingPeriodCloser")
   advancesRecorded            AccountingAdvance[]         @relation("AccountingAdvanceRecorder")
   advanceOffsetsApplied       AccountingAdvanceOffset[]   @relation("AccountingAdvanceOffsetActor")
+  dealServicesRecorded        AccountingDealService[]     @relation("AccountingDealServiceRecorder")
+  dealServicesApproved        AccountingDealService[]     @relation("AccountingDealServiceApprover")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -289,6 +292,7 @@ model AccountingDocumentVersion {
   signedBy         UserOrg?           @relation("AccountingDocumentVersionSigner", fields: [signedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
   signingAuthority SigningAuthority?  @relation(fields: [signingAuthorityId], references: [id], onDelete: Restrict)
   advanceOffsets   AccountingAdvanceOffset[] @relation("AccountingAdvanceOffsetVersion")
+  dealServices     AccountingDealService[]   @relation("AccountingDealServiceVersion")
 
   @@unique([documentId, versionNumber])
   @@index([organizationId, documentId])
@@ -647,6 +651,83 @@ model AccountingAdvanceOffset {
   @@map("accounting_advance_offsets")
 }
 
+/// A service rendered on a deal: storage, drying, cleaning, transshipment,
+/// weighing, loading.
+///
+/// The line is the priced fact, and every number in it is an integer. The
+/// amount is not accepted from the caller: the database recomputes it from the
+/// quantity and the rate, so a line whose total does not follow from its own
+/// terms cannot exist. For storage the quantity is not free either — it has to
+/// follow from the tonnage and the number of whole days in the window, which is
+/// the arithmetic a storage charge is usually inflated through.
+///
+/// Nothing substantive is updatable. A wrong line is corrected by a reversal
+/// line that names it, never by editing it: an accounting fact somebody can
+/// rewrite after it has been approved is not a fact.
+model AccountingDealService {
+  id                String @id @default(cuid())
+  tenantId          String
+  organizationId    String
+  dealId            String
+  /// Who owes for it. Never the organization itself.
+  counterpartyOrgId String
+  /// STORAGE, DRYING, CLEANING, TRANSSHIPMENT, WEIGHING or LOADING.
+  kind              String
+  /// TON_DAY, TON or OPERATION. A function of the kind, stored so the API can
+  /// answer with it and constrained so the two cannot drift apart.
+  unit              String
+  /// Quantity in thousandths of the unit. Thousandths rather than a Float
+  /// because a rate multiplied by an approximation is an amount two parties
+  /// will disagree about.
+  quantityMilliUnits BigInt
+  /// Thousandths of a ton. Required for TON_DAY and forbidden otherwise: it is
+  /// what makes the ton-days checkable against the window.
+  tonnageMilliTons  BigInt?
+  /// The service window, for TON_DAY only. Inclusive start, exclusive end, the
+  /// convention the periods and the rule registry already use.
+  periodFrom        DateTime? @db.Timestamptz(6)
+  periodTo          DateTime? @db.Timestamptz(6)
+  /// Kopecks for one whole unit.
+  rateKopecks       BigInt
+  /// Kopecks. Derived, and checked against quantity × rate.
+  amountKopecks     BigInt
+  currency          String @default("RUB")
+  /// When the service was rendered, which decides the period it falls in. For a
+  /// storage window this is a point inside or at the end of it, not the window
+  /// itself: a period is attributed to one month, and a window can straddle two.
+  renderedAt        DateTime @db.Timestamptz(6)
+  /// RENDERED, APPROVED or REJECTED.
+  status            String @default("RENDERED")
+  recordedByMembershipId String
+  /// Stamped by the database on approval, never supplied.
+  approvedAt        DateTime? @db.Timestamptz(6)
+  /// The second person. Never the one who recorded the line.
+  approvedByMembershipId String?
+  /// The act this line was included in, once it was.
+  documentVersionId String?
+  /// The approved line this one reverses, for a correction. At most one
+  /// reversal per line — the unique index says so, and PostgreSQL admits many
+  /// NULLs, which is exactly the shape wanted.
+  reversesServiceId String? @unique
+  idempotencyKey    String @unique
+  version           BigInt @default(0)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization               @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal         Deal                       @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  recordedBy   UserOrg                    @relation("AccountingDealServiceRecorder", fields: [recordedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  approvedBy   UserOrg?                   @relation("AccountingDealServiceApprover", fields: [approvedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  version_     AccountingDocumentVersion? @relation("AccountingDealServiceVersion", fields: [documentVersionId], references: [id], onDelete: Restrict)
+  reverses     AccountingDealService?     @relation("AccountingDealServiceReversal", fields: [reversesServiceId], references: [id], onDelete: Restrict)
+  reversedBy   AccountingDealService?     @relation("AccountingDealServiceReversal")
+
+  @@index([organizationId, dealId, renderedAt])
+  @@index([organizationId, status, renderedAt])
+  @@index([tenantId])
+  @@map("accounting_deal_services")
+}
+
 model UkepCertificate {
   id         String    @id @default(cuid())
   userId     String
@@ -713,6 +794,7 @@ model Deal {
   acceptanceRecords AcceptanceRecord[]
   bankOperations    BankOperation[]
   accountingAdvances AccountingAdvance[]
+  accountingDealServices AccountingDealService[]
   runtimeSnapshots  DealWorkspaceRuntimeSnapshot[] @relation("RuntimeSnapshotDeal")
 
   @@index([sellerOrgId])

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -6,6 +15,8 @@ import type { RequestUser } from '../../common/types/request-user';
 import { AccountingDocumentVersionRepository } from './accounting-document-version.repository';
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
 import { AdvanceRepository } from './advance.repository';
+import { ServiceStatus } from './deal-service.policy';
+import { DealServiceRepository } from './deal-service.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
 import { AudienceView, projectFor } from './work-task-projection.policy';
 import { PeriodStatus } from './accounting-period.policy';
@@ -44,6 +55,7 @@ export class AccountingController {
     private readonly periods: AccountingPeriodRepository,
     private readonly transmission: DocumentTransmissionRepository,
     private readonly advances: AdvanceRepository,
+    private readonly services: DealServiceRepository,
   ) {}
 
   /**
@@ -107,7 +119,7 @@ export class AccountingController {
     return this.tasks.transition(user, {
       taskId,
       to: body.to,
-      expectedVersion: BigInt(body.expectedVersion),
+      expectedVersion: integer(body.expectedVersion, 'expectedVersion'),
       resolutionEventId: body.resolutionEventId ?? null,
       assignedMembershipId: body.assignedMembershipId ?? null,
       // Neither the capabilities nor whether the condition still holds are
@@ -226,7 +238,7 @@ export class AccountingController {
     return this.periods.advance(user, {
       periodId,
       to: body.to,
-      expectedVersion: BigInt(body.expectedVersion),
+      expectedVersion: integer(body.expectedVersion, 'expectedVersion'),
     });
   }
 
@@ -307,7 +319,7 @@ export class AccountingController {
     return this.advances.record(user, {
       dealId: body.dealId,
       counterpartyOrgId: body.counterpartyOrgId,
-      amountKopecks: BigInt(body.amountKopecks),
+      amountKopecks: integer(body.amountKopecks, 'amountKopecks'),
       currency: body.currency ?? 'RUB',
       bankOperationId: body.bankOperationId,
       receivedAt: new Date(body.receivedAt),
@@ -336,11 +348,150 @@ export class AccountingController {
   ) {
     return this.advances.applyOffset(user, {
       advanceId,
-      amountKopecks: BigInt(body.amountKopecks),
+      amountKopecks: integer(body.amountKopecks, 'amountKopecks'),
       appliedAt: new Date(body.appliedAt),
       reason: body.reason,
       idempotencyKey: body.idempotencyKey,
       documentVersionId: body.documentVersionId ?? null,
     });
   }
+
+  /**
+   * The services rendered on a deal, and what they come to.
+   *
+   * The net is computed by the server from the approved lines and the approved
+   * reversals. A client that added the lines up itself would have to know which
+   * of them were reversed, and one that got it wrong would show a charge as owed
+   * after it had been cancelled.
+   */
+  @Get('deals/:dealId/services')
+  async listServices(
+    @Param('dealId') dealId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const services = await this.services.listForDeal(user, dealId);
+    return {
+      netKopecks: services.netKopecks.toString(),
+      lines: services.lines.map((line) => ({
+        ...line,
+        quantityMilliUnits: line.quantityMilliUnits.toString(),
+        tonnageMilliTons: line.tonnageMilliTons?.toString() ?? null,
+        rateKopecks: line.rateKopecks.toString(),
+        amountKopecks: line.amountKopecks.toString(),
+        version: line.version.toString(),
+      })),
+    };
+  }
+
+  /**
+   * Record a service rendered on a deal.
+   *
+   * The total is not in the body. It is computed from the quantity and the rate,
+   * and for storage the quantity itself has to follow from the tonnage and the
+   * days of the window — which is the arithmetic a storage charge is usually
+   * inflated through. The unit is not in the body either: it follows from the
+   * kind.
+   */
+  @Post('services')
+  recordService(
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      dealId: string;
+      counterpartyOrgId: string;
+      kind: string;
+      quantityMilliUnits: string;
+      tonnageMilliTons?: string | null;
+      periodFrom?: string | null;
+      periodTo?: string | null;
+      rateKopecks: string;
+      currency?: string;
+      renderedAt: string;
+      idempotencyKey: string;
+    },
+  ) {
+    return this.services.record(user, {
+      dealId: body.dealId,
+      counterpartyOrgId: body.counterpartyOrgId,
+      kind: body.kind,
+      quantityMilliUnits: integer(body.quantityMilliUnits, 'quantityMilliUnits'),
+      tonnageMilliTons:
+        body.tonnageMilliTons === undefined || body.tonnageMilliTons === null
+          ? null
+          : integer(body.tonnageMilliTons, 'tonnageMilliTons'),
+      periodFrom: instant(body.periodFrom, 'periodFrom'),
+      periodTo: instant(body.periodTo, 'periodTo'),
+      rateKopecks: integer(body.rateKopecks, 'rateKopecks'),
+      currency: body.currency ?? 'RUB',
+      renderedAt: new Date(body.renderedAt),
+      idempotencyKey: body.idempotencyKey,
+    });
+  }
+
+  /**
+   * Approve or reject a rendered line.
+   *
+   * The approving membership is not in the body: it is the session's own, and
+   * the database refuses an approval by the membership that recorded the line.
+   */
+  @Post('services/:serviceId/decision')
+  decideService(
+    @Param('serviceId') serviceId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { intended: string },
+  ) {
+    if (
+      body.intended !== ServiceStatus.APPROVED
+      && body.intended !== ServiceStatus.REJECTED
+    ) {
+      throw new BadRequestException(
+        `intended is ${ServiceStatus.APPROVED} or ${ServiceStatus.REJECTED}`,
+      );
+    }
+    return this.services.decide(user, { serviceId, intended: body.intended });
+  }
+
+  /**
+   * Reverse an approved line.
+   *
+   * Nothing about the amount is accepted here. The server copies the original's
+   * terms from the row it reads under lock, so a reversal cannot cancel a large
+   * charge with a small one.
+   */
+  @Post('services/:serviceId/reversal')
+  reverseService(
+    @Param('serviceId') serviceId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { renderedAt: string; idempotencyKey: string },
+  ) {
+    return this.services.reverse(user, {
+      serviceId,
+      renderedAt: new Date(body.renderedAt),
+      idempotencyKey: body.idempotencyKey,
+    });
+  }
+}
+
+/**
+ * A whole number of the minor unit, from the string a JSON body can carry.
+ *
+ * `BigInt('twelve')` throws a SyntaxError, and an uncaught one leaves the client
+ * with a 500 for what is plainly a malformed request. Named in the message so
+ * the caller knows which field to fix.
+ */
+function integer(value: string, field: string): bigint {
+  if (typeof value !== 'string' || /^-?\d+$/.test(value) === false) {
+    throw new BadRequestException(`${field} must be a whole number as a string`);
+  }
+  return BigInt(value);
+}
+
+/** An optional instant, refused rather than silently read as Invalid Date. */
+function instant(value: string | null | undefined, field: string): Date | null {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException(`${field} must be an ISO-8601 instant`);
+  }
+  return parsed;
 }
