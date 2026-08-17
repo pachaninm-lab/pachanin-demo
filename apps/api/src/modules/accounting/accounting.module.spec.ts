@@ -55,3 +55,49 @@ describe('AccountingModule', () => {
     await moduleRef.close();
   });
 });
+
+/**
+ * That the routes are actually declared.
+ *
+ * The tests above prove the controller resolves from the module graph. They do
+ * not prove it still carries the paths it is supposed to — and it did not: the
+ * manual-task route was lost in an edit, the module kept resolving, every test
+ * kept passing, and the repository method behind it became unreachable while
+ * looking present. A boot check that only asks "does it resolve" answers the
+ * easier question.
+ */
+describe('the accounting routes the controller declares', () => {
+  const EXPECTED: readonly string[] = [
+    'GET deals/:dealId/source-snapshot',
+    'POST documents/:documentId/versions',
+    'GET tasks',
+    'POST tasks',
+    'POST tasks/:taskId/transition',
+    'POST tasks/derive',
+    'GET tasks/projection',
+    'GET periods',
+    'POST periods',
+    'POST periods/:periodId/advance',
+    'POST periods/derive',
+    'GET documents/versions/:versionId/transmission-readiness',
+  ];
+
+  it('declares every route the contour is meant to expose, and no others', () => {
+    const prototype = AccountingController.prototype as unknown as Record<string, unknown>;
+    const declared = Object.getOwnPropertyNames(prototype)
+      .filter((name) => name !== 'constructor')
+      .map((name) => {
+        const handler = prototype[name] as object;
+        // The same metadata Nest's router explorer reads to register a path.
+        const path = Reflect.getMetadata('path', handler);
+        const method = Reflect.getMetadata('method', handler);
+        const verb = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'ALL', 'OPTIONS', 'HEAD'][
+          method as number
+        ];
+        return path === undefined ? null : `${verb} ${path}`;
+      })
+      .filter((entry): entry is string => entry !== null);
+
+    expect(declared.sort()).toEqual([...EXPECTED].sort());
+  });
+});

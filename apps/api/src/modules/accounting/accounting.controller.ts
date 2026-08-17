@@ -116,6 +116,34 @@ export class AccountingController {
   }
 
   /**
+   * A note somebody writes for themselves.
+   *
+   * Manual by construction: the row policy admits nothing else from this
+   * principal, so a claim about the world cannot be dressed up as a personal
+   * note. Who wrote it is resolved by the database, not named in the call.
+   */
+  @Post('tasks')
+  createTask(
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      title: string;
+      humanDescription: string;
+      dealId?: string | null;
+      documentId?: string | null;
+      deadlineAt?: string | null;
+    },
+  ) {
+    return this.tasks.raiseManual(user, {
+      title: body.title ?? '',
+      humanDescription: body.humanDescription ?? '',
+      dealId: body.dealId ?? null,
+      documentId: body.documentId ?? null,
+      deadlineAt: body.deadlineAt ? new Date(body.deadlineAt) : null,
+    });
+  }
+
+  /**
    * Raise tasks for whatever is outstanding right now.
    *
    * Idempotent: a condition already raised stays one task.
