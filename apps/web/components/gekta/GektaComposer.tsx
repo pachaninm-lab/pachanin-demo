@@ -26,6 +26,13 @@ const ATTACHMENT_ONLY_PROMPT: Record<GektaLocale, string> = {
   zh: '请分析所附材料。',
 };
 
+type RelocationState = Readonly<{
+  focused: boolean;
+  start: number;
+  end: number;
+  direction: 'forward' | 'backward' | 'none';
+}>;
+
 export function GektaComposer({ locale, value, placeholder, sending, stopLabel, sendLabel, boundary, documents, voiceEnabled, onDocuments, onChange, onSubmit, onStop, onError }: {
   locale: GektaLocale;
   value: string;
@@ -44,6 +51,8 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
 }) {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const pendingAttachmentSubmit = React.useRef(false);
+  const currentSlot = React.useRef<HTMLElement | null>(null);
+  const relocation = React.useRef<RelocationState | null>(null);
   const [voiceStatus, setVoiceStatus] = React.useState('');
   const [startSlot, setStartSlot] = React.useState<HTMLElement | null>(null);
   const canSubmit = Boolean(value.trim() || documents.length);
@@ -53,22 +62,52 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
     if (!workspace) return undefined;
 
     const syncSlot = () => {
-      const target = workspace.classList.contains('overflow-hidden')
+      const keyboardOpen = document.documentElement.dataset.gektaKeyboardOpen === 'true';
+      const target = workspace.classList.contains('overflow-hidden') || keyboardOpen
         ? null
         : workspace.querySelector<HTMLElement>("[data-gekta-composer-slot='true']");
-      setStartSlot((current) => current === target ? current : target);
+      if (currentSlot.current === target) return;
+
+      const textarea = textareaRef.current;
+      if (textarea) {
+        relocation.current = {
+          focused: document.activeElement === textarea,
+          start: textarea.selectionStart,
+          end: textarea.selectionEnd,
+          direction: textarea.selectionDirection ?? 'none',
+        };
+      }
+      currentSlot.current = target;
+      setStartSlot(target);
     };
 
     syncSlot();
-    const observer = new MutationObserver(syncSlot);
-    observer.observe(workspace, {
+    const workspaceObserver = new MutationObserver(syncSlot);
+    workspaceObserver.observe(workspace, {
       attributes: true,
       attributeFilter: ['class'],
       childList: true,
       subtree: true,
     });
-    return () => observer.disconnect();
+    const keyboardObserver = new MutationObserver(syncSlot);
+    keyboardObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-gekta-keyboard-open'],
+    });
+    return () => {
+      workspaceObserver.disconnect();
+      keyboardObserver.disconnect();
+    };
   }, []);
+
+  React.useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    const state = relocation.current;
+    if (!textarea || !state) return;
+    if (state.focused) textarea.focus({ preventScroll: true });
+    textarea.setSelectionRange(state.start, state.end, state.direction);
+    relocation.current = null;
+  }, [startSlot]);
 
   React.useEffect(() => {
     const textarea = textareaRef.current;
