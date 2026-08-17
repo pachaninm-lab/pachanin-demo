@@ -23,7 +23,7 @@ const mobileTouchContract = `
     overflow: visible;
     overscroll-behavior: auto;
   }
-  [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type:empty {
+  html:not([data-gekta-keyboard-open='true']) [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type:empty {
     display: none;
   }
   [data-gekta-chat-workspace='true'] header > button,
@@ -31,7 +31,8 @@ const mobileTouchContract = `
     min-width: 44px;
     min-height: 44px;
   }
-  [data-gekta-chat-workspace='true'].overflow-hidden {
+  [data-gekta-chat-workspace='true'].overflow-hidden,
+  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) {
     position: fixed;
     inset-inline: 0;
     top: var(--gekta-visual-viewport-top, 0px);
@@ -42,14 +43,24 @@ const mobileTouchContract = `
     max-height: var(--gekta-visual-viewport-height, 100dvh);
     overflow: hidden;
   }
-  [data-gekta-chat-workspace='true'].overflow-hidden > div {
-    height: 100%;
+  [data-gekta-chat-workspace='true'].overflow-hidden > div,
+  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) > div {
+    height: 100% !important;
     min-height: 0 !important;
   }
-  [data-gekta-chat-workspace='true'].overflow-hidden main > div:first-of-type {
+  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) main {
+    height: 100%;
+    min-height: 0;
+  }
+  [data-gekta-chat-workspace='true'].overflow-hidden main > div:first-of-type,
+  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:first-of-type {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type {
+    flex-shrink: 0;
+    padding-bottom: 0 !important;
   }
   [data-gekta-chat-workspace='true'] [data-gekta-scroll-to-bottom='true'],
   [data-gekta-chat-workspace='true'] button[aria-label='Scroll to bottom'] {
