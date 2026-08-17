@@ -67,6 +67,18 @@ export interface PeriodSummary extends PeriodView {
   readonly readiness: PeriodReadiness;
   readonly outstandingDerivedTasks: number;
   readonly unsignedDocuments: number;
+  readonly undecidedServiceLines: number;
+  /**
+   * Money received in the window that is not yet matched to anything.
+   *
+   * Reported, not blocking. Matching is dated when it happens and the
+   * allocation guard judges that date, so a payment from a closed month can
+   * still be allocated in an open one — nothing is lost by closing over it. It
+   * is here because somebody signing off a month should see it.
+   */
+  readonly unallocatedPaymentKopecks: bigint;
+  /** Statements prepared for the window that the counterparty has not answered. */
+  readonly unansweredReconciliations: number;
 }
 
 @Injectable()
@@ -118,6 +130,61 @@ export class AccountingPeriodRepository {
          )
     `;
     return Number(rows[0]?.unsigned ?? 0n);
+  }
+
+  /** Service lines rendered inside the window that nobody decided. */
+  private async undecidedServiceLines(
+    tx: Prisma.TransactionClient,
+    orgId: string,
+    row: { periodStart: Date; periodEnd: Date },
+  ): Promise<number> {
+    const rows = await tx.$queryRaw<{ undecided: bigint }[]>`
+      SELECT count(*) AS undecided
+        FROM public."accounting_deal_services" s
+       WHERE s."organizationId" = ${orgId}
+         AND s."status" = 'RENDERED'
+         AND s."renderedAt" >= ${row.periodStart}
+         AND s."renderedAt" < ${row.periodEnd}
+    `;
+    return Number(rows[0]?.undecided ?? 0n);
+  }
+
+  /** What arrived in the window and has not been matched to anything yet. */
+  private async unallocatedPayments(
+    tx: Prisma.TransactionClient,
+    orgId: string,
+    row: { periodStart: Date; periodEnd: Date },
+  ): Promise<bigint> {
+    const rows = await tx.$queryRaw<{ unallocated: bigint | null }[]>`
+      SELECT COALESCE(sum(
+               p."amountKopecks"
+               - (SELECT COALESCE(sum(a."amountKopecks"), 0)
+                    FROM public."accounting_payment_allocations" a
+                   WHERE a."paymentId" = p."id")
+             ), 0) AS unallocated
+        FROM public."accounting_payments" p
+       WHERE p."organizationId" = ${orgId}
+         AND p."paidAt" >= ${row.periodStart}
+         AND p."paidAt" < ${row.periodEnd}
+    `;
+    return BigInt(rows[0]?.unallocated ?? 0);
+  }
+
+  /** Statements covering the window that nobody has answered. */
+  private async unansweredReconciliations(
+    tx: Prisma.TransactionClient,
+    orgId: string,
+    row: { periodStart: Date; periodEnd: Date },
+  ): Promise<number> {
+    const rows = await tx.$queryRaw<{ unanswered: bigint }[]>`
+      SELECT count(*) AS unanswered
+        FROM public."accounting_reconciliations" r
+       WHERE r."organizationId" = ${orgId}
+         AND r."status" = 'PREPARED'
+         AND r."periodStart" < ${row.periodEnd}
+         AND r."periodEnd" > ${row.periodStart}
+    `;
+    return Number(rows[0]?.unanswered ?? 0n);
   }
 
   async open(
@@ -221,6 +288,11 @@ export class AccountingPeriodRepository {
           actorCapabilities: capabilities,
           outstandingDerivedTasks: await this.outstandingWork(tx, context.orgId, row),
           unsignedDocuments: await this.unsignedDocuments(tx, context.orgId, row),
+          undecidedServiceLines: await this.undecidedServiceLines(
+            tx,
+            context.orgId,
+            row,
+          ),
           now: new Date(),
         });
         if (decision.permitted === false) {
@@ -334,12 +406,30 @@ export class AccountingPeriodRepository {
       for (const row of rows) {
         const outstanding = await this.outstandingWork(tx, context.orgId, row);
         const unsigned = await this.unsignedDocuments(tx, context.orgId, row);
+        const undecided = await this.undecidedServiceLines(tx, context.orgId, row);
         summaries.push({
           ...toView(row),
           version: row.version,
           outstandingDerivedTasks: outstanding,
           unsignedDocuments: unsigned,
-          readiness: describeReadiness(toView(row), outstanding, unsigned, now),
+          undecidedServiceLines: undecided,
+          unallocatedPaymentKopecks: await this.unallocatedPayments(
+            tx,
+            context.orgId,
+            row,
+          ),
+          unansweredReconciliations: await this.unansweredReconciliations(
+            tx,
+            context.orgId,
+            row,
+          ),
+          readiness: describeReadiness(
+            toView(row),
+            outstanding,
+            unsigned,
+            now,
+            undecided,
+          ),
         });
       }
       return summaries;
