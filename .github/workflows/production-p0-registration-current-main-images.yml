@@ -130,7 +130,7 @@ jobs:
       packages: write
     uses: ./.github/workflows/docker-publish.yml
     with:
-      services: all
+      services: api,web,migration
 
   verify:
     name: Prove exact-main API/Web/migration images
