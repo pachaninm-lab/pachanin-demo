@@ -181,7 +181,9 @@ for image_id in image_ids:
     item = inspect_image(image_id)
     if item is None:
         continue
-    classification = classify_release_image(item)
+    # Registry pull-by-digest leaves canonical RepoDigests without RepoTags.
+    # They remain inside the same bounded component classifier and protections.
+    classification = classify_release_image(item, require_tag=False)
     if classification is None:
         continue
     component, tags, refs = classification
