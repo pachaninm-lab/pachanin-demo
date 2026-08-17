@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p7-prod-i18n-localized-brand-gate-2198",
+  "status": "active",
+  "purpose": "Correct the exact-production Platform V7 i18n browser acceptance gate so brand geometry is validated against the localized rendered brand instead of requiring Russian copy in EN/ZH runs.",
+  "authorityBaseExactMain": "270f1711b66adeb0d2878728c375468ebebec128",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+  ],
+  "requiredInvariants": [
+    "The change remains test-only and does not alter production UI, CSS, application runtime, authentication, data, infrastructure, migrations or deployment behavior.",
+    "Localized production brand text must be non-empty and retain the existing font-size, clipping and geometry checks.",
+    "EN and ZH residual-Cyrillic checks remain authoritative and unchanged.",
+    "The dedicated RU 320x700 production homepage master-design gate remains unchanged.",
+    "Hero deal-card visible text minimum-size, touch-target and horizontal-overflow checks remain unchanged."
+  ],
+  "acceptance": [
+    "Platform v7 autopilot scope guard passes for this exact branch scope.",
+    "Exact-head PR checks pass before merge.",
+    "After merge and exact-main deployment, Platform v7 Production i18n Acceptance passes against the deployed exact main SHA.",
+    "No new recurring cost is introduced."
+  ]
+}
