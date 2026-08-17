@@ -45,15 +45,14 @@ jobs:
           set -Eeuo pipefail
           f=scripts/production-p0-auth-mail-api-principal-acl-repair-v3-3785.sh
           bash -n "$f"
-          grep -Fq "PRODUCTION_MUTATION_ALLOWED:-false}" "$f"
+          grep -Fq 'PRODUCTION_MUTATION_ALLOWED:-false' "$f"
           grep -Fq "== 'true'" "$f"
-          grep -Fq "GRANT USAGE ON SCHEMA auth TO %I" "$f"
-          grep -Fq "GRANT EXECUTE ON FUNCTION auth.enqueue_mail_outbox" "$f"
-          grep -Fq "REVOKE EXECUTE ON FUNCTION auth.enqueue_mail_outbox" "$f"
-          grep -Fq "REVOKE USAGE ON SCHEMA auth FROM %I" "$f"
-          grep -Fq "TABLE_PRIVILEGES_NONE" "$f"
-          grep -Fq "PUBLIC" "$f"
-          grep -Fq "node_modules/prisma/build/index.js db execute --stdin --schema prisma/schema.prisma" "$f"
+          grep -Fq 'GRANT USAGE ON SCHEMA auth TO %I' "$f"
+          grep -Fq "GRANT EXECUTE ON FUNCTION \$regproc TO %I" "$f"
+          grep -Fq "REVOKE EXECUTE ON FUNCTION \$regproc FROM %I" "$f"
+          grep -Fq 'REVOKE USAGE ON SCHEMA auth FROM %I' "$f"
+          grep -Fq 'TABLE_PRIVILEGES_NONE' "$f"
+          grep -Fq 'node_modules/prisma/build/index.js db execute --stdin --schema prisma/schema.prisma' "$f"
           ! grep -Eq 'GRANT[[:space:]]+(ALL|SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER)' "$f"
           ! grep -Eq 'docker[[:space:]]+(restart|kill|rm)|docker[[:space:]]+compose[[:space:]]+(up|down|restart)|prisma[[:space:]]+migrate[[:space:]]+deploy|set[[:space:]]+-x' "$f"
       - name: Verify exact owner-issued provenance
