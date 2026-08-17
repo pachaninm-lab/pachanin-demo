@@ -1,0 +1,211 @@
+name: Production Gekta Stream Diagnostic
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-gekta-stream-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnostic:
+    name: Diagnose one bounded public Gekta stream
+    if: >-
+      github.event.issue.number == 3048 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production gekta stream diagnostic'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    env:
+      LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      EVIDENCE_DIR: artifacts/production-gekta-stream-diagnostic
+
+    steps:
+      - name: Run bounded public diagnostic
+        id: diagnostic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          log="$EVIDENCE_DIR/diagnostic.log"
+          : > "$log"
+
+          one_line() {
+            tr '\r\n' '  ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' | cut -c1-240
+          }
+
+          json_field() {
+            local file="$1" field="$2"
+            node -e '
+              const fs = require("node:fs");
+              const [file, field] = process.argv.slice(1);
+              try {
+                const value = JSON.parse(fs.readFileSync(file, "utf8"))?.[field];
+                if (typeof value === "string") process.stdout.write(value.slice(0, 160));
+                else if (typeof value === "boolean" || typeof value === "number") process.stdout.write(String(value));
+              } catch {}
+            ' "$file" "$field" 2>/dev/null || true
+          }
+
+          manifest_body="$(mktemp)"
+          manifest_code="$(curl -sS -o "$manifest_body" -w '%{http_code}' --compressed --max-time 20 \
+            "$LIVE_BASE/manifest-pc-deploy.json?diagnostic=$GITHUB_RUN_ID" || true)"
+          manifest_revision="$(node -e '
+            const fs = require("node:fs");
+            try {
+              const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              const candidates = [value?.revision, value?.sha, value?.commit, value?.gitSha];
+              const revision = candidates.find((item) => typeof item === "string" && /^[0-9a-f]{40}$/.test(item));
+              if (revision) process.stdout.write(revision);
+            } catch {}
+          ' "$manifest_body" 2>/dev/null || true)"
+          rm -f "$manifest_body"
+          printf 'MANIFEST_HTTP=%s\nMANIFEST_REVISION=%s\n' \
+            "${manifest_code:-missing}" "${manifest_revision:-unknown}" | tee -a "$log"
+
+          final_result=STREAM_FAIL
+          final_reason=not-established
+          passed_attempt=0
+
+          for attempt in 1 2 3; do
+            cookie_jar="$(mktemp)"
+            reserve_body="$(mktemp)"
+            reserve_headers="$(mktemp)"
+            reserve_error="$(mktemp)"
+            stream_body="$(mktemp)"
+            stream_headers="$(mktemp)"
+            stream_error="$(mktemp)"
+
+            set +e
+            reserve_metrics="$(curl -sS -D "$reserve_headers" -o "$reserve_body" \
+              -c "$cookie_jar" -b "$cookie_jar" \
+              -w '%{http_code}\t%{content_type}\t%{time_total}\t%{size_download}' \
+              --compressed --max-time 25 \
+              -H 'Content-Type: application/json' -H 'Accept: application/json' \
+              --data '{"action":"reserve"}' \
+              "$LIVE_BASE/api/gekta/entitlement" 2>"$reserve_error")"
+            reserve_rc=$?
+            set -e
+
+            IFS=$'\t' read -r reserve_code reserve_type reserve_time reserve_bytes <<< "$reserve_metrics"
+            allowed="$(json_field "$reserve_body" allowed)"
+            reserve_code_name="$(json_field "$reserve_body" code)"
+            [[ -n "$reserve_code_name" ]] || reserve_code_name="$(json_field "$reserve_body" error)"
+            ticket="$(json_field "$reserve_body" ticket)"
+            ticket_valid=0
+            [[ "$ticket" =~ ^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$ ]] && ticket_valid=1
+            reserve_error_text="$(one_line < "$reserve_error")"
+
+            printf 'ATTEMPT=%s RESERVE_RC=%s RESERVE_HTTP=%s RESERVE_TYPE=%s RESERVE_TIME=%s RESERVE_BYTES=%s ALLOWED=%s TICKET_VALID=%s RESERVE_CODE=%s RESERVE_CURL_ERROR=%s\n' \
+              "$attempt" "$reserve_rc" "${reserve_code:-missing}" "${reserve_type:-missing}" \
+              "${reserve_time:-missing}" "${reserve_bytes:-missing}" "${allowed:-unknown}" "$ticket_valid" \
+              "${reserve_code_name:-none}" "${reserve_error_text:-none}" | tee -a "$log"
+
+            if (( reserve_rc != 0 )) || [[ "$reserve_code" != 200 ]] || [[ "$allowed" != true ]] || (( ticket_valid != 1 )); then
+              final_reason="reserve-${reserve_code_name:-http-${reserve_code:-missing}}"
+              rm -f "$cookie_jar" "$reserve_body" "$reserve_headers" "$reserve_error" \
+                "$stream_body" "$stream_headers" "$stream_error"
+              (( attempt < 3 )) && sleep 10
+              continue
+            fi
+
+            conversation_id="gektaaccept${GITHUB_RUN_ID}${attempt}"
+            set +e
+            stream_metrics="$(curl -sS -D "$stream_headers" -o "$stream_body" \
+              -c "$cookie_jar" -b "$cookie_jar" \
+              -w '%{http_code}\t%{content_type}\t%{time_starttransfer}\t%{time_total}\t%{size_download}' \
+              --no-buffer --max-time 170 \
+              -H 'Content-Type: application/json' -H 'Accept: text/event-stream' \
+              -H "x-gekta-answer-ticket: $ticket" \
+              --data "{\"message\":\"Ответь одним коротким предложением: что проверить при падении урожайности озимой пшеницы?\",\"locale\":\"ru\",\"context\":\"gekta-standalone\",\"conversationId\":\"$conversation_id\",\"history\":[]}" \
+              "$LIVE_BASE/api/agro-chat?stream=1" 2>"$stream_error")"
+            stream_rc=$?
+            set -e
+
+            IFS=$'\t' read -r stream_code stream_type stream_ttft stream_time stream_bytes <<< "$stream_metrics"
+            meta=0; token=0; done=0; complete=0
+            grep -Fq '"event":"meta"' "$stream_body" && meta=1
+            grep -Fq '"event":"token"' "$stream_body" && token=1
+            grep -Fq '"event":"done"' "$stream_body" && done=1
+            grep -Fq '"complete":true' "$stream_body" && complete=1
+            token_count="$(grep -Fo '"event":"token"' "$stream_body" 2>/dev/null | wc -l | tr -d ' ' || true)"
+            body_sha="$(sha256sum "$stream_body" | awk '{print $1}')"
+            stream_code_name="$(grep -Eo '"code"[[:space:]]*:[[:space:]]*"[A-Z0-9_]+' "$stream_body" | head -n1 | sed -E 's/.*"([A-Z0-9_]+)$/\1/' || true)"
+            [[ -n "$stream_code_name" ]] || stream_code_name="$(json_field "$stream_body" code)"
+            stream_error_text="$(one_line < "$stream_error")"
+
+            printf 'ATTEMPT=%s STREAM_RC=%s STREAM_HTTP=%s STREAM_TYPE=%s STREAM_TTFT=%s STREAM_TIME=%s STREAM_BYTES=%s META=%s TOKEN=%s TOKEN_COUNT=%s DONE=%s COMPLETE=%s STREAM_CODE=%s BODY_SHA256=%s STREAM_CURL_ERROR=%s\n' \
+              "$attempt" "$stream_rc" "${stream_code:-missing}" "${stream_type:-missing}" \
+              "${stream_ttft:-missing}" "${stream_time:-missing}" "${stream_bytes:-missing}" \
+              "$meta" "$token" "${token_count:-0}" "$done" "$complete" \
+              "${stream_code_name:-none}" "$body_sha" "${stream_error_text:-none}" | tee -a "$log"
+
+            if (( stream_rc == 0 )) \
+              && [[ "$stream_code" == 200 ]] \
+              && [[ "${stream_type,,}" == text/event-stream* ]] \
+              && (( meta == 1 && token == 1 && done == 1 && complete == 1 )); then
+              final_result=STREAM_PASS
+              final_reason=complete-sse
+              passed_attempt="$attempt"
+              rm -f "$cookie_jar" "$reserve_body" "$reserve_headers" "$reserve_error" \
+                "$stream_body" "$stream_headers" "$stream_error"
+              break
+            fi
+
+            if [[ -n "$stream_code_name" ]]; then
+              final_reason="$stream_code_name"
+            elif (( stream_rc == 28 )); then
+              final_reason=stream-timeout
+            else
+              final_reason="stream-http-${stream_code:-missing}"
+            fi
+
+            rm -f "$cookie_jar" "$reserve_body" "$reserve_headers" "$reserve_error" \
+              "$stream_body" "$stream_headers" "$stream_error"
+            (( attempt < 3 )) && sleep 10
+          done
+
+          printf 'DIAGNOSTIC_RESULT=%s\nDIAGNOSTIC_REASON=%s\nPASSED_ATTEMPT=%s\n' \
+            "$final_result" "$final_reason" "$passed_attempt" | tee -a "$log"
+
+          {
+            printf '## Production Gekta stream diagnostic `%s`\n\n' "$GITHUB_RUN_ID"
+            printf -- '- manifest HTTP: `%s`\n' "${manifest_code:-missing}"
+            printf -- '- manifest revision: `%s`\n' "${manifest_revision:-unknown}"
+            printf -- '- diagnostic result: `%s`\n' "$final_result"
+            printf -- '- reason: `%s`\n' "$final_reason"
+            printf -- '- successful attempt: `%s`\n' "$passed_attempt"
+            printf -- '- bounded attempts: `3`\n'
+            printf -- '- ticket, cookie and response content published: `no`\n'
+            printf -- '- production configuration mutation: `none`\n'
+          } > "$EVIDENCE_DIR/summary.md"
+
+          echo "result=$final_result" >> "$GITHUB_OUTPUT"
+          echo "reason=$final_reason" >> "$GITHUB_OUTPUT"
+          echo "revision=${manifest_revision:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish diagnostic record
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$EVIDENCE_DIR/summary.md"
+          gh issue comment 3048 --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/summary.md"
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-gekta-stream-diagnostic-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
