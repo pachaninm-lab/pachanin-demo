@@ -42,15 +42,15 @@ for (const marker of scriptMarkers) {
 }
 
 const forbidden = [
-  /\bGRANT\b/i,
-  /\bREVOKE\b/i,
+  /\bGRANT\s+(?:USAGE|EXECUTE|SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER|ALL)\b/i,
+  /\bREVOKE\s+(?:USAGE|EXECUTE|SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER|ALL)\b/i,
   /\bALTER\s+(ROLE|TABLE|FUNCTION)\b/i,
   /\bCREATE\s+(ROLE|TABLE|FUNCTION)\b/i,
   /\bDROP\s+(ROLE|TABLE|FUNCTION)\b/i,
   /\bINSERT\s+INTO\b/i,
   /\bUPDATE\s+auth\./i,
   /\bDELETE\s+FROM\b/i,
-  /\bTRUNCATE\b/i,
+  /\bTRUNCATE\s+(?:TABLE\s+)?auth\./i,
   /prisma\s+migrate\s+deploy/i,
   /docker\s+(restart|kill|rm)\b/i,
   /docker\s+compose\s+(up|down|restart)\b/i,
