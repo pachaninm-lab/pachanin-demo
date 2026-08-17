@@ -5,6 +5,7 @@ export default defineConfig({
   testMatch: [
     /(?:platform-v7|gekta)-production-mobile-acceptance\.spec\.ts/,
     /gekta-keyboard-start-acceptance\.spec\.ts/,
+    /gekta-hero-density-acceptance\.spec\.ts/,
   ],
   fullyParallel: false,
   forbidOnly: true,
