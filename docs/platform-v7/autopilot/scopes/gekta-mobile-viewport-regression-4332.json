@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-mobile-viewport-regression-4332",
+  "branch": "agent/gekta-mobile-viewport-regression-20260817",
+  "issue": 4332,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "bfc45b4954b2216cabc9ad112504722a17e110e7"
+  },
+  "purpose": "Restore the approved Gekta mobile UX contract after later frontend regressions: visual-viewport keyboard authority, stable composer geometry, one primary entry, fully modal drawer isolation, two-example mobile density and regression acceptance in RU/EN/ZH without changing backend or platform business logic.",
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaViewportAuthority.tsx",
+    "apps/web/components/gekta/GektaProductShell.tsx",
+    "apps/web/components/gekta/GektaExperienceFrame.tsx",
+    "apps/web/components/gekta/GektaHero.tsx",
+    "apps/web/components/gekta/GektaDiscoverySections.tsx",
+    "apps/web/components/gekta/GektaComposer.tsx",
+    "apps/web/components/gekta/GektaAttachments.tsx",
+    "apps/web/components/gekta/GektaEmptyState.tsx",
+    "apps/web/components/gekta/GektaMobileDrawer.tsx",
+    "apps/web/components/gekta/useDialogFocus.ts",
+    "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-mobile-viewport-regression-4332.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/gekta",
+    "localizedRoutes": ["/gekta/en", "/gekta/zh", "/gekta/*"],
+    "mode": "web-ux-only",
+    "backendApi": "unchanged",
+    "streamingProtocol": "unchanged",
+    "modelBoundary": "unchanged",
+    "authentication": "unchanged",
+    "accountData": "unchanged",
+    "platformBusinessLogic": "unchanged",
+    "languages": ["ru", "en", "zh"],
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "PC-CROP registration, reviewer, MFA or password-reset runtime",
+    "Deal, role, tenant, RBAC, RLS or PostgreSQL authority",
+    "model runtime, prompt, inference routing, latency experiments or Qwen deployment",
+    "agro-chat API behavior, streaming protocol or attachment backend contracts",
+    "production credentials, protected release authority or direct REG.RU mutation",
+    "paid external services, new libraries or new infrastructure",
+    "weakening viewport, H1, accessibility, localization or production acceptance thresholds",
+    "claims that code, CI or merge alone proves production acceptance"
+  ],
+  "requiredChecks": [
+    "web typecheck",
+    "gektaMobileUxRedTeam.test.ts",
+    "gektaStandaloneExperience.test.ts",
+    "gektaProductSeparation.test.ts",
+    "gekta-production-mobile-acceptance.spec.ts at 320/375/390/430",
+    "20-cycle automated keyboard viewport regression",
+    "drawer inert, focus trap, Escape and focus-return acceptance",
+    "RU/EN/ZH no-launcher and two-example acceptance",
+    "WCAG 2.2 AA focus, 14px service text and 44px primary target acceptance",
+    "git diff --check"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "Frontend UX correction only. Real-device iPhone and Android soak plus exact-SHA REG.RU production evidence remain mandatory before issue closure."
+}
