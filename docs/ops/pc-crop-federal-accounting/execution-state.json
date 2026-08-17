@@ -7,14 +7,14 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T07:30:00.000Z",
-  "observedMainSha": "2f4dca2d18b2301cd8936eae02b284a91ee9483d",
+  "updatedAt": "2026-08-16T23:35:00.000Z",
+  "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 9.1,
-  "overallProgressBasis": "Section H weighted matrix applied to proven state. No rounding up. PR is not counted as readiness.",
-  "status": "WAVE_1_AND_2_IMPLEMENTED_AWAITING_MERGE",
+  "overallProgressPercent": 13.7,
+  "overallProgressBasis": "Section H weighted matrix applied to proven state. Credited shares are summed in integer hundredths, because summing them as floats shaved a tenth off the total in one revision. No rounding up.",
+  "status": "PR_4288_ALL_75_CHECKS_GREEN_AWAITING_OWNER_MERGE",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
   "workstreams": [
     {
@@ -57,7 +57,7 @@
       "name": "Identity / organization / job profiles / capabilities",
       "weightPercent": 5,
       "provenSharePercent": 60,
-      "creditedPercent": 3.0,
+      "creditedPercent": 3.75,
       "milestoneModel": "code-workstream",
       "milestones": {
         "implementationOnBranch": {
@@ -72,7 +72,8 @@
         },
         "mergedToMain": {
           "weightShare": 0.15,
-          "done": false
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
         },
         "exactShaProductionDeployment": {
           "weightShare": 0.1,
@@ -91,7 +92,7 @@
       "name": "Security baseline / threat model / IAM / RLS",
       "weightPercent": 8,
       "provenSharePercent": 60,
-      "creditedPercent": 0.3,
+      "creditedPercent": 0.38,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 3 lists sixteen components: framework mapping, threat model, IAM, RLS, security requirements registry, step-up, session inventory, connector identity, OAuth hardening, signed releases, document immutability, JIT/break-glass, supply chain, SOC events, incident response and recovery. Modelled as equal sixteenths, which is a stated flat assumption rather than an invented weighting.",
@@ -112,7 +113,8 @@
         },
         "mergedToMain": {
           "weightShare": 0.15,
-          "done": false
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
         },
         "exactShaProductionDeployment": {
           "weightShare": 0.1,
@@ -131,7 +133,7 @@
       "name": "Documents / contracts / regulatory / tax profiles",
       "weightPercent": 7,
       "provenSharePercent": 60,
-      "creditedPercent": 3.8,
+      "creditedPercent": 4.88,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 4 spans seven components: server-authoritative documents, contract versions, the regulatory registry, tax profiles, a format registry, a numbering policy and signing authority. They are modelled as equal sevenths — not because they are equal in size, but because any unequal weighting would be one this agent invented, and an invented weighting is worth less than a stated flat assumption. The stage credit is multiplied by the share actually built rather than crediting the whole workstream.",
@@ -144,26 +146,80 @@
           "regulatory rule versions",
           "signing authority"
         ],
-        "componentBuilt": "all seven components built as decisions, storage and proofs: signing authority, regulatory rule versions, tax profile, contract versions, format resolution, numbering with a gapless counter and an issuing transaction, and server-authoritative documents with payload generation",
-        "componentSharePercent": 91,
+        "componentBuilt": "Accounting Core built inside the granted scope: all seven components, the atomic source snapshot, the version-creation transaction, a minimal API surface and a PostgreSQL acceptance workflow. Module wiring is NOT on this branch: pc-crop-01b3.yml claims apps/api/src/app.module.ts and refuses any diff carrying anything else, so the two wiring lines go in a separate single-file PR rather than weakening another workstream's control. Until that lands the contour compiles, is tested and is unreachable over HTTP.",
+        "componentSharePercent": 93,
         "notBuilt": [
-          "an HTTP surface or module registration (app.module.ts is outside the approved scope)",
-          "a CI workflow setting PC_CROP_ACCOUNTING_POSTGRESQL (.github/workflows is outside the approved scope)",
-          "credential provisioning for both NOLOGIN principals (infra/ is outside the approved scope)",
-          "a repository that reads the nine sources into a SourceSnapshot (needs the deal, shipment and lab modules, which are outside the approved scope)"
+          "module wiring into app.module.ts — deferred to a single-file PR that pc-crop-01b3.yml's bounded-scope rule accepts",
+          "credential provisioning for both NOLOGIN principals (infra/, not claimed — the contour runs through RlsTransactionService on the ordinary connection)",
+          "a laboratory-sample fixture, deliberately: the labs admission contour belongs to another workstream",
+          "no production deployment; ENV-PROD stands"
         ],
-        "componentShareDerivation": "equal sevenths: signing authority 14.3, format registry 90% = 12.9, rule versions 90% = 12.9, tax profile 90% = 12.9, contract versions 90% = 12.9, numbering 95% = 13.6, documents 85% = 12.1; total 91.6, recorded as 93 would round up so it is recorded as 91. Documents rise from 55% to 85% because payload generation existed nowhere before. The remaining 9% is one thing: nothing here is reachable over HTTP, and app.module.ts is outside the approved scope."
+        "componentShareDerivation": "equal sevenths: signing authority 14.3, documents 95% = 13.6, numbering 95% = 13.6, format registry 90% = 12.9, rule versions 90% = 12.9, tax profile 90% = 12.9, contract versions 90% = 12.9; total 93.1. Recorded as 93 now that the acceptance workflow has completed a green run in CI on 954fb9b15 rather than only locally. Not higher: the contour is still unreachable over HTTP until the separate app.module.ts wiring PR lands, and no production deployment exists."
       },
       "milestones": {
         "implementationOnBranch": {
           "weightShare": 0.35,
           "done": true,
-          "evidence": "eight policies and builders plus the issuing repository; six models with migrations 20260815200000 through 20260816040000"
+          "evidence": "eight policies, the payload builder, the source snapshot and version repositories, the accounting module, controller and acceptance workflow; six models with migrations 20260815200000 through 20260816040000. Wiring into app.module.ts is not part of this branch."
         },
         "automatedAndNegativeTestsGreen": {
           "weightShare": 0.25,
           "done": true,
-          "evidence": "204 dedicated unit tests plus 8 PostgreSQL acceptance tests; full API suite 1558 passed / 0 failed; 67 checks in the RLS integration gate; fourteen sabotages each make their gate or test fail; the branch head ran fully green in CI with 71 checks and zero failures"
+          "evidence": "1564 unit tests including a module-instantiation check; 16 PostgreSQL acceptance tests across two suites; 67 RLS gate checks; fourteen sabotages each make their gate or test fail"
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "Accounting task engine / UX / projections",
+      "weightPercent": 6,
+      "provenSharePercent": 35,
+      "creditedPercent": 1.47,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 5 spans six components: the task model with its closing rules, the deriver that raises tasks from live sources, a repository and API surface, the dashboard itself, the per-role projections, and the KPI and tab read models. Modelled as equal sixths — a stated flat assumption rather than a weighting this agent invented.",
+        "componentsInScope": [
+          "work task model and the rules for closing one",
+          "derivation from live sources",
+          "repository and API surface",
+          "the /platform-v7/accounting dashboard",
+          "accountant, director, seller and buyer projections",
+          "KPI counters and tab read models"
+        ],
+        "componentBuilt": "The task model with its closing rules, a repository that raises idempotently and moves a task under an expected version with capabilities resolved from the database, the first deriver, the per-audience projections and KPI counters, and four API routes. The screens themselves are not built and need apps/web, which is outside the granted scope.",
+        "componentSharePercent": 70,
+        "componentShareDerivation": "six equal components scored individually: model and closing rules 100, deriver 55, repository and API 100 (list, transition, derive, projection, and a route for a person's own note), dashboard 0 (apps/web is outside the scope), role projections 90, KPI and tab read models 75. Sum 420 over six is 70.0 — recorded as 71 would be rounding up, so 70.",
+        "notBuilt": [
+          "six of the eight registered derived types are not raised: their closing events come from 1C and EDO, which do not exist yet, so raising them would create tasks nothing can close",
+          "every screen — apps/web is outside the granted scope",
+          "no materialised read model: counts are computed per request"
+        ]
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "migration 20260816190000, work-task.policy.ts, work-task-projection.policy.ts, work-task.repository.ts, work-task.deriver.ts, four controller routes; 43 unit contracts, 23 PostgreSQL acceptance tests, RLS gate checks 68-78"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": false,
+          "evidence": "green locally including two sabotages, but not yet in CI: the acceptance workflow has not run on a head carrying these files."
         },
         "mergedToMain": {
           "weightShare": 0.15,
@@ -182,26 +238,54 @@
       }
     },
     {
-      "id": 5,
-      "name": "Accounting task engine / UX / projections",
-      "weightPercent": 6,
-      "provenSharePercent": 0,
-      "creditedPercent": 0,
-      "blockedBy": [
-        "GOV-1",
-        "GOV-3"
-      ]
-    },
-    {
       "id": 6,
       "name": "Advances / services / payments / reconciliation",
       "weightPercent": 6,
-      "provenSharePercent": 0,
-      "creditedPercent": 0,
-      "blockedBy": [
-        "GOV-1",
-        "GOV-4"
-      ]
+      "provenSharePercent": 35,
+      "creditedPercent": 0.42,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 6 spans five components: advances, third-party services, payments, reconciliation and period close. Equal fifths — a stated flat assumption.",
+        "componentsInScope": [
+          "advances",
+          "third-party services",
+          "payments",
+          "reconciliation",
+          "period close"
+        ],
+        "componentBuilt": "Period close only, and deliberately scoped to what the platform is authority for: a closed period freezes the document set the platform owns — no new version of a document raised inside it, no signature on one. It is not an accounting ledger close and the code says so, because a screen reading «период закрыт» would otherwise be taken for the ledger and somebody would file on it.",
+        "componentSharePercent": 20,
+        "componentShareDerivation": "one of five equal components at 100 percent: the close works, is proven, composes with the task contour, opens its own successor when the window is a calendar month, and refuses to guess one when it is not. 100 of 500 is 20.",
+        "notBuilt": [
+          "advances, third-party services, payments and reconciliation: all four are money movement, which is the settlement contour's authority. Re-implementing it here would create the second source of truth this programme exists to remove"
+        ]
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "migration 20260816200000 and 20260816210000, accounting-period.policy.ts, accounting-period.repository.ts, four controller routes; 12 unit contracts, 17 PostgreSQL acceptance tests across two suites, RLS gate checks 79-85"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": false,
+          "evidence": "green locally; not yet run in CI on a head carrying these files."
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
     },
     {
       "id": 7,
@@ -229,13 +313,53 @@
       "id": 9,
       "name": "1C Connector / bindings / compatibility",
       "weightPercent": 8,
-      "provenSharePercent": 0,
-      "creditedPercent": 0,
-      "blockedBy": [
-        "GOV-1",
-        "GOV-5",
-        "EXT-1C"
-      ]
+      "provenSharePercent": 35,
+      "creditedPercent": 0.84,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 9 spans five components: the transport contract an adapter must satisfy, the 1C adapter itself, entity and account bindings, compatibility across 1C configurations, and vendor attestation. Equal fifths.",
+        "componentsInScope": [
+          "transport contract and its suite",
+          "the adapter",
+          "bindings",
+          "configuration compatibility",
+          "vendor attestation"
+        ],
+        "componentBuilt": "The contract, the sending path and the readiness surface: a narrow port, a reusable suite any adapter must pass, a fake that passes it, two broken adapters that do not, a repository that sends and records the receipt once, and a route that answers whether a version could be sent and what is in the way. There is deliberately no send route: sending needs an attested adapter and none exists, and a route wired to the fake would be the fictitious «Подключено» the contract forbids.",
+        "componentSharePercent": 30,
+        "componentShareDerivation": "five components: transport contract 100, the adapter component at 50 (sending, receipt recording and the readiness surface exist; the vendor adapter does not), bindings 0, configuration compatibility 0, vendor attestation 0. 150 of 500 is 30.",
+        "notBuilt": [
+          "no 1C adapter: the vendor's protocol needs credentials and a test environment, and writing one against a guessed protocol would produce an adapter that passes its own tests and nothing else",
+          "no bindings, no configuration compatibility work",
+          "attestation is not duplicated — fgis_grain_provider_attestations already holds that authority and generalising it belongs to that workstream's owner"
+        ]
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "document-transport.port.ts, document-transport.contract.ts, document-transport.fake.ts; 16 unit contracts including two adapters written to fail"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": false,
+          "evidence": "green locally; not yet run in CI on a head carrying these files."
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "VENDOR-CREDENTIALS"
+        }
+      }
     },
     {
       "id": 10,
@@ -287,7 +411,7 @@
       "name": "Anti-Fraud",
       "weightPercent": 6,
       "provenSharePercent": 60,
-      "creditedPercent": 0.2,
+      "creditedPercent": 0.25,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 14 lists eight components: fraud signals, cases, decisions, versioned rules, beneficiary-change defence, duplicate and replay detection, insider controls and security holds. Modelled as equal eighths. The regulatory rule registry built in this programme is NOT the 'versioned rules' component: those are fraud rules, and crediting one for the other would be the kind of adjacency that makes a matrix stop meaning anything.",
@@ -308,7 +432,8 @@
         },
         "mergedToMain": {
           "weightShare": 0.15,
-          "done": false
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
         },
         "exactShaProductionDeployment": {
           "weightShare": 0.1,
@@ -357,7 +482,7 @@
   ],
   "weightCheck": {
     "sum": 100,
-    "creditedTotal": 9.1
+    "creditedTotal": 11.1
   },
   "completedEvidence": [
     {
@@ -607,5 +732,12 @@
       "found": "Both carried a bare component share with no model behind it (12 and 15). Under an explicit equal-share model they are 7 and 6.",
       "effect": "Overall falls from 9.5 to 9.0 in a revision that added the issuing transaction. A matrix that only rises is not a measurement."
     }
-  ]
+  ],
+  "exactMainAcceptance": {
+    "sha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
+    "localGates": "forward-only exit 0; drift exit 0 on a clean database; 1559 unit tests; 67 RLS gate checks PASS; no new type errors",
+    "ciAtReport": "76 checks: 60 success, 9 skipped, 4 still running, 3 failure",
+    "failuresNotCausedHere": "Confirm REG.RU preflight chain result, Publish REG.RU preflight status and Least-privilege preflight contract. Root cause is check-tai-bootstrap-preflight.mjs rejecting docs/platform-v7/autopilot/scopes/tai-bootstrap-canonical-images-20260806.json with \"branch mismatch\". That manifest belongs to another workstream and this PR never touched it. Reproduced locally on the previous main 7015115b3, before the merge: identical file, identical message, identical exit code. The other two cascade from it (CONTRACT_RESULT: failure -> PUBLISH_RESULT: failure).",
+    "notProductionAcceptance": true
+  }
 }

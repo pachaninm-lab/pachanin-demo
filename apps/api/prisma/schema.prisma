@@ -51,6 +51,8 @@ model Organization {
   accountingNumberCounters          AccountingNumberCounter[]
   taxProfiles                       OrganizationTaxProfile[]
   contractVersions                  ContractVersion[]
+  accountingWorkTasks               AccountingWorkTask[]
+  accountingPeriods                 AccountingPeriod[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -120,6 +122,11 @@ model UserOrg {
   taxProfilesAuthored         OrganizationTaxProfile[]    @relation("OrganizationTaxProfileAuthor")
   contractVersionsAuthored    ContractVersion[]           @relation("ContractVersionAuthor")
   contractVersionsSigned      ContractVersion[]           @relation("ContractVersionSigner")
+  workTasksAssigned           AccountingWorkTask[]        @relation("AccountingWorkTaskAssignee")
+  workTasksAuthored           AccountingWorkTask[]        @relation("AccountingWorkTaskAuthor")
+  workTasksResolved           AccountingWorkTask[]        @relation("AccountingWorkTaskResolver")
+  periodsOpened               AccountingPeriod[]          @relation("AccountingPeriodOpener")
+  periodsClosed               AccountingPeriod[]          @relation("AccountingPeriodCloser")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -227,7 +234,8 @@ model AccountingDocument {
   organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
   createdBy    UserOrg      @relation("AccountingDocumentAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
 
-  versions AccountingDocumentVersion[]
+  versions  AccountingDocumentVersion[]
+  workTasks AccountingWorkTask[]
 
   @@unique([organizationId, documentType, documentNumber], map: "accounting_documents_number_identity_idx")
   @@index([organizationId, status, documentType])
@@ -261,6 +269,13 @@ model AccountingDocumentVersion {
   /// what mandate a document was signed rather than only by whom.
   signingAuthorityId              String?
   signatureCertificateFingerprint String?
+  /// When this version was handed to an external system, and what that system
+  /// called what it took. Written once, from a receipt the far side issued;
+  /// null means it has not been sent, never that sending failed.
+  sentAt                          DateTime? @db.Timestamptz(6)
+  transportCode                   String?
+  externalReceiptId               String?
+  externalReceiptIssuer           String?
   createdByMembershipId           String
   createdAt                       DateTime  @default(now()) @db.Timestamptz(6)
 
@@ -427,6 +442,134 @@ model ContractVersion {
   @@index([organizationId, contractNumber, effectiveFrom])
   @@index([tenantId])
   @@map("contract_versions")
+}
+
+/// One thing a human has to do, stated as the work rather than as a table row.
+///
+/// The distinction that makes this table worth having is `origin`. A MANUAL task
+/// is somebody's note to themselves and closes when they say it is done. A
+/// DERIVED task is the platform's report that some condition holds — a document
+/// is unsigned, a transfer failed — and it cannot be closed by agreeing with it.
+/// It closes when the condition it describes stops being true, and the database
+/// checks that rather than taking the caller's word. A checkbox that dismisses
+/// "the document is not signed" leaves the document unsigned and removes the
+/// only sign that anybody would have noticed.
+model AccountingWorkTask {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  taskType       String
+  /// DERIVED or MANUAL. Not a note about where the row came from: it decides
+  /// what closing the task requires.
+  origin         String
+  /// SYSTEM_VERIFIED, SYSTEM_REPORTED or HUMAN_JUDGEMENT — how a resolution is
+  /// proven. A derived task is never HUMAN_JUDGEMENT; a CHECK refuses it.
+  resolutionMode String
+  /// Identity of the condition, so the same unsigned document does not grow a
+  /// new task every time the deriver runs.
+  derivationKey  String?
+  /// The same value while the task is open, nulled by the guard when it closes.
+  /// Uniqueness lives here rather than on derivationKey so a condition that
+  /// recurs after being resolved raises a fresh task instead of colliding with
+  /// the closed one. Null never collides with null in PostgreSQL, which is what
+  /// makes this work without a partial index.
+  openDerivationKey String?
+  /// Lower sorts first. Deliberately not an enum: ordering is a product
+  /// decision that moves, and a migration per reordering makes it move slowly.
+  priority         Int    @default(100)
+  title            String
+  humanDescription String
+  /// Which capability the responsible person must hold, from the resolver in
+  /// membership-capability.resolver.ts. Not a role and not a job profile: the
+  /// task names what must be permitted, and who holds that is resolved live.
+  responsibleCapability String
+  assignedMembershipId  String?
+  dealId                String?
+  shipmentId            String?
+  documentId            String?
+  integrationJobId      String?
+  /// The period a task is about, when it is about one. Nullable because most
+  /// tasks are about a document.
+  periodId              String?
+  /// The event that raised this, kept so a task traces back to the fact that
+  /// produced it rather than only to its own creation.
+  sourceEventId         String?
+  blockingRuleId        String?
+  status                String    @default("OPEN")
+  deadlineAt            DateTime? @db.Timestamptz(6)
+  /// Set by the database on close, never by the caller: a resolution time the
+  /// client chooses is a resolution time the client can antedate.
+  resolvedAt             DateTime? @db.Timestamptz(6)
+  resolvedByMembershipId String?
+  /// For SYSTEM_REPORTED closures: the event saying the condition cleared. It
+  /// must differ from sourceEventId, because the event that raised the task
+  /// cannot also be the news that it went away.
+  resolutionEventId      String?
+  /// Null for DERIVED tasks — nobody wrote them — and required for MANUAL ones.
+  createdByMembershipId  String?
+  version                BigInt   @default(0)
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  assignedTo   UserOrg?            @relation("AccountingWorkTaskAssignee", fields: [assignedMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  createdBy    UserOrg?            @relation("AccountingWorkTaskAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  resolvedBy   UserOrg?            @relation("AccountingWorkTaskResolver", fields: [resolvedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  document     AccountingDocument? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  period       AccountingPeriod?   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, openDerivationKey], map: "accounting_work_tasks_open_condition_idx")
+  @@index([organizationId, status, priority])
+  @@index([organizationId, assignedMembershipId, status])
+  @@index([organizationId, responsibleCapability, status])
+  @@index([tenantId])
+  @@index([dealId])
+  @@map("accounting_work_tasks")
+}
+
+/// The platform's statement that its own document set for a stretch of time is
+/// settled — not an accounting ledger close.
+///
+/// «Прозрачная Цена» is not the books and does not replace 1С; what it can say
+/// is that the documents it is authority for stopped moving. So a closed period
+/// freezes exactly that: no new version of a document raised inside it, and no
+/// signature on one. Everything else about the month is somebody else's system.
+///
+/// Closing is refused while derived work for the period is still open, because
+/// a close declared over unfinished work is the report that gets believed and
+/// then contradicted.
+model AccountingPeriod {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  /// Inclusive.
+  periodStart    DateTime @db.Timestamptz(6)
+  /// Exclusive, so a successor beginning exactly where this ends is a clean
+  /// handover rather than an overlap — the same convention the rule registry
+  /// and the tax profiles use.
+  periodEnd      DateTime @db.Timestamptz(6)
+  /// OPEN, CLOSING or CLOSED. CLOSING exists so that the check for outstanding
+  /// work happens against a period nobody is still adding to.
+  status         String   @default("OPEN")
+  closingStartedAt DateTime? @db.Timestamptz(6)
+  /// Stamped by the database, never supplied: a close time the caller picks is
+  /// a close time the caller can antedate.
+  closedAt             DateTime? @db.Timestamptz(6)
+  closedByMembershipId String?
+  openedByMembershipId String
+  version              BigInt   @default(0)
+  createdAt            DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  openedBy     UserOrg      @relation("AccountingPeriodOpener", fields: [openedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  workTasks    AccountingWorkTask[]
+  closedBy     UserOrg?     @relation("AccountingPeriodCloser", fields: [closedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([organizationId, periodStart])
+  @@index([organizationId, status, periodStart])
+  @@index([tenantId])
+  @@map("accounting_periods")
 }
 
 model UkepCertificate {
