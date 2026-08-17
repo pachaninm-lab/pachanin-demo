@@ -45,14 +45,20 @@ export function DealAccountingClient({ dealId }: { dealId: string }) {
       if (response.status === 403) return setState({ kind: 'FORBIDDEN' });
       if (!response.ok) return setState({ kind: 'UNAVAILABLE' });
 
-      const payload = (await response.json()) as
-        | { assembled: true }
-        | { assembled: false; missing: string[] };
-      return setState(
-        payload.assembled
-          ? { kind: 'READY' }
-          : { kind: 'INCOMPLETE', missing: payload.missing ?? [] },
-      );
+      // The discriminant is compared explicitly rather than relied on inside an
+      // expression: this tsconfig is not strict, and narrowing a union by
+      // truthiness in a ternary arm does not reach the other arm's members.
+      const payload = (await response.json()) as {
+        assembled?: unknown;
+        missing?: unknown;
+      };
+      if (payload.assembled === true) return setState({ kind: 'READY' });
+      const missing = Array.isArray(payload.missing)
+        ? payload.missing.filter(
+            (code: unknown): code is string => typeof code === 'string',
+          )
+        : [];
+      return setState({ kind: 'INCOMPLETE', missing });
     } catch {
       return setState({ kind: 'UNAVAILABLE' });
     }
