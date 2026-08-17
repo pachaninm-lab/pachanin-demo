@@ -17,6 +17,7 @@ import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot
 import { AdvanceRepository } from './advance.repository';
 import { ServiceStatus } from './deal-service.policy';
 import { DealServiceRepository } from './deal-service.repository';
+import { PaymentRepository } from './payment.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
 import { AudienceView, projectFor } from './work-task-projection.policy';
 import { PeriodStatus } from './accounting-period.policy';
@@ -56,6 +57,7 @@ export class AccountingController {
     private readonly transmission: DocumentTransmissionRepository,
     private readonly advances: AdvanceRepository,
     private readonly services: DealServiceRepository,
+    private readonly payments: PaymentRepository,
   ) {}
 
   /**
@@ -468,6 +470,97 @@ export class AccountingController {
       serviceId,
       renderedAt: new Date(body.renderedAt),
       idempotencyKey: body.idempotencyKey,
+    });
+  }
+
+  /**
+   * The payments on a deal, each with what is left to allocate.
+   *
+   * The unallocated remainder is computed by the server from the allocations.
+   * A client that subtracted them itself would be a second place the same
+   * number is worked out, and the two only have to disagree once for a debt to
+   * be settled from money already spent elsewhere.
+   */
+  @Get('deals/:dealId/payments')
+  async listPayments(
+    @Param('dealId') dealId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const payments = await this.payments.listForDeal(user, dealId);
+    return payments.map((payment) => ({
+      ...payment,
+      amountKopecks: payment.amountKopecks.toString(),
+      allocatedKopecks: payment.allocatedKopecks.toString(),
+      unallocatedKopecks: payment.unallocatedKopecks.toString(),
+      version: payment.version.toString(),
+    }));
+  }
+
+  /**
+   * Record money that moved against a deal.
+   *
+   * The amount is not taken on trust: the server reads the cited bank operation
+   * and refuses a payment that does not match the transfer it claims, or one
+   * citing a transfer already recorded as an advance. Counted twice, the same
+   * money would settle the same debt twice on paper.
+   */
+  @Post('payments')
+  recordPayment(
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      dealId: string;
+      counterpartyOrgId: string;
+      direction: string;
+      amountKopecks: string;
+      currency?: string;
+      bankOperationId: string;
+      paidAt: string;
+      idempotencyKey: string;
+    },
+  ) {
+    return this.payments.record(user, {
+      dealId: body.dealId,
+      counterpartyOrgId: body.counterpartyOrgId,
+      direction: body.direction,
+      amountKopecks: integer(body.amountKopecks, 'amountKopecks'),
+      currency: body.currency ?? 'RUB',
+      bankOperationId: body.bankOperationId,
+      paidAt: new Date(body.paidAt),
+      idempotencyKey: body.idempotencyKey,
+    });
+  }
+
+  /**
+   * Allocate part or all of a payment against one obligation.
+   *
+   * Neither ceiling is in the body. What is left of the payment and what is
+   * left owed on the obligation are exactly the two numbers somebody would like
+   * to be larger than they are, so the server reads both under the locks the
+   * database guard takes.
+   */
+  @Post('payments/:paymentId/allocations')
+  allocatePayment(
+    @Param('paymentId') paymentId: string,
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      amountKopecks: string;
+      allocatedAt: string;
+      reason: string;
+      idempotencyKey: string;
+      documentVersionId?: string | null;
+      dealServiceId?: string | null;
+    },
+  ) {
+    return this.payments.allocate(user, {
+      paymentId,
+      amountKopecks: integer(body.amountKopecks, 'amountKopecks'),
+      allocatedAt: new Date(body.allocatedAt),
+      reason: body.reason,
+      idempotencyKey: body.idempotencyKey,
+      documentVersionId: body.documentVersionId ?? null,
+      dealServiceId: body.dealServiceId ?? null,
     });
   }
 }

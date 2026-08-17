@@ -5,6 +5,7 @@ import { AccountingDocumentVersionRepository } from './accounting-document-versi
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
 import { AdvanceRepository } from './advance.repository';
 import { DealServiceRepository } from './deal-service.repository';
+import { PaymentRepository } from './payment.repository';
 import { AccountingPeriodRepository } from './accounting-period.repository';
 import { DocumentTransmissionRepository } from './document-transmission.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
@@ -31,6 +32,7 @@ import { WorkTaskRepository } from './work-task.repository';
     DocumentTransmissionRepository,
     AdvanceRepository,
     DealServiceRepository,
+    PaymentRepository,
   ],
   exports: [
     AccountingSourceSnapshotRepository,
@@ -41,6 +43,7 @@ import { WorkTaskRepository } from './work-task.repository';
     DocumentTransmissionRepository,
     AdvanceRepository,
     DealServiceRepository,
+    PaymentRepository,
   ],
 })
 export class AccountingModule {}

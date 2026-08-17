@@ -56,7 +56,9 @@ INSERT INTO public."bank_operations"(
   ('pc-op-adv','pc-deal-adv','ADVANCE_IN','CONFIRMED',100000,'RUB','buyer',
    'escrow','pc-op-adv-key',now(),now()),
   ('pc-op-pending','pc-deal-adv','ADVANCE_IN','PENDING',100000,'RUB','buyer',
-   'escrow','pc-op-pending-key',now(),now());
+   'escrow','pc-op-pending-key',now(),now()),
+  ('pc-op-pay','pc-deal-adv','PAYMENT_IN','CONFIRMED',100000,'RUB','buyer',
+   'seller','pc-op-pay-key',now(),now());
 
 -- Every authority names three different memberships. The database refuses any
 -- other shape, which is the point of the two-person rule and the reason these
@@ -2385,6 +2387,225 @@ BEGIN
   RAISE NOTICE 'pc-crop accounting contour: deal service reads, 0 failures';
 END;
 $pc_crop_deal_service_read_checks$;
+
+-- Payments and allocations, as the confined command principal ----------------
+--
+-- A payment is money the bank already moved, so the questions here are whether
+-- it can be counted twice and whether more can be allocated from it than moved.
+SET ROLE pc_accounting_command_authority;
+
+DO $pc_crop_payment_checks$
+DECLARE
+  failures integer := 0;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 113. A member records a payment against a confirmed transfer.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payments"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","direction",
+      "amountKopecks","currency","paidAt","bankOperationId",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-pay-a','tenant-a','org-a','pc-deal-adv','org-b','INCOMING',100000,
+      'RUB','2026-09-12T00:00:00Z','pc-op-pay','m-a','pc-pay-a-key');
+    RAISE NOTICE 'PASS 113 a member records a payment';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 113 a member records a payment -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 114. The same transfer is not both an advance and a payment. The bank
+  --      moved the money once; counted twice it would settle a debt twice.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payments"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","direction",
+      "amountKopecks","currency","paidAt","bankOperationId",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-pay-dual','tenant-a','org-a','pc-deal-adv','org-b','INCOMING',100000,
+      'RUB','2026-09-12T00:00:00Z','pc-op-adv','m-a','pc-pay-dual-key');
+    RAISE WARNING
+      'FAIL 114 a transfer already spent as an advance refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 114 a transfer already spent as an advance refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 115. Attribution cannot be handed to somebody else.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payments"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","direction",
+      "amountKopecks","currency","paidAt","bankOperationId",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-pay-forged','tenant-a','org-a','pc-deal-adv','org-b','INCOMING',100000,
+      'RUB','2026-09-12T00:00:00Z','pc-op-pay','m-staff','pc-pay-forged-key');
+    RAISE WARNING 'FAIL 115 forged payment attribution refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR unique_violation THEN
+      RAISE NOTICE 'PASS 115 forged payment attribution refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 116. An allocation against the approved service line from check 104.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payment_allocations"(
+      "id","tenantId","organizationId","paymentId","dealServiceId",
+      "amountKopecks","allocatedAt","reason","idempotencyKey",
+      "allocatedByMembershipId"
+    ) VALUES (
+      'pc-payall-a','tenant-a','org-a','pc-pay-a','pc-svc-a',60000,
+      '2026-09-13T00:00:00Z','against the storage act','pc-payall-a-key','m-a');
+    RAISE NOTICE 'PASS 116 an allocation within the payment is accepted';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 116 an allocation within the payment is accepted -> %',
+      SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 117. And not a kopeck past what was paid.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payment_allocations"(
+      "id","tenantId","organizationId","paymentId","dealServiceId",
+      "amountKopecks","allocatedAt","reason","idempotencyKey",
+      "allocatedByMembershipId"
+    ) VALUES (
+      'pc-payall-over','tenant-a','org-a','pc-pay-a','pc-svc-a',40001,
+      '2026-09-13T00:00:00Z','over','pc-payall-over-key','m-a');
+    RAISE WARNING 'FAIL 117 an allocation past the payment refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 117 an allocation past the payment refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 118. An allocation is not editable. Measured against the grant: were the
+  --      grant widened the trigger would still refuse, and this must report
+  --      that rather than pass.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_payment_allocations"
+       SET "amountKopecks" = 1 WHERE "id" = 'pc-payall-a';
+    RAISE WARNING 'FAIL 118 an allocation is not editable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 118 an allocation is not editable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 118 an allocation is not editable -> the grant admitted the update and only the trigger stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 119. A payment is never deleted: the money moved.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."accounting_payments" WHERE "id" = 'pc-pay-a';
+    RAISE WARNING 'FAIL 119 a payment cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 119 a payment cannot be deleted';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 119 a payment cannot be deleted -> the grant admitted the delete and only the trigger stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 120. A forged organization context buys nothing.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('app.current_org_id', 'org-b', true),
+            set_config('app.current_tenant_id', 'tenant-b', true);
+    IF EXISTS (SELECT 1 FROM public."accounting_payments" WHERE "id" = 'pc-pay-a')
+    THEN
+      RAISE WARNING
+        'FAIL 120 a forged organization sees no payments -> org-a payment was visible';
+      failures := failures + 1;
+    ELSE
+      RAISE NOTICE 'PASS 120 a forged organization sees no payments';
+    END IF;
+    PERFORM set_config('app.current_org_id', 'org-a', true),
+            set_config('app.current_tenant_id', 'tenant-a', true);
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop payments: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: payments, 0 failures';
+END;
+$pc_crop_payment_checks$;
+
+RESET ROLE;
+
+-- Payments, as the read principal --------------------------------------------
+SET ROLE pc_accounting_authority;
+
+DO $pc_crop_payment_read_checks$
+DECLARE
+  failures integer := 0;
+  measured bigint;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 121. The read principal reads its own organization's payments.
+  ---------------------------------------------------------------------------
+  SELECT count(*) INTO measured
+    FROM public."accounting_payments" WHERE "dealId" = 'pc-deal-adv';
+  IF measured = 1 THEN
+    RAISE NOTICE 'PASS 121 the read principal reads its own payments -> %', measured;
+  ELSE
+    RAISE WARNING
+      'FAIL 121 the read principal reads its own payments -> % (want 1)', measured;
+    failures := failures + 1;
+  END IF;
+
+  ---------------------------------------------------------------------------
+  -- 122. And allocates nothing.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payment_allocations"(
+      "id","tenantId","organizationId","paymentId","dealServiceId",
+      "amountKopecks","allocatedAt","reason","idempotencyKey",
+      "allocatedByMembershipId"
+    ) VALUES (
+      'pc-payall-read','tenant-a','org-a','pc-pay-a','pc-svc-a',1,
+      '2026-09-13T00:00:00Z','read','pc-payall-read-key','m-a');
+    RAISE WARNING 'FAIL 122 the read principal allocates nothing -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 122 the read principal allocates nothing';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop payment reads: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: payment reads, 0 failures';
+END;
+$pc_crop_payment_read_checks$;
 
 RESET ROLE;
 
