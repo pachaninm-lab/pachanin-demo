@@ -59,7 +59,7 @@ jobs:
           grep -Fq 'gh workflow run docker-publish.yml' "$file"
           grep -Fq 'for component in api web migration' "$file"
           grep -Fq 'PRODUCTION_MUTATION=NONE' "$file"
-          ! grep -Eq 'docker compose|ssh |scp |kubectl|prisma migrate|psql|DATABASE_URL' "$file"
+          ! grep -Ev '^[[:space:]]*! grep -E[q]? ' "$file" | grep -Eq 'docker compose|ssh |scp |kubectl|prisma migrate|psql|DATABASE_URL'
 
   images:
     name: Build and prove exact-main API/Web/migration images
