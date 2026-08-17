@@ -32,13 +32,14 @@ describe('platform-v7 accounting closure homepage value', () => {
     expect(copy).toContain('Доступность конкретного маршрута подтверждается при подключении организации.');
   });
 
-  it('adds the Gekta explanation, self-service connection and anti-fraud value', () => {
+  it('adds the Gekta explanation, self-service connection and evidence-bound control value', () => {
     expect(section).toContain("data-testid='platform-v7-accounting-closure-value'");
     expect(section).toContain('copy.gekta.title');
     expect(section).toContain('copy.connection.title');
     expect(section).toContain('copy.protection.title');
     expect(copy).toContain('Подключение — один раз для организации');
-    expect(copy).toContain('Подмена реквизитов, неизвестная подпись, повторный платёж');
+    expect(copy).toContain('Ошибки и неподтверждённые статусы не скрываются');
+    expect(copy).toContain('вместо ложного статуса «готово»');
   });
 
   it('keeps public maturity language honest', () => {
