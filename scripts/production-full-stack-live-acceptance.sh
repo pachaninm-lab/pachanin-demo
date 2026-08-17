@@ -29,6 +29,19 @@ curl_common=(
   -H 'Pragma: no-cache'
 )
 
+# Public static delivery is part of web readiness. The production browser
+# workflow is triggered only after this release workflow completes, so a failed
+# static gate prevents a false terminal release PASS and prevents browser
+# acceptance from starting against a half-hydratable generation.
+CURRENT_CHECK="public-static-readiness"
+PC_STATIC_BASE_URL="$LIVE_BASE" \
+PC_STATIC_EVIDENCE_DIR="$EVIDENCE_DIR/static-readiness" \
+PC_STATIC_ROUNDS=10 \
+PC_STATIC_PAUSE_SECONDS=1 \
+bash scripts/production-public-static-readiness.sh "$TARGET_SHA" \
+  | tee "$EVIDENCE_DIR/static-readiness.log"
+grep -Fxq 'STATIC_READINESS=PASS' "$EVIDENCE_DIR/static-readiness.log"
+
 for locale in ru en zh; do
   case "$locale" in
     ru)
@@ -141,6 +154,7 @@ CURRENT_CHECK="evidence-digest"
 find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
 printf 'LIVE_REQUEST_NUMBER=%s\n' "$request_number"
 printf 'LIVE_CORRELATION_ID=%s\n' "$response_correlation"
+printf 'LIVE_STATIC_READINESS=PASS\n'
 printf 'LIVE_APPROVED_HERO=PASS\n'
 printf 'LIVE_RU_EN_ZH=PASS\n'
 printf 'LIVE_EXACT_REPLAY=PASS\n'
