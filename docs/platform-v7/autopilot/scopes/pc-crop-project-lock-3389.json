@@ -25,7 +25,8 @@
     "scripts/verify-pc-crop-project-lock.mjs",
     ".github/workflows/production-docker-headroom-recovery.yml",
     "docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json",
-    "scripts/production-docker-headroom-recovery.sh"
+    "scripts/production-docker-headroom-recovery.sh",
+    "docs/platform-v7/autopilot/project-locks/pc-crop-federal-accounting.json"
   ],
   "forbiddenPaths": [
     "apps/**",

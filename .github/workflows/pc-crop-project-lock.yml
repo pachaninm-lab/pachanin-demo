@@ -20,16 +20,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Deliberately unconditional. The branch-prefix filter it replaces meant a
+  # rename was enough to keep this gate from ever running, so the check that
+  # decides who may touch a locked programme could be switched off by the person
+  # it constrains. It now runs everywhere and answers NOT_APPLICABLE for work no
+  # active lock claims — a read-only pass costs a minute, and the alternative
+  # cost a whole class of supervision.
   project-lock:
-    if: >-
-      github.event_name != 'pull_request' ||
-      startsWith(github.head_ref, 'agent/pc-crop-') ||
-      startsWith(github.head_ref, 'fix/pc-crop-') ||
-      startsWith(github.head_ref, 'governance/pc-crop-') ||
-      startsWith(github.head_ref, 'ops/pc-crop-') ||
-      startsWith(github.head_ref, 'agent/qwen-recovery-') ||
-      startsWith(github.head_ref, 'fix/qwen-recovery-') ||
-      startsWith(github.head_ref, 'ops/qwen-recovery-')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -70,51 +67,36 @@ jobs:
             --jq ".statuses[] | select(.context == \"$completion_context\" and .state == \"success\") | .context" \
             | grep -Fx "$completion_context"
 
-      - name: Resolve source-controlled PC-CROP scope
+      # No fetch here on purpose: the checkout above already took the whole
+      # history, and it dropped its credentials, so a fetch would be both
+      # unnecessary and the kind of step that fails for a reason unrelated to
+      # what this gate is judging.
+      - name: Collect the changed files
         if: github.event_name == 'pull_request'
-        id: scope
+        id: changed
         env:
-          BRANCH: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$BRANCH" == "governance/pc-crop-project-lock-3389" ]]; then
-            scope='docs/platform-v7/autopilot/scopes/pc-crop-project-lock-3389.json'
-          else
-            scope="$(
-              BRANCH="$BRANCH" node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          import path from 'node:path';
+          git cat-file -e "${BASE_SHA}^{commit}"
+          {
+            printf 'files<<PC_CROP_EOF\n'
+            git diff --name-only "${BASE_SHA}...${HEAD_SHA}"
+            printf 'PC_CROP_EOF\n'
+          } >> "$GITHUB_OUTPUT"
 
-          const branch = String(process.env.BRANCH || '').trim();
-          const relativeDirectory = 'docs/platform-v7/autopilot/scopes';
-          const directory = path.resolve(relativeDirectory);
-          const matches = fs.readdirSync(directory, { withFileTypes: true })
-            .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
-            .map((entry) => entry.name)
-            .filter((filename) => {
-              const value = JSON.parse(fs.readFileSync(path.join(directory, filename), 'utf8'));
-              return value.branch === branch && value.status === 'active';
-            });
-          if (matches.length !== 1) {
-            throw new Error(`expected exactly one active scope for ${branch}; found ${matches.length}`);
-          }
-          process.stdout.write(`${relativeDirectory}/${matches[0]}`);
-          NODE
-            )"
-          fi
-          test -f "$scope"
-          issue="$(node -e "const s=require('./' + process.argv[1]); if(!Number.isInteger(s.issue))process.exit(2); process.stdout.write(String(s.issue))" "$scope")"
-          printf 'path=%s\n' "$scope" >> "$GITHUB_OUTPUT"
-          printf 'issue=%s\n' "$issue" >> "$GITHUB_OUTPUT"
-
-      - name: Enforce active project context
+      # Scope resolution now lives in the verifier, so the shell cannot decide
+      # that a pull request has no authority to answer to. A branch with no
+      # active scope is reported, not silently skipped, and a branch with two is
+      # a failure rather than a coin toss.
+      - name: Enforce project authority
         if: github.event_name == 'pull_request'
         env:
           PC_CROP_BRANCH: ${{ github.head_ref }}
           PC_CROP_TITLE: ${{ github.event.pull_request.title }}
-          PC_CROP_ISSUE: ${{ steps.scope.outputs.issue }}
-          PC_CROP_SCOPE_PATH: ${{ steps.scope.outputs.path }}
+          PC_CROP_CHANGED_FILES: ${{ steps.changed.outputs.files }}
         run: node scripts/verify-pc-crop-project-lock.mjs
 
       - name: Upload project-lock evidence
