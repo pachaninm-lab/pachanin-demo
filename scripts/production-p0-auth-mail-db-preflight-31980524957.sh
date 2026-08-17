@@ -11,6 +11,8 @@ LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 RELEASE_ISSUE_NUMBER='3072'
 COMMAND='/production p0-auth-mail-db-preflight 31980524957 current-main'
 MIGRATION_NAME='20260812010000_p0_industrial_auth_mail_outbox'
+FUNCTION_SIG='auth.enqueue_mail_outbox(text,text,text,text,text,integer,text,text,text,integer,timestamptz,timestamptz)'
+EXPECTED_OWNER='pc_auth_mail_enqueue_authority'
 
 key_path="$RUNNER_TEMP/pc-p0-auth-mail-db-preflight-key"
 known_hosts="$RUNNER_TEMP/pc-p0-auth-mail-db-preflight-known-hosts"
@@ -133,9 +135,11 @@ ssh "${ssh_opts[@]}" "$user@$host" 'set -Eeuo pipefail; test "$(id -u)" -eq 0; d
 LOCAL_STAGE='REMOTE_DB_READ'
 guard_main
 set +e
-output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$MIGRATION_NAME'" 2>/dev/null <<'REMOTE'
+output="$(ssh "${ssh_opts[@]}" "$user@$host" "bash -s -- '$MIGRATION_NAME' '$FUNCTION_SIG' '$EXPECTED_OWNER'" 2>/dev/null <<'REMOTE'
 set -Eeuo pipefail
 migration_name="$1"
+function_sig="$2"
+expected_owner="$3"
 REMOTE_STAGE='BOOTSTRAP'
 remote_exit() {
   local rc="$?"
@@ -147,6 +151,8 @@ remote_exit() {
 trap remote_exit EXIT
 
 [[ "$migration_name" == '20260812010000_p0_industrial_auth_mail_outbox' ]]
+[[ "$function_sig" == 'auth.enqueue_mail_outbox(text,text,text,text,text,integer,text,text,text,integer,timestamptz,timestamptz)' ]]
+[[ "$expected_owner" == 'pc_auth_mail_enqueue_authority' ]]
 [[ "$(id -u)" -eq 0 ]]
 
 REMOTE_STAGE='API_INVENTORY'
@@ -163,6 +169,8 @@ for id in "${api_ids[@]}"; do
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient({ log: [] });
 const migrationName = '20260812010000_p0_industrial_auth_mail_outbox';
+const functionSig = 'auth.enqueue_mail_outbox(text,text,text,text,text,integer,text,text,text,integer,timestamptz,timestamptz)';
+const expectedOwner = 'pc_auth_mail_enqueue_authority';
 const yn = (v) => v === true ? 'YES' : 'NO';
 
 async function run() {
@@ -170,39 +178,22 @@ async function run() {
     await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
     const metaRows = await tx.$queryRawUnsafe(`
       WITH
-      type_oids AS (
-        SELECT
-          'pg_catalog.text'::regtype::oid AS text_oid,
-          'pg_catalog.uuid'::regtype::oid AS uuid_oid,
-          (SELECT t.oid FROM pg_catalog.pg_type t WHERE t.typname = 'citext' ORDER BY t.oid LIMIT 1) AS citext_oid
-      ),
       fn AS (
-        SELECT (
-          SELECT p.oid
-          FROM pg_catalog.pg_proc p
-          JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-          CROSS JOIN type_oids t
-          WHERE n.nspname = 'auth'
-            AND p.proname = 'enqueue_mail_outbox'
-            AND p.pronargs = 12
-            AND p.proargtypes[0] = t.text_oid
-            AND p.proargtypes[1] = t.citext_oid
-            AND p.proargtypes[2] = t.citext_oid
-            AND p.proargtypes[3] = t.text_oid
-            AND p.proargtypes[4] = t.text_oid
-            AND p.proargtypes[5] = t.text_oid
-            AND p.proargtypes[6] = t.text_oid
-            AND p.proargtypes[7] = t.text_oid
-            AND p.proargtypes[8] = t.uuid_oid
-            AND p.proargtypes[9] = t.uuid_oid
-            AND p.proargtypes[10] = t.uuid_oid
-            AND p.proargtypes[11] = t.text_oid
-          LIMIT 1
-        ) AS oid
+        SELECT pg_catalog.to_regprocedure('auth.enqueue_mail_outbox(text,text,text,text,text,integer,text,text,text,integer,timestamptz,timestamptz)') AS oid
+      ),
+      fn_meta AS (
+        SELECT
+          fn.oid,
+          CASE
+            WHEN fn.oid IS NULL THEN 'FUNCTION_MISSING'
+            WHEN pg_catalog.pg_get_userbyid(p.proowner) = 'pc_auth_mail_enqueue_authority' THEN 'PC_AUTH_MAIL_ENQUEUE_AUTHORITY'
+            ELSE 'OTHER'
+          END AS owner_class
+        FROM fn
+        LEFT JOIN pg_catalog.pg_proc p ON p.oid = fn.oid
       ),
       auth_ns AS (SELECT pg_catalog.to_regnamespace('auth') AS oid),
-      mig_rel AS (SELECT pg_catalog.to_regclass('public."_prisma_migrations"') AS oid),
-      pc_app_role AS (SELECT pg_catalog.to_regrole('pc_app') AS oid)
+      mig_rel AS (SELECT pg_catalog.to_regclass('public."_prisma_migrations"') AS oid)
       SELECT
         mig_rel.oid IS NOT NULL AS migrations_table_present,
         CASE
@@ -212,7 +203,8 @@ async function run() {
         END AS migrations_table_select,
         auth_ns.oid IS NOT NULL AS auth_schema_present,
         pg_catalog.to_regclass('auth.mail_outbox') IS NOT NULL AS mail_outbox_table_present,
-        fn.oid IS NOT NULL AS function_12_present,
+        fn_meta.oid IS NOT NULL AS function_12_present,
+        fn_meta.owner_class AS function_owner_class,
         (
           SELECT COUNT(*)::int
           FROM pg_catalog.pg_proc p
@@ -225,24 +217,19 @@ async function run() {
           ELSE 'NO'
         END AS current_schema_usage,
         CASE
-          WHEN fn.oid IS NULL THEN 'FUNCTION_MISSING'
-          WHEN pg_catalog.has_function_privilege(current_user, fn.oid, 'EXECUTE') THEN 'YES'
+          WHEN fn_meta.oid IS NULL THEN 'FUNCTION_MISSING'
+          WHEN pg_catalog.has_function_privilege(current_user, fn_meta.oid, 'EXECUTE') THEN 'YES'
           ELSE 'NO'
         END AS current_function_execute,
-        CASE
-          WHEN pc_app_role.oid IS NULL THEN 'ROLE_MISSING'
-          WHEN auth_ns.oid IS NULL THEN 'NO_SCHEMA'
-          WHEN pg_catalog.has_schema_privilege(pc_app_role.oid, auth_ns.oid, 'USAGE') THEN 'YES'
-          ELSE 'NO'
-        END AS pc_app_schema_usage,
-        CASE
-          WHEN pc_app_role.oid IS NULL THEN 'ROLE_MISSING'
-          WHEN fn.oid IS NULL THEN 'FUNCTION_MISSING'
-          WHEN pg_catalog.has_function_privilege(pc_app_role.oid, fn.oid, 'EXECUTE') THEN 'YES'
-          ELSE 'NO'
-        END AS pc_app_function_execute,
-        CASE WHEN current_user = 'pc_app' THEN 'PC_APP' ELSE 'OTHER' END AS effective_role_class
-      FROM fn, auth_ns, mig_rel, pc_app_role
+        CASE current_user
+          WHEN 'pc_auth_runtime' THEN 'PC_AUTH_RUNTIME'
+          WHEN 'one_deal_auth' THEN 'ONE_DEAL_AUTH'
+          WHEN 'app_auth' THEN 'APP_AUTH'
+          WHEN 'app_service' THEN 'APP_SERVICE'
+          WHEN 'pc_app' THEN 'PC_APP'
+          ELSE 'OTHER'
+        END AS effective_role_class
+      FROM fn_meta, auth_ns, mig_rel
     `);
     if (!Array.isArray(metaRows) || metaRows.length !== 1) throw new Error('meta shape');
     const meta = metaRows[0];
@@ -269,16 +256,15 @@ async function run() {
   const fields = [
     result.migrationState,
     yn(m.function_12_present),
+    String(m.function_owner_class),
     yn(m.auth_schema_present),
     yn(m.mail_outbox_table_present),
     String(m.overload_count),
     String(m.current_schema_usage),
     String(m.current_function_execute),
-    String(m.pc_app_schema_usage),
-    String(m.pc_app_function_execute),
     String(m.effective_role_class),
   ];
-  const safe = /^(APPLIED|MISSING|FAILED_OR_ROLLED_BACK|TABLE_MISSING|UNREADABLE)\|(YES|NO)\|(YES|NO)\|(YES|NO)\|[0-9]+\|(YES|NO|NO_SCHEMA)\|(YES|NO|FUNCTION_MISSING)\|(YES|NO|ROLE_MISSING|NO_SCHEMA)\|(YES|NO|ROLE_MISSING|FUNCTION_MISSING)\|(PC_APP|OTHER)$/;
+  const safe = /^(APPLIED|MISSING|FAILED_OR_ROLLED_BACK|TABLE_MISSING|UNREADABLE)\|(YES|NO)\|(PC_AUTH_MAIL_ENQUEUE_AUTHORITY|OTHER|FUNCTION_MISSING)\|(YES|NO)\|(YES|NO)\|[0-9]+\|(YES|NO|NO_SCHEMA)\|(YES|NO|FUNCTION_MISSING)\|(PC_AUTH_RUNTIME|ONE_DEAL_AUTH|APP_AUTH|APP_SERVICE|PC_APP|OTHER)$/;
   const payload = fields.join('|');
   if (!safe.test(payload)) process.exitCode = 42;
   else process.stdout.write(`DB_EVIDENCE|${payload}\n`);
@@ -320,11 +306,18 @@ fi
 LOCAL_STAGE='EVIDENCE_PARSE'
 marker="$(grep '^DB_EVIDENCE|' <<< "$output" | tail -n1 || true)"
 runtime_count="$(grep '^API_RUNTIME_COUNT|' <<< "$output" | tail -n1 || true)"
-[[ "$marker" =~ ^DB_EVIDENCE\|(APPLIED|MISSING|FAILED_OR_ROLLED_BACK|TABLE_MISSING|UNREADABLE)\|(YES|NO)\|(YES|NO)\|(YES|NO)\|[0-9]+\|(YES|NO|NO_SCHEMA)\|(YES|NO|FUNCTION_MISSING)\|(YES|NO|ROLE_MISSING|NO_SCHEMA)\|(YES|NO|ROLE_MISSING|FUNCTION_MISSING)\|(PC_APP|OTHER)$ ]]
+[[ "$marker" =~ ^DB_EVIDENCE\|(APPLIED|MISSING|FAILED_OR_ROLLED_BACK|TABLE_MISSING|UNREADABLE)\|(YES|NO)\|(PC_AUTH_MAIL_ENQUEUE_AUTHORITY|OTHER|FUNCTION_MISSING)\|(YES|NO)\|(YES|NO)\|[0-9]+\|(YES|NO|NO_SCHEMA)\|(YES|NO|FUNCTION_MISSING)\|(PC_AUTH_RUNTIME|ONE_DEAL_AUTH|APP_AUTH|APP_SERVICE|PC_APP|OTHER)$ ]]
 [[ "$runtime_count" =~ ^API_RUNTIME_COUNT\|[1-4]$ ]]
-IFS='|' read -r _ migration_state function_12 auth_schema outbox_table overload_count current_schema current_exec pc_app_schema pc_app_exec role_class <<< "$marker"
+IFS='|' read -r _ migration_state function_12 owner_class auth_schema outbox_table overload_count current_schema current_exec role_class <<< "$marker"
 IFS='|' read -r _ api_count <<< "$runtime_count"
 [[ "$REMOTE_STAGE" == 'COMPLETE' && "$REMOTE_RC" == '0' ]]
+
+schema_state='DRIFT'
+if [[ "$migration_state" == 'UNREADABLE' ]]; then
+  schema_state='MIGRATION_HISTORY_UNREADABLE'
+elif [[ "$migration_state" == 'APPLIED' && "$function_12" == 'YES' && "$owner_class" == 'PC_AUTH_MAIL_ENQUEUE_AUTHORITY' && "$auth_schema" == 'YES' && "$outbox_table" == 'YES' && "$current_schema" == 'YES' && "$current_exec" == 'YES' && "$role_class" != 'OTHER' ]]; then
+  schema_state='CONSISTENT'
+fi
 
 guard_main
 LOCAL_STAGE='PUBLISH'
@@ -335,13 +328,14 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 - migration $MIGRATION_NAME: \`$migration_state\`
 - auth schema present: \`$auth_schema\`
 - auth.mail_outbox table present: \`$outbox_table\`
-- exact enqueue_mail_outbox 12-arg function present: \`$function_12\`
+- exact function signature: \`$FUNCTION_SIG\`
+- exact enqueue_mail_outbox function present: \`$function_12\`
+- function owner: \`$owner_class\` (expected \`PC_AUTH_MAIL_ENQUEUE_AUTHORITY\`)
 - enqueue_mail_outbox overload count: \`$overload_count\`
 - effective runtime DB role: \`$role_class\`
 - effective role auth schema USAGE: \`$current_schema\`
 - effective role enqueue EXECUTE: \`$current_exec\`
-- pc_app auth schema USAGE: \`$pc_app_schema\`
-- pc_app enqueue EXECUTE: \`$pc_app_exec\`
+- migration/schema consistency: \`$schema_state\`
 - active API runtimes checked: \`$api_count\`
 - DB URL / credentials / raw query errors / PII: \`NOT_PUBLISHED\`
 - reset replay / mail send / deployment: \`NONE\`
