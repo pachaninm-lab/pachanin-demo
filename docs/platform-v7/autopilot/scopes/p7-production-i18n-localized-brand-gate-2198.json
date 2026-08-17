@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "p7-production-i18n-localized-brand-gate-2198",
+  "branch": "fix/p7-production-i18n-localized-brand-gate-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "270f1711b66adeb0d2878728c375468ebebec128"
+  },
+  "purpose": "Correct the exact-production Platform V7 i18n browser gate after run 32012971909 proved that the helper incorrectly hard-coded the Russian brand text while evaluating localized EN/ZH pages. Preserve locale ownership of visible brand wording while retaining the Final Design Project v4.0 geometry, legibility, touch-target, Hero and overflow assertions, including the exact Russian canonical brand assertion in the dedicated RU master-design test.",
+  "allowedPaths": [
+    "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/p7-production-i18n-localized-brand-gate-2198.json"
+  ],
+  "evidence": {
+    "productionAcceptanceRun": 32012971909,
+    "deployedExactSha": "270f1711b66adeb0d2878728c375468ebebec128",
+    "exactPublicRevisionGate": "PASS",
+    "dictionaryContract": "PASS",
+    "translationRuntimeContract": "PASS",
+    "provenFailure": "EN 320 homepage gate expected the Russian literal Прозрачная Цена while the correctly localized live EN brand rendered Transparent Price",
+    "fixBoundary": "EN/ZH assert non-empty localized brand plus unchanged >=14px and unclipped/scroll-fit geometry; RU keeps the exact canonical Прозрачная Цена assertion"
+  },
+  "forbiddenChanges": [
+    "product runtime or localization dictionaries",
+    "homepage design CSS or approved copy",
+    "authentication, registration, MFA, RBAC, RLS, tenant or organization authority",
+    "API, database, Deal, money, evidence or Gekta semantics",
+    "production release infrastructure",
+    "weakening residual-Cyrillic, CJK typography, no-overflow, touch-target, Hero CTA or Hero card >=14px assertions"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "exact-head web and governance checks",
+    "full exact-production EN/ZH Chromium and WebKit browser matrix after protected exact-SHA release",
+    "dedicated RU 320x700 master-design gate on production"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "This change repairs a false-negative production acceptance assertion only. It does not establish production PASS by itself; the complete exact-production browser matrix must rerun successfully on the deployed merged exact SHA."
+}
