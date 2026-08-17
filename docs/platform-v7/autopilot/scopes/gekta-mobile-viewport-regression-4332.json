@@ -7,7 +7,14 @@
   "authorizedBy": "explicit-user-instruction",
   "baseline": {
     "branch": "main",
-    "commit": "bfc45b4954b2216cabc9ad112504722a17e110e7"
+    "commit": "f54d934e7b0cd0abd0bedf8526a5a9b3b07bbfb8"
+  },
+  "baselineSync": {
+    "previousCommit": "bfc45b4954b2216cabc9ad112504722a17e110e7",
+    "aheadBy": 5,
+    "changedFiles": 3,
+    "scopeIntersection": 0,
+    "result": "PASS_NON_INTERFERING"
   },
   "purpose": "Restore the approved Gekta mobile UX contract after later frontend regressions: visual-viewport keyboard authority, stable composer geometry, one primary entry, fully modal drawer isolation, two-example mobile density and regression acceptance in RU/EN/ZH without changing backend or platform business logic.",
   "allowedPaths": [
