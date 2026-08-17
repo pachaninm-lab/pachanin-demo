@@ -151,13 +151,13 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
             />
           ) : null}
           {sending ? (
-            <button type='button' onClick={onStop} className='flex h-11 min-w-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700' aria-label={stopLabel}><Square className='h-3.5 w-3.5 fill-current' aria-hidden='true' /><span className='hidden sm:inline'>{stopLabel}</span></button>
+            <button type='button' onClick={onStop} className='flex h-11 min-w-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-[14px] font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700' aria-label={stopLabel}><Square className='h-3.5 w-3.5 fill-current' aria-hidden='true' /><span className='hidden sm:inline'>{stopLabel}</span></button>
           ) : (
             <button
               type='button'
               onClick={submitComposer}
               disabled={!canSubmit}
-              className={`flex h-11 min-w-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 ${canSubmit ? 'bg-emerald-800 text-white hover:bg-emerald-900' : 'cursor-not-allowed border border-dashed border-slate-300 bg-slate-100 text-slate-500'}`}
+              className={`flex h-11 min-w-11 items-center justify-center gap-2 rounded-xl px-3 text-[14px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 ${canSubmit ? 'bg-emerald-800 text-white hover:bg-emerald-900' : 'cursor-not-allowed border border-dashed border-slate-300 bg-slate-100 text-slate-500'}`}
               aria-label={sendLabel}
             >
               {canSubmit ? <Send className='h-4 w-4' aria-hidden='true' /> : <CircleSlash2 className='h-4 w-4' aria-hidden='true' />}
@@ -167,7 +167,7 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
         </div>
       </GektaAttachments>
       <p className='sr-only' role='status' aria-live='polite'>{voiceStatus}</p>
-      <p id='gekta-composer-boundary' className='mt-1.5 px-2 text-center text-sm leading-5 text-slate-600'>
+      <p id='gekta-composer-boundary' className='mt-1.5 px-2 text-center text-[14px] leading-5 text-slate-600'>
         <span className='sm:hidden'>{COMPACT_BOUNDARY[locale]}</span>
         <span className='hidden sm:inline'>{boundary}</span>
       </p>
