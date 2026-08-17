@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/k8s-outbox-final-log-race",
+  "status": "active",
+  "purpose": "Deliver the current-turn public agricultural chat correction and remove the unrelated Kubernetes deep-outbox acceptance race that blocked its exact-head acceptance after every measured runtime threshold passed.",
+  "approvedBy": "owner-direct-implementation-2026-08-02",
+  "authorityBaseExactMain": "fcc2ed1ff818de38c8ebf1463b0ec64c3b53f74f",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-k8s-outbox-final-log-race-20260802.json",
+    "scripts/release/production-like-kubernetes-outbox-runtime.sh",
+    "apps/web/tests/unit/productionLikeKubernetesOutboxFinalLogs.test.ts",
+    "apps/web/next.config.js",
+    "apps/web/app/api/agro-chat-turn-safe/route.ts",
+    "apps/web/lib/platform-v7/agro-chat-turn-context.ts",
+    "apps/web/tests/unit/platformV7AgroChatCurrentTurnBinding.test.ts",
+    "apps/web/tests/unit/platformV7AgroChatTurnSafeRouteContract.test.ts"
+  ],
+  "requiredBehavior": [
+    "each complete new agricultural or agribusiness question is answered from the current turn",
+    "explicit follow-up questions retain bounded recent context",
+    "the accepted signed local Qwen model-first route remains authoritative",
+    "explicit Transparent Price questions retain governed verified grounding",
+    "RU EN and ZH remain supported in read-only public mode",
+    "wait for terminating outbox-worker pods to disappear after scale-down",
+    "assert exactly two active final worker pods",
+    "collect logs from the exact stable pod names rather than a racing label selector",
+    "preserve all existing deep-runtime thresholds and fail-closed behavior",
+    "no new recurring cost or paid model API"
+  ],
+  "forbiddenCapabilities": [
+    "answering the preceding question instead of the current question",
+    "carrying prior platform context into an unrelated complete agricultural question",
+    "client-selected role or tenant",
+    "private workspace or cross-tenant access",
+    "autonomous write financial veterinary agronomic or machinery actions",
+    "weakening or skipping deep outbox runtime scenarios",
+    "ignoring kubectl log failures",
+    "tolerating fewer or more than two final worker replicas",
+    "changing production worker code database schema network policies or authority",
+    "marking failed evidence as PASS",
+    "external paid model calls"
+  ]
+}
