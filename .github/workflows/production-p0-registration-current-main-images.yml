@@ -22,6 +22,7 @@ concurrency:
 env:
   RELEASE_ISSUE_NUMBER: 3072
   EVIDENCE_DIR: artifacts/production-p0-registration-current-main-images
+  CANONICAL_IMAGE_WORKFLOW_ID: 259455513
 
 jobs:
   contract:
@@ -56,7 +57,8 @@ jobs:
           grep -Fq "github.actor == github.repository_owner" "$file"
           grep -Fq "github.triggering_actor == github.repository_owner" "$file"
           grep -Fq "github.event.comment.body == 'P0_REGISTRATION_IMAGES_RUN=1'" "$file"
-          grep -Fq 'gh workflow run docker-publish.yml' "$file"
+          grep -Fq 'CANONICAL_IMAGE_WORKFLOW_ID: 259455513' "$file"
+          grep -Fq 'actions/workflows/$CANONICAL_IMAGE_WORKFLOW_ID/dispatches' "$file"
           grep -Fq 'for component in api web migration' "$file"
           grep -Fq 'PRODUCTION_MUTATION=NONE' "$file"
           forbidden_pattern='docker compose|ssh |scp |kubectl|prisma migrate|psql|DATABASE_URL'
@@ -115,12 +117,27 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
-          gh workflow run docker-publish.yml --repo "$GITHUB_REPOSITORY" --ref main -f services=all
+
+          workflow_meta="$RUNNER_TEMP/canonical-image-workflow.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$CANONICAL_IMAGE_WORKFLOW_ID" > "$workflow_meta"
+          node - "$workflow_meta" <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (report.id !== 259455513) throw new Error('CANONICAL_IMAGE_WORKFLOW_ID_MISMATCH');
+          if (report.path !== '.github/workflows/docker-publish.yml') throw new Error('CANONICAL_IMAGE_WORKFLOW_PATH_MISMATCH');
+          if (report.state !== 'active') throw new Error('CANONICAL_IMAGE_WORKFLOW_INACTIVE');
+          NODE
+
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/$CANONICAL_IMAGE_WORKFLOW_ID/dispatches" \
+            --input - <<'JSON'
+          {"ref":"main","inputs":{"services":"all"}}
+          JSON
 
           run_id=''
           for attempt in $(seq 1 36); do
             runs="$RUNNER_TEMP/canonical-image-runs.json"
-            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/docker-publish.yml/runs?event=workflow_dispatch&branch=main&per_page=30" > "$runs"
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$CANONICAL_IMAGE_WORKFLOW_ID/runs?event=workflow_dispatch&branch=main&per_page=30" > "$runs"
             run_id="$(node - "$runs" "$TARGET_SHA" "$STARTED_EPOCH" <<'NODE'
           const fs = require('node:fs');
           const [path, target, startedRaw] = process.argv.slice(2);
