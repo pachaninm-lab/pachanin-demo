@@ -63,7 +63,8 @@
     "apps/web/tests/unit/platformV7AccountingBffBoundary.test.ts",
     "apps/api/prisma/migrations/20260817120000_pc_crop_accounting_advances",
     "apps/api/prisma/migrations/20260817170000_pc_crop_accounting_deal_services",
-    "apps/api/prisma/migrations/20260817200000_pc_crop_accounting_payments"
+    "apps/api/prisma/migrations/20260817200000_pc_crop_accounting_payments",
+    "apps/api/prisma/migrations/20260817220000_pc_crop_accounting_reconciliation"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",

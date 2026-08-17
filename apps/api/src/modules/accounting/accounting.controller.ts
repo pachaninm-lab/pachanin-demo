@@ -18,6 +18,7 @@ import { AdvanceRepository } from './advance.repository';
 import { ServiceStatus } from './deal-service.policy';
 import { DealServiceRepository } from './deal-service.repository';
 import { PaymentRepository } from './payment.repository';
+import { ReconciliationRepository } from './reconciliation.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
 import { AudienceView, projectFor } from './work-task-projection.policy';
 import { PeriodStatus } from './accounting-period.policy';
@@ -58,6 +59,7 @@ export class AccountingController {
     private readonly advances: AdvanceRepository,
     private readonly services: DealServiceRepository,
     private readonly payments: PaymentRepository,
+    private readonly reconciliations: ReconciliationRepository,
   ) {}
 
   /**
@@ -563,6 +565,129 @@ export class AccountingController {
       dealServiceId: body.dealServiceId ?? null,
     });
   }
+
+  /**
+   * The statements of mutual settlements prepared on a deal.
+   */
+  @Get('deals/:dealId/reconciliations')
+  async listReconciliations(
+    @Param('dealId') dealId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const statements = await this.reconciliations.listForDeal(user, dealId);
+    return statements.map((statement) => ({
+      ...statement,
+      openingBalanceKopecks: statement.openingBalanceKopecks.toString(),
+      chargedKopecks: statement.chargedKopecks.toString(),
+      reversedKopecks: statement.reversedKopecks.toString(),
+      paidKopecks: statement.paidKopecks.toString(),
+      advanceAppliedKopecks: statement.advanceAppliedKopecks.toString(),
+      closingBalanceKopecks: statement.closingBalanceKopecks.toString(),
+      version: statement.version.toString(),
+    }));
+  }
+
+  /**
+   * What the books say for a counterparty over a window, without writing
+   * anything.
+   *
+   * A read, so somebody can look at the figures before committing to them — and
+   * so the statement they later prepare can be compared against this.
+   */
+  @Get('deals/:dealId/reconciliations/preview')
+  async previewReconciliation(
+    @Param('dealId') dealId: string,
+    @CurrentUser() user: RequestUser,
+    @Query('counterpartyOrgId') counterpartyOrgId: string,
+    @Query('periodStart') periodStart: string,
+    @Query('periodEnd') periodEnd: string,
+  ) {
+    const figures = await this.reconciliations.preview(user, {
+      dealId,
+      counterpartyOrgId,
+      periodStart: required(instant(periodStart, 'periodStart'), 'periodStart'),
+      periodEnd: required(instant(periodEnd, 'periodEnd'), 'periodEnd'),
+    });
+    return {
+      openingBalanceKopecks: figures.openingBalanceKopecks.toString(),
+      chargedKopecks: figures.chargedKopecks.toString(),
+      reversedKopecks: figures.reversedKopecks.toString(),
+      paidKopecks: figures.paidKopecks.toString(),
+      advanceAppliedKopecks: figures.advanceAppliedKopecks.toString(),
+      closingBalanceKopecks: figures.closingBalanceKopecks.toString(),
+    };
+  }
+
+  /**
+   * Prepare a statement.
+   *
+   * No figure is in the body. Every one of them is read from the rows, the
+   * bottom line follows from them by an expression the database checks again,
+   * and the statement is immutable once prepared — a reconciliation somebody can
+   * edit after sending it is not a reconciliation.
+   */
+  @Post('reconciliations')
+  async prepareReconciliation(
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      dealId: string;
+      counterpartyOrgId: string;
+      periodStart: string;
+      periodEnd: string;
+      currency?: string;
+    },
+  ) {
+    const outcome = await this.reconciliations.prepare(user, {
+      dealId: body.dealId,
+      counterpartyOrgId: body.counterpartyOrgId,
+      periodStart: required(instant(body.periodStart, 'periodStart'), 'periodStart'),
+      periodEnd: required(instant(body.periodEnd, 'periodEnd'), 'periodEnd'),
+      currency: body.currency ?? 'RUB',
+    });
+    return {
+      ...outcome,
+      closingBalanceKopecks: outcome.closingBalanceKopecks?.toString() ?? null,
+      figures:
+        outcome.figures === null
+          ? null
+          : {
+              openingBalanceKopecks: outcome.figures.openingBalanceKopecks.toString(),
+              chargedKopecks: outcome.figures.chargedKopecks.toString(),
+              reversedKopecks: outcome.figures.reversedKopecks.toString(),
+              paidKopecks: outcome.figures.paidKopecks.toString(),
+              advanceAppliedKopecks: outcome.figures.advanceAppliedKopecks.toString(),
+            },
+    };
+  }
+
+  /**
+   * Agree with a statement, or dispute it.
+   *
+   * The answering membership is the session's own, and it may not be the one
+   * that prepared the statement: agreeing with your own arithmetic is not
+   * agreement.
+   */
+  @Post('reconciliations/:reconciliationId/answer')
+  answerReconciliation(
+    @Param('reconciliationId') reconciliationId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { intended: string; note?: string | null },
+  ) {
+    return this.reconciliations.answer(user, {
+      reconciliationId,
+      intended: body.intended,
+      note: body.note ?? null,
+    });
+  }
+}
+
+/** An instant that has to be there. */
+function required(value: Date | null, field: string): Date {
+  if (value === null) {
+    throw new BadRequestException(`${field} is required`);
+  }
+  return value;
 }
 
 /**

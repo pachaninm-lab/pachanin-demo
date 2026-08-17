@@ -2607,6 +2607,146 @@ BEGIN
 END;
 $pc_crop_payment_read_checks$;
 
+-- Reconciliation statements, as the confined command principal ---------------
+SET ROLE pc_accounting_command_authority;
+
+DO $pc_crop_reconciliation_checks$
+DECLARE
+  failures integer := 0;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 123. A member prepares a statement for their own organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_reconciliations"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId",
+      "periodStart","periodEnd","currency","openingBalanceKopecks",
+      "chargedKopecks","reversedKopecks","paidKopecks","advanceAppliedKopecks",
+      "closingBalanceKopecks","payloadHash","preparedByMembershipId"
+    ) VALUES (
+      'pc-rec-a','tenant-a','org-a','pc-deal-adv','org-b',
+      '2026-09-01T00:00:00Z','2026-10-01T00:00:00Z','RUB',0,
+      120000,0,60000,0,60000,repeat('a',64),'m-a');
+    RAISE NOTICE 'PASS 123 a member prepares a reconciliation';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 123 a member prepares a reconciliation -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 124. A bottom line that does not follow from the figures above it. This is
+  --      the number the counterparty compares against their own books.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_reconciliations"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId",
+      "periodStart","periodEnd","currency","openingBalanceKopecks",
+      "chargedKopecks","reversedKopecks","paidKopecks","advanceAppliedKopecks",
+      "closingBalanceKopecks","payloadHash","preparedByMembershipId"
+    ) VALUES (
+      'pc-rec-invented','tenant-a','org-a','pc-deal-adv','org-b',
+      '2026-11-01T00:00:00Z','2026-12-01T00:00:00Z','RUB',0,
+      100,0,0,0,999,repeat('b',64),'m-a');
+    RAISE WARNING 'FAIL 124 an invented bottom line refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'PASS 124 an invented bottom line refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 125. Two statements covering the same days would give the counterparty two
+  --      bottom lines to agree with.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_reconciliations"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId",
+      "periodStart","periodEnd","currency","openingBalanceKopecks",
+      "chargedKopecks","reversedKopecks","paidKopecks","advanceAppliedKopecks",
+      "closingBalanceKopecks","payloadHash","preparedByMembershipId"
+    ) VALUES (
+      'pc-rec-overlap','tenant-a','org-a','pc-deal-adv','org-b',
+      '2026-09-15T00:00:00Z','2026-10-15T00:00:00Z','RUB',0,
+      0,0,0,0,0,repeat('c',64),'m-a');
+    RAISE WARNING 'FAIL 125 an overlapping window refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 125 an overlapping window refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 126. The figures are not in the column grant. Measured against the grant,
+  --      not the guard.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_reconciliations"
+       SET "chargedKopecks" = 1, "version" = "version" + 1
+     WHERE "id" = 'pc-rec-a';
+    RAISE WARNING 'FAIL 126 a statement is not rewritable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 126 a statement is not rewritable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 126 a statement is not rewritable -> the grant admitted the update and only the trigger stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 127. The membership that prepared a statement does not answer it.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_reconciliations"
+       SET "status" = 'AGREED', "respondedByMembershipId" = 'm-a',
+           "version" = "version" + 1
+     WHERE "id" = 'pc-rec-a';
+    RAISE WARNING 'FAIL 127 self-agreement refused -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR raise_exception THEN
+      RAISE NOTICE 'PASS 127 self-agreement refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 128. A second membership answers, and the database stamps the time.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('app.current_user_id', 'user-both', true);
+    UPDATE public."accounting_reconciliations"
+       SET "status" = 'AGREED', "respondedByMembershipId" = 'm-both-a',
+           "respondedAt" = '2020-01-01T00:00:00Z',
+           "version" = "version" + 1
+     WHERE "id" = 'pc-rec-a';
+    IF (SELECT EXTRACT(YEAR FROM "respondedAt")::bigint
+          FROM public."accounting_reconciliations" WHERE "id" = 'pc-rec-a') > 2020
+    THEN
+      RAISE NOTICE 'PASS 128 a second person answers and the time is stamped';
+    ELSE
+      RAISE WARNING
+        'FAIL 128 a second person answers and the time is stamped -> antedated';
+      failures := failures + 1;
+    END IF;
+    PERFORM set_config('app.current_user_id', 'user-a', true);
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 128 a second person answers -> %', SQLERRM;
+    failures := failures + 1;
+    PERFORM set_config('app.current_user_id', 'user-a', true);
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop reconciliations: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: reconciliations, 0 failures';
+END;
+$pc_crop_reconciliation_checks$;
+
 RESET ROLE;
 
 ROLLBACK;
