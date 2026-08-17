@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "p7-production-web-audit-recovery-2198",
+  "branch": "fix/p7-production-web-audit-recovery-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "688c8ca798c9e9ecc2033f66db3fe17c846c0b3e"
+  },
+  "purpose": "Restore a read-only, owner-only path to establish the actual REG.RU web revision and container state after exact-SHA release run 32029226201 deployed 688c8ca, failed only its Gekta stream acceptance, attempted rollback, and did not prove rollback completion. Add one issue-comment command that invokes the existing canonical audit action without weakening or bypassing any release gate.",
+  "allowedPaths": [
+    ".github/workflows/production-web-owner-audit-command.yml",
+    "docs/platform-v7/autopilot/scopes/p7-production-web-audit-recovery-2198.json"
+  ],
+  "evidence": {
+    "failedReleaseRun": 32029226201,
+    "attemptedTargetSha": "688c8ca798c9e9ecc2033f66db3fe17c846c0b3e",
+    "preDeployBaselineSha": "f3e9e145c1475c80cbf973aa7932e276c8d82639",
+    "staticProductionChecks": "health, exact manifest, indexation, crawler RU/EN/ZH, compatibility redirect and public route status all passed before stream failure",
+    "remainingUncertainty": "automatic rollback was attempted but AUTOMATIC_ROLLBACK_COMPLETED=0; actual live revision must be read from the server before any further mutation",
+    "command": "/production web audit",
+    "mutationBoundary": "audit only; no image pull, Compose override write, container recreation, database change or mail action"
+  },
+  "forbiddenChanges": [
+    "homepage copy, localization dictionaries, design CSS or production UI components",
+    "H1 <=5 rendered-line, >=14px text, 44px touch-target, CTA, overflow, CJK or residual-Cyrillic gates",
+    "authentication, registration, MFA, RBAC, RLS, tenant, organization or database authority",
+    "Gekta entitlement, streaming, model runtime or API semantics",
+    "production deployment, rollback or persistent Compose mutation",
+    "new secrets, credentials, external services or recurring costs"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "workflow syntax validation",
+    "owner-only and issue-3048 command boundary",
+    "canonical production-web-exact-sha audit reuse",
+    "zero production mutation in the audit result"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "This change only restores trustworthy read-only evidence. It does not claim release success, rollback success, Gekta stream health or final production design acceptance."
+}
