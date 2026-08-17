@@ -42,30 +42,29 @@ jobs:
 
           json_field() {
             local file="$1" field="$2"
-            node - "$file" "$field" <<'NODE' 2>/dev/null || true
-          const fs = require('node:fs');
-          const [file, field] = process.argv.slice(2);
-          try {
-            const value = JSON.parse(fs.readFileSync(file, 'utf8'))?.[field];
-            if (typeof value === 'string') process.stdout.write(value.slice(0, 160));
-            else if (typeof value === 'boolean' || typeof value === 'number') process.stdout.write(String(value));
-          } catch {}
-          NODE
+            node -e '
+              const fs = require("node:fs");
+              const [file, field] = process.argv.slice(1);
+              try {
+                const value = JSON.parse(fs.readFileSync(file, "utf8"))?.[field];
+                if (typeof value === "string") process.stdout.write(value.slice(0, 160));
+                else if (typeof value === "boolean" || typeof value === "number") process.stdout.write(String(value));
+              } catch {}
+            ' "$file" "$field" 2>/dev/null || true
           }
 
           manifest_body="$(mktemp)"
           manifest_code="$(curl -sS -o "$manifest_body" -w '%{http_code}' --compressed --max-time 20 \
             "$LIVE_BASE/manifest-pc-deploy.json?diagnostic=$GITHUB_RUN_ID" || true)"
-          manifest_revision="$(node - "$manifest_body" <<'NODE' 2>/dev/null || true
-          const fs = require('node:fs');
-          try {
-            const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-            const candidates = [value?.revision, value?.sha, value?.commit, value?.gitSha];
-            const revision = candidates.find((item) => typeof item === 'string' && /^[0-9a-f]{40}$/.test(item));
-            if (revision) process.stdout.write(revision);
-          } catch {}
-          NODE
-          )"
+          manifest_revision="$(node -e '
+            const fs = require("node:fs");
+            try {
+              const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              const candidates = [value?.revision, value?.sha, value?.commit, value?.gitSha];
+              const revision = candidates.find((item) => typeof item === "string" && /^[0-9a-f]{40}$/.test(item));
+              if (revision) process.stdout.write(revision);
+            } catch {}
+          ' "$manifest_body" 2>/dev/null || true)"
           rm -f "$manifest_body"
           printf 'MANIFEST_HTTP=%s\nMANIFEST_REVISION=%s\n' \
             "${manifest_code:-missing}" "${manifest_revision:-unknown}" | tee -a "$log"
@@ -98,14 +97,7 @@ jobs:
             allowed="$(json_field "$reserve_body" allowed)"
             reserve_code_name="$(json_field "$reserve_body" code)"
             [[ -n "$reserve_code_name" ]] || reserve_code_name="$(json_field "$reserve_body" error)"
-            ticket="$(node - "$reserve_body" <<'NODE' 2>/dev/null || true
-            const fs = require('node:fs');
-            try {
-              const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))?.ticket;
-              if (typeof value === 'string') process.stdout.write(value);
-            } catch {}
-            NODE
-            )"
+            ticket="$(json_field "$reserve_body" ticket)"
             ticket_valid=0
             [[ "$ticket" =~ ^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$ ]] && ticket_valid=1
             reserve_error_text="$(one_line < "$reserve_error")"
@@ -142,7 +134,7 @@ jobs:
             grep -Fq '"event":"token"' "$stream_body" && token=1
             grep -Fq '"event":"done"' "$stream_body" && done=1
             grep -Fq '"complete":true' "$stream_body" && complete=1
-            token_count="$(grep -Fo '"event":"token"' "$stream_body" | wc -l | tr -d ' ')"
+            token_count="$(grep -Fo '"event":"token"' "$stream_body" 2>/dev/null | wc -l | tr -d ' ' || true)"
             body_sha="$(sha256sum "$stream_body" | awk '{print $1}')"
             stream_code_name="$(grep -Eo '"code"[[:space:]]*:[[:space:]]*"[A-Z0-9_]+' "$stream_body" | head -n1 | sed -E 's/.*"([A-Z0-9_]+)$/\1/' || true)"
             [[ -n "$stream_code_name" ]] || stream_code_name="$(json_field "$stream_body" code)"
