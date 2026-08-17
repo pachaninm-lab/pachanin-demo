@@ -9,7 +9,7 @@ export default defineConfig({
   ],
   fullyParallel: false,
   forbidOnly: true,
-  retries: 1,
+  retries: 0,
   workers: 1,
   timeout: 90_000,
   expect: { timeout: 15_000 },
@@ -19,8 +19,6 @@ export default defineConfig({
   ],
   outputDir: 'test-results/production-mobile',
   use: {
-    ...devices['Desktop Chrome'],
-    browserName: 'chromium',
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai',
     ignoreHTTPSErrors: false,
     locale: 'ru-RU',
@@ -29,5 +27,14 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'off',
   },
-  projects: [{ name: 'production-mobile-chromium' }],
+  projects: [
+    {
+      name: 'production-mobile-chromium',
+      use: { ...devices['Desktop Chrome'], browserName: 'chromium' },
+    },
+    {
+      name: 'production-mobile-webkit',
+      use: { ...devices['Desktop Safari'], browserName: 'webkit' },
+    },
+  ],
 });
