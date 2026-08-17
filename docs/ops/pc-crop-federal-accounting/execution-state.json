@@ -7,14 +7,14 @@
     "bytes": 104981,
     "sections": 84
   },
-  "updatedAt": "2026-08-16T23:35:00.000Z",
+  "updatedAt": "2026-08-17T05:00:00.000Z",
   "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
   "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
   "observedProductionSha": null,
   "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
-  "overallProgressPercent": 13.7,
+  "overallProgressPercent": 14.0,
   "overallProgressBasis": "Section H weighted matrix applied to proven state. Credited shares are summed in integer hundredths, because summing them as floats shaved a tenth off the total in one revision. No rounding up.",
-  "status": "PR_4288_ALL_75_CHECKS_GREEN_AWAITING_OWNER_MERGE",
+  "status": "ACCOUNTING_MERGED_TO_MAIN_UI_SLICE_ON_BRANCH",
   "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
   "workstreams": [
     {
@@ -189,7 +189,7 @@
       "name": "Accounting task engine / UX / projections",
       "weightPercent": 6,
       "provenSharePercent": 35,
-      "creditedPercent": 1.47,
+      "creditedPercent": 1.68,
       "milestoneModel": "code-workstream-partial",
       "sliceAccounting": {
         "note": "Workstream 5 spans six components: the task model with its closing rules, the deriver that raises tasks from live sources, a repository and API surface, the dashboard itself, the per-role projections, and the KPI and tab read models. Modelled as equal sixths — a stated flat assumption rather than a weighting this agent invented.",
@@ -201,12 +201,14 @@
           "accountant, director, seller and buyer projections",
           "KPI counters and tab read models"
         ],
-        "componentBuilt": "The task model with its closing rules, a repository that raises idempotently and moves a task under an expected version with capabilities resolved from the database, the first deriver, the per-audience projections and KPI counters, and four API routes. The screens themselves are not built and need apps/web, which is outside the granted scope.",
-        "componentSharePercent": 70,
-        "componentShareDerivation": "six equal components scored individually: model and closing rules 100, deriver 55, repository and API 100 (list, transition, derive, projection, and a route for a person's own note), dashboard 0 (apps/web is outside the scope), role projections 90, KPI and tab read models 75. Sum 420 over six is 70.0 — recorded as 71 would be rounding up, so 70.",
+        "componentBuilt": "The task model with its closing rules, the repository and API, the derivers, the per-audience projections, and now the first web slice: /platform-v7/accounting with the KPI row and task cards, and /platform-v7/deals/[id]/accounting naming every missing source. Server-authoritative throughout — the BFF forwards and holds nothing, and an unreachable API renders as a refusal rather than as an empty queue.",
+        "componentSharePercent": 80,
+        "componentShareDerivation": "six equal components: model and closing rules 100, deriver 55, repository and API 100, dashboard 60 (both routes exist with states, KPI and cards; no navigation entry, no EN/ZH dictionary entries yet, no e2e), role projections 90, KPI and tab read models 75. Sum 480 over six is 80.",
         "notBuilt": [
-          "six of the eight registered derived types are not raised: their closing events come from 1C and EDO, which do not exist yet, so raising them would create tasks nothing can close",
-          "every screen — apps/web is outside the granted scope",
+          "six of the eight registered derived types are not raised: their closing events come from 1C and EDO, which do not exist yet",
+          "no navigation entry: routes.ts and cabinet-access-policy.ts belong to pc-crop-01b4's bounded scope and a Next page does not need them",
+          "no EN/ZH dictionary entries yet; the runtime translates RU source text and the keys are not added",
+          "no Playwright acceptance for the new routes",
           "no materialised read model: counts are computed per request"
         ]
       },
