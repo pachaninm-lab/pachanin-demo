@@ -5,24 +5,36 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
 const product = read('components/gekta/GektaProductShell.tsx');
+const experience = read('components/gekta/GektaExperienceFrame.tsx');
+const hero = read('components/gekta/GektaHero.tsx');
+const discovery = read('components/gekta/GektaDiscoverySections.tsx');
 const workspace = read('components/gekta/GektaChatWorkspace.tsx');
 const viewport = read('components/gekta/GektaViewportAuthority.tsx');
 const composer = read('components/gekta/GektaComposer.tsx');
 const attachments = read('components/gekta/GektaAttachments.tsx');
 const empty = read('components/gekta/GektaEmptyState.tsx');
 const drawer = read('components/gekta/GektaMobileDrawer.tsx');
+const dialogFocus = read('components/gekta/useDialogFocus.ts');
 const sidebar = read('components/gekta/GektaSidebar.tsx');
 const projects = read('components/gekta/GektaProjectList.tsx');
 const floating = read('components/gekta/GektaFloatingEntry.tsx');
 
 describe('Gekta mobile UX red-team contracts', () => {
-  it('follows the actually visible mobile viewport and measures the composer', () => {
+  it('follows the actually visible viewport with a bounded keyboard inset and one document scroll authority', () => {
     expect(product).toContain('<GektaViewportAuthority />');
     expect(viewport).toContain('window.visualViewport');
-    expect(viewport).toContain('new ResizeObserver(syncComposer)');
+    expect(viewport).toContain('window.requestAnimationFrame(syncViewport)');
+    expect(viewport).toContain('new ResizeObserver');
     expect(viewport).toContain("--gekta-visual-viewport-height");
+    expect(viewport).toContain("--gekta-keyboard-inset");
     expect(viewport).toContain("--gekta-composer-height");
+    expect(viewport).toContain('Math.max(0, Math.min(maxInset');
+    expect(viewport).toContain("document.addEventListener('focusin'");
+    expect(viewport).toContain("document.body.style.overflow = 'hidden'");
     expect(product).toContain("[data-gekta-chat-workspace='true'].overflow-hidden");
+    expect(product).toContain('position: fixed');
+    expect(product).toContain('top: var(--gekta-visual-viewport-top, 0px)');
+    expect(product).toContain('height: var(--gekta-visual-viewport-height, 100dvh)');
   });
 
   it('keeps mobile header actions and the scroll affordance inside the 44px contract', () => {
@@ -34,32 +46,54 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(product).toContain("bottom: calc(var(--gekta-composer-height, 116px) + 12px) !important");
     expect(product).toContain('width: 44px');
     expect(product).toContain('height: 44px');
+    expect(viewport).toContain('К последнему сообщению');
+    expect(viewport).toContain('Go to the latest message');
+    expect(viewport).toContain('前往最新消息');
   });
 
-  it('uses a compact iOS-safe composer with an unambiguous focus treatment', () => {
-    expect(composer).toContain("rows={1}");
-    expect(composer).toContain("text-[16px]");
-    expect(composer).toContain("Задай вопрос по сельскому хозяйству");
-    expect(composer).toContain('COMPACT_BOUNDARY');
-    expect(attachments).toContain('focus-within:border-emerald-700');
+  it('uses a compact iOS-safe composer with one focus ring and complete disabled semantics', () => {
+    expect(composer).toContain('rows={1}');
+    expect(composer).toContain('text-[16px]');
+    expect(composer).toContain('Math.min(144, Math.max(68');
+    expect(composer).toContain('Boolean(value.trim() || documents.length)');
+    expect(composer).toContain('ATTACHMENT_ONLY_PROMPT');
+    expect(composer).toContain('CircleSlash2');
+    expect(composer).toContain('text-sm leading-5');
+    expect(composer).toContain('История этого режима хранится в браузере');
+    expect(attachments).toContain('textareaFocused');
+    expect(attachments).not.toContain('focus-within:border-emerald-700');
     expect(attachments).toContain('shadow-[0_10px_30px');
   });
 
-  it('reduces first-screen choice overload without removing examples', () => {
-    expect(empty).toContain('starters.slice(0, 3)');
-    expect(empty).toContain('...starters.slice(3)');
+  it('shows only two first-screen examples and preserves the rest behind disclosure', () => {
+    expect(empty).toContain('starters.slice(0, 2)');
+    expect(empty).toContain('...starters.slice(2)');
     expect(empty).toContain('...copy.extraStarters');
-    expect(empty).toContain("min-h-[82px]");
+    expect(empty).toContain("min-h-[78px]");
     expect(empty).not.toContain('hidden={!expanded}');
     expect(empty).toContain("className={expanded ? 'mt-4 grid");
     expect(empty).toContain(": 'hidden'}");
   });
 
-  it('keeps the drawer inside the visual viewport and gives it usable width', () => {
+  it('keeps the composer as the only primary entry inside Gekta', () => {
+    expect(experience).not.toContain("data-gekta-floating-entry='product'");
+    expect(experience).not.toContain('GEKTA_ENTER_CHAT_EVENT');
+    expect(hero).not.toContain('GektaProductCta');
+    expect(discovery).not.toContain('GektaProductCta');
+  });
+
+  it('makes the drawer modal, bounded and reversible', () => {
     expect(drawer).toContain("var(--gekta-visual-viewport-top, 0px)");
     expect(drawer).toContain("var(--gekta-visual-viewport-height, 100dvh)");
-    expect(drawer).toContain("w-[min(92vw,360px)]");
+    expect(drawer).toContain("min(88vw, 360px, calc(100vw - 48px))");
+    expect(drawer).toContain("element.setAttribute('inert', '')");
+    expect(drawer).toContain("element.setAttribute('aria-hidden', 'true')");
+    expect(drawer).toContain("element.removeAttribute('inert')");
+    expect(drawer).toContain("aria-modal='true'");
     expect(drawer).toContain('min-h-14 shrink-0');
+    expect(dialogFocus).toContain("event.key === 'Escape'");
+    expect(dialogFocus).toContain('window.requestAnimationFrame');
+    expect(dialogFocus).toContain("restore.closest('[inert]')");
   });
 
   it('lets mobile users scroll navigation instead of sacrificing project/history space', () => {
