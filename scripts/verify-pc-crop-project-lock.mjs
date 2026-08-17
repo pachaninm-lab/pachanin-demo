@@ -267,16 +267,38 @@ function getOwnerAuthorizedException(lock, scope) {
   ) || null;
 }
 
+/**
+ * A source root granted whole is the same grant as `**`, spelled differently.
+ *
+ * Banning the wildcard alone leaves the hole open: the guard that consumes
+ * these scopes treats a bare directory as everything beneath it, so `apps/**`
+ * and `apps` are one permission wearing two spellings. Found by writing the
+ * test rather than by reading the rule.
+ */
+const UNSAFE_SCOPE_ROOTS = new Set([
+  '', '.', '/', '*', '**',
+  'apps', 'packages', 'scripts', 'docs', 'src', 'lib', 'test', 'tests',
+  '.github', 'apps/api', 'apps/web', 'apps/api/src', 'apps/web/app',
+]);
+
 function validateCommonScope(lock, scope, target) {
   assert(scope.projectLockId === lock.id, 'scope is not bound to project lock', target);
   assert(scope.productionHosting === 'REG_RU_VPS_ONLY', 'scope production authority mismatch', target);
   assert(scope.operationalStatus === 'NOT_ATTESTED', 'scope operational status mismatch', target);
   assert(Array.isArray(scope.allowedPaths) && scope.allowedPaths.length > 0, 'scope allowed paths missing', target);
   assert(
-    !scope.allowedPaths?.some((path) => path === '**' || path === 'apps/**' || String(path).includes('**')),
+    !scope.allowedPaths?.some((path) => String(path).includes('*')),
     'unsafe wildcard scope is forbidden',
     target,
   );
+  for (const candidate of scope.allowedPaths || []) {
+    const normalized = normalizePath(candidate).replace(/\/+$/, '');
+    assert(
+      !UNSAFE_SCOPE_ROOTS.has(normalized),
+      `scope grants a whole source root, which is a wildcard by another name: ${candidate}`,
+      target,
+    );
+  }
 }
 
 /**
@@ -629,6 +651,32 @@ if (process.argv.includes('--self-test')) {
   assert(
     wildcard.failures.some((message) => message.includes('unsafe wildcard')),
     'unsafe wildcard scope was not rejected',
+  );
+
+  // 7b. A whole source root is the same grant as a wildcard, and fails too.
+  for (const root of ['apps', 'apps/web', 'scripts', '.github']) {
+    const wholeRoot = evaluate(locks, {
+      branch: 'claude/autonomous-execution-contract-oc7ds7',
+      title: 'feat(web): task-first accounting surface',
+      issue: FEDERAL_ACCOUNTING_ISSUE,
+      scope: federalScope({ allowedPaths: [root] }),
+    });
+    assert(
+      wholeRoot.failures.some((message) => message.includes('whole source root')),
+      `scope granting the whole ${root} root was not rejected`,
+    );
+  }
+
+  // A single wildcard character is enough to be refused, not just '**'.
+  const singleStar = evaluate(locks, {
+    branch: 'claude/autonomous-execution-contract-oc7ds7',
+    title: 'feat(web): task-first accounting surface',
+    issue: FEDERAL_ACCOUNTING_ISSUE,
+    scope: federalScope({ allowedPaths: ['apps/web/app/platform-v7/*'] }),
+  });
+  assert(
+    singleStar.failures.some((message) => message.includes('unsafe wildcard')),
+    'single-star wildcard scope was not rejected',
   );
 
   // 8. Another workstream cannot take the accounting paths.
