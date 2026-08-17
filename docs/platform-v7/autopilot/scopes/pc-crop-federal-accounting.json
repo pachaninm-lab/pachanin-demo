@@ -58,7 +58,8 @@
     "apps/web/lib/platform-v7/shellRoutes.ts",
     "apps/web/tests/unit/platformV7AccountingBoard.test.tsx",
     "apps/web/tests/unit/platformV7DealAccounting.test.tsx",
-    "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts"
+    "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+    "apps/web/tests/unit/platformV7AccountingMobileContract.test.ts"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
