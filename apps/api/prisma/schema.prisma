@@ -55,6 +55,10 @@ model Organization {
   accountingPeriods                 AccountingPeriod[]
   accountingAdvances                AccountingAdvance[]
   accountingAdvanceOffsets          AccountingAdvanceOffset[]
+  accountingDealServices            AccountingDealService[]
+  accountingPayments                AccountingPayment[]
+  accountingPaymentAllocations      AccountingPaymentAllocation[]
+  accountingReconciliations         AccountingReconciliation[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -131,6 +135,12 @@ model UserOrg {
   periodsClosed               AccountingPeriod[]          @relation("AccountingPeriodCloser")
   advancesRecorded            AccountingAdvance[]         @relation("AccountingAdvanceRecorder")
   advanceOffsetsApplied       AccountingAdvanceOffset[]   @relation("AccountingAdvanceOffsetActor")
+  dealServicesRecorded        AccountingDealService[]     @relation("AccountingDealServiceRecorder")
+  dealServicesApproved        AccountingDealService[]     @relation("AccountingDealServiceApprover")
+  paymentsRecorded            AccountingPayment[]         @relation("AccountingPaymentRecorder")
+  paymentAllocationsMade      AccountingPaymentAllocation[] @relation("AccountingPaymentAllocationActor")
+  reconciliationsPrepared     AccountingReconciliation[]  @relation("AccountingReconciliationPreparer")
+  reconciliationsAnswered     AccountingReconciliation[]  @relation("AccountingReconciliationResponder")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -289,6 +299,8 @@ model AccountingDocumentVersion {
   signedBy         UserOrg?           @relation("AccountingDocumentVersionSigner", fields: [signedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
   signingAuthority SigningAuthority?  @relation(fields: [signingAuthorityId], references: [id], onDelete: Restrict)
   advanceOffsets   AccountingAdvanceOffset[] @relation("AccountingAdvanceOffsetVersion")
+  dealServices     AccountingDealService[]   @relation("AccountingDealServiceVersion")
+  paymentAllocations AccountingPaymentAllocation[] @relation("AccountingPaymentAllocationVersion")
 
   @@unique([documentId, versionNumber])
   @@index([organizationId, documentId])
@@ -647,6 +659,220 @@ model AccountingAdvanceOffset {
   @@map("accounting_advance_offsets")
 }
 
+/// A service rendered on a deal: storage, drying, cleaning, transshipment,
+/// weighing, loading.
+///
+/// The line is the priced fact, and every number in it is an integer. The
+/// amount is not accepted from the caller: the database recomputes it from the
+/// quantity and the rate, so a line whose total does not follow from its own
+/// terms cannot exist. For storage the quantity is not free either — it has to
+/// follow from the tonnage and the number of whole days in the window, which is
+/// the arithmetic a storage charge is usually inflated through.
+///
+/// Nothing substantive is updatable. A wrong line is corrected by a reversal
+/// line that names it, never by editing it: an accounting fact somebody can
+/// rewrite after it has been approved is not a fact.
+model AccountingDealService {
+  id                String @id @default(cuid())
+  tenantId          String
+  organizationId    String
+  dealId            String
+  /// Who owes for it. Never the organization itself.
+  counterpartyOrgId String
+  /// STORAGE, DRYING, CLEANING, TRANSSHIPMENT, WEIGHING or LOADING.
+  kind              String
+  /// TON_DAY, TON or OPERATION. A function of the kind, stored so the API can
+  /// answer with it and constrained so the two cannot drift apart.
+  unit              String
+  /// Quantity in thousandths of the unit. Thousandths rather than a Float
+  /// because a rate multiplied by an approximation is an amount two parties
+  /// will disagree about.
+  quantityMilliUnits BigInt
+  /// Thousandths of a ton. Required for TON_DAY and forbidden otherwise: it is
+  /// what makes the ton-days checkable against the window.
+  tonnageMilliTons  BigInt?
+  /// The service window, for TON_DAY only. Inclusive start, exclusive end, the
+  /// convention the periods and the rule registry already use.
+  periodFrom        DateTime? @db.Timestamptz(6)
+  periodTo          DateTime? @db.Timestamptz(6)
+  /// Kopecks for one whole unit.
+  rateKopecks       BigInt
+  /// Kopecks. Derived, and checked against quantity × rate.
+  amountKopecks     BigInt
+  currency          String @default("RUB")
+  /// When the service was rendered, which decides the period it falls in. For a
+  /// storage window this is a point inside or at the end of it, not the window
+  /// itself: a period is attributed to one month, and a window can straddle two.
+  renderedAt        DateTime @db.Timestamptz(6)
+  /// RENDERED, APPROVED or REJECTED.
+  status            String @default("RENDERED")
+  recordedByMembershipId String
+  /// Stamped by the database on approval, never supplied.
+  approvedAt        DateTime? @db.Timestamptz(6)
+  /// The second person. Never the one who recorded the line.
+  approvedByMembershipId String?
+  /// The act this line was included in, once it was.
+  documentVersionId String?
+  /// The approved line this one reverses, for a correction. At most one
+  /// reversal per line — the unique index says so, and PostgreSQL admits many
+  /// NULLs, which is exactly the shape wanted.
+  reversesServiceId String? @unique
+  idempotencyKey    String @unique
+  version           BigInt @default(0)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization               @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal         Deal                       @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  recordedBy   UserOrg                    @relation("AccountingDealServiceRecorder", fields: [recordedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  approvedBy   UserOrg?                   @relation("AccountingDealServiceApprover", fields: [approvedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  version_     AccountingDocumentVersion? @relation("AccountingDealServiceVersion", fields: [documentVersionId], references: [id], onDelete: Restrict)
+  reverses     AccountingDealService?     @relation("AccountingDealServiceReversal", fields: [reversesServiceId], references: [id], onDelete: Restrict)
+  reversedBy   AccountingDealService?     @relation("AccountingDealServiceReversal")
+  paymentAllocations AccountingPaymentAllocation[] @relation("AccountingPaymentAllocationService")
+
+  @@index([organizationId, dealId, renderedAt])
+  @@index([organizationId, status, renderedAt])
+  @@index([tenantId])
+  @@map("accounting_deal_services")
+}
+
+/// Money that actually moved against a deal, and what it settles.
+///
+/// An advance is money that arrived before the thing it pays for; a payment is
+/// money matched to obligations that already exist. Both cite a confirmed bank
+/// operation, and one operation may back only one of them: counted twice, the
+/// same transfer would pay the same debt twice on paper.
+model AccountingPayment {
+  id                String @id @default(cuid())
+  tenantId          String
+  organizationId    String
+  dealId            String
+  counterpartyOrgId String
+  /// INCOMING or OUTGOING, from this organization's point of view.
+  direction         String
+  /// Kopecks, as the bank reported them.
+  amountKopecks     BigInt
+  currency          String @default("RUB")
+  /// When the money moved, which decides the period it falls in.
+  paidAt            DateTime @db.Timestamptz(6)
+  /// The operation that proves it moved. Confirmed, for this deal, this amount.
+  bankOperationId   String
+  recordedByMembershipId String
+  idempotencyKey    String @unique
+  version           BigInt @default(0)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal         Deal         @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  recordedBy   UserOrg      @relation("AccountingPaymentRecorder", fields: [recordedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  allocations  AccountingPaymentAllocation[]
+
+  /// One bank operation backs one payment in an organization's books.
+  @@unique([organizationId, bankOperationId])
+  @@index([organizationId, dealId, paidAt])
+  @@index([tenantId])
+  @@map("accounting_payments")
+}
+
+/// One part of a payment, applied to one obligation.
+///
+/// Append-only, like an advance offset and for the same reason: what is left
+/// unallocated on a payment is the sum of these rows and nothing else, and a
+/// stored remainder is a second source of truth for the same number.
+model AccountingPaymentAllocation {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  paymentId      String
+  /// Exactly one of these two. A document version is an invoice or an act; a
+  /// service line is a charge that has been approved by two people.
+  documentVersionId String?
+  dealServiceId     String?
+  amountKopecks  BigInt
+  allocatedAt    DateTime @db.Timestamptz(6)
+  reason         String
+  idempotencyKey String @unique
+  allocatedByMembershipId String
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  payment      AccountingPayment          @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  organization Organization               @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  version      AccountingDocumentVersion? @relation("AccountingPaymentAllocationVersion", fields: [documentVersionId], references: [id], onDelete: Restrict)
+  service      AccountingDealService?     @relation("AccountingPaymentAllocationService", fields: [dealServiceId], references: [id], onDelete: Restrict)
+  allocatedBy  UserOrg                    @relation("AccountingPaymentAllocationActor", fields: [allocatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([paymentId])
+  @@index([documentVersionId])
+  @@index([dealServiceId])
+  @@index([organizationId, allocatedAt])
+  @@index([tenantId])
+  @@map("accounting_payment_allocations")
+}
+
+/// A statement of mutual settlements with a counterparty, for one deal over one
+/// window.
+///
+/// Every figure in it is computed by the server from the rows it summarises and
+/// none of them is accepted from the caller. The closing balance is not stored
+/// as an opinion either: a CHECK recomputes it from the other four, so a
+/// statement whose bottom line does not follow from its own figures cannot
+/// exist. Immutable once prepared — a reconciliation somebody can edit after
+/// sending it is not a reconciliation.
+model AccountingReconciliation {
+  id                String @id @default(cuid())
+  tenantId          String
+  organizationId    String
+  dealId            String
+  counterpartyOrgId String
+  /// Inclusive start, exclusive end, the convention the periods and the rule
+  /// registry already carry.
+  periodStart       DateTime @db.Timestamptz(6)
+  periodEnd         DateTime @db.Timestamptz(6)
+  currency          String @default("RUB")
+  /// What was owed when the window opened. May be negative: the other party can
+  /// be the one in credit.
+  openingBalanceKopecks BigInt
+  /// Approved service lines in the window that are charges.
+  chargedKopecks        BigInt
+  /// Approved reversals in the window. Kept as a figure of its own rather than
+  /// netted into the charges: a correction that disappears into a smaller
+  /// number is a correction the counterparty cannot see, and when it cancels a
+  /// charge from an earlier window the netted figure would go negative and be
+  /// clamped — which is money quietly leaving the statement.
+  reversedKopecks       BigInt @default(0)
+  /// Payment allocations in the window.
+  paidKopecks           BigInt
+  /// Advance offsets in the window.
+  advanceAppliedKopecks BigInt
+  /// Derived, and checked against the four above.
+  closingBalanceKopecks BigInt
+  /// SHA-256 over the figures, so a statement can be compared with the rows it
+  /// claims to summarise rather than trusted.
+  payloadHash       String
+  /// PREPARED, AGREED or DISPUTED.
+  status            String @default("PREPARED")
+  preparedByMembershipId String
+  /// Stamped by the database on the response, never supplied.
+  respondedAt       DateTime? @db.Timestamptz(6)
+  respondedByMembershipId String?
+  responseNote      String?
+  version           BigInt @default(0)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal         Deal         @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  preparedBy   UserOrg      @relation("AccountingReconciliationPreparer", fields: [preparedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  respondedBy  UserOrg?     @relation("AccountingReconciliationResponder", fields: [respondedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([organizationId, dealId, counterpartyOrgId, periodStart, periodEnd])
+  @@index([organizationId, dealId, periodStart])
+  @@index([tenantId])
+  @@map("accounting_reconciliations")
+}
+
 model UkepCertificate {
   id         String    @id @default(cuid())
   userId     String
@@ -713,6 +939,9 @@ model Deal {
   acceptanceRecords AcceptanceRecord[]
   bankOperations    BankOperation[]
   accountingAdvances AccountingAdvance[]
+  accountingDealServices AccountingDealService[]
+  accountingPayments AccountingPayment[]
+  accountingReconciliations AccountingReconciliation[]
   runtimeSnapshots  DealWorkspaceRuntimeSnapshot[] @relation("RuntimeSnapshotDeal")
 
   @@index([sellerOrgId])

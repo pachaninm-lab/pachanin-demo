@@ -56,7 +56,9 @@ INSERT INTO public."bank_operations"(
   ('pc-op-adv','pc-deal-adv','ADVANCE_IN','CONFIRMED',100000,'RUB','buyer',
    'escrow','pc-op-adv-key',now(),now()),
   ('pc-op-pending','pc-deal-adv','ADVANCE_IN','PENDING',100000,'RUB','buyer',
-   'escrow','pc-op-pending-key',now(),now());
+   'escrow','pc-op-pending-key',now(),now()),
+  ('pc-op-pay','pc-deal-adv','PAYMENT_IN','CONFIRMED',100000,'RUB','buyer',
+   'seller','pc-op-pay-key',now(),now());
 
 -- Every authority names three different memberships. The database refuses any
 -- other shape, which is the point of the two-person rule and the reason these
@@ -2065,6 +2067,685 @@ BEGIN
     'pc-crop accounting contour: advance evidence boundary, 0 failures';
 END;
 $pc_crop_advance_evidence_boundary$;
+
+-- Service lines, as the confined command principal ---------------------------
+--
+-- A service charge is the other half of what a deal costs, and unlike a price it
+-- is calculated rather than agreed: tonnage, days, a rate. These measure that the
+-- confined principal can raise a line and cannot make it say more than its own
+-- terms support, cannot approve its own, and cannot reprice one afterwards.
+SET ROLE pc_accounting_command_authority;
+
+DO $pc_crop_deal_service_checks$
+DECLARE
+  failures integer := 0;
+  measured bigint;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 99. A member records storage on their own deal: 40 tons for 10 days at 3
+  --     roubles a ton-day, which is 1200 roubles and nothing else.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_deal_services"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","kind",
+      "unit","quantityMilliUnits","tonnageMilliTons","periodFrom","periodTo",
+      "rateKopecks","amountKopecks","currency","renderedAt",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-svc-a','tenant-a','org-a','pc-deal-adv','org-b','STORAGE','TON_DAY',
+      400000,40000,'2026-09-01T00:00:00Z','2026-09-11T00:00:00Z',300,120000,
+      'RUB','2026-09-11T00:00:00Z','m-a','pc-svc-a-key');
+    RAISE NOTICE 'PASS 99 a member records a service line';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 99 a member records a service line -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 100. Attribution cannot be handed to somebody else. The two-person rule
+  --      below is only worth having if the first of the two names is honest.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_deal_services"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","kind",
+      "unit","quantityMilliUnits","tonnageMilliTons","periodFrom","periodTo",
+      "rateKopecks","amountKopecks","currency","renderedAt",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-svc-forged','tenant-a','org-a','pc-deal-adv','org-b','STORAGE',
+      'TON_DAY',400000,40000,'2026-09-01T00:00:00Z','2026-09-11T00:00:00Z',300,
+      120000,'RUB','2026-09-11T00:00:00Z','m-staff','pc-svc-forged-key');
+    RAISE WARNING 'FAIL 100 forged service attribution refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 100 forged service attribution refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 101. A total that does not follow from the quantity and the rate.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_deal_services"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","kind",
+      "unit","quantityMilliUnits","tonnageMilliTons","periodFrom","periodTo",
+      "rateKopecks","amountKopecks","currency","renderedAt",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-svc-inflated','tenant-a','org-a','pc-deal-adv','org-b','STORAGE',
+      'TON_DAY',400000,40000,'2026-09-01T00:00:00Z','2026-09-11T00:00:00Z',300,
+      999999,'RUB','2026-09-11T00:00:00Z','m-a','pc-svc-inflated-key');
+    RAISE WARNING 'FAIL 101 an invented total refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'PASS 101 an invented total refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 102. More ton-days than the window and the tonnage support. This is the
+  --      arithmetic a storage charge is inflated through, and the total below
+  --      is internally consistent — only the ton-days are not.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_deal_services"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","kind",
+      "unit","quantityMilliUnits","tonnageMilliTons","periodFrom","periodTo",
+      "rateKopecks","amountKopecks","currency","renderedAt",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-svc-tondays','tenant-a','org-a','pc-deal-adv','org-b','STORAGE',
+      'TON_DAY',500000,40000,'2026-09-01T00:00:00Z','2026-09-11T00:00:00Z',300,
+      150000,'RUB','2026-09-11T00:00:00Z','m-a','pc-svc-tondays-key');
+    RAISE WARNING 'FAIL 102 ton-days beyond the window refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'PASS 102 ton-days beyond the window refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 103. The membership that raised the line does not approve it.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_deal_services"
+       SET "status" = 'APPROVED', "approvedByMembershipId" = 'm-a',
+           "version" = "version" + 1
+     WHERE "id" = 'pc-svc-a';
+    RAISE WARNING 'FAIL 103 self-approval refused -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR raise_exception THEN
+      RAISE NOTICE 'PASS 103 self-approval refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 104. A second membership in the same organization approves, and the
+  --      database stamps the time rather than taking the one offered.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('app.current_user_id', 'user-both', true);
+    UPDATE public."accounting_deal_services"
+       SET "status" = 'APPROVED', "approvedByMembershipId" = 'm-both-a',
+           "approvedAt" = '2020-01-01T00:00:00Z',
+           "version" = "version" + 1
+     WHERE "id" = 'pc-svc-a';
+    SELECT EXTRACT(YEAR FROM "approvedAt")::bigint INTO measured
+      FROM public."accounting_deal_services" WHERE "id" = 'pc-svc-a';
+    IF measured > 2020 THEN
+      RAISE NOTICE 'PASS 104 a second person approves and the time is stamped';
+    ELSE
+      RAISE WARNING
+        'FAIL 104 a second person approves and the time is stamped -> antedated to %',
+        measured;
+      failures := failures + 1;
+    END IF;
+    PERFORM set_config('app.current_user_id', 'user-a', true);
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 104 a second person approves -> %', SQLERRM;
+    failures := failures + 1;
+    PERFORM set_config('app.current_user_id', 'user-a', true);
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 105. The priced terms are not in the column grant. This measures the grant
+  --      rather than the guard: were the grant widened the guard would still
+  --      refuse, and the check must report that instead of passing.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_deal_services"
+       SET "rateKopecks" = 1, "amountKopecks" = 400, "version" = "version" + 1
+     WHERE "id" = 'pc-svc-a';
+    RAISE WARNING 'FAIL 105 a service line is not repriceable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 105 a service line is not repriceable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 105 a service line is not repriceable -> the grant admitted the update and only the trigger stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 106. A rendered service either happened or it did not; the line stays.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."accounting_deal_services" WHERE "id" = 'pc-svc-a';
+    RAISE WARNING 'FAIL 106 a service line cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 106 a service line cannot be deleted';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 106 a service line cannot be deleted -> the grant admitted the delete and only the trigger stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 107. A reversal that cancels a large charge with a small one.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_deal_services"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","kind",
+      "unit","quantityMilliUnits","tonnageMilliTons","periodFrom","periodTo",
+      "rateKopecks","amountKopecks","currency","renderedAt",
+      "recordedByMembershipId","reversesServiceId","idempotencyKey"
+    ) VALUES (
+      'pc-svc-cheaprev','tenant-a','org-a','pc-deal-adv','org-b','STORAGE',
+      'TON_DAY',40000,4000,'2026-09-01T00:00:00Z','2026-09-11T00:00:00Z',300,
+      12000,'RUB','2026-09-12T00:00:00Z','m-a','pc-svc-a',
+      'pc-svc-cheaprev-key');
+    RAISE WARNING 'FAIL 107 a mismatched reversal refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 107 a mismatched reversal refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 108. A line on another organization's books.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_deal_services"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","kind",
+      "unit","quantityMilliUnits","tonnageMilliTons","periodFrom","periodTo",
+      "rateKopecks","amountKopecks","currency","renderedAt",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-svc-cross','tenant-b','org-b','pc-deal-adv','org-a','STORAGE',
+      'TON_DAY',400000,40000,'2026-09-01T00:00:00Z','2026-09-11T00:00:00Z',300,
+      120000,'RUB','2026-09-11T00:00:00Z','m-b','pc-svc-cross-key');
+    RAISE WARNING 'FAIL 108 cross-organization service refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR foreign_key_violation THEN
+      RAISE NOTICE 'PASS 108 cross-organization service refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 109. Claiming another organization's context buys nothing. The principal
+  --      can set app.current_org_id itself, which is why this is measured.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('app.current_org_id', 'org-b', true),
+            set_config('app.current_tenant_id', 'tenant-b', true);
+    IF EXISTS (
+      SELECT 1 FROM public."accounting_deal_services" WHERE "id" = 'pc-svc-a'
+    ) THEN
+      RAISE WARNING
+        'FAIL 109 a forged organization sees no service lines -> org-a line was visible';
+      failures := failures + 1;
+    ELSE
+      RAISE NOTICE 'PASS 109 a forged organization sees no service lines';
+    END IF;
+    PERFORM set_config('app.current_org_id', 'org-a', true),
+            set_config('app.current_tenant_id', 'tenant-a', true);
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop deal services: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: deal services, 0 failures';
+END;
+$pc_crop_deal_service_checks$;
+
+RESET ROLE;
+
+-- Service lines, as the read principal ---------------------------------------
+SET ROLE pc_accounting_authority;
+
+DO $pc_crop_deal_service_read_checks$
+DECLARE
+  failures integer := 0;
+  measured bigint;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 110. The read principal reads its own organization's lines.
+  ---------------------------------------------------------------------------
+  SELECT count(*) INTO measured
+    FROM public."accounting_deal_services" WHERE "dealId" = 'pc-deal-adv';
+  IF measured = 1 THEN
+    RAISE NOTICE 'PASS 110 the read principal reads its own lines -> %', measured;
+  ELSE
+    RAISE WARNING
+      'FAIL 110 the read principal reads its own lines -> % (want 1)', measured;
+    failures := failures + 1;
+  END IF;
+
+  ---------------------------------------------------------------------------
+  -- 111. And writes none of them.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_deal_services"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","kind",
+      "unit","quantityMilliUnits","tonnageMilliTons","periodFrom","periodTo",
+      "rateKopecks","amountKopecks","currency","renderedAt",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-svc-read','tenant-a','org-a','pc-deal-adv','org-b','STORAGE',
+      'TON_DAY',400000,40000,'2026-09-01T00:00:00Z','2026-09-11T00:00:00Z',300,
+      120000,'RUB','2026-09-11T00:00:00Z','m-a','pc-svc-read-key');
+    RAISE WARNING
+      'FAIL 111 the read principal records nothing -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 111 the read principal records nothing';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 112. Nor approves one. Approval is what turns a line into money owed.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_deal_services"
+       SET "status" = 'REJECTED', "version" = "version" + 1
+     WHERE "id" = 'pc-svc-a';
+    RAISE WARNING
+      'FAIL 112 the read principal decides nothing -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 112 the read principal decides nothing';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION
+      'pc-crop deal service reads: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: deal service reads, 0 failures';
+END;
+$pc_crop_deal_service_read_checks$;
+
+-- Payments and allocations, as the confined command principal ----------------
+--
+-- A payment is money the bank already moved, so the questions here are whether
+-- it can be counted twice and whether more can be allocated from it than moved.
+SET ROLE pc_accounting_command_authority;
+
+DO $pc_crop_payment_checks$
+DECLARE
+  failures integer := 0;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 113. A member records a payment against a confirmed transfer.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payments"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","direction",
+      "amountKopecks","currency","paidAt","bankOperationId",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-pay-a','tenant-a','org-a','pc-deal-adv','org-b','INCOMING',100000,
+      'RUB','2026-09-12T00:00:00Z','pc-op-pay','m-a','pc-pay-a-key');
+    RAISE NOTICE 'PASS 113 a member records a payment';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 113 a member records a payment -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 114. The same transfer is not both an advance and a payment. The bank
+  --      moved the money once; counted twice it would settle a debt twice.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payments"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","direction",
+      "amountKopecks","currency","paidAt","bankOperationId",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-pay-dual','tenant-a','org-a','pc-deal-adv','org-b','INCOMING',100000,
+      'RUB','2026-09-12T00:00:00Z','pc-op-adv','m-a','pc-pay-dual-key');
+    RAISE WARNING
+      'FAIL 114 a transfer already spent as an advance refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 114 a transfer already spent as an advance refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 115. Attribution cannot be handed to somebody else.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payments"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId","direction",
+      "amountKopecks","currency","paidAt","bankOperationId",
+      "recordedByMembershipId","idempotencyKey"
+    ) VALUES (
+      'pc-pay-forged','tenant-a','org-a','pc-deal-adv','org-b','INCOMING',100000,
+      'RUB','2026-09-12T00:00:00Z','pc-op-pay','m-staff','pc-pay-forged-key');
+    RAISE WARNING 'FAIL 115 forged payment attribution refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR unique_violation THEN
+      RAISE NOTICE 'PASS 115 forged payment attribution refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 116. An allocation against the approved service line from check 104.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payment_allocations"(
+      "id","tenantId","organizationId","paymentId","dealServiceId",
+      "amountKopecks","allocatedAt","reason","idempotencyKey",
+      "allocatedByMembershipId"
+    ) VALUES (
+      'pc-payall-a','tenant-a','org-a','pc-pay-a','pc-svc-a',60000,
+      '2026-09-13T00:00:00Z','against the storage act','pc-payall-a-key','m-a');
+    RAISE NOTICE 'PASS 116 an allocation within the payment is accepted';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 116 an allocation within the payment is accepted -> %',
+      SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 117. And not a kopeck past what was paid.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payment_allocations"(
+      "id","tenantId","organizationId","paymentId","dealServiceId",
+      "amountKopecks","allocatedAt","reason","idempotencyKey",
+      "allocatedByMembershipId"
+    ) VALUES (
+      'pc-payall-over','tenant-a','org-a','pc-pay-a','pc-svc-a',40001,
+      '2026-09-13T00:00:00Z','over','pc-payall-over-key','m-a');
+    RAISE WARNING 'FAIL 117 an allocation past the payment refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 117 an allocation past the payment refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 118. An allocation is not editable. Measured against the grant: were the
+  --      grant widened the trigger would still refuse, and this must report
+  --      that rather than pass.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_payment_allocations"
+       SET "amountKopecks" = 1 WHERE "id" = 'pc-payall-a';
+    RAISE WARNING 'FAIL 118 an allocation is not editable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 118 an allocation is not editable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 118 an allocation is not editable -> the grant admitted the update and only the trigger stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 119. A payment is never deleted: the money moved.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."accounting_payments" WHERE "id" = 'pc-pay-a';
+    RAISE WARNING 'FAIL 119 a payment cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 119 a payment cannot be deleted';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 119 a payment cannot be deleted -> the grant admitted the delete and only the trigger stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 120. A forged organization context buys nothing.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('app.current_org_id', 'org-b', true),
+            set_config('app.current_tenant_id', 'tenant-b', true);
+    IF EXISTS (SELECT 1 FROM public."accounting_payments" WHERE "id" = 'pc-pay-a')
+    THEN
+      RAISE WARNING
+        'FAIL 120 a forged organization sees no payments -> org-a payment was visible';
+      failures := failures + 1;
+    ELSE
+      RAISE NOTICE 'PASS 120 a forged organization sees no payments';
+    END IF;
+    PERFORM set_config('app.current_org_id', 'org-a', true),
+            set_config('app.current_tenant_id', 'tenant-a', true);
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop payments: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: payments, 0 failures';
+END;
+$pc_crop_payment_checks$;
+
+RESET ROLE;
+
+-- Payments, as the read principal --------------------------------------------
+SET ROLE pc_accounting_authority;
+
+DO $pc_crop_payment_read_checks$
+DECLARE
+  failures integer := 0;
+  measured bigint;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 121. The read principal reads its own organization's payments.
+  ---------------------------------------------------------------------------
+  SELECT count(*) INTO measured
+    FROM public."accounting_payments" WHERE "dealId" = 'pc-deal-adv';
+  IF measured = 1 THEN
+    RAISE NOTICE 'PASS 121 the read principal reads its own payments -> %', measured;
+  ELSE
+    RAISE WARNING
+      'FAIL 121 the read principal reads its own payments -> % (want 1)', measured;
+    failures := failures + 1;
+  END IF;
+
+  ---------------------------------------------------------------------------
+  -- 122. And allocates nothing.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_payment_allocations"(
+      "id","tenantId","organizationId","paymentId","dealServiceId",
+      "amountKopecks","allocatedAt","reason","idempotencyKey",
+      "allocatedByMembershipId"
+    ) VALUES (
+      'pc-payall-read','tenant-a','org-a','pc-pay-a','pc-svc-a',1,
+      '2026-09-13T00:00:00Z','read','pc-payall-read-key','m-a');
+    RAISE WARNING 'FAIL 122 the read principal allocates nothing -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 122 the read principal allocates nothing';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop payment reads: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: payment reads, 0 failures';
+END;
+$pc_crop_payment_read_checks$;
+
+-- Reconciliation statements, as the confined command principal ---------------
+SET ROLE pc_accounting_command_authority;
+
+DO $pc_crop_reconciliation_checks$
+DECLARE
+  failures integer := 0;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 123. A member prepares a statement for their own organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_reconciliations"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId",
+      "periodStart","periodEnd","currency","openingBalanceKopecks",
+      "chargedKopecks","reversedKopecks","paidKopecks","advanceAppliedKopecks",
+      "closingBalanceKopecks","payloadHash","preparedByMembershipId"
+    ) VALUES (
+      'pc-rec-a','tenant-a','org-a','pc-deal-adv','org-b',
+      '2026-09-01T00:00:00Z','2026-10-01T00:00:00Z','RUB',0,
+      120000,0,60000,0,60000,repeat('a',64),'m-a');
+    RAISE NOTICE 'PASS 123 a member prepares a reconciliation';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 123 a member prepares a reconciliation -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 124. A bottom line that does not follow from the figures above it. This is
+  --      the number the counterparty compares against their own books.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_reconciliations"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId",
+      "periodStart","periodEnd","currency","openingBalanceKopecks",
+      "chargedKopecks","reversedKopecks","paidKopecks","advanceAppliedKopecks",
+      "closingBalanceKopecks","payloadHash","preparedByMembershipId"
+    ) VALUES (
+      'pc-rec-invented','tenant-a','org-a','pc-deal-adv','org-b',
+      '2026-11-01T00:00:00Z','2026-12-01T00:00:00Z','RUB',0,
+      100,0,0,0,999,repeat('b',64),'m-a');
+    RAISE WARNING 'FAIL 124 an invented bottom line refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'PASS 124 an invented bottom line refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 125. Two statements covering the same days would give the counterparty two
+  --      bottom lines to agree with.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_reconciliations"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId",
+      "periodStart","periodEnd","currency","openingBalanceKopecks",
+      "chargedKopecks","reversedKopecks","paidKopecks","advanceAppliedKopecks",
+      "closingBalanceKopecks","payloadHash","preparedByMembershipId"
+    ) VALUES (
+      'pc-rec-overlap','tenant-a','org-a','pc-deal-adv','org-b',
+      '2026-09-15T00:00:00Z','2026-10-15T00:00:00Z','RUB',0,
+      0,0,0,0,0,repeat('c',64),'m-a');
+    RAISE WARNING 'FAIL 125 an overlapping window refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 125 an overlapping window refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 126. The figures are not in the column grant. Measured against the grant,
+  --      not the guard.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_reconciliations"
+       SET "chargedKopecks" = 1, "version" = "version" + 1
+     WHERE "id" = 'pc-rec-a';
+    RAISE WARNING 'FAIL 126 a statement is not rewritable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 126 a statement is not rewritable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 126 a statement is not rewritable -> the grant admitted the update and only the trigger stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 127. The membership that prepared a statement does not answer it.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_reconciliations"
+       SET "status" = 'AGREED', "respondedByMembershipId" = 'm-a',
+           "version" = "version" + 1
+     WHERE "id" = 'pc-rec-a';
+    RAISE WARNING 'FAIL 127 self-agreement refused -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR raise_exception THEN
+      RAISE NOTICE 'PASS 127 self-agreement refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 128. A second membership answers, and the database stamps the time.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('app.current_user_id', 'user-both', true);
+    UPDATE public."accounting_reconciliations"
+       SET "status" = 'AGREED', "respondedByMembershipId" = 'm-both-a',
+           "respondedAt" = '2020-01-01T00:00:00Z',
+           "version" = "version" + 1
+     WHERE "id" = 'pc-rec-a';
+    IF (SELECT EXTRACT(YEAR FROM "respondedAt")::bigint
+          FROM public."accounting_reconciliations" WHERE "id" = 'pc-rec-a') > 2020
+    THEN
+      RAISE NOTICE 'PASS 128 a second person answers and the time is stamped';
+    ELSE
+      RAISE WARNING
+        'FAIL 128 a second person answers and the time is stamped -> antedated';
+      failures := failures + 1;
+    END IF;
+    PERFORM set_config('app.current_user_id', 'user-a', true);
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 128 a second person answers -> %', SQLERRM;
+    failures := failures + 1;
+    PERFORM set_config('app.current_user_id', 'user-a', true);
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop reconciliations: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: reconciliations, 0 failures';
+END;
+$pc_crop_reconciliation_checks$;
 
 RESET ROLE;
 

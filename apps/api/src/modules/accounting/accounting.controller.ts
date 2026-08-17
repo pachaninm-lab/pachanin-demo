@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -6,6 +15,10 @@ import type { RequestUser } from '../../common/types/request-user';
 import { AccountingDocumentVersionRepository } from './accounting-document-version.repository';
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
 import { AdvanceRepository } from './advance.repository';
+import { ServiceStatus } from './deal-service.policy';
+import { DealServiceRepository } from './deal-service.repository';
+import { PaymentRepository } from './payment.repository';
+import { ReconciliationRepository } from './reconciliation.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
 import { AudienceView, projectFor } from './work-task-projection.policy';
 import { PeriodStatus } from './accounting-period.policy';
@@ -44,6 +57,9 @@ export class AccountingController {
     private readonly periods: AccountingPeriodRepository,
     private readonly transmission: DocumentTransmissionRepository,
     private readonly advances: AdvanceRepository,
+    private readonly services: DealServiceRepository,
+    private readonly payments: PaymentRepository,
+    private readonly reconciliations: ReconciliationRepository,
   ) {}
 
   /**
@@ -107,7 +123,7 @@ export class AccountingController {
     return this.tasks.transition(user, {
       taskId,
       to: body.to,
-      expectedVersion: BigInt(body.expectedVersion),
+      expectedVersion: integer(body.expectedVersion, 'expectedVersion'),
       resolutionEventId: body.resolutionEventId ?? null,
       assignedMembershipId: body.assignedMembershipId ?? null,
       // Neither the capabilities nor whether the condition still holds are
@@ -226,7 +242,7 @@ export class AccountingController {
     return this.periods.advance(user, {
       periodId,
       to: body.to,
-      expectedVersion: BigInt(body.expectedVersion),
+      expectedVersion: integer(body.expectedVersion, 'expectedVersion'),
     });
   }
 
@@ -307,7 +323,7 @@ export class AccountingController {
     return this.advances.record(user, {
       dealId: body.dealId,
       counterpartyOrgId: body.counterpartyOrgId,
-      amountKopecks: BigInt(body.amountKopecks),
+      amountKopecks: integer(body.amountKopecks, 'amountKopecks'),
       currency: body.currency ?? 'RUB',
       bankOperationId: body.bankOperationId,
       receivedAt: new Date(body.receivedAt),
@@ -336,11 +352,364 @@ export class AccountingController {
   ) {
     return this.advances.applyOffset(user, {
       advanceId,
-      amountKopecks: BigInt(body.amountKopecks),
+      amountKopecks: integer(body.amountKopecks, 'amountKopecks'),
       appliedAt: new Date(body.appliedAt),
       reason: body.reason,
       idempotencyKey: body.idempotencyKey,
       documentVersionId: body.documentVersionId ?? null,
     });
   }
+
+  /**
+   * The services rendered on a deal, and what they come to.
+   *
+   * The net is computed by the server from the approved lines and the approved
+   * reversals. A client that added the lines up itself would have to know which
+   * of them were reversed, and one that got it wrong would show a charge as owed
+   * after it had been cancelled.
+   */
+  @Get('deals/:dealId/services')
+  async listServices(
+    @Param('dealId') dealId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const services = await this.services.listForDeal(user, dealId);
+    return {
+      netKopecks: services.netKopecks.toString(),
+      lines: services.lines.map((line) => ({
+        ...line,
+        quantityMilliUnits: line.quantityMilliUnits.toString(),
+        tonnageMilliTons: line.tonnageMilliTons?.toString() ?? null,
+        rateKopecks: line.rateKopecks.toString(),
+        amountKopecks: line.amountKopecks.toString(),
+        version: line.version.toString(),
+      })),
+    };
+  }
+
+  /**
+   * Record a service rendered on a deal.
+   *
+   * The total is not in the body. It is computed from the quantity and the rate,
+   * and for storage the quantity itself has to follow from the tonnage and the
+   * days of the window — which is the arithmetic a storage charge is usually
+   * inflated through. The unit is not in the body either: it follows from the
+   * kind.
+   */
+  @Post('services')
+  recordService(
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      dealId: string;
+      counterpartyOrgId: string;
+      kind: string;
+      quantityMilliUnits: string;
+      tonnageMilliTons?: string | null;
+      periodFrom?: string | null;
+      periodTo?: string | null;
+      rateKopecks: string;
+      currency?: string;
+      renderedAt: string;
+      idempotencyKey: string;
+    },
+  ) {
+    return this.services.record(user, {
+      dealId: body.dealId,
+      counterpartyOrgId: body.counterpartyOrgId,
+      kind: body.kind,
+      quantityMilliUnits: integer(body.quantityMilliUnits, 'quantityMilliUnits'),
+      tonnageMilliTons:
+        body.tonnageMilliTons === undefined || body.tonnageMilliTons === null
+          ? null
+          : integer(body.tonnageMilliTons, 'tonnageMilliTons'),
+      periodFrom: instant(body.periodFrom, 'periodFrom'),
+      periodTo: instant(body.periodTo, 'periodTo'),
+      rateKopecks: integer(body.rateKopecks, 'rateKopecks'),
+      currency: body.currency ?? 'RUB',
+      renderedAt: new Date(body.renderedAt),
+      idempotencyKey: body.idempotencyKey,
+    });
+  }
+
+  /**
+   * Approve or reject a rendered line.
+   *
+   * The approving membership is not in the body: it is the session's own, and
+   * the database refuses an approval by the membership that recorded the line.
+   */
+  @Post('services/:serviceId/decision')
+  decideService(
+    @Param('serviceId') serviceId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { intended: string },
+  ) {
+    if (
+      body.intended !== ServiceStatus.APPROVED
+      && body.intended !== ServiceStatus.REJECTED
+    ) {
+      throw new BadRequestException(
+        `intended is ${ServiceStatus.APPROVED} or ${ServiceStatus.REJECTED}`,
+      );
+    }
+    return this.services.decide(user, { serviceId, intended: body.intended });
+  }
+
+  /**
+   * Reverse an approved line.
+   *
+   * Nothing about the amount is accepted here. The server copies the original's
+   * terms from the row it reads under lock, so a reversal cannot cancel a large
+   * charge with a small one.
+   */
+  @Post('services/:serviceId/reversal')
+  reverseService(
+    @Param('serviceId') serviceId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { renderedAt: string; idempotencyKey: string },
+  ) {
+    return this.services.reverse(user, {
+      serviceId,
+      renderedAt: new Date(body.renderedAt),
+      idempotencyKey: body.idempotencyKey,
+    });
+  }
+
+  /**
+   * The payments on a deal, each with what is left to allocate.
+   *
+   * The unallocated remainder is computed by the server from the allocations.
+   * A client that subtracted them itself would be a second place the same
+   * number is worked out, and the two only have to disagree once for a debt to
+   * be settled from money already spent elsewhere.
+   */
+  @Get('deals/:dealId/payments')
+  async listPayments(
+    @Param('dealId') dealId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const payments = await this.payments.listForDeal(user, dealId);
+    return payments.map((payment) => ({
+      ...payment,
+      amountKopecks: payment.amountKopecks.toString(),
+      allocatedKopecks: payment.allocatedKopecks.toString(),
+      unallocatedKopecks: payment.unallocatedKopecks.toString(),
+      version: payment.version.toString(),
+    }));
+  }
+
+  /**
+   * Record money that moved against a deal.
+   *
+   * The amount is not taken on trust: the server reads the cited bank operation
+   * and refuses a payment that does not match the transfer it claims, or one
+   * citing a transfer already recorded as an advance. Counted twice, the same
+   * money would settle the same debt twice on paper.
+   */
+  @Post('payments')
+  recordPayment(
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      dealId: string;
+      counterpartyOrgId: string;
+      direction: string;
+      amountKopecks: string;
+      currency?: string;
+      bankOperationId: string;
+      paidAt: string;
+      idempotencyKey: string;
+    },
+  ) {
+    return this.payments.record(user, {
+      dealId: body.dealId,
+      counterpartyOrgId: body.counterpartyOrgId,
+      direction: body.direction,
+      amountKopecks: integer(body.amountKopecks, 'amountKopecks'),
+      currency: body.currency ?? 'RUB',
+      bankOperationId: body.bankOperationId,
+      paidAt: new Date(body.paidAt),
+      idempotencyKey: body.idempotencyKey,
+    });
+  }
+
+  /**
+   * Allocate part or all of a payment against one obligation.
+   *
+   * Neither ceiling is in the body. What is left of the payment and what is
+   * left owed on the obligation are exactly the two numbers somebody would like
+   * to be larger than they are, so the server reads both under the locks the
+   * database guard takes.
+   */
+  @Post('payments/:paymentId/allocations')
+  allocatePayment(
+    @Param('paymentId') paymentId: string,
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      amountKopecks: string;
+      allocatedAt: string;
+      reason: string;
+      idempotencyKey: string;
+      documentVersionId?: string | null;
+      dealServiceId?: string | null;
+    },
+  ) {
+    return this.payments.allocate(user, {
+      paymentId,
+      amountKopecks: integer(body.amountKopecks, 'amountKopecks'),
+      allocatedAt: new Date(body.allocatedAt),
+      reason: body.reason,
+      idempotencyKey: body.idempotencyKey,
+      documentVersionId: body.documentVersionId ?? null,
+      dealServiceId: body.dealServiceId ?? null,
+    });
+  }
+
+  /**
+   * The statements of mutual settlements prepared on a deal.
+   */
+  @Get('deals/:dealId/reconciliations')
+  async listReconciliations(
+    @Param('dealId') dealId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const statements = await this.reconciliations.listForDeal(user, dealId);
+    return statements.map((statement) => ({
+      ...statement,
+      openingBalanceKopecks: statement.openingBalanceKopecks.toString(),
+      chargedKopecks: statement.chargedKopecks.toString(),
+      reversedKopecks: statement.reversedKopecks.toString(),
+      paidKopecks: statement.paidKopecks.toString(),
+      advanceAppliedKopecks: statement.advanceAppliedKopecks.toString(),
+      closingBalanceKopecks: statement.closingBalanceKopecks.toString(),
+      version: statement.version.toString(),
+    }));
+  }
+
+  /**
+   * What the books say for a counterparty over a window, without writing
+   * anything.
+   *
+   * A read, so somebody can look at the figures before committing to them — and
+   * so the statement they later prepare can be compared against this.
+   */
+  @Get('deals/:dealId/reconciliations/preview')
+  async previewReconciliation(
+    @Param('dealId') dealId: string,
+    @CurrentUser() user: RequestUser,
+    @Query('counterpartyOrgId') counterpartyOrgId: string,
+    @Query('periodStart') periodStart: string,
+    @Query('periodEnd') periodEnd: string,
+  ) {
+    const figures = await this.reconciliations.preview(user, {
+      dealId,
+      counterpartyOrgId,
+      periodStart: required(instant(periodStart, 'periodStart'), 'periodStart'),
+      periodEnd: required(instant(periodEnd, 'periodEnd'), 'periodEnd'),
+    });
+    return {
+      openingBalanceKopecks: figures.openingBalanceKopecks.toString(),
+      chargedKopecks: figures.chargedKopecks.toString(),
+      reversedKopecks: figures.reversedKopecks.toString(),
+      paidKopecks: figures.paidKopecks.toString(),
+      advanceAppliedKopecks: figures.advanceAppliedKopecks.toString(),
+      closingBalanceKopecks: figures.closingBalanceKopecks.toString(),
+    };
+  }
+
+  /**
+   * Prepare a statement.
+   *
+   * No figure is in the body. Every one of them is read from the rows, the
+   * bottom line follows from them by an expression the database checks again,
+   * and the statement is immutable once prepared — a reconciliation somebody can
+   * edit after sending it is not a reconciliation.
+   */
+  @Post('reconciliations')
+  async prepareReconciliation(
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      dealId: string;
+      counterpartyOrgId: string;
+      periodStart: string;
+      periodEnd: string;
+      currency?: string;
+    },
+  ) {
+    const outcome = await this.reconciliations.prepare(user, {
+      dealId: body.dealId,
+      counterpartyOrgId: body.counterpartyOrgId,
+      periodStart: required(instant(body.periodStart, 'periodStart'), 'periodStart'),
+      periodEnd: required(instant(body.periodEnd, 'periodEnd'), 'periodEnd'),
+      currency: body.currency ?? 'RUB',
+    });
+    return {
+      ...outcome,
+      closingBalanceKopecks: outcome.closingBalanceKopecks?.toString() ?? null,
+      figures:
+        outcome.figures === null
+          ? null
+          : {
+              openingBalanceKopecks: outcome.figures.openingBalanceKopecks.toString(),
+              chargedKopecks: outcome.figures.chargedKopecks.toString(),
+              reversedKopecks: outcome.figures.reversedKopecks.toString(),
+              paidKopecks: outcome.figures.paidKopecks.toString(),
+              advanceAppliedKopecks: outcome.figures.advanceAppliedKopecks.toString(),
+            },
+    };
+  }
+
+  /**
+   * Agree with a statement, or dispute it.
+   *
+   * The answering membership is the session's own, and it may not be the one
+   * that prepared the statement: agreeing with your own arithmetic is not
+   * agreement.
+   */
+  @Post('reconciliations/:reconciliationId/answer')
+  answerReconciliation(
+    @Param('reconciliationId') reconciliationId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { intended: string; note?: string | null },
+  ) {
+    return this.reconciliations.answer(user, {
+      reconciliationId,
+      intended: body.intended,
+      note: body.note ?? null,
+    });
+  }
+}
+
+/** An instant that has to be there. */
+function required(value: Date | null, field: string): Date {
+  if (value === null) {
+    throw new BadRequestException(`${field} is required`);
+  }
+  return value;
+}
+
+/**
+ * A whole number of the minor unit, from the string a JSON body can carry.
+ *
+ * `BigInt('twelve')` throws a SyntaxError, and an uncaught one leaves the client
+ * with a 500 for what is plainly a malformed request. Named in the message so
+ * the caller knows which field to fix.
+ */
+function integer(value: string, field: string): bigint {
+  if (typeof value !== 'string' || /^-?\d+$/.test(value) === false) {
+    throw new BadRequestException(`${field} must be a whole number as a string`);
+  }
+  return BigInt(value);
+}
+
+/** An optional instant, refused rather than silently read as Invalid Date. */
+function instant(value: string | null | undefined, field: string): Date | null {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException(`${field} must be an ISO-8601 instant`);
+  }
+  return parsed;
 }
