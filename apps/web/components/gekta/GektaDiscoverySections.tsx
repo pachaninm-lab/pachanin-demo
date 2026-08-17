@@ -4,7 +4,6 @@ import { GEKTA_TOPICS, getGektaCopy, type GektaLocale } from '@/lib/gekta/conten
 import { getGektaProductCopy } from '@/lib/gekta/product-copy';
 import { GektaCapabilities } from './GektaCapabilities';
 import { GektaLegalFooter } from './GektaLegalFooter';
-import { GektaProductCta } from './GektaProductCta';
 
 export function GektaDiscoverySections({ locale }: { locale: GektaLocale }) {
   const copy = getGektaCopy(locale);
@@ -58,7 +57,6 @@ export function GektaDiscoverySections({ locale }: { locale: GektaLocale }) {
             </article>
           ))}
         </div>
-        <GektaProductCta locale={locale} />
       </section>
 
       <section className='border-y border-emerald-900/10 bg-[#eff5ee]'>
@@ -78,7 +76,6 @@ export function GektaDiscoverySections({ locale }: { locale: GektaLocale }) {
         <div className='mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24'>
           <h2 className='text-2xl font-semibold tracking-tight text-slate-950 sm:text-4xl'>{copy.creatorTitle}</h2>
           <div className='mt-5 max-w-4xl space-y-4 text-base leading-7 text-slate-600'>{copy.creatorText.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
-          <GektaProductCta locale={locale} />
         </div>
       </section>
 
