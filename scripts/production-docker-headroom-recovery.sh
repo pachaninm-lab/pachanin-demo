@@ -42,6 +42,7 @@ canonical_tag = re.compile(r'^ghcr[.]io/pachaninm-lab/grainflow-(api|web|migrati
 canonical_digest = re.compile(r'^ghcr[.]io/pachaninm-lab/grainflow-(api|web|migration|tai)@sha256:[0-9a-f]{64}$')
 image_id_re = re.compile(r'^sha256:[0-9a-f]{64}$')
 reclaim_components = {'api', 'web', 'migration'}
+max_reference_removals_per_image = 128
 
 
 def command(argv, check=True):
@@ -86,38 +87,87 @@ def inspect_image(image_id):
 def image_refs(item):
     refs = []
     for key in ('RepoTags', 'RepoDigests'):
-        values = item.get(key) or []
+        values = item.get(key)
+        if values is None:
+            values = []
         if not isinstance(values, list):
-            return ()
+            return None
         for value in values:
-            if isinstance(value, str) and value and value not in ('<none>', '<none>:<none>'):
+            if not isinstance(value, str):
+                return None
+            if value and value not in ('<none>', '<none>:<none>'):
                 refs.append(value)
     return tuple(sorted(set(refs)))
 
 
-def classify_release_image(item):
+def ref_component(ref):
+    tag_match = canonical_tag.fullmatch(ref)
+    if tag_match:
+        return tag_match.group(1), 'TAG'
+    digest_match = canonical_digest.fullmatch(ref)
+    if digest_match:
+        return digest_match.group(1), 'DIGEST'
+    return None
+
+
+def classify_release_image(item, require_tag=True):
     refs = image_refs(item)
-    if not refs:
+    if refs is None or not refs:
         return None
-    tag_matches = []
+    tags = []
     components = set()
     for ref in refs:
-        tag_match = canonical_tag.fullmatch(ref)
-        digest_match = canonical_digest.fullmatch(ref)
-        if tag_match:
-            tag_matches.append(ref)
-            components.add(tag_match.group(1))
-            continue
-        if digest_match:
-            components.add(digest_match.group(1))
-            continue
-        return None
-    if not tag_matches or len(components) != 1:
+        classified = ref_component(ref)
+        if classified is None:
+            return None
+        component, ref_type = classified
+        components.add(component)
+        if ref_type == 'TAG':
+            tags.append(ref)
+    if (require_tag and not tags) or len(components) != 1:
         return None
     component = next(iter(components))
     if component not in reclaim_components:
         return None
-    return component, tuple(sorted(set(tag_matches))), refs
+    return component, tuple(sorted(set(tags))), refs
+
+
+def remove_failure_class(result):
+    text = f'{result.stdout}\n{result.stderr}'.lower()
+    if 'no space left on device' in text:
+        return 'NO_SPACE'
+    if 'dependent child' in text:
+        return 'DEPENDENT_CHILD'
+    if 'container' in text and ('using its referenced image' in text or 'is being used by' in text):
+        return 'CONTAINER_REFERENCE'
+    if 'multiple repositories' in text:
+        return 'MULTIPLE_REFERENCES'
+    if 'reference does not exist' in text or 'no such image' in text:
+        return 'REFERENCE_NOT_FOUND'
+    if 'conflict' in text:
+        return 'CONFLICT'
+    return 'OTHER'
+
+
+def attest_candidate(image_id, component):
+    if image_id in container_image_ids():
+        return None, 'CONTAINER_REFERENCE'
+    item = inspect_image(image_id)
+    if item is None:
+        return None, None
+    config = item.get('Config') if isinstance(item.get('Config'), dict) else {}
+    labels = config.get('Labels') if isinstance(config.get('Labels'), dict) else {}
+    revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
+    if revision == target_sha:
+        return None, 'TARGET_REVISION'
+    refs = image_refs(item)
+    if refs is None:
+        return None, 'UNEXPECTED_REFERENCE_STATE'
+    if refs:
+        classification = classify_release_image(item, require_tag=False)
+        if classification is None or classification[0] != component:
+            return None, 'UNEXPECTED_REFERENCE_STATE'
+    return item, None
 
 
 before_kb = available_kb()
@@ -162,55 +212,91 @@ for component_records in by_component.values():
         protected.add(record['id'])
 
 eligible = [record for record in records if record['id'] not in protected]
-eligible.sort(key=lambda row: (row['created'], row['component'], row['id']))
+# Preserve target and two newest images per component, then remove the newest
+# remaining candidates first to avoid legacy parent/child ordering conflicts.
+eligible.sort(key=lambda row: (row['created'], row['component'], row['id']), reverse=True)
 deleted = 0
 skipped = 0
 attempted = 0
+removed_references = 0
+remove_failures = defaultdict(int)
 
 for record in eligible:
     if available_kb() >= target_kb:
         break
 
-    current_refs = container_image_ids()
-    if record['id'] in current_refs or record['id'] in protected:
-        protected.add(record['id'])
-        skipped += 1
-        continue
-
-    item = inspect_image(record['id'])
-    if item is None:
-        skipped += 1
-        continue
-    classification = classify_release_image(item)
-    if classification is None:
-        skipped += 1
-        continue
-    component, tags, refs = classification
-    if component != record['component']:
-        skipped += 1
-        continue
-
-    config = item.get('Config') if isinstance(item.get('Config'), dict) else {}
-    labels = config.get('Labels') if isinstance(config.get('Labels'), dict) else {}
-    revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
-    if revision == target_sha:
-        protected.add(record['id'])
-        skipped += 1
-        continue
-
-    # Delete by the immutable full image ID, not by a mutable tag. No --force is
-    # allowed. Docker must reject the operation if any container still references
-    # the image; the explicit container-ID guard above is re-evaluated immediately
-    # before every deletion as an additional fail-closed boundary.
     attempted += 1
-    result = command(['docker', 'image', 'rm', record['id']], check=False)
-    if result.returncode != 0:
-        skipped += 1
-        continue
-    if inspect_image(record['id']) is None:
-        deleted += 1
+    removed = False
+    failed = False
+
+    for _ in range(max_reference_removals_per_image):
+        item, attestation_error = attest_candidate(record['id'], record['component'])
+        if attestation_error:
+            remove_failures[attestation_error] += 1
+            failed = True
+            break
+        if item is None:
+            deleted += 1
+            removed = True
+            break
+
+        refs = image_refs(item)
+        if refs is None:
+            remove_failures['UNEXPECTED_REFERENCE_STATE'] += 1
+            failed = True
+            break
+
+        if refs:
+            ref = refs[0]
+            result = command(['docker', 'image', 'rm', ref], check=False)
+            if result.returncode != 0:
+                remove_failures[remove_failure_class(result)] += 1
+                failed = True
+                break
+            removed_references += 1
+
+            item_after, attestation_error = attest_candidate(record['id'], record['component'])
+            if attestation_error:
+                remove_failures[attestation_error] += 1
+                failed = True
+                break
+            if item_after is None:
+                deleted += 1
+                removed = True
+                break
+            refs_after = image_refs(item_after)
+            if refs_after is None:
+                remove_failures['UNEXPECTED_REFERENCE_STATE'] += 1
+                failed = True
+                break
+            if refs_after == refs:
+                remove_failures['NO_STATE_CHANGE'] += 1
+                failed = True
+                break
+            continue
+
+        # An unused image object with no remaining repository references may be
+        # removed only by its immutable full ID and still never with --force.
+        result = command(['docker', 'image', 'rm', record['id']], check=False)
+        if result.returncode != 0:
+            remove_failures[remove_failure_class(result)] += 1
+            failed = True
+            break
+        if inspect_image(record['id']) is None:
+            deleted += 1
+            removed = True
+        else:
+            remove_failures['STILL_PRESENT'] += 1
+            failed = True
+        break
     else:
+        remove_failures['BOUNDED_LOOP_EXHAUSTED'] += 1
+        failed = True
+
+    if not removed:
         skipped += 1
+    if failed:
+        continue
 
 after_kb = available_kb()
 reclaimed_bytes = max(0, after_kb - before_kb) * 1024
@@ -219,7 +305,7 @@ payload = {
     'targetSha': target_sha,
     'runId': int(run_id),
     'mode': 'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM',
-    'deleteAuthority': 'FULL_IMAGE_ID_NO_FORCE',
+    'deleteAuthority': 'CANONICAL_REFERENCE_OR_FULL_IMAGE_ID_NO_FORCE',
     'reclaimComponents': sorted(reclaim_components),
     'requiredAvailableKb': required_kb,
     'targetAvailableKb': target_kb,
@@ -230,8 +316,10 @@ payload = {
     'containerProtectedImageCount': container_protected_count,
     'protectedImageCount': len(protected),
     'attemptedImageCount': attempted,
+    'removedReferenceCount': removed_references,
     'deletedImageCount': deleted,
     'skippedImageCount': skipped,
+    'removeFailureCounts': dict(sorted(remove_failures.items())),
     'reclaimedBytes': reclaimed_bytes,
     'targetReached': after_kb >= target_kb,
     'passed': after_kb >= required_kb,
@@ -256,12 +344,30 @@ if value.get('schemaVersion') != 'pc.production-docker-headroom-recovery.v1': ra
 if value.get('targetSha') != sha: raise SystemExit('target mismatch')
 if value.get('runId') != int(run_id): raise SystemExit('run mismatch')
 if value.get('mode') != 'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM': raise SystemExit('mode mismatch')
-if value.get('deleteAuthority') != 'FULL_IMAGE_ID_NO_FORCE': raise SystemExit('delete authority mismatch')
+if value.get('deleteAuthority') != 'CANONICAL_REFERENCE_OR_FULL_IMAGE_ID_NO_FORCE': raise SystemExit('delete authority mismatch')
 if value.get('reclaimComponents') != ['api', 'migration', 'web']: raise SystemExit('component scope mismatch')
 if value.get('requiredAvailableKb') != int(required_raw): raise SystemExit('required threshold mismatch')
 if value.get('targetAvailableKb') != int(target_raw): raise SystemExit('target threshold mismatch')
-for key in ('beforeAvailableKb','afterAvailableKb','canonicalImageCount','eligibleImageCount','containerProtectedImageCount','protectedImageCount','attemptedImageCount','deletedImageCount','skippedImageCount','reclaimedBytes'):
+for key in ('beforeAvailableKb','afterAvailableKb','canonicalImageCount','eligibleImageCount','containerProtectedImageCount','protectedImageCount','attemptedImageCount','removedReferenceCount','deletedImageCount','skippedImageCount','reclaimedBytes'):
     if not isinstance(value.get(key), int) or value[key] < 0: raise SystemExit(f'invalid integer field: {key}')
+failures = value.get('removeFailureCounts')
+allowed_failures = {
+    'BOUNDED_LOOP_EXHAUSTED',
+    'CONFLICT',
+    'CONTAINER_REFERENCE',
+    'DEPENDENT_CHILD',
+    'MULTIPLE_REFERENCES',
+    'NO_SPACE',
+    'NO_STATE_CHANGE',
+    'OTHER',
+    'REFERENCE_NOT_FOUND',
+    'STILL_PRESENT',
+    'TARGET_REVISION',
+    'UNEXPECTED_REFERENCE_STATE',
+}
+if not isinstance(failures, dict): raise SystemExit('remove failure counts invalid')
+for key, count in failures.items():
+    if key not in allowed_failures or not isinstance(count, int) or count < 0: raise SystemExit('remove failure entry invalid')
 if value.get('targetReached') is not (value['afterAvailableKb'] >= value['targetAvailableKb']): raise SystemExit('targetReached mismatch')
 if value.get('passed') is not (value['afterAvailableKb'] >= value['requiredAvailableKb']): raise SystemExit('passed mismatch')
 PY_VALIDATE
@@ -276,9 +382,14 @@ print(f"DOCKER_HEADROOM_AFTER_KB={value['afterAvailableKb']}")
 print(f"DOCKER_HEADROOM_REQUIRED_KB={value['requiredAvailableKb']}")
 print(f"DOCKER_HEADROOM_TARGET_KB={value['targetAvailableKb']}")
 print(f"DOCKER_HEADROOM_DELETE_AUTHORITY={value['deleteAuthority']}")
+print(f"DOCKER_HEADROOM_CANONICAL_IMAGES={value['canonicalImageCount']}")
+print(f"DOCKER_HEADROOM_ELIGIBLE_IMAGES={value['eligibleImageCount']}")
 print(f"DOCKER_HEADROOM_ATTEMPTED_IMAGES={value['attemptedImageCount']}")
+print(f"DOCKER_HEADROOM_REMOVED_REFERENCES={value['removedReferenceCount']}")
 print(f"DOCKER_HEADROOM_DELETED_IMAGES={value['deletedImageCount']}")
 print(f"DOCKER_HEADROOM_SKIPPED_IMAGES={value['skippedImageCount']}")
+for key, count in sorted(value['removeFailureCounts'].items()):
+    print(f"DOCKER_HEADROOM_REMOVE_FAILURE_{key}={count}")
 print(f"DOCKER_HEADROOM_RECLAIMED_BYTES={value['reclaimedBytes']}")
 print(f"DOCKER_HEADROOM_TARGET_REACHED={str(value['targetReached']).lower()}")
 print(f"DOCKER_HEADROOM_RECOVERY={'PASS' if value['passed'] else 'FAIL'}")
