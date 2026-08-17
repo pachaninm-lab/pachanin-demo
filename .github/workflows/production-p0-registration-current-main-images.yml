@@ -59,7 +59,10 @@ jobs:
           grep -Fq 'gh workflow run docker-publish.yml' "$file"
           grep -Fq 'for component in api web migration' "$file"
           grep -Fq 'PRODUCTION_MUTATION=NONE' "$file"
-          ! grep -Eq 'docker compose|ssh |scp |kubectl|prisma migrate|psql|DATABASE_URL' "$file"
+          forbidden_pattern='docker compose|ssh |scp |kubectl|prisma migrate|psql|DATABASE_URL'
+          if grep -Ev '^[[:space:]]*forbidden_pattern=' "$file" | grep -Eq "$forbidden_pattern"; then
+            exit 1
+          fi
 
   images:
     name: Build and prove exact-main API/Web/migration images
