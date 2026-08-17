@@ -204,12 +204,22 @@ async function expectProductionHomepageDesignGates(
     const heading = page.locator('#pc-v6-title');
     await expect(heading).toBeVisible();
     const lineCount = await heading.evaluate((node) => {
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+      // Count only rendered text fragments. A Range over the H1 parent also
+      // returns geometry for nested block spans, which double-counts visual
+      // lines even when the screenshot shows the copy within the <=5-line gate.
       const uniqueLineTops: number[] = [];
-      for (const rect of rects) {
-        if (!uniqueLineTops.some((top) => Math.abs(top - rect.top) <= 1)) uniqueLineTops.push(rect.top);
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      let current = walker.nextNode();
+      while (current) {
+        if (current.textContent?.trim()) {
+          const range = document.createRange();
+          range.selectNodeContents(current);
+          const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+          for (const rect of rects) {
+            if (!uniqueLineTops.some((top) => Math.abs(top - rect.top) <= 1)) uniqueLineTops.push(rect.top);
+          }
+        }
+        current = walker.nextNode();
       }
       return uniqueLineTops.length;
     });
