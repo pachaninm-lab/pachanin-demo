@@ -8,6 +8,8 @@ const checkerPath = 'scripts/check-production-p0-auth-mail-db-preflight-31980524
 const branch = 'fix/p0-auth-mail-db-preflight-31980524957-3785';
 const command = '/production p0-auth-mail-db-preflight 31980524957 current-main';
 const migration = '20260812010000_p0_industrial_auth_mail_outbox';
+const functionSig = 'auth.enqueue_mail_outbox(text,text,text,text,text,integer,text,text,text,integer,timestamptz,timestamptz)';
+const expectedOwner = 'pc_auth_mail_enqueue_authority';
 const allowed = [workflowPath, scriptPath, checkerPath];
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const script = fs.readFileSync(scriptPath, 'utf8');
@@ -34,6 +36,8 @@ for (const regex of [/workflow_dispatch:/, /schedule:/, /\bpush:/, /StrictHostKe
 for (const token of [
   `COMMAND='${command}'`,
   `MIGRATION_NAME='${migration}'`,
+  `FUNCTION_SIG='${functionSig}'`,
+  `EXPECTED_OWNER='${expectedOwner}'`,
   "[[ \"${PRODUCTION_MUTATION_ALLOWED:-false}\" == 'false' ]]",
   "[[ \"${PC_IS_PRODUCTION:-false}\" == 'true' ]]",
   "LOCAL_STAGE='AUTHORITY'",
@@ -50,13 +54,19 @@ for (const token of [
   "docker exec \"$id\" node -e \"require.resolve('@prisma/client')\"",
   "docker exec -i \"$id\" node -",
   "await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY')",
-  "pg_catalog.pg_proc",
-  "p.proname = 'enqueue_mail_outbox'",
-  "p.pronargs = 12",
+  `pg_catalog.to_regprocedure('${functionSig}')`,
+  "pg_catalog.pg_get_userbyid(p.proowner)",
+  `= '${expectedOwner}'`,
   "pg_catalog.has_schema_privilege",
   "pg_catalog.has_function_privilege",
   "pg_catalog.has_table_privilege",
+  "WHEN 'pc_auth_runtime' THEN 'PC_AUTH_RUNTIME'",
+  "WHEN 'one_deal_auth' THEN 'ONE_DEAL_AUTH'",
+  "WHEN 'app_auth' THEN 'APP_AUTH'",
+  "WHEN 'app_service' THEN 'APP_SERVICE'",
+  "WHEN 'pc_app' THEN 'PC_APP'",
   `WHERE migration_name = '${migration}'`,
+  "migration/schema consistency",
   "DB_EVIDENCE|",
   "API_RUNTIME_COUNT|",
   "printf 'PRODUCTION_MUTATION=NONE\\n'",
@@ -78,6 +88,8 @@ for (const regex of [
   /docker\s+compose\s+(up|down|restart|rm|pull)\b/i,
   /docker\s+exec[^\n]*(?:\bbash\b|\bsh\b)/i,
   /\bDATABASE_URL\b/,
+  /\bcitext\b/i,
+  /\buuid_oid\b/i,
   /\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|GRANT|REVOKE|TRUNCATE|COPY)\b\s+/i,
 ]) deny('script', script, regex);
 
@@ -88,6 +100,9 @@ if (queryCalls.length !== 2) failures.push(`script: expected exactly two queryRa
 if (!script.includes("await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');")) failures.push('script: transaction is not forced READ ONLY before catalog reads');
 if (!script.includes("const result = await prisma.$transaction(async (tx) => {")) failures.push('script: Prisma reads are not transaction-bounded');
 if (!script.includes(".catch(() => { process.exitCode = 41; })")) failures.push('script: raw Prisma errors may escape the sanitizer boundary');
+if (!script.includes("schema_state='DRIFT'")) failures.push('script: migration/schema drift classification missing');
+if (!script.includes("schema_state='CONSISTENT'")) failures.push('script: consistent contract classification missing');
+if (!script.includes("schema_state='MIGRATION_HISTORY_UNREADABLE'")) failures.push('script: unreadable migration-history classification missing');
 
 const syntax = spawnSync('bash', ['-n', scriptPath], { encoding: 'utf8' });
 if (syntax.status !== 0) failures.push(`bash syntax failed: ${String(syntax.stderr).slice(0, 200)}`);
@@ -104,4 +119,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exit(1);
 }
-console.log('PASS: auth-mail DB preflight is owner-bound, exact-main guarded, pinned-host, transaction-read-only, catalog/Prisma-history read-only, mutation-free, and publishes sanitized evidence only.');
+console.log('PASS: auth-mail DB preflight is owner-bound, exact-main guarded, pinned-host, transaction-read-only, verifies the exact 12-argument migration contract plus owner/runtime EXECUTE, reads migration history when permitted, classifies schema drift, publishes sanitized evidence only, and cannot replay reset/mail/deploy or mutate production.');
