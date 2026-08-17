@@ -49,8 +49,8 @@ const copies = {
       text: 'Не для каждого сотрудника и без обязательного выезда нашей команды. Конкретный режим определяется по учётной системе и ЭДО организации.',
     },
     protection: {
-      title: 'Ошибки и подозрительные действия не проходят молча',
-      text: 'Подмена реквизитов, неизвестная подпись, повторный платёж или расхождение с 1С требуют дополнительной проверки.',
+      title: 'Ошибки и неподтверждённые статусы не скрываются',
+      text: 'Если внешняя система не подтвердила действие или данные расходятся, платформа показывает проблему и ответственного вместо ложного статуса «готово».',
     },
     systemsLabel: 'Предусмотренные маршруты подключения',
     systems: ['1С', '1С-ЭДО', 'Диадок', 'Saby / СБИС'],
@@ -96,8 +96,8 @@ const copies = {
       text: 'Not for every employee and without a mandatory on-site visit from our team. The route is selected according to the organisation accounting and EDI setup.',
     },
     protection: {
-      title: 'Errors and suspicious actions do not pass silently',
-      text: 'Changed bank details, an unknown signature, a repeated payment or an accounting mismatch require an additional check.',
+      title: 'Errors and unverified statuses remain visible',
+      text: 'When an external system has not confirmed an action or data does not match, the platform shows the problem and owner instead of a false “done” status.',
     },
     systemsLabel: 'Supported connection routes',
     systems: ['1C', '1C EDI', 'Diadoc', 'Saby'],
@@ -143,8 +143,8 @@ const copies = {
       text: '无需为每位员工重复配置，也不要求我们的团队必须上门。系统会根据机构现有会计与电子单据环境选择接入方式。',
     },
     protection: {
-      title: '错误和可疑操作不会被静默放行',
-      text: '收款信息变更、未知签名、重复付款或会计数据不一致都需要额外检查。',
+      title: '错误和未经确认的状态不会被隐藏',
+      text: '当外部系统尚未确认操作或数据不一致时，平台会显示问题和负责人，而不是给出虚假的“已完成”状态。',
     },
     systemsLabel: '预设接入路径',
     systems: ['1C', '1C 电子单据', 'Diadoc', 'Saby'],
