@@ -1390,6 +1390,382 @@ BEGIN
 END;
 $pc_crop_regulatory_rule_confinement_checks$;
 
+---------------------------------------------------------------------------
+-- Work tasks. The property under test is the one the dashboard rests on: a
+-- task the platform derived closes when its condition clears and not when
+-- somebody agrees with it. Here that is measured against the confined write
+-- principal, which is the principal an application actually runs as.
+---------------------------------------------------------------------------
+
+DO $pc_crop_work_task_checks$
+DECLARE
+  failures integer := 0;
+  measured text;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 68. A person may raise their own note, attributed to themselves.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_work_tasks"(
+      "id","tenantId","organizationId","taskType","origin","resolutionMode",
+      "title","humanDescription","responsibleCapability","createdByMembershipId"
+    ) VALUES (
+      'pc-wt-manual','tenant-a','org-a','CALL_BUYER','MANUAL','HUMAN_JUDGEMENT',
+      'Позвонить покупателю','Уточнить реквизиты','accounting.task.manage','m-a');
+    RAISE NOTICE 'PASS 68 a member raises their own task';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 68 a member raises their own task -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 69. A hand-written derived task is refused. A derived task is a claim
+  --     about the world, and this principal is not where such claims come
+  --     from: the deriver runs server-side against sources it can see.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_work_tasks"(
+      "id","tenantId","organizationId","taskType","origin","resolutionMode",
+      "derivationKey","openDerivationKey","title","humanDescription",
+      "responsibleCapability"
+    ) VALUES (
+      'pc-wt-forged','tenant-a','org-a','DOCUMENT_NOT_SIGNED','DERIVED',
+      'SYSTEM_VERIFIED','forged','forged','т','о','documents.sign');
+    RAISE WARNING 'FAIL 69 hand-written derived task refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 69 hand-written derived task refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 70. Attribution cannot be handed to somebody else. A principal that can
+  --     name another member as author can also blame one.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_work_tasks"(
+      "id","tenantId","organizationId","taskType","origin","resolutionMode",
+      "title","humanDescription","responsibleCapability","createdByMembershipId"
+    ) VALUES (
+      'pc-wt-blamed','tenant-a','org-a','CALL_BUYER','MANUAL','HUMAN_JUDGEMENT',
+      'т','о','accounting.task.manage','m-staff');
+    RAISE WARNING 'FAIL 70 forged task attribution refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 70 forged task attribution refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 71. Nothing reaches another organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_work_tasks"(
+      "id","tenantId","organizationId","taskType","origin","resolutionMode",
+      "title","humanDescription","responsibleCapability","createdByMembershipId"
+    ) VALUES (
+      'pc-wt-cross','tenant-b','org-b','CALL_BUYER','MANUAL','HUMAN_JUDGEMENT',
+      'т','о','accounting.task.manage','m-b');
+    RAISE WARNING 'FAIL 71 cross-organization task refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR foreign_key_violation THEN
+      RAISE NOTICE 'PASS 71 cross-organization task refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 72. What a task is about is not in the column grant. This measures the
+  --     grant rather than the guard: if the grant were widened, the guard
+  --     would still refuse and this check must still fail, which is why it
+  --     reports which layer answered.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_work_tasks"
+       SET "taskType" = 'PAYMENT_NOT_MATCHED', "version" = "version" + 1
+     WHERE "id" = 'pc-wt-manual';
+    RAISE WARNING 'FAIL 72 the subject of a task is not writable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 72 the subject of a task is not writable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 72 the subject of a task is not writable -> the column grant admitted the write and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 73. Working a task is permitted: status, owner, deadline.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_work_tasks"
+       SET "status" = 'IN_PROGRESS', "assignedMembershipId" = 'm-a',
+           "version" = "version" + 1
+     WHERE "id" = 'pc-wt-manual';
+    RAISE NOTICE 'PASS 73 a task can be taken up';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 73 a task can be taken up -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 74. Closing somebody else's name onto the record is refused: the row
+  --     records who acted, and that is the caller.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_work_tasks"
+       SET "status" = 'RESOLVED', "resolvedByMembershipId" = 'm-staff',
+           "version" = "version" + 1
+     WHERE "id" = 'pc-wt-manual';
+    RAISE WARNING 'FAIL 74 a task closure names the caller -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 74 a task closure names the caller';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 75. A task is never deleted. One that was raised and then removed is
+  --     indistinguishable from one that was never raised, which is exactly
+  --     what a record of outstanding work must not be.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."accounting_work_tasks" WHERE "id" = 'pc-wt-manual';
+    RAISE WARNING 'FAIL 75 a work task cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 75 a work task cannot be deleted';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop work tasks: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: work task confinement, 0 failures';
+END;
+$pc_crop_work_task_checks$;
+
+RESET ROLE;
+SET ROLE pc_accounting_authority;
+
+DO $pc_crop_work_task_read_checks$
+DECLARE
+  failures integer := 0;
+  measured text;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 76. A member reads their organization's tasks.
+  ---------------------------------------------------------------------------
+  measured := (SELECT count(*)::text FROM public."accounting_work_tasks");
+  IF measured = '1' THEN
+    RAISE NOTICE 'PASS 76 a member reads its own tasks -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL 76 a member reads its own tasks -> % (want 1)', measured;
+    failures := failures + 1;
+  END IF;
+
+  ---------------------------------------------------------------------------
+  -- 77. Claiming another organization yields nothing. The setting is
+  --     forgeable by this principal; the membership behind it is not.
+  ---------------------------------------------------------------------------
+  PERFORM set_config('app.current_org_id', 'org-b', true),
+          set_config('app.current_tenant_id', 'tenant-b', true);
+  measured := (SELECT count(*)::text FROM public."accounting_work_tasks");
+  IF measured = '0' THEN
+    RAISE NOTICE 'PASS 77 a forged organization reads no tasks -> %', measured;
+  ELSE
+    RAISE WARNING 'FAIL 77 a forged organization reads no tasks -> % (want 0)', measured;
+    failures := failures + 1;
+  END IF;
+  PERFORM set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 78. The read principal writes nothing, including the status that would
+  --     make a task disappear from somebody's list.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_work_tasks"
+       SET "status" = 'RESOLVED', "version" = "version" + 1
+     WHERE "id" = 'pc-wt-manual';
+    RAISE WARNING 'FAIL 78 the read principal cannot close a task -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 78 the read principal cannot close a task';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop work task reads: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: work task reads, 0 failures';
+END;
+$pc_crop_work_task_read_checks$;
+
+RESET ROLE;
+SET ROLE pc_accounting_command_authority;
+
+---------------------------------------------------------------------------
+-- Accounting periods. The platform is not the ledger, so what a close freezes
+-- is exactly the document set the platform is authority for. These measure
+-- that the confined principal can run a close and cannot re-cut one.
+---------------------------------------------------------------------------
+
+DO $pc_crop_accounting_period_checks$
+DECLARE
+  failures integer := 0;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 79. A member opens a period for their own organization, attributed to
+  --     themselves.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_periods"(
+      "id","tenantId","organizationId","periodStart","periodEnd",
+      "openedByMembershipId"
+    ) VALUES (
+      'pc-per-a','tenant-a','org-a','2026-01-01T00:00:00Z',
+      '2026-02-01T00:00:00Z','m-a');
+    RAISE NOTICE 'PASS 79 a member opens a period';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 79 a member opens a period -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 80. Attribution cannot be handed to somebody else.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_periods"(
+      "id","tenantId","organizationId","periodStart","periodEnd",
+      "openedByMembershipId"
+    ) VALUES (
+      'pc-per-forged','tenant-a','org-a','2026-03-01T00:00:00Z',
+      '2026-04-01T00:00:00Z','m-staff');
+    RAISE WARNING 'FAIL 80 forged period attribution refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 80 forged period attribution refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 81. The window is not in the column grant. This measures the grant, not
+  --     the guard: if the grant were widened the guard would still refuse, and
+  --     the check must report that rather than pass.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_periods"
+       SET "periodEnd" = '2026-01-15T00:00:00Z', "version" = "version" + 1
+     WHERE "id" = 'pc-per-a';
+    RAISE WARNING 'FAIL 81 a period window is not writable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 81 a period window is not writable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 81 a period window is not writable -> the column grant admitted the write and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 82. Running a close is permitted, and the database stamps the time.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_periods"
+       SET "status" = 'CLOSING', "version" = "version" + 1
+     WHERE "id" = 'pc-per-a';
+    UPDATE public."accounting_periods"
+       SET "status" = 'CLOSED', "closedByMembershipId" = 'm-a',
+           "version" = "version" + 1
+     WHERE "id" = 'pc-per-a';
+    IF (SELECT "closedAt" FROM public."accounting_periods" WHERE "id" = 'pc-per-a')
+       IS NULL THEN
+      RAISE WARNING 'FAIL 82 a close is stamped by the database -> closedAt is null';
+      failures := failures + 1;
+    ELSE
+      RAISE NOTICE 'PASS 82 a period closes and the database stamps the time';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 82 a period closes -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 83. A closed period is not selected for update by this principal at all,
+  --     so reopening never reaches the guard.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_periods"
+       SET "status" = 'OPEN', "version" = "version" + 1
+     WHERE "id" = 'pc-per-a';
+    IF (SELECT "status" FROM public."accounting_periods" WHERE "id" = 'pc-per-a')
+       = 'CLOSED' THEN
+      RAISE NOTICE 'PASS 83 a closed period is unreachable for update';
+    ELSE
+      RAISE WARNING 'FAIL 83 a closed period is unreachable for update -> it moved';
+      failures := failures + 1;
+    END IF;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 83 a closed period is unreachable for update -> the row policy admitted it and only the guard stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 84. A period is never deleted: the documents inside it would become
+  --     unattributable to any close.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."accounting_periods" WHERE "id" = 'pc-per-a';
+    RAISE WARNING 'FAIL 84 a period cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 84 a period cannot be deleted';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 85. And none of it reaches another organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_periods"(
+      "id","tenantId","organizationId","periodStart","periodEnd",
+      "openedByMembershipId"
+    ) VALUES (
+      'pc-per-cross','tenant-b','org-b','2026-05-01T00:00:00Z',
+      '2026-06-01T00:00:00Z','m-b');
+    RAISE WARNING 'FAIL 85 cross-organization period refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation OR foreign_key_violation THEN
+      RAISE NOTICE 'PASS 85 cross-organization period refused';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop accounting periods: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: period close, 0 failures';
+END;
+$pc_crop_accounting_period_checks$;
+
 RESET ROLE;
 
 ROLLBACK;
