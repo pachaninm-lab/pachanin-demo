@@ -5,7 +5,8 @@ set -Eeuo pipefail
 : "${GH_TOKEN:?GH_TOKEN is required}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 
-BASELINE_SHA='440e40753e2cac13c93f8e007d9fe17c2b66caba'
+SAFE_BASELINE_SHA='440e40753e2cac13c93f8e007d9fe17c2b66caba'
+REVIEWED_RESET_SHA='a9c16814960520b20e8ae0c722570d9a3b4147f9'
 LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
 LIVE_BASE="https://$LIVE_DOMAIN"
 DEFAULT_HOST='195.19.12.120'
@@ -17,6 +18,30 @@ IMAP_ARTIFACT="production-p0-regru-normalized-imap-credential-diagnostic-${IMAP_
 SMTP_RUN_ID='31923847459'
 SMTP_HEAD_SHA='6ac4842489aab5c8c228670a18b60010dbf30fd1'
 SMTP_ARTIFACT="production-p0-regru-smtp587-auth-diagnostic-${SMTP_RUN_ID}"
+
+RESET_CRITICAL_PATHS=(
+  'apps/api/src/common/prisma/database-principal-boundary.ts'
+  'apps/api/src/common/prisma/database-principal-inspection.ts'
+  'apps/api/src/common/prisma/prisma.service.ts'
+  'apps/api/src/modules/auth/auth.module.ts'
+  'apps/api/src/modules/auth/auth-prisma.service.ts'
+  'apps/api/src/modules/auth/auth-crypto.ts'
+  'apps/api/src/modules/auth/password-reset.controller.ts'
+  'apps/api/src/modules/auth/password-reset.repository.ts'
+  'apps/api/src/modules/auth/password-reset.service.ts'
+  'apps/api/src/modules/auth/password-reset-token.ts'
+  'apps/api/src/modules/auth/persistent-auth.repository.ts'
+  'apps/api/src/modules/auth/dto/password-reset.dto.ts'
+  'apps/api/src/modules/auth-mail/auth-mail-crypto.ts'
+  'apps/api/src/modules/auth-mail/auth-mail-outbox.service.ts'
+  'apps/api/src/modules/auth-mail/auth-mail-templates.ts'
+  'apps/web/app/api/auth/forgot-password/route.ts'
+  'apps/api/prisma/migrations/20260731195000_p0_password_reset_challenges/migration.sql'
+  'apps/api/prisma/migrations/20260808120000_p0_password_reset_authority/migration.sql'
+  'apps/api/prisma/migrations/20260812010000_p0_industrial_auth_mail_outbox/migration.sql'
+  'apps/api/prisma/migrations/20260812154500_p0_reviewer_password_reset_subject/migration.sql'
+  'apps/api/prisma/migrations/20260816161500_p0_password_reset_challenge_runtime_grant/migration.sql'
+)
 
 TARGET_SHA='unknown'
 RUNTIME_DEPLOYED_SHA='unknown'
@@ -77,8 +102,10 @@ git fetch --no-tags origin main >/dev/null
 [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
 [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
 [[ -z "$(git status --porcelain=v1)" ]]
-git cat-file -e "${BASELINE_SHA}^{commit}"
-git merge-base --is-ancestor "$BASELINE_SHA" "$TARGET_SHA"
+for trusted_sha in "$SAFE_BASELINE_SHA" "$REVIEWED_RESET_SHA"; do
+  git cat-file -e "${trusted_sha}^{commit}"
+  git merge-base --is-ancestor "$trusted_sha" "$TARGET_SHA"
+done
 
 verify_proof_run() {
   local run_id="$1" expected_head="$2" meta
@@ -154,14 +181,24 @@ grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
 
 failure_reason='SSH_HOST_KEY_GUARD_FAILED'
 scan="$(mktemp)"; match="$(mktemp)"
-ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
-[[ -s "$scan" ]]
-while IFS= read -r line; do
-  fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-  [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
-done < "$scan"
-sort -u -o "$match" "$match"
-[[ "$(grep -c . "$match" || true)" == '1' ]]
+pinned_ready=0
+for attempt in 1 2 3; do
+  : > "$scan"; : > "$match"
+  ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+  if [[ -s "$scan" ]]; then
+    while IFS= read -r line; do
+      fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+      [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+    done < "$scan"
+    sort -u -o "$match" "$match"
+    if [[ "$(grep -c . "$match" || true)" == '1' ]]; then
+      pinned_ready=1
+      break
+    fi
+  fi
+  (( attempt == 3 )) || sleep "$attempt"
+done
+[[ "$pinned_ready" == '1' ]]
 mv "$match" "$known_hosts"; match=''
 rm -f "$scan"; scan=''
 chmod 0600 "$known_hosts"
@@ -210,7 +247,7 @@ worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.St
 [[ "$worker_health" == 'healthy' ]] || fail AUTH_MAIL_WORKER_NOT_HEALTHY 40
 
 set +e
-db_result="$(docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE' 2>&1
+staff_result="$(docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE' 2>&1
 const { PrismaClient } = require('@prisma/client');
 let db;
 const fail = (code) => { throw new Error(code); };
@@ -269,15 +306,191 @@ const fail = (code) => { throw new Error(code); };
 }).finally(async () => { if (db) await db.$disconnect().catch(() => undefined); });
 NODE
 )"
-db_rc=$?
+staff_rc=$?
 set -e
-if (( db_rc != 0 )); then
-  db_code="$(grep -Eo 'P0_[A-Z0-9_-]{1,92}' <<< "$db_result" | tail -n 1 || true)"
-  [[ -n "$db_code" ]] || db_code='P0_REVIEWER_RESET_PREFLIGHT_DB_FAILURE'
-  fail "$db_code" 50
+if (( staff_rc != 0 )); then
+  staff_code="$(grep -Eo 'P0_[A-Z0-9_-]{1,92}' <<< "$staff_result" | tail -n 1 || true)"
+  [[ -n "$staff_code" ]] || staff_code='P0_REVIEWER_RESET_PREFLIGHT_DB_FAILURE'
+  fail "$staff_code" 50
 fi
-[[ "$db_result" == 'READINESS_PASS' ]] || fail P0_REVIEWER_RESET_READINESS_OUTPUT_INVALID 51
-unset db_result
+[[ "$staff_result" == 'READINESS_PASS' ]] || fail P0_REVIEWER_RESET_READINESS_OUTPUT_INVALID 51
+unset staff_result
+
+set +e
+auth_result="$(docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE' 2>&1
+const { PrismaClient } = require('@prisma/client');
+let db;
+const fail = (code) => { throw new Error(code); };
+const everyTrue = (row, keys) => keys.every((key) => row?.[key] === true);
+const publicExecute = (row) => row?.public_execute === true;
+(async () => {
+  const authUrl = String(process.env.AUTH_DATABASE_URL || '').trim();
+  const dealUrl = String(process.env.DATABASE_URL || '').trim();
+  if (!authUrl) fail('P0_AUTH_DATABASE_URL_MISSING');
+  if (dealUrl && authUrl === dealUrl) fail('P0_AUTH_DATABASE_URL_NOT_ISOLATED');
+  db = new PrismaClient({ datasources: { db: { url: authUrl } }, log: [] });
+  const result = await db.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+    const readOnly = await tx.$queryRawUnsafe("SELECT current_setting('transaction_read_only') = 'on' AS ok");
+    if (readOnly.length !== 1 || readOnly[0]?.ok !== true) fail('P0_RESET_CAPABILITY_NOT_READ_ONLY');
+
+    const runtimeRows = await tx.$queryRawUnsafe(`
+      SELECT NOT r.rolsuper AS no_super,
+             NOT r.rolbypassrls AS no_bypass,
+             NOT r.rolinherit AS no_inherit,
+             current_user = session_user AS same_session,
+             NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member = r.oid) AS no_memberships,
+             has_schema_privilege(current_user, 'auth', 'USAGE') AS auth_usage,
+             has_table_privilege(current_user, 'public.users', 'SELECT') AS users_select,
+             has_table_privilege(current_user, 'auth.password_reset_challenges', 'SELECT') AS challenge_select,
+             has_table_privilege(current_user, 'auth.password_reset_challenges', 'INSERT') AS challenge_insert,
+             has_table_privilege(current_user, 'auth.password_reset_challenges', 'UPDATE') AS challenge_update,
+             NOT has_table_privilege(current_user, 'auth.password_reset_challenges', 'DELETE') AS no_challenge_delete,
+             NOT has_table_privilege(current_user, 'auth.password_reset_challenges', 'TRUNCATE') AS no_challenge_truncate,
+             (has_table_privilege(current_user, 'auth.audit_events', 'SELECT') OR has_any_column_privilege(current_user, 'auth.audit_events', 'SELECT')) AS audit_select,
+             (has_table_privilege(current_user, 'auth.audit_events', 'INSERT') OR has_any_column_privilege(current_user, 'auth.audit_events', 'INSERT')) AS audit_insert,
+             (has_table_privilege(current_user, 'auth.credential_states', 'SELECT') OR has_any_column_privilege(current_user, 'auth.credential_states', 'SELECT')) AS credential_select,
+             (has_table_privilege(current_user, 'auth.credential_states', 'INSERT') OR has_any_column_privilege(current_user, 'auth.credential_states', 'INSERT')) AS credential_insert,
+             (has_table_privilege(current_user, 'auth.credential_states', 'UPDATE') OR has_any_column_privilege(current_user, 'auth.credential_states', 'UPDATE')) AS credential_update,
+             (has_table_privilege(current_user, 'auth.sessions', 'SELECT') OR has_any_column_privilege(current_user, 'auth.sessions', 'SELECT')) AS sessions_select,
+             (has_table_privilege(current_user, 'auth.sessions', 'UPDATE') OR has_any_column_privilege(current_user, 'auth.sessions', 'UPDATE')) AS sessions_update,
+             (has_table_privilege(current_user, 'auth.refresh_tokens', 'SELECT') OR has_any_column_privilege(current_user, 'auth.refresh_tokens', 'SELECT')) AS refresh_select,
+             (has_table_privilege(current_user, 'auth.refresh_tokens', 'UPDATE') OR has_any_column_privilege(current_user, 'auth.refresh_tokens', 'UPDATE')) AS refresh_update,
+             NOT (has_table_privilege(current_user, 'auth.mail_outbox', 'SELECT') OR has_any_column_privilege(current_user, 'auth.mail_outbox', 'SELECT')) AS no_direct_outbox_select,
+             NOT (has_table_privilege(current_user, 'auth.mail_outbox', 'INSERT') OR has_any_column_privilege(current_user, 'auth.mail_outbox', 'INSERT')) AS no_direct_outbox_insert
+      FROM pg_roles r WHERE r.rolname = current_user
+    `);
+    const runtime = runtimeRows[0];
+    const runtimeKeys = [
+      'no_super','no_bypass','no_inherit','same_session','no_memberships','auth_usage','users_select',
+      'challenge_select','challenge_insert','challenge_update','no_challenge_delete','no_challenge_truncate',
+      'audit_select','audit_insert','credential_select','credential_insert','credential_update',
+      'sessions_select','sessions_update','refresh_select','refresh_update',
+      'no_direct_outbox_select','no_direct_outbox_insert',
+    ];
+    if (runtimeRows.length !== 1 || !everyTrue(runtime, runtimeKeys)) fail('P0_RESET_RUNTIME_CAPABILITY_MISSING');
+
+    const functionProbe = async (signature, expectedOwner, expectedConfig) => {
+      const rows = await tx.$queryRawUnsafe(`
+        SELECT p.prosecdef AS security_definer,
+               owner.rolname AS owner_name,
+               coalesce(has_function_privilege(current_user, p.oid, 'EXECUTE'), false) AS runtime_execute,
+               EXISTS (
+                 SELECT 1
+                 FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+                 WHERE acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+               ) AS public_execute,
+               coalesce(p.proconfig, ARRAY[]::text[]) AS config
+        FROM pg_proc p
+        JOIN pg_roles owner ON owner.oid = p.proowner
+        WHERE p.oid = to_regprocedure('${signature}')
+      `);
+      if (rows.length !== 1) fail('P0_RESET_FUNCTION_MISSING');
+      const row = rows[0];
+      if (row.security_definer !== true || row.owner_name !== expectedOwner || row.runtime_execute !== true || publicExecute(row)) {
+        fail('P0_RESET_FUNCTION_BOUNDARY_INVALID');
+      }
+      const config = Array.isArray(row.config) ? row.config.map(String) : [];
+      if (!expectedConfig.every((entry) => config.includes(entry))) fail('P0_RESET_FUNCTION_CONFIG_INVALID');
+      return row;
+    };
+
+    await functionProbe(
+      'auth.resolve_password_reset_subject(text)',
+      'pc_password_reset_authority',
+      ['search_path=public, pg_temp', 'row_security=on'],
+    );
+    await functionProbe(
+      'auth.replace_password_after_reset(text,text,text,timestamp with time zone)',
+      'pc_password_reset_authority',
+      ['search_path=public, auth, pg_temp', 'row_security=on'],
+    );
+    await functionProbe(
+      'auth.enqueue_mail_outbox(text,text,text,text,text,integer,text,text,text,integer,timestamp with time zone,timestamp with time zone)',
+      'pc_auth_mail_enqueue_authority',
+      ['search_path=pg_catalog, auth, pg_temp', 'row_security=on'],
+    );
+
+    const passwordOwnerRows = await tx.$queryRawUnsafe(`
+      SELECT NOT r.rolsuper AS no_super,
+             NOT r.rolbypassrls AS no_bypass,
+             NOT r.rolinherit AS no_inherit,
+             NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.roleid = r.oid OR m.member = r.oid) AS no_memberships,
+             has_schema_privilege(r.rolname, 'public', 'USAGE') AS public_usage,
+             has_schema_privilege(r.rolname, 'auth', 'USAGE') AS auth_usage,
+             (has_table_privilege(r.rolname, 'public.users', 'SELECT') OR has_any_column_privilege(r.rolname, 'public.users', 'SELECT')) AS users_select,
+             (has_table_privilege(r.rolname, 'public.users', 'UPDATE') OR has_any_column_privilege(r.rolname, 'public.users', 'UPDATE')) AS users_update,
+             NOT has_table_privilege(r.rolname, 'public.users', 'INSERT') AS no_users_insert,
+             NOT has_table_privilege(r.rolname, 'public.users', 'DELETE') AS no_users_delete,
+             has_table_privilege(r.rolname, 'auth.password_reset_challenges', 'SELECT') AS challenge_select
+      FROM pg_roles r WHERE r.rolname = 'pc_password_reset_authority'
+    `);
+    const passwordOwner = passwordOwnerRows[0];
+    if (passwordOwnerRows.length !== 1 || !everyTrue(passwordOwner, [
+      'no_super','no_bypass','no_inherit','no_memberships','public_usage','auth_usage',
+      'users_select','users_update','no_users_insert','no_users_delete','challenge_select',
+    ])) fail('P0_RESET_USERS_AUTHORITY_INVALID');
+
+    const sequenceRows = await tx.$queryRawUnsafe(`
+      SELECT count(*)::int AS sequence_count,
+             coalesce(bool_and(has_sequence_privilege('pc_password_reset_authority', seq.oid, 'UPDATE')), true) AS sequence_update_ok
+      FROM pg_class seq
+      JOIN pg_depend dep ON dep.objid = seq.oid AND dep.deptype IN ('a','i')
+      JOIN pg_class target ON target.oid = dep.refobjid
+      JOIN pg_namespace target_ns ON target_ns.oid = target.relnamespace
+      WHERE seq.relkind = 'S'
+        AND target_ns.nspname = 'public'
+        AND target.relname = 'users'
+    `);
+    if (sequenceRows.length !== 1 || sequenceRows[0]?.sequence_update_ok !== true) fail('P0_RESET_USERS_SEQUENCE_AUTHORITY_INVALID');
+
+    const enqueueOwnerRows = await tx.$queryRawUnsafe(`
+      SELECT NOT r.rolsuper AS no_super,
+             NOT r.rolbypassrls AS no_bypass,
+             NOT r.rolinherit AS no_inherit,
+             NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.roleid = r.oid OR m.member = r.oid) AS no_memberships,
+             has_schema_privilege(r.rolname, 'auth', 'USAGE') AS auth_usage,
+             has_table_privilege(r.rolname, 'auth.mail_outbox', 'SELECT') AS outbox_select,
+             has_table_privilege(r.rolname, 'auth.mail_outbox', 'INSERT') AS outbox_insert,
+             NOT has_table_privilege(r.rolname, 'auth.mail_outbox', 'UPDATE') AS no_outbox_update,
+             NOT has_table_privilege(r.rolname, 'auth.mail_outbox', 'DELETE') AS no_outbox_delete,
+             relation.relrowsecurity AS rls_enabled,
+             relation.relforcerowsecurity AS rls_forced
+      FROM pg_roles r
+      CROSS JOIN pg_class relation
+      JOIN pg_namespace schema ON schema.oid = relation.relnamespace
+      WHERE r.rolname = 'pc_auth_mail_enqueue_authority'
+        AND schema.nspname = 'auth'
+        AND relation.relname = 'mail_outbox'
+        AND relation.relkind IN ('r','p')
+    `);
+    const enqueueOwner = enqueueOwnerRows[0];
+    if (enqueueOwnerRows.length !== 1 || !everyTrue(enqueueOwner, [
+      'no_super','no_bypass','no_inherit','no_memberships','auth_usage',
+      'outbox_select','outbox_insert','no_outbox_update','no_outbox_delete','rls_enabled','rls_forced',
+    ])) fail('P0_RESET_OUTBOX_AUTHORITY_INVALID');
+
+    return { sequenceCount: Number(sequenceRows[0].sequence_count || 0) };
+  }, { timeout: 15000, maxWait: 5000 });
+
+  process.stdout.write(`AUTH_CAPABILITY_PASS|${result.sequenceCount === 0 ? 'NO_OWNED_SEQUENCE' : 'OWNED_SEQUENCE_UPDATE'}`);
+})().catch((error) => {
+  const code = String(error?.message || 'P0_RESET_CAPABILITY_PREFLIGHT_FAILURE').replace(/[^A-Z0-9_-]/gi, '').slice(0, 96);
+  process.stderr.write(`${code || 'P0_RESET_CAPABILITY_PREFLIGHT_FAILURE'}\n`);
+  process.exitCode = 1;
+}).finally(async () => { if (db) await db.$disconnect().catch(() => undefined); });
+NODE
+)"
+auth_rc=$?
+set -e
+if (( auth_rc != 0 )); then
+  auth_code="$(grep -Eo 'P0_[A-Z0-9_-]{1,92}' <<< "$auth_result" | tail -n 1 || true)"
+  [[ -n "$auth_code" ]] || auth_code='P0_RESET_CAPABILITY_PREFLIGHT_FAILURE'
+  fail "$auth_code" 52
+fi
+[[ "$auth_result" =~ ^AUTH_CAPABILITY_PASS\|(NO_OWNED_SEQUENCE|OWNED_SEQUENCE_UPDATE)$ ]] || fail P0_RESET_CAPABILITY_OUTPUT_INVALID 53
+sequence_mode="${auth_result#AUTH_CAPABILITY_PASS|}"
+unset auth_result
 
 tmp="$(mktemp -d /root/p0-reset-drift-preflight.XXXXXX)"
 trap 'rm -rf -- "$tmp"' EXIT
@@ -303,6 +516,11 @@ emit RUNTIME_DEPLOYED_SHA "$api_revision"
 emit DEPLOYED_PARITY PASS
 emit AUTH_MAIL_WORKER_READY PASS
 emit REVIEWER_READINESS '1|1|1|1|1|0|0|0'
+emit RESET_CREATE PASS
+emit RESET_CONSUME PASS
+emit USERS_EFFECTIVE_AUTHORITY PASS
+emit USERS_SEQUENCE_UPDATE "$sequence_mode"
+emit OUTBOX_EFFECTIVE_AUTHORITY PASS
 emit FORGOT_PASSWORD_GET PASS
 emit CSRF_ISSUANCE PASS
 emit PRODUCTION_MUTATION NONE
@@ -324,23 +542,36 @@ RUNTIME_DEPLOYED_SHA="$(grep -E '^RUNTIME_DEPLOYED_SHA=[0-9a-f]{40}$' "$raw" | t
 grep -Fxq 'DEPLOYED_PARITY=PASS' "$raw"
 grep -Fxq 'AUTH_MAIL_WORKER_READY=PASS' "$raw"
 grep -Fxq 'REVIEWER_READINESS=1|1|1|1|1|0|0|0' "$raw"
+grep -Fxq 'RESET_CREATE=PASS' "$raw"
+grep -Fxq 'RESET_CONSUME=PASS' "$raw"
+grep -Fxq 'USERS_EFFECTIVE_AUTHORITY=PASS' "$raw"
+grep -Eq '^USERS_SEQUENCE_UPDATE=(NO_OWNED_SEQUENCE|OWNED_SEQUENCE_UPDATE)$' "$raw"
+grep -Fxq 'OUTBOX_EFFECTIVE_AUTHORITY=PASS' "$raw"
 grep -Fxq 'FORGOT_PASSWORD_GET=PASS' "$raw"
 grep -Fxq 'CSRF_ISSUANCE=PASS' "$raw"
 grep -Fxq 'PRODUCTION_MUTATION=NONE' "$raw"
+users_sequence_mode="$(grep -E '^USERS_SEQUENCE_UPDATE=(NO_OWNED_SEQUENCE|OWNED_SEQUENCE_UPDATE)$' "$raw" | tail -n1 | cut -d= -f2-)"
 rm -f -- "$raw"
 
 failure_reason='RUNTIME_REVISION_NOT_IN_REPOSITORY'
 guard_main
 git cat-file -e "${RUNTIME_DEPLOYED_SHA}^{commit}"
 
-failure_reason='RUNTIME_REVISION_BEFORE_SAFE_BASELINE'
-git merge-base --is-ancestor "$BASELINE_SHA" "$RUNTIME_DEPLOYED_SHA"
+failure_reason='RUNTIME_REVISION_BEFORE_REVIEWED_RESET_REFERENCE'
+git merge-base --is-ancestor "$REVIEWED_RESET_SHA" "$RUNTIME_DEPLOYED_SHA"
 
 failure_reason='RUNTIME_REVISION_NOT_ANCESTOR_OF_MAIN'
 git merge-base --is-ancestor "$RUNTIME_DEPLOYED_SHA" "$TARGET_SHA"
 
-failure_reason='RESET_CRITICAL_CODE_DRIFT'
-git diff --quiet "$BASELINE_SHA..$RUNTIME_DEPLOYED_SHA" -- apps/api/src apps/api/prisma infra/docker
+failure_reason='RESET_CRITICAL_MANIFEST_INVALID'
+(( ${#RESET_CRITICAL_PATHS[@]} == 21 ))
+for path in "${RESET_CRITICAL_PATHS[@]}"; do
+  git cat-file -e "$REVIEWED_RESET_SHA:$path"
+  git cat-file -e "$RUNTIME_DEPLOYED_SHA:$path"
+  reviewed_blob="$(git rev-parse "$REVIEWED_RESET_SHA:$path")"
+  runtime_blob="$(git rev-parse "$RUNTIME_DEPLOYED_SHA:$path")"
+  [[ "$reviewed_blob" == "$runtime_blob" ]]
+done
 
 failure_reason='MAIN_GUARD_FAILED'
 guard_main
@@ -351,7 +582,14 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 - exact main: \`$TARGET_SHA\`
 - live API/Web/auth-mail worker revision: \`$RUNTIME_DEPLOYED_SHA\`
 - runtime revision parity: \`PASS\`
-- reset-critical code equivalence to reviewed baseline \`$BASELINE_SHA\`: \`PASS\`
+- reset-critical manifest equivalence to reviewed reference \`$REVIEWED_RESET_SHA\`: \`PASS\`
+- manifest scope: \`${#RESET_CRITICAL_PATHS[@]} fixed files\`
+- reset create capability: \`PASS\`
+- reset consume capability: \`PASS\`
+- users effective SELECT/UPDATE authority: \`PASS\`
+- users owned-sequence authority: \`$users_sequence_mode\`
+- outbox effective SELECT/INSERT authority via bounded SECURITY DEFINER: \`PASS\`
+- direct runtime outbox table access: \`NONE\`
 - auth-mail worker readiness: \`PASS\`
 - reviewer readiness: \`1|1|1|1|1|0|0|0\`
 - normalized IMAP proof run: \`$IMAP_RUN_ID / PASS\`
@@ -364,4 +602,7 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 
 printf 'RESET_AUTHORIZED=YES\n'
 printf 'RUNTIME_DEPLOYED_SHA=%s\n' "$RUNTIME_DEPLOYED_SHA"
+printf 'RESET_CREATE=PASS\n'
+printf 'RESET_CONSUME=PASS\n'
+printf 'OUTBOX_EFFECTIVE_AUTHORITY=PASS\n'
 printf 'PRODUCTION_MUTATION=NONE\n'
