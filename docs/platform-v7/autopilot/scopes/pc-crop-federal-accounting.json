@@ -60,7 +60,8 @@
     "apps/web/tests/unit/platformV7DealAccounting.test.tsx",
     "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
     "apps/web/tests/unit/platformV7AccountingMobileContract.test.ts",
-    "apps/web/tests/unit/platformV7AccountingBffBoundary.test.ts"
+    "apps/web/tests/unit/platformV7AccountingBffBoundary.test.ts",
+    "apps/api/prisma/migrations/20260817120000_pc_crop_accounting_advances"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",

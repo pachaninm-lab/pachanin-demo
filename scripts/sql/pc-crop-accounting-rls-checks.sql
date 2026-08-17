@@ -36,6 +36,28 @@ INSERT INTO public."user_orgs"(
 ) VALUES
   ('pc-m-b2','pc-user-b2','org-b','FARMER',false,now());
 
+-- A deal and the confirmed transfer an advance is recorded against. Seeded here
+-- rather than in the harness so the identity checks keep the fixture set they
+-- were written against, and confirmed on purpose: the guard refuses an advance
+-- whose evidence is still pending, and a fixture that could not show that would
+-- make the check vacuous.
+INSERT INTO public."deals"(
+  "id","tenantId","sellerOrgId","buyerOrgId","status","currency","dealNumber",
+  "totalKopecks","pricePerTonDec","culture","cropClass","gost",
+  "createdAt","updatedAt"
+) VALUES
+  ('pc-deal-adv','tenant-a','org-b','org-a','SIGNED','RUB','PC-ADV-1',
+   100000,5000.000000,'Пшеница','3','ГОСТ 9353-2016',now(),now());
+
+INSERT INTO public."bank_operations"(
+  "id","dealId","type","status","amountKopecks","currency","debitAccount",
+  "creditAccount","idempotencyKey","createdAt","updatedAt"
+) VALUES
+  ('pc-op-adv','pc-deal-adv','ADVANCE_IN','CONFIRMED',100000,'RUB','buyer',
+   'escrow','pc-op-adv-key',now(),now()),
+  ('pc-op-pending','pc-deal-adv','ADVANCE_IN','PENDING',100000,'RUB','buyer',
+   'escrow','pc-op-pending-key',now(),now());
+
 -- Every authority names three different memberships. The database refuses any
 -- other shape, which is the point of the two-person rule and the reason these
 -- fixtures cannot be written the lazy way.
@@ -1765,6 +1787,206 @@ BEGIN
   RAISE NOTICE 'pc-crop accounting contour: period close, 0 failures';
 END;
 $pc_crop_accounting_period_checks$;
+
+RESET ROLE;
+
+RESET ROLE;
+SET ROLE pc_accounting_command_authority;
+
+---------------------------------------------------------------------------
+-- Advances. The remaining balance of an advance is the sum of its offsets and
+-- nothing else, so what matters here is that the confined principal can add
+-- offsets and cannot edit or remove one — and that neither the grant nor the
+-- policy lets it attribute an offset to somebody else or reach another
+-- organization's advance.
+---------------------------------------------------------------------------
+
+DO $pc_crop_advance_checks$
+DECLARE
+  failures integer := 0;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 86. A member records an advance against confirmed money, attributed to
+  --     themselves.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_advances"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId",
+      "amountKopecks","currency","receivedAt","bankOperationId",
+      "recordedByMembershipId"
+    ) VALUES (
+      'pc-adv-a','tenant-a','org-a','pc-deal-adv','org-b',100000,'RUB',
+      '2026-03-10T00:00:00Z','pc-op-adv','m-a');
+    RAISE NOTICE 'PASS 86 a member records an advance';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 86 a member records an advance -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 87. Attributing the record to another membership is refused by the policy,
+  --     not merely discouraged.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_advances"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId",
+      "amountKopecks","currency","receivedAt","bankOperationId",
+      "recordedByMembershipId"
+    ) VALUES (
+      'pc-adv-forged','tenant-a','org-a','pc-deal-adv','org-b',100000,'RUB',
+      '2026-03-10T00:00:00Z','pc-op-adv','m-staff');
+    RAISE WARNING 'FAIL 87 forged advance attribution refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 87 forged advance attribution refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 88. Evidence that has not been confirmed buys nothing.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_advances"(
+      "id","tenantId","organizationId","dealId","counterpartyOrgId",
+      "amountKopecks","currency","receivedAt","bankOperationId",
+      "recordedByMembershipId"
+    ) VALUES (
+      'pc-adv-pending','tenant-a','org-a','pc-deal-adv','org-b',100000,'RUB',
+      '2026-03-11T00:00:00Z','pc-op-pending','m-a');
+    RAISE WARNING 'FAIL 88 unconfirmed evidence refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 88 unconfirmed evidence refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 89. Offsets accumulate while they fit.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_advance_offsets"(
+      "id","tenantId","organizationId","advanceId","amountKopecks","appliedAt",
+      "reason","idempotencyKey","appliedByMembershipId"
+    ) VALUES (
+      'pc-advoff-a','tenant-a','org-a','pc-adv-a',60000,
+      '2026-03-20T00:00:00Z','against delivery','pc-advoff-a-key','m-a');
+    RAISE NOTICE 'PASS 89 an offset within the advance is accepted';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 89 an offset within the advance -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 90. And stop exactly at what arrived.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_advance_offsets"(
+      "id","tenantId","organizationId","advanceId","amountKopecks","appliedAt",
+      "reason","idempotencyKey","appliedByMembershipId"
+    ) VALUES (
+      'pc-advoff-over','tenant-a','org-a','pc-adv-a',50000,
+      '2026-03-21T00:00:00Z','over','pc-advoff-over-key','m-a');
+    RAISE WARNING 'FAIL 90 an offset past the advance refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE NOTICE 'PASS 90 an offset past the advance refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 91. An offset is not editable, at the privilege level.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."accounting_advance_offsets"
+       SET "amountKopecks" = 1 WHERE "id" = 'pc-advoff-a';
+    RAISE WARNING 'FAIL 91 an offset is not editable -> update succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 91 an offset is not editable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 91 an offset is not editable -> the grant admitted the write and only the trigger stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 92. Nor removable.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."accounting_advance_offsets" WHERE "id" = 'pc-advoff-a';
+    RAISE WARNING 'FAIL 92 an offset is not removable -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 92 an offset is not removable';
+    WHEN raise_exception THEN
+      RAISE WARNING
+        'FAIL 92 an offset is not removable -> the grant admitted the delete and only the trigger stopped it (%)',
+        SQLERRM;
+      failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 93. Forged offset attribution refused.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."accounting_advance_offsets"(
+      "id","tenantId","organizationId","advanceId","amountKopecks","appliedAt",
+      "reason","idempotencyKey","appliedByMembershipId"
+    ) VALUES (
+      'pc-advoff-forged','tenant-a','org-a','pc-adv-a',1,
+      '2026-03-22T00:00:00Z','forged','pc-advoff-forged-key','m-staff');
+    RAISE WARNING 'FAIL 93 forged offset attribution refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege OR check_violation THEN
+      RAISE NOTICE 'PASS 93 forged offset attribution refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 94. Claiming another organization's context buys nothing. The principal can
+  --     set app.current_org_id itself, which is exactly why this is measured.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('app.current_org_id', 'org-b', true),
+            set_config('app.current_tenant_id', 'tenant-b', true);
+    IF EXISTS (SELECT 1 FROM public."accounting_advances" WHERE "id" = 'pc-adv-a')
+    THEN
+      RAISE WARNING
+        'FAIL 94 a forged organization sees nothing -> org-a advance was visible';
+      failures := failures + 1;
+    ELSE
+      RAISE NOTICE 'PASS 94 a forged organization sees nothing';
+    END IF;
+    PERFORM set_config('app.current_org_id', 'org-a', true),
+            set_config('app.current_tenant_id', 'tenant-a', true);
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 95. An advance is never deleted: the offsets against it would become
+  --     unattributable to any money that arrived.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."accounting_advances" WHERE "id" = 'pc-adv-a';
+    RAISE WARNING 'FAIL 95 an advance cannot be deleted -> delete succeeded';
+    failures := failures + 1;
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS 95 an advance cannot be deleted';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop advances: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: advances, 0 failures';
+END;
+$pc_crop_advance_checks$;
 
 RESET ROLE;
 

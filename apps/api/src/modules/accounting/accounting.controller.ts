@@ -5,6 +5,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import type { RequestUser } from '../../common/types/request-user';
 import { AccountingDocumentVersionRepository } from './accounting-document-version.repository';
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
+import { AdvanceRepository } from './advance.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
 import { AudienceView, projectFor } from './work-task-projection.policy';
 import { PeriodStatus } from './accounting-period.policy';
@@ -42,6 +43,7 @@ export class AccountingController {
     private readonly deriver: WorkTaskDeriver,
     private readonly periods: AccountingPeriodRepository,
     private readonly transmission: DocumentTransmissionRepository,
+    private readonly advances: AdvanceRepository,
   ) {}
 
   /**
@@ -255,6 +257,90 @@ export class AccountingController {
       formatAllowed: true,
       formatReasons: [],
       adapterMaturity: AdapterMaturity.NOT_ATTESTED,
+    });
+  }
+
+  /**
+   * The advances on a deal, each with what is left of it.
+   *
+   * `remaining` is derived from the offsets on every read rather than stored.
+   * A cached balance is a second source of truth for the same number, and the
+   * two only have to disagree once for somebody to be told an advance has money
+   * in it that it does not.
+   */
+  @Get('deals/:dealId/advances')
+  async listAdvances(
+    @Param('dealId') dealId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const advances = await this.advances.listForDeal(user, dealId);
+    return advances.map((advance) => ({
+      ...advance,
+      amountKopecks: advance.amountKopecks.toString(),
+      appliedKopecks: advance.appliedKopecks.toString(),
+      remainingKopecks: advance.remainingKopecks.toString(),
+      version: advance.version.toString(),
+    }));
+  }
+
+  /**
+   * Record money that arrived before the thing it pays for.
+   *
+   * The amount is not taken on trust: the server reads the cited bank operation
+   * and refuses an advance that does not match the transfer it claims. An
+   * advance recorded without that check is a number two parties would compare
+   * against a bank statement and find missing.
+   */
+  @Post('advances')
+  recordAdvance(
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      dealId: string;
+      counterpartyOrgId: string;
+      amountKopecks: string;
+      currency?: string;
+      bankOperationId: string;
+      receivedAt: string;
+    },
+  ) {
+    return this.advances.record(user, {
+      dealId: body.dealId,
+      counterpartyOrgId: body.counterpartyOrgId,
+      amountKopecks: BigInt(body.amountKopecks),
+      currency: body.currency ?? 'RUB',
+      bankOperationId: body.bankOperationId,
+      receivedAt: new Date(body.receivedAt),
+    });
+  }
+
+  /**
+   * Apply part or all of an advance.
+   *
+   * The remaining balance is not in the body. This is exactly the moment
+   * somebody would like it to be larger than it is, so the server reads it
+   * under the same lock the database guard takes.
+   */
+  @Post('advances/:advanceId/offsets')
+  applyAdvanceOffset(
+    @Param('advanceId') advanceId: string,
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      amountKopecks: string;
+      appliedAt: string;
+      reason: string;
+      idempotencyKey: string;
+      documentVersionId?: string | null;
+    },
+  ) {
+    return this.advances.applyOffset(user, {
+      advanceId,
+      amountKopecks: BigInt(body.amountKopecks),
+      appliedAt: new Date(body.appliedAt),
+      reason: body.reason,
+      idempotencyKey: body.idempotencyKey,
+      documentVersionId: body.documentVersionId ?? null,
     });
   }
 }
