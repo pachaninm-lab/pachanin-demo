@@ -2,15 +2,16 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: /(?:platform-v7|gekta)-production-mobile-acceptance\.spec\.ts/,
+  testMatch: [
+    /(?:platform-v7|gekta)-production-mobile-acceptance\.spec\.ts/,
+    /gekta-keyboard-start-acceptance\.spec\.ts/,
+  ],
   fullyParallel: false,
   forbidOnly: true,
   retries: 1,
   workers: 1,
   timeout: 90_000,
-  expect: {
-    timeout: 15_000,
-  },
+  expect: { timeout: 15_000 },
   reporter: [
     ['list'],
     ['html', { outputFolder: 'playwright-report-production-mobile', open: 'never' }],
@@ -27,9 +28,5 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'off',
   },
-  projects: [
-    {
-      name: 'production-mobile-chromium',
-    },
-  ],
+  projects: [{ name: 'production-mobile-chromium' }],
 });
