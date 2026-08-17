@@ -67,6 +67,13 @@ on:
         description: "Canonical services to build: api, web, tai, migration or all"
         default: "all"
         required: false
+  workflow_call:
+    inputs:
+      services:
+        description: "Canonical services to build: api, web, tai, migration or all"
+        type: string
+        default: "all"
+        required: false
 
 permissions:
   contents: read
@@ -81,9 +88,9 @@ jobs:
   build-api:
     name: Build API image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'api') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'api') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -123,9 +130,9 @@ jobs:
   build-web:
     name: Build web image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'web') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'web') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -165,9 +172,9 @@ jobs:
   build-tai:
     name: Build TAI image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'tai') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'tai') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -208,9 +215,9 @@ jobs:
   build-migration:
     name: Build migration image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'migration') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'migration') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
