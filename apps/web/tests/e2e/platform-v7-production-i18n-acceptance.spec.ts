@@ -122,10 +122,20 @@ async function expectChineseTypography(page: Page) {
   expect(headingStyle.lineHeight).toBeGreaterThanOrEqual(headingStyle.fontSize * 1.05);
 }
 
-async function expectProductionHomepageDesignGates(page: Page, viewport: AcceptanceViewport) {
+async function expectProductionHomepageDesignGates(
+  page: Page,
+  viewport: AcceptanceViewport,
+  expectedBrand?: string,
+) {
   const brand = page.locator("[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong");
   await expect(brand).toBeVisible();
-  await expect(brand).toHaveText('Прозрачная Цена');
+  if (expectedBrand) {
+    await expect(brand).toHaveText(expectedBrand);
+  } else {
+    // Localization owns the visible brand wording on EN/ZH. The design gate owns
+    // geometry: the localized brand must remain non-empty, legible and unclipped.
+    await expect(brand).toHaveText(/\S/u);
+  }
   const brandGeometry = await brand.evaluate((node) => {
     const element = node as HTMLElement;
     const clippingHost = element.closest<HTMLElement>('.pc-site-brand') ?? element;
@@ -264,7 +274,7 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
     );
     expect(response?.ok()).toBe(true);
     await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
-    await expectProductionHomepageDesignGates(page, viewport);
+    await expectProductionHomepageDesignGates(page, viewport, 'Прозрачная Цена');
     await captureEvidence(page, testInfo, 'ru', viewport.name, 'home');
     expect(pageErrors).toEqual([]);
   });
