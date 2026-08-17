@@ -1,5 +1,13 @@
 export type PlatformV7AccountingValueLocale = 'ru' | 'en' | 'zh';
 
+type WidenCopy<T> = T extends string
+  ? string
+  : T extends readonly (infer Item)[]
+    ? readonly WidenCopy<Item>[]
+    : T extends object
+      ? { readonly [Key in keyof T]: WidenCopy<T[Key]> }
+      : T;
+
 const copies = {
   ru: {
     eyebrow: 'Закрытие Сделки',
@@ -144,10 +152,10 @@ const copies = {
   },
 } as const;
 
-export type PlatformV7AccountingValueCopy = typeof copies.ru;
+export type PlatformV7AccountingValueCopy = WidenCopy<typeof copies.ru>;
 
 export function getPlatformV7AccountingValueCopy(locale: string): PlatformV7AccountingValueCopy {
-  if (locale.startsWith('en')) return copies.en as PlatformV7AccountingValueCopy;
-  if (locale.startsWith('zh')) return copies.zh as PlatformV7AccountingValueCopy;
+  if (locale.startsWith('en')) return copies.en;
+  if (locale.startsWith('zh')) return copies.zh;
   return copies.ru;
 }
