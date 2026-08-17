@@ -127,12 +127,29 @@ from email.utils import getaddresses, parsedate_to_datetime
 from html import unescape
 from urllib.parse import parse_qs, urlparse
 
+def canonical_address(value):
+    try:
+        normalized = str(value or '').strip().lower()
+        if normalized.count('@') != 1:
+            return None
+        local, domain = normalized.rsplit('@', 1)
+        local.encode('ascii')
+        domain = domain.encode('idna').decode('ascii').lower()
+        result = f'{local}@{domain}'
+        if len(result) > 254 or not re.fullmatch(r'[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9.-]{1,189}', result):
+            return None
+        return result
+    except Exception:
+        return None
+
 host = os.environ['PC_P0_IMAP_HOST'].strip()
 port = int((os.environ.get('PC_P0_IMAP_PORT') or '993').strip())
 username = os.environ['PC_P0_IMAP_USER']
 password = os.environ['PC_P0_IMAP_PASSWORD']
 folder = (os.environ.get('PC_P0_IMAP_FOLDER') or 'INBOX').strip() or 'INBOX'
-target = os.environ['GEKTA_TARGET_EMAIL'].strip().lower()
+target = canonical_address(os.environ['GEKTA_TARGET_EMAIL'])
+if not target:
+    raise SystemExit(45)
 not_before = int(os.environ['GEKTA_NOT_BEFORE']) - 300
 deadline = time.time() + 240
 live = os.environ['GEKTA_LIVE_BASE']
@@ -182,7 +199,10 @@ while time.time() < deadline:
             message = email.message_from_bytes(raw, policy=default)
             recipients = []
             for header in ('to', 'cc', 'delivered-to', 'x-original-to', 'envelope-to'):
-                recipients.extend(address.lower() for _, address in getaddresses(message.get_all(header, [])))
+                for _, address in getaddresses(message.get_all(header, [])):
+                    canonical = canonical_address(address)
+                    if canonical:
+                        recipients.append(canonical)
             if target not in recipients:
                 continue
             try:

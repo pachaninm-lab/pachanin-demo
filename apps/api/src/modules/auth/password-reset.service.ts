@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { randomUUID, timingSafeEqual } from 'crypto';
+import { AuthMailOutboxService } from '../auth-mail/auth-mail-outbox.service';
+import { normalizeAuthMailLocale, passwordResetMail } from '../auth-mail/auth-mail-templates';
 import { hashAuthMaterial, hashClientValue, sha256, stableJson } from './auth-crypto';
 import type { AuthSqlClient } from './persistent-auth.repository';
 import { PasswordResetRepository } from './password-reset.repository';
@@ -43,12 +45,23 @@ function assertPasswordPolicy(password: string): void {
 export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
 
-  constructor(private readonly repository: PasswordResetRepository) {}
+  constructor(
+    private readonly repository: PasswordResetRepository,
+    private readonly mailOutbox: AuthMailOutboxService,
+  ) {}
 
-  async request(emailInput: string, ip?: string, deliveryKey?: string) {
+  async request(
+    emailInput: string,
+    ip?: string,
+    deliveryKey?: string,
+    correlationIdInput?: string,
+    localeInput?: unknown,
+  ) {
     const email = String(emailInput ?? '').trim().toLowerCase();
     const accountHash = hashAuthMaterial(`password-reset:${email}`);
     const ipHash = hashClientValue(ip);
+    const correlationId = String(correlationIdInput || randomUUID()).trim().slice(0, 128);
+    const locale = normalizeAuthMailLocale(localeInput);
 
     if (!deliveryAuthorized(deliveryKey)) {
       await this.repository.transaction(async (tx) => {
@@ -56,7 +69,7 @@ export class PasswordResetService {
           action: 'auth.password_reset.request',
           outcome: 'DENIED',
           reason: 'DELIVERY_BOUNDARY_REJECTED',
-          metadata: { accountHash, ipHash },
+          metadata: { accountHash, ipHash, correlationId },
         });
       });
       return UNIVERSAL_RESPONSE;
@@ -69,7 +82,7 @@ export class PasswordResetService {
           action: 'auth.password_reset.request',
           outcome: 'SUCCESS',
           reason: 'UNIVERSAL_NON_ELIGIBLE',
-          metadata: { accountHash, ipHash },
+          metadata: { accountHash, ipHash, correlationId },
         });
       });
       return UNIVERSAL_RESPONSE;
@@ -89,7 +102,7 @@ export class PasswordResetService {
           action: 'auth.password_reset.request',
           outcome: 'SUCCESS',
           reason: 'COOLDOWN_ACTIVE',
-          metadata: { ipHash },
+          metadata: { ipHash, correlationId },
         });
       });
       return UNIVERSAL_RESPONSE;
@@ -121,32 +134,35 @@ export class PasswordResetService {
           userId: user.id,
           action: 'auth.password_reset.request',
           outcome: 'SUCCESS',
-          reason: 'CHALLENGE_ISSUED',
-          metadata: { ipHash, expiresAt: expiresAt.toISOString() },
+          reason: 'CHALLENGE_ISSUED_MAIL_QUEUED',
+          metadata: { ipHash, expiresAt: expiresAt.toISOString(), correlationId },
+        });
+        await this.mailOutbox.enqueue(tx, {
+          kind: 'PASSWORD_RESET',
+          idempotencyKey: `auth-mail:password-reset:${issued.id}`,
+          correlationId,
+          envelope: passwordResetMail({
+            to: user.email,
+            token: issued.token,
+            locale,
+          }),
+          expiresAt,
         });
         return true;
       });
     } catch (error) {
-      this.logger.error('Password reset challenge creation failed', error instanceof Error ? error.stack : undefined);
+      this.logger.error('Password reset challenge/outbox transaction failed', error instanceof Error ? error.stack : undefined);
       return UNIVERSAL_RESPONSE;
     }
 
     if (!created) return UNIVERSAL_RESPONSE;
-    return {
-      ...UNIVERSAL_RESPONSE,
-      delivery: {
-        email: user.email,
-        token: issued.token,
-        expiresInSeconds: Math.floor(PASSWORD_RESET_TTL_MS / 1000),
-      },
-    };
+    return UNIVERSAL_RESPONSE;
   }
 
   async confirm(tokenInput: string, newPassword: string, ip?: string, deliveryKey?: string) {
     assertPasswordPolicy(newPassword);
-    // Confirmation is a server-to-server delivery boundary: otherwise a caller
-    // holding a leaked reset URL could bypass the mandatory password-change
-    // notification by calling the API directly.
+    // Confirmation remains behind the existing server-to-server boundary until
+    // the password-changed security notice is moved to the same durable outbox.
     if (!deliveryAuthorized(deliveryKey)) throw this.invalidReset();
     const parsed = parsePasswordResetToken(tokenInput);
     if (!parsed) throw this.invalidReset();

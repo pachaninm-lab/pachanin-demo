@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthMailModule } from '../auth-mail/auth-mail.module';
 import { BusinessReputationModule } from '../business-reputation/business-reputation.module';
 import { AuthController } from './auth.controller';
 import { AuthPrismaService } from './auth-prisma.service';
@@ -16,7 +17,7 @@ import { RegistrationApplicationService } from './registration-application.servi
 import { RegistrationDecisionService } from './registration-decision.service';
 
 @Module({
-  imports: [BusinessReputationModule],
+  imports: [BusinessReputationModule, AuthMailModule],
   controllers: [AuthController, GektaRegistrationController],
   providers: [
     AuthPrismaService,

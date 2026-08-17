@@ -1,6 +1,6 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "diag/p0-web-container-smtp-delivery-proof-3785",
+  "branch": "fix/p0-web-smtp-proof-canonical-recipient-3785",
   "status": "active",
   "operationalStatus": "P0_WEB_CONTAINER_SMTP_ACCEPTANCE_DELIVERY_PROOF",
   "issue": 3785,

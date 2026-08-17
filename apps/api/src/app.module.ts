@@ -58,6 +58,7 @@ import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-
 import { StaffAccessModule } from './modules/staff-access/staff-access.module';
 import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
 import { GektaModule } from './modules/gekta/gekta.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
 
 @Module({
   imports: [
@@ -114,6 +115,7 @@ import { GektaModule } from './modules/gekta/gekta.module';
     RuntimePersistenceModule,
     TaiToolsModule,
     GektaModule,
+    AccountingModule,
   ],
   controllers: [HealthController],
   providers: [

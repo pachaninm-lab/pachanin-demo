@@ -1,0 +1,574 @@
+name: Production Auth-Mail DB Runtime Reconcile
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-auth-mail-db-runtime-reconcile
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  EXPECTED_COMMAND: /production p0-auth-mail-db-reconcile current-main
+  SUBJECT_PRODUCTION_SHA: 033964e2e553c595482b774784cf808815eccbc7
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  reconcile:
+    name: Reconcile auth-mail DB credential and worker only
+    if: >-
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-mail-db-reconcile current-main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bind exact current main and production subject
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          [[ "$SUBJECT_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "${SUBJECT_PRODUCTION_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_PRODUCTION_SHA" "$main_sha"
+          provision_sha="$(sha256sum scripts/provision-production-auth-mail-runtime.sh | awk '{print $1}')"
+          [[ "$provision_sha" =~ ^[0-9a-f]{64}$ ]]
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "subject_sha=$SUBJECT_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
+          echo "provision_sha=$provision_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+
+          scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; python3 --version >/dev/null; echo SSH_AUTH_OK' \
+            | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Upload reviewed current-main provision asset
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          EXPECTED_SHA: ${{ steps.target.outputs.provision_sha }}
+        run: |
+          set -euo pipefail
+          remote="/tmp/pc-auth-mail-db-reconcile-${GITHUB_RUN_ID}.sh"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "umask 077; cat > '$remote'; chmod 0700 '$remote'" \
+            < scripts/provision-production-auth-mail-runtime.sh
+          remote_sha="$(ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "sha256sum '$remote' | awk '{print \$1}'")"
+          [[ "$remote_sha" == "$EXPECTED_SHA" ]]
+
+      - name: Reconcile dedicated DB credential and recreate worker
+        id: reconcile
+        shell: bash
+        env:
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
+          PROVISION_SHA: ${{ steps.target.outputs.provision_sha }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "bash -s -- '$SUBJECT_SHA' '$GITHUB_RUN_ID' '$PROVISION_SHA'" > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          subject_sha="$1"
+          run_id="$2"
+          expected_provision_sha="$3"
+          provision="/tmp/pc-auth-mail-db-reconcile-${run_id}.sh"
+          authority='/var/lib/pc-secret-authority'
+          db_authority="$authority/auth-mail-database-url"
+          transport_authority="$authority/auth-mail-transport.env"
+          runtime="$authority/runtime"
+          runtime_db="$runtime/database-url"
+          runtime_transport="$runtime/transport.env"
+          current_version_authority="$authority/auth-mail-current-key-version"
+          keyring_authority="$authority/auth-mail-keyring"
+          runtime_current_version="$runtime/current-key-version"
+          runtime_keyring="$runtime/keyring"
+          backup_db=''
+          backup_verifier=''
+          mutation_started=0
+          error_code='UNHANDLED_RUNTIME_FAILURE'
+          rollback_attempted=0
+          rollback_complete='NA'
+
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          fail(){ error_code="$1"; exit "${2:-1}"; }
+          regular_0600(){ [[ -f "$1" && ! -L "$1" && "$(stat -c '%a:%u:%g' "$1")" == '600:0:0' ]]; }
+          projected_0444(){ [[ -f "$1" && ! -L "$1" && "$(stat -c '%a:%u:%g' "$1")" == '444:0:0' ]]; }
+          cleanup(){ rm -f -- "$backup_db" "$backup_verifier" "$provision" 2>/dev/null || true; }
+          on_exit(){
+            rc=$?
+            trap - EXIT
+            if (( rc != 0 )); then
+              if (( mutation_started == 1 )); then rollback; fi
+              emit AUTH_MAIL_DB_RECONCILE FAIL
+              emit ERROR_CODE "$error_code"
+              emit DB_CREDENTIAL_ROTATED "$([[ "$mutation_started" == 1 ]] && echo ATTEMPTED || echo 0)"
+              emit WORKER_RECREATED 0
+              emit API_MUTATED 0
+              emit WEB_MUTATED 0
+              emit ROLLBACK_ATTEMPTED "$rollback_attempted"
+              emit ROLLBACK_COMPLETE "$rollback_complete"
+              emit PRODUCTION_MUTATION "$([[ "$mutation_started" == 1 ]] && echo AUTH_MAIL_DB_ONLY_ATTEMPTED || echo NONE)"
+            fi
+            cleanup
+            exit "$rc"
+          }
+          trap on_exit EXIT
+
+          [[ "$subject_sha" =~ ^[0-9a-f]{40}$ ]] || fail SUBJECT_SHA_INVALID 20
+          [[ "$run_id" =~ ^[0-9]{1,24}$ ]] || fail RUN_ID_INVALID 21
+          [[ "$expected_provision_sha" =~ ^[0-9a-f]{64}$ ]] || fail PROVISION_SHA_INVALID 22
+          [[ "$(id -u)" -eq 0 ]] || fail ROOT_REQUIRED 23
+          command -v docker >/dev/null 2>&1 || fail DOCKER_REQUIRED 24
+          command -v python3 >/dev/null 2>&1 || fail PYTHON_REQUIRED 25
+          [[ -f "$provision" && ! -L "$provision" && "$(sha256sum "$provision" | awk '{print $1}')" == "$expected_provision_sha" ]] \
+            || fail PROVISION_ASSET_MISMATCH 26
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 )) || fail WEB_AUTHORITY_CARDINALITY 27
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          [[ "$project" =~ ^[A-Za-z0-9_.-]{1,128}$ ]] || fail COMPOSE_PROJECT_INVALID 28
+
+          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 )) || fail API_AUTHORITY_CARDINALITY 29
+          api_id="${api_ids[0]}"
+
+          mapfile -t worker_ids < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          (( ${#worker_ids[@]} == 1 )) || fail WORKER_AUTHORITY_CARDINALITY 30
+          worker_id="${worker_ids[0]}"
+          worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id" 2>/dev/null || true)"
+          [[ "$worker_revision" == "$subject_sha" ]] || fail WORKER_REVISION_CHANGED 31
+
+          api_revision_before="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          web_revision_before="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          [[ "$api_revision_before" =~ ^[0-9a-f]{40}$ && "$web_revision_before" =~ ^[0-9a-f]{40}$ ]] || fail API_WEB_REVISION_INVALID 32
+
+          working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$worker_id")"
+          config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$worker_id")"
+          [[ "$working_dir" == /* && "$working_dir" != / && -d "$working_dir" && ! -L "$working_dir" && -n "$config_files" ]] \
+            || fail WORKER_COMPOSE_AUTHORITY_INVALID 33
+          working_dir="$(realpath -e -- "$working_dir")"
+          dc=(docker compose --project-directory "$working_dir" --project-name "$project")
+          IFS=',' read -r -a raw_files <<< "$config_files"
+          for raw_file in "${raw_files[@]}"; do
+            file="${raw_file#"${raw_file%%[![:space:]]*}"}"
+            file="${file%"${file##*[![:space:]]}"}"
+            [[ -n "$file" ]] || continue
+            [[ "$file" == /* ]] || file="$working_dir/$file"
+            [[ -f "$file" && ! -L "$file" ]] || fail WORKER_COMPOSE_FILE_INVALID 34
+            dc+=(-f "$(realpath -e -- "$file")")
+          done
+          (( ${#dc[@]} > 6 )) || fail WORKER_COMPOSE_FILES_EMPTY 35
+
+          [[ -d "$authority" && ! -L "$authority" && "$(stat -c '%a:%u:%g' "$authority")" == '700:0:0' ]] \
+            || fail SECRET_AUTHORITY_INVALID 36
+          regular_0600 "$db_authority" || fail DATABASE_AUTHORITY_INVALID 37
+          regular_0600 "$transport_authority" || fail TRANSPORT_AUTHORITY_INVALID 38
+          [[ -d "$runtime" && ! -L "$runtime" && "$(stat -c '%a:%u:%g' "$runtime")" == '700:0:0' ]] \
+            || fail RUNTIME_ROOT_INVALID 39
+          projected_0444 "$runtime_db" || fail RUNTIME_DATABASE_PROJECTION_INVALID 40
+          projected_0444 "$runtime_transport" || fail RUNTIME_TRANSPORT_PROJECTION_INVALID 41
+          cmp -s "$db_authority" "$runtime_db" || fail DATABASE_PROJECTION_DRIFT 42
+          cmp -s "$transport_authority" "$runtime_transport" || fail TRANSPORT_PROJECTION_DRIFT 43
+          regular_0600 "$current_version_authority" || fail KEY_VERSION_AUTHORITY_INVALID 67
+          [[ -d "$keyring_authority" && ! -L "$keyring_authority" && "$(stat -c '%a:%u:%g' "$keyring_authority")" == '700:0:0' ]] \
+            || fail KEYRING_AUTHORITY_INVALID 68
+          projected_0444 "$runtime_current_version" || fail RUNTIME_KEY_VERSION_INVALID 69
+          [[ -d "$runtime_keyring" && ! -L "$runtime_keyring" && "$(stat -c '%a:%u:%g' "$runtime_keyring")" == '555:0:0' ]] \
+            || fail RUNTIME_KEYRING_INVALID 70
+          current_version="$(tr -d '[:space:]' < "$current_version_authority")"
+          [[ "$current_version" =~ ^[1-9][0-9]{0,2}$ && "$current_version" -le 999 ]] || fail KEY_VERSION_CONTENT_INVALID 71
+          key_authority="$keyring_authority/v${current_version}.key"
+          runtime_key="$runtime_keyring/v${current_version}.key"
+          regular_0600 "$key_authority" || fail KEY_AUTHORITY_INVALID 72
+          grep -Eq '^[A-Fa-f0-9]{64}$' "$key_authority" || fail KEY_AUTHORITY_CONTENT_INVALID 73
+          projected_0444 "$runtime_key" || fail RUNTIME_KEY_INVALID 74
+          cmp -s "$current_version_authority" "$runtime_current_version" || fail KEY_VERSION_PROJECTION_DRIFT 75
+          cmp -s "$key_authority" "$runtime_key" || fail KEY_PROJECTION_DRIFT 76
+
+          python3 - "$db_authority" "$api_id" <<'PY' || fail DATABASE_TARGET_CONTRACT_FAILED 44
+          import subprocess, sys
+          from urllib.parse import urlsplit, unquote
+          db_path, api_id = sys.argv[1:3]
+          runtime = urlsplit(open(db_path, encoding='utf-8').read().strip())
+          if runtime.scheme not in ('postgres','postgresql') or unquote(runtime.username or '') != 'pc_auth_mail_runtime' or not runtime.password or not runtime.hostname or not runtime.path.strip('/'):
+              raise SystemExit(1)
+          env_text = subprocess.check_output(['docker','inspect','--format','{{range .Config.Env}}{{println .}}{{end}}',api_id], text=True)
+          auth = next((line.split('=',1)[1] for line in env_text.splitlines() if line.startswith('AUTH_DATABASE_URL=')), '')
+          target = urlsplit(auth)
+          if target.scheme not in ('postgres','postgresql') or not target.hostname or not target.path.strip('/'):
+              raise SystemExit(1)
+          def port(u): return u.port or 5432
+          if (runtime.hostname, port(runtime), runtime.path.strip('/')) != (target.hostname, port(target), target.path.strip('/')):
+              raise SystemExit(1)
+          PY
+
+          python3 - "$transport_authority" <<'PY' || fail TRANSPORT_EXACT_ROOT_CONTRACT_FAILED 45
+          import sys
+          values={}
+          for raw in open(sys.argv[1], encoding='utf-8'):
+              name, sep, value=raw.rstrip('\n').partition('=')
+              if not sep or name in values: raise SystemExit(1)
+              values[name]=value
+          expected={'PC_SMTP_HOST','PC_SMTP_PORT','PC_SMTP_USER','PC_SMTP_PASS','PC_MAIL_FROM'}
+          if set(values) != expected: raise SystemExit(1)
+          root='xn----8sbjf4befbjgs9b.xn--p1ai'
+          if values['PC_SMTP_HOST'] != 'mail.hosting.reg.ru' or values['PC_SMTP_PORT'] != '465': raise SystemExit(1)
+          user=values['PC_SMTP_USER']
+          if user.count('@') != 1: raise SystemExit(1)
+          local, domain=user.rsplit('@', 1)
+          if not local or len(local) > 64 or domain.lower() != root: raise SystemExit(1)
+          if any(ord(c) > 127 or c.isspace() or c in '<>\r\n\0' for c in local): raise SystemExit(1)
+          if values['PC_MAIL_FROM'] != f'access@{root}': raise SystemExit(1)
+          if not 8 <= len(values['PC_SMTP_PASS']) <= 512 or any(c in values['PC_SMTP_PASS'] for c in '\r\n\0'): raise SystemExit(1)
+          PY
+
+          mapfile -t pg_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" | while read -r id; do
+            image="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
+            service="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "$id" 2>/dev/null || true)"
+            if [[ "$image" == postgres:* || "$image" == */postgres:* || "$service" == postgres || "$service" == db || "$service" == database ]]; then printf '%s\n' "$id"; fi
+          done)
+          (( ${#pg_ids[@]} == 1 )) || fail POSTGRES_AUTHORITY_CARDINALITY 46
+          pg_id="${pg_ids[0]}"
+          postgres_user="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$pg_id" | sed -n 's/^POSTGRES_USER=//p' | head -1)"
+          postgres_db="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$pg_id" | sed -n 's/^POSTGRES_DB=//p' | head -1)"
+          [[ -n "$postgres_user" ]] || postgres_user=postgres
+          [[ -n "$postgres_db" ]] || postgres_db="$postgres_user"
+
+          role_flags="$(docker exec "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" -c \
+            "SELECT rolcanlogin || '|' || rolinherit || '|' || rolsuper || '|' || rolbypassrls || '|' || rolcreatedb || '|' || rolcreaterole || '|' || rolreplication || '|' || (rolvaliduntil IS NULL) FROM pg_roles WHERE rolname='pc_auth_mail_runtime';")"
+          [[ "$role_flags" == 'true|false|false|false|false|false|false|true' || "$role_flags" == 't|f|f|f|f|f|f|t' ]] \
+            || fail ROLE_ATTRIBUTE_CONTRACT_FAILED 47
+          membership_count="$(docker exec "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" -c \
+            "SELECT count(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.roleid JOIN pg_roles u ON u.oid=m.member WHERE r.rolname='pc_auth_mail_runtime' OR u.rolname='pc_auth_mail_runtime';")"
+          [[ "$membership_count" == 0 ]] || fail ROLE_MEMBERSHIP_CONTRACT_FAILED 48
+          privilege_flags="$(docker exec "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" -c \
+            "SELECT has_schema_privilege('pc_auth_mail_runtime','auth','USAGE') || '|' || has_table_privilege('pc_auth_mail_runtime','auth.mail_outbox','SELECT') || '|' || has_table_privilege('pc_auth_mail_runtime','auth.mail_outbox','INSERT') || '|' || has_table_privilege('pc_auth_mail_runtime','auth.mail_outbox','UPDATE') || '|' || has_table_privilege('pc_auth_mail_runtime','auth.mail_outbox','DELETE') || '|' || has_table_privilege('pc_auth_mail_runtime','auth.mail_outbox','TRUNCATE') || '|' || has_table_privilege('pc_auth_mail_runtime','auth.mail_outbox','REFERENCES') || '|' || has_table_privilege('pc_auth_mail_runtime','auth.mail_outbox','TRIGGER');")"
+          [[ "$privilege_flags" == 'true|true|false|false|false|false|false|false' || "$privilege_flags" == 't|t|f|f|f|f|f|f' ]] \
+            || fail ROLE_TABLE_PRIVILEGE_CONTRACT_FAILED 49
+          update_columns="$(docker exec "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" -c \
+            "SELECT COALESCE(string_agg(column_name, ',' ORDER BY column_name),'') FROM information_schema.columns WHERE table_schema='auth' AND table_name='mail_outbox' AND has_column_privilege('pc_auth_mail_runtime','auth.mail_outbox',column_name,'UPDATE');")"
+          [[ "$update_columns" == 'attempt_count,last_error_code,lease_expires_at,lease_owner,lease_token,next_attempt_at,sent_at,status,updated_at' ]] \
+            || fail ROLE_COLUMN_PRIVILEGE_CONTRACT_FAILED 50
+          emit ROLE_CONTRACT PASS
+
+          set +e
+          pre_db="$(python3 - "$runtime_db" <<'PY' | docker exec -i "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" 2>/dev/null
+          from urllib.parse import urlsplit, unquote
+          import sys
+          raw=open(sys.argv[1],encoding='utf-8').read().strip()
+          u=urlsplit(raw)
+          if u.scheme not in ('postgres','postgresql') or unquote(u.username or '')!='pc_auth_mail_runtime' or not u.password: raise SystemExit(1)
+          print('\\connect '+raw)
+          print("SELECT current_user || '|' || rolsuper || '|' || rolbypassrls || '|' || rolinherit FROM pg_roles WHERE rolname=current_user;")
+          PY
+          )"
+          pre_rc=$?
+          set -e
+          if [[ "$pre_rc" == 0 && "$pre_db" == 'pc_auth_mail_runtime|f|f|f' ]]; then
+            emit PRE_DB_LOGIN PASS
+            fail DB_LOGIN_ALREADY_PASS_REDIAGNOSE 51
+          fi
+          emit PRE_DB_LOGIN FAIL
+
+          backup_db="$(mktemp "$authority/.auth-mail-db-before-reconcile.XXXXXX")"
+          cp --preserve=mode,ownership,timestamps -- "$db_authority" "$backup_db"
+          chmod 0600 "$backup_db"; chown 0:0 "$backup_db"
+          backup_verifier="$(mktemp "$authority/.auth-mail-verifier-before-reconcile.XXXXXX")"
+          docker exec "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" -c \
+            "SELECT COALESCE(rolpassword,'__NULL__') FROM pg_authid WHERE rolname='pc_auth_mail_runtime';" > "$backup_verifier"
+          chmod 0600 "$backup_verifier"; chown 0:0 "$backup_verifier"
+          [[ -s "$backup_verifier" ]] || fail ROLE_VERIFIER_BACKUP_FAILED 52
+
+          recreate_worker(){
+            "${dc[@]}" up -d --no-deps --pull never --force-recreate auth-mail-worker >/dev/null 2>&1
+          }
+
+          rollback(){
+            set +e
+            local ok=1 old sql_tmp
+            rollback_attempted=1
+            old="$(tr -d '\r\n' < "$backup_verifier")" || ok=0
+            sql_tmp="$(mktemp "$authority/.auth-mail-rollback-sql.XXXXXX")" || ok=0
+            if [[ "$old" == '__NULL__' ]]; then
+              printf "ALTER ROLE pc_auth_mail_runtime PASSWORD NULL;\n" > "$sql_tmp"
+            elif [[ -n "$old" ]]; then
+              OLD_VERIFIER="$old" python3 - <<'PY' > "$sql_tmp" || ok=0
+          import os
+          value=os.environ['OLD_VERIFIER'].replace("'", "''")
+          print("ALTER ROLE pc_auth_mail_runtime PASSWORD '%s';" % value)
+          PY
+            else
+              ok=0
+            fi
+            chmod 0600 "$sql_tmp" 2>/dev/null || ok=0
+            docker exec -i "$pg_id" psql -X -q -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" >/dev/null < "$sql_tmp" || ok=0
+            rm -f "$sql_tmp"
+            cp -f -- "$backup_db" "$db_authority" || ok=0
+            chmod 0600 "$db_authority" 2>/dev/null || ok=0
+            chown 0:0 "$db_authority" 2>/dev/null || ok=0
+            "$provision" bootstrap >/dev/null 2>&1 || ok=0
+            recreate_worker || ok=0
+            if (( ok == 1 )); then rollback_complete=1; else rollback_complete=0; fi
+            set -e
+          }
+
+          mutation_started=1
+          provision_out="$(mktemp)"
+          set +e
+          "$provision" rotate-db > "$provision_out" 2>&1
+          provision_rc=$?
+          set -e
+          grep -Fxq 'AUTH_MAIL_PROVISION=PASS' "$provision_out" || { rm -f "$provision_out"; fail ROTATE_DB_FAILED 53; }
+          grep -Fxq 'AUTH_MAIL_RUNTIME_RESTART_REQUIRED=1' "$provision_out" || { rm -f "$provision_out"; fail ROTATE_DB_RESTART_MARKER_MISSING 54; }
+          [[ "$provision_rc" == 0 ]] || { rm -f "$provision_out"; fail ROTATE_DB_FAILED 55; }
+          rm -f "$provision_out"
+          emit DB_CREDENTIAL_ROTATED 1
+
+          regular_0600 "$db_authority" || fail POST_DATABASE_AUTHORITY_INVALID 56
+          projected_0444 "$runtime_db" || fail POST_RUNTIME_DATABASE_INVALID 57
+          cmp -s "$db_authority" "$runtime_db" || fail POST_DATABASE_PROJECTION_DRIFT 58
+
+          set +e
+          post_db="$(python3 - "$runtime_db" <<'PY' | docker exec -i "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" 2>/dev/null
+          from urllib.parse import urlsplit, unquote
+          import sys
+          raw=open(sys.argv[1],encoding='utf-8').read().strip()
+          u=urlsplit(raw)
+          if u.scheme not in ('postgres','postgresql') or unquote(u.username or '')!='pc_auth_mail_runtime' or not u.password: raise SystemExit(1)
+          print('\\connect '+raw)
+          print("SELECT current_user || '|' || rolsuper || '|' || rolbypassrls || '|' || rolinherit FROM pg_roles WHERE rolname=current_user;")
+          PY
+          )"
+          post_rc=$?
+          set -e
+          [[ "$post_rc" == 0 && "$post_db" == 'pc_auth_mail_runtime|f|f|f' ]] || fail POST_DB_LOGIN_FAILED 59
+          emit POST_DB_LOGIN PASS
+
+          recreate_worker || fail WORKER_RECREATE_FAILED 60
+          emit WORKER_RECREATED 1
+
+          worker_ready=0
+          worker_health=unknown
+          for attempt in $(seq 1 30); do
+            mapfile -t current_workers < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+            if (( ${#current_workers[@]} == 1 )); then
+              current_worker="${current_workers[0]}"
+              current_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$current_worker" 2>/dev/null || true)"
+              worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$current_worker" 2>/dev/null || true)"
+              if [[ "$current_revision" == "$subject_sha" && "$worker_health" == healthy ]] && \
+                 docker exec "$current_worker" /nodejs/bin/node -e "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+                worker_ready=1
+                break
+              fi
+            fi
+            sleep 4
+          done
+          [[ "$worker_ready" == 1 ]] || fail WORKER_READINESS_FAILED 61
+
+          mapfile -t api_after < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          mapfile -t web_after < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=web')
+          (( ${#api_after[@]} == 1 && ${#web_after[@]} == 1 )) || fail API_WEB_POST_CARDINALITY_FAILED 62
+          [[ "${api_after[0]}" == "$api_id" && "${web_after[0]}" == "$web_id" ]] || fail API_WEB_CONTAINER_MUTATED 63
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "${api_after[0]}")" == "$api_revision_before" ]] || fail API_REVISION_MUTATED 64
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "${web_after[0]}")" == "$web_revision_before" ]] || fail WEB_REVISION_MUTATED 65
+
+          role_flags_after="$(docker exec "$pg_id" psql -X -qAt -v ON_ERROR_STOP=1 -U "$postgres_user" -d "$postgres_db" -c \
+            "SELECT rolcanlogin || '|' || rolinherit || '|' || rolsuper || '|' || rolbypassrls || '|' || rolcreatedb || '|' || rolcreaterole || '|' || rolreplication || '|' || (rolvaliduntil IS NULL) FROM pg_roles WHERE rolname='pc_auth_mail_runtime';")"
+          [[ "$role_flags_after" == 'true|false|false|false|false|false|false|true' || "$role_flags_after" == 't|f|f|f|f|f|f|t' ]] \
+            || fail POST_ROLE_ATTRIBUTE_CONTRACT_FAILED 66
+
+          trap - EXIT
+          cleanup
+          emit AUTH_MAIL_DB_RECONCILE PASS
+          emit ERROR_CODE NONE
+          emit PRE_DB_LOGIN FAIL
+          emit POST_DB_LOGIN PASS
+          emit ROLE_CONTRACT PASS
+          emit WORKER_REVISION PASS
+          emit WORKER_HEALTH healthy
+          emit WORKER_READY PASS
+          emit DB_CREDENTIAL_ROTATED 1
+          emit WORKER_RECREATED 1
+          emit API_MUTATED 0
+          emit WEB_MUTATED 0
+          emit ROLLBACK_ATTEMPTED 0
+          emit ROLLBACK_COMPLETE NA
+          emit PRODUCTION_MUTATION AUTH_MAIL_DB_CREDENTIAL_AND_WORKER_ONLY
+          REMOTE
+          remote_rc=$?
+          set -e
+          sed -nE '/^(AUTH_MAIL_DB_RECONCILE|ERROR_CODE|PRE_DB_LOGIN|POST_DB_LOGIN|ROLE_CONTRACT|WORKER_REVISION|WORKER_HEALTH|WORKER_READY|DB_CREDENTIAL_ROTATED|WORKER_RECREATED|API_MUTATED|WEB_MUTATED|ROLLBACK_ATTEMPTED|ROLLBACK_COMPLETE|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"
+          rm -f "$raw"
+          cat "$clean"
+          echo "rc=$remote_rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r key value; do
+            case "$key" in
+              AUTH_MAIL_DB_RECONCILE|ERROR_CODE|PRE_DB_LOGIN|POST_DB_LOGIN|ROLE_CONTRACT|WORKER_REVISION|WORKER_HEALTH|WORKER_READY|DB_CREDENTIAL_ROTATED|WORKER_RECREATED|API_MUTATED|WEB_MUTATED|ROLLBACK_ATTEMPTED|ROLLBACK_COMPLETE|PRODUCTION_MUTATION)
+                echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+          done < "$clean"
+          rm -f "$clean"
+
+      - name: Publish bounded reconcile evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
+          RC: ${{ steps.reconcile.outputs.rc }}
+          RESULT: ${{ steps.reconcile.outputs.auth_mail_db_reconcile }}
+          ERROR_CODE: ${{ steps.reconcile.outputs.error_code }}
+          PRE_DB_LOGIN: ${{ steps.reconcile.outputs.pre_db_login }}
+          POST_DB_LOGIN: ${{ steps.reconcile.outputs.post_db_login }}
+          ROLE_CONTRACT: ${{ steps.reconcile.outputs.role_contract }}
+          WORKER_REVISION: ${{ steps.reconcile.outputs.worker_revision }}
+          WORKER_HEALTH: ${{ steps.reconcile.outputs.worker_health }}
+          WORKER_READY: ${{ steps.reconcile.outputs.worker_ready }}
+          DB_CREDENTIAL_ROTATED: ${{ steps.reconcile.outputs.db_credential_rotated }}
+          WORKER_RECREATED: ${{ steps.reconcile.outputs.worker_recreated }}
+          API_MUTATED: ${{ steps.reconcile.outputs.api_mutated }}
+          WEB_MUTATED: ${{ steps.reconcile.outputs.web_mutated }}
+          ROLLBACK_ATTEMPTED: ${{ steps.reconcile.outputs.rollback_attempted }}
+          ROLLBACK_COMPLETE: ${{ steps.reconcile.outputs.rollback_complete }}
+          PRODUCTION_MUTATION: ${{ steps.reconcile.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"
+          {
+            echo '### PC-CROP auth-mail DB runtime reconcile'
+            echo
+            echo "- reconcile main SHA: \`${MAIN_SHA:-unknown}\`"
+            echo "- production subject SHA: \`${SUBJECT_SHA:-unknown}\`"
+            echo "- result: \`${RESULT:-unknown}\` (rc=\`${RC:-unknown}\`)"
+            echo "- safe error code: \`${ERROR_CODE:-unknown}\`"
+            echo "- DB principal login before / after: \`${PRE_DB_LOGIN:-unknown} / ${POST_DB_LOGIN:-unknown}\`"
+            echo "- least-privilege role contract: \`${ROLE_CONTRACT:-unknown}\`"
+            echo "- worker revision / health / ready: \`${WORKER_REVISION:-unknown} / ${WORKER_HEALTH:-unknown} / ${WORKER_READY:-unknown}\`"
+            echo "- DB credential rotated / worker recreated: \`${DB_CREDENTIAL_ROTATED:-unknown} / ${WORKER_RECREATED:-unknown}\`"
+            echo "- API mutated / Web mutated: \`${API_MUTATED:-unknown} / ${WEB_MUTATED:-unknown}\`"
+            echo "- rollback attempted / complete: \`${ROLLBACK_ATTEMPTED:-unknown} / ${ROLLBACK_COMPLETE:-unknown}\`"
+            echo "- production mutation: \`${PRODUCTION_MUTATION:-unknown}\`"
+            echo '- passwords, database URLs, password verifiers, raw container logs and SMTP credentials are never published.'
+          } > "$record"
+          gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce reconcile result
+        shell: bash
+        env:
+          RC: ${{ steps.reconcile.outputs.rc }}
+          RESULT: ${{ steps.reconcile.outputs.auth_mail_db_reconcile }}
+          POST_DB_LOGIN: ${{ steps.reconcile.outputs.post_db_login }}
+          ROLE_CONTRACT: ${{ steps.reconcile.outputs.role_contract }}
+          WORKER_READY: ${{ steps.reconcile.outputs.worker_ready }}
+          API_MUTATED: ${{ steps.reconcile.outputs.api_mutated }}
+          WEB_MUTATED: ${{ steps.reconcile.outputs.web_mutated }}
+        run: |
+          set -euo pipefail
+          [[ "${RC:-1}" == 0 ]]
+          [[ "$RESULT" == PASS ]]
+          [[ "$POST_DB_LOGIN" == PASS ]]
+          [[ "$ROLE_CONTRACT" == PASS ]]
+          [[ "$WORKER_READY" == PASS ]]
+          [[ "$API_MUTATED" == 0 ]]
+          [[ "$WEB_MUTATED" == 0 ]]
+
+      - name: Remove remote provision asset
+        if: always()
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set +e
+          [[ -n "${HOST:-}" && -n "${PORT:-}" ]] || exit 0
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "rm -f '/tmp/pc-auth-mail-db-reconcile-${GITHUB_RUN_ID}.sh'" >/dev/null 2>&1

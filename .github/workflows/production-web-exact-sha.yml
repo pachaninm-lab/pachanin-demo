@@ -273,6 +273,9 @@ jobs:
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
             -o BatchMode=yes \
             -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=12 \
+            -o TCPKeepAlive=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$SSH_USER@$SSH_HOST" \
@@ -341,6 +344,9 @@ jobs:
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
             -o BatchMode=yes \
             -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=12 \
+            -o TCPKeepAlive=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$SSH_USER@$SSH_HOST" \

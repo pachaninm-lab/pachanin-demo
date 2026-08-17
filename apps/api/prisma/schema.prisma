@@ -44,6 +44,15 @@ model Organization {
   fgisGrainSdizProjections          FgisGrainSdizProjection[]
   fgisGrainExchanges                FgisGrainExchange[]
   fgisGrainAcknowledgements         FgisGrainAcknowledgement[]
+  membershipDelegations             MembershipDelegation[]
+  signingAuthorities                SigningAuthority[]
+  accountingDocuments               AccountingDocument[]
+  accountingDocumentVersions        AccountingDocumentVersion[]
+  accountingNumberCounters          AccountingNumberCounter[]
+  taxProfiles                       OrganizationTaxProfile[]
+  contractVersions                  ContractVersion[]
+  accountingWorkTasks               AccountingWorkTask[]
+  accountingPeriods                 AccountingPeriod[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -86,6 +95,11 @@ model UserOrg {
   userId         String
   organizationId String
   role               String
+  /// Second axis alongside `role`. `role` keeps its market meaning — including
+  /// ACCOUNTING, which is the bank/settlement actor — while `jobProfile` says
+  /// what the person does inside the organization. A bookkeeper is expected to
+  /// be `role = GUEST` with `jobProfile = ACCOUNTANT`.
+  jobProfile         String?   @map("job_profile")
   status             String    @default("ACTIVE")
   requestedWorkspace String?   @map("requested_workspace")
   isDefault          Boolean   @default(false)
@@ -98,10 +112,464 @@ model UserOrg {
   user         User         @relation(fields: [userId], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
 
+  delegationsGranted  MembershipDelegation[] @relation("MembershipDelegationFrom")
+  delegationsReceived MembershipDelegation[] @relation("MembershipDelegationTo")
+  signingAuthorities  SigningAuthority[] @relation("SigningAuthorityHolder")
+  signingAuthoritiesApproved SigningAuthority[] @relation("SigningAuthoritySecondApprover")
+  accountingDocumentsAuthored AccountingDocument[]        @relation("AccountingDocumentAuthor")
+  accountingVersionsAuthored  AccountingDocumentVersion[] @relation("AccountingDocumentVersionAuthor")
+  accountingVersionsSigned    AccountingDocumentVersion[] @relation("AccountingDocumentVersionSigner")
+  taxProfilesAuthored         OrganizationTaxProfile[]    @relation("OrganizationTaxProfileAuthor")
+  contractVersionsAuthored    ContractVersion[]           @relation("ContractVersionAuthor")
+  contractVersionsSigned      ContractVersion[]           @relation("ContractVersionSigner")
+  workTasksAssigned           AccountingWorkTask[]        @relation("AccountingWorkTaskAssignee")
+  workTasksAuthored           AccountingWorkTask[]        @relation("AccountingWorkTaskAuthor")
+  workTasksResolved           AccountingWorkTask[]        @relation("AccountingWorkTaskResolver")
+  periodsOpened               AccountingPeriod[]          @relation("AccountingPeriodOpener")
+  periodsClosed               AccountingPeriod[]          @relation("AccountingPeriodCloser")
+
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
   @@index([organizationId])
+  @@index([organizationId, jobProfile])
   @@map("user_orgs")
+}
+
+/// Time-bounded delegation of a capability subset between two memberships of
+/// the same organization. Legal signing authority is never delegable: the
+/// database rejects `documents.sign` in `capabilities`.
+model MembershipDelegation {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  organizationId        String
+  fromMembershipId      String
+  toMembershipId        String
+  capabilities          String[]
+  startsAt              DateTime  @db.Timestamptz(6)
+  endsAt                DateTime  @db.Timestamptz(6)
+  status                String    @default("ACTIVE")
+  reason                String?
+  createdByMembershipId String
+  revokedAt             DateTime? @db.Timestamptz(6)
+  version               BigInt    @default(0)
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  fromMembership UserOrg      @relation("MembershipDelegationFrom", fields: [fromMembershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  toMembership   UserOrg      @relation("MembershipDelegationTo", fields: [toMembershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([organizationId, toMembershipId, status, endsAt])
+  @@index([tenantId])
+  @@map("membership_delegations")
+}
+
+/// What one membership may sign inside one organization. The platform never
+/// holds a private key: this record names a certificate by fingerprint and
+/// bounds its use by document type, amount, validity window and signing mode.
+/// A delegated signer is invalid without a machine-readable power of attorney.
+model SigningAuthority {
+  id                     String    @id @default(cuid())
+  tenantId               String
+  organizationId         String
+  membershipId           String
+  authorityType          String
+  mchdReference          String?
+  validFrom              DateTime  @db.Timestamptz(6)
+  validTo                DateTime  @db.Timestamptz(6)
+  allowedDocumentTypes   String[]
+  /// Kopecks. Null means the authority carries no monetary ceiling.
+  amountLimitKopecks     BigInt?
+  certificateFingerprint String
+  allowedSigningModes    String[]
+  status                 String    @default("ACTIVE")
+  lastVerifiedAt         DateTime? @db.Timestamptz(6)
+  grantedByMembershipId  String
+  /// The independent approver behind a two-person grant. An ACTIVE authority
+  /// must name one, and it may be neither the beneficiary nor the granter.
+  secondApprovalMembershipId String?
+  revokedAt              DateTime? @db.Timestamptz(6)
+  version                BigInt    @default(0)
+  createdAt              DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  membership     UserOrg      @relation("SigningAuthorityHolder", fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  secondApprover UserOrg?     @relation("SigningAuthoritySecondApprover", fields: [secondApprovalMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization   Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  signedVersions AccountingDocumentVersion[]
+
+  @@index([organizationId, membershipId, status, validTo])
+  @@index([tenantId])
+  @@index([certificateFingerprint])
+  @@map("signing_authorities")
+}
+
+/// A document the platform produces from its own data — a УПД, an acceptance
+/// act, a payment order. Distinct from `DealDocument`, which is a file somebody
+/// uploaded and attached to a deal: this one is generated, so it can be
+/// regenerated, and every rendering of it records the source revisions it was
+/// generated from. That snapshot is what makes staleness detectable at all.
+model AccountingDocument {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  documentType   String
+  /// Assigned when the document is issued. A null number means it has never
+  /// left draft, and the unique index tolerates many of those precisely
+  /// because null does not collide with null in PostgreSQL.
+  documentNumber String?
+  dealId         String?
+  /// The other side of the document. Deliberately not a foreign key: a
+  /// counterparty may be an organization that never registered here, and a
+  /// document must still be issuable to it.
+  counterpartyOrgId     String?
+  status                String   @default("DRAFT")
+  currentVersionNumber  Int      @default(0)
+  createdByMembershipId String
+  version               BigInt   @default(0)
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy    UserOrg      @relation("AccountingDocumentAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  versions  AccountingDocumentVersion[]
+  workTasks AccountingWorkTask[]
+
+  @@unique([organizationId, documentType, documentNumber], map: "accounting_documents_number_identity_idx")
+  @@index([organizationId, status, documentType])
+  @@index([tenantId])
+  @@index([dealId])
+  @@map("accounting_documents")
+}
+
+/// One immutable rendering of an accounting document. A correction is a new
+/// version, never an edit: the payload hash and the revision snapshot are what
+/// a signature covers, so allowing either to move would let a signed document
+/// come to mean something the signer never saw.
+model AccountingDocumentVersion {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  documentId     String
+  versionNumber  Int
+  /// SHA-256 of the exact bytes this version renders to.
+  payloadHash    String
+  /// Revision of every source this version drew from, keyed by the document
+  /// source names in accounting-document-staleness.policy.ts. A source absent
+  /// from this object makes the version unverifiable rather than fresh.
+  recordedRevisions Json
+  /// Kopecks. Money is never a float, and the sign is left unconstrained
+  /// because a correction may legitimately carry a negative total.
+  totalKopecks                    BigInt?
+  signedAt                        DateTime? @db.Timestamptz(6)
+  signedByMembershipId            String?
+  /// Which authority admitted the signature, kept so an audit can ask under
+  /// what mandate a document was signed rather than only by whom.
+  signingAuthorityId              String?
+  signatureCertificateFingerprint String?
+  /// When this version was handed to an external system, and what that system
+  /// called what it took. Written once, from a receipt the far side issued;
+  /// null means it has not been sent, never that sending failed.
+  sentAt                          DateTime? @db.Timestamptz(6)
+  transportCode                   String?
+  externalReceiptId               String?
+  externalReceiptIssuer           String?
+  createdByMembershipId           String
+  createdAt                       DateTime  @default(now()) @db.Timestamptz(6)
+
+  document         AccountingDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organization     Organization       @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy        UserOrg            @relation("AccountingDocumentVersionAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  signedBy         UserOrg?           @relation("AccountingDocumentVersionSigner", fields: [signedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  signingAuthority SigningAuthority?  @relation(fields: [signingAuthorityId], references: [id], onDelete: Restrict)
+
+  @@unique([documentId, versionNumber])
+  @@index([organizationId, documentId])
+  @@index([tenantId])
+  @@map("accounting_document_versions")
+}
+
+/// The sequence behind accounting document numbering, one row per
+/// organization, document type and period.
+///
+/// Deliberately a row rather than a PostgreSQL sequence. A sequence keeps
+/// counting through a rolled-back transaction, so an issue that failed halfway
+/// leaves a hole where no document ever existed — and a hole in a numbered
+/// sequence is exactly what an inspection reads as a removed document. A row
+/// held under `SELECT … FOR UPDATE` for the length of the issuing transaction
+/// rolls back with it.
+model AccountingNumberCounter {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  documentType   String
+  /// The calendar year for an annual sequence, 0 for a continuous one. Keeping
+  /// it in the key means a new year starts a new row instead of resetting a
+  /// shared one, so last year's sequence stays readable.
+  periodYear     Int
+  lastOrdinal    Int      @default(0)
+  prefix         String   @default("")
+  resetPolicy    String   @default("ANNUAL")
+  padding        Int      @default(6)
+  version        BigInt   @default(0)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([organizationId, documentType, periodYear])
+  @@index([tenantId])
+  @@map("accounting_number_counters")
+}
+
+/// A rule the platform applies, stored as a sequence of versions rather than
+/// as a constant.
+///
+/// Documents outlive rules. A УПД issued in March under one rate list must
+/// keep describing itself under that list when it is re-read in November, and
+/// a platform that hardcodes the current rate silently rewrites its own
+/// history the day the rate changes. Every accounting document version records
+/// which rule version governed it; this is what that revision points at.
+///
+/// Deliberately not tenant-scoped. Tax law is not an organization's setting,
+/// and a rule table a tenant could write is a rule table a tenant could
+/// rewrite to justify a document after the fact — so the accounting principals
+/// receive SELECT on it and nothing else.
+model RegulatoryRuleVersion {
+  id         String @id @default(cuid())
+  /// What is being versioned, e.g. `VAT_RATES` or `UPD_FORMAT`.
+  ruleKey    String
+  versionTag String
+  effectiveFrom DateTime  @db.Timestamptz(6)
+  /// Exclusive. Null means still in force.
+  effectiveTo   DateTime? @db.Timestamptz(6)
+  status        String    @default("ACTIVE")
+  /// Legal citation, so a document can say why it looks the way it does. A
+  /// rule with no citation can only be trusted, never audited.
+  source        String
+  payload       Json
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@unique([ruleKey, versionTag])
+  @@index([ruleKey, effectiveFrom])
+  @@map("regulatory_rule_versions")
+}
+
+/// An organization's declared tax status, versioned in time.
+///
+/// Versioned because a regime change in July must not retroactively change
+/// what a document issued in March says about itself. Every accounting
+/// document version records which profile version governed it; this is the
+/// second revision source the staleness snapshot points at.
+///
+/// Unlike `regulatory_rule_versions`, this one is the organization's own
+/// declaration and is therefore writable by its members — what it may not do
+/// is change meaning after documents have cited it.
+model OrganizationTaxProfile {
+  id                 String  @id @default(cuid())
+  tenantId           String
+  organizationId     String
+  versionTag         String
+  taxRegime          String
+  vatStatus          String
+  /// Required exactly when the status is EXEMPT: the legal ground, in words.
+  /// An exemption nobody can name is indistinguishable from not charging VAT
+  /// for no reason.
+  vatExemptionGround String?
+  effectiveFrom      DateTime  @db.Timestamptz(6)
+  /// Exclusive. Null means still current.
+  effectiveTo        DateTime? @db.Timestamptz(6)
+  createdByMembershipId String
+  version            BigInt   @default(0)
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy    UserOrg      @relation("OrganizationTaxProfileAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([organizationId, versionTag])
+  @@index([organizationId, effectiveFrom])
+  @@index([tenantId])
+  @@map("organization_tax_profiles")
+}
+
+/// A version of the commercial terms a document was generated under.
+///
+/// A УПД states a price, a delivery basis and a payment term, all of which come
+/// from an agreement that can be amended. When it is amended the document does
+/// not become wrong — it becomes a description of terms that no longer apply,
+/// which is quieter and worse. Recording the exact version lets the platform
+/// say which.
+///
+/// A signed version is immutable, like a signed document version and for the
+/// same reason: the signature is evidence of what was agreed, and terms that
+/// move underneath it are evidence of nothing. An amendment is a new version.
+model ContractVersion {
+  id                     String  @id @default(cuid())
+  tenantId               String
+  organizationId         String
+  contractNumber         String
+  versionNumber          Int
+  status                 String  @default("DRAFT")
+  /// SHA-256 of the exact terms this version fixes.
+  termsHash              String
+  terms                  Json
+  /// The counterparty, deliberately not a foreign key: an agreement may be with
+  /// an organization that never registered here.
+  counterpartyOrgId      String?
+  dealId                 String?
+  effectiveFrom          DateTime  @db.Timestamptz(6)
+  /// Exclusive. Null means still in force.
+  effectiveTo            DateTime? @db.Timestamptz(6)
+  signedAt               DateTime? @db.Timestamptz(6)
+  signedByMembershipId   String?
+  /// Null only for the first version; every amendment names what it replaces,
+  /// so the chain back to what was originally agreed is always followable.
+  supersedesVersionNumber Int?
+  createdByMembershipId  String
+  version                BigInt   @default(0)
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy    UserOrg      @relation("ContractVersionAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  signedBy     UserOrg?     @relation("ContractVersionSigner", fields: [signedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([organizationId, contractNumber, versionNumber])
+  @@index([organizationId, contractNumber, effectiveFrom])
+  @@index([tenantId])
+  @@map("contract_versions")
+}
+
+/// One thing a human has to do, stated as the work rather than as a table row.
+///
+/// The distinction that makes this table worth having is `origin`. A MANUAL task
+/// is somebody's note to themselves and closes when they say it is done. A
+/// DERIVED task is the platform's report that some condition holds — a document
+/// is unsigned, a transfer failed — and it cannot be closed by agreeing with it.
+/// It closes when the condition it describes stops being true, and the database
+/// checks that rather than taking the caller's word. A checkbox that dismisses
+/// "the document is not signed" leaves the document unsigned and removes the
+/// only sign that anybody would have noticed.
+model AccountingWorkTask {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  taskType       String
+  /// DERIVED or MANUAL. Not a note about where the row came from: it decides
+  /// what closing the task requires.
+  origin         String
+  /// SYSTEM_VERIFIED, SYSTEM_REPORTED or HUMAN_JUDGEMENT — how a resolution is
+  /// proven. A derived task is never HUMAN_JUDGEMENT; a CHECK refuses it.
+  resolutionMode String
+  /// Identity of the condition, so the same unsigned document does not grow a
+  /// new task every time the deriver runs.
+  derivationKey  String?
+  /// The same value while the task is open, nulled by the guard when it closes.
+  /// Uniqueness lives here rather than on derivationKey so a condition that
+  /// recurs after being resolved raises a fresh task instead of colliding with
+  /// the closed one. Null never collides with null in PostgreSQL, which is what
+  /// makes this work without a partial index.
+  openDerivationKey String?
+  /// Lower sorts first. Deliberately not an enum: ordering is a product
+  /// decision that moves, and a migration per reordering makes it move slowly.
+  priority         Int    @default(100)
+  title            String
+  humanDescription String
+  /// Which capability the responsible person must hold, from the resolver in
+  /// membership-capability.resolver.ts. Not a role and not a job profile: the
+  /// task names what must be permitted, and who holds that is resolved live.
+  responsibleCapability String
+  assignedMembershipId  String?
+  dealId                String?
+  shipmentId            String?
+  documentId            String?
+  integrationJobId      String?
+  /// The period a task is about, when it is about one. Nullable because most
+  /// tasks are about a document.
+  periodId              String?
+  /// The event that raised this, kept so a task traces back to the fact that
+  /// produced it rather than only to its own creation.
+  sourceEventId         String?
+  blockingRuleId        String?
+  status                String    @default("OPEN")
+  deadlineAt            DateTime? @db.Timestamptz(6)
+  /// Set by the database on close, never by the caller: a resolution time the
+  /// client chooses is a resolution time the client can antedate.
+  resolvedAt             DateTime? @db.Timestamptz(6)
+  resolvedByMembershipId String?
+  /// For SYSTEM_REPORTED closures: the event saying the condition cleared. It
+  /// must differ from sourceEventId, because the event that raised the task
+  /// cannot also be the news that it went away.
+  resolutionEventId      String?
+  /// Null for DERIVED tasks — nobody wrote them — and required for MANUAL ones.
+  createdByMembershipId  String?
+  version                BigInt   @default(0)
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  assignedTo   UserOrg?            @relation("AccountingWorkTaskAssignee", fields: [assignedMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  createdBy    UserOrg?            @relation("AccountingWorkTaskAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  resolvedBy   UserOrg?            @relation("AccountingWorkTaskResolver", fields: [resolvedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  document     AccountingDocument? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  period       AccountingPeriod?   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, openDerivationKey], map: "accounting_work_tasks_open_condition_idx")
+  @@index([organizationId, status, priority])
+  @@index([organizationId, assignedMembershipId, status])
+  @@index([organizationId, responsibleCapability, status])
+  @@index([tenantId])
+  @@index([dealId])
+  @@map("accounting_work_tasks")
+}
+
+/// The platform's statement that its own document set for a stretch of time is
+/// settled — not an accounting ledger close.
+///
+/// «Прозрачная Цена» is not the books and does not replace 1С; what it can say
+/// is that the documents it is authority for stopped moving. So a closed period
+/// freezes exactly that: no new version of a document raised inside it, and no
+/// signature on one. Everything else about the month is somebody else's system.
+///
+/// Closing is refused while derived work for the period is still open, because
+/// a close declared over unfinished work is the report that gets believed and
+/// then contradicted.
+model AccountingPeriod {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  /// Inclusive.
+  periodStart    DateTime @db.Timestamptz(6)
+  /// Exclusive, so a successor beginning exactly where this ends is a clean
+  /// handover rather than an overlap — the same convention the rule registry
+  /// and the tax profiles use.
+  periodEnd      DateTime @db.Timestamptz(6)
+  /// OPEN, CLOSING or CLOSED. CLOSING exists so that the check for outstanding
+  /// work happens against a period nobody is still adding to.
+  status         String   @default("OPEN")
+  closingStartedAt DateTime? @db.Timestamptz(6)
+  /// Stamped by the database, never supplied: a close time the caller picks is
+  /// a close time the caller can antedate.
+  closedAt             DateTime? @db.Timestamptz(6)
+  closedByMembershipId String?
+  openedByMembershipId String
+  version              BigInt   @default(0)
+  createdAt            DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  openedBy     UserOrg      @relation("AccountingPeriodOpener", fields: [openedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  workTasks    AccountingWorkTask[]
+  closedBy     UserOrg?     @relation("AccountingPeriodCloser", fields: [closedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([organizationId, periodStart])
+  @@index([organizationId, status, periodStart])
+  @@index([tenantId])
+  @@map("accounting_periods")
 }
 
 model UkepCertificate {

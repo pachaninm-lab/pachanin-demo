@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LOCALE_COOKIE } from '@/i18n/locale';
+import {
+  controlHostEnabled,
+  controlHostUrl,
+  isControlHostRequest,
+  isControlRealmPathAllowed,
+  isPrimaryPlatformHostRequest,
+  primaryPlatformUrl,
+} from '@/lib/platform-v7/control-host';
 import { observeServerCabinetAccess } from '@/lib/platform-v7/server-cabinet-access';
 import { readVerifiedCabinetSessionContext } from '@/lib/platform-v7/verified-session';
 import publicSeoRouteRegistry from '@/lib/platform-v7/public-seo-routes.json';
@@ -299,13 +307,17 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale), indexable);
 }
 
-function ensureCsrfCookie(req: NextRequest, response: NextResponse) {
+function ensureCsrfCookie(
+  req: NextRequest,
+  response: NextResponse,
+  sameSite: 'lax' | 'strict' = 'lax',
+) {
   if (req.cookies.get(CSRF_COOKIE)?.value) return;
   response.cookies.set(CSRF_COOKIE, crypto.randomUUID().replaceAll('-', ''), {
     httpOnly: false,
     path: '/',
     maxAge: 60 * 60 * 8,
-    sameSite: 'lax',
+    sameSite,
     secure: req.nextUrl.protocol === 'https:' || process.env.NODE_ENV === 'production',
   });
 }
@@ -335,6 +347,38 @@ function markPlatformV7Entry(response: NextResponse) {
   response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', { path: '/', maxAge: 60 * 60 * 4, sameSite: 'lax', secure: true });
 }
 
+function controlRealmResponse(req: NextRequest) {
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.delete('x-pc-role');
+  requestHeaders.delete('x-pc-owner-key');
+  requestHeaders.set('x-pc-control-realm', 'true');
+  requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set('x-pc-control-realm', 'true');
+  response.headers.set('x-pc-pathname', req.nextUrl.pathname);
+  ensureCsrfCookie(req, response, 'strict');
+  return applySecurityHeaders(response, true, false);
+}
+
+function controlRealmDenied(req: NextRequest) {
+  const headers = {
+    'cache-control': 'no-store, no-cache, must-revalidate, private',
+    'content-type': req.nextUrl.pathname.startsWith('/api/') ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8',
+  };
+  const response = req.nextUrl.pathname.startsWith('/api/')
+    ? NextResponse.json({ ok: false, code: 'CONTROL_REALM_ROUTE_DENIED' }, { status: 404, headers })
+    : new NextResponse('Not found.', { status: 404, headers });
+  return applySecurityHeaders(response, true, false);
+}
+
+function controlHostRequired(req: NextRequest) {
+  const response = NextResponse.json(
+    { ok: false, code: 'CONTROL_HOST_REQUIRED' },
+    { status: 421, headers: { 'cache-control': 'no-store, no-cache, must-revalidate, private' } },
+  );
+  return applySecurityHeaders(response, true, false);
+}
+
 function legacyGektaLocaleRedirect(req: NextRequest): NextResponse | null {
   if (req.nextUrl.pathname !== '/gekta') return null;
   const lang = req.nextUrl.searchParams.get('lang');
@@ -347,6 +391,35 @@ function legacyGektaLocaleRedirect(req: NextRequest): NextResponse | null {
 
 export async function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
+
+  if (controlHostEnabled()) {
+    if (isControlHostRequest(req)) {
+      if (p === '/') {
+        return applySecurityHeaders(NextResponse.redirect(controlHostUrl('/platform-v7/staff'), 308), true, false);
+      }
+      // Registration remains a public-company action and is never served from
+      // the internal realm. This is a safe host-only redirect, not a privilege handoff.
+      if (p === '/platform-v7/register') {
+        return applySecurityHeaders(NextResponse.redirect(primaryPlatformUrl(p, req.nextUrl.search), 308), true, false);
+      }
+      if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
+      return controlRealmResponse(req);
+    }
+
+    const staffPage = isPlatformV7StaffPath(p);
+    const staffApi = p === '/api/staff' || p.startsWith('/api/staff/');
+    if (staffPage) {
+      if (isPrimaryPlatformHostRequest(req)) {
+        return applySecurityHeaders(
+          NextResponse.redirect(controlHostUrl(p, req.nextUrl.search), 308),
+          true,
+          false,
+        );
+      }
+      return controlHostRequired(req);
+    }
+    if (staffApi) return controlHostRequired(req);
+  }
 
   const gektaRedirect = legacyGektaLocaleRedirect(req);
   if (gektaRedirect) return gektaRedirect;

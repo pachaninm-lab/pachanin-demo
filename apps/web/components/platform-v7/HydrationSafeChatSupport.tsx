@@ -2,8 +2,12 @@
 
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
+import { PlatformV7TranslationRuntimeBridge } from '@/components/platform-v7/PlatformV7TranslationRuntimeBridge';
 import { PublicAssistantMobileLayoutAuthority } from '@/components/platform-v7/PublicAssistantMobileLayoutAuthority';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
+import '@/styles/platform-v7-public-cjk-runtime.css';
+import '@/styles/platform-v7-home-mobile-brand.css';
+import '@/styles/platform-v7-home-hero-card-legibility.css';
 
 export type HydrationSafeChatSupportProps = {
   verifiedRole?: PlatformRole;
@@ -23,9 +27,22 @@ const LegacyPublicMobileExperiencePolish = dynamic(
   { ssr: false, loading: () => null },
 );
 
+function normalizePath(pathname: string): string {
+  return pathname.split('?')[0].replace(/\/+$/u, '') || '/platform-v7';
+}
+
 function isStrategicHomepage(pathname: string): boolean {
-  const clean = pathname.split('?')[0].replace(/\/+$/u, '') || '/platform-v7';
+  const clean = normalizePath(pathname);
   return clean === '/platform-v7' || clean === '/pc-public-entry/platform-v7';
+}
+
+function needsLegacyTranslationBridge(pathname: string): boolean {
+  const clean = normalizePath(pathname);
+  return clean === '/platform-v7'
+    || clean === '/pc-public-entry/platform-v7'
+    || clean === '/platform-v7/contact'
+    || clean === '/platform-v7/deal-flow'
+    || clean === '/platform-v7/demo';
 }
 
 /**
@@ -41,9 +58,11 @@ export function HydrationSafeChatSupport({
 }: HydrationSafeChatSupportProps) {
   const pathname = usePathname() || '/platform-v7';
   const loadLegacyPublicPolish = legacyPublicPolish ?? !isStrategicHomepage(pathname);
+  const loadTranslationBridge = needsLegacyTranslationBridge(pathname);
 
   return (
     <>
+      {loadTranslationBridge ? <PlatformV7TranslationRuntimeBridge /> : null}
       {loadLegacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
       <PublicAssistantMobileLayoutAuthority />
       <ContextualSupportOrAssistant {...supportProps} />
