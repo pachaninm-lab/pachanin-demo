@@ -1,0 +1,78 @@
+name: Gekta Mobile UX PR Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/components/gekta/**'
+      - 'apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts'
+      - 'apps/web/tests/unit/gektaMobileUxRedTeam.test.ts'
+      - 'apps/web/playwright.gekta-mobile-pr.config.ts'
+      - '.github/workflows/gekta-mobile-ux-pr-acceptance.yml'
+      - 'docs/platform-v7/autopilot/scopes/gekta-mobile-viewport-regression-4332.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-mobile-ux-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-acceptance:
+    name: Chromium + WebKit mobile UX contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install exact dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build exact Web head
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: pnpm --filter @pc/web build
+
+      - name: Install Chromium and WebKit runtimes
+        run: pnpm --filter @pc/web exec playwright install --with-deps chromium webkit
+
+      - name: Run Gekta mobile UX browser acceptance
+        env:
+          CI: 'true'
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+        run: pnpm --filter @pc/web exec playwright test --config=playwright.gekta-mobile-pr.config.ts
+
+      - name: Record exact tested SHA
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/gekta-mobile-pr
+          printf '%s\n' "$GITHUB_SHA" > artifacts/gekta-mobile-pr/head-sha.txt
+          find apps/web/test-results/gekta-mobile-pr apps/web/playwright-report-gekta-mobile-pr artifacts/gekta-mobile-pr \
+            -type f -print0 2>/dev/null | sort -z | xargs -0 -r sha256sum > artifacts/gekta-mobile-pr/sha256.txt
+
+      - name: Upload Gekta mobile PR evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gekta-mobile-pr-${{ github.run_id }}
+          path: |
+            apps/web/test-results/gekta-mobile-pr
+            apps/web/playwright-report-gekta-mobile-pr
+            artifacts/gekta-mobile-pr
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
