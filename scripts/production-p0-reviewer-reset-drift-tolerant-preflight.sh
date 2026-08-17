@@ -26,7 +26,7 @@ RESET_CRITICAL_PATHS=(
   'apps/api/src/modules/auth/auth.module.ts'
   'apps/api/src/modules/auth/auth-prisma.service.ts'
   'apps/api/src/modules/auth/auth-crypto.ts'
-  'apps/api/src/modules/auth/password-reset.controller.ts'
+  'apps/api/src/modules/auth/auth.controller.ts'
   'apps/api/src/modules/auth/password-reset.repository.ts'
   'apps/api/src/modules/auth/password-reset.service.ts'
   'apps/api/src/modules/auth/password-reset-token.ts'
