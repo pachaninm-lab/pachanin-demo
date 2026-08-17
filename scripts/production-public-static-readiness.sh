@@ -47,15 +47,20 @@ fetch_once() {
 
 extract_assets() {
   local html="$1"
-  grep -Eo '(src|href)=["'"'][^"'"']*/_next/static/[^"'"']+["'"']' "$html" \
-    | sed -E 's/^(src|href)=["'"']([^"'"']+)["'"']$/\2/' \
-    | sed 's/&amp;/\&/g' \
-    | while IFS= read -r asset; do
-        if [[ "$asset" =~ ^https?:// ]]; then printf '%s\n' "$asset";
-        elif [[ "$asset" == /* ]]; then printf '%s%s\n' "$BASE_URL" "$asset";
-        else printf '%s/%s\n' "${BASE_URL%/}" "$asset";
-        fi
-      done
+  python3 - "$html" "$BASE_URL" <<'PY'
+from html import unescape
+from pathlib import Path
+from urllib.parse import urljoin
+import re
+import sys
+
+source = Path(sys.argv[1]).read_text(encoding='utf-8', errors='replace')
+base = sys.argv[2].rstrip('/') + '/'
+pattern = re.compile(r'''(?:src|href)=["']([^"']*/_next/static/[^"']+)["']''', re.IGNORECASE)
+for raw in pattern.findall(source):
+    asset = unescape(raw)
+    print(urljoin(base, asset))
+PY
 }
 
 # Discovery is itself public-path evidence. Every required route must be 200 and
@@ -82,8 +87,8 @@ asset_count="$(grep -c . "$EVIDENCE_DIR/assets.txt" || true)"
 
 # Require the runtime and stylesheet classes explicitly. This catches a partial
 # HTML response that happens to reference only a route payload.
-grep -Eq '/_next/static/.*\.(js)(\?|$)' "$EVIDENCE_DIR/assets.txt" || { echo 'STATIC_READINESS=NO_JS_ASSET' >&2; exit 22; }
-grep -Eq '/_next/static/.*\.(css)(\?|$)' "$EVIDENCE_DIR/assets.txt" || { echo 'STATIC_READINESS=NO_CSS_ASSET' >&2; exit 23; }
+grep -Eq '/_next/static/.*\.js([?]|$)' "$EVIDENCE_DIR/assets.txt" || { echo 'STATIC_READINESS=NO_JS_ASSET' >&2; exit 22; }
+grep -Eq '/_next/static/.*\.css([?]|$)' "$EVIDENCE_DIR/assets.txt" || { echo 'STATIC_READINESS=NO_CSS_ASSET' >&2; exit 23; }
 
 # Ten consecutive public rounds, no curl retry. A transient 502 is a release
 # failure rather than something hidden by retry inflation.
