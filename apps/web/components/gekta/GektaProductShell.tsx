@@ -7,18 +7,24 @@ import { getGektaApplicationSchema, getGektaFaqSchema, safeJsonLd } from '@/lib/
 
 const mobileTouchContract = `
 @media (max-width: 767px) {
-  [data-gekta-chat-workspace='true'] {
-    height: var(--gekta-visual-viewport-height, 100dvh);
+  [data-gekta-chat-workspace='true']:not(.overflow-hidden) {
+    height: auto !important;
     min-height: var(--gekta-visual-viewport-height, 100dvh) !important;
   }
-  [data-gekta-chat-workspace='true'] > div {
-    height: 100%;
-    min-height: 0 !important;
+  [data-gekta-chat-workspace='true']:not(.overflow-hidden) > div {
+    height: auto !important;
+    min-height: var(--gekta-visual-viewport-height, 100dvh) !important;
   }
-  [data-gekta-chat-workspace='true'] main > div:first-of-type {
+  [data-gekta-chat-workspace='true']:not(.overflow-hidden) main {
+    min-height: var(--gekta-visual-viewport-height, 100dvh);
+  }
+  [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:first-of-type {
     min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
+  [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type:empty {
+    display: none;
   }
   [data-gekta-chat-workspace='true'] header > button,
   [data-gekta-chat-workspace='true'] [data-gekta-header-new-chat='true'] {
@@ -35,6 +41,15 @@ const mobileTouchContract = `
     min-height: 0 !important;
     max-height: var(--gekta-visual-viewport-height, 100dvh);
     overflow: hidden;
+  }
+  [data-gekta-chat-workspace='true'].overflow-hidden > div {
+    height: 100%;
+    min-height: 0 !important;
+  }
+  [data-gekta-chat-workspace='true'].overflow-hidden main > div:first-of-type {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   [data-gekta-chat-workspace='true'] [data-gekta-scroll-to-bottom='true'],
   [data-gekta-chat-workspace='true'] button[aria-label='Scroll to bottom'] {
