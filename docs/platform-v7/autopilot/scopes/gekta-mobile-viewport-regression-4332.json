@@ -7,12 +7,13 @@
   "authorizedBy": "explicit-user-instruction",
   "baseline": {
     "branch": "main",
-    "commit": "f54d934e7b0cd0abd0bedf8526a5a9b3b07bbfb8"
+    "commit": "0048c1f63e025e184cc3578898210f33de43b474"
   },
   "baselineSync": {
-    "previousCommit": "bfc45b4954b2216cabc9ad112504722a17e110e7",
-    "aheadBy": 5,
-    "changedFiles": 3,
+    "initialCommit": "bfc45b4954b2216cabc9ad112504722a17e110e7",
+    "previousCommit": "f54d934e7b0cd0abd0bedf8526a5a9b3b07bbfb8",
+    "latestAheadBy": 3,
+    "latestChangedFiles": 1,
     "scopeIntersection": 0,
     "result": "PASS_NON_INTERFERING"
   },
