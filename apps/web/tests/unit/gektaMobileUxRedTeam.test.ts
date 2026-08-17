@@ -31,10 +31,25 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(viewport).toContain('Math.max(0, Math.min(maxInset');
     expect(viewport).toContain("document.addEventListener('focusin'");
     expect(viewport).toContain("document.body.style.overflow = 'hidden'");
+    expect(product).toContain("[data-gekta-chat-workspace='true']:not(.overflow-hidden)");
+    expect(product).toContain('overflow: visible');
+    expect(product).toContain("[data-gekta-chat-workspace='true'].overflow-hidden main > div:first-of-type");
+    expect(product).toContain('overflow-y: auto');
     expect(product).toContain("[data-gekta-chat-workspace='true'].overflow-hidden");
     expect(product).toContain('position: fixed');
     expect(product).toContain('top: var(--gekta-visual-viewport-top, 0px)');
     expect(product).toContain('height: var(--gekta-visual-viewport-height, 100dvh)');
+  });
+
+  it('places the composer between the compact hero and two examples before chat starts', () => {
+    expect(empty).toContain("data-gekta-composer-slot='true'");
+    expect(empty.indexOf('{hero}')).toBeLessThan(empty.indexOf("data-gekta-composer-slot='true'"));
+    expect(empty.indexOf("data-gekta-composer-slot='true'")).toBeLessThan(empty.indexOf("data-gekta-examples='true'"));
+    expect(composer).toContain("import { createPortal } from 'react-dom'");
+    expect(composer).toContain("workspace.classList.contains('overflow-hidden')");
+    expect(composer).toContain("[data-gekta-composer-slot='true']");
+    expect(composer).toContain('return startSlot ? createPortal(composer, startSlot) : composer');
+    expect(product).toContain("main > div:last-of-type:empty");
   });
 
   it('keeps mobile header actions and the scroll affordance inside the 44px contract', () => {
