@@ -167,13 +167,39 @@ async function openSeededConversation(page: Page, viewportWidth: number) {
 
 async function expectStartSurface(page: Page, viewportWidth: number) {
   const composer = page.locator('#gekta-composer-input');
+  const composerRoot = page.locator('[data-gekta-composer-root="true"]');
+  const hero = page.locator('[data-gekta-server-hero="true"]');
+  const examples = page.locator('[data-gekta-examples="true"]');
   await expect(composer).toBeVisible();
+  await expect(hero).toBeVisible();
+  await expect(examples).toBeVisible();
   await expect(page.locator('[data-gekta-starter="true"]:visible')).toHaveCount(2);
   await expect(page.locator('[data-gekta-more-examples="true"]')).toBeVisible();
   await expect(page.locator("[data-gekta-primary-cta='true'], [data-gekta-floating-entry]")).toHaveCount(0);
-  const h1 = page.locator('[data-gekta-server-hero="true"] h1');
-  await expect(h1).toBeVisible();
+
+  const h1 = hero.locator('h1');
   if (viewportWidth === 320) expect(await textLineCount(h1)).toBeLessThanOrEqual(5);
+
+  const [heroBox, composerBox, examplesBox] = await Promise.all([
+    hero.boundingBox(),
+    composerRoot.boundingBox(),
+    examples.boundingBox(),
+  ]);
+  expect(heroBox).not.toBeNull();
+  expect(composerBox).not.toBeNull();
+  expect(examplesBox).not.toBeNull();
+  if (heroBox && composerBox && examplesBox) {
+    expect(heroBox.y + heroBox.height).toBeLessThanOrEqual(composerBox.y + 2);
+    expect(composerBox.y + composerBox.height).toBeLessThanOrEqual(examplesBox.y + 2);
+    const viewportHeight = page.viewportSize()?.height ?? Number.POSITIVE_INFINITY;
+    expect(composerBox.y + composerBox.height).toBeLessThanOrEqual(viewportHeight + 1);
+  }
+
+  const initialScroll = await page.locator('[data-gekta-chat-workspace="true"] main > div').first().evaluate((node) => {
+    const style = window.getComputedStyle(node);
+    return { overflowY: style.overflowY, scrollHeight: node.scrollHeight, clientHeight: node.clientHeight };
+  });
+  expect(['auto', 'scroll']).not.toContain(initialScroll.overflowY);
 
   const composerFontSize = await composer.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).fontSize));
   expect(composerFontSize).toBeGreaterThanOrEqual(16);
@@ -209,6 +235,9 @@ test.describe('Gekta exact production mobile acceptance', () => {
       await expect(page.locator('[data-gekta-role="assistant"]')).toBeVisible();
       const composer = page.locator('#gekta-composer-input');
       await expect(composer).toBeVisible();
+
+      const activeScroll = await page.locator('[data-gekta-chat-workspace="true"] main > div').first().evaluate((node) => window.getComputedStyle(node).overflowY);
+      expect(['auto', 'scroll']).toContain(activeScroll);
 
       const visualViewport = await page.evaluate(() => {
         const cssHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gekta-visual-viewport-height'));
