@@ -95,7 +95,7 @@ const queryCalls = script.match(/\$queryRawUnsafe\s*\(/g) || [];
 if (queryCalls.length < 2 || queryCalls.length > 4) failures.push(`script: unexpected queryRawUnsafe site count ${queryCalls.length}`);
 const composeRunCalls = script.match(/\b(?:docker compose|\$\{dc\[@\]\})[^\n]*\brun\b/g) || [];
 if (composeRunCalls.length > 1) failures.push(`script: expected at most one transient compose run, got ${composeRunCalls.length}`);
-if ((script.match(/DATABASE_URL/g) || []).length > 2) failures.push('script: DATABASE_URL handling expanded beyond bounded presence classification');
+if ((script.match(/DATABASE_URL/g) || []).length > 4) failures.push('script: DATABASE_URL handling expanded beyond two bounded compose-presence checks');
 if (!script.includes('DB URL / credentials / raw DB errors / PII: \\`NOT_PUBLISHED\\`')) failures.push('script: sanitized evidence boundary missing');
 if (!script.includes('transient migration observer: \\`CREATED_AND_REMOVED; DEFAULT MIGRATION COMMAND OVERRIDDEN\\`')) failures.push('script: transient observer disclosure missing');
 
