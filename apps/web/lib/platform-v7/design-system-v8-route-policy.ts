@@ -34,6 +34,7 @@ const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
   '/platform-v7/documents',
   '/platform-v7/disputes',
   '/platform-v7/money',
+  '/platform-v7/accounting',
   '/platform-v7/bank/release-safety',
   '/platform-v7/fgis-access',
   '/platform-v7/deal-logistics',
@@ -51,6 +52,14 @@ const DESIGN_SYSTEM_V8_PREFIX_ROUTES = [
   '/platform-v7/logistics',
 ] as const;
 
+// Routes with an identifier in the middle, which neither an exact entry nor a
+// prefix can express: a prefix of '/platform-v7/deals' would sweep every deal
+// sub-route into the v8 class, which is a decision about somebody else's
+// screens and not one this registration is entitled to make.
+const DESIGN_SYSTEM_V8_DYNAMIC_ROUTES = [
+  /^\/platform-v7\/deals\/[^/]+\/accounting$/,
+] as const;
+
 function normalizePath(value: string | null | undefined): string {
   return (value || '').split('?')[0].replace(/\/$/, '') || '/platform-v7';
 }
@@ -58,7 +67,8 @@ function normalizePath(value: string | null | undefined): string {
 export function isDesignSystemV8Route(value: string | null | undefined): boolean {
   const pathname = normalizePath(value);
   return DESIGN_SYSTEM_V8_EXACT_ROUTES.has(pathname)
-    || DESIGN_SYSTEM_V8_PREFIX_ROUTES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    || DESIGN_SYSTEM_V8_PREFIX_ROUTES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+    || DESIGN_SYSTEM_V8_DYNAMIC_ROUTES.some((pattern) => pattern.test(pathname));
 }
 
 export const DESIGN_SYSTEM_V8_ROUTE_POLICY = Object.freeze({
