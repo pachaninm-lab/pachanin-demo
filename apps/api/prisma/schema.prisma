@@ -53,6 +53,8 @@ model Organization {
   contractVersions                  ContractVersion[]
   accountingWorkTasks               AccountingWorkTask[]
   accountingPeriods                 AccountingPeriod[]
+  accountingAdvances                AccountingAdvance[]
+  accountingAdvanceOffsets          AccountingAdvanceOffset[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -127,6 +129,8 @@ model UserOrg {
   workTasksResolved           AccountingWorkTask[]        @relation("AccountingWorkTaskResolver")
   periodsOpened               AccountingPeriod[]          @relation("AccountingPeriodOpener")
   periodsClosed               AccountingPeriod[]          @relation("AccountingPeriodCloser")
+  advancesRecorded            AccountingAdvance[]         @relation("AccountingAdvanceRecorder")
+  advanceOffsetsApplied       AccountingAdvanceOffset[]   @relation("AccountingAdvanceOffsetActor")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -284,6 +288,7 @@ model AccountingDocumentVersion {
   createdBy        UserOrg            @relation("AccountingDocumentVersionAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
   signedBy         UserOrg?           @relation("AccountingDocumentVersionSigner", fields: [signedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
   signingAuthority SigningAuthority?  @relation(fields: [signingAuthorityId], references: [id], onDelete: Restrict)
+  advanceOffsets   AccountingAdvanceOffset[] @relation("AccountingAdvanceOffsetVersion")
 
   @@unique([documentId, versionNumber])
   @@index([organizationId, documentId])
@@ -572,6 +577,76 @@ model AccountingPeriod {
   @@map("accounting_periods")
 }
 
+/// Money received before the thing it pays for.
+///
+/// Recorded only against evidence that it arrived. An advance with no bank
+/// operation behind it is a claim about money, and a claim about money offset
+/// against a real invoice is how a balance stops matching a bank statement.
+model AccountingAdvance {
+  id                String @id @default(cuid())
+  tenantId          String
+  organizationId    String
+  dealId            String
+  counterpartyOrgId String
+  /// Kopecks, never a Float: the whole contour holds money as an integer of the
+  /// minor unit, and an advance is the one number two parties will compare.
+  amountKopecks     BigInt
+  currency          String @default("RUB")
+  /// When the money arrived, which decides the period the advance falls in.
+  receivedAt        DateTime @db.Timestamptz(6)
+  /// The bank operation that proves it arrived. Required, and required to be
+  /// confirmed — see the guard.
+  bankOperationId   String
+  recordedByMembershipId String
+  version           BigInt   @default(0)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal         Deal         @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  recordedBy   UserOrg      @relation("AccountingAdvanceRecorder", fields: [recordedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  offsets      AccountingAdvanceOffset[]
+
+  @@index([organizationId, dealId, receivedAt])
+  @@index([tenantId])
+  @@index([bankOperationId])
+  @@map("accounting_advances")
+}
+
+/// One application of an advance against something owed.
+///
+/// Append-only. An offset that can be edited is a balance that can be made to
+/// say anything after the fact, and the sum of these rows is exactly what makes
+/// the remaining advance a fact rather than a stored opinion — there is no
+/// cached balance column to drift from them.
+model AccountingAdvanceOffset {
+  id             String @id @default(cuid())
+  tenantId       String
+  organizationId String
+  advanceId      String
+  /// Kopecks. Positive: a negative offset is a refund, which is a different
+  /// event with its own evidence and is not spelled as a minus here.
+  amountKopecks  BigInt
+  appliedAt      DateTime @db.Timestamptz(6)
+  /// What it was applied to, when that is a document version.
+  documentVersionId String?
+  reason         String
+  /// Makes a retried command idempotent rather than doubly applied.
+  idempotencyKey String @unique
+  appliedByMembershipId String
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  advance      AccountingAdvance          @relation(fields: [advanceId], references: [id], onDelete: Restrict)
+  organization Organization               @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  version      AccountingDocumentVersion? @relation("AccountingAdvanceOffsetVersion", fields: [documentVersionId], references: [id], onDelete: Restrict)
+  appliedBy    UserOrg                    @relation("AccountingAdvanceOffsetActor", fields: [appliedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@index([advanceId])
+  @@index([organizationId, appliedAt])
+  @@index([tenantId])
+  @@map("accounting_advance_offsets")
+}
+
 model UkepCertificate {
   id         String    @id @default(cuid())
   userId     String
@@ -637,6 +712,7 @@ model Deal {
   dealEvents        DealEvent[]
   acceptanceRecords AcceptanceRecord[]
   bankOperations    BankOperation[]
+  accountingAdvances AccountingAdvance[]
   runtimeSnapshots  DealWorkspaceRuntimeSnapshot[] @relation("RuntimeSnapshotDeal")
 
   @@index([sellerOrgId])
