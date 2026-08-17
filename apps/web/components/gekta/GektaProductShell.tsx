@@ -7,6 +7,19 @@ import { getGektaApplicationSchema, getGektaFaqSchema, safeJsonLd } from '@/lib/
 
 const mobileTouchContract = `
 @media (max-width: 767px) {
+  [data-gekta-chat-workspace='true'] {
+    height: var(--gekta-visual-viewport-height, 100dvh);
+    min-height: var(--gekta-visual-viewport-height, 100dvh) !important;
+  }
+  [data-gekta-chat-workspace='true'] > div {
+    height: 100%;
+    min-height: 0 !important;
+  }
+  [data-gekta-chat-workspace='true'] main > div:first-of-type {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
   [data-gekta-chat-workspace='true'] header > button,
   [data-gekta-chat-workspace='true'] [data-gekta-header-new-chat='true'] {
     min-width: 44px;
