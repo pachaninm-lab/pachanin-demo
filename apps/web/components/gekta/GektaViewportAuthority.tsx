@@ -32,7 +32,7 @@ function isTextEntry(node: Element | null): boolean {
  * Mobile browser chrome and the on-screen keyboard do not reliably participate
  * in CSS viewport units. This runtime authority follows the actually visible
  * viewport, batches resize/scroll work into animation frames, measures the
- * composer, and locks the document only while the chat shell owns the screen.
+ * composer, and locks the document while either chat or keyboard owns it.
  */
 export function GektaViewportAuthority() {
   React.useEffect(() => {
@@ -126,7 +126,7 @@ export function GektaViewportAuthority() {
       else delete root.dataset.gektaKeyboardOpen;
 
       const workspace = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']");
-      setDocumentLock(Boolean(workspace?.classList.contains('overflow-hidden')));
+      setDocumentLock(Boolean(workspace?.classList.contains('overflow-hidden') || keyboardOpen));
       syncRuntimeSurfaces(keyboardOpen);
     };
 
