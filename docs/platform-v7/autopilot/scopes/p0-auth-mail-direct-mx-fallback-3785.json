@@ -37,13 +37,15 @@
     "direct MX fallback is entered only for the proven SMTP_TRANSIENT_451 returned by the relay RCPT TO command",
     "relay authentication, TLS, MAIL FROM, DATA, permanent 5xx and unrelated transient failures never widen into direct fallback",
     "direct MX delivery resolves ordered recipient MX records and requires STARTTLS with certificate verification and TLS 1.2 or newer",
+    "MX hostnames are resolved once to bounded public IPv4 targets; loopback, private, link-local, CGNAT, benchmark, documentation, multicast and reserved addresses are rejected before socket creation",
+    "the TCP connection uses the already-validated public IP while the original MX hostname is retained only for TLS SNI and certificate verification, preventing DNS-rebinding SSRF",
     "direct MX EHLO uses the platform domain whose A record and SPF authorize the existing production IP",
     "canonical platform envelope sender, deterministic Message-ID, recipient and message body are preserved",
     "multiline SMTP capability responses remain intact when split across network data events",
     "an alternate MX is attempted only before message payload submission; ambiguous post-DATA failures are not fanned out in the same attempt",
     "the synthetic direct-MX canary already received final SMTP acceptance and the connected mailbox proves SPF PASS plus DMARC PASS; no credential or bearer material was included",
     "no new secret, service, DNS record or recurring cost is introduced",
-    "focused regression tests preserve the exact fallback boundary",
+    "focused regression tests preserve the exact fallback and public-address boundaries",
     "no reviewer reset is issued by this change"
   ],
   "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
