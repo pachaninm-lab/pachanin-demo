@@ -131,6 +131,7 @@ jobs:
           persist-credentials: false
 
       - name: Confirm current-main diagnostic authority
+        id: authority
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -215,6 +216,7 @@ jobs:
           PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -Eeuo pipefail
+          set +e
           output="$(
             ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" \
               -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
@@ -321,14 +323,35 @@ jobs:
           stage='COMPLETE'
           REMOTE
           )"
+          transport_rc=$?
+          set -e
           remote_stage="$(sed -n 's/^REMOTE_STAGE=//p' <<< "$output" | tail -n1 || true)"
           remote_rc="$(sed -n 's/^REMOTE_RC=//p' <<< "$output" | tail -n1 || true)"
           mutation="$(sed -n 's/^PRODUCTION_MUTATION=//p' <<< "$output" | tail -n1 || true)"
           marker="$(sed -n 's/^STACK_CLASS=//p' <<< "$output" | tail -n1 || true)"
-          [[ "$remote_stage" == 'COMPLETE' && "$remote_rc" == '0' && "$mutation" == 'NONE' ]]
-          [[ "$marker" =~ ^[A-Z0-9_]+\|[A-Z0-9_]+\|[A-Z0-9_]+\|[A-Z0-9_]+\|[0-9]+\|[0-9]+$ ]]
-          IFS='|' read -r error_type source_stage code_class reason_class marker_count container_count <<< "$marker"
+
+          result='FAIL_CLOSED_DIAGNOSTIC'
+          error_type='TRANSPORT_OR_REMOTE'
+          source_stage="${remote_stage:-NOT_STARTED}"
+          code_class="SSH_RC_${transport_rc}"
+          reason_class='REMOTE_CLASSIFIER_NOT_COMPLETE'
+          marker_count='0'
+          container_count='0'
+
+          if (( transport_rc == 0 )) && [[ "$remote_stage" == 'COMPLETE' && "$remote_rc" == '0' && "$mutation" == 'NONE' ]] &&
+             [[ "$marker" =~ ^[A-Z0-9_]+\|[A-Z0-9_]+\|[A-Z0-9_]+\|[A-Z0-9_]+\|[0-9]+\|[0-9]+$ ]]; then
+            IFS='|' read -r error_type source_stage code_class reason_class marker_count container_count <<< "$marker"
+            result='PASS_READ_ONLY_CLASSIFIED'
+          elif [[ -n "$remote_stage" ]]; then
+            code_class="REMOTE_RC_${remote_rc:-NA}"
+            reason_class='REMOTE_STAGE_FAILED'
+          fi
+
           {
+            echo "result=$result"
+            echo "transport_rc=$transport_rc"
+            echo "remote_stage=${remote_stage:-NOT_STARTED}"
+            echo "remote_rc=${remote_rc:-NA}"
             echo "error_type=$error_type"
             echo "source_stage=$source_stage"
             echo "code_class=$code_class"
@@ -338,8 +361,16 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish sanitized read-only classification
+        if: always()
         shell: bash
         env:
+          AUTHORITY_OUTCOME: ${{ steps.authority.outcome }}
+          SSH_OUTCOME: ${{ steps.ssh.outcome }}
+          CLASSIFY_OUTCOME: ${{ steps.classify.outcome }}
+          RESULT: ${{ steps.classify.outputs.result }}
+          TRANSPORT_RC: ${{ steps.classify.outputs.transport_rc }}
+          REMOTE_STAGE: ${{ steps.classify.outputs.remote_stage }}
+          REMOTE_RC: ${{ steps.classify.outputs.remote_rc }}
           ERROR_TYPE: ${{ steps.classify.outputs.error_type }}
           SOURCE_STAGE: ${{ steps.classify.outputs.source_stage }}
           CODE_CLASS: ${{ steps.classify.outputs.code_class }}
@@ -348,18 +379,44 @@ jobs:
           CONTAINER_COUNT: ${{ steps.classify.outputs.container_count }}
         run: |
           set -Eeuo pipefail
+          result="${RESULT:-FAIL_CLOSED_DIAGNOSTIC}"
+          error_type="${ERROR_TYPE:-NOT_AVAILABLE}"
+          source_stage="${SOURCE_STAGE:-NOT_STARTED}"
+          code_class="${CODE_CLASS:-NONE}"
+          reason_class="${REASON_CLASS:-PRE_REMOTE_STEP_FAILED}"
+          marker_count="${MARKER_COUNT:-0}"
+          container_count="${CONTAINER_COUNT:-0}"
+          transport_rc="${TRANSPORT_RC:-NA}"
+          remote_stage="${REMOTE_STAGE:-NOT_STARTED}"
+          remote_rc="${REMOTE_RC:-NA}"
+
+          if [[ "$AUTHORITY_OUTCOME" != 'success' ]]; then
+            result='FAIL_CLOSED_AUTHORITY'
+            reason_class='CURRENT_MAIN_AUTHORITY_FAILED'
+          elif [[ "$SSH_OUTCOME" != 'success' ]]; then
+            result='FAIL_CLOSED_SSH_PREP'
+            reason_class='PINNED_SSH_PREPARATION_FAILED'
+          elif [[ "$CLASSIFY_OUTCOME" != 'success' ]]; then
+            result='FAIL_CLOSED_EXECUTION'
+            reason_class='CLASSIFIER_STEP_FAILED'
+          fi
+
           gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer consumed-reset robust log classifier
 
           - reset evidence comment: \`5325471181\`
           - reset revision: \`$RESET_REVISION\`
           - fixed log window: \`$ATTEMPT_SINCE .. $ATTEMPT_UNTIL\`
-          - result: \`PASS_READ_ONLY_CLASSIFIED\`
-          - error type: \`$ERROR_TYPE\`
-          - source stage: \`$SOURCE_STAGE\`
-          - safe code class: \`$CODE_CLASS\`
-          - safe reason class: \`$REASON_CLASS\`
-          - failure marker count / exact-revision API containers: \`$MARKER_COUNT / $CONTAINER_COUNT\`
+          - result: \`$result\`
+          - authority / SSH prep / classifier step: \`$AUTHORITY_OUTCOME / $SSH_OUTCOME / $CLASSIFY_OUTCOME\`
+          - transport rc / remote stage / remote rc: \`$transport_rc / $remote_stage / $remote_rc\`
+          - error type: \`$error_type\`
+          - source stage: \`$source_stage\`
+          - safe code class: \`$code_class\`
+          - safe reason class: \`$reason_class\`
+          - failure marker count / exact-revision API containers: \`$marker_count / $container_count\`
           - raw logs / PII / credentials / reset material: \`NOT_PUBLISHED\`
           - reset replay / mail send / deployment: \`NONE\`
           - production mutation: \`NONE\`
           - new recurring cost: \`0 RUB\`"
+
+          [[ "$result" == 'PASS_READ_ONLY_CLASSIFIED' ]]
