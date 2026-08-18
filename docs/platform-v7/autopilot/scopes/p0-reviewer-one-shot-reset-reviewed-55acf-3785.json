@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-one-shot-reset-reviewed-55acf-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_ONE_SHOT_RESET_EXACT_SIGNATURE",
+  "issue": 3785,
+  "registrationMatrixIssue": 3785,
+  "releaseIssue": 3072,
+  "sourceBlob": "55acf811e3484cabe5d15c7197b24f0a6633d4c3",
+  "title": "Authorize exactly one normal reviewer password-reset request after successful exact-signature preflight",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-one-shot-reset-reviewed-55acf.yml",
+    "docs/platform-v7/autopilot/scopes/p0-reviewer-one-shot-reset-reviewed-55acf-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "ONE_NORMAL_PASSWORD_RESET_REQUEST_ONLY_AFTER_FRESH_PREFLIGHT",
+    "databaseMutation": "NORMAL_APPLICATION_RESET_CHALLENGE_AND_DURABLE_MAIL_OUTBOX_ONLY",
+    "passwordResetRequest": true,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "directMailSend": false,
+    "smtpDataCommand": false,
+    "reviewerIdentityOutput": false,
+    "credentialOutput": false,
+    "rawProtocolOutput": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "singleUseClaim": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the workflow requires a successful issue-comment run of the exact-signature reviewer reset preflight on the same exact current main",
+    "the successful authorization run must contain both the contract and production preflight jobs with conclusion success and run_attempt one",
+    "the immutable reset-request and read-only preflight source blobs are checked before any production request",
+    "the exact-signature read-only preflight is rerun immediately before the irreversible claim and must prove exact API Web auth-mail-worker parity with RESET_AUTHORIZED YES and PRODUCTION_MUTATION NONE",
+    "a fixed claim marker prevents any second reset from this reviewed exact-signature authority",
+    "only the normal password-reset request source is executed once; no reset link token recipient password TOTP secret cookie or credential is published",
+    "mail delivery remains delegated to the durable auth-mail outbox and worker architecture",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
