@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-onec-extension-transport-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — 1C extension outbound transport source",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseParentHead": "38df8b818e1050ff6595ed2a25079d89f459ceff",
+  "purpose": "Add the first real 1C-side source slice on top of the server protocol and scoped machine-identity contracts: outbound-only HTTPS transport, bounded self-discovery, one-time pairing, heartbeat, pull-jobs, ACK/result/fail calls, strict no-redirect/no-arbitrary-host/header behavior, exact typed-command dispatch and a fail-closed configuration-adapter seam. This is source for a 1C extension, not a claim that a compiled .cfe has passed a real customer configuration yet.",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorHttp.bsl",
+    "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorCommands.bsl",
+    "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorDiscovery.bsl",
+    "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConfigurationAdapter.bsl",
+    "apps/api/src/modules/accounting/one-c-extension-source/README.md",
+    "apps/api/src/modules/accounting/one-c-extension-source.contract.spec.ts",
+    "apps/api/src/modules/accounting/one-c-extension-discovery.contract.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/one-c-extension-transport-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-onec-extension-transport-20260818.json"
+  ],
+  "boundaries": [
+    "1C initiates outbound HTTPS; there is no inbound listener, remote desktop or OData exposure.",
+    "The production host is compile-time pinned to the platform domain in this reference source; the bearer is never sent to an arbitrary URL supplied by data/user/job.",
+    "TLS validates the server through the operating-system CA store; plain HTTP is not representable by this module.",
+    "3xx redirects are refused so an authorization bearer cannot be redirected to another host.",
+    "Correlation and bearer header values use bounded safe alphabets; CR/LF/space/header injection is refused before HTTP request creation.",
+    "The machine bearer is accepted by the transport function as an already-protected secret; persistence is delegated to a configuration-specific secure-secret provider and is not implemented as plaintext storage here.",
+    "No bearer, pairing code, provider body or business document payload is written to the registration log by this source.",
+    "Self-discovery never sends a 1C connection string. Platform version is read from SystemInformation; configuration-specific version/legal-entity data must come from an accepted compatibility adapter.",
+    "Only the seven protocol commands are dispatchable; unknown commands fail closed and arbitrary SQL/code/database-dump operations are not represented.",
+    "Configuration-specific document creation/discovery remain fail-closed until a compatibility adapter implements them; the reference adapter returns UNKNOWN_RESULT/not-ready and does not pretend BP/KFH/ERP mappings are already accepted.",
+    "No compiled CFE, 1C:Fresh publication, 1C:Compatible certification, live customer database, production traffic or vendor claim.",
+    "No app/web/Prisma/auth/banking/FGIS/hosting/production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredInvariants": [
+    "All connector API calls are the exact /connector/v1 base or a slash-delimited child path on one pinned HTTPS host.",
+    "Authorization bearer is attached only after host/path, correlation-id and bearer-value security gates pass.",
+    "Redirect status is refused and never followed.",
+    "Unsafe job identifiers are refused instead of interpolated into a URL.",
+    "Pairing uses a one-time human code plus a validated discovery payload; later calls use machine bearer only.",
+    "Discovery contains exactly platform/configuration versions, opaque database instance id, explicit legal entities, exact command capabilities, connector version and protocol version; no connection string or secret.",
+    "A database exposing multiple legal entities must enumerate them explicitly and duplicate GUIDs are refused.",
+    "Every job carries idempotency/correlation/revision/attempt and is ACKed before execution.",
+    "Unknown command and not-yet-implemented configuration adapter result in fail/unknown, never success.",
+    "REPORTED_SUCCESS requires the configuration adapter to return its own external evidence id; transport success alone is never reported as business success."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-onec-extension-transport-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- one-c-extension-source.contract.spec.ts one-c-extension-discovery.contract.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting/security gates"
+  ]
+}
