@@ -64,10 +64,11 @@ const mobileTouchContract = `
   }
 
   /* Before a conversation starts, keep the page in normal flow and pin only
-     the same composer node into the actually visible viewport. Its portal
-     parent does not change while the keyboard opens/closes, so focus/caret and
-     iOS touch ownership remain stable. */
-  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) [data-gekta-composer-root='true'] {
+     the same composer node when its own textarea has focus. Search/settings
+     fields may open the keyboard too, but must never pull the composer over a
+     drawer or dialog. The portal parent stays unchanged through keyboard
+     cycles, so focus/caret and iOS touch ownership remain stable. */
+  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden):has(#gekta-composer-input:focus) [data-gekta-composer-root='true'] {
     position: fixed;
     inset-inline: 0;
     top: calc(
@@ -83,7 +84,7 @@ const mobileTouchContract = `
     background: #fcfbf7;
     box-shadow: 0 -10px 32px rgba(15, 23, 42, 0.08);
   }
-  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:first-of-type {
+  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden):has(#gekta-composer-input:focus) main > div:first-of-type {
     padding-bottom: calc(var(--gekta-composer-height, 108px) + 16px) !important;
   }
 
