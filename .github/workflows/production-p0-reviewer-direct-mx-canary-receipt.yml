@@ -1,0 +1,82 @@
+name: Production P0 Reviewer Direct MX Canary Receipt
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-direct-mx-canary-receipt.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-direct-mx-canary-receipt
+  cancel-in-progress: true
+
+jobs:
+  receipt:
+    name: Verify already-accepted canary in mailbox read-only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      CANARY_ID: pc-p0-direct-mx-canary-32157763078
+      PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+      PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+      PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Verify exact existing canary receipt without mutation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import email, imaplib, os, re, ssl, sys
+          from email.policy import default
+          canary=str(os.environ.get('CANARY_ID') or '').strip()
+          host=str(os.environ.get('PC_P0_IMAP_HOST') or '').strip()
+          raw_user=str(os.environ.get('PC_P0_IMAP_USER') or '').strip()
+          password=str(os.environ.get('PC_P0_IMAP_PASSWORD') or '')
+          port=int(str(os.environ.get('PC_P0_IMAP_PORT') or '993').strip())
+          folder=str(os.environ.get('PC_P0_IMAP_FOLDER') or 'INBOX').strip() or 'INBOX'
+          if not re.fullmatch(r'pc-p0-direct-mx-canary-[0-9]{6,24}', canary): raise SystemExit(71)
+          if not host or not raw_user or not password or raw_user.count('@') != 1: raise SystemExit(72)
+          local, domain=raw_user.rsplit('@',1)
+          try:
+              local.encode('ascii')
+              domain_ascii=domain.encode('idna').decode('ascii').lower()
+          except Exception:
+              raise SystemExit(73)
+          user=f'{local}@{domain_ascii}'
+          target=f'<{canary}@xn----8sbjf4befbjgs9b.xn--p1ai>'
+          client=imaplib.IMAP4_SSL(host,port,ssl_context=ssl.create_default_context(),timeout=15)
+          try:
+              if client.login(user,password)[0] != 'OK': raise RuntimeError('LOGIN')
+              if client.select(folder,readonly=True)[0] != 'OK': raise RuntimeError('SELECT')
+              status,data=client.search(None,'ALL')
+              if status != 'OK': raise RuntimeError('SEARCH')
+              matches=0
+              checked=0
+              for ident in reversed((data[0] or b'').split()[-1000:]):
+                  status,rows=client.fetch(ident,'(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])')
+                  if status != 'OK': continue
+                  raw=next((x[1] for x in rows if isinstance(x,tuple) and len(x)>1),None)
+                  if not raw: continue
+                  checked += 1
+                  message=email.message_from_bytes(raw,policy=default)
+                  if str(message.get('message-id') or '').strip() == target: matches += 1
+              print(f'DIRECT_CANARY_MAILBOX_MATCH_COUNT={matches}')
+              print(f'DIRECT_CANARY_MAILBOX_MESSAGES_CHECKED={checked}')
+              print('DIRECT_CANARY_MAILBOX_READ_ONLY=PASS')
+              print('PRODUCTION_MUTATION=NONE')
+              if matches != 1: raise SystemExit(3)
+              print('DIRECT_CANARY_DELIVERY_GATE=PASS')
+          finally:
+              try: client.logout()
+              except Exception: pass
+          PY
