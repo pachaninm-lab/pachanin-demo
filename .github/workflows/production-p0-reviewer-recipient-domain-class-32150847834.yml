@@ -1,0 +1,108 @@
+name: Production P0 Reviewer Recipient Domain Class 32150847834
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-recipient-domain-class-32150847834.yml'
+
+permissions:
+  contents: read
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  SUBJECT_SHA: d3968b730ff7d5c6f02cfebc5ffa02edfa5bef68
+
+jobs:
+  classify:
+    name: Reviewer recipient domain class read-only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Validate read-only contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source='.github/workflows/production-p0-reviewer-recipient-domain-class-32150847834.yml'
+          python3 - "$source" <<'PY'
+          from pathlib import Path
+          import sys
+          lines=Path(sys.argv[1]).read_text(encoding='utf-8').splitlines()
+          markers=[i for i,line in enumerate(lines) if line.strip() == '# OPERATIONAL_BEGIN']
+          if len(markers)!=1: raise SystemExit('OPERATIONAL_MARKER_INVALID')
+          op='\n'.join(lines[markers[0]+1:])
+          forbidden=['curl -X POST','sendAuthMailSmtp(','INSERT INTO','UPDATE auth.','DELETE FROM','docker restart','docker compose up','docker rm ','GRANT ','REVOKE ']
+          bad=[x for x in forbidden if x in op]
+          if bad: raise SystemExit('FORBIDDEN_OPERATION:'+'|'.join(bad))
+          PY
+
+      # OPERATIONAL_BEGIN
+      - name: Resolve pinned production SSH authority
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"; user="$(trim "${PC_PROD_SSH_USER:-}")"; port="$(trim "${PC_PROD_SSH_PORT:-22}")"; expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]; [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]; [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)); [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"; key="$HOME/.ssh/id_pc_prod"
+          validate_key(){ local src="$1" pub; tr -d '\r' < "$src" > "$key"; chmod 600 "$key"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          try_slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          try_slot "${PC_PROD_SSH_KEY:-}" || try_slot "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_slot "${VPS_SSH_KEY:-}"
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do : > "$scan"; : > "$match"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true; while IFS= read -r line; do [[ -n "$line" ]] || continue; fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"; sort -u -o "$match" "$match"; [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }; ((attempt==3)) || sleep "$attempt"; done
+          [[ "$ready" == 1 ]]; mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Classify reviewer recipient without publishing identity
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          safe="$(ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$USER@$HOST" "bash -s -- '$SUBJECT_SHA'" 2>/dev/null <<'REMOTE'
+          set -Eeuo pipefail
+          expected_sha="$1"; [[ "$expected_sha" =~ ^[0-9a-f]{40}$ ]]; [[ "$(id -u)" -eq 0 ]]
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web'); (( ${#web_ids[@]} == 1 )); web_id="${web_ids[0]}"; project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"; [[ -n "$project" ]]
+          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api'); mapfile -t worker_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker'); (( ${#api_ids[@]} == 1 && ${#worker_ids[@]} == 1 )); api_id="${api_ids[0]}"; worker_id="${worker_ids[0]}"; api_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"; web_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"; worker_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"; [[ "$api_rev" == "$expected_sha" && "$web_rev" == "$expected_sha" && "$worker_rev" == "$expected_sha" ]]
+          reviewer="$(docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
+          const {PrismaClient}=require('@prisma/client'); let db; (async()=>{const url=String(process.env.STAFF_DATABASE_URL||'').trim(); if(!url) throw new Error(); db=new PrismaClient({datasources:{db:{url}}}); const rows=await db.$queryRawUnsafe("SELECT auth.staff_reviewer_password_reset_subject() AS email"); if(rows.length!==1) throw new Error(); const e=String(rows[0].email||''); if(!/^[^\\s@]{1,64}@[^\\s@]{1,189}$/.test(e)) throw new Error(); process.stdout.write(e);})().catch(()=>process.exitCode=1).finally(async()=>{if(db) await db.$disconnect().catch(()=>{});});
+          NODE
+          )"
+          auth_user="$(docker exec -i "$worker_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
+          const {readFileSync}=require('node:fs'); const path=String(process.env.AUTH_MAIL_TRANSPORT_FILE||'').trim(); if(!path) process.exit(2); let user=''; for(const src of readFileSync(path,'utf8').split(/\r?\n/)){const line=src.trim(); if(!line||line.startsWith('#')) continue; const i=line.indexOf('='); if(i>0 && line.slice(0,i).trim()==='PC_SMTP_USER') user=line.slice(i+1).trim();} if(!/^[^\s@]{1,64}@[^\s@]{1,189}$/.test(user)) process.exit(3); process.stdout.write(user);
+          NODE
+          )"
+          python3 - "$reviewer" "$auth_user" <<'PY'
+          import sys
+          def parts(v):
+              local,domain=v.rsplit('@',1); return local,domain.encode('idna').decode('ascii').lower()
+          rlocal,rdomain=parts(sys.argv[1]); alocal,adomain=parts(sys.argv[2]); platform='xn----8sbjf4befbjgs9b.xn--p1ai'
+          print('REVIEWER_DOMAIN_CLASS=' + ('PLATFORM' if rdomain==platform or rdomain.endswith('.'+platform) else 'EXTERNAL'))
+          print('REVIEWER_EQUALS_SMTP_AUTH=' + ('YES' if (rlocal,rdomain)==(alocal,adomain) else 'NO'))
+          print('REVIEWER_DOMAIN_EQUALS_SMTP_AUTH_DOMAIN=' + ('YES' if rdomain==adomain else 'NO'))
+          print('IDENTITY_PUBLISHED=NO')
+          print('PRODUCTION_MUTATION=NONE')
+          PY
+          unset reviewer auth_user
+          REMOTE
+          )"
+          grep -E '^(REVIEWER_DOMAIN_CLASS|REVIEWER_EQUALS_SMTP_AUTH|REVIEWER_DOMAIN_EQUALS_SMTP_AUTH_DOMAIN|IDENTITY_PUBLISHED|PRODUCTION_MUTATION)=' <<< "$safe"
+          grep -Fxq 'IDENTITY_PUBLISHED=NO' <<< "$safe"; grep -Fxq 'PRODUCTION_MUTATION=NONE' <<< "$safe"
