@@ -1,0 +1,50 @@
+name: Production P0 Direct MX Canary Mailbox Observer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/platform-v7/autopilot/scopes/p0-direct-mx-mailbox-observer-trigger-3785.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-direct-mx-canary-mailbox-observer
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    name: Read-only mailbox proof for already accepted canary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CANARY_RUN_ID: '32157763078'
+      PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+      PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+      PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Validate read-only observer contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          script='scripts/production-p0-direct-mx-canary-mailbox-observer.sh'
+          bash -n "$script"
+          grep -Fq "authenticate('PLAIN'" "$script"
+          grep -Fq 'BODY.PEEK[HEADER.FIELDS (MESSAGE-ID SUBJECT DATE)]' "$script"
+          grep -Fq 'readonly=True' "$script"
+          ! grep -Fq 'sendmail' "$script"
+          ! grep -Fq "command('DATA'" "$script"
+          ! grep -Fq 'INSERT INTO' "$script"
+          ! grep -Fq 'UPDATE auth.' "$script"
+
+      - name: Prove mailbox receipt without changing message state
+        shell: bash
+        run: bash scripts/production-p0-direct-mx-canary-mailbox-observer.sh
