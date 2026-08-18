@@ -16,7 +16,7 @@ async function expectNoHorizontalOverflow(page: import('@playwright/test').Page)
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
-test('390px empty start survives 20 keyboard cycles without blank state, overlap or caret loss', async ({ page }) => {
+test('390px empty start survives 20 keyboard cycles while discovery remains scrollable and caret stays stable', async ({ page }) => {
   const runtimeFailures: string[] = [];
   page.on('pageerror', (error) => runtimeFailures.push(error.message));
   page.on('console', (message) => {
@@ -32,68 +32,99 @@ test('390px empty start survives 20 keyboard cycles without blank state, overlap
   const composer = page.locator('#gekta-composer-input');
   const composerRoot = page.locator('[data-gekta-composer-root="true"]');
   const privacy = page.locator('#gekta-composer-boundary');
+  const discovery = page.locator('[data-gekta-server-discovery="true"]');
   await expect(workspace).toBeVisible();
   await expect(composer).toBeVisible();
   await expect(composerRoot).toBeVisible();
-  await expect.poll(() => composerRoot.evaluate((node) => Boolean(node.closest('[data-gekta-composer-slot="true"]')))).toBe(true);
+  await expect(discovery).toBeAttached();
+  expect(await composerRoot.evaluate((node) => node.closest('[data-gekta-composer-slot="true"]'))).toBeNull();
 
-  const initialOverflow = await workspace.locator('main > div').first().evaluate((node) => window.getComputedStyle(node).overflowY);
-  expect(['auto', 'scroll']).not.toContain(initialOverflow);
+  const initialState = await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true'] main > div:first-of-type");
+    const workspace = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']");
+    return {
+      rootOverflow: root ? getComputedStyle(root).overflowY : '',
+      workspacePosition: workspace ? getComputedStyle(workspace).position : '',
+      bodyOverflow: getComputedStyle(document.body).overflowY,
+      htmlOverflow: getComputedStyle(document.documentElement).overflowY,
+      scrollHeight: document.scrollingElement?.scrollHeight ?? 0,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(['auto', 'scroll']).not.toContain(initialState.rootOverflow);
+  expect(initialState.workspacePosition).not.toBe('fixed');
+  expect(initialState.bodyOverflow).not.toBe('hidden');
+  expect(initialState.htmlOverflow).not.toBe('hidden');
+  expect(initialState.scrollHeight).toBeGreaterThan(initialState.viewportHeight);
 
   const draft = 'Проверить поле 17: питание, влага и болезни';
   await composer.fill(draft);
   await composer.evaluate((node) => (node as HTMLTextAreaElement).setSelectionRange(19, 19, 'none'));
   await composer.focus();
-  const initialScrollY = await page.evaluate(() => window.scrollY);
 
   for (let cycle = 0; cycle < 20; cycle += 1) {
     await page.setViewportSize({ width: 390, height: 520 });
     await waitForViewportAuthority(page);
     await expect(page.locator('html')).toHaveAttribute('data-gekta-keyboard-open', 'true');
-    await expect.poll(() => composerRoot.evaluate((node) => Boolean(node.closest('[data-gekta-composer-slot="true"]')))).toBe(false);
     await expect(composer).toBeVisible();
     await expect(composer).toBeFocused();
     await expect(composer).toHaveValue(draft);
     await expect(privacy).toBeHidden();
+    await expect(discovery).toBeAttached();
 
     const openState = await page.evaluate(() => {
-      const shell = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']")?.getBoundingClientRect();
+      const workspace = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']");
       const header = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true'] header")?.getBoundingClientRect();
+      const composerRoot = document.querySelector<HTMLElement>("[data-gekta-composer-root='true']");
+      const composerHost = composerRoot?.parentElement;
       const surface = document.querySelector<HTMLElement>("[data-gekta-drop-target='true']")?.getBoundingClientRect();
       const viewport = window.visualViewport;
       const visibleBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
       const textarea = document.querySelector<HTMLTextAreaElement>('#gekta-composer-input');
       return {
-        shellHeight: shell?.height ?? 0,
+        workspacePosition: workspace ? getComputedStyle(workspace).position : '',
+        composerHostPosition: composerHost ? getComputedStyle(composerHost).position : '',
         headerHeight: header?.height ?? 0,
         surfaceHeight: surface?.height ?? 0,
         surfaceBottom: surface?.bottom ?? Number.POSITIVE_INFINITY,
         gap: surface ? visibleBottom - surface.bottom : Number.NEGATIVE_INFINITY,
-        bodyOverflow: document.body.style.overflow,
+        bodyOverflow: getComputedStyle(document.body).overflowY,
+        htmlOverflow: getComputedStyle(document.documentElement).overflowY,
+        documentScrollHeight: document.scrollingElement?.scrollHeight ?? 0,
+        visibleHeight: viewport?.height ?? window.innerHeight,
         selectionStart: textarea?.selectionStart ?? -1,
         selectionEnd: textarea?.selectionEnd ?? -1,
       };
     });
-    expect(openState.shellHeight).toBeGreaterThan(64);
-    expect(openState.shellHeight).toBeLessThanOrEqual(522);
+    expect(openState.workspacePosition).not.toBe('fixed');
+    expect(openState.composerHostPosition).toBe('fixed');
     expect(openState.headerHeight).toBeGreaterThanOrEqual(44);
     expect(openState.surfaceHeight).toBeGreaterThanOrEqual(64);
     expect(openState.surfaceBottom).toBeLessThanOrEqual(522);
-    expect(openState.gap).toBeGreaterThanOrEqual(7);
-    expect(openState.gap).toBeLessThanOrEqual(20);
-    expect(openState.bodyOverflow).toBe('hidden');
+    expect(openState.gap).toBeGreaterThanOrEqual(-2);
+    expect(openState.gap).toBeLessThanOrEqual(32);
+    expect(openState.bodyOverflow).not.toBe('hidden');
+    expect(openState.htmlOverflow).not.toBe('hidden');
+    expect(openState.documentScrollHeight).toBeGreaterThan(openState.visibleHeight);
     expect(openState.selectionStart).toBe(19);
     expect(openState.selectionEnd).toBe(19);
+
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await page.evaluate(() => window.scrollBy({ top: 24, behavior: 'instant' }));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore);
+    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), scrollBefore);
+    await expect(composer).toBeFocused();
+    await expect(composer).toHaveValue(draft);
 
     await page.setViewportSize({ width: 390, height: 844 });
     await waitForViewportAuthority(page);
     await expect(page.locator('html')).not.toHaveAttribute('data-gekta-keyboard-open', 'true');
-    await expect.poll(() => composerRoot.evaluate((node) => Boolean(node.closest('[data-gekta-composer-slot="true"]')))).toBe(true);
     await expect(composer).toBeVisible();
     await expect(composer).toBeFocused();
     await expect(composer).toHaveValue(draft);
     await expect(privacy).toBeVisible();
-    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).overflowY)).not.toBe('hidden');
+    await expect.poll(() => composerRoot.evaluate((node) => getComputedStyle(node.parentElement as HTMLElement).position)).not.toBe('fixed');
   }
 
   const finalState = await composer.evaluate((node) => ({
@@ -104,7 +135,6 @@ test('390px empty start survives 20 keyboard cycles without blank state, overlap
   expect(finalState.start).toBe(19);
   expect(finalState.end).toBe(19);
   expect(finalState.height).toBeLessThanOrEqual(144);
-  expect(await page.evaluate(() => window.scrollY)).toBe(initialScrollY);
   await expectNoHorizontalOverflow(page);
   expect(runtimeFailures).toEqual([]);
 });
