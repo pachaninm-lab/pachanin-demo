@@ -7,11 +7,12 @@
  * the reader still waits for the last token before seeing the first word.
  *
  * So the gate releases text as the model produces it, but only text it can
- * already decide on. A block is published when it is syntactically complete and
- * every safety rule that applies to a block has passed it. Anything still
- * mid-arrival — an unclosed tag, half a sentence, an open code fence — is held,
- * not guessed at. The reader therefore sees real partial answers, and never sees
- * text a rule would later have removed.
+ * already decide on. Verified-platform and current-evidence answers still wait
+ * for syntactically complete blocks because those policies need a whole block.
+ * Plain general-agro prose may additionally release a completed word-bounded
+ * prefix once it is long enough to be useful. That path keeps a safety
+ * lookbehind across fragments, never cuts through a token, and retains every
+ * fail-closed rule that applies to the eventual sentence.
  *
  * Two rules genuinely cannot be block-local: a completeness floor exists because
  * the *whole* answer was thin, and a truncation notice describes how generation
@@ -56,6 +57,19 @@ export interface StreamingAnswerGateOptions {
 
 const DEFAULT_MAX_PENDING_CHARS = 3_000;
 const BLOCK_BOUNDARY = /(?:[.!?。！？][\s]|\n)\s*$/u;
+/**
+ * A progressive fragment shorter than this is rarely useful to a reader and
+ * increases frame churn. 48 characters is deliberately independent of locale
+ * and model tokenization; it is a transport threshold, not answer semantics.
+ */
+const GENERAL_AGRO_PROGRESSIVE_MIN_CHARS = 48;
+/**
+ * WRITE_CLAIM has at most 40 arbitrary characters between actor and action; all
+ * secret signatures become decidable within far less than this. Keeping 96
+ * published characters as lookbehind therefore preserves detection when one
+ * sentence is released through several progressive fragments.
+ */
+const PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS = 96;
 
 const EMPTY_COMMIT: GateCommit = Object.freeze({ text: '', flags: Object.freeze([]), violation: null });
 
@@ -63,6 +77,8 @@ export class StreamingAnswerGate {
   private pending = '';
   private published = '';
   private violationState: GateViolation | null = null;
+  private partialBlockOpen = false;
+  private progressiveSafetyContext = '';
   private readonly authority: string;
   private readonly maxPendingChars: number;
 
@@ -100,19 +116,26 @@ export class StreamingAnswerGate {
   private drain(final: boolean): GateCommit {
     const decidable = final ? this.pending.length : undecidedTailStart(this.pending);
     const overflowing = !final && this.pending.length > this.maxPendingChars;
+    const progressiveAllowed = !final
+      && this.options.answerMode === 'general_agro'
+      && !this.options.currentDataRequired;
 
     let head = this.pending.slice(0, decidable);
     if (!head) return EMPTY_COMMIT;
 
-    // Mid-stream the trailing fragment is only half a sentence; it waits for the
-    // rest unless the buffer has grown past its bound, in which case it is cut
-    // at the last word boundary so buffering stays bounded.
     let consumed = head.length;
+    let progressiveFragment = false;
     if (!final && !BLOCK_BOUNDARY.test(head)) {
       const lastBoundary = lastBlockBoundary(head);
       if (lastBoundary > 0) {
         head = head.slice(0, lastBoundary);
         consumed = lastBoundary;
+      } else if (progressiveAllowed) {
+        const wordBoundary = progressiveWordBoundary(head);
+        if (wordBoundary <= 0) return EMPTY_COMMIT;
+        head = head.slice(0, wordBoundary);
+        consumed = wordBoundary;
+        progressiveFragment = true;
       } else if (overflowing) {
         const wordBreak = head.lastIndexOf(' ');
         if (wordBreak <= 0) return EMPTY_COMMIT;
@@ -131,12 +154,19 @@ export class StreamingAnswerGate {
       const block = sanitizeAnswer(rawBlock);
       if (!block) continue;
 
+      // A progressive fragment can split one sentence over several commits.
+      // Re-check the bounded tail already published with the new fragment so a
+      // prohibited claim cannot be assembled across the transport boundary.
+      const safetyBlock = this.partialBlockOpen && this.progressiveSafetyContext
+        ? `${this.progressiveSafetyContext} ${block}`
+        : block;
+
       // A block claiming an executed write, or carrying secret-shaped material,
       // invalidates the whole answer. Text already published is not "kept anyway":
       // the caller seals the stream with a refusal, and the contract's outcome
       // rule makes a refused stream unusable end to end.
-      if (WRITE_CLAIM_PATTERN.test(block)) return this.refuse('WRITE_CLAIM');
-      if (SECRET_PATTERN.test(block)) return this.refuse('SECRET');
+      if (WRITE_CLAIM_PATTERN.test(safetyBlock)) return this.refuse('WRITE_CLAIM');
+      if (SECRET_PATTERN.test(safetyBlock)) return this.refuse('SECRET');
 
       if (this.options.answerMode === 'verified_platform') {
         const verdict = platformGroundingVerdict(block, this.authority);
@@ -155,14 +185,29 @@ export class StreamingAnswerGate {
     if (kept.length === 0) return { text: '', flags: Object.freeze([...new Set(flags)]), violation: null };
 
     const joined = kept.join('\n');
-    const text = this.published ? `\n${joined}` : joined;
+    const separator = this.published ? (this.partialBlockOpen ? ' ' : '\n') : '';
+    const text = `${separator}${joined}`;
     this.published += text;
+
+    if (progressiveFragment) {
+      const sentenceContext = this.partialBlockOpen && this.progressiveSafetyContext
+        ? `${this.progressiveSafetyContext} ${joined}`
+        : joined;
+      this.progressiveSafetyContext = sentenceContext.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      this.partialBlockOpen = true;
+    } else {
+      this.progressiveSafetyContext = '';
+      this.partialBlockOpen = false;
+    }
+
     return { text, flags: Object.freeze([...new Set(flags)]), violation: null };
   }
 
   private refuse(violation: GateViolation): GateCommit {
     this.violationState = violation;
     this.pending = '';
+    this.progressiveSafetyContext = '';
+    this.partialBlockOpen = false;
     return { text: '', flags: Object.freeze([]), violation };
   }
 }
@@ -175,6 +220,19 @@ function lastBlockBoundary(value: string): number {
     best = match.index + match[0].length;
   }
   return best;
+}
+
+/**
+ * End index of a complete whitespace-delimited prefix suitable for progressive
+ * general-agro release. The current unfinished token always remains pending, so
+ * a secret-like token or raw URL can never be cut in half and leaked early.
+ */
+function progressiveWordBoundary(value: string): number {
+  if (value.length < GENERAL_AGRO_PROGRESSIVE_MIN_CHARS) return 0;
+  for (let index = value.length - 1; index >= GENERAL_AGRO_PROGRESSIVE_MIN_CHARS - 1; index -= 1) {
+    if (/\s/u.test(value[index])) return index + 1;
+  }
+  return 0;
 }
 
 /**
