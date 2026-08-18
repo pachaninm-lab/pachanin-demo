@@ -1,0 +1,108 @@
+name: Company OS Control Host Cutover Observer
+
+on:
+  workflow_run:
+    workflows:
+      - 'Company OS Control Host Authorized Cutover 2026-08-18'
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: company-os-control-host-cutover-observer
+  cancel-in-progress: false
+
+env:
+  TARGET_ISSUE: '4159'
+
+jobs:
+  classify:
+    if: github.event.workflow_run.conclusion != 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Classify failed cutover and retry only transient gates
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id,
+              filter: 'latest',
+              per_page: 100,
+            });
+
+            const failed = [];
+            for (const job of jobs) {
+              for (const step of job.steps || []) {
+                if (['failure', 'cancelled', 'timed_out', 'action_required'].includes(step.conclusion)) {
+                  failed.push(`${job.name} :: ${step.name} :: ${step.conclusion}`);
+                }
+              }
+            }
+
+            const joined = failed.join('\n');
+            let classification = 'BLOCKED_UNKNOWN';
+            let retryable = false;
+            if (/Reject concurrent production mutation workflows/i.test(joined)) {
+              classification = 'RETRYABLE_CONCURRENT_PRODUCTION_ACTIVITY';
+              retryable = true;
+            } else if (/Require canonical DNS and absent AAAA/i.test(joined)) {
+              classification = 'RETRYABLE_DNS_PROPAGATION_OR_IPV6_MISMATCH';
+              retryable = true;
+            } else if (/Resolve pinned production SSH identity/i.test(joined)) {
+              classification = 'BLOCKED_PINNED_PRODUCTION_TRANSPORT';
+            } else if (/Bind exact current main and Company OS authority/i.test(joined)) {
+              classification = 'BLOCKED_EXACT_MAIN_OR_BOUNDARY_AUTHORITY';
+            } else if (/Inspect current state and perform atomic cutover/i.test(joined)) {
+              classification = 'BLOCKED_PRODUCTION_PREFLIGHT_OR_ATOMIC_CUTOVER';
+            } else if (/Require running web revision to contain Company OS boundary/i.test(joined)) {
+              classification = 'BLOCKED_DEPLOYED_WEB_BOUNDARY_REVISION';
+            } else if (/Public TLS and host-isolation acceptance/i.test(joined)) {
+              classification = 'BLOCKED_PUBLIC_ACCEPTANCE_ROLLBACK_EXPECTED';
+            } else if (/Roll back on failed public acceptance/i.test(joined)) {
+              classification = 'CRITICAL_ROLLBACK_FAILURE';
+            }
+
+            const body = [
+              '## Company OS control-host cutover observer',
+              '',
+              `- Run: ${run.id}`,
+              `- Attempt: ${run.run_attempt}`,
+              `- Head: \`${run.head_sha}\``,
+              `- Conclusion: **${run.conclusion}**`,
+              `- Classification: **${classification}**`,
+              `- Automatic retry eligible: **${retryable && run.run_attempt < 3 ? 'YES' : 'NO'}**`,
+              '',
+              'Failed steps:',
+              '```text',
+              joined || 'No failed step metadata returned by GitHub.',
+              '```',
+              '',
+              'Production mutation is governed by the cutover workflow. Public-acceptance failure invokes its rollback path.',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.TARGET_ISSUE),
+              body,
+            });
+
+            if (retryable && run.run_attempt < 3) {
+              await new Promise((resolve) => setTimeout(resolve, 60000));
+              await github.rest.actions.reRunFailedJobs({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id,
+              });
+            }
+
+            if (classification === 'CRITICAL_ROLLBACK_FAILURE') {
+              core.setFailed('Critical: rollback step failed; manual production investigation required.');
+            }
