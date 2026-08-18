@@ -1,0 +1,7 @@
+issue=#3785
+canary_run_id=32157763078
+smtp_acceptance=PASS
+mail_send=NO_NEW_SEND
+mailbox=READ_ONLY
+imap_auth=UTF8_SAFE_SASL_PLAIN
+production_mutation=NONE
