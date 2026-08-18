@@ -3,9 +3,7 @@ import { Prisma } from '@prisma/client';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { RequestUser } from '../../common/types/request-user';
-import {
-  Capability,
-} from '../auth/membership-capability.resolver';
+import { Capability } from '../auth/membership-capability.resolver';
 import { DEFAULT_MFA_MAX_AGE_SECONDS } from '../auth/signing-authority.policy';
 import {
   ONE_C_PROTOCOL_VERSION,
@@ -272,6 +270,9 @@ export class OneCRuntimeRepository {
     if (input.discovery.protocolVersion !== ONE_C_PROTOCOL_VERSION) {
       throw new OneCRuntimeRepositoryError('ONE_C_PROTOCOL_VERSION_UNSUPPORTED');
     }
+    if (input.discovery.capabilities.length === 0) {
+      throw new OneCRuntimeRepositoryError('ONE_C_CAPABILITIES_INVALID');
+    }
 
     const selected = input.discovery.organizations.find(
       (organization) => organization.guid === input.selectedOneCOrganizationGuid,
@@ -300,7 +301,7 @@ export class OneCRuntimeRepository {
           ${input.discovery.configurationVersion},
           ${input.discovery.connectorVersion},
           ${input.discovery.protocolVersion},
-          ${[...input.discovery.capabilities]}::text[],
+          ARRAY[${Prisma.join([...input.discovery.capabilities])}]::text[],
           ${selected.guid},
           ${selected.inn},
           ${selected.kpp},
@@ -332,9 +333,19 @@ export class OneCRuntimeRepository {
   async describeBinding(
     user: RequestUser | undefined,
   ): Promise<
-    | { readonly outcome: OneCBindingReadOutcome.AVAILABLE; readonly binding: OneCBindingView }
-    | { readonly outcome: OneCBindingReadOutcome.NOT_CONNECTED; readonly binding: null }
-    | { readonly outcome: OneCBindingReadOutcome.REFUSED; readonly binding: null; readonly refusal: OneCHumanRefusal }
+    | {
+        readonly outcome: typeof OneCBindingReadOutcome.AVAILABLE;
+        readonly binding: OneCBindingView;
+      }
+    | {
+        readonly outcome: typeof OneCBindingReadOutcome.NOT_CONNECTED;
+        readonly binding: null;
+      }
+    | {
+        readonly outcome: typeof OneCBindingReadOutcome.REFUSED;
+        readonly binding: null;
+        readonly refusal: OneCHumanRefusal;
+      }
   > {
     return this.transactions.withOrganizationMemberContext(user, async (tx) => {
       const capabilities = await this.tasks.capabilitiesWithin(tx);
@@ -388,9 +399,12 @@ export class OneCRuntimeRepository {
     user: RequestUser | undefined,
     input: { bindingId: string; reason: string; correlationId: string; now?: Date },
   ): Promise<
-    | { readonly outcome: OneCBindingRevokeOutcome.REVOKED }
-    | { readonly outcome: OneCBindingRevokeOutcome.NOT_FOUND }
-    | { readonly outcome: OneCBindingRevokeOutcome.REFUSED; readonly refusal: OneCHumanRefusal }
+    | { readonly outcome: typeof OneCBindingRevokeOutcome.REVOKED }
+    | { readonly outcome: typeof OneCBindingRevokeOutcome.NOT_FOUND }
+    | {
+        readonly outcome: typeof OneCBindingRevokeOutcome.REFUSED;
+        readonly refusal: OneCHumanRefusal;
+      }
   > {
     const now = input.now ?? new Date();
     return this.transactions.withOrganizationMemberContext(
@@ -468,7 +482,7 @@ export class OneCRuntimeRepository {
     if (row.bindingStatus !== 'ACTIVE') {
       return { authorized: false, reason: OneCMachineAuthenticationDenial.BINDING_NOT_ACTIVE };
     }
-    if (row.version > BigInt(Number.MAX_SAFE_INTEGER)) {
+    if (row.version < 1n || row.version > BigInt(Number.MAX_SAFE_INTEGER)) {
       return { authorized: false, reason: OneCMachineAuthenticationDenial.MALFORMED_PERSISTED_VERSION };
     }
 
