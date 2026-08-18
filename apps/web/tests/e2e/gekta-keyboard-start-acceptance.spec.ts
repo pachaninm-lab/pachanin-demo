@@ -110,9 +110,9 @@ test('390px empty start survives 20 keyboard cycles while discovery remains scro
     expect(openState.selectionEnd).toBe(19);
 
     const scrollBefore = await page.evaluate(() => window.scrollY);
-    await page.evaluate(() => window.scrollBy({ top: 24, behavior: 'instant' }));
+    await page.evaluate(() => window.scrollBy({ top: 24, behavior: 'auto' }));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore);
-    await page.evaluate((top) => window.scrollTo({ top, behavior: 'instant' }), scrollBefore);
+    await page.evaluate((top) => window.scrollTo({ top, behavior: 'auto' }), scrollBefore);
     await expect(composer).toBeFocused();
     await expect(composer).toHaveValue(draft);
 
