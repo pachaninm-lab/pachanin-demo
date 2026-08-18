@@ -20,7 +20,7 @@ export type DirectMxDelivery = {
 };
 
 class DirectPostDataFailure extends Error {
-  constructor(public readonly cause: unknown) {
+  constructor(public readonly originalError: unknown) {
     super('SMTP_DIRECT_POST_DATA_FAILURE');
     this.name = 'DirectPostDataFailure';
   }
@@ -62,6 +62,7 @@ class DirectSmtpSession {
   private buffer = '';
   private pending?: {
     expected: Set<number>;
+    lines: string[];
     resolve: (response: SmtpResponse) => void;
     reject: (error: Error) => void;
   };
@@ -123,7 +124,7 @@ class DirectSmtpSession {
   private waitFor(expected: Set<number>): Promise<SmtpResponse> {
     if (this.pending) throw new AuthMailTransportError('SMTP_PROTOCOL_OVERLAP');
     return new Promise<SmtpResponse>((resolve, reject) => {
-      this.pending = { expected, resolve, reject };
+      this.pending = { expected, lines: [], resolve, reject };
       this.consume();
     });
   }
@@ -139,25 +140,24 @@ class DirectSmtpSession {
 
   private consume(): void {
     if (!this.pending) return;
-    const lines: string[] = [];
     while (true) {
       const index = this.buffer.indexOf('\r\n');
       if (index < 0) return;
       const line = this.buffer.slice(0, index);
       this.buffer = this.buffer.slice(index + 2);
-      lines.push(line);
+      const pending = this.pending;
+      pending.lines.push(line);
       const match = /^(\d{3})([ -])/.exec(line);
       if (!match) continue;
       if (match[2] === '-') continue;
       const code = Number(match[1]);
-      const pending = this.pending;
       this.pending = undefined;
       if (!pending.expected.has(code)) {
         const category = code >= 500 ? 'PERMANENT' : code >= 400 ? 'TRANSIENT' : 'PROTOCOL';
         pending.reject(new AuthMailTransportError(`SMTP_${category}_${code}`));
         return;
       }
-      pending.resolve({ code, lines });
+      pending.resolve({ code, lines: pending.lines });
       return;
     }
   }
@@ -289,7 +289,7 @@ export async function sendAuthMailDirectMx(delivery: DirectMxDelivery): Promise<
       await sendTarget(target, delivery);
       return;
     } catch (error) {
-      if (error instanceof DirectPostDataFailure) throw error.cause;
+      if (error instanceof DirectPostDataFailure) throw error.originalError;
       lastError = error;
       if (isPermanentSmtpError(error)) throw error;
     }
