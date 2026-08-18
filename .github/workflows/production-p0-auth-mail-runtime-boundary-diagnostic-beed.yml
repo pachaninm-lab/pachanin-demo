@@ -15,8 +15,8 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: production-p0-auth-mail-runtime-boundary-diagnostic-beed
-  cancel-in-progress: false
+  group: production-p0-auth-mail-runtime-boundary-diagnostic-beed-${{ github.event.pull_request.number || 'production' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   DEPLOYED_SHA: beed71c08783906d4235f3a02ad0b737a4c8be15
