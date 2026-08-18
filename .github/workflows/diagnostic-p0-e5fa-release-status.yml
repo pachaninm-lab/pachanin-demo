@@ -1,0 +1,65 @@
+name: Diagnostic P0 e5fa release status
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnostic-p0-e5fa-release-status.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect:
+    name: Inspect image and full-stack runs read-only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read current registration release runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: e5fa6ff312800df085b5a35156f5a415dc11358f
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          printf 'CURRENT_MAIN=%s\n' "$current"
+          printf 'TARGET_SHA=%s\n' "$TARGET_SHA"
+
+          image_meta="$RUNNER_TEMP/image-workflow.json"
+          release_meta="$RUNNER_TEMP/release-workflow.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/production-p0-registration-current-main-images.yml" > "$image_meta"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/production-full-stack-exact-sha.yml" > "$release_meta"
+          image_id="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).id" "$image_meta")"
+          release_id="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).id" "$release_meta")"
+          printf 'IMAGE_WORKFLOW_ID=%s\nRELEASE_WORKFLOW_ID=%s\n' "$image_id" "$release_id"
+
+          for spec in "IMAGE:$image_id" "RELEASE:$release_id"; do
+            label="${spec%%:*}"
+            workflow_id="${spec#*:}"
+            runs="$RUNNER_TEMP/${label,,}-runs.json"
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs?branch=main&per_page=30" > "$runs"
+            node - "$runs" "$label" "$TARGET_SHA" <<'NODE'
+          const fs = require('node:fs');
+          const [path, label, target] = process.argv.slice(2);
+          const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const rows = (data.workflow_runs || [])
+            .filter((run) => run.head_sha === target)
+            .slice(0, 8)
+            .map((run) => ({
+              id: run.id,
+              event: run.event,
+              status: run.status,
+              conclusion: run.conclusion || 'PENDING',
+              created_at: run.created_at,
+              updated_at: run.updated_at,
+            }));
+          console.log(`${label}_MATCH_COUNT=${rows.length}`);
+          for (const row of rows) console.log(`${label}_RUN=${JSON.stringify(row)}`);
+          NODE
+          done
+          printf 'PRODUCTION_MUTATION=NONE\n'
