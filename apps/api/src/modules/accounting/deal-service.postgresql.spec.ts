@@ -690,20 +690,20 @@ describePostgres('a service line on a deal', () => {
       );
     });
 
-    it('refuses approving a line whose month closed after it was recorded', async () => {
-      // Recorded while April was open, approved after it closed. The figure the
-      // close reported as final is exactly the one this approval would move.
-      const line = `${RUN}.closed.later`;
-      await perTon(line, IN_APRIL);
-      await closeMonth(
-        `${RUN}.period.april`,
-        new Date('2026-04-01T00:00:00.000Z'),
-        new Date('2026-05-01T00:00:00.000Z'),
-      );
-      await expect(approve(line, APPROVER_USER, APPROVER)).rejects.toThrow(
-        /period this service falls in is closed/,
-      );
-      expect(await statusOf(line)).toBe('RENDERED');
-    });
+    // There was a case here for approving a line whose month closed after it
+    // was recorded. It is gone, and its absence is the point: the periods
+    // contour now refuses to close a month that still holds an undecided line,
+    // exactly because approving one afterwards is refused and the charge would
+    // be lost. The two rules are a pair, and with the first in place the second
+    // is unreachable through the guards.
+    //
+    // The guard still carries it, for a state that could arise by other means —
+    // a restore, a script, a migration — and the pair is proved from the other
+    // side by "refuses a close while a service line for the period is
+    // undecided" in the periods suite. Reaching it from here would have meant
+    // disabling a neighbouring contour's trigger mid-run, which is a table-wide
+    // change: measured, it broke every suite running in parallel against the
+    // same database. A test that has to sabotage another contour to run is not
+    // covering this one.
   });
 });

@@ -64,7 +64,8 @@
     "apps/api/prisma/migrations/20260817120000_pc_crop_accounting_advances",
     "apps/api/prisma/migrations/20260817170000_pc_crop_accounting_deal_services",
     "apps/api/prisma/migrations/20260817200000_pc_crop_accounting_payments",
-    "apps/api/prisma/migrations/20260817220000_pc_crop_accounting_reconciliation"
+    "apps/api/prisma/migrations/20260817220000_pc_crop_accounting_reconciliation",
+    "apps/api/prisma/migrations/20260817230000_pc_crop_period_close_knows_services"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
