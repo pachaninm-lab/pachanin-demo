@@ -29,10 +29,10 @@ describe('Gekta empty-start keyboard contract', () => {
     expect(mobileCopy).toContain("eyebrow: 'GEKTA · 农业智能'");
   });
 
-  it('keeps discovery scrollable and pins only the composer to the visible keyboard viewport', () => {
+  it('keeps discovery scrollable and pins only the focused composer to the visible keyboard viewport', () => {
     expect(viewport).not.toContain("root.style.overflow = 'hidden'");
     expect(viewport).not.toContain("document.body.style.overflow = 'hidden'");
-    expect(product).toContain("html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) [data-gekta-composer-root='true']");
+    expect(product).toContain("html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden):has(#gekta-composer-input:focus) [data-gekta-composer-root='true']");
     expect(product).toContain("[data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:first-of-type");
     expect(product).toContain('padding-bottom: calc(var(--gekta-composer-height, 108px) + 16px) !important');
   });
