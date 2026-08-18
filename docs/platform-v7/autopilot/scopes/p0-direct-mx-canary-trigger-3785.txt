@@ -1,5 +1,7 @@
 issue=#3785
-purpose=one-safe-synthetic-direct-mx-delivery-canary
+purpose=one-safe-synthetic-direct-mx-delivery-canary-v2
+attempt=2
+previous_attempt=NO_CONFIRMED_SMTP_ACCEPTANCE
 password_reset=NO
 secrets=NONE
 identity_mutation=NONE
