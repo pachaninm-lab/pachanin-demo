@@ -93,6 +93,10 @@ describePostgres('a closed accounting period', () => {
 
   afterAll(async () => {
     await prisma.$executeRaw`DELETE FROM public."accounting_work_tasks" WHERE "organizationId" = ${ORG}`;
+    await prisma.$executeRaw`ALTER TABLE public."accounting_deal_services" DISABLE TRIGGER accounting_deal_services_guard`;
+    await prisma.$executeRaw`DELETE FROM public."accounting_deal_services" WHERE "organizationId" = ${ORG}`;
+    await prisma.$executeRaw`ALTER TABLE public."accounting_deal_services" ENABLE TRIGGER accounting_deal_services_guard`;
+    await prisma.$executeRaw`DELETE FROM public."deals" WHERE "tenantId" = ${TENANT}`;
     await prisma.$executeRaw`DELETE FROM public."accounting_periods" WHERE "organizationId" = ${ORG}`;
     await prisma.$executeRaw`DELETE FROM public."accounting_document_versions" WHERE "organizationId" = ${ORG}`;
     await prisma.$executeRaw`DELETE FROM public."accounting_documents" WHERE "organizationId" = ${ORG}`;
@@ -145,6 +149,53 @@ describePostgres('a closed accounting period', () => {
     await move(`${RUN}.jul`, 'CLOSING');
     await expect(move(`${RUN}.jul`, 'CLOSED')).rejects.toThrow(
       /outstanding derived task/,
+    );
+  });
+
+  it('refuses a close while a service line for the period is undecided', async () => {
+    // A month of its own, so the July flow the other cases drive stays put.
+    const other = `${RUN}.counterparty`;
+    const deal = `${RUN}.deal`;
+    await prisma.$executeRaw`
+      INSERT INTO public."organizations"
+        ("id","inn","name","type","status","kycStatus","tenantId","createdAt",
+         "updatedAt")
+      VALUES (${other}, ${String(Date.now()).slice(-10)}, 'Counterparty',
+              'LEGAL', 'VERIFIED', 'VERIFIED', ${TENANT}, now(), now())
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO public."deals"
+        ("id","tenantId","sellerOrgId","buyerOrgId","status","currency",
+         "dealNumber","totalKopecks","pricePerTonDec","culture","cropClass",
+         "gost","createdAt","updatedAt")
+      VALUES (${deal}, ${TENANT}, ${other}, ${ORG}, 'SIGNED', 'RUB',
+              ${`СД-${RUN}`}, 12500000, 5000.000000, 'Пшеница', '3',
+              'ГОСТ 9353-2016', now(), now())
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO public."accounting_periods"
+        ("id","tenantId","organizationId","periodStart","periodEnd","status",
+         "openedByMembershipId","createdAt","updatedAt")
+      VALUES (${`${RUN}.sep`}, ${TENANT}, ${ORG}, '2026-09-01T00:00:00Z',
+              '2026-10-01T00:00:00Z', 'OPEN', ${MEMBERSHIP}, now(), now())
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO public."accounting_deal_services"
+        ("id","tenantId","organizationId","dealId","counterpartyOrgId","kind",
+         "unit","quantityMilliUnits","rateKopecks","amountKopecks","currency",
+         "renderedAt","status","recordedByMembershipId","idempotencyKey",
+         "createdAt","updatedAt")
+      VALUES (${`${RUN}.svc`}, ${TENANT}, ${ORG}, ${deal}, ${other},
+              'TRANSSHIPMENT', 'TON', 100000, 300, 30000, 'RUB',
+              '2026-09-10T00:00:00Z', 'RENDERED', ${MEMBERSHIP},
+              ${`${RUN}.svc.key`}, now(), now())
+    `;
+
+    await move(`${RUN}.sep`, 'CLOSING');
+    // Not tidiness: an approval whose line falls in a closed month is refused,
+    // so closing over this line would discard the charge rather than defer it.
+    await expect(move(`${RUN}.sep`, 'CLOSED')).rejects.toThrow(
+      /undecided service line/,
     );
   });
 
