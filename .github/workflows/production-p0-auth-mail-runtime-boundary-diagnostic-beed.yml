@@ -142,7 +142,8 @@ jobs:
           )
           test "${#pr_meta[@]}" = 4
           test "${pr_meta[0]}" = true
-          test "${pr_meta[1]}" = "$current_main"
+          git cat-file -e "${pr_meta[1]}^{commit}"
+          git merge-base --is-ancestor "${pr_meta[1]}" "$current_main"
           test "${pr_meta[2]}" = 'diag/p0-auth-mail-runtime-boundary-beed-3785'
           test "${pr_meta[3]}" = "$GITHUB_REPOSITORY"
 
@@ -154,16 +155,19 @@ jobs:
 
           data = json.load(open(sys.argv[1], encoding='utf-8'))
           for item in sorted(data, key=lambda value: value.get('filename') or ''):
-              print(f"{item.get('status') or ''}\t{item.get('filename') or ''}")
+              print(f"{item.get('status') or ''}\t{item.get('filename') or ''}\t{item.get('sha') or ''}")
           PY
           )
-          expected_files=(
-            $'added\t.github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml'
-            $'added\tscripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh'
-          )
-          test "${#pr_files[@]}" = "${#expected_files[@]}"
-          test "${pr_files[0]}" = "${expected_files[0]}"
-          test "${pr_files[1]}" = "${expected_files[1]}"
+          test "${#pr_files[@]}" = 2
+          IFS=$'\t' read -r workflow_status workflow_path workflow_blob <<< "${pr_files[0]}"
+          IFS=$'\t' read -r script_status script_path script_blob <<< "${pr_files[1]}"
+          test "$workflow_status" = added
+          test "$workflow_path" = '.github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml'
+          test "$script_status" = added
+          test "$script_path" = 'scripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh'
+          [[ "$workflow_blob" =~ ^[0-9a-f]{40}$ && "$script_blob" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse "${current_main}:${workflow_path}")" = "$workflow_blob"
+          test "$(git rev-parse "${current_main}:${script_path}")" = "$script_blob"
           git diff --name-status --no-renames "$DEPLOYED_SHA" "$current_main" \
             | grep -Fxq $'A\t.github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml'
           git diff --name-status --no-renames "$DEPLOYED_SHA" "$current_main" \
