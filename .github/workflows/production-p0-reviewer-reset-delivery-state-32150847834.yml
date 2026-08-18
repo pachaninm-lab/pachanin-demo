@@ -56,8 +56,11 @@ jobs:
           python3 - "$source" <<'PY'
           from pathlib import Path
           import sys
-          text=Path(sys.argv[1]).read_text(encoding='utf-8')
-          operational=text.split('# OPERATIONAL_BEGIN',1)[1]
+          lines=Path(sys.argv[1]).read_text(encoding='utf-8').splitlines()
+          markers=[i for i,line in enumerate(lines) if line.strip() == '# OPERATIONAL_BEGIN']
+          if len(markers) != 1:
+              raise SystemExit(f'OPERATIONAL_MARKER_INVALID:{len(markers)}')
+          operational='\n'.join(lines[markers[0]+1:])
           forbidden=[
               'docker restart','docker rm ','docker compose up','docker compose down','docker stop','docker start','docker kill',
               'INSERT INTO','UPDATE auth.','DELETE FROM','TRUNCATE ','ALTER ROLE','CREATE ROLE','DROP ROLE','GRANT ','REVOKE ',
