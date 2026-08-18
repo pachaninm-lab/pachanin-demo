@@ -16,7 +16,6 @@
     "apps/web/app/platform-v7/settings/connections/connection-center.presentation.ts",
     "apps/web/app/platform-v7/settings/connections/connections.module.css",
     "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
-    "apps/web/lib/platform-v7/shellRoutes.ts",
     "apps/web/lib/platform-v7/cabinet-access-policy.ts",
     "apps/web/app/platform-v7/layout.tsx",
     "apps/web/tests/unit/platformV7ConnectionCenterRouteAccess.test.ts",
@@ -30,8 +29,8 @@
     "The UI never derives a green state from HTTP success; maturity/missing/mayCarryRealTraffic come from the server response only.",
     "A missing FGIS/transport Connection Center backend model is rendered as not yet represented on this screen, never NOT_CONNECTED/HEALTHY by invention.",
     "No OData, OAuth scopes, client_secret, endpoint, refresh token, raw provider code, XSD or other technical secret is displayed.",
-    "Organization-cabinet access is widened only to the exact /platform-v7/settings/connections route; arbitrary /settings paths remain unknown/denied.",
-    "Seller/buyer coarse shell access is widened only to the exact Connection Center route; server capability/RLS remains authority.",
+    "Organization-cabinet access is widened only to the registered /platform-v7/settings/connections route; arbitrary /settings paths remain unknown/denied.",
+    "Seller/buyer coarse cabinet access is widened only to the exact Connection Center route; server capability/RLS remains authority.",
     "No Prisma, API mutation, provider credential, 1C/EDO live call, hosting or production mutation.",
     "Merge and green CI are not production acceptance.",
     "New mandatory recurring cost: 0 RUB."
