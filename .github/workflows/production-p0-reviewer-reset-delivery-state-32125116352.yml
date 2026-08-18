@@ -1,0 +1,299 @@
+name: Production P0 Reviewer Reset Delivery State 32125116352
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-delivery-state-32125116352.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-delivery-state-32125116352
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  RESET_SHA: 834e51aad00e94163aaff3044b26f0db9c32d8f1
+  WINDOW_START: '2026-08-18T10:05:00Z'
+  WINDOW_END: '2026-08-18T10:35:00Z'
+
+jobs:
+  inspect:
+    name: Read-only durable reset delivery and mailbox state
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+      PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+      PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate bounded read-only contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source='.github/workflows/production-p0-reviewer-reset-delivery-state-32125116352.yml'
+          grep -Fq "RESET_SHA: 834e51aad00e94163aaff3044b26f0db9c32d8f1" "$source"
+          grep -Fq "message_kind = 'PASSWORD_RESET'" "$source"
+          grep -Fq "readonly=True" "$source"
+          grep -Fq "BODY.PEEK[HEADER.FIELDS (MESSAGE-ID DATE)]" "$source"
+          python3 - "$source" <<'PY'
+          from pathlib import Path
+          import sys
+          text = Path(sys.argv[1]).read_text(encoding='utf-8')
+          forbidden = [
+              'docker restart', 'docker rm ', 'docker compose up', 'docker compose down',
+              'INSERT INTO', 'UPDATE auth.', 'DELETE FROM', 'TRUNCATE ', 'ALTER ROLE',
+              'CREATE ROLE', 'DROP ROLE', 'GRANT ', 'REVOKE ', 'curl -X POST',
+              'sendAuthMailSmtp(', 'client.store(', 'client.append(', 'client.expunge(',
+          ]
+          bad = [token for token in forbidden if token in text]
+          if bad:
+              raise SystemExit('MUTATION_SURFACE_FORBIDDEN:' + '|'.join(bad))
+          PY
+
+      - name: Resolve pinned production SSH authority
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
+          user="$(trim "${PC_PROD_SSH_USER:-}")"
+          port="$(trim "${PC_PROD_SSH_PORT:-22}")"
+          expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          key="$HOME/.ssh/id_pc_prod"
+          validate_key(){
+            local src="$1" pub
+            tr -d '\r' < "$src" > "$key"; chmod 600 "$key"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1
+            pub="$(mktemp)"; ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${PC_PROD_SSH_KEY:-}" || try_slot "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_slot "${VPS_SSH_KEY:-}"
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect durable PASSWORD_RESET row without mutation
+        id: db
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          raw="$(ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 "$USER@$HOST" \
+            "bash -s -- '$WINDOW_START' '$WINDOW_END'" 2>/dev/null <<'REMOTE'
+          set -Eeuo pipefail
+          start="$1"; end="$2"
+          [[ "$(id -u)" -eq 0 ]]
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          mapfile -t worker_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          (( ${#worker_ids[@]} == 1 ))
+          worker_id="${worker_ids[0]}"
+          worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"
+          worker_state="$(docker inspect --format '{{.State.Status}}' "$worker_id")"
+          worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$worker_id")"
+          [[ "$worker_state" == running && "$worker_health" == healthy ]]
+          printf 'WORKER_REVISION=%s\n' "$worker_revision"
+          docker exec -i "$worker_id" /nodejs/bin/node --input-type=commonjs - "$start" "$end" <<'NODE'
+          const {readFileSync}=require('node:fs');
+          const {PrismaClient}=require('@prisma/client');
+          const crypto=require('node:crypto');
+          const [start,end]=process.argv.slice(2);
+          const safe=v=>String(v??'NONE').toUpperCase().replace(/[^A-Z0-9_:-]/g,'_').slice(0,100)||'NONE';
+          (async()=>{
+            const file=String(process.env.AUTH_MAIL_DATABASE_URL_FILE||'').trim();
+            if(!file) throw new Error('DB_FILE_MISSING');
+            const url=readFileSync(file,'utf8').trim();
+            const db=new PrismaClient({datasources:{db:{url}}});
+            try {
+              const principal=await db.$queryRawUnsafe("SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user");
+              const p=principal?.[0];
+              if(!p || p.current_user!=='pc_auth_mail_runtime' || p.rolsuper || p.rolbypassrls) throw new Error('PRINCIPAL_BOUNDARY');
+              const rows=await db.$queryRawUnsafe(`
+                SELECT id, status, attempt_count, max_attempts,
+                       COALESCE(last_error_code,'NONE') AS last_error_code,
+                       sent_at, expires_at, next_attempt_at, created_at
+                FROM auth.mail_outbox
+                WHERE message_kind = 'PASSWORD_RESET'
+                  AND created_at >= $1::timestamptz
+                  AND created_at < $2::timestamptz
+                ORDER BY created_at, id
+              `, start, end);
+              console.log(`ROW_COUNT=${rows.length}`);
+              if(rows.length!==1) return;
+              const r=rows[0];
+              const id=String(r.id||'');
+              if(!/^[A-Za-z0-9._-]{8,160}$/.test(id)) throw new Error('OUTBOX_ID_SHAPE');
+              const now=Date.now();
+              console.log(`OUTBOX_ID=${id}`);
+              console.log(`OUTBOX_HASH=${crypto.createHash('sha256').update(id).digest('hex').slice(0,16)}`);
+              console.log(`STATUS=${safe(r.status)}`);
+              console.log(`ATTEMPTS=${Number(r.attempt_count||0)}`);
+              console.log(`MAX_ATTEMPTS=${Number(r.max_attempts||0)}`);
+              console.log(`ERROR_CODE=${safe(r.last_error_code)}`);
+              console.log(`SENT_AT=${r.sent_at?'YES':'NO'}`);
+              console.log(`EXPIRED=${new Date(r.expires_at).getTime()<=now?'YES':'NO'}`);
+              console.log(`NEXT_ATTEMPT_DUE=${new Date(r.next_attempt_at).getTime()<=now?'YES':'NO'}`);
+            } finally { await db.$disconnect().catch(()=>{}); }
+          })().catch(e=>{ console.log(`DB_SAFE_ERROR=${safe(e?.message||e?.name||'UNKNOWN')}`); process.exitCode=1; });
+          NODE
+          REMOTE
+          )"
+          worker_revision="$(sed -n 's/^WORKER_REVISION=//p' <<< "$raw" | head -1)"
+          row_count="$(sed -n 's/^ROW_COUNT=//p' <<< "$raw" | head -1)"
+          outbox_id="$(sed -n 's/^OUTBOX_ID=//p' <<< "$raw" | head -1)"
+          outbox_hash="$(sed -n 's/^OUTBOX_HASH=//p' <<< "$raw" | head -1)"
+          status="$(sed -n 's/^STATUS=//p' <<< "$raw" | head -1)"
+          attempts="$(sed -n 's/^ATTEMPTS=//p' <<< "$raw" | head -1)"
+          max_attempts="$(sed -n 's/^MAX_ATTEMPTS=//p' <<< "$raw" | head -1)"
+          error_code="$(sed -n 's/^ERROR_CODE=//p' <<< "$raw" | head -1)"
+          sent_at="$(sed -n 's/^SENT_AT=//p' <<< "$raw" | head -1)"
+          expired="$(sed -n 's/^EXPIRED=//p' <<< "$raw" | head -1)"
+          next_due="$(sed -n 's/^NEXT_ATTEMPT_DUE=//p' <<< "$raw" | head -1)"
+          [[ "$worker_revision" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$row_count" == 1 ]]
+          [[ "$outbox_id" =~ ^[A-Za-z0-9._-]{8,160}$ ]]
+          [[ "$outbox_hash" =~ ^[0-9a-f]{16}$ ]]
+          [[ "$status" =~ ^(PENDING|PROCESSING|SENT|DEAD_LETTER)$ ]]
+          [[ "$attempts" =~ ^[0-9]{1,3}$ && "$max_attempts" =~ ^[0-9]{1,3}$ ]]
+          [[ "$error_code" =~ ^[A-Z0-9_:-]{1,100}$ ]]
+          [[ "$sent_at" =~ ^(YES|NO)$ && "$expired" =~ ^(YES|NO)$ && "$next_due" =~ ^(YES|NO)$ ]]
+          echo "::add-mask::$outbox_id"
+          echo "outbox_id=$outbox_id" >> "$GITHUB_OUTPUT"
+          echo "worker_revision=$worker_revision" >> "$GITHUB_OUTPUT"
+          echo "outbox_hash=$outbox_hash" >> "$GITHUB_OUTPUT"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "attempts=$attempts" >> "$GITHUB_OUTPUT"
+          echo "max_attempts=$max_attempts" >> "$GITHUB_OUTPUT"
+          echo "error_code=$error_code" >> "$GITHUB_OUTPUT"
+          echo "sent_at=$sent_at" >> "$GITHUB_OUTPUT"
+          echo "expired=$expired" >> "$GITHUB_OUTPUT"
+          echo "next_due=$next_due" >> "$GITHUB_OUTPUT"
+          unset raw outbox_id
+
+      - name: Check mailbox by deterministic Message-ID read-only
+        id: imap
+        shell: bash
+        env:
+          OUTBOX_ID: ${{ steps.db.outputs.outbox_id }}
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import email, imaplib, os, re, ssl
+          from email.policy import default
+          outbox_id=os.environ.get('OUTBOX_ID','').strip()
+          if not re.fullmatch(r'[A-Za-z0-9._-]{8,160}',outbox_id): raise SystemExit('OUTBOX_ID_INVALID')
+          host=os.environ.get('PC_P0_IMAP_HOST','').strip(); user=os.environ.get('PC_P0_IMAP_USER',''); password=os.environ.get('PC_P0_IMAP_PASSWORD','')
+          port=int((os.environ.get('PC_P0_IMAP_PORT') or '993').strip()); folder=(os.environ.get('PC_P0_IMAP_FOLDER') or 'INBOX').strip() or 'INBOX'
+          if not host or not user or not password: raise SystemExit('IMAP_CONFIG_MISSING')
+          target=f'<{outbox_id}@xn----8sbjf4befbjgs9b.xn--p1ai>'
+          client=None; matches=0; checked=0
+          try:
+              client=imaplib.IMAP4_SSL(host,port,ssl_context=ssl.create_default_context(),timeout=15)
+              status,_=client.login(user,password)
+              if status!='OK': raise RuntimeError('IMAP_LOGIN_NON_OK')
+              status,_=client.select(folder,readonly=True)
+              if status!='OK': raise RuntimeError('IMAP_SELECT_NON_OK')
+              status,data=client.search(None,'ALL')
+              if status!='OK': raise RuntimeError('IMAP_SEARCH_NON_OK')
+              ids=(data[0] or b'').split()[-1000:]
+              for ident in reversed(ids):
+                  status,rows=client.fetch(ident,'(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID DATE)])')
+                  if status!='OK': continue
+                  raw=next((x[1] for x in rows if isinstance(x,tuple) and len(x)>1),None)
+                  if not raw: continue
+                  checked+=1
+                  msg=email.message_from_bytes(raw,policy=default)
+                  if str(msg.get('message-id') or '').strip()==target:
+                      matches+=1
+              print(f'MAILBOX_MATCH_COUNT={matches}')
+              print(f'MAILBOX_MESSAGES_CHECKED={checked}')
+              print('MAILBOX_READ_ONLY=PASS')
+          finally:
+              if client is not None:
+                  try: client.logout()
+                  except Exception: pass
+          PY
+          unset OUTBOX_ID
+
+      - name: Emit sanitized evidence
+        shell: bash
+        env:
+          WORKER_REVISION: ${{ steps.db.outputs.worker_revision }}
+          OUTBOX_HASH: ${{ steps.db.outputs.outbox_hash }}
+          STATUS: ${{ steps.db.outputs.status }}
+          ATTEMPTS: ${{ steps.db.outputs.attempts }}
+          MAX_ATTEMPTS: ${{ steps.db.outputs.max_attempts }}
+          ERROR_CODE: ${{ steps.db.outputs.error_code }}
+          SENT_AT: ${{ steps.db.outputs.sent_at }}
+          EXPIRED: ${{ steps.db.outputs.expired }}
+          NEXT_DUE: ${{ steps.db.outputs.next_due }}
+        run: |
+          set -Eeuo pipefail
+          echo "RESET_DELIVERY_STATE=INSPECTED_READ_ONLY"
+          echo "RESET_SUBJECT_SHA=$RESET_SHA"
+          echo "WORKER_REVISION=$WORKER_REVISION"
+          echo "OUTBOX_HASH=$OUTBOX_HASH"
+          echo "OUTBOX_STATUS=$STATUS"
+          echo "OUTBOX_ATTEMPTS=$ATTEMPTS/$MAX_ATTEMPTS"
+          echo "OUTBOX_ERROR_CODE=$ERROR_CODE"
+          echo "OUTBOX_SENT_AT=$SENT_AT"
+          echo "OUTBOX_EXPIRED=$EXPIRED"
+          echo "OUTBOX_NEXT_ATTEMPT_DUE=$NEXT_DUE"
+          echo "PRODUCTION_MUTATION=NONE"
