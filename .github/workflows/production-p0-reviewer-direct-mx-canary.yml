@@ -1,0 +1,122 @@
+name: Production P0 Reviewer Direct MX Canary
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-direct-mx-canary.yml'
+      - 'scripts/production-p0-reviewer-direct-mx-canary.sh'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-direct-mx-canary
+  cancel-in-progress: true
+
+jobs:
+  canary:
+    name: One synthetic direct-MX delivery canary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      PC_P0_IMAP_HOST: ${{ secrets.PC_P0_IMAP_HOST }}
+      PC_P0_IMAP_PORT: ${{ secrets.PC_P0_IMAP_PORT }}
+      PC_P0_IMAP_USER: ${{ secrets.PC_P0_IMAP_USER }}
+      PC_P0_IMAP_PASSWORD: ${{ secrets.PC_P0_IMAP_PASSWORD }}
+      PC_P0_IMAP_FOLDER: ${{ secrets.PC_P0_IMAP_FOLDER }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Validate bounded canary contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          f='scripts/production-p0-reviewer-direct-mx-canary.sh'
+          bash -n "$f"
+          [[ "$(grep -Fc 's.data(message)' "$f")" == 1 ]]
+          ! grep -Eq 'INSERT INTO|UPDATE auth\.|DELETE FROM|TRUNCATE |ALTER ROLE|CREATE ROLE|DROP ROLE|GRANT |REVOKE |docker restart|docker compose up|curl -X POST' "$f"
+          ! grep -Eq '/api/auth/(forgot-password|password-reset)|sendAuthMailSmtp\(' "$f"
+          grep -Fq 'SYNTHETIC_MAIL_CANARY_ONLY' "$f"
+          grep -Fq 'REVIEWER_EQUALS_CONTROLLED_IMAP=YES' "$f"
+
+      - name: Prepare safe canary identity proof
+        id: safe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import hashlib, os, uuid
+          value=str(os.environ.get('PC_P0_IMAP_USER') or '').strip().lower()
+          if value.count('@') != 1 or any(c.isspace() for c in value): raise SystemExit('IMAP_IDENTITY_INVALID')
+          local, domain=value.rsplit('@',1)
+          domain=domain.encode('idna').decode('ascii').lower()
+          normalized=f'{local}@{domain}'
+          if not local or len(normalized)>254: raise SystemExit('IMAP_IDENTITY_INVALID')
+          print('control_hash='+hashlib.sha256(normalized.encode()).hexdigest())
+          print('nonce='+uuid.uuid4().hex)
+          PY
+
+      - name: Send exactly one synthetic direct-MX canary
+        shell: bash
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+          CONTROLLED_IMAP_HASH: ${{ steps.safe.outputs.control_hash }}
+          CANARY_NONCE: ${{ steps.safe.outputs.nonce }}
+        run: bash scripts/production-p0-reviewer-direct-mx-canary.sh
+
+      - name: Verify exact canary in controlled mailbox
+        shell: bash
+        env:
+          CANARY_NONCE: ${{ steps.safe.outputs.nonce }}
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import email, imaplib, os, re, ssl, time
+          from email.policy import default
+          host=str(os.environ.get('PC_P0_IMAP_HOST') or '').strip()
+          user=str(os.environ.get('PC_P0_IMAP_USER') or '').strip()
+          password=str(os.environ.get('PC_P0_IMAP_PASSWORD') or '')
+          port=int(str(os.environ.get('PC_P0_IMAP_PORT') or '993').strip())
+          folder=str(os.environ.get('PC_P0_IMAP_FOLDER') or 'INBOX').strip() or 'INBOX'
+          nonce=str(os.environ.get('CANARY_NONCE') or '').strip()
+          if not host or not user or not password or not re.fullmatch(r'[0-9a-f]{32}',nonce): raise SystemExit(71)
+          target=f'<pc-crop-canary-{nonce}@xn----8sbjf4befbjgs9b.xn--p1ai>'
+          client=imaplib.IMAP4_SSL(host,port,ssl_context=ssl.create_default_context(),timeout=15)
+          try:
+              if client.login(user,password)[0] != 'OK': raise RuntimeError('LOGIN')
+              if client.select(folder,readonly=True)[0] != 'OK': raise RuntimeError('SELECT')
+              matches=0
+              for attempt in range(12):
+                  result,data=client.search(None,'ALL')
+                  if result != 'OK': raise RuntimeError('SEARCH')
+                  matches=0
+                  for ident in reversed((data[0] or b'').split()[-1000:]):
+                      result,rows=client.fetch(ident,'(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])')
+                      if result != 'OK': continue
+                      header=next((x[1] for x in rows if isinstance(x,tuple) and len(x)>1),None)
+                      if not header: continue
+                      msg=email.message_from_bytes(header,policy=default)
+                      if str(msg.get('message-id') or '').strip() == target: matches += 1
+                  if matches == 1: break
+                  if matches > 1: raise RuntimeError('DUPLICATE_CANARY')
+                  if attempt < 11: time.sleep(15)
+              print(f'CANARY_MAILBOX_MATCH_COUNT={matches}')
+              print('MAILBOX_READ_ONLY=PASS')
+              if matches != 1: raise RuntimeError('CANARY_NOT_RECEIVED')
+              print('CANARY_DELIVERY_GATE=PASS')
+              print('PRODUCTION_MUTATION=SYNTHETIC_MAIL_CANARY_ONLY')
+          finally:
+              try: client.logout()
+              except Exception: pass
+          PY
