@@ -30,9 +30,9 @@ describe('Gekta real-mobile touch and secondary-route contract', () => {
     expect(viewport).toContain("root.dataset.gektaKeyboardOpen = 'true'");
   });
 
-  it('keeps discovery in document flow and moves only the composer for keyboard ownership', () => {
+  it('keeps discovery in document flow and moves only the focused composer for keyboard ownership', () => {
     expect(shell).toContain("[data-gekta-chat-workspace='true'].overflow-hidden");
-    expect(shell).toContain("html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) [data-gekta-composer-root='true']");
+    expect(shell).toContain("html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden):has(#gekta-composer-input:focus) [data-gekta-composer-root='true']");
     expect(shell).not.toContain("html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) {\n    position: fixed");
     expect(shell).toContain('-webkit-overflow-scrolling: touch');
     expect(shell).toContain('scroll-behavior: auto !important');
