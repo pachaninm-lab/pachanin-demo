@@ -70,21 +70,26 @@ export class AuthMailOutboxService {
     // comparing randomized AES-GCM ciphertext.
     const digest = authMailReplayDigest(input.envelope, { kind, idempotencyKey });
     const encrypted = encryptAuthMailEnvelope(input.envelope, { kind, idempotencyKey, correlationId });
+
+    // Bind every placeholder to the reviewed regprocedure signature. PostgreSQL
+    // function lookup is type-exact for parameterized values; in particular,
+    // an inferred int8 parameter does not resolve the two intentional int4
+    // positions and fails with SQLSTATE 42883 before the function can execute.
     const rows = await tx.$queryRaw<EnqueueResult[]>(Prisma.sql`
       SELECT outbox_id, replayed
       FROM auth.enqueue_mail_outbox(
-        ${`auth_mail_${randomUUID()}`},
-        ${kind},
-        ${encrypted.ciphertext},
-        ${encrypted.iv},
-        ${encrypted.tag},
+        ${`auth_mail_${randomUUID()}`}::text,
+        ${kind}::text,
+        ${encrypted.ciphertext}::text,
+        ${encrypted.iv}::text,
+        ${encrypted.tag}::text,
         ${encrypted.keyVersion}::integer,
-        ${digest},
-        ${idempotencyKey},
-        ${correlationId},
+        ${digest}::text,
+        ${idempotencyKey}::text,
+        ${correlationId}::text,
         ${maxAttempts}::integer,
-        ${availableAt},
-        ${input.expiresAt}
+        ${availableAt}::timestamptz,
+        ${input.expiresAt}::timestamptz
       )
     `);
     if (rows.length !== 1 || !rows[0]?.outbox_id) {
