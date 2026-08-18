@@ -252,19 +252,43 @@ jobs:
           set -euo pipefail
           control_domain='control.xn----8sbjf4befbjgs9b.xn--p1ai'
 
+          systemd_caddy=0
+          if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet caddy; then
+            systemd_caddy=1
+          fi
+          mapfile -t compose_caddy_ids < <(docker ps --filter 'label=com.docker.compose.service=caddy' --format '{{.ID}}' | sort -u)
+          compose_caddy_count="${#compose_caddy_ids[@]}"
+          caddy_candidates=$((systemd_caddy + compose_caddy_count))
+          caddy_mode=NONE
           caddy_active=NO
           caddy_valid=UNKNOWN
           caddy_control_declared=NO
-          if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet caddy; then
+
+          if (( caddy_candidates == 1 && systemd_caddy == 1 )); then
+            caddy_mode=SYSTEMD
             caddy_active=YES
-          fi
-          if command -v caddy >/dev/null 2>&1 && [[ -r /etc/caddy/Caddyfile ]]; then
-            if caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
+            if command -v caddy >/dev/null 2>&1 && [[ -r /etc/caddy/Caddyfile ]]; then
+              if caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
+                caddy_valid=YES
+              else
+                caddy_valid=NO
+              fi
+              grep -Fq "$control_domain" /etc/caddy/Caddyfile && caddy_control_declared=YES
+            fi
+          elif (( caddy_candidates == 1 && compose_caddy_count == 1 )); then
+            caddy_mode=COMPOSE
+            caddy_active=YES
+            caddy_id="${compose_caddy_ids[0]}"
+            if docker exec "$caddy_id" caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
               caddy_valid=YES
             else
               caddy_valid=NO
             fi
-            grep -Fq "$control_domain" /etc/caddy/Caddyfile && caddy_control_declared=YES
+            if docker exec "$caddy_id" grep -Fq "$control_domain" /etc/caddy/Caddyfile >/dev/null 2>&1; then
+              caddy_control_declared=YES
+            fi
+          elif (( caddy_candidates > 1 )); then
+            caddy_mode=AMBIGUOUS
           fi
 
           mapfile -t web_ids < <(docker ps --filter 'label=com.docker.compose.service=web' --format '{{.ID}}' | sort -u)
@@ -311,6 +335,8 @@ jobs:
           fi
 
           printf '%s\n' \
+            "CADDY_CANDIDATES=$caddy_candidates" \
+            "CADDY_MODE=$caddy_mode" \
             "CADDY_ACTIVE=$caddy_active" \
             "CADDY_VALID=$caddy_valid" \
             "CADDY_CONTROL_DECLARED=$caddy_control_declared" \
@@ -322,7 +348,7 @@ jobs:
             "CONTROL_GATE=$gate_state"
           REMOTE
 
-          for key in CADDY_ACTIVE CADDY_VALID CADDY_CONTROL_DECLARED WEB_CANDIDATES WEB_RUNNING COMPOSE_LABELS WEB_IMAGE_ID WEB_REVISION CONTROL_GATE; do
+          for key in CADDY_CANDIDATES CADDY_MODE CADDY_ACTIVE CADDY_VALID CADDY_CONTROL_DECLARED WEB_CANDIDATES WEB_RUNNING COMPOSE_LABELS WEB_IMAGE_ID WEB_REVISION CONTROL_GATE; do
             value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
             [[ -n "$value" ]] || value=UNKNOWN
             echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
@@ -339,6 +365,8 @@ jobs:
           TLS_STATE: ${{ steps.public.outputs.tls }}
           HTTPS_STATE: ${{ steps.public.outputs.https }}
           SSH_STATE: ${{ steps.ssh.outputs.ssh_state }}
+          CADDY_CANDIDATES: ${{ steps.topology.outputs.caddy_candidates }}
+          CADDY_MODE: ${{ steps.topology.outputs.caddy_mode }}
           CADDY_ACTIVE: ${{ steps.topology.outputs.caddy_active }}
           CADDY_VALID: ${{ steps.topology.outputs.caddy_valid }}
           CADDY_CONTROL: ${{ steps.topology.outputs.caddy_control_declared }}
@@ -372,9 +400,9 @@ jobs:
           elif [[ "$SSH_STATE" != READY ]]; then
             state=BLOCK_SSH
             reason="$SSH_STATE"
-          elif [[ "$CADDY_ACTIVE" != YES || "$CADDY_VALID" != YES ]]; then
+          elif [[ "$CADDY_CANDIDATES" != 1 || "$CADDY_ACTIVE" != YES || "$CADDY_VALID" != YES ]]; then
             state=BLOCK_CADDY
-            reason="ACTIVE_${CADDY_ACTIVE}_VALID_${CADDY_VALID}"
+            reason="CANDIDATES_${CADDY_CANDIDATES}_MODE_${CADDY_MODE}_ACTIVE_${CADDY_ACTIVE}_VALID_${CADDY_VALID}"
           elif [[ "$WEB_CANDIDATES" != 1 || "$WEB_RUNNING" != YES || "$COMPOSE_LABELS" != COMPLETE || ! "$WEB_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ || ! "$WEB_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
             state=BLOCK_WEB_TOPOLOGY
             reason="CANDIDATES_${WEB_CANDIDATES}_RUNNING_${WEB_RUNNING}_LABELS_${COMPOSE_LABELS}"
@@ -405,6 +433,8 @@ jobs:
           - TLS=$TLS_STATE
           - HTTPS=$HTTPS_STATE
           - SSH=$SSH_STATE
+          - CADDY_CANDIDATES=$CADDY_CANDIDATES
+          - CADDY_MODE=$CADDY_MODE
           - CADDY_ACTIVE=$CADDY_ACTIVE
           - CADDY_VALID=$CADDY_VALID
           - CADDY_CONTROL_DECLARED=$CADDY_CONTROL
