@@ -1,6 +1,6 @@
 import Link from 'next/link';
+import { GEKTA_PATHS, type GektaLocale } from '@/lib/gekta/content';
 import { GEKTA_LEGAL_DOCUMENTS, GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
-import type { GektaLocale } from '@/lib/gekta/content';
 
 const UI = {
   ru: { title: 'Документы и условия', support: 'Контакты поддержки', version: 'Редакция', pending: 'Условия подписки, пробного периода, отмены, возврата и публичная оферта публикуются до запуска приёма платежей.' },
@@ -23,7 +23,7 @@ export function GektaLegalFooter({ locale }: { locale: GektaLocale }) {
             </li>
           ))}
           <li>
-            <Link href='/platform-v7/contact' className='inline-flex min-h-11 items-center text-sm text-slate-600 underline-offset-4 hover:text-emerald-800 hover:underline'>
+            <Link href={`${GEKTA_PATHS[locale]}/support`} className='inline-flex min-h-11 items-center text-sm text-slate-600 underline-offset-4 hover:text-emerald-800 hover:underline'>
               {ui.support}
             </Link>
           </li>
