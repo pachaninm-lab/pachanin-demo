@@ -39,7 +39,7 @@ secure_accept=0
 for idx,mx in enumerate(mxs,1):
     network='FAIL'; starttls='NO'; tls_ok='NO'; mail='NONE'; rcpt='NONE'; err='NONE'; s=None
     try:
-        s=smtplib.SMTP(timeout=12); code,_=s.connect(mx,25); network='PASS' if code==220 else 'FAIL'; code,_=s.ehlo();
+        s=smtplib.SMTP(mx,25,timeout=12); network='PASS'; code,_=s.ehlo()
         if code==250 and s.has_extn('starttls'):
             starttls='YES'; code,_=s.starttls(context=ssl.create_default_context()); tls_ok='YES' if code==220 else 'NO'; code,_=s.ehlo()
         code,_=s.mail('access@xn----8sbjf4befbjgs9b.xn--p1ai'); mail=str(code)
@@ -48,7 +48,7 @@ for idx,mx in enumerate(mxs,1):
         try: s.rset(); s.quit()
         except Exception: pass
     except Exception as e:
-        err=clean(getattr(e,'smtp_code',None) or type(e).__name__)
+        err=clean(getattr(e,'smtp_code',None) or getattr(e,'verify_code',None) or type(e).__name__)
         try:
             if s: s.close()
         except Exception: pass
