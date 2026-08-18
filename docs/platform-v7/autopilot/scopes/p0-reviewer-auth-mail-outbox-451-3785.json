@@ -1,6 +1,6 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/p0-reviewer-auth-mail-outbox-451-3785",
+  "branch": "fix/p0-auth-mail-signature-clean-3785",
   "status": "active",
   "operationalStatus": "P0_REVIEWER_AUTH_MAIL_OUTBOX_451",
   "issue": 3785,
