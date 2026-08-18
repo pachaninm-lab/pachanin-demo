@@ -1,0 +1,8 @@
+issue=#3785
+purpose=one-safe-synthetic-direct-mx-delivery-canary
+password_reset=NO
+secrets=NONE
+identity_mutation=NONE
+database_mutation=NONE
+mail_mutation=SYNTHETIC_CANARY_ONLY
+new_recurring_cost_rub=0
