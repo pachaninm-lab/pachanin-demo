@@ -253,17 +253,16 @@ export class OneCRuntimeRepository {
   }
 
   /**
-   * Atomically consume a one-time code after validating the connector discovery.
+   * Atomically consume a one-time code after validating connector discovery.
    *
-   * `selectedOneCOrganizationGuid` is not enough by itself: it must identify one
-   * of the legal entities in the validated discovery. PostgreSQL then performs a
-   * second, independent identity check against the platform organization's INN
-   * and KPP before it activates the binding.
+   * There is deliberately no client-selected organization GUID. The pairing
+   * code is bound to one platform organization and PostgreSQL selects exactly
+   * one discovered legal entity by the platform organization's INN/KPP. This
+   * removes an authority decision from the connector/browser request.
    */
   async consumePairing(input: {
     pairingCode: string;
     discovery: OneCSelfDiscovery;
-    selectedOneCOrganizationGuid: string;
     correlationId: string;
   }): Promise<OneCPairingConsumeResult> {
     validateOneCDiscovery(input.discovery);
@@ -272,13 +271,6 @@ export class OneCRuntimeRepository {
     }
     if (input.discovery.capabilities.length === 0) {
       throw new OneCRuntimeRepositoryError('ONE_C_CAPABILITIES_INVALID');
-    }
-
-    const selected = input.discovery.organizations.find(
-      (organization) => organization.guid === input.selectedOneCOrganizationGuid,
-    );
-    if (!selected) {
-      throw new OneCRuntimeRepositoryError('ONE_C_SELECTED_ORGANIZATION_NOT_DISCOVERED');
     }
 
     try {
@@ -302,10 +294,7 @@ export class OneCRuntimeRepository {
           ${input.discovery.connectorVersion},
           ${input.discovery.protocolVersion},
           ARRAY[${Prisma.join([...input.discovery.capabilities])}]::text[],
-          ${selected.guid},
-          ${selected.inn},
-          ${selected.kpp},
-          ${selected.name},
+          ${JSON.stringify(input.discovery.organizations)}::jsonb,
           ${input.correlationId}
         )
       `);
@@ -579,11 +568,12 @@ const DATABASE_CODES = new Set([
   'ONE_C_PROTOCOL_VERSION_UNSUPPORTED',
   'ONE_C_CAPABILITIES_INVALID',
   'ONE_C_DISCOVERY_BINDING_INVALID',
+  'ONE_C_DISCOVERY_ORGANIZATIONS_INVALID',
   'ONE_C_PAIRING_CHALLENGE_NOT_ACTIVE',
   'ONE_C_PAIRING_SECRET_MISMATCH',
   'ONE_C_VERIFIED_ORGANIZATION_REQUIRED',
-  'ONE_C_INN_MISMATCH',
-  'ONE_C_KPP_MISMATCH',
+  'ONE_C_ORGANIZATION_NOT_FOUND_IN_DISCOVERY',
+  'ONE_C_DISCOVERY_ORGANIZATION_AMBIGUOUS',
   'ONE_C_PAIRING_CREATOR_NO_LONGER_ACTIVE',
   'ONE_C_INSTALLATION_NOT_ACTIVE',
   'ONE_C_ORGANIZATION_ALREADY_BOUND',
