@@ -1,0 +1,329 @@
+name: Gekta Production Static 502 Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-production-static-502-diagnostic.yml'
+      - 'docs/platform-v7/autopilot/scopes/gekta-static-502-runtime-diagnostic-4332.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-production-static-502-diagnostic-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  TARGET_ISSUE: '4332'
+  EXPECTED_COMMAND: '/gekta diagnose-static-502 current-runtime'
+  LIVE_BASE: 'https://xn----8sbjf4befbjgs9b.xn--p1ai'
+  LIVE_DOMAIN: 'xn----8sbjf4befbjgs9b.xn--p1ai'
+  CANONICAL_VPS: '195.19.12.120'
+  INCIDENT_FROM: '2026-08-18T12:20:00Z'
+  INCIDENT_UNTIL: '2026-08-18T12:24:00Z'
+
+jobs:
+  contract:
+    name: Validate fail-closed read-only diagnostic
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 4332 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.body == '/gekta diagnose-static-502 current-runtime'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enforce immutable read-only contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('.github/workflows/gekta-production-static-502-diagnostic.yml').read_text(encoding='utf-8')
+          required = [
+              'PRODUCTION_MUTATION: `NONE`',
+              'StrictHostKeyChecking=yes',
+              'docker inspect',
+              'docker stats --no-stream',
+              'journalctl -u caddy',
+              "INCIDENT_FROM: '2026-08-18T12:20:00Z'",
+              '/gekta diagnose-static-502 current-runtime',
+          ]
+          missing = [item for item in required if item not in text]
+          if missing:
+              raise SystemExit('missing diagnostic invariant: ' + ' | '.join(missing))
+          forbidden = [
+              'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',
+              'docker ' + 'kill', 'docker ' + 'update', 'docker ' + 'compose up',
+              'systemctl ' + 'restart', 'systemctl ' + 'reload',
+              'caddy ' + 'reload', 'INSERT ' + 'INTO', 'UPDATE ' + 'public.',
+              'DELETE ' + 'FROM', 'TRUNCATE ' + 'TABLE', '-X ' + 'POST',
+              '--request ' + 'POST', 'curl ' + '--data',
+          ]
+          bad = [item for item in forbidden if item in text]
+          if bad:
+              raise SystemExit('forbidden mutation surface: ' + ' | '.join(bad))
+          PY
+
+      - name: Verify owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          [[ "$user" == "$owner" && "$assoc" == OWNER && "$body" == "$EXPECTED_COMMAND" ]]
+
+      - name: Bind exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$target" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  diagnostic:
+    name: Inspect web, Caddy and browser-like static burst
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Resolve pinned production SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          evidence="$RUNNER_TEMP/gekta-static-502"
+          mkdir -p "$HOME/.ssh" "$evidence"
+          chmod 700 "$HOME/.ssh"
+          key="$HOME/.ssh/id_pc_prod"
+          known="$HOME/.ssh/known_hosts"
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          validate_key(){
+            local src="$1" pub
+            tr -d '\r' < "$src" > "$key"; chmod 0600 "$key"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1
+            pub="$(mktemp)"; ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"
+          }
+          try_key(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          host="$(trim "${PC_PROD_HOST:-$CANONICAL_VPS}")"
+          user="$(trim "${PC_PROD_SSH_USER:-}")"
+          port="$(trim "${PC_PROD_SSH_PORT:-22}")"
+          expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == "$CANONICAL_VPS" ]]
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$CANONICAL_VPS"
+          scan="$(mktemp)"; match="$(mktemp)"; pinned=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned=1; break; fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          rm -f "$scan"; [[ "$pinned" == 1 ]]; mv "$match" "$known"; chmod 0600 "$known"
+          ssh -i "$key" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo READY' > "$evidence/ssh.txt"
+          grep -Fxq READY "$evidence/ssh.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Collect read-only production evidence
+        id: remote
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          USER: ${{ steps.ssh.outputs.user }}
+        run: |
+          set -Eeuo pipefail
+          evidence="$RUNNER_TEMP/gekta-static-502"
+          raw="$evidence/remote.env"
+          detail="$evidence/remote-detail.log"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" bash -s -- "$INCIDENT_FROM" "$INCIDENT_UNTIL" "$LIVE_BASE" <<'REMOTE' > "$raw" 2> "$detail"
+          set -Eeuo pipefail
+          incident_from="${1:?}"; incident_until="${2:?}"; live_base="${3:?}"
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          sanitize(){ sed -E 's/([0-9]{1,3}\.){3}[0-9]{1,3}/[IP]/g; s/\?[^ "}]+/?[QUERY]/g'; }
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web' | sort -u)
+          (( ${#web_ids[@]} == 1 ))
+          web_id="${web_ids[0]}"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          web_state="$(docker inspect --format '{{.State.Status}}' "$web_id")"
+          web_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$web_id")"
+          web_restart="$(docker inspect --format '{{.RestartCount}}' "$web_id")"
+          web_oom="$(docker inspect --format '{{.State.OOMKilled}}' "$web_id")"
+          web_exit="$(docker inspect --format '{{.State.ExitCode}}' "$web_id")"
+          web_started="$(docker inspect --format '{{.State.StartedAt}}' "$web_id")"
+          web_finished="$(docker inspect --format '{{.State.FinishedAt}}' "$web_id")"
+          web_memory_limit="$(docker inspect --format '{{.HostConfig.Memory}}' "$web_id")"
+          web_pids_limit="$(docker inspect --format '{{.HostConfig.PidsLimit}}' "$web_id")"
+          web_stats="$(docker stats --no-stream --format '{{.MemUsage}}|{{.MemPerc}}|{{.CPUPerc}}|{{.PIDs}}' "$web_id" | head -1)"
+          caddy_active=NO; systemctl is-active --quiet caddy && caddy_active=YES || true
+          caddy_502=0; caddy_upstream=0; kernel_oom=0; web_error=0; web_event=0
+          if command -v journalctl >/dev/null 2>&1; then
+            caddy_lines="$(journalctl -u caddy --since "$incident_from" --until "$incident_until" --no-pager -o cat 2>/dev/null | grep -Ei '502|dial tcp|connect: connection refused|upstream|reset by peer|unexpected EOF' || true)"
+            caddy_502="$(grep -Eic 'status[^0-9]*502| 502 |"status":502' <<< "$caddy_lines" || true)"
+            caddy_upstream="$(grep -Eic 'dial tcp|connection refused|reset by peer|unexpected EOF|upstream' <<< "$caddy_lines" || true)"
+            printf '%s\n' '--- CADDY INCIDENT ---' >&2; printf '%s\n' "$caddy_lines" | sanitize | tail -120 >&2
+            kernel_lines="$(journalctl -k --since "$incident_from" --until "$incident_until" --no-pager -o cat 2>/dev/null | grep -Ei 'out of memory|oom-kill|killed process' || true)"
+            kernel_oom="$(grep -c . <<< "$kernel_lines" || true)"
+            printf '%s\n' '--- KERNEL OOM INCIDENT ---' >&2; printf '%s\n' "$kernel_lines" | sanitize | tail -80 >&2
+          fi
+          web_lines="$(docker logs --since "$incident_from" --until "$incident_until" "$web_id" 2>&1 | grep -Ei 'fatal|heap|enomem|out of memory|oom|sig(abrt|kill|segv)|uncaught|unhandled|eaddr|error' || true)"
+          web_error="$(grep -c . <<< "$web_lines" || true)"
+          printf '%s\n' '--- WEB INCIDENT ---' >&2; printf '%s\n' "$web_lines" | sanitize | tail -120 >&2
+          event_lines="$(docker events --since "$incident_from" --until "$incident_until" --filter "container=$web_id" --format '{{.Time}} {{.Action}}' 2>/dev/null || true)"
+          web_event="$(grep -Ec 'die|kill|oom|restart|start|stop' <<< "$event_lines" || true)"
+          printf '%s\n' '--- WEB EVENTS ---' >&2; printf '%s\n' "$event_lines" | tail -80 >&2
+          local_html="$(mktemp)"; curl --silent --show-error --fail-with-body --retry 0 --connect-timeout 5 --max-time 15 http://127.0.0.1:3000/gekta -o "$local_html"
+          asset="$(grep -oE '/_next/static/[^"'"'<> ]+\.(js|css)' "$local_html" | head -1)"
+          rm -f "$local_html"; [[ -n "$asset" ]]
+          burst(){
+            local url="$1" out; out="$(mktemp)"
+            for round in 1 2 3 4; do
+              seq 1 12 | xargs -P 12 -I{} curl --silent --show-error --output /dev/null --retry 0 --connect-timeout 5 --max-time 15 --write-out '%{http_code}\n' "$url" >> "$out" || true
+            done
+            total="$(grep -Ec '^[0-9]{3}$' "$out" || true)"; bad="$(grep -Evc '^200$' "$out" || true)"
+            printf '%s|%s' "$total" "$bad"; rm -f "$out"
+          }
+          local_burst="$(burst "http://127.0.0.1:3000$asset")"
+          public_burst="$(burst "$live_base$asset")"
+          if [[ -r /etc/caddy/Caddyfile ]]; then grep -nE 'reverse_proxy|handle|route' /etc/caddy/Caddyfile | sanitize | head -120 >&2 || true; fi
+          emit WEB_REVISION "$web_revision"
+          emit WEB_STATE "$web_state"
+          emit WEB_HEALTH "$web_health"
+          emit WEB_RESTART_COUNT "$web_restart"
+          emit WEB_OOM_KILLED "$web_oom"
+          emit WEB_EXIT_CODE "$web_exit"
+          emit WEB_STARTED_AT "$web_started"
+          emit WEB_FINISHED_AT "$web_finished"
+          emit WEB_MEMORY_LIMIT "$web_memory_limit"
+          emit WEB_PIDS_LIMIT "$web_pids_limit"
+          emit WEB_STATS "$web_stats"
+          emit CADDY_ACTIVE "$caddy_active"
+          emit CADDY_502_LINES "$caddy_502"
+          emit CADDY_UPSTREAM_ERROR_LINES "$caddy_upstream"
+          emit KERNEL_OOM_LINES "$kernel_oom"
+          emit WEB_ERROR_LINES "$web_error"
+          emit WEB_RUNTIME_EVENTS "$web_event"
+          emit STATIC_ASSET "$asset"
+          emit LOCAL_BURST "$local_burst"
+          emit PUBLIC_BURST "$public_burst"
+          emit PRODUCTION_MUTATION NONE
+          REMOTE
+          grep -Fxq 'PRODUCTION_MUTATION=NONE' "$raw"
+          cat "$raw"
+          for key in WEB_REVISION WEB_STATE WEB_HEALTH WEB_RESTART_COUNT WEB_OOM_KILLED WEB_EXIT_CODE WEB_STARTED_AT CADDY_ACTIVE CADDY_502_LINES CADDY_UPSTREAM_ERROR_LINES KERNEL_OOM_LINES WEB_ERROR_LINES WEB_RUNTIME_EVENTS LOCAL_BURST PUBLIC_BURST; do
+            value="$(grep -E "^${key}=" "$raw" | tail -1 | cut -d= -f2- || true)"; [[ -n "$value" ]] || value=UNKNOWN; echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Publish bounded diagnostic evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          evidence="$RUNNER_TEMP/gekta-static-502"
+          cp "$evidence/remote.env" "$GITHUB_WORKSPACE/gekta-static-502-remote.env"
+          cp "$evidence/remote-detail.log" "$GITHUB_WORKSPACE/gekta-static-502-detail.log"
+          sha256sum gekta-static-502-remote.env gekta-static-502-detail.log > gekta-static-502-sha256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gekta-static-502-diagnostic-${{ github.run_id }}
+          path: |
+            gekta-static-502-remote.env
+            gekta-static-502-detail.log
+            gekta-static-502-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Comment bounded result
+        shell: bash
+        env:
+          WEB_REVISION: ${{ steps.remote.outputs.web_revision }}
+          WEB_STATE: ${{ steps.remote.outputs.web_state }}
+          WEB_HEALTH: ${{ steps.remote.outputs.web_health }}
+          WEB_RESTART: ${{ steps.remote.outputs.web_restart_count }}
+          WEB_OOM: ${{ steps.remote.outputs.web_oom_killed }}
+          WEB_EXIT: ${{ steps.remote.outputs.web_exit_code }}
+          WEB_STARTED: ${{ steps.remote.outputs.web_started_at }}
+          CADDY_ACTIVE: ${{ steps.remote.outputs.caddy_active }}
+          CADDY_502: ${{ steps.remote.outputs.caddy_502_lines }}
+          CADDY_UPSTREAM: ${{ steps.remote.outputs.caddy_upstream_error_lines }}
+          KERNEL_OOM: ${{ steps.remote.outputs.kernel_oom_lines }}
+          WEB_ERRORS: ${{ steps.remote.outputs.web_error_lines }}
+          WEB_EVENTS: ${{ steps.remote.outputs.web_runtime_events }}
+          LOCAL_BURST: ${{ steps.remote.outputs.local_burst }}
+          PUBLIC_BURST: ${{ steps.remote.outputs.public_burst }}
+        run: |
+          set -Eeuo pipefail
+          printf -v body '## Gekta production static-502 read-only diagnostic\n\n- exact main: `%s`\n- current Web revision: `%s`\n- Web state / health: `%s / %s`\n- Web restart count / OOM / exit: `%s / %s / %s`\n- Web started at: `%s`\n- Caddy active: `%s`\n- incident Caddy 502 lines: `%s`\n- incident Caddy upstream-error lines: `%s`\n- incident kernel OOM lines: `%s`\n- incident Web error lines: `%s`\n- incident Web runtime events: `%s`\n- local static burst total|non-200: `%s`\n- public static burst total|non-200: `%s`\n- artifact: `gekta-static-502-diagnostic-%s`\n- PRODUCTION_MUTATION: `NONE`' "$TARGET_SHA" "$WEB_REVISION" "$WEB_STATE" "$WEB_HEALTH" "$WEB_RESTART" "$WEB_OOM" "$WEB_EXIT" "$WEB_STARTED" "$CADDY_ACTIVE" "$CADDY_502" "$CADDY_UPSTREAM" "$KERNEL_OOM" "$WEB_ERRORS" "$WEB_EVENTS" "$LOCAL_BURST" "$PUBLIC_BURST" "$GITHUB_RUN_ID"
+          gh issue comment "$TARGET_ISSUE" --repo "$GITHUB_REPOSITORY" --body "$body"
