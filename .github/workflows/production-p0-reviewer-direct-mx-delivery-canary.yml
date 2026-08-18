@@ -1,0 +1,58 @@
+name: Production P0 Reviewer Direct MX Delivery Canary
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/platform-v7/autopilot/scopes/p0-direct-mx-canary-trigger-3785.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-direct-mx-delivery-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: Send one safe synthetic canary and prove mailbox receipt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      CANARY_ID: pc-p0-direct-mx-canary-${{ github.run_id }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+      PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+      PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Validate bounded synthetic-canary contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
+          grep -Fq 'PC-CROP production mail delivery canary' scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
+          grep -Fq 'No credentials, tokens or personal data' scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
+          grep -Fq "await s.cmd('STARTTLS',[220])" scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
+          grep -Fq "await s.cmd('DATA',[354])" scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
+          ! grep -Fq 'password-reset' scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
+          ! grep -Fq 'INSERT INTO' scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
+          ! grep -Fq 'UPDATE auth.' scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
+
+      - name: Send exactly one non-secret canary and verify controlled mailbox
+        shell: bash
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: bash scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
