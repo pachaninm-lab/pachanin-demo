@@ -2,6 +2,10 @@ import { readFileSync } from 'node:fs';
 import { connect, type TLSSocket } from 'node:tls';
 import { domainToASCII } from 'node:url';
 import type { AuthMailEnvelope } from './auth-mail-crypto';
+import { sendAuthMailDirectMx } from './auth-mail-direct-mx';
+import { AuthMailTransportError } from './auth-mail-transport-error';
+
+export { AuthMailTransportError } from './auth-mail-transport-error';
 
 const OFFICIAL_HOST = 'mail.hosting.reg.ru';
 const OFFICIAL_PORT = 465;
@@ -17,10 +21,12 @@ type SmtpConfig = {
   from: string;
 };
 
-export class AuthMailTransportError extends Error {
-  constructor(public readonly code: string) {
-    super(code);
-    this.name = 'AuthMailTransportError';
+type RelayStage = 'AUTH' | 'MAIL_FROM' | 'RCPT_TO' | 'DATA';
+
+class RelayRecipientTemporaryFailure extends Error {
+  constructor(public readonly transportError: AuthMailTransportError) {
+    super(transportError.code);
+    this.name = 'RelayRecipientTemporaryFailure';
   }
 }
 
@@ -64,6 +70,10 @@ function isPlatformAuthMailbox(address: string): boolean {
   if (separator <= 0) return false;
   const domain = address.slice(separator + 1).toLowerCase();
   return domain === PLATFORM_DOMAIN_ASCII || domain.endsWith(`.${PLATFORM_DOMAIN_ASCII}`);
+}
+
+function shouldUseDirectMxFallback(stage: RelayStage, errorCode: string): boolean {
+  return stage === 'RCPT_TO' && errorCode === 'SMTP_TRANSIENT_451';
 }
 
 let cachedConfig: SmtpConfig | null = null;
@@ -129,6 +139,23 @@ function deterministicMessageId(outboxId: string): string {
   const safe = String(outboxId).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 120);
   if (!safe) throw new AuthMailTransportError('SMTP_MESSAGE_ID_INVALID');
   return `<${safe}@xn----8sbjf4befbjgs9b.xn--p1ai>`;
+}
+
+function buildMessage(envelope: AuthMailEnvelope, recipient: string, sender: string, outboxId: string): string {
+  return [
+    `From: ${encodeHeader('Прозрачная Цена')} <${sender}>`,
+    `To: <${recipient}>`,
+    `Subject: ${encodeHeader(envelope.subject)}`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: ${deterministicMessageId(outboxId)}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    'Auto-Submitted: auto-generated',
+    'X-Auto-Response-Suppress: All',
+    '',
+    normalizeBody(envelope.text),
+  ].join('\r\n');
 }
 
 type SmtpResponse = { code: number; lines: string[] };
@@ -234,11 +261,14 @@ async function openSession(config: SmtpConfig): Promise<{ session: SmtpSession; 
   return { session, ehlo };
 }
 
-export async function sendAuthMailSmtp(envelope: AuthMailEnvelope, outboxId: string): Promise<void> {
-  const config = resolveAuthMailSmtpConfig();
-  const recipient = asciiMailbox(envelope.to);
-  const sender = asciiMailbox(config.from);
+async function sendViaOfficialRelay(
+  config: SmtpConfig,
+  recipient: ReturnType<typeof asciiMailbox>,
+  sender: ReturnType<typeof asciiMailbox>,
+  message: string,
+): Promise<void> {
   const { session, ehlo } = await openSession(config);
+  let stage: RelayStage = 'AUTH';
   try {
     const capabilities = ehlo.lines.join('\n').toUpperCase();
     if (!capabilities.includes('AUTH')) throw new AuthMailTransportError('SMTP_AUTH_NOT_ADVERTISED');
@@ -248,31 +278,44 @@ export async function sendAuthMailSmtp(envelope: AuthMailEnvelope, outboxId: str
 
     const auth = Buffer.from(`\u0000${config.user}\u0000${config.password}`, 'utf8').toString('base64');
     await session.command(`AUTH PLAIN ${auth}`, [235]);
+    stage = 'MAIL_FROM';
     await session.command(`MAIL FROM:<${sender.address}>${recipient.needsSmtpUtf8 ? ' SMTPUTF8' : ''}`, [250]);
+    stage = 'RCPT_TO';
     await session.command(`RCPT TO:<${recipient.address}>`, [250, 251]);
+    stage = 'DATA';
     await session.command('DATA', [354]);
-
-    const message = [
-      `From: ${encodeHeader('Прозрачная Цена')} <${sender.address}>`,
-      `To: <${recipient.address}>`,
-      `Subject: ${encodeHeader(envelope.subject)}`,
-      `Date: ${new Date().toUTCString()}`,
-      `Message-ID: ${deterministicMessageId(outboxId)}`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/plain; charset=UTF-8',
-      'Content-Transfer-Encoding: 8bit',
-      'Auto-Submitted: auto-generated',
-      'X-Auto-Response-Suppress: All',
-      '',
-      normalizeBody(envelope.text),
-    ].join('\r\n');
-
     await session.data(message);
     await session.command('QUIT', [221]).catch(() => undefined);
+  } catch (error) {
+    const code = error instanceof AuthMailTransportError ? error.code : '';
+    if (shouldUseDirectMxFallback(stage, code) && error instanceof AuthMailTransportError) {
+      throw new RelayRecipientTemporaryFailure(error);
+    }
+    throw error;
   } finally {
     session.close();
   }
 }
+
+export async function sendAuthMailSmtp(envelope: AuthMailEnvelope, outboxId: string): Promise<void> {
+  const config = resolveAuthMailSmtpConfig();
+  const recipient = asciiMailbox(envelope.to);
+  const sender = asciiMailbox(config.from);
+  const message = buildMessage(envelope, recipient.address, sender.address, outboxId);
+  try {
+    await sendViaOfficialRelay(config, recipient, sender, message);
+  } catch (error) {
+    if (!(error instanceof RelayRecipientTemporaryFailure)) throw error;
+    await sendAuthMailDirectMx({
+      recipient: recipient.address,
+      sender: sender.address,
+      message,
+      needsSmtpUtf8: recipient.needsSmtpUtf8 || sender.needsSmtpUtf8,
+    });
+  }
+}
+
+export const authMailSmtpInternalsForTests = Object.freeze({ shouldUseDirectMxFallback });
 
 export function resetAuthMailTransportCacheForTests(): void {
   cachedConfig = null;
