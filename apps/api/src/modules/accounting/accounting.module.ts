@@ -8,6 +8,8 @@ import { DealServiceRepository } from './deal-service.repository';
 import { PaymentRepository } from './payment.repository';
 import { ConnectionAttestationRepository } from './connection-attestation.repository';
 import { ConnectionCenterRepository } from './connection-center.repository';
+import { OneCConnectionManagementController } from './one-c-connection-management.controller';
+import { OneCConnectorController } from './one-c-connector.controller';
 import { OneCRuntimeRepository } from './one-c-runtime.repository';
 import { ReconciliationRepository } from './reconciliation.repository';
 import { AccountingPeriodRepository } from './accounting-period.repository';
@@ -20,12 +22,17 @@ import { WorkTaskRepository } from './work-task.repository';
  *
  * Deliberately small. It provides the repositories that carry the transactional
  * guarantees — including the bounded 1C installation/binding/pairing authority
- * — and nothing else. The policies stay pure functions: they are decisions, and
- * a decision that needs injecting is a decision somebody can swap at runtime.
+ * — and the two narrow HTTP surfaces needed to bootstrap that authority. The
+ * policies stay pure functions: they are decisions, and a decision that needs
+ * injecting is a decision somebody can swap at runtime.
  */
 @Module({
   imports: [PrismaModule],
-  controllers: [AccountingController],
+  controllers: [
+    AccountingController,
+    OneCConnectionManagementController,
+    OneCConnectorController,
+  ],
   providers: [
     AccountingSourceSnapshotRepository,
     AccountingDocumentVersionRepository,
