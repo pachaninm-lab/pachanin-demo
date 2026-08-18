@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-onec-runtime-persistence-v2-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — durable 1C installation, binding, pairing and credential authority",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseParentHead": "85e485d409a4f64c2d60e741c683c8d986ebf00e",
+  "purpose": "Turn the already-defined 1C connector protocol, machine identity and source-only extension into durable server authority. Persist ConnectorInstallation separately from OrganizationBinding, issue one-time pairing challenges, atomically bind exactly one platform organization to exactly one discovered 1C legal entity, rotate scoped machine credentials without ever storing plaintext secrets, and expose only bounded repository operations. This slice does not yet expose connector runtime job routes or claim a live 1C exchange.",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260818223000_pc_crop_one_c_runtime_persistence/migration.sql",
+    "apps/api/src/modules/accounting/one-c-runtime.repository.ts",
+    "apps/api/src/modules/accounting/one-c-runtime.repository.spec.ts",
+    "apps/api/src/modules/accounting/one-c-runtime.postgresql.spec.ts",
+    "apps/api/src/modules/accounting/accounting.module.ts",
+    "apps/api/src/modules/accounting/accounting.controller.ts",
+    "docs/ops/pc-crop-federal-accounting/one-c-runtime-persistence-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-onec-runtime-persistence-v2-20260818.json"
+  ],
+  "boundaries": [
+    "ConnectorInstallation and OrganizationBinding are separate durable authorities; one 1C database may contain many legal entities but one binding names exactly one platform organization and one 1C organization GUID.",
+    "Pairing challenge plaintext is returned once and never persisted; durable state contains only high-entropy lookup/hash material, expiry and lifecycle metadata.",
+    "Pairing consumption is atomic under PostgreSQL row locks and verifies the exact challenge hash inside the database before creating or rotating a binding/credential.",
+    "A selected 1C legal entity must be present in validated discovery and its INN must equal the platform organization INN; platform KPP, when present, must also match.",
+    "The same active 1C legal entity inside one installation cannot be bound to two platform organizations.",
+    "The same platform organization cannot silently gain a second active binding; rebinding requires explicit revocation/rotation lifecycle.",
+    "Machine bearer secret is generated cryptographically and returned once; only salt plus SHA-256 verifier are stored.",
+    "Credential scope is installation + binding/connection + platform organization + exact 1C organization GUID + protocol version + allowed typed commands.",
+    "Revocation is immediate and records are retired, not deleted.",
+    "Critical pairing/binding/credential transitions append evidence to the existing public audit_events store; no second audit store is created.",
+    "No arbitrary SQL/code/database dump/unrestricted 1C read is introduced.",
+    "No /connector/v1/jobs runtime queue in this slice; no provider/1C production traffic; no compiled CFE; no compatibility claim.",
+    "No app/web/registration/FGIS/banking/hosting/production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredInvariants": [
+    "Cross-tenant and cross-organization pairing/binding leakage = 0.",
+    "Plaintext pairing code at rest = 0.",
+    "Plaintext machine credential secret at rest = 0.",
+    "One active installation/GUID cannot authorize two platform organizations.",
+    "Wrong INN/KPP discovery cannot activate a binding.",
+    "Consumed, expired or revoked pairing challenge cannot be reused.",
+    "Credential rotation revokes the previous live credential for that binding in the same transaction.",
+    "No browser/client-supplied organization, role or capability becomes authority without server/database verification.",
+    "Audit rows contain no bearer, pairing code, salt, secret hash or raw discovery payload."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-onec-runtime-persistence-v2-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- one-c-runtime.repository.spec.ts one-c-runtime.postgresql.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting/RLS/security gates"
+  ]
+}
