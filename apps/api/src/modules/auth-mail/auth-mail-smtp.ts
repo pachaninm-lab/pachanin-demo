@@ -1,4 +1,4 @@
-import { resolveMx } from 'node:dns/promises';
+import { resolve4, resolveMx } from 'node:dns/promises';
 import { readFileSync } from 'node:fs';
 import { connect as connectTcp, type Socket } from 'node:net';
 import { connect as connectTls, type TLSSocket } from 'node:tls';
@@ -9,6 +9,7 @@ const OFFICIAL_HOST = 'mail.hosting.reg.ru';
 const OFFICIAL_PORT = 465;
 const DIRECT_MX_PORT = 25;
 const DIRECT_MX_LIMIT = 3;
+const DIRECT_MX_ADDRESS_LIMIT = 2;
 const DEFAULT_TIMEOUT_MS = 20_000;
 const PLATFORM_DOMAIN_ASCII = 'xn----8sbjf4befbjgs9b.xn--p1ai';
 const PLATFORM_SENDER_ASCII = `access@${PLATFORM_DOMAIN_ASCII}`;
@@ -19,6 +20,11 @@ type SmtpConfig = {
   user: string;
   password: string;
   from: string;
+};
+
+type DirectMxTarget = {
+  host: string;
+  address: string;
 };
 
 export class AuthMailTransportError extends Error {
@@ -303,9 +309,9 @@ async function upgradeToTls(rawSocket: Socket, mxHost: string): Promise<TLSSocke
   });
 }
 
-async function openDirectMxSession(mxHost: string): Promise<{ session: SmtpSession; ehlo: SmtpResponse }> {
+async function openDirectMxSession(mxHost: string, mxAddress: string): Promise<{ session: SmtpSession; ehlo: SmtpResponse }> {
   const rawSocket = await new Promise<Socket>((resolve, reject) => {
-    const candidate = connectTcp({ host: mxHost, port: DIRECT_MX_PORT });
+    const candidate = connectTcp({ host: mxAddress, family: 4, port: DIRECT_MX_PORT });
     const fail = () => reject(new AuthMailTransportError('SMTP_DIRECT_MX_CONNECT_FAILED'));
     const timeout = () => reject(new AuthMailTransportError('SMTP_DIRECT_MX_CONNECT_TIMEOUT'));
     candidate.once('connect', () => {
@@ -341,20 +347,59 @@ function recipientDomain(address: string): string {
   return address.slice(separator + 1).toLowerCase();
 }
 
-async function resolveDirectMxHosts(domain: string): Promise<string[]> {
+export function isPublicIpv4(address: string): boolean {
+  const parts = address.split('.');
+  if (parts.length !== 4) return false;
+  const octets = parts.map((part) => Number(part));
+  if (octets.some((part, index) => !/^\d{1,3}$/.test(parts[index]) || !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false;
+  }
+  const [a, b, c] = octets;
+  if (a === 0 || a === 10 || a === 127 || a >= 224) return false;
+  if (a === 100 && b >= 64 && b <= 127) return false;
+  if (a === 169 && b === 254) return false;
+  if (a === 172 && b >= 16 && b <= 31) return false;
+  if (a === 192 && b === 0) return false;
+  if (a === 192 && b === 168) return false;
+  if (a === 198 && (b === 18 || b === 19)) return false;
+  if (a === 192 && b === 0 && c === 2) return false;
+  if (a === 198 && b === 51 && c === 100) return false;
+  if (a === 203 && b === 0 && c === 113) return false;
+  return true;
+}
+
+async function resolveDirectMxTargets(domain: string): Promise<DirectMxTarget[]> {
   let rows: Awaited<ReturnType<typeof resolveMx>>;
   try {
     rows = await resolveMx(domain);
   } catch {
     throw new AuthMailTransportError('SMTP_DIRECT_MX_DNS_FAILED');
   }
+
   const hosts = rows
     .sort((left, right) => left.priority - right.priority)
     .map((row) => row.exchange.replace(/\.$/, '').toLowerCase())
     .filter((host) => host.length > 0 && host.length <= 253 && /^[a-z0-9.-]+$/.test(host));
-  const unique = [...new Set(hosts)].slice(0, DIRECT_MX_LIMIT);
-  if (unique.length === 0) throw new AuthMailTransportError('SMTP_DIRECT_MX_NOT_FOUND');
-  return unique;
+  const uniqueHosts = [...new Set(hosts)].slice(0, DIRECT_MX_LIMIT);
+  if (uniqueHosts.length === 0) throw new AuthMailTransportError('SMTP_DIRECT_MX_NOT_FOUND');
+
+  const targets: DirectMxTarget[] = [];
+  const seenAddresses = new Set<string>();
+  for (const host of uniqueHosts) {
+    let addresses: string[];
+    try {
+      addresses = await resolve4(host);
+    } catch {
+      continue;
+    }
+    for (const address of addresses.slice(0, DIRECT_MX_ADDRESS_LIMIT)) {
+      if (!isPublicIpv4(address) || seenAddresses.has(address)) continue;
+      seenAddresses.add(address);
+      targets.push({ host, address });
+    }
+  }
+  if (targets.length === 0) throw new AuthMailTransportError('SMTP_DIRECT_MX_NO_PUBLIC_ADDRESS');
+  return targets;
 }
 
 function isPermanentSmtpFailure(error: unknown): boolean {
@@ -370,14 +415,14 @@ async function sendAuthMailDirectMx(
   sender: { address: string; needsSmtpUtf8: boolean },
   message: string,
 ): Promise<void> {
-  const mxHosts = await resolveDirectMxHosts(recipientDomain(recipient.address));
+  const mxTargets = await resolveDirectMxTargets(recipientDomain(recipient.address));
   let lastError: unknown = new AuthMailTransportError('SMTP_DIRECT_MX_UNAVAILABLE');
 
-  for (const mxHost of mxHosts) {
+  for (const target of mxTargets) {
     let session: SmtpSession | undefined;
     let payloadSubmitted = false;
     try {
-      const opened = await openDirectMxSession(mxHost);
+      const opened = await openDirectMxSession(target.host, target.address);
       session = opened.session;
       const capabilities = opened.ehlo.lines.join('\n').toUpperCase();
       if ((recipient.needsSmtpUtf8 || sender.needsSmtpUtf8) && !capabilities.includes('SMTPUTF8')) {
