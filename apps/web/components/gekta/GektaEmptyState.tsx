@@ -23,13 +23,14 @@ function StarterButton({ starter, onStarter }: { starter: GektaStarter; onStarte
 }
 
 /**
- * The mobile reading order is deliberate: positioning, composer, then two
- * examples. The composer portal uses this slot only before a conversation is
- * active; the rest of the prompts stay one disclosure away.
+ * Mobile reading order is physical DOM order: positioning, composer, examples.
+ * The composer is never portalled while the keyboard opens/closes, avoiding the
+ * focus loss and touch-scroll stalls seen on real iOS browsers.
  */
-export function GektaEmptyState({ locale, hero, starters, onStarter }: {
+export function GektaEmptyState({ locale, hero, composer, starters, onStarter }: {
   locale: GektaLocale;
   hero?: React.ReactNode;
+  composer?: React.ReactNode;
   starters: readonly GektaStarter[];
   onStarter: (prompt: string) => void;
 }) {
@@ -41,7 +42,7 @@ export function GektaEmptyState({ locale, hero, starters, onStarter }: {
   return (
     <div className='mx-auto flex w-full max-w-[1000px] flex-col px-3 pb-5 sm:px-6 sm:pb-8'>
       {hero}
-      <div data-gekta-composer-slot='true' className='mt-3 w-full sm:mt-5' />
+      {composer ? <div className='mt-3 w-full sm:mt-5' data-gekta-start-composer='true'>{composer}</div> : null}
       <section className='mx-auto mt-2 w-full max-w-4xl sm:mt-4' aria-labelledby='gekta-examples-title' data-gekta-examples='true'>
         <h2 id='gekta-examples-title' className='text-base font-semibold text-slate-950'>{copy.examplesTitle}</h2>
         <p className='mt-1 text-[14px] leading-5 text-slate-600'>{copy.examplesLead}</p>
