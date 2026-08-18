@@ -30,7 +30,8 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(viewport).toContain("--gekta-composer-height");
     expect(viewport).toContain('Math.max(0, Math.min(maxInset');
     expect(viewport).toContain("document.addEventListener('focusin'");
-    expect(viewport).toContain("document.body.style.overflow = 'hidden'");
+    expect(viewport).not.toContain("document.body.style.overflow = 'hidden'");
+    expect(viewport).not.toContain("root.style.overflow = 'hidden'");
     expect(product).toContain("[data-gekta-chat-workspace='true']:not(.overflow-hidden)");
     expect(product).toContain('overflow: visible');
     expect(product).toContain("[data-gekta-chat-workspace='true'].overflow-hidden main > div:first-of-type");
@@ -73,7 +74,7 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(composer).toContain('Boolean(value.trim() || documents.length)');
     expect(composer).toContain('ATTACHMENT_ONLY_PROMPT');
     expect(composer).toContain('CircleSlash2');
-    expect(composer).toContain('text-sm leading-5');
+    expect(composer).toContain('text-[14px] leading-5');
     expect(composer).toContain('История этого режима хранится в браузере');
     expect(attachments).toContain('textareaFocused');
     expect(attachments).not.toContain('focus-within:border-emerald-700');
