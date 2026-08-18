@@ -18,6 +18,7 @@ import { AdvanceRepository } from './advance.repository';
 import { ServiceStatus } from './deal-service.policy';
 import { DealServiceRepository } from './deal-service.repository';
 import { PaymentRepository } from './payment.repository';
+import { ConnectionCenterRepository } from './connection-center.repository';
 import { ReconciliationRepository } from './reconciliation.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
 import { AudienceView, projectFor } from './work-task-projection.policy';
@@ -60,6 +61,7 @@ export class AccountingController {
     private readonly services: DealServiceRepository,
     private readonly payments: PaymentRepository,
     private readonly reconciliations: ReconciliationRepository,
+    private readonly connections: ConnectionCenterRepository,
   ) {}
 
   /**
@@ -679,6 +681,21 @@ export class AccountingController {
       intended: body.intended,
       note: body.note ?? null,
     });
+  }
+
+  /**
+   * Every external connection this organization has, and what each is waiting
+   * for.
+   *
+   * A read with no counterpart that writes, deliberately. The levels are derived
+   * from rows other contours wrote — a receipt carrying the far side's own
+   * identifier, an attested contract — so nobody can set a green tick by asking
+   * for one. A connection nobody has started is reported as NOT_ATTESTED with
+   * its prerequisites named, which is the honest form of "not yet".
+   */
+  @Get('connections')
+  listConnections(@CurrentUser() user: RequestUser) {
+    return this.connections.describe(user);
   }
 }
 
