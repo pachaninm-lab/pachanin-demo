@@ -138,25 +138,36 @@ jobs:
           PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -Eeuo pipefail
+          local_stage=ssh_read
+          trap 'printf "LOCAL_FAIL_STAGE=%s\n" "$local_stage"' ERR
+          set +e
           raw="$(ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=15 "$USER@$HOST" \
             "bash -s -- '$WINDOW_START' '$WINDOW_END'" 2>/dev/null <<'REMOTE'
           set -Eeuo pipefail
           start="$1"; end="$2"
+          stage=uid_boundary
+          trap 'printf "REMOTE_FAIL_STAGE=%s\n" "$stage"' ERR
           [[ "$(id -u)" -eq 0 ]]
+          stage=web_container_discovery
           mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
           (( ${#web_ids[@]} == 1 ))
           web_id="${web_ids[0]}"
+          stage=compose_project_discovery
           project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          [[ -n "$project" ]]
+          stage=worker_container_discovery
           mapfile -t worker_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
           (( ${#worker_ids[@]} == 1 ))
           worker_id="${worker_ids[0]}"
+          stage=worker_runtime_state
           worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"
           worker_state="$(docker inspect --format '{{.State.Status}}' "$worker_id")"
           worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$worker_id")"
           [[ "$worker_state" == running && "$worker_health" == healthy ]]
           printf 'WORKER_REVISION=%s\n' "$worker_revision"
+          stage=db_read
           docker exec -i "$worker_id" /nodejs/bin/node --input-type=commonjs - "$start" "$end" <<'NODE'
           const {readFileSync}=require('node:fs');
           const {PrismaClient}=require('@prisma/client');
@@ -201,6 +212,14 @@ jobs:
           NODE
           REMOTE
           )"
+          ssh_rc=$?
+          set -e
+          grep -E '^(REMOTE_FAIL_STAGE|WORKER_REVISION|ROW_COUNT|OUTBOX_HASH|STATUS|ATTEMPTS|MAX_ATTEMPTS|ERROR_CODE|SENT_AT|EXPIRED|NEXT_ATTEMPT_DUE|DB_SAFE_ERROR)=' <<< "$raw" || true
+          if (( ssh_rc != 0 )); then
+            echo "REMOTE_SSH_EXIT=$ssh_rc"
+            exit "$ssh_rc"
+          fi
+          local_stage=parse_db_read
           worker_revision="$(sed -n 's/^WORKER_REVISION=//p' <<< "$raw" | head -1)"
           row_count="$(sed -n 's/^ROW_COUNT=//p' <<< "$raw" | head -1)"
           outbox_id="$(sed -n 's/^OUTBOX_ID=//p' <<< "$raw" | head -1)"
@@ -221,7 +240,9 @@ jobs:
           [[ "$error_code" =~ ^[A-Z0-9_:-]{1,100}$ ]]
           [[ "$sent_at" =~ ^(YES|NO)$ && "$expired" =~ ^(YES|NO)$ && "$next_due" =~ ^(YES|NO)$ ]]
           echo "::add-mask::$outbox_id"
-          mailbox="$(OUTBOX_ID="$outbox_id" python3 - <<'PY'
+          local_stage=mailbox_read
+          set +e
+          mailbox="$(OUTBOX_ID="$outbox_id" python3 - <<'PY' 2>/dev/null
           import email, imaplib, os, re, ssl
           from email.policy import default
           def normalized_login(value):
@@ -240,6 +261,8 @@ jobs:
                   return None
               result=f'{local}@{domain}'
               return result if len(result)<=254 and re.fullmatch(r'[^\s@]{1,64}@[^\s@]{1,189}',result) else None
+          def safe_type(exc):
+              return re.sub(r'[^A-Z0-9_]', '_', type(exc).__name__.upper())[:80] or 'UNKNOWN'
           outbox_id=os.environ.get('OUTBOX_ID','').strip()
           if not re.fullmatch(r'[A-Za-z0-9._-]{8,160}',outbox_id): raise SystemExit('OUTBOX_ID_INVALID')
           host=os.environ.get('PC_P0_IMAP_HOST','').strip()
@@ -272,12 +295,23 @@ jobs:
               print(f'MAILBOX_MESSAGES_CHECKED={checked}')
               print('MAILBOX_READ_ONLY=PASS')
               print('IMAP_LOGIN_NORMALIZED=PASS')
+          except BaseException as exc:
+              print(f'MAILBOX_SAFE_ERROR={safe_type(exc)}')
+              raise SystemExit(71)
           finally:
               if client is not None:
                   try: client.logout()
                   except Exception: pass
           PY
           )"
+          mailbox_rc=$?
+          set -e
+          grep -E '^(MAILBOX_MATCH_COUNT|MAILBOX_MESSAGES_CHECKED|MAILBOX_READ_ONLY|IMAP_LOGIN_NORMALIZED|MAILBOX_SAFE_ERROR)=' <<< "$mailbox" || true
+          if (( mailbox_rc != 0 )); then
+            echo "MAILBOX_EXIT=$mailbox_rc"
+            exit "$mailbox_rc"
+          fi
+          local_stage=parse_mailbox_read
           match_count="$(sed -n 's/^MAILBOX_MATCH_COUNT=//p' <<< "$mailbox" | head -1)"
           checked="$(sed -n 's/^MAILBOX_MESSAGES_CHECKED=//p' <<< "$mailbox" | head -1)"
           [[ "$match_count" =~ ^[0-9]+$ && "$checked" =~ ^[0-9]+$ ]]
@@ -285,6 +319,7 @@ jobs:
           grep -Fxq 'IMAP_LOGIN_NORMALIZED=PASS' <<< "$mailbox"
           delivery_gate=BLOCKED
           if [[ "$status" == SENT && "$sent_at" == YES && "$match_count" == 1 ]]; then delivery_gate=PASS; fi
+          trap - ERR
           echo "RESET_DELIVERY_STATE=INSPECTED_READ_ONLY"
           echo "RESET_SUBJECT_SHA=$RESET_SHA"
           echo "WORKER_REVISION=$worker_revision"
