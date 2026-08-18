@@ -1,60 +1,80 @@
-import type { AuthSqlClient } from '../auth/persistent-auth.repository';
+import { resetAuthMailKeyCacheForTests } from './auth-mail-crypto';
 import { AuthMailOutboxService } from './auth-mail-outbox.service';
 
 type CapturedSql = {
-  strings: readonly string[];
+  text: string;
   values: readonly unknown[];
 };
 
-describe('AuthMailOutboxService PostgreSQL function binding', () => {
-  const previousNodeEnv = process.env.NODE_ENV;
-  const previousKeyVersion = process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION;
-  const previousKey = process.env.AUTH_MAIL_OUTBOX_KEY_V1;
+describe('AuthMailOutboxService PostgreSQL signature contract', () => {
+  const originalKey = process.env.AUTH_MAIL_OUTBOX_KEY_V1;
+  const originalCurrentVersion = process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION;
+  const originalNodeEnv = process.env.NODE_ENV;
 
-  beforeAll(() => {
+  beforeEach(() => {
     process.env.NODE_ENV = 'test';
-    process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION = '1';
     process.env.AUTH_MAIL_OUTBOX_KEY_V1 = '11'.repeat(32);
+    process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION = '1';
+    resetAuthMailKeyCacheForTests();
   });
 
   afterAll(() => {
-    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = previousNodeEnv;
-    if (previousKeyVersion === undefined) delete process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION;
-    else process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION = previousKeyVersion;
-    if (previousKey === undefined) delete process.env.AUTH_MAIL_OUTBOX_KEY_V1;
-    else process.env.AUTH_MAIL_OUTBOX_KEY_V1 = previousKey;
+    if (originalKey === undefined) delete process.env.AUTH_MAIL_OUTBOX_KEY_V1;
+    else process.env.AUTH_MAIL_OUTBOX_KEY_V1 = originalKey;
+
+    if (originalCurrentVersion === undefined) delete process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION;
+    else process.env.AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION = originalCurrentVersion;
+
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+
+    resetAuthMailKeyCacheForTests();
   });
 
-  it('casts JavaScript integer parameters to the INT4 enqueue signature', async () => {
-    const queryRaw = jest.fn().mockResolvedValue([{
-      outbox_id: 'auth_mail_test',
-      replayed: false,
-    }]);
+  it('casts all twelve parameters to the exact SECURITY DEFINER regprocedure signature', async () => {
+    let captured: CapturedSql | undefined;
     const tx = {
-      $queryRaw: queryRaw,
-      $executeRaw: jest.fn(),
-    } as unknown as AuthSqlClient;
+      $queryRaw: jest.fn(async (query: CapturedSql) => {
+        captured = query;
+        return [{ outbox_id: 'auth_mail_test', replayed: false }];
+      }),
+    };
+    const service = new AuthMailOutboxService();
+    const availableAt = new Date(Date.now() + 1_000);
+    const expiresAt = new Date(Date.now() + 60_000);
 
-    await expect(new AuthMailOutboxService().enqueue(tx, {
+    const result = await service.enqueue(tx as never, {
       kind: 'PASSWORD_RESET',
-      idempotencyKey: 'auth-mail:test-int4-casts',
-      correlationId: 'test-int4-casts',
+      idempotencyKey: 'auth-mail:password-reset:signature-contract',
+      correlationId: 'signature-contract',
       envelope: {
         to: 'reviewer@example.test',
         subject: 'Password reset',
-        text: 'Use the protected reset flow.',
+        text: 'Use the one-time reset link.',
       },
-      expiresAt: new Date('2035-01-01T00:00:00.000Z'),
-    })).resolves.toMatchObject({ queued: true, replayed: false });
+      availableAt,
+      expiresAt,
+      maxAttempts: 12,
+    });
 
-    expect(queryRaw).toHaveBeenCalledTimes(1);
-    const sql = queryRaw.mock.calls[0]?.[0] as CapturedSql;
-    const statement = sql.strings.join('?');
-
-    expect(statement).toContain('FROM auth.enqueue_mail_outbox(');
-    expect(statement.match(/\?::integer/g)).toHaveLength(2);
-    expect(sql.values[5]).toBe(1);
-    expect(sql.values[9]).toBe(12);
+    expect(result.queued).toBe(true);
+    expect(captured).toBeDefined();
+    expect(captured?.values).toHaveLength(12);
+    expect(captured?.text).toContain('$1::text');
+    expect(captured?.text).toContain('$2::text');
+    expect(captured?.text).toContain('$3::text');
+    expect(captured?.text).toContain('$4::text');
+    expect(captured?.text).toContain('$5::text');
+    expect(captured?.text).toContain('$6::integer');
+    expect(captured?.text).toContain('$7::text');
+    expect(captured?.text).toContain('$8::text');
+    expect(captured?.text).toContain('$9::text');
+    expect(captured?.text).toContain('$10::integer');
+    expect(captured?.text).toContain('$11::timestamptz');
+    expect(captured?.text).toContain('$12::timestamptz');
+    expect(captured?.values[5]).toBe(1);
+    expect(captured?.values[9]).toBe(12);
+    expect(captured?.values[10]).toBe(availableAt);
+    expect(captured?.values[11]).toBe(expiresAt);
   });
 });
