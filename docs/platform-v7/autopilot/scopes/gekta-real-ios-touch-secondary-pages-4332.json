@@ -22,6 +22,7 @@
     "apps/web/components/gekta/GektaProductShell.tsx",
     "apps/web/components/gekta/GektaSidebar.tsx",
     "apps/web/components/gekta/GektaTopicPage.tsx",
+    "apps/web/components/gekta/GektaUtilityMobileStyle.tsx",
     "apps/web/components/gekta/GektaUtilityPage.tsx",
     "apps/web/components/gekta/GektaViewportAuthority.tsx",
     "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
