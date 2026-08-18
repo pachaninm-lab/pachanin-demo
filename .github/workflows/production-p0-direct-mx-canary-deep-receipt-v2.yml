@@ -1,0 +1,127 @@
+name: Production P0 Direct MX Canary Deep Receipt v2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-direct-mx-canary-deep-receipt-v2.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-direct-mx-canary-deep-receipt-v2
+  cancel-in-progress: true
+
+jobs:
+  deep-receipt:
+    name: Identity match and all-folder canary receipt read-only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      CANARY_RUN_ID: '32157763078'
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+      PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+      PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+    steps:
+      - name: Compare reviewer and controlled mailbox by normalized SHA256
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${PC_PROD_HOST:-195.19.12.120}")"; user="$(trim "${PC_PROD_SSH_USER:-}")"; port="$(trim "${PC_PROD_SSH_PORT:-22}")"; expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == '195.19.12.120' ]]; [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]; [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)); [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          key="$RUNNER_TEMP/p0-deep-v2-key"; known="$RUNNER_TEMP/p0-deep-v2-known"
+          validate_key(){ local src="$1" pub; tr -d '\r' < "$src" > "$key"; chmod 600 "$key"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          try_slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          try_slot "${PC_PROD_SSH_KEY:-}" || try_slot "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_slot "${VPS_SSH_KEY:-}"
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do : > "$scan"; : > "$match"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true; while IFS= read -r line; do [[ -n "$line" ]] || continue; fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"; sort -u -o "$match" "$match"; [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }; ((attempt==3)) || sleep "$attempt"; done
+          [[ "$ready" == 1 ]]; mv "$match" "$known"; rm -f "$scan"; chmod 600 "$known"
+          reviewer_hash="$(ssh -i "$key" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" -o ConnectTimeout=15 "$user@$host" 'bash -s' 2>/dev/null <<'REMOTE'
+          set -Eeuo pipefail
+          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api'); (( ${#api_ids[@]} == 1 )); api_id="${api_ids[0]}"
+          docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
+          const {PrismaClient}=require('@prisma/client'); const crypto=require('node:crypto'); const {domainToASCII}=require('node:url'); let db;
+          (async()=>{const url=String(process.env.STAFF_DATABASE_URL||'').trim(); if(!url) throw new Error('DB_URL'); db=new PrismaClient({datasources:{db:{url}}}); const p=(await db.$queryRawUnsafe("SELECT current_user,rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user"))[0]; if(!p||p.current_user!=='pc_staff_runtime'||p.rolsuper||p.rolbypassrls) throw new Error('PRINCIPAL'); const r=await db.$queryRawUnsafe("SELECT auth.staff_reviewer_password_reset_subject() AS email"); const raw=String(r?.[0]?.email||'').trim().toLowerCase(); const at=raw.lastIndexOf('@'); if(at<=0) throw new Error('SUBJECT'); const local=raw.slice(0,at); const domain=domainToASCII(raw.slice(at+1)).toLowerCase(); if(!domain) throw new Error('SUBJECT_DOMAIN'); const normalized=`${local}@${domain}`; process.stdout.write(crypto.createHash('sha256').update(normalized).digest('hex'));})().catch(()=>process.exitCode=1).finally(async()=>{if(db) await db.$disconnect().catch(()=>{});});
+          NODE
+          REMOTE
+          )"
+          [[ "$reviewer_hash" =~ ^[0-9a-f]{64}$ ]]
+          control_hash="$(python3 - <<'PY'
+          import hashlib, os
+          raw=str(os.environ.get('PC_P0_IMAP_USER') or '').strip().lower()
+          if raw.count('@') != 1: raise SystemExit(1)
+          local,domain=raw.rsplit('@',1); domain=domain.encode('idna').decode('ascii').lower()
+          print(hashlib.sha256(f'{local}@{domain}'.encode()).hexdigest())
+          PY
+          )"
+          [[ "$control_hash" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$reviewer_hash" == "$control_hash" ]] && value=YES || value=NO
+          echo "REVIEWER_EQUALS_CONTROLLED_IMAP=$value"
+          echo 'IDENTITY_COMPARISON_MUTATION=NONE'
+          rm -f -- "$key" "$known"
+
+      - name: Search accepted canary across all selectable folders read-only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import email, imaplib, os, re, ssl, sys
+          from email.policy import default
+          run_id=str(os.environ.get('CANARY_RUN_ID') or '').strip(); host=str(os.environ.get('PC_P0_IMAP_HOST') or '').strip(); raw_user=str(os.environ.get('PC_P0_IMAP_USER') or '').strip(); password=str(os.environ.get('PC_P0_IMAP_PASSWORD') or ''); port=int(str(os.environ.get('PC_P0_IMAP_PORT') or '993').strip())
+          if not re.fullmatch(r'[0-9]{6,24}',run_id) or not host or raw_user.count('@')!=1 or not password: raise SystemExit(71)
+          local,domain=raw_user.rsplit('@',1); local.encode('ascii'); user=f"{local}@{domain.encode('idna').decode('ascii').lower()}"
+          target=f'<pc-p0-direct-mx-canary-{run_id}@xn----8sbjf4befbjgs9b.xn--p1ai>'
+          c=imaplib.IMAP4_SSL(host,port,ssl_context=ssl.create_default_context(),timeout=15)
+          try:
+              caps={x.decode('ascii','ignore').upper() if isinstance(x,bytes) else str(x).upper() for x in c.capabilities};
+              if 'AUTH=PLAIN' not in caps: raise SystemExit(72)
+              payload=b'\x00'+user.encode('utf-8')+b'\x00'+password.encode('utf-8'); typ,_=c.authenticate('PLAIN',lambda _challenge: payload)
+              if typ!='OK': raise SystemExit(73)
+              typ,boxes=c.list();
+              if typ!='OK': raise SystemExit(74)
+              folders=[]
+              for raw in boxes or []:
+                  if not isinstance(raw,bytes): continue
+                  m=re.match(rb'\(([^)]*)\)\s+"[^"]*"\s+(.+)$',raw)
+                  if not m: continue
+                  flags=m.group(1).decode('ascii','ignore').upper(); token=m.group(2).decode('ascii','ignore')
+                  if '\\NOSELECT' in flags: continue
+                  if token and token not in folders: folders.append(token)
+              folders_checked=0; folders_with_match=0; total_matches=0; messages_checked=0
+              for folder in folders[:100]:
+                  try: typ,_=c.select(folder,readonly=True)
+                  except Exception: continue
+                  if typ!='OK': continue
+                  folders_checked+=1; typ,data=c.search(None,'ALL')
+                  if typ!='OK': continue
+                  found=0
+                  for ident in reversed((data[0] or b'').split()[-2000:]):
+                      typ,rows=c.fetch(ident,'(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])')
+                      if typ!='OK': continue
+                      raw=next((x[1] for x in rows if isinstance(x,tuple) and len(x)>1),None)
+                      if not raw: continue
+                      messages_checked+=1; msg=email.message_from_bytes(raw,policy=default)
+                      if str(msg.get('message-id') or '').strip()==target: found+=1
+                  if found: folders_with_match+=1; total_matches+=found
+              print(f'IMAP_SELECTABLE_FOLDERS_CHECKED={folders_checked}')
+              print(f'IMAP_MESSAGES_CHECKED={messages_checked}')
+              print(f'DIRECT_CANARY_FOLDERS_WITH_MATCH={folders_with_match}')
+              print(f'DIRECT_CANARY_TOTAL_FOLDER_MATCHES={total_matches}')
+              print('IMAP_ALL_FOLDER_SEARCH_READ_ONLY=PASS')
+              print('PRODUCTION_MUTATION=NONE')
+              print(f'DIRECT_CANARY_DEEP_RECEIPT={"PASS" if total_matches>=1 else "BLOCKED"}')
+              sys.exit(0 if total_matches>=1 else 3)
+          finally:
+              try:c.logout()
+              except Exception:pass
+          PY
