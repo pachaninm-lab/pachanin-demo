@@ -39,7 +39,9 @@
     "direct MX delivery resolves ordered recipient MX records and requires STARTTLS with certificate verification and TLS 1.2 or newer",
     "direct MX EHLO uses the platform domain whose A record and SPF authorize the existing production IP",
     "canonical platform envelope sender, deterministic Message-ID, recipient and message body are preserved",
+    "multiline SMTP capability responses remain intact when split across network data events",
     "an alternate MX is attempted only before message payload submission; ambiguous post-DATA failures are not fanned out in the same attempt",
+    "the synthetic direct-MX canary already received final SMTP acceptance and the connected mailbox proves SPF PASS plus DMARC PASS; no credential or bearer material was included",
     "no new secret, service, DNS record or recurring cost is introduced",
     "focused regression tests preserve the exact fallback boundary",
     "no reviewer reset is issued by this change"
