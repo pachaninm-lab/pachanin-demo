@@ -1,0 +1,384 @@
+name: Production P0 Auth-Mail Target Image Boundary Diagnostic beed
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-auth-mail-target-image-boundary-diagnostic-beed.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: production-p0-auth-mail-target-image-boundary-beed-${{ github.event.pull_request.number || 'production' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  TARGET_SHA: beed71c08783906d4235f3a02ad0b737a4c8be15
+  DIAGNOSTIC_HEAD_REF: diag/p0-auth-mail-image-boundary-beed-3785
+  RELEASE_ISSUE_NUMBER: '3072'
+  DIAGNOSTIC_COMMAND: /production p0-auth-mail-image-boundary beed-read-only
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+
+jobs:
+  contract:
+    name: Validate target-image boundary diagnostic contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enforce inspection-only exact-head contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/production-p0-auth-mail-target-image-boundary-diagnostic-beed.yml')
+          text = path.read_text(encoding='utf-8')
+          diagnostic = text.split('\n  diagnostic:\n', 1)[1]
+
+          required = [
+              'DIAGNOSTIC_HEAD_REF',
+              'merged_at',
+              'merge_commit_sha',
+              'git merge-base --is-ancestor',
+              'docker image inspect',
+              'docker inspect',
+              'docker ps',
+              'TARGET_IMAGE_BOUNDARY_CLASS',
+              'CURRENT_RUNTIME_BOUNDARY_CLASS',
+              'CURRENT_REVISION_CLASS',
+              'PRODUCTION_MUTATION NONE',
+              'secret values / raw environment',
+          ]
+          missing = [value for value in required if value not in text]
+          if missing:
+              raise SystemExit('missing invariant: ' + ' | '.join(missing))
+
+          forbidden = [
+              'docker compose up', 'docker compose down', 'docker restart',
+              'docker rm', 'docker rmi', 'docker exec', 'docker run',
+              'docker pull', 'docker create', 'docker start', 'docker stop',
+              'docker kill', 'docker update', 'docker commit', 'docker tag',
+              'docker push', 'docker login', 'docker logout', 'docker prune',
+              'systemctl ', 'ALTER ROLE', 'CREATE ROLE', 'DROP ROLE',
+              'INSERT INTO', 'UPDATE auth.', 'DELETE FROM',
+              'password-reset/request', 'forgot-password',
+          ]
+          bad = [value for value in forbidden if value in diagnostic]
+          if bad:
+              raise SystemExit('unsafe diagnostic surface: ' + ' | '.join(bad))
+
+          if text.count("github.event.comment.body == env.DIAGNOSTIC_COMMAND") != 1:
+              raise SystemExit('owner command is not exact and singular')
+          PY
+
+  diagnostic:
+    name: Classify target image defaults and current runtime without mutation
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == env.DIAGNOSTIC_COMMAND
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind current main to the unique merged one-file diagnostic PR
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          current_main="$(git rev-parse origin/main)"
+          test "$(git rev-parse HEAD)" = "$current_main"
+          git cat-file -e "${TARGET_SHA}^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current_main"
+
+          prs_json="$RUNNER_TEMP/diagnostic-prs.json"
+          gh api --method GET \
+            -f state=closed \
+            -f base=main \
+            -f "head=${GITHUB_REPOSITORY_OWNER}:${DIAGNOSTIC_HEAD_REF}" \
+            -f per_page=10 \
+            "repos/$GITHUB_REPOSITORY/pulls" > "$prs_json"
+
+          mapfile -t pr_meta < <(python3 - "$prs_json" "$DIAGNOSTIC_HEAD_REF" "$GITHUB_REPOSITORY" <<'PY'
+          import json
+          import sys
+
+          path, expected_head, expected_repo = sys.argv[1:]
+          matches = []
+          for item in json.load(open(path, encoding='utf-8')):
+              head = item.get('head') or {}
+              base = item.get('base') or {}
+              if (
+                  item.get('merged_at')
+                  and head.get('ref') == expected_head
+                  and ((head.get('repo') or {}).get('full_name') or '') == expected_repo
+                  and base.get('ref') == 'main'
+              ):
+                  matches.append(item)
+          if len(matches) != 1:
+              raise SystemExit(f'merged diagnostic PR cardinality={len(matches)}')
+          item = matches[0]
+          print(item.get('number') or '')
+          print(item.get('merge_commit_sha') or '')
+          PY
+          )
+          test "${#pr_meta[@]}" = 2
+          pr_number="${pr_meta[0]}"
+          merge_sha="${pr_meta[1]}"
+          [[ "$pr_number" =~ ^[0-9]+$ && "$merge_sha" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "${merge_sha}^{commit}"
+          git merge-base --is-ancestor "$merge_sha" "$current_main"
+
+          files_json="$RUNNER_TEMP/diagnostic-pr-files.json"
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$pr_number/files?per_page=100" > "$files_json"
+          mapfile -t pr_files < <(python3 - "$files_json" <<'PY'
+          import json
+          import sys
+
+          for item in json.load(open(sys.argv[1], encoding='utf-8')):
+              print(f"{item.get('status') or ''}\t{item.get('filename') or ''}\t{item.get('sha') or ''}")
+          PY
+          )
+          test "${#pr_files[@]}" = 1
+          IFS=$'\t' read -r status file_path file_blob <<< "${pr_files[0]}"
+          test "$status" = added
+          test "$file_path" = '.github/workflows/production-p0-auth-mail-target-image-boundary-diagnostic-beed.yml'
+          [[ "$file_blob" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse "${current_main}:${file_path}")" = "$file_blob"
+          test -f "$file_path"
+          test ! -L "$file_path"
+          echo "source_main_sha=$current_main" >> "$GITHUB_OUTPUT"
+          echo "diagnostic_pr=$pr_number" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned REG.RU SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          test "$host" = "$DEFAULT_HOST"
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]]; ((port >= 1 && port <= 65535))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          key="$HOME/.ssh/id_pc_prod"
+          validate_key(){
+            local source="$1" pub
+            tr -d '\r' < "$source" > "$key"; chmod 600 "$key"
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null
+            local rc=$?
+            rm -f "$pub"
+            return "$rc"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            test -n "$raw" || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 -d > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            test "$fp" != "$expected" || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          sort -u -o "$match" "$match"
+          test "$(grep -c . "$match")" = 1
+          mv "$match" "$HOME/.ssh/known_hosts"; chmod 600 "$HOME/.ssh/known_hosts"; rm -f "$scan"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect target image defaults and current runtime names only
+        id: inspect
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/result"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$USER@$HOST" "bash -s -- '$TARGET_SHA'" > "$result" <<'REMOTE'
+          set -Eeuo pipefail
+          target="$1"
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          finish(){
+            emit TARGET_IMAGE_BOUNDARY_CLASS "$1"
+            emit CURRENT_RUNTIME_BOUNDARY_CLASS "$2"
+            emit CURRENT_REVISION_CLASS "$3"
+            emit PRODUCTION_MUTATION NONE
+            exit 0
+          }
+          test "$(id -u)" -eq 0 || finish ROOT_REQUIRED NOT_CHECKED NOT_CHECKED
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]] || finish TARGET_SHA_INVALID NOT_CHECKED NOT_CHECKED
+
+          env_names_image(){
+            docker image inspect --format '{{json .Config.Env}}' "$1" \
+              | python3 -c "import json,sys; print('\\n'.join(sorted(str(x).partition('=')[0] for x in (json.load(sys.stdin) or []))))"
+          }
+          env_names_container(){
+            docker inspect --format '{{json .Config.Env}}' "$1" \
+              | python3 -c "import json,sys; print('\\n'.join(sorted(str(x).partition('=')[0] for x in (json.load(sys.stdin) or []))))"
+          }
+
+          short="${target:0:7}"
+          api_image="ghcr.io/pachaninm-lab/grainflow-api:sha-${short}"
+          web_image="ghcr.io/pachaninm-lab/grainflow-web:sha-${short}"
+          web_state=MISSING
+          api_state=MISSING
+          worker_state=MISSING
+
+          if docker image inspect "$web_image" >/dev/null 2>&1; then
+            revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_image" 2>/dev/null || true)"
+            if test "$revision" != "$target"; then
+              web_state=REVISION
+            else
+              names="$(env_names_image "$web_image")"
+              if grep -Eq '^(PC_SMTP_|PC_MAIL_FROM$|RESEND_API_KEY$|RESEND_FROM_EMAIL$|AUTH_MAIL_)' <<< "$names"; then
+                web_state=FORBIDDEN
+              else
+                web_state=PASS
+              fi
+            fi
+          fi
+
+          if docker image inspect "$api_image" >/dev/null 2>&1; then
+            revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_image" 2>/dev/null || true)"
+            if test "$revision" != "$target"; then
+              api_state=REVISION
+              worker_state=REVISION
+            else
+              names="$(env_names_image "$api_image")"
+              if grep -Eq '^(PC_SMTP_|PC_MAIL_FROM$|RESEND_API_KEY$|RESEND_FROM_EMAIL$|AUTH_MAIL_DATABASE_URL_FILE$|AUTH_MAIL_TRANSPORT_FILE$)' <<< "$names"; then
+                api_state=FORBIDDEN
+              else
+                api_state=PASS
+              fi
+              if grep -Eq '^(PC_SMTP_PASS$|AUTH_MAIL_DATABASE_URL$)' <<< "$names"; then
+                worker_state=PLAINTEXT
+              else
+                worker_state=PASS
+              fi
+            fi
+          fi
+          target_class="WEB_${web_state}_API_${api_state}_WORKER_${worker_state}"
+
+          mapfile -t webs < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          if test "${#webs[@]}" -ne 1; then
+            finish "$target_class" "WEB_CARDINALITY_${#webs[@]}" NOT_CHECKED
+          fi
+          web="${webs[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web" 2>/dev/null || true)"
+          test -n "$project" || finish "$target_class" COMPOSE_PROJECT_MISSING NOT_CHECKED
+          mapfile -t apis < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          mapfile -t workers < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          if test "${#apis[@]}" -ne 1; then
+            finish "$target_class" "API_CARDINALITY_${#apis[@]}" NOT_CHECKED
+          fi
+
+          api="${apis[0]}"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web" 2>/dev/null || true)"
+          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api" 2>/dev/null || true)"
+          web_revision_state=DRIFT; test "$web_revision" = "$target" && web_revision_state=TARGET
+          api_revision_state=DRIFT; test "$api_revision" = "$target" && api_revision_state=TARGET
+
+          web_names="$(env_names_container "$web")"
+          api_names="$(env_names_container "$api")"
+          current_web_state=PASS
+          current_api_state=PASS
+          grep -Eq '^(PC_SMTP_|PC_MAIL_FROM$|RESEND_API_KEY$|RESEND_FROM_EMAIL$|AUTH_MAIL_)' <<< "$web_names" && current_web_state=FORBIDDEN
+          grep -Eq '^(PC_SMTP_|PC_MAIL_FROM$|RESEND_API_KEY$|RESEND_FROM_EMAIL$|AUTH_MAIL_DATABASE_URL_FILE$|AUTH_MAIL_TRANSPORT_FILE$)' <<< "$api_names" && current_api_state=FORBIDDEN
+
+          if test "${#workers[@]}" -eq 0; then
+            current_worker_state=ABSENT
+            worker_revision_state=ABSENT
+          elif test "${#workers[@]}" -ne 1; then
+            current_worker_state="CARDINALITY_${#workers[@]}"
+            worker_revision_state=CARDINALITY
+          else
+            worker="${workers[0]}"
+            worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker" 2>/dev/null || true)"
+            worker_revision_state=DRIFT; test "$worker_revision" = "$target" && worker_revision_state=TARGET
+            worker_names="$(env_names_container "$worker")"
+            current_worker_state=PASS
+            grep -Eq '^(PC_SMTP_PASS$|AUTH_MAIL_DATABASE_URL$)' <<< "$worker_names" && current_worker_state=PLAINTEXT
+          fi
+
+          current_class="WEB_${current_web_state}_API_${current_api_state}_WORKER_${current_worker_state}"
+          revision_class="WEB_${web_revision_state}_API_${api_revision_state}_WORKER_${worker_revision_state}"
+          finish "$target_class" "$current_class" "$revision_class"
+          REMOTE
+
+          cat "$result"
+          for key in TARGET_IMAGE_BOUNDARY_CLASS CURRENT_RUNTIME_BOUNDARY_CLASS CURRENT_REVISION_CLASS PRODUCTION_MUTATION; do
+            test "$(grep -Ec "^${key}=[A-Z0-9_]+$" "$result")" = 1
+            grep -E "^${key}=[A-Z0-9_]+$" "$result" >> "$GITHUB_OUTPUT"
+          done
+          test "$(grep '^PRODUCTION_MUTATION=' "$result")" = 'PRODUCTION_MUTATION=NONE'
+
+      - name: Publish sanitized image-boundary diagnosis
+        shell: bash
+        run: |
+          set -euo pipefail
+          comment="$RUNNER_TEMP/issue-comment.md"
+          cat > "$comment" <<EOF
+          ## PC-CROP auth-mail target image boundary diagnosis
+
+          - diagnostic source main: \`${{ steps.source.outputs.source_main_sha }}\`
+          - diagnostic PR: \`#${{ steps.source.outputs.diagnostic_pr }}\`
+          - inspected target SHA: \`$TARGET_SHA\`
+          - target image boundary: \`${{ steps.inspect.outputs.TARGET_IMAGE_BOUNDARY_CLASS }}\`
+          - current runtime boundary: \`${{ steps.inspect.outputs.CURRENT_RUNTIME_BOUNDARY_CLASS }}\`
+          - current revision relation to target: \`${{ steps.inspect.outputs.CURRENT_REVISION_CLASS }}\`
+          - secret values / raw environment / identities: \`NOT_PUBLISHED\`
+          - reset / mail / DB / identity / container mutation: \`NONE\`
+          - production mutation: \`NONE\`
+          EOF
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$comment" >/dev/null
