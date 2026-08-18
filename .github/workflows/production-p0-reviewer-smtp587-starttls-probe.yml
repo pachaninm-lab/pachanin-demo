@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/production-p0-reviewer-smtp587-starttls-probe.yml'
       - 'scripts/production-p0-reviewer-smtp587-starttls-probe.sh'
+      - 'scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh'
       - 'docs/platform-v7/autopilot/scopes/p0-auth-mail-smtp587-starttls-3785.json'
       - 'docs/platform-v7/autopilot/scopes/p0-auth-mail-smtp587-starttls-3785.md'
       - 'docs/platform-v7/autopilot/scopes/p0-auth-mail-smtp587-starttls-3785.txt'
@@ -36,18 +37,27 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
-      - name: Validate bounded no-mail contract
+      - name: Validate bounded no-mail contracts
         shell: bash
         run: |
           set -Eeuo pipefail
           bash -n scripts/production-p0-reviewer-smtp587-starttls-probe.sh
+          bash -n scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh
           grep -Fq "stage='STARTTLS'" scripts/production-p0-reviewer-smtp587-starttls-probe.sh
           grep -Fq "stage='RCPT_TO'" scripts/production-p0-reviewer-smtp587-starttls-probe.sh
           ! grep -Fq "command('DATA'" scripts/production-p0-reviewer-smtp587-starttls-probe.sh
           ! grep -Fq 'sendAuthMailSmtp(' scripts/production-p0-reviewer-smtp587-starttls-probe.sh
+          ! grep -Fq "command('DATA'" scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh
+          ! grep -Fq 'sendAuthMailSmtp(' scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh
 
       - name: Probe existing REG.RU identity through 587 STARTTLS without DATA
         shell: bash
         env:
           RUNNER_TEMP: ${{ runner.temp }}
         run: bash scripts/production-p0-reviewer-smtp587-starttls-probe.sh
+
+      - name: Distinguish reviewer-recipient policy from sender-account policy
+        shell: bash
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: bash scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh
