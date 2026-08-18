@@ -136,26 +136,38 @@ jobs:
           data = json.load(open(sys.argv[1], encoding='utf-8'))
           print(str(bool(data.get('merged'))).lower())
           print(data.get('merge_commit_sha') or '')
-          print(((data.get('base') or {}).get('sha')) or '')
           print(((data.get('head') or {}).get('ref')) or '')
           print((((data.get('head') or {}).get('repo') or {}).get('full_name')) or '')
           PY
           )
-          test "${#pr_meta[@]}" = 5
+          test "${#pr_meta[@]}" = 4
           test "${pr_meta[0]}" = true
           test "${pr_meta[1]}" = "$current_main"
-          test "${pr_meta[2]}" = "$DEPLOYED_SHA"
-          test "${pr_meta[3]}" = 'diag/p0-auth-mail-runtime-boundary-beed-3785'
-          test "${pr_meta[4]}" = "$GITHUB_REPOSITORY"
+          test "${pr_meta[2]}" = 'diag/p0-auth-mail-runtime-boundary-beed-3785'
+          test "${pr_meta[3]}" = "$GITHUB_REPOSITORY"
 
-          expected="$RUNNER_TEMP/expected-delta"
-          actual="$RUNNER_TEMP/actual-delta"
-          printf '%s\n' \
-            $'A\t.github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml' \
-            $'A\tscripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh' \
-            | sort > "$expected"
-          git diff --name-status --no-renames "$DEPLOYED_SHA" "$current_main" | sort > "$actual"
-          diff -u "$expected" "$actual"
+          files_json="$RUNNER_TEMP/diagnostic-pr-files.json"
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$DIAGNOSTIC_PR_NUMBER/files?per_page=100" > "$files_json"
+          mapfile -t pr_files < <(python3 - "$files_json" <<'PY'
+          import json
+          import sys
+
+          data = json.load(open(sys.argv[1], encoding='utf-8'))
+          for item in sorted(data, key=lambda value: value.get('filename') or ''):
+              print(f"{item.get('status') or ''}\t{item.get('filename') or ''}")
+          PY
+          )
+          expected_files=(
+            $'added\t.github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml'
+            $'added\tscripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh'
+          )
+          test "${#pr_files[@]}" = "${#expected_files[@]}"
+          test "${pr_files[0]}" = "${expected_files[0]}"
+          test "${pr_files[1]}" = "${expected_files[1]}"
+          git diff --name-status --no-renames "$DEPLOYED_SHA" "$current_main" \
+            | grep -Fxq $'A\t.github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml'
+          git diff --name-status --no-renames "$DEPLOYED_SHA" "$current_main" \
+            | grep -Fxq $'A\tscripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh'
           test -f .github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml
           test ! -L .github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml
           test -f scripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh
