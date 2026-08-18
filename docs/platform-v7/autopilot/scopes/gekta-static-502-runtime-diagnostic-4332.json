@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-static-502-runtime-diagnostic-4332",
+  "status": "active",
+  "version": 1,
+  "task": "gekta-static-502-runtime-diagnostic-4332",
+  "issue": 4332,
+  "scope": "Gekta production mobile static asset 502 diagnosis only",
+  "allowedPaths": [
+    ".github/workflows/gekta-production-static-502-diagnostic.yml",
+    "docs/platform-v7/autopilot/scopes/gekta-static-502-runtime-diagnostic-4332.json"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/tai/**",
+    "prisma/**",
+    "packages/domain-core/**"
+  ],
+  "constraints": [
+    "read-only production diagnostic",
+    "no production mutation",
+    "no acceptance threshold weakening",
+    "no retries masking runtime failures",
+    "no new recurring costs"
+  ],
+  "definitionOfDone": [
+    "identify whether production static 502s correlate with web restarts/OOM/upstream failures",
+    "compare direct-web and public-Caddy concurrent static burst behavior",
+    "capture checksummed diagnostic evidence without secrets or user data"
+  ]
+}
