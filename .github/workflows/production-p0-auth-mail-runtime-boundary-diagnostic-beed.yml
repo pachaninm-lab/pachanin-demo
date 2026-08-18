@@ -12,13 +12,16 @@ on:
 permissions:
   contents: read
   issues: write
+  pull-requests: read
 
 concurrency:
   group: production-p0-auth-mail-runtime-boundary-diagnostic-beed
   cancel-in-progress: false
 
 env:
-  TARGET_SHA: beed71c08783906d4235f3a02ad0b737a4c8be15
+  DEPLOYED_SHA: beed71c08783906d4235f3a02ad0b737a4c8be15
+  DIAGNOSTIC_PR_NUMBER: '4355'
+  RELEASE_ISSUE_NUMBER: '3072'
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   DEFAULT_HOST: 195.19.12.120
 
@@ -32,7 +35,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
           persist-credentials: false
+
       - name: Validate shell and inspection-only surface
         shell: bash
         run: |
@@ -40,13 +45,48 @@ jobs:
           bash -n scripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh
           python3 - <<'PY'
           from pathlib import Path
-          t=Path('scripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh').read_text()
-          required=['PRODUCTION_MUTATION NONE','docker inspect','docker compose','config --format json','RUNTIME_BOUNDARY_CLASS','AUTHORITY_FILE_CLASS']
-          missing=[x for x in required if x not in t]
-          if missing: raise SystemExit('missing invariant: '+' | '.join(missing))
-          forbidden=['docker compose up','docker compose down','docker restart','docker rm','docker rmi','docker exec','docker run','systemctl ','ALTER ROLE','CREATE ROLE','DROP ROLE','INSERT INTO','UPDATE auth.','DELETE FROM','password-reset/request','forgot-password']
-          bad=[x for x in forbidden if x in t]
-          if bad: raise SystemExit('unsafe diagnostic surface: '+' | '.join(bad))
+
+          script = Path('scripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh').read_text()
+          workflow = Path('.github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml').read_text()
+
+          required = [
+              'PRODUCTION_MUTATION NONE',
+              'docker inspect',
+              'docker image inspect',
+              'docker compose',
+              'config --format json',
+              'RUNTIME_BOUNDARY_CLASS',
+              'AUTHORITY_FILE_CLASS',
+              'TARGET_MODEL_',
+          ]
+          missing = [value for value in required if value not in script]
+          if missing:
+              raise SystemExit('missing invariant: ' + ' | '.join(missing))
+
+          forbidden = [
+              'docker compose up', 'docker compose down', 'docker restart',
+              'docker rm', 'docker rmi', 'docker exec', 'docker run',
+              'docker pull', 'docker create', 'docker start', 'docker stop',
+              'docker kill', 'docker update', 'docker commit', 'docker tag',
+              'docker push', 'docker login', 'docker logout', 'docker prune',
+              'systemctl ', 'ALTER ROLE', 'CREATE ROLE', 'DROP ROLE',
+              'INSERT INTO', 'UPDATE auth.', 'DELETE FROM',
+              'password-reset/request', 'forgot-password',
+          ]
+          bad = [value for value in forbidden if value in script]
+          if bad:
+              raise SystemExit('unsafe diagnostic surface: ' + ' | '.join(bad))
+
+          workflow_required = [
+              'DIAGNOSTIC_PR_NUMBER',
+              'merge_commit_sha',
+              'git diff --name-status --no-renames',
+              'source_main_sha',
+              'inspected deployed SHA',
+          ]
+          missing_workflow = [value for value in workflow_required if value not in workflow]
+          if missing_workflow:
+              raise SystemExit('missing workflow invariant: ' + ' | '.join(missing_workflow))
           PY
 
   diagnostic:
@@ -75,30 +115,80 @@ jobs:
           ref: main
           fetch-depth: 0
           persist-credentials: false
-      - name: Bind exact current main
+
+      - name: Bind current main to the exact merged diagnostic-only delta
+        id: source
         shell: bash
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
-          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          current_main="$(git rev-parse origin/main)"
+          test "$(git rev-parse HEAD)" = "$current_main"
+          git cat-file -e "${DEPLOYED_SHA}^{commit}"
+          git merge-base --is-ancestor "$DEPLOYED_SHA" "$current_main"
+
+          pr_json="$RUNNER_TEMP/diagnostic-pr.json"
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$DIAGNOSTIC_PR_NUMBER" > "$pr_json"
+          mapfile -t pr_meta < <(python3 - "$pr_json" <<'PY'
+          import json
+          import sys
+
+          data = json.load(open(sys.argv[1], encoding='utf-8'))
+          print(str(bool(data.get('merged'))).lower())
+          print(data.get('merge_commit_sha') or '')
+          print(((data.get('base') or {}).get('sha')) or '')
+          print(((data.get('head') or {}).get('ref')) or '')
+          print((((data.get('head') or {}).get('repo') or {}).get('full_name')) or '')
+          PY
+          )
+          test "${#pr_meta[@]}" = 5
+          test "${pr_meta[0]}" = true
+          test "${pr_meta[1]}" = "$current_main"
+          test "${pr_meta[2]}" = "$DEPLOYED_SHA"
+          test "${pr_meta[3]}" = 'diag/p0-auth-mail-runtime-boundary-beed-3785'
+          test "${pr_meta[4]}" = "$GITHUB_REPOSITORY"
+
+          expected="$RUNNER_TEMP/expected-delta"
+          actual="$RUNNER_TEMP/actual-delta"
+          printf '%s\n' \
+            $'A\t.github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml' \
+            $'A\tscripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh' \
+            | sort > "$expected"
+          git diff --name-status --no-renames "$DEPLOYED_SHA" "$current_main" | sort > "$actual"
+          diff -u "$expected" "$actual"
+          test -f .github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml
+          test ! -L .github/workflows/production-p0-auth-mail-runtime-boundary-diagnostic-beed.yml
+          test -f scripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh
+          test ! -L scripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh
+          echo "source_main_sha=$current_main" >> "$GITHUB_OUTPUT"
+
       - name: Inspect safe boundary classes only
         id: inspect
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh | tee "$RUNNER_TEMP/result"
-          grep -E '^(RUNTIME_BOUNDARY_CLASS|AUTHORITY_FILE_CLASS|PRODUCTION_MUTATION)=' "$RUNNER_TEMP/result" >> "$GITHUB_OUTPUT"
-          test "$(grep '^PRODUCTION_MUTATION=' "$RUNNER_TEMP/result")" = 'PRODUCTION_MUTATION=NONE'
+          result="$RUNNER_TEMP/result"
+          bash scripts/production-p0-auth-mail-runtime-boundary-diagnostic-beed.sh | tee "$result"
+          for key in RUNTIME_BOUNDARY_CLASS AUTHORITY_FILE_CLASS PRODUCTION_MUTATION; do
+            test "$(grep -Ec "^${key}=[A-Z0-9_]+$" "$result")" = 1
+            grep -E "^${key}=[A-Z0-9_]+$" "$result" >> "$GITHUB_OUTPUT"
+          done
+          test "$(grep '^PRODUCTION_MUTATION=' "$result")" = 'PRODUCTION_MUTATION=NONE'
+
       - name: Publish sanitized diagnosis
         shell: bash
         run: |
           set -euo pipefail
-          gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body "## PC-CROP auth-mail runtime boundary read-only diagnosis
+          comment="$RUNNER_TEMP/issue-comment.md"
+          cat > "$comment" <<EOF
+          ## PC-CROP auth-mail runtime boundary read-only diagnosis
 
-- exact main: \`$TARGET_SHA\`
-- runtime boundary class: \`${{ steps.inspect.outputs.RUNTIME_BOUNDARY_CLASS }}\`
-- authority-file class: \`${{ steps.inspect.outputs.AUTHORITY_FILE_CLASS }}\`
-- secret values / identities / raw Compose or inspect output: \`NOT_PUBLISHED\`
-- reset / mail / DB / identity / container mutation: \`NONE\`
-- production mutation: \`NONE\`" >/dev/null
+          - diagnostic source main: \`${{ steps.source.outputs.source_main_sha }}\`
+          - inspected deployed SHA: \`$DEPLOYED_SHA\`
+          - runtime boundary class: \`${{ steps.inspect.outputs.RUNTIME_BOUNDARY_CLASS }}\`
+          - authority-file class: \`${{ steps.inspect.outputs.AUTHORITY_FILE_CLASS }}\`
+          - secret values / identities / raw Compose or inspect output: \`NOT_PUBLISHED\`
+          - reset / mail / DB / identity / container mutation: \`NONE\`
+          - production mutation: \`NONE\`
+          EOF
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$comment" >/dev/null
