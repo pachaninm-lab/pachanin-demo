@@ -1,0 +1,160 @@
+name: Production P0 Auth Mail Worker Runtime State 32134049501
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-auth-mail-worker-runtime-state-32134049501.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-auth-mail-worker-runtime-state-32134049501
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+
+jobs:
+  inspect:
+    name: Read-only auth-mail worker runtime probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    outputs:
+      count: ${{ steps.probe.outputs.count }}
+      state: ${{ steps.probe.outputs.state }}
+      health: ${{ steps.probe.outputs.health }}
+      exit_code: ${{ steps.probe.outputs.exit_code }}
+      oom: ${{ steps.probe.outputs.oom }}
+      restarts: ${{ steps.probe.outputs.restarts }}
+      health_exit: ${{ steps.probe.outputs.health_exit }}
+      revision: ${{ steps.probe.outputs.revision }}
+      production_mutation: ${{ steps.probe.outputs.production_mutation }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Validate read-only contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source='.github/workflows/production-p0-auth-mail-worker-runtime-state-32134049501.yml'
+          python3 - "$source" <<'PY'
+          from pathlib import Path
+          import sys
+          lines=Path(sys.argv[1]).read_text(encoding='utf-8').splitlines()
+          markers=[i for i,line in enumerate(lines) if line.strip() == '# OPERATIONAL_BEGIN']
+          if len(markers) != 1: raise SystemExit('OPERATIONAL_MARKER_INVALID')
+          operational='\n'.join(lines[markers[0]+1:])
+          forbidden=['docker restart','docker rm ','docker compose up','docker compose down','docker stop','docker start','docker kill','INSERT INTO','UPDATE auth.','DELETE FROM','TRUNCATE ','ALTER ROLE','GRANT ','REVOKE ','curl -X POST']
+          bad=[x for x in forbidden if x in operational]
+          if bad: raise SystemExit('MUTATION_SURFACE_FORBIDDEN:'+'|'.join(bad))
+          PY
+
+      # OPERATIONAL_BEGIN
+      - name: Resolve pinned production SSH authority
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
+          user="$(trim "${PC_PROD_SSH_USER:-}")"
+          port="$(trim "${PC_PROD_SSH_PORT:-22}")"
+          expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          key="$HOME/.ssh/id_pc_prod"
+          validate_key(){ local src="$1" pub; tr -d '\r' < "$src" > "$key"; chmod 600 "$key"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          try_slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          try_slot "${PC_PROD_SSH_KEY:-}" || try_slot "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_slot "${VPS_SSH_KEY:-}"
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do [[ -n "$line" ]] || continue; fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+            sort -u -o "$match" "$match"
+            [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect worker runtime state read-only
+        id: probe
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          raw="$(ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$USER@$HOST" 'bash -s' 2>/dev/null <<'REMOTE'
+          set -Eeuo pipefail
+          [[ "$(id -u)" -eq 0 ]]
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "${web_ids[0]}")"
+          [[ -n "$project" ]]
+          mapfile -t worker_ids < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          printf 'COUNT=%s\n' "${#worker_ids[@]}"
+          if (( ${#worker_ids[@]} == 1 )); then
+            id="${worker_ids[0]}"
+            printf 'STATE=%s\n' "$(docker inspect --format '{{.State.Status}}' "$id")"
+            printf 'HEALTH=%s\n' "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id")"
+            printf 'EXIT_CODE=%s\n' "$(docker inspect --format '{{.State.ExitCode}}' "$id")"
+            printf 'OOM=%s\n' "$(docker inspect --format '{{.State.OOMKilled}}' "$id")"
+            printf 'RESTARTS=%s\n' "$(docker inspect --format '{{.RestartCount}}' "$id")"
+            printf 'REVISION=%s\n' "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$id")"
+            printf 'HEALTH_EXIT=%s\n' "$(docker inspect --format '{{if .State.Health}}{{if .State.Health.Log}}{{(index .State.Health.Log (sub (len .State.Health.Log) 1)).ExitCode}}{{else}}none{{end}}{{else}}none{{end}}' "$id" 2>/dev/null || echo unknown)"
+          fi
+          REMOTE
+          )"
+          count="$(sed -n 's/^COUNT=//p' <<< "$raw" | head -1)"; [[ "$count" =~ ^[0-9]+$ ]] || count=0
+          state=absent; health=absent; exit_code=none; oom=none; restarts=0; health_exit=none; revision=none
+          if [[ "$count" == 1 ]]; then
+            state="$(sed -n 's/^STATE=//p' <<< "$raw" | head -1)"; health="$(sed -n 's/^HEALTH=//p' <<< "$raw" | head -1)"
+            exit_code="$(sed -n 's/^EXIT_CODE=//p' <<< "$raw" | head -1)"; oom="$(sed -n 's/^OOM=//p' <<< "$raw" | head -1)"
+            restarts="$(sed -n 's/^RESTARTS=//p' <<< "$raw" | head -1)"; health_exit="$(sed -n 's/^HEALTH_EXIT=//p' <<< "$raw" | head -1)"
+            revision="$(sed -n 's/^REVISION=//p' <<< "$raw" | head -1)"
+          fi
+          safe(){ tr '[:upper:]' '[:lower:]' <<< "$1" | tr -c 'a-z0-9_.:-' '_' | head -c 100; }
+          state="$(safe "$state")"; health="$(safe "$health")"; exit_code="$(safe "$exit_code")"; oom="$(safe "$oom")"; restarts="$(safe "$restarts")"; health_exit="$(safe "$health_exit")"; revision="$(safe "$revision")"
+          echo "count=$count" >> "$GITHUB_OUTPUT"; echo "state=$state" >> "$GITHUB_OUTPUT"; echo "health=$health" >> "$GITHUB_OUTPUT"; echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"; echo "oom=$oom" >> "$GITHUB_OUTPUT"; echo "restarts=$restarts" >> "$GITHUB_OUTPUT"; echo "health_exit=$health_exit" >> "$GITHUB_OUTPUT"; echo "revision=$revision" >> "$GITHUB_OUTPUT"; echo "production_mutation=NONE" >> "$GITHUB_OUTPUT"
+          echo "PRODUCTION_MUTATION=NONE"
+
+  classify:
+    needs: inspect
+    if: always()
+    name: >-
+      Worker count=${{ needs.inspect.outputs.count }}
+      state=${{ needs.inspect.outputs.state }}
+      health=${{ needs.inspect.outputs.health }}
+      exit=${{ needs.inspect.outputs.exit_code }}
+      oom=${{ needs.inspect.outputs.oom }}
+      restarts=${{ needs.inspect.outputs.restarts }}
+      healthExit=${{ needs.inspect.outputs.health_exit }}
+      rev=${{ needs.inspect.outputs.revision }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require only read-only evidence
+        env:
+          PRODUCTION_MUTATION: ${{ needs.inspect.outputs.production_mutation }}
+        run: test "$PRODUCTION_MUTATION" = NONE
