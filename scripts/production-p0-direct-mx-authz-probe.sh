@@ -17,7 +17,9 @@ for attempt in 1 2 3; do : > "$scan"; : > "$match"; ssh-keyscan -T 10 -p "$port"
 safe="$(ssh -i "$key" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" -o ConnectTimeout=15 "$user@$host" "bash -s -- '$DEFAULT_HOST' '$LIVE_DOMAIN'" 2>/dev/null <<'REMOTE'
 set -Eeuo pipefail
 ip="$1"; domain="$2"
-node - "$ip" "$domain" <<'NODE'
+mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
+(( ${#api_ids[@]} == 1 )); api_id="${api_ids[0]}"
+docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - "$ip" "$domain" <<'NODE'
 const dns=require('node:dns').promises;
 const net=require('node:net');
 const [ip,domain]=process.argv.slice(2);
@@ -37,14 +39,12 @@ async function spfPass(name,depth=0){
   if(depth>8||lookups>10) return null;
   const recs=(await txt(name)).filter(x=>/^v=spf1\b/i.test(x));
   if(recs.length!==1) return recs.length===0?null:false;
-  const terms=recs[0].trim().split(/\s+/).slice(1);
-  let redirect=null;
+  const terms=recs[0].trim().split(/\s+/).slice(1); let redirect=null;
   for(const raw of terms){
     if(/^redirect=/i.test(raw)){redirect=raw.slice(raw.indexOf('=')+1);continue;}
     if(/^exp=/i.test(raw)) continue;
     const q='+-~?'.includes(raw[0])?raw[0]:'+'; const term='+-~?'.includes(raw[0])?raw.slice(1):raw;
-    const [mech,argRaw]=term.split(':',2); const arg=argRaw||name;
-    let match=false;
+    const [mech,argRaw]=term.split(':',2); const arg=argRaw||name; let match=false;
     if(mech==='all') match=true;
     else if(mech==='ip4') match=cidrMatch(ip,arg);
     else if(mech==='a'){lookups++; const [target,cidr]=arg.split('/'); const ips=await a(target||name); match=ips.some(x=>cidrMatch(ip,`${x}/${cidr||32}`));}
@@ -57,25 +57,15 @@ async function spfPass(name,depth=0){
   return false;
 }
 (async()=>{
-  const rootSpf=(await txt(domain)).filter(x=>/^v=spf1\b/i.test(x));
-  const pass=await spfPass(domain);
-  const dmarc=(await txt(`_dmarc.${domain}`)).filter(x=>/^v=DMARC1\b/i.test(x));
-  let policy='NONE',aspf='RELAXED';
-  if(dmarc.length===1){const p=/;\s*p\s*=\s*([^;\s]+)/i.exec(';'+dmarc[0]); const a=/;\s*aspf\s*=\s*([^;\s]+)/i.exec(';'+dmarc[0]); policy=safe(p?.[1]||'NONE'); aspf=(a?.[1]||'r').toLowerCase()==='s'?'STRICT':'RELAXED';}
+  const rootSpf=(await txt(domain)).filter(x=>/^v=spf1\b/i.test(x)); const pass=await spfPass(domain);
+  const dmarc=(await txt(`_dmarc.${domain}`)).filter(x=>/^v=DMARC1\b/i.test(x)); let policy='NONE',aspf='RELAXED';
+  if(dmarc.length===1){const p=/;\s*p\s*=\s*([^;\s]+)/i.exec(';'+dmarc[0]); const af=/;\s*aspf\s*=\s*([^;\s]+)/i.exec(';'+dmarc[0]); policy=safe(p?.[1]||'NONE'); aspf=(af?.[1]||'r').toLowerCase()==='s'?'STRICT':'RELAXED';}
   let ptr=[]; try{ptr=await dns.reverse(ip);}catch{}
-  let fcrdns=false; for(const host of ptr.slice(0,10)){const ips=await a(host); if(ips.includes(ip)){fcrdns=true;break;}}
+  let fcrdns=false; for(const ptrHost of ptr.slice(0,10)){const ips=await a(ptrHost); if(ips.includes(ip)){fcrdns=true;break;}}
   const heloIps=await a(domain);
-  console.log(`SPF_RECORD_COUNT=${rootSpf.length}`);
-  console.log(`SPF_PRODUCTION_IP_AUTHORIZED=${pass===true?'PASS':pass===false?'FAIL':'UNKNOWN'}`);
-  console.log(`SPF_DNS_LOOKUPS=${lookups}`);
-  console.log(`DMARC_RECORD_COUNT=${dmarc.length}`);
-  console.log(`DMARC_POLICY=${policy}`);
-  console.log(`DMARC_ASPF=${aspf}`);
-  console.log('MAILFROM_FROM_DOMAIN_ALIGNMENT=PASS');
-  console.log(`PTR_PRESENT=${ptr.length?'YES':'NO'}`);
-  console.log(`FCRDNS=${fcrdns?'PASS':'FAIL'}`);
-  console.log(`HELO_DOMAIN_RESOLVES_TO_PRODUCTION_IP=${heloIps.includes(ip)?'YES':'NO'}`);
-  console.log('PRODUCTION_MUTATION=NONE');
+  console.log(`SPF_RECORD_COUNT=${rootSpf.length}`); console.log(`SPF_PRODUCTION_IP_AUTHORIZED=${pass===true?'PASS':pass===false?'FAIL':'UNKNOWN'}`); console.log(`SPF_DNS_LOOKUPS=${lookups}`);
+  console.log(`DMARC_RECORD_COUNT=${dmarc.length}`); console.log(`DMARC_POLICY=${policy}`); console.log(`DMARC_ASPF=${aspf}`); console.log('MAILFROM_FROM_DOMAIN_ALIGNMENT=PASS');
+  console.log(`PTR_PRESENT=${ptr.length?'YES':'NO'}`); console.log(`FCRDNS=${fcrdns?'PASS':'FAIL'}`); console.log(`HELO_DOMAIN_RESOLVES_TO_PRODUCTION_IP=${heloIps.includes(ip)?'YES':'NO'}`); console.log('PRODUCTION_MUTATION=NONE');
 })().catch(e=>{console.log(`AUTHZ_SAFE_ERROR=${safe(e?.code||e?.name||'UNKNOWN')}`);console.log('PRODUCTION_MUTATION=NONE');process.exitCode=1;});
 NODE
 REMOTE
