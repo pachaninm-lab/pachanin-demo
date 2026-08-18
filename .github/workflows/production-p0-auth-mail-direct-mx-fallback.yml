@@ -1,0 +1,31 @@
+name: Production P0 Auth-Mail Direct MX Fallback
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/api/src/modules/auth-mail/auth-mail-smtp.ts'
+      - 'apps/api/src/modules/auth-mail/auth-mail-direct-mx.ts'
+      - 'apps/api/src/modules/auth-mail/auth-mail-transport-error.ts'
+      - 'apps/api/src/modules/auth-mail/auth-mail-smtp.spec.ts'
+      - 'apps/api/src/modules/auth-mail/auth-mail-direct-mx.spec.ts'
+      - 'scripts/check-production-p0-auth-mail-direct-mx-fallback.mjs'
+      - '.github/workflows/production-p0-auth-mail-direct-mx-fallback.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Validate exact RCPT451 TLS fallback contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-production-p0-auth-mail-direct-mx-fallback.mjs
