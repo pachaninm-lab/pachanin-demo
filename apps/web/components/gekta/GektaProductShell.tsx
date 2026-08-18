@@ -27,7 +27,7 @@ const mobileTouchContract = `
     touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
   }
-  html:not([data-gekta-keyboard-open='true']) [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type:empty {
+  [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type:empty {
     display: none;
   }
   [data-gekta-chat-workspace='true'] header > button,
@@ -63,9 +63,11 @@ const mobileTouchContract = `
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Before a conversation starts, keep the page visible and move only the
-     composer into the actually visible viewport when the keyboard is open. */
-  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type {
+  /* Before a conversation starts, keep the page in normal flow and pin only
+     the same composer node into the actually visible viewport. Its portal
+     parent does not change while the keyboard opens/closes, so focus/caret and
+     iOS touch ownership remain stable. */
+  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) [data-gekta-composer-root='true'] {
     position: fixed;
     inset-inline: 0;
     top: calc(
@@ -75,8 +77,9 @@ const mobileTouchContract = `
     );
     z-index: 70;
     width: 100%;
+    max-width: none;
     min-width: 0;
-    padding: 0 !important;
+    margin: 0;
     background: #fcfbf7;
     box-shadow: 0 -10px 32px rgba(15, 23, 42, 0.08);
   }
