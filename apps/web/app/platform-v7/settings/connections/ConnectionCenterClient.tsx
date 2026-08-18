@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CONNECTION_CENTER_REQUIRED_BUT_NOT_MODELED,
+  isConnectionAttestationDto,
+  isConnectionStateDto,
   presentConnection,
   type ConnectionAttestationDto,
   type ConnectionStateDto,
@@ -50,17 +52,24 @@ export function ConnectionCenterClient() {
         return;
       }
 
-      const connections = (await connectionsResponse.json()) as ConnectionStateDto[];
-      const attestations = (await attestationsResponse.json()) as ConnectionAttestationDto[];
-      if (!Array.isArray(connections) || !Array.isArray(attestations)) {
+      const [connectionsPayload, attestationsPayload] = await Promise.all([
+        connectionsResponse.json() as Promise<unknown>,
+        attestationsResponse.json() as Promise<unknown>,
+      ]);
+      if (
+        !Array.isArray(connectionsPayload)
+        || !connectionsPayload.every(isConnectionStateDto)
+        || !Array.isArray(attestationsPayload)
+        || !attestationsPayload.every(isConnectionAttestationDto)
+      ) {
         setState({ kind: 'UNAVAILABLE' });
         return;
       }
 
       setState({
         kind: 'READY',
-        connections,
-        attestations,
+        connections: connectionsPayload,
+        attestations: attestationsPayload,
         checkedAt: new Date(),
       });
     } catch {
