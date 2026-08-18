@@ -36,6 +36,20 @@ const mobileTouchContract = `
     min-height: 44px;
   }
 
+  /* iOS zooms focused form controls below 16px, which changes viewport geometry
+     mid-gesture and feels like a frozen/jumping interface. Keep every text-entry
+     control at a stable readable size and every primary form action touch-safe. */
+  [data-gekta-chat-workspace='true'] input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  [data-gekta-chat-workspace='true'] select,
+  [data-gekta-chat-workspace='true'] textarea {
+    font-size: 16px !important;
+  }
+  [data-gekta-chat-workspace='true'] input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  [data-gekta-chat-workspace='true'] select,
+  [data-gekta-phone-card='true'] button {
+    min-height: 44px;
+  }
+
   /* Only an entered conversation owns the visual viewport. Discovery remains
      normal document flow so iOS browser touch scrolling never gets trapped. */
   [data-gekta-chat-workspace='true'].overflow-hidden {
