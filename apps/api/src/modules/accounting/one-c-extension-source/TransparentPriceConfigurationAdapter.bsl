@@ -14,6 +14,29 @@
     Возврат Результат;
 КонецФункции
 
+// Configuration-specific discovery is deliberately a separate seam. Different
+// 1C solutions keep legal entities in different application objects, so a
+// universal query here would be a hidden "works with every 1C" claim.
+//
+// An accepted compatibility profile must return:
+//   ready = Истина
+//   configurationName
+//   configurationVersion
+//   databaseInstanceId     -- stable opaque id, NOT a connection string
+//   organizations[]        -- guid, inn, kpp, name
+//
+// Until such profile exists pairing stays closed.
+Функция ПолучитьПрофильDiscovery() Экспорт
+    Результат = Новый Структура;
+    Результат.Вставить("ready", Ложь);
+    Результат.Вставить("resultCode", "CONFIGURATION_DISCOVERY_NOT_IMPLEMENTED");
+    Результат.Вставить("configurationName", "");
+    Результат.Вставить("configurationVersion", "");
+    Результат.Вставить("databaseInstanceId", "");
+    Результат.Вставить("organizations", Новый Массив);
+    Возврат Результат;
+КонецФункции
+
 Функция ОбновитьКонтрагента(Payload) Экспорт
     Возврат НеРеализовано("UPSERT_COUNTERPARTY");
 КонецФункции
