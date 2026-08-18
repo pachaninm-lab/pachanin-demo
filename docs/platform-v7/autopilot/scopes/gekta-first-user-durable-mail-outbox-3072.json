@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-first-user-durable-mail-outbox-3072",
+  "branch": "fix/gekta-first-user-durable-mail-outbox-3072",
+  "status": "active",
+  "authorizedBy": "release-authority-3072-and-first-user-production-acceptance-handoff-2026-08-18",
+  "baseline": {
+    "branch": "main",
+    "commit": "d37ffb306eadf1b16b0f16ec3da020805d319a79"
+  },
+  "purpose": "Move Gekta registration and resend verification mail from the legacy Web SMTP path into the encrypted transactional PostgreSQL auth.mail_outbox, bind enqueue parameters to the exact reviewed PostgreSQL signature, and extend protected first-user evidence without weakening registration, verification, MFA, entitlement, session or isolation boundaries.",
+  "allowedPaths": [
+    "apps/api/src/modules/auth-mail/auth-mail-outbox.service.ts",
+    "apps/api/src/modules/auth-mail/auth-mail-outbox.service.spec.ts",
+    "apps/api/src/modules/auth/gekta-registration-mail.ts",
+    "apps/api/src/modules/auth/gekta-registration.service.ts",
+    "apps/api/src/modules/auth/gekta-registration.controller.ts",
+    "apps/api/src/modules/auth/gekta-registration.spec.ts",
+    "apps/web/app/api/gekta/auth/register/route.ts",
+    "apps/web/app/api/gekta/auth/register/resend/route.ts",
+    "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+    ".github/workflows/production-gekta-first-user-acceptance.yml",
+    "scripts/production-gekta-first-user-acceptance.mjs",
+    "scripts/check-production-gekta-first-user-acceptance.mjs",
+    "docs/ops/production-gekta-first-user-acceptance.md",
+    "docs/platform-v7/autopilot/scopes/gekta-first-user-durable-mail-outbox-3072.json"
+  ],
+  "forbiddenChanges": [
+    "client-selected role, tenant or entitlement",
+    "organization or INN requirement for a Gekta user",
+    "email-verification bypass, reusable token or plaintext token evidence",
+    "MFA weakening, universal password, demo credential or fake delivery",
+    "direct Web SMTP delivery for Gekta registration after cutover",
+    "mail-outbox plaintext, raw recipient, token, phone, credential or secret publication",
+    "GRANT, REVOKE, role membership, RLS weakening or ad-hoc production SQL",
+    "PC-CROP registration matrix, Company OS, homepage, latency or model changes",
+    "new paid service, server or recurring cost",
+    "production mutation from pull-request events"
+  ],
+  "requiredChecks": [
+    "exact PostgreSQL auth.enqueue_mail_outbox signature unit contract",
+    "Gekta registration and resend atomic challenge plus encrypted outbox unit regression",
+    "Web BFF source contract proving no verification bearer or direct SMTP path",
+    "API typecheck, unit, security and governance gates",
+    "Web typecheck, unit, security and governance gates",
+    "production-like Kubernetes acceptance",
+    "exact-current-main canonical images and REG.RU release",
+    "real mailbox first-user journey and durable Gekta mail outbox delivery evidence",
+    "RU/EN/ZH mobile production acceptance"
+  ],
+  "deploymentState": "not-deployed",
+  "newRecurringCostRub": 0
+}
