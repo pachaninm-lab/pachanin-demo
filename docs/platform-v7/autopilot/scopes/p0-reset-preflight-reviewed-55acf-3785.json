@@ -7,8 +7,9 @@
   "registrationMatrixIssue": 3785,
   "releaseIssue": 3072,
   "sourceBlob": "55acf811e3484cabe5d15c7197b24f0a6633d4c3",
-  "title": "Bind reviewer reset preflight and one-shot reset to the reviewed exact auth-mail signature merge",
+  "title": "Bind reviewer reset preflight, one-shot reset and exact-main image authority to the reviewed auth-mail signature merge",
   "allowedPaths": [
+    ".github/workflows/production-p0-registration-current-main-images-trusted.yml",
     ".github/workflows/production-p0-reviewer-one-shot-reset-reviewed-55acf.yml",
     ".github/workflows/production-p0-reviewer-reset-preflight-reviewed-55acf.yml",
     "docs/platform-v7/autopilot/scopes/p0-reset-preflight-reviewed-55acf-3785.json"
@@ -41,6 +42,8 @@
     "the reset workflow accepts only the latest successful reviewed preflight for the exact current main and requires both exact preflight jobs to have succeeded",
     "the latest authorization run is irreversibly claimed in issue 3072 before the reset request and cannot be replayed",
     "the live reviewed preflight is rerun immediately before claim and must still return RESET_AUTHORIZED=YES with PRODUCTION_MUTATION=NONE",
+    "the trusted image authority invokes only the existing reusable canonical Docker workflow for API, Web and migration images and proves exact OCI revision and digest",
+    "the image authority performs no REG.RU, database, identity, reset, mail or container-runtime mutation and publishes no credential material",
     "trusted connector provenance is accepted only for GitHub App id 1144995 acting for the repository owner",
     "pull-request events perform no reset, email, identity, database, privilege, RLS, runtime, container or production mutation",
     "new recurring cost remains 0 RUB"
