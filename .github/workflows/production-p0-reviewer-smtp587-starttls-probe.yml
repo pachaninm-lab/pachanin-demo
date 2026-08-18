@@ -9,6 +9,7 @@ on:
       - 'scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh'
       - 'scripts/production-p0-reviewer-direct-mx-predata-probe.sh'
       - 'scripts/production-p0-reviewer-direct-mx-tls-probe.sh'
+      - 'scripts/production-p0-direct-mx-authz-probe.sh'
       - 'docs/platform-v7/autopilot/scopes/p0-auth-mail-smtp587-starttls-3785.json'
       - 'docs/platform-v7/autopilot/scopes/p0-auth-mail-smtp587-starttls-3785.md'
       - 'docs/platform-v7/autopilot/scopes/p0-auth-mail-smtp587-starttls-3785.txt'
@@ -24,7 +25,7 @@ jobs:
   probe:
     name: REG.RU 587 STARTTLS pre-DATA probe
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 20
     env:
       PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
       PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
@@ -43,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          for f in scripts/production-p0-reviewer-smtp587-starttls-probe.sh scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh scripts/production-p0-reviewer-direct-mx-predata-probe.sh scripts/production-p0-reviewer-direct-mx-tls-probe.sh; do bash -n "$f"; ! grep -Fq "command('DATA'" "$f"; ! grep -Fq 'sendAuthMailSmtp(' "$f"; done
+          for f in scripts/production-p0-reviewer-smtp587-starttls-probe.sh scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh scripts/production-p0-reviewer-direct-mx-predata-probe.sh scripts/production-p0-reviewer-direct-mx-tls-probe.sh scripts/production-p0-direct-mx-authz-probe.sh; do bash -n "$f"; ! grep -Fq "command('DATA'" "$f"; ! grep -Fq 'sendAuthMailSmtp(' "$f"; done
           grep -Fq "stage='STARTTLS'" scripts/production-p0-reviewer-smtp587-starttls-probe.sh
           grep -Fq "stage='RCPT_TO'" scripts/production-p0-reviewer-smtp587-starttls-probe.sh
 
@@ -70,3 +71,9 @@ jobs:
         env:
           RUNNER_TEMP: ${{ runner.temp }}
         run: bash scripts/production-p0-reviewer-direct-mx-tls-probe.sh
+
+      - name: Verify direct MX SPF DMARC PTR readiness
+        shell: bash
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: bash scripts/production-p0-direct-mx-authz-probe.sh
