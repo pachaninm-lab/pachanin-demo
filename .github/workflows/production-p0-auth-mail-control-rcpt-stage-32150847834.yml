@@ -16,7 +16,7 @@ env:
 
 jobs:
   probe:
-    name: Control mailbox pre-DATA RCPT classifier
+    name: Authenticated mailbox pre-DATA RCPT classifier
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -27,7 +27,6 @@ jobs:
       PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
-      CONTROL_RECIPIENT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,7 +70,7 @@ jobs:
           [[ "$ready" == 1 ]]; mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
           echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
 
-      - name: Probe control recipient without DATA
+      - name: Probe authenticated mailbox recipient without DATA
         shell: bash
         env:
           HOST: ${{ steps.ssh.outputs.host }}
@@ -79,22 +78,21 @@ jobs:
           PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -Eeuo pipefail
-          [[ -n "$CONTROL_RECIPIENT" ]]
-          safe="$(printf '%s' "$CONTROL_RECIPIENT" | ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$USER@$HOST" "bash -s -- '$SUBJECT_SHA'" 2>/dev/null <<'REMOTE'
+          safe="$(ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$USER@$HOST" "bash -s -- '$SUBJECT_SHA'" 2>/dev/null <<'REMOTE'
           set -Eeuo pipefail
-          expected_sha="$1"; read -r recipient; [[ "$expected_sha" =~ ^[0-9a-f]{40}$ ]]; [[ "$(id -u)" -eq 0 ]]; [[ "$recipient" =~ ^[^[:space:]@]{1,64}@[^[:space:]@]{1,189}$ ]]
-          tmp="$(mktemp -d /root/pc-control-rcpt.XXXXXX)"; chmod 700 "$tmp"; trap 'rm -rf -- "$tmp"' EXIT; printf '%s' "$recipient" > "$tmp/recipient"; unset recipient; chmod 600 "$tmp/recipient"
+          expected_sha="$1"; [[ "$expected_sha" =~ ^[0-9a-f]{40}$ ]]; [[ "$(id -u)" -eq 0 ]]
+          tmp="$(mktemp -d /root/pc-control-rcpt.XXXXXX)"; chmod 700 "$tmp"; trap 'rm -rf -- "$tmp"' EXIT
           mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web'); (( ${#web_ids[@]} == 1 )); web_id="${web_ids[0]}"; project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"; [[ -n "$project" ]]
           mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api'); mapfile -t worker_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker'); (( ${#api_ids[@]} == 1 && ${#worker_ids[@]} == 1 )); api_id="${api_ids[0]}"; worker_id="${worker_ids[0]}"; api_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"; web_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"; worker_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"; [[ "$api_rev" == "$expected_sha" && "$web_rev" == "$expected_sha" && "$worker_rev" == "$expected_sha" ]]
           docker exec -i "$worker_id" /nodejs/bin/node --input-type=commonjs - <<'NODE' > "$tmp/config.json"
           const {readFileSync}=require('node:fs'); const path=String(process.env.AUTH_MAIL_TRANSPORT_FILE||'').trim(); if(!path) process.exit(2); const out={}; for(const src of readFileSync(path,'utf8').split(/\r?\n/)){const line=src.trim(); if(!line||line.startsWith('#')) continue; const i=line.indexOf('='); if(i<=0) process.exit(3); out[line.slice(0,i).trim()]=line.slice(i+1).trim();} process.stdout.write(JSON.stringify({host:out.PC_SMTP_HOST||'',port:out.PC_SMTP_PORT||'465',user:out.PC_SMTP_USER||'',pass:out.PC_SMTP_PASS||'',from:out.PC_MAIL_FROM||out.PC_SMTP_USER||''}));
           NODE
           chmod 600 "$tmp/config.json"
-          python3 - "$tmp/config.json" "$tmp/recipient" <<'PY'
+          python3 - "$tmp/config.json" <<'PY'
           import base64,json,re,socket,ssl,sys
-          cfg=json.load(open(sys.argv[1],encoding='utf-8')); recipient=open(sys.argv[2],encoding='utf-8').read().strip(); stage='BOOTSTRAP'; code='NONE'; last=''
+          cfg=json.load(open(sys.argv[1],encoding='utf-8')); stage='BOOTSTRAP'; code='NONE'; last=''
           def mailbox(v):
-              v=str(v or '').strip();
+              v=str(v or '').strip()
               if v.count('@')!=1 or re.search(r'[\r\n\x00<> ]',v): raise ValueError('mailbox')
               local,domain=v.rsplit('@',1); local.encode('ascii'); domain=domain.encode('idna').decode('ascii').lower(); return f'{local}@{domain}'
           def readresp(f):
@@ -114,7 +112,7 @@ jobs:
               if c not in expected: raise ValueError(c)
               return c
           try:
-              host=str(cfg.get('host') or '').strip().lower(); port=int(str(cfg.get('port') or '465')); user=mailbox(cfg.get('user')); password=str(cfg.get('pass') or ''); sender=mailbox(cfg.get('from')); rcpt=mailbox(recipient)
+              host=str(cfg.get('host') or '').strip().lower(); port=int(str(cfg.get('port') or '465')); user=mailbox(cfg.get('user')); password=str(cfg.get('pass') or ''); sender=mailbox(cfg.get('from')); rcpt=user
               if host!='mail.hosting.reg.ru' or port!=465 or sender!='access@xn----8sbjf4befbjgs9b.xn--p1ai' or len(password)<8: raise RuntimeError('CONFIG_BOUNDARY')
               stage='TLS_CONNECT'; raw=socket.create_connection((host,port),timeout=15); sock=ssl.create_default_context().wrap_socket(raw,server_hostname=host); sock.settimeout(15); f=sock.makefile('rb'); stage='GREETING'; code=readresp(f)
               if code!='220': raise ValueError(code)
