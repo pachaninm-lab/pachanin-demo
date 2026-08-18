@@ -85,6 +85,18 @@ describe('Gekta legal surface', () => {
     expect(workspace).toContain('setConsentRequired(body.consent?.version !== body.legalVersion);');
   });
 
+  it('does not let a late consent probe steal active composer focus or submit before acceptance', () => {
+    expect(consent).toContain('function activeDraftAtMount()');
+    expect(consent).toContain('document.activeElement === composer || composer.value.trim().length > 0');
+    expect(consent).toContain('const [deferred, setDeferred] = React.useState(activeDraftAtMount);');
+    expect(consent).toContain("document.addEventListener('keydown', onKeyDown, true)");
+    expect(consent).toContain("document.addEventListener('click', onClick, true)");
+    expect(consent).toContain("target.closest(\"[data-gekta-submit='true']\")");
+    expect(composer).toContain("data-gekta-submit='true'");
+    expect(consent).toContain('const panelRef = useDialogFocus(!deferred, ignoreEscape);');
+    expect(consent).not.toContain('useDialogFocus(true, onAccept)');
+  });
+
   it('binds a consent record to the session, the version and the server clock', () => {
     const session = createAnonymousSession(new Date('2026-08-12T10:00:00Z'));
     const accepted = recordConsent(session, GEKTA_LEGAL_VERSION, new Date('2026-08-12T10:05:00Z'));
