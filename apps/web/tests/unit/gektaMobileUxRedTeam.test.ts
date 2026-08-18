@@ -67,7 +67,7 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(viewport).toContain('前往最新消息');
   });
 
-  it('uses a compact iOS-safe composer with one focus ring and complete disabled semantics', () => {
+  it('uses iOS-safe form sizing, one focus ring and complete disabled semantics', () => {
     expect(composer).toContain('rows={1}');
     expect(composer).toContain('text-[16px]');
     expect(composer).toContain('Math.min(144, Math.max(68');
@@ -76,6 +76,9 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(composer).toContain('CircleSlash2');
     expect(composer).toContain('text-[14px] leading-5');
     expect(composer).toContain('История этого режима хранится в браузере');
+    expect(product).toContain("input:not([type='checkbox']):not([type='radio']):not([type='file'])");
+    expect(product).toContain('font-size: 16px !important');
+    expect(product).toContain("[data-gekta-phone-card='true'] button");
     expect(attachments).toContain('textareaFocused');
     expect(attachments).not.toContain('focus-within:border-emerald-700');
     expect(attachments).toContain('shadow-[0_10px_30px');
@@ -107,6 +110,7 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(drawer).toContain("element.removeAttribute('inert')");
     expect(drawer).toContain("aria-modal='true'");
     expect(drawer).toContain('min-h-14 shrink-0');
+    expect(drawer).toContain("target?.closest('a[href]')");
     expect(dialogFocus).toContain("event.key === 'Escape'");
     expect(dialogFocus).toContain('window.requestAnimationFrame');
     expect(dialogFocus).toContain("restore.closest('[inert]')");
