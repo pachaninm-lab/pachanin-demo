@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
+import { AuthMailOutboxService } from '../auth-mail/auth-mail-outbox.service';
 import { appendAuthAudit } from './auth-audit';
 import { hashAuthMaterial, hashClientValue, secureEqual } from './auth-crypto';
 import { CURRENT_CONSENT_EVIDENCE } from './consent-policy';
+import { gektaRegistrationVerificationMail } from './gekta-registration-mail';
 import { PersistentAuthRepository } from './persistent-auth.repository';
 import { ProductSessionService } from './product-session.service';
 import {
@@ -45,6 +47,7 @@ export type GektaRegistrationInput = {
   phone: string;
   acceptedServiceTerms: boolean;
   acceptedPersonalData: boolean;
+  locale?: unknown;
 };
 
 function assertPasswordPolicy(password: string): void {
@@ -79,26 +82,35 @@ function deliveryAuthorized(provided?: string): boolean {
   return expected.length >= 32 && candidate.length >= 32 && secureEqual(candidate, expected);
 }
 
+function correlationId(input?: string): string {
+  const candidate = String(input ?? '').trim();
+  return candidate && candidate.length <= 128 && !/[\r\n\0]/u.test(candidate)
+    ? candidate
+    : randomUUID();
+}
+
 @Injectable()
 export class GektaRegistrationService {
   constructor(
     private readonly repository: PersistentAuthRepository,
     private readonly productSessions: ProductSessionService,
+    private readonly authMailOutbox: AuthMailOutboxService,
   ) {}
 
   /**
    * Заявка на регистрацию.
    *
    * Ответ на занятый email не отличается от ответа на свободный: иначе форма
-   * стала бы способом перечислять пользователей платформы. Токен возвращается
-   * вызывающему только для доставки письма — он не является сессией и сам по
-   * себе не даёт доступа.
+   * стала бы способом перечислять пользователей платформы. Одноразовый токен
+   * никогда не пересекает API/BFF boundary: challenge и зашифрованное письмо
+   * фиксируются в одной PostgreSQL-транзакции.
    */
   async register(
     input: GektaRegistrationInput,
-    deliveryKey?: string,
+    _deliveryKey?: string,
     userAgent?: string,
     ip?: string,
+    correlationIdInput?: string,
   ) {
     const email = String(input.email ?? '').trim().toLowerCase();
     const fullName = String(input.fullName ?? '').trim();
@@ -120,6 +132,8 @@ export class GektaRegistrationService {
     const userId = `usr_${randomUUID()}`;
     const emailToken = issueRegistrationEmailToken();
     const now = new Date();
+    const expiresAt = new Date(now.getTime() + REGISTRATION_EMAIL_TTL_MS);
+    const mailCorrelationId = correlationId(correlationIdInput);
 
     const result = await this.repository.transaction(async (tx) => {
       const prepared = await this.repository.prepareGektaRegistrationIdentity(tx, {
@@ -149,7 +163,18 @@ export class GektaRegistrationService {
         id: emailToken.id,
         userId: prepared.user_id,
         tokenHash: emailToken.hash,
-        expiresAt: new Date(now.getTime() + REGISTRATION_EMAIL_TTL_MS),
+        expiresAt,
+      });
+      await this.authMailOutbox.enqueue(tx, {
+        kind: 'REGISTRATION_EMAIL_VERIFICATION',
+        idempotencyKey: `auth-mail:gekta-registration:${emailToken.id}`,
+        correlationId: mailCorrelationId,
+        envelope: gektaRegistrationVerificationMail({
+          to: email,
+          token: emailToken.token,
+          locale: input.locale,
+        }),
+        expiresAt,
       });
       await appendAuthAudit(this.repository, tx, {
         userId: prepared.user_id,
@@ -160,20 +185,19 @@ export class GektaRegistrationService {
           acceptedServiceTerms: true,
           acceptedPersonalData: true,
           phoneState: 'DECLARED',
+          verificationDelivery: 'DURABLE_AUTH_MAIL_OUTBOX',
         }),
       });
       return { kind: 'created' as const, userId: prepared.user_id };
     });
 
-    // Форма отвечает одинаково в обоих случаях. Письмо уходит только на
-    // действительно созданный аккаунт.
+    // Форма отвечает одинаково для нового и уже занятого email. Письмо
+    // ставится в durable outbox только для действительно созданного аккаунта.
     return {
       status: 'EMAIL_VERIFICATION_REQUIRED' as const,
       email,
       expiresInSeconds: Math.floor(REGISTRATION_EMAIL_TTL_MS / 1000),
-      ...(result.kind === 'created' && deliveryAuthorized(deliveryKey)
-        ? { emailDelivery: { email, token: emailToken.token } }
-        : {}),
+      delivery: result.kind === 'created' ? 'QUEUED' as const : 'SUPPRESSED' as const,
     };
   }
 
@@ -181,14 +205,16 @@ export class GektaRegistrationService {
    * Повторная доставка подтверждения email.
    *
    * Публичный ответ одинаков для неизвестного, уже занятого и ожидающего
-   * подтверждения адреса. Сам одноразовый bearer-токен возвращается только
-   * доверенному web-BFF, доказавшему внутренний delivery key.
+   * подтверждения адреса. Новый challenge и зашифрованное письмо создаются
+   * атомарно; bearer-токен не возвращается доверенному или публичному клиенту.
    */
   async resendEmail(
     emailInput: string,
-    deliveryKey?: string,
+    _deliveryKey?: string,
     userAgent?: string,
     ip?: string,
+    localeInput?: unknown,
+    correlationIdInput?: string,
   ) {
     const email = String(emailInput ?? '').trim().toLowerCase();
     if (email.length < 3 || email.length > MAX_EMAIL_LENGTH || !email.includes('@')) {
@@ -197,6 +223,8 @@ export class GektaRegistrationService {
 
     const emailToken = issueRegistrationEmailToken();
     const now = new Date();
+    const expiresAt = new Date(now.getTime() + REGISTRATION_EMAIL_TTL_MS);
+    const mailCorrelationId = correlationId(correlationIdInput);
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.lockGektaRegistrationEmail(tx, email);
       const credential = await this.repository.findGektaLoginCredential(tx, email);
@@ -225,14 +253,28 @@ export class GektaRegistrationService {
         id: emailToken.id,
         userId: credential.user_id,
         tokenHash: emailToken.hash,
-        expiresAt: new Date(now.getTime() + REGISTRATION_EMAIL_TTL_MS),
+        expiresAt,
+      });
+      await this.authMailOutbox.enqueue(tx, {
+        kind: 'REGISTRATION_EMAIL_VERIFICATION',
+        idempotencyKey: `auth-mail:gekta-registration-resend:${emailToken.id}`,
+        correlationId: mailCorrelationId,
+        envelope: gektaRegistrationVerificationMail({
+          to: email,
+          token: emailToken.token,
+          locale: localeInput,
+          resend: true,
+        }),
+        expiresAt,
       });
       await appendAuthAudit(this.repository, tx, {
         userId: credential.user_id,
         action: 'auth.gekta.email_resend',
         outcome: 'SUCCESS',
         reason: 'EMAIL_VERIFICATION_RESENT',
-        metadata: this.clientMetadata(userAgent, ip),
+        metadata: this.clientMetadata(userAgent, ip, {
+          verificationDelivery: 'DURABLE_AUTH_MAIL_OUTBOX',
+        }),
       });
       return { kind: 'created' as const };
     });
@@ -240,9 +282,7 @@ export class GektaRegistrationService {
     return {
       accepted: true as const,
       cooldownSeconds: Math.floor(EMAIL_RESEND_COOLDOWN_MS / 1000),
-      ...(result.kind === 'created' && deliveryAuthorized(deliveryKey)
-        ? { emailDelivery: { email, token: emailToken.token } }
-        : {}),
+      delivery: result.kind === 'created' ? 'QUEUED' as const : 'SUPPRESSED' as const,
     };
   }
 
