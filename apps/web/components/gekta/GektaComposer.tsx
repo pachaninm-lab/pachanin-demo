@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { CircleSlash2, Send, Square } from 'lucide-react';
 import type { PublicAssistantDocument } from '@/components/platform-v7/PublicAssistantAttachmentPicker';
 import type { GektaLocale } from '@/lib/gekta/content';
@@ -44,14 +45,37 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const pendingAttachmentSubmit = React.useRef(false);
   const [voiceStatus, setVoiceStatus] = React.useState('');
+  const [startSlot, setStartSlot] = React.useState<HTMLElement | null>(null);
   const canSubmit = Boolean(value.trim() || documents.length);
+
+  React.useLayoutEffect(() => {
+    const workspace = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']");
+    if (!workspace) return undefined;
+
+    const syncSlot = () => {
+      const target = workspace.classList.contains('overflow-hidden')
+        ? null
+        : workspace.querySelector<HTMLElement>("[data-gekta-composer-slot='true']");
+      setStartSlot((current) => (current === target ? current : target));
+    };
+
+    syncSlot();
+    const observer = new MutationObserver(syncSlot);
+    observer.observe(workspace, {
+      attributes: true,
+      attributeFilter: ['class'],
+      childList: true,
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, []);
 
   React.useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
     textarea.style.height = 'auto';
     textarea.style.height = `${Math.min(144, Math.max(68, textarea.scrollHeight))}px`;
-  }, [value]);
+  }, [value, startSlot]);
 
   React.useEffect(() => {
     if (!pendingAttachmentSubmit.current || !value.trim()) return;
@@ -69,7 +93,7 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
     onChange(ATTACHMENT_ONLY_PROMPT[locale]);
   }, [canSubmit, locale, onChange, onSubmit, sending, value]);
 
-  return (
+  const composer = (
     <div data-gekta-composer-root='true' className='mx-auto w-full max-w-[960px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 sm:px-6 sm:pb-[max(12px,env(safe-area-inset-bottom))] sm:pt-3'>
       <GektaAttachments locale={locale} disabled={sending} documents={documents} onChange={onDocuments} onError={onError}>
         <label htmlFor='gekta-composer-input' className='sr-only'>{placeholder}</label>
@@ -126,4 +150,6 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
       </p>
     </div>
   );
+
+  return startSlot ? createPortal(composer, startSlot) : composer;
 }
