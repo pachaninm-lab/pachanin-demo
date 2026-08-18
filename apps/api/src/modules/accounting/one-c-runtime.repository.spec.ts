@@ -150,19 +150,22 @@ describe('OneCRuntimeRepository human authority', () => {
     });
   });
 
-  it('refuses a selected 1C organization that was not in validated discovery before touching PostgreSQL', async () => {
+  it('refuses empty connector capability discovery before touching PostgreSQL', async () => {
     const test = fixture();
+    const emptyCapabilities = {
+      ...DISCOVERY,
+      capabilities: [] as OneCCommand[],
+    };
 
     await expect(
       test.repository.consumePairing({
         pairingCode: 'abcdefghijklmnopqrstuvwx12345678',
-        discovery: DISCOVERY,
-        selectedOneCOrganizationGuid: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-        correlationId: 'corr-pair-select',
+        discovery: emptyCapabilities,
+        correlationId: 'corr-pair-empty-capabilities',
       }),
     ).rejects.toEqual(
       expect.objectContaining<Partial<OneCRuntimeRepositoryError>>({
-        code: 'ONE_C_SELECTED_ORGANIZATION_NOT_DISCOVERED',
+        code: 'ONE_C_CAPABILITIES_INVALID',
       }),
     );
     expect(test.prismaQuery).not.toHaveBeenCalled();
@@ -171,20 +174,19 @@ describe('OneCRuntimeRepository human authority', () => {
   it('maps database pairing refusal to a bounded machine code instead of exposing raw SQL errors', async () => {
     const test = fixture();
     test.prismaQuery.mockRejectedValueOnce(
-      new Error('sensitive database wording: ONE_C_INN_MISMATCH, internal host=db1'),
+      new Error('sensitive database wording: ONE_C_ORGANIZATION_NOT_FOUND_IN_DISCOVERY, internal host=db1'),
     );
 
     await expect(
       test.repository.consumePairing({
         pairingCode: 'abcdefghijklmnopqrstuvwx12345678',
         discovery: DISCOVERY,
-        selectedOneCOrganizationGuid: DISCOVERY.organizations[0].guid,
         correlationId: 'corr-pair-db-refusal',
       }),
     ).rejects.toEqual(
       expect.objectContaining<Partial<OneCRuntimeRepositoryError>>({
-        message: 'ONE_C_INN_MISMATCH',
-        code: 'ONE_C_INN_MISMATCH',
+        message: 'ONE_C_ORGANIZATION_NOT_FOUND_IN_DISCOVERY',
+        code: 'ONE_C_ORGANIZATION_NOT_FOUND_IN_DISCOVERY',
       }),
     );
   });
@@ -205,7 +207,7 @@ describe('OneCRuntimeRepository human authority', () => {
     await expect(
       noAuthority.repository.revokeBinding(USER, {
         bindingId: 'binding-1',
-        reason: 'credential suspected compromised',
+        reason: 'CREDENTIAL_SUSPECTED_COMPROMISED',
         correlationId: 'corr-revoke-no-authority',
         now: NOW,
       }),
@@ -220,7 +222,7 @@ describe('OneCRuntimeRepository human authority', () => {
         { ...USER, mfaVerifiedAt: new Date(NOW.getTime() - 600_000).toISOString() },
         {
           bindingId: 'binding-1',
-          reason: 'credential suspected compromised',
+          reason: 'CREDENTIAL_SUSPECTED_COMPROMISED',
           correlationId: 'corr-revoke-stale',
           now: NOW,
         },
@@ -350,7 +352,7 @@ describe('OneCRuntimeRepository machine authentication', () => {
       new Date(NOW.getTime() + 24 * 3600_000),
       NOW,
     );
-    const secret = issued.bearer.split('.')[1];
+    const secret = issued.bearer.split('.')[1] ?? '';
     expect(issued.record.secretHash).not.toBe(createHash('sha256').update(secret).digest('hex'));
     expect(issued.record.secretHash).not.toContain(secret);
   });
