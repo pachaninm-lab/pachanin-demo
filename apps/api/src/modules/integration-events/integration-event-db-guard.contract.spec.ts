@@ -1,12 +1,16 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { summarizeIntegrationPayload } from './integration-event-redaction.policy';
 
-const migrationPath = fileURLToPath(
-  new URL(
-    '../../../prisma/migrations/20260818183000_pc_crop_integration_event_safe_telemetry/migration.sql',
-    import.meta.url,
-  ),
+const migrationPath = join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'prisma',
+  'migrations',
+  '20260818183000_pc_crop_integration_event_safe_telemetry',
+  'migration.sql',
 );
 const migration = readFileSync(migrationPath, 'utf8');
 
