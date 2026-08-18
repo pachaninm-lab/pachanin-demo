@@ -24,7 +24,6 @@ jobs:
       PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
       PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
       PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
-      PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,16 +34,16 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          script='scripts/production-p0-direct-mx-canary-mailbox-observer.sh'
+          script='scripts/production-p0-direct-mx-canary-mailbox-observer-v2.sh'
           bash -n "$script"
           grep -Fq "authenticate('PLAIN'" "$script"
-          grep -Fq 'BODY.PEEK[HEADER.FIELDS (MESSAGE-ID SUBJECT DATE)]' "$script"
+          grep -Fq "c.uid('SEARCH',None,'HEADER','Message-ID',mid)" "$script"
           grep -Fq 'readonly=True' "$script"
           ! grep -Fq 'sendmail' "$script"
           ! grep -Fq "command('DATA'" "$script"
           ! grep -Fq 'INSERT INTO' "$script"
           ! grep -Fq 'UPDATE auth.' "$script"
 
-      - name: Prove mailbox receipt without changing message state
+      - name: Search all mailbox folders read-only for accepted canary
         shell: bash
-        run: bash scripts/production-p0-direct-mx-canary-mailbox-observer.sh
+        run: bash scripts/production-p0-direct-mx-canary-mailbox-observer-v2.sh
