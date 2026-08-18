@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reset-preflight-reviewed-55acf-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_PREFLIGHT_REVIEWED_55ACF",
+  "issue": 3785,
+  "registrationMatrixIssue": 3785,
+  "releaseIssue": 3072,
+  "sourceBlob": "55acf811e3484cabe5d15c7197b24f0a6633d4c3",
+  "title": "Bind the read-only reviewer reset preflight to the reviewed exact auth-mail signature merge",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-preflight-reviewed-55acf.yml",
+    "docs/platform-v7/autopilot/scopes/p0-reset-preflight-reviewed-55acf-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "passwordResetRequest": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "mailSend": false,
+    "smtpDataCommand": false,
+    "reviewerIdentityAccess": false,
+    "reviewerIdentityOutput": false,
+    "credentialOutput": false,
+    "rawProtocolOutput": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the immutable drift-tolerant preflight source remains pinned to Git blob 83d9c310c257844ac288fdfc2feb9e6fdddf900f",
+    "the reviewed reset-critical reference is the merged exact-signature commit 55acf811e3484cabe5d15c7197b24f0a6633d4c3",
+    "success requires exact current-main API/Web/auth-mail-worker runtime parity before reset authorization",
+    "the existing 21-file reset-critical manifest, least-privilege capability checks, mail proofs and reviewer readiness checks remain fail-closed",
+    "trusted connector provenance is accepted only for GitHub App id 1144995 acting for the repository owner",
+    "no reset, email, identity, database, privilege, RLS, runtime, container or production mutation is performed by this preflight",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
