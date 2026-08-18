@@ -157,33 +157,33 @@ jobs:
           if 'function validateExecutionBinding' not in service:
               anchor = '\nexport class StaffLifecycleService {'
               if anchor not in service: raise SystemExit('F3A class anchor missing')
-              helper = """
-function validateExecutionBinding(
-  command: StaffLifecycleCommand,
-  decision: StaffLifecycleDecision,
-  evidence: StaffLifecycleEvidenceEnvelope,
-  execution: StaffLifecycleExecutionResult,
-): void {
-  if (execution.commandDigest !== evidence.commandDigest) {
-    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned evidence for a different command.', 'COMMAND_DIGEST_MISMATCH');
-  }
-  if (!EVENT_ID_PATTERN.test(execution.evidenceEventId) || !EVENT_ID_PATTERN.test(execution.outboxEventId) || execution.evidenceEventId !== evidence.eventId) {
-    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned invalid durable evidence identity.', 'EVIDENCE_ID_MISMATCH');
-  }
-  if (execution.identity.tenantId !== command.actor.tenantId) {
-    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned an identity from another tenant.', 'EXECUTION_TENANT_MISMATCH');
-  }
-  if (command.subject !== null && execution.identity.identityId !== command.subject.identityId) {
-    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned another staff identity.', 'EXECUTION_SUBJECT_MISMATCH');
-  }
-  if (decision.nextState !== null && execution.identity.state !== decision.nextState) {
-    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned an unexpected lifecycle state.', 'EXECUTION_STATE_MISMATCH');
-  }
-  if (!execution.replayed && command.expectedVersion !== null && execution.identity.version !== command.expectedVersion + 1) {
-    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned an unexpected identity version.', 'EXECUTION_VERSION_MISMATCH');
-  }
-}
-"""
+              helper = (
+                  "\nfunction validateExecutionBinding(\n"
+                  "  command: StaffLifecycleCommand,\n"
+                  "  decision: StaffLifecycleDecision,\n"
+                  "  evidence: StaffLifecycleEvidenceEnvelope,\n"
+                  "  execution: StaffLifecycleExecutionResult,\n"
+                  "): void {\n"
+                  "  if (execution.commandDigest !== evidence.commandDigest) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned evidence for a different command.', 'COMMAND_DIGEST_MISMATCH');\n"
+                  "  }\n"
+                  "  if (!EVENT_ID_PATTERN.test(execution.evidenceEventId) || !EVENT_ID_PATTERN.test(execution.outboxEventId) || execution.evidenceEventId !== evidence.eventId) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned invalid durable evidence identity.', 'EVIDENCE_ID_MISMATCH');\n"
+                  "  }\n"
+                  "  if (execution.identity.tenantId !== command.actor.tenantId) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned an identity from another tenant.', 'EXECUTION_TENANT_MISMATCH');\n"
+                  "  }\n"
+                  "  if (command.subject !== null && execution.identity.identityId !== command.subject.identityId) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned another staff identity.', 'EXECUTION_SUBJECT_MISMATCH');\n"
+                  "  }\n"
+                  "  if (decision.nextState !== null && execution.identity.state !== decision.nextState) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned an unexpected lifecycle state.', 'EXECUTION_STATE_MISMATCH');\n"
+                  "  }\n"
+                  "  if (!execution.replayed && command.expectedVersion !== null && execution.identity.version !== command.expectedVersion + 1) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned an unexpected identity version.', 'EXECUTION_VERSION_MISMATCH');\n"
+                  "  }\n"
+                  "}\n"
+              )
               service = service.replace(anchor, '\n' + helper + anchor, 1)
 
           old = "      if (execution.commandDigest !== evidence.commandDigest) {\n        throw new StaffLifecycleServiceError(\n          'PERSISTENCE_FAILURE',\n          'Staff lifecycle repository returned evidence for a different command.',\n          'COMMAND_DIGEST_MISMATCH',\n        );\n      }\n      return Object.freeze({ status: 'APPLIED', decision, execution });"
