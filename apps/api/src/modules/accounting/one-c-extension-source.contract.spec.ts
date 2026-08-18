@@ -36,15 +36,44 @@ describe('1C extension outbound transport source', () => {
     expect(httpCode.toLowerCase()).not.toContain('http://');
   });
 
-  it('refuses absolute/traversal paths before attaching the machine Authorization bearer', () => {
+  it('requires either the exact /connector/v1 base or its slash-delimited child path', () => {
+    expect(httpCode).toContain('Путь <> БазовыйПуть');
+    expect(httpCode).toContain(
+      'Лев(Путь, СтрДлина(БазовыйПуть) + 1) <> БазовыйПуть + "/"',
+    );
     expect(httpCode).toContain('СтрНайти(Путь, "://")');
     expect(httpCode).toContain('СтрНайти(Путь, "..")');
     expect(httpCode).toContain('PATH_REFUSED');
+  });
 
+  it('gates path, correlation id and bearer before constructing security-sensitive headers', () => {
     const pathGate = httpCode.indexOf('Если Не ДопустимыйПуть(Путь) Тогда');
-    const authHeader = httpCode.indexOf('"Authorization", "Bearer " + Bearer');
+    const correlationGate = httpCode.indexOf('БезопасныйCorrelation = БезопасныйCorrelationId');
+    const bearerGate = httpCode.indexOf('БезопасныйBearer = БезопасныйMachineBearer');
+    const authHeader = httpCode.indexOf(
+      '"Authorization", "Bearer " + БезопасныйBearer',
+    );
     expect(pathGate).toBeGreaterThanOrEqual(0);
-    expect(authHeader).toBeGreaterThan(pathGate);
+    expect(correlationGate).toBeGreaterThan(pathGate);
+    expect(bearerGate).toBeGreaterThan(correlationGate);
+    expect(authHeader).toBeGreaterThan(bearerGate);
+    expect(httpCode).toContain('CORRELATION_ID_REFUSED');
+    expect(httpCode).toContain('BEARER_REFUSED');
+  });
+
+  it('permits only bounded safe alphabets in correlation and bearer header values', () => {
+    expect(httpCode).toContain('Функция БезопасныйCorrelationId');
+    expect(httpCode).toContain('СтрДлина(CorrelationId) > 128');
+    expect(httpCode).toContain(
+      'Допустимые = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:_.@-"',
+    );
+
+    expect(httpCode).toContain('Функция БезопасныйMachineBearer');
+    expect(httpCode).toContain('СтрДлина(Bearer) < 40');
+    expect(httpCode).toContain('СтрДлина(Bearer) > 512');
+    expect(httpCode).toContain(
+      'Допустимые = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"',
+    );
   });
 
   it('refuses redirects instead of allowing bearer forwarding', () => {
@@ -86,6 +115,13 @@ describe('1C extension outbound transport source', () => {
     expect(httpCode).toContain('БезопасныйИдентификаторURL');
     expect(httpCode).toContain('JOB_ID_REFUSED');
     expect(httpCode).not.toContain('КодироватьСтроку(JobId');
+  });
+
+  it('bounds pairing codes and terminal metadata instead of accepting arbitrary strings', () => {
+    expect(httpCode).toContain('СтрДлина(СокрЛП(ОдноразовыйКод)) > 256');
+    expect(httpCode).toContain('БезопасныйМашинныйКод(ResultCode)');
+    expect(httpCode).toContain('RESULT_CODE_REFUSED');
+    expect(httpCode).toContain('СтрДлина(ExternalEvidenceId) > 512');
   });
 
   it('does not persist or define plaintext credential storage in the transport source', () => {
