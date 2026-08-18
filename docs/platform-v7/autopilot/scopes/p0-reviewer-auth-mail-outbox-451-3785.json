@@ -62,7 +62,7 @@
     "the auth-mail worker uses the exact API image revision and a distinct pc_auth_mail_runtime PostgreSQL principal",
     "the worker receives its SMTP and database credentials only through root-authority read-only file mounts; API and Web do not receive worker-specific AUTH_MAIL credentials",
     "current shared API/Web runtime authority files and the existing Web transactional-mail environment file are preserved during cutover and rollback",
-    "production cutover runs only after successful Production Full-Stack Exact-SHA release for current main and skips without mutation on main drift",
+    "production cutover runs only after successful Production Full-Stack Exact-SHA Release for current main and skips without mutation on main drift",
     "any cutover failure restores the pre-release API/Web baseline and the prior auth-mail worker state when present",
     "production evidence proves exact API/Web/worker SHA, worker readiness, auth-mail runtime PASS, preserved legacy Web transactional-mail authority, and absence of SMTP authority from API",
     "no reset request is replayed by the deployment workflow itself and new recurring cost remains 0 RUB"
