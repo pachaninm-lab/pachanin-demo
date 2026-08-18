@@ -59,8 +59,11 @@ jobs:
           python3 - "$source" <<'PY'
           from pathlib import Path
           import sys
-          text=Path(sys.argv[1]).read_text(encoding='utf-8')
-          operational=text.split('# OPERATIONAL_BEGIN',1)[1]
+          lines=Path(sys.argv[1]).read_text(encoding='utf-8').splitlines()
+          markers=[i for i,line in enumerate(lines) if line.strip() == '# OPERATIONAL_BEGIN']
+          if len(markers) != 1:
+              raise SystemExit(f'OPERATIONAL_MARKER_INVALID:{len(markers)}')
+          operational='\n'.join(lines[markers[0]+1:])
           forbidden=[
               'docker restart','docker rm ','docker compose up','docker compose down',
               'INSERT INTO','UPDATE auth.','DELETE FROM','TRUNCATE ','ALTER ROLE',
@@ -221,24 +224,26 @@ jobs:
           mailbox="$(OUTBOX_ID="$outbox_id" python3 - <<'PY'
           import email, imaplib, os, re, ssl
           from email.policy import default
-          def canonical_imap_login(value):
+          def normalized_login(value):
+              value=str(value or '').strip()
+              if not value:
+                  return None
+              if '@' not in value:
+                  return value if len(value) <= 254 and not re.search(r'\s', value) else None
+              if value.count('@') != 1:
+                  return None
+              local,domain=value.rsplit('@',1)
               try:
-                  value=str(value or '').strip()
-                  if value.count('@') != 1:
-                      return None
-                  local,domain=value.rsplit('@',1)
                   local.encode('ascii')
                   domain=domain.encode('idna').decode('ascii').lower()
-                  result=f'{local}@{domain}'
-                  if len(result)>254 or not re.fullmatch(r'[^\s@]{1,64}@[^\s@]{1,189}',result):
-                      return None
-                  return result
               except Exception:
                   return None
+              result=f'{local}@{domain}'
+              return result if len(result)<=254 and re.fullmatch(r'[^\s@]{1,64}@[^\s@]{1,189}',result) else None
           outbox_id=os.environ.get('OUTBOX_ID','').strip()
           if not re.fullmatch(r'[A-Za-z0-9._-]{8,160}',outbox_id): raise SystemExit('OUTBOX_ID_INVALID')
           host=os.environ.get('PC_P0_IMAP_HOST','').strip()
-          user=canonical_imap_login(os.environ.get('PC_P0_IMAP_USER',''))
+          user=normalized_login(os.environ.get('PC_P0_IMAP_USER',''))
           password=os.environ.get('PC_P0_IMAP_PASSWORD','')
           port=int((os.environ.get('PC_P0_IMAP_PORT') or '993').strip())
           folder=(os.environ.get('PC_P0_IMAP_FOLDER') or 'INBOX').strip() or 'INBOX'
@@ -266,7 +271,7 @@ jobs:
               print(f'MAILBOX_MATCH_COUNT={matches}')
               print(f'MAILBOX_MESSAGES_CHECKED={checked}')
               print('MAILBOX_READ_ONLY=PASS')
-              print('IMAP_LOGIN_IDNA=PASS')
+              print('IMAP_LOGIN_NORMALIZED=PASS')
           finally:
               if client is not None:
                   try: client.logout()
@@ -277,7 +282,7 @@ jobs:
           checked="$(sed -n 's/^MAILBOX_MESSAGES_CHECKED=//p' <<< "$mailbox" | head -1)"
           [[ "$match_count" =~ ^[0-9]+$ && "$checked" =~ ^[0-9]+$ ]]
           grep -Fxq 'MAILBOX_READ_ONLY=PASS' <<< "$mailbox"
-          grep -Fxq 'IMAP_LOGIN_IDNA=PASS' <<< "$mailbox"
+          grep -Fxq 'IMAP_LOGIN_NORMALIZED=PASS' <<< "$mailbox"
           delivery_gate=BLOCKED
           if [[ "$status" == SENT && "$sent_at" == YES && "$match_count" == 1 ]]; then delivery_gate=PASS; fi
           echo "RESET_DELIVERY_STATE=INSPECTED_READ_ONLY"
@@ -293,7 +298,7 @@ jobs:
           echo "MAILBOX_MATCH_COUNT=$match_count"
           echo "MAILBOX_MESSAGES_CHECKED=$checked"
           echo "MAILBOX_READ_ONLY=PASS"
-          echo "IMAP_LOGIN_IDNA=PASS"
+          echo "IMAP_LOGIN_NORMALIZED=PASS"
           echo "RESET_DELIVERY_GATE=$delivery_gate"
           echo "PRODUCTION_MUTATION=NONE"
           unset raw mailbox outbox_id
