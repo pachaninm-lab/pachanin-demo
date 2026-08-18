@@ -186,7 +186,6 @@ describePostgres('durable 1C runtime authority', () => {
     const firstPair = await repository.consumePairing({
       pairingCode: activeChallenge.pairingCode as string,
       discovery: discovery(INN_A, KPP_A, 'One C A'),
-      selectedOneCOrganizationGuid: ONE_C_GUID,
       correlationId: `${RUN}.consume-1`,
     });
     expect(firstPair.organizationId).toBe(ORG_A);
@@ -222,7 +221,6 @@ describePostgres('durable 1C runtime authority', () => {
       repository.consumePairing({
         pairingCode: activeChallenge.pairingCode as string,
         discovery: discovery(INN_A, KPP_A, 'One C A'),
-        selectedOneCOrganizationGuid: ONE_C_GUID,
         correlationId: `${RUN}.consume-replay`,
       }),
     ).rejects.toEqual(
@@ -242,17 +240,17 @@ describePostgres('durable 1C runtime authority', () => {
       repository.consumePairing({
         pairingCode: rotateChallenge.pairingCode as string,
         discovery: wrongInnDiscovery,
-        selectedOneCOrganizationGuid: ONE_C_GUID,
         correlationId: `${RUN}.consume-wrong-inn`,
       }),
     ).rejects.toEqual(
-      expect.objectContaining<Partial<OneCRuntimeRepositoryError>>({ code: 'ONE_C_INN_MISMATCH' }),
+      expect.objectContaining<Partial<OneCRuntimeRepositoryError>>({
+        code: 'ONE_C_ORGANIZATION_NOT_FOUND_IN_DISCOVERY',
+      }),
     );
 
     const rotated = await repository.consumePairing({
       pairingCode: rotateChallenge.pairingCode as string,
       discovery: discovery(INN_A, KPP_A, 'One C A'),
-      selectedOneCOrganizationGuid: ONE_C_GUID,
       correlationId: `${RUN}.consume-rotate`,
     });
     expect(rotated.bindingId).toBe(firstPair.bindingId);
@@ -270,8 +268,8 @@ describePostgres('durable 1C runtime authority', () => {
 
     // The physical installation is global. A second tenant reporting the same
     // opaque database instance and the same 1C organization GUID cannot bind
-    // that legal entity to a different platform organization even if it lies
-    // about the INN to match its own tenant.
+    // that legal entity to a different platform organization even when it lies
+    // about the entity details to match its own tenant.
     const challengeB = await repository.createPairingChallenge(chiefB, {
       correlationId: `${RUN}.pairing-b`,
       ttlSeconds: 600,
@@ -280,7 +278,6 @@ describePostgres('durable 1C runtime authority', () => {
       repository.consumePairing({
         pairingCode: challengeB.pairingCode as string,
         discovery: discovery(INN_B, KPP_B, 'One C B'),
-        selectedOneCOrganizationGuid: ONE_C_GUID,
         correlationId: `${RUN}.consume-b-collision`,
       }),
     ).rejects.toEqual(
