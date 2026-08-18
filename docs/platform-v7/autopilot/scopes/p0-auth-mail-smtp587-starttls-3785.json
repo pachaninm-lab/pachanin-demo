@@ -1,0 +1,16 @@
+{
+  "scope": "PC-CROP production registration auth-mail only",
+  "issue": 3785,
+  "purpose": "Bounded pre-DATA probe of REG.RU SMTP submission on port 587 with STARTTLS after confirmed RCPT_TO 451 on port 465.",
+  "production_mutation": "NONE",
+  "mail_sent": false,
+  "new_recurring_cost_rub": 0,
+  "security": [
+    "no reset replay",
+    "no DATA command",
+    "no reviewer identity publication",
+    "no SMTP credential publication",
+    "pinned production SSH host key",
+    "least-privilege reviewer subject resolution"
+  ]
+}
