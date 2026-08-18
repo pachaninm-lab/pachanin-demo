@@ -9,7 +9,7 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "operationalStatus": "NOT_ATTESTED",
   "authorityBaseParentHead": "85e485d409a4f64c2d60e741c683c8d986ebf00e",
-  "purpose": "Turn the already-defined 1C connector protocol, machine identity and source-only extension into durable server authority. Persist ConnectorInstallation separately from OrganizationBinding, issue one-time pairing challenges, atomically bind exactly one platform organization to exactly one server-selected legal entity from 1C discovery, rotate scoped machine credentials without ever storing plaintext secrets, and expose only bounded repository operations. ConnectorInstallation is global to the opaque 1C information-base instance so one physical database can safely host legal entities belonging to different platform tenants; bindings remain tenant/organization scoped. The branch carries the same narrow DB-proven organization-member transaction primitive as #4428 so role=GUEST + job_profile accounting members are not silently excluded; generic GUEST handling remains closed. This slice does not yet expose connector runtime job routes or claim a live 1C exchange.",
+  "purpose": "Turn the already-defined 1C connector protocol, machine identity and source-only extension into durable server authority. Persist ConnectorInstallation separately from OrganizationBinding, issue one-time pairing challenges, atomically bind exactly one platform organization to exactly one server-selected legal entity from 1C discovery, rotate scoped machine credentials without ever storing plaintext secrets, and expose the minimal HTTP bootstrap: human challenge/status/revoke plus the one unauthenticated code-based `/connector/v1/pair` endpoint. ConnectorInstallation is global to the opaque 1C information-base instance so one physical database can safely host legal entities belonging to different platform tenants; bindings remain tenant/organization scoped. The branch carries the same narrow DB-proven organization-member transaction primitive as #4428 so role=GUEST + job_profile accounting members are not silently excluded; generic GUEST handling remains closed. Heartbeat and IntegrationJob runtime routes remain outside this slice and there is no claim of live 1C exchange.",
   "allowedPaths": [
     "apps/api/prisma/migrations/20260818223000_pc_crop_one_c_runtime_persistence/migration.sql",
     "apps/api/prisma/migrations/20260818223100_pc_crop_one_c_pairing_concurrency_guard/migration.sql",
@@ -20,8 +20,10 @@
     "apps/api/src/modules/accounting/one-c-runtime.repository.ts",
     "apps/api/src/modules/accounting/one-c-runtime.repository.spec.ts",
     "apps/api/src/modules/accounting/one-c-runtime.postgresql.spec.ts",
+    "apps/api/src/modules/accounting/one-c-connector.controller.ts",
+    "apps/api/src/modules/accounting/one-c-connection-management.controller.ts",
+    "apps/api/src/modules/accounting/one-c-runtime.controllers.spec.ts",
     "apps/api/src/modules/accounting/accounting.module.ts",
-    "apps/api/src/modules/accounting/accounting.controller.ts",
     "docs/ops/pc-crop-federal-accounting/one-c-runtime-persistence-20260818.md",
     "docs/platform-v7/autopilot/scopes/pc-crop-onec-runtime-persistence-v2-20260818.json"
   ],
@@ -33,15 +35,17 @@
     "At most one PENDING pairing challenge exists per organization at the database level, independently of caller transaction isolation.",
     "Pairing consumption is atomic under PostgreSQL row locks, serializes on opaque databaseInstanceId, and verifies the exact challenge hash inside the database before creating or rotating a binding/credential.",
     "The connector/browser does not select the binding GUID separately. PostgreSQL selects exactly one legal entity from the bounded discovery array using the platform organization's INN and, when present, KPP; zero or multiple matches fail closed.",
-    "Unknown discovery object keys, duplicate GUIDs, malformed INN/KPP/GUID/name values and more than 500 legal entities are refused by the database function in addition to application validation.",
+    "Unknown discovery object keys, duplicate GUIDs, malformed INN/KPP/GUID/name values and more than 500 legal entities are refused by the database function in addition to HTTP/application validation.",
     "The same active 1C legal entity inside one installation cannot be bound to two platform organizations even when the organizations belong to different tenants.",
     "The same platform organization cannot silently gain a second active binding; rebinding requires explicit revocation/rotation lifecycle.",
     "Machine bearer secret is generated cryptographically and returned once; only salt plus SHA-256 verifier are stored.",
     "Credential scope is installation + binding/connection + platform organization + exact 1C organization GUID + protocol version + allowed typed commands.",
+    "Human pairing challenge requires integrations.configure and fresh MFA; human status requires integrations.read; human revoke requires security.connection.revoke and fresh MFA.",
+    "Only POST /connector/v1/pair is public in this slice. It is IP-rate-limited, no-store, accepts exact code+discovery shape and returns the machine bearer once. No heartbeat/jobs/events/mappings route is opened yet.",
     "Revocation is immediate and records are retired, not deleted; revocation audit reasons are bounded machine-safe codes rather than arbitrary free text.",
     "Critical pairing/binding/credential transitions append evidence to the existing public audit_events store under a narrow ONE_C RLS policy; no second audit store is created.",
     "No arbitrary SQL/code/database dump/unrestricted 1C read is introduced.",
-    "No /connector/v1/jobs runtime queue in this slice; no provider/1C production traffic; no compiled CFE; no compatibility claim.",
+    "No provider/1C production traffic; no compiled CFE; no compatibility claim.",
     "No app/web/registration/FGIS/banking/hosting/production mutation.",
     "Merge and green CI are not production acceptance.",
     "New mandatory recurring cost: 0 RUB."
@@ -56,11 +60,12 @@
     "Consumed, expired or revoked pairing challenge cannot be reused.",
     "Credential rotation revokes the previous live credential for that binding in the same transaction.",
     "No browser/client-supplied organization, role or capability becomes authority without server/database verification.",
-    "Audit rows contain no bearer, pairing code, salt, secret hash or raw discovery payload."
+    "Audit rows contain no bearer, pairing code, salt, secret hash or raw discovery payload.",
+    "Public connector mutation surface in this slice = exactly one bootstrap pairing endpoint."
   ],
   "requiredChecks": [
     "GITHUB_HEAD_REF=claude/pc-crop-onec-runtime-persistence-v2-20260818 bash scripts/p7-autopilot-guard.sh",
-    "pnpm --filter @pc/api test -- one-c-runtime.repository.spec.ts one-c-runtime.postgresql.spec.ts",
+    "pnpm --filter @pc/api test -- one-c-runtime.repository.spec.ts one-c-runtime.controllers.spec.ts one-c-runtime.postgresql.spec.ts",
     "pnpm --filter @pc/api typecheck",
     "existing PC-CROP accounting/RLS/security gates"
   ]
