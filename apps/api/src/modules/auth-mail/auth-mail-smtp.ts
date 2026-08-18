@@ -158,6 +158,7 @@ class SmtpSession {
   private buffer = Buffer.alloc(0);
   private pending?: {
     expected: Set<number>;
+    lines: string[];
     resolve: (response: SmtpResponse) => void;
     reject: (error: Error) => void;
   };
@@ -219,7 +220,7 @@ class SmtpSession {
   private waitFor(expected: Set<number>): Promise<SmtpResponse> {
     if (this.pending) throw new AuthMailTransportError('SMTP_PROTOCOL_OVERLAP');
     return new Promise<SmtpResponse>((resolve, reject) => {
-      this.pending = { expected, resolve, reject };
+      this.pending = { expected, lines: [], resolve, reject };
       this.consume();
     });
   }
@@ -235,17 +236,14 @@ class SmtpSession {
   }
 
   private consume(): void {
-    if (!this.pending) return;
-    const lines: string[] = [];
-    while (true) {
+    while (this.pending) {
       const index = this.buffer.indexOf('\r\n');
       if (index < 0) return;
       const line = this.buffer.subarray(0, index).toString('utf8');
       this.buffer = this.buffer.subarray(index + 2);
-      lines.push(line);
+      this.pending.lines.push(line);
       const match = /^(\d{3})([ -])/.exec(line);
-      if (!match) continue;
-      if (match[2] === '-') continue;
+      if (!match || match[2] === '-') continue;
       const code = Number(match[1]);
       const pending = this.pending;
       this.pending = undefined;
@@ -254,7 +252,7 @@ class SmtpSession {
         pending.reject(new AuthMailTransportError(`SMTP_${category}_${code}`));
         return;
       }
-      pending.resolve({ code, lines });
+      pending.resolve({ code, lines: pending.lines });
       return;
     }
   }
@@ -394,7 +392,11 @@ async function sendAuthMailDirectMx(
       return;
     } catch (error) {
       lastError = error;
-      if (payloadSubmitted || isPermanentSmtpFailure(error) || error instanceof AuthMailTransportError && error.code === 'SMTPUTF8_REQUIRED_BUT_UNAVAILABLE') {
+      if (
+        payloadSubmitted
+        || isPermanentSmtpFailure(error)
+        || error instanceof AuthMailTransportError && error.code === 'SMTPUTF8_REQUIRED_BUT_UNAVAILABLE'
+      ) {
         throw error;
       }
     } finally {
