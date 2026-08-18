@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   CONNECTION_CENTER_REQUIRED_BUT_NOT_MODELED,
+  isConnectionAttestationDto,
+  isConnectionStateDto,
   presentConnection,
   type ConnectionAttestationDto,
   type ConnectionStateDto,
@@ -34,6 +36,26 @@ const attestation = (
 });
 
 describe('Connection Center presentation contract', () => {
+  it('accepts only structurally valid server rows at the browser boundary', () => {
+    expect(isConnectionStateDto(connection())).toBe(true);
+    expect(isConnectionAttestationDto(attestation())).toBe(true);
+    expect(
+      isConnectionStateDto({
+        kind: 'ONE_C',
+        maturity: 'NOT_ATTESTED',
+        missing: 'ADAPTER_NOT_IMPLEMENTED',
+        mayCarryRealTraffic: false,
+      }),
+    ).toBe(false);
+    expect(
+      isConnectionAttestationDto({
+        id: 'subject-1',
+        connectionKind: 'ONE_C',
+        state: { attested: 'yes', awaiting: [], rejected: [] },
+      }),
+    ).toBe(false);
+  });
+
   it('does not call NOT_ATTESTED connected or live', () => {
     const view = presentConnection(connection(), []);
     expect(view.status).toBe('Ещё не готово');
