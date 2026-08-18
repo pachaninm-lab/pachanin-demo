@@ -59,7 +59,7 @@ jobs:
             'BASELINE_SERVICE_MISSING','PRE_WORKER_BOUNDARY','RUNTIME_UNCHANGED',
             'AUTH_MAIL_WORKER_STABLE_REALIGNED','--force-recreate auth-mail-worker',
             'DB_CREDENTIAL_MUTATED 0','API_WEB_MUTATED 0','ROLLBACK_COMPLETE',
-            "'command':['dist/apps/api/src/auth-mail-worker.js']",
+            'dist/apps/api/src/auth-mail-worker.js', "'command'",
             "'pull_policy':'never'", "'restart':'unless-stopped'",
             '/run/pc-auth-mail/keyring','/run/pc-auth-mail/database-url',
             "'networks':['runtime']"
