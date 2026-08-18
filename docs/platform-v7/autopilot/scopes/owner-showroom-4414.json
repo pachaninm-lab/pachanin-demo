@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/owner-showroom-4414",
+  "status": "active",
+  "purpose": "Issue #4414: add an owner-only, read-only PC-CROP presentation showroom under the privileged staff boundary so one real PLATFORM_OWNER MFA session can inspect thirteen synthetic cabinet surfaces without impersonating business users, weakening production RBAC, enabling public demo credentials, or sending the owner token to business-data APIs.",
+  "authorityBaseExactMain": "aa237f085ddb9d1447a6625b586c15cc8d989ce5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/platform-v7/staff/showroom/page.tsx",
+    "apps/web/tests/unit/platformV7OwnerShowroom.test.ts",
+    "docs/platform-v7/autopilot/scopes/owner-showroom-4414.json"
+  ],
+  "requiredInvariants": [
+    "Only a server-verified PLATFORM_OWNER session with MFA may render the showroom.",
+    "The showroom stays under the privileged staff boundary and does not mint or impersonate business-user sessions.",
+    "Normal platform-v7 role, user, membership, organization and tenant equality checks remain unchanged.",
+    "No passwordless demo route, shared public credential, role-test credential or canonical test seed is enabled in production.",
+    "The owner access token is used only for staff authority verification and is never sent to business-data endpoints from the showroom.",
+    "All displayed organizations, role facts, deal facts and amounts are synthetic presentation data.",
+    "All operations that could mutate a deal, payment, document, lab result, arbitration state or external integration are disabled in showroom rendering.",
+    "The employee organization-profile surface is included alongside the twelve existing execution-role surfaces.",
+    "Every showroom screen is visibly marked TEST or SHOWROOM and robots indexing is disabled.",
+    "No database, migration, secret, production environment, external integration or recurring-cost change is included."
+  ],
+  "acceptance": [
+    "Focused unit source contract proves PLATFORM_OWNER plus MFA gating.",
+    "Focused unit source contract proves exactly the thirteen requested showroom surfaces are represented.",
+    "Focused unit source contract proves no business proxy/deals/logistics/lab workspace fetch is present.",
+    "Focused unit source contract proves mutating cockpit actions are disabled and SHOWROOM labeling is present.",
+    "Exact-head web unit, Node CI, security and governance checks pass before merge.",
+    "Production acceptance opens all thirteen showroom surfaces from one real owner session and records the exact deployed SHA."
+  ]
+}
