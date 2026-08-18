@@ -13,6 +13,7 @@
   "allowedPaths": [
     "apps/web/app/platform-v7/settings/connections/page.tsx",
     "apps/web/app/platform-v7/settings/connections/ConnectionCenterClient.tsx",
+    "apps/web/app/platform-v7/settings/connections/connection-center.presentation.ts",
     "apps/web/app/platform-v7/settings/connections/connections.module.css",
     "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
     "apps/web/lib/platform-v7/shellRoutes.ts",
