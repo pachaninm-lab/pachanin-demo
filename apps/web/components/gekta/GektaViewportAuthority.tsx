@@ -31,16 +31,14 @@ function isTextEntry(node: Element | null): boolean {
 /**
  * Mobile browser chrome and the on-screen keyboard do not reliably participate
  * in CSS viewport units. This runtime authority follows the actually visible
- * viewport, batches resize/scroll work into animation frames, measures the
- * composer, and locks the document while either chat or keyboard owns it.
+ * viewport, batches resize/scroll work into animation frames and measures the
+ * composer. It deliberately does not lock html/body scrolling: modal surfaces
+ * own their own lock, while keyboard ownership stays local to the Gekta shell.
  */
 export function GektaViewportAuthority() {
   React.useEffect(() => {
     const root = document.documentElement;
     const viewport = window.visualViewport;
-    const initialRootOverflow = root.style.overflow;
-    const initialBodyOverflow = document.body.style.overflow;
-    let bodyLocked = false;
     let frame = 0;
     let observedComposer: HTMLElement | null = null;
     let observer: MutationObserver | null = null;
@@ -64,18 +62,6 @@ export function GektaViewportAuthority() {
         root.style.setProperty(COMPOSER_HEIGHT, `${Math.ceil(composer.getBoundingClientRect().height)}px`);
       } else {
         root.style.removeProperty(COMPOSER_HEIGHT);
-      }
-    };
-
-    const setDocumentLock = (locked: boolean) => {
-      if (locked === bodyLocked) return;
-      bodyLocked = locked;
-      if (locked) {
-        root.style.overflow = 'hidden';
-        document.body.style.overflow = 'hidden';
-      } else {
-        root.style.overflow = initialRootOverflow;
-        document.body.style.overflow = initialBodyOverflow;
       }
     };
 
@@ -129,8 +115,6 @@ export function GektaViewportAuthority() {
       if (keyboardOpen) root.dataset.gektaKeyboardOpen = 'true';
       else delete root.dataset.gektaKeyboardOpen;
 
-      const workspace = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']");
-      setDocumentLock(Boolean(workspace?.classList.contains('overflow-hidden') || keyboardOpen));
       syncRuntimeSurfaces(keyboardOpen);
     };
 
@@ -156,7 +140,7 @@ export function GektaViewportAuthority() {
     const workspace = document.querySelector("[data-gekta-chat-workspace='true']");
     observer.observe(workspace ?? document.body, {
       attributes: true,
-      attributeFilter: ['class'],
+      attributeFilter: ['class', 'data-gekta-chat-active'],
       childList: true,
       subtree: true,
     });
@@ -171,8 +155,6 @@ export function GektaViewportAuthority() {
       document.removeEventListener('focusout', scheduleViewportSync);
       observer?.disconnect();
       composerObserver.disconnect();
-      root.style.overflow = initialRootOverflow;
-      document.body.style.overflow = initialBodyOverflow;
       root.style.removeProperty(VIEWPORT_HEIGHT);
       root.style.removeProperty(VIEWPORT_TOP);
       root.style.removeProperty(KEYBOARD_INSET);
