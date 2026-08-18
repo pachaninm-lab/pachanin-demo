@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { GektaUtilityMobileStyle } from '@/components/gekta/GektaUtilityMobileStyle';
 import { GektaUtilityPage } from '@/components/gekta/GektaUtilityPage';
 
 export const metadata: Metadata = {
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function GektaChineseSupportPage() {
-  return <GektaUtilityPage locale='zh' kind='support' />;
+  return <><GektaUtilityMobileStyle /><GektaUtilityPage locale='zh' kind='support' /></>;
 }
