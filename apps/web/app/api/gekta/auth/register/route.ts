@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { sendTransactionalMail, isTransactionalMailConfigured } from '@/lib/server/transactional-mail';
-import { assertCsrf, resolveRequestTargetOrigin } from '@/lib/server-request-security';
+import { assertCsrf } from '@/lib/server-request-security';
 import {
   GEKTA_AUTH_TIMEOUT_MS,
   accountHash,
@@ -17,30 +16,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
 
-const COPY = {
-  ru: {
-    subject: 'Гекта — подтвердите email',
-    intro: 'Получен запрос на регистрацию в Гекте.',
-    action: 'Подтвердите email по одноразовой ссылке:',
-    expiry: 'Ссылка действует 30 минут. Затем настройте обязательный второй фактор, и начнётся 30-дневный пробный период.',
-  },
-  en: {
-    subject: 'Gekta — confirm your email',
-    intro: 'A request to create a Gekta account was received.',
-    action: 'Confirm your email using this single-use link:',
-    expiry: 'The link is valid for 30 minutes. Next, set up the required second factor to start the 30-day trial.',
-  },
-  zh: {
-    subject: 'Gekta — 确认电子邮箱',
-    intro: '已收到创建 Gekta 账户的请求。',
-    action: '请使用以下一次性链接确认电子邮箱：',
-    expiry: '链接有效期为30分钟。随后设置必需的双重验证，即可开始30天试用。',
-  },
-} as const;
-
 type ApiPayload = {
   status?: string;
-  emailDelivery?: { email?: string; token?: string };
+  delivery?: 'QUEUED' | 'SUPPRESSED';
   code?: string;
 };
 
@@ -76,12 +54,11 @@ export async function POST(request: Request) {
 
   const upstream = gektaApiBase();
   const deliveryKey = registrationDeliveryKey();
-  if (!upstream || deliveryKey.length < 32 || !isTransactionalMailConfigured()) {
+  if (!upstream || deliveryKey.length < 32) {
     console.error('gekta_registration_configuration_error', JSON.stringify({
       correlationId,
       apiConfigured: Boolean(upstream),
       deliveryBoundaryConfigured: deliveryKey.length >= 32,
-      mailConfigured: isTransactionalMailConfigured(),
     }));
     return gektaAuthJson({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 503);
   }
@@ -97,6 +74,7 @@ export async function POST(request: Request) {
         password,
         acceptedServiceTerms: true,
         acceptedPersonalData: true,
+        locale,
       }),
       cache: 'no-store',
       redirect: 'manual',
@@ -120,41 +98,18 @@ export async function POST(request: Request) {
       }, status);
     }
 
-    const delivery = payload.emailDelivery;
-    if (delivery?.email && delivery.token) {
-      const origin = resolveRequestTargetOrigin(request);
-      if (!origin) return gektaAuthJson({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 503);
-      const verifyUrl = new URL('/api/gekta/auth/email/verify', origin);
-      verifyUrl.searchParams.set('token', delivery.token);
-      verifyUrl.searchParams.set('lang', locale);
-      const copy = COPY[locale];
-      const delivered = await sendTransactionalMail({
-        to: delivery.email,
-        subject: copy.subject,
-        text: [copy.intro, '', copy.action, verifyUrl.toString(), '', copy.expiry].join('\n'),
-      });
-      console.info('gekta_registration_email_delivery_result', JSON.stringify({
-        correlationId,
-        accountHash: accountHash(email),
-        delivered: delivered.delivered,
-        provider: delivered.provider,
-        reason: delivered.reason,
-      }));
-      if (!delivered.delivered) {
-        return gektaAuthJson({ accepted: false, code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE', correlationId }, 503);
-      }
-    } else {
-      // Unknown/already-used email and a newly accepted email deliberately have
-      // the same public response. The bearer token never crosses this BFF.
-      console.info('gekta_registration_public_request_accepted', JSON.stringify({
-        correlationId,
-        accountHash: accountHash(email),
-      }));
-    }
+    // The API commits the one-time challenge and encrypted auth-mail outbox row
+    // atomically. The Web BFF never receives a verification bearer and never
+    // owns SMTP credentials for this path.
+    console.info('gekta_registration_public_request_accepted', JSON.stringify({
+      correlationId,
+      accountHash: accountHash(email),
+      durableMailBoundary: true,
+    }));
 
     return gektaAuthJson({
       accepted: true,
-      status: 'EMAIL_VERIFICATION_REQUIRED',
+      status: payload.status || 'EMAIL_VERIFICATION_REQUIRED',
       correlationId,
     }, 202);
   } catch (error) {
