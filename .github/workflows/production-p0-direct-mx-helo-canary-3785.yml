@@ -1,0 +1,51 @@
+name: Production P0 Direct MX EHLO Canary 3785
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-direct-mx-helo-canary-3785.yml'
+      - 'scripts/production-p0-direct-mx-helo-canary-3785.sh'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-direct-mx-helo-canary-3785
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: One EHLO-aligned synthetic mail canary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      CANARY_ID: pc-p0-helo-canary-${{ github.run_id }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Validate one-shot no-secret canary contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          f='scripts/production-p0-direct-mx-helo-canary-3785.sh'
+          bash -n "$f"
+          grep -Fq "local_hostname=helo" "$f"
+          grep -Fq "s.ehlo(helo)" "$f"
+          grep -Fq "s.has_extn('starttls')" "$f"
+          [[ "$(grep -Fc 's.sendmail(sender,[recipient]' "$f")" == 1 ]]
+          ! grep -Eq 'password-reset|forgot-password|INSERT INTO|UPDATE auth\.|DELETE FROM|docker restart|docker compose up' "$f"
+      - name: Send one EHLO-aligned canary
+        shell: bash
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: bash scripts/production-p0-direct-mx-helo-canary-3785.sh
