@@ -18,7 +18,10 @@ import { AdvanceRepository } from './advance.repository';
 import { ServiceStatus } from './deal-service.policy';
 import { DealServiceRepository } from './deal-service.repository';
 import { PaymentRepository } from './payment.repository';
+import { ConnectionAttestationRepository } from './connection-attestation.repository';
+import { isDecision, isGate } from './connection-attestation.policy';
 import { ConnectionCenterRepository } from './connection-center.repository';
+import { ConnectionKind } from './connection-center.policy';
 import { ReconciliationRepository } from './reconciliation.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
 import { AudienceView, projectFor } from './work-task-projection.policy';
@@ -62,6 +65,7 @@ export class AccountingController {
     private readonly payments: PaymentRepository,
     private readonly reconciliations: ReconciliationRepository,
     private readonly connections: ConnectionCenterRepository,
+    private readonly attestations: ConnectionAttestationRepository,
   ) {}
 
   /**
@@ -697,6 +701,110 @@ export class AccountingController {
   listConnections(@CurrentUser() user: RequestUser) {
     return this.connections.describe(user);
   }
+
+  /**
+   * What this organization has put in front of the four gates, and how far each
+   * has got.
+   */
+  @Get('connections/attestations')
+  listConnectionAttestations(@CurrentUser() user: RequestUser) {
+    return this.attestations.list(user);
+  }
+
+  /**
+   * Register what is to be attested: a connection kind, a provider, and the
+   * environment. Provider-neutral — no vendor is named in the schema, and the
+   * code is normalized so one operator cannot become two approval histories.
+   */
+  @Post('connections/attestations/subjects')
+  registerConnectionSubject(
+    @CurrentUser() user: RequestUser,
+    @Body() body: { connectionKind: string; providerCode: string; environment: string },
+  ) {
+    return this.attestations.register(user, {
+      connectionKind: connectionKind(body.connectionKind),
+      providerCode: text(body.providerCode, 'providerCode'),
+      environment: environment(body.environment),
+    });
+  }
+
+  /**
+   * Answer one gate.
+   *
+   * The actor is not taken from the body: the database function reads it from
+   * the session, so nobody records somebody else's approval. Whether one person
+   * has already answered a different gate for this version is the database's
+   * decision too — that is the rule that makes four gates mean four people.
+   */
+  @Post('connections/attestations/:subjectId')
+  attestConnection(
+    @Param('subjectId') subjectId: string,
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      gate: string;
+      decision: string;
+      justification: string;
+      evidenceReference: string;
+      validUntil: string;
+      idempotencyKey: string;
+      correlationId: string;
+    },
+  ) {
+    if (isGate(body.gate) === false) {
+      throw new BadRequestException(
+        'gate must be OWNER, SECURITY, LEGAL or OPERATIONS',
+      );
+    }
+    if (isDecision(body.decision) === false) {
+      throw new BadRequestException('decision must be APPROVED or REJECTED');
+    }
+    return this.attestations.attest(user, {
+      subjectId,
+      gate: body.gate,
+      decision: body.decision,
+      justification: text(body.justification, 'justification'),
+      evidenceReference: text(body.evidenceReference, 'evidenceReference'),
+      validUntil: required(instant(body.validUntil, 'validUntil'), 'validUntil'),
+      idempotencyKey: text(body.idempotencyKey, 'idempotencyKey'),
+      correlationId: text(body.correlationId, 'correlationId'),
+    });
+  }
+}
+
+/** A connection kind the platform actually knows about. */
+function connectionKind(value: string): ConnectionKind {
+  if (
+    value === ConnectionKind.EDO
+    || value === ConnectionKind.ONE_C
+    || value === ConnectionKind.BANK_STATEMENT
+  ) {
+    return value;
+  }
+  throw new BadRequestException(
+    'connectionKind must be EDO, ONE_C or BANK_STATEMENT',
+  );
+}
+
+/**
+ * An attestation of a test environment is not an attestation of production, so
+ * the two are named rather than assumed.
+ */
+function environment(value: string): string {
+  if (value === 'PRE_PRODUCTION' || value === 'PRODUCTION') {
+    return value;
+  }
+  throw new BadRequestException(
+    'environment must be PRE_PRODUCTION or PRODUCTION',
+  );
+}
+
+/** Text that has to say something. */
+function text(value: string, field: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new BadRequestException(`${field} is required`);
+  }
+  return value.trim();
 }
 
 /** An instant that has to be there. */

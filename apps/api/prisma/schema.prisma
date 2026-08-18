@@ -59,6 +59,7 @@ model Organization {
   accountingPayments                AccountingPayment[]
   accountingPaymentAllocations      AccountingPaymentAllocation[]
   accountingReconciliations         AccountingReconciliation[]
+  connectionAttestationSubjects     ConnectionAttestationSubject[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -80,26 +81,26 @@ model User {
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  orgs                              UserOrg[]
-  ukepCerts                         UkepCertificate[]
-  dealParticipants                  DealParticipant[]
-  fgisProviderConfigurationsCreated FgisGrainProviderConfiguration[] @relation("FgisProviderConfigurationCreatedBy")
-  fgisProviderConfigurationsUpdated FgisGrainProviderConfiguration[] @relation("FgisProviderConfigurationUpdatedBy")
-  fgisGrainProviderAttestations     FgisGrainProviderAttestation[]
+  orgs                                      UserOrg[]
+  ukepCerts                                 UkepCertificate[]
+  dealParticipants                          DealParticipant[]
+  fgisProviderConfigurationsCreated         FgisGrainProviderConfiguration[]   @relation("FgisProviderConfigurationCreatedBy")
+  fgisProviderConfigurationsUpdated         FgisGrainProviderConfiguration[]   @relation("FgisProviderConfigurationUpdatedBy")
+  fgisGrainProviderAttestations             FgisGrainProviderAttestation[]
   fgisGrainTenantReadAuthorizationsCreated  FgisGrainTenantReadAuthorization[] @relation("FgisGrainTenantReadAuthorizationCreatedBy")
   fgisGrainTenantReadAuthorizationsUpdated  FgisGrainTenantReadAuthorization[] @relation("FgisGrainTenantReadAuthorizationUpdatedBy")
   fgisGrainTenantReadAuthorizationsAttested FgisGrainTenantReadAuthorization[] @relation("FgisGrainTenantReadAuthorizationAttestedBy")
-  fgisGrainTenantReadProviderClaims          FgisGrainTenantReadProviderClaim[]  @relation("FgisGrainTenantReadProviderClaimActor")
-  fgisGrainTenantReadAudits                  FgisGrainTenantReadAudit[]         @relation("FgisGrainTenantReadAuditActor")
-  gektaAccount                               GektaAccount?
+  fgisGrainTenantReadProviderClaims         FgisGrainTenantReadProviderClaim[] @relation("FgisGrainTenantReadProviderClaimActor")
+  fgisGrainTenantReadAudits                 FgisGrainTenantReadAudit[]         @relation("FgisGrainTenantReadAuditActor")
+  gektaAccount                              GektaAccount?
 
   @@map("users")
 }
 
 model UserOrg {
-  id             String   @id @default(cuid())
-  userId         String
-  organizationId String
+  id                 String    @id @default(cuid())
+  userId             String
+  organizationId     String
   role               String
   /// Second axis alongside `role`. `role` keeps its market meaning — including
   /// ACCOUNTING, which is the bank/settlement actor — while `jobProfile` says
@@ -118,29 +119,30 @@ model UserOrg {
   user         User         @relation(fields: [userId], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
 
-  delegationsGranted  MembershipDelegation[] @relation("MembershipDelegationFrom")
-  delegationsReceived MembershipDelegation[] @relation("MembershipDelegationTo")
-  signingAuthorities  SigningAuthority[] @relation("SigningAuthorityHolder")
-  signingAuthoritiesApproved SigningAuthority[] @relation("SigningAuthoritySecondApprover")
-  accountingDocumentsAuthored AccountingDocument[]        @relation("AccountingDocumentAuthor")
-  accountingVersionsAuthored  AccountingDocumentVersion[] @relation("AccountingDocumentVersionAuthor")
-  accountingVersionsSigned    AccountingDocumentVersion[] @relation("AccountingDocumentVersionSigner")
-  taxProfilesAuthored         OrganizationTaxProfile[]    @relation("OrganizationTaxProfileAuthor")
-  contractVersionsAuthored    ContractVersion[]           @relation("ContractVersionAuthor")
-  contractVersionsSigned      ContractVersion[]           @relation("ContractVersionSigner")
-  workTasksAssigned           AccountingWorkTask[]        @relation("AccountingWorkTaskAssignee")
-  workTasksAuthored           AccountingWorkTask[]        @relation("AccountingWorkTaskAuthor")
-  workTasksResolved           AccountingWorkTask[]        @relation("AccountingWorkTaskResolver")
-  periodsOpened               AccountingPeriod[]          @relation("AccountingPeriodOpener")
-  periodsClosed               AccountingPeriod[]          @relation("AccountingPeriodCloser")
-  advancesRecorded            AccountingAdvance[]         @relation("AccountingAdvanceRecorder")
-  advanceOffsetsApplied       AccountingAdvanceOffset[]   @relation("AccountingAdvanceOffsetActor")
-  dealServicesRecorded        AccountingDealService[]     @relation("AccountingDealServiceRecorder")
-  dealServicesApproved        AccountingDealService[]     @relation("AccountingDealServiceApprover")
-  paymentsRecorded            AccountingPayment[]         @relation("AccountingPaymentRecorder")
-  paymentAllocationsMade      AccountingPaymentAllocation[] @relation("AccountingPaymentAllocationActor")
-  reconciliationsPrepared     AccountingReconciliation[]  @relation("AccountingReconciliationPreparer")
-  reconciliationsAnswered     AccountingReconciliation[]  @relation("AccountingReconciliationResponder")
+  delegationsGranted          MembershipDelegation[]         @relation("MembershipDelegationFrom")
+  delegationsReceived         MembershipDelegation[]         @relation("MembershipDelegationTo")
+  signingAuthorities          SigningAuthority[]             @relation("SigningAuthorityHolder")
+  signingAuthoritiesApproved  SigningAuthority[]             @relation("SigningAuthoritySecondApprover")
+  accountingDocumentsAuthored AccountingDocument[]           @relation("AccountingDocumentAuthor")
+  accountingVersionsAuthored  AccountingDocumentVersion[]    @relation("AccountingDocumentVersionAuthor")
+  accountingVersionsSigned    AccountingDocumentVersion[]    @relation("AccountingDocumentVersionSigner")
+  taxProfilesAuthored         OrganizationTaxProfile[]       @relation("OrganizationTaxProfileAuthor")
+  contractVersionsAuthored    ContractVersion[]              @relation("ContractVersionAuthor")
+  contractVersionsSigned      ContractVersion[]              @relation("ContractVersionSigner")
+  workTasksAssigned           AccountingWorkTask[]           @relation("AccountingWorkTaskAssignee")
+  workTasksAuthored           AccountingWorkTask[]           @relation("AccountingWorkTaskAuthor")
+  workTasksResolved           AccountingWorkTask[]           @relation("AccountingWorkTaskResolver")
+  periodsOpened               AccountingPeriod[]             @relation("AccountingPeriodOpener")
+  periodsClosed               AccountingPeriod[]             @relation("AccountingPeriodCloser")
+  advancesRecorded            AccountingAdvance[]            @relation("AccountingAdvanceRecorder")
+  advanceOffsetsApplied       AccountingAdvanceOffset[]      @relation("AccountingAdvanceOffsetActor")
+  dealServicesRecorded        AccountingDealService[]        @relation("AccountingDealServiceRecorder")
+  dealServicesApproved        AccountingDealService[]        @relation("AccountingDealServiceApprover")
+  paymentsRecorded            AccountingPayment[]            @relation("AccountingPaymentRecorder")
+  paymentAllocationsMade      AccountingPaymentAllocation[]  @relation("AccountingPaymentAllocationActor")
+  reconciliationsPrepared     AccountingReconciliation[]     @relation("AccountingReconciliationPreparer")
+  reconciliationsAnswered     AccountingReconciliation[]     @relation("AccountingReconciliationResponder")
+  connectionSubjectsCreated   ConnectionAttestationSubject[] @relation("ConnectionAttestationSubjectAuthor")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -183,29 +185,29 @@ model MembershipDelegation {
 /// bounds its use by document type, amount, validity window and signing mode.
 /// A delegated signer is invalid without a machine-readable power of attorney.
 model SigningAuthority {
-  id                     String    @id @default(cuid())
-  tenantId               String
-  organizationId         String
-  membershipId           String
-  authorityType          String
-  mchdReference          String?
-  validFrom              DateTime  @db.Timestamptz(6)
-  validTo                DateTime  @db.Timestamptz(6)
-  allowedDocumentTypes   String[]
+  id                         String    @id @default(cuid())
+  tenantId                   String
+  organizationId             String
+  membershipId               String
+  authorityType              String
+  mchdReference              String?
+  validFrom                  DateTime  @db.Timestamptz(6)
+  validTo                    DateTime  @db.Timestamptz(6)
+  allowedDocumentTypes       String[]
   /// Kopecks. Null means the authority carries no monetary ceiling.
-  amountLimitKopecks     BigInt?
-  certificateFingerprint String
-  allowedSigningModes    String[]
-  status                 String    @default("ACTIVE")
-  lastVerifiedAt         DateTime? @db.Timestamptz(6)
-  grantedByMembershipId  String
+  amountLimitKopecks         BigInt?
+  certificateFingerprint     String
+  allowedSigningModes        String[]
+  status                     String    @default("ACTIVE")
+  lastVerifiedAt             DateTime? @db.Timestamptz(6)
+  grantedByMembershipId      String
   /// The independent approver behind a two-person grant. An ACTIVE authority
   /// must name one, and it may be neither the beneficiary nor the granter.
   secondApprovalMembershipId String?
-  revokedAt              DateTime? @db.Timestamptz(6)
-  version                BigInt    @default(0)
-  createdAt              DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  revokedAt                  DateTime? @db.Timestamptz(6)
+  version                    BigInt    @default(0)
+  createdAt                  DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   membership     UserOrg      @relation("SigningAuthorityHolder", fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
   secondApprover UserOrg?     @relation("SigningAuthoritySecondApprover", fields: [secondApprovalMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
@@ -225,15 +227,15 @@ model SigningAuthority {
 /// regenerated, and every rendering of it records the source revisions it was
 /// generated from. That snapshot is what makes staleness detectable at all.
 model AccountingDocument {
-  id             String @id @default(cuid())
-  tenantId       String
-  organizationId String
-  documentType   String
+  id                    String   @id @default(cuid())
+  tenantId              String
+  organizationId        String
+  documentType          String
   /// Assigned when the document is issued. A null number means it has never
   /// left draft, and the unique index tolerates many of those precisely
   /// because null does not collide with null in PostgreSQL.
-  documentNumber String?
-  dealId         String?
+  documentNumber        String?
+  dealId                String?
   /// The other side of the document. Deliberately not a foreign key: a
   /// counterparty may be an organization that never registered here, and a
   /// document must still be issuable to it.
@@ -263,17 +265,17 @@ model AccountingDocument {
 /// a signature covers, so allowing either to move would let a signed document
 /// come to mean something the signer never saw.
 model AccountingDocumentVersion {
-  id             String @id @default(cuid())
-  tenantId       String
-  organizationId String
-  documentId     String
-  versionNumber  Int
+  id                              String    @id @default(cuid())
+  tenantId                        String
+  organizationId                  String
+  documentId                      String
+  versionNumber                   Int
   /// SHA-256 of the exact bytes this version renders to.
-  payloadHash    String
+  payloadHash                     String
   /// Revision of every source this version drew from, keyed by the document
   /// source names in accounting-document-staleness.policy.ts. A source absent
   /// from this object makes the version unverifiable rather than fresh.
-  recordedRevisions Json
+  recordedRevisions               Json
   /// Kopecks. Money is never a float, and the sign is left unconstrained
   /// because a correction may legitimately carry a negative total.
   totalKopecks                    BigInt?
@@ -293,13 +295,13 @@ model AccountingDocumentVersion {
   createdByMembershipId           String
   createdAt                       DateTime  @default(now()) @db.Timestamptz(6)
 
-  document         AccountingDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  organization     Organization       @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
-  createdBy        UserOrg            @relation("AccountingDocumentVersionAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  signedBy         UserOrg?           @relation("AccountingDocumentVersionSigner", fields: [signedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  signingAuthority SigningAuthority?  @relation(fields: [signingAuthorityId], references: [id], onDelete: Restrict)
-  advanceOffsets   AccountingAdvanceOffset[] @relation("AccountingAdvanceOffsetVersion")
-  dealServices     AccountingDealService[]   @relation("AccountingDealServiceVersion")
+  document           AccountingDocument            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organization       Organization                  @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy          UserOrg                       @relation("AccountingDocumentVersionAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  signedBy           UserOrg?                      @relation("AccountingDocumentVersionSigner", fields: [signedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  signingAuthority   SigningAuthority?             @relation(fields: [signingAuthorityId], references: [id], onDelete: Restrict)
+  advanceOffsets     AccountingAdvanceOffset[]     @relation("AccountingAdvanceOffsetVersion")
+  dealServices       AccountingDealService[]       @relation("AccountingDealServiceVersion")
   paymentAllocations AccountingPaymentAllocation[] @relation("AccountingPaymentAllocationVersion")
 
   @@unique([documentId, versionNumber])
@@ -318,7 +320,7 @@ model AccountingDocumentVersion {
 /// held under `SELECT … FOR UPDATE` for the length of the issuing transaction
 /// rolls back with it.
 model AccountingNumberCounter {
-  id             String @id @default(cuid())
+  id             String   @id @default(cuid())
   tenantId       String
   organizationId String
   documentType   String
@@ -355,10 +357,10 @@ model AccountingNumberCounter {
 /// rewrite to justify a document after the fact — so the accounting principals
 /// receive SELECT on it and nothing else.
 model RegulatoryRuleVersion {
-  id         String @id @default(cuid())
+  id            String    @id @default(cuid())
   /// What is being versioned, e.g. `VAT_RATES` or `UPD_FORMAT`.
-  ruleKey    String
-  versionTag String
+  ruleKey       String
+  versionTag    String
   effectiveFrom DateTime  @db.Timestamptz(6)
   /// Exclusive. Null means still in force.
   effectiveTo   DateTime? @db.Timestamptz(6)
@@ -386,23 +388,23 @@ model RegulatoryRuleVersion {
 /// declaration and is therefore writable by its members — what it may not do
 /// is change meaning after documents have cited it.
 model OrganizationTaxProfile {
-  id                 String  @id @default(cuid())
-  tenantId           String
-  organizationId     String
-  versionTag         String
-  taxRegime          String
-  vatStatus          String
+  id                    String    @id @default(cuid())
+  tenantId              String
+  organizationId        String
+  versionTag            String
+  taxRegime             String
+  vatStatus             String
   /// Required exactly when the status is EXEMPT: the legal ground, in words.
   /// An exemption nobody can name is indistinguishable from not charging VAT
   /// for no reason.
-  vatExemptionGround String?
-  effectiveFrom      DateTime  @db.Timestamptz(6)
+  vatExemptionGround    String?
+  effectiveFrom         DateTime  @db.Timestamptz(6)
   /// Exclusive. Null means still current.
-  effectiveTo        DateTime? @db.Timestamptz(6)
+  effectiveTo           DateTime? @db.Timestamptz(6)
   createdByMembershipId String
-  version            BigInt   @default(0)
-  createdAt          DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt          DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  version               BigInt    @default(0)
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
   createdBy    UserOrg      @relation("OrganizationTaxProfileAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
@@ -425,31 +427,31 @@ model OrganizationTaxProfile {
 /// same reason: the signature is evidence of what was agreed, and terms that
 /// move underneath it are evidence of nothing. An amendment is a new version.
 model ContractVersion {
-  id                     String  @id @default(cuid())
-  tenantId               String
-  organizationId         String
-  contractNumber         String
-  versionNumber          Int
-  status                 String  @default("DRAFT")
+  id                      String    @id @default(cuid())
+  tenantId                String
+  organizationId          String
+  contractNumber          String
+  versionNumber           Int
+  status                  String    @default("DRAFT")
   /// SHA-256 of the exact terms this version fixes.
-  termsHash              String
-  terms                  Json
+  termsHash               String
+  terms                   Json
   /// The counterparty, deliberately not a foreign key: an agreement may be with
   /// an organization that never registered here.
-  counterpartyOrgId      String?
-  dealId                 String?
-  effectiveFrom          DateTime  @db.Timestamptz(6)
+  counterpartyOrgId       String?
+  dealId                  String?
+  effectiveFrom           DateTime  @db.Timestamptz(6)
   /// Exclusive. Null means still in force.
-  effectiveTo            DateTime? @db.Timestamptz(6)
-  signedAt               DateTime? @db.Timestamptz(6)
-  signedByMembershipId   String?
+  effectiveTo             DateTime? @db.Timestamptz(6)
+  signedAt                DateTime? @db.Timestamptz(6)
+  signedByMembershipId    String?
   /// Null only for the first version; every amendment names what it replaces,
   /// so the chain back to what was originally agreed is always followable.
   supersedesVersionNumber Int?
-  createdByMembershipId  String
-  version                BigInt   @default(0)
-  createdAt              DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  createdByMembershipId   String
+  version                 BigInt    @default(0)
+  createdAt               DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
   createdBy    UserOrg      @relation("ContractVersionAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
@@ -472,48 +474,48 @@ model ContractVersion {
 /// "the document is not signed" leaves the document unsigned and removes the
 /// only sign that anybody would have noticed.
 model AccountingWorkTask {
-  id             String @id @default(cuid())
-  tenantId       String
-  organizationId String
-  taskType       String
+  id                     String    @id @default(cuid())
+  tenantId               String
+  organizationId         String
+  taskType               String
   /// DERIVED or MANUAL. Not a note about where the row came from: it decides
   /// what closing the task requires.
-  origin         String
+  origin                 String
   /// SYSTEM_VERIFIED, SYSTEM_REPORTED or HUMAN_JUDGEMENT — how a resolution is
   /// proven. A derived task is never HUMAN_JUDGEMENT; a CHECK refuses it.
-  resolutionMode String
+  resolutionMode         String
   /// Identity of the condition, so the same unsigned document does not grow a
   /// new task every time the deriver runs.
-  derivationKey  String?
+  derivationKey          String?
   /// The same value while the task is open, nulled by the guard when it closes.
   /// Uniqueness lives here rather than on derivationKey so a condition that
   /// recurs after being resolved raises a fresh task instead of colliding with
   /// the closed one. Null never collides with null in PostgreSQL, which is what
   /// makes this work without a partial index.
-  openDerivationKey String?
+  openDerivationKey      String?
   /// Lower sorts first. Deliberately not an enum: ordering is a product
   /// decision that moves, and a migration per reordering makes it move slowly.
-  priority         Int    @default(100)
-  title            String
-  humanDescription String
+  priority               Int       @default(100)
+  title                  String
+  humanDescription       String
   /// Which capability the responsible person must hold, from the resolver in
   /// membership-capability.resolver.ts. Not a role and not a job profile: the
   /// task names what must be permitted, and who holds that is resolved live.
-  responsibleCapability String
-  assignedMembershipId  String?
-  dealId                String?
-  shipmentId            String?
-  documentId            String?
-  integrationJobId      String?
+  responsibleCapability  String
+  assignedMembershipId   String?
+  dealId                 String?
+  shipmentId             String?
+  documentId             String?
+  integrationJobId       String?
   /// The period a task is about, when it is about one. Nullable because most
   /// tasks are about a document.
-  periodId              String?
+  periodId               String?
   /// The event that raised this, kept so a task traces back to the fact that
   /// produced it rather than only to its own creation.
-  sourceEventId         String?
-  blockingRuleId        String?
-  status                String    @default("OPEN")
-  deadlineAt            DateTime? @db.Timestamptz(6)
+  sourceEventId          String?
+  blockingRuleId         String?
+  status                 String    @default("OPEN")
+  deadlineAt             DateTime? @db.Timestamptz(6)
   /// Set by the database on close, never by the caller: a resolution time the
   /// client chooses is a resolution time the client can antedate.
   resolvedAt             DateTime? @db.Timestamptz(6)
@@ -524,9 +526,9 @@ model AccountingWorkTask {
   resolutionEventId      String?
   /// Null for DERIVED tasks — nobody wrote them — and required for MANUAL ones.
   createdByMembershipId  String?
-  version                BigInt   @default(0)
-  createdAt              DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  version                BigInt    @default(0)
+  createdAt              DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   organization Organization        @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
   assignedTo   UserOrg?            @relation("AccountingWorkTaskAssignee", fields: [assignedMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
@@ -556,32 +558,32 @@ model AccountingWorkTask {
 /// a close declared over unfinished work is the report that gets believed and
 /// then contradicted.
 model AccountingPeriod {
-  id             String @id @default(cuid())
-  tenantId       String
-  organizationId String
+  id                   String    @id @default(cuid())
+  tenantId             String
+  organizationId       String
   /// Inclusive.
-  periodStart    DateTime @db.Timestamptz(6)
+  periodStart          DateTime  @db.Timestamptz(6)
   /// Exclusive, so a successor beginning exactly where this ends is a clean
   /// handover rather than an overlap — the same convention the rule registry
   /// and the tax profiles use.
-  periodEnd      DateTime @db.Timestamptz(6)
+  periodEnd            DateTime  @db.Timestamptz(6)
   /// OPEN, CLOSING or CLOSED. CLOSING exists so that the check for outstanding
   /// work happens against a period nobody is still adding to.
-  status         String   @default("OPEN")
-  closingStartedAt DateTime? @db.Timestamptz(6)
+  status               String    @default("OPEN")
+  closingStartedAt     DateTime? @db.Timestamptz(6)
   /// Stamped by the database, never supplied: a close time the caller picks is
   /// a close time the caller can antedate.
   closedAt             DateTime? @db.Timestamptz(6)
   closedByMembershipId String?
   openedByMembershipId String
-  version              BigInt   @default(0)
-  createdAt            DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  version              BigInt    @default(0)
+  createdAt            DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
-  openedBy     UserOrg      @relation("AccountingPeriodOpener", fields: [openedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization Organization         @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  openedBy     UserOrg              @relation("AccountingPeriodOpener", fields: [openedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
   workTasks    AccountingWorkTask[]
-  closedBy     UserOrg?     @relation("AccountingPeriodCloser", fields: [closedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  closedBy     UserOrg?             @relation("AccountingPeriodCloser", fields: [closedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
 
   @@unique([organizationId, periodStart])
   @@index([organizationId, status, periodStart])
@@ -595,28 +597,28 @@ model AccountingPeriod {
 /// operation behind it is a claim about money, and a claim about money offset
 /// against a real invoice is how a balance stops matching a bank statement.
 model AccountingAdvance {
-  id                String @id @default(cuid())
-  tenantId          String
-  organizationId    String
-  dealId            String
-  counterpartyOrgId String
+  id                     String   @id @default(cuid())
+  tenantId               String
+  organizationId         String
+  dealId                 String
+  counterpartyOrgId      String
   /// Kopecks, never a Float: the whole contour holds money as an integer of the
   /// minor unit, and an advance is the one number two parties will compare.
-  amountKopecks     BigInt
-  currency          String @default("RUB")
+  amountKopecks          BigInt
+  currency               String   @default("RUB")
   /// When the money arrived, which decides the period the advance falls in.
-  receivedAt        DateTime @db.Timestamptz(6)
+  receivedAt             DateTime @db.Timestamptz(6)
   /// The bank operation that proves it arrived. Required, and required to be
   /// confirmed — see the guard.
-  bankOperationId   String
+  bankOperationId        String
   recordedByMembershipId String
-  version           BigInt   @default(0)
-  createdAt         DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  version                BigInt   @default(0)
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
-  deal         Deal         @relation(fields: [dealId], references: [id], onDelete: Restrict)
-  recordedBy   UserOrg      @relation("AccountingAdvanceRecorder", fields: [recordedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization Organization              @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal         Deal                      @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  recordedBy   UserOrg                   @relation("AccountingAdvanceRecorder", fields: [recordedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
   offsets      AccountingAdvanceOffset[]
 
   @@index([organizationId, dealId, receivedAt])
@@ -632,21 +634,21 @@ model AccountingAdvance {
 /// the remaining advance a fact rather than a stored opinion — there is no
 /// cached balance column to drift from them.
 model AccountingAdvanceOffset {
-  id             String @id @default(cuid())
-  tenantId       String
-  organizationId String
-  advanceId      String
+  id                    String   @id @default(cuid())
+  tenantId              String
+  organizationId        String
+  advanceId             String
   /// Kopecks. Positive: a negative offset is a refund, which is a different
   /// event with its own evidence and is not spelled as a minus here.
-  amountKopecks  BigInt
-  appliedAt      DateTime @db.Timestamptz(6)
+  amountKopecks         BigInt
+  appliedAt             DateTime @db.Timestamptz(6)
   /// What it was applied to, when that is a document version.
-  documentVersionId String?
-  reason         String
+  documentVersionId     String?
+  reason                String
   /// Makes a retried command idempotent rather than doubly applied.
-  idempotencyKey String @unique
+  idempotencyKey        String   @unique
   appliedByMembershipId String
-  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
 
   advance      AccountingAdvance          @relation(fields: [advanceId], references: [id], onDelete: Restrict)
   organization Organization               @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
@@ -673,62 +675,62 @@ model AccountingAdvanceOffset {
 /// line that names it, never by editing it: an accounting fact somebody can
 /// rewrite after it has been approved is not a fact.
 model AccountingDealService {
-  id                String @id @default(cuid())
-  tenantId          String
-  organizationId    String
-  dealId            String
+  id                     String    @id @default(cuid())
+  tenantId               String
+  organizationId         String
+  dealId                 String
   /// Who owes for it. Never the organization itself.
-  counterpartyOrgId String
+  counterpartyOrgId      String
   /// STORAGE, DRYING, CLEANING, TRANSSHIPMENT, WEIGHING or LOADING.
-  kind              String
+  kind                   String
   /// TON_DAY, TON or OPERATION. A function of the kind, stored so the API can
   /// answer with it and constrained so the two cannot drift apart.
-  unit              String
+  unit                   String
   /// Quantity in thousandths of the unit. Thousandths rather than a Float
   /// because a rate multiplied by an approximation is an amount two parties
   /// will disagree about.
-  quantityMilliUnits BigInt
+  quantityMilliUnits     BigInt
   /// Thousandths of a ton. Required for TON_DAY and forbidden otherwise: it is
   /// what makes the ton-days checkable against the window.
-  tonnageMilliTons  BigInt?
+  tonnageMilliTons       BigInt?
   /// The service window, for TON_DAY only. Inclusive start, exclusive end, the
   /// convention the periods and the rule registry already use.
-  periodFrom        DateTime? @db.Timestamptz(6)
-  periodTo          DateTime? @db.Timestamptz(6)
+  periodFrom             DateTime? @db.Timestamptz(6)
+  periodTo               DateTime? @db.Timestamptz(6)
   /// Kopecks for one whole unit.
-  rateKopecks       BigInt
+  rateKopecks            BigInt
   /// Kopecks. Derived, and checked against quantity × rate.
-  amountKopecks     BigInt
-  currency          String @default("RUB")
+  amountKopecks          BigInt
+  currency               String    @default("RUB")
   /// When the service was rendered, which decides the period it falls in. For a
   /// storage window this is a point inside or at the end of it, not the window
   /// itself: a period is attributed to one month, and a window can straddle two.
-  renderedAt        DateTime @db.Timestamptz(6)
+  renderedAt             DateTime  @db.Timestamptz(6)
   /// RENDERED, APPROVED or REJECTED.
-  status            String @default("RENDERED")
+  status                 String    @default("RENDERED")
   recordedByMembershipId String
   /// Stamped by the database on approval, never supplied.
-  approvedAt        DateTime? @db.Timestamptz(6)
+  approvedAt             DateTime? @db.Timestamptz(6)
   /// The second person. Never the one who recorded the line.
   approvedByMembershipId String?
   /// The act this line was included in, once it was.
-  documentVersionId String?
+  documentVersionId      String?
   /// The approved line this one reverses, for a correction. At most one
   /// reversal per line — the unique index says so, and PostgreSQL admits many
   /// NULLs, which is exactly the shape wanted.
-  reversesServiceId String? @unique
-  idempotencyKey    String @unique
-  version           BigInt @default(0)
-  createdAt         DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  reversesServiceId      String?   @unique
+  idempotencyKey         String    @unique
+  version                BigInt    @default(0)
+  createdAt              DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
-  organization Organization               @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
-  deal         Deal                       @relation(fields: [dealId], references: [id], onDelete: Restrict)
-  recordedBy   UserOrg                    @relation("AccountingDealServiceRecorder", fields: [recordedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  approvedBy   UserOrg?                   @relation("AccountingDealServiceApprover", fields: [approvedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  version_     AccountingDocumentVersion? @relation("AccountingDealServiceVersion", fields: [documentVersionId], references: [id], onDelete: Restrict)
-  reverses     AccountingDealService?     @relation("AccountingDealServiceReversal", fields: [reversesServiceId], references: [id], onDelete: Restrict)
-  reversedBy   AccountingDealService?     @relation("AccountingDealServiceReversal")
+  organization       Organization                  @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal               Deal                          @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  recordedBy         UserOrg                       @relation("AccountingDealServiceRecorder", fields: [recordedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  approvedBy         UserOrg?                      @relation("AccountingDealServiceApprover", fields: [approvedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  version_           AccountingDocumentVersion?    @relation("AccountingDealServiceVersion", fields: [documentVersionId], references: [id], onDelete: Restrict)
+  reverses           AccountingDealService?        @relation("AccountingDealServiceReversal", fields: [reversesServiceId], references: [id], onDelete: Restrict)
+  reversedBy         AccountingDealService?        @relation("AccountingDealServiceReversal")
   paymentAllocations AccountingPaymentAllocation[] @relation("AccountingPaymentAllocationService")
 
   @@index([organizationId, dealId, renderedAt])
@@ -744,29 +746,29 @@ model AccountingDealService {
 /// operation, and one operation may back only one of them: counted twice, the
 /// same transfer would pay the same debt twice on paper.
 model AccountingPayment {
-  id                String @id @default(cuid())
-  tenantId          String
-  organizationId    String
-  dealId            String
-  counterpartyOrgId String
+  id                     String   @id @default(cuid())
+  tenantId               String
+  organizationId         String
+  dealId                 String
+  counterpartyOrgId      String
   /// INCOMING or OUTGOING, from this organization's point of view.
-  direction         String
+  direction              String
   /// Kopecks, as the bank reported them.
-  amountKopecks     BigInt
-  currency          String @default("RUB")
+  amountKopecks          BigInt
+  currency               String   @default("RUB")
   /// When the money moved, which decides the period it falls in.
-  paidAt            DateTime @db.Timestamptz(6)
+  paidAt                 DateTime @db.Timestamptz(6)
   /// The operation that proves it moved. Confirmed, for this deal, this amount.
-  bankOperationId   String
+  bankOperationId        String
   recordedByMembershipId String
-  idempotencyKey    String @unique
-  version           BigInt @default(0)
-  createdAt         DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  idempotencyKey         String   @unique
+  version                BigInt   @default(0)
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
-  deal         Deal         @relation(fields: [dealId], references: [id], onDelete: Restrict)
-  recordedBy   UserOrg      @relation("AccountingPaymentRecorder", fields: [recordedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization Organization                  @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal         Deal                          @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  recordedBy   UserOrg                       @relation("AccountingPaymentRecorder", fields: [recordedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
   allocations  AccountingPaymentAllocation[]
 
   /// One bank operation backs one payment in an organization's books.
@@ -782,20 +784,20 @@ model AccountingPayment {
 /// unallocated on a payment is the sum of these rows and nothing else, and a
 /// stored remainder is a second source of truth for the same number.
 model AccountingPaymentAllocation {
-  id             String @id @default(cuid())
-  tenantId       String
-  organizationId String
-  paymentId      String
+  id                      String   @id @default(cuid())
+  tenantId                String
+  organizationId          String
+  paymentId               String
   /// Exactly one of these two. A document version is an invoice or an act; a
   /// service line is a charge that has been approved by two people.
-  documentVersionId String?
-  dealServiceId     String?
-  amountKopecks  BigInt
-  allocatedAt    DateTime @db.Timestamptz(6)
-  reason         String
-  idempotencyKey String @unique
+  documentVersionId       String?
+  dealServiceId           String?
+  amountKopecks           BigInt
+  allocatedAt             DateTime @db.Timestamptz(6)
+  reason                  String
+  idempotencyKey          String   @unique
   allocatedByMembershipId String
-  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  createdAt               DateTime @default(now()) @db.Timestamptz(6)
 
   payment      AccountingPayment          @relation(fields: [paymentId], references: [id], onDelete: Restrict)
   organization Organization               @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
@@ -821,46 +823,46 @@ model AccountingPaymentAllocation {
 /// exist. Immutable once prepared — a reconciliation somebody can edit after
 /// sending it is not a reconciliation.
 model AccountingReconciliation {
-  id                String @id @default(cuid())
-  tenantId          String
-  organizationId    String
-  dealId            String
-  counterpartyOrgId String
+  id                      String    @id @default(cuid())
+  tenantId                String
+  organizationId          String
+  dealId                  String
+  counterpartyOrgId       String
   /// Inclusive start, exclusive end, the convention the periods and the rule
   /// registry already carry.
-  periodStart       DateTime @db.Timestamptz(6)
-  periodEnd         DateTime @db.Timestamptz(6)
-  currency          String @default("RUB")
+  periodStart             DateTime  @db.Timestamptz(6)
+  periodEnd               DateTime  @db.Timestamptz(6)
+  currency                String    @default("RUB")
   /// What was owed when the window opened. May be negative: the other party can
   /// be the one in credit.
-  openingBalanceKopecks BigInt
+  openingBalanceKopecks   BigInt
   /// Approved service lines in the window that are charges.
-  chargedKopecks        BigInt
+  chargedKopecks          BigInt
   /// Approved reversals in the window. Kept as a figure of its own rather than
   /// netted into the charges: a correction that disappears into a smaller
   /// number is a correction the counterparty cannot see, and when it cancels a
   /// charge from an earlier window the netted figure would go negative and be
   /// clamped — which is money quietly leaving the statement.
-  reversedKopecks       BigInt @default(0)
+  reversedKopecks         BigInt    @default(0)
   /// Payment allocations in the window.
-  paidKopecks           BigInt
+  paidKopecks             BigInt
   /// Advance offsets in the window.
-  advanceAppliedKopecks BigInt
+  advanceAppliedKopecks   BigInt
   /// Derived, and checked against the four above.
-  closingBalanceKopecks BigInt
+  closingBalanceKopecks   BigInt
   /// SHA-256 over the figures, so a statement can be compared with the rows it
   /// claims to summarise rather than trusted.
-  payloadHash       String
+  payloadHash             String
   /// PREPARED, AGREED or DISPUTED.
-  status            String @default("PREPARED")
-  preparedByMembershipId String
+  status                  String    @default("PREPARED")
+  preparedByMembershipId  String
   /// Stamped by the database on the response, never supplied.
-  respondedAt       DateTime? @db.Timestamptz(6)
+  respondedAt             DateTime? @db.Timestamptz(6)
   respondedByMembershipId String?
-  responseNote      String?
-  version           BigInt @default(0)
-  createdAt         DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  responseNote            String?
+  version                 BigInt    @default(0)
+  createdAt               DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
   deal         Deal         @relation(fields: [dealId], references: [id], onDelete: Restrict)
@@ -930,19 +932,19 @@ model Deal {
   updatedAt      DateTime  @updatedAt
   meta           String?
 
-  participants      DealParticipant[]
-  shipments         Shipment[]
-  documents         DealDocument[]
-  payments          Payment[]
-  labSamples        LabSample[]
-  dealEvents        DealEvent[]
-  acceptanceRecords AcceptanceRecord[]
-  bankOperations    BankOperation[]
-  accountingAdvances AccountingAdvance[]
-  accountingDealServices AccountingDealService[]
-  accountingPayments AccountingPayment[]
+  participants              DealParticipant[]
+  shipments                 Shipment[]
+  documents                 DealDocument[]
+  payments                  Payment[]
+  labSamples                LabSample[]
+  dealEvents                DealEvent[]
+  acceptanceRecords         AcceptanceRecord[]
+  bankOperations            BankOperation[]
+  accountingAdvances        AccountingAdvance[]
+  accountingDealServices    AccountingDealService[]
+  accountingPayments        AccountingPayment[]
   accountingReconciliations AccountingReconciliation[]
-  runtimeSnapshots  DealWorkspaceRuntimeSnapshot[] @relation("RuntimeSnapshotDeal")
+  runtimeSnapshots          DealWorkspaceRuntimeSnapshot[] @relation("RuntimeSnapshotDeal")
 
   @@index([sellerOrgId])
   @@index([buyerOrgId])
@@ -1977,34 +1979,34 @@ model RegulatoryIntegrationInboxConflict {
 // ── FGIS Grain provider and SDIZ authority ────────────────────────────────────
 
 model FgisGrainProviderConfiguration {
-  id                    String   @id
-  tenantId              String
-  organizationId        String
-  adapterCode           String   @default("FGIS_ZERNO")
-  apiVersion            String   @default("1.0.23")
-  mappingVersion        String   @default("fgis-zerno-1.0.23-catalog.v1")
-  signingPolicyVersion  String   @default("fgis-zerno-1.0.23-signing-policy.v1")
-  environment           String
-  endpointReference     String
-  tlsPolicyReference    String
-  credentialReference   String
-  signingKeyReference   String
-  payloadStoreReference String
+  id                                 String   @id
+  tenantId                           String
+  organizationId                     String
+  adapterCode                        String   @default("FGIS_ZERNO")
+  apiVersion                         String   @default("1.0.23")
+  mappingVersion                     String   @default("fgis-zerno-1.0.23-catalog.v1")
+  signingPolicyVersion               String   @default("fgis-zerno-1.0.23-signing-policy.v1")
+  environment                        String
+  endpointReference                  String
+  tlsPolicyReference                 String
+  credentialReference                String
+  signingKeyReference                String
+  payloadStoreReference              String
   tenantReadTransportAdmittedVersion BigInt?
-  status                String   @default("DRAFT")
-  version               BigInt   @default(0)
-  createdByUserId       String
-  updatedByUserId       String
-  createdAt             DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
-  updatedAt             DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  status                             String   @default("DRAFT")
+  version                            BigInt   @default(0)
+  createdByUserId                    String
+  updatedByUserId                    String
+  createdAt                          DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  updatedAt                          DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization  Organization                   @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_org_fk")
-  createdByUser User                           @relation("FgisProviderConfigurationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_created_user_fk")
-  updatedByUser User                           @relation("FgisProviderConfigurationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_updated_user_fk")
-  attestations  FgisGrainProviderAttestation[]
+  organization             Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_org_fk")
+  createdByUser            User                               @relation("FgisProviderConfigurationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_created_user_fk")
+  updatedByUser            User                               @relation("FgisProviderConfigurationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_config_updated_user_fk")
+  attestations             FgisGrainProviderAttestation[]
   tenantReadAuthorizations FgisGrainTenantReadAuthorization[]
   tenantReadProviderClaims FgisGrainTenantReadProviderClaim[]
-  tenantReadAudits FgisGrainTenantReadAudit[]
+  tenantReadAudits         FgisGrainTenantReadAudit[]
 
   @@unique([tenantId, organizationId, adapterCode, environment], map: "fgis_grain_provider_config_tenant_org_env_key")
   @@index([tenantId, organizationId, status], map: "fgis_grain_provider_config_status_idx")
@@ -2012,9 +2014,41 @@ model FgisGrainProviderConfiguration {
   @@map("fgis_grain_provider_configurations")
 }
 
+/// What a governance attestation is about when it is not an FGIS provider
+/// configuration.
+///
+/// Deliberately minimal: the identity of an external connection, its
+/// environment and the version being attested. No status machine — the
+/// attestation decisions are the state, and a second place to record "approved"
+/// is a second answer to the same question.
+///
+/// The kinds are the connection contour's own vocabulary, unchanged.
+model ConnectionAttestationSubject {
+  id                    String   @id
+  tenantId              String
+  organizationId        String
+  connectionKind        String
+  providerCode          String
+  environment           String
+  version               BigInt   @default(0)
+  createdByMembershipId String
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  attestations FgisGrainProviderAttestation[]
+  organization Organization                   @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy    UserOrg                        @relation("ConnectionAttestationSubjectAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([tenantId, organizationId, connectionKind, providerCode, environment], map: "connection_attestation_subject_identity_key")
+  @@index([organizationId, connectionKind], map: "connection_attestation_subject_org_kind_idx")
+  @@map("connection_attestation_subjects")
+}
+
 model FgisGrainProviderAttestation {
   id                   String   @id
-  configurationId      String
+  subjectKind          String   @default("FGIS_PROVIDER_CONFIGURATION")
+  configurationId      String?
+  connectionSubjectId  String?
   tenantId             String
   organizationId       String
   gate                 String
@@ -2032,13 +2066,15 @@ model FgisGrainProviderAttestation {
   prevHash             String?
   createdAt            DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  configuration FgisGrainProviderConfiguration @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_config_fk")
-  organization  Organization                   @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_org_fk")
-  actorUser     User                           @relation(fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_user_fk")
+  configuration     FgisGrainProviderConfiguration? @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_config_fk")
+  connectionSubject ConnectionAttestationSubject?   @relation(fields: [connectionSubjectId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_subject_fk")
+  organization      Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_org_fk")
+  actorUser         User                            @relation(fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_user_fk")
 
   @@index([configurationId, configurationVersion, gate, createdAt(sort: Desc), id(sort: Desc)], map: "fgis_grain_provider_attestation_config_idx")
   @@index([validUntil], map: "fgis_grain_provider_attestation_expiry_idx")
   @@index([actorUserId, createdAt(sort: Desc)], map: "fgis_grain_provider_attestation_actor_idx")
+  @@index([connectionSubjectId, configurationVersion, gate, createdAt(sort: Desc), id(sort: Desc)], map: "fgis_grain_provider_attestation_subject_idx")
   @@map("fgis_grain_provider_attestations")
 }
 
@@ -2195,7 +2231,7 @@ model FgisGrainAcknowledgement {
 }
 
 model FgisGrainTenantReadAuthorization {
-  id                           String   @id
+  id                           String    @id
   tenantId                     String
   organizationId               String
   configurationId              String
@@ -2215,13 +2251,13 @@ model FgisGrainTenantReadAuthorization {
   createdAt                    DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
   updatedAt                    DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_org_fk")
-  configuration FgisGrainProviderConfiguration @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_config_fk")
-  createdByUser User                            @relation("FgisGrainTenantReadAuthorizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_created_user_fk")
-  updatedByUser User                            @relation("FgisGrainTenantReadAuthorizationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_updated_user_fk")
-  attestedByUser User?                          @relation("FgisGrainTenantReadAuthorizationAttestedBy", fields: [attestedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_attested_user_fk")
+  organization   Organization                       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_org_fk")
+  configuration  FgisGrainProviderConfiguration     @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_config_fk")
+  createdByUser  User                               @relation("FgisGrainTenantReadAuthorizationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_created_user_fk")
+  updatedByUser  User                               @relation("FgisGrainTenantReadAuthorizationUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_updated_user_fk")
+  attestedByUser User?                              @relation("FgisGrainTenantReadAuthorizationAttestedBy", fields: [attestedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_auth_attested_user_fk")
   providerClaims FgisGrainTenantReadProviderClaim[]
-  audits FgisGrainTenantReadAudit[]
+  audits         FgisGrainTenantReadAudit[]
 
   @@unique([tenantId, organizationId, configurationId], map: "fgis_grain_tenant_read_auth_config_key")
   @@unique([id, tenantId, organizationId], map: "fgis_grain_tenant_read_auth_tenant_key")
@@ -2252,12 +2288,12 @@ model FgisGrainTenantReadProviderClaim {
   completedAt           DateTime? @db.Timestamptz(6)
   createdAt             DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization  Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_org_fk")
-  authorization FgisGrainTenantReadAuthorization @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_auth_fk")
-  configuration FgisGrainProviderConfiguration   @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_config_fk")
-  actorUser     User                              @relation("FgisGrainTenantReadProviderClaimActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_user_fk")
+  organization   Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_org_fk")
+  authorization  FgisGrainTenantReadAuthorization @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_auth_fk")
+  configuration  FgisGrainProviderConfiguration   @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_config_fk")
+  actorUser      User                             @relation("FgisGrainTenantReadProviderClaimActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_user_fk")
   completedAudit FgisGrainTenantReadAudit?        @relation("FgisGrainTenantReadClaimCompletion", fields: [completedAuditId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_claim_completed_audit_fk")
-  audits         FgisGrainTenantReadAudit[]        @relation("FgisGrainTenantReadClaimAudits")
+  audits         FgisGrainTenantReadAudit[]       @relation("FgisGrainTenantReadClaimAudits")
 
   @@unique([tenantId, organizationId, requestIdempotencyKey], map: "fgis_grain_tenant_read_claim_request_key")
   @@index([tenantId, organizationId, leaseExpiresAt], map: "fgis_grain_tenant_read_claim_lease_idx")
@@ -2291,13 +2327,13 @@ model FgisGrainTenantReadAudit {
   prevHash              String?   @db.Char(64)
   createdAt             DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization Organization                     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_org_fk")
-  authorization FgisGrainTenantReadAuthorization @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_auth_fk")
-  configuration FgisGrainProviderConfiguration   @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_config_fk")
-  actorUser User                                  @relation("FgisGrainTenantReadAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_user_fk")
-  providerClaim FgisGrainTenantReadProviderClaim? @relation("FgisGrainTenantReadClaimAudits", fields: [providerClaimId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_claim_fk")
+  organization   Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_org_fk")
+  authorization  FgisGrainTenantReadAuthorization  @relation(fields: [authorizationId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_auth_fk")
+  configuration  FgisGrainProviderConfiguration    @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_config_fk")
+  actorUser      User                              @relation("FgisGrainTenantReadAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_user_fk")
+  providerClaim  FgisGrainTenantReadProviderClaim? @relation("FgisGrainTenantReadClaimAudits", fields: [providerClaimId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_claim_fk")
   completedClaim FgisGrainTenantReadProviderClaim? @relation("FgisGrainTenantReadClaimCompletion")
-  chainHead FgisGrainTenantReadAuditHead?          @relation("FgisGrainTenantReadChainHead")
+  chainHead      FgisGrainTenantReadAuditHead?     @relation("FgisGrainTenantReadChainHead")
 
   @@unique([tenantId, organizationId, idempotencyKey], map: "fgis_grain_tenant_read_audit_idempotency_key")
   @@unique([tenantId, organizationId, chainSequence], map: "fgis_grain_tenant_read_audit_chain_sequence_key")
@@ -2316,13 +2352,12 @@ model FgisGrainTenantReadAuditHead {
   lastHash       String?  @db.Char(64)
   updatedAt      DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_head_org_fk")
-  lastAudit FgisGrainTenantReadAudit? @relation("FgisGrainTenantReadChainHead", fields: [lastAuditId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_head_last_audit_fk")
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_head_org_fk")
+  lastAudit    FgisGrainTenantReadAudit? @relation("FgisGrainTenantReadChainHead", fields: [lastAuditId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_tenant_read_audit_head_last_audit_fk")
 
   @@id([tenantId, organizationId], map: "fgis_grain_tenant_read_audit_head_pkey")
   @@map("fgis_grain_tenant_read_audit_heads")
 }
-
 
 // ── Gekta: аккаунт, доступ, история и монетизация ─────────────────────────────
 //
@@ -2687,4 +2722,3 @@ model GektaMerchantProfile {
   @@index([effectiveFrom(sort: Desc)], map: "gekta_merchant_profiles_effective_idx")
   @@map("gekta_merchant_profiles")
 }
-
