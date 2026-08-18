@@ -7,6 +7,7 @@ on:
       - '.github/workflows/production-p0-reviewer-smtp587-starttls-probe.yml'
       - 'scripts/production-p0-reviewer-smtp587-starttls-probe.sh'
       - 'scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh'
+      - 'scripts/production-p0-reviewer-direct-mx-predata-probe.sh'
       - 'docs/platform-v7/autopilot/scopes/p0-auth-mail-smtp587-starttls-3785.json'
       - 'docs/platform-v7/autopilot/scopes/p0-auth-mail-smtp587-starttls-3785.md'
       - 'docs/platform-v7/autopilot/scopes/p0-auth-mail-smtp587-starttls-3785.txt'
@@ -22,7 +23,7 @@ jobs:
   probe:
     name: REG.RU 587 STARTTLS pre-DATA probe
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 15
     env:
       PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
       PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
@@ -43,12 +44,15 @@ jobs:
           set -Eeuo pipefail
           bash -n scripts/production-p0-reviewer-smtp587-starttls-probe.sh
           bash -n scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh
+          bash -n scripts/production-p0-reviewer-direct-mx-predata-probe.sh
           grep -Fq "stage='STARTTLS'" scripts/production-p0-reviewer-smtp587-starttls-probe.sh
           grep -Fq "stage='RCPT_TO'" scripts/production-p0-reviewer-smtp587-starttls-probe.sh
           ! grep -Fq "command('DATA'" scripts/production-p0-reviewer-smtp587-starttls-probe.sh
           ! grep -Fq 'sendAuthMailSmtp(' scripts/production-p0-reviewer-smtp587-starttls-probe.sh
           ! grep -Fq "command('DATA'" scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh
           ! grep -Fq 'sendAuthMailSmtp(' scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh
+          ! grep -Fq "command('DATA'" scripts/production-p0-reviewer-direct-mx-predata-probe.sh
+          ! grep -Fq 'sendAuthMailSmtp(' scripts/production-p0-reviewer-direct-mx-predata-probe.sh
 
       - name: Probe existing REG.RU identity through 587 STARTTLS without DATA
         shell: bash
@@ -61,3 +65,9 @@ jobs:
         env:
           RUNNER_TEMP: ${{ runner.temp }}
         run: bash scripts/production-p0-reviewer-smtp-recipient-isolation-probe.sh
+
+      - name: Probe direct recipient MX without DATA
+        shell: bash
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: bash scripts/production-p0-reviewer-direct-mx-predata-probe.sh
