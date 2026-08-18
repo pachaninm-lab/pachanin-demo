@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-onec-machine-identity-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — scoped 1C machine identity",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseParentHead": "d1d70372e3cb80b20eacaad00d7b9a6f4b65d9c1",
+  "purpose": "Stack the next offline-buildable 1C connector slice on the protocol contract: a revocable machine credential whose persistent form contains no plaintext secret and is bound to one installation, one connection, one platform organization and one exact 1C legal-entity GUID. No runtime route, database persistence, vendor adapter or live claim is added.",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/one-c-machine-credential.policy.ts",
+    "apps/api/src/modules/accounting/one-c-machine-credential.policy.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/one-c-machine-identity-slice-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-onec-machine-identity-20260818.json"
+  ],
+  "boundaries": [
+    "No apps/web, packages, lockfile, Prisma schema, migration, auth, registration, FGIS, banking, hosting or production change.",
+    "No JWT or self-asserted organization claims: the server-authoritative record is the scope and the presented secret proves only possession.",
+    "No plaintext credential is represented in the persistent record.",
+    "A credential for one 1C organization GUID never authorizes another GUID discovered in the same database.",
+    "Revocation and expiry fail closed.",
+    "Credential rotation creates a new secret/version; the old record is not silently extended.",
+    "The protocol parent PR remains a prerequisite; this is a stacked slice until that parent is merged.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredInvariants": [
+    "Credential material is generated with cryptographic randomness and only a salted SHA-256 verifier belongs in persistent state.",
+    "Verification uses timing-safe comparison.",
+    "The persistent scope is installationId + connectionId + platformOrganizationId + oneCOrganizationGuid + protocolVersion.",
+    "Expected request scope must exactly match all four binding dimensions and protocol version.",
+    "Revoked, expired, malformed or wrong-secret credentials are denied.",
+    "A future repository can revoke immediately without waiting for secret expiry because authorization reads the server-side record on every request."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-onec-machine-identity-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- one-c-machine-credential.policy.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting and security gates"
+  ]
+}
