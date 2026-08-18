@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "scopeId": "p0-auth-mail-worker-stable-realign-3785",
+  "authority": {
+    "registrationIssue": 3785,
+    "releaseIssue": 3072,
+    "trustedConnectorAppId": 1144995
+  },
+  "purpose": "Recover the retained production auth-mail worker when its historical Compose authority no longer renders the worker service, by replacing only that worker with the exact current API image under a canonical root-owned stable Compose override.",
+  "allowedPaths": [
+    ".github/workflows/production-p0-auth-mail-worker-stable-realign-current-runtime.yml",
+    "scripts/production-p0-auth-mail-worker-stable-realign-current-runtime.sh",
+    "docs/platform-v7/autopilot/scopes/p0-auth-mail-worker-stable-realign-3785.json"
+  ],
+  "preconditions": [
+    "API and Web are one exact current-main revision",
+    "exactly one retained auth-mail worker exists in the same Compose project",
+    "retained worker is healthy and passes the canonical non-root command, environment, mount and network boundaries",
+    "retained worker Compose files render successfully but do not contain auth-mail-worker",
+    "target API image and retained worker image are already local and have the expected immutable OCI revisions",
+    "root-owned auth-mail runtime projection is valid before mutation"
+  ],
+  "invariants": [
+    "auth-mail worker only",
+    "no API or Web recreation",
+    "no database SQL or credential mutation",
+    "no SMTP send, registration journey or password reset",
+    "no image pull or prune",
+    "canonical worker command and non-root image boundary",
+    "four read-only auth-mail runtime mounts only",
+    "single existing API network only",
+    "runtime projection content digest is unchanged",
+    "post-mutation worker must be exact target revision, healthy and ready",
+    "bounded rollback uses the retained local worker image under the same canonical stable contract"
+  ],
+  "command": "/production p0-auth-mail-worker-stable-realign-current-main",
+  "productionMutation": "AUTH_MAIL_WORKER_STABLE_REALIGNED",
+  "newRecurringCostRub": 0
+}
