@@ -2,7 +2,7 @@ import { resolve4, resolveMx } from 'node:dns/promises';
 import { connect as connectTcp, isIP, type Socket } from 'node:net';
 import { connect as connectTls, type TLSSocket } from 'node:tls';
 import { domainToASCII } from 'node:url';
-import { AuthMailTransportError } from './auth-mail-smtp';
+import { AuthMailTransportError } from './auth-mail-transport-error';
 
 const DIRECT_MX_PORT = 25;
 const DIRECT_MX_LIMIT = 2;
