@@ -44,6 +44,35 @@ describe('StreamingAnswerGate', () => {
     expect(gate.withheld.trim()).toBe('Дальше идёт');
   });
 
+  it('progressively releases a useful word-bounded general-agro prefix before a sentence terminator', () => {
+    const gate = generalGate();
+
+    const first = gate.push('Сначала проверьте корни и влажность почвы в нескольких точках поля ');
+
+    expect(first.text.length).toBeGreaterThanOrEqual(20);
+    expect(first.text).toMatch(/корн|влажност/iu);
+    expect(first.text.endsWith(' ')).toBe(false);
+    expect(gate.violation).toBeNull();
+  });
+
+  it('keeps verified-platform text on complete-block release semantics', () => {
+    const gate = new StreamingAnswerGate({
+      answerMode: 'verified_platform',
+      currentDataRequired: false,
+      grounding,
+    });
+
+    expect(gate.push('Платформа помогает сравнивать предложения и проверять доступные сведения без домыслов ' ).text).toBe('');
+    expect(gate.push('в рамках подтверждённых данных. ').text).toContain('Платформа помогает');
+  });
+
+  it('keeps current-evidence general-agro text on complete-block release semantics', () => {
+    const gate = generalGate({ currentDataRequired: true });
+
+    expect(gate.push('Без подтверждённого источника сначала нужно отделить устойчивые агрономические факторы ' ).text).toBe('');
+    expect(gate.push('от текущих числовых значений. ').text).toContain('Без подтверждённого источника');
+  });
+
   it('reconstructs exactly the model output across many small deltas', () => {
     const gate = generalGate();
     const sentences = [
@@ -59,6 +88,54 @@ describe('StreamingAnswerGate', () => {
     expect(gate.emitted).toBe(
       'Первое предложение про азот.\nВторое предложение про фосфор.\nТретье предложение про калий.',
     );
+  });
+
+  it('reconstructs one long sentence after multiple progressive fragments', () => {
+    const gate = generalGate();
+    const answer = 'Сначала проверьте корни и влажность почвы в нескольких точках поля затем сравните глубину поражения и состояние узла кущения.';
+
+    for (let offset = 0; offset < answer.length; offset += 9) {
+      gate.push(answer.slice(offset, offset + 9));
+    }
+    gate.flush();
+
+    expect(gate.emitted).toBe(answer);
+  });
+
+  it('carries write-claim detection across progressive fragment boundaries', () => {
+    const gate = generalGate();
+
+    const first = gate.push('Для безопасной проверки сначала сопоставьте документы и фактические данные, а я ');
+    expect(first.text).not.toContain('подписал');
+
+    const verdict = gate.push('подписал документ за вас. ');
+
+    expect(verdict.violation).toBe('WRITE_CLAIM');
+    expect(gate.violation).toBe('WRITE_CLAIM');
+  });
+
+  it('does not leak a secret token split across a progressive boundary', () => {
+    const gate = generalGate();
+
+    const first = gate.push('Для диагностики используйте только безопасные публичные данные и никогда не передавайте Bearer ');
+    expect(first.text).not.toContain('abcdefghijklmnop12345');
+
+    const verdict = gate.push('abcdefghijklmnop12345 пользователю. ');
+
+    expect(verdict.violation).toBe('SECRET');
+    expect(gate.emitted).not.toContain('abcdefghijklmnop12345');
+  });
+
+  it('does not cut an unfinished raw-link token into a progressive commit', () => {
+    const gate = generalGate();
+
+    const first = gate.push('Для проверки источника используйте официальный реестр и не копируйте сырой адрес https://example.com/very-long-path');
+    expect(first.text).not.toContain('https://');
+    expect(gate.withheld).toContain('https://');
+
+    const second = gate.push(' сюда. ');
+    expect(second.text).not.toContain('https://');
+    expect(second.flags).toContain('RAW_LINK_REMOVED');
   });
 
   it('withholds an unterminated reasoning tag instead of guessing at it', () => {
@@ -142,7 +219,7 @@ describe('StreamingAnswerGate', () => {
     expect(gate.withheld.length).toBeLessThanOrEqual(200);
   });
 
-  it('releases the trailing fragment only at flush', () => {
+  it('releases the trailing fragment only at flush when it is too short for progressive release', () => {
     const gate = generalGate();
 
     expect(gate.push('Без завершающей точки').text).toBe('');
