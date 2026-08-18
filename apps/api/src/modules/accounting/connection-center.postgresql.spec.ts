@@ -7,7 +7,9 @@ import {
   MissingPrerequisite,
   type ConnectionState,
 } from './connection-center.policy';
+import { ConnectionAttestationRepository } from './connection-attestation.repository';
 import { ConnectionCenterRepository } from './connection-center.repository';
+import { WorkTaskRepository } from './work-task.repository';
 
 /**
  * What the Connection Centre says, against a live PostgreSQL 16.
@@ -185,7 +187,14 @@ describePostgres('what the connection centre reports', () => {
               ${OTHER_MEMBERSHIP}, now(), now())
     `;
 
-    repo = new ConnectionCenterRepository(new RlsTransactionService(prisma));
+    const transactions = new RlsTransactionService(prisma);
+    repo = new ConnectionCenterRepository(
+      transactions,
+      new ConnectionAttestationRepository(
+        transactions,
+        new WorkTaskRepository(transactions),
+      ),
+    );
   });
 
   afterAll(async () => {
@@ -222,20 +231,25 @@ describePostgres('what the connection centre reports', () => {
     const bank = find(await repo.describe(actor()), ConnectionKind.BANK_STATEMENT);
 
     // An importer exists and is routed, so ADAPTER_NOT_IMPLEMENTED would be
-    // false. It has no attestation of its own, so ADAPTER_READY would be a
-    // claim about work nobody did.
+    // false. Nobody has put it in front of the four gates, so ADAPTER_READY
+    // would be a claim about work nobody did.
     expect(bank.missing).not.toContain(MissingPrerequisite.ADAPTER_NOT_IMPLEMENTED);
     expect(bank.missing).toContain(MissingPrerequisite.CONTRACT_NOT_ATTESTED);
     expect(bank.maturity).toBe(AdapterMaturity.NOT_ATTESTED);
   });
 
-  it('starts EDO at ADAPTER_READY and no higher', async () => {
+  it('does not call EDO attested when nobody has attested it', async () => {
     const edo = find(await repo.describe(actor()), ConnectionKind.EDO);
 
-    expect(edo.maturity).toBe(AdapterMaturity.ADAPTER_READY);
+    // This file used to assert ADAPTER_READY here, on the strength of a
+    // constant in the repository saying the contract was attested. A contour
+    // asserting its own attestation is not an attestation, so the constant is
+    // gone and the answer now comes from the four gates.
+    expect(edo.maturity).toBe(AdapterMaturity.NOT_ATTESTED);
     expect(edo.mayCarryRealTraffic).toBe(false);
     expect(edo.missing).toEqual(
       expect.arrayContaining([
+        MissingPrerequisite.CONTRACT_NOT_ATTESTED,
         MissingPrerequisite.ENDPOINT_NOT_CONFIGURED,
         MissingPrerequisite.VENDOR_CREDENTIALS_NOT_ISSUED,
         MissingPrerequisite.TEST_EXCHANGE_NOT_PERFORMED,
@@ -301,6 +315,6 @@ describePostgres('what the connection centre reports', () => {
     // would hand this organization a neighbour's evidence and report a
     // connection it has never had. The read is scoped by organization.
     expect(edo.missing).toContain(MissingPrerequisite.LIVE_RECEIPT_NOT_OBTAINED);
-    expect(edo.maturity).toBe(AdapterMaturity.ADAPTER_READY);
+    expect(edo.maturity).toBe(AdapterMaturity.NOT_ATTESTED);
   });
 });

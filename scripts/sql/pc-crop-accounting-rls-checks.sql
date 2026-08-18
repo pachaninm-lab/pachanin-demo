@@ -2747,6 +2747,422 @@ BEGIN
 END;
 $pc_crop_reconciliation_checks$;
 
+-- Provider-neutral attestation, as the confined command principal -----------
+--
+-- The governance artefact is the FGIS contour's attestation table, extended
+-- rather than duplicated. These checks are about the extension: that a neutral
+-- subject is governed by the database, that the FGIS guarantee survived losing
+-- its blanket NOT NULL, and that the accounting principals reach the neutral
+-- rows without reaching the FGIS ones.
+SET ROLE pc_accounting_command_authority;
+
+DO $pc_crop_connection_attestation_checks$
+DECLARE
+  failures integer := 0;
+  subject_a text := 'pc-conn-subject-a';
+  first_id text;
+  second_id text;
+  gates integer;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 129. A member registers a subject for their own organization.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."connection_attestation_subjects"(
+      "id","tenantId","organizationId","connectionKind","providerCode",
+      "environment","createdByMembershipId"
+    ) VALUES (
+      subject_a, 'tenant-a', 'org-a', 'EDO', 'DIADOC', 'PRE_PRODUCTION', 'm-a'
+    );
+    RAISE NOTICE 'PASS 129 a member registers a connection subject';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 129 a member registers a connection subject -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 130. A vendor name in mixed case is refused rather than silently kept.
+  --      Two spellings of one operator would be two approval histories.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."connection_attestation_subjects"(
+      "id","tenantId","organizationId","connectionKind","providerCode",
+      "environment","createdByMembershipId"
+    ) VALUES (
+      'pc-conn-subject-case', 'tenant-a', 'org-a', 'EDO', 'Diadoc',
+      'PRE_PRODUCTION', 'm-a'
+    );
+    RAISE WARNING 'FAIL 130 an unnormalized provider code refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'PASS 130 an unnormalized provider code refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 131. A subject for somebody else's organization is refused.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."connection_attestation_subjects"(
+      "id","tenantId","organizationId","connectionKind","providerCode",
+      "environment","createdByMembershipId"
+    ) VALUES (
+      'pc-conn-subject-b', 'tenant-b', 'org-b', 'EDO', 'DIADOC',
+      'PRE_PRODUCTION', 'm-b'
+    );
+    RAISE WARNING 'FAIL 131 cross-organization subject refused -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION WHEN insufficient_privilege OR check_violation OR raise_exception THEN
+    RAISE NOTICE 'PASS 131 cross-organization subject refused';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 132. The first gate is recorded, and the platform computes the hash.
+  ---------------------------------------------------------------------------
+  BEGIN
+    first_id := public.app_pc_crop_record_connection_attestation(
+      subject_a, 'OWNER', 'APPROVED', 'Operator contract reviewed',
+      'evidence://edo/owner', now() + interval '30 days',
+      'pc-conn-key-1', 'pc-conn-correlation-1'
+    );
+    IF first_id IS NULL THEN
+      RAISE WARNING 'FAIL 132 the first gate is recorded -> no id returned';
+      failures := failures + 1;
+    ELSE
+      RAISE NOTICE 'PASS 132 the first gate is recorded';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 132 the first gate is recorded -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 133. The same actor cannot also answer a second gate. Four gates exist so
+  --      that four people look.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM public.app_pc_crop_record_connection_attestation(
+      subject_a, 'SECURITY', 'APPROVED', 'Same person, second gate',
+      'evidence://edo/security', now() + interval '30 days',
+      'pc-conn-key-2', 'pc-conn-correlation-2'
+    );
+    RAISE WARNING 'FAIL 133 one actor cannot answer two gates -> it was recorded';
+    failures := failures + 1;
+  EXCEPTION WHEN raise_exception THEN
+    RAISE NOTICE 'PASS 133 one actor cannot answer two gates';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 134. A second person answers the next gate.
+  --
+  --      Verified through the reader, not by selecting the table: the command
+  --      principal has no grant there, which is check 135. The chain linkage
+  --      those two rows form is audited from an unconfined connection below,
+  --      because that is who would audit it.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('app.current_user_id', 'user-both', true);
+    second_id := public.app_pc_crop_record_connection_attestation(
+      subject_a, 'SECURITY', 'APPROVED', 'Independent security review',
+      'evidence://edo/security', now() + interval '30 days',
+      'pc-conn-key-3', 'pc-conn-correlation-3'
+    );
+    PERFORM set_config('app.current_user_id', 'user-a', true);
+    IF second_id IS NULL THEN
+      RAISE WARNING 'FAIL 134 a second person answers -> no id returned';
+      failures := failures + 1;
+    ELSE
+      RAISE NOTICE 'PASS 134 a second person answers the next gate';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 134 a second person answers -> %', SQLERRM;
+    failures := failures + 1;
+    PERFORM set_config('app.current_user_id', 'user-a', true);
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 135. Nobody writes the attestation table directly. The command principal
+  --      has no grant there, so it cannot forge a row about an FGIS
+  --      configuration either.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."fgis_grain_provider_attestations"(
+      "id","subjectKind","connectionSubjectId","tenantId","organizationId",
+      "gate","decision","configurationVersion","actorUserId","actorRole",
+      "mfaVerified","justification","evidenceReference","validUntil",
+      "idempotencyKey","correlationId","hash"
+    ) VALUES (
+      'pc-conn-forged', 'CONNECTION_SUBJECT', subject_a, 'tenant-a', 'org-a',
+      'LEGAL', 'APPROVED', 0, 'user-a', 'ADMIN', true, 'forged', 'evidence://x',
+      now() + interval '1 day', 'pc-conn-key-forged', 'pc-conn-correlation-forged',
+      repeat('a', 64)
+    );
+    RAISE WARNING 'FAIL 135 the attestation table is not writable directly -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'PASS 135 the attestation table is not writable directly';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 136. The subject's version only moves forward, one step at a time.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."connection_attestation_subjects"
+       SET "version" = 5 WHERE "id" = subject_a;
+    RAISE WARNING 'FAIL 136 a subject version does not jump -> it did';
+    failures := failures + 1;
+  EXCEPTION WHEN insufficient_privilege OR raise_exception THEN
+    RAISE NOTICE 'PASS 136 a subject version does not jump';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 137. What the subject is about never changes. Four approvals of one
+  --      operator's test endpoint must not become approvals of production.
+  ---------------------------------------------------------------------------
+  BEGIN
+    UPDATE public."connection_attestation_subjects"
+       SET "environment" = 'PRODUCTION' WHERE "id" = subject_a;
+    RAISE WARNING 'FAIL 137 a subject does not change what it is about -> it did';
+    failures := failures + 1;
+  EXCEPTION WHEN insufficient_privilege OR raise_exception THEN
+    RAISE NOTICE 'PASS 137 a subject does not change what it is about';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 138. An attestation is never deleted, and neither is its subject.
+  ---------------------------------------------------------------------------
+  BEGIN
+    DELETE FROM public."connection_attestation_subjects" WHERE "id" = subject_a;
+    RAISE WARNING 'FAIL 138 a subject is not deleted -> it was';
+    failures := failures + 1;
+  EXCEPTION WHEN insufficient_privilege OR raise_exception THEN
+    RAISE NOTICE 'PASS 138 a subject is not deleted';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 139. The FGIS guarantee survived. `configurationId` lost its blanket NOT
+  --      NULL so a neutral row could exist; a row that claims to be about an
+  --      FGIS configuration must still carry one.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM 1
+      FROM pg_catalog.pg_constraint
+     WHERE conname = 'fgis_grain_provider_attestation_subject_binding_ck'
+       AND conrelid = 'public.fgis_grain_provider_attestations'::regclass;
+    IF FOUND THEN
+      RAISE NOTICE 'PASS 139 an FGIS attestation still requires its configuration';
+    ELSE
+      RAISE WARNING
+        'FAIL 139 an FGIS attestation still requires its configuration -> the check is gone';
+      failures := failures + 1;
+    END IF;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 140. Exactly one subject per row: never both, never neither.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM 1
+      FROM pg_catalog.pg_constraint
+     WHERE conname = 'fgis_grain_provider_attestation_one_subject_ck'
+       AND conrelid = 'public.fgis_grain_provider_attestations'::regclass;
+    IF FOUND THEN
+      RAISE NOTICE 'PASS 140 an attestation is about exactly one thing';
+    ELSE
+      RAISE WARNING 'FAIL 140 an attestation is about exactly one thing -> the check is gone';
+      failures := failures + 1;
+    END IF;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 141. The reader answers about this organization's subject, and reports the
+  --      gates that are live for the version the subject is actually at.
+  ---------------------------------------------------------------------------
+  BEGIN
+    SELECT count(*) INTO gates
+      FROM public.app_pc_crop_connection_attestation_state(subject_a);
+    IF gates = 2 THEN
+      RAISE NOTICE 'PASS 141 the reader reports the live gates -> 2';
+    ELSE
+      RAISE WARNING 'FAIL 141 the reader reports the live gates -> %', gates;
+      failures := failures + 1;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 141 the reader reports the live gates -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 142. Forging the organization buys nothing: the reader is a definer and
+  --      therefore not confined by row level security, so it demands the
+  --      caller's organization itself.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('app.current_org_id', 'org-b', true);
+    SELECT count(*) INTO gates
+      FROM public.app_pc_crop_connection_attestation_state(subject_a);
+    PERFORM set_config('app.current_org_id', 'org-a', true);
+    IF gates = 0 THEN
+      RAISE NOTICE 'PASS 142 a forged organization reads no attestations';
+    ELSE
+      RAISE WARNING 'FAIL 142 a forged organization reads no attestations -> %', gates;
+      failures := failures + 1;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 142 a forged organization reads no attestations -> %', SQLERRM;
+    failures := failures + 1;
+    PERFORM set_config('app.current_org_id', 'org-a', true);
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop connection attestations: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: connection attestations, 0 failures';
+END;
+$pc_crop_connection_attestation_checks$;
+
+RESET ROLE;
+
+-- The neutral rows are readable by the read principal; the FGIS ones are not --
+SET ROLE pc_accounting_authority;
+
+DO $pc_crop_connection_attestation_read_checks$
+DECLARE
+  failures integer := 0;
+  gates integer;
+BEGIN
+  PERFORM set_config('app.current_user_id', 'user-a', true),
+          set_config('app.current_org_id', 'org-a', true),
+          set_config('app.current_tenant_id', 'tenant-a', true);
+
+  ---------------------------------------------------------------------------
+  -- 143. The read principal reads its own subjects.
+  ---------------------------------------------------------------------------
+  BEGIN
+    SELECT count(*) INTO gates
+      FROM public."connection_attestation_subjects";
+    RAISE NOTICE 'PASS 143 the read principal reads its own subjects -> %', gates;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'FAIL 143 the read principal reads its own subjects -> %', SQLERRM;
+    failures := failures + 1;
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 144. And cannot reach the attestation table itself. It gets the function,
+  --      which can only ever answer about connection subjects — never about
+  --      the FGIS governance history sharing the table.
+  ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM 1 FROM public."fgis_grain_provider_attestations" LIMIT 1;
+    RAISE WARNING 'FAIL 144 the read principal cannot reach the attestation table -> it can';
+    failures := failures + 1;
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'PASS 144 the read principal cannot reach the attestation table';
+  END;
+
+  ---------------------------------------------------------------------------
+  -- 145. The read principal records nothing.
+  ---------------------------------------------------------------------------
+  BEGIN
+    INSERT INTO public."connection_attestation_subjects"(
+      "id","tenantId","organizationId","connectionKind","providerCode",
+      "environment","createdByMembershipId"
+    ) VALUES (
+      'pc-conn-subject-read', 'tenant-a', 'org-a', 'ONE_C', 'ONEC',
+      'PRE_PRODUCTION', 'm-a'
+    );
+    RAISE WARNING 'FAIL 145 the read principal records nothing -> insert succeeded';
+    failures := failures + 1;
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'PASS 145 the read principal records nothing';
+  END;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop connection attestation reads: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: connection attestation reads, 0 failures';
+END;
+$pc_crop_connection_attestation_read_checks$;
+
+RESET ROLE;
+
+-- The chain, audited the way an auditor would ------------------------------
+DO $pc_crop_connection_attestation_chain_checks$
+DECLARE
+  failures integer := 0;
+  broken integer;
+  head_count integer;
+BEGIN
+  ---------------------------------------------------------------------------
+  -- 146. Every attestation of a connection subject links to the row before it,
+  --      and only the first links to nothing. A chain that forks or restarts
+  --      proves nothing, and the platform computes these hashes itself: no
+  --      caller supplies one.
+  ---------------------------------------------------------------------------
+  SELECT count(*) INTO broken
+    FROM public."fgis_grain_provider_attestations" a
+   WHERE a."subjectKind" = 'CONNECTION_SUBJECT'
+     AND a."prevHash" IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM public."fgis_grain_provider_attestations" previous
+        WHERE previous."connectionSubjectId" = a."connectionSubjectId"
+          AND previous."hash" = a."prevHash"
+     );
+
+  SELECT count(*) INTO head_count
+    FROM public."fgis_grain_provider_attestations" a
+   WHERE a."subjectKind" = 'CONNECTION_SUBJECT'
+     AND a."prevHash" IS NULL;
+
+  IF broken = 0 AND head_count = 1 THEN
+    RAISE NOTICE 'PASS 146 the attestation chain is unbroken and has one head';
+  ELSE
+    RAISE WARNING
+      'FAIL 146 the attestation chain is unbroken and has one head -> % dangling, % heads',
+      broken, head_count;
+    failures := failures + 1;
+  END IF;
+
+  ---------------------------------------------------------------------------
+  -- 147. The hash is over the content. Recomputing it from the row reproduces
+  --      it, so a row whose text somebody edited would no longer match.
+  ---------------------------------------------------------------------------
+  SELECT count(*) INTO broken
+    FROM public."fgis_grain_provider_attestations" a
+   WHERE a."subjectKind" = 'CONNECTION_SUBJECT'
+     AND a."hash" <> encode(
+       sha256(
+         convert_to(
+           concat_ws(
+             '|', a."id", a."connectionSubjectId", a."configurationVersion"::text,
+             a."gate", a."decision", a."actorUserId", a."actorRole",
+             a."justification", a."evidenceReference",
+             to_char(a."validUntil" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.USOF'),
+             coalesce(a."prevHash", '')
+           ),
+           'UTF8'
+         )
+       ),
+       'hex'
+     );
+
+  IF broken = 0 THEN
+    RAISE NOTICE 'PASS 147 every attestation hash matches its own content';
+  ELSE
+    RAISE WARNING 'FAIL 147 every attestation hash matches its own content -> % mismatched', broken;
+    failures := failures + 1;
+  END IF;
+
+  IF failures > 0 THEN
+    RAISE EXCEPTION 'pc-crop connection attestation chain: % check(s) failed', failures;
+  END IF;
+  RAISE NOTICE 'pc-crop accounting contour: connection attestation chain, 0 failures';
+END;
+$pc_crop_connection_attestation_chain_checks$;
+
 RESET ROLE;
 
 ROLLBACK;
