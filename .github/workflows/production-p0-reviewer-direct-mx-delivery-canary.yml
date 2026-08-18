@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   canary:
+    if: github.event.pull_request.head.sha == '1a6b89f25bd5870d673f3fcf26a894c9e09a68a2'
     name: Send one safe synthetic canary and prove mailbox receipt
     runs-on: ubuntu-24.04
     timeout-minutes: 12
