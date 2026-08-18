@@ -37,7 +37,11 @@ test('390px empty start survives 20 keyboard cycles while discovery remains scro
   await expect(composer).toBeVisible();
   await expect(composerRoot).toBeVisible();
   await expect(discovery).toBeAttached();
-  expect(await composerRoot.evaluate((node) => node.closest('[data-gekta-composer-slot="true"]'))).toBeNull();
+  expect(await composerRoot.evaluate((node) => Boolean(node.closest('[data-gekta-composer-slot="true"]')))).toBe(true);
+  await composerRoot.evaluate((node) => {
+    const host = node.closest<HTMLElement>('[data-gekta-composer-slot="true"]');
+    if (host) host.dataset.gektaStableComposerHost = 'true';
+  });
 
   const initialState = await page.evaluate(() => {
     const root = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true'] main > div:first-of-type");
@@ -76,14 +80,15 @@ test('390px empty start survives 20 keyboard cycles while discovery remains scro
       const workspace = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']");
       const header = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true'] header")?.getBoundingClientRect();
       const composerRoot = document.querySelector<HTMLElement>("[data-gekta-composer-root='true']");
-      const composerHost = composerRoot?.parentElement;
+      const stableHost = composerRoot?.closest<HTMLElement>("[data-gekta-composer-slot='true']");
       const surface = document.querySelector<HTMLElement>("[data-gekta-drop-target='true']")?.getBoundingClientRect();
       const viewport = window.visualViewport;
       const visibleBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
       const textarea = document.querySelector<HTMLTextAreaElement>('#gekta-composer-input');
       return {
         workspacePosition: workspace ? getComputedStyle(workspace).position : '',
-        composerHostPosition: composerHost ? getComputedStyle(composerHost).position : '',
+        composerPosition: composerRoot ? getComputedStyle(composerRoot).position : '',
+        stableHost: stableHost?.dataset.gektaStableComposerHost === 'true',
         headerHeight: header?.height ?? 0,
         surfaceHeight: surface?.height ?? 0,
         surfaceBottom: surface?.bottom ?? Number.POSITIVE_INFINITY,
@@ -97,7 +102,8 @@ test('390px empty start survives 20 keyboard cycles while discovery remains scro
       };
     });
     expect(openState.workspacePosition).not.toBe('fixed');
-    expect(openState.composerHostPosition).toBe('fixed');
+    expect(openState.composerPosition).toBe('fixed');
+    expect(openState.stableHost).toBe(true);
     expect(openState.headerHeight).toBeGreaterThanOrEqual(44);
     expect(openState.surfaceHeight).toBeGreaterThanOrEqual(64);
     expect(openState.surfaceBottom).toBeLessThanOrEqual(522);
@@ -124,7 +130,8 @@ test('390px empty start survives 20 keyboard cycles while discovery remains scro
     await expect(composer).toHaveValue(draft);
     await expect(privacy).toBeVisible();
     await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).overflowY)).not.toBe('hidden');
-    await expect.poll(() => composerRoot.evaluate((node) => getComputedStyle(node.parentElement as HTMLElement).position)).not.toBe('fixed');
+    await expect.poll(() => composerRoot.evaluate((node) => getComputedStyle(node).position)).not.toBe('fixed');
+    expect(await composerRoot.evaluate((node) => node.closest<HTMLElement>("[data-gekta-composer-slot='true']")?.dataset.gektaStableComposerHost === 'true')).toBe(true);
   }
 
   const finalState = await composer.evaluate((node) => ({
