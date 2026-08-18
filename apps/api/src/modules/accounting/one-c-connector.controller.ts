@@ -11,6 +11,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import {
   OneCProtocolValidationError,
+  type OneCCommand,
   type OneCDiscoveryOrganization,
   type OneCSelfDiscovery,
 } from './one-c-connector.protocol';
@@ -72,8 +73,8 @@ function parsePairingBody(raw: unknown): {
   const body = record(raw, 'ONE_C_PAIRING_BODY_INVALID');
   exactKeys(body, ['code', 'discovery'], 'ONE_C_PAIRING_BODY_INVALID');
 
-  const code = body.code;
-  if (typeof code !== 'string' || code.length < 16 || code.length > 256) {
+  const code = requiredString(body, 'code', 'ONE_C_PAIRING_CODE_INVALID');
+  if (code.length < 16 || code.length > 256) {
     throw new BadRequestException({ code: 'ONE_C_PAIRING_CODE_INVALID' });
   }
 
@@ -93,18 +94,36 @@ function parsePairingBody(raw: unknown): {
     'ONE_C_PAIRING_DISCOVERY_INVALID',
   );
 
-  for (const key of [
+  const platformVersion = requiredString(
+    discovery,
     'platformVersion',
+    'ONE_C_PAIRING_DISCOVERY_INVALID',
+  );
+  const configurationName = requiredString(
+    discovery,
     'configurationName',
+    'ONE_C_PAIRING_DISCOVERY_INVALID',
+  );
+  const configurationVersion = requiredString(
+    discovery,
     'configurationVersion',
+    'ONE_C_PAIRING_DISCOVERY_INVALID',
+  );
+  const databaseInstanceId = requiredString(
+    discovery,
     'databaseInstanceId',
+    'ONE_C_PAIRING_DISCOVERY_INVALID',
+  );
+  const connectorVersion = requiredString(
+    discovery,
     'connectorVersion',
+    'ONE_C_PAIRING_DISCOVERY_INVALID',
+  );
+  const protocolVersion = requiredString(
+    discovery,
     'protocolVersion',
-  ] as const) {
-    if (typeof discovery[key] !== 'string') {
-      throw new BadRequestException({ code: 'ONE_C_PAIRING_DISCOVERY_INVALID' });
-    }
-  }
+    'ONE_C_PAIRING_DISCOVERY_INVALID',
+  );
 
   if (!Array.isArray(discovery.organizations) || !Array.isArray(discovery.capabilities)) {
     throw new BadRequestException({ code: 'ONE_C_PAIRING_DISCOVERY_INVALID' });
@@ -112,42 +131,38 @@ function parsePairingBody(raw: unknown): {
 
   const organizations: OneCDiscoveryOrganization[] = discovery.organizations.map((rawOrg) => {
     const organization = record(rawOrg, 'ONE_C_PAIRING_DISCOVERY_INVALID');
-    exactKeys(organization, ['guid', 'inn', 'kpp', 'name'], 'ONE_C_PAIRING_DISCOVERY_INVALID', true);
-    if (
-      typeof organization.guid !== 'string'
-      || typeof organization.inn !== 'string'
-      || typeof organization.name !== 'string'
-      || !(
-        organization.kpp === undefined
-        || organization.kpp === null
-        || typeof organization.kpp === 'string'
-      )
-    ) {
+    exactKeys(
+      organization,
+      ['guid', 'inn', 'kpp', 'name'],
+      'ONE_C_PAIRING_DISCOVERY_INVALID',
+      true,
+    );
+    const guid = requiredString(organization, 'guid', 'ONE_C_PAIRING_DISCOVERY_INVALID');
+    const inn = requiredString(organization, 'inn', 'ONE_C_PAIRING_DISCOVERY_INVALID');
+    const name = requiredString(organization, 'name', 'ONE_C_PAIRING_DISCOVERY_INVALID');
+    const rawKpp = organization.kpp;
+    if (!(rawKpp === undefined || rawKpp === null || typeof rawKpp === 'string')) {
       throw new BadRequestException({ code: 'ONE_C_PAIRING_DISCOVERY_INVALID' });
     }
-    return {
-      guid: organization.guid,
-      inn: organization.inn,
-      kpp: organization.kpp ?? null,
-      name: organization.name,
-    };
+    return { guid, inn, kpp: rawKpp ?? null, name };
   });
 
   if (discovery.capabilities.some((value) => typeof value !== 'string')) {
     throw new BadRequestException({ code: 'ONE_C_PAIRING_DISCOVERY_INVALID' });
   }
+  const capabilities = discovery.capabilities as OneCCommand[];
 
   return {
     code,
     discovery: {
-      platformVersion: discovery.platformVersion,
-      configurationName: discovery.configurationName,
-      configurationVersion: discovery.configurationVersion,
-      databaseInstanceId: discovery.databaseInstanceId,
+      platformVersion,
+      configurationName,
+      configurationVersion,
+      databaseInstanceId,
       organizations,
-      capabilities: discovery.capabilities as OneCSelfDiscovery['capabilities'],
-      connectorVersion: discovery.connectorVersion,
-      protocolVersion: discovery.protocolVersion,
+      capabilities,
+      connectorVersion,
+      protocolVersion,
     },
   };
 }
@@ -157,6 +172,16 @@ function record(value: unknown, code: string): Record<string, unknown> {
     throw new BadRequestException({ code });
   }
   return value as Record<string, unknown>;
+}
+
+function requiredString(
+  value: Record<string, unknown>,
+  key: string,
+  code: string,
+): string {
+  const candidate = value[key];
+  if (typeof candidate !== 'string') throw new BadRequestException({ code });
+  return candidate;
 }
 
 function exactKeys(
