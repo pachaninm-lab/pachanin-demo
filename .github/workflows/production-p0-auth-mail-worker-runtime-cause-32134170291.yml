@@ -1,0 +1,198 @@
+name: Production P0 Auth Mail Worker Runtime Cause 32134170291
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-auth-mail-worker-runtime-cause-32134170291.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-auth-mail-worker-runtime-cause-32134170291
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  WINDOW_START: '2026-08-18T10:05:00Z'
+  WINDOW_END: '2026-08-18T10:35:00Z'
+
+jobs:
+  inspect:
+    name: Read-only worker cause probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    outputs:
+      state: ${{ steps.probe.outputs.state }}
+      health: ${{ steps.probe.outputs.health }}
+      health_exit: ${{ steps.probe.outputs.health_exit }}
+      live: ${{ steps.probe.outputs.live }}
+      ready: ${{ steps.probe.outputs.ready }}
+      metrics_error: ${{ steps.probe.outputs.metrics_error }}
+      log_class: ${{ steps.probe.outputs.log_class }}
+      db_probe: ${{ steps.probe.outputs.db_probe }}
+      db_error: ${{ steps.probe.outputs.db_error }}
+      outbox_rows: ${{ steps.probe.outputs.outbox_rows }}
+      outbox_status: ${{ steps.probe.outputs.outbox_status }}
+      outbox_attempts: ${{ steps.probe.outputs.outbox_attempts }}
+      outbox_max_attempts: ${{ steps.probe.outputs.outbox_max_attempts }}
+      outbox_error: ${{ steps.probe.outputs.outbox_error }}
+      outbox_sent_at: ${{ steps.probe.outputs.outbox_sent_at }}
+      production_mutation: ${{ steps.probe.outputs.production_mutation }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Validate read-only contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source='.github/workflows/production-p0-auth-mail-worker-runtime-cause-32134170291.yml'
+          python3 - "$source" <<'PY'
+          from pathlib import Path
+          import sys
+          lines=Path(sys.argv[1]).read_text(encoding='utf-8').splitlines()
+          markers=[i for i,line in enumerate(lines) if line.strip() == '# OPERATIONAL_BEGIN']
+          if len(markers)!=1: raise SystemExit('OPERATIONAL_MARKER_INVALID')
+          operational='\n'.join(lines[markers[0]+1:])
+          forbidden=['docker restart','docker rm ','docker compose up','docker compose down','docker stop','docker start','docker kill','INSERT INTO','UPDATE auth.','DELETE FROM','TRUNCATE ','ALTER ROLE','CREATE ROLE','DROP ROLE','GRANT ','REVOKE ','curl -X POST','sendAuthMailSmtp(']
+          bad=[x for x in forbidden if x in operational]
+          if bad: raise SystemExit('MUTATION_SURFACE_FORBIDDEN:'+'|'.join(bad))
+          PY
+
+      # OPERATIONAL_BEGIN
+      - name: Resolve pinned production SSH authority
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
+          user="$(trim "${PC_PROD_SSH_USER:-}")"
+          port="$(trim "${PC_PROD_SSH_PORT:-22}")"
+          expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port>=1 && port<=65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          key="$HOME/.ssh/id_pc_prod"
+          validate_key(){ local src="$1" pub; tr -d '\r' < "$src" > "$key"; chmod 600 "$key"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          try_slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          try_slot "${PC_PROD_SSH_KEY:-}" || try_slot "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_slot "${VPS_SSH_KEY:-}"
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do [[ -n "$line" ]] || continue; fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+            sort -u -o "$match" "$match"
+            [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }
+            (( attempt==3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect live readiness logs database and reset row read-only
+        id: probe
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          raw="$(ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$USER@$HOST" "bash -s -- '$WINDOW_START' '$WINDOW_END'" 2>/dev/null <<'REMOTE'
+          set -Eeuo pipefail
+          start="$1"; end="$2"
+          safe(){ tr '[:lower:]' '[:upper:]' <<< "$1" | tr -c 'A-Z0-9_.:-' '_' | head -c 100; }
+          [[ "$(id -u)" -eq 0 ]]
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "${web_ids[0]}")"
+          mapfile -t workers < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          (( ${#workers[@]} == 1 ))
+          id="${workers[0]}"
+          state="$(docker inspect --format '{{.State.Status}}' "$id")"
+          health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id")"
+          health_json="$(docker inspect --format '{{json .State.Health.Log}}' "$id" 2>/dev/null || printf '[]')"
+          health_exit="$(python3 -c 'import json,sys; x=json.load(sys.stdin) or []; print((x[-1] or {}).get("ExitCode","none") if x else "none")' <<< "$health_json" 2>/dev/null || echo unknown)"
+          printf 'STATE=%s\n' "$(safe "$state")"
+          printf 'HEALTH=%s\n' "$(safe "$health")"
+          printf 'HEALTH_EXIT=%s\n' "$(safe "$health_exit")"
+          live=FAIL; ready=FAIL; metrics_error=UNKNOWN
+          docker exec "$id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3003/live',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1 && live=PASS || true
+          docker exec "$id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1 && ready=PASS || true
+          metrics_error="$(docker exec "$id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3003/metrics',{signal:AbortSignal.timeout(3000)}).then(async r=>{const j=await r.json(); console.log(String(j.lastErrorCode||'NONE'))}).catch(()=>console.log('FETCH_FAILED'))" 2>/dev/null | tail -1 || true)"
+          printf 'LIVE=%s\n' "$live"; printf 'READY=%s\n' "$ready"; printf 'METRICS_ERROR=%s\n' "$(safe "${metrics_error:-UNKNOWN}")"
+          logs="$(docker logs --tail 300 "$id" 2>&1 || true)"
+          log_class=NONE
+          if grep -Eqi 'cannot find module|MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND' <<< "$logs"; then log_class=MODULE_LOAD
+          elif grep -Eqi 'EACCES|permission denied' <<< "$logs"; then log_class=FILE_PERMISSION
+          elif grep -Eqi 'PrismaClientInitializationError|P1000|P1001|P1010' <<< "$logs"; then log_class=PRISMA_INIT
+          elif grep -Eqi 'PrismaClientKnownRequestError|P2021|P2022|P2010' <<< "$logs"; then log_class=PRISMA_QUERY
+          elif grep -Eqi 'Auth-mail worker failed to start:' <<< "$logs"; then log_class=SAFE_STARTUP_ERROR
+          elif [[ -n "$logs" ]]; then log_class=OTHER_REDACTED
+          fi
+          printf 'LOG_CLASS=%s\n' "$log_class"
+          set +e
+          db="$(docker exec -i "$id" /nodejs/bin/node --input-type=commonjs - "$start" "$end" <<'NODE' 2>/dev/null
+          const {readFileSync}=require('node:fs');
+          const {PrismaClient}=require('@prisma/client');
+          const safe=v=>String(v??'NONE').toUpperCase().replace(/[^A-Z0-9_:-]/g,'_').slice(0,100)||'NONE';
+          const [start,end]=process.argv.slice(2);
+          (async()=>{
+            const file=String(process.env.AUTH_MAIL_DATABASE_URL_FILE||'').trim();
+            if(!file) throw new Error('DB_FILE_MISSING');
+            const url=readFileSync(file,'utf8').trim();
+            const db=new PrismaClient({datasources:{db:{url}}});
+            try {
+              const principal=await db.$queryRawUnsafe("SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user");
+              const p=principal?.[0];
+              if(!p || p.current_user!=='pc_auth_mail_runtime' || p.rolsuper || p.rolbypassrls) throw new Error('PRINCIPAL_BOUNDARY');
+              console.log('DB_PROBE=PASS');
+              const rows=await db.$queryRawUnsafe(`SELECT status,attempt_count,max_attempts,COALESCE(last_error_code,'NONE') AS last_error_code,sent_at FROM auth.mail_outbox WHERE message_kind='PASSWORD_RESET' AND created_at >= $1::timestamptz AND created_at < $2::timestamptz ORDER BY created_at,id`,start,end);
+              console.log(`OUTBOX_ROWS=${rows.length}`);
+              if(rows.length===1){ const r=rows[0]; console.log(`OUTBOX_STATUS=${safe(r.status)}`); console.log(`OUTBOX_ATTEMPTS=${Number(r.attempt_count||0)}`); console.log(`OUTBOX_MAX_ATTEMPTS=${Number(r.max_attempts||0)}`); console.log(`OUTBOX_ERROR=${safe(r.last_error_code)}`); console.log(`OUTBOX_SENT_AT=${r.sent_at?'YES':'NO'}`); }
+            } finally { await db.$disconnect().catch(()=>{}); }
+          })().catch(e=>{ console.log('DB_PROBE=FAIL'); console.log(`DB_ERROR=${safe(e?.code||e?.message||e?.name||'UNKNOWN')}`); process.exitCode=0; });
+          NODE
+          )"
+          set -e
+          printf '%s\n' "$db" | grep -E '^(DB_PROBE|DB_ERROR|OUTBOX_ROWS|OUTBOX_STATUS|OUTBOX_ATTEMPTS|OUTBOX_MAX_ATTEMPTS|OUTBOX_ERROR|OUTBOX_SENT_AT)=' || true
+          printf 'PRODUCTION_MUTATION=NONE\n'
+          REMOTE
+          )"
+          get(){ sed -n "s/^$1=//p" <<< "$raw" | head -1; }
+          state="$(get STATE)"; health="$(get HEALTH)"; health_exit="$(get HEALTH_EXIT)"; live="$(get LIVE)"; ready="$(get READY)"; metrics_error="$(get METRICS_ERROR)"; log_class="$(get LOG_CLASS)"; db_probe="$(get DB_PROBE)"; db_error="$(get DB_ERROR)"; outbox_rows="$(get OUTBOX_ROWS)"; outbox_status="$(get OUTBOX_STATUS)"; outbox_attempts="$(get OUTBOX_ATTEMPTS)"; outbox_max_attempts="$(get OUTBOX_MAX_ATTEMPTS)"; outbox_error="$(get OUTBOX_ERROR)"; outbox_sent_at="$(get OUTBOX_SENT_AT)"
+          : "${state:=UNKNOWN}" "${health:=UNKNOWN}" "${health_exit:=UNKNOWN}" "${live:=UNKNOWN}" "${ready:=UNKNOWN}" "${metrics_error:=UNKNOWN}" "${log_class:=UNKNOWN}" "${db_probe:=UNKNOWN}" "${db_error:=NONE}" "${outbox_rows:=0}" "${outbox_status:=UNKNOWN}" "${outbox_attempts:=0}" "${outbox_max_attempts:=0}" "${outbox_error:=NONE}" "${outbox_sent_at:=NO}"
+          for kv in "state=$state" "health=$health" "health_exit=$health_exit" "live=$live" "ready=$ready" "metrics_error=$metrics_error" "log_class=$log_class" "db_probe=$db_probe" "db_error=$db_error" "outbox_rows=$outbox_rows" "outbox_status=$outbox_status" "outbox_attempts=$outbox_attempts" "outbox_max_attempts=$outbox_max_attempts" "outbox_error=$outbox_error" "outbox_sent_at=$outbox_sent_at" "production_mutation=NONE"; do echo "$kv" >> "$GITHUB_OUTPUT"; done
+          echo "PRODUCTION_MUTATION=NONE"
+
+  classify:
+    needs: inspect
+    if: always()
+    name: >-
+      Worker ${{ needs.inspect.outputs.state }}/${{ needs.inspect.outputs.health }} hx=${{ needs.inspect.outputs.health_exit }}
+      live=${{ needs.inspect.outputs.live }} ready=${{ needs.inspect.outputs.ready }} metric=${{ needs.inspect.outputs.metrics_error }}
+      log=${{ needs.inspect.outputs.log_class }} db=${{ needs.inspect.outputs.db_probe }}:${{ needs.inspect.outputs.db_error }}
+      reset=${{ needs.inspect.outputs.outbox_rows }}:${{ needs.inspect.outputs.outbox_status }}:${{ needs.inspect.outputs.outbox_attempts }}/${{ needs.inspect.outputs.outbox_max_attempts }}:${{ needs.inspect.outputs.outbox_error }}:${{ needs.inspect.outputs.outbox_sent_at }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require no production mutation
+        env:
+          MUT: ${{ needs.inspect.outputs.production_mutation }}
+        run: test "$MUT" = NONE
