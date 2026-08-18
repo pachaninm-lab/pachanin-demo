@@ -9,9 +9,10 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "operationalStatus": "NOT_ATTESTED",
   "authorityBaseParentHead": "85e485d409a4f64c2d60e741c683c8d986ebf00e",
-  "purpose": "Turn the already-defined 1C connector protocol, machine identity and source-only extension into durable server authority. Persist ConnectorInstallation separately from OrganizationBinding, issue one-time pairing challenges, atomically bind exactly one platform organization to exactly one discovered 1C legal entity, rotate scoped machine credentials without ever storing plaintext secrets, and expose only bounded repository operations. This slice does not yet expose connector runtime job routes or claim a live 1C exchange.",
+  "purpose": "Turn the already-defined 1C connector protocol, machine identity and source-only extension into durable server authority. Persist ConnectorInstallation separately from OrganizationBinding, issue one-time pairing challenges, atomically bind exactly one platform organization to exactly one discovered 1C legal entity, rotate scoped machine credentials without ever storing plaintext secrets, and expose only bounded repository operations. The branch carries the same narrow DB-proven organization-member transaction primitive as #4428 so role=GUEST + job_profile accounting members are not silently excluded; generic GUEST handling remains closed. This slice does not yet expose connector runtime job routes or claim a live 1C exchange.",
   "allowedPaths": [
     "apps/api/prisma/migrations/20260818223000_pc_crop_one_c_runtime_persistence/migration.sql",
+    "apps/api/src/common/prisma/rls-transaction.service.ts",
     "apps/api/src/modules/accounting/one-c-runtime.repository.ts",
     "apps/api/src/modules/accounting/one-c-runtime.repository.spec.ts",
     "apps/api/src/modules/accounting/one-c-runtime.postgresql.spec.ts",
@@ -21,6 +22,7 @@
     "docs/platform-v7/autopilot/scopes/pc-crop-onec-runtime-persistence-v2-20260818.json"
   ],
   "boundaries": [
+    "Generic deriveTrustedRlsContext/withTrustedContext keeps rejecting GUEST; only the narrow organization-member path proves ACTIVE membership in PostgreSQL before work runs.",
     "ConnectorInstallation and OrganizationBinding are separate durable authorities; one 1C database may contain many legal entities but one binding names exactly one platform organization and one 1C organization GUID.",
     "Pairing challenge plaintext is returned once and never persisted; durable state contains only high-entropy lookup/hash material, expiry and lifecycle metadata.",
     "Pairing consumption is atomic under PostgreSQL row locks and verifies the exact challenge hash inside the database before creating or rotating a binding/credential.",
