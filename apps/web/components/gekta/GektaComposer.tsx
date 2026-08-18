@@ -157,6 +157,7 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
               type='button'
               onClick={submitComposer}
               disabled={!canSubmit}
+              data-gekta-submit='true'
               className={`flex h-11 min-w-11 items-center justify-center gap-2 rounded-xl px-3 text-[14px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 ${canSubmit ? 'bg-emerald-800 text-white hover:bg-emerald-900' : 'cursor-not-allowed border border-dashed border-slate-300 bg-slate-100 text-slate-500'}`}
               aria-label={sendLabel}
             >
