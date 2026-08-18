@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4356,
+  "branch": "company-os/f2b-readiness-v2-4356",
+  "status": "active",
+  "purpose": "Repair the owner-only read-only REG.RU control-host readiness diagnostic after the previous SSH transport lost empty optional positional arguments.",
+  "authorityBaseExactMain": "2571673016aff3b2811133c7f8ef5039dacd05d2",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/company-os-control-host-readiness-v2.yml",
+    "docs/company-os/f2b-readiness.md"
+  ],
+  "requiredInvariants": [
+    "The workflow is repository-owner-only, issue-4159-only and exact-command gated.",
+    "The diagnostic performs no DNS mutation, Caddy reload/write, Compose up/down/restart, container mutation, environment write, database mutation or deployment.",
+    "Production SSH validates the canonical REG.RU VPS and pinned host fingerprint using protected repository secrets.",
+    "Private keys, fingerprints, protected usernames, production paths, Compose paths and environment values are never printed or posted.",
+    "The remote transport does not depend on optional positional arguments.",
+    "The production web runtime is discovered only through bounded Docker Compose labels and reduced to sanitized state markers.",
+    "PC_CONTROL_HOST_ENABLED is reported only as ENABLED, DISABLED_OR_ABSENT or UNKNOWN.",
+    "The issue receives only sanitized DNS, TLS, Caddy, runtime revision and readiness markers.",
+    "A successful diagnostic is readiness evidence only and never production cutover evidence."
+  ],
+  "acceptance": [
+    "Workflow syntax and security gates pass on the exact head.",
+    "The owner-only command reaches a terminal sanitized classification on REG.RU.",
+    "The current control A/AAAA state is observed without guessing.",
+    "Pinned SSH, Caddy baseline, one running Compose web service, immutable image id, OCI revision and feature-gate state are observed read-only.",
+    "No production mutation occurs in any branch of the diagnostic.",
+    "No new recurring cost is introduced."
+  ],
+  "boundaries": {
+    "dnsMutation": false,
+    "caddyMutation": false,
+    "composeMutation": false,
+    "containerMutation": false,
+    "environmentMutation": false,
+    "databaseMutation": false,
+    "applicationDeployment": false
+  }
+}
