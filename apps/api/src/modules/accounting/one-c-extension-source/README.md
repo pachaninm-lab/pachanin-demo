@@ -1,17 +1,19 @@
 # Прозрачная Цена — исходники 1С Connector v1
 
-Это source-only срез будущего расширения 1С. Он существует рядом с server protocol, чтобы transport и команда на стороне 1С не были описаны только в ТЗ.
+Это source-only срез будущего расширения 1С. Он существует рядом с server protocol, чтобы transport, discovery и команда на стороне 1С не были описаны только в ТЗ.
 
 ## Что уже является кодом
 
-Три общих модуля расширения:
+Четыре общих модуля расширения:
 
 1. `TransparentPriceConnectorHttp.bsl`
    - только исходящий HTTPS;
    - production host закреплён в коде;
    - системное хранилище доверенных CA;
-   - `/connector/v1/pair`, heartbeat, pull jobs, ack/result/fail;
+   - только точный `/connector/v1` или его slash-delimited child routes;
+   - `/pair`, heartbeat, pull jobs, ack/result/fail;
    - redirect запрещён;
+   - correlation/bearer header values проходят safe-alphabet/length gates;
    - response size bounded;
    - POST network ambiguity = `UNKNOWN_RESULT`;
    - bearer не принимается из URL/Job и не логируется.
@@ -23,22 +25,38 @@
    - статический dispatch;
    - external evidence обязателен перед `REPORTED_SUCCESS`.
 
-3. `TransparentPriceConfigurationAdapter.bsl`
+3. `TransparentPriceConnectorDiscovery.bsl`
+   - platform version из `СистемнаяИнформация`;
+   - exact server discovery fields;
+   - opaque database instance id, без connection string;
+   - explicit legal entities с GUID/ИНН/КПП/name;
+   - duplicate GUID и malformed organization data fail closed;
+   - capabilities берутся из одного списка `TransparentPriceConnectorCommands`, а не дублируются;
+   - pairing не начинается, пока discovery не готов.
+
+4. `TransparentPriceConfigurationAdapter.bsl`
    - seam для конкретной конфигурации;
-   - пока каждый метод возвращает `UNKNOWN_RESULT / CONFIGURATION_ADAPTER_NOT_IMPLEMENTED`;
-   - поэтому наличие transport-кода не превращается в ложную совместимость с БП/КФХ/ERP.
+   - пока business methods возвращают `UNKNOWN_RESULT / CONFIGURATION_ADAPTER_NOT_IMPLEMENTED`;
+   - discovery profile пока возвращает `CONFIGURATION_DISCOVERY_NOT_IMPLEMENTED`;
+   - поэтому наличие transport/discovery-кода не превращается в ложную совместимость с БП/КФХ/ERP.
 
 ## Что должен добавить compatibility profile
 
-Для каждой реально поддерживаемой конфигурации нужен отдельный принятый profile, который реализует только эти операции:
+Для каждой реально поддерживаемой конфигурации нужен отдельный принятый profile, который:
 
-- `ОбновитьКонтрагента`;
-- `СоздатьЧерновикПродажи`;
-- `СоздатьЧерновикПокупки`;
-- `СоздатьЧерновикИсправления`;
-- `ПолучитьСтатусДокумента`;
-- `ПередатьСтатусОплаты`;
-- `ПолучитьКандидатовСправочника`.
+1. Возвращает discovery facts:
+   - exact configuration name/version;
+   - стабильный opaque database instance id;
+   - explicit legal entities `guid / inn / kpp / name`.
+
+2. Реализует только эти business operations:
+   - `ОбновитьКонтрагента`;
+   - `СоздатьЧерновикПродажи`;
+   - `СоздатьЧерновикПокупки`;
+   - `СоздатьЧерновикИсправления`;
+   - `ПолучитьСтатусДокумента`;
+   - `ПередатьСтатусОплаты`;
+   - `ПолучитьКандидатовСправочника`.
 
 Profile не получает механизм `Выполнить`, `Вычислить`, SQL, dump database или unrestricted read.
 
@@ -68,9 +86,9 @@ Pairing code живёт только на время pairing и не замен�
 - live customer database;
 - production exchange.
 
-## Почему outbound HTTPS — нормальный путь для платформы 1С
+## Почему outbound HTTPS и metadata discovery соответствуют платформе 1С
 
-Платформа 1С:Предприятие поддерживает обращения к внешним HTTP/HTTPS сервисам и JSON. Официальные материалы 1С также показывают `HTTPСоединение`, `HTTPЗапрос`, `ЗащищенноеСоединениеOpenSSL` и проверку сертификата сервера через доверенные корневые сертификаты ОС.
+Платформа 1С:Предприятие поддерживает обращения к внешним HTTP/HTTPS сервисам и JSON. Официальные материалы 1С также показывают `HTTPСоединение`, `HTTPЗапрос`, `ЗащищенноеСоединениеOpenSSL`, проверку сертификата сервера через доверенные корневые сертификаты ОС и доступ встроенного языка к структуре метаданных конфигурации.
 
 Источники:
 
@@ -79,5 +97,6 @@ Pairing code живёт только на время pairing и не замен�
 - https://v8.1c.ru/platforma/json/
 - https://its.1c.ru/db/content/v8std/src/600/i8100669.htm
 - https://its.1c.ru/db/content/metod8dev/src/developers/platform/demo/i8105574.htm
+- https://its.1c.ru/db/content/metod8dev/src/developers/platform/metod/other/i8102318.htm
 
 Новый обязательный recurring cost: **0 RUB**.
