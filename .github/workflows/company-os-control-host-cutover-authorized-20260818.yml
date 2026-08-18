@@ -1,0 +1,545 @@
+name: Company OS Control Host Authorized Cutover 2026-08-18
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/company-os-control-host-cutover-authorized-20260818.yml'
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+concurrency:
+  group: company-os-control-host-cutover
+  cancel-in-progress: false
+
+env:
+  TARGET_ISSUE: '4159'
+  CONTROL_DOMAIN: 'control.xn----8sbjf4befbjgs9b.xn--p1ai'
+  PRIMARY_DOMAIN: 'xn----8sbjf4befbjgs9b.xn--p1ai'
+  PRIMARY_DOMAIN_UNICODE: 'процент-агро.рф'
+  CANONICAL_VPS: '195.19.12.120'
+  MIN_BOUNDARY_COMMIT: 'ef01ce98aad645ec941d03f88bdc0275e763e604'
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  cutover:
+    name: Owner-authorized guarded REG.RU cutover
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind exact current main and Company OS authority
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          git cat-file -e "$MIN_BOUNDARY_COMMIT^{commit}"
+          git merge-base --is-ancestor "$MIN_BOUNDARY_COMMIT" "$main_sha"
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Reject concurrent production mutation workflows
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const active = [];
+            for (const status of ['queued', 'in_progress']) {
+              const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                status,
+                per_page: 100,
+              });
+              for (const run of runs) {
+                if (Number(run.id) === Number(context.runId)) continue;
+                const name = String(run.name || '');
+                if (/(production|release|deploy|reg\.ru|cutover|activation|rolling)/i.test(name)) {
+                  active.push(`${run.id}:${name}:${status}`);
+                }
+              }
+            }
+            if (active.length) core.setFailed(`Concurrent production workflow detected: ${active.join(', ')}`);
+
+      - name: Require canonical DNS and absent AAAA
+        id: dns
+        shell: bash
+        run: |
+          set -euo pipefail
+          dns_a=ABSENT
+          a_records=''
+          aaaa_records=''
+          for attempt in $(seq 1 60); do
+            a_records="$(getent ahostsv4 "$CONTROL_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+            aaaa_records="$(getent ahostsv6 "$CONTROL_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+            if [[ -z "$a_records" ]]; then
+              dns_a=ABSENT
+            elif [[ "$(grep -c . <<< "$a_records")" == 1 ]] && grep -Fxq "$CANONICAL_VPS" <<< "$a_records"; then
+              dns_a=CANONICAL
+            else
+              dns_a=MISMATCH
+            fi
+            [[ "$dns_a" == CANONICAL && -z "$aaaa_records" ]] && break
+            (( attempt == 60 )) || sleep 10
+          done
+          [[ "$dns_a" == CANONICAL ]]
+          [[ -z "$aaaa_records" ]]
+          echo 'a=CANONICAL' >> "$GITHUB_OUTPUT"
+          echo 'aaaa=ABSENT' >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned production SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+
+          host="$(trim "${SSH_HOST_SECRET:-$CANONICAL_VPS}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+
+          [[ "$host" == "$CANONICAL_VPS" ]]
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ && "$port" -ge 1 && "$port" -le 65535 ]]
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+
+          validate_key() {
+            local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || {
+              rm -f "$public_key"
+              return 1
+            }
+            rm -f "$public_key"
+          }
+
+          try_slot() {
+            local raw="$1" first second third
+            [[ -n "$raw" ]] || return 1
+            first="$(mktemp)"
+            second="$(mktemp)"
+            third="$(mktemp)"
+            printf '%s\n' "$raw" > "$first"
+            validate_key "$first" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$second"
+            validate_key "$second" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$third" 2>/dev/null && validate_key "$third" && {
+              rm -f "$first" "$second" "$third"
+              return 0
+            }
+            rm -f "$first" "$second" "$third"
+            return 1
+          }
+
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+
+          scan="$(mktemp)"
+          match="$(mktemp)"
+          pinned=0
+          for attempt in 1 2 3; do
+            : > "$scan"
+            : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fingerprint" == "$expected" ]] && printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            if [[ "$(grep -c . "$match" || true)" == 1 ]]; then
+              pinned=1
+              break
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          rm -f "$scan"
+          [[ "$pinned" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; command -v docker >/dev/null; command -v caddy >/dev/null; command -v jq >/dev/null; command -v flock >/dev/null; docker version >/dev/null; docker compose version >/dev/null; echo READY' \
+            | grep -Fxq READY
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect current state and perform atomic cutover if required
+        id: mutate
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          USER: ${{ steps.ssh.outputs.user }}
+        run: |
+          set -euo pipefail
+          remote="$RUNNER_TEMP/company-os-control-cutover.env"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            bash -s -- "$CONTROL_DOMAIN" "$PRIMARY_DOMAIN" "$PRIMARY_DOMAIN_UNICODE" <<'REMOTE' > "$remote"
+          set -Eeuo pipefail
+          control_domain="${1:?control domain required}"
+          primary_domain="${2:?primary domain required}"
+          primary_unicode="${3:?primary unicode domain required}"
+          [[ "$control_domain" =~ ^[a-z0-9.-]+$ ]]
+          [[ "$primary_domain" =~ ^[a-z0-9.-]+$ ]]
+
+          exec 9>/var/lock/company-os-control-host-cutover.lock
+          flock -n 9
+          ! pgrep -af 'docker compose .*\b(up|pull|build|down)\b|caddy reload' | grep -v -E 'pgrep|company-os-control-host-cutover' >/dev/null
+          systemctl is-active --quiet caddy
+          caddy validate --config /etc/caddy/Caddyfile >/dev/null
+          [[ -r /etc/caddy/Caddyfile && -w /etc/caddy/Caddyfile ]]
+
+          mapfile -t running_web < <(docker ps -q --filter 'label=com.docker.compose.service=web' | sort -u)
+          [[ "${#running_web[@]}" == 1 ]]
+          web_id="${running_web[0]}"
+          image_id="$(docker inspect --format '{{.Image}}' "$web_id")"
+          revision="$(docker image inspect "$image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+          [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+
+          working_dir="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$web_id")"
+          config_csv="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$web_id")"
+          project="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$web_id")"
+          [[ "$working_dir" =~ ^/(opt|srv|var/www)/[A-Za-z0-9_./-]+$ ]]
+          [[ "$project" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]]
+          [[ -d "$working_dir" && -n "$config_csv" ]]
+          env_file="$working_dir/.env"
+          [[ -f "$env_file" && -r "$env_file" && -w "$env_file" ]]
+
+          IFS=',' read -r -a raw_config_files <<< "$config_csv"
+          [[ "${#raw_config_files[@]}" -ge 1 && "${#raw_config_files[@]}" -le 20 ]]
+          compose_args=(-p "$project")
+          config_files=()
+          contract_wired=0
+          for raw in "${raw_config_files[@]}"; do
+            file="$raw"
+            [[ "$file" = /* ]] || file="$working_dir/$file"
+            file="$(realpath -e "$file")"
+            [[ "$file" == "$working_dir/"* || "$file" == "$working_dir" ]]
+            [[ -r "$file" ]]
+            config_files+=("$file")
+            compose_args+=(-f "$file")
+            grep -Fq 'PC_CONTROL_HOST_ENABLED' "$file" && contract_wired=1
+          done
+          [[ "$contract_wired" == 1 ]]
+          docker compose "${compose_args[@]}" config --services | grep -Fxq web
+
+          gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+          control_blocks="$(grep -c '# BEGIN COMPANY OS CONTROL HOST' /etc/caddy/Caddyfile || true)"
+
+          if [[ "$gate" == 'PC_CONTROL_HOST_ENABLED=true' && "$control_blocks" == 1 ]] && grep -Fq "$control_domain" /etc/caddy/Caddyfile; then
+            printf '%s\n' "MUTATED=NO_ALREADY_READY" "WEB_REVISION=$revision" "WEB_IMAGE_ID=$image_id" "BACKUP_DIR=NONE"
+            exit 0
+          fi
+
+          [[ -z "$gate" || "$gate" == 'PC_CONTROL_HOST_ENABLED=false' ]]
+          [[ "$control_blocks" == 0 ]]
+          ! grep -Fq "$control_domain" /etc/caddy/Caddyfile
+
+          caddy_json="$(mktemp)"
+          caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile --pretty > "$caddy_json"
+          mapfile -t upstreams < <(jq -r --arg p "$primary_domain" --arg u "$primary_unicode" '
+            [
+              .. | objects
+              | select(has("match") and has("handle"))
+              | select(any(.match[]?.host[]?; . == $p or . == $u))
+              | .handle[]?
+              | .. | objects
+              | .upstreams[]?.dial?
+            ] | unique[]
+          ' "$caddy_json")
+          rm -f "$caddy_json"
+          [[ "${#upstreams[@]}" == 1 ]]
+          upstream="${upstreams[0]}"
+          [[ "$upstream" =~ ^(127\.0\.0\.1|localhost|[A-Za-z0-9_.-]+):[0-9]{1,5}$ ]]
+
+          timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          backup_dir="/var/backups/company-os-control-host/$timestamp"
+          install -d -m 700 "$backup_dir"
+          cp --preserve=mode,ownership,timestamps /etc/caddy/Caddyfile "$backup_dir/Caddyfile.before"
+          cp --preserve=mode,ownership,timestamps "$env_file" "$backup_dir/env.before"
+
+          printf 'WORKING_DIR=%q\nENV_FILE=%q\nPROJECT=%q\nEXPECTED_IMAGE_ID=%q\n' "$working_dir" "$env_file" "$project" "$image_id" > "$backup_dir/metadata.env"
+          printf 'CONFIG_FILE_COUNT=%q\n' "${#config_files[@]}" >> "$backup_dir/metadata.env"
+          for index in "${!config_files[@]}"; do
+            printf 'CONFIG_FILE_%s=%q\n' "$index" "${config_files[$index]}" >> "$backup_dir/metadata.env"
+          done
+          chmod 600 "$backup_dir/metadata.env"
+
+          env_candidate="$backup_dir/env.candidate"
+          awk '
+            BEGIN { replaced=0 }
+            /^PC_CONTROL_HOST_ENABLED=/ {
+              if (replaced == 0) print "PC_CONTROL_HOST_ENABLED=true"
+              replaced=1
+              next
+            }
+            { print }
+            END { if (replaced == 0) print "PC_CONTROL_HOST_ENABLED=true" }
+          ' "$env_file" > "$env_candidate"
+          [[ "$(grep -c '^PC_CONTROL_HOST_ENABLED=true$' "$env_candidate")" == 1 ]]
+          [[ "$(grep -c '^PC_CONTROL_HOST_ENABLED=' "$env_candidate")" == 1 ]]
+
+          compose_json="$backup_dir/compose.candidate.json"
+          docker compose --env-file "$env_candidate" "${compose_args[@]}" config --format json > "$compose_json"
+          jq -e '.services.web.environment.PC_CONTROL_HOST_ENABLED == "true"' "$compose_json" >/dev/null
+          image_ref="$(jq -r '.services.web.image // empty' "$compose_json")"
+          [[ -n "$image_ref" ]]
+          resolved_image_id="$(docker image inspect "$image_ref" --format '{{.Id}}')"
+          [[ "$resolved_image_id" == "$image_id" ]]
+
+          caddy_candidate="$backup_dir/Caddyfile.candidate"
+          cat /etc/caddy/Caddyfile > "$caddy_candidate"
+          cat >> "$caddy_candidate" <<CADDY
+
+          # BEGIN COMPANY OS CONTROL HOST
+          $control_domain {
+              encode zstd gzip
+              header {
+                  X-Robots-Tag "noindex, nofollow, noarchive"
+              }
+              reverse_proxy $upstream
+          }
+          # END COMPANY OS CONTROL HOST
+          CADDY
+          [[ "$(grep -c '# BEGIN COMPANY OS CONTROL HOST' "$caddy_candidate")" == 1 ]]
+          [[ "$(grep -c '# END COMPANY OS CONTROL HOST' "$caddy_candidate")" == 1 ]]
+          caddy validate --config "$caddy_candidate" >/dev/null
+
+          rollback_local() {
+            set +e
+            cp --preserve=mode,ownership,timestamps "$backup_dir/Caddyfile.before" /etc/caddy/Caddyfile
+            caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || systemctl reload caddy >/dev/null 2>&1 || true
+            cp --preserve=mode,ownership,timestamps "$backup_dir/env.before" "$env_file"
+            docker compose --env-file "$env_file" "${compose_args[@]}" up -d --no-deps --no-build --pull never web >/dev/null 2>&1 || true
+            set -e
+          }
+
+          rollback_needed=1
+          trap 'rc=$?; if [[ "$rollback_needed" == 1 ]]; then rollback_local; fi; exit "$rc"' EXIT
+
+          env_mode="$(stat -c '%a' "$env_file")"
+          env_uid="$(stat -c '%u' "$env_file")"
+          env_gid="$(stat -c '%g' "$env_file")"
+          install -m "$env_mode" -o "$env_uid" -g "$env_gid" "$env_candidate" "$env_file"
+          docker compose --env-file "$env_file" "${compose_args[@]}" up -d --no-deps --no-build --pull never web
+
+          web_ready=0
+          for attempt in $(seq 1 60); do
+            mapfile -t new_web < <(docker ps -q --filter 'label=com.docker.compose.service=web' | sort -u)
+            if [[ "${#new_web[@]}" == 1 ]]; then
+              new_id="${new_web[0]}"
+              new_image_id="$(docker inspect --format '{{.Image}}' "$new_id" 2>/dev/null || true)"
+              state="$(docker inspect --format '{{.State.Status}}' "$new_id" 2>/dev/null || true)"
+              health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$new_id" 2>/dev/null || true)"
+              new_gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$new_id" 2>/dev/null | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+              if [[ "$new_image_id" == "$image_id" && "$state" == running && ( "$health" == none || "$health" == healthy ) && "$new_gate" == 'PC_CONTROL_HOST_ENABLED=true' ]]; then
+                web_ready=1
+                break
+              fi
+            fi
+            sleep 2
+          done
+          [[ "$web_ready" == 1 ]]
+
+          caddy_mode="$(stat -c '%a' /etc/caddy/Caddyfile)"
+          caddy_uid="$(stat -c '%u' /etc/caddy/Caddyfile)"
+          caddy_gid="$(stat -c '%g' /etc/caddy/Caddyfile)"
+          install -m "$caddy_mode" -o "$caddy_uid" -g "$caddy_gid" "$caddy_candidate" /etc/caddy/Caddyfile
+          caddy validate --config /etc/caddy/Caddyfile >/dev/null
+          caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || systemctl reload caddy
+          systemctl is-active --quiet caddy
+
+          rollback_needed=0
+          trap - EXIT
+          printf '%s\n' "MUTATED=YES" "WEB_REVISION=$revision" "WEB_IMAGE_ID=$image_id" "BACKUP_DIR=$backup_dir"
+          REMOTE
+
+          for key in MUTATED WEB_REVISION WEB_IMAGE_ID BACKUP_DIR; do
+            value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
+            [[ -n "$value" ]]
+            echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Require running web revision to contain Company OS boundary
+        shell: bash
+        env:
+          WEB_REVISION: ${{ steps.mutate.outputs.web_revision }}
+        run: |
+          set -euo pipefail
+          [[ "$WEB_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$WEB_REVISION^{commit}"
+          git merge-base --is-ancestor "$MIN_BOUNDARY_COMMIT" "$WEB_REVISION"
+
+      - name: Public TLS and host-isolation acceptance
+        id: acceptance
+        shell: bash
+        env:
+          EXPECTED_REVISION: ${{ steps.mutate.outputs.web_revision }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/company-os-control-acceptance"
+          mkdir -p "$evidence"
+
+          tls_ready=0
+          for attempt in $(seq 1 60); do
+            if timeout 20 bash -c "printf '' | openssl s_client -connect '$CONTROL_DOMAIN:443' -servername '$CONTROL_DOMAIN' -verify_return_error 2>/dev/null | openssl x509 -noout -checkend 0 -ext subjectAltName 2>/dev/null" > "$evidence/cert.txt" 2>/dev/null && grep -Fq "DNS:$CONTROL_DOMAIN" "$evidence/cert.txt"; then
+              tls_ready=1
+              break
+            fi
+            sleep 5
+          done
+          [[ "$tls_ready" == 1 ]]
+
+          for round in $(seq 1 10); do
+            control_root="$(curl --silent --show-error --output "$evidence/control-root-$round.body" --dump-header "$evidence/control-root-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/")"
+            control_staff="$(curl --silent --show-error --output "$evidence/control-staff-$round.body" --dump-header "$evidence/control-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/staff")"
+            control_public="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7")"
+            control_register="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/register")"
+            primary_root="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/")"
+            version_body="$(curl --silent --show-error --connect-timeout 8 --max-time 20 "https://$PRIMARY_DOMAIN/version.json")"
+
+            [[ "$control_root" =~ ^(200|301|302|303|307|308|401|403|404)$ ]]
+            [[ "$control_staff" =~ ^(200|301|302|303|307|308|401|403)$ ]]
+            [[ "$control_public" != 200 ]]
+            [[ "$control_register" != 200 ]]
+            [[ "$control_public" != 5* && "$control_register" != 5* ]]
+            [[ "$primary_root" == 200 ]]
+            grep -Eiq '^x-robots-tag:.*noindex' "$evidence/control-root-$round.headers"
+            grep -Fq "$EXPECTED_REVISION" <<< "$version_body"
+          done
+
+          echo 'result=PASS' >> "$GITHUB_OUTPUT"
+          printf '%s\n' \
+            'RESULT=PASS' \
+            'ROUNDS=10' \
+            'TLS=VALID_FOR_CONTROL_HOST' \
+            'PRIMARY_DOMAIN=HEALTHY' \
+            'CONTROL_PUBLIC_ROUTES=DENIED' \
+            > "$evidence/summary.env"
+
+      - name: Roll back on failed public acceptance
+        if: failure() && steps.mutate.outputs.mutated == 'YES'
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          USER: ${{ steps.ssh.outputs.user }}
+          BACKUP_DIR: ${{ steps.mutate.outputs.backup_dir }}
+        run: |
+          set -euo pipefail
+          [[ "$BACKUP_DIR" =~ ^/var/backups/company-os-control-host/[0-9]{8}T[0-9]{6}Z$ ]]
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            bash -s -- "$BACKUP_DIR" <<'REMOTE'
+          set -Eeuo pipefail
+          backup_dir="${1:?backup directory required}"
+          [[ "$backup_dir" =~ ^/var/backups/company-os-control-host/[0-9]{8}T[0-9]{6}Z$ ]]
+          [[ -d "$backup_dir" && -f "$backup_dir/Caddyfile.before" && -f "$backup_dir/env.before" && -f "$backup_dir/metadata.env" ]]
+          # shellcheck disable=SC1090
+          source "$backup_dir/metadata.env"
+          [[ "$WORKING_DIR" =~ ^/(opt|srv|var/www)/[A-Za-z0-9_./-]+$ ]]
+          [[ "$ENV_FILE" == "$WORKING_DIR/.env" ]]
+          [[ "$PROJECT" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]]
+          [[ "$CONFIG_FILE_COUNT" =~ ^[0-9]+$ && "$CONFIG_FILE_COUNT" -ge 1 && "$CONFIG_FILE_COUNT" -le 20 ]]
+          compose_args=(-p "$PROJECT")
+          for ((index=0; index<CONFIG_FILE_COUNT; index++)); do
+            variable="CONFIG_FILE_$index"
+            file="${!variable}"
+            [[ -r "$file" ]]
+            compose_args+=(-f "$file")
+          done
+          exec 9>/var/lock/company-os-control-host-cutover.lock
+          flock -n 9
+          cp --preserve=mode,ownership,timestamps "$backup_dir/Caddyfile.before" /etc/caddy/Caddyfile
+          caddy validate --config /etc/caddy/Caddyfile >/dev/null
+          caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || systemctl reload caddy
+          cp --preserve=mode,ownership,timestamps "$backup_dir/env.before" "$ENV_FILE"
+          docker compose --env-file "$ENV_FILE" "${compose_args[@]}" up -d --no-deps --no-build --pull never web
+          mapfile -t running_web < <(docker ps -q --filter 'label=com.docker.compose.service=web' | sort -u)
+          [[ "${#running_web[@]}" == 1 ]]
+          image_id="$(docker inspect --format '{{.Image}}' "${running_web[0]}")"
+          [[ "$image_id" == "$EXPECTED_IMAGE_ID" ]]
+          gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "${running_web[0]}" | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+          [[ -z "$gate" || "$gate" == 'PC_CONTROL_HOST_ENABLED=false' ]]
+          REMOTE
+
+          for attempt in $(seq 1 20); do
+            code="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/" || true)"
+            [[ "$code" == 200 ]] && exit 0
+            sleep 3
+          done
+          exit 1
+
+      - name: Upload redacted acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: company-os-control-host-authorized-cutover-${{ steps.target.outputs.main_sha }}
+          path: ${{ runner.temp }}/company-os-control-acceptance
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Publish successful production acceptance
+        if: success()
+        uses: actions/github-script@v7
+        env:
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          WEB_REVISION: ${{ steps.mutate.outputs.web_revision }}
+          WEB_IMAGE_ID: ${{ steps.mutate.outputs.web_image_id }}
+          MUTATED: ${{ steps.mutate.outputs.mutated }}
+          ACCEPTANCE: ${{ steps.acceptance.outputs.result }}
+        with:
+          script: |
+            const body = [
+              '## Company OS control-host production cutover',
+              '',
+              `- Controller main: \`${process.env.MAIN_SHA}\``,
+              `- Running web revision: \`${process.env.WEB_REVISION}\``,
+              `- Immutable web image: \`${process.env.WEB_IMAGE_ID}\``,
+              `- Mutation state: \`${process.env.MUTATED}\``,
+              `- Public acceptance: **${process.env.ACCEPTANCE}**`,
+              '- TLS: **VALID_FOR_CONTROL_HOST**',
+              '- Control-host public-route isolation: **PASS**',
+              '- Primary-domain regression: **PASS**',
+              '- Consecutive rounds: **10/10**',
+              '- Rollback: **NOT REQUIRED**',
+              '',
+              'The control host is enabled only through the server-side Company OS boundary. No application image drift or database mutation was permitted.',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.TARGET_ISSUE),
+              body,
+            });
