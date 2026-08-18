@@ -19,23 +19,44 @@ The reference source is intentionally narrower than a generic integration client
 - one compile-time pinned production host;
 - port 443 only;
 - TLS server certificate verification through the OS trust store;
-- paths must stay under `/connector/v1`;
+- a path is accepted only when it is exactly `/connector/v1` or a slash-delimited child of it;
 - absolute URL, traversal and backslash are refused;
 - unsafe job ids are refused before path interpolation;
+- correlation-id and bearer header values use bounded safe alphabets, so CR/LF/space header injection is refused before request creation;
 - redirects are refused;
 - only GET and POST are representable;
 - response body is bounded;
-- machine bearer is attached only after host/path selection;
+- pairing code and terminal metadata are bounded;
+- machine bearer is attached only after host/path/header security gates;
 - no BSL logging call receives secrets/provider bodies;
 - POST network failure becomes `UNKNOWN_RESULT` because the far side may have committed before the connection broke.
 
 The transport does not persist the machine credential. That is deliberate: a source-only module must not invent a plaintext fallback just to appear complete. A real compatibility build needs a reviewed secure-secret provider (BSP safe storage where available, or another accepted protected mechanism).
 
+## Self-discovery
+
+`TransparentPriceConnectorDiscovery.bsl` now builds the exact server discovery shape:
+
+- `platformVersion`;
+- `configurationName`;
+- `configurationVersion`;
+- opaque `databaseInstanceId`;
+- explicit `organizations[]` with GUID/INN/KPP/name;
+- exact seven command capabilities;
+- `connectorVersion`;
+- `protocolVersion`.
+
+The platform version is read from standard `СистемнаяИнформация.ВерсияПриложения`.
+
+Configuration-specific facts are **not guessed**. The reference `TransparentPriceConfigurationAdapter` returns `CONFIGURATION_DISCOVERY_NOT_IMPLEMENTED` until an exact accepted profile supplies configuration name/version, an opaque stable database id and legal entities. This prevents a hidden “all 1C configurations have the same Organizations object” assumption.
+
+Discovery does not use or transmit the information-base connection string. Legal-entity count is bounded, GUIDs must be unique, INN/KPP are validated, and pairing remains closed until discovery is ready.
+
 ## Pairing and runtime
 
 The source contains calls for:
 
-- `POST /connector/v1/pair` using a one-time human code and discovery payload;
+- `POST /connector/v1/pair` using a one-time human code and validated discovery payload;
 - `POST /connector/v1/heartbeat`;
 - `GET /connector/v1/jobs`;
 - `POST /connector/v1/jobs/:id/ack`;
@@ -48,19 +69,19 @@ The source dispatcher contains exactly the same seven commands as the server pro
 
 ## Compatibility is still honest
 
-The configuration adapter included here is a fail-closed seam. Every operation returns:
+The configuration adapter included here is a fail-closed seam. Every business operation returns:
 
 `UNKNOWN_RESULT / CONFIGURATION_ADAPTER_NOT_IMPLEMENTED`
 
-until an exact configuration profile implements and passes acceptance.
+and discovery returns not-ready until an exact configuration profile implements and passes acceptance.
 
-That means this PR is real transport source but is **not** evidence that BP 3, KFH, ERP, KA or UT is already supported.
+That means this PR is real transport/discovery source but is **not** evidence that BP 3, KFH, ERP, KA or UT is already supported.
 
 ## Success semantics
 
 `HTTP_OK` never becomes business success by itself.
 
-A configuration adapter may report `REPORTED_SUCCESS` only with a non-empty `externalEvidenceId` corresponding to a real 1C object/fact. The server-side lease contract still treats that as connector-reported success, not automatically as Connection Center `CONFIRMED_LIVE`.
+A configuration adapter may report `REPORTED_SUCCESS` only with a non-empty bounded `externalEvidenceId` corresponding to a real 1C object/fact. The server-side lease contract still treats that as connector-reported success, not automatically as Connection Center `CONFIRMED_LIVE`.
 
 ## Official 1C basis checked for this implementation
 
@@ -70,6 +91,7 @@ The implementation direction was checked against official 1C materials on 2026-0
 - JSON can be used as an HTTP request body;
 - `HTTPСоединение`, `HTTPЗапрос` and arbitrary HTTP method calls are platform mechanisms;
 - official security guidance shows `ЗащищенноеСоединениеOpenSSL` with OS trusted CA certificates and HTTPS server validation;
+- embedded language can read configuration metadata;
 - configuration extensions can add integration functionality without rewriting the supported base configuration.
 
 References:
@@ -80,6 +102,7 @@ References:
 - https://v8.1c.ru/platforma/rasshireniya/
 - https://its.1c.ru/db/content/v8std/src/600/i8100669.htm
 - https://its.1c.ru/db/content/metod8dev/src/developers/platform/demo/i8105574.htm
+- https://its.1c.ru/db/content/metod8dev/src/developers/platform/metod/other/i8102318.htm
 
 ## Remaining before ADAPTER_READY
 
@@ -87,8 +110,8 @@ References:
 2. Guarded runtime `/connector/v1/*` routes.
 3. Reproducible extension project/`.cfe` build with checksum/provenance.
 4. Secure credential provider for each supported runtime/configuration family.
-5. Discovery implementation in 1C (platform/configuration version, database instance, legal entities, capabilities).
-6. Exact compatibility adapter, starting with one selected configuration family.
+5. Exact configuration discovery profile, starting with one selected family, to supply its legal entities/configuration version/database instance id.
+6. Exact typed-command compatibility adapter for the same family.
 7. 1C-side tests/lint/EDT validation and a real test information base.
 8. Server contract acceptance, multi-org leakage negative test, offline/retry/reconciliation test.
 9. Only then may Connection Center advance to `ADAPTER_READY`, later `TEST`, and only external live evidence may reach `CONFIRMED_LIVE`.
