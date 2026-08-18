@@ -65,7 +65,11 @@ jobs:
               'CREATE ROLE', 'DROP ROLE', 'GRANT ', 'REVOKE ', 'curl -X POST',
               'sendAuthMailSmtp(', 'client.store(', 'client.append(', 'client.expunge(',
           ]
-          bad = [token for token in forbidden if token in text]
+          try:
+              operational = text.split('- name: Resolve pinned production SSH authority', 1)[1]
+          except IndexError as exc:
+              raise SystemExit('OPERATIONAL_SURFACE_MISSING') from exc
+          bad = [token for token in forbidden if token in operational]
           if bad:
               raise SystemExit('MUTATION_SURFACE_FORBIDDEN:' + '|'.join(bad))
           PY
