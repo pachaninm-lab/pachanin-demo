@@ -14,7 +14,7 @@ The existing 1C slices define:
 - a scoped machine-identity policy;
 - outbound-only 1C extension source with discovery and typed commands.
 
-They did not yet give the server a durable authority for a real installed connector. This slice adds that authority without inventing a second accounting source of truth or a second audit system.
+They did not yet give the server a durable authority for a real installed connector. This slice adds that authority and the minimum one-time HTTP bootstrap without inventing a second accounting source of truth or a second audit system.
 
 ## Durable entities
 
@@ -67,7 +67,7 @@ Credential rotation revokes the previous ACTIVE credential for the binding in th
 
 ## Server-selected binding identity
 
-The connector pairing body already has the natural protocol shape:
+The connector pairing body has the protocol shape:
 
 `{ code, discovery }`
 
@@ -117,6 +117,31 @@ On top of the membership proof:
 
 Capability is derived from durable membership job profile/delegation, never from request JSON.
 
+## HTTP bootstrap
+
+This slice opens only the bootstrap operations required to turn the durable authority into an installable flow.
+
+Human side:
+
+- `POST /accounting/connections/one-c/pairing-challenge` — capability + fresh MFA; one-time code; `no-store`;
+- `GET /accounting/connections/one-c/runtime` — capability-gated safe status projection;
+- `POST /accounting/connections/one-c/:bindingId/revoke` — explicit machine-safe reason code + revoke capability + fresh MFA.
+
+Connector side:
+
+- `POST /connector/v1/pair` — the **only public connector route in this slice**.
+
+The pair route:
+
+- is IP-rate-limited;
+- is `no-store`;
+- accepts exact top-level `{ code, discovery }` only;
+- rejects unknown organization fields before repository execution;
+- does not accept organizationId, tenantId, connectionId, capability or selected GUID authority from the connector;
+- returns the machine bearer exactly once after PostgreSQL consumes the code.
+
+Heartbeat, jobs, ACK/result/fail, events and mappings are still closed.
+
 ## Database authority
 
 `pc_one_c_connector_authority` is:
@@ -151,6 +176,8 @@ The API repository parses only the random credential ID from the bearer to locat
 
 Possession is then checked with the existing timing-safe machine-credential policy. A request cannot provide its own organization or command scope.
 
+The verifier is implemented now so the next runtime slice can put heartbeat and IntegrationJob endpoints behind it without introducing another credential model.
+
 ## Acceptance
 
 The PostgreSQL acceptance test covers:
@@ -170,19 +197,20 @@ The PostgreSQL acceptance test covers:
 - ONE_C audit contains none of the tested secrets/verifiers;
 - connector authority remains no-login, non-superuser, non-bypass and memberless.
 
+Focused controller contracts additionally prove that only pair is public, GUEST admission is confined to the capability-gated human management controller, unknown request fields are refused and raw database text is not surfaced.
+
 ## Still outside this slice
 
-This is durable server authority, not a live integration claim.
+This is durable server authority plus one-time bootstrap, not a live integration claim.
 
 Still required before real exchange:
 
-1. guarded `/connector/v1/pair` HTTP route;
-2. machine-authenticated heartbeat;
-3. durable IntegrationJob projection on the existing Outbox/Inbox authority;
-4. lease acquisition, ACK, result/fail and reconciliation routes;
-5. reproducible `.cfe` build and provenance;
-6. at least one exact 1C configuration compatibility profile with a real test information base;
-7. production deployment and external evidence.
+1. machine-authenticated heartbeat and safe diagnostics;
+2. durable IntegrationJob projection on the existing Outbox/Inbox authority;
+3. lease acquisition, ACK, result/fail and reconciliation routes;
+4. reproducible `.cfe` build and provenance;
+5. at least one exact 1C configuration compatibility profile with a real test information base;
+6. production deployment and external evidence.
 
 No production mutation occurs in this slice. Merge/green CI are not production acceptance.
 
