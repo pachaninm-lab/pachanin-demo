@@ -42,17 +42,18 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          bash -n scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
-          grep -Fq 'PC-CROP production mail delivery canary' scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
-          grep -Fq 'No credentials, tokens or personal data' scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
-          grep -Fq "await s.cmd('STARTTLS',[220])" scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
-          grep -Fq "await s.cmd('DATA',[354])" scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
-          ! grep -Fq 'password-reset' scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
-          ! grep -Fq 'INSERT INTO' scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
-          ! grep -Fq 'UPDATE auth.' scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
+          script='scripts/production-p0-reviewer-direct-mx-delivery-canary-v2.sh'
+          bash -n "$script"
+          grep -Fq 'PC-CROP production mail delivery canary' "$script"
+          grep -Fq 'No credentials, tokens or personal data' "$script"
+          grep -Fq "s.has_extn('starttls')" "$script"
+          grep -Fq 's.sendmail(sender,[recipient]' "$script"
+          ! grep -Fq 'password-reset' "$script"
+          ! grep -Fq 'INSERT INTO' "$script"
+          ! grep -Fq 'UPDATE auth.' "$script"
 
       - name: Send exactly one non-secret canary and verify controlled mailbox
         shell: bash
         env:
           RUNNER_TEMP: ${{ runner.temp }}
-        run: bash scripts/production-p0-reviewer-direct-mx-delivery-canary.sh
+        run: bash scripts/production-p0-reviewer-direct-mx-delivery-canary-v2.sh
