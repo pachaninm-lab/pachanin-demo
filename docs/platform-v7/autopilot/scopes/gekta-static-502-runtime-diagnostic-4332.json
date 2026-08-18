@@ -1,4 +1,7 @@
 {
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-static-502-runtime-diagnostic-4332",
+  "status": "active",
   "version": 1,
   "task": "gekta-static-502-runtime-diagnostic-4332",
   "issue": 4332,
