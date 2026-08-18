@@ -69,6 +69,48 @@ export const CONNECTION_CENTER_REQUIRED_BUT_NOT_MODELED = Object.freeze([
   },
 ]);
 
+/**
+ * Validate only shape at the browser boundary. Unknown vocabulary is allowed
+ * through intentionally so the presenter can fail closed with a visible
+ * "status unknown" state instead of trusting a TypeScript cast.
+ */
+export function isConnectionStateDto(value: unknown): value is ConnectionStateDto {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.kind === 'string'
+    && row.kind.trim() !== ''
+    && typeof row.maturity === 'string'
+    && row.maturity.trim() !== ''
+    && Array.isArray(row.missing)
+    && row.missing.every((item) => typeof item === 'string')
+    && typeof row.mayCarryRealTraffic === 'boolean'
+  );
+}
+
+export function isConnectionAttestationDto(value: unknown): value is ConnectionAttestationDto {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  if (
+    typeof row.id !== 'string'
+    || row.id.trim() === ''
+    || typeof row.connectionKind !== 'string'
+    || row.connectionKind.trim() === ''
+    || typeof row.state !== 'object'
+    || row.state === null
+    || Array.isArray(row.state)
+  ) return false;
+
+  const state = row.state as Record<string, unknown>;
+  return (
+    typeof state.attested === 'boolean'
+    && Array.isArray(state.awaiting)
+    && state.awaiting.every((item) => typeof item === 'string')
+    && Array.isArray(state.rejected)
+    && state.rejected.every((item) => typeof item === 'string')
+  );
+}
+
 export function presentConnection(
   connection: ConnectionStateDto,
   attestations: readonly ConnectionAttestationDto[],
