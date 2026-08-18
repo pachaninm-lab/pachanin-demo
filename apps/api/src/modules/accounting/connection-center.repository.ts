@@ -8,6 +8,8 @@ import {
   KNOWN_CONNECTION_KINDS,
   describeConnection,
 } from './connection-center.policy';
+import { describeAttestation } from './connection-attestation.policy';
+import { ConnectionAttestationRepository } from './connection-attestation.repository';
 
 /**
  * What this organization's connections to other people's systems actually are.
@@ -24,7 +26,10 @@ import {
 
 @Injectable()
 export class ConnectionCenterRepository {
-  constructor(private readonly transactions: RlsTransactionService) {}
+  constructor(
+    private readonly transactions: RlsTransactionService,
+    private readonly attestations: ConnectionAttestationRepository,
+  ) {}
 
   async describe(
     user: RequestUser | undefined,
@@ -45,8 +50,28 @@ export class ConnectionCenterRepository {
          LIMIT 50
       `;
 
+      // Which kinds somebody has actually put in front of the four gates, and
+      // what those gates answered. Before this existed the contour asserted its
+      // own attestation in code; an attestation a contour writes about itself is
+      // not one.
+      const subjects = await tx.$queryRaw<{ id: string; connectionKind: string }[]>`
+        SELECT s."id", s."connectionKind"
+          FROM public."connection_attestation_subjects" s
+         WHERE s."organizationId" = ${context.orgId}
+      `;
+
+      const attested = new Set<string>();
+      for (const subject of subjects) {
+        const state = describeAttestation(
+          await this.attestations.answers(tx, subject.id),
+        );
+        if (state.attested) {
+          attested.add(subject.connectionKind);
+        }
+      }
+
       const evidence = KNOWN_CONNECTION_KINDS.map((kind) =>
-        this.evidenceFor(kind, receipts),
+        this.evidenceFor(kind, receipts, attested),
       );
       return evidence.map(describeConnection);
     });
@@ -63,6 +88,7 @@ export class ConnectionCenterRepository {
   private evidenceFor(
     kind: ConnectionKind,
     receipts: readonly { transportCode: string | null; externalReceiptId: string | null }[],
+    attested: ReadonlySet<string>,
   ): ConnectionEvidence {
     if (kind === ConnectionKind.EDO) {
       const receipt = receipts.find(
@@ -76,7 +102,9 @@ export class ConnectionCenterRepository {
         // the platform yet: there is no table that would hold one.
         endpointConfigured: false,
         credentialIssued: false,
-        contractAttested: true,
+        // Four gates, four different people, still live and still bound to the
+        // version of the subject that is current. Not a constant in this file.
+        contractAttested: attested.has(kind),
         testExchangeRecorded: false,
         liveReceiptExternalId: receipt?.externalReceiptId ?? null,
       };
@@ -91,7 +119,7 @@ export class ConnectionCenterRepository {
         adapterImplemented: false,
         endpointConfigured: false,
         credentialIssued: false,
-        contractAttested: false,
+        contractAttested: attested.has(kind),
         testExchangeRecorded: false,
         liveReceiptExternalId: null,
       };
@@ -100,16 +128,15 @@ export class ConnectionCenterRepository {
     if (kind === ConnectionKind.BANK_STATEMENT) {
       // An importer exists and is routed (modules/bank-reconciliation), so this
       // is not "not implemented". But it reads a statement somebody uploaded:
-      // no bank endpoint is configured anywhere, no bank has issued this
-      // platform credentials, and the parser has no attestation of its own in
-      // the repository. ADAPTER_READY would claim an attestation that does not
-      // exist, so the ladder correctly stops below it.
+      // no bank endpoint is configured anywhere and no bank has issued this
+      // platform credentials. Whether its contract has been attested is a
+      // question for the four gates, like everything else here.
       return {
         kind,
         adapterImplemented: true,
         endpointConfigured: false,
         credentialIssued: false,
-        contractAttested: false,
+        contractAttested: attested.has(kind),
         testExchangeRecorded: false,
         liveReceiptExternalId: null,
       };

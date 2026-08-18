@@ -59,6 +59,7 @@ model Organization {
   accountingPayments                AccountingPayment[]
   accountingPaymentAllocations      AccountingPaymentAllocation[]
   accountingReconciliations         AccountingReconciliation[]
+  connectionAttestationSubjects     ConnectionAttestationSubject[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -141,6 +142,7 @@ model UserOrg {
   paymentAllocationsMade      AccountingPaymentAllocation[] @relation("AccountingPaymentAllocationActor")
   reconciliationsPrepared     AccountingReconciliation[]  @relation("AccountingReconciliationPreparer")
   reconciliationsAnswered     AccountingReconciliation[]  @relation("AccountingReconciliationResponder")
+  connectionSubjectsCreated   ConnectionAttestationSubject[] @relation("ConnectionAttestationSubjectAuthor")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -2012,9 +2014,41 @@ model FgisGrainProviderConfiguration {
   @@map("fgis_grain_provider_configurations")
 }
 
+/// What a governance attestation is about when it is not an FGIS provider
+/// configuration.
+///
+/// Deliberately minimal: the identity of an external connection, its
+/// environment and the version being attested. No status machine — the
+/// attestation decisions are the state, and a second place to record "approved"
+/// is a second answer to the same question.
+///
+/// The kinds are the connection contour's own vocabulary, unchanged.
+model ConnectionAttestationSubject {
+  id                    String   @id
+  tenantId              String
+  organizationId        String
+  connectionKind        String
+  providerCode          String
+  environment           String
+  version               BigInt   @default(0)
+  createdByMembershipId String
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  attestations FgisGrainProviderAttestation[]
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  createdBy    UserOrg      @relation("ConnectionAttestationSubjectAuthor", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([tenantId, organizationId, connectionKind, providerCode, environment], map: "connection_attestation_subject_identity_key")
+  @@index([organizationId, connectionKind], map: "connection_attestation_subject_org_kind_idx")
+  @@map("connection_attestation_subjects")
+}
+
 model FgisGrainProviderAttestation {
   id                   String   @id
-  configurationId      String
+  subjectKind          String   @default("FGIS_PROVIDER_CONFIGURATION")
+  configurationId      String?
+  connectionSubjectId  String?
   tenantId             String
   organizationId       String
   gate                 String
@@ -2032,13 +2066,15 @@ model FgisGrainProviderAttestation {
   prevHash             String?
   createdAt            DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
 
-  configuration FgisGrainProviderConfiguration @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_config_fk")
+  configuration FgisGrainProviderConfiguration? @relation(fields: [configurationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_config_fk")
+  connectionSubject ConnectionAttestationSubject? @relation(fields: [connectionSubjectId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_subject_fk")
   organization  Organization                   @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_org_fk")
   actorUser     User                           @relation(fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fgis_grain_provider_attestation_user_fk")
 
   @@index([configurationId, configurationVersion, gate, createdAt(sort: Desc), id(sort: Desc)], map: "fgis_grain_provider_attestation_config_idx")
   @@index([validUntil], map: "fgis_grain_provider_attestation_expiry_idx")
   @@index([actorUserId, createdAt(sort: Desc)], map: "fgis_grain_provider_attestation_actor_idx")
+  @@index([connectionSubjectId, configurationVersion, gate, createdAt(sort: Desc), id(sort: Desc)], map: "fgis_grain_provider_attestation_subject_idx")
   @@map("fgis_grain_provider_attestations")
 }
 

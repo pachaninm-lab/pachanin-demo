@@ -65,7 +65,8 @@
     "apps/api/prisma/migrations/20260817170000_pc_crop_accounting_deal_services",
     "apps/api/prisma/migrations/20260817200000_pc_crop_accounting_payments",
     "apps/api/prisma/migrations/20260817220000_pc_crop_accounting_reconciliation",
-    "apps/api/prisma/migrations/20260817230000_pc_crop_period_close_knows_services"
+    "apps/api/prisma/migrations/20260817230000_pc_crop_period_close_knows_services",
+    "apps/api/prisma/migrations/20260818090000_pc_crop_connection_attestation_subjects"
   ],
   "requiredInvariants": [
     "job_profile is an axis orthogonal to user_orgs.role and never replaces it.",
@@ -244,5 +245,6 @@
   },
   "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
   "issue": 4321,
-  "operationalStatus": "NOT_ATTESTED"
+  "operationalStatus": "NOT_ATTESTED",
+  "governanceExtensionNote": "Provider-neutral attestation is a separate, minimal governance concern inside this scope rather than a second manifest, because the scope resolver refuses two manifests for one branch and the designated development branch is fixed. It is therefore bounded by enumeration instead: exactly one new migration directory, no wildcards, and no path under apps/api/src/modules/regulatory-integration. It EXTENDS public.fgis_grain_provider_attestations rather than duplicating it — a second attestation store would be two answers to 'who approved this'. The FGIS contour's own guarantees are preserved exactly: configurationId loses its blanket NOT NULL and a CHECK restores it for every FGIS-kind row, and the new chain and one-actor-per-version triggers fire only for CONNECTION_SUBJECT rows, because the FGIS fixtures do not satisfy them and tightening that contour is its own scope's decision."
 }
