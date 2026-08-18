@@ -24,6 +24,7 @@
     "apps/web/components/gekta/GektaTopicPage.tsx",
     "apps/web/components/gekta/GektaUtilityPage.tsx",
     "apps/web/components/gekta/GektaViewportAuthority.tsx",
+    "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
     "apps/web/tests/unit/gektaRealMobileTouchAndSecondaryRoutes.test.ts",
     "docs/platform-v7/autopilot/scopes/gekta-real-ios-touch-secondary-pages-4332.json"
   ],
@@ -43,7 +44,7 @@
   ],
   "acceptance": [
     "all changed files remain inside allowedPaths",
-    "focused unit contract passes",
+    "focused unit and Chromium/WebKit keyboard-start contracts pass",
     "web-unit and Workflow Syntax Guard pass",
     "all required exact-head security/governance gates pass before merge",
     "production acceptance remains fail-closed"
