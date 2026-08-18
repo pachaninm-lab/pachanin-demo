@@ -7,7 +7,7 @@
   "authorizedBy": "explicit-user-instruction",
   "baseline": {
     "branch": "main",
-    "commit": "beed71c08783906d4235f3a02ad0b737a4c8be15"
+    "commit": "2571673016aff3b2811133c7f8ef5039dacd05d2"
   },
   "purpose": "Repair the proven bounded web-only exact-SHA release failure from run 32084073659 without weakening live acceptance. The rollback path recreated the previous exact web image and inspected health immediately, so a normal starting state was reported as AUTOMATIC_ROLLBACK_COMPLETED=0. The same run proved every static, crawler, indexation, compatibility and route check passed while the Gekta stream gate exposed only stream=fail. Add a bounded rollback health wait and non-secret stream-stage diagnostics so the next exact-SHA release can restore safely and classify the remaining failure precisely.",
   "allowedPaths": [
