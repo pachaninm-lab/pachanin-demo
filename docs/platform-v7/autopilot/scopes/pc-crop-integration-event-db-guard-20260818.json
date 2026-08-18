@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-integration-event-db-guard-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — database guard for integration telemetry",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseParentHead": "1bad00abaf7219d34c9b19f677a66a688688150c",
+  "purpose": "Stack a database-level fail-closed guard on PR #4423 so another current or future writer cannot bypass the service redaction and insert raw request/response/error text into IntegrationEvent. Existing historical rows are not rewritten in this slice: constraints are NOT VALID, so new/updated rows are enforced immediately while historical cleanup remains a separately governed retention/legal-hold decision.",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260818183000_pc_crop_integration_event_safe_telemetry/migration.sql",
+    "apps/api/src/modules/integration-events/integration-event-db-guard.contract.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/integration-event-db-guard-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-integration-event-db-guard-20260818.json"
+  ],
+  "boundaries": [
+    "This slice is stacked on PR #4423 and relies on its metadata-only writer/read projection.",
+    "No historical integration event row is deleted, rewritten or claimed sanitized here.",
+    "The new CHECK constraints are NOT VALID: they enforce every new or updated row immediately but do not retroactively reject existing historical evidence before a governed cleanup decision.",
+    "No second event/audit/outbox store is created.",
+    "No Prisma data model field is added; this is database integrity over the existing IntegrationEvent shape.",
+    "No application secret, provider credential, apps/web, auth, banking, FGIS, hosting or production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredInvariants": [
+    "New requestPayload/responsePayload values are either SQL NULL or one exact structural metadata object kind emitted by PR #4423.",
+    "New errorMessage values are either SQL NULL or a bounded uppercase machine-safe code.",
+    "A direct Prisma/raw SQL writer attempting to insert an arbitrary object/string/array into requestPayload or responsePayload is refused by PostgreSQL.",
+    "A direct writer attempting to persist free-text exception detail is refused by PostgreSQL.",
+    "Historical rows remain readable through PR #4423's metadata-only projection while their separate cleanup decision is pending."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-integration-event-db-guard-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- integration-event-db-guard.contract.spec.ts integration-event-redaction.policy.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "prisma migrate deploy + drift check through existing PC-CROP accounting acceptance because migration name contains _pc_crop_"
+  ]
+}
