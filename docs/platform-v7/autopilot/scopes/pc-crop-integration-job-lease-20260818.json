@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-integration-job-lease-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — IntegrationJob pull lease contract",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseParentHead": "0ae02939e08e18f61e887d60953123104008b4f5",
+  "purpose": "Stack the next provider-neutral async prerequisite on the external-command contract: exact pull-lease ownership, scoped bearer verification, acknowledgement and one-terminal-result rules for durable IntegrationJob execution. This prevents two connectors/tenants from owning the same lease and prevents an expired or already completed lease from accepting a second business result. No competing queue persistence is created.",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/integration-job-lease.policy.ts",
+    "apps/api/src/modules/accounting/integration-job-lease.policy.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/integration-job-lease-contract-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-integration-job-lease-20260818.json"
+  ],
+  "boundaries": [
+    "This slice is stacked on PR #4421 and imports its IntegrationCommandEnvelope validation rather than creating a second idempotency/retry contract.",
+    "No IntegrationJob/Outbox/Inbox table is created; durable persistence must extend the existing authority later.",
+    "Lease scope is exact tenant + organization + connection + provider partition + machine credential id.",
+    "Lease bearer is random; persistent shape stores only salted SHA-256 verifier.",
+    "A lease may be acknowledged once and may accept one terminal connector result only.",
+    "Expired, revoked/mismatched, wrong-scope or wrong-secret lease is denied.",
+    "UNKNOWN_RESULT is never converted to success and is marked reconciliation-required before any retry decision.",
+    "A connector-reported success is not Connection Center CONFIRMED_LIVE evidence by itself; external evidence remains a separate authority.",
+    "No apps/web, packages, lockfile, Prisma, auth, provider credential, banking, FGIS, hosting or production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-integration-job-lease-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- integration-job-lease.policy.spec.ts integration-command.policy.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting/outbox/security gates"
+  ]
+}
