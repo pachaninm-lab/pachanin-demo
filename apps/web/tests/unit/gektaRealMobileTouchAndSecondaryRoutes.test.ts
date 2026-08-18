@@ -32,16 +32,18 @@ describe('Gekta real-mobile touch and secondary-route contract', () => {
 
   it('keeps discovery in document flow and moves only the composer for keyboard ownership', () => {
     expect(shell).toContain("[data-gekta-chat-workspace='true'].overflow-hidden");
-    expect(shell).toContain("html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type");
+    expect(shell).toContain("html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) [data-gekta-composer-root='true']");
     expect(shell).not.toContain("html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) {\n    position: fixed");
     expect(shell).toContain('-webkit-overflow-scrolling: touch');
     expect(shell).toContain('scroll-behavior: auto !important');
   });
 
-  it('keeps the textarea in one DOM position so focus, caret and selection are not repaired by reparenting', () => {
-    expect(composer).not.toContain('createPortal');
+  it('keeps one discovery portal parent across keyboard cycles instead of reparenting on focus', () => {
+    expect(composer).toContain('createPortal');
+    expect(composer).toContain("workspace.querySelector<HTMLElement>(\"[data-gekta-composer-slot='true']\")");
+    expect(composer).toContain("workspace.classList.contains('overflow-hidden')");
     expect(composer).not.toContain('RelocationState');
-    expect(composer).not.toContain('data-gekta-composer-slot');
+    expect(composer).not.toContain('gektaKeyboardOpen');
     expect(composer).toContain("textareaRef.current?.focus({ preventScroll: true })");
   });
 
