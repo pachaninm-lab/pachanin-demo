@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-connection-onboarding-contract-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — Connection Center onboarding contract",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseExactMain": "aa237f085ddb9d1447a6625b586c15cc8d989ce5",
+  "purpose": "Implement the self-service Connection Center decision contract from section 22 before the settings UI: where accounting is kept, where 1C runs, honest UNKNOWN paths, recipient handoff and the exact connection-status vocabulary. The contract must not expose technical secret/configuration fields by default.",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/connection-onboarding.policy.ts",
+    "apps/api/src/modules/accounting/connection-onboarding.policy.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/connection-onboarding-contract-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-connection-onboarding-contract-20260818.json"
+  ],
+  "boundaries": [
+    "Accounting-system choice is 1C, OTHER or UNKNOWN; 1C location is FRESH, LOCAL_OR_SERVER, SERVICE_COMPANY or UNKNOWN.",
+    "UNKNOWN never blocks into a technical dead end: it exposes send-to-accountant and/or send-to-1C-admin handoff actions.",
+    "Connection status is exactly NOT_CONNECTED, CONNECTING, HEALTHY, DEGRADED, ACTION_REQUIRED, OFFLINE, REVOKED, SECURITY_HOLD.",
+    "Default user-facing connection summary never includes OData, OAuth scopes, client_secret, endpoint or refresh token.",
+    "No connector pairing, vendor credential, API mutation, UI route, Prisma, auth, banking, FGIS, hosting or production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-connection-onboarding-contract-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- connection-onboarding.policy.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting/security gates"
+  ]
+}
