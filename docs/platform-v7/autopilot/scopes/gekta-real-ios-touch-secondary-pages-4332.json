@@ -18,7 +18,9 @@
     "apps/web/components/gekta/GektaChatWorkspace.tsx",
     "apps/web/components/gekta/GektaComposer.tsx",
     "apps/web/components/gekta/GektaDiscoverySections.tsx",
+    "apps/web/components/gekta/GektaEmptyState.tsx",
     "apps/web/components/gekta/GektaLegalFooter.tsx",
+    "apps/web/components/gekta/GektaMobileDrawer.tsx",
     "apps/web/components/gekta/GektaProductShell.tsx",
     "apps/web/components/gekta/GektaSidebar.tsx",
     "apps/web/components/gekta/GektaTopicPage.tsx",
@@ -26,6 +28,8 @@
     "apps/web/components/gekta/GektaUtilityPage.tsx",
     "apps/web/components/gekta/GektaViewportAuthority.tsx",
     "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
+    "apps/web/tests/unit/gektaKeyboardStartContract.test.ts",
+    "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
     "apps/web/tests/unit/gektaRealMobileTouchAndSecondaryRoutes.test.ts",
     "docs/platform-v7/autopilot/scopes/gekta-real-ios-touch-secondary-pages-4332.json"
   ],
