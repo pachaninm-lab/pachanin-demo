@@ -13,9 +13,9 @@ The accounting identity model intentionally separates market role from job profi
 - their actual organization function is `job_profile = ACCOUNTANT`, `CHIEF_ACCOUNTANT` or `EXTERNAL_ACCOUNTANT`;
 - `Role.ACCOUNTING` remains the bank/settlement actor and must not be reused for a farm bookkeeper.
 
-The capability resolver already follows that model. The generic PostgreSQL transaction helper did not: it rejected every `Role.GUEST` before the database could resolve the ACTIVE organization membership and job profile. That made the intended compatibility model unreachable for any repository using the generic helper.
+The capability resolver already follows that model. The generic PostgreSQL transaction helper did not: it rejected every `Role.GUEST` before the database could resolve the ACTIVE organization membership and job profile. The AccountingController class role fence also excluded GUEST, so the intended bookkeeper compatibility model could not reach even the task-first work queue.
 
-## What this slice changes
+## Organization-member transaction authority
 
 The generic `deriveTrustedRlsContext` / `withTrustedContext` path remains unchanged in security meaning: `GUEST` is still denied there.
 
@@ -29,33 +29,74 @@ A separate `withOrganizationMemberContext` path is introduced for reviewed organ
 
 The role label therefore does not become authority. A forged organization/tenant, revoked membership or missing membership fails before business work.
 
-## Connection Center migration
+## Task-first accounting
 
-`ConnectionCenterRepository` now uses the organization-member transaction path and then resolves capabilities from durable `job_profile`/delegations using the existing `WorkTaskRepository.capabilitiesWithin` authority.
+The work queue operations intended for a real accountant now use the organization-member context:
+
+- open task list;
+- task projection/viewer context;
+- manual task/note creation;
+- task transition.
+
+Task list additionally requires server-resolved `accounting.dashboard.read`. Manual creation still requires `accounting.task.manage`, and transition still runs the existing task policy against server-resolved capabilities and the live system condition.
+
+An unprofiled GUEST therefore receives no task rows. The word `GUEST` never grants accounting access by itself.
+
+Derived task creation stays on the generic trusted context and is not widened in this slice.
+
+## Exact HTTP role admission
+
+Nest `RolesGuard` uses handler metadata as an override of class metadata. GUEST is therefore admitted only on the exact handlers whose repositories were migrated and capability-gated:
+
+- `GET /accounting/tasks`
+- `POST /accounting/tasks`
+- `POST /accounting/tasks/:taskId/transition`
+- `GET /accounting/tasks/projection`
+- `GET /accounting/connections`
+- `GET /accounting/connections/attestations`
+- `POST /accounting/connections/attestations/subjects`
+- `POST /accounting/connections/attestations/:subjectId`
+
+The class fence remains unchanged for document generation, advances, payments, services, period close, reconciliation and other non-migrated accounting endpoints. This is deliberate: those surfaces need their own capability-first migration before a GUEST-compatible accountant may reach them.
+
+## Capability result
+
+The focused contract proves the intended separation:
+
+`GUEST + ACCOUNTANT`:
+
+- can read the accounting dashboard/tasks;
+- can manage daily tasks;
+- can read integrations and sync/map 1C;
+- cannot configure 1C/EDO/integrations merely because the market role is GUEST;
+- cannot close the accounting package;
+- cannot gain `documents.sign` from the profile.
+
+`GUEST + EXTERNAL_ACCOUNTANT`:
+
+- gets the daily bookkeeping core;
+- does not get provider configuration;
+- does not get period close/reconciliation authority;
+- does not get legal signing authority.
+
+Unprofiled GUEST gets baseline identity capabilities only.
+
+## Connection Center and attestation
+
+`ConnectionCenterRepository` uses the organization-member transaction path and resolves capabilities from durable `job_profile`/delegations using `WorkTaskRepository.capabilitiesWithin`.
 
 No `integrations.read` → no connection metadata.
 
-`ConnectionAttestationRepository` moves to the same member transaction path but keeps its existing gates:
+`ConnectionAttestationRepository` uses the same member transaction path but keeps its existing gates:
 
 - read requires `integrations.read`;
 - subject registration requires `integrations.configure`;
 - gate attestation requires `integrations.configure` plus verified MFA;
 - database four-person/version/hash-chain rules remain authority.
 
-## What is deliberately still closed
-
-This slice does **not** add `GUEST` to AccountingController routes yet. The HTTP role fence remains closed until the task-first repository and exact route methods are migrated together to capability-first authorization. That keeps this repair from accidentally opening document, money, period-close or other accounting endpoints to an unprofiled GUEST.
-
-The follow-up route slice must prove:
-
-- `GUEST + ACCOUNTANT` can open the work queue;
-- `GUEST + EXTERNAL_ACCOUNTANT` gets only its intended bookkeeping capabilities;
-- unprofiled `GUEST` receives no accounting/connection data;
-- non-target accounting endpoints remain behind their existing role/capability fences.
-
 ## Claims deliberately not made
 
-- no external accountant can reach the accounting HTTP routes from this slice alone;
+- document/money/period/reconciliation endpoints are not yet migrated for GUEST accountants;
 - no 1C/EDO connection was created;
 - no provider was contacted;
 - no production mutation;
