@@ -138,3 +138,56 @@ test('390px empty start survives 20 keyboard cycles while discovery remains scro
   await expectNoHorizontalOverflow(page);
   expect(runtimeFailures).toEqual([]);
 });
+
+test('320px drawer keeps security and support inside Gekta and all controls remain actionable', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  const response = await page.goto('/gekta', { waitUntil: 'load' });
+  expect(response?.ok()).toBe(true);
+  await waitForViewportAuthority(page);
+  await expectNoHorizontalOverflow(page);
+
+  const openMenu = page.locator('[data-gekta-chat-workspace="true"] header > button').first();
+  await expect(openMenu).toBeVisible();
+  await openMenu.click();
+  const drawer = page.getByRole('dialog');
+  await expect(drawer).toBeVisible();
+
+  const securityLink = drawer.getByRole('link', { name: 'Данные и безопасность' });
+  await expect(securityLink).toBeVisible();
+  await securityLink.click();
+  await expect(page).toHaveURL(/\/gekta\/security$/);
+  await expect(page.locator('[data-gekta-utility-page="security"]')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Безопасность');
+  await expectNoHorizontalOverflow(page);
+  const securityNavMetrics = await page.locator("nav[aria-label='Gekta sections']").evaluate((node) => ({ client: node.clientWidth, scroll: node.scrollWidth }));
+  expect(securityNavMetrics.scroll).toBeLessThanOrEqual(securityNavMetrics.client + 1);
+
+  await page.getByRole('link', { name: 'Поддержка', exact: true }).first().click();
+  await expect(page).toHaveURL(/\/gekta\/support$/);
+  const support = page.locator('[data-gekta-utility-page="support"]');
+  await expect(support).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  const form = page.locator('[data-gekta-support-form="true"]');
+  await expect(form).toBeVisible();
+
+  await page.route('**/api/platform-v7/inquiries', async (route) => {
+    const request = route.request();
+    expect(request.method()).toBe('POST');
+    const payload = request.postDataJSON() as { source?: string; message?: string; consent?: string };
+    expect(payload.source).toBe('support_chat');
+    expect(payload.message).toContain('iPhone');
+    expect(payload.consent).toBe('yes');
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ accepted: true, sent: true }) });
+  });
+
+  await form.locator('input[name="name"]').fill('Максим');
+  await form.locator('input[name="contact"]').fill('maxim@example.test');
+  await form.locator('textarea[name="message"]').fill('iPhone: проверка кликабельности и мобильного интерфейса Гекты.');
+  await form.locator('input[name="consent"]').check();
+  const submit = form.getByRole('button', { name: 'Отправить обращение' });
+  const submitBox = await submit.boundingBox();
+  expect(submitBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await submit.click();
+  await expect(page.getByRole('heading', { name: 'Обращение отправлено' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
