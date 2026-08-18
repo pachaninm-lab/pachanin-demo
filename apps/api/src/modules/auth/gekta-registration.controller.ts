@@ -30,8 +30,10 @@ export class GektaRegistrationController {
       phone?: string;
       acceptedServiceTerms?: boolean;
       acceptedPersonalData?: boolean;
+      locale?: unknown;
     },
     @Headers('x-registration-delivery-key') deliveryKey?: string,
+    @Headers('x-correlation-id') correlationId?: string,
     @Headers('user-agent') userAgent?: string,
     @Ip() ip?: string,
   ) {
@@ -42,7 +44,8 @@ export class GektaRegistrationController {
       phone: String(body?.phone ?? ''),
       acceptedServiceTerms: body?.acceptedServiceTerms === true,
       acceptedPersonalData: body?.acceptedPersonalData === true,
-    }, deliveryKey, userAgent, ip);
+      locale: body?.locale,
+    }, deliveryKey, userAgent, ip, correlationId);
   }
 
   @Public()
@@ -50,8 +53,9 @@ export class GektaRegistrationController {
   @RateLimit({ name: 'gekta_register_resend', scope: 'ip', limit: 5, windowSeconds: 300, limitEnv: 'RATE_LIMIT_GEKTA_REGISTER_RESEND', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
   @Post('register/email/resend')
   resendEmail(
-    @Body() body: { email?: string },
+    @Body() body: { email?: string; locale?: unknown },
     @Headers('x-registration-delivery-key') deliveryKey?: string,
+    @Headers('x-correlation-id') correlationId?: string,
     @Headers('user-agent') userAgent?: string,
     @Ip() ip?: string,
   ) {
@@ -60,6 +64,8 @@ export class GektaRegistrationController {
       deliveryKey,
       userAgent,
       ip,
+      body?.locale,
+      correlationId,
     );
   }
 
