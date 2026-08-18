@@ -94,6 +94,7 @@ describe('the accounting routes the controller declares', () => {
     'GET deals/:dealId/reconciliations/preview',
     'POST reconciliations',
     'POST reconciliations/:reconciliationId/answer',
+    'GET connections',
   ];
 
   it('declares every route the contour is meant to expose, and no others', () => {

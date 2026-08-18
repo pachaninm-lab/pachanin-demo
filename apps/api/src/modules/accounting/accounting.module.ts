@@ -6,6 +6,7 @@ import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot
 import { AdvanceRepository } from './advance.repository';
 import { DealServiceRepository } from './deal-service.repository';
 import { PaymentRepository } from './payment.repository';
+import { ConnectionCenterRepository } from './connection-center.repository';
 import { ReconciliationRepository } from './reconciliation.repository';
 import { AccountingPeriodRepository } from './accounting-period.repository';
 import { DocumentTransmissionRepository } from './document-transmission.repository';
@@ -35,6 +36,7 @@ import { WorkTaskRepository } from './work-task.repository';
     DealServiceRepository,
     PaymentRepository,
     ReconciliationRepository,
+    ConnectionCenterRepository,
   ],
   exports: [
     AccountingSourceSnapshotRepository,
@@ -47,6 +49,7 @@ import { WorkTaskRepository } from './work-task.repository';
     DealServiceRepository,
     PaymentRepository,
     ReconciliationRepository,
+    ConnectionCenterRepository,
   ],
 })
 export class AccountingModule {}
