@@ -46,6 +46,7 @@ export function GektaViewportAuthority() {
     let observer: MutationObserver | null = null;
     let lastViewportWidth = 0;
     let layoutBaselineHeight = 0;
+    let textEntryEngaged = isTextEntry(document.activeElement);
 
     const composerObserver = new ResizeObserver(() => {
       const composer = observedComposer;
@@ -114,10 +115,13 @@ export function GektaViewportAuthority() {
 
       const rawInset = layoutBaselineHeight - visibleHeight - visibleTop;
       const maxInset = Math.min(MAX_KEYBOARD_INSET_PX, Math.round(layoutBaselineHeight * 0.75));
-      const keyboardInset = isTextEntry(document.activeElement)
+      const activeTextEntry = isTextEntry(document.activeElement);
+      if (activeTextEntry) textEntryEngaged = true;
+      const keyboardInset = textEntryEngaged
         ? Math.max(0, Math.min(maxInset, Math.round(rawInset)))
         : 0;
       const keyboardOpen = keyboardInset > KEYBOARD_THRESHOLD_PX;
+      if (!keyboardOpen && !activeTextEntry) textEntryEngaged = false;
 
       root.style.setProperty(VIEWPORT_HEIGHT, `${visibleHeight}px`);
       root.style.setProperty(VIEWPORT_TOP, `${visibleTop}px`);
@@ -135,12 +139,17 @@ export function GektaViewportAuthority() {
       frame = window.requestAnimationFrame(syncViewport);
     };
 
+    const handleFocusIn = (event: FocusEvent) => {
+      if (isTextEntry(event.target instanceof Element ? event.target : null)) textEntryEngaged = true;
+      scheduleViewportSync();
+    };
+
     scheduleViewportSync();
     viewport?.addEventListener('resize', scheduleViewportSync);
     viewport?.addEventListener('scroll', scheduleViewportSync);
     window.addEventListener('resize', scheduleViewportSync);
     window.addEventListener('orientationchange', scheduleViewportSync);
-    document.addEventListener('focusin', scheduleViewportSync);
+    document.addEventListener('focusin', handleFocusIn);
     document.addEventListener('focusout', scheduleViewportSync);
 
     observer = new MutationObserver(scheduleViewportSync);
@@ -158,7 +167,7 @@ export function GektaViewportAuthority() {
       viewport?.removeEventListener('scroll', scheduleViewportSync);
       window.removeEventListener('resize', scheduleViewportSync);
       window.removeEventListener('orientationchange', scheduleViewportSync);
-      document.removeEventListener('focusin', scheduleViewportSync);
+      document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('focusout', scheduleViewportSync);
       observer?.disconnect();
       composerObserver.disconnect();
