@@ -38,6 +38,7 @@ const ORGANIZATION_CABINET_PREFIXES = [
   '/platform-v7/onboarding',
   '/platform-v7/status',
   '/platform-v7/notifications',
+  '/platform-v7/settings/connections',
 ] as const;
 const AUTH_PATHS = new Set([
   '/platform-v7/login',

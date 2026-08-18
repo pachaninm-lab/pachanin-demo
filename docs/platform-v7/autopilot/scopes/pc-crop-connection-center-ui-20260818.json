@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-connection-center-ui-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — read-only self-service Connection Center UI",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseParentHead": "7d725d7bfbd4ecebc2ebef12530af8b8493c0a47",
+  "purpose": "Stack the first honest /platform-v7/settings/connections screen on the bounded Connection Center BFF read slice. The page renders only server-authoritative connection maturity/missing prerequisites, gives a read-only check/refresh action, and makes unsupported/not-yet-modeled areas explicit instead of inventing Connected states. No connection mutation is opened.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/settings/connections/page.tsx",
+    "apps/web/app/platform-v7/settings/connections/ConnectionCenterClient.tsx",
+    "apps/web/app/platform-v7/settings/connections/connection-center.presentation.ts",
+    "apps/web/app/platform-v7/settings/connections/connections.module.css",
+    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+    "apps/web/lib/platform-v7/cabinet-access-policy.ts",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/tests/unit/platformV7ConnectionCenterRouteAccess.test.ts",
+    "apps/web/tests/unit/platformV7ConnectionCenterUiContract.test.ts",
+    "docs/ops/pc-crop-federal-accounting/connection-center-ui-slice-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-connection-center-ui-20260818.json"
+  ],
+  "boundaries": [
+    "This slice is stacked on PR #4418 and depends on its two GET-only BFF routes.",
+    "No POST connection, attestation, pairing, revoke, reauthorize or credential route is added.",
+    "The UI never derives a green state from HTTP success; maturity/missing/mayCarryRealTraffic come from the server response only.",
+    "A missing FGIS/transport Connection Center backend model is rendered as not yet represented on this screen, never NOT_CONNECTED/HEALTHY by invention.",
+    "No OData, OAuth scopes, client_secret, endpoint, refresh token, raw provider code, XSD or other technical secret is displayed.",
+    "Organization-cabinet access is widened only to the registered /platform-v7/settings/connections route; arbitrary /settings paths remain unknown/denied.",
+    "Seller/buyer coarse cabinet access is widened only to the exact Connection Center route; server capability/RLS remains authority.",
+    "No Prisma, API mutation, provider credential, 1C/EDO live call, hosting or production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredInvariants": [
+    "NOT_ATTESTED, ADAPTER_READY and TEST are not visually/textually described as live or connected.",
+    "CONFIRMED_LIVE is the only maturity that may say real exchange is externally confirmed.",
+    "A service outage clears connection cards and shows an unavailable state instead of cached/static fallback data.",
+    "The page requires an authenticated platform session and uses no localStorage authority.",
+    "The only active UI mutation-like control is a GET refresh/check action."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-connection-center-ui-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/web test -- platformV7ConnectionCenterRouteAccess.test.ts platformV7ConnectionCenterUiContract.test.ts platformV7AccountingBffBoundary.test.ts",
+    "pnpm --filter @pc/web typecheck",
+    "existing platform-v7 web/security gates"
+  ]
+}

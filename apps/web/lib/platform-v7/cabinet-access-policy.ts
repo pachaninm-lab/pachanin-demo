@@ -5,6 +5,13 @@ export const PLATFORM_V7_RBAC_FLAG = 'NEXT_PUBLIC_PLATFORM_V7_RBAC';
 
 const OVERSIGHT_ROLES: ReadonlySet<PlatformRole> = new Set(['operator', 'executive']);
 const INTEGRATION_CONTROL_ROLES: ReadonlySet<PlatformRole> = new Set(['operator', 'compliance', 'executive']);
+const CONNECTION_CENTER_ROLES: ReadonlySet<PlatformRole> = new Set([
+  'seller',
+  'buyer',
+  'operator',
+  'compliance',
+  'executive',
+]);
 const SHARED_PATHS = [
   '/platform-v7/open',
   '/platform-v7/login',
@@ -18,6 +25,7 @@ const SHARED_PATHS = [
 const INTERNAL_OVERSIGHT_ROUTES = ['/platform-v7/support'];
 const NON_CORE_OVERSIGHT_ROUTES = ['/platform-v7/investor'];
 const INTEGRATION_CONTROL_ROUTE = '/platform-v7/integrations';
+export const CONNECTION_CENTER_ROUTE = '/platform-v7/settings/connections';
 
 export function platformV7RbacEnforced(): boolean {
   return true;
@@ -47,10 +55,20 @@ export function isPlatformV7NonCoreRoute(pathname: string): boolean {
   return NON_CORE_OVERSIGHT_ROUTES.some((route) => matchesPath(clean, route));
 }
 
+/**
+ * The coarse cabinet fence for the exact Connection Center page. This does not
+ * grant integrations.read/configure; the API still resolves membership,
+ * organization capability and RLS. Field roles are kept out before page render.
+ */
+export function canRoleOpenConnectionCenter(role: PlatformRole): boolean {
+  return CONNECTION_CENTER_ROLES.has(role);
+}
+
 export function canRoleAccessCabinet(role: PlatformRole, pathname: string): boolean {
   const clean = normalize(pathname);
   if (!clean.startsWith('/platform-v7')) return true;
   if (isSharedPath(clean)) return true;
+  if (clean === CONNECTION_CENTER_ROUTE) return canRoleOpenConnectionCenter(role);
   if (matchesPath(clean, INTEGRATION_CONTROL_ROUTE)) return INTEGRATION_CONTROL_ROLES.has(role);
   if (OVERSIGHT_ROLES.has(role)) return true;
   if (isPlatformV7InternalRoute(clean) || isPlatformV7NonCoreRoute(clean)) return false;
