@@ -9,24 +9,21 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "operationalStatus": "NOT_ATTESTED",
   "authorityBaseExactMain": "18384323f7b77746f39797a50518f70f407fc763",
-  "purpose": "Repair the proven authorization mismatch between the intended bookkeeper model (role=GUEST + job_profile=ACCOUNTANT/EXTERNAL_ACCOUNTANT) and the generic RLS transaction/controller fences. This slice opens only task-first accounting and Connection Center to an ACTIVE database-resolved organization membership with the required server-resolved capabilities. It does not weaken the generic GUEST denial used by unrelated contours.",
+  "purpose": "Repair the proven authorization mismatch between the intended bookkeeper model (role=GUEST + job_profile=ACCOUNTANT/EXTERNAL_ACCOUNTANT) and the generic RLS transaction fence without globally widening GUEST. This first repair slice introduces a PostgreSQL-proven organization-member transaction primitive and moves Connection Center/attestation repositories onto it while preserving their durable capability checks. Route-level GUEST admission and task repository migration remain a separate follow-up so the change cannot accidentally widen unrelated accounting endpoints.",
   "allowedPaths": [
     "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
-    "apps/api/src/modules/accounting/work-task.repository.ts",
+    "apps/api/src/common/prisma/rls-organization-member-context.spec.ts",
     "apps/api/src/modules/accounting/connection-center.repository.ts",
     "apps/api/src/modules/accounting/connection-attestation.repository.ts",
-    "apps/api/src/modules/accounting/accounting.controller.ts",
-    "apps/api/src/modules/accounting/accountant-member-access.contract.spec.ts",
     "docs/ops/pc-crop-federal-accounting/accountant-member-context-repair-20260818.md",
     "docs/platform-v7/autopilot/scopes/pc-crop-accountant-member-context-20260818.json"
   ],
   "boundaries": [
     "deriveTrustedRlsContext keeps rejecting GUEST; no global guest-role widening.",
     "A separate organization-member transaction path requires authenticated user, session, tenant and organization and then proves ACTIVE membership with public.app_pc_crop_membership_id() inside PostgreSQL.",
-    "GUEST is admitted only on explicitly decorated accounting task/Connection Center handlers; all other AccountingController handlers retain the class role fence.",
-    "Task reads require accounting.dashboard.read resolved from durable membership job_profile/delegation; an unprofiled GUEST gets no accounting data.",
-    "Connection reads require integrations.read; attestation writes continue to require integrations.configure and MFA where already required.",
+    "Connection Center reads additionally require integrations.read resolved from durable membership job_profile/delegation.",
+    "Attestation reads/writes retain integrations.read/integrations.configure and MFA checks already enforced by the repository.",
+    "No AccountingController role widening in this slice; GUEST HTTP reachability is intentionally still closed until task/route capability gates are migrated together.",
     "No document, money, period-close, signature, provider, 1C runtime, EDO runtime, Prisma schema, migration, hosting or production mutation.",
     "No browser-selected capability/job profile becomes authority.",
     "Merge and green CI are not production acceptance.",
@@ -34,15 +31,14 @@
   ],
   "requiredInvariants": [
     "Generic GUEST callers remain denied by withTrustedContext.",
-    "Organization-member context fails closed unless public.app_pc_crop_membership_id() returns an ACTIVE membership for current user/org.",
-    "GUEST + ACCOUNTANT can read task-first accounting but cannot gain one_c.configure or integrations.configure by role alone.",
-    "GUEST + EXTERNAL_ACCOUNTANT cannot configure integrations, close periods or reconcile merely because it can open the accounting work queue.",
-    "GUEST with no recognized job_profile receives no accounting task or connection read.",
+    "Organization-member context fails closed unless public.app_pc_crop_membership_id() returns an ACTIVE membership for current authenticated user/org.",
+    "A GUEST market-role label alone grants no connection metadata; integrations.read must be resolved from the durable membership profile/delegation.",
+    "A GUEST market-role label alone grants no integration configuration; existing integrations.configure and MFA gates remain required.",
     "Cross-organization selection remains impossible because membership is resolved in PostgreSQL from current authenticated identity and organization."
   ],
   "requiredChecks": [
     "GITHUB_HEAD_REF=claude/pc-crop-accountant-member-context-20260818 bash scripts/p7-autopilot-guard.sh",
-    "pnpm --filter @pc/api test -- rls-transaction.service.spec.ts accountant-member-access.contract.spec.ts",
+    "pnpm --filter @pc/api test -- rls-transaction.service.spec.ts rls-organization-member-context.spec.ts",
     "pnpm --filter @pc/api typecheck",
     "existing PC-CROP accounting/RLS/security gates"
   ]
