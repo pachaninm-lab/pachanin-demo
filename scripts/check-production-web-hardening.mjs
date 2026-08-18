@@ -97,6 +97,8 @@ requireText('release', [
   'LEGACY_CONTAINER_RESTORED=',
   'INTERNAL_LIVE_ACCEPTANCE=PASS',
   'AUTOMATIC_ROLLBACK_ATTEMPTED=1',
+  'ROLLBACK_HEALTH_ATTEMPT=',
+  'ROLLBACK_READY=',
   'running web container lacks canonical Compose service label',
   'a non-web, non-Watchtower production container changed',
   'docker update --restart=no',
@@ -120,6 +122,12 @@ requireText('live', [
   '?lang=ru',
   '?lang=en',
   '?lang=zh',
+  'GEKTA_STREAM_DETAIL attempt=',
+  'reserve_rc=%s',
+  'stream_rc=%s',
+  'ticket=%s',
+  'content_type=%s',
+  'body_bytes=%s',
   'LIVE_ACTION=',
   'LIVE_ACCEPTANCE=PASS',
 ]);
@@ -288,6 +296,10 @@ forbid('release', [
   /docker tag "\$exact_image"/,
 ]);
 forbid('remote', [/sshpass/i, /PC_PROD_SSH_PASSWORD/, /VPS_SSH_PASSWORD/]);
+forbid('live', [
+  /cat\s+"?\$stream_body"?/,
+  /(?:echo|printf)[^\n]*\$answer_ticket/,
+]);
 forbid('hardening', [/Netlify.*production/i, /Vercel.*production/i]);
 
 for (const path of [files.release, files.remote, files.live]) {
@@ -301,4 +313,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-transport, stable-host-verified, persisted-image, web-only, health-gated, checksummed, rollback-capable and independent of Watchtower.');
+console.log('PASS: production web releases are exact-SHA, manifest-bound, protected-transport, stable-host-verified, persisted-image, web-only, health-gated, rollback-health-bounded, stream-diagnostic, checksummed, rollback-capable and independent of Watchtower.');
