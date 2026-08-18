@@ -39,6 +39,15 @@ describe('platform-v7 homepage operating-product copy', () => {
     expect(story).toContain('所有能力共同构成同一笔交易');
   });
 
+  it('adds one short accountant FAQ in RU EN ZH with an honest connection boundary', () => {
+    expect(story).toContain("question: 'Как бухгалтер работает с 1С и ЭДО?'");
+    expect(story).toContain("question: 'How does an accountant work with 1C and EDI?'");
+    expect(story).toContain("question: '会计人员如何使用 1C 和电子单据系统？'");
+    expect(story).toContain('бухгалтер продолжает работать в привычной 1С и ЭДО');
+    expect(story).toContain('конкретный маршрут выбирается при подключении организации');
+    expect(story.split('Как бухгалтер работает с 1С и ЭДО?').length - 1).toBe(1);
+  });
+
   it('removes development-stage, demonstration and hidden integration-status wording', () => {
     const publicCopy = [story, home, hero, connect, page].join('\n');
     const forbidden = [
