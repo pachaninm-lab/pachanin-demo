@@ -1,9 +1,10 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/owner-access-reset-current-main-4414",
+  "branch": "fix/owner-access-reset-runtime-cb4-4414",
   "status": "active",
-  "purpose": "Restore the real PLATFORM_OWNER access path for issue #4414 by requesting one ordinary password-reset email for the sole active owner/reviewer after production already proves password-ready but MFA-not-enrolled. This is a recovery request only; it does not set a password, MFA secret, role, membership, tenant or business identity.",
-  "authorityBaseExactMain": "cb4f7f034ecd03a2cece5775b1ad0737f4b50b90",
+  "purpose": "Restore the real PLATFORM_OWNER access path for issue #4414 by requesting one ordinary password-reset email for the sole active owner/reviewer after production proves password-ready but MFA-not-enrolled. This is a recovery request only; it does not set a password, MFA secret, role, membership, tenant or business identity.",
+  "authorityBaseExactMain": "b30fda1e20ed53dd0a7c98fc0e07515fd0a7c559",
+  "productionRuntimeExactSha": "cb4f7f034ecd03a2cece5775b1ad0737f4b50b90",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
@@ -17,7 +18,7 @@
     "No reviewer email, reset token, password, TOTP secret, backup code, SMTP credential, SSH key, database URL or decrypted auth-mail payload may be published.",
     "The only production mutation is one normal POST to /api/auth/forgot-password and its ordinary durable password-reset challenge/outbox effects.",
     "No direct password write, direct MFA write, role mutation, tenant mutation, business membership impersonation, auth/RBAC weakening or customer-data read is allowed.",
-    "Approved runtime lineage is limited to the already accepted owner-access implementation a1564e1 and its comment-only web release cb4f7f0; any other runtime fails closed.",
+    "API, Web and auth-mail worker must all equal the independently proven deployed owner-access runtime cb4f7f034ecd03a2cece5775b1ad0737f4b50b90; any other runtime fails closed.",
     "New recurring cost remains 0 RUB."
   ],
   "acceptance": [

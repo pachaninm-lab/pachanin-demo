@@ -55,6 +55,7 @@ jobs:
           node scripts/check-production-p0-reviewer-password-reset-request.mjs
           bash -n "$source_script"
           git merge-base --is-ancestor a1564e11682182c7b3375e1a2c9b4c746caa6795 HEAD
+          git merge-base --is-ancestor cb4f7f034ecd03a2cece5775b1ad0737f4b50b90 HEAD
           python3 - "$source_script" <<'PY'
           from pathlib import Path
           import sys
@@ -146,7 +147,7 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
-          git merge-base --is-ancestor a1564e11682182c7b3375e1a2c9b4c746caa6795 "$TARGET_SHA"
+          git merge-base --is-ancestor cb4f7f034ecd03a2cece5775b1ad0737f4b50b90 "$TARGET_SHA"
           [[ "$(git hash-object scripts/production-p0-reviewer-password-reset-request.sh)" == '7a586ded1b40ab3812335b351d0e8cc519020aa4' ]]
 
       - name: Execute reviewed reset flow with bounded owner-readiness correction
@@ -162,6 +163,7 @@ jobs:
           import sys
           path = Path(sys.argv[1])
           text = path.read_text(encoding='utf-8')
+          runtime_sha = 'cb4f7f034ecd03a2cece5775b1ad0737f4b50b90'
           replacements = [
               (
                   "COMMAND='/production p0-reviewer-reset-request current-main'",
@@ -173,11 +175,11 @@ jobs:
               ),
               (
                   '[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]',
-                  "[[ \"$api_revision\" == \"$worker_revision\" && \"$api_revision\" == 'a1564e11682182c7b3375e1a2c9b4c746caa6795' && ( \"$web_revision\" == 'a1564e11682182c7b3375e1a2c9b4c746caa6795' || \"$web_revision\" == 'cb4f7f034ecd03a2cece5775b1ad0737f4b50b90' ) ]]",
+                  f'[[ "$api_revision" == "{runtime_sha}" && "$web_revision" == "{runtime_sha}" && "$worker_revision" == "{runtime_sha}" ]]',
               ),
               (
                   '[[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]',
-                  "[[ \"$api_revision\" == \"$worker_revision\" && \"$api_revision\" == 'a1564e11682182c7b3375e1a2c9b4c746caa6795' && ( \"$web_revision\" == 'a1564e11682182c7b3375e1a2c9b4c746caa6795' || \"$web_revision\" == 'cb4f7f034ecd03a2cece5775b1ad0737f4b50b90' ) ]]",
+                  f'[[ "$api_revision" == "{runtime_sha}" && "$web_revision" == "{runtime_sha}" && "$worker_revision" == "{runtime_sha}" ]]',
               ),
           ]
           for index, (old, new) in enumerate(replacements, start=1):
@@ -188,7 +190,7 @@ jobs:
           label = 'API / Web / auth-mail worker revision parity'
           if text.count(label) != 2:
               raise SystemExit('EVIDENCE_LABEL_CARDINALITY_INVALID')
-          text = text.replace(label, 'approved owner-access runtime set')
+          text = text.replace(label, 'proven deployed owner-access runtime cb4f7f0')
           path.write_text(text, encoding='utf-8')
           PY
           bash -n "$temp_script"
