@@ -48,7 +48,7 @@ $one_c_authority_role$;
 
 GRANT USAGE ON SCHEMA connector TO pc_one_c_connector_authority;
 
-CREATE OR REPLACE FUNCTION connector.one_c_commands_are_valid(values text[])
+CREATE OR REPLACE FUNCTION connector.one_c_commands_are_valid(p_values text[])
 RETURNS boolean
 LANGUAGE sql
 IMMUTABLE
@@ -56,10 +56,10 @@ STRICT
 SET search_path = pg_catalog, connector
 AS $function$
   SELECT
-    cardinality(values) BETWEEN 1 AND 7
+    cardinality(p_values) BETWEEN 1 AND 7
     AND NOT EXISTS (
       SELECT 1
-        FROM unnest(values) AS command(value)
+        FROM unnest(p_values) AS command(value)
        WHERE command.value NOT IN (
          'UPSERT_COUNTERPARTY',
          'CREATE_SALES_DRAFT',
@@ -70,9 +70,9 @@ AS $function$
          'GET_REFERENCE_CANDIDATES'
        )
     )
-    AND cardinality(values) = (
+    AND cardinality(p_values) = (
       SELECT count(DISTINCT command.value)::integer
-        FROM unnest(values) AS command(value)
+        FROM unnest(p_values) AS command(value)
     );
 $function$;
 
