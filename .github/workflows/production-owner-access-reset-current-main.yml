@@ -173,11 +173,11 @@ jobs:
               ),
               (
                   '[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]',
-                  '[[ "$api_revision" == "$worker_revision" && "$api_revision" == '\''a1564e11682182c7b3375e1a2c9b4c746caa6795'\'' && ( "$web_revision" == '\''a1564e11682182c7b3375e1a2c9b4c746caa6795'\'' || "$web_revision" == '\''cb4f7f034ecd03a2cece5775b1ad0737f4b50b90'\'' ) ]]',
+                  "[[ \"$api_revision\" == \"$worker_revision\" && \"$api_revision\" == 'a1564e11682182c7b3375e1a2c9b4c746caa6795' && ( \"$web_revision\" == 'a1564e11682182c7b3375e1a2c9b4c746caa6795' || \"$web_revision\" == 'cb4f7f034ecd03a2cece5775b1ad0737f4b50b90' ) ]]",
               ),
               (
                   '[[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]',
-                  '[[ "$api_revision" == "$worker_revision" && "$api_revision" == '\''a1564e11682182c7b3375e1a2c9b4c746caa6795'\'' && ( "$web_revision" == '\''a1564e11682182c7b3375e1a2c9b4c746caa6795'\'' || "$web_revision" == '\''cb4f7f034ecd03a2cece5775b1ad0737f4b50b90'\'' ) ]]',
+                  "[[ \"$api_revision\" == \"$worker_revision\" && \"$api_revision\" == 'a1564e11682182c7b3375e1a2c9b4c746caa6795' && ( \"$web_revision\" == 'a1564e11682182c7b3375e1a2c9b4c746caa6795' || \"$web_revision\" == 'cb4f7f034ecd03a2cece5775b1ad0737f4b50b90' ) ]]",
               ),
           ]
           for index, (old, new) in enumerate(replacements, start=1):
