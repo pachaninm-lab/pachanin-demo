@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/owner-access-reset-current-main-4414",
+  "status": "active",
+  "purpose": "Restore the real PLATFORM_OWNER access path for issue #4414 by requesting one ordinary password-reset email for the sole active owner/reviewer after production already proves password-ready but MFA-not-enrolled. This is a recovery request only; it does not set a password, MFA secret, role, membership, tenant or business identity.",
+  "authorityBaseExactMain": "cb4f7f034ecd03a2cece5775b1ad0737f4b50b90",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-owner-access-reset-current-main.yml",
+    "docs/platform-v7/autopilot/scopes/owner-access-reset-current-main-4414.json"
+  ],
+  "requiredInvariants": [
+    "Only the repository owner or the trusted ChatGPT connector acting for the repository owner may trigger the production command.",
+    "The immutable reviewed reset source script is copied to RUNNER_TEMP and must retain its exact reviewed blob before bounded runtime substitutions.",
+    "The readiness exception permits password_ready_count to be either 0 or 1 only; active owner, usable reviewer, assignment, active identity and verified membership must each equal 1; MFA-enrolled and login-ready must each equal 0.",
+    "No reviewer email, reset token, password, TOTP secret, backup code, SMTP credential, SSH key, database URL or decrypted auth-mail payload may be published.",
+    "The only production mutation is one normal POST to /api/auth/forgot-password and its ordinary durable password-reset challenge/outbox effects.",
+    "No direct password write, direct MFA write, role mutation, tenant mutation, business membership impersonation, auth/RBAC weakening or customer-data read is allowed.",
+    "Approved runtime lineage is limited to the already accepted owner-access implementation a1564e1 and its comment-only web release cb4f7f0; any other runtime fails closed.",
+    "New recurring cost remains 0 RUB."
+  ],
+  "acceptance": [
+    "PR changes only this scope manifest and the owner-only recovery workflow.",
+    "Contract validates exact source blob, exact patch cardinality and owner/connector provenance.",
+    "Production request returns HTTP 202 and durable PASSWORD_RESET outbox reaches SENT.",
+    "A fresh one-time reset email reaches the connected owner mailbox without exposing its token in GitHub evidence.",
+    "After the human sets a password, the normal login flow requires TOTP enrollment before /platform-v7/staff owner access."
+  ]
+}
