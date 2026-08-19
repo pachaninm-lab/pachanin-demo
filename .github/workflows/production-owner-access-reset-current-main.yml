@@ -163,7 +163,8 @@ jobs:
           import sys
           path = Path(sys.argv[1])
           text = path.read_text(encoding='utf-8')
-          runtime_sha = 'cb4f7f034ecd03a2cece5775b1ad0737f4b50b90'
+          api_web_sha = 'cb4f7f034ecd03a2cece5775b1ad0737f4b50b90'
+          worker_sha = 'a1564e11682182c7b3375e1a2c9b4c746caa6795'
           replacements = [
               (
                   "COMMAND='/production p0-reviewer-reset-request current-main'",
@@ -175,11 +176,11 @@ jobs:
               ),
               (
                   '[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]',
-                  f'[[ "$api_revision" == "{runtime_sha}" && "$web_revision" == "{runtime_sha}" && "$worker_revision" == "{runtime_sha}" ]]',
+                  f'[[ "$api_revision" == "{api_web_sha}" && "$web_revision" == "{api_web_sha}" && "$worker_revision" == "{worker_sha}" ]]',
               ),
               (
                   '[[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]',
-                  f'[[ "$api_revision" == "{runtime_sha}" && "$web_revision" == "{runtime_sha}" && "$worker_revision" == "{runtime_sha}" ]]',
+                  f'[[ "$api_revision" == "{api_web_sha}" && "$web_revision" == "{api_web_sha}" && "$worker_revision" == "{worker_sha}" ]]',
               ),
           ]
           for index, (old, new) in enumerate(replacements, start=1):
@@ -190,7 +191,7 @@ jobs:
           label = 'API / Web / auth-mail worker revision parity'
           if text.count(label) != 2:
               raise SystemExit('EVIDENCE_LABEL_CARDINALITY_INVALID')
-          text = text.replace(label, 'proven deployed owner-access runtime cb4f7f0')
+          text = text.replace(label, 'proven live owner-access runtime tuple')
           path.write_text(text, encoding='utf-8')
           PY
           bash -n "$temp_script"
