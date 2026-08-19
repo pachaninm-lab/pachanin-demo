@@ -8,6 +8,9 @@ import { DealServiceRepository } from './deal-service.repository';
 import { PaymentRepository } from './payment.repository';
 import { ConnectionAttestationRepository } from './connection-attestation.repository';
 import { ConnectionCenterRepository } from './connection-center.repository';
+import { OneCConnectionManagementController } from './one-c-connection-management.controller';
+import { OneCConnectorController } from './one-c-connector.controller';
+import { OneCRuntimeRepository } from './one-c-runtime.repository';
 import { ReconciliationRepository } from './reconciliation.repository';
 import { AccountingPeriodRepository } from './accounting-period.repository';
 import { DocumentTransmissionRepository } from './document-transmission.repository';
@@ -17,15 +20,19 @@ import { WorkTaskRepository } from './work-task.repository';
 /**
  * The accounting contour, wired.
  *
- * Deliberately small. It provides the two repositories that carry the
- * transactional guarantees — assembling a snapshot atomically and writing a
- * version under one transaction with it — and nothing else. The policies stay
- * pure functions: they are decisions, and a decision that needs injecting is a
- * decision somebody can swap out at runtime.
+ * Deliberately small. It provides the repositories that carry the transactional
+ * guarantees — including the bounded 1C installation/binding/pairing authority
+ * — and the two narrow HTTP surfaces needed to bootstrap that authority. The
+ * policies stay pure functions: they are decisions, and a decision that needs
+ * injecting is a decision somebody can swap at runtime.
  */
 @Module({
   imports: [PrismaModule],
-  controllers: [AccountingController],
+  controllers: [
+    AccountingController,
+    OneCConnectionManagementController,
+    OneCConnectorController,
+  ],
   providers: [
     AccountingSourceSnapshotRepository,
     AccountingDocumentVersionRepository,
@@ -39,6 +46,7 @@ import { WorkTaskRepository } from './work-task.repository';
     ReconciliationRepository,
     ConnectionCenterRepository,
     ConnectionAttestationRepository,
+    OneCRuntimeRepository,
   ],
   exports: [
     AccountingSourceSnapshotRepository,
@@ -53,6 +61,7 @@ import { WorkTaskRepository } from './work-task.repository';
     ReconciliationRepository,
     ConnectionCenterRepository,
     ConnectionAttestationRepository,
+    OneCRuntimeRepository,
   ],
 })
 export class AccountingModule {}

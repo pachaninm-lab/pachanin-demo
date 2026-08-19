@@ -9,7 +9,8 @@ export type RlsContextErrorCode =
   | 'session_required'
   | 'organization_required'
   | 'tenant_required'
-  | 'guest_role_forbidden';
+  | 'guest_role_forbidden'
+  | 'organization_membership_required';
 
 export class RlsContextError extends Error {
   constructor(readonly code: RlsContextErrorCode) {
@@ -61,7 +62,7 @@ export type RlsTransactionOptions = Readonly<{
   retryDelayMs?: number;
 }>;
 
-export function deriveTrustedRlsContext(user: RequestUser | undefined): TrustedRlsContext {
+function deriveBaseRlsContext(user: RequestUser | undefined): TrustedRlsContext {
   if (!user?.id?.trim()) {
     throw new RlsContextError('authenticated_user_required');
   }
@@ -74,13 +75,9 @@ export function deriveTrustedRlsContext(user: RequestUser | undefined): TrustedR
   if (!user.tenantId?.trim()) {
     throw new RlsContextError('tenant_required');
   }
-  if (user.role === Role.GUEST) {
-    throw new RlsContextError('guest_role_forbidden');
-  }
 
-  // Only well-formed labels travel into the database setting: the value is
-  // joined with commas and parsed back by string_to_array, so an embedded comma
-  // or blank would silently become a different authority than the one granted.
+  // Only well-formed labels travel into application code. They are never
+  // PostgreSQL authority; see the TrustedRlsContext note above.
   const staffRoles = Object.freeze(
     (user.staffRoles ?? [])
       .map((label) => label.trim())
@@ -97,6 +94,35 @@ export function deriveTrustedRlsContext(user: RequestUser | undefined): TrustedR
   });
 }
 
+/**
+ * Generic trusted context for the rest of the platform.
+ *
+ * GUEST remains forbidden here. Several non-accounting contours use GUEST as a
+ * compatibility/organization-shell role and were never reviewed to accept it.
+ * Widening this function would widen all of them at once.
+ */
+export function deriveTrustedRlsContext(user: RequestUser | undefined): TrustedRlsContext {
+  const context = deriveBaseRlsContext(user);
+  if (user?.role === Role.GUEST) {
+    throw new RlsContextError('guest_role_forbidden');
+  }
+  return context;
+}
+
+/**
+ * Candidate context for an organization-member contour.
+ *
+ * This deliberately does not make GUEST trusted. It only supplies the identity
+ * coordinates required to enter a transaction. `withOrganizationMemberContext`
+ * then proves an ACTIVE membership from PostgreSQL before application work is
+ * allowed to run. The database proof, not the role label, is the authority.
+ */
+export function deriveOrganizationMemberRlsContext(
+  user: RequestUser | undefined,
+): TrustedRlsContext {
+  return deriveBaseRlsContext(user);
+}
+
 @Injectable()
 export class RlsTransactionService {
   constructor(private readonly prisma: PrismaService) {}
@@ -106,7 +132,39 @@ export class RlsTransactionService {
     work: (tx: Prisma.TransactionClient, context: TrustedRlsContext) => Promise<T>,
     options: RlsTransactionOptions = {},
   ): Promise<T> {
-    const context = deriveTrustedRlsContext(user);
+    return this.withContext(deriveTrustedRlsContext(user), work, options, false);
+  }
+
+  /**
+   * Narrow organization-member transaction path for contours that intentionally
+   * support `role=GUEST` plus a server-resolved `job_profile` (the organization
+   * accountant compatibility model).
+   *
+   * The role is not enough. After the usual identity settings are established,
+   * PostgreSQL resolves `app_pc_crop_membership_id()` from durable user_orgs and
+   * the authenticated identity. A forged organization/tenant or an inactive/
+   * revoked membership therefore yields no membership and the callback never
+   * runs.
+   */
+  async withOrganizationMemberContext<T>(
+    user: RequestUser | undefined,
+    work: (tx: Prisma.TransactionClient, context: TrustedRlsContext) => Promise<T>,
+    options: RlsTransactionOptions = {},
+  ): Promise<T> {
+    return this.withContext(
+      deriveOrganizationMemberRlsContext(user),
+      work,
+      options,
+      true,
+    );
+  }
+
+  private async withContext<T>(
+    context: TrustedRlsContext,
+    work: (tx: Prisma.TransactionClient, context: TrustedRlsContext) => Promise<T>,
+    options: RlsTransactionOptions,
+    requireOrganizationMembership: boolean,
+  ): Promise<T> {
     const isolationLevel = options.isolationLevel ?? Prisma.TransactionIsolationLevel.ReadCommitted;
     const defaultConflictRetries = isolationLevel === Prisma.TransactionIsolationLevel.Serializable ? 3 : 0;
     const maxConflictRetries = boundedInteger(
@@ -136,6 +194,15 @@ export class RlsTransactionService {
                   set_config('app.current_session_id', ${context.sessionId}, true)
               `,
             );
+
+            if (requireOrganizationMembership) {
+              const memberships = await tx.$queryRaw<{ membership: string | null }[]>(
+                Prisma.sql`SELECT public.app_pc_crop_membership_id() AS membership`,
+              );
+              if (!memberships[0]?.membership) {
+                throw new RlsContextError('organization_membership_required');
+              }
+            }
 
             return work(tx, context);
           },
