@@ -10,6 +10,11 @@ import { ConnectionAttestationRepository } from './connection-attestation.reposi
 import { ConnectionCenterRepository } from './connection-center.repository';
 import { OneCConnectionManagementController } from './one-c-connection-management.controller';
 import { OneCConnectorController } from './one-c-connector.controller';
+import {
+  OneCConnectorHeartbeatController,
+  OneCHeartbeatManagementController,
+} from './one-c-heartbeat.controller';
+import { OneCHeartbeatRepository } from './one-c-heartbeat.repository';
 import { OneCRuntimeRepository } from './one-c-runtime.repository';
 import { ReconciliationRepository } from './reconciliation.repository';
 import { AccountingPeriodRepository } from './accounting-period.repository';
@@ -22,9 +27,10 @@ import { WorkTaskRepository } from './work-task.repository';
  *
  * Deliberately small. It provides the repositories that carry the transactional
  * guarantees — including the bounded 1C installation/binding/pairing authority
- * — and the two narrow HTTP surfaces needed to bootstrap that authority. The
- * policies stay pure functions: they are decisions, and a decision that needs
- * injecting is a decision somebody can swap at runtime.
+ * and machine-authenticated heartbeat state — plus the narrow HTTP surfaces
+ * needed to bootstrap and observe that authority. The policies stay pure
+ * functions: they are decisions, and a decision that needs injecting is a
+ * decision somebody can swap at runtime.
  */
 @Module({
   imports: [PrismaModule],
@@ -32,6 +38,8 @@ import { WorkTaskRepository } from './work-task.repository';
     AccountingController,
     OneCConnectionManagementController,
     OneCConnectorController,
+    OneCConnectorHeartbeatController,
+    OneCHeartbeatManagementController,
   ],
   providers: [
     AccountingSourceSnapshotRepository,
@@ -47,6 +55,7 @@ import { WorkTaskRepository } from './work-task.repository';
     ConnectionCenterRepository,
     ConnectionAttestationRepository,
     OneCRuntimeRepository,
+    OneCHeartbeatRepository,
   ],
   exports: [
     AccountingSourceSnapshotRepository,
@@ -62,6 +71,7 @@ import { WorkTaskRepository } from './work-task.repository';
     ConnectionCenterRepository,
     ConnectionAttestationRepository,
     OneCRuntimeRepository,
+    OneCHeartbeatRepository,
   ],
 })
 export class AccountingModule {}
