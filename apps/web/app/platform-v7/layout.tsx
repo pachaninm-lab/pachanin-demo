@@ -7,6 +7,7 @@ import { HydrationSafeChatSupport } from '@/components/platform-v7/HydrationSafe
 import { getAuthProfile } from '@/lib/auth-profile-server';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
+import { getVerifiedOwnerControlledCabinet } from '@/lib/platform-v7/owner-controlled-cabinet-server';
 import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import {
   mapApiRoleToCabinetRole,
@@ -225,6 +226,13 @@ function isOrganizationCabinetPath(pathname: string): boolean {
 }
 
 async function verifiedCabinetRole(): Promise<VerifiedCabinetRole | null> {
+  // A real platform owner may open only the fixed controlled test cabinet bound
+  // by the owner-access endpoint. The helper verifies the signed cabinet token,
+  // controlled tenant/org, active PLATFORM_OWNER assignment and MFA. It never
+  // changes the API bearer identity or grants a business membership.
+  const ownerControlled = await getVerifiedOwnerControlledCabinet();
+  if (ownerControlled) return ownerControlled.role;
+
   const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
   if (!secret) return null;
   const nowSeconds = Math.floor(Date.now() / 1000);
