@@ -35,7 +35,11 @@ jobs:
           if scope.get('authorityBaseExactMain') != '5e137c033805b0516d7a5f719b318d912d4d04f8': raise SystemExit('scope base mismatch')
           if set(scope.get('allowedPaths') or []) != {str(workflow_path), str(scope_path)}: raise SystemExit('scope paths mismatch')
           workflow = workflow_path.read_text(encoding='utf-8')
-          for forbidden in ('runs-on: [self-hosted', 'ssh-keyscan', 'ssh ', 'docker ', 'psql ', 'gh secret', 'registration-token', 'remove-token', 'sudo '):
+          forbidden_markers = (
+              'runs-on:' + ' [self-hosted', 'ssh-' + 'keyscan', 'ssh' + ' ', 'docker' + ' ',
+              'psql' + ' ', 'gh' + ' secret', 'registration-' + 'token', 'remove-' + 'token', 'sudo' + ' ',
+          )
+          for forbidden in forbidden_markers:
               if forbidden in workflow: raise SystemExit(f'forbidden capability: {forbidden}')
           PY
       - name: Query repository self-hosted runner status
