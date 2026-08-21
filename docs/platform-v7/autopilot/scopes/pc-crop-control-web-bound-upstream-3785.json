@@ -3,7 +3,7 @@
   "branch": "fix/pc-crop-control-web-bound-upstream-3785",
   "status": "active",
   "purpose": "Resolve the independently attested control-host upstream-selection blocker for PC-CROP #3785 using fail-closed web identity binding and bounded read-only cardinality evidence without exposing production topology.",
-  "authorityBaseExactMain": "0da6ab8cf06378ad27b7039966d3c57724058be0",
+  "authorityBaseExactMain": "098677ebb3c9f00e7cc6ac200f57eeb5639ef854",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
@@ -13,9 +13,10 @@
   ],
   "requiredInvariants": [
     "The repair remains exact-main, canonical-DNS, absent-AAAA, pinned-SSH, owner-authorized and concurrency-guarded.",
-    "The exact-primary-host selector remains preferred and its selected dial must pass the same running-web shared-network identity binding as every fallback.",
-    "A fallback is permitted only when the exact-primary-host match count is zero and exactly one well-formed Caddy reverse-proxy dial is a per-network DNS alias of the single running Compose web container on a Docker network shared with Caddy.",
-    "A fallback with zero or multiple web-bound dials, multiple exact-primary-host dials, a network-unrelated alias, or any selected dial that is not web-bound must fail before backup or mutation.",
+    "When the primary-host route has one or more dials, selection requires exactly one dial in the intersection of that route and the running-web shared-network identity set; unrelated primary-host backend dials may coexist.",
+    "The legacy PRIMARY_HOST_MATCH mode is retained only for one primary-host dial whose web-bound intersection is also exactly one; multiple primary-host dials with exactly one web-bound member use UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM.",
+    "A global fallback is permitted only when the exact-primary-host match count is zero and exactly one well-formed Caddy reverse-proxy dial is a per-network DNS alias of the single running Compose web container on a Docker network shared with Caddy.",
+    "Zero or multiple primary-host web-bound intersections, a global fallback with zero or multiple web-bound dials, a network-unrelated alias, or any selected dial that is not web-bound must fail before backup or mutation.",
     "Unrelated Caddy upstreams may coexist but no upstream value, alias, network, container ID, working path or secret may reach Actions output, artifacts, summaries or issue comments.",
     "Readiness may publish only validated numeric cardinalities or UNKNOWN for exact matches, dial format, network intersection, alias binding and current-IP binding; it must never publish the underlying values.",
     "An already-enabled control route may return no-op success only when its persistent Compose wiring and sole marked reverse_proxy dial are revalidated against the newly selected current web upstream.",
@@ -27,10 +28,10 @@
   ],
   "acceptance": [
     "Workflow YAML and all embedded remote Bash scripts parse before merge.",
-    "Static positive and negative fixtures prove one shared-network web alias is accepted while zero, two, and wrong-network candidates fail closed.",
+    "Static positive and negative fixtures prove a primary route with one web dial plus unrelated backend dials selects only the web-bound intersection, while zero, two, and wrong-network web-bound candidates fail closed.",
     "A read-only readiness run publishes enough redacted cardinality evidence to distinguish exact-match ambiguity, malformed dials, absent shared networks, alias mismatch and current-IP coupling without publishing topology.",
-    "Read-only readiness reaches a READY_*_UNIQUE_WEB_BOUND_UPSTREAM_BEFORE_BACKUP state without publishing topology.",
-    "The guarded cutover reports PRIMARY_HOST_MATCH or UNIQUE_WEB_BOUND_UPSTREAM and passes TLS, control-login, host-isolation, parent redirect, API denial, exact-revision and primary-domain checks for 10 of 10 rounds.",
+    "Read-only readiness reaches a READY_*_UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM_BEFORE_BACKUP or READY_*_UNIQUE_WEB_BOUND_UPSTREAM_BEFORE_BACKUP state without publishing topology.",
+    "The guarded cutover reports PRIMARY_HOST_MATCH, UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM or UNIQUE_WEB_BOUND_UPSTREAM and passes TLS, control-login, host-isolation, parent redirect, API denial, exact-revision and primary-domain checks for 10 of 10 rounds.",
     "Any pre-acceptance failure is either no-mutation or internally rolled back; any public-acceptance failure invokes the authenticated external rollback."
   ]
 }
