@@ -226,7 +226,7 @@ jobs:
           cleanup() (
             set +e
             if [[ -n "$tmp_dir" && "$tmp_dir" =~ ^/tmp/company-os-control-preflight\.[A-Za-z0-9]+$ ]]; then
-              rm -f -- "$tmp_dir/caddy.json" "$tmp_dir/env.candidate" "$tmp_dir/compose.candidate.json" "$tmp_dir/Caddyfile.candidate"
+              rm -f -- "$tmp_dir/caddy.json" "$tmp_dir/env.candidate" "$tmp_dir/compose.override.candidate.yml" "$tmp_dir/compose.base.json" "$tmp_dir/compose.candidate.json" "$tmp_dir/compose.base.normalized.json" "$tmp_dir/compose.candidate.normalized.json" "$tmp_dir/Caddyfile.candidate"
               rmdir -- "$tmp_dir" 2>/dev/null || true
             fi
           )
@@ -307,7 +307,14 @@ jobs:
             grep -Fq 'PC_CONTROL_HOST_ENABLED' "$file" && contract_wired=1
           done
           stage=CONTROL_GATE_WIRING
-          [[ "$contract_wired" == 1 ]]
+          override_file="$working_dir/.company-os-control-host.compose.yml"
+          [[ "$override_file" == "$working_dir/.company-os-control-host.compose.yml" ]]
+          if [[ "$contract_wired" == 1 ]]; then
+            wire_mode=EXISTING
+          else
+            wire_mode=CREATE_OVERRIDE
+            [[ ! -e "$override_file" && ! -L "$override_file" ]]
+          fi
           stage=COMPOSE_WEB_SERVICE
           docker compose "${compose_args[@]}" config --services 2>/dev/null | grep -Fxq web
           stage=COMPOSE_CADDY_SERVICE
@@ -371,8 +378,23 @@ jobs:
           [[ "$(grep -c '^PC_CONTROL_HOST_ENABLED=' "$tmp_dir/env.candidate")" == 1 ]]
 
           stage=CANDIDATE_COMPOSE
-          docker compose --env-file "$tmp_dir/env.candidate" "${compose_args[@]}" config --format json > "$tmp_dir/compose.candidate.json" 2>/dev/null
+          candidate_compose_args=("${compose_args[@]}")
+          if [[ "$wire_mode" == CREATE_OVERRIDE ]]; then
+            cat > "$tmp_dir/compose.override.candidate.yml" <<'COMPOSE_OVERRIDE'
+          services:
+            web:
+              environment:
+                PC_CONTROL_HOST_ENABLED: "${PC_CONTROL_HOST_ENABLED:-false}"
+          COMPOSE_OVERRIDE
+            chmod 600 "$tmp_dir/compose.override.candidate.yml"
+            candidate_compose_args+=(-f "$tmp_dir/compose.override.candidate.yml")
+          fi
+          docker compose --env-file "$tmp_dir/env.candidate" "${compose_args[@]}" config --format json > "$tmp_dir/compose.base.json" 2>/dev/null
+          docker compose --env-file "$tmp_dir/env.candidate" "${candidate_compose_args[@]}" config --format json > "$tmp_dir/compose.candidate.json" 2>/dev/null
           jq -e '.services.web.environment.PC_CONTROL_HOST_ENABLED == "true"' "$tmp_dir/compose.candidate.json" >/dev/null
+          jq -S 'del(.services.web.environment.PC_CONTROL_HOST_ENABLED) | if .services.web.environment == {} then del(.services.web.environment) else . end' "$tmp_dir/compose.base.json" > "$tmp_dir/compose.base.normalized.json"
+          jq -S 'del(.services.web.environment.PC_CONTROL_HOST_ENABLED) | if .services.web.environment == {} then del(.services.web.environment) else . end' "$tmp_dir/compose.candidate.json" > "$tmp_dir/compose.candidate.normalized.json"
+          cmp -s "$tmp_dir/compose.base.normalized.json" "$tmp_dir/compose.candidate.normalized.json"
           image_ref="$(jq -r '.services.web.image // empty' "$tmp_dir/compose.candidate.json")"
           caddy_image_ref="$(jq -r '.services.caddy.image // empty' "$tmp_dir/compose.candidate.json")"
           [[ -n "$image_ref" && -n "$caddy_image_ref" ]]
@@ -400,7 +422,9 @@ jobs:
             "$caddy_image_id" validate --config /tmp/Caddyfile >/dev/null 2>&1
 
           trap - ERR
-          printf '%s\n' 'CUTOVER_PREFLIGHT=READY' 'CUTOVER_PREFLIGHT_STAGE=READY_BEFORE_BACKUP'
+          if [[ "$wire_mode" == CREATE_OVERRIDE ]]; then ready_stage=READY_WITH_OVERRIDE_BEFORE_BACKUP
+          else ready_stage=READY_BEFORE_BACKUP; fi
+          printf '%s\n' 'CUTOVER_PREFLIGHT=READY' "CUTOVER_PREFLIGHT_STAGE=$ready_stage"
           REMOTE
 
           for key in CUTOVER_PREFLIGHT CUTOVER_PREFLIGHT_STAGE; do
