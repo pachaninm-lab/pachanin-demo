@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-p0-ssh-host-attestation-3785",
+  "status": "active",
+  "purpose": "Registration #3785 / release #3072 / incident #4445: independently attest the currently served production SSH public host key after two bounded exact-main release attempts failed closed on the existing pinned fingerprint, without changing the trust anchor or production state.",
+  "approvedBy": "owner-registration-continuation-3785",
+  "authorityBaseExactMain": "9da28a9078d487dcd679a581eaaa47153d9bdf46",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-ssh-host-key-attestation.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-p0-ssh-host-attestation-3785.json"
+  ],
+  "requiredBehavior": [
+    "run the local attestation only on the pre-existing self-hosted production runner labels self-hosted, linux, x64, pc-prod and tai-readonly",
+    "verify the local runner is non-root and is not a member of the docker group",
+    "read only regular non-symlink root-owned public /etc/ssh/ssh_host_*_key.pub files and compute SHA-256 public fingerprints",
+    "scan only the canonical REG.RU production IPv4 address on the protected production SSH port from a hosted runner",
+    "require every externally observed public host-key fingerprint to be present in the independently attested local public-key set",
+    "compare the externally observed public key set against the existing protected PC_PROD_SSH_HOST_FINGERPRINT without publishing that protected value",
+    "bind both channels to one exact current main SHA and recheck current main after evidence collection",
+    "publish only public algorithm/fingerprint evidence plus coarse PASS/BLOCK classes"
+  ],
+  "forbiddenCapabilities": [
+    "changing or deleting PC_PROD_SSH_HOST_FINGERPRINT or any GitHub secret",
+    "StrictHostKeyChecking=no, accept-new, UserKnownHostsFile=/dev/null, password SSH or any authenticated SSH session",
+    "reading any SSH private host key or production private key",
+    "sudo, Docker, systemctl mutation, service restart, deployment, migration or filesystem mutation on production",
+    "database, customer-data, password-reset, email-send, MFA, TOTP, session, role, tenant or reviewer mutation",
+    "new paid provider, SaaS subscription or recurring cost",
+    "unrelated PC-CROP business-flow, Gekta, Company OS or showroom behavior changes"
+  ],
+  "acceptanceEvidence": [
+    "pull-request contract proves exact two-path scope and rejects trust-bypass or production-mutation capabilities",
+    "self-hosted channel emits a bounded canonical set of public SSH host-key algorithms and SHA-256 fingerprints from root-owned public key files",
+    "hosted channel proves canonical DNS contains the fixed REG.RU VPS IPv4 and independently observes a non-empty external SSH host-key set",
+    "hosted channel proves every externally offered public host key exists in the self-hosted local attestation and classifies whether the existing protected pin is still offered",
+    "result explicitly states PRODUCTION_MUTATION=NONE and does not count as registration acceptance"
+  ]
+}
