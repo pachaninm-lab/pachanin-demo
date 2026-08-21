@@ -54,8 +54,6 @@ jobs:
           [[ "$(git hash-object "$source_script")" == '7a586ded1b40ab3812335b351d0e8cc519020aa4' ]]
           node scripts/check-production-p0-reviewer-password-reset-request.mjs
           bash -n "$source_script"
-          git merge-base --is-ancestor a1564e11682182c7b3375e1a2c9b4c746caa6795 HEAD
-          git merge-base --is-ancestor cb4f7f034ecd03a2cece5775b1ad0737f4b50b90 HEAD
           python3 - "$source_script" <<'PY'
           from pathlib import Path
           import sys
@@ -147,7 +145,6 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
-          git merge-base --is-ancestor cb4f7f034ecd03a2cece5775b1ad0737f4b50b90 "$TARGET_SHA"
           [[ "$(git hash-object scripts/production-p0-reviewer-password-reset-request.sh)" == '7a586ded1b40ab3812335b351d0e8cc519020aa4' ]]
 
       - name: Execute reviewed reset flow with bounded owner-readiness correction
@@ -163,8 +160,6 @@ jobs:
           import sys
           path = Path(sys.argv[1])
           text = path.read_text(encoding='utf-8')
-          api_web_sha = 'cb4f7f034ecd03a2cece5775b1ad0737f4b50b90'
-          worker_sha = 'a1564e11682182c7b3375e1a2c9b4c746caa6795'
           replacements = [
               (
                   "COMMAND='/production p0-reviewer-reset-request current-main'",
@@ -174,24 +169,21 @@ jobs:
                   "if (counts.join('|') !== '1|1|1|1|1|0|0|0') fail('P0_REVIEWER_RESET_READINESS_NOT_EXACT');",
                   "if (counts[0] !== 1 || counts[1] !== 1 || counts[2] !== 1 || counts[3] !== 1 || counts[4] !== 1 || ![0, 1].includes(counts[5]) || counts[6] !== 0 || counts[7] !== 0) fail('P0_REVIEWER_RESET_READINESS_NOT_EXACT');",
               ),
-              (
-                  '[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]',
-                  f'[[ "$api_revision" == "{api_web_sha}" && "$web_revision" == "{api_web_sha}" && "$worker_revision" == "{worker_sha}" ]]',
-              ),
-              (
-                  '[[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]',
-                  f'[[ "$api_revision" == "{api_web_sha}" && "$web_revision" == "{api_web_sha}" && "$worker_revision" == "{worker_sha}" ]]',
-              ),
           ]
           for index, (old, new) in enumerate(replacements, start=1):
               count = text.count(old)
               if count != 1:
                   raise SystemExit(f'PATCH_CARDINALITY_FAILED:R{index}:{count}')
               text = text.replace(old, new, 1)
-          label = 'API / Web / auth-mail worker revision parity'
-          if text.count(label) != 2:
+          exact_revision_guards = [
+              '[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]',
+              '[[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]',
+          ]
+          for index, needle in enumerate(exact_revision_guards, start=1):
+              if text.count(needle) != 1:
+                  raise SystemExit(f'EXACT_MAIN_REVISION_GUARD_CHANGED:R{index}')
+          if text.count('API / Web / auth-mail worker revision parity') != 2:
               raise SystemExit('EVIDENCE_LABEL_CARDINALITY_INVALID')
-          text = text.replace(label, 'proven live owner-access runtime tuple')
           path.write_text(text, encoding='utf-8')
           PY
           bash -n "$temp_script"
