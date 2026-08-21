@@ -13,6 +13,11 @@ import styles from './OwnerAccessCenterV3.module.css';
 type StaffAssignment = { id: string; role: string; status: string };
 type Props = ComponentProps<typeof OwnerAccessCenterV2> & { csrfToken: string };
 type SurfaceRole = ControlledCabinetRole;
+type CabinetDefinition = {
+  role: SurfaceRole;
+  cabinetRole?: keyof OwnerAccessCenterCopy['cabinetRoles'];
+  icon: string;
+};
 type OpenCabinetResponse = {
   ok?: boolean;
   code?: string;
@@ -25,7 +30,7 @@ type CsrfRefreshResponse = {
   csrfToken?: string;
 };
 
-const CABINETS: ReadonlyArray<{ role: SurfaceRole; cabinetRole: keyof OwnerAccessCenterCopy['cabinetRoles']; icon: string }> = [
+const CABINETS: ReadonlyArray<CabinetDefinition> = [
   { role: 'operator', cabinetRole: 'ADMIN', icon: '01' },
   { role: 'buyer', cabinetRole: 'BUYER', icon: '02' },
   { role: 'seller', cabinetRole: 'FARMER', icon: '03' },
@@ -35,10 +40,17 @@ const CABINETS: ReadonlyArray<{ role: SurfaceRole; cabinetRole: keyof OwnerAcces
   { role: 'elevator', cabinetRole: 'ELEVATOR', icon: '07' },
   { role: 'lab', cabinetRole: 'LAB', icon: '08' },
   { role: 'bank', cabinetRole: 'ACCOUNTING', icon: '09' },
-  { role: 'arbitrator', cabinetRole: 'ARBITRATOR', icon: '10' },
-  { role: 'compliance', cabinetRole: 'COMPLIANCE_OFFICER', icon: '11' },
-  { role: 'executive', cabinetRole: 'EXECUTIVE', icon: '12' },
+  { role: 'organization', icon: '10' },
+  { role: 'arbitrator', cabinetRole: 'ARBITRATOR', icon: '11' },
+  { role: 'compliance', cabinetRole: 'COMPLIANCE_OFFICER', icon: '12' },
+  { role: 'executive', cabinetRole: 'EXECUTIVE', icon: '13' },
 ];
+
+const EMPLOYEE_LABEL = {
+  ru: 'Сотрудник организации',
+  en: 'Organization employee',
+  zh: '组织员工',
+} as const;
 
 const OWNER_COPY = {
   ru: {
@@ -46,9 +58,9 @@ const OWNER_COPY = {
     title: 'Все кабинеты — без повторного входа',
     description: 'Открывай любой рабочий кабинет одним нажатием. Повторный пароль, тикет, причина и отдельный запрос для просмотра не требуются.',
     access: 'Максимальный обзор',
-    accessBody: 'Доступны все 12 рабочих кабинетов и их интерфейсы. Переключение действует в пределах текущего входа владельца.',
-    testNetwork: 'Тестовый контур компаний',
-    testNetworkBody: 'Для каждого кабинета назначена связанная тестовая организация. Все компании работают вокруг одной канонической тестовой сделки и помечены как тестовые данные.',
+    accessBody: 'Доступны все 13 рабочих кабинетов и их реальные интерфейсы. Переключение действует в пределах текущего входа владельца.',
+    testNetwork: 'Безопасный контур просмотра',
+    testNetworkBody: 'Каждый кабинет открывается в связанной контролируемой тестовой организации. Аккаунт владельца и MFA остаются настоящими; роль клиента не подменяется в API.',
     safety: 'Деньги, банковские подтверждения, подпись, лабораторная финализация и решение арбитра не подменяются владельцем и остаются под отдельными серверными правилами.',
     open: 'Открыть кабинет',
     opening: 'Открываем кабинет…',
@@ -62,9 +74,9 @@ const OWNER_COPY = {
     title: 'Every cabinet without signing in again',
     description: 'Open any working cabinet with one tap. No repeated password, ticket, reason or separate read-access request is required.',
     access: 'Maximum visibility',
-    accessBody: 'All 12 working cabinets and their interfaces are available within the current owner sign-in.',
-    testNetwork: 'Test organization network',
-    testNetworkBody: 'Each cabinet is linked to a controlled test organization. All organizations participate in one canonical test deal and are explicitly marked as test data.',
+    accessBody: 'All 13 working cabinets and their real interfaces are available within the current owner sign-in.',
+    testNetwork: 'Safe review boundary',
+    testNetworkBody: 'Each cabinet opens against its fixed controlled test organization. The owner account and MFA stay real; the API business role is never impersonated.',
     safety: 'Money movement, bank confirmations, signatures, laboratory finalization and arbitration decisions remain protected by separate server rules.',
     open: 'Open cabinet',
     opening: 'Opening cabinet…',
@@ -78,9 +90,9 @@ const OWNER_COPY = {
     title: '无需重复登录即可进入全部工作台',
     description: '一次点击即可打开任意工作台。只读访问无需再次输入密码、工单、原因或单独提交请求。',
     access: '最大可见范围',
-    accessBody: '当前所有者登录期间可访问全部 12 个工作台及其界面。',
-    testNetwork: '测试组织网络',
-    testNetworkBody: '每个工作台都绑定到受控测试组织。所有组织围绕同一笔标准测试交易运行，并明确标记为测试数据。',
+    accessBody: '当前所有者登录期间可访问全部 13 个工作台及其真实界面。',
+    testNetwork: '安全查看边界',
+    testNetworkBody: '每个工作台都绑定到固定的受控测试组织。所有者账号与 MFA 保持真实，API 不会伪装客户业务角色。',
     safety: '资金操作、银行确认、签署、实验室终审和仲裁决定仍受独立服务器规则保护。',
     open: '打开工作台',
     opening: '正在打开工作台…',
@@ -100,7 +112,6 @@ export function OwnerAccessCenter(props: Props) {
   const [advanced, setAdvanced] = useState(false);
   const [busyRole, setBusyRole] = useState<SurfaceRole | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
-  const controlledOwner = identity?.id === 'owner-controlled-test';
 
   useEffect(() => {
     if (!apiAvailable) {
@@ -129,10 +140,12 @@ export function OwnerAccessCenter(props: Props) {
   const cabinetLabels = useMemo(
     () => CABINETS.map((item) => ({
       ...item,
-      label: copy.cabinetRoles[item.cabinetRole],
+      label: item.role === 'organization'
+        ? EMPLOYEE_LABEL[locale]
+        : copy.cabinetRoles[item.cabinetRole!],
       organization: CONTROLLED_CABINET_CONTEXTS[item.role],
     })),
-    [copy],
+    [copy, locale],
   );
 
   async function refreshCsrf(signal: AbortSignal): Promise<string> {
@@ -166,10 +179,7 @@ export function OwnerAccessCenter(props: Props) {
         'Content-Type': 'application/json',
         'X-CSRF-Token': token,
       },
-      body: JSON.stringify({
-        role,
-        organizationId: controlledOwner ? organizationId : undefined,
-      }),
+      body: JSON.stringify({ role, organizationId }),
       signal,
     });
     const payload = await response.json().catch(() => null) as OpenCabinetResponse | null;
@@ -208,7 +218,7 @@ export function OwnerAccessCenter(props: Props) {
       }
 
       try {
-        window.sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
+        if (role !== 'organization') window.sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
       } catch {
         // The signed, HttpOnly cabinet session remains the authority. Navigation must not stop.
       }
@@ -260,36 +270,30 @@ export function OwnerAccessCenter(props: Props) {
 
       {openError && <section className={styles.error} role="alert" aria-live="assertive">{openError}</section>}
 
-      {controlledOwner && (
-        <section className={styles.testNetwork} aria-label={text.testNetwork}>
-          <span>TEST</span>
-          <div>
-            <strong>{text.testNetwork}</strong>
-            <p>{text.testNetworkBody}</p>
-          </div>
-        </section>
-      )}
+      <section className={styles.testNetwork} aria-label={text.testNetwork}>
+        <span>OWNER + MFA</span>
+        <div>
+          <strong>{text.testNetwork}</strong>
+          <p>{text.testNetworkBody}</p>
+        </div>
+      </section>
 
       <section className={styles.cabinetGrid} aria-label={text.title} aria-busy={busyRole !== null}>
         {cabinetLabels.map((item) => (
           <article key={item.role} className={styles.cabinetCard}>
             <span className={styles.number} aria-hidden="true">{item.icon}</span>
             <h2>{item.label}</h2>
-            {controlledOwner && (
-              <p className={styles.organization}>
-                <span>Тестовая организация</span>
-                <strong>{item.organization.organizationName}</strong>
-              </p>
-            )}
+            <p className={styles.organization}>
+              <span>Контролируемая организация</span>
+              <strong>{item.organization.organizationName}</strong>
+            </p>
             <form
               method="post"
               action="/platform-v7/staff/open-cabinet/submit"
               onSubmit={(event) => openCabinet(event, item.role, item.organization.organizationId)}
             >
               <input type="hidden" name="_csrf" value={csrfToken} />
-              {controlledOwner && (
-                <input type="hidden" name="organizationId" value={item.organization.organizationId} />
-              )}
+              <input type="hidden" name="organizationId" value={item.organization.organizationId} />
               <button type="submit" name="role" value={item.role} disabled={!csrfToken || busyRole !== null}>
                 {busyRole === item.role ? text.opening : text.open}
               </button>

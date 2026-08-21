@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/owner-access-canonical-image-trigger-4414",
+  "status": "active",
+  "purpose": "Synchronize the canonical REG.RU production runtime to the exact current main required by the owner-access recovery controller in issue #4414. This scope is release synchronization only: it changes no authentication, RBAC, business logic, credentials or customer data.",
+  "authorityBaseExactMain": "6ed53e348137dc912d3efc5540bc336bd3fa4cc6",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/owner-access-controller-sync-4414.json"
+  ],
+  "requiredInvariants": [
+    "Canonical API, Web, migration and auth-mail runtime revisions must converge on the same exact current-main SHA before the owner password-reset request is allowed.",
+    "No direct password, TOTP, role, tenant, membership or business-data mutation is authorized by this scope.",
+    "No customer production data may be exposed to showroom users.",
+    "The owner-access recovery controller remains fail-closed on revision drift.",
+    "New recurring cost remains 0 RUB."
+  ],
+  "acceptance": [
+    "Canonical Docker images are built for the merge SHA.",
+    "The existing full-stack workflow_run chain deploys the same merge SHA to REG.RU.",
+    "Migration and live acceptance complete successfully without rollback.",
+    "API, Web and auth-mail worker report the exact merge SHA and healthy readiness.",
+    "Only after exact runtime parity may /production owner-access-reset current-main be used."
+  ]
+}

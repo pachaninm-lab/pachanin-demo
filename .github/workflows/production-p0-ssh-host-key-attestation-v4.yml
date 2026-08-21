@@ -1,0 +1,280 @@
+name: PC-CROP P0 Production SSH Host-Key Attestation v4
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-ssh-host-key-attestation-v4.yml'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-p0-ssh-host-attestation-v4-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-p0-ssh-host-key-attestation-v4
+  cancel-in-progress: false
+
+env:
+  CANONICAL_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  AUTHORITY_ISSUE: '4445'
+
+jobs:
+  contract:
+    name: Validate shell-only dual-channel attestation contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 4445 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.body == '/production p0-ssh-host-attest-v4 current-main' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        )
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve exact current main
+        id: target
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          if [[ '${{ github.event_name }}' == issue_comment ]]; then
+            [[ "$(git rev-parse HEAD)" == "$target" ]]
+          fi
+          printf 'sha=%s\n' "$target" >> "$GITHUB_OUTPUT"
+      - name: Validate exact scope and runtime boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          wf = Path('.github/workflows/production-p0-ssh-host-key-attestation-v4.yml')
+          scope_path = Path('docs/platform-v7/autopilot/scopes/pc-crop-p0-ssh-host-attestation-v4-3785.json')
+          text = wf.read_text(encoding='utf-8')
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          if scope.get('branch') != 'fix/pc-crop-p0-ssh-host-attestation-output-v4-3785': raise SystemExit('SCOPE_BRANCH')
+          if scope.get('authorityBaseExactMain') != '844f037537fd5a68f47716d3c77a92033f29036d': raise SystemExit('SCOPE_BASE')
+          if set(scope.get('allowedPaths') or []) != {str(wf), str(scope_path)}: raise SystemExit('SCOPE_PATHS')
+          required = (
+              '/production p0-ssh-host-attest-v4 current-main',
+              'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
+              '/etc/ssh/ssh_host_*_key.pub', 'PC_PROD_SSH_PORT', 'PC_PROD_SSH_HOST_FINGERPRINT',
+              'EXTERNAL_KEYS_SUBSET_OF_LOCAL=PASS', 'EXTERNAL_LETTERS_TRANSPORT=PASS', 'PRODUCTION_MUTATION=NONE',
+          )
+          for marker in required:
+              if marker not in text: raise SystemExit(f'MISSING:{marker}')
+          if ('external_'+'hex:') in text or ('EXT_'+'HEX:') in text: raise SystemExit('STALE_EXTERNAL_HEX_TRANSPORT')
+          local = text.split('\n  local_attestation:\n',1)[1].split('\n  classify:\n',1)[0]
+          if 'uses:' in local: raise SystemExit('LOCAL_MARKETPLACE_ACTION_FORBIDDEN')
+          if 'secrets.' in local: raise SystemExit('LOCAL_SECRET_FORBIDDEN')
+          runtime = text.split('\n  external_scan:\n',1)[1]
+          for marker in (
+              'StrictHostKeyChecking=no','StrictHostKeyChecking=accept-new','UserKnownHostsFile=/dev/null',
+              'sshpass','PasswordAuthentication=yes','secrets.PC_PROD_SSH_KEY','secrets.PC_PROD_SSH_PRIVATE_KEY',
+              'secrets.VPS_SSH_KEY','docker compose','docker run','docker rm','docker rmi','docker prune',
+              'systemctl restart','systemctl stop','systemctl start','prisma migrate','psql ','gh secret set',
+              'gh variable set','sudo ',
+          ):
+              if marker in runtime: raise SystemExit(f'FORBIDDEN_RUNTIME:{marker}')
+          PY
+
+  external_scan:
+    name: Observe stable public host keys externally
+    needs: contract
+    if: github.event_name == 'issue_comment' && needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      external_letters: ${{ steps.scan.outputs.letters }}
+    env:
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan canonical endpoint three times
+        id: scan
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" == "$(git rev-parse HEAD)" ]]
+          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
+          port="${SSH_PORT_SECRET//[[:space:]]/}"
+          [[ -n "$port" && "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || exit 12
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$CANONICAL_HOST"
+          for n in 1 2 3; do
+            ssh-keyscan -T 10 -p "$port" "$CANONICAL_HOST" 2>/dev/null | sort -u > "$RUNNER_TEMP/scan-$n"
+            [[ -s "$RUNNER_TEMP/scan-$n" ]] || { echo "SSH_KEYSCAN_EMPTY:$n" >&2; exit 15; }
+            (( n == 3 )) || sleep "$n"
+          done
+          cmp -s "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/scan-2" || { echo SSH_KEYSCAN_UNSTABLE >&2; exit 15; }
+          cmp -s "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/scan-3" || { echo SSH_KEYSCAN_UNSTABLE >&2; exit 15; }
+          python3 - "$RUNNER_TEMP/scan-1" "$GITHUB_OUTPUT" "$TARGET_SHA" <<'PY'
+          import json,re,subprocess,sys
+          source,out,target=sys.argv[1:]
+          fp_re=re.compile(r'^SHA256:[A-Za-z0-9+/=]+$')
+          keys=set()
+          for raw in open(source,encoding='utf-8'):
+              raw=raw.strip()
+              if not raw or raw.startswith('#'): continue
+              p=subprocess.run(['ssh-keygen','-lf','-','-E','sha256'],input=raw+'\n',text=True,capture_output=True,check=True)
+              parts=p.stdout.strip().split()
+              if len(parts)<4 or not fp_re.fullmatch(parts[1]): raise SystemExit('EXTERNAL_KEY_INVALID')
+              keys.add((parts[-1].strip('()').upper(),parts[1]))
+          if not 1 <= len(keys) <= 8: raise SystemExit('EXTERNAL_KEY_CARDINALITY')
+          payload={'schema':'pc.ssh.external.v4','target':target,'keys':[{'a':a,'f':f} for a,f in sorted(keys)]}
+          raw=json.dumps(payload,separators=(',',':'),sort_keys=True).encode()
+          encoded=''.join(chr(65+(b>>4))+chr(65+(b&15)) for b in raw)
+          if not re.fullmatch(r'[A-P]+',encoded) or len(encoded)>16384: raise SystemExit('EXTERNAL_OUTPUT_BOUNDARY')
+          with open(out,'a',encoding='utf-8') as h: h.write(f'letters={encoded}\n')
+          print(f'EXTERNAL_PUBLIC_KEY_COUNT={len(keys)}')
+          print('EXTERNAL_LETTERS_TRANSPORT=PASS')
+          print('PRODUCTION_MUTATION=NONE')
+          PY
+
+  local_attestation:
+    name: Attest local public host keys on pc-prod without Actions downloads
+    needs: [contract, external_scan]
+    if: github.event_name == 'issue_comment' && needs.external_scan.result == 'success'
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    timeout-minutes: 10
+    permissions:
+      contents: none
+    outputs:
+      local_hex: ${{ steps.local.outputs.hex }}
+    env:
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+    steps:
+      - name: Read only local public SSH authority
+        id: local
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]] || exit 20
+          [[ "$(id -u)" -ne 0 ]] || exit 20
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker || exit 21
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          python3 - "$GITHUB_OUTPUT" "$TARGET_SHA" <<'PY'
+          import glob,json,os,re,stat,subprocess,sys
+          out,target=sys.argv[1:]
+          fp_re=re.compile(r'^SHA256:[A-Za-z0-9+/=]+$')
+          paths=sorted(glob.glob('/etc/ssh/ssh_host_*_key.pub'))
+          if not 1 <= len(paths) <= 8: raise SystemExit('LOCAL_KEY_CARDINALITY')
+          keys=set()
+          for path in paths:
+              st=os.lstat(path)
+              if stat.S_ISLNK(st.st_mode) or not stat.S_ISREG(st.st_mode): raise SystemExit('LOCAL_KEY_FILE_TYPE')
+              if st.st_uid != 0 or (stat.S_IMODE(st.st_mode)&0o022): raise SystemExit('LOCAL_KEY_AUTHORITY')
+              p=subprocess.run(['ssh-keygen','-lf',path,'-E','sha256'],text=True,capture_output=True,check=True)
+              parts=p.stdout.strip().split()
+              if len(parts)<4 or not fp_re.fullmatch(parts[1]): raise SystemExit('LOCAL_KEY_INVALID')
+              keys.add((parts[-1].strip('()').upper(),parts[1]))
+          payload={'schema':'pc.ssh.local.v4','target':target,'keys':[{'a':a,'f':f} for a,f in sorted(keys)]}
+          encoded=json.dumps(payload,separators=(',',':'),sort_keys=True).encode().hex()
+          if len(encoded)>16384: raise SystemExit('LOCAL_OUTPUT_BOUNDARY')
+          with open(out,'a',encoding='utf-8') as h: h.write(f'hex={encoded}\n')
+          print(f'LOCAL_PUBLIC_KEY_COUNT={len(keys)}')
+          print('PRODUCTION_MUTATION=NONE')
+          PY
+
+  classify:
+    name: Classify protected pin from independent evidence
+    needs: [contract, external_scan, local_attestation]
+    if: >-
+      always() && github.event_name == 'issue_comment' && github.event.issue.number == 4445 &&
+      github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/production p0-ssh-host-attest-v4 current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      EXT_RESULT: ${{ needs.external_scan.result }}
+      LOCAL_RESULT: ${{ needs.local_attestation.result }}
+      EXT_LETTERS: ${{ needs.external_scan.outputs.external_letters }}
+      LOCAL_HEX: ${{ needs.local_attestation.outputs.local_hex }}
+      EXPECTED_PIN: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Publish bounded classification
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          report="$RUNNER_TEMP/report.md"
+          if [[ -z "${TARGET_SHA:-}" || "$TARGET_SHA" != "$(git rev-parse HEAD)" || "$TARGET_SHA" != "$(git rev-parse origin/main)" ]]; then
+            printf '## PC-CROP P0 SSH host-key attestation v4\n\n- result: `BLOCKED_MAIN_DRIFT`\n- production mutation: `NONE`\n' > "$report"
+          elif [[ "$EXT_RESULT" != success || "$LOCAL_RESULT" != success ]]; then
+            printf '## PC-CROP P0 SSH host-key attestation v4\n\n- target SHA: `%s`\n- external observation: `%s`\n- local production attestation: `%s`\n- result: `BLOCKED_ATTESTATION`\n- production mutation: `NONE`\n' "$TARGET_SHA" "$EXT_RESULT" "$LOCAL_RESULT" > "$report"
+          else
+            python3 - "$report" "$TARGET_SHA" "$EXPECTED_PIN" "$EXT_LETTERS" "$LOCAL_HEX" <<'PY'
+          import json,re,sys
+          report,target,expected,el,lh=sys.argv[1:]
+          fp_re=re.compile(r'^SHA256:[A-Za-z0-9+/=]+$')
+          if not fp_re.fullmatch(expected): raise SystemExit('PROTECTED_PIN_INVALID')
+          try:
+              if not re.fullmatch(r'[A-P]+',el) or len(el)%2: raise ValueError('external letters')
+              external_bytes=bytes(((ord(el[i])-65)<<4)|(ord(el[i+1])-65) for i in range(0,len(el),2))
+              ext=json.loads(external_bytes.decode()); loc=json.loads(bytes.fromhex(lh).decode())
+          except Exception as e: raise SystemExit('EVIDENCE_DECODE') from e
+          if ext.get('schema')!='pc.ssh.external.v4' or ext.get('target')!=target: raise SystemExit('EXTERNAL_EVIDENCE')
+          if loc.get('schema')!='pc.ssh.local.v4' or loc.get('target')!=target: raise SystemExit('LOCAL_EVIDENCE')
+          def rows(x):
+              out=set()
+              for r in x.get('keys',[]):
+                  a=str(r.get('a','')).upper(); f=str(r.get('f',''))
+                  if not re.fullmatch(r'[A-Z0-9-]{2,32}',a) or not fp_re.fullmatch(f): raise SystemExit('KEY_ROW')
+                  out.add((a,f))
+              return out
+          e=rows(ext); l=rows(loc)
+          if not e or not e.issubset(l): raise SystemExit('EXTERNAL_KEYS_NOT_ATTESTED_BY_LOCAL')
+          print('EXTERNAL_KEYS_SUBSET_OF_LOCAL=PASS')
+          current=any(f==expected for _,f in e)
+          replacement=None
+          if not current:
+              rank={'ED25519':0,'ECDSA':1,'RSA':2}
+              replacement=sorted(e,key=lambda x:(rank.get(x[0],9),x[0],x[1]))[0]
+              if replacement[1]==expected: raise SystemExit('REPLACEMENT_EQUALS_OLD_PIN')
+          lines=['## PC-CROP P0 SSH host-key attestation v4','',f'- target SHA: `{target}`','- external three-scan stability: `PASS`','- external keys attested by local `/etc/ssh` authority: `PASS`',f'- stored protected pin status: `{"CURRENT" if current else "STALE"}`']
+          if replacement:
+              lines += [f'- attested replacement algorithm: `{replacement[0]}`',f'- attested replacement public fingerprint: `{replacement[1]}`']
+          else:
+              lines += ['- attested replacement algorithm: `NOT_REQUIRED`','- attested replacement public fingerprint: `NOT_REQUIRED`']
+          lines += ['- protected old pin / private key exposure: `NONE`','- production mutation: `NONE`']
+          open(report,'w',encoding='utf-8').write('\n'.join(lines)+'\n')
+          PY
+          fi
+          cat "$report"
+          gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body-file "$report"
+          echo 'PRODUCTION_MUTATION=NONE'

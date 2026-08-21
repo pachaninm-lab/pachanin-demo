@@ -1,0 +1,192 @@
+name: Production Owner Access Password Reset — Current Main
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-owner-access-reset-current-main.yml'
+      - 'docs/platform-v7/autopilot/scopes/owner-access-reset-current-main-4414.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-owner-access-reset-current-main
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate owner-access recovery contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production owner-access-reset current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate immutable reviewed reset source and bounded exception
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source_script='scripts/production-p0-reviewer-password-reset-request.sh'
+          [[ "$(git hash-object "$source_script")" == '7a586ded1b40ab3812335b351d0e8cc519020aa4' ]]
+          node scripts/check-production-p0-reviewer-password-reset-request.mjs
+          bash -n "$source_script"
+          python3 - "$source_script" <<'PY'
+          from pathlib import Path
+          import sys
+          text = Path(sys.argv[1]).read_text(encoding='utf-8')
+          required = {
+              "command": "COMMAND='/production p0-reviewer-reset-request current-main'",
+              "readiness": "if (counts.join('|') !== '1|1|1|1|1|0|0|0') fail('P0_REVIEWER_RESET_READINESS_NOT_EXACT');",
+              "inner_revision": '[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]',
+              "outer_revision": '[[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]',
+          }
+          for label, needle in required.items():
+              count = text.count(needle)
+              if count != 1:
+                  raise SystemExit(f'{label}_PATCH_CARDINALITY_INVALID:{count}')
+          if text.count('API / Web / auth-mail worker revision parity') != 2:
+              raise SystemExit('EVIDENCE_LABEL_CARDINALITY_INVALID')
+          forbidden = [
+              'PC_P0_REVIEWER_EMAIL', 'PC_P0_REVIEWER_PASSWORD', 'PC_P0_REVIEWER_TOTP',
+              'StrictHostKeyChecking=no', 'UserKnownHostsFile=/dev/null',
+              'decryptAuthMailEnvelope', 'payload_ciphertext', 'passwordHash =', 'mfa_secret_ciphertext =',
+          ]
+          for needle in forbidden:
+              if needle in text:
+                  raise SystemExit(f'FORBIDDEN_SOURCE_CONTENT:{needle}')
+          PY
+
+      - name: Resolve exact current main
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          target="$(git rev-parse HEAD)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          if [[ '${{ github.event_name }}' == 'issue_comment' ]]; then
+            git fetch --no-tags origin main
+            [[ "$target" == "$(git rev-parse origin/main)" ]]
+            [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          fi
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  request:
+    name: Send one ordinary owner password-reset email
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify owner command provenance and exact main
+        shell: bash
+        env:
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' ]]
+          [[ "$body" == '/production owner-access-reset current-main' ]]
+          if [[ "$GITHUB_ACTOR" != "$owner" || "$GITHUB_TRIGGERING_ACTOR" != "$owner" ]]; then
+            [[ "$app" == '1144995' ]]
+          fi
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ "$(git hash-object scripts/production-p0-reviewer-password-reset-request.sh)" == '7a586ded1b40ab3812335b351d0e8cc519020aa4' ]]
+
+      - name: Execute reviewed reset flow with bounded owner-readiness correction
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source_script='scripts/production-p0-reviewer-password-reset-request.sh'
+          temp_script="$RUNNER_TEMP/owner-access-reset.sh"
+          cp -- "$source_script" "$temp_script"
+          chmod 0700 "$temp_script"
+          python3 - "$temp_script" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  "COMMAND='/production p0-reviewer-reset-request current-main'",
+                  "COMMAND='/production owner-access-reset current-main'",
+              ),
+              (
+                  "if (counts.join('|') !== '1|1|1|1|1|0|0|0') fail('P0_REVIEWER_RESET_READINESS_NOT_EXACT');",
+                  "if (counts[0] !== 1 || counts[1] !== 1 || counts[2] !== 1 || counts[3] !== 1 || counts[4] !== 1 || ![0, 1].includes(counts[5]) || counts[6] !== 0 || counts[7] !== 0) fail('P0_REVIEWER_RESET_READINESS_NOT_EXACT');",
+              ),
+          ]
+          for index, (old, new) in enumerate(replacements, start=1):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'PATCH_CARDINALITY_FAILED:R{index}:{count}')
+              text = text.replace(old, new, 1)
+          exact_revision_guards = [
+              '[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]',
+              '[[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]',
+          ]
+          for index, needle in enumerate(exact_revision_guards, start=1):
+              if text.count(needle) != 1:
+                  raise SystemExit(f'EXACT_MAIN_REVISION_GUARD_CHANGED:R{index}')
+          if text.count('API / Web / auth-mail worker revision parity') != 2:
+              raise SystemExit('EVIDENCE_LABEL_CARDINALITY_INVALID')
+          path.write_text(text, encoding='utf-8')
+          PY
+          bash -n "$temp_script"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          bash "$temp_script"
+          rm -f -- "$temp_script"
