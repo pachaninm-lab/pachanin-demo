@@ -324,6 +324,7 @@ jobs:
           [[ -n "$image_ref" && -n "$caddy_image_ref" ]]
           [[ "$(docker image inspect "$image_ref" --format '{{.Id}}')" == "$image_id" ]]
           [[ "$(docker image inspect "$caddy_image_ref" --format '{{.Id}}')" == "$caddy_image_id" ]]
+          rm -f "$compose_json" "$backup_dir/compose.candidate.err"
 
           caddy_candidate="$backup_dir/Caddyfile.candidate"
           cp "$caddy_config" "$caddy_candidate"
