@@ -295,7 +295,6 @@ jobs:
             wire_mode=CREATE_OVERRIDE
             [[ ! -e "$override_file" && ! -L "$override_file" ]]
           fi
-          upstream_mode=NOT_REEVALUATED_ALREADY_READY
 
           stage=CADDY_BIND_SCOPE
           mount_file_source="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{println .Source}}{{end}}{{end}}' "$caddy_id" 2>/dev/null | head -1 || true)"
@@ -309,14 +308,16 @@ jobs:
           stage=DISABLED_BASELINE
           gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
           control_blocks="$(grep -c '# BEGIN COMPANY OS CONTROL HOST' "$caddy_config" || true)"
+          control_end_blocks="$(grep -c '# END COMPANY OS CONTROL HOST' "$caddy_config" || true)"
+          already_ready=0
           if [[ "$gate" == 'PC_CONTROL_HOST_ENABLED=true' && "$control_blocks" == 1 ]] && grep -Fq -- "$control_domain" "$caddy_config"; then
-            trap - ERR
-            printf '%s\n' "MUTATED=NO_ALREADY_READY" "WEB_REVISION=$revision" "WEB_IMAGE_ID=$image_id" "BACKUP_DIR=NONE" "WIRE_MODE=$wire_mode" "UPSTREAM_MODE=$upstream_mode"
-            exit 0
+            [[ "$control_end_blocks" == 1 ]]
+            already_ready=1
+          else
+            [[ -z "$gate" || "$gate" == 'PC_CONTROL_HOST_ENABLED=false' ]]
+            [[ "$control_blocks" == 0 && "$control_end_blocks" == 0 ]]
+            if grep -Fq -- "$control_domain" "$caddy_config"; then false; fi
           fi
-          [[ -z "$gate" || "$gate" == 'PC_CONTROL_HOST_ENABLED=false' ]]
-          [[ "$control_blocks" == 0 ]]
-          if grep -Fq -- "$control_domain" "$caddy_config"; then false; fi
 
           mapfile -t baseline_non_web < <(docker ps -q --filter "label=com.docker.compose.project=$project" | grep -Fvx "$web_id" | sort -u || true)
           printf '%s\n' "${baseline_non_web[@]}" | grep -Fxq "$caddy_id"
@@ -351,18 +352,44 @@ jobs:
           stage=PRIMARY_UPSTREAM_WEB_IDENTITY
           web_service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$web_id")"
           [[ "$web_service" == web ]]
-          mapfile -t web_aliases < <(
-            {
-              printf '%s\n' "$web_service"
-              docker inspect "$web_id" | jq -r '.[0] | (.Name // "" | ltrimstr("/")), (.Config.Hostname // ""), (.NetworkSettings.Networks[]?.Aliases[]? // empty)'
-            } | awk 'NF' | sort -u
-          )
-          printf '%s\n' "${web_aliases[@]}" | grep -Fx "$upstream_host" >/dev/null
           mapfile -t web_networks < <(docker inspect "$web_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
           mapfile -t caddy_networks < <(docker inspect "$caddy_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
+          mapfile -t upstream_web_networks < <(
+            docker inspect "$web_id" | jq -r --arg host "$upstream_host" '
+              .[0].NetworkSettings.Networks
+              | to_entries[]
+              | select(([.value.Aliases[]?, .value.DNSNames[]?] | index($host)) != null)
+              | .key
+            ' | sort -u
+          )
           [[ "${#web_networks[@]}" -ge 1 && "${#caddy_networks[@]}" -ge 1 ]]
-          shared_network_count="$(comm -12 <(printf '%s\n' "${web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | awk 'NF { count++ } END { print count + 0 }')"
-          [[ "$shared_network_count" -ge 1 ]]
+          [[ "${#upstream_web_networks[@]}" -ge 1 ]]
+          bound_shared_network_count="$(comm -12 <(printf '%s\n' "${upstream_web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | awk 'NF { count++ } END { print count + 0 }')"
+          [[ "$bound_shared_network_count" -ge 1 ]]
+
+          if [[ "$already_ready" == 1 ]]; then
+            stage=ALREADY_READY_UPSTREAM
+            [[ "$wire_mode" == EXISTING ]]
+            mapfile -t existing_control_hosts < <(
+              awk '
+                /^[[:space:]]*# BEGIN COMPANY OS CONTROL HOST[[:space:]]*$/ { inside=1; next }
+                /^[[:space:]]*# END COMPANY OS CONTROL HOST[[:space:]]*$/ { inside=0 }
+                inside && NF { $1=$1; print }
+              ' "$caddy_config" | grep -Fx -- "$control_domain {" || true
+            )
+            mapfile -t existing_control_upstreams < <(
+              awk '
+                /^[[:space:]]*# BEGIN COMPANY OS CONTROL HOST[[:space:]]*$/ { inside=1; next }
+                /^[[:space:]]*# END COMPANY OS CONTROL HOST[[:space:]]*$/ { inside=0 }
+                inside && $1 == "reverse_proxy" { $1=$1; print }
+              ' "$caddy_config"
+            )
+            [[ "${#existing_control_hosts[@]}" == 1 ]]
+            [[ "${#existing_control_upstreams[@]}" == 1 && "${existing_control_upstreams[0]}" == "reverse_proxy $upstream" ]]
+            trap - ERR
+            printf '%s\n' "MUTATED=NO_ALREADY_READY" "WEB_REVISION=$revision" "WEB_IMAGE_ID=$image_id" "BACKUP_DIR=NONE" "WIRE_MODE=$wire_mode" "UPSTREAM_MODE=$upstream_mode"
+            exit 0
+          fi
 
           stage=BACKUP
           timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -534,7 +561,7 @@ jobs:
             value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
             [[ -n "$value" ]]
             if [[ "$key" == WIRE_MODE ]]; then [[ "$value" == EXISTING || "$value" == CREATE_OVERRIDE ]]; fi
-            if [[ "$key" == UPSTREAM_MODE ]]; then [[ "$value" == PRIMARY_HOST_MATCH || "$value" == SOLE_EDGE_UPSTREAM || "$value" == NOT_REEVALUATED_ALREADY_READY ]]; fi
+            if [[ "$key" == UPSTREAM_MODE ]]; then [[ "$value" == PRIMARY_HOST_MATCH || "$value" == SOLE_EDGE_UPSTREAM ]]; fi
             echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
           done
       - name: Require running web revision to contain Company OS boundary
