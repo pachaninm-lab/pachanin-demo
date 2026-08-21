@@ -357,11 +357,12 @@ jobs:
               docker inspect "$web_id" | jq -r '.[0] | (.Name // "" | ltrimstr("/")), (.Config.Hostname // ""), (.NetworkSettings.Networks[]?.Aliases[]? // empty)'
             } | awk 'NF' | sort -u
           )
-          printf '%s\n' "${web_aliases[@]}" | grep -Fxq "$upstream_host"
+          printf '%s\n' "${web_aliases[@]}" | grep -Fx "$upstream_host" >/dev/null
           mapfile -t web_networks < <(docker inspect "$web_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
           mapfile -t caddy_networks < <(docker inspect "$caddy_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
           [[ "${#web_networks[@]}" -ge 1 && "${#caddy_networks[@]}" -ge 1 ]]
-          comm -12 <(printf '%s\n' "${web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | grep -q .
+          shared_network_count="$(comm -12 <(printf '%s\n' "${web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | awk 'NF { count++ } END { print count + 0 }')"
+          [[ "$shared_network_count" -ge 1 ]]
 
           stage=BACKUP
           timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
