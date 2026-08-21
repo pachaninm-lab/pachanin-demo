@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-login-account-switch-mfa-boundary-3785-v3",
+  "status": "active",
+  "purpose": "Registration #3785: prevent an already-authenticated browser identity from surviving a password-proven transition into another account's membership-selection or MFA-pending flow. The branch is based on exact post-#4439 main where the bounded CVE governance and runtime-security manifest correction are already merged.",
+  "approvedBy": "owner-registration-continuation-3785",
+  "authorityBaseExactMain": "14972d7f14df7e50be5547297907a3ba062f35a3",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/api/auth/login/route.ts",
+    "apps/web/tests/unit/platformV7LoginSecurityBoundary.test.ts",
+    "docs/platform-v7/autopilot/scopes/p0-login-account-switch-mfa-boundary-3785-v3.json"
+  ],
+  "requiredBehavior": [
+    "clear stale authenticated browser access, refresh, presentation/session and cabinet cookies only after the new account password has been accepted and the server has returned a bounded membership-selection or MFA challenge",
+    "immediately issue a fresh CSRF cookie after clearing the previous browser authority so the password-proven pending flow can continue",
+    "preserve control-plane SameSite strictness and public-platform SameSite lax behavior",
+    "do not create a session for the new account before membership selection and MFA complete",
+    "do not change API authentication, PostgreSQL identity, password, MFA verification, reviewer role, tenant derivation, RLS, audit or outbox authority",
+    "do not expose email, password, MFA setup secret, TOTP code, backup code, token or cookie in evidence",
+    "keep invalid-password attempts from silently logging out an already authenticated account"
+  ],
+  "forbiddenCapabilities": [
+    "MFA bypass or fake MFA completion",
+    "client-selected role or tenant",
+    "direct production SQL or identity mutation",
+    "reviewer password, TOTP secret, QR, backup-code or bearer handoff",
+    "RLS, CSRF, session, audit, outbox, security-scanner or rate-limit weakening",
+    "new paid provider, SaaS subscription or recurring cost",
+    "unrelated PC-CROP business-flow, Gekta, Company OS or showroom behavior changes"
+  ],
+  "acceptanceEvidence": [
+    "focused login security-boundary test requires stale authenticated browser cookies to be cleared for both password-proven pending paths",
+    "focused test requires a fresh CSRF cookie after the clear and preserves strict/lax SameSite boundary",
+    "ordinary authenticated-session cookies remain withheld until the new account completes membership selection and MFA",
+    "post-deploy reviewer ceremony must show the real MFA enrollment/verification flow and durable reviewer readiness must become password=1/1, TOTP=1/1, login-ready=1/1 before First Customer acceptance"
+  ]
+}
