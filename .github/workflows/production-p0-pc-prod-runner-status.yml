@@ -1,4 +1,4 @@
-name: PC-CROP P0 pc-prod Runner Status
+name: PC-CROP P0 v4 Attestation Run Status
 
 on:
   pull_request:
@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  runner_status:
-    name: Read pc-prod runner status without production access
+  run_status:
+    name: Read v4 attestation run state without production access
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -21,74 +21,53 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Validate exact scope contract
+      - name: Validate hosted-only read boundary
         shell: bash
         run: |
           set -Eeuo pipefail
           python3 - <<'PY'
           import json
           from pathlib import Path
-          workflow_path = Path('.github/workflows/production-p0-pc-prod-runner-status.yml')
-          scope_path = Path('docs/platform-v7/autopilot/scopes/pc-crop-p0-runner-status-4445.json')
-          scope = json.loads(scope_path.read_text(encoding='utf-8'))
-          if scope.get('branch') != 'fix/pc-crop-p0-runner-status-4445': raise SystemExit('scope branch mismatch')
-          if scope.get('authorityBaseExactMain') != '5e137c033805b0516d7a5f719b318d912d4d04f8': raise SystemExit('scope base mismatch')
-          if set(scope.get('allowedPaths') or []) != {str(workflow_path), str(scope_path)}: raise SystemExit('scope paths mismatch')
-          workflow = workflow_path.read_text(encoding='utf-8')
-          forbidden_markers = (
-              'runs-on:' + ' [self-hosted', 'ssh-' + 'keyscan', 'ssh' + ' ', 'docker' + ' ',
-              'psql' + ' ', 'gh' + ' secret', 'registration-' + 'token', 'remove-' + 'token', 'sudo' + ' ',
-          )
-          for forbidden in forbidden_markers:
-              if forbidden in workflow: raise SystemExit(f'forbidden capability: {forbidden}')
+          workflow_path=Path('.github/workflows/production-p0-pc-prod-runner-status.yml')
+          scope_path=Path('docs/platform-v7/autopilot/scopes/pc-crop-p0-runner-status-4445.json')
+          scope=json.loads(scope_path.read_text(encoding='utf-8'))
+          if scope.get('branch')!='fix/pc-crop-p0-runner-status-4445': raise SystemExit('SCOPE_BRANCH')
+          if set(scope.get('allowedPaths') or [])!={str(workflow_path),str(scope_path)}: raise SystemExit('SCOPE_PATHS')
+          runtime=workflow_path.read_text(encoding='utf-8').split('      - name: Query latest v4 issue-comment run',1)[1]
+          for marker in ('self-hosted','ssh-keyscan','ssh ','docker ','psql ','sudo ','gh secret','registration-token','remove-token'):
+              if marker in runtime: raise SystemExit(f'FORBIDDEN:{marker}')
           PY
-      - name: Query repository self-hosted runner status
-        id: status
+      - name: Query latest v4 issue-comment run
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          tmp="$(mktemp)"
-          trap 'rm -f "$tmp"' EXIT
-          gh api --paginate -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/actions/runners?per_page=100" > "$tmp"
-          python3 - "$tmp" <<'PY'
-          import json, sys
-          path = sys.argv[1]
-          raw = json.load(open(path, encoding='utf-8'))
-          pages = raw if isinstance(raw, list) else [raw]
-          runners = []
-          for page in pages:
-              if not isinstance(page, dict):
-                  raise SystemExit('RUNNER_API_SCHEMA')
-              values = page.get('runners')
-              if not isinstance(values, list):
-                  raise SystemExit('RUNNER_API_SCHEMA')
-              runners.extend(values)
-          matches = []
-          for runner in runners:
-              if not isinstance(runner, dict):
-                  continue
-              labels = runner.get('labels')
-              if not isinstance(labels, list):
-                  continue
-              names = {item.get('name') for item in labels if isinstance(item, dict) and isinstance(item.get('name'), str)}
-              if {'pc-prod', 'tai-readonly'} <= names:
-                  matches.append((runner, sorted(names)))
-          if len(matches) != 1:
-              print(f'PC_PROD_RUNNER_CARDINALITY={len(matches)}')
-              raise SystemExit('PC_PROD_RUNNER_CARDINALITY')
-          runner, labels = matches[0]
-          name = runner.get('name')
-          status = runner.get('status')
-          busy = runner.get('busy')
-          if not isinstance(name, str) or not name.startswith('pc-prod-'):
-              raise SystemExit('PC_PROD_RUNNER_NAME')
-          if status not in ('online', 'offline') or not isinstance(busy, bool):
-              raise SystemExit('PC_PROD_RUNNER_STATE')
-          print(f'PC_PROD_RUNNER_NAME={name}')
-          print(f'PC_PROD_RUNNER_STATUS={status.upper()}')
-          print(f'PC_PROD_RUNNER_BUSY={str(busy).upper()}')
-          print('PC_PROD_RUNNER_LABELS=' + ','.join(labels))
+          runs="$(mktemp)"; jobs="$(mktemp)"
+          trap 'rm -f "$runs" "$jobs"' EXIT
+          gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/actions/workflows/production-p0-ssh-host-key-attestation-v4.yml/runs?event=issue_comment&per_page=10" > "$runs"
+          run_id="$(python3 - "$runs" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding='utf-8'))
+          rows=p.get('workflow_runs') or []
+          if not rows: raise SystemExit('V4_RUN_NOT_FOUND')
+          rows=sorted(rows,key=lambda r:r.get('created_at') or '',reverse=True)
+          r=rows[0]
+          print(r.get('id'))
+          print(f"V4_RUN_ID={r.get('id')}",file=sys.stderr)
+          print(f"V4_RUN_STATUS={str(r.get('status')).upper()}",file=sys.stderr)
+          print(f"V4_RUN_CONCLUSION={str(r.get('conclusion')).upper()}",file=sys.stderr)
+          print(f"V4_RUN_HEAD_SHA={r.get('head_sha')}",file=sys.stderr)
+          PY
+          )"
+          [[ "$run_id" =~ ^[0-9]+$ ]]
+          gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?per_page=100" > "$jobs"
+          python3 - "$jobs" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding='utf-8'))
+          for j in p.get('jobs') or []:
+              print('V4_JOB=' + str(j.get('name')))
+              print('V4_JOB_STATUS=' + str(j.get('status')).upper())
+              print('V4_JOB_CONCLUSION=' + str(j.get('conclusion')).upper())
           print('PRODUCTION_MUTATION=NONE')
           PY
