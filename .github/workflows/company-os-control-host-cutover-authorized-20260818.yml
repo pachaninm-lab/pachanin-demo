@@ -333,39 +333,53 @@ jobs:
               | .handle[]?
               | .. | objects
               | .upstreams[]?.dial?
+              | select(type == "string")
             ] | unique[]
           ' "$caddy_json")
-          mapfile -t all_upstreams < <(jq -r '[.. | objects | .upstreams[]?.dial?] | unique[]' "$caddy_json")
+          mapfile -t all_upstreams < <(jq -r '[.. | objects | .upstreams[]?.dial? | select(type == "string")] | unique[]' "$caddy_json")
           rm -f "$caddy_json"
+
+          stage=PRIMARY_UPSTREAM_WEB_IDENTITY
+          web_service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$web_id")"
+          [[ "$web_service" == web ]]
+          web_inspect="$(docker inspect "$web_id")"
+          mapfile -t web_networks < <(jq -r '.[0].NetworkSettings.Networks | keys[]' <<< "$web_inspect" | sort -u)
+          mapfile -t caddy_networks < <(docker inspect "$caddy_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
+          [[ "${#web_networks[@]}" -ge 1 && "${#caddy_networks[@]}" -ge 1 ]]
+          web_bound_upstreams=()
+          for candidate in "${all_upstreams[@]}"; do
+            if [[ "$candidate" =~ ^(127\.0\.0\.1|localhost|[A-Za-z0-9_.-]+):[0-9]{1,5}$ ]]; then
+              candidate_host="${candidate%:*}"
+              mapfile -t candidate_web_networks < <(
+                jq -r --arg host "$candidate_host" '
+                  .[0].NetworkSettings.Networks
+                  | to_entries[]
+                  | select(([.value.Aliases[]?, .value.DNSNames[]?] | index($host)) != null)
+                  | .key
+                ' <<< "$web_inspect" | sort -u
+              )
+              candidate_shared_network_count="$(comm -12 <(printf '%s\n' "${candidate_web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | awk 'NF { count++ } END { print count + 0 }')"
+              if [[ "$candidate_shared_network_count" -ge 1 ]]; then web_bound_upstreams+=("$candidate"); fi
+            fi
+          done
+          unset web_inspect
+          mapfile -t unique_web_bound_upstreams < <(printf '%s\n' "${web_bound_upstreams[@]}" | awk 'NF' | sort -u)
+          web_bound_upstreams=("${unique_web_bound_upstreams[@]}")
+
+          stage=WEB_BOUND_UPSTREAM_SELECTION
           if [[ "${#matched_upstreams[@]}" == 1 ]]; then
             upstream="${matched_upstreams[0]}"
             upstream_mode=PRIMARY_HOST_MATCH
-          elif [[ "${#matched_upstreams[@]}" == 0 && "${#all_upstreams[@]}" == 1 ]]; then
-            upstream="${all_upstreams[0]}"
-            upstream_mode=SOLE_EDGE_UPSTREAM
+          elif [[ "${#matched_upstreams[@]}" == 0 && "${#web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${web_bound_upstreams[0]}"
+            upstream_mode=UNIQUE_WEB_BOUND_UPSTREAM
           else
             false
           fi
           stage=PRIMARY_UPSTREAM_FORMAT
           [[ "$upstream" =~ ^(127\.0\.0\.1|localhost|[A-Za-z0-9_.-]+):[0-9]{1,5}$ ]]
-          upstream_host="${upstream%:*}"
           stage=PRIMARY_UPSTREAM_WEB_IDENTITY
-          web_service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$web_id")"
-          [[ "$web_service" == web ]]
-          mapfile -t web_networks < <(docker inspect "$web_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
-          mapfile -t caddy_networks < <(docker inspect "$caddy_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
-          mapfile -t upstream_web_networks < <(
-            docker inspect "$web_id" | jq -r --arg host "$upstream_host" '
-              .[0].NetworkSettings.Networks
-              | to_entries[]
-              | select(([.value.Aliases[]?, .value.DNSNames[]?] | index($host)) != null)
-              | .key
-            ' | sort -u
-          )
-          [[ "${#web_networks[@]}" -ge 1 && "${#caddy_networks[@]}" -ge 1 ]]
-          [[ "${#upstream_web_networks[@]}" -ge 1 ]]
-          bound_shared_network_count="$(comm -12 <(printf '%s\n' "${upstream_web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | awk 'NF { count++ } END { print count + 0 }')"
-          [[ "$bound_shared_network_count" -ge 1 ]]
+          printf '%s\n' "${web_bound_upstreams[@]}" | grep -Fx -- "$upstream" >/dev/null
 
           if [[ "$already_ready" == 1 ]]; then
             stage=ALREADY_READY_UPSTREAM
@@ -561,7 +575,7 @@ jobs:
             value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
             [[ -n "$value" ]]
             if [[ "$key" == WIRE_MODE ]]; then [[ "$value" == EXISTING || "$value" == CREATE_OVERRIDE ]]; fi
-            if [[ "$key" == UPSTREAM_MODE ]]; then [[ "$value" == PRIMARY_HOST_MATCH || "$value" == SOLE_EDGE_UPSTREAM ]]; fi
+            if [[ "$key" == UPSTREAM_MODE ]]; then [[ "$value" == PRIMARY_HOST_MATCH || "$value" == UNIQUE_WEB_BOUND_UPSTREAM ]]; fi
             echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
           done
       - name: Require running web revision to contain Company OS boundary
