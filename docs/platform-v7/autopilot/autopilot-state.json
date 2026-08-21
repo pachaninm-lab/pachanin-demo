@@ -1174,6 +1174,10 @@
     "governance/codeql-v2-26-3-provenance-test-scope": [
       "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts",
       "codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql"
+    ],
+    "fix/pc-crop-control-preflight-stage-3785-v2": [
+      ".github/workflows/company-os-control-host-readiness-v2.yml",
+      "docs/platform-v7/autopilot/scopes/pc-crop-control-preflight-stage-3785.json"
     ]
   },
   "currentAcceptance": [
