@@ -68,7 +68,12 @@ export function GektaRegistrationClient({ initialLocale, initialEmailConfirmatio
   const [backupCodes, setBackupCodes] = React.useState<string[]>([]);
   const [backupSaved, setBackupSaved] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const [hydrated, setHydrated] = React.useState(false);
   const started = React.useRef(false);
+
+  React.useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const showMfa = React.useCallback((payload: Record<string, unknown>) => {
     setMfa({
@@ -103,7 +108,7 @@ export function GektaRegistrationClient({ initialLocale, initialEmailConfirmatio
   }, [initialEmailConfirmation, showMfa, ui.verifyInvalid]);
 
   const confirmEmail = async () => {
-    if (busy) return;
+    if (!hydrated || busy) return;
     setBusy(true);
     setError('');
     try {
@@ -242,7 +247,7 @@ export function GektaRegistrationClient({ initialLocale, initialEmailConfirmatio
 
             {step === 'email' ? <div className='py-3 text-center'><MailCheck className='mx-auto h-12 w-12 text-emerald-700' /><h2 className='mt-4 text-xl font-bold'>{ui.emailTitle}</h2><p className='mt-3 text-sm leading-6 text-slate-600'>{ui.emailBody}</p>{notice ? <p className='mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900' role='status'>{notice}</p> : null}{error ? <p className='mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800' role='alert'>{error}</p> : null}<button type='button' onClick={() => void resend()} disabled={busy} className='mt-6 min-h-11 w-full rounded-xl border border-emerald-700 px-4 text-sm font-bold text-emerald-800 disabled:opacity-60'>{busy ? ui.resending : ui.resend}</button><button type='button' onClick={() => switchMode('login')} className='mt-3 min-h-11 w-full rounded-xl px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50'>{ui.useLogin}</button></div> : null}
 
-            {step === 'verify' ? <div className='py-3 text-center'><MailCheck className='mx-auto h-12 w-12 text-emerald-700' /><h2 className='mt-4 text-xl font-bold'>{ui.verifyTitle}</h2><p className='mt-3 text-sm leading-6 text-slate-600'>{ui.verifyBody}</p>{error ? <p className='mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800' role='alert'>{error}</p> : null}<button type='button' onClick={() => void confirmEmail()} disabled={busy} className='mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 text-sm font-bold text-white disabled:opacity-60'>{busy ? <LoaderCircle className='h-5 w-5 animate-spin' /> : <MailCheck className='h-5 w-5' />}{busy ? ui.verifying : ui.verifyAction}</button></div> : null}
+            {step === 'verify' ? <div className='py-3 text-center'><MailCheck className='mx-auto h-12 w-12 text-emerald-700' /><h2 className='mt-4 text-xl font-bold'>{ui.verifyTitle}</h2><p className='mt-3 text-sm leading-6 text-slate-600'>{ui.verifyBody}</p>{error ? <p className='mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800' role='alert'>{error}</p> : null}<button type='button' data-gekta-email-confirm-hydrated={hydrated ? 'true' : 'false'} onClick={() => void confirmEmail()} disabled={!hydrated || busy} className='mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 text-sm font-bold text-white disabled:opacity-60'>{busy ? <LoaderCircle className='h-5 w-5 animate-spin' /> : <MailCheck className='h-5 w-5' />}{busy ? ui.verifying : ui.verifyAction}</button></div> : null}
 
             {step === 'mfa' && mfa ? <form onSubmit={verifyMfa} className='py-2'><KeyRound className='h-11 w-11 text-emerald-700' /><h2 className='mt-4 text-xl font-bold'>{mfa.enrollmentRequired ? ui.mfaTitle : ui.mfaLoginTitle}</h2><p className='mt-2 text-sm leading-6 text-slate-600'>{mfa.enrollmentRequired ? ui.mfaBody : ui.mfaLoginBody}</p>{mfa.enrollmentRequired && mfa.setupSecret ? <div className='mt-5 rounded-2xl border border-emerald-900/15 bg-emerald-50 p-4'><p className='text-xs font-bold uppercase tracking-wide text-emerald-900'>{ui.secret}</p><code className='mt-2 block break-all rounded-lg bg-white px-3 py-3 text-sm font-bold text-slate-900'>{mfa.setupSecret}</code>{mfa.otpAuthUri ? <a href={mfa.otpAuthUri} className='mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-emerald-800 underline'>{ui.openAuthenticator}</a> : null}</div> : null}<label className='mt-5 block text-sm font-semibold text-slate-800'>{ui.code}<input required autoFocus inputMode={mfa.enrollmentRequired ? 'numeric' : 'text'} autoComplete='one-time-code' maxLength={128} value={code} onChange={(event) => setCode(event.target.value)} className='mt-2 min-h-12 w-full rounded-xl border border-slate-300 px-4 text-center font-mono text-lg tracking-[0.18em] outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100' /></label>{error ? <p className='mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800' role='alert'>{error}</p> : null}<button disabled={busy} className='mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 text-sm font-bold text-white disabled:opacity-60'>{busy ? <LoaderCircle className='h-5 w-5 animate-spin' /> : <Check className='h-5 w-5' />}{busy ? ui.confirming : ui.confirm}</button><p className='mt-4 text-center text-xs leading-5 text-slate-500'>{ui.trial}</p></form> : null}
 

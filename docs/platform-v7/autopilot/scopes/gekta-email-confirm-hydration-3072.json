@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-email-confirm-hydration-3072",
+  "branch": "fix/gekta-email-confirm-hydration-3072",
+  "status": "active",
+  "issue": 3072,
+  "baseline": {
+    "branch": "main",
+    "commit": "ca3dc686da06acbb37ad5a774c9b4154d321966c"
+  },
+  "purpose": "Prevent the Gekta email-confirmation CTA from accepting an SSR click before React hydration, eliminating a deterministic first-user verification race while preserving the existing one-time verification, CSRF and mandatory MFA boundaries.",
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaRegistrationClient.tsx",
+    "docs/platform-v7/autopilot/scopes/gekta-email-confirm-hydration-3072.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "runtimeMutation": false,
+    "deploymentMutation": false,
+    "productCodeMutation": true,
+    "emailVerificationSemanticsChanged": false,
+    "csrfBoundaryChanged": false,
+    "mfaBoundaryChanged": false,
+    "credentialOutput": false,
+    "piiOutput": false,
+    "newRecurringCostRub": 0
+  },
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
