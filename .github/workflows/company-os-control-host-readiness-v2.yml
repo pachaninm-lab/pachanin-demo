@@ -215,7 +215,7 @@ jobs:
           evidence="$RUNNER_TEMP/company-os-control-readiness-v2"
           remote="$evidence/preflight.env"
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
-            bash -s -- "$CONTROL_DOMAIN" "$PRIMARY_DOMAIN" "$PRIMARY_DOMAIN_UNICODE" <<'REMOTE' > "$remote"
+            bash -s -- "$CONTROL_DOMAIN" "$PRIMARY_DOMAIN" "$PRIMARY_DOMAIN_UNICODE" <<'REMOTE' > "$remote" 2>/dev/null
           set -Eeuo pipefail
           control_domain="${1:?control domain required}"
           primary_domain="${2:?primary domain required}"
