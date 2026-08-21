@@ -60,6 +60,16 @@ describe('platform-v7 server-authoritative login boundary', () => {
     expect(session).toContain('CABINET_SESSION_COOKIE');
   });
 
+  it('drops any previously authenticated browser identity before a password-proven pending flow', () => {
+    expect(loginRoute).toContain('clearAuthenticatedSession(response, { controlPlane })');
+    expect(loginRoute).toContain('response.cookies.set(CSRF_COOKIE, generateCsrfToken()');
+    expect(loginRoute).toContain("sameSite: controlPlane ? 'strict' : 'lax'");
+    const calls = loginRoute.match(/clearPreviousAuthenticatedBrowserSession\(response, controlPlane\);/g) ?? [];
+    expect(calls).toHaveLength(2);
+    expect(loginRoute).toMatch(/membershipSelectionRequired:[\s\S]*?clearPreviousAuthenticatedBrowserSession\(response, controlPlane\);[\s\S]*?MEMBERSHIP_SELECTION_COOKIE/);
+    expect(loginRoute).toMatch(/mfaRequired: true,[\s\S]*?clearPreviousAuthenticatedBrowserSession\(response, controlPlane\);[\s\S]*?MFA_PENDING_COOKIE/);
+  });
+
   it('accepts the deliberately minimal pending-MFA identity projection', () => {
     for (const route of [loginRoute, membershipSelectRoute]) {
       expect(route).toContain('!payload.challengeToken || !payload.user?.email || !payload.user.role');
