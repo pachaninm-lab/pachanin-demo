@@ -231,6 +231,7 @@ jobs:
           web_alias_candidate_count=UNKNOWN
           web_alias_bound_count=UNKNOWN
           web_ip_bound_count=UNKNOWN
+          primary_web_bound_count=UNKNOWN
 
           cleanup() (
             set +e
@@ -258,7 +259,8 @@ jobs:
               "SHARED_NETWORK_COUNT=$shared_network_count" \
               "WEB_ALIAS_CANDIDATE_COUNT=$web_alias_candidate_count" \
               "WEB_ALIAS_BOUND_COUNT=$web_alias_bound_count" \
-              "WEB_IP_BOUND_COUNT=$web_ip_bound_count"
+              "WEB_IP_BOUND_COUNT=$web_ip_bound_count" \
+              "PRIMARY_WEB_BOUND_COUNT=$primary_web_bound_count"
             exit 0
           }
           trap 'cleanup_on_exit' EXIT
@@ -438,13 +440,22 @@ jobs:
           web_bound_upstreams=("${unique_web_bound_upstreams[@]}")
           mapfile -t unique_web_ip_bound_upstreams < <(printf '%s\n' "${web_ip_bound_upstreams[@]}" | awk 'NF' | sort -u)
           web_ip_bound_upstreams=("${unique_web_ip_bound_upstreams[@]}")
+          mapfile -t primary_web_bound_upstreams < <(
+            comm -12 \
+              <(printf '%s\n' "${matched_upstreams[@]}" | awk 'NF' | sort -u) \
+              <(printf '%s\n' "${web_bound_upstreams[@]}" | awk 'NF' | sort -u)
+          )
           web_alias_bound_count="${#web_bound_upstreams[@]}"
           web_ip_bound_count="${#web_ip_bound_upstreams[@]}"
+          primary_web_bound_count="${#primary_web_bound_upstreams[@]}"
 
           stage=WEB_BOUND_UPSTREAM_SELECTION
-          if [[ "${#matched_upstreams[@]}" == 1 ]]; then
-            upstream="${matched_upstreams[0]}"
+          if [[ "${#matched_upstreams[@]}" == 1 && "${#primary_web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${primary_web_bound_upstreams[0]}"
             upstream_mode=PRIMARY_HOST_MATCH
+          elif [[ "${#matched_upstreams[@]}" -gt 1 && "${#primary_web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${primary_web_bound_upstreams[0]}"
+            upstream_mode=UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM
           elif [[ "${#matched_upstreams[@]}" == 0 && "${#web_bound_upstreams[@]}" == 1 ]]; then
             upstream="${web_bound_upstreams[0]}"
             upstream_mode=UNIQUE_WEB_BOUND_UPSTREAM
@@ -535,8 +546,10 @@ jobs:
             "$caddy_image_id" validate --config /tmp/Caddyfile >/dev/null 2>&1
 
           trap - ERR
-          if [[ "$wire_mode" == CREATE_OVERRIDE && "$upstream_mode" == UNIQUE_WEB_BOUND_UPSTREAM ]]; then ready_stage=READY_WITH_OVERRIDE_UNIQUE_WEB_BOUND_UPSTREAM_BEFORE_BACKUP
+          if [[ "$wire_mode" == CREATE_OVERRIDE && "$upstream_mode" == UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM ]]; then ready_stage=READY_WITH_OVERRIDE_UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM_BEFORE_BACKUP
+          elif [[ "$wire_mode" == CREATE_OVERRIDE && "$upstream_mode" == UNIQUE_WEB_BOUND_UPSTREAM ]]; then ready_stage=READY_WITH_OVERRIDE_UNIQUE_WEB_BOUND_UPSTREAM_BEFORE_BACKUP
           elif [[ "$wire_mode" == CREATE_OVERRIDE ]]; then ready_stage=READY_WITH_OVERRIDE_BEFORE_BACKUP
+          elif [[ "$upstream_mode" == UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM ]]; then ready_stage=READY_WITH_UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM_BEFORE_BACKUP
           elif [[ "$upstream_mode" == UNIQUE_WEB_BOUND_UPSTREAM ]]; then ready_stage=READY_WITH_UNIQUE_WEB_BOUND_UPSTREAM_BEFORE_BACKUP
           else ready_stage=READY_BEFORE_BACKUP; fi
           printf '%s\n' \
@@ -550,10 +563,11 @@ jobs:
             "SHARED_NETWORK_COUNT=$shared_network_count" \
             "WEB_ALIAS_CANDIDATE_COUNT=$web_alias_candidate_count" \
             "WEB_ALIAS_BOUND_COUNT=$web_alias_bound_count" \
-            "WEB_IP_BOUND_COUNT=$web_ip_bound_count"
+            "WEB_IP_BOUND_COUNT=$web_ip_bound_count" \
+            "PRIMARY_WEB_BOUND_COUNT=$primary_web_bound_count"
           REMOTE
 
-          for key in CUTOVER_PREFLIGHT CUTOVER_PREFLIGHT_STAGE EXACT_MATCH_COUNT ALL_DIAL_COUNT WELL_FORMED_DIAL_COUNT WEB_NETWORK_COUNT CADDY_NETWORK_COUNT SHARED_NETWORK_COUNT WEB_ALIAS_CANDIDATE_COUNT WEB_ALIAS_BOUND_COUNT WEB_IP_BOUND_COUNT; do
+          for key in CUTOVER_PREFLIGHT CUTOVER_PREFLIGHT_STAGE EXACT_MATCH_COUNT ALL_DIAL_COUNT WELL_FORMED_DIAL_COUNT WEB_NETWORK_COUNT CADDY_NETWORK_COUNT SHARED_NETWORK_COUNT WEB_ALIAS_CANDIDATE_COUNT WEB_ALIAS_BOUND_COUNT WEB_IP_BOUND_COUNT PRIMARY_WEB_BOUND_COUNT; do
             value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
             if [[ "$key" == CUTOVER_PREFLIGHT || "$key" == CUTOVER_PREFLIGHT_STAGE ]]; then
               [[ "$value" =~ ^[A-Z][A-Z0-9_]*$ ]] || value=UNKNOWN
@@ -639,9 +653,10 @@ jobs:
           WEB_ALIAS_CANDIDATE_COUNT: ${{ steps.preflight.outputs.web_alias_candidate_count }}
           WEB_ALIAS_BOUND_COUNT: ${{ steps.preflight.outputs.web_alias_bound_count }}
           WEB_IP_BOUND_COUNT: ${{ steps.preflight.outputs.web_ip_bound_count }}
+          PRIMARY_WEB_BOUND_COUNT: ${{ steps.preflight.outputs.primary_web_bound_count }}
         with:
           script: |
-            const body = ['## Company OS control-host readiness V2','',`- Exact main: \`${process.env.MAIN_SHA || 'UNKNOWN'}\``,`- State: **${process.env.RESULT_STATE || 'BLOCKED_UNKNOWN'}**`,`- DNS A / AAAA: \`${process.env.DNS_A || 'UNKNOWN'} / ${process.env.DNS_AAAA || 'UNKNOWN'}\``,`- TLS / HTTPS: \`${process.env.TLS || 'UNKNOWN'} / ${process.env.HTTPS || 'UNKNOWN'}\``,`- SSH: \`${process.env.SSH_STATE || 'UNKNOWN'}\``,`- Caddy source / active / valid: \`${process.env.CADDY_SOURCE || 'UNKNOWN'} / ${process.env.CADDY_ACTIVE || 'UNKNOWN'} / ${process.env.CADDY_VALID || 'UNKNOWN'}\``,`- Caddy control / config writable: \`${process.env.CADDY_CONTROL_DECLARED || 'UNKNOWN'} / ${process.env.CADDY_CONFIG_WRITABLE || 'UNKNOWN'}\``,`- Caddy containers known / running: \`${process.env.CADDY_CONTAINER_COUNT || 'UNKNOWN'} / ${process.env.CADDY_RUNNING_COUNT || 'UNKNOWN'}\``,`- Compose metadata / public 443 owner: \`${process.env.CADDY_COMPOSE_METADATA || 'UNKNOWN'} / ${process.env.PUBLIC_443_OWNER || 'UNKNOWN'}\``,`- Web state / revision: \`${process.env.WEB_STATE || 'UNKNOWN'} / ${process.env.WEB_REVISION || 'UNKNOWN'}\``,`- Control gate: \`${process.env.CONTROL_GATE || 'UNKNOWN'}\``,`- Guarded cutover preflight / stage: \`${process.env.CUTOVER_PREFLIGHT || 'UNKNOWN'} / ${process.env.CUTOVER_PREFLIGHT_STAGE || 'UNKNOWN'}\``,`- Selector exact / all / well-formed dials: \`${process.env.EXACT_MATCH_COUNT || 'UNKNOWN'} / ${process.env.ALL_DIAL_COUNT || 'UNKNOWN'} / ${process.env.WELL_FORMED_DIAL_COUNT || 'UNKNOWN'}\``,`- Networks web / Caddy / shared: \`${process.env.WEB_NETWORK_COUNT || 'UNKNOWN'} / ${process.env.CADDY_NETWORK_COUNT || 'UNKNOWN'} / ${process.env.SHARED_NETWORK_COUNT || 'UNKNOWN'}\``,`- Web identity alias candidates / shared-bound / IP-bound: \`${process.env.WEB_ALIAS_CANDIDATE_COUNT || 'UNKNOWN'} / ${process.env.WEB_ALIAS_BOUND_COUNT || 'UNKNOWN'} / ${process.env.WEB_IP_BOUND_COUNT || 'UNKNOWN'}\``, '', 'Read-only diagnostic. Production mutation: **NONE**.'].join('\n');
+            const body = ['## Company OS control-host readiness V2','',`- Exact main: \`${process.env.MAIN_SHA || 'UNKNOWN'}\``,`- State: **${process.env.RESULT_STATE || 'BLOCKED_UNKNOWN'}**`,`- DNS A / AAAA: \`${process.env.DNS_A || 'UNKNOWN'} / ${process.env.DNS_AAAA || 'UNKNOWN'}\``,`- TLS / HTTPS: \`${process.env.TLS || 'UNKNOWN'} / ${process.env.HTTPS || 'UNKNOWN'}\``,`- SSH: \`${process.env.SSH_STATE || 'UNKNOWN'}\``,`- Caddy source / active / valid: \`${process.env.CADDY_SOURCE || 'UNKNOWN'} / ${process.env.CADDY_ACTIVE || 'UNKNOWN'} / ${process.env.CADDY_VALID || 'UNKNOWN'}\``,`- Caddy control / config writable: \`${process.env.CADDY_CONTROL_DECLARED || 'UNKNOWN'} / ${process.env.CADDY_CONFIG_WRITABLE || 'UNKNOWN'}\``,`- Caddy containers known / running: \`${process.env.CADDY_CONTAINER_COUNT || 'UNKNOWN'} / ${process.env.CADDY_RUNNING_COUNT || 'UNKNOWN'}\``,`- Compose metadata / public 443 owner: \`${process.env.CADDY_COMPOSE_METADATA || 'UNKNOWN'} / ${process.env.PUBLIC_443_OWNER || 'UNKNOWN'}\``,`- Web state / revision: \`${process.env.WEB_STATE || 'UNKNOWN'} / ${process.env.WEB_REVISION || 'UNKNOWN'}\``,`- Control gate: \`${process.env.CONTROL_GATE || 'UNKNOWN'}\``,`- Guarded cutover preflight / stage: \`${process.env.CUTOVER_PREFLIGHT || 'UNKNOWN'} / ${process.env.CUTOVER_PREFLIGHT_STAGE || 'UNKNOWN'}\``,`- Selector exact / all / well-formed dials: \`${process.env.EXACT_MATCH_COUNT || 'UNKNOWN'} / ${process.env.ALL_DIAL_COUNT || 'UNKNOWN'} / ${process.env.WELL_FORMED_DIAL_COUNT || 'UNKNOWN'}\``,`- Networks web / Caddy / shared: \`${process.env.WEB_NETWORK_COUNT || 'UNKNOWN'} / ${process.env.CADDY_NETWORK_COUNT || 'UNKNOWN'} / ${process.env.SHARED_NETWORK_COUNT || 'UNKNOWN'}\``,`- Web identity alias candidates / shared-bound / IP-bound: \`${process.env.WEB_ALIAS_CANDIDATE_COUNT || 'UNKNOWN'} / ${process.env.WEB_ALIAS_BOUND_COUNT || 'UNKNOWN'} / ${process.env.WEB_IP_BOUND_COUNT || 'UNKNOWN'}\``,`- Primary-host web-bound intersection: \`${process.env.PRIMARY_WEB_BOUND_COUNT || 'UNKNOWN'}\``, '', 'Read-only diagnostic. Production mutation: **NONE**.'].join('\n');
             await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: Number(process.env.TARGET_ISSUE), body});
       - name: Upload redacted readiness evidence
         if: always()

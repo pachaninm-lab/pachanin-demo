@@ -365,11 +365,19 @@ jobs:
           unset web_inspect
           mapfile -t unique_web_bound_upstreams < <(printf '%s\n' "${web_bound_upstreams[@]}" | awk 'NF' | sort -u)
           web_bound_upstreams=("${unique_web_bound_upstreams[@]}")
+          mapfile -t primary_web_bound_upstreams < <(
+            comm -12 \
+              <(printf '%s\n' "${matched_upstreams[@]}" | awk 'NF' | sort -u) \
+              <(printf '%s\n' "${web_bound_upstreams[@]}" | awk 'NF' | sort -u)
+          )
 
           stage=WEB_BOUND_UPSTREAM_SELECTION
-          if [[ "${#matched_upstreams[@]}" == 1 ]]; then
-            upstream="${matched_upstreams[0]}"
+          if [[ "${#matched_upstreams[@]}" == 1 && "${#primary_web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${primary_web_bound_upstreams[0]}"
             upstream_mode=PRIMARY_HOST_MATCH
+          elif [[ "${#matched_upstreams[@]}" -gt 1 && "${#primary_web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${primary_web_bound_upstreams[0]}"
+            upstream_mode=UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM
           elif [[ "${#matched_upstreams[@]}" == 0 && "${#web_bound_upstreams[@]}" == 1 ]]; then
             upstream="${web_bound_upstreams[0]}"
             upstream_mode=UNIQUE_WEB_BOUND_UPSTREAM
@@ -575,7 +583,7 @@ jobs:
             value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
             [[ -n "$value" ]]
             if [[ "$key" == WIRE_MODE ]]; then [[ "$value" == EXISTING || "$value" == CREATE_OVERRIDE ]]; fi
-            if [[ "$key" == UPSTREAM_MODE ]]; then [[ "$value" == PRIMARY_HOST_MATCH || "$value" == UNIQUE_WEB_BOUND_UPSTREAM ]]; fi
+            if [[ "$key" == UPSTREAM_MODE ]]; then [[ "$value" == PRIMARY_HOST_MATCH || "$value" == UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM || "$value" == UNIQUE_WEB_BOUND_UPSTREAM ]]; fi
             echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
           done
       - name: Require running web revision to contain Company OS boundary
