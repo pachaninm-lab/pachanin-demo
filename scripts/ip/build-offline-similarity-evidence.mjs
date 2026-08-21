@@ -5,13 +5,16 @@ import { extname, join, relative, resolve } from 'node:path';
 
 const outDir = process.argv[2] ?? 'artifacts/ip-clean-room';
 const corpusInput = String(process.env.IP_SIMILARITY_CORPUS ?? '').trim();
-const corpusApproved = process.env.IP_SIMILARITY_CORPUS_APPROVED === '1';
+const corpusApprovalRequested = process.env.IP_SIMILARITY_CORPUS_APPROVED === '1';
+const corpusApprovalInput = String(process.env.IP_SIMILARITY_CORPUS_APPROVAL ?? '').trim();
 mkdirSync(outDir, { recursive: true });
+if (!lstatSync(outDir).isDirectory()) throw new Error(`Similarity output path is not a real directory: ${outDir}`);
 
 const boundary = JSON.parse(readFileSync('docs/ip/proprietary-core-boundary.json', 'utf8'));
 const protectedRoots = (boundary.protectedRoots ?? []).map((entry) => entry.path);
 const textExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.sql', '.prisma', '.css', '.scss']);
 const excludedPath = /(^|\/)(tests?|fixtures?|snapshots?|node_modules|dist|build|generated)(\/|$)/i;
+const corpusNonRegular = [];
 
 function git(args) {
   return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
@@ -85,6 +88,7 @@ function walk(directory, base = directory) {
     const absolute = join(directory, entry.name);
     if (entry.isDirectory()) files.push(...walk(absolute, base));
     else if (entry.isFile()) files.push({ absolute, path: relative(base, absolute).replaceAll('\\', '/') });
+    else corpusNonRegular.push(relative(base, absolute).replaceAll('\\', '/'));
   }
   return files;
 }
@@ -114,6 +118,9 @@ const findings = [];
 const finalBlockers = [];
 if (protectedNonRegular.length) finalBlockers.push(`PROTECTED_NON_REGULAR_FILES:${protectedNonRegular.length}`);
 let corpusFiles = 0;
+let corpusApproved = false;
+let corpusDigestSha256 = '';
+let corpusApprovalEvidence = 'NOT_PROVIDED';
 let status = 'CORPUS_REQUIRED';
 
 if (!corpusInput) {
@@ -123,7 +130,7 @@ if (!corpusInput) {
   if (!existsSync(corpusRoot) || !lstatSync(corpusRoot).isDirectory()) {
     throw new Error(`IP_SIMILARITY_CORPUS is not a directory: ${corpusRoot}`);
   }
-  if (!corpusApproved) {
+  if (!corpusApprovalRequested) {
     finalBlockers.push('OFFLINE_CORPUS_PRESENT_BUT_NOT_APPROVED');
     status = 'CORPUS_NOT_APPROVED';
   }
@@ -131,8 +138,56 @@ if (!corpusInput) {
   const corpus = walk(corpusRoot)
     .filter((item) => textExtensions.has(extname(item.path).toLowerCase()))
     .filter((item) => !excludedPath.test(item.path))
+    .sort((left, right) => left.path.localeCompare(right.path, 'en'))
     .map((item) => fingerprint(item.path, readFileSync(item.absolute, 'utf8')));
   corpusFiles = corpus.length;
+  corpusDigestSha256 = sha256(JSON.stringify(corpus.map((item) => [item.path, item.exactSha256])));
+  if (corpusNonRegular.length) {
+    finalBlockers.push(`OFFLINE_CORPUS_NON_REGULAR_FILES:${corpusNonRegular.length}`);
+    status = 'CORPUS_NON_REGULAR_FILES';
+  }
+
+  if (!corpusFiles) {
+    finalBlockers.push('APPROVED_OFFLINE_EXTERNAL_CORPUS_EMPTY');
+    status = 'CORPUS_EMPTY';
+  } else if (corpusApprovalRequested && !corpusApprovalInput) {
+    finalBlockers.push('OFFLINE_CORPUS_APPROVAL_EVIDENCE_REQUIRED');
+    status = 'CORPUS_APPROVAL_REQUIRED';
+  } else if (corpusApprovalRequested) {
+    const approvalPath = resolve(corpusApprovalInput);
+    if (!existsSync(approvalPath) || !lstatSync(approvalPath).isFile()) {
+      finalBlockers.push('OFFLINE_CORPUS_APPROVAL_EVIDENCE_INVALID');
+      corpusApprovalEvidence = 'NOT_A_REGULAR_FILE';
+      status = 'CORPUS_APPROVAL_INVALID';
+    } else {
+      const approval = JSON.parse(readFileSync(approvalPath, 'utf8'));
+      const approvedAt = String(approval.approvedAt ?? '');
+      const approvedAtTime = /^\d{4}-\d{2}-\d{2}$/u.test(approvedAt)
+        ? Date.parse(`${approvedAt}T00:00:00Z`)
+        : Number.NaN;
+      const validApprovedAt = Number.isFinite(approvedAtTime)
+        && new Date(approvedAtTime).toISOString().slice(0, 10) === approvedAt
+        && approvedAtTime <= Date.now();
+      const approvalValid = approval.schemaVersion === 1
+        && approval.status === 'APPROVED'
+        && /^[0-9a-f]{64}$/u.test(String(approval.corpusDigestSha256 ?? ''))
+        && approval.corpusDigestSha256 === corpusDigestSha256
+        && validApprovedAt
+        && String(approval.authorityReference ?? '').trim().length >= 3
+        && String(approval.rightsBasis ?? '').trim().length >= 3
+        && String(approval.scope ?? '').trim().length >= 3;
+      if (approvalValid && corpusNonRegular.length === 0) {
+        corpusApproved = true;
+        corpusApprovalEvidence = 'VALIDATED_EXACT_DIGEST_AND_AUTHORITY_REFERENCE';
+      } else if (approvalValid) {
+        corpusApprovalEvidence = 'VALIDATED_BUT_CORPUS_STRUCTURE_BLOCKED';
+      } else {
+        finalBlockers.push('OFFLINE_CORPUS_APPROVAL_EVIDENCE_INVALID');
+        corpusApprovalEvidence = 'INVALID_OR_DIGEST_MISMATCH';
+        status = 'CORPUS_APPROVAL_INVALID';
+      }
+    }
+  }
 
   const exact = new Map();
   const normalized = new Map();
@@ -143,8 +198,10 @@ if (!corpusInput) {
     exact.get(item.exactSha256).push(index);
     if (!normalized.has(item.normalizedSha256)) normalized.set(item.normalizedSha256, []);
     normalized.get(item.normalizedSha256).push(index);
-    if (!structural.has(item.structuralSha256)) structural.set(item.structuralSha256, []);
-    structural.get(item.structuralSha256).push(index);
+    if (item.winnowing.length) {
+      if (!structural.has(item.structuralSha256)) structural.set(item.structuralSha256, []);
+      structural.get(item.structuralSha256).push(index);
+    }
     for (const hash of item.winnowing) {
       if (!winnowIndex.has(hash)) winnowIndex.set(hash, []);
       winnowIndex.get(hash).push(index);
@@ -157,8 +214,10 @@ if (!corpusInput) {
     for (const index of normalized.get(source.normalizedSha256) ?? []) {
       if (!candidateMethods.has(index)) candidateMethods.set(index, { method: 'NORMALIZED_TOKENS', score: 1 });
     }
-    for (const index of structural.get(source.structuralSha256) ?? []) {
-      if (!candidateMethods.has(index)) candidateMethods.set(index, { method: 'WINNOWING_SIGNATURE', score: 1 });
+    if (source.winnowing.length) {
+      for (const index of structural.get(source.structuralSha256) ?? []) {
+        if (!candidateMethods.has(index)) candidateMethods.set(index, { method: 'WINNOWING_SIGNATURE', score: 1 });
+      }
     }
 
     const shared = new Map();
@@ -218,10 +277,12 @@ writeFileSync(join(outDir, 'similarity-summary.json'), JSON.stringify({
   protectedFiles: sourceFingerprints.length,
   protectedNonRegularFiles: protectedNonRegular.length,
   approvedCorpus: corpusApproved,
+  corpusDigestSha256,
+  corpusApprovalEvidence,
   corpusFiles,
   unresolvedFindings: findings.length,
   finalBlockers,
-  methodology: 'Exact SHA-256, normalized-token SHA-256, winnowing signatures and bounded winnowing Jaccard are computed only inside the runner against an explicitly mounted corpus. No source text or source phrase is sent to a public scanner. No match is screening evidence, not absolute proof of originality.',
+  methodology: 'Exact SHA-256, normalized-token SHA-256, winnowing signatures and bounded winnowing Jaccard are computed only inside the runner against an explicitly mounted corpus. Final eligibility additionally requires a non-empty corpus and a regular-file approval record whose authority, rights basis, scope, date and exact aggregate corpus digest validate. No source text or source phrase is sent to a public scanner. No match is screening evidence, not absolute proof of originality.',
 }, null, 2) + '\n');
 
 console.log(JSON.stringify({ status, protectedFiles: sourceFingerprints.length, corpusFiles, findings: findings.length, finalBlockers }, null, 2));

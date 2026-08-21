@@ -33,13 +33,17 @@ before the cutover.
 - contributor identifiers with hashed emails; contracts remain outside Git;
 - exact Node/pnpm and Python/TAI CycloneDX + SPDX SBOM sets;
 - normalized transitive dependency-license map;
+- internal-component status only from an exact SBOM `SrcFile` match to a local
+  private manifest with matching name/version; package-name prefixes alone are
+  never first-party evidence;
 - offline-only exact/normalized/winnowing similarity tooling;
-- baseline and final verification modes: baseline may expose blockers, while
-  final mode fails until every blocker is resolved.
+- baseline and bounded strict verification modes: baseline may expose blockers,
+  while strict mode fails until every blocker represented by this slice is
+  resolved. Strict-mode success is not the full-program legal/security finish.
 
 ## Canonical exact-SHA workflow evidence
 
-The `IP Clean Room Baseline & Full SBOM` workflow uploads an exact-commit bundle
+The `Canonical SBOM Generation & IP Clean Room` workflow uploads an exact-commit bundle
 containing at least:
 
 - `REPOSITORY_INVENTORY.json`;
@@ -62,8 +66,13 @@ tracked; immutable evidence is attached to the exact workflow revision.
 
 No source text or distinctive source phrase is sent to GitHub code search, a
 public scanner or other SaaS. Final similarity status requires an explicitly
-approved external corpus mounted locally into the controlled runner. Without
-that corpus the result is `CORPUS_REQUIRED`, not a false PASS.
+approved, non-empty external corpus mounted locally into the controlled runner.
+Approval must be a regular JSON evidence file with authority, rights basis,
+scope, date and the exact aggregate corpus digest. Without that corpus and
+matching approval evidence the result remains blocked, not a false PASS.
+The path is supplied through `IP_SIMILARITY_CORPUS_APPROVAL`; the JSON contract
+requires `schemaVersion: 1`, `status: APPROVED`, `approvedAt`,
+`authorityReference`, `rightsBasis`, `scope` and `corpusDigestSha256`.
 
 Similarity hits are review candidates, not automatic proof of copying. No hit
 is screening evidence, not absolute proof of originality.

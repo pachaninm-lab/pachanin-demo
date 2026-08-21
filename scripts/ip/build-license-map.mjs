@@ -1,10 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+import { classifyLicenseExpression } from './license-expression-policy.mjs';
 
 const sbomDir = process.argv[2] ?? 'artifacts/ip-clean-room/sbom';
 const outDir = process.argv[3] ?? 'artifacts/ip-clean-room';
 const overridesPath = process.argv[4] ?? 'docs/ip/third-party-license-overrides.json';
 mkdirSync(outDir, { recursive: true });
+if (!lstatSync(outDir).isDirectory()) throw new Error(`License output path is not a real directory: ${outDir}`);
 
 function csv(value) {
   const s = String(value ?? '');
@@ -33,66 +36,74 @@ function dependencyScope(component) {
   return 'RUNTIME_OR_REQUIRED';
 }
 
-const blockedRe = /(^|\W)(AGPL(?:-\d(?:\.\d)?)?|GPL(?:-\d(?:\.\d)?)?|SSPL(?:-\d(?:\.\d)?)?|BUSL(?:-\d(?:\.\d)?))(\W|$)/i;
-const reviewRe = /(^|\W)(LGPL|MPL|EPL|CDDL|CPL|OSL|EUPL|CC-BY|CC-BY-SA|PolyForm|Commons-Clause)(\W|$)/i;
-const permissiveRe = /(^|\W)(MIT|MIT\/X11|Apache-2\.0|ISC|BSD-2-Clause|BSD-3-Clause|0BSD|Zlib|Unlicense|CC0-1\.0|OFL-1\.1|Python-2\.0|PSF-2\.0|BlueOak-1\.0\.0)(\W|$)/i;
-
-function stripOuterParens(value) {
-  let out = value.trim();
-  while (out.startsWith('(') && out.endsWith(')')) out = out.slice(1, -1).trim();
-  return out;
+function canonicalManifestPath(value) {
+  const path = String(value ?? '').trim().replaceAll('\\', '/').replace(/^\.\//u, '');
+  if (!path || path.startsWith('/') || /^[A-Za-z]:\//u.test(path)) return '';
+  if (path.split('/').includes('..')) return '';
+  return path;
 }
 
-function classifyConjunction(expression) {
-  const parts = stripOuterParens(expression).split(/\s+AND\s+/i).map(stripOuterParens);
-  if (parts.some((part) => blockedRe.test(part))) return 'BLOCKED_STRONG_COPYLEFT_OR_SOURCE_AVAILABLE';
-  if (parts.some((part) => reviewRe.test(part))) return 'LEGAL_REVIEW';
-  if (parts.length && parts.every((part) => permissiveRe.test(part))) return 'PERMISSIVE_OR_APPROVED';
-  return 'UNKNOWN_REVIEW';
-}
+const manifestCache = new Map();
+function readInternalManifest(path) {
+  if (manifestCache.has(path)) return manifestCache.get(path);
 
-function classifyExpression(license) {
-  if (!license || license === 'UNKNOWN') return 'UNKNOWN_REVIEW';
-  const alternatives = stripOuterParens(license).split(/\s+OR\s+/i).map(stripOuterParens);
-  if (alternatives.length > 1) {
-    const classes = alternatives.map(classifyConjunction);
-    if (classes.includes('PERMISSIVE_OR_APPROVED')) return 'PERMISSIVE_OR_APPROVED_DUAL_LICENSE';
-    if (classes.includes('LEGAL_REVIEW')) return 'LEGAL_REVIEW';
-    if (classes.every((value) => value === 'BLOCKED_STRONG_COPYLEFT_OR_SOURCE_AVAILABLE')) {
-      return 'BLOCKED_STRONG_COPYLEFT_OR_SOURCE_AVAILABLE';
+  let record = null;
+  const packageManifest = path === 'package.json' || /^(?:apps|packages)\/[^/]+\/package\.json$/u.test(path);
+  const pythonManifest = path === 'apps/tai/pyproject.toml';
+  if ((packageManifest || pythonManifest) && existsSync(path) && lstatSync(path).isFile()) {
+    if (packageManifest) {
+      const manifest = JSON.parse(readFileSync(path, 'utf8'));
+      if (manifest.private === true && manifest.name) {
+        record = { name: String(manifest.name), version: String(manifest.version ?? '') };
+      }
+    } else {
+      const source = readFileSync(path, 'utf8');
+      const marker = source.match(/^\[project\][ \t]*\r?$/mu);
+      const tail = marker ? source.slice((marker.index ?? 0) + marker[0].length) : '';
+      const nextSection = tail.search(/^\[[^\r\n]+\][ \t]*\r?$/mu);
+      const project = nextSection >= 0 ? tail.slice(0, nextSection) : tail;
+      const name = project.match(/^name\s*=\s*["']([^"']+)["']\s*$/mu)?.[1] ?? '';
+      const version = project.match(/^version\s*=\s*["']([^"']+)["']\s*$/mu)?.[1] ?? '';
+      if (name && version) record = { name, version };
     }
-    return 'UNKNOWN_REVIEW';
   }
-  return classifyConjunction(license);
+
+  manifestCache.set(path, record);
+  return record;
 }
 
-function isInternal(component) {
-  const purl = component.purl ?? '';
-  const name = component.name ?? '';
-  return purl === 'pkg:pypi/transparent-agro-intelligence@0.1.0'
-    || name === 'transparent-agro-intelligence'
-    || name === 'prozrachnaya-cena-runtime'
-    || name.startsWith('@pc/')
-    || name.startsWith('@pachanin/');
+function internalManifestEvidence(component) {
+  const props = propertyMap(component);
+  const path = canonicalManifestPath(props.get('SrcFile'));
+  if (!path) return '';
+  const manifest = readInternalManifest(path);
+  if (!manifest) return '';
+  if (manifest.name !== String(component.name ?? '')) return '';
+  if (manifest.version !== String(component.version ?? '')) return '';
+  return path;
 }
 
 const overrides = new Map();
 if (existsSync(overridesPath)) {
+  if (!lstatSync(overridesPath).isFile()) throw new Error(`License override path is not a regular file: ${overridesPath}`);
   const parsed = JSON.parse(readFileSync(overridesPath, 'utf8'));
   for (const item of parsed.overrides ?? []) overrides.set(item.purl, item);
 }
 
-if (!existsSync(sbomDir)) throw new Error(`SBOM directory not found: ${sbomDir}`);
+if (!existsSync(sbomDir) || !lstatSync(sbomDir).isDirectory()) throw new Error(`SBOM directory not found or not a real directory: ${sbomDir}`);
 const sbomFiles = readdirSync(sbomDir).filter((name) => name.endsWith('.cdx.json')).sort();
 if (!sbomFiles.length) throw new Error(`No CycloneDX JSON files found in ${sbomDir}`);
 
 const byKey = new Map();
 for (const file of sbomFiles) {
-  const bom = JSON.parse(readFileSync(join(sbomDir, file), 'utf8'));
+  const sbomPath = join(sbomDir, file);
+  if (!lstatSync(sbomPath).isFile()) throw new Error(`SBOM input is not a regular file: ${sbomPath}`);
+  const bom = JSON.parse(readFileSync(sbomPath, 'utf8'));
   for (const component of bom.components ?? []) {
     const detectedLicense = licenseString(component);
     const purl = component.purl ?? '';
-    const key = `${component.name ?? ''}\u0000${component.version ?? ''}\u0000${purl}`;
+    const internalManifest = internalManifestEvidence(component);
+    const key = `${component.name ?? ''}\u0000${component.version ?? ''}\u0000${purl}\u0000${internalManifest || 'EXTERNAL'}`;
     const props = propertyMap(component);
     const item = byKey.get(key) ?? {
       name: component.name ?? '',
@@ -103,7 +114,7 @@ for (const file of sbomFiles) {
       scopes: new Set(),
       workspaces: new Set(),
       sources: new Set(),
-      internal: isInternal(component),
+      internalManifest,
     };
     item.licenses.add(detectedLicense);
     item.scopes.add(dependencyScope(component));
@@ -119,17 +130,17 @@ const rows = [...byKey.values()].map((item) => {
   const override = overrides.get(item.purl);
   let license = detectedLicense;
   let electedLicense = '';
-  let classification = classifyExpression(detectedLicense);
+  let classification = classifyLicenseExpression(detectedLicense);
   let evidence = '';
 
-  if (item.internal) {
+  if (item.internalManifest) {
     license = 'Proprietary / UNLICENSED';
     classification = 'INTERNAL_PROPRIETARY';
-    evidence = 'Repository proprietary policy';
+    evidence = `Repository internal manifest: ${item.internalManifest}`;
   } else if (override) {
     license = override.declaredLicense ?? detectedLicense;
     electedLicense = override.electedLicense ?? '';
-    classification = override.classification ?? classifyExpression(electedLicense || license);
+    classification = override.classification ?? classifyLicenseExpression(electedLicense || license);
     evidence = override.evidenceUrl ?? '';
   }
 
@@ -170,13 +181,15 @@ writeFileSync(join(outDir, 'license-summary.json'), JSON.stringify({
   generatedAt: new Date().toISOString(),
   sbomFiles: sbomFiles.map((name) => name),
   components: rows.length,
+  internalComponents: rows.filter((row) => row.classification === 'INTERNAL_PROPRIETARY').length,
+  internalEvidenceMode: 'SBOM_SRCFILE_TO_EXACT_REPOSITORY_MANIFEST',
   classifications: summary,
   dependencyScopes: scopeSummary,
   overridesApplied: rows.filter((row) => overrides.has(row.purl)).length,
   policy: {
     blocked: 'A required AGPL/GPL/SSPL/BUSL-only expression is blocked pending explicit legal approval. Dual-license OR expressions are evaluated by the elected/available permissive branch.',
     review: 'Weak copyleft, attribution-heavy, custom and unresolved licenses remain explicit review items; they are not silently treated as proprietary code.',
-    internal: 'Internal workspace/application components are classified as Proprietary / UNLICENSED and excluded from third-party OSS risk counts.',
+    internal: 'A component is internal only when its SBOM SrcFile identifies an approved repository manifest whose private/name/version metadata matches exactly. Name prefixes alone never establish first-party origin.',
   },
 }, null, 2) + '\n');
 

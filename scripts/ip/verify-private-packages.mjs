@@ -1,18 +1,33 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
 const baselineMode = process.argv.includes('--baseline');
 const publishablePath = join(root, 'docs/ip/publishable-packages.json');
-const publishable = new Set(
-  existsSync(publishablePath)
-    ? JSON.parse(readFileSync(publishablePath, 'utf8'))
-    : [],
-);
+if (existsSync(publishablePath) && !lstatSync(publishablePath).isFile()) {
+  throw new Error(`${publishablePath}: publishable-package register must be a regular file`);
+}
+const publishableDocument = existsSync(publishablePath)
+  ? JSON.parse(readFileSync(publishablePath, 'utf8'))
+  : [];
+if (!Array.isArray(publishableDocument) || publishableDocument.some((name) => typeof name !== 'string' || !name.trim())) {
+  throw new Error(`${publishablePath}: expected an array of non-empty package names`);
+}
+const publishable = new Set(publishableDocument);
 const exceptionsPath = join(root, 'docs/ip/internal-package-metadata-exceptions.json');
+if (existsSync(exceptionsPath) && !lstatSync(exceptionsPath).isFile()) {
+  throw new Error(`${exceptionsPath}: exception register must be a regular file`);
+}
 const exceptionDocument = existsSync(exceptionsPath)
   ? JSON.parse(readFileSync(exceptionsPath, 'utf8'))
   : { exceptions: [] };
+if (!Array.isArray(exceptionDocument.exceptions)) {
+  throw new Error(`${exceptionsPath}: exceptions must be an array`);
+}
+const exceptionPaths = exceptionDocument.exceptions.map((item) => item.path);
+if (new Set(exceptionPaths).size !== exceptionPaths.length) {
+  throw new Error(`${exceptionsPath}: duplicate exception paths are forbidden`);
+}
 const exceptions = new Map(
   (exceptionDocument.exceptions ?? []).map((item) => [item.path, item]),
 );
@@ -21,6 +36,7 @@ const manifests = ['package.json'];
 for (const directory of ['apps', 'packages']) {
   const absolute = join(root, directory);
   if (!existsSync(absolute)) continue;
+  if (!lstatSync(absolute).isDirectory()) throw new Error(`${directory}: package discovery root must be a real directory`);
   for (const entry of readdirSync(absolute, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const rel = `${directory}/${entry.name}/package.json`;
@@ -31,10 +47,17 @@ for (const directory of ['apps', 'packages']) {
 const failures = [];
 const openRemainders = [];
 const seenExceptions = new Set();
+if (publishable.size) {
+  failures.push(`INTERNAL_PUBLISHABLE_PACKAGES must be 0; remove: ${[...publishable].sort().join(', ')}`);
+}
 for (const rel of manifests.sort()) {
-  const manifest = JSON.parse(readFileSync(join(root, rel), 'utf8'));
+  const absolute = join(root, rel);
+  if (!lstatSync(absolute).isFile()) {
+    failures.push(`${rel}: internal manifest must be a regular file, not a symlink or special file`);
+    continue;
+  }
+  const manifest = JSON.parse(readFileSync(absolute, 'utf8'));
   const name = manifest.name ?? rel;
-  if (publishable.has(name)) continue;
 
   const exception = exceptions.get(rel);
   if (exception) {
@@ -47,7 +70,15 @@ for (const rel of manifests.sort()) {
       failures.push(`${rel}: exception must record reason, authority and expiresOn`);
       continue;
     }
-    if (Date.parse(`${exception.expiresOn}T23:59:59Z`) < Date.now()) {
+    const expiresAt = /^\d{4}-\d{2}-\d{2}$/u.test(exception.expiresOn)
+      ? Date.parse(`${exception.expiresOn}T23:59:59Z`)
+      : Number.NaN;
+    const normalizedExpiry = Number.isFinite(expiresAt) ? new Date(expiresAt).toISOString().slice(0, 10) : '';
+    if (!Number.isFinite(expiresAt) || normalizedExpiry !== exception.expiresOn) {
+      failures.push(`${rel}: exception expiresOn must be a real YYYY-MM-DD date`);
+      continue;
+    }
+    if (expiresAt < Date.now()) {
       failures.push(`${rel}: metadata exception expired on ${exception.expiresOn}`);
       continue;
     }

@@ -146,6 +146,9 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
+      - name: Test first-party IP policy logic
+        run: node --test scripts/ip/*.test.mjs
+
       - name: Install locked Node dependencies
         run: env -i PATH="$PATH" HOME="$HOME" CI=true pnpm install --frozen-lockfile --ignore-scripts
 

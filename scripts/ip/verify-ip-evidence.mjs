@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const outDir = process.argv[2] ?? 'artifacts/ip-clean-room';
@@ -26,7 +26,12 @@ const requiredSboms = [
   'sbom/sbom-tai.cdx.json',
   'sbom/sbom-tai.spdx.json',
 ];
-const missing = [...required, ...requiredSboms].filter((name) => !existsSync(join(outDir, name)) || statSync(join(outDir, name)).size === 0);
+const missing = [...required, ...requiredSboms].filter((name) => {
+  const path = join(outDir, name);
+  if (!existsSync(path)) return true;
+  const metadata = lstatSync(path);
+  return !metadata.isFile() || metadata.size === 0;
+});
 if (missing.length) {
   console.error(`IP evidence incomplete: missing or empty ${missing.join(', ')}`);
   process.exit(1);
@@ -51,14 +56,29 @@ for (const name of requiredSboms) {
 }
 
 const license = JSON.parse(readFileSync(join(outDir, 'license-summary.json'), 'utf8'));
+const expectedLicenseSboms = ['sbom-node.cdx.json', 'sbom-tai.cdx.json'];
+const actualLicenseSboms = Array.isArray(license.sbomFiles) ? [...license.sbomFiles].sort() : [];
+const classificationCounts = Object.values(license.classifications ?? {});
+const validClassificationCounts = classificationCounts.every((value) => Number.isInteger(value) && value >= 0);
+const classifiedComponents = validClassificationCounts
+  ? classificationCounts.reduce((total, value) => total + value, 0)
+  : -1;
+if (!Number.isInteger(license.components) || license.components <= 0
+  || classifiedComponents !== license.components
+  || JSON.stringify(actualLicenseSboms) !== JSON.stringify(expectedLicenseSboms)
+  || license.internalEvidenceMode !== 'SBOM_SRCFILE_TO_EXACT_REPOSITORY_MANIFEST') {
+  console.error('IP evidence gate: license summary is incomplete or internally inconsistent');
+  process.exit(3);
+}
 const blocked = license.classifications?.BLOCKED_STRONG_COPYLEFT_OR_SOURCE_AVAILABLE ?? 0;
 const unknownLicenses = license.classifications?.UNKNOWN_REVIEW ?? 0;
+const legalReviewLicenses = license.classifications?.LEGAL_REVIEW ?? 0;
 if (blocked > 0) {
   console.error(`IP evidence gate: ${blocked} blocked license candidate(s)`);
   process.exit(3);
 }
-if (!baselineMode && unknownLicenses > 0) {
-  console.error(`IP evidence gate: ${unknownLicenses} unresolved dependency license candidate(s)`);
+if (!baselineMode && (unknownLicenses > 0 || legalReviewLicenses > 0)) {
+  console.error(`IP evidence gate: unresolved dependency license candidates (unknown=${unknownLicenses}, legal_review=${legalReviewLicenses})`);
   process.exit(4);
 }
 
@@ -76,6 +96,7 @@ if (similarity.networkUsed !== false || similarity.sourceUploaded !== false) {
 
 const finalBlockers = [];
 if (unknownLicenses > 0) finalBlockers.push(`UNKNOWN_DEPENDENCY_LICENSES:${unknownLicenses}`);
+if (legalReviewLicenses > 0) finalBlockers.push(`UNRESOLVED_DEPENDENCY_LICENSE_REVIEWS:${legalReviewLicenses}`);
 if (provenance.unknownOriginFiles > 0) finalBlockers.push(`UNKNOWN_ORIGIN_FILES:${provenance.unknownOriginFiles}`);
 if (provenance.unresolvedRightsFiles > 0) finalBlockers.push(`UNRESOLVED_RIGHTS_FILES:${provenance.unresolvedRightsFiles}`);
 if (provenance.crownJewelUnknownOrigin > 0) finalBlockers.push(`CROWN_JEWEL_UNKNOWN_ORIGIN:${provenance.crownJewelUnknownOrigin}`);
@@ -90,5 +111,5 @@ if (!baselineMode && finalBlockers.length) {
 if (baselineMode) {
   console.log(`IP evidence BASELINE_STRUCTURALLY_COMPLETE: ${provenance.recordedFiles}/${provenance.trackedFiles} tracked files; ${license.components} dependency components; exact Node/TAI CycloneDX+SPDX set; final blockers: ${finalBlockers.join(', ') || 'NONE'}`);
 } else {
-  console.log(`IP evidence FINAL PASS: ${provenance.recordedFiles}/${provenance.trackedFiles} origins resolved; ${license.components} dependency components; offline similarity ${similarity.status}`);
+  console.log(`IP BOUNDED EVIDENCE GATE PASS: ${provenance.recordedFiles}/${provenance.trackedFiles} origins resolved; ${license.components} dependency components; offline similarity ${similarity.status}. This does not establish full-program legal or security completion.`);
 }
