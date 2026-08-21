@@ -5,7 +5,6 @@
   "purpose": "Perform the separately guarded PC-CROP control-host cutover required by #3785 on the already attested Docker Compose Caddy edge, with exact DNS and pinned SSH preconditions, narrow mutation, live acceptance and automatic rollback.",
   "authorityBaseExactMain": "ed4273dbcd441de4c6f2c2167f56336f81c62330",
   "productionHosting": "REG_RU_VPS_ONLY",
-  "operationalStatus": "READY_FOR_CONTROL_HOST_CUTOVER",
   "newRecurringCostRub": 0,
   "allowedPaths": [
     ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
