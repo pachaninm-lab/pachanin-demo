@@ -1186,7 +1186,8 @@
     ],
     "fix/codeql-v4-cli-path-4467": [
       ".github/workflows/codeql-platform-v7-report.yml",
-      "docs/platform-v7/autopilot/scopes/codeql-v4-cli-path-4467.json"
+      "docs/platform-v7/autopilot/scopes/codeql-v4-cli-path-4467.json",
+      "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts"
     ]
   },
   "currentAcceptance": [
