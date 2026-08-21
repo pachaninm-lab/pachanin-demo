@@ -349,11 +349,11 @@ jobs:
           mapfile -t baseline_non_web < <(docker ps -q --filter "label=com.docker.compose.project=$project" | grep -Fvx "$web_id" | sort -u || true)
           printf '%s\n' "${baseline_non_web[@]}" | grep -Fxq "$caddy_id"
 
-          stage=PRIMARY_UPSTREAM
+          stage=PRIMARY_UPSTREAM_SELECTION
           tmp_dir="$(mktemp -d /tmp/company-os-control-preflight.XXXXXX)"
           chmod 700 "$tmp_dir"
           docker exec "$caddy_id" caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile --pretty > "$tmp_dir/caddy.json" 2>/dev/null
-          mapfile -t upstreams < <(jq -r --arg p "$primary_domain" --arg u "$primary_unicode" '
+          mapfile -t matched_upstreams < <(jq -r --arg p "$primary_domain" --arg u "$primary_unicode" '
             [
               .. | objects
               | select(has("match") and has("handle"))
@@ -363,9 +363,33 @@ jobs:
               | .upstreams[]?.dial?
             ] | unique[]
           ' "$tmp_dir/caddy.json")
-          [[ "${#upstreams[@]}" == 1 ]]
-          upstream="${upstreams[0]}"
+          mapfile -t all_upstreams < <(jq -r '[.. | objects | .upstreams[]?.dial?] | unique[]' "$tmp_dir/caddy.json")
+          if [[ "${#matched_upstreams[@]}" == 1 ]]; then
+            upstream="${matched_upstreams[0]}"
+            upstream_mode=PRIMARY_HOST_MATCH
+          elif [[ "${#matched_upstreams[@]}" == 0 && "${#all_upstreams[@]}" == 1 ]]; then
+            upstream="${all_upstreams[0]}"
+            upstream_mode=SOLE_EDGE_UPSTREAM
+          else
+            false
+          fi
+          stage=PRIMARY_UPSTREAM_FORMAT
           [[ "$upstream" =~ ^(127\.0\.0\.1|localhost|[A-Za-z0-9_.-]+):[0-9]{1,5}$ ]]
+          upstream_host="${upstream%:*}"
+          stage=PRIMARY_UPSTREAM_WEB_IDENTITY
+          web_service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$web_id")"
+          [[ "$web_service" == web ]]
+          mapfile -t web_aliases < <(
+            {
+              printf '%s\n' "$web_service"
+              docker inspect "$web_id" | jq -r '.[0] | (.Name // "" | ltrimstr("/")), (.Config.Hostname // ""), (.NetworkSettings.Networks[]?.Aliases[]? // empty)'
+            } | awk 'NF' | sort -u
+          )
+          printf '%s\n' "${web_aliases[@]}" | grep -Fxq "$upstream_host"
+          mapfile -t web_networks < <(docker inspect "$web_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
+          mapfile -t caddy_networks < <(docker inspect "$caddy_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
+          [[ "${#web_networks[@]}" -ge 1 && "${#caddy_networks[@]}" -ge 1 ]]
+          comm -12 <(printf '%s\n' "${web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | grep -q .
 
           stage=CANDIDATE_ENV
           awk '
@@ -422,7 +446,9 @@ jobs:
             "$caddy_image_id" validate --config /tmp/Caddyfile >/dev/null 2>&1
 
           trap - ERR
-          if [[ "$wire_mode" == CREATE_OVERRIDE ]]; then ready_stage=READY_WITH_OVERRIDE_BEFORE_BACKUP
+          if [[ "$wire_mode" == CREATE_OVERRIDE && "$upstream_mode" == SOLE_EDGE_UPSTREAM ]]; then ready_stage=READY_WITH_OVERRIDE_SOLE_EDGE_UPSTREAM_BEFORE_BACKUP
+          elif [[ "$wire_mode" == CREATE_OVERRIDE ]]; then ready_stage=READY_WITH_OVERRIDE_BEFORE_BACKUP
+          elif [[ "$upstream_mode" == SOLE_EDGE_UPSTREAM ]]; then ready_stage=READY_WITH_SOLE_EDGE_UPSTREAM_BEFORE_BACKUP
           else ready_stage=READY_BEFORE_BACKUP; fi
           printf '%s\n' 'CUTOVER_PREFLIGHT=READY' "CUTOVER_PREFLIGHT_STAGE=$ready_stage"
           REMOTE
