@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-control-edge-topology-3785",
+  "status": "active",
+  "purpose": "Unblock PC-CROP registration issue #3785 by extending the owner-only issue-4159 readiness diagnostic to identify the actual systemd or Docker Compose Caddy edge without any production mutation.",
+  "authorityBaseExactMain": "c607a6f6bc9f2c115e50d1b112a7395c7b152b40",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/company-os-control-host-readiness-v2.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-control-edge-topology-3785.json"
+  ],
+  "requiredInvariants": [
+    "The workflow remains owner-only, issue-4159-only and exact-command gated.",
+    "The diagnostic performs no DNS mutation, Caddy write/reload, Compose up/down/restart, container mutation, environment write, secret write, database mutation or application deployment.",
+    "Production SSH continues to require the already attested pinned host fingerprint and protected repository secrets.",
+    "Exact A and AAAA RR-type evidence is collected with dig; resolver address-family synthesis is not accepted as DNS evidence.",
+    "Systemd and Docker Compose Caddy are classified independently; concurrent active edges, multiple Caddy containers or unknown topology fail closed.",
+    "Compose labels, the running Caddy container, immutable web image metadata and public port-443 ownership are inspected read-only.",
+    "No container ID, Compose project name, host filesystem path, Caddyfile body, full environment, secret value or private key is emitted to logs, artifacts or issue comments.",
+    "Caddy config accessibility is reduced to YES, NO or UNKNOWN and configuration content is never published.",
+    "The existing web revision and PC_CONTROL_HOST_ENABLED state remain bounded evidence only; the workflow does not change either.",
+    "Merge, workflow success and readiness evidence are not production cutover or 9-of-9 journey evidence."
+  ],
+  "acceptance": [
+    "The diagnostic reports Caddy source as SYSTEMD, DOCKER_COMPOSE, AMBIGUOUS or NONE.",
+    "For Docker Compose Caddy it reports bounded known/running counts, Compose metadata presence and whether that exact container owns public port 443.",
+    "The classifier returns READY_FOR_CONTROL_HOST_CUTOVER only when DNS, pinned SSH, one valid active edge, writable edge config and one exact web revision are all independently proven.",
+    "A successful run performs no production mutation and introduces no recurring cost.",
+    "PC-CROP remains NO-GO until reviewer MFA, First Customer and all 9 of 9 role journeys pass."
+  ]
+}
