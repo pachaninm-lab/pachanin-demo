@@ -65,7 +65,9 @@ describe('CodeQL password-hash model correction', () => {
   it('is attached to the analysis', () => {
     expect(config).toContain('./codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql');
     // The guards must run the same binary that performed the analysis.
-    expect(workflow).toContain('CODEQL_ACTION_CLI_VERSION_INFO');
+    expect(workflow).toContain('id: init');
+    expect(workflow).toContain('CODEQL_BIN: ${{ steps.init.outputs.codeql-path }}');
+    expect(workflow).not.toContain('CODEQL_ACTION_CLI_VERSION_INFO');
     expect(code(workflow)).not.toMatch(/^\s+codeql /m);
     expect(workflow).toContain('config-file: ./.github/codeql/codeql-config.yml');
   });
