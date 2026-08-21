@@ -62,6 +62,9 @@ jobs:
         with:
           script: |
             const active = [];
+            const ignoredStaleJobless = [];
+            const now = Date.now();
+            const staleQueuedAfterMs = 60 * 60 * 1000;
             for (const status of ['queued', 'in_progress']) {
               const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
                 owner: context.repo.owner,
@@ -72,13 +75,29 @@ jobs:
               for (const run of runs) {
                 if (Number(run.id) === Number(context.runId)) continue;
                 const name = String(run.name || '');
-                if (/(production|release|deploy|reg\.ru|cutover|activation|rolling)/i.test(name)) {
-                  active.push(`${run.id}:${name}:${status}`);
+                if (!/(production|release|deploy|reg\.ru|cutover|activation|rolling)/i.test(name)) continue;
+                if (status === 'queued') {
+                  const createdAt = Date.parse(String(run.created_at || ''));
+                  const oldEnough = Number.isFinite(createdAt) && now - createdAt >= staleQueuedAfterMs;
+                  if (oldEnough) {
+                    const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      run_id: Number(run.id),
+                      filter: 'latest',
+                      per_page: 100,
+                    });
+                    if (jobs.length === 0) {
+                      ignoredStaleJobless.push(Number(run.id));
+                      continue;
+                    }
+                  }
                 }
+                active.push(`${run.id}:${name}:${status}`);
               }
             }
+            if (ignoredStaleJobless.length) core.notice(`Ignored ${ignoredStaleJobless.length} queued production runs older than one hour with zero materialized jobs.`);
             if (active.length) core.setFailed(`Concurrent production workflow detected: ${active.join(', ')}`);
-
       - name: Require canonical DNS and absent AAAA
         id: dns
         shell: bash
