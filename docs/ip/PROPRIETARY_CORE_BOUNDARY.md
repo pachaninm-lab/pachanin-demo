@@ -34,8 +34,9 @@ agricultural logic and product UI—not the Qwen foundation model.
 
 ## Separate-repository extraction
 
-If the organization later chooses a two-repository architecture, run the
-provided `scripts/ip/export-proprietary-core.sh` only after an empty **private**
-target repository has been created and access controls are verified. Extraction
-is deliberately not automatic: moving production imports across repository
-boundaries without a target registry/build contract would be a release risk.
+No extraction helper or external history-rewrite tool is approved by this
+baseline. A future two-repository architecture requires a separate authorized
+scope, dependency/security review of the exact migration tool, authenticated
+private-target transport proof, access-control verification, dry-run evidence
+and an application build/import contract before any history is copied or
+production imports are changed.

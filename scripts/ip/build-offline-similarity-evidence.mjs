@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
 
 const outDir = process.argv[2] ?? 'artifacts/ip-clean-room';
@@ -89,15 +89,30 @@ function walk(directory, base = directory) {
   return files;
 }
 
-const protectedFiles = git(['ls-files', '-z', '--', ...protectedRoots])
+const protectedEntries = git(['ls-files', '-s', '-z', '--', ...protectedRoots])
   .split('\0')
   .filter(Boolean)
-  .filter((path) => textExtensions.has(extname(path).toLowerCase()))
-  .filter((path) => !excludedPath.test(path));
+  .map((entry) => {
+    const match = entry.match(/^(\d+) ([0-9a-f]+) \d+\t([\s\S]+)$/u);
+    if (!match) throw new Error(`Cannot parse protected Git index entry: ${entry.slice(0, 160)}`);
+    return { mode: match[1], blobSha: match[2], path: match[3] };
+  })
+  .filter((entry) => !excludedPath.test(entry.path));
 
-const sourceFingerprints = protectedFiles.map((path) => fingerprint(path, readFileSync(path, 'utf8')));
+const protectedNonRegular = protectedEntries.filter((entry) => !/^100(?:644|755)$/u.test(entry.mode));
+const protectedFiles = protectedEntries
+  .filter((entry) => /^100(?:644|755)$/u.test(entry.mode))
+  .filter((entry) => textExtensions.has(extname(entry.path).toLowerCase()))
+  .map((entry) => entry.path);
+
+const sourceFingerprints = protectedFiles.map((path) => {
+  const metadata = lstatSync(path);
+  if (!metadata.isFile()) throw new Error(`Protected source is not a regular file: ${path}`);
+  return fingerprint(path, readFileSync(path, 'utf8'));
+});
 const findings = [];
 const finalBlockers = [];
+if (protectedNonRegular.length) finalBlockers.push(`PROTECTED_NON_REGULAR_FILES:${protectedNonRegular.length}`);
 let corpusFiles = 0;
 let status = 'CORPUS_REQUIRED';
 
@@ -105,7 +120,7 @@ if (!corpusInput) {
   finalBlockers.push('APPROVED_OFFLINE_EXTERNAL_CORPUS_NOT_PROVIDED');
 } else {
   const corpusRoot = resolve(corpusInput);
-  if (!existsSync(corpusRoot) || !statSync(corpusRoot).isDirectory()) {
+  if (!existsSync(corpusRoot) || !lstatSync(corpusRoot).isDirectory()) {
     throw new Error(`IP_SIMILARITY_CORPUS is not a directory: ${corpusRoot}`);
   }
   if (!corpusApproved) {
@@ -189,6 +204,7 @@ writeFileSync(join(outDir, 'similarity-fingerprints.json'), JSON.stringify({
   sourceContentIncluded: false,
   networkUsed: false,
   protectedRoots,
+  protectedNonRegularFiles: protectedNonRegular,
   files: sourceFingerprints.map(({ winnowing, ...item }) => ({ ...item, winnowingCount: winnowing.length })),
 }, null, 2) + '\n');
 
@@ -200,6 +216,7 @@ writeFileSync(join(outDir, 'similarity-summary.json'), JSON.stringify({
   networkUsed: false,
   sourceUploaded: false,
   protectedFiles: sourceFingerprints.length,
+  protectedNonRegularFiles: protectedNonRegular.length,
   approvedCorpus: corpusApproved,
   corpusFiles,
   unresolvedFindings: findings.length,
