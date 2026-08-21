@@ -507,6 +507,7 @@ jobs:
           for key in MUTATED WEB_REVISION WEB_IMAGE_ID BACKUP_DIR WIRE_MODE; do
             value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
             [[ -n "$value" ]]
+            if [[ "$key" == WIRE_MODE ]]; then [[ "$value" == EXISTING || "$value" == CREATE_OVERRIDE ]]; fi
             echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
           done
       - name: Require running web revision to contain Company OS boundary
