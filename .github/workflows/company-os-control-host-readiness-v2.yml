@@ -541,9 +541,9 @@ jobs:
           CADDY
           [[ "$(grep -c '# BEGIN COMPANY OS CONTROL HOST' "$tmp_dir/Caddyfile.candidate")" == 1 ]]
           [[ "$(grep -c '# END COMPANY OS CONTROL HOST' "$tmp_dir/Caddyfile.candidate")" == 1 ]]
-          docker run --rm --pull never --network none --entrypoint caddy \
-            --mount "type=bind,src=$tmp_dir/Caddyfile.candidate,dst=/tmp/Caddyfile,readonly" \
-            "$caddy_image_id" validate --config /tmp/Caddyfile >/dev/null 2>&1
+          docker exec -i -w /etc/caddy "$caddy_id" \
+            caddy validate --config - --adapter caddyfile \
+            < "$tmp_dir/Caddyfile.candidate" >/dev/null 2>&1
 
           trap - ERR
           if [[ "$wire_mode" == CREATE_OVERRIDE && "$upstream_mode" == UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM ]]; then ready_stage=READY_WITH_OVERRIDE_UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM_BEFORE_BACKUP

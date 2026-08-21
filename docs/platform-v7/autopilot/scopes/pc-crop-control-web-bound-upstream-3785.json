@@ -3,7 +3,7 @@
   "branch": "fix/pc-crop-control-web-bound-upstream-3785",
   "status": "active",
   "purpose": "Resolve the independently attested control-host upstream-selection blocker for PC-CROP #3785 using fail-closed web identity binding and bounded read-only cardinality evidence without exposing production topology.",
-  "authorityBaseExactMain": "098677ebb3c9f00e7cc6ac200f57eeb5639ef854",
+  "authorityBaseExactMain": "f5db6512dbed16ead8b9b7625776625acc5378b3",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
@@ -23,11 +23,13 @@
     "The original production Compose files remain unedited; the previously authorized fixed additive override is the only permitted gate-wiring repair.",
     "The current immutable web image ID and OCI revision remain unchanged; only web may be recreated and every non-web container ID, including Caddy, remains unchanged.",
     "Candidate Compose and Caddy configuration validate before mutation; internal and external rollback semantics remain unchanged.",
+    "Candidate Caddy validation streams the candidate through stdin to a validation process in the existing Caddy container with its current environment and read-only configuration mounts; it writes no candidate into the live mount and performs no reload.",
     "Ten consecutive public acceptance rounds remain mandatory before success is published.",
     "GO remains forbidden until reviewer MFA, First Customer and all 9 of 9 role journeys pass."
   ],
   "acceptance": [
     "Workflow YAML and all embedded remote Bash scripts parse before merge.",
+    "The candidate validator uses caddy validate with stdin, the explicit caddyfile adapter and /etc/caddy as its working directory so existing imports and environment substitutions are evaluated without a production config write.",
     "Static positive and negative fixtures prove a primary route with one web dial plus unrelated backend dials selects only the web-bound intersection, while zero, two, and wrong-network web-bound candidates fail closed.",
     "A read-only readiness run publishes enough redacted cardinality evidence to distinguish exact-match ambiguity, malformed dials, absent shared networks, alias mismatch and current-IP coupling without publishing topology.",
     "Read-only readiness reaches a READY_*_UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM_BEFORE_BACKUP or READY_*_UNIQUE_WEB_BOUND_UPSTREAM_BEFORE_BACKUP state without publishing topology.",
