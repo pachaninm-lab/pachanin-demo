@@ -26,29 +26,31 @@ const files = git(['ls-files', '-z']).split('\0').filter(Boolean)
   .filter((path) => sourceExt.has(extname(path).toLowerCase()))
   .filter((path) => !/\.(spec|test)\.[^.]+$/i.test(path));
 
-function fingerprints(path) {
+function fingerprint(path) {
   const lines = readFileSync(path, 'utf8').split(/\r?\n/)
     .map((line) => line.trim().replace(/\s+/g, ' '))
     .filter((line) => line.length >= 72 && line.length <= 180)
     .filter((line) => !/^(import |export \{|from |\/\/|\*|#|describe\(|it\(|expect\(|console\.|throw new Error\(|return \{|class |interface |type )/.test(line))
     .filter((line) => /[A-Za-zА-Яа-я]{6,}/.test(line));
   const unique = [...new Set(lines)];
-  return unique.slice(0, 2);
+  unique.sort((a, b) => b.length - a.length || a.localeCompare(b));
+  return unique[0] ?? null;
 }
 
-const jobs = [];
-for (const path of files) {
-  for (const phrase of fingerprints(path)) jobs.push({ path, phrase });
-}
-
+const jobs = files.map((path) => ({ path, phrase: fingerprint(path) })).filter((job) => job.phrase);
 const findings = [];
 const errors = [];
 let queries = 0;
-for (const job of jobs) {
-  const safePhrase = job.phrase.replaceAll('"', ' ').slice(0, 180);
-  const q = `"${safePhrase}" -repo:${repo}`;
-  const url = `https://api.github.com/search/code?q=${encodeURIComponent(q)}&per_page=10`;
-  try {
+
+function waitFromHeaders(response) {
+  const remaining = Number(response.headers.get('x-ratelimit-remaining') ?? '999');
+  const reset = Number(response.headers.get('x-ratelimit-reset') ?? '0') * 1000;
+  if (remaining <= 1 && reset > Date.now()) return Math.max(1000, reset - Date.now() + 1500);
+  return 0;
+}
+
+async function searchCode(url, path) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -58,14 +60,33 @@ for (const job of jobs) {
       },
     });
     queries += 1;
-    if (!response.ok) {
-      const text = await response.text();
-      errors.push({ path: job.path, status: response.status, detail: text.slice(0, 300) });
-      if (response.status === 403 || response.status === 429) await sleep(65000);
-      else await sleep(2200);
-      continue;
+    const rateWait = waitFromHeaders(response);
+    if (response.ok) {
+      const body = await response.json();
+      if (rateWait) await sleep(rateWait);
+      return body;
     }
-    const body = await response.json();
+
+    const text = await response.text();
+    if (response.status !== 403 && response.status !== 429) {
+      throw new Error(`GitHub code search ${response.status}: ${text.slice(0, 300)}`);
+    }
+
+    const retryAfter = Number(response.headers.get('retry-after') ?? '0') * 1000;
+    const reset = Number(response.headers.get('x-ratelimit-reset') ?? '0') * 1000;
+    const wait = retryAfter || (reset > Date.now() ? reset - Date.now() + 1500 : 65000);
+    if (attempt === 2) throw new Error(`GitHub code search rate-limited after retries for ${path}: ${text.slice(0, 220)}`);
+    await sleep(Math.max(1000, wait));
+  }
+  throw new Error(`GitHub code search retry loop exhausted for ${path}`);
+}
+
+for (const job of jobs) {
+  const safePhrase = job.phrase.replaceAll('"', ' ').slice(0, 180);
+  const q = `"${safePhrase}" -repo:${repo}`;
+  const url = `https://api.github.com/search/code?q=${encodeURIComponent(q)}&per_page=10`;
+  try {
+    const body = await searchCode(url, job.path);
     if ((body.total_count ?? 0) > 0) {
       findings.push({
         sourcePath: job.path,
@@ -78,10 +99,8 @@ for (const job of jobs) {
         })),
       });
     }
-    await sleep(2200);
   } catch (error) {
     errors.push({ path: job.path, detail: String(error) });
-    await sleep(2200);
   }
 }
 
@@ -90,13 +109,13 @@ const result = {
   generatedAt: new Date().toISOString(),
   repositoryExcluded: repo,
   protectedSourceFiles: files.length,
-  filesWithSearchableFingerprints: new Set(jobs.map((x) => x.path)).size,
+  filesWithSearchableFingerprints: jobs.length,
   queries,
   findingCount: findings.length,
   findings,
   errors,
-  methodology: 'Up to two distinctive 72-180 character source-line fingerprints per protected non-test source file are searched against public GitHub code, excluding this repository. A hit is a review candidate, not proof of copying; no hit is not mathematical proof of originality.',
+  methodology: 'One longest distinctive 72-180 character source-line fingerprint per protected non-test source file is searched against public GitHub code, excluding this repository. The scanner obeys GitHub code_search rate-limit headers and retries bounded rate-limit responses. A hit is a review candidate, not proof of copying; no hit is not mathematical proof of originality.',
 };
 writeFileSync(output, JSON.stringify(result, null, 2) + '\n');
-console.log(JSON.stringify({ status: result.status, protectedSourceFiles: files.length, queries, findingCount: findings.length, errors: errors.length }, null, 2));
+console.log(JSON.stringify({ status: result.status, protectedSourceFiles: files.length, searchableFiles: jobs.length, queries, findingCount: findings.length, errors: errors.length }, null, 2));
 if (errors.length) process.exitCode = 2;
