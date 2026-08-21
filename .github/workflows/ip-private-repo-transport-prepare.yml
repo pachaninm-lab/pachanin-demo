@@ -40,7 +40,7 @@ jobs:
           node scripts/check-tai-controller-sync.mjs
           git diff --check
 
-      - name: Commit only approved transport paths
+      - name: Commit controller scripts only
         run: |
           set -Eeuo pipefail
           mapfile -t changed < <(git diff --name-only)
@@ -50,10 +50,10 @@ jobs:
               scripts/pc-tai-release-controller.sh|scripts/pc-tai-controller-sync.sh|.github/workflows/*.yml|.github/workflows/*.yaml) ;;
               *) echo "Unexpected transformed path: $path" >&2; exit 2 ;;
             esac
-            git add -- "$path"
           done
+          git add -- scripts/pc-tai-release-controller.sh scripts/pc-tai-controller-sync.sh
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'IP: authenticate REG.RU protected repository fetch #4447'
+          git commit -m 'IP: authenticate protected REG.RU repository fetch #4447'
           git push origin HEAD:ip-hardening/private-repo-transport-4447
