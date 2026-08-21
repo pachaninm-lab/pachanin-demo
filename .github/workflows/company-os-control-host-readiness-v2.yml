@@ -292,11 +292,12 @@ jobs:
           env_file="$working_dir/.env"
           [[ -f "$env_file" && -r "$env_file" && -w "$env_file" ]]
 
-          stage=COMPOSE_FILES
+          stage=COMPOSE_FILE_COUNT
           IFS=',' read -r -a raw_config_files <<< "$config_csv"
           [[ "${#raw_config_files[@]}" -ge 1 && "${#raw_config_files[@]}" -le 20 ]]
           compose_args=(--project-directory "$working_dir" -p "$project")
           config_files=(); contract_wired=0
+          stage=COMPOSE_FILE_SCOPE
           for raw in "${raw_config_files[@]}"; do
             file="$raw"
             [[ "$file" = /* ]] || file="$working_dir/$file"
@@ -305,8 +306,11 @@ jobs:
             config_files+=("$file"); compose_args+=(-f "$file")
             grep -Fq 'PC_CONTROL_HOST_ENABLED' "$file" && contract_wired=1
           done
+          stage=CONTROL_GATE_WIRING
           [[ "$contract_wired" == 1 ]]
+          stage=COMPOSE_WEB_SERVICE
           docker compose "${compose_args[@]}" config --services 2>/dev/null | grep -Fxq web
+          stage=COMPOSE_CADDY_SERVICE
           docker compose "${compose_args[@]}" config --services 2>/dev/null | grep -Fxq caddy
 
           stage=CADDY_BIND_SCOPE
