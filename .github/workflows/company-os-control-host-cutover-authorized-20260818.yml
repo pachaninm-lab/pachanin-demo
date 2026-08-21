@@ -483,7 +483,7 @@ jobs:
           CADDY
           [[ "$(grep -c '# BEGIN COMPANY OS CONTROL HOST' "$caddy_candidate")" == 1 ]]
           [[ "$(grep -c '# END COMPANY OS CONTROL HOST' "$caddy_candidate")" == 1 ]]
-          docker run --rm --pull never --network none --entrypoint caddy --mount "type=bind,src=$caddy_candidate,dst=/tmp/Caddyfile,readonly" "$caddy_image_id" validate --config /tmp/Caddyfile >/dev/null 2>&1
+          docker exec -i -w /etc/caddy "$caddy_id" caddy validate --config - --adapter caddyfile < "$caddy_candidate" >/dev/null 2>&1
 
           write_caddy_file() {
             local source="$1" temp
