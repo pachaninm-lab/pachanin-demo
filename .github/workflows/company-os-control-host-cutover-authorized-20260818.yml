@@ -382,8 +382,8 @@ jobs:
           docker compose --env-file "$env_candidate" "${compose_args[@]}" config --format json > "$base_json" 2> "$backup_dir/compose.base.err"
           docker compose --env-file "$env_candidate" "${candidate_compose_args[@]}" config --format json > "$compose_json" 2> "$backup_dir/compose.candidate.err"
           jq -e '.services.web.environment.PC_CONTROL_HOST_ENABLED == "true"' "$compose_json" >/dev/null
-          jq -S 'del(.services.web.environment.PC_CONTROL_HOST_ENABLED)' "$base_json" > "$backup_dir/compose.base.normalized.json"
-          jq -S 'del(.services.web.environment.PC_CONTROL_HOST_ENABLED)' "$compose_json" > "$backup_dir/compose.candidate.normalized.json"
+          jq -S 'del(.services.web.environment.PC_CONTROL_HOST_ENABLED) | if .services.web.environment == {} then del(.services.web.environment) else . end' "$base_json" > "$backup_dir/compose.base.normalized.json"
+          jq -S 'del(.services.web.environment.PC_CONTROL_HOST_ENABLED) | if .services.web.environment == {} then del(.services.web.environment) else . end' "$compose_json" > "$backup_dir/compose.candidate.normalized.json"
           cmp -s "$backup_dir/compose.base.normalized.json" "$backup_dir/compose.candidate.normalized.json"
           image_ref="$(jq -r '.services.web.image // empty' "$compose_json")"
           caddy_image_ref="$(jq -r '.services.caddy.image // empty' "$compose_json")"
