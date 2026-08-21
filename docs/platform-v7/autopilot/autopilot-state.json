@@ -1188,6 +1188,10 @@
       ".github/workflows/codeql-platform-v7-report.yml",
       "docs/platform-v7/autopilot/scopes/codeql-v4-cli-path-4467.json",
       "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts"
+    ],
+    "fix/outbox-cve-exception-4476": [
+      "docs/platform-v7/autopilot/security-exceptions.json",
+      "docs/platform-v7/autopilot/scopes/outbox-cve-exception-4476.json"
     ]
   },
   "currentAcceptance": [
