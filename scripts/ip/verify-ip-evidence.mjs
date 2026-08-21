@@ -57,7 +57,7 @@ if (blocked > 0) {
   console.error(`IP evidence gate: ${blocked} blocked license candidate(s)`);
   process.exit(3);
 }
-if (unknownLicenses > 0) {
+if (!baselineMode && unknownLicenses > 0) {
   console.error(`IP evidence gate: ${unknownLicenses} unresolved dependency license candidate(s)`);
   process.exit(4);
 }
@@ -75,6 +75,7 @@ if (similarity.networkUsed !== false || similarity.sourceUploaded !== false) {
 }
 
 const finalBlockers = [];
+if (unknownLicenses > 0) finalBlockers.push(`UNKNOWN_DEPENDENCY_LICENSES:${unknownLicenses}`);
 if (provenance.unknownOriginFiles > 0) finalBlockers.push(`UNKNOWN_ORIGIN_FILES:${provenance.unknownOriginFiles}`);
 if (provenance.unresolvedRightsFiles > 0) finalBlockers.push(`UNRESOLVED_RIGHTS_FILES:${provenance.unresolvedRightsFiles}`);
 if (provenance.crownJewelUnknownOrigin > 0) finalBlockers.push(`CROWN_JEWEL_UNKNOWN_ORIGIN:${provenance.crownJewelUnknownOrigin}`);
