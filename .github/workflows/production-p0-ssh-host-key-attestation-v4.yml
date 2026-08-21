@@ -81,7 +81,7 @@ jobs:
           )
           for marker in required:
               if marker not in text: raise SystemExit(f'MISSING:{marker}')
-          if 'external_hex:' in text or 'EXT_HEX:' in text: raise SystemExit('STALE_EXTERNAL_HEX_TRANSPORT')
+          if ('external_'+'hex:') in text or ('EXT_'+'HEX:') in text: raise SystemExit('STALE_EXTERNAL_HEX_TRANSPORT')
           local = text.split('\n  local_attestation:\n',1)[1].split('\n  classify:\n',1)[0]
           if 'uses:' in local: raise SystemExit('LOCAL_MARKETPLACE_ACTION_FORBIDDEN')
           if 'secrets.' in local: raise SystemExit('LOCAL_SECRET_FORBIDDEN')
