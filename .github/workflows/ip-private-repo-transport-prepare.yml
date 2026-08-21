@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - ip-hardening/private-repo-transport-4447
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
