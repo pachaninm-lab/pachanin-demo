@@ -1,10 +1,10 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/pc-crop-p0-ssh-host-attestation-v2-3785",
+  "branch": "fix/pc-crop-p0-ssh-host-attestation-v3-3785",
   "status": "active",
-  "purpose": "Registration #3785 / release #3072 / incident #4445: harden the independently authorized read-only dual-channel production SSH host-key attestation after review identified secret-output, protected-port and publisher-provenance defects in v1. No trust-anchor change or production mutation is authorized.",
+  "purpose": "Registration #3785 / release #3072 / incident #4445: make the independently authorized read-only production SSH host-key attestation resilient to self-hosted marketplace-action or artifact transport failures by using a shell-only local production job and hex-encoded public fingerprint evidence. No trust-anchor change or production mutation is authorized.",
   "approvedBy": "owner-registration-continuation-3785",
-  "authorityBaseExactMain": "5e137c033805b0516d7a5f719b318d912d4d04f8",
+  "authorityBaseExactMain": "bd5c4a48fa30c9d261a00dde13b160b42b4193c6",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
@@ -12,16 +12,16 @@
     "docs/platform-v7/autopilot/scopes/pc-crop-p0-ssh-host-attestation-3785.json"
   ],
   "requiredBehavior": [
-    "run only from exact owner command /production p0-ssh-host-attest-v2 current-main on incident authority #4445",
+    "run only from exact owner command /production p0-ssh-host-attest-v3 current-main on incident authority #4445",
     "require a non-empty protected PC_PROD_SSH_PORT and scan only canonical REG.RU IPv4 195.19.12.120 after DNS confirmation",
     "require three byte-identical non-empty hosted ssh-keyscan observations before accepting an external public-key set",
-    "transport public host-key evidence between jobs only as short-lived workflow artifacts so a fingerprint equal to the protected stored pin is never used as a job output",
-    "run local attestation only on the pre-existing restricted self-hosted labels self-hosted, linux, x64, pc-prod and tai-readonly without repository secrets",
-    "verify non-root, no-docker runner boundary and attest only root-owned non-writable public /etc/ssh/ssh_host_*_key.pub files",
+    "encode only public canonical host-key evidence as hex before using GitHub job outputs so an observed fingerprint equal to the protected pin cannot be redacted or altered by exact secret masking",
+    "run the production-side attestation as a shell-only job on the pre-existing restricted labels self-hosted, linux, x64, pc-prod and tai-readonly with no checkout, artifact action or repository secret",
+    "verify non-root and no-direct-Docker runner boundary and attest only root-owned non-writable public /etc/ssh/ssh_host_*_key.pub files",
     "require every externally observed algorithm/fingerprint pair to exist in the local production host-key authority",
-    "classify the protected stored pin only in the final hosted job and never transport or publish that pin",
-    "publish a replacement fingerprint only when the stored pin is independently proven mismatched; that candidate must differ from the stored pin",
-    "bind every channel to one exact current main SHA and publish PRODUCTION_MUTATION=NONE"
+    "classify the protected stored pin only in the final hosted job and never transport or publish that protected stored value",
+    "publish one deterministic replacement public fingerprint only when the stored pin is independently proven stale and the replacement differs from it",
+    "bind hosted contract and final classifier to one exact current main SHA and publish PRODUCTION_MUTATION=NONE"
   ],
   "forbiddenCapabilities": [
     "changing, deleting or automatically accepting PC_PROD_SSH_HOST_FINGERPRINT or any GitHub secret",
@@ -34,11 +34,12 @@
     "unrelated PC-CROP business-flow, Gekta, Company OS or showroom behavior changes"
   ],
   "acceptanceEvidence": [
-    "workflow syntax and focused contract pass",
+    "workflow syntax, project lock and focused shell-only contract pass",
     "three stable hosted public-key scans on the non-empty protected SSH port",
-    "restricted production runner proves external keys are a subset of local root-owned public host-key authority",
-    "final classifier reports PASS_EXISTING_PIN_VALID or PASS_ROTATION_REQUIRED without emitting the protected old pin",
-    "replacement candidate is published only for independently proven mismatch",
-    "result states PRODUCTION_MUTATION=NONE and does not count as registration or owner-access acceptance"
+    "restricted production runner publishes only hex-encoded canonical public host-key evidence and uses no marketplace actions",
+    "final hosted classifier proves external keys are a subset of local root-owned public host-key authority",
+    "stored pin is classified CURRENT or STALE without publishing the protected old value",
+    "replacement public fingerprint is published only for independently proven STALE classification",
+    "result states PRODUCTION_MUTATION=NONE and does not count as registration acceptance"
   ]
 }
