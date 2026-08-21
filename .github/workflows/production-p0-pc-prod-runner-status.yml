@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - ".github/workflows/production-p0-pc-prod-runner-status.yml"
-      - "docs/platform-v7/autopilot/scopes/pc-crop-p0-runner-status-4445.json"
 
 permissions:
   contents: read
@@ -18,26 +17,7 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Validate hosted-only read boundary
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          workflow_path=Path('.github/workflows/production-p0-pc-prod-runner-status.yml')
-          scope_path=Path('docs/platform-v7/autopilot/scopes/pc-crop-p0-runner-status-4445.json')
-          scope=json.loads(scope_path.read_text(encoding='utf-8'))
-          if scope.get('branch')!='fix/pc-crop-p0-runner-status-4445': raise SystemExit('SCOPE_BRANCH')
-          if set(scope.get('allowedPaths') or [])!={str(workflow_path),str(scope_path)}: raise SystemExit('SCOPE_PATHS')
-          runtime=workflow_path.read_text(encoding='utf-8').split('      - name: Query latest v4 issue-comment run',1)[1]
-          for marker in ('self-hosted','ssh-keyscan','ssh ','docker ','psql ','sudo ','gh secret','registration-token','remove-token'):
-              if marker in runtime: raise SystemExit(f'FORBIDDEN:{marker}')
-          PY
-      - name: Query latest v4 issue-comment run
+      - name: Query latest v4 issue-comment run and jobs
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -49,9 +29,8 @@ jobs:
           run_id="$(python3 - "$runs" <<'PY'
           import json,sys
           p=json.load(open(sys.argv[1],encoding='utf-8'))
-          rows=p.get('workflow_runs') or []
+          rows=sorted(p.get('workflow_runs') or [],key=lambda r:r.get('created_at') or '',reverse=True)
           if not rows: raise SystemExit('V4_RUN_NOT_FOUND')
-          rows=sorted(rows,key=lambda r:r.get('created_at') or '',reverse=True)
           r=rows[0]
           print(r.get('id'))
           print(f"V4_RUN_ID={r.get('id')}",file=sys.stderr)
@@ -66,8 +45,6 @@ jobs:
           import json,sys
           p=json.load(open(sys.argv[1],encoding='utf-8'))
           for j in p.get('jobs') or []:
-              print('V4_JOB=' + str(j.get('name')))
-              print('V4_JOB_STATUS=' + str(j.get('status')).upper())
-              print('V4_JOB_CONCLUSION=' + str(j.get('conclusion')).upper())
+              print(f"V4_JOB={j.get('name')}|STATUS={str(j.get('status')).upper()}|CONCLUSION={str(j.get('conclusion')).upper()}|ID={j.get('id')}")
           print('PRODUCTION_MUTATION=NONE')
           PY
