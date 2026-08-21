@@ -22,7 +22,7 @@ const historicalVendor = new Map();
 
 const vendorRe = /(^|\/)(vendor|vendors|third[_-]?party|external|externals|node_modules|dist|build|generated|deps?)(\/|$)/i;
 const history = git([
-  'log', '--all', '--reverse', '--find-renames=80%',
+  'log', '--all', 'HEAD', '--reverse', '--find-renames=80%',
   '--format=@@%H\t%aN\t%aE\t%aI', '--name-status',
 ]);
 
@@ -75,13 +75,43 @@ for (const rawLine of history.split(/\r?\n/)) {
   }
 }
 
+for (const path of tracked) {
+  if (provenance.has(path)) continue;
+  try {
+    const fallback = git([
+      'log', 'HEAD', '--reverse', '--follow', '--diff-filter=ACMR',
+      '--format=%H\t%aN\t%aE\t%aI', '--', path,
+    ], 8 * 1024 * 1024).trim().split(/\r?\n/).find(Boolean);
+    if (!fallback) continue;
+    const [sha, authorName, authorEmail, authoredAt] = fallback.split('\t');
+    provenance.set(path, { path, sha, authorName, authorEmail, authoredAt, originPath: path });
+  } catch {
+    // Keep UNKNOWN if Git cannot resolve an origin for an unusual tracked object.
+  }
+}
+
 const textExtensions = new Set([
   '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.md', '.txt', '.yml', '.yaml',
   '.toml', '.py', '.sql', '.sh', '.css', '.scss', '.html', '.xml', '.graphql', '.prisma',
   '.properties', '.conf', '.ini', '.env', '.example', '.csv',
 ]);
-const headerRe = /(SPDX-License-Identifier\s*:|Copyright\s*(?:\(c\)|©)?|GNU\s+(?:Affero\s+)?General\s+Public\s+License|MIT\s+License|Apache\s+License|Mozilla\s+Public\s+License|Eclipse\s+Public\s+License)/i;
+const directHeaderRe = /(SPDX-License-Identifier\s*:|Copyright\s*(?:\(c\)|©)?)/i;
+const namedLicenseRe = /(GNU\s+(?:Affero\s+)?General\s+Public\s+License|MIT\s+License|Apache\s+License|Mozilla\s+Public\s+License|Eclipse\s+Public\s+License)/i;
 const policyRe = /^(LICENSE|NOTICE|docs\/ip\/|scripts\/ip\/|\.github\/|package\.json$|pnpm-lock\.yaml$)/;
+
+function detectHeader(content) {
+  const lines = content.split(/\r?\n/).slice(0, 40);
+  for (const line of lines.slice(0, 30)) {
+    const direct = line.match(directHeaderRe);
+    if (direct) return direct[0];
+  }
+  for (const line of lines.slice(0, 20)) {
+    if (!/^\s*(?:\/\/|#|\/\*|\*|<!--)/.test(line)) continue;
+    const named = line.match(namedLicenseRe);
+    if (named) return named[0];
+  }
+  return '';
+}
 
 const rows = [];
 const currentHeaderCandidates = [];
@@ -97,15 +127,11 @@ for (const path of tracked.sort()) {
   if (textExtensions.has(extension) || !extension) {
     try {
       const content = readFileSync(path, 'utf8');
-      const firstLines = content.split(/\r?\n/).slice(0, 100).join('\n');
-      const match = firstLines.match(headerRe);
-      if (match) {
-        header = match[0].replace(/\s+/g, ' ').slice(0, 240);
-        if (!policyRe.test(path)) {
-          status = 'REVIEW_EXTERNAL_LICENSE_HEADER';
-          license = 'Header/license candidate — review required';
-          currentHeaderCandidates.push({ path, marker: header });
-        }
+      header = detectHeader(content).replace(/\s+/g, ' ').slice(0, 240);
+      if (header && !policyRe.test(path)) {
+        status = 'REVIEW_EXTERNAL_LICENSE_HEADER';
+        license = 'Header/license candidate — review required';
+        currentHeaderCandidates.push({ path, marker: header });
       }
     } catch {
       // Binary/undecodable files are represented by path and Git provenance only.
@@ -126,7 +152,7 @@ for (const path of tracked.sort()) {
 }
 
 const historyHeaderText = git([
-  'log', '--all',
+  'log', '--all', 'HEAD',
   '-G', 'SPDX-License-Identifier|Copyright|GNU (Affero )?General Public License|MIT License|Apache License|Mozilla Public License|Eclipse Public License',
   '--format=@@COMMIT %H | %aN <%aE> | %aI | %s', '--name-only',
 ]);
