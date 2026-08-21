@@ -1,0 +1,90 @@
+name: PC-CROP P0 pc-prod Runner Status
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/production-p0-pc-prod-runner-status.yml"
+      - "docs/platform-v7/autopilot/scopes/pc-crop-p0-runner-status-4445.json"
+
+permissions:
+  contents: read
+
+jobs:
+  runner_status:
+    name: Read pc-prod runner status without production access
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate exact scope contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          workflow_path = Path('.github/workflows/production-p0-pc-prod-runner-status.yml')
+          scope_path = Path('docs/platform-v7/autopilot/scopes/pc-crop-p0-runner-status-4445.json')
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          if scope.get('branch') != 'fix/pc-crop-p0-runner-status-4445': raise SystemExit('scope branch mismatch')
+          if scope.get('authorityBaseExactMain') != '5e137c033805b0516d7a5f719b318d912d4d04f8': raise SystemExit('scope base mismatch')
+          if set(scope.get('allowedPaths') or []) != {str(workflow_path), str(scope_path)}: raise SystemExit('scope paths mismatch')
+          workflow = workflow_path.read_text(encoding='utf-8')
+          for forbidden in ('runs-on: [self-hosted', 'ssh-keyscan', 'ssh ', 'docker ', 'psql ', 'gh secret', 'registration-token', 'remove-token', 'sudo '):
+              if forbidden in workflow: raise SystemExit(f'forbidden capability: {forbidden}')
+          PY
+      - name: Query repository self-hosted runner status
+        id: status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tmp="$(mktemp)"
+          trap 'rm -f "$tmp"' EXIT
+          gh api --paginate -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/actions/runners?per_page=100" > "$tmp"
+          python3 - "$tmp" <<'PY'
+          import json, sys
+          path = sys.argv[1]
+          raw = json.load(open(path, encoding='utf-8'))
+          pages = raw if isinstance(raw, list) else [raw]
+          runners = []
+          for page in pages:
+              if not isinstance(page, dict):
+                  raise SystemExit('RUNNER_API_SCHEMA')
+              values = page.get('runners')
+              if not isinstance(values, list):
+                  raise SystemExit('RUNNER_API_SCHEMA')
+              runners.extend(values)
+          matches = []
+          for runner in runners:
+              if not isinstance(runner, dict):
+                  continue
+              labels = runner.get('labels')
+              if not isinstance(labels, list):
+                  continue
+              names = {item.get('name') for item in labels if isinstance(item, dict) and isinstance(item.get('name'), str)}
+              if {'pc-prod', 'tai-readonly'} <= names:
+                  matches.append((runner, sorted(names)))
+          if len(matches) != 1:
+              print(f'PC_PROD_RUNNER_CARDINALITY={len(matches)}')
+              raise SystemExit('PC_PROD_RUNNER_CARDINALITY')
+          runner, labels = matches[0]
+          name = runner.get('name')
+          status = runner.get('status')
+          busy = runner.get('busy')
+          if not isinstance(name, str) or not name.startswith('pc-prod-'):
+              raise SystemExit('PC_PROD_RUNNER_NAME')
+          if status not in ('online', 'offline') or not isinstance(busy, bool):
+              raise SystemExit('PC_PROD_RUNNER_STATE')
+          print(f'PC_PROD_RUNNER_NAME={name}')
+          print(f'PC_PROD_RUNNER_STATUS={status.upper()}')
+          print(f'PC_PROD_RUNNER_BUSY={str(busy).upper()}')
+          print('PC_PROD_RUNNER_LABELS=' + ','.join(labels))
+          print('PRODUCTION_MUTATION=NONE')
+          PY
