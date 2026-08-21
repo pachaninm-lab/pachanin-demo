@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-p0-runner-status-4445",
+  "status": "active",
+  "purpose": "Registration #3785 / release #3072 / SSH attestation #4445: determine whether the pre-existing pc-prod tai-readonly self-hosted GitHub Actions runner is online, offline or busy while the read-only host-key attestation is pending.",
+  "approvedBy": "owner-registration-continuation-3785",
+  "authorityBaseExactMain": "5e137c033805b0516d7a5f719b318d912d4d04f8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-pc-prod-runner-status.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-p0-runner-status-4445.json"
+  ],
+  "requiredBehavior": [
+    "execute only on a GitHub-hosted Ubuntu runner during pull_request",
+    "use only the ephemeral GITHUB_TOKEN with actions read and contents read permissions",
+    "read the repository self-hosted runner inventory through the GitHub Actions API",
+    "select only runners carrying both pc-prod and tai-readonly labels",
+    "publish only runner name, online/offline state, busy flag and labels",
+    "perform no production connection and no production mutation"
+  ],
+  "forbiddenCapabilities": [
+    "self-hosted execution",
+    "SSH or network connection to production",
+    "repository or organization secret reads beyond the implicit ephemeral GITHUB_TOKEN",
+    "secret mutation, runner mutation, registration token creation or runner removal",
+    "Docker, database, deploy, migration, service restart, MFA, password reset or mail mutation",
+    "new paid provider, SaaS subscription or recurring cost"
+  ],
+  "acceptanceEvidence": [
+    "workflow syntax and project lock pass",
+    "hosted job reports exactly one pc-prod+tai-readonly runner or fails closed on cardinality",
+    "runner status evidence contains no secrets and production mutation remains NONE"
+  ]
+}
