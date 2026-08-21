@@ -1,6 +1,7 @@
 {
   "name": "@pc/api",
   "private": true,
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "nest start --watch",
     "build": "prisma generate && tsc -p tsconfig.json",

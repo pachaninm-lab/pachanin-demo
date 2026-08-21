@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "effectiveDate": "2026-08-21",
+  "reviewers": ["@pachaninm-lab"],
+  "protectedRoots": [
+    {"path": "packages/domain-core", "reason": "canonical domain models, policies, deal rules and decision logic"},
+    {"path": "apps/api/src/modules/settlement-engine", "reason": "settlement and release decision logic"},
+    {"path": "apps/api/src/modules/ledger", "reason": "money ledger and accounting invariants"},
+    {"path": "apps/api/src/modules/deals", "reason": "deal lifecycle and contract execution rules"},
+    {"path": "apps/api/src/modules/anti-fraud", "reason": "fraud and transaction-risk logic"},
+    {"path": "apps/api/src/modules/compliance", "reason": "compliance decision logic"},
+    {"path": "apps/api/src/modules/kyc", "reason": "counterparty verification logic"},
+    {"path": "apps/api/src/modules/business-reputation", "reason": "counterparty reputation and risk scoring"},
+    {"path": "apps/api/src/modules/accounting", "reason": "accounting and commercial financial rules"},
+    {"path": "apps/api/src/modules/bank-reconciliation", "reason": "bank reconciliation rules"},
+    {"path": "apps/api/src/modules/factoring", "reason": "financing decision and workflow logic"},
+    {"path": "apps/api/src/modules/disputes", "reason": "dispute state and decision rules"},
+    {"path": "apps/api/src/modules/arbitrator", "reason": "arbitration workflow and decision rules"}
+  ],
+  "forbiddenPublicationRoots": [
+    "apps/web/public",
+    "artifacts/public",
+    "public"
+  ],
+  "notes": [
+    "There is no standalone server pricing module at this revision; pricing/commercial rules are distributed across domain-core, settlement and accounting and are protected through those roots.",
+    "There is no standalone contract-rules module at this revision; deal/document/settlement contract rules are protected through domain-core and server-side deal/settlement roots."
+  ]
+}

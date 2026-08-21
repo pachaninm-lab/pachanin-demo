@@ -1,13 +1,30 @@
-name: Canonical SBOM Generation
+name: IP Clean Room & Full SBOM
 
 on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/ip/**'
+      - 'docs/ip/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'LICENSE'
+      - 'NOTICE'
+      - '.github/CODEOWNERS'
+      - '.github/workflows/sbom-scan.yml'
   push:
     branches: [main]
     paths:
-      - 'apps/api/**'
-      - 'apps/web/**'
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/ip/**'
+      - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
+      - 'LICENSE'
+      - 'NOTICE'
+      - '.github/CODEOWNERS'
       - '.github/workflows/sbom-scan.yml'
   schedule:
     - cron: '0 3 * * 1'
@@ -17,23 +34,24 @@ permissions:
   contents: read
 
 concurrency:
-  group: canonical-sbom-${{ github.ref }}
+  group: ip-clean-room-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   NODE_VERSION: '24'
   PNPM_VERSION: '10.2.1'
+  CDXGEN_VERSION: '12.8.3'
 
 jobs:
-  sbom:
-    name: CycloneDX SBOM · ${{ matrix.service }}
+  ip-evidence:
+    name: Full provenance, licenses & SBOM
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: [api, web]
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout full Git history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -46,22 +64,61 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - name: Install locked dependencies
+      - name: Install locked Node dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate CycloneDX SBOM
-        run: |
-          mkdir -p artifacts/sbom
-          npx -y @cyclonedx/cdxgen@11 \
-            -t pnpm \
-            -o "artifacts/sbom/sbom-${{ matrix.service }}.json" \
-            "apps/${{ matrix.service }}"
-          test -s "artifacts/sbom/sbom-${{ matrix.service }}.json"
+      - name: Verify internal package no-publish policy
+        run: node scripts/ip/verify-private-packages.mjs
 
-      - name: Upload SBOM
+      - name: Build full-history clean-room provenance
+        run: node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room
+
+      - name: Generate Node/pnpm CycloneDX + SPDX SBOM
+        env:
+          FETCH_LICENSE: 'true'
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p artifacts/ip-clean-room/sbom
+          corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
+            -t pnpm \
+            --format cyclonedx,spdx \
+            --include-formulation \
+            --validate \
+            -o artifacts/ip-clean-room/sbom/sbom-node.cdx.json \
+            .
+
+      - name: Generate Python/TAI CycloneDX + SPDX SBOM
+        env:
+          FETCH_LICENSE: 'true'
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
+            -t python \
+            --format cyclonedx,spdx \
+            --include-formulation \
+            --validate \
+            -o artifacts/ip-clean-room/sbom/sbom-tai.cdx.json \
+            apps/tai
+
+      - name: Build transitive license map
+        continue-on-error: true
+        run: node scripts/ip/build-license-map.mjs artifacts/ip-clean-room/sbom artifacts/ip-clean-room
+
+      - name: Screen proprietary core against public GitHub code
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ip/scan-github-public-matches.mjs artifacts/ip-clean-room
+
+      - name: Upload immutable IP evidence bundle
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-${{ matrix.service }}-${{ github.sha }}
-          path: artifacts/sbom/sbom-${{ matrix.service }}.json
+          name: ip-clean-room-${{ github.sha }}
+          path: artifacts/ip-clean-room
           if-no-files-found: error
           retention-days: 90
+
+      - name: Enforce complete IP evidence gate
+        if: always()
+        run: node scripts/ip/verify-ip-evidence.mjs artifacts/ip-clean-room

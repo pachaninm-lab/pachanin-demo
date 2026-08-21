@@ -1,0 +1,24 @@
+# Default review ownership
+* @pachaninm-lab
+
+# High-value proprietary core
+/packages/domain-core/ @pachaninm-lab
+/apps/api/src/modules/settlement-engine/ @pachaninm-lab
+/apps/api/src/modules/ledger/ @pachaninm-lab
+/apps/api/src/modules/deals/ @pachaninm-lab
+/apps/api/src/modules/anti-fraud/ @pachaninm-lab
+/apps/api/src/modules/compliance/ @pachaninm-lab
+/apps/api/src/modules/kyc/ @pachaninm-lab
+/apps/api/src/modules/business-reputation/ @pachaninm-lab
+/apps/api/src/modules/accounting/ @pachaninm-lab
+/apps/api/src/modules/bank-reconciliation/ @pachaninm-lab
+/apps/api/src/modules/factoring/ @pachaninm-lab
+/apps/api/src/modules/disputes/ @pachaninm-lab
+/apps/api/src/modules/arbitrator/ @pachaninm-lab
+
+# IP policy and evidence controls
+/LICENSE @pachaninm-lab
+/NOTICE @pachaninm-lab
+/docs/ip/ @pachaninm-lab
+/scripts/ip/ @pachaninm-lab
+/.github/workflows/sbom-scan.yml @pachaninm-lab
