@@ -1190,6 +1190,8 @@
       "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts"
     ],
     "fix/outbox-cve-exception-4476": [
+      "docs/platform-v7/autopilot/check-security-release-gate.mjs",
+      "docs/platform-v7/autopilot/security-exceptions.schema.json",
       "docs/platform-v7/autopilot/security-exceptions.json",
       "docs/platform-v7/autopilot/scopes/outbox-cve-exception-4476.json"
     ]
