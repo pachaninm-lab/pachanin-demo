@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { CSRF_COOKIE, csrfCookieSecurity } from '../../../../lib/auth-cookies';
 import {
   applyAuthenticatedSession,
+  clearAuthenticatedSession,
   normalizeSurfaceRole,
   platformHome,
   type AuthenticatedSessionPayload,
@@ -13,7 +15,7 @@ import {
   mfaPendingCookieOptions,
   sealMfaLoginTicket,
 } from '../../../../lib/server/mfa-login-ticket';
-import { assertCsrf } from '../../../../lib/server-request-security';
+import { assertCsrf, generateCsrfToken } from '../../../../lib/server-request-security';
 import {
   MEMBERSHIP_SELECTION_COOKIE,
   clearMembershipSelectionCookieOptions,
@@ -75,6 +77,28 @@ function forwardedHeaders(request: Request, correlationId: string) {
     ...(ip ? { 'x-forwarded-for': ip } : {}),
     ...(userAgent ? { 'user-agent': userAgent } : {}),
   };
+}
+
+/**
+ * A password-proven transition to membership selection or MFA belongs to the
+ * new account, not to whatever account happened to be authenticated in this
+ * browser before the user opened /login. Remove that stale browser authority
+ * before exposing a pending challenge, then immediately issue a fresh CSRF
+ * cookie so the pending flow can continue without inheriting identity state.
+ *
+ * The previous server-side session is deliberately not used as authority for
+ * the new flow. Its browser bearer cookies are removed here; normal logout and
+ * token expiry remain the server-side revocation mechanisms for that session.
+ */
+function clearPreviousAuthenticatedBrowserSession(
+  response: NextResponse,
+  controlPlane: boolean,
+) {
+  clearAuthenticatedSession(response, { controlPlane });
+  response.cookies.set(CSRF_COOKIE, generateCsrfToken(), {
+    ...csrfCookieSecurity(),
+    sameSite: controlPlane ? 'strict' : 'lax',
+  });
 }
 
 async function completeSession(
@@ -190,6 +214,7 @@ export async function POST(request: Request) {
         expiresAt: payload.challengeExpiresAt || null,
         correlationId,
       });
+      clearPreviousAuthenticatedBrowserSession(response, controlPlane);
       response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, payload.challengeToken, membershipSelectionCookieOptions());
       response.cookies.set(MFA_PENDING_COOKIE, '', clearMfaPendingCookieOptions());
       return response;
@@ -219,6 +244,7 @@ export async function POST(request: Request) {
         expiresAt: payload.challengeExpiresAt || null,
         correlationId,
       });
+      clearPreviousAuthenticatedBrowserSession(response, controlPlane);
       response.cookies.set(MFA_PENDING_COOKIE, ticket, mfaPendingCookieOptions());
       response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, '', clearMembershipSelectionCookieOptions());
       return response;
