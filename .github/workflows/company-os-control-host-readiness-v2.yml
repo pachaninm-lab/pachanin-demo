@@ -62,9 +62,10 @@ jobs:
           mkdir -p "$evidence"
           dns_a=ABSENT
           dns_aaaa=ABSENT
+          command -v dig >/dev/null 2>&1 || { echo "::error::dig is required for exact DNS RR-type evidence"; exit 1; }
           for attempt in 1 2 3 4 5 6; do
-            a_records="$(getent ahostsv4 "$CONTROL_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
-            aaaa_records="$(getent ahostsv6 "$CONTROL_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+            a_records="$(dig +time=5 +tries=1 +short A "$CONTROL_DOMAIN" 2>/dev/null | awk -F. 'NF == 4 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ && $4 ~ /^[0-9]+$/ {print}' | sort -u || true)"
+            aaaa_records="$(dig +time=5 +tries=1 +short AAAA "$CONTROL_DOMAIN" 2>/dev/null | awk '/^[0-9A-Fa-f:]+$/ && /:/ {print tolower($0)}' | sort -u || true)"
             if [[ -z "$a_records" ]]; then dns_a=ABSENT
             elif [[ "$(grep -c . <<< "$a_records")" == 1 ]] && grep -Fxq "$CANONICAL_VPS" <<< "$a_records"; then dns_a=CANONICAL
             else dns_a=MISMATCH; fi
@@ -135,9 +136,60 @@ jobs:
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" bash -s -- "$CONTROL_DOMAIN" <<'REMOTE' > "$remote"
           set -euo pipefail
           control_domain="${1:?control domain is required}"
-          caddy_active=NO; caddy_valid=UNKNOWN; caddy_control_declared=NO
-          command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet caddy && caddy_active=YES || true
-          if command -v caddy >/dev/null 2>&1 && [[ -r /etc/caddy/Caddyfile ]]; then caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 && caddy_valid=YES || caddy_valid=NO; grep -Fq "$control_domain" /etc/caddy/Caddyfile && caddy_control_declared=YES || true; fi
+
+          caddy_source=NONE; caddy_active=NO; caddy_valid=UNKNOWN; caddy_control_declared=NO; caddy_config_writable=UNKNOWN
+          caddy_compose_metadata=NOT_APPLICABLE; public_443_owner=NONE
+          systemd_active=NO; systemd_valid=UNKNOWN; systemd_control_declared=NO; systemd_config_writable=UNKNOWN
+          if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet caddy; then
+            systemd_active=YES
+            if command -v caddy >/dev/null 2>&1 && [[ -r /etc/caddy/Caddyfile ]]; then
+              caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 && systemd_valid=YES || systemd_valid=NO
+              grep -Fq -- "$control_domain" /etc/caddy/Caddyfile && systemd_control_declared=YES || true
+              [[ -w /etc/caddy/Caddyfile ]] && systemd_config_writable=YES || systemd_config_writable=NO
+            fi
+          fi
+
+          mapfile -t caddy_ids < <(docker ps -aq --filter 'label=com.docker.compose.service=caddy' | sort -u)
+          caddy_container_count="${#caddy_ids[@]}"; caddy_running_count=0; selected_caddy_id=
+          docker_valid=UNKNOWN; docker_control_declared=NO; docker_config_writable=UNKNOWN
+          for caddy_id in "${caddy_ids[@]}"; do
+            [[ -n "$caddy_id" ]] || continue
+            state="$(docker inspect --format '{{.State.Status}}' "$caddy_id" 2>/dev/null || true)"
+            [[ "$state" == running ]] || continue
+            caddy_running_count=$((caddy_running_count+1)); selected_caddy_id="$caddy_id"
+          done
+          if [[ "$caddy_running_count" == 1 ]]; then
+            docker exec "$selected_caddy_id" caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 && docker_valid=YES || docker_valid=NO
+            docker exec "$selected_caddy_id" grep -Fq -- "$control_domain" /etc/caddy/Caddyfile >/dev/null 2>&1 && docker_control_declared=YES || true
+            project_label="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$selected_caddy_id" 2>/dev/null || true)"
+            config_label="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$selected_caddy_id" 2>/dev/null || true)"
+            if [[ -n "$project_label" && "$project_label" != '<no value>' && -n "$config_label" && "$config_label" != '<no value>' ]]; then caddy_compose_metadata=YES; else caddy_compose_metadata=NO; fi
+            mount_file_source="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{println .Source}}{{end}}{{end}}' "$selected_caddy_id" 2>/dev/null | head -1 || true)"
+            mount_dir_source="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy"}}{{println .Source}}{{end}}{{end}}' "$selected_caddy_id" 2>/dev/null | head -1 || true)"
+            host_config_candidate=
+            if [[ -n "$mount_file_source" ]]; then host_config_candidate="$mount_file_source"
+            elif [[ -n "$mount_dir_source" ]]; then host_config_candidate="${mount_dir_source%/}/Caddyfile"; fi
+            if [[ -n "$host_config_candidate" ]]; then [[ -w "$host_config_candidate" ]] && docker_config_writable=YES || docker_config_writable=NO; fi
+          elif [[ "$caddy_container_count" -gt 0 ]]; then
+            caddy_compose_metadata=UNKNOWN
+          fi
+
+          mapfile -t public_443_ids < <(docker ps -q --filter 'publish=443' | sort -u)
+          if [[ "${#public_443_ids[@]}" == 1 ]]; then
+            [[ -n "$selected_caddy_id" && "${public_443_ids[0]}" == "$selected_caddy_id" ]] && public_443_owner=CADDY || public_443_owner=OTHER
+          elif [[ "${#public_443_ids[@]}" -gt 1 ]]; then public_443_owner=AMBIGUOUS; fi
+
+          if [[ "$systemd_active" == YES && "$caddy_running_count" -gt 0 ]]; then
+            caddy_source=AMBIGUOUS; caddy_active=AMBIGUOUS
+          elif [[ "$systemd_active" == YES ]]; then
+            caddy_source=SYSTEMD; caddy_active=YES; caddy_valid="$systemd_valid"; caddy_control_declared="$systemd_control_declared"; caddy_config_writable="$systemd_config_writable"
+          elif [[ "$caddy_container_count" -gt 0 ]]; then
+            caddy_source=DOCKER_COMPOSE
+            if [[ "$caddy_running_count" == 1 ]]; then caddy_active=YES; caddy_valid="$docker_valid"; caddy_control_declared="$docker_control_declared"; caddy_config_writable="$docker_config_writable"
+            elif [[ "$caddy_running_count" -gt 1 ]]; then caddy_active=AMBIGUOUS
+            else caddy_active=NO; fi
+          fi
+
           mapfile -t web_ids < <(docker ps -aq --filter 'label=com.docker.compose.service=web' | sort -u)
           web_container_count="${#web_ids[@]}"; web_running_count=0; web_state=NOT_FOUND; web_image_id=UNKNOWN; web_revision=UNKNOWN; control_gate=UNKNOWN
           for web_id in "${web_ids[@]}"; do [[ -n "$web_id" ]] || continue; state="$(docker inspect --format '{{.State.Status}}' "$web_id" 2>/dev/null || true)"; [[ "$state" == running ]] || continue; web_running_count=$((web_running_count+1)); selected_web_id="$web_id"; done
@@ -146,9 +198,9 @@ jobs:
             if [[ "$web_image_id" != UNKNOWN ]]; then revision="$(docker image inspect "$web_image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"; [[ "$revision" =~ ^[0-9a-f]{40}$ ]] && web_revision="$revision"; fi
             gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$selected_web_id" 2>/dev/null | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"; [[ "$gate" == 'PC_CONTROL_HOST_ENABLED=true' ]] && control_gate=ENABLED || control_gate=DISABLED_OR_ABSENT
           elif [[ "$web_running_count" -gt 1 ]]; then web_state=AMBIGUOUS; fi
-          printf '%s\n' "CADDY_ACTIVE=$caddy_active" "CADDY_VALID=$caddy_valid" "CADDY_CONTROL_DECLARED=$caddy_control_declared" "WEB_CONTAINER_COUNT=$web_container_count" "WEB_RUNNING_COUNT=$web_running_count" "WEB_STATE=$web_state" "WEB_IMAGE_ID=$web_image_id" "WEB_REVISION=$web_revision" "CONTROL_GATE=$control_gate"
+          printf '%s\n' "CADDY_SOURCE=$caddy_source" "CADDY_ACTIVE=$caddy_active" "CADDY_VALID=$caddy_valid" "CADDY_CONTROL_DECLARED=$caddy_control_declared" "CADDY_CONFIG_WRITABLE=$caddy_config_writable" "CADDY_CONTAINER_COUNT=$caddy_container_count" "CADDY_RUNNING_COUNT=$caddy_running_count" "CADDY_COMPOSE_METADATA=$caddy_compose_metadata" "PUBLIC_443_OWNER=$public_443_owner" "WEB_CONTAINER_COUNT=$web_container_count" "WEB_RUNNING_COUNT=$web_running_count" "WEB_STATE=$web_state" "WEB_IMAGE_ID=$web_image_id" "WEB_REVISION=$web_revision" "CONTROL_GATE=$control_gate"
           REMOTE
-          for key in CADDY_ACTIVE CADDY_VALID CADDY_CONTROL_DECLARED WEB_CONTAINER_COUNT WEB_RUNNING_COUNT WEB_STATE WEB_IMAGE_ID WEB_REVISION CONTROL_GATE; do value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"; [[ -n "$value" ]] || value=UNKNOWN; echo "${key,,}=$value" >> "$GITHUB_OUTPUT"; done
+          for key in CADDY_SOURCE CADDY_ACTIVE CADDY_VALID CADDY_CONTROL_DECLARED CADDY_CONFIG_WRITABLE CADDY_CONTAINER_COUNT CADDY_RUNNING_COUNT CADDY_COMPOSE_METADATA PUBLIC_443_OWNER WEB_CONTAINER_COUNT WEB_RUNNING_COUNT WEB_STATE WEB_IMAGE_ID WEB_REVISION CONTROL_GATE; do value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"; [[ -n "$value" ]] || value=UNKNOWN; echo "${key,,}=$value" >> "$GITHUB_OUTPUT"; done
       - name: Classify readiness
         id: result
         if: always()
@@ -160,9 +212,15 @@ jobs:
           TLS: ${{ steps.public.outputs.tls }}
           HTTPS: ${{ steps.public.outputs.https }}
           SSH_STATE: ${{ steps.ssh.outputs.ssh_state }}
+          CADDY_SOURCE: ${{ steps.remote.outputs.caddy_source }}
           CADDY_ACTIVE: ${{ steps.remote.outputs.caddy_active }}
           CADDY_VALID: ${{ steps.remote.outputs.caddy_valid }}
           CADDY_CONTROL_DECLARED: ${{ steps.remote.outputs.caddy_control_declared }}
+          CADDY_CONFIG_WRITABLE: ${{ steps.remote.outputs.caddy_config_writable }}
+          CADDY_CONTAINER_COUNT: ${{ steps.remote.outputs.caddy_container_count }}
+          CADDY_RUNNING_COUNT: ${{ steps.remote.outputs.caddy_running_count }}
+          CADDY_COMPOSE_METADATA: ${{ steps.remote.outputs.caddy_compose_metadata }}
+          PUBLIC_443_OWNER: ${{ steps.remote.outputs.public_443_owner }}
           WEB_STATE: ${{ steps.remote.outputs.web_state }}
           WEB_REVISION: ${{ steps.remote.outputs.web_revision }}
           CONTROL_GATE: ${{ steps.remote.outputs.control_gate }}
@@ -172,13 +230,17 @@ jobs:
           if [[ "$DNS_A" != CANONICAL ]]; then state=BLOCKED_DNS
           elif [[ "$DNS_AAAA" != ABSENT ]]; then state=BLOCKED_UNVERIFIED_IPV6
           elif [[ "$SSH_STATE" != READY ]]; then state=BLOCKED_PRODUCTION_TRANSPORT
+          elif [[ "$CADDY_SOURCE" != SYSTEMD && "$CADDY_SOURCE" != DOCKER_COMPOSE ]]; then state=BLOCKED_CADDY_TOPOLOGY
           elif [[ "$CADDY_ACTIVE" != YES || "$CADDY_VALID" != YES ]]; then state=BLOCKED_CADDY_BASELINE
+          elif [[ "$CADDY_SOURCE" == DOCKER_COMPOSE && "$CADDY_COMPOSE_METADATA" != YES ]]; then state=BLOCKED_CADDY_COMPOSE_METADATA
+          elif [[ "$CADDY_SOURCE" == DOCKER_COMPOSE && "$PUBLIC_443_OWNER" != CADDY ]]; then state=BLOCKED_PUBLIC_443_OWNERSHIP
           elif [[ "$WEB_STATE" != RUNNING || ! "$WEB_REVISION" =~ ^[0-9a-f]{40}$ ]]; then state=BLOCKED_WEB_RUNTIME
+          elif [[ "$CADDY_CONTROL_DECLARED" != YES || "$CONTROL_GATE" != ENABLED || "$TLS" != VALID_FOR_CONTROL_HOST ]] && [[ "$CADDY_CONFIG_WRITABLE" != YES ]]; then state=BLOCKED_CADDY_CONFIG_ACCESS
           elif [[ "$CADDY_CONTROL_DECLARED" != YES || "$CONTROL_GATE" != ENABLED || "$TLS" != VALID_FOR_CONTROL_HOST ]]; then state=READY_FOR_CONTROL_HOST_CUTOVER
           elif [[ ! "$HTTPS" =~ ^HTTP_(200|301|302|303|307|308|401|403|404)$ ]]; then state=BLOCKED_HTTPS
           else state=CONTROL_HOST_READY; fi
           echo "state=$state" >> "$GITHUB_OUTPUT"
-          printf '## Company OS control-host readiness V2\n\n- Exact main: `%s`\n- State: **%s**\n- DNS A / AAAA: `%s / %s`\n- TLS / HTTPS: `%s / %s`\n- SSH: `%s`\n- Caddy active / valid / control: `%s / %s / %s`\n- Web state / revision: `%s / %s`\n- Control gate: `%s`\n\nRead-only diagnostic. Production mutation: NONE.\n' "$MAIN_SHA" "$state" "$DNS_A" "$DNS_AAAA" "$TLS" "$HTTPS" "$SSH_STATE" "$CADDY_ACTIVE" "$CADDY_VALID" "$CADDY_CONTROL_DECLARED" "$WEB_STATE" "$WEB_REVISION" "$CONTROL_GATE" >> "$GITHUB_STEP_SUMMARY"
+          printf '## Company OS control-host readiness V2\n\n- Exact main: `%s`\n- State: **%s**\n- DNS A / AAAA: `%s / %s`\n- TLS / HTTPS: `%s / %s`\n- SSH: `%s`\n- Caddy source / active / valid: `%s / %s / %s`\n- Caddy control / config writable: `%s / %s`\n- Caddy containers known / running: `%s / %s`\n- Compose metadata / public 443 owner: `%s / %s`\n- Web state / revision: `%s / %s`\n- Control gate: `%s`\n\nRead-only diagnostic. Production mutation: NONE.\n' "$MAIN_SHA" "$state" "$DNS_A" "$DNS_AAAA" "$TLS" "$HTTPS" "$SSH_STATE" "$CADDY_SOURCE" "$CADDY_ACTIVE" "$CADDY_VALID" "$CADDY_CONTROL_DECLARED" "$CADDY_CONFIG_WRITABLE" "$CADDY_CONTAINER_COUNT" "$CADDY_RUNNING_COUNT" "$CADDY_COMPOSE_METADATA" "$PUBLIC_443_OWNER" "$WEB_STATE" "$WEB_REVISION" "$CONTROL_GATE" >> "$GITHUB_STEP_SUMMARY"
       - name: Publish bounded result to control-host issue
         if: always() && steps.result.outputs.state != ''
         uses: actions/github-script@v7
@@ -190,15 +252,21 @@ jobs:
           TLS: ${{ steps.public.outputs.tls }}
           HTTPS: ${{ steps.public.outputs.https }}
           SSH_STATE: ${{ steps.ssh.outputs.ssh_state }}
+          CADDY_SOURCE: ${{ steps.remote.outputs.caddy_source }}
           CADDY_ACTIVE: ${{ steps.remote.outputs.caddy_active }}
           CADDY_VALID: ${{ steps.remote.outputs.caddy_valid }}
           CADDY_CONTROL_DECLARED: ${{ steps.remote.outputs.caddy_control_declared }}
+          CADDY_CONFIG_WRITABLE: ${{ steps.remote.outputs.caddy_config_writable }}
+          CADDY_CONTAINER_COUNT: ${{ steps.remote.outputs.caddy_container_count }}
+          CADDY_RUNNING_COUNT: ${{ steps.remote.outputs.caddy_running_count }}
+          CADDY_COMPOSE_METADATA: ${{ steps.remote.outputs.caddy_compose_metadata }}
+          PUBLIC_443_OWNER: ${{ steps.remote.outputs.public_443_owner }}
           WEB_STATE: ${{ steps.remote.outputs.web_state }}
           WEB_REVISION: ${{ steps.remote.outputs.web_revision }}
           CONTROL_GATE: ${{ steps.remote.outputs.control_gate }}
         with:
           script: |
-            const body = ['## Company OS control-host readiness V2','',`- Exact main: \`${process.env.MAIN_SHA || 'UNKNOWN'}\``,`- State: **${process.env.RESULT_STATE || 'BLOCKED_UNKNOWN'}**`,`- DNS A / AAAA: \`${process.env.DNS_A || 'UNKNOWN'} / ${process.env.DNS_AAAA || 'UNKNOWN'}\``,`- TLS / HTTPS: \`${process.env.TLS || 'UNKNOWN'} / ${process.env.HTTPS || 'UNKNOWN'}\``,`- SSH: \`${process.env.SSH_STATE || 'UNKNOWN'}\``,`- Caddy active / valid / control: \`${process.env.CADDY_ACTIVE || 'UNKNOWN'} / ${process.env.CADDY_VALID || 'UNKNOWN'} / ${process.env.CADDY_CONTROL_DECLARED || 'UNKNOWN'}\``,`- Web state / revision: \`${process.env.WEB_STATE || 'UNKNOWN'} / ${process.env.WEB_REVISION || 'UNKNOWN'}\``,`- Control gate: \`${process.env.CONTROL_GATE || 'UNKNOWN'}\``, '', 'Read-only diagnostic. Production mutation: **NONE**.'].join('\n');
+            const body = ['## Company OS control-host readiness V2','',`- Exact main: \`${process.env.MAIN_SHA || 'UNKNOWN'}\``,`- State: **${process.env.RESULT_STATE || 'BLOCKED_UNKNOWN'}**`,`- DNS A / AAAA: \`${process.env.DNS_A || 'UNKNOWN'} / ${process.env.DNS_AAAA || 'UNKNOWN'}\``,`- TLS / HTTPS: \`${process.env.TLS || 'UNKNOWN'} / ${process.env.HTTPS || 'UNKNOWN'}\``,`- SSH: \`${process.env.SSH_STATE || 'UNKNOWN'}\``,`- Caddy source / active / valid: \`${process.env.CADDY_SOURCE || 'UNKNOWN'} / ${process.env.CADDY_ACTIVE || 'UNKNOWN'} / ${process.env.CADDY_VALID || 'UNKNOWN'}\``,`- Caddy control / config writable: \`${process.env.CADDY_CONTROL_DECLARED || 'UNKNOWN'} / ${process.env.CADDY_CONFIG_WRITABLE || 'UNKNOWN'}\``,`- Caddy containers known / running: \`${process.env.CADDY_CONTAINER_COUNT || 'UNKNOWN'} / ${process.env.CADDY_RUNNING_COUNT || 'UNKNOWN'}\``,`- Compose metadata / public 443 owner: \`${process.env.CADDY_COMPOSE_METADATA || 'UNKNOWN'} / ${process.env.PUBLIC_443_OWNER || 'UNKNOWN'}\``,`- Web state / revision: \`${process.env.WEB_STATE || 'UNKNOWN'} / ${process.env.WEB_REVISION || 'UNKNOWN'}\``,`- Control gate: \`${process.env.CONTROL_GATE || 'UNKNOWN'}\``, '', 'Read-only diagnostic. Production mutation: **NONE**.'].join('\n');
             await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: Number(process.env.TARGET_ISSUE), body});
       - name: Upload redacted readiness evidence
         if: always()

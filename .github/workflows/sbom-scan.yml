@@ -1,4 +1,4 @@
-name: IP Clean Room & Full SBOM
+name: IP Clean Room Baseline & Full SBOM
 
 on:
   pull_request:
@@ -10,7 +10,13 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'LICENSE'
+      - 'LICENSE-PROPRIETARY.md'
       - 'NOTICE'
+      - 'COPYRIGHT'
+      - 'IP_POLICY.md'
+      - 'OPEN_SOURCE_POLICY.md'
+      - 'CONTRIBUTOR_IP_POLICY.md'
+      - 'THIRD_PARTY_NOTICES.md'
       - '.github/CODEOWNERS'
       - '.github/workflows/sbom-scan.yml'
   push:
@@ -23,7 +29,13 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'LICENSE'
+      - 'LICENSE-PROPRIETARY.md'
       - 'NOTICE'
+      - 'COPYRIGHT'
+      - 'IP_POLICY.md'
+      - 'OPEN_SOURCE_POLICY.md'
+      - 'CONTRIBUTOR_IP_POLICY.md'
+      - 'THIRD_PARTY_NOTICES.md'
       - '.github/CODEOWNERS'
       - '.github/workflows/sbom-scan.yml'
   schedule:
@@ -41,61 +53,57 @@ env:
   NODE_VERSION: '24'
   PNPM_VERSION: '10.2.1'
   CDXGEN_VERSION: '12.8.3'
+  CDXGEN_INTEGRITY: 'sha512-EfLTkLRjzfWGUdSngTV+yOl8VkNv+mkpC6J7IuuzSumB7FsZFPsPG4EHiGKqoZdeXjdJN1zloXSedw7cW6cF/w=='
 
 jobs:
   ip-evidence:
-    name: Full provenance, licenses & SBOM
+    name: Conservative provenance, licenses & SBOM baseline
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - name: Checkout full Git history
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
       - name: Install locked Node dependencies
-        run: pnpm install --frozen-lockfile
+        run: env -i PATH="$PATH" HOME="$HOME" CI=true pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Verify internal package no-publish policy
-        run: node scripts/ip/verify-private-packages.mjs
+        run: node scripts/ip/verify-private-packages.mjs --baseline
 
       - name: Build full-history clean-room provenance
         run: node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room
 
+      - name: Verify pinned SBOM tool package integrity
+        run: test "$(env -i PATH="$PATH" HOME="$HOME" npm view @cyclonedx/cdxgen@${CDXGEN_VERSION} dist.integrity)" = "${CDXGEN_INTEGRITY}"
+
       - name: Generate Node/pnpm CycloneDX + SPDX SBOM
-        env:
-          FETCH_LICENSE: 'true'
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p artifacts/ip-clean-room/sbom
-          corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
+          env -i PATH="$PATH" HOME="$HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
             -t pnpm \
             --format cyclonedx,spdx \
-            --include-formulation \
             --validate \
             -o artifacts/ip-clean-room/sbom/sbom-node.cdx.json \
             .
 
       - name: Generate Python/TAI CycloneDX + SPDX SBOM
-        env:
-          FETCH_LICENSE: 'true'
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
+          env -i PATH="$PATH" HOME="$HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
             -t python \
             --format cyclonedx,spdx \
-            --include-formulation \
             --validate \
             -o artifacts/ip-clean-room/sbom/sbom-tai.cdx.json \
             apps/tai
@@ -104,21 +112,18 @@ jobs:
         continue-on-error: true
         run: node scripts/ip/build-license-map.mjs artifacts/ip-clean-room/sbom artifacts/ip-clean-room
 
-      - name: Screen proprietary core against public GitHub code
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/ip/scan-github-public-matches.mjs artifacts/ip-clean-room
+      - name: Build offline-only similarity evidence
+        run: node scripts/ip/build-offline-similarity-evidence.mjs artifacts/ip-clean-room
 
       - name: Upload immutable IP evidence bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ip-clean-room-${{ github.sha }}
           path: artifacts/ip-clean-room
           if-no-files-found: error
           retention-days: 90
 
-      - name: Enforce complete IP evidence gate
+      - name: Enforce conservative baseline evidence gate
         if: always()
-        run: node scripts/ip/verify-ip-evidence.mjs artifacts/ip-clean-room
+        run: node scripts/ip/verify-ip-evidence.mjs artifacts/ip-clean-room --baseline

@@ -1,77 +1,83 @@
-# IP Clean Room Report
+# IP Clean-Room Baseline Report
 
-Report baseline date: 2026-08-21  
+Baseline authority: owner issue [#4459](https://github.com/pachaninm-lab/pachanin-demo/issues/4459)
+
+Baseline date: 2026-08-21
+
 Repository: `pachaninm-lab/pachanin-demo`
 
 ## Executive status
 
-This repository is treated as proprietary application software that incorporates
-third-party open-source dependencies. The source code must not be represented as
-"100% written without open source"; the defensible claim is that the original
-application/domain implementation is proprietary while identified third-party
-components retain their own licenses.
+**BLOCKED — baseline controls exist; final proprietary-clean status is not proven.**
 
-### Controls established by this change
+The defensible current statement is limited: the repository contains original
+application work plus third-party infrastructure/dependencies, and a technical
+program now records the origin, license, similarity and chain-of-title evidence
+needed to separate them. No absence-of-match, Git author record, proprietary
+license file, SBOM or repository visibility setting alone proves exclusive
+ownership or uniqueness.
 
-- proprietary `LICENSE` and `NOTICE`;
-- explicit software/IP and contribution policies;
-- no-publish metadata for internal npm workspace packages;
-- CODEOWNERS and a machine-readable proprietary-core boundary;
-- full-history provenance generation (`file → origin commit → author → license/header → status`);
-- CycloneDX + SPDX SBOM generation for pnpm/Node and Python/TAI;
-- normalized transitive license map with blocked/review classifications;
-- current/history scan for copyright/SPDX/license markers and vendor/generated paths;
-- public GitHub code-match screening for high-value proprietary-core source.
+The repository was public at the baseline. `HISTORICAL_SOURCE_DISCLOSURE = TRUE`.
+Future private access control cannot erase copies or rights lawfully acquired
+before the cutover.
 
-## Baseline findings before the evidence run
+## Controls established in the baseline slice
 
-1. The GitHub repository was `public` at the start of this hardening work.
-2. The root, API, web, `domain-core`, design-system and design-token packages were
-   already marked `private`; `packages/integration-sdk` was the identified
-   internal npm package missing the no-publish flag.
-3. No `SPDX-License-Identifier` or generic `Copyright` header was returned by the
-   repository code index search at the baseline revision. This is a useful
-   screening result, not a substitute for the full-history workflow.
-4. A pre-existing SBOM workflow generated CycloneDX only for `apps/api` and
-   `apps/web`; it did not cover SPDX, the full workspace, TAI/Python, normalized
-   license classification or provenance.
-5. Historical public visibility must remain disclosed in any investor/buyer IP
-   due-diligence package. Making the repository private is prospective access
-   control, not retroactive erasure of public copies.
+- proprietary license/notice and contribution/open-source policies;
+- internal npm package no-publish validation with complete root/apps/packages discovery;
+- explicit final-blocking register for metadata that the current scope cannot edit;
+- CODEOWNERS plus a machine-readable proprietary/crown-jewel boundary;
+- full-history inventory for tracked, deleted, renamed, vendored, archived,
+  generated-candidate, symlink, submodule, branch and tag evidence;
+- conservative file provenance with every required field and explicit `UNKNOWN`;
+- contributor identifiers with hashed emails; contracts remain outside Git;
+- exact Node/pnpm and Python/TAI CycloneDX + SPDX SBOM sets;
+- normalized transitive dependency-license map;
+- offline-only exact/normalized/winnowing similarity tooling;
+- baseline and final verification modes: baseline may expose blockers, while
+  final mode fails until every blocker is resolved.
 
-## Canonical generated evidence
+## Canonical exact-SHA workflow evidence
 
-The `IP Clean Room & Full SBOM` workflow uploads one immutable artifact bundle per
-run containing:
+The `IP Clean Room Baseline & Full SBOM` workflow uploads an exact-commit bundle
+containing at least:
 
-- `file-provenance.csv`
-- `authors.csv`
-- `current-header-candidates.csv`
-- `history-header-candidates.txt`
-- `history-vendor-candidates.csv`
-- `license-map.csv`
-- `license-summary.json`
-- Node/pnpm CycloneDX and SPDX SBOMs
-- Python/TAI CycloneDX and SPDX SBOMs
-- `public-code-match-candidates.json`
-- `clean-room-summary.json`
+- `REPOSITORY_INVENTORY.json`;
+- `FILE_PROVENANCE.csv` and `FILE_PROVENANCE.json`;
+- `CONTRIBUTORS.csv`;
+- current/history license-header candidates;
+- historical vendor, deleted-file and rename registers;
+- `PROVENANCE_SUMMARY.json`;
+- `license-map.csv` and `license-summary.json`;
+- Node/pnpm CycloneDX and SPDX SBOMs;
+- Python/TAI CycloneDX and SPDX SBOMs;
+- hash-only offline similarity fingerprints, `SIMILARITY_FINDINGS.csv` and summary.
 
-The generated `file-provenance.csv` is the requested per-file clean-room table.
-It is kept as a CI artifact rather than committed on every change so that the
-report stays tied to an exact immutable commit and does not create large noisy
-diffs.
+The full per-file outputs are exact-SHA artifacts rather than tracked generated
+files. Committing a file that records its own blob SHA creates a self-reference
+and immediately makes the snapshot stale. Repository policy and schemas are
+tracked; immutable evidence is attached to the exact workflow revision.
 
-## Interpretation rules
+## Similarity boundary
 
-- `PROPRIETARY_NO_EXTERNAL_HEADER`: no external license/copyright marker was
-  detected in the current file header; contractual chain-of-title still must be
-  confirmed separately.
-- `REVIEW_EXTERNAL_LICENSE_HEADER`: a license/copyright marker requires review.
-- `REVIEW_VENDOR_OR_GENERATED`: path/history indicates possible vendored,
-  external or generated material.
-- `POLICY_OR_METADATA`: repository policy/build metadata, not proprietary
-  business logic.
+No source text or distinctive source phrase is sent to GitHub code search, a
+public scanner or other SaaS. Final similarity status requires an explicitly
+approved external corpus mounted locally into the controlled runner. Without
+that corpus the result is `CORPUS_REQUIRED`, not a false PASS.
 
-A clean automated result is evidence, not a legal opinion. Exclusive-rights
-ownership still requires employment/contractor assignment evidence for every
-material contributor.
+Similarity hits are review candidates, not automatic proof of copying. No hit
+is screening evidence, not absolute proof of originality.
+
+## Known final blockers at baseline
+
+- most historical files have repository provenance but not adjudicated origin,
+  rights basis, AI involvement or material contributors;
+- contractual chain of title is not stored in Git and remains human/legal work;
+- the approved offline external similarity corpus has not yet been supplied;
+- historical public exposure remains true;
+- repository visibility is still public;
+- Qwen model/tokenizer hash and license evidence must be verified independently;
+- full dependency, asset, dataset, RAG, secret-history, ASVS, tenant, abuse,
+  backup/restore and release-provenance acceptance remains outside this slice.
+
+Until those items are closed, the final formulation from issue #4459 is forbidden.

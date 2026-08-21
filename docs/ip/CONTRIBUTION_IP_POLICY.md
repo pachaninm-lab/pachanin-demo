@@ -24,3 +24,8 @@ Required evidence for externally sourced material:
 - license/SPDX identifier or full license text;
 - files incorporated or adapted;
 - reason for use and approval record.
+
+Every new or materially modified product file must also record a known origin,
+first-party/infrastructure/integration classification, resolved license,
+dependency approval where applicable, security review and provenance evidence.
+An unresolved origin or restrictive product/runtime license blocks merge.

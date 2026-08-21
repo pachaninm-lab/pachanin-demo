@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-control-cutover-queue-guard-3785",
+  "status": "active",
+  "purpose": "Unblock the already authorized PC-CROP control-host cutover for #3785 by distinguishing real concurrent production work from stale queued workflow records that are older than one hour and have zero materialized jobs.",
+  "authorityBaseExactMain": "1fae9f495421a13e89f3bff83a81e810c50e3d03",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-control-cutover-queue-guard-3785.json"
+  ],
+  "requiredInvariants": [
+    "Every in-progress production, release, deploy, REG.RU, cutover, activation or rolling workflow remains a hard blocker.",
+    "Every matching queued run newer than one hour remains a hard blocker even when GitHub has not materialized its jobs.",
+    "A queued matching run may be ignored only when it is older than one hour and the GitHub Actions jobs API independently returns exactly zero jobs.",
+    "Queued runs with one or more materialized jobs remain hard blockers regardless of age.",
+    "The current cutover run excludes only itself and keeps all existing exact-main, DNS, pinned SSH, Compose, backup, rollback and 10-round live acceptance guards.",
+    "This queue-classification change performs no production mutation by itself and does not cancel, delete or alter historical workflow records.",
+    "GO remains forbidden until First Customer and all 9 of 9 role journeys pass."
+  ],
+  "acceptance": [
+    "The five observed August 19 queue ghosts qualify only because each is more than one hour old and has zero jobs.",
+    "A real recent or materialized concurrent production run still stops the cutover before DNS, SSH or production mutation.",
+    "Workflow syntax and exact-head security gates pass before merge.",
+    "Successful merge may retry the guarded cutover; any preflight failure remains no-mutation and any later failure retains automatic rollback."
+  ]
+}

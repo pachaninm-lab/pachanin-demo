@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "effectiveDate": "2026-08-21",
+  "exceptions": [
+    {
+      "path": "apps/landing/package.json",
+      "name": "@pc/landing",
+      "status": "OPEN_BLOCKER",
+      "requirePrivate": true,
+      "missingField": "license=UNLICENSED",
+      "reason": "AGENTS.md forbids changes under apps/landing in this bounded slice. The manifest remains non-publishable through private=true, but final IP status is blocked until a separately authorized metadata-only change adds license=UNLICENSED.",
+      "authority": "https://github.com/pachaninm-lab/pachanin-demo/issues/4459",
+      "expiresOn": "2026-09-30"
+    }
+  ]
+}

@@ -23,9 +23,14 @@ follows the real code instead of inventing directories that do not exist.
 - Full-history provenance and license/header candidates are generated from
   `git log --all` and current tracked files.
 - CycloneDX and SPDX SBOMs cover Node/pnpm and the Python TAI service.
-- Public-code similarity screening is performed against GitHub for protected
-  source fingerprints; candidates require human/legal review and are not treated
-  as infringement findings automatically.
+- Similarity screening is offline-only against an explicitly approved, locally
+  mounted corpus. Exact, normalized-token and winnowing candidates require
+  human/legal review and are not treated as infringement findings automatically.
+
+Qwen weights, tokenizer and license remain outside this boundary as immutable,
+replaceable `THIRD_PARTY_INFRASTRUCTURE`. The proprietary boundary covers our
+Gekta orchestration, retrieval, context, memory, tools, safety/business policy,
+agricultural logic and product UI—not the Qwen foundation model.
 
 ## Separate-repository extraction
 

@@ -69,12 +69,14 @@ The canonical IP evidence workflow produces:
 - current and historical copyright/license-header candidates;
 - current and historical vendor/generated-path candidates;
 - commit-author inventory;
-- per-file clean-room provenance CSV;
-- public GitHub code-match screening results for the protected core.
+- per-file clean-room provenance CSV and JSON;
+- offline-only exact, normalized-token and winnowing similarity evidence for the protected core.
 
 An SBOM identifies components and licenses; it does not establish ownership of
-original application code. The clean-room report and contractual rights evidence
-serve that separate purpose.
+original application code. Similarity scanning must use an approved corpus
+mounted into a controlled runner. Proprietary source or source phrases must not
+be sent to public scanners or SaaS. The clean-room report and contractual rights
+evidence serve the separate ownership purpose.
 
 ## 8. Rights-holder identity
 
