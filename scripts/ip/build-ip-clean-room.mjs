@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
 const outDir = process.argv[2] ?? 'artifacts/ip-clean-room';
@@ -158,7 +158,8 @@ function readTextCandidate(path) {
   const extension = extname(path).toLowerCase();
   if (!textExtensions.has(extension) && extension && !/^Dockerfile(?:\.|$)/u.test(path.split('/').at(-1) ?? '')) return '';
   try {
-    if (statSync(path).size > 5 * 1024 * 1024) return '';
+    const metadata = lstatSync(path);
+    if (!metadata.isFile() || metadata.size > 5 * 1024 * 1024) return '';
     return readFileSync(path, 'utf8');
   } catch {
     return '';
