@@ -8,6 +8,7 @@ const KEYBOARD_INSET = '--gekta-keyboard-inset';
 const COMPOSER_HEIGHT = '--gekta-composer-height';
 const KEYBOARD_THRESHOLD_PX = 48;
 const MAX_KEYBOARD_INSET_PX = 720;
+const TEXT_ENTRY_DISENGAGE_GRACE_MS = 1500;
 
 const SCROLL_TO_LATEST_LABEL = {
   ru: 'К последнему сообщению',
@@ -47,6 +48,7 @@ export function GektaViewportAuthority() {
     let lastViewportWidth = 0;
     let layoutBaselineHeight = 0;
     let textEntryEngaged = isTextEntry(document.activeElement);
+    let textEntryDisengageTimer = 0;
 
     const composerObserver = new ResizeObserver(() => {
       const composer = observedComposer;
@@ -65,6 +67,25 @@ export function GektaViewportAuthority() {
       } else {
         root.style.removeProperty(COMPOSER_HEIGHT);
       }
+    };
+
+    const cancelTextEntryDisengage = () => {
+      if (!textEntryDisengageTimer) return;
+      window.clearTimeout(textEntryDisengageTimer);
+      textEntryDisengageTimer = 0;
+    };
+
+    const disengageTextEntry = () => {
+      cancelTextEntryDisengage();
+      textEntryEngaged = false;
+    };
+
+    const scheduleTextEntryDisengage = () => {
+      if (!textEntryEngaged || textEntryDisengageTimer) return;
+      textEntryDisengageTimer = window.setTimeout(() => {
+        textEntryDisengageTimer = 0;
+        if (!isTextEntry(document.activeElement)) textEntryEngaged = false;
+      }, TEXT_ENTRY_DISENGAGE_GRACE_MS);
     };
 
     const setDocumentLock = (locked: boolean) => {
@@ -116,12 +137,16 @@ export function GektaViewportAuthority() {
       const rawInset = layoutBaselineHeight - visibleHeight - visibleTop;
       const maxInset = Math.min(MAX_KEYBOARD_INSET_PX, Math.round(layoutBaselineHeight * 0.75));
       const activeTextEntry = isTextEntry(document.activeElement);
-      if (activeTextEntry) textEntryEngaged = true;
+      if (activeTextEntry) {
+        cancelTextEntryDisengage();
+        textEntryEngaged = true;
+      }
       const keyboardInset = textEntryEngaged
         ? Math.max(0, Math.min(maxInset, Math.round(rawInset)))
         : 0;
       const keyboardOpen = keyboardInset > KEYBOARD_THRESHOLD_PX;
-      if (!keyboardOpen && !activeTextEntry) textEntryEngaged = false;
+      if (keyboardOpen) cancelTextEntryDisengage();
+      else if (!activeTextEntry) scheduleTextEntryDisengage();
 
       root.style.setProperty(VIEWPORT_HEIGHT, `${visibleHeight}px`);
       root.style.setProperty(VIEWPORT_TOP, `${visibleTop}px`);
@@ -140,8 +165,19 @@ export function GektaViewportAuthority() {
     };
 
     const handleFocusIn = (event: FocusEvent) => {
-      if (isTextEntry(event.target instanceof Element ? event.target : null)) textEntryEngaged = true;
+      const target = event.target instanceof Element ? event.target : null;
+      if (isTextEntry(target)) {
+        cancelTextEntryDisengage();
+        textEntryEngaged = true;
+      } else if (target) {
+        disengageTextEntry();
+      }
       scheduleViewportSync();
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target && !isTextEntry(target)) disengageTextEntry();
     };
 
     scheduleViewportSync();
@@ -151,6 +187,7 @@ export function GektaViewportAuthority() {
     window.addEventListener('orientationchange', scheduleViewportSync);
     document.addEventListener('focusin', handleFocusIn);
     document.addEventListener('focusout', scheduleViewportSync);
+    document.addEventListener('pointerdown', handlePointerDown, true);
 
     observer = new MutationObserver(scheduleViewportSync);
     const workspace = document.querySelector("[data-gekta-chat-workspace='true']");
@@ -163,12 +200,14 @@ export function GektaViewportAuthority() {
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
+      cancelTextEntryDisengage();
       viewport?.removeEventListener('resize', scheduleViewportSync);
       viewport?.removeEventListener('scroll', scheduleViewportSync);
       window.removeEventListener('resize', scheduleViewportSync);
       window.removeEventListener('orientationchange', scheduleViewportSync);
       document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('focusout', scheduleViewportSync);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
       observer?.disconnect();
       composerObserver.disconnect();
       root.style.overflow = initialRootOverflow;

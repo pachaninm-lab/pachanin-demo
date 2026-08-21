@@ -37,12 +37,16 @@ describe('Gekta empty-start keyboard contract', () => {
     expect(composer).toContain("attributeFilter: ['data-gekta-keyboard-open']");
   });
 
-  it('preserves text-entry keyboard ownership across transient focus loss until the viewport expands', () => {
+  it('preserves text-entry engagement across transient Chromium focus gaps without leaving keyboard-open state stuck', () => {
     expect(viewport).toContain('let textEntryEngaged = isTextEntry(document.activeElement)');
-    expect(viewport).toContain('if (activeTextEntry) textEntryEngaged = true');
+    expect(viewport).toContain('const TEXT_ENTRY_DISENGAGE_GRACE_MS = 1500');
+    expect(viewport).toContain('if (activeTextEntry) {');
     expect(viewport).toContain('const keyboardInset = textEntryEngaged');
-    expect(viewport).toContain('if (!keyboardOpen && !activeTextEntry) textEntryEngaged = false');
+    expect(viewport).toContain('if (keyboardOpen) cancelTextEntryDisengage();');
+    expect(viewport).toContain('else if (!activeTextEntry) scheduleTextEntryDisengage();');
     expect(viewport).toContain("document.addEventListener('focusin', handleFocusIn)");
+    expect(viewport).toContain("document.addEventListener('pointerdown', handlePointerDown, true)");
+    expect(viewport).not.toContain('if (!keyboardOpen && !activeTextEntry) textEntryEngaged = false');
   });
 
   it('uses the native input event as the controlled draft authority in Chromium and WebKit', () => {
