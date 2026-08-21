@@ -20,7 +20,7 @@ env:
   DEFAULT_HOST: 195.19.12.120
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   AUTHORITY_ISSUE: '4445'
-  COMMAND: '/production p0-ssh-host-attest-v2 current-main'
+  COMMAND: '/production p0-ssh-host-attest-v3 current-main'
 
 jobs:
   contract:
@@ -32,7 +32,7 @@ jobs:
         github.event.issue.number == 4445 &&
         github.event.comment.user.login == github.repository_owner &&
         github.event.comment.author_association == 'OWNER' &&
-        github.event.comment.body == '/production p0-ssh-host-attest-v2 current-main' &&
+        github.event.comment.body == '/production p0-ssh-host-attest-v3 current-main' &&
         (
           (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
           github.event.comment.performed_via_github_app.id == 1144995
@@ -40,6 +40,8 @@ jobs:
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
     outputs:
       target_sha: ${{ steps.target.outputs.sha }}
     steps:
@@ -60,7 +62,7 @@ jobs:
             [[ "$(git rev-parse HEAD)" == "$target" ]]
           fi
           printf 'sha=%s\n' "$target" >> "$GITHUB_OUTPUT"
-      - name: Prove bounded read-only contract
+      - name: Prove bounded shell-only local authority contract
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -71,28 +73,36 @@ jobs:
           workflow_path, scope_path = map(pathlib.Path, sys.argv[1:])
           text = workflow_path.read_text(encoding='utf-8')
           scope = json.loads(scope_path.read_text(encoding='utf-8'))
-          if scope.get('branch') != 'fix/pc-crop-p0-ssh-host-attestation-v2-3785':
+          if scope.get('branch') != 'fix/pc-crop-p0-ssh-host-attestation-v3-3785':
               raise SystemExit('SCOPE_BRANCH_MISMATCH')
+          if scope.get('authorityBaseExactMain') != 'bd5c4a48fa30c9d261a00dde13b160b42b4193c6':
+              raise SystemExit('SCOPE_BASE_MISMATCH')
           if set(scope.get('allowedPaths') or []) != {str(workflow_path), str(scope_path)}:
               raise SystemExit('SCOPE_PATHS_MISMATCH')
           required = [
-              '/production p0-ssh-host-attest-v2 current-main',
+              '/production p0-ssh-host-attest-v3 current-main',
               'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
               '/etc/ssh/ssh_host_*_key.pub',
               'PC_PROD_SSH_PORT',
               'PC_PROD_SSH_HOST_FINGERPRINT',
+              'EXTERNAL_KEYS_SUBSET_OF_LOCAL=PASS',
               'PRODUCTION_MUTATION=NONE',
           ]
           for marker in required:
               if marker not in text:
                   raise SystemExit(f'MISSING_CONTRACT_MARKER:{marker}')
+          local = text.split('\n  local_attestation:\n',1)[1].split('\n  classify_and_publish:\n',1)[0]
+          if 'uses:' in local:
+              raise SystemExit('SELF_HOSTED_JOB_MUST_BE_SHELL_ONLY')
+          if 'secrets.' in local:
+              raise SystemExit('SELF_HOSTED_JOB_MUST_NOT_RECEIVE_SECRETS')
           forbidden = [
               'StrictHostKeyChecking=no', 'StrictHostKeyChecking=accept-new',
               'UserKnownHostsFile=/dev/null', 'sshpass', 'PasswordAuthentication=yes',
               'secrets.PC_PROD_SSH_KEY', 'secrets.PC_PROD_SSH_PRIVATE_KEY', 'secrets.VPS_SSH_KEY',
               'docker compose', 'docker run', 'docker rm', 'docker rmi', 'docker prune',
               'systemctl restart', 'systemctl stop', 'systemctl start', 'prisma migrate',
-              'psql ', 'gh secret set', 'gh variable set',
+              'psql ', 'gh secret set', 'gh variable set', 'sudo ',
           ]
           for marker in forbidden:
               if marker in text:
@@ -107,7 +117,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      actions: write
+    outputs:
+      external_hex: ${{ steps.scan.outputs.hex }}
     env:
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
       SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -117,7 +128,8 @@ jobs:
           ref: main
           fetch-depth: 0
           persist-credentials: false
-      - name: Bind external observation to exact current main and canonical endpoint
+      - name: Observe three byte-stable scans and encode public evidence
+        id: scan
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -129,26 +141,16 @@ jobs:
           [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || { echo 'PROTECTED_SSH_PORT_INVALID' >&2; exit 12; }
           domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
           grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
-          printf '%s\n' "$port" > "$RUNNER_TEMP/pc-prod-port"
-      - name: Require three byte-stable SSH public-key scans
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          port="$(cat "$RUNNER_TEMP/pc-prod-port")"
           for n in 1 2 3; do
             ssh-keyscan -T 10 -p "$port" "$DEFAULT_HOST" 2>/dev/null | sort -u > "$RUNNER_TEMP/scan-$n"
             [[ -s "$RUNNER_TEMP/scan-$n" ]] || { echo "SSH_KEYSCAN_EMPTY:$n" >&2; exit 15; }
             (( n == 3 )) || sleep "$n"
           done
-          cmp -s "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/scan-2"
-          cmp -s "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/scan-3"
-      - name: Canonicalize externally observed public fingerprints
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          python3 - "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/external.json" "$TARGET_SHA" <<'PY'
+          cmp -s "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/scan-2" || { echo 'SSH_KEYSCAN_NOT_STABLE_1_2' >&2; exit 15; }
+          cmp -s "$RUNNER_TEMP/scan-1" "$RUNNER_TEMP/scan-3" || { echo 'SSH_KEYSCAN_NOT_STABLE_1_3' >&2; exit 15; }
+          python3 - "$RUNNER_TEMP/scan-1" "$GITHUB_OUTPUT" "$TARGET_SHA" <<'PY'
           import json, re, subprocess, sys
-          scan_path, out_path, target = sys.argv[1:]
+          scan_path, output_path, target = sys.argv[1:]
           fp_re = re.compile(r'^SHA256:[A-Za-z0-9+/=]+$')
           entries = set()
           for raw in open(scan_path, encoding='utf-8'):
@@ -162,100 +164,73 @@ jobs:
               entries.add((parts[-1].strip('()').upper(), parts[1]))
           if not 1 <= len(entries) <= 8:
               raise SystemExit('EXTERNAL_KEY_CARDINALITY')
-          payload = {'schemaVersion':'pc.production-ssh-host-key.external.v2','targetSha':target,
+          payload = {'schemaVersion':'pc.production-ssh-host-key.external.v3','targetSha':target,
                      'keys':[{'algorithm':a,'fingerprint':f} for a,f in sorted(entries)]}
-          with open(out_path,'w',encoding='utf-8') as fh:
-              json.dump(payload, fh, separators=(',',':'), sort_keys=True)
+          canonical = json.dumps(payload, separators=(',',':'), sort_keys=True)
+          encoded = canonical.encode('utf-8').hex()
+          if len(encoded) > 16384:
+              raise SystemExit('EXTERNAL_ENCODED_BOUNDARY')
+          with open(output_path,'a',encoding='utf-8') as out:
+              out.write(f'hex={encoded}\n')
           print(f'EXTERNAL_PUBLIC_KEY_COUNT={len(entries)}')
           print('PRODUCTION_MUTATION=NONE')
           PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: p0-ssh-host-key-external-${{ github.run_id }}
-          path: ${{ runner.temp }}/external.json
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
 
   local_attestation:
-    name: Match external keys to local production host authority
+    name: Read local production public host-key authority without Actions downloads
     needs: [contract, external_scan]
     if: github.event_name == 'issue_comment' && needs.external_scan.result == 'success'
     runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
     timeout-minutes: 10
     permissions:
-      contents: read
-      actions: read
-      actions: write
+      contents: none
+    outputs:
+      local_hex: ${{ steps.local.outputs.hex }}
     env:
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Verify restricted production runner and exact-main continuity
+      - name: Verify restricted runner boundary and encode local public authority
+        id: local
         shell: bash
         run: |
           set -Eeuo pipefail
-          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
-          [[ "$(id -u)" -ne 0 ]]
-          ! id -nG | tr ' ' '\n' | grep -Fxq docker
-          if docker version >/dev/null 2>&1; then exit 21; fi
-          [[ ! -r /etc/pc-release-authority/actions-runner.json ]]
-          git fetch --no-tags origin main
-          [[ "$TARGET_SHA" == "$(git rev-parse HEAD)" ]]
-          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
-      - uses: actions/download-artifact@v4
-        with:
-          name: p0-ssh-host-key-external-${{ github.run_id }}
-          path: ${{ runner.temp }}/external-evidence
-      - name: Attest root-owned public host keys and compare
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          python3 - "$RUNNER_TEMP/external-evidence/external.json" "$RUNNER_TEMP/attested.json" "$TARGET_SHA" <<'PY'
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]] || { echo 'RUNNER_NAME_MISMATCH' >&2; exit 20; }
+          [[ "$(id -u)" -ne 0 ]] || { echo 'RUNNER_MUST_BE_NON_ROOT' >&2; exit 20; }
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker || { echo 'RUNNER_DOCKER_GROUP_PRESENT' >&2; exit 21; }
+          if docker version >/dev/null 2>&1; then echo 'RUNNER_DIRECT_DOCKER_AUTHORITY' >&2; exit 21; fi
+          python3 - "$GITHUB_OUTPUT" "$TARGET_SHA" <<'PY'
           import glob, json, os, re, stat, subprocess, sys
-          external_path, out_path, target = sys.argv[1:]
-          ext = json.load(open(external_path,encoding='utf-8'))
-          if ext.get('schemaVersion') != 'pc.production-ssh-host-key.external.v2' or ext.get('targetSha') != target:
-              raise SystemExit('EXTERNAL_EVIDENCE_INVALID')
+          output_path, target = sys.argv[1:]
           fp_re = re.compile(r'^SHA256:[A-Za-z0-9+/=]+$')
-          local = set()
+          entries = set()
           paths = sorted(glob.glob('/etc/ssh/ssh_host_*_key.pub'))
           if not 1 <= len(paths) <= 8:
               raise SystemExit('LOCAL_PUBLIC_KEY_CARDINALITY')
           for path in paths:
               st = os.lstat(path)
-              if stat.S_ISLNK(st.st_mode) or not stat.S_ISREG(st.st_mode) or st.st_uid != 0 or (stat.S_IMODE(st.st_mode) & 0o022):
+              if stat.S_ISLNK(st.st_mode) or not stat.S_ISREG(st.st_mode):
+                  raise SystemExit('LOCAL_PUBLIC_KEY_FILE_TYPE')
+              if st.st_uid != 0 or (stat.S_IMODE(st.st_mode) & 0o022):
                   raise SystemExit('LOCAL_PUBLIC_KEY_AUTHORITY_INVALID')
               proc = subprocess.run(['ssh-keygen','-lf',path,'-E','sha256'], text=True, capture_output=True, check=True)
               parts = proc.stdout.strip().split()
               if len(parts) < 4 or not fp_re.fullmatch(parts[1]):
                   raise SystemExit('LOCAL_FINGERPRINT_INVALID')
-              local.add((parts[-1].strip('()').upper(), parts[1]))
-          external = {(str(r.get('algorithm','')), str(r.get('fingerprint',''))) for r in ext.get('keys',[])}
-          if not external or not external.issubset(local):
-              raise SystemExit('EXTERNAL_KEYS_NOT_ATTESTED_BY_LOCAL_HOST')
-          payload = {'schemaVersion':'pc.production-ssh-host-key.attested.v2','targetSha':target,
-                     'keys':[{'algorithm':a,'fingerprint':f} for a,f in sorted(external)]}
-          with open(out_path,'w',encoding='utf-8') as fh:
-              json.dump(payload, fh, separators=(',',':'), sort_keys=True)
-          print('EXTERNAL_KEYS_SUBSET_OF_LOCAL=PASS')
-          print(f'LOCAL_PUBLIC_KEY_COUNT={len(local)}')
+              entries.add((parts[-1].strip('()').upper(), parts[1]))
+          payload = {'schemaVersion':'pc.production-ssh-host-key.local.v3','targetSha':target,
+                     'keys':[{'algorithm':a,'fingerprint':f} for a,f in sorted(entries)]}
+          canonical = json.dumps(payload, separators=(',',':'), sort_keys=True)
+          encoded = canonical.encode('utf-8').hex()
+          if len(encoded) > 16384:
+              raise SystemExit('LOCAL_ENCODED_BOUNDARY')
+          with open(output_path,'a',encoding='utf-8') as out:
+              out.write(f'hex={encoded}\n')
+          print(f'LOCAL_PUBLIC_KEY_COUNT={len(entries)}')
           print('PRODUCTION_MUTATION=NONE')
           PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: p0-ssh-host-key-attested-${{ github.run_id }}
-          path: ${{ runner.temp }}/attested.json
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
 
   classify_and_publish:
-    name: Classify stored pin and publish bounded evidence
+    name: Compare independent evidence and classify stored pin
     needs: [contract, external_scan, local_attestation]
     if: >-
       always() &&
@@ -263,7 +238,7 @@ jobs:
       github.event.issue.number == 4445 &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/production p0-ssh-host-attest-v2 current-main' &&
+      github.event.comment.body == '/production p0-ssh-host-attest-v3 current-main' &&
       (
         (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
         github.event.comment.performed_via_github_app.id == 1144995
@@ -272,75 +247,106 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      actions: read
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
-      EXPECTED_PIN: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
       EXTERNAL_RESULT: ${{ needs.external_scan.result }}
       LOCAL_RESULT: ${{ needs.local_attestation.result }}
+      EXTERNAL_HEX: ${{ needs.external_scan.outputs.external_hex }}
+      LOCAL_HEX: ${{ needs.local_attestation.outputs.local_hex }}
+      EXPECTED_PIN: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     steps:
       - uses: actions/checkout@v4
-        if: env.EXTERNAL_RESULT == 'success' && env.LOCAL_RESULT == 'success'
         with:
           ref: main
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@v4
-        if: env.EXTERNAL_RESULT == 'success' && env.LOCAL_RESULT == 'success'
-        with:
-          name: p0-ssh-host-key-attested-${{ github.run_id }}
-          path: ${{ runner.temp }}/attested-evidence
-      - name: Build evidence without transporting protected pin
+      - name: Build and publish bounded classification
         shell: bash
         run: |
           set -Eeuo pipefail
+          git fetch --no-tags origin main
           report="$RUNNER_TEMP/report.md"
-          if [[ "$EXTERNAL_RESULT" != success || "$LOCAL_RESULT" != success ]]; then
+          if [[ -z "${TARGET_SHA:-}" || "$TARGET_SHA" != "$(git rev-parse HEAD)" || "$TARGET_SHA" != "$(git rev-parse origin/main)" ]]; then
             {
-              echo '## PC-CROP P0 production SSH host-key attestation v2'
+              echo '## PC-CROP P0 production SSH host-key attestation v3'
               echo
-              echo "- target SHA: \`${TARGET_SHA:-unknown}\`"
+              echo '- result: `BLOCKED_MAIN_DRIFT`'
+              echo '- production mutation: `NONE`'
+            } > "$report"
+          elif [[ "$EXTERNAL_RESULT" != success || "$LOCAL_RESULT" != success ]]; then
+            {
+              echo '## PC-CROP P0 production SSH host-key attestation v3'
+              echo
+              echo "- target SHA: \`$TARGET_SHA\`"
               echo "- external observation: \`$EXTERNAL_RESULT\`"
               echo "- local production attestation: \`$LOCAL_RESULT\`"
               echo '- result: `BLOCKED_ATTESTATION`'
               echo '- production mutation: `NONE`'
             } > "$report"
           else
-            git fetch --no-tags origin main
-            [[ "$TARGET_SHA" == "$(git rev-parse HEAD)" ]]
-            [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
             [[ -n "${EXPECTED_PIN:-}" ]] || { echo 'PROTECTED_PIN_MISSING' >&2; exit 13; }
-            python3 - "$RUNNER_TEMP/attested-evidence/attested.json" "$report" "$TARGET_SHA" "$EXPECTED_PIN" <<'PY'
+            python3 - "$report" "$TARGET_SHA" "$EXPECTED_PIN" "$EXTERNAL_HEX" "$LOCAL_HEX" <<'PY'
           import json, re, sys
-          evidence_path, report_path, target, expected = sys.argv[1:]
+          report_path, target, expected, external_hex, local_hex = sys.argv[1:]
           fp_re = re.compile(r'^SHA256:[A-Za-z0-9+/=]+$')
-          if not fp_re.fullmatch(expected): raise SystemExit('PROTECTED_PIN_INVALID')
-          data = json.load(open(evidence_path,encoding='utf-8'))
-          if data.get('schemaVersion') != 'pc.production-ssh-host-key.attested.v2' or data.get('targetSha') != target:
-              raise SystemExit('ATTESTED_EVIDENCE_INVALID')
-          keys = [(str(r.get('algorithm','')),str(r.get('fingerprint',''))) for r in data.get('keys',[])]
-          if not keys or any(not fp_re.fullmatch(fp) for _,fp in keys): raise SystemExit('ATTESTED_KEYS_INVALID')
-          matches = [(a,f) for a,f in keys if f == expected]
-          if matches:
-              result = 'PASS_EXISTING_PIN_VALID'
-              candidate = None
+          if not fp_re.fullmatch(expected):
+              raise SystemExit('PROTECTED_PIN_INVALID')
+          if not external_hex or not local_hex or len(external_hex) > 16384 or len(local_hex) > 16384:
+              raise SystemExit('ENCODED_EVIDENCE_BOUNDARY')
+          try:
+              external = json.loads(bytes.fromhex(external_hex).decode('utf-8'))
+              local = json.loads(bytes.fromhex(local_hex).decode('utf-8'))
+          except Exception as exc:
+              raise SystemExit('ENCODED_EVIDENCE_INVALID') from exc
+          if external.get('schemaVersion') != 'pc.production-ssh-host-key.external.v3' or external.get('targetSha') != target:
+              raise SystemExit('EXTERNAL_EVIDENCE_INVALID')
+          if local.get('schemaVersion') != 'pc.production-ssh-host-key.local.v3' or local.get('targetSha') != target:
+              raise SystemExit('LOCAL_EVIDENCE_INVALID')
+          def rows(payload):
+              out=set()
+              for row in payload.get('keys',[]):
+                  if not isinstance(row,dict): raise SystemExit('KEY_ROW_INVALID')
+                  alg=str(row.get('algorithm','')).upper()
+                  fp=str(row.get('fingerprint',''))
+                  if not re.fullmatch(r'[A-Z0-9-]{2,32}',alg) or not fp_re.fullmatch(fp):
+                      raise SystemExit('KEY_ROW_INVALID')
+                  out.add((alg,fp))
+              return out
+          ext=rows(external); loc=rows(local)
+          if not ext or not ext.issubset(loc):
+              raise SystemExit('EXTERNAL_KEYS_NOT_ATTESTED_BY_LOCAL_HOST')
+          pin_external = any(fp == expected for _,fp in ext)
+          replacement = None
+          if not pin_external:
+              priority = {'ED25519':0,'ECDSA':1,'RSA':2}
+              replacement = sorted(ext, key=lambda pair:(priority.get(pair[0],9),pair[0],pair[1]))[0]
+              if replacement[1] == expected:
+                  raise SystemExit('REPLACEMENT_EQUALS_OLD_PIN')
+          lines = [
+              '## PC-CROP P0 production SSH host-key attestation v3',
+              '',
+              f'- target SHA: `{target}`',
+              '- external three-scan stability: `PASS`',
+              '- external keys are attested by local `/etc/ssh` authority: `PASS`',
+              f'- stored protected pin status: `{"CURRENT" if pin_external else "STALE"}`',
+          ]
+          if replacement:
+              lines += [
+                  f'- attested replacement algorithm: `{replacement[0]}`',
+                  f'- attested replacement public fingerprint: `{replacement[1]}`',
+              ]
           else:
-              result = 'PASS_ROTATION_REQUIRED'
-              preferred = [row for row in keys if row[0] == 'ED25519']
-              candidate = (preferred or keys)[0]
-              if candidate[1] == expected: raise SystemExit('ROTATION_CANDIDATE_EQUALS_OLD_PIN')
-          with open(report_path,'w',encoding='utf-8') as out:
-              out.write('## PC-CROP P0 production SSH host-key attestation v2\n\n')
-              out.write(f'- target SHA: `{target}`\n')
-              out.write('- external three-scan stability: `PASS`\n')
-              out.write('- external keys attested by local production host: `PASS`\n')
-              out.write(f'- existing protected pin: `{"VALID" if matches else "MISMATCH"}`\n')
-              out.write(f'- result: `{result}`\n')
-              if candidate:
-                  out.write(f'- independently attested replacement candidate: `{candidate[0]}` `{candidate[1]}`\n')
-              out.write('- production mutation: `NONE`\n')
+              lines += [
+                  '- attested replacement algorithm: `NOT_REQUIRED`',
+                  '- attested replacement public fingerprint: `NOT_REQUIRED`',
+              ]
+          lines += [
+              '- private host key / SSH credential / stored secret value exposure: `NONE`',
+              '- production mutation: `NONE`',
+          ]
+          open(report_path,'w',encoding='utf-8').write('\n'.join(lines)+'\n')
           PY
           fi
           cat "$report"
