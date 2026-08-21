@@ -1,10 +1,10 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/pc-crop-p0-ssh-host-attestation-v4-3785",
+  "branch": "fix/pc-crop-p0-ssh-host-attestation-output-v4-3785",
   "status": "active",
-  "purpose": "Registration #3785 / release #3072 / host-identity incident #4445: obtain dual-channel read-only evidence for the REG.RU production SSH public host key after repeated protected-pin mismatch, using hosted stable scanning plus a shell-only pre-existing pc-prod runner. No trust-anchor update or production mutation is authorized.",
+  "purpose": "Registration #3785 / release #3072 / host-identity incident #4445: repair GitHub Actions false secret-suppression of the already successful external public-key evidence by using a digit-free letters-only job-output transport, while preserving the same dual-channel read-only attestation. No trust-anchor update or production mutation is authorized.",
   "approvedBy": "owner-registration-continuation-3785",
-  "authorityBaseExactMain": "bd5c4a48fa30c9d261a00dde13b160b42b4193c6",
+  "authorityBaseExactMain": "844f037537fd5a68f47716d3c77a92033f29036d",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
@@ -16,7 +16,7 @@
     "exact-current-main binding before and after evidence collection",
     "mandatory protected production SSH port and canonical REG.RU IPv4/DNS guard",
     "three byte-identical non-empty hosted ssh-keyscan observations",
-    "hex-encoded public fingerprint evidence across GitHub job-output boundaries",
+    "digit-free A-P letters-only encoding for external public fingerprint evidence across GitHub job-output boundaries; local evidence remains hex-encoded and secret-free",
     "self-hosted pc-prod job uses shell steps only, receives no repository secrets and reads only public SSH host-key files",
     "self-hosted runner remains non-root and without direct Docker authority",
     "every externally observed public key must be present in local production /etc/ssh public-key authority",

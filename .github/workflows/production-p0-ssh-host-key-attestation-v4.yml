@@ -70,17 +70,18 @@ jobs:
           scope_path = Path('docs/platform-v7/autopilot/scopes/pc-crop-p0-ssh-host-attestation-v4-3785.json')
           text = wf.read_text(encoding='utf-8')
           scope = json.loads(scope_path.read_text(encoding='utf-8'))
-          if scope.get('branch') != 'fix/pc-crop-p0-ssh-host-attestation-v4-3785': raise SystemExit('SCOPE_BRANCH')
-          if scope.get('authorityBaseExactMain') != 'bd5c4a48fa30c9d261a00dde13b160b42b4193c6': raise SystemExit('SCOPE_BASE')
+          if scope.get('branch') != 'fix/pc-crop-p0-ssh-host-attestation-output-v4-3785': raise SystemExit('SCOPE_BRANCH')
+          if scope.get('authorityBaseExactMain') != '844f037537fd5a68f47716d3c77a92033f29036d': raise SystemExit('SCOPE_BASE')
           if set(scope.get('allowedPaths') or []) != {str(wf), str(scope_path)}: raise SystemExit('SCOPE_PATHS')
           required = (
               '/production p0-ssh-host-attest-v4 current-main',
               'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
               '/etc/ssh/ssh_host_*_key.pub', 'PC_PROD_SSH_PORT', 'PC_PROD_SSH_HOST_FINGERPRINT',
-              'EXTERNAL_KEYS_SUBSET_OF_LOCAL=PASS', 'PRODUCTION_MUTATION=NONE',
+              'EXTERNAL_KEYS_SUBSET_OF_LOCAL=PASS', 'EXTERNAL_LETTERS_TRANSPORT=PASS', 'PRODUCTION_MUTATION=NONE',
           )
           for marker in required:
               if marker not in text: raise SystemExit(f'MISSING:{marker}')
+          if 'external_hex:' in text or 'EXT_HEX:' in text: raise SystemExit('STALE_EXTERNAL_HEX_TRANSPORT')
           local = text.split('\n  local_attestation:\n',1)[1].split('\n  classify:\n',1)[0]
           if 'uses:' in local: raise SystemExit('LOCAL_MARKETPLACE_ACTION_FORBIDDEN')
           if 'secrets.' in local: raise SystemExit('LOCAL_SECRET_FORBIDDEN')
@@ -104,7 +105,7 @@ jobs:
     permissions:
       contents: read
     outputs:
-      external_hex: ${{ steps.scan.outputs.hex }}
+      external_letters: ${{ steps.scan.outputs.letters }}
     env:
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
       SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -146,10 +147,12 @@ jobs:
               keys.add((parts[-1].strip('()').upper(),parts[1]))
           if not 1 <= len(keys) <= 8: raise SystemExit('EXTERNAL_KEY_CARDINALITY')
           payload={'schema':'pc.ssh.external.v4','target':target,'keys':[{'a':a,'f':f} for a,f in sorted(keys)]}
-          encoded=json.dumps(payload,separators=(',',':'),sort_keys=True).encode().hex()
-          if len(encoded)>16384: raise SystemExit('EXTERNAL_OUTPUT_BOUNDARY')
-          with open(out,'a',encoding='utf-8') as h: h.write(f'hex={encoded}\n')
+          raw=json.dumps(payload,separators=(',',':'),sort_keys=True).encode()
+          encoded=''.join(chr(65+(b>>4))+chr(65+(b&15)) for b in raw)
+          if not re.fullmatch(r'[A-P]+',encoded) or len(encoded)>16384: raise SystemExit('EXTERNAL_OUTPUT_BOUNDARY')
+          with open(out,'a',encoding='utf-8') as h: h.write(f'letters={encoded}\n')
           print(f'EXTERNAL_PUBLIC_KEY_COUNT={len(keys)}')
+          print('EXTERNAL_LETTERS_TRANSPORT=PASS')
           print('PRODUCTION_MUTATION=NONE')
           PY
 
@@ -215,7 +218,7 @@ jobs:
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
       EXT_RESULT: ${{ needs.external_scan.result }}
       LOCAL_RESULT: ${{ needs.local_attestation.result }}
-      EXT_HEX: ${{ needs.external_scan.outputs.external_hex }}
+      EXT_LETTERS: ${{ needs.external_scan.outputs.external_letters }}
       LOCAL_HEX: ${{ needs.local_attestation.outputs.local_hex }}
       EXPECTED_PIN: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     steps:
@@ -235,13 +238,15 @@ jobs:
           elif [[ "$EXT_RESULT" != success || "$LOCAL_RESULT" != success ]]; then
             printf '## PC-CROP P0 SSH host-key attestation v4\n\n- target SHA: `%s`\n- external observation: `%s`\n- local production attestation: `%s`\n- result: `BLOCKED_ATTESTATION`\n- production mutation: `NONE`\n' "$TARGET_SHA" "$EXT_RESULT" "$LOCAL_RESULT" > "$report"
           else
-            python3 - "$report" "$TARGET_SHA" "$EXPECTED_PIN" "$EXT_HEX" "$LOCAL_HEX" <<'PY'
+            python3 - "$report" "$TARGET_SHA" "$EXPECTED_PIN" "$EXT_LETTERS" "$LOCAL_HEX" <<'PY'
           import json,re,sys
-          report,target,expected,eh,lh=sys.argv[1:]
+          report,target,expected,el,lh=sys.argv[1:]
           fp_re=re.compile(r'^SHA256:[A-Za-z0-9+/=]+$')
           if not fp_re.fullmatch(expected): raise SystemExit('PROTECTED_PIN_INVALID')
           try:
-              ext=json.loads(bytes.fromhex(eh).decode()); loc=json.loads(bytes.fromhex(lh).decode())
+              if not re.fullmatch(r'[A-P]+',el) or len(el)%2: raise ValueError('external letters')
+              external_bytes=bytes(((ord(el[i])-65)<<4)|(ord(el[i+1])-65) for i in range(0,len(el),2))
+              ext=json.loads(external_bytes.decode()); loc=json.loads(bytes.fromhex(lh).decode())
           except Exception as e: raise SystemExit('EVIDENCE_DECODE') from e
           if ext.get('schema')!='pc.ssh.external.v4' or ext.get('target')!=target: raise SystemExit('EXTERNAL_EVIDENCE')
           if loc.get('schema')!='pc.ssh.local.v4' or loc.get('target')!=target: raise SystemExit('LOCAL_EVIDENCE')
