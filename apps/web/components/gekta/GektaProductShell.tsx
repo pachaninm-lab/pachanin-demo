@@ -14,7 +14,7 @@ const mobileTouchContract = `
 [data-gekta-chat-workspace='true'] button {
   -webkit-appearance: none;
   appearance: none;
-  font: inherit;
+  font-family: inherit;
 }
 
 @media (max-width: 767px) {
