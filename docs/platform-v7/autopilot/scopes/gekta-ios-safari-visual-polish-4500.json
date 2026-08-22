@@ -1,10 +1,12 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-ios-safari-visual-polish-4500",
   "branch": "fix/gekta-ios-native-control-reset-4500",
+  "issue": 4500,
   "status": "active",
   "purpose": "Normalize Gekta controls in iOS Safari/WebKit and tighten the 320px composer copy after exact production evidence exposed native browser chrome and visual crowding, without changing backend, model, auth, registration or business logic.",
   "approvedBy": "owner-instruction-2026-08-22-gekta-continue-to-ideal",
-  "authorityBaseExactMain": "ec4469534229d16b4e85f625a95655982a529ee4",
+  "authorityBaseExactMain": "d9bbbd584099e1120744362d54d7fc3c4b0961b3",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "concurrencyBoundary": "Frontend visual/mobile polish and focused Gekta browser acceptance only. Concurrent PC-CROP, Company OS, accounting and other product work must not be modified.",
