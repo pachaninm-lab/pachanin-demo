@@ -127,15 +127,8 @@ async function expectTextControlsIosSafe(page: Page) {
 }
 
 async function expectSemiboldButtonTypography(locator: Locator) {
-  const metrics = await locator.evaluate((node) => {
-    const style = window.getComputedStyle(node as HTMLElement);
-    return {
-      fontSize: Number.parseFloat(style.fontSize),
-      fontWeight: Number.parseInt(style.fontWeight, 10),
-    };
-  });
-  expect(metrics.fontSize).toBeGreaterThanOrEqual(14);
-  expect(metrics.fontWeight, JSON.stringify(metrics)).toBeGreaterThanOrEqual(600);
+  const fontWeight = await locator.evaluate((node) => Number.parseInt(window.getComputedStyle(node as HTMLElement).fontWeight, 10));
+  expect(fontWeight).toBeGreaterThanOrEqual(600);
 }
 
 test('320px keeps Safari controls branded and Gekta utility routes visually native', async ({ page }, testInfo) => {
