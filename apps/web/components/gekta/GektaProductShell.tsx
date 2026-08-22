@@ -10,6 +10,7 @@ const mobileTouchContract = `
   [data-gekta-chat-workspace='true']:not(.overflow-hidden) {
     height: auto !important;
     min-height: var(--gekta-visual-viewport-height, 100dvh) !important;
+    overflow: visible !important;
   }
   [data-gekta-chat-workspace='true']:not(.overflow-hidden) > div {
     height: auto !important;
@@ -21,9 +22,12 @@ const mobileTouchContract = `
   [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:first-of-type {
     min-height: 0;
     overflow: visible;
-    overscroll-behavior: auto;
+    overscroll-behavior-y: auto;
+    scroll-behavior: auto !important;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
   }
-  html:not([data-gekta-keyboard-open='true']) [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type:empty {
+  [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type:empty {
     display: none;
   }
   [data-gekta-chat-workspace='true'] header > button,
@@ -31,8 +35,24 @@ const mobileTouchContract = `
     min-width: 44px;
     min-height: 44px;
   }
-  [data-gekta-chat-workspace='true'].overflow-hidden,
-  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) {
+
+  /* iOS zooms focused form controls below 16px, which changes viewport geometry
+     mid-gesture and feels like a frozen/jumping interface. Keep every text-entry
+     control at a stable readable size and every primary form action touch-safe. */
+  [data-gekta-chat-workspace='true'] input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  [data-gekta-chat-workspace='true'] select,
+  [data-gekta-chat-workspace='true'] textarea {
+    font-size: 16px !important;
+  }
+  [data-gekta-chat-workspace='true'] input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  [data-gekta-chat-workspace='true'] select,
+  [data-gekta-phone-card='true'] button {
+    min-height: 44px;
+  }
+
+  /* Only an entered conversation owns the visual viewport. Discovery remains
+     normal document flow so iOS browser touch scrolling never gets trapped. */
+  [data-gekta-chat-workspace='true'].overflow-hidden {
     position: fixed;
     inset-inline: 0;
     top: var(--gekta-visual-viewport-top, 0px);
@@ -43,25 +63,45 @@ const mobileTouchContract = `
     max-height: var(--gekta-visual-viewport-height, 100dvh);
     overflow: hidden;
   }
-  [data-gekta-chat-workspace='true'].overflow-hidden > div,
-  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) > div {
+  [data-gekta-chat-workspace='true'].overflow-hidden > div {
     height: 100% !important;
     min-height: 0 !important;
   }
-  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) main {
-    height: 100%;
-    min-height: 0;
-  }
-  [data-gekta-chat-workspace='true'].overflow-hidden main > div:first-of-type,
-  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:first-of-type {
+  [data-gekta-chat-workspace='true'].overflow-hidden main > div:first-of-type {
     min-height: 0;
     overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    scroll-behavior: auto !important;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
   }
-  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:last-of-type {
-    flex-shrink: 0;
-    padding-bottom: 0 !important;
+
+  /* Before a conversation starts, keep the page in normal flow and pin only
+     the same composer node when its own textarea has focus. Search/settings
+     fields may open the keyboard too, but must never pull the composer over a
+     drawer or dialog. The portal parent stays unchanged through keyboard
+     cycles, so focus/caret and iOS touch ownership remain stable. */
+  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden):has(#gekta-composer-input:focus) [data-gekta-composer-root='true'] {
+    position: fixed;
+    inset-inline: 0;
+    top: calc(
+      var(--gekta-visual-viewport-top, 0px) +
+      var(--gekta-visual-viewport-height, 100dvh) -
+      var(--gekta-composer-height, 108px)
+    );
+    z-index: 70;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin: 0;
+    background: #fcfbf7;
+    box-shadow: 0 -10px 32px rgba(15, 23, 42, 0.08);
   }
+  html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden):has(#gekta-composer-input:focus) main > div:first-of-type {
+    padding-bottom: calc(var(--gekta-composer-height, 108px) + 16px) !important;
+  }
+
   [data-gekta-chat-workspace='true'] [data-gekta-scroll-to-bottom='true'],
   [data-gekta-chat-workspace='true'] button[aria-label='Scroll to bottom'] {
     width: 44px;

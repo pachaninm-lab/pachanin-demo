@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4467,
+  "branch": "fix/codeql-v4-cli-path-4467",
+  "status": "active",
+  "purpose": "Restore the CodeQL v4 CLI path handoff by replacing an unsupported internal environment variable with the documented init action output.",
+  "authorityBaseExactMain": "c72842e352ee9aea51f2e67cec555f7dc6fea1c7",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/codeql-platform-v7-report.yml",
+    "docs/platform-v7/autopilot/scopes/codeql-v4-cli-path-4467.json",
+    "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts"
+  ],
+  "requiredInvariants": [
+    "The CodeQL replacement query, compile, regression, exact-selection, upstream-drift, SARIF and evidence gates remain enabled and fail closed.",
+    "The CLI binary path comes only from steps.init.outputs.codeql-path produced by github/codeql-action/init@v4.",
+    "No continue-on-error or security-gate bypass is introduced.",
+    "No application, database, DNS, Caddy, Compose, container or production mutation is performed.",
+    "No new recurring cost is introduced.",
+    "The repository contract test rejects CODEQL_ACTION_CLI_VERSION_INFO and requires the init id plus steps.init.outputs.codeql-path handoff."
+  ],
+  "acceptance": [
+    "Workflow syntax passes.",
+    "The locate step proves the init output is non-empty and executable.",
+    "The CodeQL replacement-control workflow reaches and passes every proof stage on the exact implementation head.",
+    "The focused codeqlPasswordHashModel contract suite passes on the exact implementation head."
+  ]
+}

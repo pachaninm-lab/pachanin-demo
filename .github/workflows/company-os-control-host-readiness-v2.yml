@@ -222,11 +222,21 @@ jobs:
           primary_unicode="${3:?primary unicode domain required}"
           stage=INPUT
           tmp_dir=
+          exact_match_count=UNKNOWN
+          all_dial_count=UNKNOWN
+          well_formed_dial_count=UNKNOWN
+          web_network_count=UNKNOWN
+          caddy_network_count=UNKNOWN
+          shared_network_count=UNKNOWN
+          web_alias_candidate_count=UNKNOWN
+          web_alias_bound_count=UNKNOWN
+          web_ip_bound_count=UNKNOWN
+          primary_web_bound_count=UNKNOWN
 
           cleanup() (
             set +e
             if [[ -n "$tmp_dir" && "$tmp_dir" =~ ^/tmp/company-os-control-preflight\.[A-Za-z0-9]+$ ]]; then
-              rm -f -- "$tmp_dir/caddy.json" "$tmp_dir/env.candidate" "$tmp_dir/compose.candidate.json" "$tmp_dir/Caddyfile.candidate"
+              rm -f -- "$tmp_dir/caddy.json" "$tmp_dir/env.candidate" "$tmp_dir/compose.override.candidate.yml" "$tmp_dir/compose.base.json" "$tmp_dir/compose.candidate.json" "$tmp_dir/compose.base.normalized.json" "$tmp_dir/compose.candidate.normalized.json" "$tmp_dir/Caddyfile.candidate"
               rmdir -- "$tmp_dir" 2>/dev/null || true
             fi
           )
@@ -238,7 +248,19 @@ jobs:
           }
           blocked() {
             trap - ERR
-            printf '%s\n' 'CUTOVER_PREFLIGHT=BLOCKED' "CUTOVER_PREFLIGHT_STAGE=$stage"
+            printf '%s\n' \
+              'CUTOVER_PREFLIGHT=BLOCKED' \
+              "CUTOVER_PREFLIGHT_STAGE=$stage" \
+              "EXACT_MATCH_COUNT=$exact_match_count" \
+              "ALL_DIAL_COUNT=$all_dial_count" \
+              "WELL_FORMED_DIAL_COUNT=$well_formed_dial_count" \
+              "WEB_NETWORK_COUNT=$web_network_count" \
+              "CADDY_NETWORK_COUNT=$caddy_network_count" \
+              "SHARED_NETWORK_COUNT=$shared_network_count" \
+              "WEB_ALIAS_CANDIDATE_COUNT=$web_alias_candidate_count" \
+              "WEB_ALIAS_BOUND_COUNT=$web_alias_bound_count" \
+              "WEB_IP_BOUND_COUNT=$web_ip_bound_count" \
+              "PRIMARY_WEB_BOUND_COUNT=$primary_web_bound_count"
             exit 0
           }
           trap 'cleanup_on_exit' EXIT
@@ -307,11 +329,19 @@ jobs:
             grep -Fq 'PC_CONTROL_HOST_ENABLED' "$file" && contract_wired=1
           done
           stage=CONTROL_GATE_WIRING
-          [[ "$contract_wired" == 1 ]]
+          override_file="$working_dir/.company-os-control-host.compose.yml"
+          [[ "$override_file" == "$working_dir/.company-os-control-host.compose.yml" ]]
+          if [[ "$contract_wired" == 1 ]]; then
+            wire_mode=EXISTING
+          else
+            wire_mode=CREATE_OVERRIDE
+            [[ ! -e "$override_file" && ! -L "$override_file" ]]
+          fi
           stage=COMPOSE_WEB_SERVICE
-          docker compose "${compose_args[@]}" config --services 2>/dev/null | grep -Fxq web
+          compose_services="$(docker compose "${compose_args[@]}" config --services 2>/dev/null)"
+          grep -Fx web <<< "$compose_services" >/dev/null
           stage=COMPOSE_CADDY_SERVICE
-          docker compose "${compose_args[@]}" config --services 2>/dev/null | grep -Fxq caddy
+          grep -Fx caddy <<< "$compose_services" >/dev/null
 
           stage=CADDY_BIND_SCOPE
           mount_file_source="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{println .Source}}{{end}}{{end}}' "$caddy_id" 2>/dev/null | head -1 || true)"
@@ -329,24 +359,26 @@ jobs:
           stage=DISABLED_BASELINE
           gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
           control_blocks="$(grep -c '# BEGIN COMPANY OS CONTROL HOST' "$caddy_config" || true)"
+          control_end_blocks="$(grep -c '# END COMPANY OS CONTROL HOST' "$caddy_config" || true)"
+          already_ready=0
           if [[ "$gate" == 'PC_CONTROL_HOST_ENABLED=true' && "$control_blocks" == 1 ]] && grep -Fq -- "$control_domain" "$caddy_config"; then
-            trap - ERR
-            printf '%s\n' 'CUTOVER_PREFLIGHT=ALREADY_READY' 'CUTOVER_PREFLIGHT_STAGE=ALREADY_READY'
-            exit 0
+            [[ "$control_end_blocks" == 1 ]]
+            already_ready=1
+          else
+            [[ -z "$gate" || "$gate" == 'PC_CONTROL_HOST_ENABLED=false' ]]
+            [[ "$control_blocks" == 0 && "$control_end_blocks" == 0 ]]
+            if grep -Fq -- "$control_domain" "$caddy_config"; then blocked; fi
           fi
-          [[ -z "$gate" || "$gate" == 'PC_CONTROL_HOST_ENABLED=false' ]]
-          [[ "$control_blocks" == 0 ]]
-          if grep -Fq -- "$control_domain" "$caddy_config"; then blocked; fi
 
           stage=PROJECT_MEMBERSHIP
           mapfile -t baseline_non_web < <(docker ps -q --filter "label=com.docker.compose.project=$project" | grep -Fvx "$web_id" | sort -u || true)
           printf '%s\n' "${baseline_non_web[@]}" | grep -Fxq "$caddy_id"
 
-          stage=PRIMARY_UPSTREAM
+          stage=PRIMARY_UPSTREAM_SELECTION
           tmp_dir="$(mktemp -d /tmp/company-os-control-preflight.XXXXXX)"
           chmod 700 "$tmp_dir"
           docker exec "$caddy_id" caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile --pretty > "$tmp_dir/caddy.json" 2>/dev/null
-          mapfile -t upstreams < <(jq -r --arg p "$primary_domain" --arg u "$primary_unicode" '
+          mapfile -t matched_upstreams < <(jq -r --arg p "$primary_domain" --arg u "$primary_unicode" '
             [
               .. | objects
               | select(has("match") and has("handle"))
@@ -354,11 +386,111 @@ jobs:
               | .handle[]?
               | .. | objects
               | .upstreams[]?.dial?
+              | select(type == "string")
             ] | unique[]
           ' "$tmp_dir/caddy.json")
-          [[ "${#upstreams[@]}" == 1 ]]
-          upstream="${upstreams[0]}"
+          mapfile -t all_upstreams < <(jq -r '[.. | objects | .upstreams[]?.dial? | select(type == "string")] | unique[]' "$tmp_dir/caddy.json")
+          exact_match_count="${#matched_upstreams[@]}"
+          all_dial_count="${#all_upstreams[@]}"
+
+          stage=PRIMARY_UPSTREAM_WEB_IDENTITY
+          web_service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$web_id")"
+          [[ "$web_service" == web ]]
+          web_inspect="$(docker inspect "$web_id")"
+          mapfile -t web_networks < <(jq -r '.[0].NetworkSettings.Networks | keys[]' <<< "$web_inspect" | sort -u)
+          mapfile -t caddy_networks < <(docker inspect "$caddy_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
+          [[ "${#web_networks[@]}" -ge 1 && "${#caddy_networks[@]}" -ge 1 ]]
+          web_network_count="${#web_networks[@]}"
+          caddy_network_count="${#caddy_networks[@]}"
+          shared_network_count="$(comm -12 <(printf '%s\n' "${web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | awk 'NF { count++ } END { print count + 0 }')"
+          well_formed_dial_count=0
+          web_alias_candidate_count=0
+          web_bound_upstreams=()
+          web_ip_bound_upstreams=()
+          for candidate in "${all_upstreams[@]}"; do
+            if [[ "$candidate" =~ ^(127\.0\.0\.1|localhost|[A-Za-z0-9_.-]+):[0-9]{1,5}$ ]]; then
+              well_formed_dial_count="$((well_formed_dial_count + 1))"
+              candidate_host="${candidate%:*}"
+              mapfile -t candidate_web_networks < <(
+                jq -r --arg host "$candidate_host" '
+                  .[0].NetworkSettings.Networks
+                  | to_entries[]
+                  | select(([.value.Aliases[]?, .value.DNSNames[]?] | index($host)) != null)
+                  | .key
+                ' <<< "$web_inspect" | sort -u
+              )
+              if [[ "${#candidate_web_networks[@]}" -ge 1 ]]; then
+                web_alias_candidate_count="$((web_alias_candidate_count + 1))"
+              fi
+              candidate_shared_network_count="$(comm -12 <(printf '%s\n' "${candidate_web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | awk 'NF { count++ } END { print count + 0 }')"
+              if [[ "$candidate_shared_network_count" -ge 1 ]]; then web_bound_upstreams+=("$candidate"); fi
+              mapfile -t candidate_web_ip_networks < <(
+                jq -r --arg host "$candidate_host" '
+                  .[0].NetworkSettings.Networks
+                  | to_entries[]
+                  | select(.value.IPAddress == $host)
+                  | .key
+                ' <<< "$web_inspect" | sort -u
+              )
+              candidate_ip_shared_network_count="$(comm -12 <(printf '%s\n' "${candidate_web_ip_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | awk 'NF { count++ } END { print count + 0 }')"
+              if [[ "$candidate_ip_shared_network_count" -ge 1 ]]; then web_ip_bound_upstreams+=("$candidate"); fi
+            fi
+          done
+          unset web_inspect
+          mapfile -t unique_web_bound_upstreams < <(printf '%s\n' "${web_bound_upstreams[@]}" | awk 'NF' | sort -u)
+          web_bound_upstreams=("${unique_web_bound_upstreams[@]}")
+          mapfile -t unique_web_ip_bound_upstreams < <(printf '%s\n' "${web_ip_bound_upstreams[@]}" | awk 'NF' | sort -u)
+          web_ip_bound_upstreams=("${unique_web_ip_bound_upstreams[@]}")
+          mapfile -t primary_web_bound_upstreams < <(
+            comm -12 \
+              <(printf '%s\n' "${matched_upstreams[@]}" | awk 'NF' | sort -u) \
+              <(printf '%s\n' "${web_bound_upstreams[@]}" | awk 'NF' | sort -u)
+          )
+          web_alias_bound_count="${#web_bound_upstreams[@]}"
+          web_ip_bound_count="${#web_ip_bound_upstreams[@]}"
+          primary_web_bound_count="${#primary_web_bound_upstreams[@]}"
+
+          stage=WEB_BOUND_UPSTREAM_SELECTION
+          if [[ "${#matched_upstreams[@]}" == 1 && "${#primary_web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${primary_web_bound_upstreams[0]}"
+            upstream_mode=PRIMARY_HOST_MATCH
+          elif [[ "${#matched_upstreams[@]}" -gt 1 && "${#primary_web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${primary_web_bound_upstreams[0]}"
+            upstream_mode=UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM
+          elif [[ "${#matched_upstreams[@]}" == 0 && "${#web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${web_bound_upstreams[0]}"
+            upstream_mode=UNIQUE_WEB_BOUND_UPSTREAM
+          else
+            false
+          fi
+          stage=PRIMARY_UPSTREAM_FORMAT
           [[ "$upstream" =~ ^(127\.0\.0\.1|localhost|[A-Za-z0-9_.-]+):[0-9]{1,5}$ ]]
+          stage=PRIMARY_UPSTREAM_WEB_IDENTITY
+          printf '%s\n' "${web_bound_upstreams[@]}" | grep -Fx -- "$upstream" >/dev/null
+
+          if [[ "$already_ready" == 1 ]]; then
+            stage=ALREADY_READY_UPSTREAM
+            [[ "$wire_mode" == EXISTING ]]
+            mapfile -t existing_control_hosts < <(
+              awk '
+                /^[[:space:]]*# BEGIN COMPANY OS CONTROL HOST[[:space:]]*$/ { inside=1; next }
+                /^[[:space:]]*# END COMPANY OS CONTROL HOST[[:space:]]*$/ { inside=0 }
+                inside && NF { $1=$1; print }
+              ' "$caddy_config" | grep -Fx -- "$control_domain {" || true
+            )
+            mapfile -t existing_control_upstreams < <(
+              awk '
+                /^[[:space:]]*# BEGIN COMPANY OS CONTROL HOST[[:space:]]*$/ { inside=1; next }
+                /^[[:space:]]*# END COMPANY OS CONTROL HOST[[:space:]]*$/ { inside=0 }
+                inside && $1 == "reverse_proxy" { $1=$1; print }
+              ' "$caddy_config"
+            )
+            [[ "${#existing_control_hosts[@]}" == 1 ]]
+            [[ "${#existing_control_upstreams[@]}" == 1 && "${existing_control_upstreams[0]}" == "reverse_proxy $upstream" ]]
+            trap - ERR
+            printf '%s\n' 'CUTOVER_PREFLIGHT=ALREADY_READY' 'CUTOVER_PREFLIGHT_STAGE=ALREADY_READY_REVALIDATED'
+            exit 0
+          fi
 
           stage=CANDIDATE_ENV
           awk '
@@ -371,8 +503,23 @@ jobs:
           [[ "$(grep -c '^PC_CONTROL_HOST_ENABLED=' "$tmp_dir/env.candidate")" == 1 ]]
 
           stage=CANDIDATE_COMPOSE
-          docker compose --env-file "$tmp_dir/env.candidate" "${compose_args[@]}" config --format json > "$tmp_dir/compose.candidate.json" 2>/dev/null
+          candidate_compose_args=("${compose_args[@]}")
+          if [[ "$wire_mode" == CREATE_OVERRIDE ]]; then
+            cat > "$tmp_dir/compose.override.candidate.yml" <<'COMPOSE_OVERRIDE'
+          services:
+            web:
+              environment:
+                PC_CONTROL_HOST_ENABLED: "${PC_CONTROL_HOST_ENABLED:-false}"
+          COMPOSE_OVERRIDE
+            chmod 600 "$tmp_dir/compose.override.candidate.yml"
+            candidate_compose_args+=(-f "$tmp_dir/compose.override.candidate.yml")
+          fi
+          docker compose --env-file "$tmp_dir/env.candidate" "${compose_args[@]}" config --format json > "$tmp_dir/compose.base.json" 2>/dev/null
+          docker compose --env-file "$tmp_dir/env.candidate" "${candidate_compose_args[@]}" config --format json > "$tmp_dir/compose.candidate.json" 2>/dev/null
           jq -e '.services.web.environment.PC_CONTROL_HOST_ENABLED == "true"' "$tmp_dir/compose.candidate.json" >/dev/null
+          jq -S 'del(.services.web.environment.PC_CONTROL_HOST_ENABLED) | if .services.web.environment == {} then del(.services.web.environment) else . end' "$tmp_dir/compose.base.json" > "$tmp_dir/compose.base.normalized.json"
+          jq -S 'del(.services.web.environment.PC_CONTROL_HOST_ENABLED) | if .services.web.environment == {} then del(.services.web.environment) else . end' "$tmp_dir/compose.candidate.json" > "$tmp_dir/compose.candidate.normalized.json"
+          cmp -s "$tmp_dir/compose.base.normalized.json" "$tmp_dir/compose.candidate.normalized.json"
           image_ref="$(jq -r '.services.web.image // empty' "$tmp_dir/compose.candidate.json")"
           caddy_image_ref="$(jq -r '.services.caddy.image // empty' "$tmp_dir/compose.candidate.json")"
           [[ -n "$image_ref" && -n "$caddy_image_ref" ]]
@@ -395,17 +542,39 @@ jobs:
           CADDY
           [[ "$(grep -c '# BEGIN COMPANY OS CONTROL HOST' "$tmp_dir/Caddyfile.candidate")" == 1 ]]
           [[ "$(grep -c '# END COMPANY OS CONTROL HOST' "$tmp_dir/Caddyfile.candidate")" == 1 ]]
-          docker run --rm --pull never --network none --entrypoint caddy \
-            --mount "type=bind,src=$tmp_dir/Caddyfile.candidate,dst=/tmp/Caddyfile,readonly" \
-            "$caddy_image_id" validate --config /tmp/Caddyfile >/dev/null 2>&1
+          docker exec -i -w /etc/caddy "$caddy_id" \
+            caddy validate --config - --adapter caddyfile \
+            < "$tmp_dir/Caddyfile.candidate" >/dev/null 2>&1
 
           trap - ERR
-          printf '%s\n' 'CUTOVER_PREFLIGHT=READY' 'CUTOVER_PREFLIGHT_STAGE=READY_BEFORE_BACKUP'
+          if [[ "$wire_mode" == CREATE_OVERRIDE && "$upstream_mode" == UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM ]]; then ready_stage=READY_WITH_OVERRIDE_UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM_BEFORE_BACKUP
+          elif [[ "$wire_mode" == CREATE_OVERRIDE && "$upstream_mode" == UNIQUE_WEB_BOUND_UPSTREAM ]]; then ready_stage=READY_WITH_OVERRIDE_UNIQUE_WEB_BOUND_UPSTREAM_BEFORE_BACKUP
+          elif [[ "$wire_mode" == CREATE_OVERRIDE ]]; then ready_stage=READY_WITH_OVERRIDE_BEFORE_BACKUP
+          elif [[ "$upstream_mode" == UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM ]]; then ready_stage=READY_WITH_UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM_BEFORE_BACKUP
+          elif [[ "$upstream_mode" == UNIQUE_WEB_BOUND_UPSTREAM ]]; then ready_stage=READY_WITH_UNIQUE_WEB_BOUND_UPSTREAM_BEFORE_BACKUP
+          else ready_stage=READY_BEFORE_BACKUP; fi
+          printf '%s\n' \
+            'CUTOVER_PREFLIGHT=READY' \
+            "CUTOVER_PREFLIGHT_STAGE=$ready_stage" \
+            "EXACT_MATCH_COUNT=$exact_match_count" \
+            "ALL_DIAL_COUNT=$all_dial_count" \
+            "WELL_FORMED_DIAL_COUNT=$well_formed_dial_count" \
+            "WEB_NETWORK_COUNT=$web_network_count" \
+            "CADDY_NETWORK_COUNT=$caddy_network_count" \
+            "SHARED_NETWORK_COUNT=$shared_network_count" \
+            "WEB_ALIAS_CANDIDATE_COUNT=$web_alias_candidate_count" \
+            "WEB_ALIAS_BOUND_COUNT=$web_alias_bound_count" \
+            "WEB_IP_BOUND_COUNT=$web_ip_bound_count" \
+            "PRIMARY_WEB_BOUND_COUNT=$primary_web_bound_count"
           REMOTE
 
-          for key in CUTOVER_PREFLIGHT CUTOVER_PREFLIGHT_STAGE; do
+          for key in CUTOVER_PREFLIGHT CUTOVER_PREFLIGHT_STAGE EXACT_MATCH_COUNT ALL_DIAL_COUNT WELL_FORMED_DIAL_COUNT WEB_NETWORK_COUNT CADDY_NETWORK_COUNT SHARED_NETWORK_COUNT WEB_ALIAS_CANDIDATE_COUNT WEB_ALIAS_BOUND_COUNT WEB_IP_BOUND_COUNT PRIMARY_WEB_BOUND_COUNT; do
             value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
-            [[ "$value" =~ ^[A-Z][A-Z0-9_]*$ ]] || value=UNKNOWN
+            if [[ "$key" == CUTOVER_PREFLIGHT || "$key" == CUTOVER_PREFLIGHT_STAGE ]]; then
+              [[ "$value" =~ ^[A-Z][A-Z0-9_]*$ ]] || value=UNKNOWN
+            else
+              [[ "$value" =~ ^([0-9]+|UNKNOWN)$ ]] || value=UNKNOWN
+            fi
             echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
           done
       - name: Classify readiness
@@ -476,9 +645,19 @@ jobs:
           CONTROL_GATE: ${{ steps.remote.outputs.control_gate }}
           CUTOVER_PREFLIGHT: ${{ steps.preflight.outputs.cutover_preflight }}
           CUTOVER_PREFLIGHT_STAGE: ${{ steps.preflight.outputs.cutover_preflight_stage }}
+          EXACT_MATCH_COUNT: ${{ steps.preflight.outputs.exact_match_count }}
+          ALL_DIAL_COUNT: ${{ steps.preflight.outputs.all_dial_count }}
+          WELL_FORMED_DIAL_COUNT: ${{ steps.preflight.outputs.well_formed_dial_count }}
+          WEB_NETWORK_COUNT: ${{ steps.preflight.outputs.web_network_count }}
+          CADDY_NETWORK_COUNT: ${{ steps.preflight.outputs.caddy_network_count }}
+          SHARED_NETWORK_COUNT: ${{ steps.preflight.outputs.shared_network_count }}
+          WEB_ALIAS_CANDIDATE_COUNT: ${{ steps.preflight.outputs.web_alias_candidate_count }}
+          WEB_ALIAS_BOUND_COUNT: ${{ steps.preflight.outputs.web_alias_bound_count }}
+          WEB_IP_BOUND_COUNT: ${{ steps.preflight.outputs.web_ip_bound_count }}
+          PRIMARY_WEB_BOUND_COUNT: ${{ steps.preflight.outputs.primary_web_bound_count }}
         with:
           script: |
-            const body = ['## Company OS control-host readiness V2','',`- Exact main: \`${process.env.MAIN_SHA || 'UNKNOWN'}\``,`- State: **${process.env.RESULT_STATE || 'BLOCKED_UNKNOWN'}**`,`- DNS A / AAAA: \`${process.env.DNS_A || 'UNKNOWN'} / ${process.env.DNS_AAAA || 'UNKNOWN'}\``,`- TLS / HTTPS: \`${process.env.TLS || 'UNKNOWN'} / ${process.env.HTTPS || 'UNKNOWN'}\``,`- SSH: \`${process.env.SSH_STATE || 'UNKNOWN'}\``,`- Caddy source / active / valid: \`${process.env.CADDY_SOURCE || 'UNKNOWN'} / ${process.env.CADDY_ACTIVE || 'UNKNOWN'} / ${process.env.CADDY_VALID || 'UNKNOWN'}\``,`- Caddy control / config writable: \`${process.env.CADDY_CONTROL_DECLARED || 'UNKNOWN'} / ${process.env.CADDY_CONFIG_WRITABLE || 'UNKNOWN'}\``,`- Caddy containers known / running: \`${process.env.CADDY_CONTAINER_COUNT || 'UNKNOWN'} / ${process.env.CADDY_RUNNING_COUNT || 'UNKNOWN'}\``,`- Compose metadata / public 443 owner: \`${process.env.CADDY_COMPOSE_METADATA || 'UNKNOWN'} / ${process.env.PUBLIC_443_OWNER || 'UNKNOWN'}\``,`- Web state / revision: \`${process.env.WEB_STATE || 'UNKNOWN'} / ${process.env.WEB_REVISION || 'UNKNOWN'}\``,`- Control gate: \`${process.env.CONTROL_GATE || 'UNKNOWN'}\``,`- Guarded cutover preflight / stage: \`${process.env.CUTOVER_PREFLIGHT || 'UNKNOWN'} / ${process.env.CUTOVER_PREFLIGHT_STAGE || 'UNKNOWN'}\``, '', 'Read-only diagnostic. Production mutation: **NONE**.'].join('\n');
+            const body = ['## Company OS control-host readiness V2','',`- Exact main: \`${process.env.MAIN_SHA || 'UNKNOWN'}\``,`- State: **${process.env.RESULT_STATE || 'BLOCKED_UNKNOWN'}**`,`- DNS A / AAAA: \`${process.env.DNS_A || 'UNKNOWN'} / ${process.env.DNS_AAAA || 'UNKNOWN'}\``,`- TLS / HTTPS: \`${process.env.TLS || 'UNKNOWN'} / ${process.env.HTTPS || 'UNKNOWN'}\``,`- SSH: \`${process.env.SSH_STATE || 'UNKNOWN'}\``,`- Caddy source / active / valid: \`${process.env.CADDY_SOURCE || 'UNKNOWN'} / ${process.env.CADDY_ACTIVE || 'UNKNOWN'} / ${process.env.CADDY_VALID || 'UNKNOWN'}\``,`- Caddy control / config writable: \`${process.env.CADDY_CONTROL_DECLARED || 'UNKNOWN'} / ${process.env.CADDY_CONFIG_WRITABLE || 'UNKNOWN'}\``,`- Caddy containers known / running: \`${process.env.CADDY_CONTAINER_COUNT || 'UNKNOWN'} / ${process.env.CADDY_RUNNING_COUNT || 'UNKNOWN'}\``,`- Compose metadata / public 443 owner: \`${process.env.CADDY_COMPOSE_METADATA || 'UNKNOWN'} / ${process.env.PUBLIC_443_OWNER || 'UNKNOWN'}\``,`- Web state / revision: \`${process.env.WEB_STATE || 'UNKNOWN'} / ${process.env.WEB_REVISION || 'UNKNOWN'}\``,`- Control gate: \`${process.env.CONTROL_GATE || 'UNKNOWN'}\``,`- Guarded cutover preflight / stage: \`${process.env.CUTOVER_PREFLIGHT || 'UNKNOWN'} / ${process.env.CUTOVER_PREFLIGHT_STAGE || 'UNKNOWN'}\``,`- Selector exact / all / well-formed dials: \`${process.env.EXACT_MATCH_COUNT || 'UNKNOWN'} / ${process.env.ALL_DIAL_COUNT || 'UNKNOWN'} / ${process.env.WELL_FORMED_DIAL_COUNT || 'UNKNOWN'}\``,`- Networks web / Caddy / shared: \`${process.env.WEB_NETWORK_COUNT || 'UNKNOWN'} / ${process.env.CADDY_NETWORK_COUNT || 'UNKNOWN'} / ${process.env.SHARED_NETWORK_COUNT || 'UNKNOWN'}\``,`- Web identity alias candidates / shared-bound / IP-bound: \`${process.env.WEB_ALIAS_CANDIDATE_COUNT || 'UNKNOWN'} / ${process.env.WEB_ALIAS_BOUND_COUNT || 'UNKNOWN'} / ${process.env.WEB_IP_BOUND_COUNT || 'UNKNOWN'}\``,`- Primary-host web-bound intersection: \`${process.env.PRIMARY_WEB_BOUND_COUNT || 'UNKNOWN'}\``, '', 'Read-only diagnostic. Production mutation: **NONE**.'].join('\n');
             await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: Number(process.env.TARGET_ISSUE), body});
       - name: Upload redacted readiness evidence
         if: always()

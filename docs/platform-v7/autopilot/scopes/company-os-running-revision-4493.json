@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/company-os-running-revision-4493",
+  "status": "active",
+  "purpose": "Eliminate the control-host cutover revision race by binding acceptance to the immutable OCI revision of the single running Compose web container captured during guarded preflight, without pulling, building, deploying or changing the application image.",
+  "authorityBaseExactMain": "116854bfff62992de793a99221ecd8973707538a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
+    "docs/platform-v7/autopilot/scopes/company-os-running-revision-4493.json"
+  ],
+  "requiredInvariants": [
+    "The workflow remains exact-main, canonical-DNS, absent-AAAA, pinned-SSH, owner-authorized and concurrency-guarded.",
+    "The selected running web container remains unique, running, Compose-labelled and bound to one immutable sha256 image ID and one full 40-character OCI revision.",
+    "The running revision is captured before backup or mutation and must exist in the checked-out repository, descend from the minimum Company OS boundary commit, and contain the permanent primary-root redirect contract.",
+    "Boundary validation emits only the already-redacted full revision and immutable image ID and never emits image references, container IDs, topology, paths, environment values or secrets.",
+    "The post-recreate web container must use the identical immutable image ID; because revision is an immutable image label captured from that image, no image pull, build, replacement or application deploy is authorized.",
+    "Public acceptance must consume the same preflight revision that independently passed source-boundary validation; no fixed revision constant, mutable tag or nonexistent public version endpoint may substitute for this equality.",
+    "The original production Compose files remain unedited; the previously authorized fixed additive override is the only permitted gate-wiring repair.",
+    "Every non-web container ID, including Caddy, remains unchanged; candidate Compose and Caddy configuration validate before mutation.",
+    "Any pre-acceptance failure is no-mutation or internally rolled back; any public-acceptance failure invokes authenticated external rollback.",
+    "Ten consecutive TLS, control-login, host-isolation, exact-revision, primary redirect, primary health and API-denial rounds remain mandatory.",
+    "GO remains forbidden until reviewer MFA, First Customer and all 9 of 9 role journeys pass."
+  ],
+  "acceptance": [
+    "Workflow YAML and embedded remote Bash parse before merge.",
+    "Static inspection proves EXPECTED_APP_REVISION and every fixed deployed-revision equality are absent.",
+    "Static inspection proves the preflight revision is a full SHA, its commit exists, the minimum boundary is its ancestor, and its deployed root source contains permanentRedirect('/platform-v7').",
+    "Static inspection proves public acceptance compares the mutate output to the independently validated boundary output before probing and records REVISION_MATCH=YES only after that equality.",
+    "Static inspection proves web recreation retains the exact immutable image ID and uses --no-build --pull never.",
+    "The exact-head governance, security, dependency, CodeQL and runtime-context checks pass.",
+    "A post-merge read-only readiness run reports a unique running web revision and no production mutation.",
+    "The guarded cutover passes all ten public acceptance rounds or restores the original production state with bounded authenticated rollback evidence."
+  ]
+}

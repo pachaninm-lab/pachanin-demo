@@ -23,9 +23,9 @@ function StarterButton({ starter, onStarter }: { starter: GektaStarter; onStarte
 }
 
 /**
- * The mobile reading order is deliberate: positioning, composer, then two
- * examples. The composer portal uses this slot only before a conversation is
- * active; the rest of the prompts stay one disclosure away.
+ * Mobile reading order is positioning, composer, then examples. The composer
+ * is mounted into this slot for the whole discovery state and does not change
+ * parent when the on-screen keyboard opens or closes.
  */
 export function GektaEmptyState({ locale, hero, starters, onStarter }: {
   locale: GektaLocale;

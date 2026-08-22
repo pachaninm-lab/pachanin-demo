@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-control-gate-wiring-3785",
+  "status": "active",
+  "purpose": "Resolve the independently attested CONTROL_GATE_WIRING blocker for PC-CROP #3785 by validating and atomically adding one reversible Compose override that exposes the existing PC_CONTROL_HOST_ENABLED application boundary to the exact running web image.",
+  "authorityBaseExactMain": "b716e468507c53b4cfad60b06df50070e65877ed",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
+    ".github/workflows/company-os-control-host-readiness-v2.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-control-gate-wiring-3785.json"
+  ],
+  "requiredInvariants": [
+    "The repair remains exact-main, canonical-DNS, absent-AAAA, pinned-SSH, owner-authorized and concurrency-guarded.",
+    "The original production Compose files are never edited; when wiring is absent, exactly one fixed in-workspace file named .company-os-control-host.compose.yml may be created.",
+    "The override may add only services.web.environment.PC_CONTROL_HOST_ENABLED with default false; normalized candidate Compose output must otherwise equal the original output byte-for-byte.",
+    "Candidate Compose and Caddy configuration must validate before any production config, environment or service changes.",
+    "The primary upstream is selected by exact primary-host match when possible; a sole-edge fallback is permitted only when Caddy has exactly one unique reverse-proxy dial and that dial host is a running Compose web DNS alias on the same specific Docker network shared with Caddy.",
+    "An already-enabled control route may return no-op success only when its Compose wiring is persistent and its sole reverse_proxy dial is revalidated against the selected current web upstream and the same shared-network identity binding.",
+    "The current immutable web image ID and OCI revision remain unchanged; only the web service may be recreated and every non-web container ID, including Caddy, remains unchanged.",
+    "Internal rollback restores the environment and Caddy configuration, deletes an override created by this run, and recreates web from only the original Compose file set.",
+    "External acceptance failure uses authenticated backup metadata to restore the same state and delete only the exact fixed override path when the run created it.",
+    "Remote stderr is suppressed; only bounded uppercase failure stages and non-secret acceptance fields may reach Actions output.",
+    "Ten consecutive public acceptance rounds remain mandatory before success is published.",
+    "GO remains forbidden until reviewer MFA, First Customer and all 9 of 9 role journeys pass."
+  ],
+  "acceptance": [
+    "Workflow YAML and both embedded remote Bash scripts parse before merge.",
+    "Read-only readiness returns a READY_*_BEFORE_BACKUP state only after the selected upstream is bound to the running web identity; the current topology may use the bounded SOLE_EDGE_UPSTREAM fallback.",
+    "The cutover reports CREATE_OVERRIDE or EXISTING wiring mode plus PRIMARY_HOST_MATCH or SOLE_EDGE_UPSTREAM selection and passes TLS, control-login, host-isolation, parent redirect, API denial, exact-revision and primary-domain checks for 10 of 10 rounds.",
+    "Any pre-acceptance failure is either no-mutation or internally rolled back; any public-acceptance failure invokes the authenticated external rollback."
+  ]
+}
