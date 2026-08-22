@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/production-owner-access-reset-current-main.yml'
-      - 'docs/platform-v7/autopilot/scopes/owner-access-reset-current-main-4414.json'
+      - 'apps/api/prisma/migrations/20260822111500_p0_owner_access_password_reset_subject/migration.sql'
+      - 'docs/platform-v7/autopilot/scopes/owner-access-password-ready-3785.json'
+      - 'scripts/check-production-owner-access-reset-current-main.mjs'
+      - 'scripts/production-owner-access-reset-current-main.sh'
   issue_comment:
     types: [created]
 
@@ -18,7 +21,7 @@ concurrency:
 
 jobs:
   contract:
-    name: Validate owner-access recovery contract
+    name: Validate password-ready owner-access contract
     if: >-
       github.event_name == 'pull_request' ||
       (
@@ -46,41 +49,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Validate immutable reviewed reset source and bounded exception
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate static owner-access authority
         shell: bash
         run: |
           set -Eeuo pipefail
-          source_script='scripts/production-p0-reviewer-password-reset-request.sh'
-          [[ "$(git hash-object "$source_script")" == '7a586ded1b40ab3812335b351d0e8cc519020aa4' ]]
-          node scripts/check-production-p0-reviewer-password-reset-request.mjs
-          bash -n "$source_script"
-          python3 - "$source_script" <<'PY'
-          from pathlib import Path
-          import sys
-          text = Path(sys.argv[1]).read_text(encoding='utf-8')
-          required = {
-              "command": "COMMAND='/production p0-reviewer-reset-request current-main'",
-              "readiness": "if (counts.join('|') !== '1|1|1|1|1|0|0|0') fail('P0_REVIEWER_RESET_READINESS_NOT_EXACT');",
-              "inner_revision": '[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]',
-              "outer_revision": '[[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]',
-          }
-          for label, needle in required.items():
-              count = text.count(needle)
-              if count != 1:
-                  raise SystemExit(f'{label}_PATCH_CARDINALITY_INVALID:{count}')
-          if text.count('API / Web / auth-mail worker revision parity') != 2:
-              raise SystemExit('EVIDENCE_LABEL_CARDINALITY_INVALID')
-          forbidden = [
-              'PC_P0_REVIEWER_EMAIL', 'PC_P0_REVIEWER_PASSWORD', 'PC_P0_REVIEWER_TOTP',
-              'StrictHostKeyChecking=no', 'UserKnownHostsFile=/dev/null',
-              'decryptAuthMailEnvelope', 'payload_ciphertext', 'passwordHash =', 'mfa_secret_ciphertext =',
-          ]
-          for needle in forbidden:
-              if needle in text:
-                  raise SystemExit(f'FORBIDDEN_SOURCE_CONTENT:{needle}')
-          PY
+          owner_script='scripts/production-owner-access-reset-current-main.sh'
+          [[ "$(git hash-object "$owner_script")" == '8c7f039e88668d7c0d8e12e9fc4ddad8b937c771' ]]
+          node scripts/check-production-owner-access-reset-current-main.mjs
+          bash -n "$owner_script"
 
-      - name: Resolve exact current main
+      - name: Resolve exact target
         id: target
         shell: bash
         env:
@@ -145,48 +127,14 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
-          [[ "$(git hash-object scripts/production-p0-reviewer-password-reset-request.sh)" == '7a586ded1b40ab3812335b351d0e8cc519020aa4' ]]
+          owner_script='scripts/production-owner-access-reset-current-main.sh'
+          [[ "$(git hash-object "$owner_script")" == '8c7f039e88668d7c0d8e12e9fc4ddad8b937c771' ]]
 
-      - name: Execute reviewed reset flow with bounded owner-readiness correction
+      - name: Execute static password-ready owner-access flow
         shell: bash
         run: |
           set -Eeuo pipefail
-          source_script='scripts/production-p0-reviewer-password-reset-request.sh'
-          temp_script="$RUNNER_TEMP/owner-access-reset.sh"
-          cp -- "$source_script" "$temp_script"
-          chmod 0700 "$temp_script"
-          python3 - "$temp_script" <<'PY'
-          from pathlib import Path
-          import sys
-          path = Path(sys.argv[1])
-          text = path.read_text(encoding='utf-8')
-          replacements = [
-              (
-                  "COMMAND='/production p0-reviewer-reset-request current-main'",
-                  "COMMAND='/production owner-access-reset current-main'",
-              ),
-              (
-                  "if (counts.join('|') !== '1|1|1|1|1|0|0|0') fail('P0_REVIEWER_RESET_READINESS_NOT_EXACT');",
-                  "if (counts[0] !== 1 || counts[1] !== 1 || counts[2] !== 1 || counts[3] !== 1 || counts[4] !== 1 || ![0, 1].includes(counts[5]) || counts[6] !== 0 || counts[7] !== 0) fail('P0_REVIEWER_RESET_READINESS_NOT_EXACT');",
-              ),
-          ]
-          for index, (old, new) in enumerate(replacements, start=1):
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'PATCH_CARDINALITY_FAILED:R{index}:{count}')
-              text = text.replace(old, new, 1)
-          exact_revision_guards = [
-              '[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]',
-              '[[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]',
-          ]
-          for index, needle in enumerate(exact_revision_guards, start=1):
-              if text.count(needle) != 1:
-                  raise SystemExit(f'EXACT_MAIN_REVISION_GUARD_CHANGED:R{index}')
-          if text.count('API / Web / auth-mail worker revision parity') != 2:
-              raise SystemExit('EVIDENCE_LABEL_CARDINALITY_INVALID')
-          path.write_text(text, encoding='utf-8')
-          PY
-          bash -n "$temp_script"
+          owner_script='scripts/production-owner-access-reset-current-main.sh'
+          bash -n "$owner_script"
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
-          bash "$temp_script"
-          rm -f -- "$temp_script"
+          bash "$owner_script"
