@@ -608,11 +608,16 @@ jobs:
         env:
           EXPECTED_REVISION: ${{ steps.mutate.outputs.web_revision }}
           VALIDATED_REVISION: ${{ steps.boundary.outputs.validated_revision }}
+          EXPECTED_IMAGE_ID: ${{ steps.mutate.outputs.web_image_id }}
+          VALIDATED_IMAGE_ID: ${{ steps.boundary.outputs.validated_image_id }}
         run: |
           set -euo pipefail
           [[ "$EXPECTED_REVISION" =~ ^[0-9a-f]{40}$ ]]
           [[ "$VALIDATED_REVISION" =~ ^[0-9a-f]{40}$ ]]
           [[ "$EXPECTED_REVISION" == "$VALIDATED_REVISION" ]]
+          [[ "$EXPECTED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$VALIDATED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_IMAGE_ID" == "$VALIDATED_IMAGE_ID" ]]
           revision_match=YES
           evidence="$RUNNER_TEMP/company-os-control-acceptance"
           raw="$RUNNER_TEMP/company-os-control-acceptance-raw"
