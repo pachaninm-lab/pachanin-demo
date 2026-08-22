@@ -122,14 +122,19 @@ for (const exception of Array.isArray(registry?.exceptions) ? registry.exception
   if (exception?.severity !== 'HIGH') continue;
   const expiresAt = new Date(exception?.expiresAt ?? 0).getTime();
   if (!Number.isFinite(expiresAt) || expiresAt <= now) continue;
-  activeExceptions.set(String(exception.findingId), {
+  const findingId = String(exception.findingId);
+  const entries = activeExceptions.get(findingId) ?? [];
+  entries.push({
     id: String(exception.id),
     ticket: String(exception.ticket),
     expiresAt: String(exception.expiresAt),
     owner: String(exception.owner),
     approvedBy: String(exception.approvedBy),
     rationale: String(exception.rationale),
+    findingType: String(exception.findingType),
+    purls: Array.isArray(exception.purls) ? exception.purls.map(String) : [],
   });
+  activeExceptions.set(findingId, entries);
 }
 
 const allFindings = hasRecognizedShape ? collectVulnerabilities(report) : [];
@@ -145,9 +150,14 @@ for (const finding of relevantFindings) {
     continue;
   }
 
-  const exception = activeExceptions.get(finding.findingId);
+  const candidates = activeExceptions.get(finding.findingId) ?? [];
+  const exception = candidates.find((candidate) =>
+    candidate.findingType === 'vulnerability'
+    && candidate.purls.length > 0
+    && candidate.purls.includes(finding.purl)
+  );
   if (!exception) {
-    blocked.push({ ...finding, reason: 'HIGH finding has no active formal exception.' });
+    blocked.push({ ...finding, reason: 'HIGH finding has no active formal exception matching its scanner, finding type and exact package PURL.' });
     continue;
   }
   excepted.push({ ...finding, exception });
