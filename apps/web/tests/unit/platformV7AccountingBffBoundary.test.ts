@@ -6,7 +6,7 @@ import { ACCESS_COOKIE } from '../../lib/auth-cookies';
  *
  * This is the security-carrying part of the web slice and it had no test. The
  * allowlist is the whole reason the proxy is not a way to reach every route
- * the API has from a surface whose own rules are weaker, and an allowlist
+ * the API has from a surface whose own access rules are weaker, and an allowlist
  * nobody exercises is a comment.
  *
  * The cases below are the ones that would actually be tried: a route that is
@@ -64,6 +64,20 @@ describe('platform-v7 accounting BFF boundary', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('keeps Connection Center read-only even though the API has attestation writes', async () => {
+    const { POST } = await loadRoute();
+    const response = await POST(makeRequest('token'), context(['connections']));
+    expect(response.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const subjectResponse = await POST(
+      makeRequest('token'),
+      context(['connections', 'attestations', 'subjects']),
+    );
+    expect(subjectResponse.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   /**
    * Named for what it proves, after it turned out to prove something else.
    *
@@ -71,7 +85,7 @@ describe('platform-v7 accounting BFF boundary', () => {
    * exercising normalizePath's `.` / `..` / separator guard. Deleting that
    * guard outright left all eight tests green, so the assumption was wrong:
    * every input below is refused by the allowlist, whose identifier charset
-   * has no `/` and no `\` and cannot start with a dot. The guard is real
+   * has no `/` and no `\\` and cannot start with a dot. The guard is real
    * defence in depth and it is unreachable through this route surface — there
    * is no input the allowlist admits and the guard rejects.
    *
@@ -123,6 +137,34 @@ describe('platform-v7 accounting BFF boundary', () => {
     expect(init.cache).toBe('no-store');
     expect(init.redirect).toBe('manual');
     expect(response.headers.get('Cache-Control')).toContain('no-store');
+  });
+
+  it('forwards Connection Center and attestation reads, without opening their writes', async () => {
+    const { GET } = await loadRoute();
+    fetchMock
+      .mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ connections: [] }),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ subjects: [] }),
+      });
+
+    const connections = await GET(makeRequest('token'), context(['connections']));
+    expect(connections.status).toBe(200);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://api.example.test/accounting/connections',
+    );
+
+    const attestations = await GET(
+      makeRequest('token'),
+      context(['connections', 'attestations']),
+    );
+    expect(attestations.status).toBe(200);
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      'https://api.example.test/accounting/connections/attestations',
+    );
   });
 
   it('does not follow an upstream redirect', async () => {
