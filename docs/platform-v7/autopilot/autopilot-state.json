@@ -1205,6 +1205,10 @@
       "docs/platform-v7/autopilot/scopes/pc-crop-01a-scope-isolation-4471.json",
       "scripts/verify-pc-crop-01a-scope-isolation.test.mjs",
       "scripts/verify-pc-crop-01a.mjs"
+    ],
+    "fix/company-os-running-revision-4493": [
+      ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
+      "docs/platform-v7/autopilot/scopes/company-os-running-revision-4493.json"
     ]
   },
   "currentAcceptance": [
