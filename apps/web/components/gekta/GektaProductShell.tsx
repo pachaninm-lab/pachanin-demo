@@ -6,6 +6,12 @@ import type { GektaLocale } from '@/lib/gekta/content';
 import { getGektaApplicationSchema, getGektaFaqSchema, safeJsonLd } from '@/lib/gekta/seo';
 
 const mobileTouchContract = `
+[data-gekta-chat-workspace='true'] button {
+  -webkit-appearance: none;
+  appearance: none;
+  font: inherit;
+}
+
 @media (max-width: 767px) {
   [data-gekta-chat-workspace='true']:not(.overflow-hidden) {
     height: auto !important;
