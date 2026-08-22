@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "note": "Ratchet baseline. Floating references may fall but never rise. Floating branches are always a failure.",
+  "maxFloatingReferences": 1028,
+  "pinnedReferences": 8
+}

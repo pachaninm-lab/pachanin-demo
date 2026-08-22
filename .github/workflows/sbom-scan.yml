@@ -158,6 +158,12 @@ jobs:
       - name: Verify Qwen foundation-model immutability
         run: node scripts/ip/verify-qwen-immutability.mjs
 
+      - name: Run first-party supply-chain policy tests
+        run: node --test scripts/security/*.test.mjs
+
+      - name: Verify GitHub Actions pinning ratchet
+        run: node scripts/security/verify-action-pinning.mjs
+
       - name: Build full-history clean-room provenance
         run: node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room
 

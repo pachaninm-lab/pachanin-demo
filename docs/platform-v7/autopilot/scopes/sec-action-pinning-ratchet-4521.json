@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4521,
+  "branch": "sec/action-pinning-ratchet",
+  "status": "active",
+  "purpose": "Remove the floating branch reference from the security scanner and stop GitHub Actions pinning from degrading further, without pretending the historical debt is closed.",
+  "authorityBaseExactMain": "62c7a9ed683726e78b16d660888c7bb4dca9d644",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/sbom-scan.yml",
+    ".github/workflows/security.yml",
+    "docs/platform-v7/autopilot/scopes/sec-action-pinning-ratchet-4521.json",
+    "docs/security/SUPPLY_CHAIN_MATRIX.md",
+    "docs/security/supply-chain-action-baseline.json",
+    "scripts/security/verify-action-pinning.mjs",
+    "scripts/security/verify-action-pinning.test.mjs"
+  ],
+  "requiredInvariants": [
+    "No commit SHA may be invented; only hashes that can actually be verified may be written.",
+    "Any floating branch reference must fail the gate regardless of the count.",
+    "The floating-reference ceiling may fall but must never rise.",
+    "The matrix must state that the pinning control is NOT_MET and explain why the debt was not cleared.",
+    "No existing security gate may be weakened, disabled or excluded.",
+    "The trivy-action replacement tag must already be in proven use elsewhere in the repository.",
+    "No product code, dependency, lockfile or production configuration may change.",
+    "Merge and CI success are not REG.RU production deployment evidence."
+  ],
+  "acceptance": [
+    "aquasecurity/trivy-action@master no longer appears in any workflow.",
+    "The gate fails on a floating branch and on any rise above the baseline of 1028.",
+    "Unit tests cover the passing case, both failure modes, @main and @HEAD, SHA-pinned and local references, and a missing or malformed baseline.",
+    "The gate and its tests run in CI.",
+    "SUPPLY_CHAIN_MATRIX.md records 8 of 1036 references pinned and marks the control NOT_MET.",
+    "The concurrent-scope guard accepts exactly the seven authorized paths."
+  ]
+}
