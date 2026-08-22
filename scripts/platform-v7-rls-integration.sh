@@ -730,6 +730,42 @@ $authenticated_totp_compatibility_checks$;
 ROLLBACK;
 SQL
 
+# The runtime assertions roll back every compatibility mutation, but the
+# superuser fixtures were committed before the restricted connection began.
+# Remove that exact synthetic tuple set so the pre-existing tenant expected-set
+# checks below keep measuring only their own baseline fixtures.
+admin <<'SQL'
+DELETE FROM auth.mfa_challenges
+WHERE id IN (
+  'challenge-mfa-fresh', 'challenge-mfa-true', 'challenge-mfa-backup',
+  'challenge-mfa-mismatch', 'challenge-mfa-expired', 'challenge-mfa-stale',
+  'challenge-mfa-version'
+);
+DELETE FROM auth.sessions
+WHERE id IN (
+  'sess-mfa-fresh', 'sess-mfa-true', 'sess-mfa-backup',
+  'sess-mfa-mismatch', 'sess-mfa-mismatch-other', 'sess-mfa-expired',
+  'sess-mfa-stale', 'sess-mfa-version'
+);
+DELETE FROM auth.credential_states
+WHERE user_id IN (
+  'user-mfa-fresh', 'user-mfa-true', 'user-mfa-backup',
+  'user-mfa-mismatch', 'user-mfa-expired', 'user-mfa-stale',
+  'user-mfa-version'
+);
+DELETE FROM public."user_orgs"
+WHERE "id" IN (
+  'm-mfa-fresh', 'm-mfa-true', 'm-mfa-backup', 'm-mfa-mismatch',
+  'm-mfa-expired', 'm-mfa-stale', 'm-mfa-version'
+);
+DELETE FROM public."users"
+WHERE "id" IN (
+  'user-mfa-fresh', 'user-mfa-true', 'user-mfa-backup',
+  'user-mfa-mismatch', 'user-mfa-expired', 'user-mfa-stale',
+  'user-mfa-version'
+);
+SQL
+
 AUTH_URL="$(runtime_url pc_auth_runtime)"
 STAFF_URL="$(runtime_url pc_staff_runtime)"
 
