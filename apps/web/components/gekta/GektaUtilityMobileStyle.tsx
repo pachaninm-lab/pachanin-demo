@@ -1,29 +1,37 @@
 export function GektaUtilityMobileStyle() {
   return (
     <style>{`
+      [data-gekta-utility-page] {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+
       @media (max-width: 639px) {
-        button,
-        input:not([type='checkbox']):not([type='radio']):not([type='file']),
-        textarea,
-        select {
+        [data-gekta-utility-page] button,
+        [data-gekta-utility-page] input:not([type='checkbox']):not([type='radio']):not([type='file']),
+        [data-gekta-utility-page] textarea,
+        [data-gekta-utility-page] select {
           -webkit-appearance: none;
           appearance: none;
         }
-        button {
+        [data-gekta-utility-page] button {
           font: inherit;
         }
-        input:not([type='checkbox']):not([type='radio']):not([type='file']),
-        textarea,
-        select {
+        [data-gekta-utility-page] button:not([type='submit']) {
+          background-clip: padding-box;
+        }
+        [data-gekta-utility-page] input:not([type='checkbox']):not([type='radio']):not([type='file']),
+        [data-gekta-utility-page] textarea,
+        [data-gekta-utility-page] select {
           min-height: 44px;
           font-size: 16px !important;
         }
-        nav[aria-label='Gekta sections'] {
+        [data-gekta-utility-page] nav[aria-label='Gekta sections'] {
           display: grid !important;
           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
           overflow: visible !important;
         }
-        nav[aria-label='Gekta sections'] > a {
+        [data-gekta-utility-page] nav[aria-label='Gekta sections'] > a {
           width: 100%;
           min-width: 0;
           justify-content: center;
