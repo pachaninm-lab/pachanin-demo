@@ -7,8 +7,9 @@
 -- who has not enrolled MFA and is therefore not login-ready.
 --
 -- The function returns one normalized email to the confined table-free
--- pc_staff_runtime caller. It never writes password, MFA, role, membership,
--- tenant, challenge or outbox state.
+-- pc_staff_runtime caller. The function body is independently proved read-only;
+-- it never writes password, MFA, role, membership, tenant, challenge or outbox
+-- state and does not disturb the existing admission authority ACLs.
 
 DO $p0_owner_access_principals$
 BEGIN
@@ -59,12 +60,13 @@ END;
 $p0_owner_access_principals$;
 
 GRANT USAGE ON SCHEMA public, auth TO pc_staff_authority;
-GRANT SELECT (user_id, credential_version, locked_until, mfa_enabled, mfa_secret_ciphertext, mfa_key_version)
-  ON auth.credential_states TO pc_staff_authority;
+GRANT SELECT ("mfaSecret", "mfaBackup")
+  ON public."users" TO pc_staff_authority;
+GRANT SELECT (
+  user_id, credential_version, locked_until, mfa_enabled,
+  mfa_secret_ciphertext, mfa_key_version, mfa_backup_hashes
+) ON auth.credential_states TO pc_staff_authority;
 
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-  ON public."users", public."user_orgs", public."organizations", auth.credential_states
-  FROM pc_staff_authority;
 REVOKE ALL ON public."users", public."user_orgs", public."organizations", auth.credential_states
   FROM pc_staff_runtime;
 
@@ -89,6 +91,12 @@ DECLARE
   v_subject_count integer;
   v_email text;
 BEGIN
+  -- pc_staff_authority also owns the admission ceremony. A caller-controlled
+  -- transaction-local marker must never carry that legacy write capability into
+  -- this read-only projection.
+  PERFORM pg_catalog.set_config('app.staff_admission_scope', '', true);
+  PERFORM pg_catalog.set_config('app.staff_admission_decision', '', true);
+
   SELECT
     preflight.active_owner_count,
     preflight.usable_reviewer_count,
@@ -164,11 +172,14 @@ BEGIN
     AND subject."email" ~ '^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,63}$'
     AND subject."passwordHash" ~ '^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$'
     AND subject."mfaEnabled" = false
+    AND subject."mfaSecret" IS NULL
+    AND subject."mfaBackup" IS NULL
     AND credential.credential_version > 0
     AND (credential.locked_until IS NULL OR credential.locked_until <= now())
     AND credential.mfa_enabled = false
     AND credential.mfa_secret_ciphertext IS NULL
     AND credential.mfa_key_version IS NULL
+    AND credential.mfa_backup_hashes IS NULL
     AND EXISTS (
       SELECT 1
       FROM public."user_orgs" membership
@@ -247,6 +258,8 @@ BEGIN
       AND owner.rolname = 'pc_staff_authority'
       AND function.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[]
       AND function.proconfig @> ARRAY['row_security=on']::text[]
+      AND function.prosrc !~* '\m(INSERT|UPDATE|DELETE|TRUNCATE|MERGE|CALL|EXECUTE)\M'
+      AND function.prosrc !~* '\mkyc_tasks\M'
   ) THEN
     RAISE EXCEPTION 'owner-access password-reset subject boundary is invalid'
       USING ERRCODE = '42501';
@@ -269,28 +282,18 @@ BEGIN
     'auth.credential_states'
   ]
   LOOP
-    IF has_table_privilege('pc_staff_runtime', table_name, 'SELECT')
-       OR has_table_privilege('pc_staff_runtime', table_name, 'INSERT')
-       OR has_table_privilege('pc_staff_runtime', table_name, 'UPDATE')
+    IF has_any_column_privilege('pc_staff_runtime', table_name, 'SELECT')
+       OR has_any_column_privilege('pc_staff_runtime', table_name, 'INSERT')
+       OR has_any_column_privilege('pc_staff_runtime', table_name, 'UPDATE')
        OR has_table_privilege('pc_staff_runtime', table_name, 'DELETE')
        OR has_table_privilege('pc_staff_runtime', table_name, 'TRUNCATE')
-       OR has_table_privilege('pc_staff_runtime', table_name, 'REFERENCES')
+       OR has_any_column_privilege('pc_staff_runtime', table_name, 'REFERENCES')
        OR has_table_privilege('pc_staff_runtime', table_name, 'TRIGGER')
     THEN
       RAISE EXCEPTION 'pc_staff_runtime must remain table-free for %', table_name
         USING ERRCODE = '42501';
     END IF;
 
-    IF has_table_privilege('pc_staff_authority', table_name, 'INSERT')
-       OR has_table_privilege('pc_staff_authority', table_name, 'UPDATE')
-       OR has_table_privilege('pc_staff_authority', table_name, 'DELETE')
-       OR has_table_privilege('pc_staff_authority', table_name, 'TRUNCATE')
-       OR has_table_privilege('pc_staff_authority', table_name, 'REFERENCES')
-       OR has_table_privilege('pc_staff_authority', table_name, 'TRIGGER')
-    THEN
-      RAISE EXCEPTION 'pc_staff_authority must remain read-only for %', table_name
-        USING ERRCODE = '42501';
-    END IF;
   END LOOP;
 END;
 $p0_owner_access_boundary_proof$;

@@ -8,6 +8,7 @@ on:
       - 'apps/api/prisma/migrations/20260822111500_p0_owner_access_password_reset_subject/migration.sql'
       - 'docs/platform-v7/autopilot/scopes/owner-access-password-ready-3785.json'
       - 'scripts/check-production-owner-access-reset-current-main.mjs'
+      - 'scripts/platform-v7-database-dr-rehearsal.sh'
       - 'scripts/production-owner-access-reset-current-main.sh'
   issue_comment:
     types: [created]
@@ -26,6 +27,8 @@ jobs:
       github.event_name == 'pull_request' ||
       (
         github.event_name == 'issue_comment' &&
+        github.event.action == 'created' &&
+        github.run_attempt == 1 &&
         github.event.issue.number == 3072 &&
         github.event.comment.user.login == github.repository_owner &&
         github.event.comment.author_association == 'OWNER' &&
@@ -58,7 +61,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           owner_script='scripts/production-owner-access-reset-current-main.sh'
-          [[ "$(git hash-object "$owner_script")" == '8c7f039e88668d7c0d8e12e9fc4ddad8b937c771' ]]
+          [[ "$(git hash-object "$owner_script")" == 'dc935137db10c2ce36081a3af6275a743cbb42da' ]]
           node scripts/check-production-owner-access-reset-current-main.mjs
           bash -n "$owner_script"
 
@@ -83,6 +86,8 @@ jobs:
     needs: contract
     if: >-
       github.event_name == 'issue_comment' &&
+      github.event.action == 'created' &&
+      github.run_attempt == 1 &&
       needs.contract.result == 'success' &&
       needs.contract.outputs.target_sha != ''
     runs-on: ubuntu-24.04
@@ -93,13 +98,6 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
-      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
-      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
-      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
-      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
-      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -113,6 +111,9 @@ jobs:
           COMMENT_ID: ${{ github.event.comment.id }}
         run: |
           set -Eeuo pipefail
+          [[ "$GITHUB_EVENT_NAME" == 'issue_comment' ]]
+          [[ "$GITHUB_RUN_ATTEMPT" == '1' ]]
+          jq -e '.action == "created"' "$GITHUB_EVENT_PATH" >/dev/null
           owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
           user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
           assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
@@ -123,15 +124,33 @@ jobs:
           if [[ "$GITHUB_ACTOR" != "$owner" || "$GITHUB_TRIGGERING_ACTOR" != "$owner" ]]; then
             [[ "$app" == '1144995' ]]
           fi
+          comments_file="$(mktemp)"
+          trap 'rm -f "$comments_file"' EXIT
+          gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/issues/3072/comments?per_page=100" > "$comments_file"
+          command_ids="$(jq -r \
+            --arg owner "$owner" \
+            --arg command '/production owner-access-reset current-main' \
+            '[.[][] | select(.user.login == $owner and .author_association == "OWNER" and .body == $command) | (.id | tostring)] | join("|")' \
+            "$comments_file")"
+          [[ "$command_ids" == "$COMMENT_ID" ]]
           git fetch --no-tags origin main
           [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           owner_script='scripts/production-owner-access-reset-current-main.sh'
-          [[ "$(git hash-object "$owner_script")" == '8c7f039e88668d7c0d8e12e9fc4ddad8b937c771' ]]
+          [[ "$(git hash-object "$owner_script")" == 'dc935137db10c2ce36081a3af6275a743cbb42da' ]]
 
       - name: Execute static password-ready owner-access flow
         shell: bash
+        env:
+          PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+          PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+          PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+          PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+          PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
         run: |
           set -Eeuo pipefail
           owner_script='scripts/production-owner-access-reset-current-main.sh'

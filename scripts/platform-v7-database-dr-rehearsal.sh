@@ -236,7 +236,11 @@ DECLARE
     'auth.staff_admission_decision(text,text,text,text,text,text)',
     'auth.staff_organization_directory(text,text,text)',
     'auth.staff_organization_users(text,text,text,text)',
-    'auth.staff_cabinet_deals(text,text,text,text,text)'
+    'auth.staff_cabinet_deals(text,text,text,text,text)',
+    'auth.staff_reviewer_preflight()',
+    'auth.staff_reviewer_login_readiness()',
+    'auth.staff_reviewer_password_reset_subject()',
+    'auth.staff_owner_access_password_reset_subject()'
   ];
   registration_lifecycle_owned text[] := ARRAY[
     'auth.prepare_pending_registration_identity(text,text,text,text,text,text,text,text,text,text,text,text,text,text,text)',
@@ -837,6 +841,10 @@ BEGIN
     GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(text,text,text) TO one_deal_staff;
     GRANT EXECUTE ON FUNCTION auth.staff_organization_users(text,text,text,text) TO one_deal_staff;
     GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(text,text,text,text,text) TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_reviewer_preflight() TO one_deal_staff;
+    GRANT EXECUTE ON FUNCTION auth.staff_reviewer_login_readiness() TO one_deal_staff;
+    REVOKE ALL ON FUNCTION auth.staff_reviewer_password_reset_subject() FROM one_deal_staff;
+    REVOKE ALL ON FUNCTION auth.staff_owner_access_password_reset_subject() FROM one_deal_staff;
     REVOKE ALL ON FUNCTION auth.staff_admission_capability(text,text,text,text,text) FROM one_deal_staff;
     REVOKE ALL ON FUNCTION auth.staff_projection_capability(text,text,text,text,text,text,boolean) FROM one_deal_staff;
     REVOKE ALL ON FUNCTION auth.resolve_staff_deal_target_scope(text,text,text) FROM one_deal_auth;
@@ -856,6 +864,10 @@ BEGIN
       GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(text,text,text) TO pc_staff_runtime;
       GRANT EXECUTE ON FUNCTION auth.staff_organization_users(text,text,text,text) TO pc_staff_runtime;
       GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(text,text,text,text,text) TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.staff_reviewer_preflight() TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.staff_reviewer_login_readiness() TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.staff_reviewer_password_reset_subject() TO pc_staff_runtime;
+      GRANT EXECUTE ON FUNCTION auth.staff_owner_access_password_reset_subject() TO pc_staff_runtime;
     END IF;
   END IF;
 
@@ -929,6 +941,41 @@ SQL
 echo "[dr] restored identity proof forced-rls:bootstrap-owned:auth-bypassrls:minimal-bootstrap:deal-actor-execute:auth-actor-execute:logistics-execute:auth-logistics-execute = $RESTORE_IDENTITY_PROOF"
 if [[ "$RESTORE_IDENTITY_PROOF" != "3:15:0:1:1:0:1:0" ]]; then
   echo "Restored identity boundary is invalid: $RESTORE_IDENTITY_PROOF" >&2
+  exit 1
+fi
+
+RESTORE_OWNER_ACCESS_SUBJECT_PROOF="$(psql "$RESTORE_ADMIN_URL" -X -At --set ON_ERROR_STOP=1 <<'SQL'
+SELECT
+  (SELECT count(*) FROM pg_proc function
+   JOIN pg_namespace schema ON schema.oid = function.pronamespace
+   JOIN pg_roles owner ON owner.oid = function.proowner
+   WHERE schema.nspname = 'auth'
+     AND function.proname = 'staff_owner_access_password_reset_subject'
+     AND function.pronargs = 0
+     AND function.prosecdef
+     AND function.provolatile = 's'
+     AND owner.rolname = 'pc_staff_authority'
+     AND function.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[]
+     AND function.proconfig @> ARRAY['row_security=on']::text[]
+     AND function.prosrc !~* '\m(INSERT|UPDATE|DELETE|TRUNCATE|MERGE|CALL|EXECUTE)\M')::text
+  || ':' ||
+  has_function_privilege(
+    'pc_staff_runtime',
+    'auth.staff_owner_access_password_reset_subject()',
+    'EXECUTE'
+  )::int::text
+  || ':' ||
+  (
+    NOT has_function_privilege('one_deal_auth', 'auth.staff_owner_access_password_reset_subject()', 'EXECUTE')
+    AND NOT has_function_privilege('one_deal_app', 'auth.staff_owner_access_password_reset_subject()', 'EXECUTE')
+    AND NOT has_function_privilege('one_deal_staff', 'auth.staff_owner_access_password_reset_subject()', 'EXECUTE')
+    AND NOT has_function_privilege('one_deal_storage', 'auth.staff_owner_access_password_reset_subject()', 'EXECUTE')
+  )::int::text;
+SQL
+)"
+echo "[dr] restored owner-access subject proof bounded-definer:staff-runtime-execute:other-runtime-deny = $RESTORE_OWNER_ACCESS_SUBJECT_PROOF"
+if [[ "$RESTORE_OWNER_ACCESS_SUBJECT_PROOF" != "1:1:1" ]]; then
+  echo "Restored owner-access subject boundary is invalid: $RESTORE_OWNER_ACCESS_SUBJECT_PROOF" >&2
   exit 1
 fi
 

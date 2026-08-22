@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
+set -euo pipefail
 
 : "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
 : "${GH_TOKEN:?GH_TOKEN is required}"
@@ -31,7 +31,8 @@ cleanup() {
 }
 
 publish_failure() {
-  local rc="$?"
+  local prior_rc="$?"
+  local rc="${1:-$prior_rc}"
   trap - ERR
   if [[ "$result_published" == '0' ]]; then
     mutation_marker="$(grep '^PRODUCTION_MUTATION=' <<< "${output:-}" | tail -n1 || true)"
@@ -46,11 +47,6 @@ publish_failure() {
         production_mutation='NORMAL_PASSWORD_RESET_REQUEST_ONLY'
         ;;
     esac
-    already_requested="$(grep '^OWNER_ACCESS_RESET_ALREADY_REQUESTED|' <<< "${output:-}" | tail -n1 || true)"
-    if [[ -n "$already_requested" ]]; then
-      failure_reason='OWNER_ACCESS_RESET_ALREADY_REQUESTED'
-      failure_detail="${already_requested#*|}"
-    fi
     [[ "$failure_reason" =~ ^[A-Z0-9_]{1,96}$ ]] || failure_reason='UNCLASSIFIED_FAILURE'
     [[ "$failure_detail" =~ ^[A-Z0-9_]{1,128}$ ]] || failure_detail='NONE'
     gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production owner-access password-reset request
@@ -135,8 +131,9 @@ failure_reason='MAIN_GUARD_FAILED'
 guard_main
 
 failure_reason='DNS_IP_GUARD_FAILED'
-domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
-grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+mapfile -t domain_ips < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)
+[[ "${#domain_ips[@]}" == '1' ]]
+[[ "${domain_ips[0]}" == "$DEFAULT_HOST" ]]
 
 failure_reason='SSH_HOST_KEY_SCAN_FAILED'
 scan="$(mktemp)"
@@ -183,15 +180,22 @@ ssh -i "$key_path" -p "$port" \
   >/dev/null
 
 failure_reason='REMOTE_EXECUTION_FAILED'
+production_mutation='NORMAL_RESET_REQUEST_POSSIBLE_UNPROVEN'
+trap - ERR
+set +e
 output="$(ssh -i "$key_path" -p "$port" \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
   -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
-  "$user@$host" "bash -s -- '$TARGET_SHA' '$LIVE_BASE'" <<'REMOTE'
+  "$user@$host" "bash -s -- '$TARGET_SHA' '$LIVE_BASE' '$LIVE_DOMAIN' '$DEFAULT_HOST'" <<'REMOTE'
 set -Eeuo pipefail
 target_sha="$1"
 live_base="$2"
+live_domain="$3"
+live_ip="$4"
 [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
 [[ "$live_base" == 'https://xn----8sbjf4befbjgs9b.xn--p1ai' ]]
+[[ "$live_domain" == 'xn----8sbjf4befbjgs9b.xn--p1ai' ]]
+[[ "$live_ip" == '195.19.12.120' ]]
 [[ "$(id -u)" -eq 0 ]]
 command -v docker >/dev/null 2>&1
 command -v curl >/dev/null 2>&1
@@ -231,69 +235,57 @@ worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.St
 [[ "$worker_state" == 'running' ]]
 [[ "$worker_health" == 'healthy' ]]
 
-# The correlation is deterministic for this exact main. A rerun can therefore
-# prove that an earlier attempt already reached the durable outbox and must fail
-# closed without sending a second reset request.
-correlation_digest="$(printf 'pc-owner-access-reset-v1:%s' "$target_sha" | sha256sum | cut -d' ' -f1)"
-[[ "$correlation_digest" =~ ^[0-9a-f]{64}$ ]]
-correlation_id="${correlation_digest:0:8}-${correlation_digest:8:4}-5${correlation_digest:13:3}-a${correlation_digest:17:3}-${correlation_digest:20:12}"
-[[ "$correlation_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-a[0-9a-f]{3}-[0-9a-f]{12}$ ]]
+guard_runtime_unchanged() {
+  local current_api_revision current_web_revision current_worker_revision
+  local current_worker_state current_worker_health
+  local -a current_web_ids current_api_ids current_worker_ids
 
-existing_marker="$(docker exec -i "$worker_id" /nodejs/bin/node --input-type=commonjs - "$correlation_id" <<'NODE'
-const fs = require('fs');
-const { PrismaClient } = require('@prisma/client');
-const correlationId = String(process.argv[2] || '');
-const safe = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 96) || 'NONE';
-if (!/^[0-9a-f-]{36}$/.test(correlationId)) process.exit(31);
-const databaseFile = String(process.env.AUTH_MAIL_DATABASE_URL_FILE || '/run/pc-auth-mail/database-url').trim();
-let db;
-(async () => {
-  const databaseUrl = fs.readFileSync(databaseFile, 'utf8').trim();
-  if (!databaseUrl) throw new Error('DATABASE_URL_EMPTY');
-  db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
-  const rows = await db.$queryRawUnsafe(`
-    SELECT status
-    FROM auth.mail_outbox
-    WHERE message_kind = 'PASSWORD_RESET'
-      AND correlation_id = $1
-    ORDER BY created_at DESC, id DESC
-    LIMIT 2
-  `, correlationId);
-  if (rows.length > 1) {
-    process.stdout.write('EXISTING|CARDINALITY');
-    return;
-  }
-  if (rows.length === 1) {
-    process.stdout.write(`EXISTING|${safe(rows[0].status)}`);
-    return;
-  }
-  process.stdout.write('EXISTING|NONE');
-})().catch((error) => {
-  process.stderr.write(`${safe(error?.message)}\n`);
-  process.exitCode = 1;
-}).finally(async () => {
-  if (db) await db.$disconnect().catch(() => undefined);
-});
-NODE
-)"
-IFS='|' read -r existing_tag existing_status <<< "$existing_marker"
-[[ "$existing_tag" == 'EXISTING' ]]
-[[ "$existing_status" =~ ^(NONE|PENDING|PROCESSING|SENT|DEAD_LETTER|CARDINALITY)$ ]]
-if [[ "$existing_status" != 'NONE' ]]; then
-  printf 'OWNER_ACCESS_RESET_ALREADY_REQUESTED|%s\n' "$existing_status"
-  exit 42
-fi
+  mapfile -t current_web_ids < <(docker ps -q \
+    --filter "label=com.docker.compose.project=$project" \
+    --filter 'label=com.docker.compose.service=web')
+  mapfile -t current_api_ids < <(docker ps -q \
+    --filter "label=com.docker.compose.project=$project" \
+    --filter 'label=com.docker.compose.service=api')
+  mapfile -t current_worker_ids < <(docker ps -q \
+    --filter "label=com.docker.compose.project=$project" \
+    --filter 'label=com.docker.compose.service=auth-mail-worker')
+  (( ${#current_web_ids[@]} == 1 ))
+  (( ${#current_api_ids[@]} == 1 ))
+  (( ${#current_worker_ids[@]} == 1 ))
+  [[ "${current_web_ids[0]}" == "$web_id" ]]
+  [[ "${current_api_ids[0]}" == "$api_id" ]]
+  [[ "${current_worker_ids[0]}" == "$worker_id" ]]
+
+  current_api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+  current_web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+  current_worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"
+  [[ "$current_api_revision" == "$target_sha" ]]
+  [[ "$current_web_revision" == "$target_sha" ]]
+  [[ "$current_worker_revision" == "$target_sha" ]]
+  [[ "$(docker inspect --format '{{.State.Status}}' "$api_id")" == 'running' ]]
+  [[ "$(docker inspect --format '{{.State.Status}}' "$web_id")" == 'running' ]]
+  current_worker_state="$(docker inspect --format '{{.State.Status}}' "$worker_id")"
+  current_worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$worker_id")"
+  [[ "$current_worker_state" == 'running' ]]
+  [[ "$current_worker_health" == 'healthy' ]]
+}
 
 # Resolve the sole owner inside production. The address never crosses SSH.
 subject_output="$(docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
+const { createHash, createHmac } = require('node:crypto');
 const { PrismaClient } = require('@prisma/client');
 const fail = (code) => { throw new Error(code); };
 const emailPattern = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,63}$/;
-let db;
+let db, authDb;
 (async () => {
   const databaseUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
+  const authDatabaseUrl = String(process.env.AUTH_DATABASE_URL || '').trim();
+  const authTokenPepper = String(process.env.AUTH_TOKEN_PEPPER || '').trim();
   if (!databaseUrl) fail('P0_STAFF_DATABASE_URL_MISSING');
+  if (!authDatabaseUrl) fail('P0_AUTH_DATABASE_URL_MISSING');
+  if (authTokenPepper.length < 32) fail('P0_AUTH_TOKEN_PEPPER_NOT_READY');
   db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+  authDb = new PrismaClient({ datasources: { db: { url: authDatabaseUrl } } });
   const principals = await db.$queryRawUnsafe(`
     SELECT current_user AS user_name,
            rolsuper,
@@ -340,20 +332,53 @@ let db;
   if (counts.join('|') !== '1|1|1|1|1|1|0|0') fail('P0_REVIEWER_RESET_READINESS_NOT_EXACT');
   const email = String(row.reviewer_email || '');
   if (!emailPattern.test(email) || email.length > 254) fail('P0_REVIEWER_RESET_SUBJECT_INVALID');
-  process.stdout.write(`SUBJECT|${email}`);
+  const authHashKey = createHash('sha256').update(authTokenPepper, 'utf8').digest();
+  const accountHash = createHmac('sha256', authHashKey)
+    .update(`account:${email}`, 'utf8')
+    .digest('hex');
+  const throttle = await authDb.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+    const principals = await tx.$queryRawUnsafe(`
+      SELECT current_user AS user_name, rolsuper, rolbypassrls,
+             has_table_privilege(current_user, 'auth.login_throttles', 'SELECT') AS throttle_select
+      FROM pg_catalog.pg_roles WHERE rolname = current_user
+    `);
+    const principal = principals[0];
+    if (!principal || principal.user_name !== 'pc_auth_runtime'
+        || principal.rolsuper || principal.rolbypassrls || !principal.throttle_select) {
+      fail('P0_AUTH_RUNTIME_PRINCIPAL_INVALID');
+    }
+    const rows = await tx.$queryRawUnsafe(`
+      SELECT failures, locked_until
+      FROM auth.login_throttles
+      WHERE account_hash = $1
+      LIMIT 2
+    `, accountHash);
+    if (rows.length > 1) fail('P0_LOGIN_THROTTLE_CARDINALITY_INVALID');
+    return rows[0] || { failures: 0, locked_until: null };
+  });
+  const failures = Number(throttle.failures);
+  if (!Number.isSafeInteger(failures) || failures < 0) fail('P0_LOGIN_THROTTLE_STATE_INVALID');
+  if (throttle.locked_until && new Date(throttle.locked_until).getTime() > Date.now()) {
+    fail('P0_LOGIN_THROTTLE_ACTIVE');
+  }
+  process.stdout.write(`SUBJECT|${email}|THROTTLE|UNLOCKED`);
 })().catch((error) => {
-  const code = String(error?.message || 'P0_REVIEWER_RESET_DB_FAILURE').replace(/[^A-Z0-9_-]/gi, '').slice(0, 96);
-  process.stderr.write(`${code || 'P0_REVIEWER_RESET_DB_FAILURE'}\n`);
+  const raw = String(error?.message || '');
+  const code = /^P0_[A-Z0-9_]{4,92}$/.test(raw) ? raw : 'P0_REVIEWER_RESET_DB_FAILURE';
+  process.stderr.write(`${code}\n`);
   process.exitCode = 1;
 }).finally(async () => {
   if (db) await db.$disconnect().catch(() => undefined);
+  if (authDb) await authDb.$disconnect().catch(() => undefined);
 });
 NODE
 )"
-IFS='|' read -r subject_tag reviewer_email <<< "$subject_output"
+IFS='|' read -r subject_tag reviewer_email throttle_tag throttle_state <<< "$subject_output"
 [[ "$subject_tag" == 'SUBJECT' ]]
 [[ "$reviewer_email" =~ ^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,63}$ ]]
 (( ${#reviewer_email} <= 254 ))
+[[ "$throttle_tag" == 'THROTTLE' && "$throttle_state" == 'UNLOCKED' ]]
 unset subject_output
 
 jar="$remote_tmp/cookies.txt"
@@ -363,7 +388,15 @@ response_body="$remote_tmp/response.json"
 : > "$jar"; : > "$request_body"; : > "$response_body"
 chmod 0600 "$jar" "$request_body" "$response_body"
 
-get_status="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
+# This UUID is generated only after the exact-runtime and subject guards pass,
+# inside REG.RU, and is never published. Public clients cannot pre-seed the
+# authoritative outbox probe. Workflow provenance separately forbids reruns.
+correlation_id="$(cat /proc/sys/kernel/random/uuid)"
+[[ "$correlation_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]]
+
+get_status="$(curl --disable --silent --show-error --connect-timeout 10 --max-time 20 \
+  --noproxy '*' \
+  --resolve "$live_domain:443:$live_ip" \
   --output "$page" --write-out '%{http_code}' \
   --cookie "$jar" --cookie-jar "$jar" \
   -H 'Cache-Control: no-cache, no-store, max-age=0' \
@@ -375,8 +408,12 @@ printf '{"email":"%s","locale":"ru"}' "$reviewer_email" > "$request_body"
 unset reviewer_email
 
 started_epoch="$(date +%s)"
+guard_runtime_unchanged
 mutation_state='NORMAL_RESET_REQUEST_POSSIBLE_UNPROVEN'
-post_status="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
+printf 'PRODUCTION_MUTATION=%s\n' "$mutation_state"
+post_status="$(curl --disable --silent --show-error --connect-timeout 10 --max-time 20 \
+  --noproxy '*' \
+  --resolve "$live_domain:443:$live_ip" \
   --output "$response_body" --write-out '%{http_code}' \
   --cookie "$jar" --cookie-jar "$jar" \
   -H 'Accept: application/json' \
@@ -390,6 +427,7 @@ post_status="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
 grep -Eq '"accepted"[[:space:]]*:[[:space:]]*true' "$response_body"
 grep -Fq "\"correlationId\":\"$correlation_id\"" "$response_body"
 mutation_state='NORMAL_PASSWORD_RESET_REQUEST_ONLY'
+printf 'PRODUCTION_MUTATION=%s\n' "$mutation_state"
 
 # Durable mail evidence is authoritative. The worker DB principal may read the
 # encrypted outbox but this probe selects only status metadata for this exact
@@ -442,7 +480,8 @@ let db;
   }
   process.stdout.write(`OUTBOX|${last.status}|${last.attempt}|${last.maxAttempts}|${last.error}|${last.sentMarked}`);
 })().catch((error) => {
-  process.stderr.write(`${safe(error?.message)}\n`);
+  void error;
+  process.stderr.write('AUTH_MAIL_OUTBOX_PROBE_FAILED\n');
   process.exitCode = 1;
 }).finally(async () => {
   if (db) await db.$disconnect().catch(() => undefined);
@@ -462,6 +501,8 @@ if docker logs --since "$started_epoch" "$api_id" 2>&1 | grep -Fq 'Password rese
   api_transaction_failure=YES
 fi
 
+guard_runtime_unchanged
+
 printf 'OWNER_ACCESS_PASSWORD_RESET_REQUEST|%s|%s|%s|%s|%s|%s|%s|%s\n' \
   "$post_status" "$correlation_id" "$outbox_status" "$outbox_attempt" "$outbox_max" "$outbox_error" "$outbox_sent" "$api_transaction_failure"
 printf 'API_REVISION=%s\n' "$api_revision"
@@ -470,6 +511,12 @@ printf 'WORKER_REVISION=%s\n' "$worker_revision"
 printf 'WORKER_READINESS=PASS\n'
 REMOTE
 )"
+remote_rc=$?
+set -e
+trap publish_failure ERR
+if (( remote_rc != 0 )); then
+  publish_failure "$remote_rc"
+fi
 
 failure_reason='EVIDENCE_VALIDATION_FAILED'
 marker="$(grep '^OWNER_ACCESS_PASSWORD_RESET_REQUEST|' <<< "$output" | tail -n1)"
@@ -481,7 +528,7 @@ mutation="$(grep '^PRODUCTION_MUTATION=' <<< "$output" | tail -n1)"
 IFS='|' read -r tag status correlation_id outbox_status outbox_attempt outbox_max outbox_error outbox_sent api_tx_failure <<< "$marker"
 [[ "$tag" == 'OWNER_ACCESS_PASSWORD_RESET_REQUEST' ]]
 [[ "$status" == '202' ]]
-[[ "$correlation_id" =~ ^[0-9a-f-]{36}$ ]]
+[[ "$correlation_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]]
 [[ "$outbox_status" =~ ^(SENT|DEAD_LETTER|PENDING|PROCESSING|NONE|CARDINALITY)$ ]]
 [[ "$outbox_attempt" =~ ^[0-9]{1,2}$ ]]
 [[ "$outbox_max" =~ ^[0-9]{1,2}$ ]]
@@ -491,6 +538,7 @@ IFS='|' read -r tag status correlation_id outbox_status outbox_attempt outbox_ma
 [[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]
 [[ "$worker_readiness" == 'PASS' ]]
 [[ "$mutation" == 'PRODUCTION_MUTATION=NORMAL_PASSWORD_RESET_REQUEST_ONLY' ]]
+production_mutation='NORMAL_PASSWORD_RESET_REQUEST_ONLY'
 
 correlation_hash="$(printf '%s' "$correlation_id" | sha256sum | cut -c1-16)"
 unset correlation_id output marker
@@ -511,7 +559,6 @@ if [[ "$outbox_status" != 'SENT' || "$outbox_sent" != '1' ]]; then
     *) failure_reason='DURABLE_OUTBOX_NOT_SENT' ;;
   esac
   failure_detail="$outbox_error"
-  result_published=1
   gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production owner-access password-reset request
 
 - command: \`$COMMAND\`
@@ -530,6 +577,7 @@ if [[ "$outbox_status" != 'SENT' || "$outbox_sent" != '1' ]]; then
 - password/TOTP handling: \`NONE\`
 - production mutation: \`NORMAL_PASSWORD_RESET_REQUEST_ONLY\`
 - blocker: \`$failure_reason\`" >/dev/null
+  result_published=1
   exit 1
 fi
 
