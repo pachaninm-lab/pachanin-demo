@@ -1184,9 +1184,21 @@
       ".github/workflows/company-os-control-host-readiness-v2.yml",
       "docs/platform-v7/autopilot/scopes/pc-crop-control-gate-wiring-3785.json"
     ],
+    "fix/pc-crop-control-web-bound-upstream-3785": [
+      ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
+      ".github/workflows/company-os-control-host-readiness-v2.yml",
+      "docs/platform-v7/autopilot/scopes/pc-crop-control-web-bound-upstream-3785.json"
+    ],
     "fix/codeql-v4-cli-path-4467": [
       ".github/workflows/codeql-platform-v7-report.yml",
-      "docs/platform-v7/autopilot/scopes/codeql-v4-cli-path-4467.json"
+      "docs/platform-v7/autopilot/scopes/codeql-v4-cli-path-4467.json",
+      "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts"
+    ],
+    "fix/outbox-cve-exception-4476": [
+      "docs/platform-v7/autopilot/check-security-release-gate.mjs",
+      "docs/platform-v7/autopilot/security-exceptions.schema.json",
+      "docs/platform-v7/autopilot/security-exceptions.json",
+      "docs/platform-v7/autopilot/scopes/outbox-cve-exception-4476.json"
     ]
   },
   "currentAcceptance": [
