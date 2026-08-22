@@ -940,7 +940,17 @@ SELECT
    WHERE n.nspname = 'auth'
      AND p.proname = 'finalize_authenticated_user_mfa'
      AND p.prosecdef
-     AND owner.rolname = 'pc_auth_mfa_authority')::text
+     AND owner.rolname = 'pc_auth_mfa_authority'
+     AND p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[]
+     AND p.proconfig @> ARRAY['row_security=on']::text[]
+     AND p.prosrc LIKE '%challenge."type" IN (''TOTP_ENROLL'', ''TOTP_VERIFY'')%'
+     AND p.prosrc LIKE '%challenge.verified_at = pg_catalog.transaction_timestamp()%'
+     AND p.prosrc LIKE '%session.mfa_verified_method = ''TOTP''%'
+     AND p.prosrc LIKE '%session.mfa_verified_at = pg_catalog.transaction_timestamp()%'
+     AND p.prosrc LIKE '%challenge.verified_at = session.mfa_verified_at%'
+     AND p.prosrc LIKE '%session.credential_version = credential.credential_version%'
+     AND p.prosrc ~ 'UPDATE public\."users"'
+     AND p.prosrc !~* '\m(INSERT|DELETE|TRUNCATE|MERGE|CALL|EXECUTE)\M')::text
   || ':' ||
   (SELECT count(*) FROM pg_roles
    WHERE rolname = 'pc_auth_mfa_authority'

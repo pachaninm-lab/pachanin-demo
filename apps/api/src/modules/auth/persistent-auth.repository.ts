@@ -1266,6 +1266,8 @@ export class PersistentAuthRepository {
       UPDATE auth.mfa_challenges
       SET status = 'VERIFIED', verified_at = NOW()
       WHERE id = ${input.challengeId}
+        AND session_id = ${input.sessionId}
+        AND user_id = ${input.userId}
         AND status = 'PENDING'
         AND type IN ('TOTP_ENROLL', 'TOTP_VERIFY')
     `);
@@ -1288,6 +1290,13 @@ export class PersistentAuthRepository {
     const credentialUpdated = await client.$executeRaw(Prisma.sql`
       UPDATE auth.credential_states
       SET mfa_enabled = CASE WHEN ${input.enableMfa} THEN TRUE ELSE mfa_enabled END,
+          mfa_key_version = CASE
+            WHEN ${input.method === 'TOTP'}
+              AND mfa_secret_ciphertext
+                ~ '^v1:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$'
+              THEN 'v1'
+            ELSE mfa_key_version
+          END,
           mfa_backup_hashes = CASE
             WHEN ${JSON.stringify(input.backupHashes ?? null)}::jsonb IS NULL THEN mfa_backup_hashes
             ELSE ${JSON.stringify(input.backupHashes ?? null)}::jsonb
@@ -1299,7 +1308,10 @@ export class PersistentAuthRepository {
       WHERE user_id = ${input.userId}
     `);
     if (credentialUpdated !== 1) throw new Error('MFA credential state conflict');
-    if (input.enableMfa) {
+    // A fresh TOTP proves possession of the authoritative authenticator for
+    // both enrollment and ordinary verification. Re-run the bounded legacy
+    // flag finalizer on either TOTP path, but never on a backup-code login.
+    if (input.method === 'TOTP') {
       const finalized = await client.$queryRaw<Array<{ updated: boolean }>>(Prisma.sql`
         SELECT updated
         FROM auth.finalize_authenticated_user_mfa(
