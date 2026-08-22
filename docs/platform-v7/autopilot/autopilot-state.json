@@ -1199,6 +1199,12 @@
       "docs/platform-v7/autopilot/security-exceptions.schema.json",
       "docs/platform-v7/autopilot/security-exceptions.json",
       "docs/platform-v7/autopilot/scopes/outbox-cve-exception-4476.json"
+    ],
+    "fix/pc-crop-01a-scope-isolation-4471": [
+      ".github/workflows/pc-crop-01a.yml",
+      "docs/platform-v7/autopilot/scopes/pc-crop-01a-scope-isolation-4471.json",
+      "scripts/verify-pc-crop-01a-scope-isolation.test.mjs",
+      "scripts/verify-pc-crop-01a.mjs"
     ]
   },
   "currentAcceptance": [
