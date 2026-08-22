@@ -7,8 +7,8 @@ import { getGektaApplicationSchema, getGektaFaqSchema, safeJsonLd } from '@/lib/
 
 const mobileTouchContract = `
 [data-gekta-chat-workspace='true'] {
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
 }
 
 [data-gekta-chat-workspace='true'] button {
