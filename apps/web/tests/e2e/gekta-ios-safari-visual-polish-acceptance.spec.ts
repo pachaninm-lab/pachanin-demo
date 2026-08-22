@@ -32,6 +32,38 @@ async function expectAppearanceReset(locator: Locator) {
   ).toBe(true);
 }
 
+async function expectNeutralControlReset(locator: Locator) {
+  const controls = await locator.evaluateAll((nodes) => nodes.map((node) => {
+    const style = window.getComputedStyle(node as HTMLElement);
+    return {
+      label: (node as HTMLElement).getAttribute('aria-label') || (node.textContent || '').trim(),
+      backgroundColor: style.backgroundColor,
+      borderTopWidth: style.borderTopWidth,
+      boxShadow: style.boxShadow,
+    };
+  }));
+  expect(controls.length, 'expected neutral mobile controls').toBeGreaterThan(0);
+  expect(
+    controls.every((control) => (
+      control.backgroundColor === 'rgba(0, 0, 0, 0)'
+      && control.borderTopWidth === '0px'
+      && control.boxShadow === 'none'
+    )),
+    JSON.stringify(controls, null, 2),
+  ).toBe(true);
+}
+
+async function expectTextAutosizingStable(locator: Locator) {
+  const adjustment = await locator.evaluate((node) => {
+    const style = window.getComputedStyle(node as HTMLElement) as CSSStyleDeclaration & {
+      webkitTextSizeAdjust?: string;
+      textSizeAdjust?: string;
+    };
+    return style.webkitTextSizeAdjust || style.textSizeAdjust || '';
+  });
+  expect(['100%', '100']).toContain(adjustment);
+}
+
 async function expectTargetsAtLeast(locator: Locator, minimum: number) {
   const boxes = await locator.evaluateAll((nodes) => nodes
     .filter((node) => {
@@ -83,6 +115,9 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
   expect(response?.ok()).toBe(true);
   await acceptConsentIfPresent(page);
 
+  const workspace = page.locator('[data-gekta-chat-workspace="true"]');
+  await expectTextAutosizingStable(workspace);
+
   const composer = page.locator('#gekta-composer-input');
   await expect(composer).toBeVisible();
   await expect(composer).toHaveAttribute('placeholder', 'Задай вопрос Гекте');
@@ -101,6 +136,9 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
 
   const workspaceButtons = page.locator('[data-gekta-chat-workspace="true"] button:visible');
   await expectAppearanceReset(workspaceButtons);
+  await expectNeutralControlReset(page.locator(
+    '[data-gekta-chat-workspace="true"] header > button:first-child, [data-gekta-chat-workspace="true"] [data-gekta-drop-target="true"] > button',
+  ));
   await expectTargetsAtLeast(workspaceButtons, 44);
   await expectNoHorizontalOverflow(page);
   await page.screenshot({
@@ -114,6 +152,8 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
   await expect(drawer).toBeVisible();
   await drawer.getByRole('link', { name: 'Поддержка' }).click();
   await expect(page).toHaveURL(/\/gekta\/support\/?$/);
+  const utility = page.locator('[data-gekta-utility-page="support"]');
+  await expectTextAutosizingStable(utility);
   await expect(page.getByRole('heading', { level: 1, name: 'Поддержка в одном интерфейсе' })).toBeVisible();
   await expectAppearanceReset(page.locator('button:visible'));
   await expectTargetsAtLeast(page.locator('button:visible, a:visible'), 44);
@@ -127,6 +167,7 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
 
   const securityResponse = await page.goto('/gekta/security', { waitUntil: 'load' });
   expect(securityResponse?.ok()).toBe(true);
+  await expectTextAutosizingStable(page.locator('[data-gekta-utility-page="security"]'));
   await expect(page.getByRole('heading', { level: 1, name: 'Безопасность без выхода из Гекты' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.screenshot({
