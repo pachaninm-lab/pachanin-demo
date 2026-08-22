@@ -12,11 +12,24 @@ const productionConfig = read('playwright.production-mobile.config.ts');
 const browserAcceptance = read('tests/e2e/gekta-ios-safari-visual-polish-acceptance.spec.ts');
 
 describe('Gekta iOS Safari visual polish contract', () => {
-  it('removes native Safari button chrome only inside the Gekta workspace', () => {
+  it('removes native Safari button chrome and residual UA decoration from neutral mobile controls', () => {
     expect(product).toContain("[data-gekta-chat-workspace='true'] button");
     expect(product).toContain('-webkit-appearance: none');
     expect(product).toContain('appearance: none');
     expect(product).toContain('font: inherit');
+    expect(product).toContain("header > button:first-child");
+    expect(product).toContain("[data-gekta-drop-target='true'] > button");
+    expect(product).toContain('border: 0');
+    expect(product).toContain('background-color: transparent');
+    expect(product).toContain('box-shadow: none');
+  });
+
+  it('disables WebKit text inflation in both the chat workspace and native utility routes', () => {
+    expect(product).toContain('-webkit-text-size-adjust: 100%');
+    expect(product).toContain('text-size-adjust: 100%');
+    expect(utilityStyle).toContain("[data-gekta-utility-page]");
+    expect(utilityStyle).toContain('-webkit-text-size-adjust: 100%');
+    expect(utilityStyle).toContain('text-size-adjust: 100%');
   });
 
   it('keeps the 320px composer copy concise in RU, EN and ZH', () => {
@@ -36,7 +49,7 @@ describe('Gekta iOS Safari visual polish contract', () => {
     expect(utilityStyle).toContain('font-size: 16px !important');
   });
 
-  it('runs the visual polish browser contract in PR and production mobile acceptance', () => {
+  it('runs visual evidence for chrome reset, text sizing and utility navigation in PR and production acceptance', () => {
     const matcher = 'gekta-ios-safari-visual-polish-acceptance';
     expect(prConfig).toContain(matcher);
     expect(productionConfig).toContain(matcher);
@@ -44,6 +57,8 @@ describe('Gekta iOS Safari visual polish contract', () => {
     expect(browserAcceptance).toContain("getByRole('link', { name: 'Поддержка' })");
     expect(browserAcceptance).toContain("page.goto('/gekta/security'");
     expect(browserAcceptance).toContain('expectAppearanceReset');
+    expect(browserAcceptance).toContain('expectNeutralControlReset');
+    expect(browserAcceptance).toContain('expectTextAutosizingStable');
     expect(browserAcceptance).toContain('expectNoHorizontalOverflow');
   });
 });
