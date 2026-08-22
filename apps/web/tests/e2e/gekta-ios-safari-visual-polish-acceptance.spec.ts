@@ -87,7 +87,15 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
   await expect(composer).toBeVisible();
   await expect(composer).toHaveAttribute('placeholder', 'Задай вопрос Гекте');
   const boundary = page.locator('#gekta-composer-boundary');
-  await expect(boundary).toHaveText('Не отправляй пароли, токены и другие секреты.');
+  const renderedBoundaryText = await boundary.evaluate((node) => Array.from(node.children)
+    .filter((child) => {
+      const style = window.getComputedStyle(child as HTMLElement);
+      const box = (child as HTMLElement).getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0;
+    })
+    .map((child) => child.textContent?.trim() || '')
+    .join(' '));
+  expect(renderedBoundaryText).toBe('Не отправляй пароли, токены и другие секреты.');
   const boundaryHeight = await boundary.evaluate((node) => node.getBoundingClientRect().height);
   expect(boundaryHeight).toBeLessThanOrEqual(44);
 
