@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "effectiveDate": "2026-08-21",
+  "reviewers": ["@pachaninm-lab"],
+  "protectedRoots": [
+    {"path": "packages/domain-core", "criticality": "CROWN_JEWEL", "reason": "canonical domain models, policies, deal rules and decision logic"},
+    {"path": "packages/integration-sdk", "criticality": "CROWN_JEWEL", "reason": "first-party integration contracts and adapter boundaries"},
+    {"path": "apps/api/src/modules/settlement-engine", "criticality": "CROWN_JEWEL", "reason": "settlement and release decision logic"},
+    {"path": "apps/api/src/modules/ledger", "criticality": "CROWN_JEWEL", "reason": "money ledger and accounting invariants"},
+    {"path": "apps/api/src/modules/deals", "criticality": "CROWN_JEWEL", "reason": "deal lifecycle and contract execution rules"},
+    {"path": "apps/api/src/modules/anti-fraud", "criticality": "CROWN_JEWEL", "reason": "fraud and transaction-risk logic"},
+    {"path": "apps/api/src/modules/compliance", "criticality": "CROWN_JEWEL", "reason": "compliance decision logic"},
+    {"path": "apps/api/src/modules/kyc", "criticality": "CROWN_JEWEL", "reason": "counterparty verification logic"},
+    {"path": "apps/api/src/modules/business-reputation", "criticality": "CROWN_JEWEL", "reason": "counterparty reputation and risk scoring"},
+    {"path": "apps/api/src/modules/accounting", "criticality": "CROWN_JEWEL", "reason": "accounting and commercial financial rules"},
+    {"path": "apps/api/src/modules/bank-reconciliation", "criticality": "CROWN_JEWEL", "reason": "bank reconciliation rules"},
+    {"path": "apps/api/src/modules/factoring", "criticality": "CROWN_JEWEL", "reason": "financing decision and workflow logic"},
+    {"path": "apps/api/src/modules/disputes", "criticality": "CROWN_JEWEL", "reason": "dispute state and decision rules"},
+    {"path": "apps/api/src/modules/arbitrator", "criticality": "CROWN_JEWEL", "reason": "arbitration workflow and decision rules"},
+    {"path": "apps/api/src/modules/auth", "criticality": "CROWN_JEWEL", "reason": "registration, identity, tenant and authorization product policy"},
+    {"path": "apps/api/src/modules/mfa", "criticality": "CROWN_JEWEL", "reason": "product MFA enrollment, recovery and freshness policy around approved primitives"},
+    {"path": "apps/api/src/modules/organization-intake", "criticality": "CROWN_JEWEL", "reason": "organization registration and admission workflow"},
+    {"path": "apps/api/src/modules/organizations", "criticality": "CROWN_JEWEL", "reason": "tenant and organization policy"},
+    {"path": "apps/api/src/modules/admin", "criticality": "CROWN_JEWEL", "reason": "administrative action and control-plane policy"},
+    {"path": "apps/api/src/modules/staff-access", "criticality": "CROWN_JEWEL", "reason": "privileged access and reviewer workflow policy"},
+    {"path": "apps/api/src/modules/audit", "criticality": "CROWN_JEWEL", "reason": "audit authority and evidence rules"},
+    {"path": "apps/api/src/modules/evidence-pack", "criticality": "CROWN_JEWEL", "reason": "tamper-evident product evidence orchestration"},
+    {"path": "apps/api/src/modules/documents", "criticality": "CROWN_JEWEL", "reason": "document lifecycle and substitution-prevention workflow"},
+    {"path": "apps/api/src/modules/gekta", "criticality": "CROWN_JEWEL", "reason": "Gekta application orchestration, context and product policy"},
+    {"path": "apps/api/src/modules/tai-tools", "criticality": "CROWN_JEWEL", "reason": "Gekta/TAI first-party tool contracts and execution policy"},
+    {"path": "apps/tai/tai", "criticality": "CROWN_JEWEL", "reason": "first-party Gekta/TAI orchestration, retrieval, memory, safety and agricultural logic"},
+    {"path": "apps/web/app/gekta", "criticality": "PROTECTED_PRODUCT_UI", "reason": "Gekta product routes and server/client boundary"},
+    {"path": "apps/web/app/api/gekta", "criticality": "CROWN_JEWEL", "reason": "Gekta browser-to-server product API boundary"},
+    {"path": "apps/web/components/gekta", "criticality": "PROTECTED_PRODUCT_UI", "reason": "Gekta product UI and interaction behavior"},
+    {"path": "apps/web/lib/gekta", "criticality": "CROWN_JEWEL", "reason": "Gekta product state and API contracts"},
+    {"path": "packages/design-system-v8", "criticality": "PROTECTED_PRODUCT_UI", "reason": "first-party product component system"},
+    {"path": "packages/design-tokens", "criticality": "PROTECTED_PRODUCT_UI", "reason": "first-party visual design tokens"}
+  ],
+  "forbiddenPublicationRoots": [
+    "apps/web/public/crown-jewel",
+    "artifacts/public",
+    "public"
+  ],
+  "foundationModelBoundary": {
+    "model": "QWEN",
+    "classification": "THIRD_PARTY_INFRASTRUCTURE",
+    "modification": "NONE",
+    "finetune": "NONE",
+    "lora": "NONE",
+    "weightMutation": "NONE",
+    "requiredControl": "PINNED_MODEL_AND_TOKENIZER_HASHES_FAIL_CLOSED"
+  },
+  "notes": [
+    "There is no standalone server pricing module at this revision; pricing/commercial rules are distributed across domain-core, settlement and accounting and are protected through those roots.",
+    "There is no standalone contract-rules module at this revision; deal/document/settlement contract rules are protected through domain-core and server-side deal/settlement roots.",
+    "Qwen model weights, tokenizer and license are deliberately outside the proprietary boundary and must never be classified as first-party product code."
+  ]
+}

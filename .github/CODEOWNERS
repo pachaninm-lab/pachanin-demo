@@ -1,0 +1,43 @@
+# Default review ownership
+* @pachaninm-lab
+
+# High-value proprietary core
+/packages/domain-core/ @pachaninm-lab
+/packages/integration-sdk/ @pachaninm-lab
+/packages/design-system-v8/ @pachaninm-lab
+/packages/design-tokens/ @pachaninm-lab
+/apps/api/src/modules/settlement-engine/ @pachaninm-lab
+/apps/api/src/modules/ledger/ @pachaninm-lab
+/apps/api/src/modules/deals/ @pachaninm-lab
+/apps/api/src/modules/anti-fraud/ @pachaninm-lab
+/apps/api/src/modules/compliance/ @pachaninm-lab
+/apps/api/src/modules/kyc/ @pachaninm-lab
+/apps/api/src/modules/business-reputation/ @pachaninm-lab
+/apps/api/src/modules/accounting/ @pachaninm-lab
+/apps/api/src/modules/bank-reconciliation/ @pachaninm-lab
+/apps/api/src/modules/factoring/ @pachaninm-lab
+/apps/api/src/modules/disputes/ @pachaninm-lab
+/apps/api/src/modules/arbitrator/ @pachaninm-lab
+/apps/api/src/modules/auth/ @pachaninm-lab
+/apps/api/src/modules/mfa/ @pachaninm-lab
+/apps/api/src/modules/organization-intake/ @pachaninm-lab
+/apps/api/src/modules/organizations/ @pachaninm-lab
+/apps/api/src/modules/admin/ @pachaninm-lab
+/apps/api/src/modules/staff-access/ @pachaninm-lab
+/apps/api/src/modules/audit/ @pachaninm-lab
+/apps/api/src/modules/evidence-pack/ @pachaninm-lab
+/apps/api/src/modules/documents/ @pachaninm-lab
+/apps/api/src/modules/gekta/ @pachaninm-lab
+/apps/api/src/modules/tai-tools/ @pachaninm-lab
+/apps/tai/tai/ @pachaninm-lab
+/apps/web/app/gekta/ @pachaninm-lab
+/apps/web/app/api/gekta/ @pachaninm-lab
+/apps/web/components/gekta/ @pachaninm-lab
+/apps/web/lib/gekta/ @pachaninm-lab
+
+# IP policy and evidence controls
+/LICENSE @pachaninm-lab
+/NOTICE @pachaninm-lab
+/docs/ip/ @pachaninm-lab
+/scripts/ip/ @pachaninm-lab
+/.github/workflows/sbom-scan.yml @pachaninm-lab
