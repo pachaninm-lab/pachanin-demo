@@ -9,15 +9,15 @@ import { GektaAttachments } from './GektaAttachments';
 import { GektaVoiceInput } from './GektaVoiceInput';
 
 const COMPACT_PLACEHOLDER: Record<GektaLocale, string> = {
-  ru: 'Задай вопрос по сельскому хозяйству',
-  en: 'Ask about farming or agribusiness',
-  zh: '询问农业生产或农业经营',
+  ru: 'Задай вопрос Гекте',
+  en: 'Ask Gekta',
+  zh: '向 Gekta 提问',
 };
 
 const COMPACT_BOUNDARY: Record<GektaLocale, string> = {
-  ru: 'История этого режима хранится в браузере. Не отправляй секреты, пароли и токены.',
-  en: 'This mode stores its history in your browser. Do not send secrets, passwords or tokens.',
-  zh: '此模式的历史记录保存在浏览器中。请勿发送秘密、密码或令牌。',
+  ru: 'Не отправляй пароли, токены и другие секреты.',
+  en: 'Do not send passwords, tokens or other secrets.',
+  zh: '请勿发送密码、令牌或其他秘密信息。',
 };
 
 const ATTACHMENT_ONLY_PROMPT: Record<GektaLocale, string> = {

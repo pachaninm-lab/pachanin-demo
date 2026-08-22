@@ -100,6 +100,11 @@ export async function loginAs(page: Page, role: CabinetRole, baseURL: string): P
     // the seeded accounts are already enrolled on the shared secret.
     const secret = String(body.setupSecret || ACCEPTANCE_TOTP_SECRET);
 
+    // Entering the MFA-pending state intentionally rotates the browser session
+    // and its CSRF token. Read the server-minted replacement instead of
+    // replaying the pre-login token captured above.
+    const mfaToken = await csrfToken(context, baseURL);
+
     // A TOTP code cannot be presented twice, so a login landing in the same
     // 30-second window as a previous one for the same account has to wait for
     // the next step rather than fail the matrix.
@@ -108,7 +113,7 @@ export async function loginAs(page: Page, role: CabinetRole, baseURL: string): P
     for (let attempt = 0; attempt < 3 && !verified; attempt += 1) {
       if (attempt > 0) await page.waitForTimeout(30_000 - (Date.now() % 30_000) + 1_000);
       const verify = await context.request.post('/api/auth/mfa-login', {
-        headers: { 'content-type': 'application/json', 'x-csrf-token': token },
+        headers: { 'content-type': 'application/json', 'x-csrf-token': mfaToken },
         data: { code: totp(secret) },
       });
       lastStatus = verify.status();

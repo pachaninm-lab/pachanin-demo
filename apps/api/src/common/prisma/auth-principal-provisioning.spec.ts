@@ -142,6 +142,47 @@ describe('auth and staff principal provisioning', () => {
     );
   });
 
+  it('reconciles the compatibility MFA flag only from a fresh bound TOTP proof', () => {
+    const migration = repositoryFile(
+      'apps/api/prisma/migrations/20260822143000_p0_authenticated_totp_compatibility/migration.sql',
+    );
+    const repository = repositoryFile(
+      'apps/api/src/modules/auth/persistent-auth.repository.ts',
+    );
+
+    for (const proof of [
+      "challenge.\"type\" IN ('TOTP_ENROLL', 'TOTP_VERIFY')",
+      'challenge.verified_at = pg_catalog.transaction_timestamp()',
+      'challenge.expires_at > pg_catalog.transaction_timestamp()',
+      "session.mfa_verified_method = 'TOTP'",
+      'session.mfa_verified_at = pg_catalog.transaction_timestamp()',
+      'challenge.verified_at = session.mfa_verified_at',
+      'session.revoked_at IS NULL',
+      'session.expires_at > pg_catalog.transaction_timestamp()',
+      'session.credential_version = credential.credential_version',
+      "credential.mfa_key_version = 'v1'",
+    ]) {
+      expect(migration).toContain(proof);
+    }
+    expect(migration).toContain('UPDATE public."users" subject');
+    expect(migration).toContain('SET "mfaEnabled" = true');
+    expect(migration).toContain('OWNER TO pc_auth_mfa_authority');
+    expect(migration).toContain(
+      'REVOKE ALL ON FUNCTION auth.finalize_authenticated_user_mfa(text, text, text)',
+    );
+    expect(migration).toContain('pg_catalog.aclexplode(');
+    expect(migration).toContain('privilege.grantee = 0');
+    expect(migration).not.toMatch(/CREATE ROLE|GRANT EXECUTE/);
+    expect(migration).not.toMatch(
+      /(?:INSERT|UPDATE|DELETE|TRUNCATE)\s+(?:INTO\s+|FROM\s+)?auth\./i,
+    );
+
+    expect(repository).toContain('AND session_id = ${input.sessionId}');
+    expect(repository).toContain('AND user_id = ${input.userId}');
+    expect(repository).toContain("if (input.method === 'TOTP')");
+    expect(repository).toContain('mfa_key_version = CASE');
+  });
+
   it('keeps password reset behind a column-bounded non-inheritable authority', () => {
     const migration = repositoryFile(
       'apps/api/prisma/migrations/20260808120000_p0_password_reset_authority/migration.sql',
