@@ -22,6 +22,7 @@ env:
   PRIMARY_DOMAIN_UNICODE: 'процент-агро.рф'
   CANONICAL_VPS: '195.19.12.120'
   MIN_BOUNDARY_COMMIT: 'ef01ce98aad645ec941d03f88bdc0275e763e604'
+  EXPECTED_APP_REVISION: 'f1f2a094e78bf9949ca35883c627a7ed5ce70086'
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
   SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -35,7 +36,7 @@ jobs:
     name: Owner-authorized guarded REG.RU cutover
     if: github.actor == github.repository_owner
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
@@ -333,39 +334,61 @@ jobs:
               | .handle[]?
               | .. | objects
               | .upstreams[]?.dial?
+              | select(type == "string")
             ] | unique[]
           ' "$caddy_json")
-          mapfile -t all_upstreams < <(jq -r '[.. | objects | .upstreams[]?.dial?] | unique[]' "$caddy_json")
+          mapfile -t all_upstreams < <(jq -r '[.. | objects | .upstreams[]?.dial? | select(type == "string")] | unique[]' "$caddy_json")
           rm -f "$caddy_json"
-          if [[ "${#matched_upstreams[@]}" == 1 ]]; then
-            upstream="${matched_upstreams[0]}"
+
+          stage=PRIMARY_UPSTREAM_WEB_IDENTITY
+          web_service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$web_id")"
+          [[ "$web_service" == web ]]
+          web_inspect="$(docker inspect "$web_id")"
+          mapfile -t web_networks < <(jq -r '.[0].NetworkSettings.Networks | keys[]' <<< "$web_inspect" | sort -u)
+          mapfile -t caddy_networks < <(docker inspect "$caddy_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
+          [[ "${#web_networks[@]}" -ge 1 && "${#caddy_networks[@]}" -ge 1 ]]
+          web_bound_upstreams=()
+          for candidate in "${all_upstreams[@]}"; do
+            if [[ "$candidate" =~ ^(127\.0\.0\.1|localhost|[A-Za-z0-9_.-]+):[0-9]{1,5}$ ]]; then
+              candidate_host="${candidate%:*}"
+              mapfile -t candidate_web_networks < <(
+                jq -r --arg host "$candidate_host" '
+                  .[0].NetworkSettings.Networks
+                  | to_entries[]
+                  | select(([.value.Aliases[]?, .value.DNSNames[]?] | index($host)) != null)
+                  | .key
+                ' <<< "$web_inspect" | sort -u
+              )
+              candidate_shared_network_count="$(comm -12 <(printf '%s\n' "${candidate_web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | awk 'NF { count++ } END { print count + 0 }')"
+              if [[ "$candidate_shared_network_count" -ge 1 ]]; then web_bound_upstreams+=("$candidate"); fi
+            fi
+          done
+          unset web_inspect
+          mapfile -t unique_web_bound_upstreams < <(printf '%s\n' "${web_bound_upstreams[@]}" | awk 'NF' | sort -u)
+          web_bound_upstreams=("${unique_web_bound_upstreams[@]}")
+          mapfile -t primary_web_bound_upstreams < <(
+            comm -12 \
+              <(printf '%s\n' "${matched_upstreams[@]}" | awk 'NF' | sort -u) \
+              <(printf '%s\n' "${web_bound_upstreams[@]}" | awk 'NF' | sort -u)
+          )
+
+          stage=WEB_BOUND_UPSTREAM_SELECTION
+          if [[ "${#matched_upstreams[@]}" == 1 && "${#primary_web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${primary_web_bound_upstreams[0]}"
             upstream_mode=PRIMARY_HOST_MATCH
-          elif [[ "${#matched_upstreams[@]}" == 0 && "${#all_upstreams[@]}" == 1 ]]; then
-            upstream="${all_upstreams[0]}"
-            upstream_mode=SOLE_EDGE_UPSTREAM
+          elif [[ "${#matched_upstreams[@]}" -gt 1 && "${#primary_web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${primary_web_bound_upstreams[0]}"
+            upstream_mode=UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM
+          elif [[ "${#matched_upstreams[@]}" == 0 && "${#web_bound_upstreams[@]}" == 1 ]]; then
+            upstream="${web_bound_upstreams[0]}"
+            upstream_mode=UNIQUE_WEB_BOUND_UPSTREAM
           else
             false
           fi
           stage=PRIMARY_UPSTREAM_FORMAT
           [[ "$upstream" =~ ^(127\.0\.0\.1|localhost|[A-Za-z0-9_.-]+):[0-9]{1,5}$ ]]
-          upstream_host="${upstream%:*}"
           stage=PRIMARY_UPSTREAM_WEB_IDENTITY
-          web_service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$web_id")"
-          [[ "$web_service" == web ]]
-          mapfile -t web_networks < <(docker inspect "$web_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
-          mapfile -t caddy_networks < <(docker inspect "$caddy_id" | jq -r '.[0].NetworkSettings.Networks | keys[]' | sort -u)
-          mapfile -t upstream_web_networks < <(
-            docker inspect "$web_id" | jq -r --arg host "$upstream_host" '
-              .[0].NetworkSettings.Networks
-              | to_entries[]
-              | select(([.value.Aliases[]?, .value.DNSNames[]?] | index($host)) != null)
-              | .key
-            ' | sort -u
-          )
-          [[ "${#web_networks[@]}" -ge 1 && "${#caddy_networks[@]}" -ge 1 ]]
-          [[ "${#upstream_web_networks[@]}" -ge 1 ]]
-          bound_shared_network_count="$(comm -12 <(printf '%s\n' "${upstream_web_networks[@]}") <(printf '%s\n' "${caddy_networks[@]}") | awk 'NF { count++ } END { print count + 0 }')"
-          [[ "$bound_shared_network_count" -ge 1 ]]
+          printf '%s\n' "${web_bound_upstreams[@]}" | grep -Fx -- "$upstream" >/dev/null
 
           if [[ "$already_ready" == 1 ]]; then
             stage=ALREADY_READY_UPSTREAM
@@ -461,7 +484,7 @@ jobs:
           CADDY
           [[ "$(grep -c '# BEGIN COMPANY OS CONTROL HOST' "$caddy_candidate")" == 1 ]]
           [[ "$(grep -c '# END COMPANY OS CONTROL HOST' "$caddy_candidate")" == 1 ]]
-          docker run --rm --pull never --network none --entrypoint caddy --mount "type=bind,src=$caddy_candidate,dst=/tmp/Caddyfile,readonly" "$caddy_image_id" validate --config /tmp/Caddyfile >/dev/null 2>&1
+          docker exec -i -w /etc/caddy "$caddy_id" caddy validate --config - --adapter caddyfile < "$caddy_candidate" >/dev/null 2>&1
 
           write_caddy_file() {
             local source="$1" temp
@@ -561,7 +584,7 @@ jobs:
             value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
             [[ -n "$value" ]]
             if [[ "$key" == WIRE_MODE ]]; then [[ "$value" == EXISTING || "$value" == CREATE_OVERRIDE ]]; fi
-            if [[ "$key" == UPSTREAM_MODE ]]; then [[ "$value" == PRIMARY_HOST_MATCH || "$value" == SOLE_EDGE_UPSTREAM ]]; fi
+            if [[ "$key" == UPSTREAM_MODE ]]; then [[ "$value" == PRIMARY_HOST_MATCH || "$value" == UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM || "$value" == UNIQUE_WEB_BOUND_UPSTREAM ]]; fi
             echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
           done
       - name: Require running web revision to contain Company OS boundary
@@ -571,8 +594,11 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$WEB_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$WEB_REVISION" == "$EXPECTED_APP_REVISION" ]]
           git cat-file -e "$WEB_REVISION^{commit}"
           git merge-base --is-ancestor "$MIN_BOUNDARY_COMMIT" "$WEB_REVISION"
+          root_source="$(git show "$WEB_REVISION:apps/web/app/page.tsx")"
+          grep -Fq "permanentRedirect('/platform-v7')" <<< "$root_source"
 
       - name: Public TLS and host-isolation acceptance
         id: acceptance
@@ -582,37 +608,105 @@ jobs:
         run: |
           set -euo pipefail
           evidence="$RUNNER_TEMP/company-os-control-acceptance"
-          mkdir -p "$evidence"
+          raw="$RUNNER_TEMP/company-os-control-acceptance-raw"
+          mkdir -p "$evidence" "$raw"
 
           tls_ready=0
           for attempt in $(seq 1 60); do
-            if timeout 20 bash -c "printf '' | openssl s_client -connect '$CONTROL_DOMAIN:443' -servername '$CONTROL_DOMAIN' -verify_return_error 2>/dev/null | openssl x509 -noout -checkend 0 -ext subjectAltName 2>/dev/null" > "$evidence/cert.txt" 2>/dev/null && grep -Fq "DNS:$CONTROL_DOMAIN" "$evidence/cert.txt"; then tls_ready=1; break; fi
+            if timeout 20 bash -c "printf '' | openssl s_client -connect '$CONTROL_DOMAIN:443' -servername '$CONTROL_DOMAIN' -verify_return_error 2>/dev/null | openssl x509 -noout -checkend 0 -ext subjectAltName 2>/dev/null" > "$raw/cert.txt" 2>/dev/null && grep -Fq "DNS:$CONTROL_DOMAIN" "$raw/cert.txt"; then tls_ready=1; break; fi
             sleep 5
           done
-          [[ "$tls_ready" == 1 ]]
+          if [[ "$tls_ready" != 1 ]]; then
+            printf '%s\n' 'RESULT=FAIL' 'CHECK=TLS' > "$evidence/summary.env"
+            echo '::error::Public acceptance failed at bounded check TLS.'
+            exit 1
+          fi
+
+          normalize_http_code() {
+            local code="${1:-}"
+            if [[ "$code" =~ ^[0-9]{3}$ ]]; then printf '%s' "$code"; else printf '000'; fi
+          }
+
+          capture_http_code() {
+            local code rc
+            set +e
+            code="$(curl "$@")"
+            rc=$?
+            set -e
+            if [[ "$rc" -ne 0 ]]; then printf '000'; else normalize_http_code "$code"; fi
+          }
 
           for round in $(seq 1 10); do
-            control_root="$(curl --silent --show-error --output "$evidence/control-root-$round.body" --dump-header "$evidence/control-root-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/")"
-            control_login="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/login")"
-            control_staff="$(curl --silent --show-error --output "$evidence/control-staff-$round.body" --dump-header "$evidence/control-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/staff")"
-            control_public="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7")"
-            control_register="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/register")"
-            primary_root="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/")"
-            primary_staff="$(curl --silent --show-error --output /dev/null --dump-header "$evidence/primary-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7/staff")"
-            primary_staff_api="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/api/staff/capabilities/me")"
-            version_body="$(curl --silent --show-error --connect-timeout 8 --max-time 20 "https://$PRIMARY_DOMAIN/version.json")"
+            control_root="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/control-root-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/")"
+            control_login="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/login")"
+            control_staff="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/control-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/staff")"
+            control_public="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7")"
+            control_register="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/register")"
+            primary_root="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/primary-root-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/")"
+            primary_public="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7")"
+            primary_staff="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/primary-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7/staff")"
+            primary_staff_api="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/api/staff/capabilities/me")"
+            revision_match=NO
+            if [[ "$EXPECTED_REVISION" == "$EXPECTED_APP_REVISION" ]]; then revision_match=YES; fi
+            primary_root_target=ABSENT
+            primary_root_locations=()
+            if [[ -f "$raw/primary-root-$round.headers" ]]; then
+              mapfile -t primary_root_locations < <(awk 'tolower($0) ~ /^location:[ \t]*/ { sub(/^[^:]+:[ \t]*/, ""); sub(/\r$/, ""); print }' "$raw/primary-root-$round.headers")
+            fi
+            if [[ "${#primary_root_locations[@]}" == 1 ]]; then
+              if [[ "${primary_root_locations[0]}" == '/platform-v7' || "${primary_root_locations[0]}" == "https://$PRIMARY_DOMAIN/platform-v7" ]]; then
+                primary_root_target=PLATFORM_V7
+              else
+                primary_root_target=OTHER
+              fi
+            elif [[ "${#primary_root_locations[@]}" -gt 0 ]]; then
+              primary_root_target=OTHER
+            fi
+            primary_staff_target=ABSENT
+            if [[ -f "$raw/primary-staff-$round.headers" ]] && grep -Eiq "^location: https://$CONTROL_DOMAIN/" "$raw/primary-staff-$round.headers"; then
+              primary_staff_target=CONTROL
+            elif [[ -f "$raw/primary-staff-$round.headers" ]] && grep -Eiq '^location:' "$raw/primary-staff-$round.headers"; then
+              primary_staff_target=OTHER
+            fi
 
-            [[ "$control_root" =~ ^(200|301|302|303|307|308|401|403|404)$ ]]
-            [[ "$control_login" == 200 ]]
-            [[ "$control_staff" =~ ^(200|301|302|303|307|308|401|403)$ ]]
-            [[ "$control_public" != 200 && "$control_register" != 200 ]]
-            [[ "$control_public" != 5* && "$control_register" != 5* ]]
-            [[ "$primary_root" == 200 ]]
-            [[ "$primary_staff" =~ ^(301|302|303|307|308)$ ]]
-            grep -Eiq "^location: https://$CONTROL_DOMAIN/" "$evidence/primary-staff-$round.headers"
-            [[ "$primary_staff_api" != 200 && "$primary_staff_api" != 5* ]]
-            grep -Eiq '^x-robots-tag:.*noindex' "$evidence/control-root-$round.headers"
-            grep -Fq "$EXPECTED_REVISION" <<< "$version_body"
+            round_file="$evidence/round-$round.env"
+            printf '%s\n' \
+              "ROUND=$round" \
+              "CONTROL_ROOT=$control_root" \
+              "CONTROL_LOGIN=$control_login" \
+              "CONTROL_STAFF=$control_staff" \
+              "CONTROL_PUBLIC=$control_public" \
+              "CONTROL_REGISTER=$control_register" \
+              "PRIMARY_ROOT=$primary_root" \
+              "PRIMARY_ROOT_TARGET=$primary_root_target" \
+              "PRIMARY_PUBLIC=$primary_public" \
+              "PRIMARY_STAFF=$primary_staff" \
+              "PRIMARY_STAFF_API=$primary_staff_api" \
+              "PRIMARY_STAFF_TARGET=$primary_staff_target" \
+              "REVISION_MATCH=$revision_match" > "$round_file"
+
+            failed_check=''
+            if ! [[ "$control_root" =~ ^(200|301|302|303|307|308|401|403|404)$ ]]; then failed_check=CONTROL_ROOT
+            elif [[ "$control_login" != 200 ]]; then failed_check=CONTROL_LOGIN
+            elif ! [[ "$control_staff" =~ ^(200|301|302|303|307|308|401|403)$ ]]; then failed_check=CONTROL_STAFF
+            elif [[ "$control_public" == 200 || "$control_register" == 200 ]]; then failed_check=CONTROL_PUBLIC_ISOLATION
+            elif [[ "$control_public" == 5* || "$control_register" == 5* || "$control_public" == 000 || "$control_register" == 000 ]]; then failed_check=CONTROL_PUBLIC_AVAILABILITY
+            elif [[ "$primary_root" != 308 ]]; then failed_check=PRIMARY_ROOT_REDIRECT
+            elif [[ "$primary_root_target" != PLATFORM_V7 ]]; then failed_check=PRIMARY_ROOT_TARGET
+            elif [[ "$primary_public" != 200 ]]; then failed_check=PRIMARY_PUBLIC
+            elif ! [[ "$primary_staff" =~ ^(301|302|303|307|308)$ ]]; then failed_check=PRIMARY_STAFF_REDIRECT
+            elif [[ "$primary_staff_target" != CONTROL ]]; then failed_check=PRIMARY_STAFF_TARGET
+            elif [[ "$primary_staff_api" == 200 || "$primary_staff_api" == 5* || "$primary_staff_api" == 000 ]]; then failed_check=PRIMARY_STAFF_API
+            elif ! grep -Eiq '^x-robots-tag:.*noindex' "$raw/control-root-$round.headers"; then failed_check=CONTROL_NOINDEX
+            elif [[ "$revision_match" != YES ]]; then failed_check=REVISION_MATCH
+            fi
+            if [[ -n "$failed_check" ]]; then
+              printf '%s\n' 'RESULT=FAIL' "CHECK=$failed_check" >> "$round_file"
+              printf '%s\n' 'RESULT=FAIL' "ROUND=$round" "CHECK=$failed_check" > "$evidence/summary.env"
+              echo "::error::Public acceptance failed at bounded check $failed_check in round $round."
+              exit 1
+            fi
+            printf '%s\n' 'RESULT=PASS' 'CHECK=ALL' >> "$round_file"
           done
 
           echo 'result=PASS' >> "$GITHUB_OUTPUT"
@@ -627,10 +721,28 @@ jobs:
           BACKUP_DIR: ${{ steps.mutate.outputs.backup_dir }}
         run: |
           set -euo pipefail
-          [[ "$BACKUP_DIR" =~ ^/var/backups/company-os-control-host/[0-9]{8}T[0-9]{6}Z$ ]]
+          evidence="$RUNNER_TEMP/company-os-control-acceptance"
+          mkdir -p "$evidence"
+          rollback_summary="$evidence/rollback.env"
+          printf '%s\n' 'RESULT=PENDING' 'STAGE=INPUT' > "$rollback_summary"
+          if ! [[ "$BACKUP_DIR" =~ ^/var/backups/company-os-control-host/[0-9]{8}T[0-9]{6}Z$ ]]; then
+            printf '%s\n' 'RESULT=FAIL' 'STAGE=INPUT' > "$rollback_summary"
+            exit 1
+          fi
+
+          remote="$RUNNER_TEMP/company-os-control-rollback-remote.txt"
+          set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
-            bash -s -- "$BACKUP_DIR" <<'REMOTE'
+            bash -s -- "$BACKUP_DIR" > "$remote" <<'REMOTE'
           set -Eeuo pipefail
+          stage=REMOTE_INPUT
+          on_error() {
+            rc=$?
+            trap - ERR
+            printf 'ROLLBACK_STAGE=%s\n' "$stage"
+            exit "$rc"
+          }
+          trap on_error ERR
           backup_dir="${1:?backup directory required}"
           [[ "$backup_dir" =~ ^/var/backups/company-os-control-host/[0-9]{8}T[0-9]{6}Z$ ]]
           [[ -d "$backup_dir" && -f "$backup_dir/Caddyfile.before" && -f "$backup_dir/env.before" && -f "$backup_dir/metadata.env" ]]
@@ -654,6 +766,7 @@ jobs:
           flock -n 9
           [[ "$(docker inspect --format '{{.Image}}' "$EXPECTED_CADDY_ID")" == "$CADDY_IMAGE_ID" ]]
 
+          stage=CADDY_RESTORE
           caddy_mode="$(stat -c '%a' "$CADDY_CONFIG")"; caddy_uid="$(stat -c '%u' "$CADDY_CONFIG")"; caddy_gid="$(stat -c '%g' "$CADDY_CONFIG")"
           if [[ "$CADDY_MOUNT_MODE" == FILE ]]; then
             cat "$backup_dir/Caddyfile.before" > "$CADDY_CONFIG"
@@ -666,6 +779,7 @@ jobs:
           docker exec "$EXPECTED_CADDY_ID" caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1
           docker exec "$EXPECTED_CADDY_ID" caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1
 
+          stage=ENV_RESTORE
           env_mode="$(stat -c '%a' "$ENV_FILE")"; env_uid="$(stat -c '%u' "$ENV_FILE")"; env_gid="$(stat -c '%g' "$ENV_FILE")"
           env_temp="${ENV_FILE}.pc-rollback.$$"
           install -m "$env_mode" -o "$env_uid" -g "$env_gid" "$backup_dir/env.before" "$env_temp"
@@ -674,8 +788,10 @@ jobs:
             [[ -f "$OVERRIDE_FILE" && ! -L "$OVERRIDE_FILE" ]]
             rm -f -- "$OVERRIDE_FILE"
           fi
+          stage=WEB_RECREATE
           docker compose --env-file "$ENV_FILE" "${compose_args[@]}" up -d --no-deps --no-build --pull never web >/dev/null 2>&1
 
+          stage=WEB_VERIFY
           restored=0
           for attempt in $(seq 1 60); do
             mapfile -t running_web < <(docker ps -q --filter 'label=com.docker.compose.service=web' | sort -u)
@@ -691,13 +807,35 @@ jobs:
           done
           [[ "$restored" == 1 ]]
           [[ "$(docker inspect --format '{{.State.Status}}' "$EXPECTED_CADDY_ID")" == running ]]
+          trap - ERR
+          printf 'ROLLBACK_STAGE=REMOTE_COMPLETE\n'
           REMOTE
+          ssh_rc=$?
+          set -e
 
-          for attempt in $(seq 1 20); do
-            code="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/" || true)"
-            [[ "$code" == 200 ]] && exit 0
+          remote_stage="$(grep -E '^ROLLBACK_STAGE=(REMOTE_INPUT|CADDY_RESTORE|ENV_RESTORE|WEB_RECREATE|WEB_VERIFY|REMOTE_COMPLETE)$' "$remote" | tail -1 | cut -d= -f2- || true)"
+          rm -f -- "$remote"
+          [[ "$remote_stage" =~ ^(REMOTE_INPUT|CADDY_RESTORE|ENV_RESTORE|WEB_RECREATE|WEB_VERIFY|REMOTE_COMPLETE)$ ]] || remote_stage=REMOTE_UNKNOWN
+          if [[ "$ssh_rc" -ne 0 || "$remote_stage" != REMOTE_COMPLETE ]]; then
+            printf '%s\n' 'RESULT=FAIL' "STAGE=$remote_stage" > "$rollback_summary"
+            echo "::error::Authenticated rollback failed at bounded stage $remote_stage."
+            exit 1
+          fi
+
+          printf '%s\n' 'RESULT=PENDING' 'STAGE=PRIMARY_HEALTH' > "$rollback_summary"
+          for attempt in $(seq 1 60); do
+            set +e
+            code="$(curl --silent --show-error --output /dev/null --connect-timeout 3 --max-time 5 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7")"
+            curl_rc=$?
+            set -e
+            if [[ "$curl_rc" -eq 0 && "$code" == 200 ]]; then
+              printf '%s\n' 'RESULT=PASS' 'STAGE=COMPLETE' > "$rollback_summary"
+              exit 0
+            fi
             sleep 3
           done
+          printf '%s\n' 'RESULT=FAIL' 'STAGE=PRIMARY_HEALTH' > "$rollback_summary"
+          echo '::error::Authenticated rollback failed at bounded stage PRIMARY_HEALTH.'
           exit 1
       - name: Upload redacted acceptance evidence
         if: always()
