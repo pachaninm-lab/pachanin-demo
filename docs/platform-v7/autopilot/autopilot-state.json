@@ -1214,6 +1214,11 @@
       ".github/workflows/company-os-control-host-readiness-v2.yml",
       ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
       "docs/platform-v7/autopilot/scopes/company-os-compose-service-pipefail-4496.json"
+    ],
+    "fix/design-v8-acceptance-csrf-faq-4503": [
+      "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+      "apps/web/tests/e2e/support/acceptance-login.ts",
+      "docs/platform-v7/autopilot/scopes/design-v8-acceptance-csrf-faq-4503.json"
     ]
   },
   "currentAcceptance": [
