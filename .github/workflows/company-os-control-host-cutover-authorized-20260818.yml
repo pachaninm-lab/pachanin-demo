@@ -35,7 +35,7 @@ jobs:
     name: Owner-authorized guarded REG.RU cutover
     if: github.actor == github.repository_owner
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
@@ -604,11 +604,12 @@ jobs:
         run: |
           set -euo pipefail
           evidence="$RUNNER_TEMP/company-os-control-acceptance"
-          mkdir -p "$evidence"
+          raw="$RUNNER_TEMP/company-os-control-acceptance-raw"
+          mkdir -p "$evidence" "$raw"
 
           tls_ready=0
           for attempt in $(seq 1 60); do
-            if timeout 20 bash -c "printf '' | openssl s_client -connect '$CONTROL_DOMAIN:443' -servername '$CONTROL_DOMAIN' -verify_return_error 2>/dev/null | openssl x509 -noout -checkend 0 -ext subjectAltName 2>/dev/null" > "$evidence/cert.txt" 2>/dev/null && grep -Fq "DNS:$CONTROL_DOMAIN" "$evidence/cert.txt"; then tls_ready=1; break; fi
+            if timeout 20 bash -c "printf '' | openssl s_client -connect '$CONTROL_DOMAIN:443' -servername '$CONTROL_DOMAIN' -verify_return_error 2>/dev/null | openssl x509 -noout -checkend 0 -ext subjectAltName 2>/dev/null" > "$raw/cert.txt" 2>/dev/null && grep -Fq "DNS:$CONTROL_DOMAIN" "$raw/cert.txt"; then tls_ready=1; break; fi
             sleep 5
           done
           if [[ "$tls_ready" != 1 ]]; then
@@ -622,31 +623,34 @@ jobs:
             if [[ "$code" =~ ^[0-9]{3}$ ]]; then printf '%s' "$code"; else printf '000'; fi
           }
 
-          for round in $(seq 1 10); do
-            control_root="$(curl --silent --show-error --output "$evidence/control-root-$round.body" --dump-header "$evidence/control-root-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/" || true)"
-            control_login="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/login" || true)"
-            control_staff="$(curl --silent --show-error --output "$evidence/control-staff-$round.body" --dump-header "$evidence/control-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/staff" || true)"
-            control_public="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7" || true)"
-            control_register="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/register" || true)"
-            primary_root="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/" || true)"
-            primary_staff="$(curl --silent --show-error --output /dev/null --dump-header "$evidence/primary-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7/staff" || true)"
-            primary_staff_api="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/api/staff/capabilities/me" || true)"
-            version_body="$(curl --silent --show-error --connect-timeout 8 --max-time 20 "https://$PRIMARY_DOMAIN/version.json" || true)"
+          capture_http_code() {
+            local code rc
+            set +e
+            code="$(curl "$@")"
+            rc=$?
+            set -e
+            if [[ "$rc" -ne 0 ]]; then printf '000'; else normalize_http_code "$code"; fi
+          }
 
-            control_root="$(normalize_http_code "$control_root")"
-            control_login="$(normalize_http_code "$control_login")"
-            control_staff="$(normalize_http_code "$control_staff")"
-            control_public="$(normalize_http_code "$control_public")"
-            control_register="$(normalize_http_code "$control_register")"
-            primary_root="$(normalize_http_code "$primary_root")"
-            primary_staff="$(normalize_http_code "$primary_staff")"
-            primary_staff_api="$(normalize_http_code "$primary_staff_api")"
+          for round in $(seq 1 10); do
+            control_root="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/control-root-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/")"
+            control_login="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/login")"
+            control_staff="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/control-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/staff")"
+            control_public="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7")"
+            control_register="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/register")"
+            primary_root="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/")"
+            primary_staff="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/primary-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7/staff")"
+            primary_staff_api="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/api/staff/capabilities/me")"
+            set +e
+            version_body="$(curl --silent --show-error --connect-timeout 8 --max-time 20 "https://$PRIMARY_DOMAIN/version.json")"
+            version_rc=$?
+            set -e
             version_match=NO
-            grep -Fq "$EXPECTED_REVISION" <<< "$version_body" && version_match=YES
+            if [[ "$version_rc" -eq 0 ]] && grep -Fq "$EXPECTED_REVISION" <<< "$version_body"; then version_match=YES; fi
             primary_staff_target=ABSENT
-            if [[ -f "$evidence/primary-staff-$round.headers" ]] && grep -Eiq "^location: https://$CONTROL_DOMAIN/" "$evidence/primary-staff-$round.headers"; then
+            if [[ -f "$raw/primary-staff-$round.headers" ]] && grep -Eiq "^location: https://$CONTROL_DOMAIN/" "$raw/primary-staff-$round.headers"; then
               primary_staff_target=CONTROL
-            elif [[ -f "$evidence/primary-staff-$round.headers" ]] && grep -Eiq '^location:' "$evidence/primary-staff-$round.headers"; then
+            elif [[ -f "$raw/primary-staff-$round.headers" ]] && grep -Eiq '^location:' "$raw/primary-staff-$round.headers"; then
               primary_staff_target=OTHER
             fi
 
@@ -674,7 +678,7 @@ jobs:
             elif ! [[ "$primary_staff" =~ ^(301|302|303|307|308)$ ]]; then failed_check=PRIMARY_STAFF_REDIRECT
             elif [[ "$primary_staff_target" != CONTROL ]]; then failed_check=PRIMARY_STAFF_TARGET
             elif [[ "$primary_staff_api" == 200 || "$primary_staff_api" == 5* || "$primary_staff_api" == 000 ]]; then failed_check=PRIMARY_STAFF_API
-            elif ! grep -Eiq '^x-robots-tag:.*noindex' "$evidence/control-root-$round.headers"; then failed_check=CONTROL_NOINDEX
+            elif ! grep -Eiq '^x-robots-tag:.*noindex' "$raw/control-root-$round.headers"; then failed_check=CONTROL_NOINDEX
             elif [[ "$version_match" != YES ]]; then failed_check=VERSION_MATCH
             fi
             if [[ -n "$failed_check" ]]; then
@@ -801,8 +805,11 @@ jobs:
 
           printf '%s\n' 'RESULT=PENDING' 'STAGE=PRIMARY_HEALTH' > "$rollback_summary"
           for attempt in $(seq 1 60); do
-            code="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/" || true)"
-            if [[ "$code" == 200 ]]; then
+            set +e
+            code="$(curl --silent --show-error --output /dev/null --connect-timeout 3 --max-time 5 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/")"
+            curl_rc=$?
+            set -e
+            if [[ "$curl_rc" -eq 0 && "$code" == 200 ]]; then
               printf '%s\n' 'RESULT=PASS' 'STAGE=COMPLETE' > "$rollback_summary"
               exit 0
             fi
