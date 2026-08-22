@@ -252,6 +252,8 @@ for (const path of tracked) {
   });
 }
 
+const sourceSha = git(['rev-parse', 'HEAD']).trim();
+
 const provenanceColumns = [
   'path', 'blob_sha', 'first_commit', 'first_date', 'original_contributor', 'material_contributors',
   'origin_class', 'origin_source', 'license', 'copyright', 'rights_basis', 'ai_involvement',
@@ -261,7 +263,7 @@ writeFileSync(join(outDir, 'FILE_PROVENANCE.csv'), [
   provenanceColumns.join(','),
   ...records.map((record) => provenanceColumns.map((column) => csv(record[column])).join(',')),
 ].join('\n') + '\n');
-writeFileSync(join(outDir, 'FILE_PROVENANCE.json'), JSON.stringify({ schemaVersion: 1, generatedAt: new Date().toISOString(), records }, null, 2) + '\n');
+writeFileSync(join(outDir, 'FILE_PROVENANCE.json'), JSON.stringify({ schemaVersion: 1, generatedAt: new Date().toISOString(), gitHead: sourceSha, trackedFiles: records.length, records }, null, 2) + '\n');
 
 writeFileSync(join(outDir, 'CONTRIBUTORS.csv'), [
   'contributor_id,display_name,email_sha256,commit_count,first_seen,last_seen,rights_evidence_status',
@@ -337,7 +339,7 @@ const statusCounts = records.reduce((counts, item) => {
 const summary = {
   schemaVersion: 1,
   generatedAt: new Date().toISOString(),
-  gitHead: git(['rev-parse', 'HEAD']).trim(),
+  gitHead: sourceSha,
   trackedFiles: trackedSet.size,
   recordedFiles: records.length,
   repositoryHistoryCommits: Number(git(['rev-list', '--all', '--count']).trim()),
