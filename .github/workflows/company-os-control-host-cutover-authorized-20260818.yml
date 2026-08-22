@@ -22,7 +22,6 @@ env:
   PRIMARY_DOMAIN_UNICODE: 'процент-агро.рф'
   CANONICAL_VPS: '195.19.12.120'
   MIN_BOUNDARY_COMMIT: 'ef01ce98aad645ec941d03f88bdc0275e763e604'
-  EXPECTED_APP_REVISION: 'f1f2a094e78bf9949ca35883c627a7ed5ce70086'
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
   SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -588,25 +587,38 @@ jobs:
             echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
           done
       - name: Require running web revision to contain Company OS boundary
+        id: boundary
         shell: bash
         env:
           WEB_REVISION: ${{ steps.mutate.outputs.web_revision }}
+          WEB_IMAGE_ID: ${{ steps.mutate.outputs.web_image_id }}
         run: |
           set -euo pipefail
           [[ "$WEB_REVISION" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$WEB_REVISION" == "$EXPECTED_APP_REVISION" ]]
+          [[ "$WEB_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
           git cat-file -e "$WEB_REVISION^{commit}"
           git merge-base --is-ancestor "$MIN_BOUNDARY_COMMIT" "$WEB_REVISION"
           root_source="$(git show "$WEB_REVISION:apps/web/app/page.tsx")"
           grep -Fq "permanentRedirect('/platform-v7')" <<< "$root_source"
+          printf '%s\n' "validated_revision=$WEB_REVISION" "validated_image_id=$WEB_IMAGE_ID" >> "$GITHUB_OUTPUT"
 
       - name: Public TLS and host-isolation acceptance
         id: acceptance
         shell: bash
         env:
           EXPECTED_REVISION: ${{ steps.mutate.outputs.web_revision }}
+          VALIDATED_REVISION: ${{ steps.boundary.outputs.validated_revision }}
+          EXPECTED_IMAGE_ID: ${{ steps.mutate.outputs.web_image_id }}
+          VALIDATED_IMAGE_ID: ${{ steps.boundary.outputs.validated_image_id }}
         run: |
           set -euo pipefail
+          [[ "$EXPECTED_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$VALIDATED_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_REVISION" == "$VALIDATED_REVISION" ]]
+          [[ "$EXPECTED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$VALIDATED_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_IMAGE_ID" == "$VALIDATED_IMAGE_ID" ]]
+          revision_match=YES
           evidence="$RUNNER_TEMP/company-os-control-acceptance"
           raw="$RUNNER_TEMP/company-os-control-acceptance-raw"
           mkdir -p "$evidence" "$raw"
@@ -646,8 +658,6 @@ jobs:
             primary_public="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7")"
             primary_staff="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/primary-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7/staff")"
             primary_staff_api="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/api/staff/capabilities/me")"
-            revision_match=NO
-            if [[ "$EXPECTED_REVISION" == "$EXPECTED_APP_REVISION" ]]; then revision_match=YES; fi
             primary_root_target=ABSENT
             primary_root_locations=()
             if [[ -f "$raw/primary-root-$round.headers" ]]; then
