@@ -53,15 +53,25 @@ async function expectNeutralControlReset(locator: Locator) {
   ).toBe(true);
 }
 
-async function expectTextAutosizingStable(locator: Locator) {
-  const adjustment = await locator.evaluate((node) => {
-    const style = window.getComputedStyle(node as HTMLElement) as CSSStyleDeclaration & {
-      webkitTextSizeAdjust?: string;
-      textSizeAdjust?: string;
-    };
-    return style.webkitTextSizeAdjust || style.textSizeAdjust || '';
+async function expectTextAutosizingDisabled(locator: Locator, cssSelector: string, maxH1Height: number) {
+  const declared = await locator.evaluate((_node, selector) => Array.from(document.querySelectorAll('style')).some((style) => {
+    const css = style.textContent || '';
+    const start = css.indexOf(selector);
+    if (start < 0) return false;
+    const block = css.slice(start, css.indexOf('}', start) + 1);
+    return block.includes('-webkit-text-size-adjust: none') && block.includes('text-size-adjust: none');
+  }), cssSelector);
+  expect(declared, `expected ${cssSelector} to disable mobile text inflation`).toBe(true);
+
+  const h1 = locator.locator('h1').first();
+  await expect(h1).toBeVisible();
+  const metrics = await h1.evaluate((node) => {
+    const style = window.getComputedStyle(node as HTMLElement);
+    const box = (node as HTMLElement).getBoundingClientRect();
+    return { height: box.height, fontSize: Number.parseFloat(style.fontSize), lineHeight: Number.parseFloat(style.lineHeight) };
   });
-  expect(['100%', '100']).toContain(adjustment);
+  expect(metrics.fontSize).toBeLessThanOrEqual(48);
+  expect(metrics.height, JSON.stringify(metrics)).toBeLessThanOrEqual(maxH1Height);
 }
 
 async function expectTargetsAtLeast(locator: Locator, minimum: number) {
@@ -116,7 +126,7 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
   await acceptConsentIfPresent(page);
 
   const workspace = page.locator('[data-gekta-chat-workspace="true"]');
-  await expectTextAutosizingStable(workspace);
+  await expectTextAutosizingDisabled(workspace, "[data-gekta-chat-workspace='true']", 180);
 
   const composer = page.locator('#gekta-composer-input');
   await expect(composer).toBeVisible();
@@ -153,7 +163,7 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
   await drawer.getByRole('link', { name: 'Поддержка' }).click();
   await expect(page).toHaveURL(/\/gekta\/support\/?$/);
   const utility = page.locator('[data-gekta-utility-page="support"]');
-  await expectTextAutosizingStable(utility);
+  await expectTextAutosizingDisabled(utility, '[data-gekta-utility-page]', 180);
   await expect(page.getByRole('heading', { level: 1, name: 'Поддержка в одном интерфейсе' })).toBeVisible();
   await expectAppearanceReset(page.locator('button:visible'));
   await expectTargetsAtLeast(page.locator('button:visible, a:visible'), 44);
@@ -167,7 +177,7 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
 
   const securityResponse = await page.goto('/gekta/security', { waitUntil: 'load' });
   expect(securityResponse?.ok()).toBe(true);
-  await expectTextAutosizingStable(page.locator('[data-gekta-utility-page="security"]'));
+  await expectTextAutosizingDisabled(page.locator('[data-gekta-utility-page="security"]'), '[data-gekta-utility-page]', 180);
   await expect(page.getByRole('heading', { level: 1, name: 'Безопасность без выхода из Гекты' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.screenshot({
