@@ -22,6 +22,7 @@ env:
   PRIMARY_DOMAIN_UNICODE: 'процент-агро.рф'
   CANONICAL_VPS: '195.19.12.120'
   MIN_BOUNDARY_COMMIT: 'ef01ce98aad645ec941d03f88bdc0275e763e604'
+  EXPECTED_APP_REVISION: 'f1f2a094e78bf9949ca35883c627a7ed5ce70086'
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
   SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -593,8 +594,11 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$WEB_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$WEB_REVISION" == "$EXPECTED_APP_REVISION" ]]
           git cat-file -e "$WEB_REVISION^{commit}"
           git merge-base --is-ancestor "$MIN_BOUNDARY_COMMIT" "$WEB_REVISION"
+          root_source="$(git show "$WEB_REVISION:apps/web/app/page.tsx")"
+          grep -Fq "permanentRedirect('/platform-v7')" <<< "$root_source"
 
       - name: Public TLS and host-isolation acceptance
         id: acceptance
@@ -638,15 +642,26 @@ jobs:
             control_staff="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/control-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/staff")"
             control_public="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7")"
             control_register="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/register")"
-            primary_root="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/")"
+            primary_root="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/primary-root-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/")"
+            primary_public="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7")"
             primary_staff="$(capture_http_code --silent --show-error --output /dev/null --dump-header "$raw/primary-staff-$round.headers" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7/staff")"
             primary_staff_api="$(capture_http_code --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/api/staff/capabilities/me")"
-            set +e
-            version_body="$(curl --silent --show-error --connect-timeout 8 --max-time 20 "https://$PRIMARY_DOMAIN/version.json")"
-            version_rc=$?
-            set -e
-            version_match=NO
-            if [[ "$version_rc" -eq 0 ]] && grep -Fq "$EXPECTED_REVISION" <<< "$version_body"; then version_match=YES; fi
+            revision_match=NO
+            if [[ "$EXPECTED_REVISION" == "$EXPECTED_APP_REVISION" ]]; then revision_match=YES; fi
+            primary_root_target=ABSENT
+            primary_root_locations=()
+            if [[ -f "$raw/primary-root-$round.headers" ]]; then
+              mapfile -t primary_root_locations < <(awk 'tolower($0) ~ /^location:[ \t]*/ { sub(/^[^:]+:[ \t]*/, ""); sub(/\r$/, ""); print }' "$raw/primary-root-$round.headers")
+            fi
+            if [[ "${#primary_root_locations[@]}" == 1 ]]; then
+              if [[ "${primary_root_locations[0]}" == '/platform-v7' || "${primary_root_locations[0]}" == "https://$PRIMARY_DOMAIN/platform-v7" ]]; then
+                primary_root_target=PLATFORM_V7
+              else
+                primary_root_target=OTHER
+              fi
+            elif [[ "${#primary_root_locations[@]}" -gt 0 ]]; then
+              primary_root_target=OTHER
+            fi
             primary_staff_target=ABSENT
             if [[ -f "$raw/primary-staff-$round.headers" ]] && grep -Eiq "^location: https://$CONTROL_DOMAIN/" "$raw/primary-staff-$round.headers"; then
               primary_staff_target=CONTROL
@@ -663,10 +678,12 @@ jobs:
               "CONTROL_PUBLIC=$control_public" \
               "CONTROL_REGISTER=$control_register" \
               "PRIMARY_ROOT=$primary_root" \
+              "PRIMARY_ROOT_TARGET=$primary_root_target" \
+              "PRIMARY_PUBLIC=$primary_public" \
               "PRIMARY_STAFF=$primary_staff" \
               "PRIMARY_STAFF_API=$primary_staff_api" \
               "PRIMARY_STAFF_TARGET=$primary_staff_target" \
-              "VERSION_MATCH=$version_match" > "$round_file"
+              "REVISION_MATCH=$revision_match" > "$round_file"
 
             failed_check=''
             if ! [[ "$control_root" =~ ^(200|301|302|303|307|308|401|403|404)$ ]]; then failed_check=CONTROL_ROOT
@@ -674,12 +691,14 @@ jobs:
             elif ! [[ "$control_staff" =~ ^(200|301|302|303|307|308|401|403)$ ]]; then failed_check=CONTROL_STAFF
             elif [[ "$control_public" == 200 || "$control_register" == 200 ]]; then failed_check=CONTROL_PUBLIC_ISOLATION
             elif [[ "$control_public" == 5* || "$control_register" == 5* || "$control_public" == 000 || "$control_register" == 000 ]]; then failed_check=CONTROL_PUBLIC_AVAILABILITY
-            elif [[ "$primary_root" != 200 ]]; then failed_check=PRIMARY_ROOT
+            elif [[ "$primary_root" != 308 ]]; then failed_check=PRIMARY_ROOT_REDIRECT
+            elif [[ "$primary_root_target" != PLATFORM_V7 ]]; then failed_check=PRIMARY_ROOT_TARGET
+            elif [[ "$primary_public" != 200 ]]; then failed_check=PRIMARY_PUBLIC
             elif ! [[ "$primary_staff" =~ ^(301|302|303|307|308)$ ]]; then failed_check=PRIMARY_STAFF_REDIRECT
             elif [[ "$primary_staff_target" != CONTROL ]]; then failed_check=PRIMARY_STAFF_TARGET
             elif [[ "$primary_staff_api" == 200 || "$primary_staff_api" == 5* || "$primary_staff_api" == 000 ]]; then failed_check=PRIMARY_STAFF_API
             elif ! grep -Eiq '^x-robots-tag:.*noindex' "$raw/control-root-$round.headers"; then failed_check=CONTROL_NOINDEX
-            elif [[ "$version_match" != YES ]]; then failed_check=VERSION_MATCH
+            elif [[ "$revision_match" != YES ]]; then failed_check=REVISION_MATCH
             fi
             if [[ -n "$failed_check" ]]; then
               printf '%s\n' 'RESULT=FAIL' "CHECK=$failed_check" >> "$round_file"
@@ -806,7 +825,7 @@ jobs:
           printf '%s\n' 'RESULT=PENDING' 'STAGE=PRIMARY_HEALTH' > "$rollback_summary"
           for attempt in $(seq 1 60); do
             set +e
-            code="$(curl --silent --show-error --output /dev/null --connect-timeout 3 --max-time 5 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/")"
+            code="$(curl --silent --show-error --output /dev/null --connect-timeout 3 --max-time 5 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/platform-v7")"
             curl_rc=$?
             set -e
             if [[ "$curl_rc" -eq 0 && "$code" == 200 ]]; then
