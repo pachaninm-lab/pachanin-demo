@@ -2,8 +2,8 @@ export function GektaUtilityMobileStyle() {
   return (
     <style>{`
       [data-gekta-utility-page] {
-        -webkit-text-size-adjust: 100%;
-        text-size-adjust: 100%;
+        -webkit-text-size-adjust: none;
+        text-size-adjust: none;
       }
 
       @media (max-width: 639px) {
