@@ -284,8 +284,9 @@ jobs:
             grep -Fq 'PC_CONTROL_HOST_ENABLED' "$file" && contract_wired=1
           done
           base_compose_args=("${compose_args[@]}")
-          docker compose "${compose_args[@]}" config --services 2>/dev/null | grep -Fxq web
-          docker compose "${compose_args[@]}" config --services 2>/dev/null | grep -Fxq caddy
+          compose_services="$(docker compose "${compose_args[@]}" config --services 2>/dev/null)"
+          grep -Fx web <<< "$compose_services" >/dev/null
+          grep -Fx caddy <<< "$compose_services" >/dev/null
           stage=CONTROL_GATE_WIRING
           override_file="$working_dir/.company-os-control-host.compose.yml"
           [[ "$override_file" == "$working_dir/.company-os-control-host.compose.yml" ]]

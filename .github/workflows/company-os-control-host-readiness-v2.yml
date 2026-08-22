@@ -338,9 +338,10 @@ jobs:
             [[ ! -e "$override_file" && ! -L "$override_file" ]]
           fi
           stage=COMPOSE_WEB_SERVICE
-          docker compose "${compose_args[@]}" config --services 2>/dev/null | grep -Fxq web
+          compose_services="$(docker compose "${compose_args[@]}" config --services 2>/dev/null)"
+          grep -Fx web <<< "$compose_services" >/dev/null
           stage=COMPOSE_CADDY_SERVICE
-          docker compose "${compose_args[@]}" config --services 2>/dev/null | grep -Fxq caddy
+          grep -Fx caddy <<< "$compose_services" >/dev/null
 
           stage=CADDY_BIND_SCOPE
           mount_file_source="$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{println .Source}}{{end}}{{end}}' "$caddy_id" 2>/dev/null | head -1 || true)"
