@@ -25,11 +25,13 @@ describe('Gekta iOS Safari visual polish contract', () => {
   });
 
   it('disables WebKit text inflation in both the chat workspace and native utility routes', () => {
-    expect(product).toContain('-webkit-text-size-adjust: 100%');
-    expect(product).toContain('text-size-adjust: 100%');
+    expect(product).toContain('-webkit-text-size-adjust: none');
+    expect(product).toContain('text-size-adjust: none');
     expect(utilityStyle).toContain("[data-gekta-utility-page]");
-    expect(utilityStyle).toContain('-webkit-text-size-adjust: 100%');
-    expect(utilityStyle).toContain('text-size-adjust: 100%');
+    expect(utilityStyle).toContain('-webkit-text-size-adjust: none');
+    expect(utilityStyle).toContain('text-size-adjust: none');
+    expect(product).not.toContain('-webkit-text-size-adjust: 100%');
+    expect(utilityStyle).not.toContain('-webkit-text-size-adjust: 100%');
   });
 
   it('keeps the 320px composer copy concise in RU, EN and ZH', () => {
@@ -58,7 +60,8 @@ describe('Gekta iOS Safari visual polish contract', () => {
     expect(browserAcceptance).toContain("page.goto('/gekta/security'");
     expect(browserAcceptance).toContain('expectAppearanceReset');
     expect(browserAcceptance).toContain('expectNeutralControlReset');
-    expect(browserAcceptance).toContain('expectTextAutosizingStable');
+    expect(browserAcceptance).toContain('expectTextAutosizingDisabled');
+    expect(browserAcceptance).toContain('maxH1Height');
     expect(browserAcceptance).toContain('expectNoHorizontalOverflow');
   });
 });
