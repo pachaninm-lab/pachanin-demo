@@ -116,7 +116,26 @@ async function expectTextControlsIosSafe(page: Page) {
   }));
   expect(metrics.length).toBeGreaterThan(0);
   expect(metrics.every((item) => item.height >= 44 && item.fontSize >= 16), JSON.stringify(metrics, null, 2)).toBe(true);
-  expect(metrics.every((item) => item.appearance === 'none' || item.webkitAppearance === 'none'), JSON.stringify(metrics, null, 2)).toBe(true);
+
+  const textInputs = metrics.filter((item) => item.tag !== 'SELECT');
+  expect(textInputs.length).toBeGreaterThan(0);
+  expect(textInputs.every((item) => item.appearance === 'none' || item.webkitAppearance === 'none'), JSON.stringify(textInputs, null, 2)).toBe(true);
+
+  const selects = metrics.filter((item) => item.tag === 'SELECT');
+  expect(selects.length, 'support topic selector must remain visibly selectable').toBeGreaterThan(0);
+  expect(selects.every((item) => item.appearance !== 'none' && item.webkitAppearance !== 'none'), JSON.stringify(selects, null, 2)).toBe(true);
+}
+
+async function expectSemiboldButtonTypography(locator: Locator) {
+  const metrics = await locator.evaluate((node) => {
+    const style = window.getComputedStyle(node as HTMLElement);
+    return {
+      fontSize: Number.parseFloat(style.fontSize),
+      fontWeight: Number.parseInt(style.fontWeight, 10),
+    };
+  });
+  expect(metrics.fontSize).toBeGreaterThanOrEqual(14);
+  expect(metrics.fontWeight, JSON.stringify(metrics)).toBeGreaterThanOrEqual(600);
 }
 
 test('320px keeps Safari controls branded and Gekta utility routes visually native', async ({ page }, testInfo) => {
@@ -168,6 +187,7 @@ test('320px keeps Safari controls branded and Gekta utility routes visually nati
   await expectAppearanceReset(page.locator('button:visible'));
   await expectTargetsAtLeast(page.locator('button:visible, a:visible'), 44);
   await expectTextControlsIosSafe(page);
+  await expectSemiboldButtonTypography(page.getByRole('button', { name: 'Отправить обращение' }));
   await expectNoHorizontalOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath('gekta-support-ios-safari-polish-320x700.png'),
