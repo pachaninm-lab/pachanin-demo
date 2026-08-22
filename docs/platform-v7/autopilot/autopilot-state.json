@@ -1209,6 +1209,11 @@
     "fix/company-os-running-revision-4493": [
       ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
       "docs/platform-v7/autopilot/scopes/company-os-running-revision-4493.json"
+    ],
+    "fix/company-os-compose-service-pipefail-4496": [
+      ".github/workflows/company-os-control-host-readiness-v2.yml",
+      ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
+      "docs/platform-v7/autopilot/scopes/company-os-compose-service-pipefail-4496.json"
     ]
   },
   "currentAcceptance": [
