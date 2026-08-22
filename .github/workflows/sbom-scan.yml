@@ -164,6 +164,9 @@ jobs:
       - name: Verify GitHub Actions pinning ratchet
         run: node scripts/security/verify-action-pinning.mjs
 
+      - name: Scan the working tree for exposed secrets
+        run: node scripts/security/scan-secret-history.mjs
+
       - name: Build full-history clean-room provenance
         run: node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room
 
