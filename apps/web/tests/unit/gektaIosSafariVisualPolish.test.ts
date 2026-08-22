@@ -12,11 +12,12 @@ const productionConfig = read('playwright.production-mobile.config.ts');
 const browserAcceptance = read('tests/e2e/gekta-ios-safari-visual-polish-acceptance.spec.ts');
 
 describe('Gekta iOS Safari visual polish contract', () => {
-  it('removes native Safari button chrome and residual UA decoration from neutral mobile controls', () => {
+  it('removes native Safari button chrome without overriding utility typography', () => {
     expect(product).toContain("[data-gekta-chat-workspace='true'] button");
     expect(product).toContain('-webkit-appearance: none');
     expect(product).toContain('appearance: none');
-    expect(product).toContain('font: inherit');
+    expect(product).toContain('font-family: inherit');
+    expect(product).not.toContain('font: inherit');
     expect(product).toContain("header > button:first-child");
     expect(product).toContain("[data-gekta-drop-target='true'] > button");
     expect(product).toContain('border: 0');
@@ -43,15 +44,20 @@ describe('Gekta iOS Safari visual polish contract', () => {
     expect(composer).not.toContain("ru: 'История этого режима хранится в браузере. Не отправляй секреты, пароли и токены.'");
   });
 
-  it('normalizes Gekta utility form controls without touching checkbox, radio or file semantics', () => {
+  it('normalizes text controls while preserving the native support selector affordance', () => {
     expect(utilityStyle).toContain("input:not([type='checkbox']):not([type='radio']):not([type='file'])");
     expect(utilityStyle).toContain('-webkit-appearance: none');
     expect(utilityStyle).toContain('appearance: none');
     expect(utilityStyle).toContain('min-height: 44px');
     expect(utilityStyle).toContain('font-size: 16px !important');
+    expect(utilityStyle).toContain('font-family: inherit');
+    expect(utilityStyle).not.toContain('font: inherit');
+    expect(browserAcceptance).toContain("item.tag === 'SELECT'");
+    expect(browserAcceptance).toContain('support topic selector must remain visibly selectable');
+    expect(browserAcceptance).toContain("item.appearance !== 'none'");
   });
 
-  it('runs visual evidence for chrome reset, text sizing and utility navigation in PR and production acceptance', () => {
+  it('runs visual evidence for chrome reset, text sizing, typography and utility navigation in PR and production acceptance', () => {
     const matcher = 'gekta-ios-safari-visual-polish-acceptance';
     expect(prConfig).toContain(matcher);
     expect(productionConfig).toContain(matcher);
@@ -61,6 +67,7 @@ describe('Gekta iOS Safari visual polish contract', () => {
     expect(browserAcceptance).toContain('expectAppearanceReset');
     expect(browserAcceptance).toContain('expectNeutralControlReset');
     expect(browserAcceptance).toContain('expectTextAutosizingDisabled');
+    expect(browserAcceptance).toContain('expectSemiboldButtonTypography');
     expect(browserAcceptance).toContain('maxH1Height');
     expect(browserAcceptance).toContain('expectNoHorizontalOverflow');
   });
