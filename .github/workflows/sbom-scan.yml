@@ -155,6 +155,9 @@ jobs:
       - name: Verify internal package no-publish policy
         run: node scripts/ip/verify-private-packages.mjs --baseline
 
+      - name: Verify Qwen foundation-model immutability
+        run: node scripts/ip/verify-qwen-immutability.mjs
+
       - name: Build full-history clean-room provenance
         run: node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room
 
