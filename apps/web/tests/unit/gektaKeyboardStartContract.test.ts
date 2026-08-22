@@ -29,12 +29,12 @@ describe('Gekta empty-start keyboard contract', () => {
     expect(mobileCopy).toContain("eyebrow: 'GEKTA · 农业智能'");
   });
 
-  it('pins the start shell and composer to the visible keyboard viewport', () => {
-    expect(viewport).toContain("workspace?.classList.contains('overflow-hidden') || keyboardOpen");
-    expect(product).toContain("html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden)");
-    expect(product).toContain('padding-bottom: 0 !important');
-    expect(composer).toContain("document.documentElement.dataset.gektaKeyboardOpen === 'true'");
-    expect(composer).toContain("attributeFilter: ['data-gekta-keyboard-open']");
+  it('keeps discovery scrollable and pins only the focused composer to the visible keyboard viewport', () => {
+    expect(viewport).not.toContain("root.style.overflow = 'hidden'");
+    expect(viewport).not.toContain("document.body.style.overflow = 'hidden'");
+    expect(product).toContain("html[data-gekta-keyboard-open='true'] [data-gekta-chat-workspace='true']:not(.overflow-hidden):has(#gekta-composer-input:focus) [data-gekta-composer-root='true']");
+    expect(product).toContain("[data-gekta-chat-workspace='true']:not(.overflow-hidden) main > div:first-of-type");
+    expect(product).toContain('padding-bottom: calc(var(--gekta-composer-height, 108px) + 16px) !important');
   });
 
   it('preserves text-entry keyboard ownership across transient focus loss until the viewport expands', () => {
@@ -50,13 +50,13 @@ describe('Gekta empty-start keyboard contract', () => {
     expect(composer).not.toContain("onChange={(event) => onChange(event.target.value)}");
   });
 
-  it('preserves focus, selection and direction while the composer changes containers', () => {
-    expect(composer).toContain('type RelocationState');
-    expect(composer).toContain('document.activeElement === textarea');
-    expect(composer).toContain('textarea.selectionStart');
-    expect(composer).toContain('textarea.selectionEnd');
-    expect(composer).toContain("textarea.focus({ preventScroll: true })");
-    expect(composer).toContain('textarea.setSelectionRange(state.start, state.end, state.direction)');
+  it('does not reparent the textarea when keyboard state changes', () => {
+    expect(composer).toContain("workspace.classList.contains('overflow-hidden')");
+    expect(composer).toContain("attributeFilter: ['class']");
+    expect(composer).not.toContain('gektaKeyboardOpen');
+    expect(composer).not.toContain('RelocationState');
+    expect(composer).not.toContain('selectionStart');
+    expect(composer).not.toContain('selectionEnd');
   });
 
   it('keeps page scroll before focus and message scroll after chat activation', () => {

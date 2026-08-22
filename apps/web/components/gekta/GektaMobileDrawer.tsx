@@ -68,6 +68,10 @@ export function GektaMobileDrawer({ open, closeLabel, onClose, children }: { ope
         data-gekta-mobile-drawer-panel='true'
         className='absolute inset-y-0 left-0 flex flex-col overflow-hidden bg-[#f6f5ef] pb-[max(8px,env(safe-area-inset-bottom))] shadow-2xl'
         style={{ width: 'min(88vw, 360px, calc(100vw - 48px))' }}
+        onClick={(event) => {
+          const target = event.target instanceof Element ? event.target : null;
+          if (target?.closest('a[href]')) onClose();
+        }}
       >
         <div className='flex min-h-14 shrink-0 items-center justify-between border-b border-slate-200/80 px-3 pt-[max(4px,env(safe-area-inset-top))]'>
           <h2 id='gekta-mobile-drawer-title' className='sr-only'>Gekta</h2>
