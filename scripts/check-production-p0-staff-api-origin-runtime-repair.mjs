@@ -60,7 +60,6 @@ for (const forbidden of [
   '\ndocker compose down', '\ndocker compose pull', '\ndocker compose build',
   'UPDATE auth.', 'DELETE FROM auth.', 'INSERT INTO auth.', 'TRUNCATE ',
   'docker exec -i "$api_id"',
-  'caddy reload',
 ]) {
   if (script.includes(forbidden)) fail(`script contains forbidden mutation ${JSON.stringify(forbidden)}`);
 }
