@@ -123,3 +123,38 @@ test('conditionsHold requires at least one condition and all of them true', () =
   assert.equal(conditionsHold({ conditions: held }), true);
   assert.equal(conditionsHold({ conditions: [...held, { condition: 'x', holds: false }] }), false);
 });
+
+test('a FAIL must name where the gap is and carry a re-checked condition', () => {
+  // A FAIL held to a lower standard than a PASS would rust: once the gap is
+  // fixed, nothing would notice, and the matrix would keep reporting it.
+  const bare = validateDecision({
+    requirementId: 'V5.2.3', applicability: APPLICABILITY.APPLICABLE, status: STATUS.FAIL,
+    note: 'unbounded decompression',
+  });
+  assert.ok(bare.problems.some((p) => p.includes('FAIL requires evidence')));
+  assert.ok(bare.problems.some((p) => p.includes('FAIL requires at least one re-verifiable condition')));
+
+  const complete = validateDecision({
+    requirementId: 'V5.2.3', applicability: APPLICABILITY.APPLICABLE, status: STATUS.FAIL,
+    evidence: ['upload-route:apps/web/route.ts'], conditions: held, note: 'unbounded decompression',
+  });
+  assert.equal(complete.valid, true);
+});
+
+test('a FAIL whose gap was closed is rejected and returns to assessment', () => {
+  const fixed = [{ condition: 'no decompression ceiling', holds: false, evidence: 'gap closed in apps/web/route.ts' }];
+  const { records, rejected } = applyDecisions(REQS, [{
+    requirementId: 'V6.2.1', applicability: APPLICABILITY.APPLICABLE, status: STATUS.FAIL,
+    evidence: ['upload-route:apps/web/route.ts'], conditions: fixed, note: 'unbounded decompression',
+  }]);
+
+  assert.equal(rejected.length, 1);
+  const record = records.find((r) => r.reqId === 'V6.2.1');
+  assert.equal(record.applicability, APPLICABILITY.PENDING);
+  assert.equal(record.status, STATUS.NOT_ASSESSED);
+});
+
+test('a FAIL blocks finalPass exactly as an unassessed requirement does', () => {
+  assert.equal(blocksFinalPass({ applicability: APPLICABILITY.APPLICABLE, status: STATUS.FAIL }), true);
+  assert.equal(blocksFinalPass({ applicability: APPLICABILITY.APPLICABLE, status: STATUS.PASS }), false);
+});

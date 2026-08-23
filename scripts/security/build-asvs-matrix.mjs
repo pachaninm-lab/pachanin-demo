@@ -154,6 +154,44 @@ export function evaluateCondition(condition, { tracked, readFile }) {
     };
   }
 
+  // PRESENT_AT_PATH and ABSENT_AT_PATH tie a decision to named files rather than
+  // to the tree as a whole. PRESENT_AT_PATH backs a PASS: the control has to be
+  // where the decision says it is. ABSENT_AT_PATH backs a FAIL and makes it
+  // self-revoking - the moment somebody closes the gap, the condition stops
+  // holding, the decision is rejected, and the requirement returns to
+  // assessment. A FAIL cannot rust in the matrix after it has been fixed.
+  if (condition.check === 'PRESENT_AT_PATH' || condition.check === 'ABSENT_AT_PATH') {
+    const paths = condition.paths ?? [];
+    if (paths.length === 0) {
+      return { condition: condition.condition, holds: false, evidence: 'condition declares no paths' };
+    }
+    const missing = paths.filter((path) => !tracked.includes(path));
+    if (missing.length > 0) {
+      // A path that has moved or gone invalidates the decision rather than
+      // quietly passing: the evidence it named no longer exists.
+      return {
+        condition: condition.condition,
+        holds: false,
+        evidence: `path not tracked: ${missing.join(', ')}`,
+      };
+    }
+    const hits = paths.filter((path) => {
+      const text = (readFile(path) ?? '').toLowerCase();
+      return patterns.some((pattern) => text.includes(pattern));
+    });
+    const wantPresent = condition.check === 'PRESENT_AT_PATH';
+    // PRESENT requires every named path to carry the control; ABSENT requires
+    // none of them to. Neither is satisfied by a partial result.
+    const holds = wantPresent ? hits.length === paths.length : hits.length === 0;
+    return {
+      condition: condition.condition,
+      holds,
+      evidence: wantPresent
+        ? `${hits.length}/${paths.length} paths carry the control`
+        : (hits.length === 0 ? `${paths.length} paths scanned, gap still open` : `gap closed in ${hits.join(', ')}`),
+    };
+  }
+
   return { condition: condition?.condition, holds: false, evidence: `unsupported check ${String(condition?.check)}` };
 }
 
