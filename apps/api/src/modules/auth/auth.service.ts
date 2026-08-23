@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { verifyPassword } from './password-hashing';
 import { randomUUID } from 'crypto';
 import {
   FINANCIAL_MFA_THRESHOLD_KOPECKS,
@@ -54,7 +54,6 @@ const MEMBERSHIP_SELECTION_TTL_MS = 5 * 60 * 1000;
 const MFA_FRESHNESS_MS = 15 * 60 * 1000;
 const MAX_FAILED_LOGINS = 5;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
-const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-password-sentinel', 10);
 
 const KNOWN_ROLES = new Set<string>(Object.values(Role));
 const PRIVILEGED_MFA_ROLES = new Set<string>(ROLES_REQUIRING_MFA);
@@ -99,10 +98,7 @@ export class AuthService {
       this.repository.prisma,
       email,
     );
-    const validPassword = await bcrypt.compare(
-      dto.password,
-      loginCredential?.password_hash ?? DUMMY_PASSWORD_HASH,
-    );
+    const validPassword = await verifyPassword(dto.password, loginCredential?.password_hash);
 
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);
