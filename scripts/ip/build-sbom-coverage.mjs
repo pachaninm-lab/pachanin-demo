@@ -66,6 +66,17 @@ export function classifyCoverage({ trackedPaths, rootPackage, pnpmImporters, ded
   const dedicated = new Map((dedicatedSboms ?? []).map((item) => [item.manifest, item]));
 
   return manifests.map((manifest) => {
+    const declaration = dedicated.get(manifest);
+    if (declaration) {
+      return {
+        manifest,
+        ecosystem: declaration.ecosystem ?? (manifest.endsWith('/package.json') || manifest === 'package.json' ? 'node' : 'python'),
+        status: 'COVERED',
+        reason: 'DEDICATED_CANONICAL_SBOM_GENERATED',
+        evidence: [declaration.cycloneDx, declaration.spdx],
+      };
+    }
+
     if (manifest === 'package.json' || manifest.endsWith('/package.json')) {
       const directory = packageDirectory(manifest);
       const inWorkspace = manifest === 'package.json' || patterns.some((pattern) => workspacePatternMatches(directory, pattern));
@@ -97,22 +108,12 @@ export function classifyCoverage({ trackedPaths, rootPackage, pnpmImporters, ded
       };
     }
 
-    const declaration = dedicated.get(manifest);
-    if (!declaration) {
-      return {
-        manifest,
-        ecosystem: 'python',
-        status: 'UNCOVERED',
-        reason: 'PYTHON_MANIFEST_WITHOUT_DEDICATED_SBOM',
-        evidence: [],
-      };
-    }
     return {
       manifest,
-      ecosystem: declaration.ecosystem ?? 'python',
-      status: 'COVERED',
-      reason: 'DEDICATED_CANONICAL_SBOM_GENERATED',
-      evidence: [declaration.cycloneDx, declaration.spdx],
+      ecosystem: 'python',
+      status: 'UNCOVERED',
+      reason: 'PYTHON_MANIFEST_WITHOUT_DEDICATED_SBOM',
+      evidence: [],
     };
   });
 }
