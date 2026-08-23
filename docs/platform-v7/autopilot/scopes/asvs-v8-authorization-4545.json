@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4545,
+  "branch": "sec/asvs-v8-authorization-4545",
+  "status": "active",
+  "purpose": "Assess ASVS V8 Authorization, the first chapter where the platform's controls are stronger than average - which makes overclaiming, not underclaiming, the risk to guard against.",
+  "authorityBaseExactMain": "c7eb5caca452e39cf11bdb50c3425a8ee68f3923",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v8-authorization-4545.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "Row level security restricts rows. It is never offered as evidence for a field-level requirement.",
+    "Every PASS is bound to named files and re-verified on every run.",
+    "A control nothing invokes is not a control; NO_RUNTIME_CALLER makes that checkable.",
+    "FAIL is recorded and reported, never resolved by editing product logic.",
+    "finalPass stays false.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "V8.2.3 is FAIL and its note states explicitly why the row-level control does not answer a field-level requirement.",
+    "V8.4.1 and V8.3.1 rest on conditions naming both the transaction wrapper and the policy files.",
+    "V8.3.2 rests on the absence of authorization claims in the access token, not on an assertion of immediacy.",
+    "V8.3.3 credits the implemented refusal to act on a client's behalf, not merely the absence of impersonation.",
+    "All 13 V8 requirements are decided: 7 PASS, 6 FAIL.",
+    "finalPass stays false.",
+    "The concurrent-scope guard accepts exactly the two authorized paths."
+  ]
+}
