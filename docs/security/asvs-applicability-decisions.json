@@ -4050,6 +4050,492 @@
       "note": "The three internal hops authenticate in three different ways, and only one is sound. Web to API signs each request with HMAC-SHA256 over a version, method, canonical path, timestamp and body hash, deriving the URL from the signed path constant so a signature can never cover a path other than the one dialled. API to Elasticsearch sends HTTP basic auth when ELASTICSEARCH_PASSWORD is set - a shared secret, and by V12.3.3 it travels over plaintext http, so the credential itself is exposed on the wire. API to the model service sends only Content-Type and no credential at all. Correction to the note this decision first carried: it said the other hops had no service token, signature or shared secret. That was wrong about Elasticsearch, and the condition that was meant to catch it searched for the wrong words - it looked for \"authorization\" where the file says \"auth:\" and \"password\". Both are fixed here."
     },
     {
+      "requirementId": "V14.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md",
+        "not-this:docs/ip/proprietary-core-boundary.json",
+        "implicit-classification:apps/api/src/common/middleware/log-masking.middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the security documentation set still identifies no sensitive data and no protection levels",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "personal data",
+            "персональн",
+            "protection level",
+            "data classification"
+          ]
+        },
+        {
+          "condition": "the platform still encodes an implicit view of which data classes are sensitive, so the raw material for a classification exists",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/middleware/log-masking.middleware.ts"
+          ],
+          "patterns": [
+            "mask"
+          ]
+        }
+      ],
+      "note": "No sensitive data has been identified or classified into protection levels. The absence is stated carefully because a keyword search misleads here: docs/ip/proprietary-core-boundary.json and docs/ip/CHAIN_OF_TITLE_REGISTER.md match a search for \"classification\" and classify code provenance, not data - they answer the IP programme, not this requirement. Neither the threat model nor the security policy mentions personal data at all. What makes this a documentation gap rather than an ignorance gap is that the platform already acts on an implicit classification: the log-masking middleware names eight data classes worth masking, and the AI assistant denies a further list of key names. Those lists disagree with each other, which is what happens when the classification is implicit. Writing the real one is an owner decision, and a regulatory one under 152-ФЗ rather than a technical one."
+    },
+    {
+      "requirementId": "V14.1.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md",
+        "unspecified-implementation:apps/api/src/modules/gekta/gekta-phone.service.ts",
+        "unspecified-implementation:apps/api/src/auth-mail-worker.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no protection requirements are documented for any data class",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "protection requirements",
+            "retention",
+            "database-level encryption",
+            "protection level"
+          ]
+        },
+        {
+          "condition": "implementations that such a document would govern still exist without it",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/gekta/gekta-phone.service.ts"
+          ],
+          "patterns": [
+            "aes-256-gcm"
+          ]
+        }
+      ],
+      "note": "With no protection levels defined (V14.1.1) there is nothing for protection requirements to attach to, but this requirement fails on its own evidence rather than by inheritance. It asks for a documented set covering encryption, integrity verification, retention, how data is logged, access control over sensitive data in logs, database-level encryption and privacy technologies. Several of those are implemented: phone numbers and MFA secrets are encrypted at rest with AES-256-GCM, personal data is masked before logging, and the auth-mail outbox redacts terminal entries after seven days. Not one of them is specified anywhere, so there is no statement an implementation could be measured against and no way to tell whether a data class that lacks a control is an omission or a decision."
+    },
+    {
+      "requirementId": "V14.2.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "query-token:apps/web/app/api/auth/registration/status/route.ts",
+        "query-token:apps/web/app/api/gekta/auth/email/verify/route.ts",
+        "oauth-code:apps/web/app/api/platform-v7/gov-id/callback/route.ts",
+        "unmasked-sink:apps/api/src/common/middleware/log-masking.middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a verification token is still read from the query string",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/registration/status/route.ts"
+          ],
+          "patterns": [
+            "searchparams.get('token')"
+          ]
+        },
+        {
+          "condition": "log masking still does not reach the URL or query string, so those values are not masked where they land",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/middleware/log-masking.middleware.ts"
+          ],
+          "patterns": [
+            "originalurl",
+            "req.url",
+            "querystring",
+            ".query"
+          ]
+        }
+      ],
+      "note": "Two query parameters carry a credential. The denominator is every query key the application reads, not a sample: lang 7, role 4, to 3, stream 3, limit 3, as 3, token 2, locale 2, format 2, state 1, next 1, flow 1, email 1, connection_limit 1, code 1. Of those, the two token reads are the finding - registration status and Gekta email verification both accept a verification token in the URL, where it reaches browser history, the Referer header and every access log on the path. The OAuth authorization code in the gov-id callback is deliberately not counted as the failure: a code in the query is the authorization code flow’s own design, and whether it is handled correctly is V10’s question. What makes the two tokens worse than they look is the paired fact: the log-masking middleware, which masks eight personal-data classes elsewhere, has no reference to the URL or query string at all, so nothing masks these values in the logs they reach."
+    },
+    {
+      "requirementId": "V14.2.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "no-application-cache:apps/api/src/health.controller.ts",
+        "no-framework-cache:apps/web/next.config.js",
+        "absent-from-repository:Caddyfile"
+      ],
+      "conditions": [
+        {
+          "condition": "the application still operates no server-side cache that could hold sensitive data",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps"
+          ],
+          "patterns": [
+            "cachemodule",
+            "cache-manager",
+            "unstable_cache",
+            "from 'next/cache'"
+          ]
+        },
+        {
+          "condition": "the framework configuration that would be the other in-repository cache surface is still present and readable",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/next.config.js"
+          ],
+          "patterns": [
+            "cdn-cache-control"
+          ]
+        }
+      ],
+      "note": "Half of this is measurable and clean, half is not, so no verdict is recorded. Measurable: the application operates no server-side cache. A scan of 3341 source files finds no Nest CacheModule, no cache-manager, no unstable_cache and no next/cache import; Redis is reported as disabled unless REDIS_URL is set and is listed elsewhere as planned rather than deployed. Not measurable: the requirement also covers load balancers and other server components, and the only such component is the Caddy edge, whose configuration is not under version control. Recording a pass on the application half would claim more than was measured, and recording a failure would state something not measured - the same treatment the edge blocker gets in V4, V11 and V12."
+    },
+    {
+      "requirementId": "V14.2.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "session-recorder:apps/web/app/layout.tsx",
+        "csp-allowlist:apps/web/next.config.js",
+        "second-recipient:apps/api/src/sentry.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the root layout still enables Webvisor session recording",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/layout.tsx"
+          ],
+          "patterns": [
+            "webvisor:true"
+          ]
+        },
+        {
+          "condition": "no field masking is configured for the recorder anywhere in the web application",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "ym-disable",
+            "data-ym",
+            "ym-record",
+            "ym-hide"
+          ]
+        },
+        {
+          "condition": "the content security policy still permits the recorder on every path",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/next.config.js"
+          ],
+          "patterns": [
+            "mc.yandex.ru"
+          ]
+        }
+      ],
+      "note": "Sensitive data is sent to a third party by design, without minimisation. apps/web/app/layout.tsx is the root layout, so it renders on every page under apps/web/app including the authenticated cabinet - the nested layouts for platform-v7, platform-v7r and login were each checked and none declares its own html element, so none escapes it. It initialises Yandex Metrika with webvisor true, which is session recording: DOM content and form interaction are captured and replayed off-platform, alongside clickmap and trackLinks. No field masking is configured - a scan of 2576 web source files finds no Metrika masking attribute of any kind - and the content security policy was widened globally to allow mc.yandex.ru in both script-src and connect-src, so this is deliberate rather than accidental. The only gate is whether NEXT_PUBLIC_YM_ID is set, which is an environment fact held outside Git; the assessable fact is that the code applies no route, authentication, consent or masking gate when it is. There is no consent control: the only repository matches for 152-ФЗ are AI-assistant knowledge-base keyword lists, which are not one. Sentry is a second recipient and is assessed under V14.2.4."
+    },
+    {
+      "requirementId": "V14.2.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "weaker-external-sink:apps/api/src/sentry.ts",
+        "stronger-internal-sink:apps/api/src/common/middleware/log-masking.middleware.ts",
+        "documentation-set:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the external error sink still filters five key names at one level",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/sentry.ts"
+          ],
+          "patterns": [
+            "['password', 'token', 'inn', 'passport', 'phone']"
+          ]
+        },
+        {
+          "condition": "that filter still does not reach headers, the query string, breadcrumbs or extra context",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/sentry.ts"
+          ],
+          "patterns": [
+            "headers",
+            "query_string",
+            "breadcrumb",
+            "event.extra"
+          ]
+        }
+      ],
+      "note": "Controls are not implemented consistently, and there is no documented definition they could be implemented against. The gap is named rather than inferred from V14.1.2: the platform protects the same data to two different standards depending on which sink it flows to. Internally, the log-masking middleware rewrites eight personal-data classes by pattern, so an INN is masked wherever it appears in a line. Externally, the Sentry beforeSend hook deletes five literal key names from the top level of one object. It does not descend into nested objects, does not touch request headers where the Authorization and Cookie values sit, does not touch the query string - which matters because V14.2.1 established that verification tokens travel there - and does not touch breadcrumbs or extra context. It is also exact-match, so passwordHash, accessToken and an upper-case INN all pass through. The weaker control is on the channel that leaves the platform, which is the wrong way round, and a documented protection requirement is what would have caught that."
+    },
+    {
+      "requirementId": "V14.2.5",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "content-type-control:apps/web/middleware.ts",
+        "content-type-control:apps/web/next.config.js",
+        "absent-from-repository:Caddyfile"
+      ],
+      "conditions": [
+        {
+          "condition": "content-type sniffing is still refused on every response",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "nosniff"
+          ]
+        },
+        {
+          "condition": "the framework still sets the same header globally",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/next.config.js"
+          ],
+          "patterns": [
+            "nosniff"
+          ]
+        }
+      ],
+      "note": "One half is present, the other is not readable. Content-type handling is controlled: X-Content-Type-Options nosniff is set by the web middleware on every response and again by the framework configuration under a global path rule, so a cached response cannot be reinterpreted as a different type. The other half of this requirement is web-server behaviour - returning 404 or 302 for a path that does not exist, rather than serving a different valid file - and that is decided by the Caddy edge, whose configuration is not under version control. Web cache deception depends on exactly that behaviour, so the requirement cannot be settled from the repository."
+    },
+    {
+      "requirementId": "V14.2.6",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "minimization-control:apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+        "non-echo:apps/api/src/modules/kyc/kyc.service.ts",
+        "not-this:apps/api/src/common/middleware/log-masking.middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the one measured minimization control still exists",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ai-insights/ai-assistant.service.ts"
+          ],
+          "patterns": [
+            "minimizevalue"
+          ]
+        },
+        {
+          "condition": "the KYC check still returns a verdict and a bank name rather than the account number it was given",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/kyc/kyc.service.ts"
+          ],
+          "patterns": [
+            "bankname"
+          ]
+        }
+      ],
+      "note": "Not assessed, and deliberately not failed. Two real controls were found and are recorded so they are not lost: the AI assistant builds its context through a minimizer that drops any key matching a denial list of eleven sensitive names and caps string length, array length, key count and depth; and the KYC service accepts a bank account number as input and returns only a pass verdict and the bank name, without echoing the account back. What was not done is the measurement this requirement actually needs - reading every response shape for over-return, and comparing each against a definition of what the minimum is for that data class. That definition does not exist (V14.1.1), so even a complete sweep would have no standard to measure against. A failure here would have to name an endpoint that returns more than it should, and none was identified; asserting one on the strength of an absent control elsewhere would be the same error as passing a requirement on a numerator. Log masking is listed only to say it is not an answer to this: masking a value on its way to a log does not reduce what a response returns."
+    },
+    {
+      "requirementId": "V14.2.7",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "implemented-retention:apps/api/src/auth-mail-worker.ts",
+        "implemented-purge:apps/api/src/modules/integrations/edo-webhook.controller.ts",
+        "documentation-set:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "retention is still implemented for the one data class that has it",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/auth-mail-worker.ts"
+          ],
+          "patterns": [
+            "retentiondays"
+          ]
+        },
+        {
+          "condition": "no retention rule is documented for any data class",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "retention",
+            "срок хранения"
+          ]
+        }
+      ],
+      "note": "The requirement asks for retention classification, and that is precisely what is missing - the gap is named rather than assumed. Two mechanisms do exist and are credited: the auth-mail worker redacts terminal outbox entries after a configurable retention period defaulting to seven days and capped at a year, on a schedule, and the EDO webhook controller purges processed event identifiers older than twenty-four hours. Both are real automatic deletion. Neither is driven by a classification, and no other data class has a defined lifetime, so for everything else - deals, documents, audit records, personal data captured during registration - nothing states how long it is kept or when it stops being necessary. Without the classification there is no way to tell whether that is retention by decision or by default."
+    },
+    {
+      "requirementId": "V14.2.8",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "upload-path:apps/web/app/api/public-platform-assistant/attachments/route.ts",
+        "documentation-set:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the application still accepts user-submitted files",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "formdata"
+          ]
+        },
+        {
+          "condition": "nothing in the tree strips metadata from an uploaded file",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "exifr",
+            "piexif",
+            "stripmetadata",
+            "removemetadata",
+            "withmetadata"
+          ]
+        }
+      ],
+      "note": "User-submitted files are accepted and processed, and their metadata is kept. The attachments endpoint takes multipart uploads and runs text extraction over them; nothing at any point removes embedded metadata, and a scan of 3442 source files finds no metadata-stripping call of any kind. Photographs taken in the field - which is what a grain platform receives from an elevator, a laboratory or a driver - routinely carry GPS coordinates, device identifiers and timestamps in EXIF, and those survive into storage unchanged. There is no consent flow that would make retention of that metadata a user choice, because there is no classification saying it is sensitive in the first place."
+    },
+    {
+      "requirementId": "V14.3.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "logout-path:apps/web/app/api/auth/logout/route.ts",
+        "persisting-storage:apps/web/components/gekta/GektaChatWorkspace.tsx",
+        "persisting-storage:apps/web/components/v7r/DocumentsDropzone.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "no response anywhere asks the browser to clear site data",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "clear-site-data"
+          ]
+        },
+        {
+          "condition": "logout still clears cookies without clearing client storage",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/logout/route.ts"
+          ],
+          "patterns": [
+            "localstorage",
+            "clear-site-data",
+            "sessionstorage"
+          ]
+        },
+        {
+          "condition": "authenticated data is still written to client storage that outlives the session",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/components/gekta/GektaChatWorkspace.tsx"
+          ],
+          "patterns": [
+            "history_storage"
+          ]
+        }
+      ],
+      "note": "Logging out ends the session but does not clear what the session left behind. The logout route is otherwise careful - it checks CSRF, revokes upstream, clears the authentication cookies and sets no-store - and that is exactly why the gap is worth stating precisely: cookies are handled, client storage is not. No response in 2576 web source files sends Clear-Site-Data, and the logout handler contains no reference to local or session storage. Meanwhile conversation history and project lists from the Gekta assistant, per-deal document lists and checklists from the documents dropzone, and the support profile all persist in localStorage across logout, on a shared or borrowed device as much as a personal one. The requirement also asks for a client-side path that cleans up when the server is unreachable at logout, and none exists."
+    },
+    {
+      "requirementId": "V14.3.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "framework-scope:apps/web/next.config.js",
+        "uncovered-handler:apps/web/app/api/auth/platform-v7-cabinet-login/route.ts",
+        "uncovered-handler:apps/web/app/api/platform-v7/cabinet-session/route.ts",
+        "uncovered-handler:apps/web/app/api/commercial/finance/applications/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the framework anti-caching header is still scoped to the entry paths rather than applied globally",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/next.config.js"
+          ],
+          "patterns": [
+            "publicentryfreshheaders"
+          ]
+        },
+        {
+          "condition": "the login, session and finance handlers still set no cache header of their own",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/platform-v7-cabinet-login/route.ts",
+            "apps/web/app/api/platform-v7/cabinet-session/route.ts",
+            "apps/web/app/api/commercial/finance/applications/route.ts"
+          ],
+          "patterns": [
+            "cache-control"
+          ]
+        }
+      ],
+      "note": "Most handlers do this correctly and a minority do not, so both numbers are given. Of 118 route handlers under apps/web/app/api, 86 set Cache-Control no-store, 1 sets a different Cache-Control value for a streaming response, 4 set only a framework directive, and 27 set nothing at all. The 4 are called out separately because they look like coverage and are not: export const dynamic force-dynamic and revalidate 0 govern the Next.js cache, not the browser’s, and neither emits a response header. The framework configuration does not fill the gap either - its no-store block applies to exactly four entry paths, none of them under /api, while the global rule applies security headers that contain no Cache-Control. Among the 27 uncovered handlers are the cabinet login response, the cabinet session endpoint and the whole commercial surface: companies, insurance, finance applications, dispatch, provider assignments, queue, survey, market and expansion."
+    },
+    {
+      "requirementId": "V14.3.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "personal-data-in-storage:apps/web/components/platform-v7/ChatSupportWidget.tsx",
+        "business-data-in-storage:apps/web/components/v7r/DocumentsDropzone.tsx",
+        "business-data-in-storage:apps/web/components/gekta/GektaChatWorkspace.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "a personal-data profile is still written to browser storage",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/components/platform-v7/ChatSupportWidget.tsx"
+          ],
+          "patterns": [
+            "support_profile_primary_key"
+          ]
+        },
+        {
+          "condition": "no credential is written to browser storage, which is the part that is right",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "localstorage.setitem('token",
+            "localstorage.setitem('jwt",
+            "sessionstorage.setitem('token",
+            "setitem('access_token"
+          ]
+        }
+      ],
+      "note": "The exception this requirement allows is session tokens, and the data stored is not that. The support widget writes a profile containing the user’s name, their phone number or email address, and their organization into sessionStorage and localStorage both, under three key names. The Gekta assistant persists whole conversations and project lists, and the documents dropzone persists per-deal document lists and checklists - commercial content about identifiable counterparties, on the client, indefinitely. What the platform does get right is credited and machine-checked: no token, JWT or password is written to browser storage anywhere in 2576 web source files, so the classic version of this failure is absent. Without a data classification (V14.1.1) there is no rule that would have told a component author the support profile was not theirs to persist."
+    },
+    {
       "requirementId": "V16.1.1",
       "applicability": "APPLICABLE",
       "status": "FAIL",
