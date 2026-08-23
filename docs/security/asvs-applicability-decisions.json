@@ -6,8 +6,8 @@
   "decisions": [
     {
       "requirementId": "V17.1.1",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -45,8 +45,8 @@
     },
     {
       "requirementId": "V17.1.2",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -84,8 +84,8 @@
     },
     {
       "requirementId": "V17.2.1",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -123,8 +123,8 @@
     },
     {
       "requirementId": "V17.2.2",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -162,8 +162,8 @@
     },
     {
       "requirementId": "V17.2.3",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -201,8 +201,8 @@
     },
     {
       "requirementId": "V17.2.4",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -240,8 +240,8 @@
     },
     {
       "requirementId": "V17.2.5",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -279,8 +279,8 @@
     },
     {
       "requirementId": "V17.2.6",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -318,8 +318,8 @@
     },
     {
       "requirementId": "V17.2.7",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -357,8 +357,8 @@
     },
     {
       "requirementId": "V17.2.8",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -396,8 +396,8 @@
     },
     {
       "requirementId": "V17.3.1",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"
@@ -435,8 +435,8 @@
     },
     {
       "requirementId": "V17.3.2",
-      "applicability": "NOT_APPLICABLE",
-      "status": "NOT_ASSESSED",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-webrtc-api-usage",
         "manifest-scan:no-webrtc-dependency"

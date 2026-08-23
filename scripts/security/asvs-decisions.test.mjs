@@ -21,7 +21,7 @@ const held = [{ condition: 'no WebRTC in tree', holds: true, evidence: 'scanned'
 
 test('a decision without evidence is rejected', () => {
   const { problems } = validateDecision({
-    requirementId: 'V17.1.1', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_ASSESSED,
+    requirementId: 'V17.1.1', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_APPLICABLE,
     evidence: [], conditions: held,
   });
   assert.ok(problems.some((p) => p.includes('requires evidence')));
@@ -29,7 +29,7 @@ test('a decision without evidence is rejected', () => {
 
 test('a decision with no conditions is rejected', () => {
   const { problems } = validateDecision({
-    requirementId: 'V17.1.1', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_ASSESSED,
+    requirementId: 'V17.1.1', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_APPLICABLE,
     evidence: ['scan'], conditions: [],
   });
   assert.ok(problems.some((p) => p.includes('re-verifiable condition')));
@@ -37,7 +37,7 @@ test('a decision with no conditions is rejected', () => {
 
 test('a decision whose condition no longer holds is rejected, not downgraded', () => {
   const { records, rejected } = applyDecisions(REQS, [{
-    requirementId: 'V17.1.1', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_ASSESSED,
+    requirementId: 'V17.1.1', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_APPLICABLE,
     evidence: ['scan'], conditions: [{ condition: 'no WebRTC', holds: false, evidence: 'RTCPeerConnection appeared' }],
   }]);
   assert.equal(rejected.length, 1);
@@ -55,12 +55,12 @@ test('PASS requires evidence and applicability, never a bare assertion', () => {
   assert.ok(notApplicablePass.problems.some((p) => p.includes('PASS requires the requirement to be APPLICABLE')));
 });
 
-test('a NOT_APPLICABLE requirement cannot carry an assessment status', () => {
+test('a justified non-applicable requirement must record that outcome, not PASS', () => {
   const { problems } = validateDecision({
     requirementId: 'V17.1.1', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.PASS,
     evidence: ['scan'], conditions: held,
   });
-  assert.ok(problems.some((p) => p.includes('cannot carry an assessment status')));
+  assert.ok(problems.some((p) => p.includes('must carry status NOT_APPLICABLE')));
 });
 
 test('FAIL must describe the gap and remains FAIL', () => {
@@ -82,14 +82,14 @@ test('a malformed requirement id is rejected rather than silently ignored', () =
 
 test('a decision for a requirement absent from the pinned standard is rejected', () => {
   const { rejected } = applyDecisions(REQS, [{
-    requirementId: 'V99.9.9', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_ASSESSED,
+    requirementId: 'V99.9.9', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_APPLICABLE,
     evidence: ['scan'], conditions: held,
   }]);
   assert.ok(rejected.some((r) => r.problems.some((p) => p.includes('absent from the pinned standard'))));
 });
 
 test('duplicate decisions for one requirement are rejected', () => {
-  const decision = { requirementId: 'V17.1.1', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_ASSESSED, evidence: ['scan'], conditions: held };
+  const decision = { requirementId: 'V17.1.1', applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_APPLICABLE, evidence: ['scan'], conditions: held };
   const { rejected } = applyDecisions(REQS, [decision, { ...decision }]);
   assert.ok(rejected.some((r) => r.problems.some((p) => p.includes('duplicate'))));
 });
@@ -101,7 +101,7 @@ test('anything undecided stays pending and unassessed', () => {
 });
 
 test('a justified NOT_APPLICABLE does not block, an unassessed APPLICABLE does', () => {
-  assert.equal(blocksFinalPass({ applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_ASSESSED }), false);
+  assert.equal(blocksFinalPass({ applicability: APPLICABILITY.NOT_APPLICABLE, status: STATUS.NOT_APPLICABLE }), false);
   assert.equal(blocksFinalPass({ applicability: APPLICABILITY.APPLICABLE, status: STATUS.NOT_ASSESSED }), true);
   assert.equal(blocksFinalPass({ applicability: APPLICABILITY.APPLICABLE, status: STATUS.FAIL }), true);
   assert.equal(blocksFinalPass({ applicability: APPLICABILITY.PENDING, status: STATUS.NOT_ASSESSED }), true);

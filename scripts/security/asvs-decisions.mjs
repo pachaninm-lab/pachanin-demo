@@ -9,13 +9,14 @@
 
 export const APPLICABILITY = Object.freeze({
   APPLICABLE: 'APPLICABLE',
-  NOT_APPLICABLE: 'NOT_APPLICABLE',
+  NOT_APPLICABLE: 'NOT_APPLICABLE_WITH_JUSTIFICATION',
   PENDING: 'PENDING_APPLICABILITY_REVIEW',
 });
 
 export const STATUS = Object.freeze({
   PASS: 'PASS',
   FAIL: 'FAIL',
+  NOT_APPLICABLE: 'NOT_APPLICABLE',
   NOT_ASSESSED: 'NOT_ASSESSED',
 });
 
@@ -31,7 +32,7 @@ const VALID_STATUS = new Set(Object.values(STATUS));
  */
 export function blocksFinalPass(record) {
   if (record.applicability === APPLICABILITY.PENDING) return true;
-  if (record.applicability === APPLICABILITY.NOT_APPLICABLE) return false;
+  if (record.applicability === APPLICABILITY.NOT_APPLICABLE) return record.status !== STATUS.NOT_APPLICABLE;
   return record.status !== STATUS.PASS;
 }
 
@@ -57,7 +58,7 @@ export function validateDecision(decision) {
   if (decision?.applicability === APPLICABILITY.NOT_APPLICABLE) {
     if (evidence.length === 0) problems.push('NOT_APPLICABLE requires evidence');
     if (conditions.length === 0) problems.push('NOT_APPLICABLE requires at least one re-verifiable condition');
-    if (decision?.status !== STATUS.NOT_ASSESSED) problems.push('a NOT_APPLICABLE requirement cannot carry an assessment status');
+    if (decision?.status !== STATUS.NOT_APPLICABLE) problems.push('a justified non-applicable requirement must carry status NOT_APPLICABLE');
   }
 
   if (decision?.status === STATUS.PASS) {
