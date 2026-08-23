@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-stream-whitespace-4561",
+  "status": "active",
+  "purpose": "Repair screenshot-proven Gekta streaming word-boundary corruption by preserving already-public whitespace separators while keeping internal reasoning/tool-trace removal fail-closed.",
+  "approvedBy": "owner-instruction-2026-08-23-gekta-mobile-screenshot-repair",
+  "authorityBaseExactMain": "4df7bd4bd42e2de16b02d5260bad6e29287fff2e",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "concurrencyBoundary": "Restricted public Gekta/Qwen stream redaction boundary and its focused test only. Registration, MFA, PostgreSQL, entitlement, billing, Deal authority, deployment infrastructure and unrelated platform work must not be modified.",
+  "allowedPaths": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.internal-trace.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.spec.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-stream-whitespace-4561.json"
+  ],
+  "requiredBehavior": [
+    "safe streaming fragments without internal markers preserve leading and trailing whitespace byte-for-byte",
+    "reasoning, scratchpad, tool, debug and channel markers remain removed fail-closed",
+    "buffered public answers keep their existing safety semantics",
+    "a multi-fragment Russian answer cannot collapse word or sentence boundaries"
+  ],
+  "forbiddenCapabilities": [
+    "auth, MFA, PostgreSQL, registration backend, entitlement, billing, roles or Deal authority changes",
+    "model identity, provider secret, runtime endpoint or deployment authority changes",
+    "acceptance threshold weakening, retries or cosmetic post-render spacing regexes",
+    "new paid service, dependency or recurring cost",
+    "production mutation before exact-head gates and normal release authority"
+  ],
+  "acceptance": [
+    "all changed files remain inside allowedPaths",
+    "focused restricted-public Qwen controller/internal-trace tests pass",
+    "API unit/type/security/governance gates pass on exact PR head",
+    "after merge, production acceptance verifies a streamed Russian answer with intact whitespace boundaries"
+  ]
+}
