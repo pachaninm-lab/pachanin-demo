@@ -2762,36 +2762,57 @@
     {
       "requirementId": "V11.1.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "partial-mechanism:.github/codeql/codeql-config.yml",
-        "partial-mechanism:codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql",
-        "partial-mechanism:.github/workflows/codeql-platform-v7-report.yml"
+        "discovery-mechanism:scripts/security/discover-cryptography.mjs",
+        "generated-artefact:docs/security/cryptographic-inventory.json",
+        "generated-artefact:docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "staleness-guard:scripts/security/discover-cryptography.test.mjs",
+        "ci-wiring:.github/workflows/sbom-scan.yml"
       ],
       "conditions": [
         {
-          "condition": "the partial discovery mechanism still runs",
+          "condition": "the discovery mechanism still exists and still emits a versioned inventory",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            ".github/codeql/codeql-config.yml"
+            "scripts/security/discover-cryptography.mjs"
           ],
           "patterns": [
-            "insufficientpasswordhashcorrected"
+            "cryptographic-inventory.v1"
           ]
         },
         {
-          "condition": "the CodeQL configuration still declares no cryptographic discovery scope",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the generated inventory is still committed rather than produced and discarded",
+          "check": "PRESENT_AT_PATH",
           "paths": [
-            ".github/codeql/codeql-config.yml"
+            "docs/security/cryptographic-inventory.json"
           ],
           "patterns": [
-            "cryptographic inventory",
-            "crypto discovery"
+            "pc-crop.cryptographic-inventory.v1"
+          ]
+        },
+        {
+          "condition": "the guard that fails when the committed inventory goes stale is still present",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "scripts/security/discover-cryptography.test.mjs"
+          ],
+          "patterns": [
+            "committed inventory is not stale"
+          ]
+        },
+        {
+          "condition": "CI still runs when the mechanism or its artefact changes",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            ".github/workflows/sbom-scan.yml"
+          ],
+          "patterns": [
+            "discover-cryptography"
           ]
         }
       ],
-      "note": "A discovery mechanism exists but discovers the wrong set. CodeQL runs on every relevant change with a repository-owned replacement for js/insufficient-password-hash, which finds password flows into weak hashing. That reports defects; it does not enumerate instances. Nothing in CI lists where encryption, hashing or signing happen, so no one can tell from CI output that AES-GCM is used in six modules or that SHA-256 is used in ninety-five places. The sweep behind this chapter was manual, run once, and is not a mechanism. Closing this needs a repository-owned discovery script whose output is committed and re-generated in CI - it is buildable at zero cost and does not touch product logic, but it is not this issue."
+      "note": "A repository-owned discovery mechanism now enumerates every instance of cryptography rather than reporting only the instances a security suite dislikes. It scans 2127 non-test source files under apps and packages, excluding apps/landing, and records encryption, decryption, hashing, MAC, three key-derivation families, password hashing, signature generation and verification, key-pair generation, key exchange, CSPRNG, UUID and non-CSPRNG randomness, constant-time comparison and WebCrypto - each with the algorithm, the call count and the files, and each reported as zero rather than omitted when absent. Key material is named and never read; a test asserts no key value can reach the artefact. Names that match the pattern but configure key material rather than being it - a keyring directory, a current-version pointer, a token budget - are labelled configuration rather than silently dropped, because discarding a match makes a list look cleaner than it is. The mechanism is employed rather than merely available: the artefact is committed, CI runs the scanner whenever it or its inputs change, and a test fails when the committed inventory no longer matches what the scanner produces, so it cannot rot into a one-off snapshot. The first run earned its keep immediately by finding two HMAC-SHA1 sites that the manual sweep behind this chapter had missed; see V11.4.1, whose note is corrected accordingly."
     },
     {
       "requirementId": "V11.1.4",
@@ -3264,7 +3285,9 @@
       "evidence": [
         "hash-use:apps/api/src/modules/auth/auth-crypto.ts",
         "md5-use:apps/api/src/modules/integration-events/durable-outbox.worker.ts",
-        "md5-use:apps/api/src/auth-mail-worker.ts"
+        "md5-use:apps/api/src/auth-mail-worker.ts",
+        "totp-hmac:apps/api/src/modules/auth/auth-crypto.ts",
+        "totp-hmac:apps/api/src/modules/mfa/mfa.service.ts"
       ],
       "conditions": [
         {
@@ -3288,9 +3311,19 @@
           "patterns": [
             "leasetoken"
           ]
+        },
+        {
+          "condition": "the SHA-1 HMAC is still confined to the TOTP construction that specifies it",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "function totpat"
+          ]
         }
       ],
-      "note": "SHA-256 is the hash for every cryptographic purpose: digests, HMAC, HKDF and content integrity. MD5 is named here rather than left for a reader to find, because grepping the repository for it returns two hits and a silent pass would look like a miss. Both are PostgreSQL md5() calls that build a worker lease token from random() and clock_timestamp(), and both were followed to their use: the token is matched in the UPDATE guard that stops two workers claiming the same row. It is a concurrency token, not a secret, a credential, a signature, a key derivation or a random-bit generator, so it is not a cryptographic use and MD5 collision resistance is irrelevant to it. The single createHash(\"sha1\") in the tree is negative test data inside a CodeQL model test asserting that the model flags it."
+      "note": "SHA-256 is the hash for every cryptographic purpose: digests, HMAC, HKDF and content integrity. MD5 is named here rather than left for a reader to find, because grepping the repository for it returns two hits and a silent pass would look like a miss. Both are PostgreSQL md5() calls that build a worker lease token from random() and clock_timestamp(), and both were followed to their use: the token is matched in the UPDATE guard that stops two workers claiming the same row. It is a concurrency token, not a secret, a credential, a signature, a key derivation or a random-bit generator, so it is not a cryptographic use and MD5 collision resistance is irrelevant to it. The single createHash(\"sha1\") in the tree is negative test data inside a CodeQL model test asserting that the model flags it. Correction, found by the cryptographic discovery mechanism added under V11.1.3 rather than by the manual sweep behind this chapter: the claim that SHA-256 is the hash for every cryptographic purpose was incomplete. Two runtime sites use HMAC-SHA1 - the TOTP code generator in auth-crypto and a second RFC 6238 implementation in the MFA service. That is not a defect and the verdict does not change: RFC 6238 specifies HMAC-SHA1 for TOTP, every authenticator application implements it, and HMAC does not rest on the collision resistance that SHA-1 has lost, so HMAC-SHA1 remains approved for this use where bare SHA-1 would not be. It is recorded here because a reader who greps for sha1 will find these two, and an assessment that did not mention them would look like one that missed them - which, until the mechanism ran, it had. That the platform carries two independent TOTP implementations is a separate question and belongs to V6."
     },
     {
       "requirementId": "V11.4.2",
