@@ -19,11 +19,12 @@
     "No product logic, dependency, production, REG.RU, DNS or database change."
   ],
   "acceptance": [
-    "No decision note claims a control exists nowhere in the tree unless a machine-checked condition proves it.",
-    "V2.3.5 credits the second-approval control on the authority-granting path and scopes its gap to the money flow.",
+    "No decision note claims a control exists nowhere in the tree unless that is true.",
+    "V2.3.5 states both facts: the second-approval policy exists in full, and it has zero non-test callers, so it prevents nothing at runtime.",
     "V2.3.5 no longer equates its gap with the independent code review blocker.",
     "V12.3.5 states that the Elasticsearch hop does authenticate, with a shared password over plaintext, and its condition is retargeted to the hop that truly sends no credential.",
     "V5.1.1 distinguishes what is bounded after extraction from what is uncapped during decompression.",
+    "Where a claim cannot yet be machine-anchored, the note says so and gives the command to reproduce it.",
     "No verdict changes. Matrix state unchanged: 14 PASS, 23 FAIL, finalPass false."
   ]
 }
