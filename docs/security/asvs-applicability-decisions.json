@@ -438,6 +438,483 @@
       "note": "Rapid-transition detection exists and scores, but it prevents nothing: it is reachable only through its own controller endpoint, the deal command path never calls it, and a flagged score is logged and persisted rather than refused. Its state is also an in-process Map, so it would not survive more than one instance."
     },
     {
+      "requirementId": "V4.1.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "raw-response-paths:apps/api/src/main.ts",
+        "raw-response-paths:apps/api/src/modules/exports/exports.controller.ts",
+        "sse:apps/api/src/modules/runtime-snapshot/runtime-snapshot.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the metrics and export responses declare their content type",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts",
+            "apps/api/src/modules/exports/exports.controller.ts"
+          ],
+          "patterns": [
+            "setheader('content-type'"
+          ]
+        },
+        {
+          "condition": "the event stream declares its content type before flushing headers",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/runtime-snapshot/runtime-snapshot.controller.ts"
+          ],
+          "patterns": [
+            "text/event-stream"
+          ]
+        }
+      ],
+      "note": "Stated with its denominator, which is the discipline this programme had to learn twice. The API has exactly seven raw response paths: four res.send, two res.json and one res.write. All four res.send sites set Content-Type immediately before sending; both res.json sites let Express set application/json; the res.write site is the event stream, which sets text/event-stream before flushHeaders. There are no res.end, res.sendFile or pipe-to-response paths. Everything else returns through the Nest serialiser or NextResponse.json, both of which set the header themselves. Seven raw paths, seven declared content types, none unaccounted for."
+    },
+    {
+      "requirementId": "V4.1.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md",
+        "in-code-hsts:apps/api/src/main.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather, for the same reason recorded under V12: the production terminator is Caddy on the REG.RU virtual server and its configuration is not in the repository. infra/nginx/nginx.conf is not the production edge and is not evidence about it. Marking this PASS would assert something unverified and marking it FAIL would assert a defect nobody observed. Specifically unverified: whether the edge redirects HTTP to HTTPS and whether it does so only for user-facing endpoints. Credited without letting it answer the question: the API itself sets Strict-Transport-Security in code, which is in the repository and does apply, but a response header instructing future requests is not the same control as a redirect."
+    },
+    {
+      "requirementId": "V4.1.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "policy:apps/api/src/common/security/trusted-proxy.ts",
+        "global-guard:apps/api/src/common/guards/pre-auth-rate-limit.guard.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a trusted-proxy policy decides which forwarded value to believe",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/trusted-proxy.ts"
+          ],
+          "patterns": [
+            "trustedproxymode",
+            "max_forwarded_header_length",
+            "max_proxy_hops"
+          ]
+        },
+        {
+          "condition": "a global guard consumes that policy rather than reading the header directly",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts"
+          ],
+          "patterns": [
+            "trustedproxy.resolverequestip"
+          ]
+        }
+      ],
+      "note": "A header set by an intermediary cannot be forged by the client. trusted-proxy.ts parses CIDR ranges for v4 and v6, bounds the forwarded header at 4096 bytes and 20 hops, and resolves the client address by walking the chain against trusted ranges rather than taking the first value. The policy is not decorative: both rate-limit guards call resolveRequestIp, and both are registered as global APP_GUARDs, so it runs on every request. Checked for the failure mode this programme keeps finding - a control with no caller - and it does not apply here."
+    },
+    {
+      "requirementId": "V4.1.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "cors:apps/api/src/main.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "CORS is configured",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "enablecors"
+          ]
+        },
+        {
+          "condition": "no method allowlist constrains it",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "methods:",
+            "allowedmethods"
+          ]
+        }
+      ],
+      "note": "No explicit HTTP method allowlist exists. enableCors is configured with an origin and credentials but no methods option, so preflight advertises the framework default rather than the methods this API supports. Credited: route binding means an undeclared method on a declared path does not execute a handler. That limits what runs; it is not the explicit allowlist the requirement asks for, and it says nothing about what preflight advertises."
+    },
+    {
+      "requirementId": "V4.1.5",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "partial-evidence:apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "at least one sensitive transaction requires a purpose-bound signature beyond transport",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+          ],
+          "patterns": [
+            "signedevidenceref",
+            "app_labs_evidence_purpose_valid"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment deliberately not claimed, on the same reasoning as V2.2.3. The lab protocol finalisation does exactly what this requirement describes: it requires a signed evidence reference and validates that the signature is purpose-bound to that sample, shipment, acceptance, laboratory and protocol number - assurance that does not depend on the transport. Whether the other sensitive transactions carry an equivalent per-message signature has not been examined, so the requirement is not claimed as met for the application."
+    },
+    {
+      "requirementId": "V4.2.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather, for the same reason recorded under V12: the production terminator is Caddy on the REG.RU virtual server and its configuration is not in the repository. infra/nginx/nginx.conf is not the production edge and is not evidence about it. Marking this PASS would assert something unverified and marking it FAIL would assert a defect nobody observed. Specifically unverified: whether every component in the chain determines message boundaries the same way. Request smuggling is decided between the edge and the application server, and only one of those two is in the repository."
+    },
+    {
+      "requirementId": "V4.2.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather, for the same reason recorded under V12: the production terminator is Caddy on the REG.RU virtual server and its configuration is not in the repository. infra/nginx/nginx.conf is not the production edge and is not evidence about it. Marking this PASS would assert something unverified and marking it FAIL would assert a defect nobody observed. Specifically unverified: whether a generated Content-Length can disagree with the body as it leaves the edge."
+    },
+    {
+      "requirementId": "V4.2.3",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather, for the same reason recorded under V12: the production terminator is Caddy on the REG.RU virtual server and its configuration is not in the repository. infra/nginx/nginx.conf is not the production edge and is not evidence about it. Marking this PASS would assert something unverified and marking it FAIL would assert a defect nobody observed. Specifically unverified: whether connection-specific header fields are accepted or emitted over HTTP/2 or HTTP/3, which is decided by the terminator."
+    },
+    {
+      "requirementId": "V4.2.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather, for the same reason recorded under V12: the production terminator is Caddy on the REG.RU virtual server and its configuration is not in the repository. infra/nginx/nginx.conf is not the production edge and is not evidence about it. Marking this PASS would assert something unverified and marking it FAIL would assert a defect nobody observed. Specifically unverified: whether header fields containing invalid characters are rejected at the HTTP/2 or HTTP/3 layer."
+    },
+    {
+      "requirementId": "V4.2.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "registration:apps/api/src/modules/partner-api/partner-api.controller.ts",
+        "dispatch:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a consumer-supplied url is accepted with an inline body type nothing validates",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/partner-api.controller.ts"
+          ],
+          "patterns": [
+            "@body() body: { url: string"
+          ]
+        },
+        {
+          "condition": "and fetched server-side with no target validation",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+          ],
+          "patterns": [
+            "isprivate",
+            "allowlist",
+            "assertpublic",
+            "new url("
+          ]
+        }
+      ],
+      "note": "The application builds and sends requests to an address a consumer chooses, and validates nothing about it. POST api/partner/webhooks takes { url, events } as an inline TypeScript type - so the global validation pipe has no class to act on, per the correction recorded under V2.2.1 - the service stores the url as given, and the dispatcher fetches it server-side. There is no scheme check, no private-address block, no allowlist and no redirect limit, and the tree contains no SSRF protection of any kind. An authenticated partner can point a webhook at an internal service or a cloud metadata endpoint and have the API fetch it on their behalf. Authenticated, and real."
+    },
+    {
+      "requirementId": "V4.3.1",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-graphql-or-data-layer-query-api"
+      ],
+      "conditions": [
+        {
+          "condition": "no GraphQL or data-layer query API is served by the application",
+          "check": "NO_RUNTIME_CALLER",
+          "patterns": [
+            "graphql",
+            "apollo"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "definedAt": []
+        }
+      ],
+      "note": "The application exposes no GraphQL or equivalent data-layer query API, so there is no query whose depth, amount or cost could need limiting. The one graphql string in the tree is in a test asserting on GitHub CI check data, which is why this condition excludes tests: a reference in a test is not a served API. If one is ever introduced, the condition stops holding and the requirement returns to assessment."
+    },
+    {
+      "requirementId": "V4.3.2",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-graphql-schema-served"
+      ],
+      "conditions": [
+        {
+          "condition": "no GraphQL schema is served, so there is no introspection to disable",
+          "check": "NO_RUNTIME_CALLER",
+          "patterns": [
+            "graphql",
+            "apollo"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "definedAt": []
+        }
+      ],
+      "note": "No GraphQL API is served, so introspection cannot be enabled or disabled. Recorded separately from V4.3.1 because the two would need different evidence if a GraphQL API were introduced."
+    },
+    {
+      "requirementId": "V4.4.1",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "orphan-client:apps/web/lib/websocket-client.ts",
+        "repository-scan:no-websocket-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebSocket gateway is served by the application",
+          "check": "NO_RUNTIME_CALLER",
+          "patterns": [
+            "websocketgateway",
+            "ioadapter"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "definedAt": []
+        },
+        {
+          "condition": "and the client that would dial one is imported by nothing",
+          "check": "NO_RUNTIME_CALLER",
+          "patterns": [
+            "wsclient"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "definedAt": [
+            "apps/web/lib/websocket-client.ts"
+          ]
+        }
+      ],
+      "note": "No WebSocket connection is ever established, so there is no connection whose transport could be required to use TLS. This needs saying carefully, because the surface looks alive: apps/web/lib/websocket-client.ts exists, defaults to ws://localhost:4000, and socket.io is declared in both manifests. But there is no WebSocketGateway, no IoAdapter and no adapter registration anywhere in the API - the server the client comment refers to does not exist - and the client itself is imported by nothing. Recording a FAIL on that ws:// default would describe a defect that cannot occur. Worth stating for the owner rather than the matrix: if a gateway is ever added, it will inherit this client default and its absent origin check, and both conditions here will stop holding at that moment."
+    },
+    {
+      "requirementId": "V4.4.2",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-websocket-handshake"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebSocket handshake is served, so there is no Origin to check",
+          "check": "NO_RUNTIME_CALLER",
+          "patterns": [
+            "websocketgateway",
+            "ioadapter"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "definedAt": []
+        }
+      ],
+      "note": "There is no WebSocket handshake to validate an Origin against, because no gateway is served. The absent origin check in the orphaned client is noted under V4.4.1 as a forward risk rather than a present defect."
+    },
+    {
+      "requirementId": "V4.4.3",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-websocket-session"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebSocket session exists to need a dedicated token",
+          "check": "NO_RUNTIME_CALLER",
+          "patterns": [
+            "websocketgateway",
+            "ioadapter"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "definedAt": []
+        }
+      ],
+      "note": "No WebSocket session exists, so the question of whether standard session management can be used there does not arise. The platform session mechanism assessed under V7 covers every connection the application actually makes."
+    },
+    {
+      "requirementId": "V4.4.4",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-websocket-session"
+      ],
+      "conditions": [
+        {
+          "condition": "no dedicated WebSocket token is issued or validated",
+          "check": "NO_RUNTIME_CALLER",
+          "patterns": [
+            "websocketgateway",
+            "ioadapter"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "definedAt": []
+        }
+      ],
+      "note": "No dedicated WebSocket session token is obtained or validated anywhere, because no WebSocket session exists to hold one."
+    },
+    {
       "requirementId": "V5.1.1",
       "applicability": "APPLICABLE",
       "status": "FAIL",
