@@ -4234,48 +4234,67 @@
     {
       "requirementId": "V14.2.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "session-recorder:apps/web/app/layout.tsx",
-        "csp-allowlist:apps/web/next.config.js",
-        "second-recipient:apps/api/src/sentry.ts"
+        "boundary:apps/web/lib/analytics/analytics-boundary.ts",
+        "gated-component:apps/web/components/analytics/PublicAnalytics.tsx",
+        "regression-test:apps/web/tests/unit/publicAnalyticsBoundary.test.ts",
+        "served-policy:apps/web/middleware.ts"
       ],
       "conditions": [
         {
-          "condition": "the root layout still enables Webvisor session recording",
+          "condition": "session replay is still declared off rather than configured off",
           "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/analytics/analytics-boundary.ts"
+          ],
+          "patterns": [
+            "session_replay_enabled = false"
+          ]
+        },
+        {
+          "condition": "the root layout still carries no analytics markup for every page to inherit",
+          "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/web/app/layout.tsx"
           ],
           "patterns": [
-            "webvisor:true"
+            "mc.yandex.ru",
+            "webvisor"
           ]
         },
         {
-          "condition": "no field masking is configured for the recorder anywhere in the web application",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/web"
-          ],
-          "patterns": [
-            "ym-disable",
-            "data-ym",
-            "ym-record",
-            "ym-hide"
-          ]
-        },
-        {
-          "condition": "the content security policy still permits the recorder on every path",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the framework configuration still does not name the analytics host, so the two policies cannot disagree again",
+          "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/web/next.config.js"
           ],
           "patterns": [
             "mc.yandex.ru"
           ]
+        },
+        {
+          "condition": "analytics markup is still rendered only behind the path check",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/components/analytics/PublicAnalytics.tsx"
+          ],
+          "patterns": [
+            "analyticsallowedforpath"
+          ]
+        },
+        {
+          "condition": "the test enumerating the private surfaces that must stay untracked is still present",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/publicAnalyticsBoundary.test.ts"
+          ],
+          "patterns": [
+            "denies every private or credential-bearing surface"
+          ]
         }
       ],
-      "note": "Sensitive data is sent to a third party by design, without minimisation. apps/web/app/layout.tsx is the root layout, so it renders on every page under apps/web/app including the authenticated cabinet - the nested layouts for platform-v7, platform-v7r and login were each checked and none declares its own html element, so none escapes it. It initialises Yandex Metrika with webvisor true, which is session recording: DOM content and form interaction are captured and replayed off-platform, alongside clickmap and trackLinks. No field masking is configured - a scan of 2576 web source files finds no Metrika masking attribute of any kind - and the content security policy was widened globally to allow mc.yandex.ru in both script-src and connect-src, so this is deliberate rather than accidental. The only gate is whether NEXT_PUBLIC_YM_ID is set, which is an environment fact held outside Git; the assessable fact is that the code applies no route, authentication, consent or masking gate when it is. There is no consent control: the only repository matches for 152-ФЗ are AI-assistant knowledge-base keyword lists, which are not one. Sentry is a second recipient and is assessed under V14.2.4."
+      "note": "This decision previously recorded that Webvisor session recording reached the authenticated cabinet. That was overstated and the correction is recorded here rather than quietly dropped. Measuring what the server actually sends showed exactly one content-security-policy header on every path - the one set by the web middleware, which does not allow the analytics host in script-src - so the third-party script was blocked and the recorder never initialised. What was true is that the snippet with webvisor enabled was emitted into every page including the cabinet, and that a second policy in next.config.js did allow the host, so the safe outcome depended on which header happened to be applied last. The live leak was narrower and real: the noscript fallback is an image, img-src permits https, and a client with JavaScript disabled reported cabinet page URLs to a third party. All three are now closed. Analytics renders only behind a fail-closed allowlist of four public informational paths; anything unrecognised, including every cabinet, staff, Gekta, assistant, login, registration and recovery path, renders nothing at all - no script and no pixel. Session replay is removed rather than reconfigured, because a safe public-only boundary cannot be demonstrated while the public surface includes credential entry and a free-text assistant. The analytics host is gone from next.config.js so the repository states one intention. Verified by request against a running server: the cabinet page carried the snippet and the pixel before and carries neither after. The public-path render is covered by unit test rather than by request, because this development configuration redirects the public paths to the cabinet. What remains on allowlisted public pages is ordinary pageview telemetry on informational pages, which is not the sensitive-data transfer this requirement is about; whether even that is wanted is an owner decision, and the boundary makes it a one-line change either way."
     },
     {
       "requirementId": "V14.2.4",
