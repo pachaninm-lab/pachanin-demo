@@ -67,8 +67,14 @@ export function validateDecision(decision) {
     if (conditions.length === 0) problems.push('PASS requires at least one re-verifiable condition');
   }
 
-  if (decision?.status === STATUS.FAIL && note.length === 0) {
-    problems.push('FAIL requires a note describing the gap');
+  // A FAIL is held to the same standard as a PASS. It must name where the gap
+  // is and carry a condition that is re-checked on every run, so that when the
+  // gap is closed the decision stops holding and the requirement is reassessed.
+  // Otherwise a fixed finding would sit in the matrix as a permanent FAIL.
+  if (decision?.status === STATUS.FAIL) {
+    if (note.length === 0) problems.push('FAIL requires a note describing the gap');
+    if (evidence.length === 0) problems.push('FAIL requires evidence naming where the gap is');
+    if (conditions.length === 0) problems.push('FAIL requires at least one re-verifiable condition');
   }
 
   if (decision?.applicability === APPLICABILITY.PENDING && decision?.status !== STATUS.NOT_ASSESSED) {

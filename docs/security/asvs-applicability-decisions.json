@@ -5,6 +5,455 @@
   "policy": "A decision must name what was examined and carry conditions re-evaluated on every run. Having a control is not evidence that a requirement is met: no PASS may be inferred from the presence of MFA, RLS, CodeQL, an SBOM or a passing test. Anything without a valid, currently-holding decision stays PENDING and NOT_ASSESSED.",
   "decisions": [
     {
+      "requirementId": "V5.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
+        "documentation-scan:no-upload-policy-document"
+      ],
+      "conditions": [
+        {
+          "condition": "the upload route still carries no reference to a documented upload policy",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "upload_policy",
+            "upload-policy.md",
+            "docs/security/upload"
+          ]
+        },
+        {
+          "condition": "the upload route is the surface the missing documentation would have to cover",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "max_file_bytes"
+          ]
+        }
+      ],
+      "note": "No document defines the permitted file types, expected extensions or maximum size for this upload feature. Unpacked size in particular is neither stated nor bounded anywhere."
+    },
+    {
+      "requirementId": "V5.2.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
+        "infra:infra/nginx/nginx.conf client_max_body_size 10m"
+      ],
+      "conditions": [
+        {
+          "condition": "the size caps exist and are applied in the handler",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "max_file_bytes",
+            "max_total_bytes",
+            "max_files"
+          ]
+        },
+        {
+          "condition": "no ceiling is applied before the body is buffered",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "maxbodysize",
+            "bodysizelimit",
+            "bodyparser"
+          ]
+        }
+      ],
+      "note": "The caps (4 files, 8 MiB per file, 24 MiB total) are enforced only after request.formData() has buffered the entire body. The single pre-buffer check trusts a client-supplied Content-Length and is skipped when that header is absent, so an oversized body is read into memory before it is rejected. nginx sets client_max_body_size 10m, but that is an infrastructure ceiling whose deployment cannot be verified from the repository."
+    },
+    {
+      "requirementId": "V5.2.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "dispatch is driven by the filename extension",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "text_extensions",
+            "image_extensions",
+            "function extension("
+          ]
+        },
+        {
+          "condition": "no content-based file type detection is performed",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "magic",
+            "file-type",
+            "filetype",
+            "mime-check",
+            "detect-content"
+          ]
+        }
+      ],
+      "note": "Processing is selected purely from the filename extension. Nothing inspects the file signature, and the reported mediaType is echoed from the client-controlled file.type. A file may declare any extension its content does not match."
+    },
+    {
+      "requirementId": "V5.2.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the route decompresses archive and stream content",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "inflaterawsync",
+            "inflatesync"
+          ]
+        },
+        {
+          "condition": "no ceiling is placed on decompressed output",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "maxoutputlength"
+          ]
+        }
+      ],
+      "note": "inflateRawSync (docx member) and inflateSync (PDF FlateDecode streams) are called without maxOutputLength, and no cap on the number of archive entries exists. A compression bomb inside word/document.xml or a PDF stream inflates without a ceiling inside the request handler."
+    },
+    {
+      "requirementId": "V5.2.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "only per-request caps exist",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "max_files"
+          ]
+        },
+        {
+          "condition": "no per-user quota or stored-file accounting exists",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "quota",
+            "peruser",
+            "per_user",
+            "userid"
+          ]
+        }
+      ],
+      "note": "The route enforces per-request limits only. There is no per-user file-count or storage quota, and no accounting that would let one be enforced."
+    },
+    {
+      "requirementId": "V5.2.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "archive members are read into memory by exact name, never written out",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "function zipentry(",
+            "zipentry(bytes, 'word/document.xml')"
+          ]
+        },
+        {
+          "condition": "no archive extraction to disk exists that a symlink member could target",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "extractall",
+            "unzipper",
+            "adm-zip",
+            "tar.x("
+          ]
+        }
+      ],
+      "note": "No archive member is ever written to the filesystem. zipEntry locates one member by exact name and returns its bytes, so an archive cannot introduce a symlink."
+    },
+    {
+      "requirementId": "V5.2.6",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "uploaded images are passed to an image pipeline",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "ocrimage",
+            "image_extensions"
+          ]
+        },
+        {
+          "condition": "no pixel-dimension limit is applied",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "maxpixels",
+            "max_pixels",
+            "maxwidth",
+            "max_width",
+            "pixellimit"
+          ]
+        }
+      ],
+      "note": "Uploaded images go straight to normalisation and OCR with no maximum pixel dimension. The 30 s OCR timeout limits the damage but is not the control this requirement asks for."
+    },
+    {
+      "requirementId": "V5.3.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "working files are written only to a private temporary directory",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "mkdtemp(join(tmpdir()"
+          ]
+        },
+        {
+          "condition": "no uploaded content is written into a web-served directory",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "public/",
+            "process.cwd()",
+            ".next/static"
+          ]
+        }
+      ],
+      "note": "Uploaded content is never stored in a public folder. Working files live in a per-request mkdtemp directory under the OS temp path, are written with mode 0600 and removed afterwards, so nothing uploaded is reachable as a server-side program or a static asset."
+    },
+    {
+      "requirementId": "V5.3.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "every on-disk path is internally generated",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "mkdtemp(join(tmpdir()",
+            "randomuuid()",
+            "join(workdir, 'normalized.png')"
+          ]
+        },
+        {
+          "condition": "the submitted filename is never used to build a path",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "join(workdir, file.name",
+            "join(tmpdir(), file.name",
+            "writefile(file.name"
+          ]
+        }
+      ],
+      "note": "File paths are built from internally generated names inside a random temporary directory. The submitted filename is retained only as a truncated display label and is never used to construct a path."
+    },
+    {
+      "requirementId": "V5.3.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "decompression targets one member matched by exact name",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "zipentry(bytes, 'word/document.xml')"
+          ]
+        },
+        {
+          "condition": "no archive-supplied path is joined onto a filesystem path",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "join(workdir, name",
+            "join(workdir, entry",
+            "entry.path"
+          ]
+        }
+      ],
+      "note": "Path information carried inside an archive is never used. The single member is matched by an exact literal name and its bytes are kept in memory, so zip slip has no route to the filesystem."
+    },
+    {
+      "requirementId": "V5.4.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "export-controller:apps/api/src/modules/exports/exports.controller.ts",
+        "compliance-controller:apps/api/src/modules/compliance/compliance.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a user-supplied route parameter is still interpolated into a download filename",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.controller.ts"
+          ],
+          "patterns": [
+            "filename=\"ledger-${dealid}-"
+          ]
+        },
+        {
+          "condition": "the parameter is still unvalidated at the controller",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.controller.ts"
+          ],
+          "patterns": [
+            "parseuuidpipe",
+            "param('dealid', "
+          ]
+        }
+      ],
+      "note": "exportLedger interpolates the raw @Param('dealId') into the Content-Disposition filename. The parameter is a bare string, so neither ParseUUIDPipe nor the global ValidationPipe constrains it, and the application neither validates nor ignores the user-submitted component."
+    },
+    {
+      "requirementId": "V5.4.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "export-controller:apps/api/src/modules/exports/exports.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "download filenames are still emitted as a bare quoted string",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.controller.ts"
+          ],
+          "patterns": [
+            "attachment; filename=\""
+          ]
+        },
+        {
+          "condition": "no RFC 6266 encoding is applied",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.controller.ts"
+          ],
+          "patterns": [
+            "filename*=",
+            "encodeuricomponent",
+            "content-disposition-parser"
+          ]
+        }
+      ],
+      "note": "Content-Disposition is built as a bare quoted string with no RFC 6266 encoding and no sanitisation of the interpolated value. A quote in dealId breaks the quoted-string. Node refuses CR and LF in header values, so header injection is blocked by the platform rather than by the application."
+    },
+    {
+      "requirementId": "V5.4.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
+        "repository-scan:no-antivirus-integration"
+      ],
+      "conditions": [
+        {
+          "condition": "the route accepts files from untrusted sources",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+          ],
+          "patterns": [
+            "formdata()",
+            "files_required"
+          ]
+        },
+        {
+          "condition": "no antivirus integration exists anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "clamav",
+            "clamd",
+            "virustotal",
+            "antivirus",
+            "node-clam"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        }
+      ],
+      "note": "Files accepted from untrusted sources are parsed and their text returned with no malware scanning. docs/security/THREAT_MODEL.md already names malware scan and quarantine as a required control; it is not implemented."
+    },
+    {
       "requirementId": "V17.1.1",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",

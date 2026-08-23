@@ -10,6 +10,7 @@ import {
   buildMatrixCsv,
   buildSummary,
   csvCell,
+  evaluateCondition,
   validateStandard,
   verifyPinnedSourceDigest,
 } from './build-asvs-matrix.mjs';
@@ -105,4 +106,58 @@ test('summary is deterministic, source-digested, and cannot claim a final pass',
   assert.deepEqual(summary.blockers, [`PENDING_APPLICABILITY_REVIEW:${EXPECTED_REQUIREMENTS}`]);
   assert.equal(summary.matrixSha256, createHash('sha256').update(matrix, 'utf8').digest('hex'));
   assert.equal(summary.sourceSha256, createHash('sha256').update(sourceBytes).digest('hex'));
+});
+
+// PRESENT_AT_PATH and ABSENT_AT_PATH bind a decision to named files. The tests
+// below use a synthetic tree so they assert the primitive, not the repository.
+const pathContext = (files) => ({
+  tracked: Object.keys(files),
+  readFile: (path) => files[path] ?? null,
+});
+
+test('PRESENT_AT_PATH holds only when every named path carries the control', () => {
+  const files = {
+    'a/route.ts': 'const MAX_FILE_BYTES = 8;',
+    'b/route.ts': 'export const runtime = "nodejs";',
+  };
+  const both = evaluateCondition({
+    condition: 'size cap present', check: 'PRESENT_AT_PATH',
+    paths: ['a/route.ts', 'b/route.ts'], patterns: ['max_file_bytes'],
+  }, pathContext(files));
+  assert.equal(both.holds, false, 'a partial result must not satisfy PRESENT_AT_PATH');
+
+  const one = evaluateCondition({
+    condition: 'size cap present', check: 'PRESENT_AT_PATH',
+    paths: ['a/route.ts'], patterns: ['max_file_bytes'],
+  }, pathContext(files));
+  assert.equal(one.holds, true);
+});
+
+test('a decision pointing at a path that no longer exists stops holding', () => {
+  const moved = evaluateCondition({
+    condition: 'control lives here', check: 'PRESENT_AT_PATH',
+    paths: ['apps/gone/route.ts'], patterns: ['max_file_bytes'],
+  }, pathContext({ 'apps/here/route.ts': 'const MAX_FILE_BYTES = 8;' }));
+
+  assert.equal(moved.holds, false);
+  assert.match(moved.evidence, /path not tracked/u);
+});
+
+test('ABSENT_AT_PATH makes a FAIL self-revoking once the gap is closed', () => {
+  const gap = { condition: 'no decompression ceiling', check: 'ABSENT_AT_PATH', paths: ['a/route.ts'], patterns: ['maxoutputlength'] };
+
+  const open = evaluateCondition(gap, pathContext({ 'a/route.ts': 'inflateRawSync(compressed);' }));
+  assert.equal(open.holds, true, 'while the gap is open the FAIL stands');
+
+  const closed = evaluateCondition(gap, pathContext({ 'a/route.ts': 'inflateRawSync(compressed, { maxOutputLength: 4096 });' }));
+  assert.equal(closed.holds, false, 'once the gap is closed the FAIL must stop holding');
+  assert.match(closed.evidence, /gap closed in a\/route\.ts/u);
+});
+
+test('a path-bound condition with no paths declared does not hold', () => {
+  const empty = evaluateCondition({
+    condition: 'names nothing', check: 'PRESENT_AT_PATH', paths: [], patterns: ['anything'],
+  }, pathContext({ 'a/route.ts': 'anything' }));
+  assert.equal(empty.holds, false);
+  assert.match(empty.evidence, /declares no paths/u);
 });
