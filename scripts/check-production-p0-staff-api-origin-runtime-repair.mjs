@@ -69,6 +69,12 @@ requireAll('workflow', workflow, [
   "'.github/workflows/tai-release-acceptance.yml'",
   "'Production-like Kubernetes Acceptance'",
   "'.github/workflows/production-like-kubernetes-acceptance.yml'",
+  "'TAI REG.RU Preflight'",
+  "'.github/workflows/tai-reg-ru-preflight.yml'",
+  "proofMode: 'REG_RU_READONLY_PREFLIGHT'",
+  'RESTRICTED_REG_RU_READONLY_PREFLIGHT_PROVEN',
+  "'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]'",
+  "ops.length !== 1 || ops[0] !== 'preflight'",
 ]);
 for (const id of ['32219738787','32219737778','32219738538','32218490249','32218487944']) {
   if (!workflow.includes(id)) fail(`workflow missing exact orphan run id ${id}`);
@@ -196,11 +202,12 @@ if (JSON.stringify([...neutralScope.readOnlyRuns].sort((a,b)=>a-b)) !== JSON.str
 const expectedNonProductionCiProfiles = [
   { name: 'Production-like Kubernetes Acceptance', path: productionLikePath },
   { name: 'TAI Release Acceptance', path: taiReleasePath },
+  { name: 'TAI REG.RU Preflight', path: '.github/workflows/tai-reg-ru-preflight.yml' },
 ].sort((a,b)=>a.name.localeCompare(b.name));
 const actualNonProductionCiProfiles = [...(neutralScope.nonProductionCiProfiles || [])].sort((a,b)=>String(a.name).localeCompare(String(b.name)));
 if (JSON.stringify(actualNonProductionCiProfiles) !== JSON.stringify(expectedNonProductionCiProfiles)) fail('neutralization non-production CI profile mismatch');
 const nb = neutralScope.boundaries || {};
-for (const key of ['registrationOnly','exactFiveRunIdsOnly','orphanMetadataMustMatch','zeroJobsRequired','realActiveWorkflowStillBlocks','neutralizeBeforePersistentMutation','provenNonProductionCiMayBeIgnored','nonProductionCiMustBeExactHeadContentProven','nonProductionCiProofFailureBlocks']) if (nb[key] !== true) fail(`neutralization boundary must be true: ${key}`);
+for (const key of ['registrationOnly','exactFiveRunIdsOnly','orphanMetadataMustMatch','zeroJobsRequired','realActiveWorkflowStillBlocks','neutralizeBeforePersistentMutation','provenNonProductionCiMayBeIgnored','nonProductionCiMustBeExactHeadContentProven','nonProductionCiProofFailureBlocks','restrictedReadOnlyProductionPreflightMayBeIgnored','restrictedReadOnlyPreflightMustProveNoSecretsAndNoDirectDockerAuthority']) if (nb[key] !== true) fail(`neutralization boundary must be true: ${key}`);
 for (const key of ['databaseMutation','migrationMutation','credentialMutation','sessionMutation','mfaMutation','roleOrMembershipMutation','dnsMutation','caddyMutation','sshPinMutation']) if (nb[key] !== false) fail(`neutralization boundary must be false: ${key}`);
 if (nb.productionMutationByThisChange !== 'NONE' || nb.newRecurringCostRub !== 0) fail('neutralization mutation/cost boundary mismatch');
 
