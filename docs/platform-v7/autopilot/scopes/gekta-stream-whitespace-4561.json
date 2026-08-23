@@ -10,6 +10,7 @@
   "concurrencyBoundary": "Restricted public Gekta/Qwen stream redaction boundary and its focused test only. Registration, MFA, PostgreSQL, entitlement, billing, Deal authority, deployment infrastructure and unrelated platform work must not be modified.",
   "allowedPaths": [
     "apps/api/src/modules/ai-insights/restricted-public-qwen.internal-trace.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.internal-trace.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.spec.ts",
     "docs/platform-v7/autopilot/scopes/gekta-stream-whitespace-4561.json"
   ],
