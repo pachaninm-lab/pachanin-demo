@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword } from './password-hashing';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { AuthMailOutboxService } from '../auth-mail/auth-mail-outbox.service';
 import { normalizeAuthMailLocale, passwordResetMail } from '../auth-mail/auth-mail-templates';
@@ -167,7 +167,7 @@ export class PasswordResetService {
     const parsed = parsePasswordResetToken(tokenInput);
     if (!parsed) throw this.invalidReset();
 
-    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const passwordHash = await hashPassword(newPassword);
     const now = new Date();
     const ipHash = hashClientValue(ip);
 

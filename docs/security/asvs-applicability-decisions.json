@@ -2962,35 +2962,62 @@
     {
       "requirementId": "V11.2.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "cost-mismatch:apps/api/src/modules/auth/auth.service.ts",
-        "stored-cost:apps/api/src/modules/auth/organization-invitation.service.ts",
-        "correct-counterpart:apps/api/src/modules/auth/gekta-registration.service.ts"
+        "owning-module:apps/api/src/modules/auth/password-hashing.ts",
+        "regression-test:apps/api/src/modules/auth/password-hashing.spec.ts",
+        "login-path:apps/api/src/modules/auth/auth.service.ts",
+        "login-path:apps/api/src/modules/auth/gekta-registration.service.ts"
       ],
       "conditions": [
         {
-          "condition": "the unknown-account branch still compares against a cost-10 dummy hash",
+          "condition": "one module still owns the bcrypt cost for the whole platform",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/auth.service.ts"
+            "apps/api/src/modules/auth/password-hashing.ts"
           ],
           "patterns": [
-            "bcrypt.hashsync('invalid-password-sentinel', 10)"
+            "password_bcrypt_cost = 12"
           ]
         },
         {
-          "condition": "stored passwords are still written at cost 12, so the two costs still differ",
+          "condition": "both login paths still route the comparison through that module rather than choosing a fallback themselves",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/organization-invitation.service.ts"
+            "apps/api/src/modules/auth/auth.service.ts",
+            "apps/api/src/modules/auth/gekta-registration.service.ts"
           ],
           "patterns": [
-            "bcrypt.hash(dto.password, 12)"
+            "verifypassword("
+          ]
+        },
+        {
+          "condition": "no file outside the owning module and the seed calls bcrypt hashing at all, so none can pick its own cost",
+          "check": "NO_RUNTIME_CALLER",
+          "roots": [
+            "apps/api/src"
+          ],
+          "definedAt": [
+            "apps/api/src/modules/auth/password-hashing.ts",
+            "apps/api/src/modules/deals/canonical-test-deal.seed.ts"
+          ],
+          "patterns": [
+            "bcrypt.hash(",
+            "bcrypt.hashsync("
+          ]
+        },
+        {
+          "condition": "the test that fails if the dummy and the stored cost diverge is still present",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/password-hashing.spec.ts"
+          ],
+          "patterns": [
+            "generates the dummy hash at the same cost as a stored password"
           ]
         }
       ],
-      "note": "Comparison of secrets is right; the work factor on the two login branches is not. All 20 constant-time comparison sites use timingSafeEqual, and every one of them either checks length first or catches the length exception, which is the failure this pattern usually has. The gap is in AuthService.login: when no account matches, the password is compared against a dummy hash generated at bcrypt cost 10, while every password the platform writes - four registration, invitation and reset paths - is written at cost 12. The dummy exists precisely so that both branches take the same time; at a mismatched cost it makes them differ by roughly a factor of four, which is measurable over a network. GektaRegistrationService is the counterpart that is correct: its dummy uses the same BCRYPT_ROUNDS constant as its real hashes. The consequence, account enumeration, belongs to V6 and is not claimed here; what is recorded here is that the cryptographic operation itself is not constant-time across branches."
+      "note": "Comparison of secrets is constant-time and the two login branches now do the same work. All 20 timingSafeEqual sites check length first or catch the length exception, which is the failure this pattern usually has. The work-factor gap recorded when this chapter was first assessed is closed at its cause rather than at its symptom: the cost was previously a literal in four writers plus two dummy-hash sites, and those drifted apart until the unknown-account dummy stood at bcrypt cost 10 against stored passwords at cost 12 - roughly a quarter of the work, so response time reported whether an email was registered. One module now declares the cost, derives the dummy from that same constant, and owns the branch itself: verifyPassword always performs exactly one comparison, against the stored hash when the account exists and against the dummy when it does not, so a future login path cannot skip bcrypt for a missing user or reach for a dummy of another cost. The conditions watch both login paths, the single declaration, the absence of any other caller of bcrypt hashing, and the test that fails if the two costs ever diverge again. One residue is stated rather than hidden: rows hashed before this change at some other cost keep that cost until their owner next sets a password, so existing accounts can still differ from each other. That is inherent to bcrypt without rehash-on-login and is a separate decision; what this requirement asks about - an artificial difference between the known and unknown branches - is gone."
     },
     {
       "requirementId": "V11.2.5",
@@ -3330,35 +3357,43 @@
       "applicability": "APPLICABLE",
       "status": "PASS",
       "evidence": [
-        "password-write:apps/api/src/modules/auth/gekta-registration.service.ts",
-        "password-write:apps/api/src/modules/auth/organization-invitation.service.ts",
-        "password-write:apps/api/src/modules/auth/registration-application.service.ts",
-        "password-write:apps/api/src/modules/auth/password-reset.service.ts",
+        "owning-module:apps/api/src/modules/auth/password-hashing.ts",
+        "regression-test:apps/api/src/modules/auth/password-hashing.spec.ts",
         "seed-write:apps/api/src/modules/deals/canonical-test-deal.seed.ts"
       ],
       "conditions": [
         {
-          "condition": "stored passwords are still written with bcrypt at cost 12",
+          "condition": "stored passwords are still written with bcrypt at cost 12, declared once",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/organization-invitation.service.ts"
+            "apps/api/src/modules/auth/password-hashing.ts"
           ],
           "patterns": [
-            "bcrypt.hash(dto.password, 12)"
+            "password_bcrypt_cost = 12"
           ]
         },
         {
-          "condition": "the one lower-cost writer is still behind an explicit production opt-out",
+          "condition": "the seed no longer chooses its own weaker cost",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/deals/canonical-test-deal.seed.ts"
           ],
           "patterns": [
-            "allow_canonical_test_deal_in_production"
+            "password_bcrypt_cost"
+          ]
+        },
+        {
+          "condition": "the test that fails if the cost drops below the current floor is still present",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/password-hashing.spec.ts"
+          ],
+          "patterns": [
+            "keeps the cost at or above the current owasp floor for bcrypt"
           ]
         }
       ],
-      "note": "Every path that stores a user password uses bcrypt at cost 12: registration, organization invitation, registration application and password reset. Cost 12 is above the current OWASP floor for bcrypt, so the parameter meets guidance rather than merely being non-zero. The distribution is stated rather than the best case: one further writer, the canonical test deal seed, uses cost 10, and it is not flatly unreachable in production - it needs SEED_CANONICAL_TEST_DEAL and then an explicit ALLOW_CANONICAL_TEST_DEAL_IN_PRODUCTION to run there. Cost 10 still clears the floor and the password it writes is a constant published in the same file, so this does not fail the requirement, but a reader should know the platform does not apply one cost everywhere. The cost-10 dummy hash in AuthService is a different matter and is recorded against V11.2.4."
+      "note": "Every path that stores a user password uses bcrypt at cost 12, and the cost is now declared in one place instead of four. Cost 12 is above the current OWASP floor for bcrypt, so the parameter meets guidance rather than merely being non-zero, and a test asserts that floor so a future reduction fails rather than passing quietly. The distribution that was recorded when this chapter was first assessed is no longer split: the canonical test deal seed previously wrote at cost 10, which left a seeded account distinguishable by the same measurement that V11.2.4 is about, and it now takes the shared constant like every other writer. bcryptjs 2.4.3 remains the implementation; no cryptography was written for this."
     },
     {
       "requirementId": "V11.4.3",

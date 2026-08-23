@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { hashPassword } from './password-hashing';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { RequestUser } from '../../common/types/request-user';
 import { isStrongPassword } from '../../common/validators/strong-password.validator';
@@ -421,7 +422,7 @@ export class OrganizationInvitationService {
     }
     const parsed = resolvePresentedCredential(dto.token, 'iv');
     if (!parsed) throw new BadRequestException({ code: 'INVITATION_INVALID' });
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const passwordHash = await hashPassword(dto.password);
 
     const result = await this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<Array<{

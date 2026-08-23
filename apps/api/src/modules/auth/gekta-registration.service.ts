@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword, verifyPassword } from './password-hashing';
 import { randomUUID } from 'crypto';
 import { appendAuthAudit } from './auth-audit';
 import { hashAuthMaterial, hashClientValue, secureEqual } from './auth-crypto';
@@ -30,7 +30,6 @@ import {
  * обращении к кабинету, один раз на пользователя.
  */
 
-const BCRYPT_ROUNDS = 12;
 const MAX_EMAIL_LENGTH = 320;
 const MAX_NAME_LENGTH = 120;
 const MAX_PHONE_LENGTH = 32;
@@ -116,7 +115,7 @@ export class GektaRegistrationService {
     assertPasswordPolicy(String(input.password ?? ''));
     const phone = normalizeDeclaredPhone(input.phone);
 
-    const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+    const passwordHash = await hashPassword(input.password);
     const userId = `usr_${randomUUID()}`;
     const emailToken = issueRegistrationEmailToken();
     const now = new Date();
@@ -340,10 +339,7 @@ export class GektaRegistrationService {
     const email = String(emailInput ?? '').trim().toLowerCase();
     const accountHash = hashAuthMaterial(`account:${email}`);
     const credential = await this.repository.findGektaLoginCredential(this.repository.prisma, email);
-    const validPassword = await bcrypt.compare(
-      String(password ?? ''),
-      credential?.password_hash ?? DUMMY_PASSWORD_HASH,
-    );
+    const validPassword = await verifyPassword(String(password ?? ''), credential?.password_hash);
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);
       const throttle = await this.repository.getLoginThrottle(tx, accountHash, true);
@@ -448,4 +444,4 @@ export class GektaRegistrationService {
 
 // Сравнение выполняется всегда, даже когда пользователя нет: иначе время
 // ответа сообщало бы, зарегистрирован ли email.
-const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-password-sentinel', BCRYPT_ROUNDS);
+
