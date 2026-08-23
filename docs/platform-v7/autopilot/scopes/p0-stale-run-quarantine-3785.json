@@ -13,14 +13,17 @@
     ".github/workflows/production-p0-staff-api-origin-runtime-repair.yml",
     "docs/platform-v7/autopilot/scopes/p0-stale-run-quarantine-3785.json",
     "scripts/check-production-p0-staff-api-origin-runtime-repair.mjs",
+    "scripts/production-p0-regru-live-resend-recover.sh",
+    "scripts/production-p0-reviewer-inspect.sh",
+    "scripts/production-p0-reviewer-smtp-451-detail.sh",
     "scripts/provision-production-p0-password-reset-runtime.sh"
   ],
   "quarantinedRuns": [
-    {"id": 32219738787, "name": "Production P0 REG.RU Live Resend Recovery", "headSha": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3", "mutationClass": "RUNTIME_PROVISIONER_DENYLIST_REQUIRED"},
-    {"id": 32219737778, "name": "Production P0 Reviewer SMTP 451 Detail", "headSha": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3", "mutationClass": "READ_ONLY_DIAGNOSTIC"},
-    {"id": 32219738538, "name": "Production P0 Reviewer Inspect", "headSha": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3", "mutationClass": "READ_ONLY_DIAGNOSTIC"},
+    {"id": 32219738787, "name": "Production P0 REG.RU Live Resend Recovery", "headSha": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3", "mutationClass": "ENTRYPOINT_DENYLIST_REQUIRED"},
+    {"id": 32219737778, "name": "Production P0 Reviewer SMTP 451 Detail", "headSha": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3", "mutationClass": "ENTRYPOINT_DENYLIST_REQUIRED"},
+    {"id": 32219738538, "name": "Production P0 Reviewer Inspect", "headSha": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3", "mutationClass": "ENTRYPOINT_DENYLIST_REQUIRED"},
     {"id": 32218490249, "name": "Production P0 Reuse Existing Auth Runtime", "headSha": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3", "mutationClass": "RUNTIME_PROVISIONER_DENYLIST_REQUIRED"},
-    {"id": 32218487944, "name": "Production P0 REG.RU Mail Auth Diagnostic", "headSha": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3", "mutationClass": "READ_ONLY_DIAGNOSTIC"}
+    {"id": 32218487944, "name": "Production P0 REG.RU Mail Auth Diagnostic", "headSha": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3", "mutationClass": "IMMUTABLE_INLINE_READ_ONLY"}
   ],
   "boundaries": {
     "registrationOnly": true,
@@ -30,7 +33,8 @@
     "queuedIssueCommentOnly": true,
     "neverUpdatedRequired": true,
     "minimumStaleAgeHours": 72,
-    "mutatingGhostsDeniedBeforeCanonicalRuntimeWrite": true,
+    "fourGhostsDeniedAtCurrentEntrypoint": true,
+    "fifthGhostImmutableInlineReadOnly": true,
     "allOtherProductionRunsRemainBlocking": true,
     "productionMutation": "NONE",
     "apiMutation": false,
@@ -50,8 +54,9 @@
   "acceptance": [
     "Only the five exact run IDs listed above may ever receive backend-orphan quarantine classification.",
     "Every quarantined run must still be queued, issue_comment, created_at equal to updated_at, at least 72 hours old, and on exact old SHA 8bb7a5b98e75b4d9ad80b12ae492553e608fccb3.",
-    "The two historical workflows capable of runtime-file mutation must be denied by exact GITHUB_RUN_ID-derived temporary provisioner basenames before any canonical runtime file write or move.",
-    "The three remaining historical workflows must remain read-only diagnostics under the immutable old workflow definition.",
+    "Live Resend Recovery 32219738787, Reviewer SMTP 451 Detail 32219737778 and Reviewer Inspect 32219738538 must exit from their current checked-out entrypoint scripts before SSH or any production interaction.",
+    "Reuse Existing Auth Runtime 32218490249 must exit from the copied provisioner by its exact GITHUB_RUN_ID-derived temporary basename before resolving or writing canonical runtime files.",
+    "REG.RU Mail Auth Diagnostic 32218487944 must remain classified only from its immutable old workflow definition, which performs transport/auth diagnostics and explicitly reports PRODUCTION_MUTATION=NONE.",
     "Any metadata drift or any other queued/in-progress production, release, deploy, cutover, activation or repair workflow remains fail-closed blocking.",
     "The quarantine change itself performs no REG.RU, API, database, credential, MFA, role, session, DNS, Caddy, SSH-pin or image mutation."
   ]
