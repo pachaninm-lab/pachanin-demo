@@ -302,7 +302,8 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "command-policy:apps/api/src/modules/deals/deal-command.policy.ts"
+        "command-policy:apps/api/src/modules/deals/deal-command.policy.ts",
+        "existing-second-approval:apps/api/src/modules/auth/accounting-authority-command.policy.ts"
       ],
       "conditions": [
         {
@@ -327,9 +328,20 @@
             "foureyes",
             "makerchecker"
           ]
+        },
+        {
+          "condition": "a second-approval control does exist elsewhere, on the authority-granting path",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/accounting-authority-command.policy.ts"
+          ],
+          "patterns": [
+            "second_approver_same_person",
+            "self_approval_forbidden"
+          ]
         }
       ],
-      "note": "Release of funds is issued by one actor holding one role. No dual-approval, four-eyes or maker-checker control exists in the command policy or anywhere else in the tree. The APPROVE access level in settlement-access is single-approver authorisation, not multi-user approval. This is the same missing control as the standing four-eyes governance blocker."
+      "note": "Release of funds is issued by one actor holding one role: the command policy carries BANK_RELEASE_REQUEST with no second-approver requirement, so the high-value money flow this requirement targets is unprotected. This note has been corrected twice and the second correction matters as much as the first. It originally claimed no dual-approval control existed anywhere in the tree, which was false: accounting-authority-command.policy.ts implements a complete one for granting signing authority - self-approval forbidden, the second approver a different person from both actor and target, holding SIGNING_AUTHORITY_MANAGE with MFA verified within 300 seconds. But saying only that would mislead in the other direction, because evaluateGrantSigningAuthority, evaluateRevokeSigningAuthority, evaluateCreateDelegation, evaluateSigningAuthority and canSign have ZERO callers outside their own module and its tests. The policy is written and tested; nothing in the running application invokes it. So the control exists as code and prevents nothing at runtime - the same shape as the anti-fraud detector recorded under V2.4.2. Reproduce with: grep -rn <function> apps/api/src --include=*.ts | grep -v policy.ts | grep -v \"\\.spec\\.\". The mechanism cannot yet express \"no non-test caller\" as a condition, which is why this is stated in prose with its reproduction rather than machine-anchored; that primitive is owed."
     },
     {
       "requirementId": "V2.4.1",
@@ -427,7 +439,7 @@
           ]
         }
       ],
-      "note": "No document defines the permitted file types, expected extensions or maximum size for this upload feature. Unpacked size in particular is neither stated nor bounded anywhere."
+      "note": "No document defines the permitted file types, expected extensions or maximum size for this upload feature. Unpacked size is the sharpest gap: it is stated nowhere, and decompression itself is uncapped (see V5.2.3). Stated precisely, because the first version of this note said unpacked size was \"neither stated nor bounded anywhere\" and that was too broad: extracted text is truncated at MAX_EXTRACTED_CHARS and OCR output is bounded by the execFile maxBuffer. Those bound what is kept, not what is inflated, so the requirement still fails - but the note should not suggest that nothing limits anything."
     },
     {
       "requirementId": "V5.2.1",
@@ -1435,7 +1447,7 @@
       "status": "FAIL",
       "evidence": [
         "signed-hop:apps/web/lib/platform-v7/tai-internal-stream.ts",
-        "unauthenticated-hop:apps/api/src/modules/search/search.module.ts",
+        "basic-auth-hop:apps/api/src/modules/search/search.module.ts",
         "unauthenticated-hop:apps/api/src/modules/ml-client/ml-client.service.ts"
       ],
       "conditions": [
@@ -1451,19 +1463,31 @@
           ]
         },
         {
-          "condition": "the search hop still carries no service authentication",
+          "condition": "the model-service hop still sends no credential of any kind",
           "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/search/search.module.ts"
+            "apps/api/src/modules/ml-client/ml-client.service.ts"
           ],
           "patterns": [
             "authorization",
             "apikey",
-            "hmac"
+            "api_key",
+            "bearer",
+            "auth:"
+          ]
+        },
+        {
+          "condition": "the search hop authenticates with a shared password rather than a signature",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/search/search.module.ts"
+          ],
+          "patterns": [
+            "elasticsearch_password"
           ]
         }
       ],
-      "note": "One hop does this well: web to API signs each internal request with HMAC-SHA256 over a version, method, canonical path, timestamp and body hash, and derives the URL from the signed path constant so a signature can never cover a path other than the one dialled. The other internal hops have nothing equivalent - no service token, no signature, no shared secret. The requirement asks that services communicating internally authenticate each other; most of them do not."
+      "note": "The three internal hops authenticate in three different ways, and only one is sound. Web to API signs each request with HMAC-SHA256 over a version, method, canonical path, timestamp and body hash, deriving the URL from the signed path constant so a signature can never cover a path other than the one dialled. API to Elasticsearch sends HTTP basic auth when ELASTICSEARCH_PASSWORD is set - a shared secret, and by V12.3.3 it travels over plaintext http, so the credential itself is exposed on the wire. API to the model service sends only Content-Type and no credential at all. Correction to the note this decision first carried: it said the other hops had no service token, signature or shared secret. That was wrong about Elasticsearch, and the condition that was meant to catch it searched for the wrong words - it looked for \"authorization\" where the file says \"auth:\" and \"password\". Both are fixed here."
     },
     {
       "requirementId": "V17.1.1",
