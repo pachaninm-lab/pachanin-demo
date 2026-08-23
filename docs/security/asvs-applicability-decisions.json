@@ -5,6 +5,397 @@
   "policy": "A decision must name what was examined and carry conditions re-evaluated on every run. Having a control is not evidence that a requirement is met: no PASS may be inferred from the presence of MFA, RLS, CodeQL, an SBOM or a passing test. Anything without a valid, currently-holding decision stays PENDING and NOT_ASSESSED.",
   "decisions": [
     {
+      "requirementId": "V2.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "entry-point:apps/api/src/main.ts",
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "validation is implemented in code, so a document has something to describe",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "validationpipe"
+          ]
+        },
+        {
+          "condition": "the security documentation set still defines no input validation rules",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "input validation rules",
+            "validation specification"
+          ]
+        }
+      ],
+      "note": "Validation is implemented but undocumented. Neither the threat model nor the security policy defines how data items are checked against an expected structure, so there is no stated rule an implementation could be measured against. This condition watches those two documents; a rules document added elsewhere would need this decision revisited."
+    },
+    {
+      "requirementId": "V2.1.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the platform combines related data items whose consistency would have to be defined",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+          ],
+          "patterns": [
+            "sample.dealid !== deal.id"
+          ]
+        },
+        {
+          "condition": "no document defines the logical or contextual consistency expected of combined data items",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "contextual consistency",
+            "combined data"
+          ]
+        }
+      ],
+      "note": "The code enforces real cross-entity consistency, but no document states what consistency is expected. An undocumented rule cannot be reviewed, and a reviewer cannot tell an intended rule from an accidental one."
+    },
+    {
+      "requirementId": "V2.1.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no document states business logic limits, per-user or global",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "business logic limits",
+            "per-user limit"
+          ]
+        }
+      ],
+      "note": "No documented expectation exists for business logic limits, either per user or across the application. This is the gap that also makes V2.3.2 unverifiable."
+    },
+    {
+      "requirementId": "V2.2.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "entry-point:apps/api/src/main.ts",
+        "dto-scan:every DTO file in the API declares field constraints"
+      ],
+      "conditions": [
+        {
+          "condition": "the global validation pipe is installed at the service entry point",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "useglobalpipes",
+            "validationpipe"
+          ]
+        },
+        {
+          "condition": "the pipe rejects values that do not satisfy the declared constraints",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "whitelist: true"
+          ]
+        }
+      ],
+      "note": "Input is checked against per-field constraints declared on the DTOs rather than accepted and inspected later. Every DTO file in apps/api/src carries class-validator constraints, and the global pipe applies them before a handler runs."
+    },
+    {
+      "requirementId": "V2.2.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "entry-point:apps/api/src/main.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "validation runs in the trusted service layer",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "useglobalpipes",
+            "whitelist: true"
+          ]
+        }
+      ],
+      "note": "Validation is enforced server-side by a global pipe, not by the client. Stated plainly: whitelist strips undeclared properties rather than rejecting the request, because forbidNonWhitelisted is false. That satisfies enforcement at a trusted layer, and it is the one place the control is weaker than it could be."
+    },
+    {
+      "requirementId": "V2.2.3",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "partial-evidence:apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "cross-entity consistency is enforced on at least the lab finalisation command",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+          ],
+          "patterns": [
+            "sample.dealid !== deal.id",
+            "lab_protocol_evidence_not_purpose_bound"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment deliberately not claimed. On the lab finalisation command the check is exemplary: the sample must belong to the deal and the tenant, its chain of custody must be complete, the signed evidence must be purpose-bound to that sample, shipment, acceptance, lab and protocol number, and the actor must hold signatory authority at that moment. The other commands in the policy table have not been examined, so the requirement is not claimed as met for the application."
+    },
+    {
+      "requirementId": "V2.3.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "command-policy:apps/api/src/modules/deals/deal-command.policy.ts",
+        "authoritative-path:apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "every command declares the status it may be issued from and the roles that may issue it",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/deal-command.policy.ts"
+          ],
+          "patterns": [
+            "from:",
+            "to:",
+            "roles:"
+          ]
+        },
+        {
+          "condition": "the authoritative path rejects a command issued from any other status",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+          ],
+          "patterns": [
+            "definition.from",
+            "expectedstatus"
+          ]
+        }
+      ],
+      "note": "Deal actions are declared with an explicit from/to pair, and the PostgreSQL authority path rejects any command whose stored status does not match definition.from - inside the transaction that already holds the advisory lock, so the check cannot be raced. This decision covers that authoritative path. A second, different transition map exists in runtime-core/runtime-state-machine.ts, used only by runtime-core.service.ts; it is not what this PASS rests on."
+    },
+    {
+      "requirementId": "V2.3.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "there is still no documented limit for an implementation to be measured against",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "business logic limits",
+            "per-user limit"
+          ]
+        }
+      ],
+      "note": "The requirement asks that limits be implemented per the documentation. No documentation of business logic limits exists, so no implementation can be verified against it. This fails on the same gap as V2.1.3 and is recorded separately because closing V2.1.3 alone would not close this one."
+    },
+    {
+      "requirementId": "V2.3.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "authoritative-path:apps/api/src/modules/deals/postgresql-deal-command.service.ts",
+        "transaction-wrapper:apps/api/src/common/prisma/rls-transaction.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "deal commands execute inside the shared transactional context",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+          ],
+          "patterns": [
+            "withtrustedcontext"
+          ]
+        },
+        {
+          "condition": "that context is a database transaction with an explicit isolation level",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/prisma/rls-transaction.service.ts"
+          ],
+          "patterns": [
+            "$transaction",
+            "isolationlevel"
+          ]
+        }
+      ],
+      "note": "A deal command runs entirely inside one database transaction opened by RlsTransactionService, so it either completes or leaves no partial state. Isolation is explicit rather than implicit, and serializable transactions carry a bounded retry."
+    },
+    {
+      "requirementId": "V2.3.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "authoritative-path:apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a per-deal lock is taken before any state is read",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+          ],
+          "patterns": [
+            "pg_advisory_xact_lock"
+          ]
+        },
+        {
+          "condition": "the contended rows are read under a row lock",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+          ],
+          "patterns": [
+            "for update"
+          ]
+        }
+      ],
+      "note": "Concurrent commands against one deal serialise on a transaction-scoped advisory lock keyed by the deal id, taken as the first statement in the transaction, and the contended rows are read FOR UPDATE. Two requests cannot both act on the same pre-state."
+    },
+    {
+      "requirementId": "V2.3.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "command-policy:apps/api/src/modules/deals/deal-command.policy.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "high-value money movement exists as a single command",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/deal-command.policy.ts"
+          ],
+          "patterns": [
+            "bank_release_request"
+          ]
+        },
+        {
+          "condition": "no second-approver requirement guards it",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/deal-command.policy.ts"
+          ],
+          "patterns": [
+            "secondapprover",
+            "dualapproval",
+            "foureyes",
+            "makerchecker"
+          ]
+        }
+      ],
+      "note": "Release of funds is issued by one actor holding one role. No dual-approval, four-eyes or maker-checker control exists in the command policy or anywhere else in the tree. The APPROVE access level in settlement-access is single-approver authorisation, not multi-user approval. This is the same missing control as the standing four-eyes governance blocker."
+    },
+    {
+      "requirementId": "V2.4.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "export-controller:apps/api/src/modules/exports/exports.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the export controller serves bulk data",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.controller.ts"
+          ],
+          "patterns": [
+            "content-disposition"
+          ]
+        },
+        {
+          "condition": "it still carries no anti-automation control",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.controller.ts"
+          ],
+          "patterns": [
+            "@ratelimit",
+            "throttle"
+          ]
+        }
+      ],
+      "note": "Rate limiting exists on authentication and a few deal endpoints, but the endpoints that return bulk data carry none - and those are the ones the requirement names, because they are the exfiltration surface. nginx declares limit_req zones, but that configuration is referenced by no deployment file in the repository, so it cannot be shown to apply."
+    },
+    {
+      "requirementId": "V2.4.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "detection-only:apps/api/src/modules/anti-fraud/anti-fraud.service.ts",
+        "authoritative-path:apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "rapid-submission detection exists",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/anti-fraud/anti-fraud.service.ts"
+          ],
+          "patterns": [
+            "checkrapidtransitions"
+          ]
+        },
+        {
+          "condition": "the authoritative command path does not consult it",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+          ],
+          "patterns": [
+            "antifraud"
+          ]
+        }
+      ],
+      "note": "Rapid-transition detection exists and scores, but it prevents nothing: it is reachable only through its own controller endpoint, the deal command path never calls it, and a flagged score is logged and persisted rather than refused. Its state is also an in-process Map, so it would not survive more than one instance."
+    },
+    {
       "requirementId": "V5.1.1",
       "applicability": "APPLICABLE",
       "status": "FAIL",
