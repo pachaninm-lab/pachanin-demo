@@ -3,7 +3,7 @@
   "branch": "fix/p0-stale-actions-orphan-neutralization-3785",
   "status": "active",
   "operationalStatus": "P0_STALE_ACTIONS_ORPHAN_NEUTRALIZATION",
-  "purpose": "Neutralize exactly five proven stale GitHub Actions API records that block the bounded staff API-origin repair: preserve fail-closed behavior for every real active production workflow, prove three stale records are read-only, and make the two stale mutation-capable run IDs terminate before persistent production mutation even if GitHub later schedules them.",
+  "purpose": "Neutralize exactly five proven stale GitHub Actions API records that block the bounded staff API-origin repair, while distinguishing exactly two proven non-production CI workflows from real production mutation workflows by exact-head workflow-content proof. Preserve fail-closed behavior for every real active production workflow, prove three stale records are read-only, and make the two stale mutation-capable run IDs terminate before persistent production mutation even if GitHub later schedules them.",
   "issue": 3785,
   "releaseIssue": 3072,
   "authorityBaseExactMain": "9d35dd9aee731af7468d478eb945c8ac5abba009",
@@ -23,6 +23,9 @@
     "zeroJobsRequired": true,
     "realActiveWorkflowStillBlocks": true,
     "neutralizeBeforePersistentMutation": true,
+    "provenNonProductionCiMayBeIgnored": true,
+    "nonProductionCiMustBeExactHeadContentProven": true,
+    "nonProductionCiProofFailureBlocks": true,
     "productionMutationByThisChange": "NONE",
     "databaseMutation": false,
     "migrationMutation": false,
@@ -51,13 +54,26 @@
     32219738538,
     32218487944
   ],
+  "nonProductionCiProfiles": [
+    {
+      "name": "TAI Release Acceptance",
+      "path": ".github/workflows/tai-release-acceptance.yml"
+    },
+    {
+      "name": "Production-like Kubernetes Acceptance",
+      "path": ".github/workflows/production-like-kubernetes-acceptance.yml"
+    }
+  ],
   "acceptance": [
     "the implementation branch changes only the five declared paths",
     "the guard can quarantine only the five exact run IDs after exact metadata re-read and zero-jobs proof",
     "all three read-only run IDs are tied to immutable workflow definitions at 8bb7a5b98e75b4d9ad80b12ae492553e608fccb3 that explicitly perform no production mutation",
     "run 32219738787 is rejected on the runner before SSH by its exact GITHUB_RUN_ID",
     "run 32218490249 is rejected by the current provisioner before persistent production runtime mutation using the immutable remote script basename containing that exact run ID",
-    "any changed metadata, non-zero job list, unrecognized run ID, or other active production/release/deploy workflow remains fail-closed",
+    "TAI Release Acceptance may be ignored only when its exact run head workflow is fetched successfully and proves actions: read plus contents: read, no secrets or PC_PROD or SSH transport, and the NOT_ATTESTED production-operational invariant",
+    "Production-like Kubernetes Acceptance may be ignored only when its exact run head workflow is fetched successfully and proves contents: read, disposable GitHub-runner kind execution and cleanup, and no secrets or PC_PROD or SSH transport",
+    "if exact-head workflow fetch fails, required markers differ, permissions expand, secrets or PC_PROD or SSH transport appear, the workflow remains blocking",
+    "any changed orphan metadata, non-zero job list, unrecognized run ID, or other active production/release/deploy workflow remains fail-closed",
     "no SSH pin, credential, database, deployment target, role, session or MFA authority is changed",
     "new recurring cost remains 0 RUB"
   ]
