@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4542,
+  "branch": "sec/asvs-v2-3-5-correction-4542",
+  "status": "active",
+  "purpose": "Correct a false statement in the merged V2.3.5 ASVS decision, which claimed no dual-approval control existed anywhere in the tree.",
+  "authorityBaseExactMain": "1cf8783cd95de52eae85797572b53206a2e8e4b3",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v2-3-5-correction-4542.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The verdict does not change: V2.3.5 stays FAIL.",
+    "The correction rests on a condition re-evaluated on every run, not on prose alone.",
+    "The gap is scoped to the money flow; the control that does exist is named and credited.",
+    "The correction does not equate this gap with the independent-review governance blocker.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "The note no longer claims that no four-eyes control exists in the tree.",
+    "The note no longer equates this gap with the independent code review blocker.",
+    "A machine-checked condition proves the second-approval control exists on the authority-granting path.",
+    "Matrix state is unchanged: 14 PASS, 23 FAIL, finalPass false."
+  ]
+}

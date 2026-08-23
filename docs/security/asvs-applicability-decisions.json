@@ -302,7 +302,8 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "command-policy:apps/api/src/modules/deals/deal-command.policy.ts"
+        "command-policy:apps/api/src/modules/deals/deal-command.policy.ts",
+        "existing-second-approval:apps/api/src/modules/auth/accounting-authority-command.policy.ts"
       ],
       "conditions": [
         {
@@ -327,9 +328,20 @@
             "foureyes",
             "makerchecker"
           ]
+        },
+        {
+          "condition": "a second-approval control does exist elsewhere, on the authority-granting path",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/accounting-authority-command.policy.ts"
+          ],
+          "patterns": [
+            "second_approver_same_person",
+            "self_approval_forbidden"
+          ]
         }
       ],
-      "note": "Release of funds is issued by one actor holding one role. No dual-approval, four-eyes or maker-checker control exists in the command policy or anywhere else in the tree. The APPROVE access level in settlement-access is single-approver authorisation, not multi-user approval. This is the same missing control as the standing four-eyes governance blocker."
+      "note": "Release of funds is issued by one actor holding one role: the command policy carries BANK_RELEASE_REQUEST with no second-approver requirement, so the high-value money flow this requirement targets is unprotected. Correction to the note this decision first carried: it claimed no dual-approval control existed anywhere in the tree. That was false. accounting-authority-command.policy.ts implements a real one for granting signing authority - self-approval is forbidden, the second approver must be a different person from both the actor and the target, and that person must hold SIGNING_AUTHORITY_MANAGE with MFA verified within 300 seconds. The gap is that this control guards who may hold authority, not who may move money. The earlier note also equated this gap with the standing four-eyes governance blocker; that blocker concerns independent code review and is a different control."
     },
     {
       "requirementId": "V2.4.1",
