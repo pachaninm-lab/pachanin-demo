@@ -128,8 +128,10 @@ requireTokens('runner', runner, [
   "action = 'auth.login'",
   "'INVALID_CREDENTIALS'",
   "'ACCOUNT_TEMPORARILY_LOCKED'",
-  "classification='CSRF_REJECTED_BEFORE_AUTH'",
-  "classification='IP_RATE_LIMITED_BEFORE_AUTH'",
+  "const denialRows = auditRows.filter",
+  "outcome === 'FAILURE' || outcome === 'DENIED'",
+  "return { total: denialRows.length",
+  "classification='AMBIGUOUS_OR_NO_EVENT'",
   "classification='ACCOUNT_TEMPORARILY_LOCKED'",
   "classification='INVALID_CREDENTIALS_AND_ACCOUNT_NOW_LOCKED'",
   "classification='INVALID_CREDENTIALS'",
@@ -160,6 +162,8 @@ forbid('runner', runner, [
   /raw Docker \/ database \/ log output:\s*\\`\$(?:output|web_marker|db_marker)/,
   /owner (?:email|identity):\s*\\`\$/i,
   /account hash:\s*\\`\$/i,
+  /classification='CSRF_REJECTED_BEFORE_AUTH'/,
+  /classification='IP_RATE_LIMITED_BEFORE_AUTH'/,
 ]);
 
 if (spawnSync('bash', ['-n', runnerPath], { encoding: 'utf8' }).status !== 0) {
