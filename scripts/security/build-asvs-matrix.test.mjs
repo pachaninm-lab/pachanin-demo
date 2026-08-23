@@ -4,12 +4,14 @@ import test from 'node:test';
 
 import {
   ASVS_SOURCE_COMMIT,
+  ASVS_SOURCE_SHA256,
   ASVS_VERSION,
   EXPECTED_REQUIREMENTS,
   buildMatrixCsv,
   buildSummary,
   csvCell,
   validateStandard,
+  verifyPinnedSourceDigest,
 } from './build-asvs-matrix.mjs';
 
 function syntheticStandard(count = EXPECTED_REQUIREMENTS) {
@@ -72,6 +74,14 @@ test('rejects malformed upstream schema and missing descriptions', () => {
 
 test('escapes CSV cells without leaking structure', () => {
   assert.equal(csvCell('a"b,c'), '"a""b,c"');
+});
+
+test('rejects source bytes that do not match the pinned upstream SHA-256', () => {
+  assert.match(ASVS_SOURCE_SHA256, /^[0-9a-f]{64}$/u);
+  assert.throws(
+    () => verifyPinnedSourceDigest(Buffer.from('not-the-pinned-asvs-source', 'utf8')),
+    /source digest mismatch/u,
+  );
 });
 
 test('summary is deterministic, source-digested, and cannot claim a final pass', () => {
