@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const workflowPath = '.github/workflows/production-p0-staff-api-origin-runtime-repair.yml';
 const scriptPath = 'scripts/production-p0-staff-api-origin-runtime-repair.sh';
-const scopePath = 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-4559.json';
+const scopePath = 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-repair-4559.json';
 const checkerPath = 'scripts/check-production-p0-staff-api-origin-runtime-repair.mjs';
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const script = fs.readFileSync(scriptPath, 'utf8');
@@ -23,7 +23,28 @@ requireAll('workflow', workflow, [
   "github.event.comment.body == '/production p0-staff-api-origin-repair current-runtime'",
   'bash scripts/production-p0-staff-api-origin-runtime-repair.sh',
   'Reject concurrent production mutation workflows',
+  'isStrictStaleQueuedIssueComment',
+  'github.rest.actions.cancelWorkflowRun',
+  'github.rest.actions.getWorkflowRun',
+  "'STALE_REREAD_FAILED'",
+  "'STALE_RECHECK_BECAME_ACTIVE_OR_CHANGED'",
+  "'ACTIVE_OR_NONSTALE_PRODUCTION_RUN'",
+  'Cancellation API failed for stale queued run',
+  'exact re-read confirms unchanged strict stale queued ghost',
+  'if (active.length) core.setFailed',
 ]);
+
+const cancelIndex = workflow.indexOf('github.rest.actions.cancelWorkflowRun');
+const rereadIndex = workflow.indexOf('github.rest.actions.getWorkflowRun');
+if (cancelIndex < 0 || rereadIndex < 0 || rereadIndex <= cancelIndex) {
+  fail('stale queued cancellation must be followed by exact workflow re-read');
+}
+if (!workflow.includes('if (isStrictStaleQueuedIssueComment(reread))')) {
+  fail('failed cancellation may be ignored only after strict stale queued re-verification');
+}
+if (!workflow.includes("String(run.head_sha || '') !== String(context.sha || '')")) {
+  fail('stale queued exception must never match the current repair SHA');
+}
 
 requireAll('script', script, [
   "COMMAND='/production p0-staff-api-origin-repair current-runtime'",
