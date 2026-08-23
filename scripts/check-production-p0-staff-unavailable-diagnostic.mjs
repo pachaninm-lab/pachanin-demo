@@ -40,8 +40,8 @@ requireAll('script', script, [
   'staff_capabilities_transport_failure',
   'API_PRISMA_ERROR_MARKERS',
   'API_PERMISSION_ERROR_MARKERS',
-  'raw logs: `NOT_PUBLISHED`',
-  'production mutation: `NONE`',
+  'raw logs: \\`NOT_PUBLISHED\\`',
+  'production mutation: \\`NONE\\`',
 ]);
 
 for (const forbidden of [
