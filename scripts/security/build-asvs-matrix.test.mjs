@@ -161,3 +161,26 @@ test('a path-bound condition with no paths declared does not hold', () => {
   assert.equal(empty.holds, false);
   assert.match(empty.evidence, /declares no paths/u);
 });
+
+test('an over-broad absence pattern fails safe rather than passing silently', () => {
+  // Drafting the token decisions, an absence condition listed the three-letter
+  // pattern "jku" to prove no token-directed key resolution exists. It matched
+  // base64 image data in an unrelated component. The condition stopped holding
+  // and the decision was rejected - the safe direction. A mechanism that
+  // resolved this the other way would let a sloppy pattern manufacture evidence.
+  const files = {
+    'apps/a/logo.ts': "const asset = 'FBRBGlW49KpduOCSi2DDGmtefCGmLj4Hf3LdL6E7M9MwTzQQO9f5pAmETRKyARncoPFKjkUUa3JCslSn';",
+  };
+  const overBroad = evaluateCondition({
+    condition: 'no token-directed key resolution', check: 'ABSENT_IN_TREE',
+    patterns: ['jku'], roots: ['apps'],
+  }, pathContext(files));
+
+  assert.equal(overBroad.holds, false, 'an accidental match must invalidate the condition');
+
+  const precise = evaluateCondition({
+    condition: 'no token-directed key resolution', check: 'ABSENT_IN_TREE',
+    patterns: ['createremotejwkset', 'header.kid'], roots: ['apps'],
+  }, pathContext(files));
+  assert.equal(precise.holds, true);
+});

@@ -845,6 +845,239 @@
       "note": "Files accepted from untrusted sources are parsed and their text returned with no malware scanning. docs/security/THREAT_MODEL.md already names malware scan and quarantine as a required control; it is not implemented."
     },
     {
+      "requirementId": "V9.1.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "api-verifier:apps/api/src/modules/auth/access-token.ts",
+        "web-verifier:apps/web/lib/platform-v7/verified-session.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the API verifier checks the signature before reading any claim",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "jwt.verify(token, jwt_secret"
+          ]
+        },
+        {
+          "condition": "the web verifier returns the payload only after the MAC verifies",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ],
+          "patterns": [
+            "crypto.subtle.verify",
+            "if (!valid) return null"
+          ]
+        }
+      ],
+      "note": "Both token verifiers in the tree check the signature or MAC before any claim is read. The web verifier decodes the payload only after crypto.subtle.verify returns true; the API verifier reads claims only from the value jwt.verify returned."
+    },
+    {
+      "requirementId": "V9.1.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "api-verifier:apps/api/src/modules/auth/access-token.ts",
+        "web-verifier:apps/web/lib/platform-v7/verified-session.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the API verifier still states no algorithm allowlist",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "algorithms:"
+          ]
+        },
+        {
+          "condition": "the web verifier does state one",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ],
+          "patterns": [
+            "header.alg !== 'hs256'"
+          ]
+        }
+      ],
+      "note": "The two verifiers disagree. The web verifier rejects any header whose alg is not HS256 before verifying - that is the allowlist the requirement asks for. The API verifier passes no algorithms option to jwt.verify. jsonwebtoken 9 refuses alg none and, given a string secret, restricts itself to HMAC, so the protection is real - but it comes from a library default rather than from a stated allowlist, and a future dependency change or a switch to a key object would move it silently. The requirement asks for the allowlist to be stated."
+    },
+    {
+      "requirementId": "V9.1.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "api-verifier:apps/api/src/modules/auth/access-token.ts",
+        "web-verifier:apps/web/lib/platform-v7/verified-session.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the API key material comes from a required pre-configured secret",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "requiresecret('jwt_secret')"
+          ]
+        },
+        {
+          "condition": "no verifier resolves key material from a token-supplied source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "jwks",
+            "createremotejwkset",
+            "header.kid"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        }
+      ],
+      "note": "Validation keys come from configuration, not from the token. There is no JWKS endpoint, no remote key set and no kid-directed key lookup anywhere, so a token cannot nominate the key that verifies it."
+    },
+    {
+      "requirementId": "V9.2.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "api-verifier:apps/api/src/modules/auth/access-token.ts",
+        "web-verifier:apps/web/lib/platform-v7/verified-session.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the API issues a bounded lifetime and verifies it",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "expiresin: access_token_ttl"
+          ]
+        },
+        {
+          "condition": "the web verifier rejects an expired or not-yet-valid token",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ],
+          "patterns": [
+            "claims.exp <= nowseconds",
+            "claims.nbf > nowseconds"
+          ]
+        }
+      ],
+      "note": "Access tokens carry a 15 minute expiry that jwt.verify enforces, and the web verifier checks both exp and nbf against the supplied time. A token outside its validity span is refused by both paths."
+    },
+    {
+      "requirementId": "V9.2.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "api-verifier:apps/api/src/modules/auth/access-token.ts",
+        "cabinet-session:apps/web/app/api/platform-v7/cabinet-session/route.ts",
+        "web-verifier:apps/web/lib/platform-v7/verified-session.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the API verifier does check the token type",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "raw.typ !== 'access'"
+          ]
+        },
+        {
+          "condition": "the web verifier still checks neither type nor audience",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ],
+          "patterns": [
+            "claims.typ",
+            "claims.aud"
+          ]
+        },
+        {
+          "condition": "the cabinet session route signs and verifies with the API token secret",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/cabinet-session/route.ts"
+          ],
+          "patterns": [
+            "process.env.jwt_secret"
+          ]
+        }
+      ],
+      "note": "The API verifier does this correctly: it rejects a token whose typ is not access. The web verifier does not check type at all, and the cabinet session route hands it process.env.JWT_SECRET - the same secret the API signs access tokens with. So any HS256 token signed with that secret verifies there regardless of what it was issued for. In practice an access token yields no cabinet role because it carries no role claim, but that is a behavioural accident, not a type check. The staff route is not part of this gap: it does check purpose-bearing claims (owner, testAccess, sub, email) after verifying."
+    },
+    {
+      "requirementId": "V9.2.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "api-verifier:apps/api/src/modules/auth/access-token.ts",
+        "web-verifier:apps/web/lib/platform-v7/verified-session.ts",
+        "cabinet-session:apps/web/app/api/platform-v7/cabinet-session/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the API verifier does constrain the audience",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "audience: access_audience"
+          ]
+        },
+        {
+          "condition": "the web verifier still applies no audience restriction",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ],
+          "patterns": [
+            "claims.aud",
+            "audience"
+          ]
+        }
+      ],
+      "note": "The API verifier passes an audience to jwt.verify, so a token minted for another audience is refused there. The web verifier applies no audience restriction, so it accepts tokens not intended for it. One of the two services meets the requirement; the requirement is about the service receiving the token, and one of them does not."
+    },
+    {
+      "requirementId": "V9.2.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "api-issuer:apps/api/src/modules/auth/access-token.ts",
+        "web-issuer:apps/web/lib/platform-v7/verified-session.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "issued access tokens carry an audience restriction",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "audience: access_audience"
+          ]
+        }
+      ],
+      "note": "One private key is used to issue tokens for more than one consumer - the API access token and the web cabinet session token share JWT_SECRET - which is exactly the situation this requirement addresses. Issued access tokens do carry an audience restriction, so the token itself states who it is for. Whether every receiver enforces that restriction is a separate matter, and it is recorded as failing under V9.2.3."
+    },
+    {
       "requirementId": "V12.1.1",
       "applicability": "APPLICABLE",
       "status": "NOT_ASSESSED",
