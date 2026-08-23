@@ -7,6 +7,7 @@ const baselineMode = process.argv.includes('--baseline');
 const asvsVersion = '5.0.0';
 const asvsSourceCommit = '5cf9b032440be53ce345ab3c130fda46ba1ce7a2';
 const asvsSourceUrl = `https://raw.githubusercontent.com/OWASP/ASVS/${asvsSourceCommit}/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.flat.json`;
+const asvsSourceSha256 = '8201b20eec2908c3380ac600c91c8ba746346fbb808859366abb232027532311';
 const expectedAsvsRequirements = 345;
 const required = [
   'REPOSITORY_INVENTORY.json',
@@ -229,7 +230,7 @@ if (asvs.schemaVersion !== 'pc-crop.asvs-evidence.v1'
   || asvs.standardVersion !== asvsVersion
   || asvs.sourceCommit !== asvsSourceCommit
   || asvs.sourceUrl !== asvsSourceUrl
-  || !/^[0-9a-f]{64}$/u.test(String(asvs.sourceSha256 ?? ''))
+  || asvs.sourceSha256 !== asvsSourceSha256
   || asvs.sourceMode !== 'PINNED_PUBLIC_STANDARD_DOWNLOAD'
   || asvs.targetLevel !== 3
   || asvs.requirements !== expectedAsvsRequirements
