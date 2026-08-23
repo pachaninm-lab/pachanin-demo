@@ -2685,6 +2685,971 @@
       "note": "One private key is used to issue tokens for more than one consumer - the API access token and the web cabinet session token share JWT_SECRET - which is exactly the situation this requirement addresses. Issued access tokens do carry an audience restriction, so the token itself states who it is for. Whether every receiver enforces that restriction is a separate matter, and it is recorded as failing under V9.2.3."
     },
     {
+      "requirementId": "V11.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/SECRET_ROTATION_REGISTER.md",
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md",
+        "implemented-rotation:apps/api/src/modules/settlement-engine/bank-key-registry.service.ts",
+        "implemented-rotation:apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the document most likely to be mistaken for a key management policy still exists and is still an exposure report",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/SECRET_ROTATION_REGISTER.md"
+          ],
+          "patterns": [
+            "rotation procedure"
+          ]
+        },
+        {
+          "condition": "no document in the security set defines a key lifecycle",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/SECRET_ROTATION_REGISTER.md",
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "key lifecycle",
+            "800-57",
+            "crypto-period",
+            "key management policy"
+          ]
+        }
+      ],
+      "note": "There is no key management policy. docs/security/SECRET_ROTATION_REGISTER.md is named so that a reader will reach for it here, so it is named explicitly: it is a secret-exposure scan report plus an incident procedure for what to do when a credential is found in Git. It defines no crypto-period, no custody rule, no limit on how many entities may hold a shared secret, and no alignment to a key management standard. Its own closing line says the inventory for material held outside Git \"does not exist yet\". The gap is the policy, not the capability - two subsystems already implement real key replacement (versioned outbox keys, bank keys with overlapping windows and database-backed revocation), and they do it without a written rule to implement. What that rule should say is an owner decision."
+    },
+    {
+      "requirementId": "V11.1.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "adjacent-artefact:docs/security/SUPPLY_CHAIN_MATRIX.md",
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no cryptographic inventory exists in the security documentation set",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/SUPPLY_CHAIN_MATRIX.md",
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "cryptographic inventory"
+          ]
+        },
+        {
+          "condition": "the supply-chain artefact that is adjacent to this requirement still exists and still is not this",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/SUPPLY_CHAIN_MATRIX.md"
+          ],
+          "patterns": [
+            "sbom"
+          ]
+        }
+      ],
+      "note": "No cryptographic inventory exists. The SBOM work already merged is adjacent and must not be offered as if it answered this: an SBOM enumerates components, while this requirement asks for keys, algorithms and certificates, where each key may and may not be used, and which data each key may protect. Nothing in the repository states any of that. The material for one is now measurable - one cipher (AES-256-GCM, 15 sites), one hash (SHA-256), one MAC (HMAC-SHA256), one KDF (HKDF-SHA256), one password function (bcrypt), and roughly eleven distinct key-holding subsystems - but a measurement taken once during an assessment is not a maintained inventory, and this decision does not pretend otherwise."
+    },
+    {
+      "requirementId": "V11.1.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "partial-mechanism:.github/codeql/codeql-config.yml",
+        "partial-mechanism:codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql",
+        "partial-mechanism:.github/workflows/codeql-platform-v7-report.yml"
+      ],
+      "conditions": [
+        {
+          "condition": "the partial discovery mechanism still runs",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            ".github/codeql/codeql-config.yml"
+          ],
+          "patterns": [
+            "insufficientpasswordhashcorrected"
+          ]
+        },
+        {
+          "condition": "the CodeQL configuration still declares no cryptographic discovery scope",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            ".github/codeql/codeql-config.yml"
+          ],
+          "patterns": [
+            "cryptographic inventory",
+            "crypto discovery"
+          ]
+        }
+      ],
+      "note": "A discovery mechanism exists but discovers the wrong set. CodeQL runs on every relevant change with a repository-owned replacement for js/insufficient-password-hash, which finds password flows into weak hashing. That reports defects; it does not enumerate instances. Nothing in CI lists where encryption, hashing or signing happen, so no one can tell from CI output that AES-GCM is used in six modules or that SHA-256 is used in ninety-five places. The sweep behind this chapter was manual, run once, and is not a mechanism. Closing this needs a repository-owned discovery script whose output is committed and re-generated in CI - it is buildable at zero cost and does not touch product logic, but it is not this issue."
+    },
+    {
+      "requirementId": "V11.1.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no migration path to new cryptographic standards is documented",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "post-quantum",
+            "pqc",
+            "migration path"
+          ]
+        },
+        {
+          "condition": "the primitives with the largest post-quantum exposure are still absent from the application",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "generatekeypair",
+            "creatediffiehellman",
+            "createecdh"
+          ]
+        }
+      ],
+      "note": "No inventory (V11.1.2) and no migration plan. Two facts make this cheaper to fix than it looks, and neither is a substitute for the plan. The algorithm set is uniform, so a migration would have one cipher, one hash and one KDF to move rather than a spread. And the application performs no asymmetric cryptography at all - the condition scans 3442 source files for key-pair generation and Diffie-Hellman and finds none - so the classic quantum exposure, key exchange and public-key signatures, is currently carried entirely by TLS at the edge rather than by this code. That is a property of today tree, not a documented reaction to a future threat, which is what the requirement asks for."
+    },
+    {
+      "requirementId": "V11.2.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "primitive-source:apps/api/src/modules/auth/auth-crypto.ts",
+        "primitive-source:apps/web/lib/platform-v7/verified-session.ts",
+        "dependency:pnpm-lock.yaml"
+      ],
+      "conditions": [
+        {
+          "condition": "the hand-written JWT verifier still delegates the primitive to WebCrypto rather than implementing it",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ],
+          "patterns": [
+            "crypto.subtle"
+          ]
+        },
+        {
+          "condition": "no re-implementation of cryptographic primitives is declared as a dependency",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "crypto-js",
+            "node-forge",
+            "sjcl",
+            "\"elliptic\""
+          ]
+        }
+      ],
+      "note": "Every cryptographic primitive comes from node:crypto (OpenSSL), WebCrypto, or a published library - bcryptjs 2.4.3 and jsonwebtoken 9.0.3, both pinned in the lockfile. No primitive is re-implemented in the repository, and the eight manifests declare no JavaScript re-implementation of one. The one place that could be mistaken for hand-rolled cryptography is named rather than omitted: apps/web/lib/platform-v7/verified-session.ts parses and checks an HS256 JWT by hand instead of using a library. What is hand-written there is the envelope handling; the HMAC-SHA256 itself is crypto.subtle. Hand-written envelope parsing carries its own risks, which belong to V9, and this decision makes no claim about them."
+    },
+    {
+      "requirementId": "V11.2.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "rotation-implemented:apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+        "rotation-implemented:apps/api/src/modules/settlement-engine/bank-key-registry.service.ts",
+        "single-version:apps/api/src/modules/auth/auth-crypto.ts",
+        "single-key:apps/api/src/modules/auth/access-token.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "key replacement is implemented in the one subsystem that has it",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+          ],
+          "patterns": [
+            "resolvecurrentauthmailkeyversion"
+          ]
+        },
+        {
+          "condition": "the MFA envelope still rejects every key version but its own, so its version label is not a rotation path",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "version !== mfa_key_version"
+          ]
+        }
+      ],
+      "note": "Agility is real in two places and absent everywhere else, so the denominator matters. Key replacement: the auth-mail outbox holds versioned key files and derives per-version keys, and the bank callback registry accepts several keys at once with validity windows plus immediate database-backed revocation - those two can be rotated without downtime. The remaining key-holding subsystems hold one unversioned value each, so replacing the key invalidates every token or ciphertext already issued under it. auth-crypto is the case worth naming precisely: it stamps a v1 label into every MFA ciphertext and then rejects any other version on decrypt, so the label reserves a rotation path rather than providing one. Algorithm replacement: aes-256-gcm appears as a string literal at 15 call sites and sha256 at 95, none of them configurable, so changing a cipher or a hash means editing every site. Re-encryption of stored data has no mechanism outside the auth-mail outbox."
+    },
+    {
+      "requirementId": "V11.2.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "key-length-floor:apps/api/src/common/config/secrets.ts",
+        "symmetric-strength:apps/api/src/modules/gekta/gekta-phone.service.ts",
+        "password-strength:apps/api/src/modules/auth/gekta-registration.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the 32-character floor for configured secrets is still enforced and still fails closed in production",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/config/secrets.ts"
+          ],
+          "patterns": [
+            "min_secret_length = 32"
+          ]
+        },
+        {
+          "condition": "no cipher below 256-bit key length and no deprecated cipher is present",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "aes-256-ecb",
+            "aes-128-ecb",
+            "aes-256-cbc",
+            "aes-128-cbc",
+            "aes-192-",
+            "createcipheriv('des",
+            "createcipheriv('rc4"
+          ]
+        }
+      ],
+      "note": "Every primitive clears 128 bits. AES-256-GCM is the only cipher present; SHA-256 is the only hash used cryptographically; HMAC-SHA256 and HKDF-SHA256 produce 32-byte outputs. Configured key material is floored at 32 characters by a central resolver that refuses to start a production process when a secret is missing or short, and the phone encryption key must decode to exactly 32 bytes or the service throws. No asymmetric key exists anywhere in the application, so the key-size question that this requirement illustrates with RSA and ECC does not arise here; that absence is machine-checked by the V11.1.4 and V11.6.1 conditions rather than assumed."
+    },
+    {
+      "requirementId": "V11.2.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "cost-mismatch:apps/api/src/modules/auth/auth.service.ts",
+        "stored-cost:apps/api/src/modules/auth/organization-invitation.service.ts",
+        "correct-counterpart:apps/api/src/modules/auth/gekta-registration.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the unknown-account branch still compares against a cost-10 dummy hash",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "bcrypt.hashsync('invalid-password-sentinel', 10)"
+          ]
+        },
+        {
+          "condition": "stored passwords are still written at cost 12, so the two costs still differ",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/organization-invitation.service.ts"
+          ],
+          "patterns": [
+            "bcrypt.hash(dto.password, 12)"
+          ]
+        }
+      ],
+      "note": "Comparison of secrets is right; the work factor on the two login branches is not. All 20 constant-time comparison sites use timingSafeEqual, and every one of them either checks length first or catches the length exception, which is the failure this pattern usually has. The gap is in AuthService.login: when no account matches, the password is compared against a dummy hash generated at bcrypt cost 10, while every password the platform writes - four registration, invitation and reset paths - is written at cost 12. The dummy exists precisely so that both branches take the same time; at a mismatched cost it makes them differ by roughly a factor of four, which is measurable over a network. GektaRegistrationService is the counterpart that is correct: its dummy uses the same BCRYPT_ROUNDS constant as its real hashes. The consequence, account enumeration, belongs to V6 and is not claimed here; what is recorded here is that the cryptographic operation itself is not constant-time across branches."
+    },
+    {
+      "requirementId": "V11.2.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "decrypt-path:apps/api/src/modules/gekta/gekta-phone.service.ts",
+        "decrypt-path:apps/api/src/modules/auth/auth-crypto.ts",
+        "decrypt-path:apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+        "decrypt-path:apps/web/lib/gekta/phone.ts",
+        "decrypt-path:apps/web/lib/server/mfa-login-ticket.ts",
+        "decrypt-path:apps/web/lib/server/gekta-mfa-ticket.ts",
+        "ciphertext-source:apps/api/src/modules/auth/product-session.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no padded block mode exists, so the padding-oracle class cannot arise",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "aes-256-cbc",
+            "aes-128-cbc",
+            "aes-256-ecb",
+            "aes-128-ecb"
+          ]
+        },
+        {
+          "condition": "every decryption path still authenticates before returning plaintext",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ],
+          "patterns": [
+            "setauthtag"
+          ]
+        }
+      ],
+      "note": "All six modules that decrypt use AES-GCM, and all six set the authentication tag before reading plaintext, so a modified ciphertext fails at final() and no plaintext is produced. There is no padded block mode anywhere in 3442 source files, so the padding-oracle class is structurally absent rather than merely unexploited. One asymmetry is named rather than smoothed over: decryptMfaSecret throws a distinguishable error for a malformed envelope and lets the GCM failure propagate separately, which would be an oracle if a caller could supply the ciphertext. It cannot - the value is read from the credential row in the database at both call sites - so the distinction is not reachable by an attacker. Every other decrypt path returns null for both cases."
+    },
+    {
+      "requirementId": "V11.3.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "cipher-site:apps/api/src/modules/gekta/gekta-phone.service.ts",
+        "cipher-site:apps/api/src/modules/auth/auth-crypto.ts",
+        "cipher-site:apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+        "cipher-site:apps/web/lib/gekta/phone.ts",
+        "cipher-site:apps/web/lib/server/mfa-login-ticket.ts",
+        "cipher-site:apps/web/lib/server/gekta-mfa-ticket.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no insecure block mode is present in the tree",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "aes-256-ecb",
+            "aes-128-ecb",
+            "aes-256-cbc",
+            "aes-128-cbc",
+            "aes-192-",
+            "createcipheriv('des",
+            "createcipheriv('rc4"
+          ]
+        },
+        {
+          "condition": "the approved mode is still the one in use at every cipher site",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ],
+          "patterns": [
+            "aes-256-gcm"
+          ]
+        }
+      ],
+      "note": "Every cipher instantiation in the repository is AES-256-GCM: 15 occurrences of the algorithm string across six modules, and no other algorithm string anywhere. GCM is an unpadded counter mode, so the weak-padding half of this requirement has nothing to attach to, and PKCS#1 v1.5 in particular cannot arise because no RSA operation exists. The denominator here is every createCipheriv and createDecipheriv call, not a sample: the two calls were enumerated first and each was read."
+    },
+    {
+      "requirementId": "V11.3.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "cipher-site:apps/api/src/modules/gekta/gekta-phone.service.ts",
+        "cipher-site:apps/api/src/modules/auth/auth-crypto.ts",
+        "cipher-site:apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+        "cipher-site:apps/web/lib/gekta/phone.ts",
+        "cipher-site:apps/web/lib/server/mfa-login-ticket.ts",
+        "cipher-site:apps/web/lib/server/gekta-mfa-ticket.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "AES-GCM is still the algorithm at every cipher site",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ],
+          "patterns": [
+            "aes-256-gcm"
+          ]
+        },
+        {
+          "condition": "no unapproved cipher has been introduced",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "aes-256-cbc",
+            "aes-128-cbc",
+            "aes-256-ecb",
+            "aes-128-ecb",
+            "aes-192-",
+            "createcipheriv('des",
+            "createcipheriv('rc4"
+          ]
+        },
+        {
+          "condition": "no re-implementation of a cipher is declared as a dependency",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "crypto-js",
+            "node-forge",
+            "sjcl"
+          ]
+        }
+      ],
+      "note": "AES with GCM is the example this requirement gives, and it is the only cipher the application has. The 1616 apparent matches for \"des\" in an earlier sweep were substring noise inside words such as \"described\" and \"designed\"; re-run with the algorithm string rather than the three letters, the count is zero. Nothing in the eight manifests provides a second cipher implementation that could be reached without a createCipheriv call."
+    },
+    {
+      "requirementId": "V11.3.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "aead-site:apps/api/src/modules/gekta/gekta-phone.service.ts",
+        "aead-site:apps/api/src/modules/auth/auth-crypto.ts",
+        "aead-site:apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+        "aead-site:apps/web/lib/gekta/phone.ts",
+        "aead-site:apps/web/lib/server/mfa-login-ticket.ts",
+        "aead-site:apps/web/lib/server/gekta-mfa-ticket.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "every encryption site still produces an authentication tag",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ],
+          "patterns": [
+            "getauthtag"
+          ]
+        },
+        {
+          "condition": "every decryption site still requires that tag",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ],
+          "patterns": [
+            "setauthtag"
+          ]
+        }
+      ],
+      "note": "Encrypted data is protected by an approved authenticated encryption method rather than by a separate MAC. Both halves are checked, because either alone would be misleading: all six modules call getAuthTag on encrypt and all six call setAuthTag on decrypt, so a tag is always produced and always required. Two of them go further and bind context that is not part of the ciphertext - the auth-mail envelope and the Gekta ticket both pass additional authenticated data - so a valid envelope cannot be replayed into a different purpose."
+    },
+    {
+      "requirementId": "V11.3.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "iv-site:apps/api/src/modules/gekta/gekta-phone.service.ts",
+        "iv-site:apps/api/src/modules/auth/auth-crypto.ts",
+        "iv-site:apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+        "iv-site:apps/web/lib/gekta/phone.ts",
+        "iv-site:apps/web/lib/server/mfa-login-ticket.ts",
+        "iv-site:apps/web/lib/server/gekta-mfa-ticket.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "every encryption site still draws a fresh 96-bit IV from the CSPRNG",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ],
+          "patterns": [
+            "randombytes(12)",
+            "randombytes(iv_bytes)"
+          ]
+        },
+        {
+          "condition": "no counter-based or fixed IV construction has been introduced",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "ivcounter",
+            "staticiv",
+            "fixed_iv"
+          ]
+        }
+      ],
+      "note": "Each of the seven encryption operations generates its IV with randomBytes at call time, so no IV is reused across a key and data pair. Twelve bytes is the size GCM is specified for, which is the \"appropriate for the algorithm\" half of the requirement - a random 96-bit nonce is the standard construction for this mode, and none of the sites derives an IV from a counter, a timestamp or the plaintext. The auth-mail envelope additionally rejects any stored IV that is not exactly IV_BYTES long before attempting to decrypt."
+    },
+    {
+      "requirementId": "V11.3.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "aead-site:apps/api/src/modules/gekta/gekta-phone.service.ts",
+        "aead-site:apps/api/src/modules/auth/auth-crypto.ts",
+        "aead-site:apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+        "aead-site:apps/web/lib/gekta/phone.ts",
+        "aead-site:apps/web/lib/server/mfa-login-ticket.ts",
+        "aead-site:apps/web/lib/server/gekta-mfa-ticket.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the authenticated mode that makes this ordering structural is still in use",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ],
+          "patterns": [
+            "aes-256-gcm"
+          ]
+        },
+        {
+          "condition": "no separate MAC is composed with a raw cipher, which is the case this requirement guards",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "aes-256-cbc",
+            "aes-128-cbc",
+            "aes-256-ctr"
+          ]
+        }
+      ],
+      "note": "The ordering is structural rather than chosen. No encryption algorithm is combined with a separate MAC algorithm anywhere; all six modules use GCM, which is AES in counter mode composed with GMAC computed over the ciphertext - that is encrypt-then-MAC by construction, and the mode does not offer the other orderings. This is recorded as a pass rather than as not-applicable because the property the requirement wants is present, not excused: on decrypt the tag is verified before any plaintext is returned, at all six sites."
+    },
+    {
+      "requirementId": "V11.4.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "hash-use:apps/api/src/modules/auth/auth-crypto.ts",
+        "md5-use:apps/api/src/modules/integration-events/durable-outbox.worker.ts",
+        "md5-use:apps/api/src/auth-mail-worker.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no MD5 hashing is performed by application code",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "createhash('md5')",
+            "createhash(\"md5\")"
+          ]
+        },
+        {
+          "condition": "the two SQL md5 calls still build a worker lease token and nothing else",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/integration-events/durable-outbox.worker.ts"
+          ],
+          "patterns": [
+            "leasetoken"
+          ]
+        }
+      ],
+      "note": "SHA-256 is the hash for every cryptographic purpose: digests, HMAC, HKDF and content integrity. MD5 is named here rather than left for a reader to find, because grepping the repository for it returns two hits and a silent pass would look like a miss. Both are PostgreSQL md5() calls that build a worker lease token from random() and clock_timestamp(), and both were followed to their use: the token is matched in the UPDATE guard that stops two workers claiming the same row. It is a concurrency token, not a secret, a credential, a signature, a key derivation or a random-bit generator, so it is not a cryptographic use and MD5 collision resistance is irrelevant to it. The single createHash(\"sha1\") in the tree is negative test data inside a CodeQL model test asserting that the model flags it."
+    },
+    {
+      "requirementId": "V11.4.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "password-write:apps/api/src/modules/auth/gekta-registration.service.ts",
+        "password-write:apps/api/src/modules/auth/organization-invitation.service.ts",
+        "password-write:apps/api/src/modules/auth/registration-application.service.ts",
+        "password-write:apps/api/src/modules/auth/password-reset.service.ts",
+        "seed-write:apps/api/src/modules/deals/canonical-test-deal.seed.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "stored passwords are still written with bcrypt at cost 12",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/organization-invitation.service.ts"
+          ],
+          "patterns": [
+            "bcrypt.hash(dto.password, 12)"
+          ]
+        },
+        {
+          "condition": "the one lower-cost writer is still behind an explicit production opt-out",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/canonical-test-deal.seed.ts"
+          ],
+          "patterns": [
+            "allow_canonical_test_deal_in_production"
+          ]
+        }
+      ],
+      "note": "Every path that stores a user password uses bcrypt at cost 12: registration, organization invitation, registration application and password reset. Cost 12 is above the current OWASP floor for bcrypt, so the parameter meets guidance rather than merely being non-zero. The distribution is stated rather than the best case: one further writer, the canonical test deal seed, uses cost 10, and it is not flatly unreachable in production - it needs SEED_CANONICAL_TEST_DEAL and then an explicit ALLOW_CANONICAL_TEST_DEAL_IN_PRODUCTION to run there. Cost 10 still clears the floor and the password it writes is a constant published in the same file, so this does not fail the requirement, but a reader should know the platform does not apply one cost everywhere. The cost-10 dummy hash in AuthService is a different matter and is recorded against V11.2.4."
+    },
+    {
+      "requirementId": "V11.4.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "integrity-digest:apps/api/src/modules/regulatory-integration/regulatory-integration.inbox.repository.ts",
+        "credential-digest:apps/api/src/modules/partner-api/partner-api.service.ts",
+        "source-digest:scripts/security/build-asvs-matrix.mjs"
+      ],
+      "conditions": [
+        {
+          "condition": "the credential digest is still SHA-256 rather than a shorter hash",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/partner-api.service.ts"
+          ],
+          "patterns": [
+            "createhash('sha256')"
+          ]
+        },
+        {
+          "condition": "no non-test source file uses a hash shorter than 256 bits",
+          "check": "NO_RUNTIME_CALLER",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "definedAt": [],
+          "patterns": [
+            "createhash('sha1')",
+            "createhash(\"sha1\")",
+            "createhash('sha-1')",
+            "createhash('md5')",
+            "createhash(\"md5\")"
+          ]
+        }
+      ],
+      "note": "Every hash used for data authentication or integrity is SHA-256, which is 256 bits and therefore clears the collision-resistance bar rather than only the second-preimage bar. The uses were followed individually: the raw body digest that pins a regulatory message to its stored projection, the SHA-256 of an API key that is stored in place of the key, and the digest that pins the ASVS source document this matrix is built from. No digital signature exists in the application, so the signature half of this requirement has no instance; that absence is machine-checked under V11.6.1 rather than assumed here. The second condition deliberately excludes test files. The one createHash(\"sha1\") in the repository is an assertion inside a CodeQL model test that the model flags exactly that call, so a tree-wide absence check would contradict a fixture whose whole purpose is to contain the thing being forbidden."
+    },
+    {
+      "requirementId": "V11.4.4",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "kdf-site:apps/web/lib/server/gekta-mfa-ticket.ts",
+        "kdf-site:apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+        "kdf-site:apps/api/src/modules/auth/opaque-token-authority.ts",
+        "kdf-site:apps/web/lib/server/mfa-login-ticket.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no user-supplied password reaches any key derivation site",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/mfa-login-ticket.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts",
+            "apps/api/src/modules/auth/opaque-token-authority.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+          ],
+          "patterns": [
+            "dto.password",
+            "input.password",
+            "body.password"
+          ]
+        },
+        {
+          "condition": "the key material those sites do derive from is still floored at 32 characters",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/config/secrets.ts"
+          ],
+          "patterns": [
+            "min_secret_length = 32"
+          ]
+        }
+      ],
+      "note": "This requirement is scoped to keys derived from passwords, and no such derivation exists. Passwords reach bcrypt for verification and nothing else; the four key derivation sites take configured secrets or key files, floored at 32 characters and fetched from the environment or a key file, never from a login form. Key stretching is therefore the wrong control for these inputs - stretching buys time against guessing a low-entropy secret, and these inputs are not low-entropy. Two of the derivations are named so they are not mistaken for an omission: mfa-login-ticket and auth-crypto derive their key with a single SHA-256 pass rather than HKDF. That is adequate for a high-entropy input but provides no domain separation between purposes, which is recorded as part of the agility gap in V11.2.2 rather than treated as a password-stretching failure here."
+    },
+    {
+      "requirementId": "V11.5.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "csprng-credential:apps/api/src/modules/partner-api/partner-api.service.ts",
+        "non-production-generator:apps/web/app/api/auth/demo/instant/[role]/route.ts",
+        "non-production-generator:apps/web/app/api/platform-v7/cabinet-lock-login/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "credentials are still generated from the CSPRNG at 256 bits",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/partner-api.service.ts"
+          ],
+          "patterns": [
+            "randombytes(32)"
+          ]
+        },
+        {
+          "condition": "the demo generator is still refused before it runs in production",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/demo/instant/[role]/route.ts"
+          ],
+          "patterns": [
+            "demologinallowed()"
+          ]
+        },
+        {
+          "condition": "the controlled-test generator is still refused before it runs in production",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/cabinet-lock-login/route.ts"
+          ],
+          "patterns": [
+            "controlled_test_login_disabled_in_production"
+          ]
+        }
+      ],
+      "note": "The claim is scoped: every value intended to be non-guessable on a production-reachable path is generated by a CSPRNG with at least 128 bits. Counting Math.random alone would have measured the wrong set, because ASVS 5.0 states that UUIDs do not satisfy the 128-bit condition and randomUUID carries 122. So all three generator classes were enumerated - 47 randomBytes, 306 randomUUID, 50 Math.random - and the latter two were each examined for use as a secret. Exactly two sub-128-bit generators produce a value meant to be unguessable: a CSRF token from Math.random in the demo instant-login route, and a CSRF token from randomUUID in the cabinet lock login. Both sit in handlers that return before reaching that line when NODE_ENV is production, one of them behind a second opt-in flag as well, and the demo route session token beside it is an unsigned literal, so nothing there is a credential in the first place. The remaining Math.random sites are record identifiers, idempotency keys that need uniqueness rather than unpredictability, retry jitter, mock handlers and load-test fixtures. The near-miss is recorded: partner-api.service.ts builds its record id with Math.random on the line after the API key itself, which is randomBytes(32) hex, SHA-256 hashed before storage."
+    },
+    {
+      "requirementId": "V11.5.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "csprng-source:apps/api/src/common/config/secrets.ts",
+        "csprng-source:apps/api/src/modules/partner-api/partner-api.service.ts",
+        "dependency:pnpm-lock.yaml"
+      ],
+      "conditions": [
+        {
+          "condition": "no user-space pseudo-random generator or entropy pool exists in the tree",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "seedrandom",
+            "mersenne",
+            "xorshift"
+          ]
+        },
+        {
+          "condition": "no seedable random library is declared as a dependency",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "seedrandom",
+            "random-js",
+            "\"chance\""
+          ]
+        }
+      ],
+      "note": "The application operates no random number generator of its own. Every non-guessable value comes from node:crypto, which draws from the OpenSSL DRBG seeded by the operating system, and there is no application-level entropy pool, no seeding, no caching of random material and no fallback that would degrade to a weaker source when the CSPRNG is slow - randomBytes throws rather than returning low-quality bytes. That is what makes behaviour under heavy demand a property of the platform rather than of this code, and the conditions check the negative that makes it so: 3442 source files and eight manifests contain no seedable generator that a load-shedding path could fall back to."
+    },
+    {
+      "requirementId": "V11.6.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "key-generation:apps/api/src/modules/partner-api/partner-api.service.ts",
+        "declared-unimplemented:apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.signing-policy.generated.ts",
+        "absence-guard:scripts/pc-crop-08d/verify.mjs",
+        "uninvoked-lifecycle:apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no signature or key-pair operation exists in application code",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "createsign(",
+            "createverify(",
+            "generatekeypair"
+          ]
+        },
+        {
+          "condition": "the one declared signature scheme is still marked unimplemented",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.signing-policy.generated.ts"
+          ],
+          "patterns": [
+            "\"gostsigningimplemented\": false"
+          ]
+        },
+        {
+          "condition": "the guard that fails the build if signing appears is still in place",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "scripts/pc-crop-08d/verify.mjs"
+          ],
+          "patterns": [
+            "createsign"
+          ]
+        },
+        {
+          "condition": "the signature verification lifecycle still has no runtime caller",
+          "check": "NO_RUNTIME_CALLER",
+          "roots": [
+            "apps"
+          ],
+          "definedAt": [
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts"
+          ],
+          "patterns": [
+            "recordverification("
+          ]
+        }
+      ],
+      "note": "Key generation is randomBytes from the OS CSPRNG - the partner API key is randomBytes(32) rendered as hex - and configured key material is validated for length before use, so no key generation algorithm capable of producing a weak key is involved. No digital signature is generated or verified: a scan of 3442 source files finds no createSign, createVerify or key-pair generation, and three build guards fail if signing appears in the regulatory modules. The one signature scheme the platform declares, GOST R 34.10-2012 with a 256-bit digest for FGIS Grain, carries gostSigningImplemented false in its generated policy. The plumbing that would store a verification verdict is present but inert: recordVerification takes the verdict from its caller rather than computing one, and the condition confirms across 2071 runtime files that nothing calls it. An earlier draft of this note claimed that \"verified: true\" appears only in a type definition; that was wrong as written, because the string also occurs inside names such as mfaVerified, and the claim now rests on the caller check instead."
+    },
+    {
+      "requirementId": "V11.6.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "edge-topology:docs/security/THREAT_MODEL.md",
+        "absent-from-repository:Caddyfile"
+      ],
+      "conditions": [
+        {
+          "condition": "the application still performs no key exchange of its own, so what is unassessed is the edge and only the edge",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "creatediffiehellman",
+            "createecdh",
+            "generatekeypair"
+          ]
+        },
+        {
+          "condition": "the transport section that records this blocker is still present",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "transport configuration"
+          ]
+        }
+      ],
+      "note": "Not assessed, and deliberately not recorded as a failure. The application performs no key exchange - no Diffie-Hellman, no ECDH, no key-pair generation in 3442 source files - so every key exchange the platform performs happens in the TLS handshake at the Caddy edge. Caddy negotiates that with its own defaults, and its configuration is not under version control, so the parameters cannot be read from this repository. This is the same blocker already recorded against the transport requirements in V4 and V12, and it is treated the same way here on purpose: handling one blocker as a failure in one chapter and as unassessed in another would make both look arbitrary. Closing it needs the edge configuration brought into version control, which is an owner decision about production access."
+    },
+    {
+      "requirementId": "V11.7.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "host-topology:docs/security/THREAT_MODEL.md",
+        "absent-from-repository:REG.RU virtual server configuration"
+      ],
+      "conditions": [
+        {
+          "condition": "the threat model still records that production host configuration is outside version control",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "transport configuration"
+          ]
+        },
+        {
+          "condition": "no memory-protection facility is configured from application code, which would move this in scope",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "patterns": [
+            "sev-snp",
+            "enclave",
+            "sgx"
+          ]
+        }
+      ],
+      "note": "Full memory encryption is a property of the host and the processor, not of this code. Production runs on a single REG.RU virtual server whose configuration is not in the repository, so nothing here can evidence or refute whether memory is encrypted, and no application-level facility exists that would bring it into scope. Recorded as not assessed rather than failed, for the same reason as V11.6.2: the evidence lives outside the repository, and calling that a failure would state something not measured."
+    },
+    {
+      "requirementId": "V11.7.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "at-rest-control:apps/api/src/modules/gekta/gekta-phone.service.ts",
+        "at-rest-control:apps/api/src/modules/auth/auth-crypto.ts",
+        "log-control:apps/api/src/common/middleware/log-masking.middleware.ts",
+        "absent-from-repository:REG.RU virtual server configuration"
+      ],
+      "conditions": [
+        {
+          "condition": "the at-rest controls that are adjacent to this requirement still exist",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "aes-256-gcm"
+          ]
+        },
+        {
+          "condition": "personal data is still masked before it reaches a log sink",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/middleware/log-masking.middleware.ts"
+          ],
+          "patterns": [
+            "mask"
+          ]
+        }
+      ],
+      "note": "Not assessed. Three controls sit next to this requirement and none of them answers it, which is why they are listed rather than offered: phone numbers are encrypted at rest with a separate HMAC lookup column so the plaintext need not be retained to be searchable, MFA secrets are encrypted at rest, and personal data is masked before logging. All three protect data at rest or in transit. This requirement is about data in use - how little is exposed during processing and how soon it is re-encrypted afterwards - and that is a property of the runtime and the host, whose configuration is not in the repository. No measurement was made, so no verdict is recorded."
+    },
+    {
       "requirementId": "V12.1.1",
       "applicability": "APPLICABLE",
       "status": "NOT_ASSESSED",
