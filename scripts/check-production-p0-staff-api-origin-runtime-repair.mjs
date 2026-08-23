@@ -8,12 +8,16 @@ const checkerPath = 'scripts/check-production-p0-staff-api-origin-runtime-repair
 const neutralScopePath = 'docs/platform-v7/autopilot/scopes/p0-stale-actions-orphan-neutralization-3785.json';
 const liveResendPath = 'scripts/production-p0-regru-live-resend-recover.sh';
 const provisionerPath = 'scripts/provision-production-p0-password-reset-runtime.sh';
+const taiReleasePath = '.github/workflows/tai-release-acceptance.yml';
+const productionLikePath = '.github/workflows/production-like-kubernetes-acceptance.yml';
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const script = fs.readFileSync(scriptPath, 'utf8');
 const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
 const neutralScope = JSON.parse(fs.readFileSync(neutralScopePath, 'utf8'));
 const liveResend = fs.readFileSync(liveResendPath, 'utf8');
 const provisioner = fs.readFileSync(provisionerPath, 'utf8');
+const taiRelease = fs.readFileSync(taiReleasePath, 'utf8');
+const productionLike = fs.readFileSync(productionLikePath, 'utf8');
 
 function fail(message) { throw new Error(`P0_STAFF_API_ORIGIN_RUNTIME_REPAIR:${message}`); }
 function requireAll(label, source, needles) {
@@ -54,6 +58,17 @@ requireAll('workflow', workflow, [
   "retirement: 'FAILED_CLOSED_ORPHAN_JOBS_REREAD'",
   "retirement: 'FAILED_CLOSED_ORPHAN_HAS_JOBS'",
   "retirement: 'FAILED_CLOSED_ORPHAN_NEUTRALIZER_MISSING'",
+  'nonProductionCiProfiles',
+  'proveNonProductionCi',
+  'github.rest.repos.getContent',
+  'ref: run.head_sha',
+  "Buffer.from(data.content.replace(/\\s/g, ''), 'base64').toString('utf8')",
+  'NON_PRODUCTION_CI_PROVEN',
+  "nonProductionCiProfiles.has(name) && await proveNonProductionCi(run)",
+  "'TAI Release Acceptance'",
+  "'.github/workflows/tai-release-acceptance.yml'",
+  "'Production-like Kubernetes Acceptance'",
+  "'.github/workflows/production-like-kubernetes-acceptance.yml'",
 ]);
 for (const id of ['32219738787','32219737778','32219738538','32218490249','32218487944']) {
   if (!workflow.includes(id)) fail(`workflow missing exact orphan run id ${id}`);
@@ -138,6 +153,34 @@ const provisionerNeutralizerIndex = provisioner.indexOf('pc-auth-runtime-reconci
 const provisionerMutationIndex = provisioner.indexOf('delivery_temp=');
 if (provisionerNeutralizerIndex < 0 || provisionerMutationIndex <= provisionerNeutralizerIndex) fail('reuse-runtime orphan neutralizer must precede persistent runtime mutation');
 
+const forbiddenNonProductionCi = [
+  /\$\{\{\s*secrets\./i,
+  /\bPC_PROD(?:_|\b)/,
+  /(?:^|[\s;|&])(?:ssh|scp|sftp|rsync)(?:[\s;|&]|$)/im,
+  /ssh-keyscan/i,
+  /appleboy\/ssh-action/i,
+  /runs-on:\s*(?:self-hosted|\[[^\]]*self-hosted)/i,
+  /permissions:\s*(?:write-all|read-all)/i,
+  /(?:actions|checks|contents|deployments|discussions|id-token|issues|packages|pages|pull-requests|repository-projects|security-events|statuses):\s*write\b/i,
+];
+requireAll('TAI release non-production CI proof', taiRelease, [
+  'name: TAI Release Acceptance',
+  'permissions:\n  actions: read\n  contents: read',
+  'runs-on: ubuntu-latest',
+  'production_operational_status") != "NOT_ATTESTED"',
+]);
+requireAll('production-like Kubernetes non-production CI proof', productionLike, [
+  'name: Production-like Kubernetes Acceptance',
+  'permissions:\n  contents: read',
+  'runs-on: ubuntu-latest',
+  'KIND_VERSION=v0.23.0',
+  'kind delete cluster --name grainflow-acceptance || true',
+  'docker rm -f kind-registry || true',
+]);
+for (const [label, source] of [['TAI release', taiRelease], ['production-like Kubernetes', productionLike]]) {
+  for (const pattern of forbiddenNonProductionCi) if (pattern.test(source)) fail(`${label} non-production CI proof forbidden ${pattern}`);
+}
+
 if (neutralScope.schemaVersion !== 'platform-v7.concurrent-scope.v1') fail('neutralization scope schema mismatch');
 if (neutralScope.issue !== 3785 || neutralScope.releaseIssue !== 3072) fail('neutralization scope authority mismatch');
 if (neutralScope.branch !== 'fix/p0-stale-actions-orphan-neutralization-3785' || neutralScope.status !== 'active') fail('neutralization scope branch/status mismatch');
@@ -150,8 +193,14 @@ const mutationOrphans = [32219738787,32218490249].sort((a,b)=>a-b);
 if (JSON.stringify([...neutralScope.mutationCapableRunsToNeutralize].sort((a,b)=>a-b)) !== JSON.stringify(mutationOrphans)) fail('neutralization mutation-capable run set mismatch');
 const readOnlyOrphans = [32219737778,32219738538,32218487944].sort((a,b)=>a-b);
 if (JSON.stringify([...neutralScope.readOnlyRuns].sort((a,b)=>a-b)) !== JSON.stringify(readOnlyOrphans)) fail('neutralization read-only run set mismatch');
+const expectedNonProductionCiProfiles = [
+  { name: 'Production-like Kubernetes Acceptance', path: productionLikePath },
+  { name: 'TAI Release Acceptance', path: taiReleasePath },
+].sort((a,b)=>a.name.localeCompare(b.name));
+const actualNonProductionCiProfiles = [...(neutralScope.nonProductionCiProfiles || [])].sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+if (JSON.stringify(actualNonProductionCiProfiles) !== JSON.stringify(expectedNonProductionCiProfiles)) fail('neutralization non-production CI profile mismatch');
 const nb = neutralScope.boundaries || {};
-for (const key of ['registrationOnly','exactFiveRunIdsOnly','orphanMetadataMustMatch','zeroJobsRequired','realActiveWorkflowStillBlocks','neutralizeBeforePersistentMutation']) if (nb[key] !== true) fail(`neutralization boundary must be true: ${key}`);
+for (const key of ['registrationOnly','exactFiveRunIdsOnly','orphanMetadataMustMatch','zeroJobsRequired','realActiveWorkflowStillBlocks','neutralizeBeforePersistentMutation','provenNonProductionCiMayBeIgnored','nonProductionCiMustBeExactHeadContentProven','nonProductionCiProofFailureBlocks']) if (nb[key] !== true) fail(`neutralization boundary must be true: ${key}`);
 for (const key of ['databaseMutation','migrationMutation','credentialMutation','sessionMutation','mfaMutation','roleOrMembershipMutation','dnsMutation','caddyMutation','sshPinMutation']) if (nb[key] !== false) fail(`neutralization boundary must be false: ${key}`);
 if (nb.productionMutationByThisChange !== 'NONE' || nb.newRecurringCostRub !== 0) fail('neutralization mutation/cost boundary mismatch');
 
