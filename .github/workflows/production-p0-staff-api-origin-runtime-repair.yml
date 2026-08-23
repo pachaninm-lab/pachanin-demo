@@ -7,14 +7,14 @@ on:
       - '.github/workflows/production-p0-staff-api-origin-runtime-repair.yml'
       - 'scripts/production-p0-staff-api-origin-runtime-repair.sh'
       - 'scripts/check-production-p0-staff-api-origin-runtime-repair.mjs'
-      - 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-repair-4559.json'
+      - 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-4559.json'
   push:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-staff-api-origin-runtime-repair.yml'
       - 'scripts/production-p0-staff-api-origin-runtime-repair.sh'
       - 'scripts/check-production-p0-staff-api-origin-runtime-repair.mjs'
-      - 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-repair-4559.json'
+      - 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-4559.json'
   issue_comment:
     types: [created]
 
