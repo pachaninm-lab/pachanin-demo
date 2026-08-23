@@ -102,7 +102,20 @@ jobs:
                 if (Number(run.id) === Number(context.runId)) continue;
                 const name = String(run.name || '');
                 if (!/(production|release|deploy|reg\.ru|cutover|activation|rolling|repair)/i.test(name)) continue;
-                active.push(`${run.id}:${name}:${status}`);
+                active.push(JSON.stringify({
+                  id: run.id,
+                  name,
+                  status,
+                  event: run.event,
+                  actor: run.actor?.login || null,
+                  triggering_actor: run.triggering_actor?.login || null,
+                  created_at: run.created_at,
+                  updated_at: run.updated_at,
+                  head_sha: run.head_sha,
+                  workflow_id: run.workflow_id,
+                  run_attempt: run.run_attempt,
+                  display_title: run.display_title,
+                }));
               }
             }
             if (active.length) core.setFailed(`Concurrent production workflow detected: ${active.join(', ')}`);
