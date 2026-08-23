@@ -347,7 +347,11 @@ const safeInt = (value, maximum = 99) => {
     let other = 0;
     let latest = 'NONE';
     let accountHash = null;
-    for (const row of auditRows) {
+    const denialRows = auditRows.filter((row) => {
+      const outcome = String(row.outcome || '').toUpperCase();
+      return outcome === 'FAILURE' || outcome === 'DENIED';
+    });
+    for (const row of denialRows) {
       const reason = String(row.reason || 'UNKNOWN').toUpperCase();
       latest = allowed.has(reason) ? reason : 'OTHER';
       if (typeof row.account_hash === 'string') accountHash = row.account_hash;
@@ -388,7 +392,7 @@ const safeInt = (value, maximum = 99) => {
       else if (failures > 0) throttleState = 'PARTIAL';
       else if (throttle.has_lock === true) throttleState = 'EXPIRED';
     }
-    return { total: auditRows.length, invalid, locked, other, latest, throttleState, failures };
+    return { total: denialRows.length, invalid, locked, other, latest, throttleState, failures };
   }, { isolationLevel: 'Serializable' });
 
   process.stdout.write([
@@ -432,11 +436,7 @@ done
 [[ "$mutation_marker" == 'PRODUCTION_MUTATION=NONE' ]]
 
 classification='AMBIGUOUS_OR_NO_EVENT'
-if [[ "$web_total" == '1' && "$web_latest" == 'CSRF' && "$db_total" == '0' ]]; then
-  classification='CSRF_REJECTED_BEFORE_AUTH'
-elif [[ "$web_total" == '1' && "$web_latest" == 'RATE_LIMITED' && "$db_total" == '0' ]]; then
-  classification='IP_RATE_LIMITED_BEFORE_AUTH'
-elif [[ "$db_total" == '1' && "$db_latest" == 'ACCOUNT_TEMPORARILY_LOCKED' ]]; then
+if [[ "$db_total" == '1' && "$db_latest" == 'ACCOUNT_TEMPORARILY_LOCKED' ]]; then
   classification='ACCOUNT_TEMPORARILY_LOCKED'
 elif [[ "$db_total" == '1' && "$db_latest" == 'INVALID_CREDENTIALS' && "$throttle_state" == 'LOCKED' ]]; then
   classification='INVALID_CREDENTIALS_AND_ACCOUNT_NOW_LOCKED'
