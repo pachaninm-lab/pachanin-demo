@@ -135,6 +135,18 @@ jobs:
                   'docker rm -f kind-registry || true',
                 ],
               }],
+              ['TAI REG.RU Preflight', {
+                path: '.github/workflows/tai-reg-ru-preflight.yml',
+                proofMode: 'REG_RU_READONLY_PREFLIGHT',
+                required: [
+                  'permissions:\n  contents: read',
+                  'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
+                  '[[ "$(id -u)" -ne 0 ]]',
+                  'if docker version >/dev/null 2>&1; then exit 21; fi',
+                  '[[ ! -r /etc/pc-release-authority/actions-runner.json ]]',
+                  'sudo -n /usr/local/sbin/pc-tai-release-controller preflight "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"',
+                ],
+              }],
             ]);
             const staleAfterMs = 72 * 60 * 60 * 1000;
             const now = Date.now();
@@ -185,6 +197,29 @@ jobs:
               const source = Buffer.from(data.content.replace(/\s/g, ''), 'base64').toString('utf8');
               if (!source.startsWith(`name: ${run.name}\n`)) return false;
               if (!profile.required.every((marker) => source.includes(marker))) return false;
+
+              if (profile.proofMode === 'REG_RU_READONLY_PREFLIGHT') {
+                if (/\$\{\{\s*secrets\./i.test(source) || /\bPC_PROD(?:_|\b)/.test(source)) return false;
+                if (/(?:^|[\s;|&])(?:ssh|scp|sftp|rsync)(?:[\s;|&]|$)/im.test(source) || /ssh-keyscan/i.test(source)) return false;
+                const writes = [...source.matchAll(/^\s{2,}(actions|checks|contents|deployments|discussions|id-token|issues|packages|pages|pull-requests|repository-projects|security-events|statuses):\s*write\s*$/gmi)].map((m) => m[1]);
+                if (writes.some((permission) => permission !== 'statuses')) return false;
+                const start = source.indexOf('\n  live_preflight:\n');
+                const end = source.indexOf('\n  publish_status:\n', start + 1);
+                if (start < 0 || end <= start) return false;
+                const live = source.slice(start, end);
+                const hosted = [...source.matchAll(/runs-on:\s*\[[^\]]*self-hosted[^\]]*\]/gi)].map((m) => m[0]);
+                if (hosted.length !== 1 || hosted[0] !== 'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]') return false;
+                if (!live.includes('[[ "$(id -u)" -ne 0 ]]')) return false;
+                if (!live.includes("! id -nG | tr ' ' '\\n' | grep -Fxq docker")) return false;
+                if (!live.includes('if docker version >/dev/null 2>&1; then exit 21; fi')) return false;
+                if (!live.includes('[[ ! -r /etc/pc-release-authority/actions-runner.json ]]')) return false;
+                if (!live.includes("sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'")) return false;
+                const ops = [...live.matchAll(/sudo -n \/usr\/local\/sbin\/pc-tai-release-controller\s+([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+                if (ops.length !== 1 || ops[0] !== 'preflight') return false;
+                if (/docker\s+(?:run|exec|compose|restart|stop|rm|kill|update|build|push)\b/i.test(live)) return false;
+                core.notice(`RESTRICTED_REG_RU_READONLY_PREFLIGHT_PROVEN id=${run.id} name=${run.name} head_sha=${run.head_sha}`);
+                return true;
+              }
 
               const forbidden = [
                 /\$\{\{\s*secrets\./i,
