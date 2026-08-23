@@ -41,8 +41,7 @@ const requestService = source('apps/api/src/modules/staff-access/staff-access-re
 describe('platform-v7 Staff Control Center authority boundary', () => {
   it('verifies the real server session and consumes canonical staff capabilities fail-closed', () => {
     expect(page).toContain('cookieStore.get(ACCESS_COOKIE)');
-    expect(page).toContain('function resolveApiOrigin()');
-    expect(page).toContain("process.env.NODE_ENV === 'production' && url.protocol !== 'https:'");
+    expect(page).toContain('resolveServerApiOrigin();');
     expect(page).toContain('fetch(`${API_ORIGIN}/auth/me`');
     expect(page).toContain('fetch(`${API_ORIGIN}/staff/capabilities/me`');
     expect(page).toContain('parseStaffCapabilitiesContract(');
@@ -60,14 +59,14 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
   });
 
   it('keeps the staff proxy allowlisted, CSRF-protected and token-safe', () => {
+    expect(proxy).toContain('resolveServerApiOrigin();');
     expect(proxy).toContain('const READ_PATHS = [');
     expect(proxy).toContain('const WRITE_PATHS = [');
     expect(proxy).toContain('if (!path || !isAllowed(method, path))');
     expect(proxy).toContain("code: 'STAFF_ROUTE_NOT_ALLOWED'");
     expect(proxy).toContain('const csrf = assertCsrf(request)');
     expect(proxy).toContain("code: 'CSRF_REJECTED'");
-    expect(proxy).toContain("process.env.NODE_ENV === 'production' && url.protocol !== 'https:'");
-    expect(proxy).toContain('const targetUrl = `${apiOrigin}/staff/${path}');
+    expect(proxy).toContain('const targetUrl = `${API_URL}/staff/${path}');
     expect(proxy).toContain('delete safePayload.accessToken');
     expect(proxy).toContain('httpOnly: true');
     expect(proxy).toContain("sameSite: 'strict'");
@@ -76,6 +75,7 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
   });
 
   it('keeps the capabilities self-BFF read-only, server-token-bound and schema-sanitized', () => {
+    expect(capabilitiesBff).toContain('resolveServerApiOrigin();');
     expect(capabilitiesBff).toContain("(await cookies()).get(ACCESS_COOKIE)?.value");
     expect(capabilitiesBff).toContain('fetch(`${API_ORIGIN}/staff/capabilities/me`');
     expect(capabilitiesBff).toContain('Authorization: `Bearer ${accessToken}`');
