@@ -28,9 +28,32 @@ requireAll('workflow', workflow, [
   'getWorkflowRun',
   'waitForRetirement',
   "POST /repos/{owner}/{repo}/actions/runs/{run_id}/force-cancel",
-  "retirement: 'FAILED_CLOSED'",
+  "DELETE /repos/{owner}/{repo}/actions/runs/{run_id}",
+  'strictStaleStillQueued',
+  "retirement: 'FAILED_CLOSED_REREAD'",
+  "retirement: 'FAILED_CLOSED_CHANGED_BEFORE_DELETE'",
+  "retirement: 'FAILED_CLOSED_DELETE'",
   'force_cancel_http_status',
+  'delete_http_status',
+  "Number(error?.status || 0) === 404",
 ]);
+
+const forceCancelIndex = workflow.indexOf("POST /repos/{owner}/{repo}/actions/runs/{run_id}/force-cancel");
+const staleRecheckIndex = workflow.indexOf('const strictStaleStillQueued');
+const deleteIndex = workflow.indexOf("DELETE /repos/{owner}/{repo}/actions/runs/{run_id}");
+if (forceCancelIndex < 0 || staleRecheckIndex <= forceCancelIndex || deleteIndex <= staleRecheckIndex) {
+  fail('stale run deletion must follow force-cancel and exact strict-stale revalidation');
+}
+for (const token of [
+  "String(latest.status || '') === 'queued'",
+  "latest.event === 'issue_comment'",
+  "staleQueuedNames.has(String(latest.name || ''))",
+  'now - latestCreatedAt >= staleAfterMs',
+  'latestNeverUpdated',
+  "String(latest.head_sha || '') !== String(context.sha || '')",
+]) {
+  if (!workflow.includes(token)) fail(`delete revalidation missing ${token}`);
+}
 
 requireAll('script', script, [
   "COMMAND='/production p0-staff-api-origin-repair current-runtime'",

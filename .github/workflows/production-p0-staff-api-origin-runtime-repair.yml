@@ -159,15 +159,100 @@ jobs:
               }
 
               if (isActiveStatus(finalStatus)) {
+                let latest;
+                try {
+                  const response = await github.rest.actions.getWorkflowRun({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    run_id: run.id,
+                  });
+                  latest = response.data;
+                } catch (error) {
+                  active.push(JSON.stringify({
+                    id: run.id,
+                    name: run.name,
+                    status: finalStatus,
+                    event: run.event,
+                    head_sha: run.head_sha,
+                    retirement: 'FAILED_CLOSED_REREAD',
+                    cancel_http_status: cancelStatus,
+                    force_cancel_http_status: forceCancelStatus,
+                    reread_http_status: Number(error?.status || 0) || 'unknown',
+                  }));
+                  return false;
+                }
+
+                const latestCreatedAt = Date.parse(String(latest.created_at || ''));
+                const latestNeverUpdated = Boolean(latest.created_at) && latest.updated_at === latest.created_at;
+                const strictStaleStillQueued =
+                  String(latest.status || '') === 'queued' &&
+                  latest.event === 'issue_comment' &&
+                  staleQueuedNames.has(String(latest.name || '')) &&
+                  Number.isFinite(latestCreatedAt) &&
+                  now - latestCreatedAt >= staleAfterMs &&
+                  latestNeverUpdated &&
+                  String(latest.head_sha || '') !== String(context.sha || '');
+
+                if (!strictStaleStillQueued) {
+                  active.push(JSON.stringify({
+                    id: latest.id,
+                    name: latest.name,
+                    status: latest.status,
+                    event: latest.event,
+                    head_sha: latest.head_sha,
+                    retirement: 'FAILED_CLOSED_CHANGED_BEFORE_DELETE',
+                    cancel_http_status: cancelStatus,
+                    force_cancel_http_status: forceCancelStatus,
+                  }));
+                  return false;
+                }
+
+                let deleteStatus = null;
+                try {
+                  await github.request('DELETE /repos/{owner}/{repo}/actions/runs/{run_id}', {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    run_id: run.id,
+                  });
+                } catch (error) {
+                  if (Number(error?.status || 0) === 404) {
+                    core.notice(`Stale queued production run ${run.id}:${run.name} already deleted`);
+                    return true;
+                  }
+                  deleteStatus = Number(error?.status || 0) || 'unknown';
+                  core.warning(`Deletion failed for strict stale run ${run.id}:${run.name}; status=${deleteStatus}`);
+                }
+
+                if (deleteStatus === null) {
+                  for (let attempt = 0; attempt < 6; attempt += 1) {
+                    try {
+                      await github.rest.actions.getWorkflowRun({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        run_id: run.id,
+                      });
+                    } catch (error) {
+                      if (Number(error?.status || 0) === 404) {
+                        core.notice(`Deleted strict stale queued production run ${run.id}:${run.name}`);
+                        return true;
+                      }
+                      deleteStatus = Number(error?.status || 0) || 'unknown';
+                      break;
+                    }
+                    await sleep(1000);
+                  }
+                }
+
                 active.push(JSON.stringify({
                   id: run.id,
                   name: run.name,
                   status: finalStatus,
                   event: run.event,
                   head_sha: run.head_sha,
-                  retirement: 'FAILED_CLOSED',
+                  retirement: 'FAILED_CLOSED_DELETE',
                   cancel_http_status: cancelStatus,
                   force_cancel_http_status: forceCancelStatus,
+                  delete_http_status: deleteStatus,
                 }));
                 return false;
               }
