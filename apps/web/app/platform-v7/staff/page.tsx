@@ -9,6 +9,7 @@ import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 import { staffAccessTaskCatalog } from '@/lib/platform-v7/staff-access-task-catalog';
+import { resolveServerApiOrigin } from '@/lib/server/server-api-origin';
 import { DEFAULT_LOCALE, isAppLocale, type AppLocale } from '@/i18n/locale';
 import { ownerAccessCenterMessages } from '@/i18n/owner-access-center-messages';
 import { staffOperationalWorkspaceMessages } from '@/i18n/staff-operational-workspace-messages';
@@ -39,19 +40,7 @@ function controlledSessionSecret(): string {
   return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
 }
 
-function resolveApiOrigin(): string {
-  const configured = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim();
-  if (!configured) return '';
-  try {
-    const url = new URL(configured);
-    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') return '';
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return '';
-  }
-}
-
-const API_ORIGIN = resolveApiOrigin();
+const API_ORIGIN = resolveServerApiOrigin();
 
 type VerifiedIdentity = {
   id?: string;
