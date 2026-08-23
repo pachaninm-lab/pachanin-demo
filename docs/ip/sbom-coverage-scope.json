@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "scopeId": "tracked-dependency-manifests-v1",
+  "definition": "Coverage is the share of tracked in-repository dependency manifest roots that are included in a canonical clean-room SBOM generator with evidence files present. It is not a claim about deployable image, GitHub Actions secret, host secret, or remote runtime coverage.",
+  "nodeWorkspaceSbom": {
+    "cycloneDx": "sbom/sbom-node.cdx.json",
+    "spdx": "sbom/sbom-node.spdx.json"
+  },
+  "dedicatedSboms": [
+    {
+      "manifest": "apps/tai/pyproject.toml",
+      "ecosystem": "python",
+      "cycloneDx": "sbom/sbom-tai.cdx.json",
+      "spdx": "sbom/sbom-tai.spdx.json"
+    }
+  ],
+  "knownGaps": [
+    {
+      "manifest": "apps/landing/package.json",
+      "reason": "PACKAGE_MANIFEST_OUTSIDE_PNPM_WORKSPACE_OR_DEDICATED_SBOM"
+    }
+  ],
+  "boundaries": [
+    "Tracked dependency manifests are discovered from Git, not from a hand-maintained denominator.",
+    "Node workspace coverage requires a matching pnpm-lock.yaml importer and the canonical Node CycloneDX/SPDX pair.",
+    "Dedicated manifests require their declared canonical CycloneDX/SPDX pair.",
+    "Known gaps are explicit and fail closed if a new unlisted gap appears or an obsolete gap remains configured.",
+    "This scope does not cover OS packages in built images, GitHub Actions secrets, REG.RU host secrets, or other remote runtime state."
+  ]
+}
