@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 export const ASVS_VERSION = '5.0.0';
 export const ASVS_SOURCE_COMMIT = '5cf9b032440be53ce345ab3c130fda46ba1ce7a2';
 export const ASVS_SOURCE_URL = `https://raw.githubusercontent.com/OWASP/ASVS/${ASVS_SOURCE_COMMIT}/5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.flat.json`;
+export const ASVS_SOURCE_SHA256 = '8201b20eec2908c3380ac600c91c8ba746346fbb808859366abb232027532311';
 export const EXPECTED_REQUIREMENTS = 345;
 export const TARGET_LEVEL = 3;
 export const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
@@ -144,6 +145,14 @@ export function buildSummary(requirements, matrixCsv, { sourceBytes, repositoryS
   };
 }
 
+export function verifyPinnedSourceDigest(sourceBytes) {
+  const digest = createHash('sha256').update(sourceBytes).digest('hex');
+  if (digest !== ASVS_SOURCE_SHA256) {
+    throw new Error(`ASVS source digest mismatch: expected ${ASVS_SOURCE_SHA256}, got ${digest}`);
+  }
+  return digest;
+}
+
 export async function fetchPinnedStandard(fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== 'function') throw new Error('fetch implementation unavailable');
   const response = await fetchImpl(ASVS_SOURCE_URL, {
@@ -163,6 +172,8 @@ export async function fetchPinnedStandard(fetchImpl = globalThis.fetch) {
   if (sourceBytes.length === 0 || sourceBytes.length > MAX_SOURCE_BYTES) {
     throw new Error(`ASVS source size invalid: ${sourceBytes.length} bytes`);
   }
+
+  verifyPinnedSourceDigest(sourceBytes);
 
   let payload;
   try {
