@@ -4299,38 +4299,67 @@
     {
       "requirementId": "V14.2.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "weaker-external-sink:apps/api/src/sentry.ts",
-        "stronger-internal-sink:apps/api/src/common/middleware/log-masking.middleware.ts",
-        "documentation-set:docs/security/THREAT_MODEL.md"
+        "classification:apps/api/src/common/security/sensitive-data.ts",
+        "internal-sink:apps/api/src/common/middleware/log-masking.middleware.ts",
+        "outbound-sink:apps/api/src/sentry.ts",
+        "regression-test:apps/api/src/common/security/sensitive-data.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the external error sink still filters five key names at one level",
+          "condition": "one module still declares the sensitive-data classification for the platform",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/sensitive-data.ts"
+          ],
+          "patterns": [
+            "sensitive_field_names"
+          ]
+        },
+        {
+          "condition": "the internal logging sink still consumes that classification rather than its own",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/middleware/log-masking.middleware.ts"
+          ],
+          "patterns": [
+            "from '../security/sensitive-data'"
+          ]
+        },
+        {
+          "condition": "the outbound telemetry sink still consumes the same one",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/sentry.ts"
           ],
           "patterns": [
-            "['password', 'token', 'inn', 'passport', 'phone']"
+            "./common/security/sensitive-data"
           ]
         },
         {
-          "condition": "that filter still does not reach headers, the query string, breadcrumbs or extra context",
-          "check": "ABSENT_AT_PATH",
+          "condition": "personal data is still not collected by default on the outbound channel",
+          "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/sentry.ts"
           ],
           "patterns": [
-            "headers",
-            "query_string",
-            "breadcrumb",
-            "event.extra"
+            "senddefaultpii: false"
+          ]
+        },
+        {
+          "condition": "the test that fails when a class is enforced internally but not outbound is still present",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/sensitive-data.spec.ts"
+          ],
+          "patterns": [
+            "is driven by the same classification the internal masker uses",
+            "redacts every classified field in request headers"
           ]
         }
       ],
-      "note": "Controls are not implemented consistently, and there is no documented definition they could be implemented against. The gap is named rather than inferred from V14.1.2: the platform protects the same data to two different standards depending on which sink it flows to. Internally, the log-masking middleware rewrites eight personal-data classes by pattern, so an INN is masked wherever it appears in a line. Externally, the Sentry beforeSend hook deletes five literal key names from the top level of one object. It does not descend into nested objects, does not touch request headers where the Authorization and Cookie values sit, does not touch the query string - which matters because V14.2.1 established that verification tokens travel there - and does not touch breadcrumbs or extra context. It is also exact-match, so passwordHash, accessToken and an upper-case INN all pass through. The weaker control is on the channel that leaves the platform, which is the wrong way round, and a documented protection requirement is what would have caught that."
+      "note": "Controls are now implemented to one standard across sinks, which is what this requirement asks even while the protection-level document it refers to does not yet exist. The gap recorded when this chapter was assessed was not that the outbound filter was short, but that there were three independent classifications - eight value patterns and eighteen field names in the logging middleware, twelve of its own in the masked logger, five literal key names in the Sentry hook - and the weakest of the three faced outward. One module now declares the classification and both the internal and the outbound sink consume it, so a class cannot be enforced in one place and forgotten in the other. The outbound scrubber reaches every surface an event carries: body, headers, cookies, query string, url, extra, contexts, tags, message, user, breadcrumbs and exception values; the previous hook reached one object at one level. Field names are matched normalized for case and separators but exactly rather than by substring, because substring matching would redact tokenCount and emailVerifiedAt and produce a false sense of coverage. Personal data is no longer collected by SDK default. The tests derive their cases from the classification itself, so adding a class widens the outbound assertions automatically; the surfaces were mutation-checked, and dropping header coverage from the scrubber turns two of them red. What this decision does not claim is that the classification is the right one - that is the owner decision recorded against V14.1.1, and this change makes the platform consistent with whatever that document eventually says rather than substituting for it."
     },
     {
       "requirementId": "V14.2.5",
