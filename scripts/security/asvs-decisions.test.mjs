@@ -158,3 +158,36 @@ test('a FAIL blocks finalPass exactly as an unassessed requirement does', () => 
   assert.equal(blocksFinalPass({ applicability: APPLICABILITY.APPLICABLE, status: STATUS.FAIL }), true);
   assert.equal(blocksFinalPass({ applicability: APPLICABILITY.APPLICABLE, status: STATUS.PASS }), false);
 });
+
+test('applicability can be decided while the assessment is deliberately withheld', () => {
+  // The honest middle ground: we know the requirement applies, and we have
+  // looked, but what we saw does not justify claiming the requirement is met.
+  // This must remain expressible, and it must still block finalPass - otherwise
+  // the only way to record partial work would be to overstate or understate it.
+  const decision = {
+    requirementId: 'V6.2.1', applicability: APPLICABILITY.APPLICABLE, status: STATUS.NOT_ASSESSED,
+    evidence: ['partial-evidence:apps/api/src/one-command.ts'], conditions: held,
+    note: 'exemplary on one command; the rest were not examined',
+  };
+  assert.equal(validateDecision(decision).valid, true);
+
+  const { records, rejected } = applyDecisions(REQS, [decision]);
+  assert.equal(rejected.length, 0);
+  const record = records.find((r) => r.reqId === 'V6.2.1');
+  assert.equal(record.applicability, APPLICABILITY.APPLICABLE);
+  assert.equal(record.status, STATUS.NOT_ASSESSED);
+  assert.equal(blocksFinalPass(record), true);
+});
+
+test('an applicable-but-unassessed requirement is counted apart from an undecided one', () => {
+  // These two are not the same state and must not collapse into one number:
+  // "nobody has decided whether this applies" is a different debt from
+  // "it applies and we have not finished assessing it".
+  const summary = summariseDecisions([
+    { applicability: APPLICABILITY.APPLICABLE, status: STATUS.NOT_ASSESSED },
+    { applicability: APPLICABILITY.PENDING, status: STATUS.NOT_ASSESSED },
+  ]);
+  assert.equal(summary.finalPass, false);
+  assert.ok(summary.blockers.includes('NOT_ASSESSED:1'));
+  assert.ok(summary.blockers.includes('PENDING_APPLICABILITY_REVIEW:1'));
+});

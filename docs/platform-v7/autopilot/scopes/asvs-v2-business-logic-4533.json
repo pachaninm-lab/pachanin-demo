@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4533,
+  "branch": "sec/asvs-v2-business-logic-4533",
+  "status": "active",
+  "purpose": "Assess ASVS V2 Validation and Business Logic against the authoritative deal command path, where the risk is not a missing control but an existing one being mistaken for compliance.",
+  "authorityBaseExactMain": "0d126bb29661d1df796035013d13fa6f8563bce6",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v2-business-logic-4533.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/asvs-decisions.test.mjs"
+  ],
+  "requiredInvariants": [
+    "Each of the 13 V2 requirements carries its own decision and its own evidence.",
+    "The presence of a transaction, a lock or a validation pipe is not by itself a PASS; the control must be bound to a file and re-verified on every run.",
+    "A decision that names the deal lifecycle must state which of the two transition maps in the tree it rests on.",
+    "A requirement whose assessment cannot be honestly completed stays NOT_ASSESSED with the reason recorded, and still blocks finalPass.",
+    "FAIL is recorded and reported, never resolved by editing product logic.",
+    "finalPass stays false.",
+    "Requirement prose from the standard must not be copied into the evidence artifact.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "V2.3.1 names the authoritative command path and states that runtime-core carries a separate map it does not rest on.",
+    "The transaction and locking PASS decisions are bound to the lines where those mechanisms apply to a deal command.",
+    "The missing anti-automation control on the bulk-data endpoints is recorded as FAIL and is not softened by reference to an nginx configuration that no deployment file references.",
+    "V2.2.3 records applicability as decided and the assessment as deliberately withheld, with the reason stated.",
+    "An applicable-but-unassessed requirement is counted apart from an undecided one and still blocks finalPass.",
+    "The concurrent-scope guard accepts exactly the three authorized paths."
+  ]
+}
