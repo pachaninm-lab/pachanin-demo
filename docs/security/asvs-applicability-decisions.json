@@ -1683,26 +1683,16 @@
     {
       "requirementId": "V8.2.2",
       "applicability": "APPLICABLE",
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": [
         "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts",
         "policies:infra/sql/production-rls-policies.sql",
-        "policies:infra/sql/postgresql-deal-authority-policies.sql"
+        "policies:infra/sql/postgresql-deal-authority-policies.sql",
+        "uncovered-table:apps/api/prisma/migrations/20260712090000_industrial_transaction_core/migration.sql"
       ],
       "conditions": [
         {
-          "condition": "the request subject is bound into the transaction before any query runs",
-          "check": "PRESENT_AT_PATH",
-          "paths": [
-            "apps/api/src/common/prisma/rls-transaction.service.ts"
-          ],
-          "patterns": [
-            "set_config('app.current_tenant_id'",
-            "set_config('app.current_user_id'"
-          ]
-        },
-        {
-          "condition": "row policies decide on that bound subject rather than on caller input",
+          "condition": "row policies decide on the bound subject where they exist",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "infra/sql/production-rls-policies.sql",
@@ -1711,9 +1701,19 @@
           "patterns": [
             "app.current_tenant_id"
           ]
+        },
+        {
+          "condition": "a tenant-bearing table still carries no row level security",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/prisma/migrations/20260712090000_industrial_transaction_core/migration.sql"
+          ],
+          "patterns": [
+            "row level security"
+          ]
         }
       ],
-      "note": "Data-specific access is decided per row by PostgreSQL from the authenticated subject. The transaction wrapper binds user, organization, tenant, role and session as transaction-local settings before the work runs, and the policies read those settings - 238 references to app.current_tenant_id and 136 to app.current_user_id across the migrations, over 72 tables with row level security and 268 policies. A consumer cannot request rows outside their own data by asking for them."
+      "note": "Where a policy exists, data-specific access is decided per row by PostgreSQL from the authenticated subject, and that part is strong. It is not universal. Measured denominator: 40 Prisma models carry tenantId, 37 map to a table with ENABLE ROW LEVEL SECURITY, and 3 have no policy at all - deal_events, fgis_grain_tenant_read_provider_claims and fgis_grain_tenant_read_audit_heads. The two FGIS tables look missed rather than excluded: the same migration enables row level security on fgis_grain_tenant_read_authorizations and fgis_grain_tenant_read_audits. Stated precisely in both directions. deal_events is live - the authoritative command path reads and writes it inside the RLS transaction - but with no policy on the table the transaction-local tenant setting constrains nothing there. No cross-tenant read is exposed today: the one service that would read it filtered by dealId alone, DealEventService, has no reference outside its own file and is registered in no module. So this is a missing control, not an observed breach. deal_events is not unprotected either - the industrial transaction core migration enforces append-only on it - but append-only is an integrity control, not a tenancy control, and says nothing about which tenant may read the rows. Also not a finding: the 165 plain-client Prisma calls against 146 transaction-wrapped ones. On a table that HAS a policy, a read outside the transaction has no tenant setting, the policy cannot match, and the read returns nothing - fail-closed, the correct direction. Correction: this decision was first recorded PASS on 72 tables with row level security and 268 policies. Those numbers are real and they were the wrong measurement: they count the tables that have the control, not the tables that need it. I flagged that denominator as unverified when reporting the chapter and then verified it, which is what turned the verdict."
     },
     {
       "requirementId": "V8.2.3",
@@ -1803,9 +1803,19 @@
             "row level security",
             "create policy"
           ]
+        },
+        {
+          "condition": "the database layer does not yet cover every tenant-bearing table",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/prisma/migrations/20260712090000_industrial_transaction_core/migration.sql"
+          ],
+          "patterns": [
+            "row level security"
+          ]
         }
       ],
-      "note": "Enforcement sits in two places a client cannot reach: a global server-side guard, and row policies inside PostgreSQL. Nothing an untrusted consumer controls participates in the decision. The database layer is the stronger claim of the two, because it holds even if the service layer forgets - a query written without a tenant filter still cannot cross tenants."
+      "note": "Enforcement sits in two places a client cannot reach: a global server-side guard, and row policies inside PostgreSQL. Nothing an untrusted consumer controls participates in the decision, and that holds for this requirement, which asks that the rules be enforced at a trusted service layer rather than that the database cover everything. Wording corrected: the first version said the database layer \"holds even if the service layer forgets\". That is true for the 37 tenant-bearing tables with a policy and false for the 3 without, so the claim is now scoped rather than universal. The trusted-layer requirement is still met - the guard is global and the policies are real - while the coverage gap is recorded where it belongs, under V8.2.2 and V8.4.1."
     },
     {
       "requirementId": "V8.3.2",
@@ -1890,11 +1900,11 @@
     {
       "requirementId": "V8.4.1",
       "applicability": "APPLICABLE",
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": [
         "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts",
         "policies:infra/sql/production-rls-policies.sql",
-        "policies:infra/sql/postgresql-deal-authority-policies.sql"
+        "uncovered-table:apps/api/prisma/migrations/20260712090000_industrial_transaction_core/migration.sql"
       ],
       "conditions": [
         {
@@ -1908,18 +1918,17 @@
           ]
         },
         {
-          "condition": "policies constrain rows to that tenant",
-          "check": "PRESENT_AT_PATH",
+          "condition": "a tenant-bearing table still carries no row level security",
+          "check": "ABSENT_AT_PATH",
           "paths": [
-            "infra/sql/production-rls-policies.sql",
-            "infra/sql/postgresql-deal-authority-policies.sql"
+            "apps/api/prisma/migrations/20260712090000_industrial_transaction_core/migration.sql"
           ],
           "patterns": [
-            "app.current_tenant_id"
+            "row level security"
           ]
         }
       ],
-      "note": "Cross-tenant isolation is enforced by the database rather than by application code, which is the strongest available form: 72 tables with row level security, 268 policies, and a tenant identity bound as a transaction-local setting before any query executes. An operation cannot affect a tenant the consumer has no relationship with even if the service layer contains a mistake, because the boundary sits below the service layer."
+      "note": "The requirement says a consumer operation must NEVER affect a tenant they have no relationship with. \"Never\" is not established. Measured denominator: 40 Prisma models carry tenantId, 37 map to a table with ENABLE ROW LEVEL SECURITY, and 3 have no policy at all - deal_events, fgis_grain_tenant_read_provider_claims and fgis_grain_tenant_read_audit_heads. The two FGIS tables look missed rather than excluded: the same migration enables row level security on fgis_grain_tenant_read_authorizations and fgis_grain_tenant_read_audits. For those three tables there is no boundary below the service layer, which is exactly what the first version of this note claimed as its strength. Stated precisely in both directions. deal_events is live - the authoritative command path reads and writes it inside the RLS transaction - but with no policy on the table the transaction-local tenant setting constrains nothing there. No cross-tenant read is exposed today: the one service that would read it filtered by dealId alone, DealEventService, has no reference outside its own file and is registered in no module. So this is a missing control, not an observed breach. deal_events is not unprotected either - the industrial transaction core migration enforces append-only on it - but append-only is an integrity control, not a tenancy control, and says nothing about which tenant may read the rows. Also not a finding: the 165 plain-client Prisma calls against 146 transaction-wrapped ones. On a table that HAS a policy, a read outside the transaction has no tenant setting, the policy cannot match, and the read returns nothing - fail-closed, the correct direction. Correction: this decision was first recorded PASS on 72 tables with row level security and 268 policies. Those numbers are real and they were the wrong measurement: they count the tables that have the control, not the tables that need it. I flagged that denominator as unverified when reporting the chapter and then verified it, which is what turned the verdict."
     },
     {
       "requirementId": "V8.4.2",
