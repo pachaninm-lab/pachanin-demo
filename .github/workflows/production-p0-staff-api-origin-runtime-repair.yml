@@ -7,14 +7,14 @@ on:
       - '.github/workflows/production-p0-staff-api-origin-runtime-repair.yml'
       - 'scripts/production-p0-staff-api-origin-runtime-repair.sh'
       - 'scripts/check-production-p0-staff-api-origin-runtime-repair.mjs'
-      - 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-4559.json'
+      - 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-repair-4559.json'
   push:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-staff-api-origin-runtime-repair.yml'
       - 'scripts/production-p0-staff-api-origin-runtime-repair.sh'
       - 'scripts/check-production-p0-staff-api-origin-runtime-repair.mjs'
-      - 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-4559.json'
+      - 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-repair-4559.json'
   issue_comment:
     types: [created]
 
@@ -112,6 +112,38 @@ jobs:
             const staleAfterMs = 72 * 60 * 60 * 1000;
             const now = Date.now();
 
+            const isStrictStaleQueuedIssueComment = (run) => {
+              const createdAt = Date.parse(String(run.created_at || ''));
+              const neverUpdated = Boolean(run.created_at) && run.updated_at === run.created_at;
+              return (
+                String(run.status || '') === 'queued' &&
+                run.event === 'issue_comment' &&
+                staleQueuedNames.has(String(run.name || '')) &&
+                Number.isFinite(createdAt) &&
+                now - createdAt >= staleAfterMs &&
+                neverUpdated &&
+                String(run.head_sha || '') !== String(context.sha || '')
+              );
+            };
+
+            const pushActive = (run, reason) => {
+              active.push(JSON.stringify({
+                id: run.id,
+                name: String(run.name || ''),
+                status: run.status || null,
+                event: run.event,
+                actor: run.actor?.login || null,
+                triggering_actor: run.triggering_actor?.login || null,
+                created_at: run.created_at,
+                updated_at: run.updated_at,
+                head_sha: run.head_sha,
+                workflow_id: run.workflow_id,
+                run_attempt: run.run_attempt,
+                display_title: run.display_title,
+                reason,
+              }));
+            };
+
             for (const status of ['queued', 'in_progress']) {
               const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
                 owner: context.repo.owner,
@@ -124,41 +156,52 @@ jobs:
                 const name = String(run.name || '');
                 if (!/(production|release|deploy|reg\.ru|cutover|activation|rolling|repair)/i.test(name)) continue;
 
-                const createdAt = Date.parse(String(run.created_at || ''));
-                const neverUpdated = Boolean(run.created_at) && run.updated_at === run.created_at;
-                const staleQueuedIssueComment =
-                  status === 'queued' &&
-                  run.event === 'issue_comment' &&
-                  staleQueuedNames.has(name) &&
-                  Number.isFinite(createdAt) &&
-                  now - createdAt >= staleAfterMs &&
-                  neverUpdated &&
-                  String(run.head_sha || '') !== String(context.sha || '');
+                if (isStrictStaleQueuedIssueComment(run)) {
+                  let cancelFailed = false;
+                  try {
+                    await github.rest.actions.cancelWorkflowRun({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      run_id: run.id,
+                    });
+                    core.notice(`Cancellation requested for stale queued production issue-comment run ${run.id}:${name}`);
+                  } catch (error) {
+                    cancelFailed = true;
+                    core.warning(`Cancellation API failed for stale queued run ${run.id}:${name}; re-reading exact run before classification`);
+                  }
 
-                if (staleQueuedIssueComment) {
-                  await github.rest.actions.cancelWorkflowRun({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    run_id: run.id,
-                  });
-                  core.notice(`Retired stale queued production issue-comment run ${run.id}:${name}`);
+                  let reread;
+                  try {
+                    const response = await github.rest.actions.getWorkflowRun({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      run_id: run.id,
+                    });
+                    reread = response.data;
+                  } catch (error) {
+                    pushActive(run, 'STALE_REREAD_FAILED');
+                    continue;
+                  }
+
+                  if (String(reread.status || '') === 'completed') {
+                    core.notice(`Stale queued production run ${run.id}:${name} is terminal after re-read`);
+                    continue;
+                  }
+
+                  if (isStrictStaleQueuedIssueComment(reread)) {
+                    if (cancelFailed) {
+                      core.warning(`Cancellation failed but exact re-read confirms unchanged strict stale queued ghost ${run.id}:${name}; treating it as non-blocking`);
+                    } else {
+                      core.notice(`Exact re-read confirms strict stale queued run ${run.id}:${name}; treating it as non-blocking while cancellation settles`);
+                    }
+                    continue;
+                  }
+
+                  pushActive(reread, 'STALE_RECHECK_BECAME_ACTIVE_OR_CHANGED');
                   continue;
                 }
 
-                active.push(JSON.stringify({
-                  id: run.id,
-                  name,
-                  status,
-                  event: run.event,
-                  actor: run.actor?.login || null,
-                  triggering_actor: run.triggering_actor?.login || null,
-                  created_at: run.created_at,
-                  updated_at: run.updated_at,
-                  head_sha: run.head_sha,
-                  workflow_id: run.workflow_id,
-                  run_attempt: run.run_attempt,
-                  display_title: run.display_title,
-                }));
+                pushActive(run, 'ACTIVE_OR_NONSTALE_PRODUCTION_RUN');
               }
             }
             if (active.length) core.setFailed(`Concurrent production workflow detected: ${active.join(', ')}`);
