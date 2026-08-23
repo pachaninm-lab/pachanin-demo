@@ -98,10 +98,11 @@ test('summary is deterministic, source-digested, and cannot claim a final pass',
   assert.equal(summary.proprietarySourceUploaded, false);
   assert.equal(summary.outputContainsRequirementDescriptions, false);
   assert.equal(summary.finalPass, false);
-  assert.deepEqual(summary.blockers, [
-    `NOT_ASSESSED:${EXPECTED_REQUIREMENTS}`,
-    `PENDING_APPLICABILITY_REVIEW:${EXPECTED_REQUIREMENTS}`,
-  ]);
+  // NOT_ASSESSED now counts requirements decided APPLICABLE but not yet
+  // assessed. While every requirement is still pending an applicability
+  // decision, that category is empty and PENDING alone is the blocker - the
+  // same 345 requirements, counted once rather than twice.
+  assert.deepEqual(summary.blockers, [`PENDING_APPLICABILITY_REVIEW:${EXPECTED_REQUIREMENTS}`]);
   assert.equal(summary.matrixSha256, createHash('sha256').update(matrix, 'utf8').digest('hex'));
   assert.equal(summary.sourceSha256, createHash('sha256').update(sourceBytes).digest('hex'));
 });

@@ -1,4 +1,8 @@
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
+import { APPLICABILITY, STATUS, applyDecisions, summariseDecisions } from './asvs-decisions.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -92,25 +96,75 @@ function csvRow(values) {
   return values.map(csvCell).join(',');
 }
 
-export function buildMatrixCsv(requirements) {
+export function buildMatrixCsv(records) {
   const rows = [csvRow(CSV_HEADERS)];
-  for (const requirement of requirements) {
+  for (const record of records) {
     rows.push(csvRow([
       ASVS_VERSION,
       ASVS_SOURCE_COMMIT,
-      `v${ASVS_VERSION}-${requirement.reqId.slice(1)}`,
-      requirement.reqId,
-      requirement.level,
-      'PENDING_APPLICABILITY_REVIEW',
-      'NOT_ASSESSED',
-      '',
-      'Evidence assessment required; no compliance status inferred.',
+      `v${ASVS_VERSION}-${record.reqId.slice(1)}`,
+      record.reqId,
+      record.level,
+      record.applicability,
+      record.status,
+      record.evidenceRef ?? '',
+      record.note ?? '',
     ]));
   }
   return `${rows.join('\n')}\n`;
 }
 
-export function buildSummary(requirements, matrixCsv, { sourceBytes, repositorySourceSha = null } = {}) {
+/**
+ * Conditions are evaluated here rather than trusted from the decision file, so
+ * a decision cannot keep standing on a fact that has since changed.
+ */
+export function evaluateCondition(condition, { tracked, readFile }) {
+  const patterns = (condition?.patterns ?? []).map((pattern) => String(pattern).toLowerCase());
+  if (patterns.length === 0) return { ...condition, holds: false, evidence: 'condition declares no patterns' };
+
+  if (condition.check === 'ABSENT_IN_TREE') {
+    const roots = condition.roots ?? [];
+    const candidates = tracked.filter((path) => (
+      roots.some((root) => path.startsWith(`${root}/`))
+      && /\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(path)
+    ));
+    const hits = candidates.filter((path) => {
+      const text = (readFile(path) ?? '').toLowerCase();
+      return patterns.some((pattern) => text.includes(pattern));
+    });
+    return {
+      condition: condition.condition,
+      holds: hits.length === 0,
+      evidence: hits.length === 0
+        ? `${candidates.length} source files scanned, no match`
+        : `matched in ${hits.slice(0, 3).join(', ')}`,
+    };
+  }
+
+  if (condition.check === 'ABSENT_IN_MANIFESTS') {
+    const manifests = tracked.filter((path) => path === 'package.json' || path.endsWith('/package.json'));
+    const hits = manifests.filter((path) => {
+      const text = (readFile(path) ?? '').toLowerCase();
+      return patterns.some((pattern) => text.includes(pattern));
+    });
+    return {
+      condition: condition.condition,
+      holds: hits.length === 0,
+      evidence: hits.length === 0 ? `${manifests.length} manifests scanned, no match` : `declared in ${hits.join(', ')}`,
+    };
+  }
+
+  return { condition: condition?.condition, holds: false, evidence: `unsupported check ${String(condition?.check)}` };
+}
+
+export function evaluateDecisions(decisions, context) {
+  return (decisions ?? []).map((decision) => ({
+    ...decision,
+    conditions: (decision.conditions ?? []).map((condition) => evaluateCondition(condition, context)),
+  }));
+}
+
+export function buildSummary(requirements, matrixCsv, { sourceBytes, repositorySourceSha = null, decided = null, rejected = [] } = {}) {
   if (!Buffer.isBuffer(sourceBytes) || sourceBytes.length === 0) {
     throw new Error('ASVS source bytes are required for source digest evidence');
   }
@@ -119,6 +173,14 @@ export function buildSummary(requirements, matrixCsv, { sourceBytes, repositoryS
     : null;
   const levelCounts = { '1': 0, '2': 0, '3': 0 };
   for (const requirement of requirements) levelCounts[String(requirement.level)] += 1;
+
+  const records = decided ?? requirements.map((requirement) => ({
+    reqId: requirement.reqId,
+    level: requirement.level,
+    applicability: APPLICABILITY.PENDING,
+    status: STATUS.NOT_ASSESSED,
+  }));
+  const rollup = summariseDecisions(records);
 
   return {
     schemaVersion: 'pc-crop.asvs-evidence.v1',
@@ -132,16 +194,20 @@ export function buildSummary(requirements, matrixCsv, { sourceBytes, repositoryS
     targetLevel: TARGET_LEVEL,
     requirements: requirements.length,
     levelCounts,
-    applicabilityCounts: { PENDING_APPLICABILITY_REVIEW: requirements.length },
-    statusCounts: { NOT_ASSESSED: requirements.length },
+    applicabilityCounts: rollup.applicabilityCounts,
+    statusCounts: rollup.statusCounts,
+    decisionsApplied: decided ? decided.filter((record) => record.applicability !== 'PENDING_APPLICABILITY_REVIEW' || record.status !== 'NOT_ASSESSED').length : 0,
+    decisionsRejected: rejected.length,
+    rejectedDecisions: rejected,
     matrixSha256: createHash('sha256').update(matrixCsv, 'utf8').digest('hex'),
     proprietarySourceUploaded: false,
     outputContainsRequirementDescriptions: false,
-    finalPass: false,
-    blockers: [
-      `NOT_ASSESSED:${requirements.length}`,
-      `PENDING_APPLICABILITY_REVIEW:${requirements.length}`,
-    ],
+    // A rejected decision must never be silently downgraded to "pending":
+    // it means the decision file says something the tree does not support.
+    finalPass: rejected.length === 0 && rollup.finalPass,
+    blockers: rejected.length > 0
+      ? [...rollup.blockers, `REJECTED_DECISIONS:${rejected.length}`]
+      : rollup.blockers,
   };
 }
 
@@ -184,11 +250,36 @@ export async function fetchPinnedStandard(fetchImpl = globalThis.fetch) {
   return { payload, sourceBytes };
 }
 
-export async function generateEvidence(outDir, { fetchImpl = globalThis.fetch, repositorySourceSha = process.env.SOURCE_SHA } = {}) {
+export async function generateEvidence(outDir, { fetchImpl = globalThis.fetch, repositorySourceSha = process.env.SOURCE_SHA, decisionsPath = 'docs/security/asvs-applicability-decisions.json' } = {}) {
   const { payload, sourceBytes } = await fetchPinnedStandard(fetchImpl);
   const requirements = validateStandard(payload);
-  const matrixCsv = buildMatrixCsv(requirements);
-  const summary = buildSummary(requirements, matrixCsv, { sourceBytes, repositorySourceSha });
+
+  const tracked = execFileSync('git', ['ls-files'], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+    .split('\n')
+    .filter(Boolean);
+  const fileCache = new Map();
+  const readFile = (path) => {
+    if (!fileCache.has(path)) {
+      try {
+        fileCache.set(path, readFileSync(path, 'utf8'));
+      } catch {
+        fileCache.set(path, null);
+      }
+    }
+    return fileCache.get(path);
+  };
+
+  let declared = [];
+  try {
+    declared = JSON.parse(readFileSync(decisionsPath, 'utf8')).decisions ?? [];
+  } catch {
+    declared = [];
+  }
+
+  const evaluated = evaluateDecisions(declared, { tracked, readFile });
+  const { records, rejected } = applyDecisions(requirements, evaluated);
+  const matrixCsv = buildMatrixCsv(records);
+  const summary = buildSummary(requirements, matrixCsv, { sourceBytes, repositorySourceSha, decided: records, rejected });
 
   await mkdir(outDir, { recursive: true });
   await writeFile(resolve(outDir, 'ASVS_MATRIX.csv'), matrixCsv, 'utf8');
