@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2129,
+  "scannedFiles": 2131,
   "operations": [
     {
       "operation": "encryption",
@@ -189,25 +189,21 @@
     {
       "operation": "password-hash",
       "label": "Password hashing",
-      "sites": 8,
+      "sites": 4,
       "algorithms": [
         {
           "algorithm": "hash",
-          "sites": 5,
+          "sites": 2,
           "files": [
             "apps/api/scripts/seed-design-system-v8-identities.mjs",
-            "apps/api/src/modules/auth/gekta-registration.service.ts",
-            "apps/api/src/modules/auth/organization-invitation.service.ts",
-            "apps/api/src/modules/auth/password-reset.service.ts",
-            "apps/api/src/modules/auth/registration-application.service.ts"
+            "apps/api/src/modules/auth/password-hashing.ts"
           ]
         },
         {
           "algorithm": "hashsync",
-          "sites": 3,
+          "sites": 2,
           "files": [
-            "apps/api/src/modules/auth/auth.service.ts",
-            "apps/api/src/modules/auth/gekta-registration.service.ts",
+            "apps/api/src/modules/auth/password-hashing.ts",
             "apps/api/src/modules/deals/canonical-test-deal.seed.ts"
           ]
         }
