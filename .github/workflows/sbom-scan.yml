@@ -196,6 +196,9 @@ jobs:
             -o artifacts/ip-clean-room/sbom/sbom-tai.cdx.json \
             apps/tai
 
+      - name: Build measured SBOM scope coverage
+        run: node scripts/ip/build-sbom-coverage.mjs artifacts/ip-clean-room docs/ip/sbom-coverage-scope.json
+
       - name: Build transitive license map
         run: node scripts/ip/build-license-map.mjs artifacts/ip-clean-room/sbom artifacts/ip-clean-room
 

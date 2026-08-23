@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 2,
+  "scopeId": "dependency-root-coverage-v2",
+  "definition": "Coverage is the share of dependency-bearing roots discovered in the tracked tree that are either included in a canonical clean-room SBOM, carry no declared dependencies at all, or are excluded as non-runtime under conditions re-verified on every run.",
+  "denominatorPolicy": "The denominator is discovered from the tree, never hand-entered. Discovery covers declared manifests across ecosystems and components that carry third-party imports without declaring any manifest, because the second class is invisible to a manifest-only scan.",
+  "exclusionPolicy": "Exclusions are computed, not listed. A component may be excluded only while every condition supporting it still holds - no container image can execute it, no root build script produces it, no deployment manifest ships it, and where applicable it is declared NOT_DEPLOYABLE in the source-controlled optional-runtime inventory. Adding a Dockerfile, build script or deployment manifest collapses the exclusion and fails the gate.",
+  "canonicalSboms": [
+    {
+      "manifest": "package.json",
+      "ecosystem": "npm",
+      "artifacts": ["sbom/sbom-node.cdx.json", "sbom/sbom-node.spdx.json"]
+    },
+    {
+      "manifest": "apps/api/package.json",
+      "ecosystem": "npm",
+      "artifacts": ["sbom/sbom-node.cdx.json", "sbom/sbom-node.spdx.json"]
+    },
+    {
+      "manifest": "apps/web/package.json",
+      "ecosystem": "npm",
+      "artifacts": ["sbom/sbom-node.cdx.json", "sbom/sbom-node.spdx.json"]
+    },
+    {
+      "manifest": "apps/tai/pyproject.toml",
+      "ecosystem": "python",
+      "artifacts": ["sbom/sbom-tai.cdx.json", "sbom/sbom-tai.spdx.json"]
+    }
+  ],
+  "boundaries": [
+    "Source dependency roots only. Built-image OS packages are not claimed.",
+    "GitHub Actions secrets and REG.RU host state are outside this metric and need their own inventory.",
+    "Remote runtime state is not claimed.",
+    "A manifest declaring no dependencies is covered because there is nothing to cover, not because an SBOM lists it."
+  ]
+}

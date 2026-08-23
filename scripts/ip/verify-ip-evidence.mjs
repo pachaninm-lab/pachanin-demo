@@ -25,6 +25,8 @@ const required = [
   'SIMILARITY_FINDINGS.csv',
   'similarity-fingerprints.json',
   'similarity-summary.json',
+  'SBOM_COVERAGE.json',
+  'SBOM_COVERAGE.md',
   'security/asvs/ASVS_MATRIX.csv',
   'security/asvs/ASVS_SUMMARY.json',
 ];
@@ -63,6 +65,70 @@ for (const name of requiredSboms) {
   }
 }
 
+const coverage = JSON.parse(readFileSync(join(outDir, 'SBOM_COVERAGE.json'), 'utf8'));
+const coverageRecords = Array.isArray(coverage.records) ? coverage.records : [];
+const coverageComponents = new Set(coverageRecords.map((record) => record.component));
+const COVERED_STATUSES = new Set(['RUNTIME_COVERED', 'BUILD_ONLY_COVERED', 'NOT_RUNTIME_WITH_JUSTIFICATION']);
+const VALID_STATUSES = new Set([...COVERED_STATUSES, 'UNKNOWN']);
+
+const coveredRecords = coverageRecords.filter((record) => COVERED_STATUSES.has(record.status));
+const unknownRecords = coverageRecords.filter((record) => record.status === 'UNKNOWN');
+const invalidStatusRecords = coverageRecords.filter((record) => !VALID_STATUSES.has(record.status));
+
+// An exclusion only counts while every one of its conditions still holds. A
+// record claiming NOT_RUNTIME with no conditions, or with a failing condition,
+// is a fabricated justification and must fail rather than be trusted.
+const fabricatedExclusions = coverageRecords.filter((record) => {
+  if (record.status !== 'NOT_RUNTIME_WITH_JUSTIFICATION') return false;
+  const checks = record.justification?.checks;
+  return !Array.isArray(checks) || checks.length === 0 || !checks.every((check) => check.holds === true);
+});
+
+// A covered runtime root must name the artifact that covers it, unless there is
+// genuinely nothing to cover.
+const unmappedRuntimeRecords = coverageRecords.filter((record) => (
+  (record.status === 'RUNTIME_COVERED' || record.status === 'BUILD_ONLY_COVERED')
+  && record.reason !== 'NO_DECLARED_DEPENDENCIES'
+  && (!Array.isArray(record.coveringSbom) || record.coveringSbom.length === 0)
+));
+
+const expectedCoveragePercent = coverageRecords.length > 0
+  ? Number(((coveredRecords.length / coverageRecords.length) * 100).toFixed(2))
+  : -1;
+const expectedComplete = coverageRecords.length > 0
+  && coveredRecords.length === coverageRecords.length
+  && unknownRecords.length === 0;
+const sourceShaMatches = !process.env.SOURCE_SHA || coverage.sourceSha === process.env.SOURCE_SHA;
+
+if (coverage.schemaVersion !== 2
+  || !/^[0-9a-f]{40}$/u.test(String(coverage.sourceSha ?? ''))
+  || !sourceShaMatches
+  || coverageRecords.length === 0
+  || coverageComponents.size !== coverageRecords.length
+  || invalidStatusRecords.length > 0
+  || fabricatedExclusions.length > 0
+  || unmappedRuntimeRecords.length > 0
+  || coverage.totals?.total !== coverageRecords.length
+  || coverage.totals?.covered !== coveredRecords.length
+  || coverage.totals?.unknown !== unknownRecords.length
+  || coverage.totals?.uncovered !== coverageRecords.length - coveredRecords.length
+  || coverage.totals?.coveragePercent !== expectedCoveragePercent
+  || coverage.complete !== expectedComplete
+  || typeof coverage.scopeNote !== 'string'
+  || coverage.scopeNote.length === 0) {
+  console.error('IP evidence gate: SBOM coverage report is incomplete or internally inconsistent');
+  if (fabricatedExclusions.length > 0) {
+    console.error(`  unjustified exclusions: ${fabricatedExclusions.map((r) => r.component).join(', ')}`);
+  }
+  if (unmappedRuntimeRecords.length > 0) {
+    console.error(`  covered roots with no SBOM artifact: ${unmappedRuntimeRecords.map((r) => r.component).join(', ')}`);
+  }
+  if (unknownRecords.length > 0) {
+    console.error(`  unknown dependency roots: ${unknownRecords.map((r) => r.component).join(', ')}`);
+  }
+  process.exit(3);
+}
+
 const license = JSON.parse(readFileSync(join(outDir, 'license-summary.json'), 'utf8'));
 const expectedLicenseSboms = ['sbom-node.cdx.json', 'sbom-tai.cdx.json'];
 const actualLicenseSboms = Array.isArray(license.sbomFiles) ? [...license.sbomFiles].sort() : [];
@@ -76,30 +142,30 @@ if (!Number.isInteger(license.components) || license.components <= 0
   || JSON.stringify(actualLicenseSboms) !== JSON.stringify(expectedLicenseSboms)
   || license.internalEvidenceMode !== 'SBOM_SRCFILE_TO_EXACT_REPOSITORY_MANIFEST') {
   console.error('IP evidence gate: license summary is incomplete or internally inconsistent');
-  process.exit(3);
+  process.exit(4);
 }
 const blocked = license.classifications?.BLOCKED_STRONG_COPYLEFT_OR_SOURCE_AVAILABLE ?? 0;
 const unknownLicenses = license.classifications?.UNKNOWN_REVIEW ?? 0;
 const legalReviewLicenses = license.classifications?.LEGAL_REVIEW ?? 0;
 if (blocked > 0) {
   console.error(`IP evidence gate: ${blocked} blocked license candidate(s)`);
-  process.exit(3);
+  process.exit(4);
 }
 if (!baselineMode && (unknownLicenses > 0 || legalReviewLicenses > 0)) {
   console.error(`IP evidence gate: unresolved dependency license candidates (unknown=${unknownLicenses}, legal_review=${legalReviewLicenses})`);
-  process.exit(4);
+  process.exit(5);
 }
 
 const provenance = JSON.parse(readFileSync(join(outDir, 'PROVENANCE_SUMMARY.json'), 'utf8'));
 if (provenance.recordedFiles !== provenance.trackedFiles) {
   console.error(`IP evidence gate: provenance coverage incomplete (${provenance.recordedFiles}/${provenance.trackedFiles})`);
-  process.exit(5);
+  process.exit(6);
 }
 
 const similarity = JSON.parse(readFileSync(join(outDir, 'similarity-summary.json'), 'utf8'));
 if (similarity.networkUsed !== false || similarity.sourceUploaded !== false) {
   console.error('IP evidence gate: similarity evidence violated the offline/no-upload boundary');
-  process.exit(6);
+  process.exit(7);
 }
 
 function parseQuotedCsvLine(line) {
@@ -252,6 +318,8 @@ if (provenance.unknownOriginFiles > 0) finalBlockers.push(`UNKNOWN_ORIGIN_FILES:
 if (provenance.unresolvedRightsFiles > 0) finalBlockers.push(`UNRESOLVED_RIGHTS_FILES:${provenance.unresolvedRightsFiles}`);
 if (provenance.crownJewelUnknownOrigin > 0) finalBlockers.push(`CROWN_JEWEL_UNKNOWN_ORIGIN:${provenance.crownJewelUnknownOrigin}`);
 if (provenance.unresolvedLicenseMarkers > 0) finalBlockers.push(`UNRESOLVED_FILE_LICENSE_MARKERS:${provenance.unresolvedLicenseMarkers}`);
+if (!coverage.complete) finalBlockers.push(`INCOMPLETE_SBOM_SCOPE:${coveredRecords.length}/${coverageRecords.length}`);
+if (unknownRecords.length > 0) finalBlockers.push(`UNKNOWN_DEPENDENCY_ROOTS:${unknownRecords.length}`);
 if (similarity.finalEligible !== true) finalBlockers.push(...(similarity.finalBlockers ?? ['SIMILARITY_NOT_FINAL_ELIGIBLE']));
 if (asvsStatusCounts.NOT_ASSESSED > 0) finalBlockers.push(`ASVS_NOT_ASSESSED:${asvsStatusCounts.NOT_ASSESSED}`);
 if (asvsStatusCounts.FAIL > 0) finalBlockers.push(`ASVS_FAIL:${asvsStatusCounts.FAIL}`);
@@ -260,11 +328,11 @@ if (asvs.finalPass !== true) finalBlockers.push('ASVS_NOT_FINAL_PASS');
 
 if (!baselineMode && finalBlockers.length) {
   console.error(`IP final evidence gate BLOCKED: ${finalBlockers.join(', ')}`);
-  process.exit(7);
+  process.exit(8);
 }
 
 if (baselineMode) {
-  console.log(`IP evidence BASELINE_STRUCTURALLY_COMPLETE: ${provenance.recordedFiles}/${provenance.trackedFiles} tracked files; ${license.components} dependency components; exact Node/TAI CycloneDX+SPDX set; ASVS ${asvs.requirements}/${expectedAsvsRequirements} inventoried; final blockers: ${finalBlockers.join(', ') || 'NONE'}`);
+  console.log(`IP evidence BASELINE_STRUCTURALLY_COMPLETE: ${provenance.recordedFiles}/${provenance.trackedFiles} tracked files; ${license.components} dependency components; SBOM scope ${coveredRecords.length}/${coverageRecords.length} (${coverage.totals.coveragePercent}%); exact Node/TAI CycloneDX+SPDX set; ASVS ${asvs.requirements}/${expectedAsvsRequirements} inventoried; final blockers: ${finalBlockers.join(', ') || 'NONE'}`);
 } else {
-  console.log(`IP BOUNDED EVIDENCE GATE PASS: ${provenance.recordedFiles}/${provenance.trackedFiles} origins resolved; ${license.components} dependency components; offline similarity ${similarity.status}; ASVS ${asvs.requirements}/${expectedAsvsRequirements} final PASS. This does not establish full-program legal or security completion.`);
+  console.log(`IP BOUNDED EVIDENCE GATE PASS: ${provenance.recordedFiles}/${provenance.trackedFiles} origins resolved; ${license.components} dependency components; SBOM scope ${coveredRecords.length}/${coverageRecords.length} (${coverage.totals.coveragePercent}%); offline similarity ${similarity.status}; ASVS ${asvs.requirements}/${expectedAsvsRequirements} final PASS. This does not establish full-program legal or security completion.`);
 }
