@@ -86,6 +86,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Publish bounded guard run locator
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 3072,
+              body: `P0_STAFF_API_ORIGIN_GUARD_RUN=${context.runId};ATTEMPT=${process.env.GITHUB_RUN_ATTEMPT || 'unknown'};SHA=${context.sha}`,
+            });
+
       - name: Reject concurrent production mutation workflows
         uses: actions/github-script@v7
         with:
