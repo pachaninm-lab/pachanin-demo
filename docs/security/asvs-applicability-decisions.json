@@ -3085,6 +3085,517 @@
       "note": "The three internal hops authenticate in three different ways, and only one is sound. Web to API signs each request with HMAC-SHA256 over a version, method, canonical path, timestamp and body hash, deriving the URL from the signed path constant so a signature can never cover a path other than the one dialled. API to Elasticsearch sends HTTP basic auth when ELASTICSEARCH_PASSWORD is set - a shared secret, and by V12.3.3 it travels over plaintext http, so the credential itself is exposed on the wire. API to the model service sends only Content-Type and no credential at all. Correction to the note this decision first carried: it said the other hops had no service token, signature or shared secret. That was wrong about Elasticsearch, and the condition that was meant to catch it searched for the wrong words - it looked for \"authorization\" where the file says \"auth:\" and \"password\". Both are fixed here."
     },
     {
+      "requirementId": "V16.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "logging is implemented and would be what an inventory has to describe",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/app.module.ts"
+          ],
+          "patterns": [
+            "logmaskingmiddleware"
+          ]
+        },
+        {
+          "condition": "no inventory documents the logging performed at each layer",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "logging inventory",
+            "logging performed"
+          ]
+        }
+      ],
+      "note": "Logging is implemented across three channels and none of it is inventoried. This is the fourth chapter to fail on the same missing artefact, after V2, V7 and V8: the rules the controls implement are written nowhere, so a strong implementation cannot be reviewed against an intent. Worth treating as one systemic gap rather than four unrelated ones."
+    },
+    {
+      "requirementId": "V16.2.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "audit-channel:apps/api/src/modules/auth/auth-audit.ts",
+        "http-channel:apps/api/src/common/middleware/log-masking.middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the audit channel carries who, where and what",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-audit.ts"
+          ],
+          "patterns": [
+            "userid",
+            "sessionid",
+            "tenantid",
+            "action",
+            "outcome"
+          ]
+        },
+        {
+          "condition": "the HTTP channel carries method, path, status, actor and address",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/middleware/log-masking.middleware.ts"
+          ],
+          "patterns": [
+            "user=",
+            "ip="
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment deliberately not claimed, and the reason is a denominator. The requirement says EACH log entry. Two of the three channels are good: the auth audit carries userId, sessionId, membershipId, organizationId, tenantId, action, outcome and reason, and the HTTP request line carries method, path, status, duration, masked address and actor. The third channel is 45 Nest Logger instances writing free text plus 5 raw console calls, and those will not all carry who and where. Claiming a chapter-wide PASS from the two structured channels would repeat the mistake corrected under V2.2.1, where a real control was measured against the wrong denominator."
+    },
+    {
+      "requirementId": "V16.2.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "ordering-design:apps/api/prisma/migrations/20260803140000_auth_audit_chain_integrity/migration.sql"
+      ],
+      "conditions": [
+        {
+          "condition": "the production host is still a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        },
+        {
+          "condition": "and its configuration is still managed on the host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on host configuration the repository cannot show, the same blocker recorded under V12 and V4. There is no NTP, chrony or timesyncd evidence anywhere, because clock synchronisation is a property of the host rather than of this codebase. Credited without letting it answer the question: the audit chain deliberately provides a total order that does not depend on wall-clock ties, so correlating audit events does not rest on synchronised clocks - but the requirement asks that the time sources be synchronised, and that remains unverified."
+    },
+    {
+      "requirementId": "V16.2.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "destination:infra/otel/otel-collector.yml",
+        "documentation-set:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "logs are broadcast to a named external destination",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "infra/otel/otel-collector.yml"
+          ],
+          "patterns": [
+            "loki"
+          ]
+        },
+        {
+          "condition": "no document defines the destinations logs may be sent to",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "log destination",
+            "logs are sent"
+          ]
+        }
+      ],
+      "note": "The requirement is that logs go only to documented destinations. The destinations are knowable - the collector forwards to Loki - but nothing documents them, so there is no stated set for the actual behaviour to be inside of. The gap is the documentation, not the routing."
+    },
+    {
+      "requirementId": "V16.2.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "collector:infra/otel/otel-collector.yml",
+        "http-channel:apps/api/src/common/middleware/log-masking.middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the production host is still a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        },
+        {
+          "condition": "and its configuration is still managed on the host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment not claimed. A log processor exists and the collector is configured to feed it, which is the shape the requirement wants. But the application emits free-text lines rather than a common structured format, and whether Loki parses them usefully is a property of the deployed pipeline rather than of this repository. Asserting a PASS would claim something about a system this programme cannot observe."
+    },
+    {
+      "requirementId": "V16.2.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "masking:apps/api/src/common/middleware/log-masking.middleware.ts",
+        "global-wiring:apps/api/src/app.module.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "sensitive values are masked before they reach a log line",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/middleware/log-masking.middleware.ts"
+          ],
+          "patterns": [
+            "mask_rules",
+            "maskip",
+            "sensitive_body_fields"
+          ]
+        },
+        {
+          "condition": "the masking middleware is applied to every route",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/app.module.ts"
+          ],
+          "patterns": [
+            "logmaskingmiddleware"
+          ]
+        }
+      ],
+      "note": "Logging is enforced according to the data protection level rather than left to each call site. The middleware masks Russian INN, OGRN, BIK, bank account, phone, email, card number and passport patterns, masks addresses, replaces declared sensitive body fields outright, and recurses into nested objects. It is applied globally via forRoutes(*), so a new route inherits it rather than having to remember it."
+    },
+    {
+      "requirementId": "V16.3.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "audit-schema:apps/api/src/modules/auth/auth-audit.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the audit record can express a failed attempt, not only a successful one",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-audit.ts"
+          ],
+          "patterns": [
+            "outcome: 'success' | 'failure' | 'denied'"
+          ]
+        },
+        {
+          "condition": "and carries the subject and reason of the attempt",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-audit.ts"
+          ],
+          "patterns": [
+            "userid",
+            "reason"
+          ]
+        }
+      ],
+      "note": "Both halves of the requirement are met, and the second half is the one usually missing. The audit event type carries an outcome of SUCCESS, FAILURE or DENIED, and those are not decorative: the tree writes 83 SUCCESS, 22 DENIED and 6 FAILURE across 21 call sites outside the audit module. Login, logout, MFA verification, MFA step-up start and verify, email verification and membership selection are all recorded."
+    },
+    {
+      "requirementId": "V16.3.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "audit-schema:apps/api/src/modules/auth/auth-audit.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a denied authorization decision is representable and recorded",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-audit.ts"
+          ],
+          "patterns": [
+            "'denied'"
+          ]
+        }
+      ],
+      "note": "Failed authorization attempts are logged: DENIED is a first-class outcome in the audit schema and is written at 22 sites. Stated with its limit - the L3 half of this requirement asks for all authorization decisions including successful ones, and what is recorded is the auth-module decisions rather than every authorization check in the application. The requirement is met at L2 and this note does not claim more."
+    },
+    {
+      "requirementId": "V16.3.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "anti-automation-guard:apps/api/src/common/guards/rate-limit.guard.ts",
+        "entry-point:apps/api/src/main.ts",
+        "documentation-set:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the anti-automation guard exists and can log",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/guards/rate-limit.guard.ts"
+          ],
+          "patterns": [
+            "new logger(ratelimitguard.name)"
+          ]
+        },
+        {
+          "condition": "no document defines which security events must be logged",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "security events",
+            "logging inventory"
+          ]
+        }
+      ],
+      "note": "The requirement has two halves and both fail, for different reasons. The first asks that the application log the security events DEFINED IN THE DOCUMENTATION - and no document defines any, the same missing artefact recorded under V16.1.1, so there is no defined set to log. The second asks that attempts to bypass security controls be logged, and they largely are not: the rate-limit guard logs only when its own enforcement fails, not when it rejects a caller, so an anti-automation trip leaves no record beyond the request line; and the validation pipe is installed without an exceptionFactory, so a rejected payload produces a 400 and no security event. Credited: authentication and authorization bypass attempts ARE recorded, as DENIED and FAILURE outcomes under V16.3.1 and V16.3.2. The gap is the input-validation and anti-automation controls named by this requirement, not the auth ones."
+    },
+    {
+      "requirementId": "V16.3.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "audit-schema:apps/api/src/modules/auth/auth-audit.ts",
+        "error-logging:apps/api/src/common/middleware/log-masking.middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a failure outcome with a reason is recordable",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-audit.ts"
+          ],
+          "patterns": [
+            "'failure'",
+            "reason"
+          ]
+        },
+        {
+          "condition": "the request channel logs every response including failures",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/middleware/log-masking.middleware.ts"
+          ],
+          "patterns": [
+            "res.statuscode"
+          ]
+        }
+      ],
+      "note": "Unexpected errors and control failures are recorded. The audit channel carries FAILURE with a reason, 44 logger.error or logger.warn sites cover unexpected conditions, and the request middleware logs every response with its status code, so a failing request is visible even when no handler logs it explicitly."
+    },
+    {
+      "requirementId": "V16.4.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "log-line:apps/api/src/common/middleware/log-masking.middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "an attacker-controlled header is interpolated into a log line",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/middleware/log-masking.middleware.ts"
+          ],
+          "patterns": [
+            "ua=\""
+          ]
+        },
+        {
+          "condition": "and nothing encodes or strips control characters",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/middleware/log-masking.middleware.ts"
+          ],
+          "patterns": [
+            "encodeuri",
+            "replace(/[\\u0000-\\u001f]",
+            "json.stringify(useragent"
+          ]
+        }
+      ],
+      "note": "Masking is not encoding, and this requirement asks for encoding. The middleware interpolates the User-Agent - a request header the caller controls - directly into a logged template string, and nothing anywhere strips or encodes newlines or control characters. A newline in that header produces a forged additional log line. Credited so this is not read as an absence of log hygiene: the PII masking assessed under V16.2.5 is real and thorough. These are two different controls and only one is present."
+    },
+    {
+      "requirementId": "V16.4.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "chain:apps/api/prisma/migrations/20260803140000_auth_audit_chain_integrity/migration.sql"
+      ],
+      "conditions": [
+        {
+          "condition": "the audit chain is enforced by database constraints rather than convention",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/prisma/migrations/20260803140000_auth_audit_chain_integrity/migration.sql"
+          ],
+          "patterns": [
+            "chain_sequence",
+            "chain_key"
+          ]
+        }
+      ],
+      "note": "Logs cannot be modified, and the guarantee is structural. The auth audit table carries a generated chain key and an explicit chain sequence, with unique indexes turning three invariants into constraints PostgreSQL enforces: one event per position, no repeated hash, at most one child per parent. Append-only enforcement sits on top of that. Worth noting deliberately: append-only was the wrong control when it appeared under the tenancy requirement V8.4.1, and it is exactly the right one here - the distinction was made rather than assumed."
+    },
+    {
+      "requirementId": "V16.4.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "collector:infra/otel/otel-collector.yml"
+      ],
+      "conditions": [
+        {
+          "condition": "logs are pushed to a separate system over a plaintext endpoint",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "infra/otel/otel-collector.yml"
+          ],
+          "patterns": [
+            "http://loki:3100"
+          ]
+        }
+      ],
+      "note": "A logically separate system exists and logs are shipped to it, which is the structural half of the requirement. The transport is not secure: the collector pushes to Loki over plaintext http. Unlike the edge requirements recorded as unassessed, this is a FAIL rather than a blocked assessment, and the distinction matters - those depend on a configuration held outside the repository, whereas this configuration IS in the repository and requires a plaintext endpoint. Same finding as V12.3.1 seen from the logging side, not a second discovery."
+    },
+    {
+      "requirementId": "V16.5.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "error-shape:apps/api/src/main.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the service entry point installs the pipeline that shapes error responses",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "useglobalpipes"
+          ]
+        }
+      ],
+      "note": "Measured both ways, because a numerator alone would not settle it. 284 exceptions are thrown as structured payloads carrying a stable machine code, and zero exceptions anywhere are constructed from a caught error object - so no site passes an internal message through to the consumer. An uncaught throw is turned into a generic 500 by the framework default without a stack. The zero is what makes this a PASS; the 284 only shows the convention is consistent."
+    },
+    {
+      "requirementId": "V16.5.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "repository-scan:no-fail-open-on-authorization-paths"
+      ],
+      "conditions": [
+        {
+          "condition": "no authorization decision falls back to an empty or permissive result",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "permissions.catch",
+            "capabilities.catch",
+            "role.catch(() => null"
+          ],
+          "roots": [
+            "apps"
+          ]
+        }
+      ],
+      "note": "Stated as what was scanned rather than what was counted. The application has 93 sites that degrade to an empty or null result when an external read fails, which on its own proves nothing - that same pattern is how a failed authorization lookup becomes an empty allow list. Every one of those sites was checked against paths named for auth, permission, capability, role, access, guard, policy or membership, and none of them sits on a security decision: the fallbacks are read-side projections. The application degrades without opening."
+    },
+    {
+      "requirementId": "V16.5.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "error-shape:apps/api/src/main.ts",
+        "audit-schema:apps/api/src/modules/auth/auth-audit.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the framework converts an unhandled route exception into a controlled response",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "useglobalpipes"
+          ]
+        },
+        {
+          "condition": "and a failure outcome is recordable when it happens",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-audit.ts"
+          ],
+          "patterns": [
+            "'failure'"
+          ]
+        }
+      ],
+      "note": "An exception inside a request does not leave the application in an open state: the framework converts it into an error response, the transaction wrapper rolls back rather than committing partial work, and the session and authorization checks that would have run are not skipped by the failure - they precede it. Scoped deliberately: this covers failure inside a request. Failure outside one is the subject of V16.5.4, which does not pass."
+    },
+    {
+      "requirementId": "V16.5.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "worker:apps/api/src/outbox-worker.ts",
+        "api-entry:apps/api/src/main.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the worker process installs last-resort handlers",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/outbox-worker.ts"
+          ],
+          "patterns": [
+            "uncaughtexception",
+            "unhandledrejection"
+          ]
+        },
+        {
+          "condition": "the API process installs neither those nor a global exception filter",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "uncaughtexception",
+            "unhandledrejection",
+            "useglobalfilters"
+          ]
+        }
+      ],
+      "note": "The two processes are not held to the same standard, and the requirement asks about the last resort. The outbox worker installs process-level uncaughtException and unhandledRejection handlers that log and shut down deliberately. The API installs neither, and registers no global exception filter, so it relies on the framework default - which does catch exceptions thrown inside a route handler, and that is credited under V16.5.3. It does not catch an exception thrown outside a request context, which is precisely what a last-resort handler is for. The worker being covered does not answer for the API."
+    },
+    {
       "requirementId": "V17.1.1",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
