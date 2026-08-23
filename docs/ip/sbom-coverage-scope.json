@@ -1,30 +1,35 @@
 {
-  "schemaVersion": 1,
-  "scopeId": "tracked-dependency-manifests-v1",
-  "definition": "Coverage is the share of tracked in-repository dependency manifest roots that are included in a canonical clean-room SBOM generator with evidence files present. It is not a claim about deployable image, GitHub Actions secret, host secret, or remote runtime coverage.",
-  "nodeWorkspaceSbom": {
-    "cycloneDx": "sbom/sbom-node.cdx.json",
-    "spdx": "sbom/sbom-node.spdx.json"
-  },
-  "dedicatedSboms": [
+  "schemaVersion": 2,
+  "scopeId": "dependency-root-coverage-v2",
+  "definition": "Coverage is the share of dependency-bearing roots discovered in the tracked tree that are either included in a canonical clean-room SBOM, carry no declared dependencies at all, or are excluded as non-runtime under conditions re-verified on every run.",
+  "denominatorPolicy": "The denominator is discovered from the tree, never hand-entered. Discovery covers declared manifests across ecosystems and components that carry third-party imports without declaring any manifest, because the second class is invisible to a manifest-only scan.",
+  "exclusionPolicy": "Exclusions are computed, not listed. A component may be excluded only while every condition supporting it still holds - no container image can execute it, no root build script produces it, no deployment manifest ships it, and where applicable it is declared NOT_DEPLOYABLE in the source-controlled optional-runtime inventory. Adding a Dockerfile, build script or deployment manifest collapses the exclusion and fails the gate.",
+  "canonicalSboms": [
+    {
+      "manifest": "package.json",
+      "ecosystem": "npm",
+      "artifacts": ["sbom/sbom-node.cdx.json", "sbom/sbom-node.spdx.json"]
+    },
+    {
+      "manifest": "apps/api/package.json",
+      "ecosystem": "npm",
+      "artifacts": ["sbom/sbom-node.cdx.json", "sbom/sbom-node.spdx.json"]
+    },
+    {
+      "manifest": "apps/web/package.json",
+      "ecosystem": "npm",
+      "artifacts": ["sbom/sbom-node.cdx.json", "sbom/sbom-node.spdx.json"]
+    },
     {
       "manifest": "apps/tai/pyproject.toml",
       "ecosystem": "python",
-      "cycloneDx": "sbom/sbom-tai.cdx.json",
-      "spdx": "sbom/sbom-tai.spdx.json"
-    }
-  ],
-  "knownGaps": [
-    {
-      "manifest": "apps/landing/package.json",
-      "reason": "PACKAGE_MANIFEST_OUTSIDE_PNPM_WORKSPACE_OR_DEDICATED_SBOM"
+      "artifacts": ["sbom/sbom-tai.cdx.json", "sbom/sbom-tai.spdx.json"]
     }
   ],
   "boundaries": [
-    "Tracked dependency manifests are discovered from Git, not from a hand-maintained denominator.",
-    "Node workspace coverage requires a matching pnpm-lock.yaml importer and the canonical Node CycloneDX/SPDX pair.",
-    "Dedicated manifests require their declared canonical CycloneDX/SPDX pair.",
-    "Known gaps are explicit and fail closed if a new unlisted gap appears or an obsolete gap remains configured.",
-    "This scope does not cover OS packages in built images, GitHub Actions secrets, REG.RU host secrets, or other remote runtime state."
+    "Source dependency roots only. Built-image OS packages are not claimed.",
+    "GitHub Actions secrets and REG.RU host state are outside this metric and need their own inventory.",
+    "Remote runtime state is not claimed.",
+    "A manifest declaring no dependencies is covered because there is nothing to cover, not because an SBOM lists it."
   ]
 }

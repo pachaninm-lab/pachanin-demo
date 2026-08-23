@@ -66,37 +66,66 @@ for (const name of requiredSboms) {
 }
 
 const coverage = JSON.parse(readFileSync(join(outDir, 'SBOM_COVERAGE.json'), 'utf8'));
-const coverageRecords = Array.isArray(coverage.manifests) ? coverage.manifests : [];
-const coverageManifestNames = coverageRecords.map((record) => record.manifest);
-const uniqueCoverageManifestNames = new Set(coverageManifestNames);
-const coveredRecords = coverageRecords.filter((record) => record.status === 'COVERED');
-const uncoveredRecords = coverageRecords.filter((record) => record.status === 'UNCOVERED');
-const invalidCoverageRecords = coverageRecords.filter((record) => !['COVERED', 'UNCOVERED'].includes(record.status));
+const coverageRecords = Array.isArray(coverage.records) ? coverage.records : [];
+const coverageComponents = new Set(coverageRecords.map((record) => record.component));
+const COVERED_STATUSES = new Set(['RUNTIME_COVERED', 'BUILD_ONLY_COVERED', 'NOT_RUNTIME_WITH_JUSTIFICATION']);
+const VALID_STATUSES = new Set([...COVERED_STATUSES, 'UNKNOWN']);
+
+const coveredRecords = coverageRecords.filter((record) => COVERED_STATUSES.has(record.status));
+const unknownRecords = coverageRecords.filter((record) => record.status === 'UNKNOWN');
+const invalidStatusRecords = coverageRecords.filter((record) => !VALID_STATUSES.has(record.status));
+
+// An exclusion only counts while every one of its conditions still holds. A
+// record claiming NOT_RUNTIME with no conditions, or with a failing condition,
+// is a fabricated justification and must fail rather than be trusted.
+const fabricatedExclusions = coverageRecords.filter((record) => {
+  if (record.status !== 'NOT_RUNTIME_WITH_JUSTIFICATION') return false;
+  const checks = record.justification?.checks;
+  return !Array.isArray(checks) || checks.length === 0 || !checks.every((check) => check.holds === true);
+});
+
+// A covered runtime root must name the artifact that covers it, unless there is
+// genuinely nothing to cover.
+const unmappedRuntimeRecords = coverageRecords.filter((record) => (
+  (record.status === 'RUNTIME_COVERED' || record.status === 'BUILD_ONLY_COVERED')
+  && record.reason !== 'NO_DECLARED_DEPENDENCIES'
+  && (!Array.isArray(record.coveringSbom) || record.coveringSbom.length === 0)
+));
+
 const expectedCoveragePercent = coverageRecords.length > 0
   ? Number(((coveredRecords.length / coverageRecords.length) * 100).toFixed(2))
   : -1;
-const expectedCoverageStatus = uncoveredRecords.length === 0 ? 'COMPLETE' : 'BASELINE_WITH_KNOWN_GAPS';
-const knownCoverageGaps = Array.isArray(coverage.knownGaps) ? coverage.knownGaps : [];
-const actualGapPairs = uncoveredRecords.map((record) => `${record.manifest}\u0000${record.reason}`).sort();
-const declaredGapPairs = knownCoverageGaps.map((gap) => `${gap.manifest}\u0000${gap.reason}`).sort();
+const expectedComplete = coverageRecords.length > 0
+  && coveredRecords.length === coverageRecords.length
+  && unknownRecords.length === 0;
 const sourceShaMatches = !process.env.SOURCE_SHA || coverage.sourceSha === process.env.SOURCE_SHA;
-if (coverage.schemaVersion !== 1
+
+if (coverage.schemaVersion !== 2
   || !/^[0-9a-f]{40}$/u.test(String(coverage.sourceSha ?? ''))
   || !sourceShaMatches
   || coverageRecords.length === 0
-  || uniqueCoverageManifestNames.size !== coverageRecords.length
-  || invalidCoverageRecords.length > 0
-  || coverage.totals?.manifests !== coverageRecords.length
+  || coverageComponents.size !== coverageRecords.length
+  || invalidStatusRecords.length > 0
+  || fabricatedExclusions.length > 0
+  || unmappedRuntimeRecords.length > 0
+  || coverage.totals?.total !== coverageRecords.length
   || coverage.totals?.covered !== coveredRecords.length
-  || coverage.totals?.uncovered !== uncoveredRecords.length
+  || coverage.totals?.unknown !== unknownRecords.length
+  || coverage.totals?.uncovered !== coverageRecords.length - coveredRecords.length
   || coverage.totals?.coveragePercent !== expectedCoveragePercent
-  || coverage.status !== expectedCoverageStatus
-  || JSON.stringify(actualGapPairs) !== JSON.stringify(declaredGapPairs)
-  || typeof coverage.definition !== 'string'
-  || coverage.definition.length === 0
-  || !Array.isArray(coverage.boundaries)
-  || coverage.boundaries.length === 0) {
+  || coverage.complete !== expectedComplete
+  || typeof coverage.scopeNote !== 'string'
+  || coverage.scopeNote.length === 0) {
   console.error('IP evidence gate: SBOM coverage report is incomplete or internally inconsistent');
+  if (fabricatedExclusions.length > 0) {
+    console.error(`  unjustified exclusions: ${fabricatedExclusions.map((r) => r.component).join(', ')}`);
+  }
+  if (unmappedRuntimeRecords.length > 0) {
+    console.error(`  covered roots with no SBOM artifact: ${unmappedRuntimeRecords.map((r) => r.component).join(', ')}`);
+  }
+  if (unknownRecords.length > 0) {
+    console.error(`  unknown dependency roots: ${unknownRecords.map((r) => r.component).join(', ')}`);
+  }
   process.exit(3);
 }
 
@@ -289,7 +318,8 @@ if (provenance.unknownOriginFiles > 0) finalBlockers.push(`UNKNOWN_ORIGIN_FILES:
 if (provenance.unresolvedRightsFiles > 0) finalBlockers.push(`UNRESOLVED_RIGHTS_FILES:${provenance.unresolvedRightsFiles}`);
 if (provenance.crownJewelUnknownOrigin > 0) finalBlockers.push(`CROWN_JEWEL_UNKNOWN_ORIGIN:${provenance.crownJewelUnknownOrigin}`);
 if (provenance.unresolvedLicenseMarkers > 0) finalBlockers.push(`UNRESOLVED_FILE_LICENSE_MARKERS:${provenance.unresolvedLicenseMarkers}`);
-if (uncoveredRecords.length > 0) finalBlockers.push(`INCOMPLETE_SBOM_SCOPE:${coveredRecords.length}/${coverageRecords.length}`);
+if (!coverage.complete) finalBlockers.push(`INCOMPLETE_SBOM_SCOPE:${coveredRecords.length}/${coverageRecords.length}`);
+if (unknownRecords.length > 0) finalBlockers.push(`UNKNOWN_DEPENDENCY_ROOTS:${unknownRecords.length}`);
 if (similarity.finalEligible !== true) finalBlockers.push(...(similarity.finalBlockers ?? ['SIMILARITY_NOT_FINAL_ELIGIBLE']));
 if (asvsStatusCounts.NOT_ASSESSED > 0) finalBlockers.push(`ASVS_NOT_ASSESSED:${asvsStatusCounts.NOT_ASSESSED}`);
 if (asvsStatusCounts.FAIL > 0) finalBlockers.push(`ASVS_FAIL:${asvsStatusCounts.FAIL}`);
