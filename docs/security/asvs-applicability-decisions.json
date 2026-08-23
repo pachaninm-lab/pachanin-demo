@@ -845,6 +845,394 @@
       "note": "Files accepted from untrusted sources are parsed and their text returned with no malware scanning. docs/security/THREAT_MODEL.md already names malware scan and quarantine as a required control; it is not implemented."
     },
     {
+      "requirementId": "V12.1.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather. The production TLS terminator is Caddy on the REG.RU virtual server, and its configuration is not in the repository - the runbook treats Compose, Caddy and environment as protected artifacts held on the host. infra/nginx/nginx.conf is NOT the production terminator and is not evidence about production. Verifying this requirement needs a scan of the live endpoint or the edge configuration itself. Asserting a PASS from what Caddy does by default would be an inference, not evidence. Specifically unverified here: which TLS protocol versions are enabled."
+    },
+    {
+      "requirementId": "V12.1.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather. The production TLS terminator is Caddy on the REG.RU virtual server, and its configuration is not in the repository - the runbook treats Compose, Caddy and environment as protected artifacts held on the host. infra/nginx/nginx.conf is NOT the production terminator and is not evidence about production. Verifying this requirement needs a scan of the live endpoint or the edge configuration itself. Asserting a PASS from what Caddy does by default would be an inference, not evidence. Specifically unverified here: which cipher suites are enabled and in what preference order."
+    },
+    {
+      "requirementId": "V12.1.3",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-client-certificate-identity-in-application-source"
+      ],
+      "conditions": [
+        {
+          "condition": "no application code reads or validates a client certificate identity",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "getpeercertificate",
+            "requestcert",
+            "socket.authorized",
+            "clientcertificate"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        }
+      ],
+      "note": "The requirement governs an application that uses an mTLS client certificate identity for authentication or authorisation. No application code reads or validates such an identity anywhere. Integration adapters mention mTLS in prose as a vendor transport concern, but prose is not a code path. If a certificate identity is ever consumed, this condition stops holding and the requirement returns to assessment."
+    },
+    {
+      "requirementId": "V12.1.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather. The production TLS terminator is Caddy on the REG.RU virtual server, and its configuration is not in the repository - the runbook treats Compose, Caddy and environment as protected artifacts held on the host. infra/nginx/nginx.conf is NOT the production terminator and is not evidence about production. Verifying this requirement needs a scan of the live endpoint or the edge configuration itself. Asserting a PASS from what Caddy does by default would be an inference, not evidence. Specifically unverified here: whether OCSP stapling is enabled."
+    },
+    {
+      "requirementId": "V12.1.5",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather. The production TLS terminator is Caddy on the REG.RU virtual server, and its configuration is not in the repository - the runbook treats Compose, Caddy and environment as protected artifacts held on the host. infra/nginx/nginx.conf is NOT the production terminator and is not evidence about production. Verifying this requirement needs a scan of the live endpoint or the edge configuration itself. Asserting a PASS from what Caddy does by default would be an inference, not evidence. Specifically unverified here: whether Encrypted Client Hello is enabled."
+    },
+    {
+      "requirementId": "V12.2.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather. The production TLS terminator is Caddy on the REG.RU virtual server, and its configuration is not in the repository - the runbook treats Compose, Caddy and environment as protected artifacts held on the host. infra/nginx/nginx.conf is NOT the production terminator and is not evidence about production. Verifying this requirement needs a scan of the live endpoint or the edge configuration itself. Asserting a PASS from what Caddy does by default would be an inference, not evidence. Specifically unverified here: whether the edge refuses to fall back to an unencrypted protocol."
+    },
+    {
+      "requirementId": "V12.2.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "hosting-authority:docs/platform-v7/dual-hosting-operating-rules.md",
+        "runbook:docs/ops/virtual-server-production-runbook.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the production edge is still Caddy on a single REG.RU virtual server",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ops/virtual-server-production-runbook.md"
+          ],
+          "patterns": [
+            "caddy with automatic https"
+          ]
+        },
+        {
+          "condition": "that host is still the sole production host",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/dual-hosting-operating-rules.md"
+          ],
+          "patterns": [
+            "sole production host"
+          ]
+        }
+      ],
+      "note": "Applicability decided; assessment blocked on evidence this programme cannot gather. The production TLS terminator is Caddy on the REG.RU virtual server, and its configuration is not in the repository - the runbook treats Compose, Caddy and environment as protected artifacts held on the host. infra/nginx/nginx.conf is NOT the production terminator and is not evidence about production. Verifying this requirement needs a scan of the live endpoint or the edge configuration itself. Asserting a PASS from what Caddy does by default would be an inference, not evidence. Specifically unverified here: whether the served certificate chains to a publicly trusted root."
+    },
+    {
+      "requirementId": "V12.3.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "telemetry:apps/api/src/telemetry-config.ts",
+        "mesh-is-target-model:docs/platform-v7/dual-hosting-operating-rules.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the telemetry exporter still defaults to a plaintext endpoint",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/telemetry-config.ts"
+          ],
+          "patterns": [
+            "http://otel-collector:4317"
+          ]
+        },
+        {
+          "condition": "the endpoint validator still accepts a plaintext scheme",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/telemetry-config.ts"
+          ],
+          "patterns": [
+            "parsed.protocol !== 'http:'"
+          ]
+        }
+      ],
+      "note": "The requirement names monitoring explicitly. The telemetry exporter defaults to a plaintext endpoint and its validator accepts http: on purpose, so traces leave the process unencrypted unless an operator overrides the variable. infra/istio/peer-authentication.yml declares STRICT mesh mTLS, but it does not rescue this: production is a single REG.RU virtual server running Docker Compose, not a Kubernetes cluster, and the platform own UI copy states the mesh is a target model pending a live cluster. Nothing wraps this traffic."
+    },
+    {
+      "requirementId": "V12.3.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "tls-client:apps/api/src/modules/auth-mail/auth-mail-smtp.ts",
+        "tls-client:apps/web/lib/server/transactional-mail.ts",
+        "repository-scan:verification-never-disabled"
+      ],
+      "conditions": [
+        {
+          "condition": "certificate verification is explicit where a TLS socket is opened directly",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth-mail/auth-mail-smtp.ts",
+            "apps/web/lib/server/transactional-mail.ts"
+          ],
+          "patterns": [
+            "rejectunauthorized: true"
+          ]
+        },
+        {
+          "condition": "nothing in the tree disables certificate verification",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "rejectunauthorized: false",
+            "node_tls_reject_unauthorized"
+          ],
+          "roots": [
+            "apps",
+            "packages",
+            "scripts"
+          ]
+        }
+      ],
+      "note": "Where the application opens a TLS socket itself it sets rejectUnauthorized: true rather than relying on a default. Everywhere else it uses fetch, which verifies by default, and nothing anywhere turns verification off: the tree contains no rejectUnauthorized: false and no NODE_TLS_REJECT_UNAUTHORIZED. The control is both asserted and not undone."
+    },
+    {
+      "requirementId": "V12.3.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "search:apps/api/src/modules/search/search.module.ts",
+        "ml-client:apps/api/src/modules/ml-client/ml-client.service.ts",
+        "web-to-api:apps/web/lib/platform-v7/tai-internal-stream.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the search client still targets a plaintext endpoint",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/search/search.module.ts"
+          ],
+          "patterns": [
+            "http://elasticsearch:9200"
+          ]
+        },
+        {
+          "condition": "the model client still targets a plaintext endpoint",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ml-client/ml-client.service.ts"
+          ],
+          "patterns": [
+            "http://ml-service:8001"
+          ]
+        },
+        {
+          "condition": "the web tier still reaches the API over a plaintext base",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/tai-internal-stream.ts"
+          ],
+          "patterns": [
+            "http://api:3001"
+          ]
+        }
+      ],
+      "note": "Internal HTTP traffic between services is plaintext by default on every hop examined: web to API, API to Elasticsearch, API to the model service. No configuration path requires a TLS scheme for any of them. As with V12.3.1, the Istio STRICT mTLS policy does not apply - production is Docker Compose on one virtual server, not a mesh."
+    },
+    {
+      "requirementId": "V12.3.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "search:apps/api/src/modules/search/search.module.ts",
+        "ml-client:apps/api/src/modules/ml-client/ml-client.service.ts",
+        "web-to-api:apps/web/lib/platform-v7/tai-internal-stream.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "internal hops still carry no TLS for a certificate to be trusted on",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/search/search.module.ts"
+          ],
+          "patterns": [
+            "http://elasticsearch:9200"
+          ]
+        }
+      ],
+      "note": "This requirement governs which certificates internal TLS connections trust. There are no internal TLS connections to hold certificates, so the requirement is unmet rather than inapplicable: the prerequisite is missing. Recorded separately from V12.3.3 because closing V12.3.3 would not automatically satisfy it - the certificates introduced would then have to be trusted ones."
+    },
+    {
+      "requirementId": "V12.3.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "signed-hop:apps/web/lib/platform-v7/tai-internal-stream.ts",
+        "unauthenticated-hop:apps/api/src/modules/search/search.module.ts",
+        "unauthenticated-hop:apps/api/src/modules/ml-client/ml-client.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "one internal hop is authenticated by a signed request",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/tai-internal-stream.ts"
+          ],
+          "patterns": [
+            "signinternalstreamrequest",
+            "createhmac"
+          ]
+        },
+        {
+          "condition": "the search hop still carries no service authentication",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/search/search.module.ts"
+          ],
+          "patterns": [
+            "authorization",
+            "apikey",
+            "hmac"
+          ]
+        }
+      ],
+      "note": "One hop does this well: web to API signs each internal request with HMAC-SHA256 over a version, method, canonical path, timestamp and body hash, and derives the URL from the signed path constant so a signature can never cover a path other than the one dialled. The other internal hops have nothing equivalent - no service token, no signature, no shared secret. The requirement asks that services communicating internally authenticate each other; most of them do not."
+    },
+    {
       "requirementId": "V17.1.1",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
