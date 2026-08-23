@@ -1518,6 +1518,441 @@
       "note": "A federated session is never created implicitly. The flow begins only from an explicit user action, carries a per-request random state and nonce in httpOnly SameSite=Lax cookies with a ten minute lifetime, and is inert entirely unless the bridge is configured and enabled. A drive-by request cannot mint a session."
     },
     {
+      "requirementId": "V8.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "enforcement:infra/sql/production-rls-policies.sql",
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "function and data level restrictions are enforced in code and policy",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "infra/sql/production-rls-policies.sql"
+          ],
+          "patterns": [
+            "create policy"
+          ]
+        },
+        {
+          "condition": "no document defines the rules those restrictions implement",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "authorization rules",
+            "permission matrix"
+          ]
+        }
+      ],
+      "note": "The restrictions themselves are strong and enforced in the database. What is missing is the statement of what they are meant to be: no document defines function-level or data-specific access rules, so an implementation cannot be reviewed against an intent. This is the same shape of gap as V2.1.x and V7.1.x, and it is the one place this otherwise strong chapter is consistently weak."
+    },
+    {
+      "requirementId": "V8.1.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no document defines field-level read or write restrictions",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "field-level",
+            "field level"
+          ]
+        }
+      ],
+      "note": "No document defines which consumer may read or write which field. Recorded separately from V8.2.3 because one is the missing rule and the other is the missing control; closing either alone would not close the other."
+    },
+    {
+      "requirementId": "V8.1.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no document defines environmental or contextual attributes for access decisions",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "contextual attribute",
+            "environmental attribute"
+          ]
+        }
+      ],
+      "note": "No document defines time, location, device or any other contextual attribute as an input to access decisions. Consistent with V8.2.4, where no such control exists to document."
+    },
+    {
+      "requirementId": "V8.1.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no document describes how contextual factors enter authorization decisions",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "contextual factor",
+            "decision-making"
+          ]
+        }
+      ],
+      "note": "Nothing describes how environmental or contextual factors would be weighed, because none are used. The requirement is unmet rather than inapplicable: the platform makes access decisions, it simply makes them without these inputs and without saying so."
+    },
+    {
+      "requirementId": "V8.2.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "global-guard:apps/api/src/app.module.ts",
+        "guard:apps/api/src/common/guards/auth.guard.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "authentication is a global guard rather than a per-route opt-in",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/app.module.ts"
+          ],
+          "patterns": [
+            "app_guard",
+            "appauthguard"
+          ]
+        },
+        {
+          "condition": "the guard refuses a request without a bearer token",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/guards/auth.guard.ts"
+          ],
+          "patterns": [
+            "unauthorizedexception"
+          ]
+        },
+        {
+          "condition": "the public escape hatch is refused for sensitive flags in production",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/guards/auth.guard.ts"
+          ],
+          "patterns": [
+            "sensitivepublicflags"
+          ]
+        }
+      ],
+      "note": "Function-level access is deny by default: AppAuthGuard is registered as a global APP_GUARD, so every route requires an authenticated consumer unless explicitly marked public. What makes that real rather than nominal is the second half - the public escape is itself gated by an environment flag, and the guard refuses the sensitive public flags outright in production. A route cannot be opened up in production by flipping a variable. 45 of 54 controllers carry role or guard decorators on top of this."
+    },
+    {
+      "requirementId": "V8.2.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts",
+        "policies:infra/sql/production-rls-policies.sql",
+        "policies:infra/sql/postgresql-deal-authority-policies.sql"
+      ],
+      "conditions": [
+        {
+          "condition": "the request subject is bound into the transaction before any query runs",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/prisma/rls-transaction.service.ts"
+          ],
+          "patterns": [
+            "set_config('app.current_tenant_id'",
+            "set_config('app.current_user_id'"
+          ]
+        },
+        {
+          "condition": "row policies decide on that bound subject rather than on caller input",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "infra/sql/production-rls-policies.sql",
+            "infra/sql/postgresql-deal-authority-policies.sql"
+          ],
+          "patterns": [
+            "app.current_tenant_id"
+          ]
+        }
+      ],
+      "note": "Data-specific access is decided per row by PostgreSQL from the authenticated subject. The transaction wrapper binds user, organization, tenant, role and session as transaction-local settings before the work runs, and the policies read those settings - 238 references to app.current_tenant_id and 136 to app.current_user_id across the migrations, over 72 tables with row level security and 268 policies. A consumer cannot request rows outside their own data by asking for them."
+    },
+    {
+      "requirementId": "V8.2.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "row-level-only:infra/sql/production-rls-policies.sql"
+      ],
+      "conditions": [
+        {
+          "condition": "the access control that exists operates on rows",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "infra/sql/production-rls-policies.sql"
+          ],
+          "patterns": [
+            "row level security"
+          ]
+        },
+        {
+          "condition": "no field-level restriction exists alongside it",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "infra/sql/production-rls-policies.sql"
+          ],
+          "patterns": [
+            "column",
+            "grant select ("
+          ]
+        }
+      ],
+      "note": "This is the requirement most at risk of being answered with the wrong evidence, so it is stated plainly: row level security restricts WHICH ROWS a consumer sees. It says nothing about WHICH FIELDS of a row they may read or write. No column-level grants, no field allowlists, no per-field write restrictions exist anywhere. The strength of the row-level control does not carry over, and treating it as though it did would be exactly the inference this mechanism exists to prevent."
+    },
+    {
+      "requirementId": "V8.2.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "repository-scan:no-adaptive-controls"
+      ],
+      "conditions": [
+        {
+          "condition": "no adaptive control reads time, location or device as an access input",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "timeofday",
+            "geoip",
+            "devicefingerprint",
+            "adaptiveauth"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        }
+      ],
+      "note": "No adaptive or contextual security control exists. The only geolocation reference in the application is a Permissions-Policy header that disables it. The requirement is unmet, not inapplicable - an application making authorization decisions could use these inputs and this one does not."
+    },
+    {
+      "requirementId": "V8.3.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "global-guard:apps/api/src/app.module.ts",
+        "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts",
+        "policies:infra/sql/production-rls-policies.sql"
+      ],
+      "conditions": [
+        {
+          "condition": "authorization is enforced by a server-side global guard",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/app.module.ts"
+          ],
+          "patterns": [
+            "app_guard",
+            "appauthguard"
+          ]
+        },
+        {
+          "condition": "and again below the service layer, in the database",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "infra/sql/production-rls-policies.sql"
+          ],
+          "patterns": [
+            "row level security",
+            "create policy"
+          ]
+        }
+      ],
+      "note": "Enforcement sits in two places a client cannot reach: a global server-side guard, and row policies inside PostgreSQL. Nothing an untrusted consumer controls participates in the decision. The database layer is the stronger claim of the two, because it holds even if the service layer forgets - a query written without a tenant filter still cannot cross tenants."
+    },
+    {
+      "requirementId": "V8.3.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "token-contents:apps/api/src/modules/auth/access-token.ts",
+        "per-request-read:apps/api/src/modules/auth/auth.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the access token carries no authorization value that could go stale",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "role",
+            "tenant",
+            "permission",
+            "capabilit"
+          ]
+        },
+        {
+          "condition": "authorization values are read from the session row on each request",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "context.role",
+            "membership_status"
+          ]
+        }
+      ],
+      "note": "Changes apply immediately because there is nothing cached to apply them to. The access token carries only a type, a session id, a credential version and a subject - no role, no tenant, no capability. Every request re-reads role, membership status and organization status from the database. A role change or a membership deactivation takes effect on the next request, so the requirement never reaches its own fallback clause about changes that cannot be applied immediately. The condition here checks the absence of authorization claims in the token rather than asserting immediacy, because that absence is what makes immediacy structural rather than incidental."
+    },
+    {
+      "requirementId": "V8.3.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "subject-binding:apps/api/src/common/prisma/rls-transaction.service.ts",
+        "refusal:apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.ts",
+        "call-sites:apps/api/src/modules/saga/fgis-step.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the originating subject is what the database sees",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/prisma/rls-transaction.service.ts"
+          ],
+          "patterns": [
+            "set_config('app.current_user_id'"
+          ]
+        },
+        {
+          "condition": "acting on a client behalf is explicitly refused, not merely absent",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.ts"
+          ],
+          "patterns": [
+            "denylegacyfgisactiononbehalfofclient",
+            "forbiddenexception"
+          ]
+        },
+        {
+          "condition": "that refusal is wired into the regulatory path",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/saga/fgis-step.service.ts"
+          ],
+          "patterns": [
+            "denylegacyfgisactiononbehalfofclient"
+          ]
+        }
+      ],
+      "note": "Access decisions are made on the originating consumer identity: the transaction binds their user id and the policies read it, and no service account, impersonation or run-as construct exists anywhere to substitute a different subject. The sharper evidence is not the absence but the refusal - the platform implements denyLegacyFgisActionOnBehalfOfClient for a legally significant action it must never perform for a client, and calls it from four places in the regulatory path. An intermediary is not merely unimplemented; it is rejected."
+    },
+    {
+      "requirementId": "V8.4.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts",
+        "policies:infra/sql/production-rls-policies.sql",
+        "policies:infra/sql/postgresql-deal-authority-policies.sql"
+      ],
+      "conditions": [
+        {
+          "condition": "tenant identity is bound transaction-locally before any work runs",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/prisma/rls-transaction.service.ts"
+          ],
+          "patterns": [
+            "set_config('app.current_tenant_id'"
+          ]
+        },
+        {
+          "condition": "policies constrain rows to that tenant",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "infra/sql/production-rls-policies.sql",
+            "infra/sql/postgresql-deal-authority-policies.sql"
+          ],
+          "patterns": [
+            "app.current_tenant_id"
+          ]
+        }
+      ],
+      "note": "Cross-tenant isolation is enforced by the database rather than by application code, which is the strongest available form: 72 tables with row level security, 268 policies, and a tenant identity bound as a transaction-local setting before any query executes. An operation cannot affect a tenant the consumer has no relationship with even if the service layer contains a mistake, because the boundary sits below the service layer."
+    },
+    {
+      "requirementId": "V8.4.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "staff-guard:apps/api/src/modules/staff-access/staff-access.guard.ts",
+        "staff-controller:apps/api/src/modules/staff-access/staff-access.controller.ts",
+        "global-guard:apps/api/src/app.module.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the administrative guard requires an active time-bound staff session",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/staff-access/staff-access.guard.ts"
+          ],
+          "patterns": [
+            "time-bound staff access session"
+          ]
+        },
+        {
+          "condition": "and refuses a session that does not match the actor",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/staff-access/staff-access.guard.ts"
+          ],
+          "patterns": [
+            "staff access session actor mismatch"
+          ]
+        },
+        {
+          "condition": "administrative endpoints require a named permission and an access mode",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/staff-access/staff-access.controller.ts"
+          ],
+          "patterns": [
+            "staffpermissions",
+            "staffaccessmodes"
+          ]
+        }
+      ],
+      "note": "An administrative call passes four independent layers: the global authentication guard, a staff access guard requiring an active time-bound session bound to the actor, an access-mode check, and a named permission. The identity half of the requirement is continuous rather than established once: the staff session is re-verified on every request and expires on its own clock, and a session header that does not match the acting identity is refused."
+    },
+    {
       "requirementId": "V9.1.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
