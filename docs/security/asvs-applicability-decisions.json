@@ -1,0 +1,476 @@
+{
+  "schemaVersion": "pc-crop.asvs-decisions.v1",
+  "standardVersion": "5.0.0",
+  "sourceCommit": "5cf9b032440be53ce345ab3c130fda46ba1ce7a2",
+  "policy": "A decision must name what was examined and carry conditions re-evaluated on every run. Having a control is not evidence that a requirement is met: no PASS may be inferred from the presence of MFA, RLS, CodeQL, an SBOM or a passing test. Anything without a valid, currently-holding decision stays PENDING and NOT_ASSESSED.",
+  "decisions": [
+    {
+      "requirementId": "V17.1.1",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.1.2",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.2.1",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.2.2",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.2.3",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.2.4",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.2.5",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.2.6",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.2.7",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.2.8",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.3.1",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    },
+    {
+      "requirementId": "V17.3.2",
+      "applicability": "NOT_APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "repository-scan:no-webrtc-api-usage",
+        "manifest-scan:no-webrtc-dependency"
+      ],
+      "conditions": [
+        {
+          "condition": "no WebRTC API is referenced anywhere in application or package source",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "RTCPeerConnection",
+            "RTCDataChannel",
+            "getUserMedia",
+            "RTCSessionDescription",
+            "RTCIceCandidate",
+            "webrtc"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ]
+        },
+        {
+          "condition": "no WebRTC dependency is declared in any tracked manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "webrtc",
+            "simple-peer",
+            "peerjs",
+            "mediasoup",
+            "janus"
+          ]
+        }
+      ],
+      "note": "The platform exposes no real-time peer connection, media capture or data channel surface. This chapter is out of scope while that remains true; the conditions are re-evaluated on every run, so introducing WebRTC restores the requirements to assessment."
+    }
+  ]
+}
