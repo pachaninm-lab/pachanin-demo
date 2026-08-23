@@ -3,7 +3,7 @@
   "issue": 4542,
   "branch": "sec/asvs-v2-3-5-correction-4542",
   "status": "active",
-  "purpose": "Correct a false statement in the merged V2.3.5 ASVS decision, which claimed no dual-approval control existed anywhere in the tree.",
+  "purpose": "Correct false absence statements in merged ASVS decisions - claims that a control existed nowhere in the tree, where one did.",
   "authorityBaseExactMain": "1cf8783cd95de52eae85797572b53206a2e8e4b3",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -19,9 +19,11 @@
     "No product logic, dependency, production, REG.RU, DNS or database change."
   ],
   "acceptance": [
-    "The note no longer claims that no four-eyes control exists in the tree.",
-    "The note no longer equates this gap with the independent code review blocker.",
-    "A machine-checked condition proves the second-approval control exists on the authority-granting path.",
-    "Matrix state is unchanged: 14 PASS, 23 FAIL, finalPass false."
+    "No decision note claims a control exists nowhere in the tree unless a machine-checked condition proves it.",
+    "V2.3.5 credits the second-approval control on the authority-granting path and scopes its gap to the money flow.",
+    "V2.3.5 no longer equates its gap with the independent code review blocker.",
+    "V12.3.5 states that the Elasticsearch hop does authenticate, with a shared password over plaintext, and its condition is retargeted to the hop that truly sends no credential.",
+    "V5.1.1 distinguishes what is bounded after extraction from what is uncapped during decompression.",
+    "No verdict changes. Matrix state unchanged: 14 PASS, 23 FAIL, finalPass false."
   ]
 }

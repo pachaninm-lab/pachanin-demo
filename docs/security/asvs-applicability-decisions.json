@@ -439,7 +439,7 @@
           ]
         }
       ],
-      "note": "No document defines the permitted file types, expected extensions or maximum size for this upload feature. Unpacked size in particular is neither stated nor bounded anywhere."
+      "note": "No document defines the permitted file types, expected extensions or maximum size for this upload feature. Unpacked size is the sharpest gap: it is stated nowhere, and decompression itself is uncapped (see V5.2.3). Stated precisely, because the first version of this note said unpacked size was \"neither stated nor bounded anywhere\" and that was too broad: extracted text is truncated at MAX_EXTRACTED_CHARS and OCR output is bounded by the execFile maxBuffer. Those bound what is kept, not what is inflated, so the requirement still fails - but the note should not suggest that nothing limits anything."
     },
     {
       "requirementId": "V5.2.1",
@@ -1447,7 +1447,7 @@
       "status": "FAIL",
       "evidence": [
         "signed-hop:apps/web/lib/platform-v7/tai-internal-stream.ts",
-        "unauthenticated-hop:apps/api/src/modules/search/search.module.ts",
+        "basic-auth-hop:apps/api/src/modules/search/search.module.ts",
         "unauthenticated-hop:apps/api/src/modules/ml-client/ml-client.service.ts"
       ],
       "conditions": [
@@ -1463,19 +1463,31 @@
           ]
         },
         {
-          "condition": "the search hop still carries no service authentication",
+          "condition": "the model-service hop still sends no credential of any kind",
           "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/search/search.module.ts"
+            "apps/api/src/modules/ml-client/ml-client.service.ts"
           ],
           "patterns": [
             "authorization",
             "apikey",
-            "hmac"
+            "api_key",
+            "bearer",
+            "auth:"
+          ]
+        },
+        {
+          "condition": "the search hop authenticates with a shared password rather than a signature",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/search/search.module.ts"
+          ],
+          "patterns": [
+            "elasticsearch_password"
           ]
         }
       ],
-      "note": "One hop does this well: web to API signs each internal request with HMAC-SHA256 over a version, method, canonical path, timestamp and body hash, and derives the URL from the signed path constant so a signature can never cover a path other than the one dialled. The other internal hops have nothing equivalent - no service token, no signature, no shared secret. The requirement asks that services communicating internally authenticate each other; most of them do not."
+      "note": "The three internal hops authenticate in three different ways, and only one is sound. Web to API signs each request with HMAC-SHA256 over a version, method, canonical path, timestamp and body hash, deriving the URL from the signed path constant so a signature can never cover a path other than the one dialled. API to Elasticsearch sends HTTP basic auth when ELASTICSEARCH_PASSWORD is set - a shared secret, and by V12.3.3 it travels over plaintext http, so the credential itself is exposed on the wire. API to the model service sends only Content-Type and no credential at all. Correction to the note this decision first carried: it said the other hops had no service token, signature or shared secret. That was wrong about Elasticsearch, and the condition that was meant to catch it searched for the wrong words - it looked for \"authorization\" where the file says \"auth:\" and \"password\". Both are fixed here."
     },
     {
       "requirementId": "V17.1.1",
