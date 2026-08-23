@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-production-release-concurrency-3785",
+  "status": "active",
+  "operationalStatus": "P0_STALE_GITHUB_ORPHAN_QUARANTINE",
+  "purpose": "Quarantine exactly five immutable stale queued GitHub Actions records from 2026-08-19 without weakening production concurrency: prove three historical workflows are read-only by immutable history and fail-close the two historical mutation-capable workflows through the current shared provisioner before classifying those exact orphan records as non-mutating.",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-staff-api-origin-runtime-repair.yml",
+    "scripts/check-production-p0-staff-api-origin-runtime-repair.mjs",
+    "scripts/provision-production-p0-password-reset-runtime.sh"
+  ],
+  "boundaries": {
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "productionMutationByChange": "NONE",
+    "quarantinedLegacyHeadSha": "8bb7a5b98e75b4d9ad80b12ae492553e608fccb3",
+    "exactOrphanRunIdsOnly": true,
+    "readOnlyHistoricalProofRequired": true,
+    "mutationCapableHistoricalRunsFailClosedBeforeMutation": true,
+    "freshOrChangedRunStillBlocks": true,
+    "sshPinMutation": false,
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "newRecurringCostRub": 0
+  }
+}
