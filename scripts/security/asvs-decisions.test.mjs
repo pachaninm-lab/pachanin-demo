@@ -191,3 +191,26 @@ test('an applicable-but-unassessed requirement is counted apart from an undecide
   assert.ok(summary.blockers.includes('NOT_ASSESSED:1'));
   assert.ok(summary.blockers.includes('PENDING_APPLICABILITY_REVIEW:1'));
 });
+
+test('a requirement blocked on evidence we cannot gather is neither PASS nor FAIL', () => {
+  // Some requirements can only be verified against a running system. Marking
+  // them PASS would assert something unverified; marking them FAIL would assert
+  // a defect nobody observed. Both are false statements. The decision records
+  // that applicability is settled and the assessment is not, and the condition
+  // still watches the fact that makes the evidence unreachable - so if the
+  // production edge ever comes under version control, these are revisited.
+  const blocked = {
+    requirementId: 'V6.2.1', applicability: APPLICABILITY.APPLICABLE, status: STATUS.NOT_ASSESSED,
+    evidence: ['hosting-authority:docs/ops/runbook.md'], conditions: held,
+    note: 'the terminator configuration is held outside the repository',
+  };
+  assert.equal(validateDecision(blocked).valid, true);
+
+  const { records, rejected } = applyDecisions(REQS, [blocked]);
+  assert.equal(rejected.length, 0);
+  const record = records.find((r) => r.reqId === 'V6.2.1');
+  assert.equal(record.status, STATUS.NOT_ASSESSED);
+  assert.notEqual(record.status, STATUS.PASS);
+  assert.notEqual(record.status, STATUS.FAIL);
+  assert.equal(blocksFinalPass(record), true);
+});

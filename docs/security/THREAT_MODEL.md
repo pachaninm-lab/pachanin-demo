@@ -194,6 +194,33 @@ exposure; it does not retract what is already published.
 
 ---
 
+## 8. Transport configuration
+
+- **Prevention:** the production edge is Caddy with automatic HTTPS on the single
+  REG.RU virtual server. Where the application opens a TLS socket itself it sets
+  `rejectUnauthorized: true`, and nothing in the tree disables certificate
+  verification — there is no `rejectUnauthorized: false` and no
+  `NODE_TLS_REJECT_UNAUTHORIZED` anywhere.
+- **Detection:** none. No configuration drift check exists for the edge.
+- **Residual risk:** **HIGH.** Two distinct gaps.
+  - **The production TLS configuration is not under version control.** The
+    runbook treats Compose, Caddy and environment as protected artifacts held on
+    the host. Nothing in this repository can show which protocol versions,
+    cipher suites, certificate chain or stapling behaviour production serves. A
+    change to the edge leaves no reviewable trace, and no ASVS transport
+    requirement can be closed from source.
+  - **Internal service-to-service traffic is plaintext by default.** Web to API,
+    API to Elasticsearch, API to the model service and the telemetry exporter
+    all default to `http://`, and the telemetry endpoint validator accepts a
+    plaintext scheme deliberately. `infra/istio/peer-authentication.yml` declares
+    STRICT mesh mTLS, but it does not apply: production is Docker Compose on one
+    virtual server, not a Kubernetes cluster, and the platform's own interface
+    copy states the mesh is a target model pending a live cluster.
+- `infra/nginx/nginx.conf` is **not** the production terminator. Its TLS
+  directives must never be cited as evidence about production.
+
+---
+
 ## Summary of open gaps
 
 Ranked by residual risk, these are the items this model does **not** consider mitigated:
@@ -206,6 +233,8 @@ Ranked by residual risk, these are the items this model does **not** consider mi
 6. RAG corpus provenance unregistered.
 7. Qwen immutability declared but not enforced fail-closed.
 8. Account takeover of the single owner identity is unbounded in impact.
+9. Production TLS configuration is not under version control.
+10. Internal service-to-service traffic is plaintext by default.
 
 Each is tracked against the IP/security programme under #4459. None is closed
 by the existence of this document.
