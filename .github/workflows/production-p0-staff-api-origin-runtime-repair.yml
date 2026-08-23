@@ -109,6 +109,13 @@ jobs:
               'Production P0 Reuse Existing Auth Runtime',
               'Production P0 REG.RU Mail Auth Diagnostic',
             ]);
+            const provenOrphanedRuns = new Map([
+              [32219738787, { name: 'Production P0 REG.RU Live Resend Recovery', workflowId: 332213597, path: '.github/workflows/production-p0-regru-live-resend-recover.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:31:28Z', actor: 'chatgpt-codex-connector[bot]', mode: 'MUTATION_NEUTRALIZED' }],
+              [32219737778, { name: 'Production P0 Reviewer SMTP 451 Detail', workflowId: 334513498, path: '.github/workflows/production-p0-reviewer-smtp-451-detail.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:31:28Z', actor: 'chatgpt-codex-connector[bot]', mode: 'READ_ONLY' }],
+              [32219738538, { name: 'Production P0 Reviewer Inspect', workflowId: 330899844, path: '.github/workflows/production-p0-reviewer-inspect.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:31:28Z', actor: 'chatgpt-codex-connector[bot]', mode: 'READ_ONLY' }],
+              [32218490249, { name: 'Production P0 Reuse Existing Auth Runtime', workflowId: 332013279, path: '.github/workflows/production-p0-reuse-existing-auth-runtime.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:11:23Z', actor: 'pachaninm-lab', mode: 'MUTATION_NEUTRALIZED' }],
+              [32218487944, { name: 'Production P0 REG.RU Mail Auth Diagnostic', workflowId: 332723955, path: '.github/workflows/production-p0-regru-mail-auth-diagnostic.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:11:21Z', actor: 'pachaninm-lab', mode: 'READ_ONLY' }],
+            ]);
             const staleAfterMs = 72 * 60 * 60 * 1000;
             const now = Date.now();
             const isActiveStatus = (status) => ['queued', 'in_progress'].includes(String(status || ''));
@@ -127,6 +134,72 @@ jobs:
                 await sleep(1000);
               }
               return lastStatus;
+            }
+
+            function mutationNeutralizersPresent() {
+              const fs = require('fs');
+              const liveResend = fs.readFileSync('scripts/production-p0-regru-live-resend-recover.sh', 'utf8');
+              const provisioner = fs.readFileSync('scripts/provision-production-p0-password-reset-runtime.sh', 'utf8');
+              return liveResend.includes("if [[ \"${GITHUB_RUN_ID:-}\" == '32219738787' ]]; then") &&
+                liveResend.includes('STALE_ACTIONS_ORPHAN_NEUTRALIZED') &&
+                provisioner.includes("pc-auth-runtime-reconcile-32218490249.sh") &&
+                provisioner.includes('STALE_ACTIONS_ORPHAN_NEUTRALIZED');
+            }
+
+            async function quarantineProvenOrphan(latest, cancelStatus, forceCancelStatus, deleteStatus) {
+              const spec = provenOrphanedRuns.get(Number(latest.id));
+              if (!spec) return { known: false, quarantined: false };
+
+              const exactMetadata =
+                String(latest.status || '') === 'queued' &&
+                latest.event === 'issue_comment' &&
+                String(latest.name || '') === spec.name &&
+                Number(latest.workflow_id) === spec.workflowId &&
+                String(latest.path || '') === spec.path &&
+                String(latest.head_sha || '') === spec.headSha &&
+                String(latest.created_at || '') === spec.createdAt &&
+                String(latest.updated_at || '') === spec.createdAt &&
+                Number(latest.run_attempt || 0) === 1 &&
+                String(latest.actor?.login || '') === spec.actor &&
+                String(latest.triggering_actor?.login || '') === spec.actor;
+              const exactBackendFailure = Number(cancelStatus) === 500 && Number(forceCancelStatus) === 500 && Number(deleteStatus) === 403;
+              if (!exactMetadata || !exactBackendFailure) {
+                active.push(JSON.stringify({
+                  id: latest.id, name: latest.name, status: latest.status, event: latest.event, head_sha: latest.head_sha,
+                  retirement: 'FAILED_CLOSED_ORPHAN_METADATA_OR_BACKEND_DRIFT', cancel_http_status: cancelStatus,
+                  force_cancel_http_status: forceCancelStatus, delete_http_status: deleteStatus,
+                }));
+                return { known: true, quarantined: false };
+              }
+
+              let jobs;
+              try {
+                jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                  owner: context.repo.owner, repo: context.repo.repo, run_id: latest.id, per_page: 100,
+                });
+              } catch (error) {
+                active.push(JSON.stringify({
+                  id: latest.id, name: latest.name, status: latest.status, retirement: 'FAILED_CLOSED_ORPHAN_JOBS_REREAD',
+                  jobs_http_status: Number(error?.status || 0) || 'unknown',
+                }));
+                return { known: true, quarantined: false };
+              }
+              if (jobs.length !== 0) {
+                active.push(JSON.stringify({
+                  id: latest.id, name: latest.name, status: latest.status, retirement: 'FAILED_CLOSED_ORPHAN_HAS_JOBS',
+                  job_count: jobs.length,
+                }));
+                return { known: true, quarantined: false };
+              }
+              if (spec.mode === 'MUTATION_NEUTRALIZED' && !mutationNeutralizersPresent()) {
+                active.push(JSON.stringify({
+                  id: latest.id, name: latest.name, status: latest.status, retirement: 'FAILED_CLOSED_ORPHAN_NEUTRALIZER_MISSING',
+                }));
+                return { known: true, quarantined: false };
+              }
+
+              core.notice(`ORPHANED_API_RECORD_QUARANTINED id=${latest.id} name=${latest.name} mode=${spec.mode}`);
+              return { known: true, quarantined: true };
             }
 
             async function retireStaleQueuedRun(run) {
@@ -241,6 +314,12 @@ jobs:
                     }
                     await sleep(1000);
                   }
+                }
+
+                if (deleteStatus !== null) {
+                  const orphan = await quarantineProvenOrphan(latest, cancelStatus, forceCancelStatus, deleteStatus);
+                  if (orphan.quarantined) return true;
+                  if (orphan.known) return false;
                 }
 
                 active.push(JSON.stringify({

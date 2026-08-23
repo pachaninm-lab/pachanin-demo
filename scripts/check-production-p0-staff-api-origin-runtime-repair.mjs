@@ -5,9 +5,15 @@ const workflowPath = '.github/workflows/production-p0-staff-api-origin-runtime-r
 const scriptPath = 'scripts/production-p0-staff-api-origin-runtime-repair.sh';
 const scopePath = 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-4559.json';
 const checkerPath = 'scripts/check-production-p0-staff-api-origin-runtime-repair.mjs';
+const neutralScopePath = 'docs/platform-v7/autopilot/scopes/p0-stale-actions-orphan-neutralization-3785.json';
+const liveResendPath = 'scripts/production-p0-regru-live-resend-recover.sh';
+const provisionerPath = 'scripts/provision-production-p0-password-reset-runtime.sh';
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const script = fs.readFileSync(scriptPath, 'utf8');
 const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
+const neutralScope = JSON.parse(fs.readFileSync(neutralScopePath, 'utf8'));
+const liveResend = fs.readFileSync(liveResendPath, 'utf8');
+const provisioner = fs.readFileSync(provisionerPath, 'utf8');
 
 function fail(message) { throw new Error(`P0_STAFF_API_ORIGIN_RUNTIME_REPAIR:${message}`); }
 function requireAll(label, source, needles) {
@@ -36,7 +42,22 @@ requireAll('workflow', workflow, [
   'force_cancel_http_status',
   'delete_http_status',
   "Number(error?.status || 0) === 404",
+  'provenOrphanedRuns',
+  'quarantineProvenOrphan',
+  'listJobsForWorkflowRun',
+  'jobs.length !== 0',
+  "Number(cancelStatus) === 500",
+  "Number(forceCancelStatus) === 500",
+  "Number(deleteStatus) === 403",
+  'ORPHANED_API_RECORD_QUARANTINED',
+  "retirement: 'FAILED_CLOSED_ORPHAN_METADATA_OR_BACKEND_DRIFT'",
+  "retirement: 'FAILED_CLOSED_ORPHAN_JOBS_REREAD'",
+  "retirement: 'FAILED_CLOSED_ORPHAN_HAS_JOBS'",
+  "retirement: 'FAILED_CLOSED_ORPHAN_NEUTRALIZER_MISSING'",
 ]);
+for (const id of ['32219738787','32219737778','32219738538','32218490249','32218487944']) {
+  if (!workflow.includes(id)) fail(`workflow missing exact orphan run id ${id}`);
+}
 
 const forceCancelIndex = workflow.indexOf("POST /repos/{owner}/{repo}/actions/runs/{run_id}/force-cancel");
 const staleRecheckIndex = workflow.indexOf('const strictStaleStillQueued');
@@ -99,6 +120,40 @@ for (const forbiddenOutput of [
 ]) {
   if (script.includes(forbiddenOutput)) fail(`script may expose protected runtime data: ${forbiddenOutput}`);
 }
+
+requireAll('live resend orphan neutralizer', liveResend, [
+  "if [[ \"${GITHUB_RUN_ID:-}\" == '32219738787' ]]; then",
+  'BLOCKER=STALE_ACTIONS_ORPHAN_NEUTRALIZED',
+  'MUTATION=NONE',
+]);
+const liveNeutralizerIndex = liveResend.indexOf("if [[ \"${GITHUB_RUN_ID:-}\" == '32219738787' ]]; then");
+const liveSshIndex = liveResend.indexOf('ssh-keyscan');
+if (liveNeutralizerIndex < 0 || liveSshIndex <= liveNeutralizerIndex) fail('live resend orphan neutralizer must precede SSH and production access');
+
+requireAll('reuse-runtime provisioner orphan neutralizer', provisioner, [
+  `if [[ "$(basename -- \"$0\")" == 'pc-auth-runtime-reconcile-32218490249.sh' ]]; then`,
+  'fail STALE_ACTIONS_ORPHAN_NEUTRALIZED 79',
+]);
+const provisionerNeutralizerIndex = provisioner.indexOf('pc-auth-runtime-reconcile-32218490249.sh');
+const provisionerMutationIndex = provisioner.indexOf('delivery_temp=');
+if (provisionerNeutralizerIndex < 0 || provisionerMutationIndex <= provisionerNeutralizerIndex) fail('reuse-runtime orphan neutralizer must precede persistent runtime mutation');
+
+if (neutralScope.schemaVersion !== 'platform-v7.concurrent-scope.v1') fail('neutralization scope schema mismatch');
+if (neutralScope.issue !== 3785 || neutralScope.releaseIssue !== 3072) fail('neutralization scope authority mismatch');
+if (neutralScope.branch !== 'fix/p0-stale-actions-orphan-neutralization-3785' || neutralScope.status !== 'active') fail('neutralization scope branch/status mismatch');
+if (neutralScope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY' || neutralScope.newRecurringCostRub !== 0) fail('neutralization scope hosting/cost mismatch');
+const neutralAllowed = [workflowPath, neutralScopePath, checkerPath, liveResendPath, provisionerPath].sort();
+if (JSON.stringify([...neutralScope.allowedPaths].sort()) !== JSON.stringify(neutralAllowed)) fail('neutralization scope allowed paths mismatch');
+const exactOrphans = [32219738787,32219737778,32219738538,32218490249,32218487944].sort((a,b)=>a-b);
+if (JSON.stringify([...neutralScope.knownOrphanedRuns].sort((a,b)=>a-b)) !== JSON.stringify(exactOrphans)) fail('neutralization exact run-id set mismatch');
+const mutationOrphans = [32219738787,32218490249].sort((a,b)=>a-b);
+if (JSON.stringify([...neutralScope.mutationCapableRunsToNeutralize].sort((a,b)=>a-b)) !== JSON.stringify(mutationOrphans)) fail('neutralization mutation-capable run set mismatch');
+const readOnlyOrphans = [32219737778,32219738538,32218487944].sort((a,b)=>a-b);
+if (JSON.stringify([...neutralScope.readOnlyRuns].sort((a,b)=>a-b)) !== JSON.stringify(readOnlyOrphans)) fail('neutralization read-only run set mismatch');
+const nb = neutralScope.boundaries || {};
+for (const key of ['registrationOnly','exactFiveRunIdsOnly','orphanMetadataMustMatch','zeroJobsRequired','realActiveWorkflowStillBlocks','neutralizeBeforePersistentMutation']) if (nb[key] !== true) fail(`neutralization boundary must be true: ${key}`);
+for (const key of ['databaseMutation','migrationMutation','credentialMutation','sessionMutation','mfaMutation','roleOrMembershipMutation','dnsMutation','caddyMutation','sshPinMutation']) if (nb[key] !== false) fail(`neutralization boundary must be false: ${key}`);
+if (nb.productionMutationByThisChange !== 'NONE' || nb.newRecurringCostRub !== 0) fail('neutralization mutation/cost boundary mismatch');
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') fail('scope schema mismatch');
 if (scope.issue !== 4559 || scope.releaseIssue !== 3072) fail('scope authority mismatch');
