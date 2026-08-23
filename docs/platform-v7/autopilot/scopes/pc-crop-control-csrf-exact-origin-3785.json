@@ -3,7 +3,7 @@
   "branch": "fix/pc-crop-control-csrf-exact-origin-3785",
   "status": "active",
   "issue": 3785,
-  "baseCommit": "12b87e88ba7c20c84a7e12635c63019511091a2f",
+  "baseCommit": "411e5b8af7f6b0a6527bd77959115b7aeccd2b21",
   "operationalStatus": "P0_CONTROL_CSRF_EXACT_ORIGIN_REPAIR",
   "allowedPaths": [
     "apps/web/lib/server-request-security.ts",
