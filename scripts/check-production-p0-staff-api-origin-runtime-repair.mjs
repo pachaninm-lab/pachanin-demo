@@ -23,6 +23,13 @@ requireAll('workflow', workflow, [
   "github.event.comment.body == '/production p0-staff-api-origin-repair current-runtime'",
   'bash scripts/production-p0-staff-api-origin-runtime-repair.sh',
   'Reject concurrent production mutation workflows',
+  'actions: write',
+  'cancelWorkflowRun',
+  'getWorkflowRun',
+  'waitForRetirement',
+  "POST /repos/{owner}/{repo}/actions/runs/{run_id}/force-cancel",
+  "retirement: 'FAILED_CLOSED'",
+  'force_cancel_http_status',
 ]);
 
 requireAll('script', script, [
