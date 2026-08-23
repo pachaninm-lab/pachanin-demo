@@ -6,6 +6,8 @@ on:
       - 'apps/**'
       - 'packages/**'
       - 'scripts/ip/**'
+      - 'scripts/security/build-asvs-matrix.mjs'
+      - 'scripts/security/build-asvs-matrix.test.mjs'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -25,6 +27,8 @@ on:
       - 'apps/**'
       - 'packages/**'
       - 'scripts/ip/**'
+      - 'scripts/security/build-asvs-matrix.mjs'
+      - 'scripts/security/build-asvs-matrix.test.mjs'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -200,6 +204,9 @@ jobs:
 
       - name: Build offline-only similarity evidence
         run: node scripts/ip/build-offline-similarity-evidence.mjs artifacts/ip-clean-room
+
+      - name: Build pinned OWASP ASVS 5 evidence inventory
+        run: node scripts/security/build-asvs-matrix.mjs artifacts/ip-clean-room/security/asvs
 
       - name: Upload immutable IP evidence bundle
         if: always()
