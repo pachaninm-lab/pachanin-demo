@@ -4201,7 +4201,7 @@
         "query-token:apps/web/app/api/auth/registration/status/route.ts",
         "query-token:apps/web/app/api/gekta/auth/email/verify/route.ts",
         "oauth-code:apps/web/app/api/platform-v7/gov-id/callback/route.ts",
-        "unmasked-sink:apps/api/src/common/middleware/log-masking.middleware.ts"
+        "request-log:apps/api/src/common/middleware/log-masking.middleware.ts"
       ],
       "conditions": [
         {
@@ -4215,20 +4215,17 @@
           ]
         },
         {
-          "condition": "log masking still does not reach the URL or query string, so those values are not masked where they land",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the request log line still records the path rather than the full URL, so the token is not in this log",
+          "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/common/middleware/log-masking.middleware.ts"
           ],
           "patterns": [
-            "originalurl",
-            "req.url",
-            "querystring",
-            ".query"
+            "path: reqpath"
           ]
         }
       ],
-      "note": "Two query parameters carry a credential. The denominator is every query key the application reads, not a sample: lang 7, role 4, to 3, stream 3, limit 3, as 3, token 2, locale 2, format 2, state 1, next 1, flow 1, email 1, connection_limit 1, code 1. Of those, the two token reads are the finding - registration status and Gekta email verification both accept a verification token in the URL, where it reaches browser history, the Referer header and every access log on the path. The OAuth authorization code in the gov-id callback is deliberately not counted as the failure: a code in the query is the authorization code flow’s own design, and whether it is handled correctly is V10’s question. What makes the two tokens worse than they look is the paired fact: the log-masking middleware, which masks eight personal-data classes elsewhere, has no reference to the URL or query string at all, so nothing masks these values in the logs they reach."
+      "note": "Two query parameters carry a credential. The denominator is every query key the application reads, not a sample: lang 7, role 4, to 3, stream 3, limit 3, as 3, token 2, locale 2, format 2, state 1, next 1, flow 1, email 1, connection_limit 1, code 1. Of those, the two token reads are the finding - registration status and Gekta email verification both accept a verification token in the URL. The OAuth authorization code in the gov-id callback is deliberately not counted as the failure: a code in the query is the authorization code flow’s own design, and whether it is handled correctly is V10’s question. Correction to the reasoning first published with this decision: it said the log-masking middleware has no reference to the URL or query string, \"so nothing masks these values in the logs they reach\". The first half is true, but the inference was misleading - the middleware logs Express req.path, which excludes the query string, so the platform’s own request log never contains the token to begin with. The verdict does not change, because the defect this requirement names is the credential being in the URL at all: from there it reaches browser history, the Referer header on any outbound link, and whatever access log the Caddy edge keeps, which is not under version control and cannot be inspected from here. What would close it is moving the token out of the URL - a one-time link that is exchanged for a POST, or a token carried in a header - and that changes how verification emails work, so it is a product decision rather than a masking fix."
     },
     {
       "requirementId": "V14.2.2",
