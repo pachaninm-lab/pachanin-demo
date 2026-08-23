@@ -69,7 +69,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-      actions: read
+      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
       PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
@@ -102,6 +102,16 @@ jobs:
         with:
           script: |
             const active = [];
+            const staleQueuedNames = new Set([
+              'Production P0 REG.RU Live Resend Recovery',
+              'Production P0 Reviewer SMTP 451 Detail',
+              'Production P0 Reviewer Inspect',
+              'Production P0 Reuse Existing Auth Runtime',
+              'Production P0 REG.RU Mail Auth Diagnostic',
+            ]);
+            const staleAfterMs = 72 * 60 * 60 * 1000;
+            const now = Date.now();
+
             for (const status of ['queued', 'in_progress']) {
               const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
                 owner: context.repo.owner,
@@ -113,6 +123,28 @@ jobs:
                 if (Number(run.id) === Number(context.runId)) continue;
                 const name = String(run.name || '');
                 if (!/(production|release|deploy|reg\.ru|cutover|activation|rolling|repair)/i.test(name)) continue;
+
+                const createdAt = Date.parse(String(run.created_at || ''));
+                const neverUpdated = Boolean(run.created_at) && run.updated_at === run.created_at;
+                const staleQueuedIssueComment =
+                  status === 'queued' &&
+                  run.event === 'issue_comment' &&
+                  staleQueuedNames.has(name) &&
+                  Number.isFinite(createdAt) &&
+                  now - createdAt >= staleAfterMs &&
+                  neverUpdated &&
+                  String(run.head_sha || '') !== String(context.sha || '');
+
+                if (staleQueuedIssueComment) {
+                  await github.rest.actions.cancelWorkflowRun({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    run_id: run.id,
+                  });
+                  core.notice(`Retired stale queued production issue-comment run ${run.id}:${name}`);
+                  continue;
+                }
+
                 active.push(JSON.stringify({
                   id: run.id,
                   name,
