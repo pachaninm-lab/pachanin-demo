@@ -116,6 +116,26 @@ jobs:
               [32218490249, { name: 'Production P0 Reuse Existing Auth Runtime', workflowId: 332013279, path: '.github/workflows/production-p0-reuse-existing-auth-runtime.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:11:23Z', actor: 'pachaninm-lab', mode: 'MUTATION_NEUTRALIZED' }],
               [32218487944, { name: 'Production P0 REG.RU Mail Auth Diagnostic', workflowId: 332723955, path: '.github/workflows/production-p0-regru-mail-auth-diagnostic.yml', headSha: '8bb7a5b98e75b4d9ad80b12ae492553e608fccb3', createdAt: '2026-08-19T05:11:21Z', actor: 'pachaninm-lab', mode: 'READ_ONLY' }],
             ]);
+            const nonProductionCiProfiles = new Map([
+              ['TAI Release Acceptance', {
+                path: '.github/workflows/tai-release-acceptance.yml',
+                required: [
+                  'permissions:\n  actions: read\n  contents: read',
+                  'runs-on: ubuntu-latest',
+                  'production_operational_status") != "NOT_ATTESTED"',
+                ],
+              }],
+              ['Production-like Kubernetes Acceptance', {
+                path: '.github/workflows/production-like-kubernetes-acceptance.yml',
+                required: [
+                  'permissions:\n  contents: read',
+                  'runs-on: ubuntu-latest',
+                  'KIND_VERSION=v0.23.0',
+                  'kind delete cluster --name grainflow-acceptance || true',
+                  'docker rm -f kind-registry || true',
+                ],
+              }],
+            ]);
             const staleAfterMs = 72 * 60 * 60 * 1000;
             const now = Date.now();
             const isActiveStatus = (status) => ['queued', 'in_progress'].includes(String(status || ''));
@@ -134,6 +154,52 @@ jobs:
                 await sleep(1000);
               }
               return lastStatus;
+            }
+
+            async function proveNonProductionCi(run) {
+              const profile = nonProductionCiProfiles.get(String(run.name || ''));
+              if (!profile) return false;
+              if (String(run.path || '') !== profile.path || !/^[0-9a-f]{40}$/.test(String(run.head_sha || ''))) {
+                core.warning(`Non-production CI proof metadata mismatch for run ${run.id}:${run.name}`);
+                return false;
+              }
+
+              let data;
+              try {
+                const response = await github.rest.repos.getContent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  path: profile.path,
+                  ref: run.head_sha,
+                });
+                data = response.data;
+              } catch (error) {
+                core.warning(`Exact-head non-production CI workflow fetch failed for run ${run.id}:${run.name}; status=${Number(error?.status || 0) || 'unknown'}`);
+                return false;
+              }
+
+              if (Array.isArray(data) || data?.type !== 'file' || data?.encoding !== 'base64' || typeof data?.content !== 'string') {
+                core.warning(`Exact-head non-production CI workflow content invalid for run ${run.id}:${run.name}`);
+                return false;
+              }
+              const source = Buffer.from(data.content.replace(/\s/g, ''), 'base64').toString('utf8');
+              if (!source.startsWith(`name: ${run.name}\n`)) return false;
+              if (!profile.required.every((marker) => source.includes(marker))) return false;
+
+              const forbidden = [
+                /\$\{\{\s*secrets\./i,
+                /\bPC_PROD(?:_|\b)/,
+                /(?:^|[\s;|&])(?:ssh|scp|sftp|rsync)(?:[\s;|&]|$)/im,
+                /ssh-keyscan/i,
+                /appleboy\/ssh-action/i,
+                /runs-on:\s*(?:self-hosted|\[[^\]]*self-hosted)/i,
+                /permissions:\s*(?:write-all|read-all)/i,
+                /(?:actions|checks|contents|deployments|discussions|id-token|issues|packages|pages|pull-requests|repository-projects|security-events|statuses):\s*write\b/i,
+              ];
+              if (forbidden.some((pattern) => pattern.test(source))) return false;
+
+              core.notice(`NON_PRODUCTION_CI_PROVEN id=${run.id} name=${run.name} head_sha=${run.head_sha}`);
+              return true;
             }
 
             function mutationNeutralizersPresent() {
@@ -351,6 +417,7 @@ jobs:
                 if (Number(run.id) === Number(context.runId)) continue;
                 const name = String(run.name || '');
                 if (!/(production|release|deploy|reg\.ru|cutover|activation|rolling|repair)/i.test(name)) continue;
+                if (nonProductionCiProfiles.has(name) && await proveNonProductionCi(run)) continue;
 
                 const createdAt = Date.parse(String(run.created_at || ''));
                 const neverUpdated = Boolean(run.created_at) && run.updated_at === run.created_at;
