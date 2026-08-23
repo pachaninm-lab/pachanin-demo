@@ -184,3 +184,45 @@ test('an over-broad absence pattern fails safe rather than passing silently', ()
   }, pathContext(files));
   assert.equal(precise.holds, true);
 });
+
+test('NO_RUNTIME_CALLER distinguishes a wired control from one nothing invokes', () => {
+  // The case that motivated this check: a complete, tested policy that the
+  // running application never calls. Reading the policy module alone cannot
+  // tell that apart from a control that works.
+  const files = {
+    'apps/api/src/auth/authority.policy.ts': 'export function evaluateGrant() { return true; }',
+    'apps/api/src/auth/authority.policy.spec.ts': 'evaluateGrant();',
+    'apps/api/src/deals/deals.service.ts': 'const ok = somethingElse();',
+  };
+  const orphan = evaluateCondition({
+    condition: 'the policy is never invoked at runtime', check: 'NO_RUNTIME_CALLER',
+    patterns: ['evaluategrant'], roots: ['apps'],
+    definedAt: ['apps/api/src/auth/authority.policy.ts'],
+  }, pathContext(files));
+
+  assert.equal(orphan.holds, true, 'a symbol used only by its own tests has no runtime caller');
+  assert.match(orphan.evidence, /no caller/u);
+
+  const wired = evaluateCondition({
+    condition: 'the policy is never invoked at runtime', check: 'NO_RUNTIME_CALLER',
+    patterns: ['evaluategrant'], roots: ['apps'],
+    definedAt: ['apps/api/src/auth/authority.policy.ts'],
+  }, pathContext({
+    ...files,
+    'apps/api/src/deals/deals.service.ts': 'const ok = evaluateGrant(input);',
+  }));
+
+  assert.equal(wired.holds, false, 'one real caller must end the claim');
+  assert.match(wired.evidence, /called from apps\/api\/src\/deals\/deals\.service\.ts/u);
+});
+
+test('NO_RUNTIME_CALLER does not count the defining module as its own caller', () => {
+  const selfOnly = evaluateCondition({
+    condition: 'never invoked', check: 'NO_RUNTIME_CALLER',
+    patterns: ['evaluategrant'], roots: ['apps'],
+    definedAt: ['apps/api/src/auth/authority.policy.ts'],
+  }, pathContext({
+    'apps/api/src/auth/authority.policy.ts': 'export function evaluateGrant() {} evaluateGrant();',
+  }));
+  assert.equal(selfOnly.holds, true);
+});

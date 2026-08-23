@@ -339,9 +339,26 @@
             "second_approver_same_person",
             "self_approval_forbidden"
           ]
+        },
+        {
+          "condition": "the second-approval policy is still invoked by nothing at runtime",
+          "check": "NO_RUNTIME_CALLER",
+          "patterns": [
+            "evaluategrantsigningauthority",
+            "evaluatesigningauthority",
+            "evaluatecreatedelegation"
+          ],
+          "roots": [
+            "apps",
+            "packages"
+          ],
+          "definedAt": [
+            "apps/api/src/modules/auth/accounting-authority-command.policy.ts",
+            "apps/api/src/modules/auth/signing-authority.policy.ts"
+          ]
         }
       ],
-      "note": "Release of funds is issued by one actor holding one role: the command policy carries BANK_RELEASE_REQUEST with no second-approver requirement, so the high-value money flow this requirement targets is unprotected. This note has been corrected twice and the second correction matters as much as the first. It originally claimed no dual-approval control existed anywhere in the tree, which was false: accounting-authority-command.policy.ts implements a complete one for granting signing authority - self-approval forbidden, the second approver a different person from both actor and target, holding SIGNING_AUTHORITY_MANAGE with MFA verified within 300 seconds. But saying only that would mislead in the other direction, because evaluateGrantSigningAuthority, evaluateRevokeSigningAuthority, evaluateCreateDelegation, evaluateSigningAuthority and canSign have ZERO callers outside their own module and its tests. The policy is written and tested; nothing in the running application invokes it. So the control exists as code and prevents nothing at runtime - the same shape as the anti-fraud detector recorded under V2.4.2. Reproduce with: grep -rn <function> apps/api/src --include=*.ts | grep -v policy.ts | grep -v \"\\.spec\\.\". The mechanism cannot yet express \"no non-test caller\" as a condition, which is why this is stated in prose with its reproduction rather than machine-anchored; that primitive is owed."
+      "note": "Release of funds is issued by one actor holding one role: the command policy carries BANK_RELEASE_REQUEST with no second-approver requirement, so the high-value money flow this requirement targets is unprotected. Two things are true at once and both are recorded, because stating either alone misleads. A complete second-approval policy does exist - accounting-authority-command.policy.ts forbids self-approval, requires the second approver to be a different person from both actor and target, and requires that person to hold SIGNING_AUTHORITY_MANAGE with MFA verified within 300 seconds. And nothing invokes it: its functions have no caller outside their own modules and tests, which the NO_RUNTIME_CALLER condition on this decision now re-checks on every run. The control exists as code and prevents nothing at runtime, the same shape as the anti-fraud detector under V2.4.2. If a caller ever appears, this condition stops holding and the requirement returns to assessment - which is the right outcome, because a wired policy would change the answer."
     },
     {
       "requirementId": "V2.4.1",
@@ -855,6 +872,650 @@
         }
       ],
       "note": "Files accepted from untrusted sources are parsed and their text returned with no malware scanning. docs/security/THREAT_MODEL.md already names malware scan and quarantine as a required control; it is not implemented."
+    },
+    {
+      "requirementId": "V7.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "session-service:apps/api/src/modules/auth/product-session.service.ts",
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "a session lifetime exists in code and would be what a document has to state",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "session_ttl_ms"
+          ]
+        },
+        {
+          "condition": "no document states an inactivity timeout or a maximum session lifetime",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "inactivity timeout",
+            "session lifetime"
+          ]
+        }
+      ],
+      "note": "A 30 day absolute lifetime exists in code. No document states it, states an inactivity timeout, or justifies either against risk. An undocumented timeout cannot be reviewed as appropriate, which is what this requirement asks."
+    },
+    {
+      "requirementId": "V7.1.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "session-service:apps/api/src/modules/auth/product-session.service.ts",
+        "documentation-set:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no concurrent-session limit is enforced in the session service",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "maxsessions",
+            "concurrentsession",
+            "sessionlimit"
+          ]
+        },
+        {
+          "condition": "no document defines how many parallel sessions an account may hold",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "concurrent session",
+            "parallel session"
+          ]
+        }
+      ],
+      "note": "Neither the limit nor its documentation exists. An account may hold unlimited parallel sessions; organization-team.service.ts surfaces an activeSessionCount for display, which counts sessions rather than bounding them."
+    },
+    {
+      "requirementId": "V7.1.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "relying-party:apps/web/lib/platform-v7/govIdentityBridge.ts",
+        "documentation-set:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the platform participates in a federated identity ecosystem as a relying party",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "response_type",
+            "client_id",
+            "openid"
+          ]
+        },
+        {
+          "condition": "no document covers session management for that federated participation",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "federated",
+            "relying party"
+          ]
+        }
+      ],
+      "note": "The platform is an OIDC relying party against a government identity provider, so it is part of a federated identity ecosystem and this requirement applies. No documentation covers how sessions in that ecosystem are created, timed out or terminated."
+    },
+    {
+      "requirementId": "V7.2.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "product-path:apps/api/src/modules/auth/product-session.service.ts",
+        "platform-path:apps/api/src/modules/auth/auth.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "both verification paths read the session from the database rather than trusting the token",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts",
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "getproductsessioncontext",
+            "getsessioncontext"
+          ]
+        }
+      ],
+      "note": "Session verification is a backend database read on every request, on both paths. The token carries a session id; authority comes from the stored row. A client cannot assert its own session state, and revocation takes effect on the next request rather than at the next refresh. Unlike the two token verifiers assessed under V9, these two session paths agree - auth.service.ts is in fact stricter, adding membership status, organization verification and role validity."
+    },
+    {
+      "requirementId": "V7.2.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "product-path:apps/api/src/modules/auth/product-session.service.ts",
+        "token-authority:apps/api/src/modules/auth/opaque-token-authority.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "session and refresh identifiers are generated per authentication",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "ses_${randomuuid()}",
+            "rf_${randomuuid()}"
+          ]
+        }
+      ],
+      "note": "Sessions are represented by dynamically generated reference tokens, not by anything derived from user data. Each authentication mints a fresh session id and a fresh refresh-token family id."
+    },
+    {
+      "requirementId": "V7.2.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "token-authority:apps/api/src/modules/auth/opaque-token-authority.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "reference token secrets come from a cryptographic random source",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/opaque-token-authority.ts"
+          ],
+          "patterns": [
+            "randombytes(32)",
+            "randombytes(18)"
+          ]
+        },
+        {
+          "condition": "stored values are digests compared in constant time",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/opaque-token-authority.ts"
+          ],
+          "patterns": [
+            "hkdfsync",
+            "timingsafeequal"
+          ]
+        }
+      ],
+      "note": "A reference token is 32 random bytes with an 18 byte random identifier. Only an HKDF-derived digest is stored, and comparison is constant-time, so neither guessing nor a timing oracle nor a database read yields a usable token."
+    },
+    {
+      "requirementId": "V7.2.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "product-path:apps/api/src/modules/auth/product-session.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "authentication mints a new session rather than reusing one",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "ses_${randomuuid()}",
+            "createproductsession"
+          ]
+        },
+        {
+          "condition": "the new session is unusable until the second factor completes",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "status: 'mfa_pending'"
+          ]
+        }
+      ],
+      "note": "Each authentication creates a new session with a new identifier and a new refresh family, and the session starts in MFA_PENDING so the identifier issued before the second factor cannot be used as an authenticated one. Refresh rotates the credential on every use and reuse of a rotated token revokes the entire family."
+    },
+    {
+      "requirementId": "V7.3.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "product-path:apps/api/src/modules/auth/product-session.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "an absolute lifetime exists",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "session_ttl_ms"
+          ]
+        },
+        {
+          "condition": "no inactivity tracking exists to build a timeout on",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "lastactivity",
+            "lastseen",
+            "idletimeout",
+            "inactivity"
+          ]
+        }
+      ],
+      "note": "There is no inactivity timeout, and no last-activity timestamp from which one could be derived. A session left untouched stays valid for its full 30 day absolute lifetime. This is a separate gap from V7.3.2: an absolute cap does not bound idle exposure."
+    },
+    {
+      "requirementId": "V7.3.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "product-path:apps/api/src/modules/auth/product-session.service.ts",
+        "documentation-set:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "an absolute maximum lifetime is enforced",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "session_ttl_ms",
+            "session_expires_at"
+          ]
+        },
+        {
+          "condition": "no documented limit exists to enforce it against",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "session lifetime",
+            "maximum session"
+          ]
+        }
+      ],
+      "note": "An absolute maximum is enforced and re-checked on every request, which is the mechanical half of this requirement. It fails on the other half: the requirement asks that the limit follow risk analysis and documentation, and 30 days is stated nowhere and justified nowhere. Recorded as FAIL rather than PASS because an unreviewed number is not a risk decision."
+    },
+    {
+      "requirementId": "V7.4.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "product-path:apps/api/src/modules/auth/product-session.service.ts",
+        "platform-path:apps/api/src/modules/auth/auth.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a terminated session is refused on both paths",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts",
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "session_status === 'revoked'",
+            "session_status === 'expired'"
+          ]
+        }
+      ],
+      "note": "Termination is honoured on the next request, not the next token refresh, because both paths re-read session status from the database each time. A revoked or expired session yields no further access even while its access token is still within its 15 minute validity."
+    },
+    {
+      "requirementId": "V7.4.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "product-path:apps/api/src/modules/auth/product-session.service.ts",
+        "platform-path:apps/api/src/modules/auth/auth.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a session belonging to a non-active user is refused",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts",
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "user_status !== 'active'"
+          ]
+        },
+        {
+          "condition": "the platform path also refuses on membership and organization state",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "membership_status !== 'active'",
+            "organization_status !== 'verified'"
+          ]
+        }
+      ],
+      "note": "Disabling an account terminates its sessions in effect: every request re-reads user status and refuses anything that is not ACTIVE, then revokes the session. No separate sweep is needed, so there is no window in which a disabled account still holds a live session. The platform path additionally follows membership and organization state, which covers an employee removed from an organization rather than deactivated outright."
+    },
+    {
+      "requirementId": "V7.4.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "credential-change:apps/api/src/modules/auth/password-reset.repository.ts",
+        "product-path:apps/api/src/modules/auth/product-session.service.ts",
+        "platform-path:apps/api/src/modules/auth/auth.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a successful password change advances the credential version",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/password-reset.repository.ts"
+          ],
+          "patterns": [
+            "credential_version = auth.credential_states.credential_version + 1"
+          ]
+        },
+        {
+          "condition": "a session minted under an older credential version is refused",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/product-session.service.ts",
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "credential_version"
+          ]
+        }
+      ],
+      "note": "A password change increments the credential version, and both session paths refuse any session whose recorded version no longer matches. Every other session ends immediately. Stated precisely: the application does not offer this as an option, it does it unconditionally, which exceeds what the requirement asks for. No option UI exists and none is claimed."
+    },
+    {
+      "requirementId": "V7.4.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "logout-control:apps/web/components/platform-v7/HeaderUtilityMenu.tsx",
+        "protected-shell:apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "route-group-layout:apps/web/app/platform-v7/layout.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "a logout control exists in the protected shell",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/components/platform-v7/HeaderUtilityMenu.tsx"
+          ],
+          "patterns": [
+            "/api/auth/logout"
+          ]
+        },
+        {
+          "condition": "the protected shell renders that control",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx"
+          ],
+          "patterns": [
+            "headerutilitymenu"
+          ]
+        }
+      ],
+      "note": "Under /platform-v7 this is satisfied: the logout control lives in the header menu rendered by the protected shell, which the route-group layout applies to every page beneath it. It fails as a whole because other authenticated surfaces do not sit under that layout - the platform-v7r runtime, the staff plane and the GEKTA product pages have their own shells, and no equivalent control was verified in them. Recorded as FAIL rather than a scoped PASS because the requirement asks about all pages that require authentication, and only one shell was proven."
+    },
+    {
+      "requirementId": "V7.4.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "admin-endpoint:apps/api/src/modules/auth/auth.controller.ts",
+        "staff-plane:apps/api/src/modules/staff-access/staff-access.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "an administrator can terminate another user sessions",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.controller.ts"
+          ],
+          "patterns": [
+            "sessions/revoke-user",
+            "@roles(role.admin)"
+          ]
+        },
+        {
+          "condition": "the staff plane can review and revoke sessions",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/staff-access/staff-access.controller.ts"
+          ],
+          "patterns": [
+            "access/sessions/review",
+            "access/sessions/:id/revoke"
+          ]
+        }
+      ],
+      "note": "POST auth/sessions/revoke-user is restricted to ADMIN and terminates every session of the named user. The staff plane additionally offers permission-gated review of all active sessions and revocation of an individual one. The requirement asks for per-user or all-user termination; per-user exists and is enforced by role."
+    },
+    {
+      "requirementId": "V7.5.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "role-change-service:apps/api/src/modules/auth/organization-invitation.service.ts",
+        "fresh-mfa-gate:apps/api/src/modules/auth/registration-decision.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the role change is implemented in this service",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/organization-invitation.service.ts"
+          ],
+          "patterns": [
+            "changemembershiprole"
+          ]
+        },
+        {
+          "condition": "that service still requires no re-authentication for it",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/organization-invitation.service.ts"
+          ],
+          "patterns": [
+            "requirefreshmfa",
+            "fresh_mfa",
+            "mfaverifiedat",
+            "step-up"
+          ]
+        },
+        {
+          "condition": "a wired fresh-MFA gate does exist elsewhere, so the capability is real",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/registration-decision.service.ts"
+          ],
+          "patterns": [
+            "requirefreshmfa",
+            "fresh_mfa_required"
+          ]
+        }
+      ],
+      "note": "A fresh-MFA gate exists and is genuinely wired: registration-decision.service.ts refuses a review decision unless the reviewer verified MFA within 15 minutes, at three call sites. It is credited here because it shows the capability is real and invoked - unlike the signing-authority policy under V2.3.5, which has no callers at all. But it guards registration review, not account attributes. Changing an organization membership role is a sensitive attribute change and organization-invitation.service.ts applies no re-authentication to it - only rate limiting at the controller and an optimistic version check. The password path is different and defensible: there is no in-session password change endpoint, only a reset requiring an emailed token, which is itself a re-authentication."
+    },
+    {
+      "requirementId": "V7.5.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "staff-plane:apps/api/src/modules/staff-access/staff-access.controller.ts",
+        "auth-controller:apps/api/src/modules/auth/auth.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the staff plane lets a caller view and terminate their own sessions",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/staff-access/staff-access.controller.ts"
+          ],
+          "patterns": [
+            "access/sessions",
+            "access/sessions/:id/revoke"
+          ]
+        },
+        {
+          "condition": "the user-facing auth surface offers no equivalent",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.controller.ts"
+          ],
+          "patterns": [
+            "@get('sessions",
+            "listsessions",
+            "revokeownsessions"
+          ]
+        }
+      ],
+      "note": "Staff can view their active sessions and revoke one. Ordinary platform users cannot: the only session-termination endpoint on the user-facing auth surface is ADMIN-only. The capability constant SECURITY_SESSION_REVOKE_OWN is defined in membership-capability.resolver.ts but is wired to no route, so it grants nothing. The staff plane is credited; the gap is the user plane."
+    },
+    {
+      "requirementId": "V7.5.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "money-command:apps/api/src/modules/deals/deal-command.policy.ts",
+        "authoritative-path:apps/api/src/modules/deals/postgresql-deal-command.service.ts",
+        "wired-gate-elsewhere:apps/api/src/modules/auth/registration-decision.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a highly sensitive money operation exists as a command",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/deal-command.policy.ts"
+          ],
+          "patterns": [
+            "bank_release_request"
+          ]
+        },
+        {
+          "condition": "the path that executes it still asks for no further authentication",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+          ],
+          "patterns": [
+            "requirefreshmfa",
+            "mfaverifiedat",
+            "fresh_mfa",
+            "step-up"
+          ]
+        },
+        {
+          "condition": "a wired further-authentication gate exists elsewhere, so the capability is real",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/registration-decision.service.ts"
+          ],
+          "patterns": [
+            "requirefreshmfa"
+          ]
+        }
+      ],
+      "note": "Releasing funds is the most sensitive operation this platform performs, and the path that executes it asks for nothing beyond an already-authenticated session. The session must carry a verified second factor to exist at all, which is a real baseline, but the requirement asks for further authentication at the point of the operation and there is none: no fresh-MFA check, no step-up, no secondary verification anywhere on the command path. The capability is not missing from the platform - registration-decision.service.ts refuses a decision unless MFA was verified within 15 minutes - it is simply not applied where the money moves. Read together with V2.3.5, the money-release command has neither a second approver nor a re-authentication step."
+    },
+    {
+      "requirementId": "V7.6.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "relying-party:apps/web/lib/platform-v7/govIdentityBridge.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the platform acts as a relying party against an external identity provider",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "response_type",
+            "redirect_uri",
+            "openid"
+          ]
+        },
+        {
+          "condition": "no session termination is propagated between relying party and provider",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "end_session",
+            "logout_token",
+            "front-channel",
+            "back-channel"
+          ]
+        }
+      ],
+      "note": "The platform is a relying party: it builds an authorization-code request with client_id, redirect_uri, scope openid, state and nonce. Nothing propagates session termination in either direction - no RP-initiated logout, no front-channel or back-channel logout, no logout_token handling - and no document describes what the behaviour should be. Both halves of the requirement are unmet."
+    },
+    {
+      "requirementId": "V7.6.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "relying-party:apps/web/lib/platform-v7/govIdentityBridge.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the federated flow is started by an explicit user action carrying anti-forgery state",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "state",
+            "nonce",
+            "randombridgevalue"
+          ]
+        },
+        {
+          "condition": "the flow is disabled unless deliberately configured",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "isgovidentityconfigured",
+            "platform_v7_gov_id_enabled"
+          ]
+        }
+      ],
+      "note": "A federated session is never created implicitly. The flow begins only from an explicit user action, carries a per-request random state and nonce in httpOnly SameSite=Lax cookies with a ten minute lifetime, and is inert entirely unless the bridge is configured and enabled. A drive-by request cannot mint a session."
     },
     {
       "requirementId": "V9.1.1",
