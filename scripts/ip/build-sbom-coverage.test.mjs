@@ -61,6 +61,25 @@ test('current architecture yields one explicit landing gap and no hidden denomin
   }]));
 });
 
+test('a dedicated SBOM can cover a package manifest without changing workspace metadata', () => {
+  const records = classifyCoverage({
+    trackedPaths: ['package.json', 'apps/landing/package.json'],
+    rootPackage: { workspaces: [] },
+    pnpmImporters: new Set(['.']),
+    dedicatedSboms: [{
+      manifest: 'apps/landing/package.json',
+      ecosystem: 'node',
+      cycloneDx: 'sbom/sbom-landing.cdx.json',
+      spdx: 'sbom/sbom-landing.spdx.json',
+    }],
+  });
+
+  const landing = records.find((record) => record.manifest === 'apps/landing/package.json');
+  assert.equal(landing?.status, 'COVERED');
+  assert.equal(landing?.reason, 'DEDICATED_CANONICAL_SBOM_GENERATED');
+  assert.deepEqual(landing?.evidence, ['sbom/sbom-landing.cdx.json', 'sbom/sbom-landing.spdx.json']);
+});
+
 test('new uncovered manifest fails closed instead of silently lowering coverage', () => {
   const records = classifyCoverage({
     trackedPaths: ['package.json', 'apps/new-service/package.json'],
