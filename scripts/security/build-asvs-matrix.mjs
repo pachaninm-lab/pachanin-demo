@@ -154,6 +154,42 @@ export function evaluateCondition(condition, { tracked, readFile }) {
     };
   }
 
+  // NO_RUNTIME_CALLER answers a question the other checks cannot: is this
+  // control ever actually invoked? A policy can be written in full, covered by
+  // tests, and reachable from nothing. That is not a control - it is code that
+  // resembles one, and reading the module alone cannot tell the difference.
+  //
+  // This exists because that distinction was missed once already. A decision
+  // note credited a second-approval policy whose functions had no callers
+  // outside their own tests, so the note described a protection that never runs.
+  // Tests are excluded from the search deliberately: a symbol referenced only by
+  // its own tests is exactly the case being detected.
+  if (condition.check === 'NO_RUNTIME_CALLER') {
+    const roots = condition.roots ?? [];
+    const definedAt = condition.definedAt ?? [];
+    const isTest = (path) => (
+      /\.(?:spec|test)\.[cm]?[jt]sx?$/u.test(path)
+      || /(?:^|\/)(?:tests?|__tests__)\//u.test(path)
+    );
+    const candidates = tracked.filter((path) => (
+      roots.some((root) => path.startsWith(`${root}/`))
+      && /\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(path)
+      && !isTest(path)
+      && !definedAt.includes(path)
+    ));
+    const hits = candidates.filter((path) => {
+      const text = (readFile(path) ?? '').toLowerCase();
+      return patterns.some((pattern) => text.includes(pattern));
+    });
+    return {
+      condition: condition.condition,
+      holds: hits.length === 0,
+      evidence: hits.length === 0
+        ? `${candidates.length} runtime files scanned, no caller`
+        : `called from ${hits.slice(0, 3).join(', ')}`,
+    };
+  }
+
   // PRESENT_AT_PATH and ABSENT_AT_PATH tie a decision to named files rather than
   // to the tree as a whole. PRESENT_AT_PATH backs a PASS: the control has to be
   // where the decision says it is. ABSENT_AT_PATH backs a FAIL and makes it
