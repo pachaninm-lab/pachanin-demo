@@ -1,0 +1,112 @@
+name: Production P0 Staff API Origin Runtime Repair
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-staff-api-origin-runtime-repair.yml'
+      - 'scripts/production-p0-staff-api-origin-runtime-repair.sh'
+      - 'scripts/check-production-p0-staff-api-origin-runtime-repair.mjs'
+      - 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-4559.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-staff-api-origin-runtime-repair.yml'
+      - 'scripts/production-p0-staff-api-origin-runtime-repair.sh'
+      - 'scripts/check-production-p0-staff-api-origin-runtime-repair.mjs'
+      - 'docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-4559.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-staff-api-origin-runtime-repair
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate staff API origin runtime repair contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-staff-api-origin-repair current-runtime'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-production-p0-staff-api-origin-runtime-repair.mjs
+      - run: bash -n scripts/production-p0-staff-api-origin-runtime-repair.sh
+
+  repair:
+    name: Guarded REG.RU Web API authority repair
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-staff-api-origin-repair current-runtime'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Reject concurrent production mutation workflows
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const active = [];
+            for (const status of ['queued', 'in_progress']) {
+              const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                status,
+                per_page: 100,
+              });
+              for (const run of runs) {
+                if (Number(run.id) === Number(context.runId)) continue;
+                const name = String(run.name || '');
+                if (!/(production|release|deploy|reg\.ru|cutover|activation|rolling|repair)/i.test(name)) continue;
+                active.push(`${run.id}:${name}:${status}`);
+              }
+            }
+            if (active.length) core.setFailed(`Concurrent production workflow detected: ${active.join(', ')}`);
+
+      - name: Repair only the proven invalid Web server API authority
+        shell: bash
+        run: bash scripts/production-p0-staff-api-origin-runtime-repair.sh
