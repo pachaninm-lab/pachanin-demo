@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-stale-actions-orphan-neutralization-3785",
+  "status": "active",
+  "operationalStatus": "P0_STALE_ACTIONS_ORPHAN_NEUTRALIZATION",
+  "purpose": "Neutralize exactly five proven stale GitHub Actions API records that block the bounded staff API-origin repair: preserve fail-closed behavior for every real active production workflow, prove three stale records are read-only, and make the two stale mutation-capable run IDs terminate before persistent production mutation even if GitHub later schedules them.",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "authorityBaseExactMain": "9d35dd9aee731af7468d478eb945c8ac5abba009",
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-staff-api-origin-runtime-repair.yml",
+    "docs/platform-v7/autopilot/scopes/p0-stale-actions-orphan-neutralization-3785.json",
+    "scripts/check-production-p0-staff-api-origin-runtime-repair.mjs",
+    "scripts/production-p0-regru-live-resend-recover.sh",
+    "scripts/provision-production-p0-password-reset-runtime.sh"
+  ],
+  "boundaries": {
+    "registrationOnly": true,
+    "exactFiveRunIdsOnly": true,
+    "orphanMetadataMustMatch": true,
+    "zeroJobsRequired": true,
+    "realActiveWorkflowStillBlocks": true,
+    "neutralizeBeforePersistentMutation": true,
+    "productionMutationByThisChange": "NONE",
+    "databaseMutation": false,
+    "migrationMutation": false,
+    "credentialMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "roleOrMembershipMutation": false,
+    "dnsMutation": false,
+    "caddyMutation": false,
+    "sshPinMutation": false,
+    "newRecurringCostRub": 0
+  },
+  "knownOrphanedRuns": [
+    32219738787,
+    32219737778,
+    32219738538,
+    32218490249,
+    32218487944
+  ],
+  "mutationCapableRunsToNeutralize": [
+    32219738787,
+    32218490249
+  ],
+  "readOnlyRuns": [
+    32219737778,
+    32219738538,
+    32218487944
+  ],
+  "acceptance": [
+    "the implementation branch changes only the five declared paths",
+    "the guard can quarantine only the five exact run IDs after exact metadata re-read and zero-jobs proof",
+    "all three read-only run IDs are tied to immutable workflow definitions at 8bb7a5b98e75b4d9ad80b12ae492553e608fccb3 that explicitly perform no production mutation",
+    "run 32219738787 is rejected on the runner before SSH by its exact GITHUB_RUN_ID",
+    "run 32218490249 is rejected by the current provisioner before persistent production runtime mutation using the immutable remote script basename containing that exact run ID",
+    "any changed metadata, non-zero job list, unrecognized run ID, or other active production/release/deploy workflow remains fail-closed",
+    "no SSH pin, credential, database, deployment target, role, session or MFA authority is changed",
+    "new recurring cost remains 0 RUB"
+  ]
+}
