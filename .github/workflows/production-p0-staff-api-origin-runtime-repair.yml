@@ -111,6 +111,70 @@ jobs:
             ]);
             const staleAfterMs = 72 * 60 * 60 * 1000;
             const now = Date.now();
+            const isActiveStatus = (status) => ['queued', 'in_progress'].includes(String(status || ''));
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            async function waitForRetirement(runId) {
+              let lastStatus = 'unknown';
+              for (let attempt = 0; attempt < 6; attempt += 1) {
+                const refreshed = await github.rest.actions.getWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: runId,
+                });
+                lastStatus = String(refreshed.data.status || 'unknown');
+                if (!isActiveStatus(lastStatus)) return lastStatus;
+                await sleep(1000);
+              }
+              return lastStatus;
+            }
+
+            async function retireStaleQueuedRun(run) {
+              let cancelStatus = null;
+              let forceCancelStatus = null;
+              try {
+                await github.rest.actions.cancelWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id,
+                });
+              } catch (error) {
+                cancelStatus = Number(error?.status || 0) || 'unknown';
+                core.warning(`Normal cancellation failed for stale run ${run.id}:${run.name}; status=${cancelStatus}`);
+              }
+
+              let finalStatus = await waitForRetirement(run.id);
+              if (isActiveStatus(finalStatus)) {
+                try {
+                  await github.request('POST /repos/{owner}/{repo}/actions/runs/{run_id}/force-cancel', {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    run_id: run.id,
+                  });
+                } catch (error) {
+                  forceCancelStatus = Number(error?.status || 0) || 'unknown';
+                  core.warning(`Force cancellation failed for stale run ${run.id}:${run.name}; status=${forceCancelStatus}`);
+                }
+                finalStatus = await waitForRetirement(run.id);
+              }
+
+              if (isActiveStatus(finalStatus)) {
+                active.push(JSON.stringify({
+                  id: run.id,
+                  name: run.name,
+                  status: finalStatus,
+                  event: run.event,
+                  head_sha: run.head_sha,
+                  retirement: 'FAILED_CLOSED',
+                  cancel_http_status: cancelStatus,
+                  force_cancel_http_status: forceCancelStatus,
+                }));
+                return false;
+              }
+
+              core.notice(`Retired stale queued production issue-comment run ${run.id}:${run.name}; final_status=${finalStatus}`);
+              return true;
+            }
 
             for (const status of ['queued', 'in_progress']) {
               const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
@@ -136,12 +200,7 @@ jobs:
                   String(run.head_sha || '') !== String(context.sha || '');
 
                 if (staleQueuedIssueComment) {
-                  await github.rest.actions.cancelWorkflowRun({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    run_id: run.id,
-                  });
-                  core.notice(`Retired stale queued production issue-comment run ${run.id}:${name}`);
+                  await retireStaleQueuedRun(run);
                   continue;
                 }
 
