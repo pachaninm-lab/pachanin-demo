@@ -99,6 +99,19 @@ describe('marketing editorial core — radar → evidence → topic planning', (
     expect(score.total).toBeGreaterThanOrEqual(0.62);
   });
 
+  it('rejects trusted but off-topic evidence instead of defaulting it to market content', () => {
+    const evidence = accepted({
+      title: 'Техническое сообщение об обновлении сайта ведомства',
+      text: 'На информационном ресурсе запланированы технические работы. Размещенные материалы останутся доступны после завершения обслуживания.',
+      topicHints: [],
+    });
+    const score = scoreMarketingEvidence(evidence, NOW);
+    expect(score.topic).toBe('GENERAL_AGRO');
+    expect(score.relevance).toBe(0);
+    expect(score.eligible).toBe(false);
+    expect(planMarketingContent(evidence, score, 0)).toBeNull();
+  });
+
   it('penalizes recently repeated topic-role clusters', () => {
     const evidence = accepted();
     const fresh = scoreMarketingEvidence(evidence, NOW);
