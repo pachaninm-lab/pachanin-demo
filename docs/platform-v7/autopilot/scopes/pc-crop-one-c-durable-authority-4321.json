@@ -19,6 +19,7 @@
     "apps/api/prisma/migrations/20260824130400_pc_crop_one_c_global_installation_guard/migration.sql",
     "apps/api/prisma/migrations/20260824130500_pc_crop_one_c_server_selected_binding/migration.sql",
     "apps/api/prisma/migrations/20260824130600_pc_crop_one_c_pairing_contract_hardening/migration.sql",
+    "apps/api/prisma/migrations/20260824130700_pc_crop_one_c_organization_row_lock_privilege/migration.sql",
     "apps/api/src/modules/accounting/accounting.module.ts",
     "apps/api/src/modules/accounting/one-c-connection-management.controller.ts",
     "apps/api/src/modules/accounting/one-c-connector.controller.ts",
@@ -40,6 +41,7 @@
     "One installation/GUID cannot bind to two platform organizations even across tenants.",
     "Credential rotation and binding revoke make old machine credentials invalid immediately.",
     "Ordinary runtime principals have no direct connector-table CRUD; bounded functions plus FORCE RLS remain the database boundary.",
+    "The organization FOR SHARE lock is backed by exactly one column-scoped UPDATE privilege on updatedAt for the isolated connector authority; table-wide UPDATE and any connector-authority UPDATE policy remain absent.",
     "Only connector pairing is public; human management requires DB-proven membership/capability and risky writes require fresh MFA.",
     "Heartbeat, jobs, ACK/result/fail, events and mappings remain closed; no provider traffic, production credential, production deployment or certification claim is introduced.",
     "Migration changes remain forward-only and no new mandatory recurring cost is introduced."
