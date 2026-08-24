@@ -29,6 +29,8 @@ export type TelegramQualificationSeed = Readonly<{
   content: string;
 }>;
 
+export type MarketingAttributionSigner = (attribution: MarketingAttribution) => string;
+
 /** Telegram /start parameter: q1_<campaign>_<content>. Unknown input degrades to organic. */
 export function parseTelegramStart(text: string): TelegramQualificationSeed {
   const match = /^\/start(?:@[A-Za-z0-9_]+)?(?:\s+q1_([A-Za-z0-9_-]{1,12})_([A-Za-z0-9_-]{1,12}))?\s*$/u.exec(
@@ -43,10 +45,14 @@ export function parseTelegramStart(text: string): TelegramQualificationSeed {
 
 /**
  * Inline URL buttons keep qualification stateless: Telegram never sends us the
- * user's role choice. The role is carried as a bounded non-PII landing tag and
- * the user completes the protected organization intake themselves.
+ * user's role choice. Every attribution URL also carries a server-generated
+ * HMAC token; unsigned query parameters remain presentation-only hints.
  */
-export function telegramRoleUrlKeyboard(origin: string, seed: TelegramQualificationSeed) {
+export function telegramRoleUrlKeyboard(
+  origin: string,
+  seed: TelegramQualificationSeed,
+  signAttribution: MarketingAttributionSigner,
+) {
   return {
     inline_keyboard: TELEGRAM_ROLE_OPTIONS.map((option) => {
       const attribution: MarketingAttribution = Object.freeze({
@@ -55,9 +61,10 @@ export function telegramRoleUrlKeyboard(origin: string, seed: TelegramQualificat
         content: tag(seed.content, 'bot'),
         roleCode: option.code,
       });
+      const signedAttributionToken = signAttribution(attribution);
       return [{
         text: option.label,
-        url: buildOrganizationWaitlistUrl(origin, attribution),
+        url: buildOrganizationWaitlistUrl(origin, attribution, signedAttributionToken),
       }];
     }),
   } as const;
