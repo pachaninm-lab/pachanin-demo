@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2132,
+  "scannedFiles": 2150,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 76,
+      "sites": 78,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 76,
+          "sites": 78,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -77,6 +77,8 @@
             "apps/api/src/modules/labs/lab-authority.service.ts",
             "apps/api/src/modules/labs/prisma-lab.repository.ts",
             "apps/api/src/modules/logistics/prisma-shipment.repository.ts",
+            "apps/api/src/modules/marketing/connectors/vk.publisher.ts",
+            "apps/api/src/modules/marketing/marketing-editorial-core.ts",
             "apps/api/src/modules/mfa/mfa.service.ts",
             "apps/api/src/modules/organization-intake/organization-intake.service.ts",
             "apps/api/src/modules/partner-api/partner-api.service.ts",
@@ -122,11 +124,11 @@
     {
       "operation": "mac",
       "label": "Message authentication",
-      "sites": 22,
+      "sites": 24,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 20,
+          "sites": 22,
           "files": [
             "apps/api/src/common/security/rate-limit.service.ts",
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
@@ -143,6 +145,7 @@
             "apps/api/src/shared/integration-signature.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/marketing-attribution.server.ts",
             "apps/web/lib/platform-v7/tai-internal-stream.ts",
             "apps/web/lib/server-request-actor.ts",
             "packages/integration-sdk/src/security/webhook-security.ts"
@@ -267,11 +270,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 223,
+      "sites": 224,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 223,
+          "sites": 224,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
@@ -440,11 +443,11 @@
     {
       "operation": "constant-time",
       "label": "Constant-time comparison",
-      "sites": 21,
+      "sites": 23,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 21,
+          "sites": 23,
           "files": [
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
@@ -460,10 +463,12 @@
             "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
             "apps/api/src/modules/tai-tools/tai-tool-assertion.ts",
             "apps/api/src/shared/integration-signature.ts",
+            "apps/web/app/api/marketing/telegram/webhook/route.ts",
             "apps/web/app/platform-v7/role-preview/showroom/page.tsx",
             "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/marketing-attribution.server.ts",
             "apps/web/lib/server-request-actor.ts",
             "apps/web/lib/server-request-security.ts",
             "packages/integration-sdk/src/security/webhook-security.ts"
@@ -625,6 +630,13 @@
         "apps/web/lib/platform-v7/owner-controlled-cabinet-server.ts",
         "apps/web/lib/server/auth-session-response.ts",
         "apps/web/middleware.ts"
+      ]
+    },
+    {
+      "name": "MARKETING_TELEGRAM_WEBHOOK_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/app/api/marketing/telegram/webhook/route.ts"
       ]
     },
     {
