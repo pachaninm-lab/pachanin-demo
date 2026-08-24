@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
+import { isSensitiveFieldName } from '../../common/security/sensitive-data';
 import type { RequestUser } from '../../common/types/request-user';
 import { AuditService } from '../audit/audit.service';
 import { DealRegistryQueryService } from '../deals/deal-registry-query.service';
@@ -658,6 +659,33 @@ function minimizeWorkspace(value: unknown): unknown | null {
   return minimizeValue(value, 0);
 }
 
+/**
+ * Имена, которые не уходят во внешний контур модели.
+ *
+ * Основа — каноническая классификация данных: всё, что она относит к классу,
+ * подлежащему вычистке из внешних каналов, сюда не попадает. Раньше здесь был
+ * собственный список из одиннадцати имён, и он расходился и с маскированием
+ * логов, и с outbound-обработчиком: ровно та рассинхронизация, которую
+ * каноническая схема убирает.
+ *
+ * Дополнительный список ниже — не персональные данные и не секреты, поэтому в
+ * канонической схеме им места нет, но во внешнюю модель они не отправляются:
+ * значение подписи и сертификат относятся к доказательственному материалу
+ * регуляторного обмена, а `personalData` — контейнер, содержимое которого по
+ * имени не разобрать.
+ */
+const DENIED_FOR_EXTERNAL_MODEL: readonly string[] = Object.freeze([
+  'signaturevalue',
+  'certificate',
+  'personaldata',
+]);
+
+function deniedForExternalModel(key: string): boolean {
+  if (isSensitiveFieldName(key)) return true;
+  const normalized = key.toLowerCase().replace(/[-_\s]/gu, '');
+  return DENIED_FOR_EXTERNAL_MODEL.includes(normalized);
+}
+
 function minimizeValue(value: unknown, depth: number): unknown {
   if (depth > 5) return '[depth-limited]';
   if (value === null || typeof value === 'boolean' || typeof value === 'number') return value;
@@ -667,9 +695,8 @@ function minimizeValue(value: unknown, depth: number): unknown {
   if (typeof value !== 'object') return undefined;
 
   const result: Record<string, unknown> = {};
-  const denied = /email|phone|passport|inn|kpp|bankAccount|accountNumber|secret|token|signatureValue|certificate|personalData/i;
   for (const [key, child] of Object.entries(value as Record<string, unknown>).slice(0, 120)) {
-    if (denied.test(key)) continue;
+    if (deniedForExternalModel(key)) continue;
     result[key] = minimizeValue(child, depth + 1);
   }
   return result;

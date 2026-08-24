@@ -13,53 +13,131 @@
  * внутреннюю классификацию и молча забыть про Sentry больше нельзя.
  */
 
+import type { DataClassId } from './data-classes';
+
 export const REDACTED = '[REDACTED]';
 
+/** Шаблоны значений: срабатывают там, где чувствительное попало в текст. */
 export type SensitiveValueRule = {
   readonly name: string;
   readonly pattern: RegExp;
   readonly replacement: string;
+  /** Канонический класс. Правило без класса не собирается. */
+  readonly dataClass: DataClassId;
 };
 
 /** Шаблоны значений: срабатывают там, где чувствительное попало в текст. */
 export const SENSITIVE_VALUE_RULES: readonly SensitiveValueRule[] = Object.freeze([
-  { name: 'inn-12', pattern: /\b(\d{2})\d{8}(\d{2})\b/g, replacement: '$1********$2' },
-  { name: 'ogrn-15', pattern: /\b(\d{1})\d{11}(\d{3})\b/g, replacement: '$1***********$2' },
-  { name: 'bik', pattern: /\b04\d{7}\b/g, replacement: '04*******' },
-  { name: 'bank-account', pattern: /\b([0-9]{5})[0-9]{10}([0-9]{5})\b/g, replacement: '$1**********$2' },
-  { name: 'phone-ru', pattern: /(\+?7|8)[\s\-]?\(?\d{3}\)?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/g, replacement: '+7***XXXXX' },
-  { name: 'email', pattern: /([a-zA-Z0-9._%+\-]{1,3})[a-zA-Z0-9._%+\-]+@([a-zA-Z0-9\-]+\.[a-zA-Z]{2,})/g, replacement: '$1***@$2' },
-  { name: 'card-number', pattern: /\b(\d{4})[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?(\d{4})\b/g, replacement: '$1 **** **** $2' },
-  { name: 'passport-ru', pattern: /\b\d{4}[\s]?\d{6}\b/g, replacement: '**** ******' },
+  { name: 'inn-12', pattern: /\b(\d{2})\d{8}(\d{2})\b/g, replacement: '$1********$2', dataClass: 'C5_PD_IDENTITY' },
+  { name: 'ogrn-15', pattern: /\b(\d{1})\d{11}(\d{3})\b/g, replacement: '$1***********$2', dataClass: 'C5_PD_IDENTITY' },
+  { name: 'bik', pattern: /\b04\d{7}\b/g, replacement: '04*******', dataClass: 'C2_BUSINESS_CONFIDENTIAL' },
+  { name: 'bank-account', pattern: /\b([0-9]{5})[0-9]{10}([0-9]{5})\b/g, replacement: '$1**********$2', dataClass: 'C6_PD_FINANCIAL' },
+  { name: 'phone-ru', pattern: /(\+?7|8)[\s\-]?\(?\d{3}\)?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/g, replacement: '+7***XXXXX', dataClass: 'C3_PD_BASIC' },
+  { name: 'email', pattern: /([a-zA-Z0-9._%+\-]{1,3})[a-zA-Z0-9._%+\-]+@([a-zA-Z0-9\-]+\.[a-zA-Z]{2,})/g, replacement: '$1***@$2', dataClass: 'C3_PD_BASIC' },
+  { name: 'card-number', pattern: /\b(\d{4})[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?(\d{4})\b/g, replacement: '$1 **** **** $2', dataClass: 'C6_PD_FINANCIAL' },
+  { name: 'passport-ru', pattern: /\b\d{4}[\s]?\d{6}\b/g, replacement: '**** ******', dataClass: 'C5_PD_IDENTITY' },
 ]);
 
 /**
- * Имена полей, значение которых удаляется целиком независимо от формы.
+ * Имена полей, отображённые в канонические классы.
  *
- * Хранятся нормализованно: нижний регистр без `-` и `_`, поэтому
- * `Set-Cookie`, `set_cookie` и `setCookie` — одно и то же имя. Сравнение
- * точное, а не по подстроке: подстрока вычищала бы `tokenCount` и подобные
- * безобидные поля и создавала бы ложное ощущение покрытия.
+ * Отображение обязательное: имя без класса не проходит тип, а класс, который
+ * ни одно имя и ни одно правило значения не покрывает, роняет тест. Так новый
+ * тип данных нельзя добавить во внутреннюю классификацию и забыть про
+ * outbound-канал — ровно та рассинхронизация, ради которой владелец утвердил
+ * единую схему.
+ *
+ * Имена хранятся нормализованно: нижний регистр без `-` и `_`, поэтому
+ * `Set-Cookie`, `set_cookie` и `setCookie` — одно имя. Сравнение точное, а не
+ * по подстроке: подстрока вычищала бы `tokenCount` и создавала бы ложное
+ * ощущение покрытия.
  */
-export const SENSITIVE_FIELD_NAMES: readonly string[] = Object.freeze([
-  // Учётные данные и секреты
-  'password', 'passwordhash', 'newpassword', 'oldpassword', 'currentpassword',
-  'secret', 'clientsecret', 'webhooksecret', 'hmacsecret', 'privatekey',
-  'apikey', 'xapikey', 'apisecret',
-  // Заголовки авторизации и сессии
-  'authorization', 'proxyauthorization', 'cookie', 'setcookie',
-  'token', 'accesstoken', 'refreshtoken', 'idtoken', 'bearer',
-  'sessionid', 'sessiontoken', 'sid', 'csrf', 'csrftoken', 'xcsrftoken',
-  // Второй фактор и восстановление
-  'mfa', 'mfacode', 'mfasecret', 'totp', 'totpsecret', 'otp', 'otpcode',
-  'recoverycode', 'recoverycodes', 'backupcode', 'backupcodes', 'resettoken',
-  // Персональные данные
-  'inn', 'ogrn', 'kpp', 'snils', 'passport', 'passportnumber', 'passportseries',
-  'phone', 'phonenumber', 'email', 'address', 'birthdate', 'dateofbirth',
-  // Платёжные и банковские
-  'bankaccount', 'accountnumber', 'bik', 'cardnumber', 'pan', 'cvv', 'cvc',
-]);
+/**
+ * Термины, принадлежащие каждому каноническому классу.
+ *
+ * Отображение задано от класса к именам, а не наоборот, по двум причинам.
+ * Во-первых, вопрос «какие термины относятся к этому классу» — тот, который
+ * задают тесты покрытия, и здесь на него отвечает прямой поиск. Во-вторых,
+ * обратная форма записывала имя поля рядом со строковым литералом, и правило
+ * pc-no-hardcoded-sensitive-literal справедливо принимало `secret:
+ * '<длинный литерал>'` за зашитый секрет. Правило не ослаблено и не
+ * исключено для этого файла — изменилась форма данных, а не проверка.
+ *
+ * Имена хранятся нормализованно: нижний регистр без `-` и `_`, поэтому
+ * `Set-Cookie`, `set_cookie` и `setCookie` — одно имя. Сравнение точное, а не
+ * по подстроке: подстрока вычищала бы `tokenCount` и создавала бы ложное
+ * ощущение покрытия.
+ */
+export const CLASS_FIELD_NAMES: Readonly<Record<DataClassId, readonly string[]>> = Object.freeze({
+  C10_AUTH_SECRET: Object.freeze([
+    'password', 'passwordhash', 'newpassword', 'oldpassword',
+    'currentpassword', 'authorization', 'proxyauthorization', 'cookie',
+    'setcookie', 'token', 'accesstoken', 'refreshtoken',
+    'idtoken', 'bearer', 'sessionid', 'sessiontoken',
+    'sid', 'csrf', 'csrftoken', 'xcsrftoken',
+    'apikey', 'xapikey', 'mfa', 'mfacode',
+    'mfasecret', 'totp', 'totpsecret', 'otp',
+    'otpcode', 'recoverycode', 'recoverycodes', 'backupcode',
+    'backupcodes', 'resettoken',
+  ]),
+  C11_CRYPTO_SECRET: Object.freeze([
+    'secret', 'clientsecret', 'webhooksecret', 'hmacsecret',
+    'apisecret', 'privatekey', 'encryptionkey', 'signingkey',
+  ]),
+  C5_PD_IDENTITY: Object.freeze([
+    'inn', 'ogrn', 'snils', 'passport',
+    'passportnumber', 'passportseries', 'driverlicense', 'birthdate',
+    'dateofbirth',
+  ]),
+  C6_PD_FINANCIAL: Object.freeze([
+    'bankaccount', 'accountnumber', 'cardnumber', 'pan',
+    'cvv', 'cvc',
+  ]),
+  C7_PD_OPERATIONAL: Object.freeze([
+    'geolocation', 'coordinates', 'drivername',
+  ]),
+  C4_PD_ACCOUNT: Object.freeze([
+    'emailverified', 'phoneverified', 'mfaenabled', 'clientip',
+    'ipaddress', 'useragent',
+  ]),
+  C2_BUSINESS_CONFIDENTIAL: Object.freeze([
+    'kpp', 'bik',
+  ]),
+  C3_PD_BASIC: Object.freeze([
+    'phone', 'phonenumber', 'email', 'address',
+    'fullname',
+  ]),
+  C0_PUBLIC_NON_PD: Object.freeze([]),
+  C1_INTERNAL_NON_PD: Object.freeze([]),
+  // Запрещённый класс: термина быть не должно, потому что таких данных
+  // в продукте быть не должно. Пустота здесь — утверждение, а не пропуск.
+  C8_PD_SPECIAL: Object.freeze([]),
+  // Запрещённый класс: термина быть не должно, потому что таких данных
+  // в продукте быть не должно. Пустота здесь — утверждение, а не пропуск.
+  C9_PD_BIOMETRIC: Object.freeze([]),
+} as Record<DataClassId, readonly string[]>);
 
+/** Обратный индекс: имя поля -> канонический класс. */
+export const SENSITIVE_FIELD_CLASSES: Readonly<Record<string, DataClassId>> = Object.freeze(
+  Object.fromEntries(
+    Object.entries(CLASS_FIELD_NAMES).flatMap(([dataClass, names]) => (
+      names.map((name) => [name, dataClass as DataClassId] as const)
+    )),
+  ) as Record<string, DataClassId>,
+);
+
+/**
+ * Плоский список имён. Сохранён как экспорт, потому что downstream-контроли
+ * перебирают именно его; источником остаётся отображение выше.
+ */
+export const SENSITIVE_FIELD_NAMES: readonly string[] = Object.freeze(
+  Object.keys(SENSITIVE_FIELD_CLASSES),
+);
+
+/** Канонический класс имени поля, если оно классифицировано. */
+export function dataClassForField(key: string): DataClassId | null {
+  return SENSITIVE_FIELD_CLASSES[normalizeFieldName(key)] ?? null;
+}
 const SENSITIVE_FIELD_SET: ReadonlySet<string> = new Set(SENSITIVE_FIELD_NAMES);
 
 /** Нормализация имени поля: регистр и разделители не должны иметь значения. */
