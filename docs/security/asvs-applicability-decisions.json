@@ -7610,23 +7610,34 @@
     {
       "requirementId": "V15.2.3",
       "applicability": "APPLICABLE",
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": [
+        "apps/api/tsconfig.json",
         "infra/docker/Dockerfile.api"
       ],
       "conditions": [
         {
-          "condition": "the API image build is still multi-stage with a distroless runtime stage that copies only the compiled production output, not the build context or its test/dev files",
+          "condition": "apps/api/tsconfig.json still compiles test/**/*.ts alongside src/**/*.ts into the same dist tree",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/tsconfig.json"
+          ],
+          "patterns": [
+            "\"test/**/*.ts\""
+          ]
+        },
+        {
+          "condition": "the Dockerfile still copies the entire compiled dist directory (built from both src and test) into the runtime image, after only removing the source test/ directory, not the compiled test output inside dist/",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "infra/docker/Dockerfile.api"
           ],
           "patterns": [
-            "gcr.io/distroless/nodejs24-debian13:nonroot"
+            "cp -r /workspace/apps/api/dist /prod/api/dist"
           ]
         }
       ],
-      "note": "The production runtime image ships no test code, sample snippets or development tooling. The runtime stage is FROM gcr.io/distroless/nodejs24-debian13:nonroot, which has no shell or package manager, and copies only the compiled production output from the build stage via a scoped COPY --from=build - not the full build context, which is where test files and dev dependencies live. This is the same evidence already verified under ASVS V13.4.1 for a related requirement, re-cited here against this chapter's specific text."
+      "note": "Corrected on review: distroless solves a different problem than the one this requirement is about. It removes the shell and package manager an attacker could use post-compromise; it says nothing about which files were copied into the image in the first place, and this build copies compiled test code into it. apps/api/tsconfig.json includes both src/**/*.ts and test/**/*.ts, so pnpm --filter @pc/api build compiles both into the same dist tree (dist/apps/api/src/... and dist/apps/api/test/... side by side). The Dockerfile's cleanup step (rm -rf /prod/api/src /prod/api/test /prod/api/prisma /prod/api/dist) removes the pnpm-deployed source test/ directory, then immediately does cp -R /workspace/apps/api/dist /prod/api/dist - copying the whole compiled dist tree wholesale, compiled test output included, since that copy happens from the build stage's dist, not the just-cleaned /prod/api/dist. The runtime stage then does COPY --from=build ... /prod/api/ ./, so the compiled test files ship in the production image. This is exactly the extraneous functionality (test code) this requirement asks to be verified absent from production, and it is not."
     },
     {
       "requirementId": "V15.2.5",
@@ -7687,23 +7698,24 @@
     {
       "requirementId": "V15.3.3",
       "applicability": "APPLICABLE",
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": [
-        "apps/api/src/main.ts"
+        "apps/api/src/modules/route-planner/route-planner.controller.ts",
+        "unallowlisted:apps/api/src/modules/route-planner/route-planner.service.ts"
       ],
       "conditions": [
         {
-          "condition": "the global ValidationPipe still strips properties that are not declared on the target DTO class",
+          "condition": "the vehicle-position endpoint still spreads the entire, unvalidated request body into the object persisted as a GeoPoint",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/main.ts"
+            "apps/api/src/modules/route-planner/route-planner.controller.ts"
           ],
           "patterns": [
-            "whitelist: true"
+            "{ ...body, timestamp: new date().toisostring() }"
           ]
         }
       ],
-      "note": "main.ts registers a global ValidationPipe with whitelist: true, which strips any property not declared on the target class-validator DTO before the handler ever sees it - real, class-validator-enforced protection against mass assignment for every route that uses a decorated DTO class. The one caveat, already recorded precisely under ASVS V1.4.2: a route that declares its body as a plain TypeScript type literal rather than a decorated class (route-planner.controller.ts's tariff endpoint) has no decorators for whitelist to strip against, so that specific route sits outside this protection - a narrow, already-tracked exception rather than a reason to fail the mechanism itself, which is real and correctly configured everywhere it has something to enforce against."
+      "note": "Corrected on review: the global ValidationPipe's whitelist: true is real, but it only strips fields on an actual class-validator class - a decorated class like CreateDealDto (confirmed: @IsString(), @Length(...) and similar decorators on its fields). It cannot strip anything from a plain TypeScript type literal, because there is no decorator metadata for it to consult; Nest treats that parameter's runtime metatype as a bare Object and the pipe passes it through unexamined. Counted directly across apps/api/src: 192 @Body() parameter declarations, of which 81 (about 42%) use a plain object-literal type rather than a named DTO class - not a single isolated case (the tariff endpoint originally flagged under V1.4.2), but a widespread pattern. The concrete, traced instance the reviewer named: route-planner.controller.ts's POST vehicles/:vehicleId/position handler declares its body as a plain literal and does return this.routePlanner.updateVehiclePosition(vehicleId, { ...body, timestamp: ... }) - the entire, unstripped request body is spread into the object typed as GeoPoint and persisted through the GPS adapter. Any field beyond lat/lng/speed/heading that a caller includes rides along unstripped. The mechanism itself (whitelist: true on decorated DTOs) is real and correctly configured for the ~58% of body parameters that use one; the defect is coverage, the same shape of correction already made to V3.5.1 for CSRF coverage in this same session."
     },
     {
       "requirementId": "V15.3.4",
