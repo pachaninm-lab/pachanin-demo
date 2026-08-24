@@ -337,27 +337,31 @@ describePostgres('durable 1C runtime authority', () => {
   it('keeps the connector authority no-login, non-bypass and memberless', async () => {
     const rows = await prisma.$queryRaw<Array<{
       canLogin: boolean;
+      inherits: boolean;
       superuser: boolean;
       bypassRls: boolean;
-      memberCount: bigint;
+      membershipEdgeCount: bigint;
     }>>(Prisma.sql`
       SELECT role.rolcanlogin AS "canLogin",
+             role.rolinherit AS inherits,
              role.rolsuper AS superuser,
              role.rolbypassrls AS "bypassRls",
              (
                SELECT count(*)::bigint
                  FROM pg_catalog.pg_auth_members membership
                 WHERE membership.roleid = role.oid
-             ) AS "memberCount"
+                   OR membership.member = role.oid
+             ) AS "membershipEdgeCount"
         FROM pg_catalog.pg_roles role
        WHERE role.rolname = 'pc_one_c_connector_authority'
     `);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toEqual({
       canLogin: false,
+      inherits: false,
       superuser: false,
       bypassRls: false,
-      memberCount: 0n,
+      membershipEdgeCount: 0n,
     });
   });
 });

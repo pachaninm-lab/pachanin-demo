@@ -244,6 +244,18 @@ describe('OneCRuntimeRepository machine authentication', () => {
     expect(test.prismaQuery).not.toHaveBeenCalled();
   });
 
+  it('refuses oversized or non-base64url bearer before database lookup', async () => {
+    const test = fixture();
+    const id = '00000000-0000-4000-8000-000000000000';
+    for (const bearer of [`${id}.${'x'.repeat(4096)}`, `${id}.${'!'.repeat(43)}`]) {
+      await expect(test.repository.authenticateMachineBearer(bearer)).resolves.toEqual({
+        authorized: false,
+        reason: OneCMachineAuthenticationDenial.MALFORMED_BEARER,
+      });
+    }
+    expect(test.prismaQuery).not.toHaveBeenCalled();
+  });
+
   it('verifies possession against the persistent scope and command allowlist', async () => {
     const test = fixture();
     const issued = issueOneCMachineCredential(

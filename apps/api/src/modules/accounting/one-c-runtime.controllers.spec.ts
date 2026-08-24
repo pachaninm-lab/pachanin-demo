@@ -68,7 +68,21 @@ describe('1C connector HTTP bootstrap boundary', () => {
   it('admits GUEST at HTTP only on the capability-gated organization management controller', () => {
     const roles = Reflect.getMetadata(ROLES_KEY, OneCConnectionManagementController) as string[];
     expect(roles).toContain('GUEST');
+    expect(roles).toEqual(
+      expect.arrayContaining([
+        'ADMIN',
+        'FARMER',
+        'BUYER',
+        'LOGISTICIAN',
+        'SURVEYOR',
+        'LAB',
+        'ELEVATOR',
+        'EXECUTIVE',
+        'GUEST',
+      ]),
+    );
     expect(roles).not.toContain('ACCOUNTING');
+    expect(roles).not.toContain('DRIVER');
     expect(roles).not.toContain('ANY_AUTHENTICATED');
   });
 
