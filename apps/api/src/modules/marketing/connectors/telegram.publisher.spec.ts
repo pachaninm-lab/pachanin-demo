@@ -40,6 +40,7 @@ describe('TelegramPublisher', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(`https://api.telegram.org/bot${TOKEN}/sendMessage`);
     expect(init?.method).toBe('POST');
+    expect(init?.redirect).toBe('error');
     expect(JSON.parse(String(init?.body))).toEqual({
       chat_id: CHAT,
       text: 'Полезный разбор сделки',
