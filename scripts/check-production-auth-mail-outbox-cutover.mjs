@@ -131,13 +131,24 @@ lacks(provision, "values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1
 has(workflow, "workflows: ['Production Full-Stack Exact-SHA Release']", 'legacy exact-release workflow_run chain must remain supported');
 has(workflow, 'controller_target_sha:', 'direct controller target SHA input missing');
 has(workflow, 'controller_run_id:', 'direct controller run ID input missing');
+has(workflow, 'controller_issue_number:', 'direct controller issue input missing');
 has(workflow, "github.event_name == 'issue_comment'", 'direct controller event boundary missing');
-has(workflow, 'github.event.issue.number == 3072', 'direct controller release issue guard missing');
+has(workflow, '(inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637)', 'bounded legacy/continuation issue guard missing');
+has(workflow, 'inputs.controller_issue_number == github.event.issue.number', 'controller issue must equal triggering issue');
 has(workflow, "github.event.comment.body == '/production release current-main'", 'direct controller command guard missing');
+has(workflow, "github.event.comment.author_association == 'OWNER'", 'direct controller owner association guard missing');
 has(workflow, 'github.actor == github.repository_owner', 'direct controller actor guard missing');
 has(workflow, 'github.triggering_actor == github.repository_owner', 'direct controller triggering-actor guard missing');
 has(workflow, 'inputs.controller_target_sha', 'workflow must consume direct target SHA');
 has(workflow, 'inputs.controller_run_id', 'workflow must consume direct controller run ID');
+has(workflow, 'inputs.controller_issue_number', 'workflow must consume direct controller issue number');
+has(workflow, "github.event.workflow_run.event == 'workflow_run'", 'image-triggered standalone release cutover missing');
+has(workflow, "github.event.workflow_run.event == 'workflow_dispatch'", 'owner-dispatched standalone release cutover missing');
+has(workflow, "github.event.workflow_run.event == 'issue_comment'", 'legacy owner-comment standalone release cutover missing');
+has(workflow, '"$UPSTREAM_EVENT" == workflow_dispatch', 'standalone dispatch provenance guard missing');
+has(workflow, "'Validate full-stack release contract'", 'standalone full-stack contract evidence check missing');
+has(workflow, "'Migrate, deploy API and web, verify live intake'", 'standalone production rollout evidence check missing');
+has(workflow, 'AUTH_MAIL_CUTOVER_SKIPPED=NO_SUCCESSFUL_STANDALONE_RELEASE', 'duplicate or skipped standalone release must not cut over auth-mail');
 has(workflow, "'production-full-stack-execution-3072 / Validate full-stack release contract'", 'controller full-stack contract evidence check missing');
 has(workflow, "'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake'", 'controller production rollout evidence check missing');
 has(workflow, 'AUTH_MAIL_CUTOVER=FAIL_CONTROLLER_RELEASE_EVIDENCE', 'controller release evidence fail-closed marker missing');
@@ -152,6 +163,8 @@ has(workflow, '[[ "$LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY" == PRESERVED ]]', '
 has(workflow, '[[ "$API_SMTP_AUTHORITY" == ABSENT ]]', 'final cutover gate must require no API SMTP authority');
 lacks(workflow, 'WEB_SMTP_AUTHORITY:', 'stale Web SMTP absence evidence variable must be removed');
 has(workflow, 'scripts/provision-production-auth-mail-runtime.sh', 'workflow provision asset missing');
+has(workflow, 'gh issue comment "$EVIDENCE_ISSUE_NUMBER"', 'continuation evidence must publish to the validated triggering issue');
+has(workflow, '[[ "$CONTROLLER_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$CONTROLLER_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]', 'controller issue must remain bounded to the two exact authorities');
 
 has(releaseController, 'production-auth-mail-cutover-3072:', 'owner release controller must chain auth-mail cutover');
 has(releaseController, 'exact_main_sha: ${{ steps.release.outputs.main_sha }}', 'release-control exact SHA job output missing');
@@ -163,6 +176,7 @@ has(releaseController, "uses: ./.github/workflows/production-auth-mail-outbox-cu
 has(releaseController, 'controller_authorized: true', 'controller authorization input missing');
 has(releaseController, 'controller_target_sha: ${{ needs.production-release-control-3072.outputs.exact_main_sha }}', 'controller exact target SHA propagation missing');
 has(releaseController, 'controller_run_id: ${{ github.run_id }}', 'controller run ID propagation missing');
+has(releaseController, 'controller_issue_number: ${{ github.event.issue.number }}', 'controller issue propagation missing');
 has(releaseController, 'github.actor == github.repository_owner', 'controller actor must be repository owner');
 has(releaseController, 'github.triggering_actor == github.repository_owner', 'controller triggering actor must be repository owner');
 assert(!fs.existsSync('.github/workflows/production-auth-mail-cutover-after-controller.yml'), 'standalone auth-mail bridge must be retired after direct chaining');

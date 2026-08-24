@@ -15,6 +15,10 @@ on:
         description: 'Owner release-controller run that contains successful full-stack jobs.'
         required: true
         type: string
+      controller_issue_number:
+        description: 'Exact owner-validated release issue propagated by the controller.'
+        required: true
+        type: number
   pull_request:
     branches: [main]
     paths:
@@ -52,6 +56,7 @@ env:
   DEFAULT_HOST: 195.19.12.120
   EVIDENCE_DIR: artifacts/production-auth-mail-outbox-cutover
   RELEASE_ISSUE_NUMBER: 3072
+  CONTINUATION_ISSUE_NUMBER: 4637
   REGISTRATION_ISSUE_NUMBER: 3785
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
@@ -70,14 +75,19 @@ jobs:
     if: >-
       (inputs.controller_authorized == true &&
        github.event_name == 'issue_comment' &&
-       github.event.issue.number == 3072 &&
+       (inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+       inputs.controller_issue_number == github.event.issue.number &&
        github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
        github.event.comment.body == '/production release current-main' &&
        github.actor == github.repository_owner &&
        github.triggering_actor == github.repository_owner) ||
       github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
+       (github.event.workflow_run.event == 'workflow_run' ||
+        github.event.workflow_run.event == 'workflow_dispatch' ||
+        github.event.workflow_run.event == 'issue_comment') &&
        github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -104,13 +114,18 @@ jobs:
     if: >-
       (inputs.controller_authorized == true &&
        github.event_name == 'issue_comment' &&
-       github.event.issue.number == 3072 &&
+       (inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+       inputs.controller_issue_number == github.event.issue.number &&
        github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
        github.event.comment.body == '/production release current-main' &&
        github.actor == github.repository_owner &&
        github.triggering_actor == github.repository_owner) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
+       (github.event.workflow_run.event == 'workflow_run' ||
+        github.event.workflow_run.event == 'workflow_dispatch' ||
+        github.event.workflow_run.event == 'issue_comment') &&
        github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
@@ -135,7 +150,8 @@ jobs:
           UPSTREAM_EVENT: ${{ inputs.controller_authorized == true && github.event_name || github.event.workflow_run.event }}
           UPSTREAM_ACTOR: ${{ inputs.controller_authorized == true && github.actor || github.event.workflow_run.actor.login }}
           UPSTREAM_TRIGGERING_ACTOR: ${{ inputs.controller_authorized == true && github.triggering_actor || github.event.workflow_run.triggering_actor.login }}
-          CONTROLLER_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          CONTROLLER_ISSUE_NUMBER: ${{ inputs.controller_authorized == true && inputs.controller_issue_number || 3072 }}
+          TRIGGER_ISSUE_NUMBER: ${{ github.event.issue.number }}
           CONTROLLER_COMMENTER: ${{ github.event.comment.user.login }}
           CONTROLLER_COMMAND: ${{ github.event.comment.body }}
           REPOSITORY_OWNER: ${{ github.repository_owner }}
@@ -156,7 +172,8 @@ jobs:
           if [[ "$CONTROLLER_AUTHORIZED" == true ]]; then
             [[ "$UPSTREAM_NAME" == 'platform-v7 safe merge' ]]
             [[ "$UPSTREAM_EVENT" == issue_comment ]]
-            [[ "$CONTROLLER_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" ]]
+            [[ "$CONTROLLER_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$CONTROLLER_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]
+            [[ "$CONTROLLER_ISSUE_NUMBER" == "$TRIGGER_ISSUE_NUMBER" ]]
             [[ "$CONTROLLER_COMMENTER" == "$REPOSITORY_OWNER" ]]
             [[ "$CONTROLLER_COMMAND" == '/production release current-main' ]]
             [[ "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" ]]
@@ -178,12 +195,26 @@ jobs:
             [[ "$UPSTREAM_NAME" == 'Production Full-Stack Exact-SHA Release' ]]
             if [[ "$UPSTREAM_EVENT" == workflow_run ]]; then
               :
-            elif [[ "$UPSTREAM_EVENT" == issue_comment && "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" && "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]; then
+            elif [[ ("$UPSTREAM_EVENT" == workflow_dispatch || "$UPSTREAM_EVENT" == issue_comment) && "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" && "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]; then
               :
             else
               echo 'AUTH_MAIL_CUTOVER=FAIL_UPSTREAM_PROVENANCE'
               exit 16
             fi
+            for required_job in \
+              'Validate full-stack release contract' \
+              'Migrate, deploy API and web, verify live intake'; do
+              job_conclusion="$(gh api \
+                -H 'Accept: application/vnd.github+json' \
+                "repos/$REPO/actions/runs/$UPSTREAM_RUN_ID/jobs?filter=latest&per_page=100" \
+                --jq ".jobs | map(select(.name == \"$required_job\")) | .[0].conclusion // empty")"
+              if [[ "$job_conclusion" != success ]]; then
+                printf 'AUTH_MAIL_CUTOVER_SKIPPED=NO_SUCCESSFUL_STANDALONE_RELEASE\nUPSTREAM_RUN_ID=%s\nREQUIRED_JOB=%s\n' \
+                  "$UPSTREAM_RUN_ID" "$required_job" | tee "$EVIDENCE_DIR/standalone-skip.txt"
+                echo 'eligible=false' >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            done
           fi
 
           git fetch --no-tags origin main
@@ -198,6 +229,7 @@ jobs:
           echo 'eligible=true' >> "$GITHUB_OUTPUT"
           echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
           echo "upstream_run_id=$UPSTREAM_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "evidence_issue_number=$CONTROLLER_ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Resolve protected key and pinned VPS identity
         if: steps.target.outputs.eligible == 'true'
@@ -330,9 +362,12 @@ jobs:
           ROLLBACK_ATTEMPTED: ${{ steps.cutover.outputs.rollback_attempted }}
           ROLLBACK_COMPLETE: ${{ steps.cutover.outputs.rollback_complete }}
           ERROR_CODE: ${{ steps.cutover.outputs.error_code }}
+          CONTROLLER_AUTHORIZED: ${{ inputs.controller_authorized == true }}
+          EVIDENCE_ISSUE_NUMBER: ${{ steps.target.outputs.evidence_issue_number }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$EVIDENCE_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]
           record="$EVIDENCE_DIR/evidence.md"
           {
             echo '### PC-CROP durable auth-mail production cutover'
@@ -352,8 +387,12 @@ jobs:
             echo "- safe error code: \`${ERROR_CODE:-none}\`"
             echo '- secrets, reset bearer tokens, recipients and raw SMTP responses are not published.'
           } > "$record"
-          gh issue comment "$REGISTRATION_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
-          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          if [[ "$CONTROLLER_AUTHORIZED" == true && "$EVIDENCE_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]; then
+            gh issue comment "$EVIDENCE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          else
+            gh issue comment "$REGISTRATION_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+            gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          fi
 
       - name: Cleanup bounded remote assets
         if: always() && steps.target.outputs.eligible == 'true' && steps.ssh.outputs.host != ''

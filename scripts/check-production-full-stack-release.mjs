@@ -98,9 +98,14 @@ requireAll('workflow', [
   'Production Full-Stack Exact-SHA Release',
   'workflow_call:',
   'owner_release_authorized:',
+  'controller_issue_number:',
+  'required: false',
+  'default: 0',
   "github.event_name == 'workflow_call'",
   'inputs.owner_release_authorized == true',
-  '(inputs.owner_release_authorized == true) ||',
+  '(inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637)',
+  'inputs.controller_issue_number == github.event.issue.number',
+  'inputs.controller_issue_number == 0',
   'DEPLOY-FULL-STACK-EXACT-SHA',
   'github.actor == github.repository_owner',
   'issue_comment:',
@@ -118,6 +123,7 @@ requireAll('workflow', [
   "if [[ '${{ github.event_name }}' == issue_comment || '${{ github.event_name }}' == workflow_call ]]; then",
   "if [[ '${{ github.event_name }}' == workflow_run ]]; then",
   'RELEASE_ISSUE_NUMBER: 3072',
+  'CONTINUATION_ISSUE_NUMBER: 4637',
   'for component in api web migration',
   'grainflow-${component}:sha-${SHORT_SHA}',
   'PC_PROD_SSH_HOST_FINGERPRINT',
@@ -132,6 +138,9 @@ requireAll('workflow', [
   'Publish release evidence',
   'gh issue comment',
   'gh issue close',
+  'EVIDENCE_ISSUE_NUMBER: ${{ inputs.owner_release_authorized == true && inputs.controller_issue_number || 3072 }}',
+  'gh issue comment "$EVIDENCE_ISSUE_NUMBER"',
+  '[[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$EVIDENCE_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]',
   'retention-days: 90',
 ]);
 const workflowSource = text.workflow ?? '';
@@ -151,6 +160,10 @@ requireAll('controller', [
   "github.event.comment.body == '/production release current-main'",
   'uses: ./.github/workflows/production-full-stack-exact-sha.yml',
   'owner_release_authorized: true',
+  'controller_issue_number: ${{ github.event.issue.number }}',
+  '(github.event.issue.number == 3072 || github.event.issue.number == 4637)',
+  'github.actor == github.repository_owner',
+  'github.triggering_actor == github.repository_owner',
   'secrets: inherit',
 ]);
 requireAll('middleware', [
@@ -166,6 +179,17 @@ if (!(publishDispatchIndex >= 0 && imageWatchIndex > publishDispatchIndex && reu
 }
 if (controllerSource.includes('gh workflow run production-full-stack-exact-sha.yml')) {
   failures.push(`${paths.controller}: the controller must not dispatch a second workflow as github-actions[bot]`);
+}
+if (workflowSource.split('inputs.controller_issue_number == github.event.issue.number').length - 1 !== 2) {
+  failures.push(`${paths.workflow}: both reusable jobs must bind the controller issue to the triggering issue`);
+}
+if (workflowSource.split('inputs.controller_issue_number == 0').length - 1 !== 2
+  || workflowSource.split('github.event.issue.number == 3072').length - 1 < 4) {
+  failures.push(`${paths.workflow}: both reusable jobs must preserve only the legacy #3072 caller fallback`);
+}
+if (!workflowSource.includes('"$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER"')
+  || !workflowSource.includes('gh issue comment "$EVIDENCE_ISSUE_NUMBER"')) {
+  failures.push(`${paths.workflow}: release evidence must use the validated triggering authority issue`);
 }
 requireAll('executor', [
   'COMPOSE_SERVICE_DISCOVERY_FAILED',

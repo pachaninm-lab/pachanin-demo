@@ -8,7 +8,15 @@ This runbook covers only the REG.RU Docker Compose production contour for a rele
 2. exact API image deployment;
 3. exact web image deployment and live organization-intake acceptance.
 
-The source authority is GitHub `main`. The evidence authority is issue #3072 plus the checksummed workflow artifact.
+The source authority is GitHub `main`. Issue #3072 remains the immutable legacy release journal. For the bounded remaining PC-CROP registration sequence, the active owner command and evidence authority is successor issue #4637 plus the checksummed workflow artifact.
+
+The continuation accepts only this exact repository-owner comment on #4637:
+
+```text
+/production release current-main
+```
+
+The reusable release and auth-mail workflows receive #4637 only from the owner controller, compare it with the triggering issue, and reject every other issue number. Author, Actions actor, and rerun triggering actor must all be the repository owner. A pull request cannot deploy.
 
 ## Immutable components
 

@@ -4,13 +4,13 @@
 
 This runbook proves the public P0 customer-registration path on the canonical REG.RU Docker Compose production contour. It does not deploy code and it never treats organization intake, a preview, a registry image, or a merged pull request as production proof.
 
-The only production trigger is an exact owner comment on release issue `#3072`:
+Issue `#3072` remains the legacy historical authority. The active trigger for the bounded remaining registration continuation is this exact repository-owner comment on successor issue `#4637`:
 
 ```text
 /production p0-first-customer current-main
 ```
 
-The workflow requires the issue-comment author, Actions actor, and rerun triggering actor all to equal the repository owner. The pull-request contract has read-only repository permissions; only the owner-command production job receives `issues: write`, and neither checkout persists credentials. The workflow resolves GitHub `main` at the start and rechecks it before every public HTTP group, mailbox read, SSH read, issue comment, artifact publication, and terminal PASS. If `main` advances, the run fails. Before this command is used, `/production release current-main` must have completed successfully for the same exact SHA.
+The workflow requires the issue-comment author, Actions actor, and rerun triggering actor all to equal the repository owner. Evidence is written back to the validated triggering issue, #4637. The historical reviewer-membership repair command remains bound only to #3072 and is not part of the continuation authority. The pull-request contract has read-only repository permissions; only the owner-command production job receives `issues: write`, and neither checkout persists credentials. The workflow resolves GitHub `main` at the start and rechecks it before every public HTTP group, mailbox read, SSH read, issue comment, artifact publication, and terminal PASS. If `main` advances, the run fails. Before this command is used, `/production release current-main` must have completed successfully for the same exact SHA.
 
 ## Protected prerequisites
 
@@ -45,7 +45,7 @@ The PostgreSQL portion supports the production external PostgreSQL topology and 
 
 ## Evidence and redaction
 
-The 90-day checksummed artifact contains only a bounded JSON result, sanitized status markers, application/user/organization/tenant/membership identifiers, immutable audit IDs, and causal outbox IDs. Email addresses are represented only by truncated SHA-256 hashes. The release-issue comment is posted only after the artifact attempt and reports terminal `PASS` only when execution, redaction validation, exact-main guard, upload, and protected-credential cleanup have all succeeded; otherwise it reports `FAIL` and the bounded blocker.
+The 90-day checksummed artifact contains only a bounded JSON result, sanitized status markers, application/user/organization/tenant/membership identifiers, immutable audit IDs, and causal outbox IDs. Email addresses are represented only by truncated SHA-256 hashes. The triggering-authority comment is posted only after the artifact attempt and reports terminal `PASS` only when execution, redaction validation, exact-main guard, upload, and protected-credential cleanup have all succeeded; otherwise it reports `FAIL` and the bounded blocker.
 
 Passwords, bearer/refresh credentials, raw verification/status tokens, TOTP setup secrets, backup codes, reviewer credentials, mailbox credentials, private keys, and protected server paths are never evidence and must never be printed. The workflow scans its bounded artifact before upload and fails if credential-shaped material is found.
 

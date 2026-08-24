@@ -31,6 +31,7 @@ env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   RELEASE_ISSUE_NUMBER: 3072
+  CONTINUATION_ISSUE_NUMBER: 4637
   EVIDENCE_DIR: artifacts/production-p0-all-role-registration
 
 jobs:
@@ -41,7 +42,7 @@ jobs:
       github.event_name == 'push' ||
       (
         github.event_name == 'issue_comment' &&
-        github.event.issue.number == 3072 &&
+        (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
         github.event.comment.user.login == github.repository_owner &&
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
@@ -66,7 +67,7 @@ jobs:
     if: >-
       needs.contract.result == 'success' &&
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
       github.event.comment.user.login == github.repository_owner &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
@@ -77,6 +78,8 @@ jobs:
       actions: read
       contents: read
       issues: write
+    env:
+      RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}
     steps:
       - uses: actions/checkout@v4
         with:
