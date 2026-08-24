@@ -107,18 +107,22 @@ rollback() {
       docker compose "${rollback_args[@]}" up -d --no-deps --no-build --pull never web > "$tmp/rollback.log" 2>&1 || restore_ok=0
     fi
     rollback_web=''
+    rollback_ready=0
     if (( restore_ok == 1 )); then
-      for attempt in $(seq 1 30); do
+      for attempt in $(seq 1 120); do
         mapfile -t rollback_webs < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=web' | sort -u)
         if (( ${#rollback_webs[@]} == 1 )); then
           rollback_web="${rollback_webs[0]}"
           rollback_runtime_status="$(docker inspect --format '{{.State.Status}}' "$rollback_web" 2>/dev/null)"
           rollback_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$rollback_web" 2>/dev/null)"
-          if [[ "$rollback_runtime_status" == running && ( "$rollback_health" == healthy || "$rollback_health" == none ) ]]; then break; fi
+          if [[ "$rollback_runtime_status" == running && "$rollback_health" == healthy ]]; then
+            rollback_ready=1
+            break
+          fi
         fi
         sleep 1
       done
-      [[ -n "$rollback_web" ]] || restore_ok=0
+      (( rollback_ready == 1 )) || restore_ok=0
     fi
     if (( restore_ok == 1 )); then
       rollback_image="$(docker inspect --format '{{.Image}}' "$rollback_web" 2>/dev/null)"
@@ -180,6 +184,11 @@ grep -Fq "if (url.origin !== COMPOSE_INTERNAL_API_ORIGIN) return '';" <<< "$reso
 unset resolver_source
 web_image_id="$(docker inspect --format '{{.Image}}' "$web_id")"
 [[ "$web_image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+
+stage='WEB_BASELINE_READY'
+web_state_before="$(docker inspect --format '{{.State.Status}}' "$web_id")"
+web_health_before="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$web_id")"
+[[ "$web_state_before" == running && "$web_health_before" == healthy ]]
 
 stage='COMPOSE_AUTHORITY'
 working_label="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
@@ -433,23 +442,33 @@ guard_current_main
 mutated=1
 docker compose "${candidate_args[@]}" up -d --no-deps --no-build --pull never web > "$tmp/compose-up.log" 2>&1
 
-stage='WEB_POSTVERIFY'
+stage='WEB_POSTVERIFY_READY'
 new_web_id=''
-for attempt in $(seq 1 30); do
+web_ready=0
+for attempt in $(seq 1 120); do
   mapfile -t now_web < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=web' | sort -u)
   if (( ${#now_web[@]} == 1 )); then
     new_web_id="${now_web[0]}"
     state="$(docker inspect --format '{{.State.Status}}' "$new_web_id")"
     health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$new_web_id")"
-    if [[ "$state" == running && ( "$health" == healthy || "$health" == none ) ]]; then break; fi
+    if [[ "$state" == running && "$health" == healthy ]]; then
+      web_ready=1
+      break
+    fi
   fi
   sleep 1
 done
-[[ -n "$new_web_id" ]]
+(( web_ready == 1 ))
+
+stage='WEB_POSTVERIFY_IMAGE'
 new_image_id="$(docker inspect --format '{{.Image}}' "$new_web_id")"
 [[ "$new_image_id" == "$web_image_id" ]]
+
+stage='WEB_POSTVERIFY_REVISION'
 new_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$new_web_id")"
 [[ "$new_revision" == "$deployed_sha" ]]
+
+stage='WEB_POSTVERIFY_OVERRIDE'
 new_config_csv="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$new_web_id")"
 override_bound=0
 IFS=',' read -r -a new_configs <<< "$new_config_csv"
@@ -460,14 +479,12 @@ for candidate_file in "${new_configs[@]}"; do
 done
 [[ "$override_bound" == 1 ]]
 
+stage='WEB_POSTVERIFY_ORIGIN'
 active_after="$(classify_active_origin "$new_web_id")"
 [[ "$active_after" == CANONICAL ]]
-probe_exec_ok=0
-for attempt in $(seq 1 10); do
-  if probe_internal "$new_web_id" > "$tmp/probe"; then probe_exec_ok=1; break; fi
-  sleep 1
-done
-(( probe_exec_ok == 1 ))
+
+stage='WEB_POSTVERIFY_API_PROBE'
+probe_internal "$new_web_id" > "$tmp/probe"
 auth_status="$(sed -n 's/^AUTH_STATUS=//p' "$tmp/probe" | tail -1)"
 cap_status="$(sed -n 's/^CAP_STATUS=//p' "$tmp/probe" | tail -1)"
 [[ "$auth_status" == 401 && "$cap_status" == 401 ]]
