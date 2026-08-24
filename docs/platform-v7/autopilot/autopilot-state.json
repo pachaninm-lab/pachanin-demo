@@ -1219,6 +1219,11 @@
       "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
       "apps/web/tests/e2e/support/acceptance-login.ts",
       "docs/platform-v7/autopilot/scopes/design-v8-acceptance-csrf-faq-4503.json"
+    ],
+    "governance/harden-p0-registration-authority-rollover-4637": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
     ]
   },
   "currentAcceptance": [
