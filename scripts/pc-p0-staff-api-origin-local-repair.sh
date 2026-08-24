@@ -462,7 +462,12 @@ done
 
 active_after="$(classify_active_origin "$new_web_id")"
 [[ "$active_after" == CANONICAL ]]
-probe_internal "$new_web_id" > "$tmp/probe"
+probe_exec_ok=0
+for attempt in $(seq 1 10); do
+  if probe_internal "$new_web_id" > "$tmp/probe"; then probe_exec_ok=1; break; fi
+  sleep 1
+done
+(( probe_exec_ok == 1 ))
 auth_status="$(sed -n 's/^AUTH_STATUS=//p' "$tmp/probe" | tail -1)"
 cap_status="$(sed -n 's/^CAP_STATUS=//p' "$tmp/probe" | tail -1)"
 [[ "$auth_status" == 401 && "$cap_status" == 401 ]]
