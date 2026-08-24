@@ -2605,14 +2605,14 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "documentation-set:docs/security"
+        "docs/security/THREAT_MODEL.md"
       ],
       "conditions": [
         {
-          "condition": "no document naming a context-specific forbidden-word list (organization/product names, project codenames, department or role names) for password rejection still exists",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "docs"
+          "condition": "docs/security/THREAT_MODEL.md still does not name a context-specific forbidden-word list (organization/product names, project codenames, department or role names) for password rejection",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
           ],
           "patterns": [
             "context-specific word",
@@ -2628,32 +2628,35 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "apps/api/src/modules/mfa/mfa.service.ts",
-        "apps/api/src/modules/auth/auth-crypto.ts"
+        "apps/web/lib/platform-v7/govIdentityBridge.ts",
+        "apps/web/app/api/platform-v7/gov-id/start/route.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
       ],
       "conditions": [
         {
-          "condition": "the legacy MfaService (mfa.service.ts, live via /api/mfa/*) still generates backup codes with randomBytes(4) and stores them with a bare unsalted sha256 hash",
+          "condition": "govIdentityBridge.ts still gates a reachable OIDC-shaped identity-provider pathway behind PLATFORM_V7_GOV_ID_ENABLED, mounted at /api/platform-v7/gov-id/start and /callback",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/mfa/mfa.service.ts"
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
           ],
           "patterns": [
-            "randombytes(4)"
+            "platform_v7_gov_id_enabled"
           ]
         },
         {
-          "condition": "auth-crypto.ts (the implementation actually used by the real login/MFA-verify flow in auth.service.ts) still generates backup codes with randomBytes(6) and digests them through the opaque-token authority instead",
-          "check": "PRESENT_AT_PATH",
+          "condition": "docs/security/THREAT_MODEL.md still does not name the gov-id bridge as a second authentication pathway",
+          "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/auth-crypto.ts"
+            "docs/security/THREAT_MODEL.md"
           ],
           "patterns": [
-            "randombytes(6)"
+            "gov-id",
+            "govidentity",
+            "gosuslugi"
           ]
         }
       ],
-      "note": "The application ships two independent, live, mounted TOTP/backup-code implementations rather than one documented pathway: MfaModule/mfa.controller.ts (/api/mfa/setup/init, /setup/verify, /verify, guarded by JwtAuthGuard) built on mfa.service.ts's MfaService, and a second, separate implementation in auth-crypto.ts used directly by auth.service.ts and product-session.service.ts for the actual login/step-up MFA flow. The two disagree on backup-code entropy (32 bits vs 48 bits) and storage (bare unsalted SHA-256 vs an HMAC-keyed opaque-token digest) — see V6.5.2. Neither pathway, nor the fact that two exist, is documented anywhere."
+      "note": "Corrected on review (an earlier pass wrongly cited apps/api/src/modules/mfa/mfa.service.ts's /api/mfa/* endpoints as a second live pathway; verified against mfa.controller.ts directly, that module never persists anything — initSetup and verifySetup's own code comments admit it ('In production: save secret to DB', 'In production: save hashed codes and enable MFA for user in DB', neither of which happens), verify checks a client-supplied secret against a client-supplied code with zero session or credential-state change, and apps/web has no reference to these routes outside one E2E test spec — it is decorative, not a genuine pathway, and is not evidence here). The real second pathway is apps/web/lib/platform-v7/govIdentityBridge.ts: a reachable, test-covered OIDC-shaped bridge mounted at /api/platform-v7/gov-id/start and /callback, gated by PLATFORM_V7_GOV_ID_ENABLED plus three other environment variables. When unset it fails safe (start redirects to a fallback page with reason=not-configured; callback never proceeds past a state-parameter check). Whether those environment variables are set in any live deployment is a runtime fact this repository cannot verify, matching the same limit already recorded for the Caddy edge configuration elsewhere in this programme — but the code path is real, reachable, and not documented anywhere as a second authentication pathway regardless of its current toggle state."
     },
     {
       "requirementId": "V6.2.1",
@@ -2887,10 +2890,10 @@
       ],
       "conditions": [
         {
-          "condition": "no document naming a context-specific forbidden-word list still exists for this decision to measure enforcement against",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "docs"
+          "condition": "docs/security/THREAT_MODEL.md still does not name a context-specific forbidden-word list for this decision to measure enforcement against",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
           ],
           "patterns": [
             "context-specific word",
@@ -3008,35 +3011,22 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "apps/api/src/modules/mfa/mfa.service.ts",
-        "apps/api/src/modules/auth/auth-crypto.ts",
-        [
-          "depends-on:V6.1.3"
-        ]
+        "depends-on:V6.1.3",
+        "apps/web/lib/platform-v7/govIdentityBridge.ts"
       ],
       "conditions": [
         {
-          "condition": "the legacy MfaService (mfa.service.ts) still generates backup codes with randomBytes(4)",
+          "condition": "govIdentityBridge.ts still gates a reachable OIDC-shaped identity-provider pathway behind PLATFORM_V7_GOV_ID_ENABLED",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/mfa/mfa.service.ts"
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
           ],
           "patterns": [
-            "randombytes(4)"
-          ]
-        },
-        {
-          "condition": "auth-crypto.ts still generates backup codes with randomBytes(6), a different entropy than mfa.service.ts",
-          "check": "PRESENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/auth/auth-crypto.ts"
-          ],
-          "patterns": [
-            "randombytes(6)"
+            "platform_v7_gov_id_enabled"
           ]
         }
       ],
-      "note": "Same underlying fact as V6.1.3, assessed here against consistency-of-enforcement specifically: two live, independently-implemented MFA pathways (mfa.controller.ts's /api/mfa/* built on MfaService, and auth.service.ts's login/step-up flow built on auth-crypto.ts) enforce different backup-code entropy (32 vs 48 bits) and different storage (unsalted SHA-256 vs an HMAC-keyed opaque-token digest) for what is meant to be the same authentication factor, and neither pathway is documented as intentionally separate. This is precisely the \"undocumented pathway with inconsistent security controls\" this requirement asks to be verified against."
+      "note": "Downstream of V6.1.3, not an independent finding: this requirement asks whether an existing second authentication pathway is documented AND consistently enforced. Whether the gov-id bridge's authentication strength is consistent with the primary password(+TOTP) pathway cannot be verified when the bridge itself is not documented as existing (V6.1.3) — there is nothing written down to check the code against. (Corrected on review: an earlier pass rested this FAIL on apps/api/src/modules/mfa/mfa.service.ts's /api/mfa/* endpoints being a second live, inconsistently-enforced MFA implementation; verified directly against mfa.controller.ts, that module never persists a secret or backup-code hash anywhere and changes no session or credential state — see V6.1.3's corrected note — so it enforces nothing and is not evidence of an inconsistency.)"
     },
     {
       "requirementId": "V6.3.5",
@@ -3313,21 +3303,22 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "apps/api/src/modules/mfa/mfa.service.ts"
+        "apps/api/src/modules/auth/auth-crypto.ts",
+        "apps/api/src/modules/auth/opaque-token-authority.ts"
       ],
       "conditions": [
         {
-          "condition": "mfa.service.ts's generateBackupCodes/verifyBackupCode pair still stores backup codes as a bare createHash('sha256') digest with no salt",
+          "condition": "generateBackupCodes() in auth-crypto.ts still derives each code from randomBytes(6) and stores it through digestMfaBackupCode's HMAC-SHA256 keyed digest rather than a salted password-storage hash",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/mfa/mfa.service.ts"
+            "apps/api/src/modules/auth/opaque-token-authority.ts"
           ],
           "patterns": [
-            "createhash('sha256').update(code)"
+            "function digestmfabackupcode"
           ]
         }
       ],
-      "note": "The live-but-legacy MfaService (mfa.service.ts, mounted via /api/mfa/*) generates backup codes with randomBytes(4) — 32 bits of entropy, well under the 112-bit safe-harbor this requirement sets — and stores them as a bare, unsalted createHash('sha256').update(code).digest('hex'). SHA-256 is fast and unsalted; a leaked table of these hashes is brute-forceable offline in a trivial amount of time on commodity hardware, which is exactly the scenario a 32-bit-random-salted password-storage hash (bcrypt/argon2/scrypt/PBKDF2) is meant to prevent. The separately-implemented, actually-live-at-login backup codes in auth-crypto.ts (randomBytes(6) = 48 bits, still under 112 bits) fare somewhat better: they digest through opaque-token-authority.ts's HMAC-SHA256 keyed MAC rather than a bare hash, which does require the server-side HMAC secret in addition to the leaked table to brute-force — a real, if partial, mitigation — but an HMAC-keyed digest is still not the \"approved password storage hashing algorithm with a 32-bit random salt\" the requirement literally asks for. Neither implementation fully complies."
+      "note": "Corrected on review: an earlier pass additionally cited apps/api/src/modules/mfa/mfa.service.ts's backup-code hashing (a bare, unsalted createHash('sha256')) as a second, worse-off storage violation. Verified directly against mfa.service.ts and mfa.controller.ts: that module's generateBackupCodes/verifyBackupCode pair is never called with a persistence step anywhere — verifySetup's own code comment admits the hashed codes are never saved ('In production: save hashed codes and enable MFA for user in DB') — so nothing is ever actually stored through that path, and V6.5.2 (which is specifically about backend storage) does not apply to it. The finding rests on the one implementation that is real and live: auth-crypto.ts's generateBackupCodes (randomBytes(6) = 48 bits of entropy, under the 112-bit safe-harbor this requirement sets), stored via opaque-token-authority.ts's digestMfaBackupCode — an HMAC-SHA256 keyed MAC, not the \"approved password storage hashing algorithm with a 32-bit random salt\" (bcrypt/argon2/scrypt/PBKDF2) the requirement literally asks for. The HMAC key requirement is a real, partial mitigation (a leaked table of digests alone is not enough to brute force; the server-side HMAC secret is also needed), but it is still not literally compliant."
     },
     {
       "requirementId": "V6.5.3",
@@ -3605,7 +3596,8 @@
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
-        "apps/api/src/modules/auth/auth.service.ts"
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
       ],
       "conditions": [
         {
@@ -3617,16 +3609,28 @@
           "patterns": [
             "status: 'not_configured'"
           ]
+        },
+        {
+          "condition": "the web-side gov-id callback route still never exchanges the authorization code for a token and never establishes a session — no second IdP identity is ever actually resolved, regardless of the bridge's environment-variable toggle",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+          ],
+          "patterns": [
+            "access_token",
+            "id_token"
+          ]
         }
       ],
-      "note": "sberBusinessStart/sberBusinessCallback both return `{ status: 'not_configured', message: '... is not configured in this environment' }`, oidcProviders() returns `{ providers: [] }`, and oidcAuthorizationUrl() returns `{ url: null }`. No external Identity Provider is actually wired up — these are stub endpoints, not a live federated-login path — so there is no second IdP for a user identity to be spoofed across."
+      "note": "auth.service.ts's SberBusiness/OIDC methods are unconfigured stubs (see original note below). A second, separate integration point also exists: apps/web/lib/platform-v7/govIdentityBridge.ts, mounted at /api/platform-v7/gov-id/start and /callback, gated by PLATFORM_V7_GOV_ID_ENABLED. Verified directly: the callback route validates the OAuth state parameter for CSRF binding, then redirects — it never calls a token endpoint, never fetches or parses an id_token, and never creates a session. Because no second identity is ever actually established by either integration point, there is no live IdP for a user identity to be spoofed across, independent of whether the bridge's environment variables happen to be set in a given deployment (a runtime fact this repository cannot verify, matching the same limit already recorded for the Caddy edge configuration elsewhere in this programme). — Original note: sberBusinessStart/sberBusinessCallback both return `{ status: 'not_configured', message: '... is not configured in this environment' }`, oidcProviders() returns `{ providers: [] }`, and oidcAuthorizationUrl() returns `{ url: null }`."
     },
     {
       "requirementId": "V6.8.2",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
-        "apps/api/src/modules/auth/auth.service.ts"
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
       ],
       "conditions": [
         {
@@ -3638,16 +3642,28 @@
           "patterns": [
             "status: 'not_configured'"
           ]
+        },
+        {
+          "condition": "the web-side gov-id callback route still never fetches or parses an id_token, so no assertion signature is ever there to validate",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+          ],
+          "patterns": [
+            "access_token",
+            "id_token"
+          ]
         }
       ],
-      "note": "With no live external IdP integration (see V6.8.1), there are no JWT/SAML authentication assertions from an IdP for the application to validate signatures on."
+      "note": "With no live external IdP integration completing a token exchange anywhere (see V6.8.1, corrected to also cover the gov-id bridge), there are no JWT/SAML authentication assertions from an IdP for the application to validate signatures on."
     },
     {
       "requirementId": "V6.8.3",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
-        "apps/api/src/modules/auth/auth.service.ts"
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
       ],
       "conditions": [
         {
@@ -3659,16 +3675,28 @@
           "patterns": [
             "status: 'not_configured'"
           ]
+        },
+        {
+          "condition": "the web-side gov-id callback route still never fetches or parses an id_token, so no SAML/OIDC assertion is ever processed to be replayed",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+          ],
+          "patterns": [
+            "access_token",
+            "id_token"
+          ]
         }
       ],
-      "note": "With no live SAML (or any) external IdP integration, there is no assertion-replay surface for this requirement to constrain."
+      "note": "With no live SAML or OIDC integration completing a token exchange anywhere (see V6.8.1, corrected to also cover the gov-id bridge), there is no assertion-replay surface for this requirement to constrain."
     },
     {
       "requirementId": "V6.8.4",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
-        "apps/api/src/modules/auth/auth.service.ts"
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
       ],
       "conditions": [
         {
@@ -3680,9 +3708,20 @@
           "patterns": [
             "status: 'not_configured'"
           ]
+        },
+        {
+          "condition": "the web-side gov-id callback route still never fetches or parses an id_token, so no IdP-asserted strength/recency claim is ever available to check",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+          ],
+          "patterns": [
+            "access_token",
+            "id_token"
+          ]
         }
       ],
-      "note": "With no live external IdP integration, there is no IdP-asserted authentication strength/recency (acr/amr/auth_time-style claims) for the application to verify or fall back from — MFA strength is instead decided entirely in-app (V6.3.3)."
+      "note": "With no live external IdP integration completing a token exchange anywhere (see V6.8.1, corrected to also cover the gov-id bridge), there is no IdP-asserted authentication strength/recency (acr/amr/auth_time-style claims) for the application to verify or fall back from — MFA strength is instead decided entirely in-app (V6.3.3)."
     },
     {
       "requirementId": "V7.1.1",
