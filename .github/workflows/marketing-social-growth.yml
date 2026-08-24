@@ -10,8 +10,10 @@ on:
       - 'apps/api/src/marketing-outbox-worker.module.ts'
       - 'apps/api/src/modules/marketing/**'
       - 'apps/web/app/api/marketing/telegram/webhook/route.ts'
+      - 'apps/web/app/api/platform-v7/organization-connect/route.ts'
       - 'apps/web/components/platform-v7/OrganizationConnectForm.tsx'
       - 'apps/web/lib/platform-v7/marketing-attribution.ts'
+      - 'apps/web/lib/platform-v7/marketing-attribution.server.ts'
       - 'apps/web/lib/platform-v7/telegram-marketing-qualification.ts'
       - 'apps/web/tests/unit/marketingSocialWaitlist.test.ts'
   push:
@@ -24,8 +26,10 @@ on:
       - 'apps/api/src/marketing-outbox-worker.module.ts'
       - 'apps/api/src/modules/marketing/**'
       - 'apps/web/app/api/marketing/telegram/webhook/route.ts'
+      - 'apps/web/app/api/platform-v7/organization-connect/route.ts'
       - 'apps/web/components/platform-v7/OrganizationConnectForm.tsx'
       - 'apps/web/lib/platform-v7/marketing-attribution.ts'
+      - 'apps/web/lib/platform-v7/marketing-attribution.server.ts'
       - 'apps/web/lib/platform-v7/telegram-marketing-qualification.ts'
       - 'apps/web/tests/unit/marketingSocialWaitlist.test.ts'
   workflow_dispatch:
@@ -81,7 +85,7 @@ jobs:
           src/modules/marketing/marketing-outbox.contract.spec.ts
           src/modules/marketing/marketing-durable-outbox.worker.spec.ts
 
-      - name: Verify Telegram-to-QWO waitlist attribution
+      - name: Verify signed Telegram-to-QWO waitlist attribution
         run: >-
           pnpm --filter @pc/web exec vitest run
           tests/unit/marketingSocialWaitlist.test.ts
