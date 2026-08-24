@@ -11,7 +11,7 @@ on:
       - 'apps/web/lib/server/server-api-origin.ts'
       - 'apps/web/app/platform-v7/staff/page.tsx'
       - 'apps/web/app/api/staff/capabilities/me/route.ts'
-      - 'apps/web/app/api/staff/[...path]/route.ts'
+      - 'apps/web/app/api/staff/*path*/route.ts'
       - 'apps/web/tests/unit/serverApiOrigin.test.ts'
       - 'apps/web/tests/unit/platformV7StaffControlCenter.test.ts'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-p0-staff-api-base-prefix-4559.json'
