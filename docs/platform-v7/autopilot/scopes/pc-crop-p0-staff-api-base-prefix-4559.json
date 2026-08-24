@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-staff-api-base-prefix-4559",
+  "status": "active",
+  "operationalStatus": "P0_STAFF_API_BASE_PREFIX_REPAIR",
+  "purpose": "Correct the proven registration-critical Web server API base so the exact internal Compose authority retains the Nest global /api prefix instead of appending auth/staff routes to the container root.",
+  "issue": 4559,
+  "registrationIssue": 3785,
+  "releaseIssue": 3072,
+  "authorityBaseExactMain": "d92b2b7e66a805aea830afd6519af7dcd320e3fa",
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/lib/server/server-api-origin.ts",
+    "apps/web/tests/unit/serverApiOrigin.test.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-p0-staff-api-base-prefix-4559.json"
+  ],
+  "boundaries": {
+    "registrationOnly": true,
+    "applicationCodeOnly": true,
+    "productionMutationInPr": false,
+    "databaseMutation": false,
+    "migrationMutation": false,
+    "credentialMutation": false,
+    "passwordMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "userMutation": false,
+    "roleOrMembershipMutation": false,
+    "dnsMutation": false,
+    "caddyMutation": false,
+    "sshPinMutation": false,
+    "dependencyMutation": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "Production plaintext server authority is accepted only as exact http://api:3001/api (or the same value with one trailing slash, normalized away).",
+    "Plain http://api:3001 without the mandatory Nest global /api prefix is rejected fail-closed.",
+    "Arbitrary plaintext hosts, lookalike hosts, credentials, query, fragment and extra paths remain rejected.",
+    "Production fallback without explicit API_URL resolves to exact http://api:3001/api.",
+    "Explicit HTTPS server authorities retain the existing behavior.",
+    "No control-host, CSRF, MFA, staff authorization, tenant, role, database or network-security boundary is weakened.",
+    "Unit tests cover the exact canonical base and negative path/authority cases.",
+    "Production remains unchanged until a separately authorized exact-main REG.RU release.",
+    "New recurring cost remains 0 RUB."
+  ]
+}
