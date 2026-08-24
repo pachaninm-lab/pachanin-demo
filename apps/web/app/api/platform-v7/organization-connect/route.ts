@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
+import { verifiedMarketingCorrelationId } from '@/lib/platform-v7/marketing-attribution.server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,6 +10,7 @@ export const maxDuration = 10;
 const COMPOSE_INTERNAL_API_URL = 'http://api:3001';
 const MAX_BODY_BYTES = 8 * 1024;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
+const CORRELATION_PATTERN = /^[A-Za-z0-9._:-]{8,128}$/;
 
 function resolveApiUrl(): string {
   const explicitServerUrl = String(process.env.API_URL || '').trim();
@@ -105,8 +107,20 @@ function normalize(body: Record<string, unknown>): IntakePayload | null {
   return payload as IntakePayload;
 }
 
+function correlationIdFor(request: Request): string {
+  const marketingToken = String(request.headers.get('x-marketing-attribution') || '').trim();
+  const marketingCorrelation = verifiedMarketingCorrelationId(marketingToken || null, randomUUID());
+  if (marketingCorrelation) return marketingCorrelation;
+
+  // Preserve a bounded generic caller correlation for existing clients, but a
+  // public caller can never manufacture the reserved `mktg.*` evidence prefix.
+  const requested = String(request.headers.get('x-correlation-id') || '').trim();
+  if (CORRELATION_PATTERN.test(requested) && !requested.startsWith('mktg.')) return requested;
+  return randomUUID();
+}
+
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFor(request);
   const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
   if (!IDEMPOTENCY_PATTERN.test(idempotencyKey)) {
     return json({ ok: false, code: 'INVALID_IDEMPOTENCY_KEY', correlationId }, 400);
