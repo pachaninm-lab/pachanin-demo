@@ -85,10 +85,17 @@ jobs:
           src/modules/marketing/marketing-outbox.contract.spec.ts
           src/modules/marketing/marketing-durable-outbox.worker.spec.ts
 
-      - name: Verify signed Telegram-to-QWO attribution
+      - name: Verify signed attribution HMAC authority
         run: >-
           pnpm --filter @pc/web exec vitest run
           tests/unit/marketingSocialWaitlist.test.ts
+          -t "marketing social waitlist attribution"
+
+      - name: Verify Telegram qualification and BFF authority
+        run: >-
+          pnpm --filter @pc/web exec vitest run
+          tests/unit/marketingSocialWaitlist.test.ts
+          -t "Telegram qualification without Telegram PII persistence"
 
       - name: Verify existing organization-intake regression
         run: >-
