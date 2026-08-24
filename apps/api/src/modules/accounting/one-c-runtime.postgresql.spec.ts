@@ -695,6 +695,8 @@ describePostgres('durable 1C runtime authority', () => {
       outboxStatus: string;
       receiptCount: bigint;
       verifierLeak: bigint;
+      machineAuditCount: bigint;
+      machineAuditActorMismatch: bigint;
     }>>(Prisma.sql`
       SELECT job.status AS "jobStatus", outbox."status" AS "outboxStatus",
              (SELECT count(*)::bigint FROM connector.one_c_job_receipts receipt
@@ -703,13 +705,23 @@ describePostgres('durable 1C runtime authority', () => {
                WHERE audit."tenantId" = ${TENANT_RUNTIME}
                  AND (audit."metadata"::text LIKE ${`%${paired.machineBearer}%`}
                    OR audit."metadata"::text LIKE ${`%${leaseSecret}%`}
-                   OR audit."metadata"::text LIKE ${`%${storedLease[0].bearerHash}%`})) AS "verifierLeak"
+                   OR audit."metadata"::text LIKE ${`%${storedLease[0].bearerHash}%`})) AS "verifierLeak",
+             (SELECT count(*)::bigint FROM public.audit_events audit
+               WHERE audit."tenantId" = ${TENANT_RUNTIME}
+                 AND audit."actorRole" = 'CONNECTOR_MACHINE') AS "machineAuditCount",
+             (SELECT count(*)::bigint FROM public.audit_events audit
+               WHERE audit."tenantId" = ${TENANT_RUNTIME}
+                 AND audit."actorRole" = 'CONNECTOR_MACHINE'
+                 AND audit."actorUserId" <> ${paired.credentialId}) AS "machineAuditActorMismatch"
         FROM connector.one_c_jobs job
         JOIN public."outbox_entries" outbox ON outbox."id" = job.outbox_entry_id
        WHERE job.id = ${leased.id}
     `);
-    expect(evidence).toEqual([{
-      jobStatus: 'SUCCEEDED', outboxStatus: 'CONFIRMED', receiptCount: 2n, verifierLeak: 0n,
-    }]);
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]).toMatchObject({
+      jobStatus: 'SUCCEEDED', outboxStatus: 'CONFIRMED', receiptCount: 2n,
+      verifierLeak: 0n, machineAuditActorMismatch: 0n,
+    });
+    expect(evidence[0].machineAuditCount).toBeGreaterThan(0n);
   });
 });

@@ -539,7 +539,7 @@ BEGIN
     'ACKNOWLEDGED', p_correlation_id
   );
   PERFORM connector.append_one_c_audit(
-    'ONE_C_JOB_ACKNOWLEDGED', NULL, 'CONNECTOR_MACHINE', v_job.tenant_id,
+    'ONE_C_JOB_ACKNOWLEDGED', p_credential_id, 'CONNECTOR_MACHINE', v_job.tenant_id,
     v_job.organization_id, 'ONE_C_JOB', v_job.id, 'SUCCESS',
     'ONE_C_JOB_DELIVERED_TO_CONNECTOR',
     jsonb_build_object('jobId', v_job.id, 'leaseId', p_lease_id,
@@ -665,7 +665,7 @@ BEGIN
     p_external_evidence_id, p_correlation_id
   );
   PERFORM connector.append_one_c_audit(
-    'ONE_C_JOB_RESULT_RECORDED', NULL, 'CONNECTOR_MACHINE', v_job.tenant_id,
+    'ONE_C_JOB_RESULT_RECORDED', p_credential_id, 'CONNECTOR_MACHINE', v_job.tenant_id,
     v_job.organization_id, 'ONE_C_JOB', v_job.id, 'SUCCESS', p_result_code,
     jsonb_build_object('jobId', v_job.id, 'leaseId', p_lease_id,
       'syncState', p_result_state, 'externalEvidenceId', p_external_evidence_id,
@@ -747,7 +747,7 @@ BEGIN
     ) ON CONFLICT (job_id, idempotency_key) DO NOTHING;
 
     PERFORM connector.append_one_c_audit(
-      'ONE_C_JOB_LEASE_EXPIRED', NULL, 'CONNECTOR_MACHINE', v_job.tenant_id,
+      'ONE_C_JOB_LEASE_EXPIRED', v_lease.credential_id, 'CONNECTOR_MACHINE', v_job.tenant_id,
       v_job.organization_id, 'ONE_C_JOB', v_job.id, 'SUCCESS',
       'ONE_C_RECONCILIATION_REQUIRED',
       jsonb_build_object('jobId', v_job.id, 'leaseId', v_lease.lease_id,
@@ -864,7 +864,7 @@ BEGIN
      WHERE outbox."id" = v_job.outbox_entry_id AND outbox."status" = 'PENDING';
 
     PERFORM connector.append_one_c_audit(
-      'ONE_C_JOB_LEASED', NULL, 'CONNECTOR_MACHINE', v_job.tenant_id,
+      'ONE_C_JOB_LEASED', v_credential.credential_id, 'CONNECTOR_MACHINE', v_job.tenant_id,
       v_job.organization_id, 'ONE_C_JOB', v_job.id, 'SUCCESS', 'ONE_C_JOB_LEASED',
       jsonb_build_object('jobId', v_job.id, 'leaseId', v_lease_id,
         'credentialId', v_credential.credential_id, 'attempt', v_attempt,
@@ -1544,7 +1544,7 @@ BEGIN
 
   IF v_state_changed THEN
     PERFORM connector.append_one_c_audit(
-      'ONE_C_HEARTBEAT_STATE_CHANGED', NULL, 'CONNECTOR_MACHINE',
+      'ONE_C_HEARTBEAT_STATE_CHANGED', v_credential.credential_id, 'CONNECTOR_MACHINE',
       v_binding.tenant_id, v_binding.organization_id, 'ONE_C_BINDING', v_binding.id,
       'SUCCESS', 'ONE_C_RUNTIME_STATE_CHANGED',
       jsonb_build_object(
@@ -1914,7 +1914,7 @@ BEGIN
     p_correlation_id
   );
   PERFORM connector.append_one_c_audit(
-    'ONE_C_JOB_FAILURE_RECORDED', NULL, 'CONNECTOR_MACHINE', v_job.tenant_id,
+    'ONE_C_JOB_FAILURE_RECORDED', p_credential_id, 'CONNECTOR_MACHINE', v_job.tenant_id,
     v_job.organization_id, 'ONE_C_JOB', v_job.id, 'SUCCESS', p_result_code,
     jsonb_build_object('jobId', v_job.id, 'leaseId', p_lease_id,
       'failureClass', p_failure_class, 'effectState', p_effect_state,
