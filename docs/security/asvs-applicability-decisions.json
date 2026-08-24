@@ -2685,6 +2685,899 @@
       "note": "One private key is used to issue tokens for more than one consumer - the API access token and the web cabinet session token share JWT_SECRET - which is exactly the situation this requirement addresses. Issued access tokens do carry an audience restriction, so the token itself states who it is for. Whether every receiver enforces that restriction is a separate matter, and it is recorded as failing under V9.2.3."
     },
     {
+      "requirementId": "V10.1.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no code-for-token exchange, ID Token parsing or token endpoint call exists anywhere in the codebase for the gov-id relying party",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "id_token",
+            "token_endpoint",
+            "exchangecode"
+          ]
+        }
+      ],
+      "note": "No access or refresh token exists anywhere in the codebase, so this requirement has nothing to be assessed against. The only OIDC-shaped relying-party code in the repository is the gov-id bridge (govIdentityBridge.ts plus its start and callback routes), a ЕСИА/Gosuslugi-style login integration disabled by default (PLATFORM_V7_GOV_ID_ENABLED is never set to true in any deployment config in this repository) and, independent of that flag, incomplete: the callback route validates the state parameter and then redirects, it never calls a token endpoint, never receives an ID Token, and never persists an authorization code anywhere. This is a named finding, not a hidden one: the code generates a cryptographically random nonce specifically for OIDC replay protection (randomBridgeValue(), stored in a cookie for exactly this purpose) and then never reads it back or compares it to anything, because there is no ID Token for it to be compared against. That incompleteness is worth an owner decision on its own (finish the flow or remove the dead code) even though no individual ASVS control here is failed by it, since nothing this requirement protects is ever created."
+    },
+    {
+      "requirementId": "V10.1.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no code-for-token exchange, ID Token parsing or token endpoint call exists anywhere in the codebase for the gov-id relying party",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "id_token",
+            "token_endpoint",
+            "exchangecode"
+          ]
+        }
+      ],
+      "note": "No ID Token, and no authorization code is ever redeemed, stored or forwarded anywhere after the callback route checks it is present exists anywhere in the codebase, so this requirement has nothing to be assessed against. The only OIDC-shaped relying-party code in the repository is the gov-id bridge (govIdentityBridge.ts plus its start and callback routes), a ЕСИА/Gosuslugi-style login integration disabled by default (PLATFORM_V7_GOV_ID_ENABLED is never set to true in any deployment config in this repository) and, independent of that flag, incomplete: the callback route validates the state parameter and then redirects, it never calls a token endpoint, never receives an ID Token, and never persists an authorization code anywhere. This is a named finding, not a hidden one: the code generates a cryptographically random nonce specifically for OIDC replay protection (randomBridgeValue(), stored in a cookie for exactly this purpose) and then never reads it back or compares it to anything, because there is no ID Token for it to be compared against. That incompleteness is worth an owner decision on its own (finish the flow or remove the dead code) even though no individual ASVS control here is failed by it, since nothing this requirement protects is ever created. The state-based transaction binding this requirement also touches on is real and is assessed on its own merits under V10.2.1, the narrower requirement this generic one overlaps with."
+    },
+    {
+      "requirementId": "V10.2.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/platform-v7/govIdentityBridge.ts",
+        "apps/web/app/api/platform-v7/gov-id/start/route.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the gov-id bridge still generates a per-transaction random state value bound to an httpOnly cookie",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "httponly: true"
+          ]
+        },
+        {
+          "condition": "the callback route still strictly compares the received state against the cookie-stored value before treating the response as valid",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+          ],
+          "patterns": [
+            "expectedstate !== receivedstate"
+          ]
+        }
+      ],
+      "note": "The code flow is used (response_type=code) and the OAuth client protects it against CSRF by checking the state parameter, which is what this requirement asks for even without PKCE. start/route.ts generates a fresh state value per transaction with randomBridgeValue() (24 bytes from node:crypto randomBytes, base64url-encoded, so not guessable) and stores it in an httpOnly, sameSite=lax cookie (secure when the request is HTTPS) scoped to a 600-second window before redirecting to the authorization endpoint. callback/route.ts reads the cookie-stored value back as expectedState, reads the query-string value as receivedState, and rejects with reason state-error whenever either is missing or they do not match, before anything else is done with the response - this is the correct shape for the control even though, as recorded separately under V10.1.1/V10.1.2, nothing further happens with the authorization code afterward."
+    },
+    {
+      "requirementId": "V10.2.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "apps/web/lib/platform-v7/govIdentityBridge.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the gov-id bridge is still configured against exactly one fixed authorization server rather than a selectable set",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "issuers.map",
+            "issuer registry",
+            "multi-issuer"
+          ]
+        }
+      ],
+      "note": "A mix-up attack requires an OAuth client capable of talking to more than one authorization server, so that a malicious one can be substituted for the intended one. The gov-id bridge reads a single fixed PLATFORM_V7_GOV_ID_AUTHORIZATION_URL environment variable - there is no issuer list, no per-request issuer selection, and no code path that would let a second authorization server be addressed at all, so there is no surface for this requirement to protect."
+    },
+    {
+      "requirementId": "V10.2.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/web/lib/platform-v7/govIdentityBridge.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the same static default scope is still requested for every supported flow variant with no per-flow narrowing",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "'openid profile email'"
+          ]
+        }
+      ],
+      "note": "The OAuth client cannot be shown to request only what each specific transaction needs, because it does not differentiate at all: readGovIdentityBridgeConfig() reads one PLATFORM_V7_GOV_ID_SCOPE value, defaulting to the literal string openid profile email, and that same value is used for all three supported flows (login, register and fgis) with no code anywhere that narrows or varies it per flow. A login flow and an fgis (state agricultural information system) access-linking flow plausibly need different claims, but the current code has no mechanism to express that, so this is recorded as a real gap rather than assumed to be fine because the feature is currently disabled by default."
+    },
+    {
+      "requirementId": "V10.3.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-resource-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no code validates an externally-issued OAuth access token (audience, introspection, client_credentials) anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "client_credentials",
+            "introspect",
+            "resourceserver"
+          ]
+        }
+      ],
+      "note": "The API never acts as an OAuth 2.0 Resource Server validating externally-issued access tokens. A scan of apps/api/src for the resource-server vocabulary (client_credentials, token introspection, an audience check against a third-party-issued token) returns zero matches. The access tokens the API does issue and verify are its own first-party session tokens, minted and validated entirely in-process by this same application - already assessed under V9 Self-contained Tokens - not tokens issued by a separate OAuth authorization server that this requirement is about."
+    },
+    {
+      "requirementId": "V10.3.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-resource-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no code validates an externally-issued OAuth access token (audience, introspection, client_credentials) anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "client_credentials",
+            "introspect",
+            "resourceserver"
+          ]
+        }
+      ],
+      "note": "The API never acts as an OAuth 2.0 Resource Server validating externally-issued access tokens. A scan of apps/api/src for the resource-server vocabulary (client_credentials, token introspection, an audience check against a third-party-issued token) returns zero matches. The access tokens the API does issue and verify are its own first-party session tokens, minted and validated entirely in-process by this same application - already assessed under V9 Self-contained Tokens - not tokens issued by a separate OAuth authorization server that this requirement is about."
+    },
+    {
+      "requirementId": "V10.3.3",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-resource-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no code validates an externally-issued OAuth access token (audience, introspection, client_credentials) anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "client_credentials",
+            "introspect",
+            "resourceserver"
+          ]
+        }
+      ],
+      "note": "The API never acts as an OAuth 2.0 Resource Server validating externally-issued access tokens. A scan of apps/api/src for the resource-server vocabulary (client_credentials, token introspection, an audience check against a third-party-issued token) returns zero matches. The access tokens the API does issue and verify are its own first-party session tokens, minted and validated entirely in-process by this same application - already assessed under V9 Self-contained Tokens - not tokens issued by a separate OAuth authorization server that this requirement is about."
+    },
+    {
+      "requirementId": "V10.3.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-resource-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no code validates an externally-issued OAuth access token (audience, introspection, client_credentials) anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "client_credentials",
+            "introspect",
+            "resourceserver"
+          ]
+        }
+      ],
+      "note": "The API never acts as an OAuth 2.0 Resource Server validating externally-issued access tokens. A scan of apps/api/src for the resource-server vocabulary (client_credentials, token introspection, an audience check against a third-party-issued token) returns zero matches. The access tokens the API does issue and verify are its own first-party session tokens, minted and validated entirely in-process by this same application - already assessed under V9 Self-contained Tokens - not tokens issued by a separate OAuth authorization server that this requirement is about."
+    },
+    {
+      "requirementId": "V10.3.5",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-resource-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no code validates an externally-issued OAuth access token (audience, introspection, client_credentials) anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "client_credentials",
+            "introspect",
+            "resourceserver"
+          ]
+        }
+      ],
+      "note": "The API never acts as an OAuth 2.0 Resource Server validating externally-issued access tokens. A scan of apps/api/src for the resource-server vocabulary (client_credentials, token introspection, an audience check against a third-party-issued token) returns zero matches. The access tokens the API does issue and verify are its own first-party session tokens, minted and validated entirely in-process by this same application - already assessed under V9 Self-contained Tokens - not tokens issued by a separate OAuth authorization server that this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.3",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.5",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.6",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.7",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.8",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.9",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.10",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.11",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.12",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.13",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.14",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.15",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.4.16",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "The API never implements an OAuth 2.0 Authorization Server role. There is no /oauth/authorize or /oauth/token-shaped endpoint anywhere in apps/api/src, no third-party client registration, no refresh-token issuance to an external client, and no pushed-authorization-request support. The platform does have its own first-party login and session-issuance flow (assessed under V6/V7/V9), but that is a direct username/password-and-MFA login, not an OAuth authorization-server grant to a registered third-party client, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.5.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no code-for-token exchange, ID Token parsing or token endpoint call exists anywhere in the codebase for the gov-id relying party",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "id_token",
+            "token_endpoint",
+            "exchangecode"
+          ]
+        }
+      ],
+      "note": "No ID Token exists anywhere in the codebase, so this requirement has nothing to be assessed against. The only OIDC-shaped relying-party code in the repository is the gov-id bridge (govIdentityBridge.ts plus its start and callback routes), a ЕСИА/Gosuslugi-style login integration disabled by default (PLATFORM_V7_GOV_ID_ENABLED is never set to true in any deployment config in this repository) and, independent of that flag, incomplete: the callback route validates the state parameter and then redirects, it never calls a token endpoint, never receives an ID Token, and never persists an authorization code anywhere. This is a named finding, not a hidden one: the code generates a cryptographically random nonce specifically for OIDC replay protection (randomBridgeValue(), stored in a cookie for exactly this purpose) and then never reads it back or compares it to anything, because there is no ID Token for it to be compared against. That incompleteness is worth an owner decision on its own (finish the flow or remove the dead code) even though no individual ASVS control here is failed by it, since nothing this requirement protects is ever created."
+    },
+    {
+      "requirementId": "V10.5.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no code-for-token exchange, ID Token parsing or token endpoint call exists anywhere in the codebase for the gov-id relying party",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "id_token",
+            "token_endpoint",
+            "exchangecode"
+          ]
+        }
+      ],
+      "note": "No ID Token exists anywhere in the codebase, so this requirement has nothing to be assessed against. The only OIDC-shaped relying-party code in the repository is the gov-id bridge (govIdentityBridge.ts plus its start and callback routes), a ЕСИА/Gosuslugi-style login integration disabled by default (PLATFORM_V7_GOV_ID_ENABLED is never set to true in any deployment config in this repository) and, independent of that flag, incomplete: the callback route validates the state parameter and then redirects, it never calls a token endpoint, never receives an ID Token, and never persists an authorization code anywhere. This is a named finding, not a hidden one: the code generates a cryptographically random nonce specifically for OIDC replay protection (randomBridgeValue(), stored in a cookie for exactly this purpose) and then never reads it back or compares it to anything, because there is no ID Token for it to be compared against. That incompleteness is worth an owner decision on its own (finish the flow or remove the dead code) even though no individual ASVS control here is failed by it, since nothing this requirement protects is ever created."
+    },
+    {
+      "requirementId": "V10.5.3",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no code-for-token exchange, ID Token parsing or token endpoint call exists anywhere in the codebase for the gov-id relying party",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "id_token",
+            "token_endpoint",
+            "exchangecode"
+          ]
+        }
+      ],
+      "note": "No ID Token or authorization server metadata document exists anywhere in the codebase, so this requirement has nothing to be assessed against. The only OIDC-shaped relying-party code in the repository is the gov-id bridge (govIdentityBridge.ts plus its start and callback routes), a ЕСИА/Gosuslugi-style login integration disabled by default (PLATFORM_V7_GOV_ID_ENABLED is never set to true in any deployment config in this repository) and, independent of that flag, incomplete: the callback route validates the state parameter and then redirects, it never calls a token endpoint, never receives an ID Token, and never persists an authorization code anywhere. This is a named finding, not a hidden one: the code generates a cryptographically random nonce specifically for OIDC replay protection (randomBridgeValue(), stored in a cookie for exactly this purpose) and then never reads it back or compares it to anything, because there is no ID Token for it to be compared against. That incompleteness is worth an owner decision on its own (finish the flow or remove the dead code) even though no individual ASVS control here is failed by it, since nothing this requirement protects is ever created."
+    },
+    {
+      "requirementId": "V10.5.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no code-for-token exchange, ID Token parsing or token endpoint call exists anywhere in the codebase for the gov-id relying party",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "id_token",
+            "token_endpoint",
+            "exchangecode"
+          ]
+        }
+      ],
+      "note": "No ID Token exists anywhere in the codebase, so this requirement has nothing to be assessed against. The only OIDC-shaped relying-party code in the repository is the gov-id bridge (govIdentityBridge.ts plus its start and callback routes), a ЕСИА/Gosuslugi-style login integration disabled by default (PLATFORM_V7_GOV_ID_ENABLED is never set to true in any deployment config in this repository) and, independent of that flag, incomplete: the callback route validates the state parameter and then redirects, it never calls a token endpoint, never receives an ID Token, and never persists an authorization code anywhere. This is a named finding, not a hidden one: the code generates a cryptographically random nonce specifically for OIDC replay protection (randomBridgeValue(), stored in a cookie for exactly this purpose) and then never reads it back or compares it to anything, because there is no ID Token for it to be compared against. That incompleteness is worth an owner decision on its own (finish the flow or remove the dead code) even though no individual ASVS control here is failed by it, since nothing this requirement protects is ever created."
+    },
+    {
+      "requirementId": "V10.5.5",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no code-for-token exchange, ID Token parsing or token endpoint call exists anywhere in the codebase for the gov-id relying party",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "id_token",
+            "token_endpoint",
+            "exchangecode"
+          ]
+        }
+      ],
+      "note": "No OIDC back-channel logout token handling exists anywhere in the codebase, so this requirement has nothing to be assessed against. The only OIDC-shaped relying-party code in the repository is the gov-id bridge (govIdentityBridge.ts plus its start and callback routes), a ЕСИА/Gosuslugi-style login integration disabled by default (PLATFORM_V7_GOV_ID_ENABLED is never set to true in any deployment config in this repository) and, independent of that flag, incomplete: the callback route validates the state parameter and then redirects, it never calls a token endpoint, never receives an ID Token, and never persists an authorization code anywhere. This is a named finding, not a hidden one: the code generates a cryptographically random nonce specifically for OIDC replay protection (randomBridgeValue(), stored in a cookie for exactly this purpose) and then never reads it back or compares it to anything, because there is no ID Token for it to be compared against. That incompleteness is worth an owner decision on its own (finish the flow or remove the dead code) even though no individual ASVS control here is failed by it, since nothing this requirement protects is ever created."
+    },
+    {
+      "requirementId": "V10.6.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-openid-provider"
+      ],
+      "conditions": [
+        {
+          "condition": "no OpenID Provider discovery document or issuance endpoint exists anywhere in the codebase",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "well-known/openid-configuration",
+            "openid provider",
+            "discoverydocument"
+          ]
+        }
+      ],
+      "note": "The platform never acts as an OpenID Provider (identity provider) for other applications. There is no .well-known/openid-configuration discovery document, no authorize or token issuance endpoint serving a third-party relying party, anywhere in the codebase - grep across apps/api/src, apps/web/lib and apps/web/app returns zero matches."
+    },
+    {
+      "requirementId": "V10.6.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-openid-provider"
+      ],
+      "conditions": [
+        {
+          "condition": "no OpenID Provider discovery document or issuance endpoint exists anywhere in the codebase",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "well-known/openid-configuration",
+            "openid provider",
+            "discoverydocument"
+          ]
+        }
+      ],
+      "note": "The platform never acts as an OpenID Provider (identity provider) for other applications. There is no .well-known/openid-configuration discovery document, no authorize or token issuance endpoint serving a third-party relying party, anywhere in the codebase - grep across apps/api/src, apps/web/lib and apps/web/app returns zero matches."
+    },
+    {
+      "requirementId": "V10.7.1",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "Authorization-server user consent has no surface to exist on, because the platform never implements an OAuth 2.0 Authorization Server (see V10.4.1 and neighbouring V10.4.* decisions). The platform does have its own account-registration and privacy-notice consent flow, but that consents to the platform’s own terms and PD processing, not to a third-party client’s delegated authorization request, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.7.2",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "Authorization-server user consent has no surface to exist on, because the platform never implements an OAuth 2.0 Authorization Server (see V10.4.1 and neighbouring V10.4.* decisions). The platform does have its own account-registration and privacy-notice consent flow, but that consents to the platform’s own terms and PD processing, not to a third-party client’s delegated authorization request, which is what this requirement is about."
+    },
+    {
+      "requirementId": "V10.7.3",
+      "applicability": "APPLICABLE",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-oauth-authorization-server"
+      ],
+      "conditions": [
+        {
+          "condition": "no OAuth 2.0 Authorization Server surface (authorize/token endpoints, client registration, pushed authorization requests) exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "oauth/authorize",
+            "oauth/token",
+            "pushed_authorization",
+            "pushed authorization",
+            "dynamic client registration"
+          ]
+        }
+      ],
+      "note": "Authorization-server user consent has no surface to exist on, because the platform never implements an OAuth 2.0 Authorization Server (see V10.4.1 and neighbouring V10.4.* decisions). The platform does have its own account-registration and privacy-notice consent flow, but that consents to the platform’s own terms and PD processing, not to a third-party client’s delegated authorization request, which is what this requirement is about."
+    },
+    {
       "requirementId": "V11.1.1",
       "applicability": "APPLICABLE",
       "status": "FAIL",
