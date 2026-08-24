@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4633,
+  "branch": "chore/pin-marketing-workflow-actions-4633",
+  "status": "active",
+  "purpose": "Pin the three floating-tag GitHub Actions references in .github/workflows/marketing-social-growth.yml to the same commit SHAs already used for the same action versions elsewhere in this repository, restoring scripts/security/verify-action-pinning.mjs's no-growth ratchet to WITHIN_BASELINE. No workflow behavior changes; no application code touched.",
+  "authorityBaseExactMain": "d92b2b7e66a805aea830afd6519af7dcd320e3fa",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pin-marketing-workflow-actions-4633.json",
+    ".github/workflows/marketing-social-growth.yml"
+  ],
+  "requiredInvariants": [
+    "Only the uses: lines for actions/checkout, pnpm/action-setup and actions/setup-node change, from a floating @v4 tag to the exact commit SHA already used for that same action+version elsewhere in .github/workflows/ (verified by direct grep, not invented).",
+    "No step logic, trigger path, permission or job structure in marketing-social-growth.yml changes.",
+    "scripts/security/verify-action-pinning.mjs reports WITHIN_BASELINE with floating references back at 1028 (the baseline ceiling), not raised.",
+    "The baseline ceiling file itself is not edited - the fix closes the gap by pinning, never by raising the allowed ceiling.",
+    "No production, REG.RU, DNS or database mutation.",
+    "This scope changes no application code."
+  ],
+  "acceptance": [
+    "node scripts/security/verify-action-pinning.mjs reports ACTION_PINNING: WITHIN_BASELINE with floating tags = 1028.",
+    "node --test scripts/security/*.test.mjs is unaffected by this change specifically (any other failure present before this change stays exactly as it was)."
+  ]
+}
