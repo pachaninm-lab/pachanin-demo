@@ -3087,24 +3087,33 @@
       ],
       "conditions": [
         {
-          "condition": "the password-reset confirmation route still sends the password-changed notice, and still refuses to complete a reset at all when the mail channel is unconfigured",
+          "condition": "the password-reset confirmation route still actually calls sendTransactionalMail to send the password-changed notice (keyed on the call, not the import, so a left-behind import cannot hold this open)",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/web/app/api/auth/reset-password/route.ts"
           ],
           "patterns": [
-            "sendtransactionalmail",
+            "await sendtransactionalmail("
+          ]
+        },
+        {
+          "condition": "the password-reset confirmation route still refuses to complete a reset at all when the mail channel is unconfigured, so the notice is a precondition of the flow rather than best-effort",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/reset-password/route.ts"
+          ],
+          "patterns": [
             "mailchannelconfigured"
           ]
         },
         {
-          "condition": "the MFA-recovery confirmation route still sends the MFA-revoked notice",
+          "condition": "the MFA-recovery confirmation route still actually calls deliverMfaRecoveryCompleted to send the MFA-revoked notice (keyed on the call, not the import)",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/web/app/api/auth/mfa-recovery/confirm/route.ts"
           ],
           "patterns": [
-            "delivermfarecoverycompleted"
+            "await delivermfarecoverycompleted("
           ]
         },
         {
@@ -3123,7 +3132,7 @@
           ]
         }
       ],
-      "note": "Corrected on re-verification; the earlier FAIL rested on a scan error and its stated basis was wrong. That note claimed \"nothing in this repository\" turns the confirm() response into a sent email - but the scan behind it was scoped to apps/api and the conclusion was generalised to the whole repository, and its call-site counts were taken by substring (which made mfaRecoveryMail match mfaRecoveryMailConfigured). Both notices this requirement asks about are in fact sent, localised in ru/en/zh, from the web BFF: the password-changed notice from apps/web/app/api/auth/reset-password/route.ts, which reads notificationDelivery.email out of the API response and calls sendTransactionalMail; and the MFA-revoked notice from apps/web/app/api/auth/mfa-recovery/confirm/route.ts via deliverMfaRecoveryCompleted. The password-reset route is additionally fail-closed on mail: mailChannelConfigured() gates the whole handler, so a reset cannot complete at all while the mail channel is unconfigured - the notification is not best-effort decoration but a precondition of the flow. The requirement's third clause, notification on a username or email change, is vacuous here: no such flow exists in the product (scanned for newEmail/email_change/changeUsername/updateUserEmail across the API and web trees, zero matches), and the ABSENT_IN_TREE condition above revokes this decision the moment one appears. One real limitation, recorded because it is true rather than because it changes this verdict: the BFF send is not durable - it has no retry, and a failure of sendTransactionalMail or a BFF crash after the API has already committed the password change leaves that user unnotified. The API's own durable auth-mail outbox (used by the reset-request mail) would close that gap, but moving the notice there requires also threading locale into confirm() and removing the BFF send to avoid duplicate mail, which is a cross-layer change rather than evidence for this requirement. V6.3.7 asks whether users are notified, not whether delivery is guaranteed, so the durability gap is noted here and not scored as a failure of this control."
+      "note": "Corrected on re-verification; the earlier FAIL rested on a scan error and its stated basis was wrong. That note claimed \"nothing in this repository\" turns the confirm() response into a sent email - but the scan behind it was scoped to apps/api and the conclusion was generalised to the whole repository, and its call-site counts were taken by substring (which made mfaRecoveryMail match mfaRecoveryMailConfigured). Both notices this requirement asks about are in fact sent, localised in ru/en/zh, from the web BFF: the password-changed notice from apps/web/app/api/auth/reset-password/route.ts, which reads notificationDelivery.email out of the API response and calls sendTransactionalMail; and the MFA-revoked notice from apps/web/app/api/auth/mfa-recovery/confirm/route.ts via deliverMfaRecoveryCompleted. The password-reset route is additionally fail-closed on mail: mailChannelConfigured() gates the whole handler, so a reset cannot complete at all while the mail channel is unconfigured - the notification is not best-effort decoration but a precondition of the flow. The requirement's third clause, notification on a username or email change, is vacuous here: no such flow exists in the product (scanned for newEmail/email_change/changeUsername/updateUserEmail across the API and web trees, zero matches), and the ABSENT_IN_TREE condition above revokes this decision the moment one appears. One real limitation, recorded because it is true rather than because it changes this verdict: the BFF send is not durable - it has no retry, and a failure of sendTransactionalMail or a BFF crash after the API has already committed the password change leaves that user unnotified. The API's own durable auth-mail outbox (used by the reset-request mail) would close that gap, but moving the notice there requires also threading locale into confirm() and removing the BFF send to avoid duplicate mail, which is a cross-layer change rather than evidence for this requirement. V6.3.7 asks whether users are notified, not whether delivery is guaranteed, so the durability gap is noted here and not scored as a failure of this control. Conditions are deliberately one pattern each: PRESENT_AT_PATH evaluates its patterns with patterns.some(), so several patterns in one condition are alternatives rather than conjunctive evidence, while conditionsHold() requires every condition to hold - one pattern per condition is therefore the only way to express \"all of these must still be true\"."
     },
     {
       "requirementId": "V6.3.8",
