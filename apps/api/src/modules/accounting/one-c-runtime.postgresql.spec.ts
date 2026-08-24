@@ -364,4 +364,137 @@ describePostgres('durable 1C runtime authority', () => {
       membershipEdgeCount: 0n,
     });
   });
+
+  it('isolates organization row locking behind a no-write broker', async () => {
+    const roles = await prisma.$queryRaw<Array<{
+      roleName: string;
+      canLogin: boolean;
+      inherits: boolean;
+      superuser: boolean;
+      bypassRls: boolean;
+      membershipEdgeCount: bigint;
+    }>>(Prisma.sql`
+      SELECT role.rolname AS "roleName",
+             role.rolcanlogin AS "canLogin",
+             role.rolinherit AS inherits,
+             role.rolsuper AS superuser,
+             role.rolbypassrls AS "bypassRls",
+             (
+               SELECT count(*)::bigint
+                 FROM pg_catalog.pg_auth_members membership
+                WHERE membership.roleid = role.oid
+                   OR membership.member = role.oid
+             ) AS "membershipEdgeCount"
+        FROM pg_catalog.pg_roles role
+       WHERE role.rolname = 'pc_one_c_organization_lock_authority'
+    `);
+    expect(roles).toEqual([{
+      roleName: 'pc_one_c_organization_lock_authority',
+      canLogin: false,
+      inherits: false,
+      superuser: false,
+      bypassRls: false,
+      membershipEdgeCount: 0n,
+    }]);
+
+    const connectorUpdateColumns = await prisma.$queryRaw<Array<{ columnName: string }>>(
+      Prisma.sql`
+        SELECT privilege.column_name AS "columnName"
+          FROM information_schema.column_privileges privilege
+         WHERE privilege.grantee = 'pc_one_c_connector_authority'
+           AND privilege.table_schema = 'public'
+           AND privilege.table_name = 'organizations'
+           AND privilege.privilege_type = 'UPDATE'
+         ORDER BY privilege.column_name
+      `,
+    );
+    expect(connectorUpdateColumns).toEqual([]);
+
+    const lockUpdateColumns = await prisma.$queryRaw<Array<{ columnName: string }>>(
+      Prisma.sql`
+        SELECT privilege.column_name AS "columnName"
+          FROM information_schema.column_privileges privilege
+         WHERE privilege.grantee = 'pc_one_c_organization_lock_authority'
+           AND privilege.table_schema = 'public'
+           AND privilege.table_name = 'organizations'
+           AND privilege.privilege_type = 'UPDATE'
+         ORDER BY privilege.column_name
+      `,
+    );
+    expect(lockUpdateColumns).toEqual([{ columnName: 'updatedAt' }]);
+
+    const policies = await prisma.$queryRaw<Array<{
+      policyName: string;
+      permissive: boolean;
+      command: string;
+      usingExpression: string | null;
+      checkExpression: string | null;
+    }>>(Prisma.sql`
+      SELECT policy.polname AS "policyName",
+             policy.polpermissive AS permissive,
+             policy.polcmd::text AS command,
+             pg_catalog.pg_get_expr(policy.polqual, policy.polrelid) AS "usingExpression",
+             pg_catalog.pg_get_expr(policy.polwithcheck, policy.polrelid) AS "checkExpression"
+        FROM pg_catalog.pg_policy policy
+        JOIN pg_catalog.pg_class relation ON relation.oid = policy.polrelid
+        JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
+        JOIN pg_catalog.pg_roles role ON role.oid = ANY(policy.polroles)
+       WHERE namespace.nspname = 'public'
+         AND relation.relname = 'organizations'
+         AND role.rolname = 'pc_one_c_organization_lock_authority'
+       ORDER BY policy.polname
+    `);
+    expect(policies).toEqual([
+      {
+        policyName: 'organizations_one_c_lock_no_write',
+        permissive: false,
+        command: 'w',
+        usingExpression: 'true',
+        checkExpression: 'false',
+      },
+      {
+        policyName: 'organizations_one_c_lock_select',
+        permissive: true,
+        command: 'r',
+        usingExpression: 'true',
+        checkExpression: null,
+      },
+      {
+        policyName: 'organizations_one_c_lock_update',
+        permissive: true,
+        command: 'w',
+        usingExpression: 'true',
+        checkExpression: 'false',
+      },
+    ]);
+
+    const [{ updatedAt: before }] = await prisma.$queryRaw<Array<{ updatedAt: Date }>>(
+      Prisma.sql`SELECT "updatedAt" FROM public."organizations" WHERE "id" = ${ORG_A}`,
+    );
+
+    await expect(prisma.$transaction(async (transaction) => {
+      await transaction.$executeRawUnsafe(
+        'SET LOCAL ROLE pc_one_c_organization_lock_authority',
+      );
+      await transaction.$executeRaw(Prisma.sql`
+        UPDATE public."organizations"
+           SET "updatedAt" = clock_timestamp()
+         WHERE "id" = ${ORG_A}
+      `);
+    })).rejects.toThrow();
+
+    await expect(prisma.$transaction(async (transaction) => {
+      await transaction.$executeRawUnsafe('SET LOCAL ROLE pc_one_c_connector_authority');
+      await transaction.$executeRaw(Prisma.sql`
+        UPDATE public."organizations"
+           SET "updatedAt" = clock_timestamp()
+         WHERE "id" = ${ORG_A}
+      `);
+    })).rejects.toThrow();
+
+    const [{ updatedAt: after }] = await prisma.$queryRaw<Array<{ updatedAt: Date }>>(
+      Prisma.sql`SELECT "updatedAt" FROM public."organizations" WHERE "id" = ${ORG_A}`,
+    );
+    expect(after.getTime()).toBe(before.getTime());
+  });
 });

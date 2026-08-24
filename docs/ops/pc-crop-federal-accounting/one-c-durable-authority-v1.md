@@ -21,6 +21,7 @@ The installation table retains `tenant_id` only as a forward-only, NULL-constrai
 - FORCE RLS on connector tables;
 - ordinary runtime roles receive bounded function EXECUTE, never connector-table CRUD;
 - fixed SECURITY DEFINER functions validate server-side identity/binding state;
+- the connector authority has no organization UPDATE privilege or UPDATE policy; a second NOLOGIN/memberless broker owns one fixed `FOR SHARE` helper, has only column-scoped `UPDATE("updatedAt")`, and is RLS-blocked from every real update;
 - canonical `public.audit_events` is reused, with secret/verifier/raw-discovery material excluded.
 
 ## Pairing invariants
@@ -48,7 +49,7 @@ Connector bootstrap exposes exactly one public, IP-rate-limited route: `POST /co
 Heartbeat, jobs, ACK/result/fail, events and mappings remain closed until their durable lease/idempotency state machines are accepted.
 
 ## Acceptance
-The PostgreSQL acceptance suite proves replay denial, failed-discovery non-consumption, rotation, old-credential rejection, cross-tenant collision denial, organization isolation, audit redaction and authority-role isolation. Controller contracts prove the exact public boundary, unknown-field refusal and bounded error projection. The PostgreSQL suite is added to the existing `PC-CROP Accounting Core Acceptance` workflow.
+The PostgreSQL acceptance suite proves replay denial, failed-discovery non-consumption, rotation, old-credential rejection, cross-tenant collision denial, organization isolation, audit redaction, authority-role isolation, exact lock-broker policy shape and denial of direct organization mutation by both connector and lock roles. Controller contracts prove the exact public boundary, unknown-field refusal and bounded error projection. The PostgreSQL suite is added to the existing `PC-CROP Accounting Core Acceptance` workflow.
 
 ## Deliberately not in this slice
 - no heartbeat/jobs/ACK/result/fail/events/mappings runtime;

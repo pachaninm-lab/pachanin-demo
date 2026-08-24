@@ -45,6 +45,103 @@ ALTER TABLE connector.one_c_installations
 CREATE INDEX one_c_installations_status_idx
   ON connector.one_c_installations (status, updated_at DESC, id);
 
+-- PostgreSQL applies UPDATE RLS policies to SELECT ... FOR SHARE. Giving that
+-- policy to the connector authority would make the public pairing definer a
+-- latent organization writer, even if the current function body never updates
+-- the row. A separate, memberless broker owns one fixed row-lock helper instead.
+-- It can lock a caller-selected organization identity row, but a restrictive
+-- WITH CHECK (false) policy makes every actual UPDATE fail even if another
+-- PUBLIC permissive policy happens to match inherited request settings.
+DO $one_c_organization_lock_authority_role$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_roles
+     WHERE rolname = 'pc_one_c_organization_lock_authority'
+  ) THEN
+    CREATE ROLE pc_one_c_organization_lock_authority
+      NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+  END IF;
+
+  ALTER ROLE pc_one_c_organization_lock_authority
+    NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_auth_members membership
+      JOIN pg_catalog.pg_roles granted ON granted.oid = membership.roleid
+      JOIN pg_catalog.pg_roles member_role ON member_role.oid = membership.member
+     WHERE granted.rolname = 'pc_one_c_organization_lock_authority'
+        OR member_role.rolname = 'pc_one_c_organization_lock_authority'
+  ) THEN
+    RAISE EXCEPTION 'pc_one_c_organization_lock_authority must have no role memberships'
+      USING ERRCODE = '42501';
+  END IF;
+END
+$one_c_organization_lock_authority_role$;
+
+GRANT USAGE ON SCHEMA public, connector
+  TO pc_one_c_organization_lock_authority;
+REVOKE ALL PRIVILEGES ON public.organizations
+  FROM pc_one_c_organization_lock_authority;
+GRANT SELECT ("id", "inn", "kpp", "status", "tenantId")
+  ON public.organizations TO pc_one_c_organization_lock_authority;
+GRANT UPDATE ("updatedAt")
+  ON public.organizations TO pc_one_c_organization_lock_authority;
+
+DROP POLICY IF EXISTS organizations_one_c_lock_select ON public.organizations;
+CREATE POLICY organizations_one_c_lock_select
+  ON public.organizations
+  FOR SELECT TO pc_one_c_organization_lock_authority
+  USING (true);
+
+DROP POLICY IF EXISTS organizations_one_c_lock_update ON public.organizations;
+CREATE POLICY organizations_one_c_lock_update
+  ON public.organizations
+  AS PERMISSIVE
+  FOR UPDATE TO pc_one_c_organization_lock_authority
+  USING (true)
+  WITH CHECK (false);
+
+DROP POLICY IF EXISTS organizations_one_c_lock_no_write ON public.organizations;
+CREATE POLICY organizations_one_c_lock_no_write
+  ON public.organizations
+  AS RESTRICTIVE
+  FOR UPDATE TO pc_one_c_organization_lock_authority
+  USING (true)
+  WITH CHECK (false);
+
+CREATE OR REPLACE FUNCTION connector.lock_one_c_organization(
+  p_organization_id text,
+  p_tenant_id text
+)
+RETURNS TABLE (
+  organization_id text,
+  inn text,
+  kpp text,
+  organization_status text,
+  tenant_id text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = pg_catalog, public, connector
+AS $function$
+  SELECT organization.id,
+         organization.inn,
+         organization.kpp,
+         organization.status::text,
+         organization."tenantId"
+    FROM public.organizations organization
+   WHERE organization.id = p_organization_id
+     AND organization."tenantId" = p_tenant_id
+   FOR SHARE
+$function$;
+
+ALTER FUNCTION connector.lock_one_c_organization(text,text)
+  OWNER TO pc_one_c_organization_lock_authority;
+REVOKE ALL ON FUNCTION connector.lock_one_c_organization(text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION connector.lock_one_c_organization(text,text)
+  TO pc_one_c_connector_authority;
+
 DROP POLICY IF EXISTS organizations_one_c_authority_select ON public.organizations;
 CREATE POLICY organizations_one_c_authority_select
   ON public.organizations

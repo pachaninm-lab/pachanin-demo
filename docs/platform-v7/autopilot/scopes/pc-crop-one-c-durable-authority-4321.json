@@ -41,7 +41,7 @@
     "One installation/GUID cannot bind to two platform organizations even across tenants.",
     "Credential rotation and binding revoke make old machine credentials invalid immediately.",
     "Ordinary runtime principals have no direct connector-table CRUD; bounded functions plus FORCE RLS remain the database boundary.",
-    "The organization FOR SHARE lock is backed by exactly one column-scoped UPDATE privilege on updatedAt for the isolated connector authority; table-wide UPDATE and any connector-authority UPDATE policy remain absent.",
+    "The connector authority has no organization UPDATE privilege and no connector-authority UPDATE policy. Organization FOR SHARE is isolated behind a fixed helper owned by a second NOLOGIN/memberless lock authority with exactly one column-scoped UPDATE privilege on updatedAt; its paired permissive/restrictive policies expose rows for locking while WITH CHECK false makes every real UPDATE fail.",
     "Only connector pairing is public; human management requires DB-proven membership/capability and risky writes require fresh MFA.",
     "Heartbeat, jobs, ACK/result/fail, events and mappings remain closed; no provider traffic, production credential, production deployment or certification claim is introduced.",
     "Migration changes remain forward-only and no new mandatory recurring cost is introduced."

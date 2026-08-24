@@ -131,13 +131,16 @@ BEGIN
     RAISE EXCEPTION 'ONE_C_PAIRING_SECRET_MISMATCH' USING ERRCODE = '42501';
   END IF;
 
-  SELECT organization.id, organization.inn, organization.kpp,
-         organization.status, organization."tenantId"
+  SELECT organization.organization_id AS id,
+         organization.inn,
+         organization.kpp,
+         organization.organization_status AS status,
+         organization.tenant_id AS "tenantId"
     INTO v_org
-    FROM public.organizations organization
-   WHERE organization.id = v_challenge.organization_id
-     AND organization."tenantId" = v_challenge.tenant_id
-   FOR SHARE;
+    FROM connector.lock_one_c_organization(
+      v_challenge.organization_id,
+      v_challenge.tenant_id
+    ) organization;
 
   IF NOT FOUND OR v_org.status NOT IN ('VERIFIED', 'ACTIVE') THEN
     RAISE EXCEPTION 'ONE_C_VERIFIED_ORGANIZATION_REQUIRED' USING ERRCODE = '42501';
