@@ -4168,7 +4168,7 @@
             "docs/security/data-classification.json"
           ],
           "patterns": [
-            "pc-crop.data-classification.v1"
+            "pc-crop.data-classification.v"
           ]
         },
         {
@@ -4202,40 +4202,64 @@
           ]
         }
       ],
-      "note": "Sensitive data is identified and classified into protection levels, and the classification takes account of the regulation the platform is subject to. The owner approved twelve canonical classes - C0 public non-personal, C1 internal non-personal, C2 business confidential, C3 basic personal, C4 account and access, C5 identity, C6 financial, C7 operational-by-linkage, C8 special and C9 biometric as prohibited in the current scope, C10 authentication secrets and C11 cryptographic secrets - against a stated 152-ФЗ basis of not below УЗ-2 for the production contour, with special and biometric categories out of scope and prohibited by default, publicly self-disclosed business contacts confined to an isolated public-only contour at УЗ-4, and anonymised aggregates held not to be personal data at all. What makes this a classification rather than a document is that it is binding: the schema is machine-readable, the code mirrors it, and a test fails if the two disagree on the class list, on which classes are redacted outbound or on which may never appear in a query string. The three classifications that previously disagreed - eight value classes in log masking, eleven key names in the assistant minimizer, twenty-two secret names in the cryptographic inventory - are now mapped onto this one, and every field name resolves to exactly one class."
+      "note": "Sensitive data is identified and classified into protection levels, and the classification takes account of the regulation the platform is subject to. The owner approved twelve canonical classes - C0 public non-personal, C1 internal non-personal, C2 business confidential, C3 basic personal, C4 account and access, C5 identity, C6 financial, C7 operational-by-linkage, C8 special and C9 biometric as prohibited in the current scope, C10 authentication secrets and C11 cryptographic secrets - against a stated 152-ФЗ basis of not below УЗ-2 for the production contour, with special and biometric categories out of scope and prohibited by default, publicly self-disclosed business contacts confined to an isolated public-only contour at УЗ-4, and anonymised aggregates held not to be personal data at all. What makes this a classification rather than a document is that it is binding: the schema is machine-readable, the code mirrors it, and a test fails if the two disagree on the class list, on which classes are redacted outbound or on which may never appear in a query string. The three classifications that previously disagreed - eight value classes in log masking, eleven key names in the assistant minimizer, twenty-two secret names in the cryptographic inventory - are now mapped onto this one, and every field name resolves to exactly one class. Correction: the schema version pattern this condition checked was v1 verbatim, which broke when the retention/database-encryption/integrity pass bumped the schema to v2 - the underlying fact (a machine-readable classification exists) still held, but the condition was pinned tighter than the fact it was meant to verify. Loosened to the version-prefix rather than an exact version, which is what was actually being asserted."
     },
     {
       "requirementId": "V14.1.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
         "policy:docs/security/DATA_CLASSIFICATION.md",
         "schema:docs/security/data-classification.json",
-        "binding-test:apps/api/src/common/security/data-classes.spec.ts"
+        "binding-test:apps/api/src/common/security/data-classes.spec.ts",
+        "retention-per-class:docs/security/data-classification.json#retention",
+        "db-encryption-per-class:docs/security/data-classification.json#databaseEncryption",
+        "integrity-per-class:docs/security/data-classification.json#integrityVerification",
+        "outbound-rule-c2:apps/api/src/common/security/data-classes.ts"
       ],
       "conditions": [
         {
-          "condition": "protection requirements exist for the classes, so the gap is the remaining elements rather than the whole document",
-          "check": "PRESENT_AT_PATH",
-          "paths": [
-            "docs/security/DATA_CLASSIFICATION.md"
-          ],
-          "patterns": [
-            "handling rules"
-          ]
-        },
-        {
-          "condition": "the schema still records that retention, database-level encryption and integrity verification are unspecified",
+          "condition": "the document still separates documented requirement from proven enforcement, so completing it cannot be mistaken for enforcing it",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "docs/security/data-classification.json"
           ],
           "patterns": [
-            "per-class retention periods are not specified"
+            "protectionrequirementsnote"
+          ]
+        },
+        {
+          "condition": "every class still carries a closed-items record naming what this decision added, alongside what remains open",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/data-classification.json"
+          ],
+          "patterns": [
+            "closeditems"
+          ]
+        },
+        {
+          "condition": "the C2 outbound rule the requirement asked for is still bound in code, not only in the document",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/data-classes.ts"
+          ],
+          "patterns": [
+            "'c2_business_confidential',\n  'c3_pd_basic',"
+          ]
+        },
+        {
+          "condition": "the enforcement citations this pass added are still checked against the code they cite, so a future rename fails the suite rather than leaving the document wrong",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/data-classes.spec.ts"
+          ],
+          "patterns": [
+            "enforcement citations name real code"
           ]
         }
       ],
-      "note": "Most of this requirement is now met and the remainder is named precisely rather than waved through. The owner decision documents protection requirements per class and they are enforced in code: C10 and C11 are never logged, never sent to analytics, telemetry or an external model, never carried in a query string; C5 to C9 are redacted in logs, outbound telemetry, breadcrumbs and error payloads and excluded from session replay; C3 and C4 are redacted outbound and excluded from replay on authenticated pages; and the analytics boundary is fail-closed. That covers the requirement’s elements on how data is logged, on confidentiality in outbound channels and on privacy-enhancing technology. Four of the elements the requirement enumerates are not specified, and the schema says so itself rather than leaving a reader to assume otherwise: per-class retention periods, database-level encryption requirements, integrity-verification requirements, and per-class outbound rules for C2, which currently inherits protection only from the analytics boundary. This is recorded as a failure rather than a pass because the requirement enumerates those elements explicitly and the approved artefact lists them as open. An owner statement that the decision is sufficient is authority over what the classification is; it is not evidence that a retention period exists, and recording a pass on it would be substituting an assertion for evidence. One further short decision - retention, database-level encryption and integrity verification per class - closes this."
+      "note": "All eight elements this requirement enumerates are now documented per class: general encryption, integrity verification, retention, how data is logged, access controls around sensitive data in logs, database-level encryption, privacy technologies via the analytics boundary, and outbound confidentiality including the C2 rule this pass added. This closes the documentation requirement and only the documentation requirement. Two things keep that boundary honest. First, every retention, database-encryption and integrity entry carries a requirement and a separate enforcement statement, and the two disagree in most rows on purpose: retention is documented for every class with a named basis, but enforcement is stated as real only for auth-mail (existing) and lifecycle-bound token TTLs (existing); it is stated as not-enforced for the personal-data classes, because no deletion job exists for them. Database-level encryption is documented as required for C5-C7 and C10-C11, and enforcement is proven true for C10/C11 and for one C3 field (phone), and named false for a specific column - GektaMerchantProfile.inn, plain VarChar, holding a natural person’s INN on НПД/ИП rows - rather than described in general terms. Second, every value grounded in a statute (402-ФЗ Art. 29 for accounting-linked retention, 152-ФЗ Art. 5(7) otherwise) is labelled a proposed default pending confirmation, not a certified legal position; the owner approved the classification and delegated completing this policy, and a specific retention window is this decision’s technical implementation of that delegation, not a new legal conclusion asserted on the owner’s behalf. Enforcement-focused requirements - V14.2.7 for retention, and the database-encryption gap on identity columns - are judged separately, on their own evidence, and are not moved by this decision."
     },
     {
       "requirementId": "V14.2.1",
@@ -4510,7 +4534,9 @@
       "evidence": [
         "implemented-retention:apps/api/src/auth-mail-worker.ts",
         "implemented-purge:apps/api/src/modules/integrations/edo-webhook.controller.ts",
-        "documentation-set:docs/security/THREAT_MODEL.md"
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "retention-classification:docs/security/data-classification.json",
+        "binding-test:apps/api/src/common/security/data-classes.spec.ts"
       ],
       "conditions": [
         {
@@ -4524,19 +4550,17 @@
           ]
         },
         {
-          "condition": "no retention rule is documented for any data class",
-          "check": "ABSENT_AT_PATH",
+          "condition": "retention classification now exists per class, so the gap is enforcement rather than the classification itself",
+          "check": "PRESENT_AT_PATH",
           "paths": [
-            "docs/security/THREAT_MODEL.md",
-            "SECURITY.md"
+            "docs/security/data-classification.json"
           ],
           "patterns": [
-            "retention",
-            "срок хранения"
+            "not-enforced; no automatic deletion or archival job exists"
           ]
         }
       ],
-      "note": "The requirement asks for retention classification, and that is precisely what is missing - the gap is named rather than assumed. Two mechanisms do exist and are credited: the auth-mail worker redacts terminal outbox entries after a configurable retention period defaulting to seven days and capped at a year, on a schedule, and the EDO webhook controller purges processed event identifiers older than twenty-four hours. Both are real automatic deletion. Neither is driven by a classification, and no other data class has a defined lifetime, so for everything else - deals, documents, audit records, personal data captured during registration - nothing states how long it is kept or when it stops being necessary. Without the classification there is no way to tell whether that is retention by decision or by default."
+      "note": "Update: the classification half of this requirement is no longer missing. Every class now carries a documented retention requirement with a named basis - 402-ФЗ Art. 29 where the record is accounting-linked, 152-ФЗ Art. 5(7) otherwise - so the earlier note’s claim that \"without the classification there is no way to tell whether that is retention by decision or by default\" no longer holds; it is now by decision, stated per class. What remains missing, and is exactly what keeps this FAIL, is the \"ensuring that... is deleted automatically\" half the requirement also asks for. The schema states enforcement honestly rather than inferring it from the new document: auth-mail (seven-day default, capped at a year) and the EDO webhook purge (twenty-four hours) remain the only two automatic deletion mechanisms in the platform, and every personal-data class - C3 through C7 - is marked not-enforced, because no deletion or archival job exists for deals, documents, audit records or registration data. Documenting a retention window is not the same action as building the job that honours it, and this decision does not conflate the two."
     },
     {
       "requirementId": "V14.2.8",

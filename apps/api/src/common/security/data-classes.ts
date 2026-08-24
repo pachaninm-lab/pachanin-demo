@@ -47,9 +47,13 @@ export const PROHIBITED_CLASSES: readonly DataClassId[] = Object.freeze([
  * Выведено из решения владельца: C10/C11 — никогда наружу; C5–C9 —
  * редактировать в логах, outbound telemetry, breadcrumbs и error payloads;
  * C3/C4 — редактировать в outbound telemetry и внешних каналах, где они не
- * обязательны.
+ * обязательны. C2 добавлен решением о retention/DB-шифровании/целостности и
+ * outbound-правиле для C2: коммерчески чувствительные значения не должны
+ * попадать в Sentry так же, как не должны попадать в session replay —
+ * решение уже действовавшее для аналитики, распространённое на этот канал.
  */
 export const OUTBOUND_REDACTED_CLASSES: readonly DataClassId[] = Object.freeze([
+  'C2_BUSINESS_CONFIDENTIAL',
   'C3_PD_BASIC',
   'C4_PD_ACCOUNT',
   'C5_PD_IDENTITY',
