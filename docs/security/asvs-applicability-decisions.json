@@ -1097,6 +1097,552 @@
       "note": "Rapid-transition detection exists and scores, but it prevents nothing: it is reachable only through its own controller endpoint, the deal command path never calls it, and a flagged score is logged and persisted rather than refused. Its state is also an in-process Map, so it would not survive more than one instance."
     },
     {
+      "requirementId": "V3.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "SECURITY.md still contains no section naming the browser security features the application depends on or the fallback behaviour when they are unavailable",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "browser security feature",
+            "if hsts is not supported",
+            "if csp is not supported"
+          ]
+        }
+      ],
+      "note": "No document states which browser security features (HTTPS, HSTS, CSP, and the other mechanisms this application actually relies on - CSRF double-submit cookies, SameSite, frame-ancestors) users are expected to have, or what the application does if a browser lacks one of them. SECURITY.md exists and covers vulnerability reporting and the ASVS programme itself, but has no browser-requirements section. Real controls are implemented (assessed individually below); this is specifically about the absence of a written statement of that expectation and its documented fallback behaviour."
+    },
+    {
+      "requirementId": "V3.2.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/storage/storage.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "getDownloadUrl() still never forces a response-content-disposition on the presigned URLs it returns",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/storage.service.ts"
+          ],
+          "patterns": [
+            "responsecontentdisposition",
+            "content-disposition"
+          ]
+        }
+      ],
+      "note": "Uploaded files are downloaded through a presigned object-storage URL that getDownloadUrl() in storage.service.ts generates - the file bytes are never streamed through this application at all. That function never sets a response-content-disposition (or equivalent) parameter on the URL it returns, so whether a downloaded file renders inline in the browser or is forced to download depends entirely on the object-storage bucket's own default configuration, which is not under version control here and could not be checked. There is no application-level guarantee that a user-uploaded file is served in the correct context rather than rendered."
+    },
+    {
+      "requirementId": "V3.2.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "react-jsx-default-text-escaping"
+      ],
+      "conditions": [
+        {
+          "condition": "React JSX still text-renders interpolated child content by default rather than parsing it as HTML",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/lib"
+          ],
+          "patterns": [
+            "dangerouslysetinnerhtml"
+          ]
+        }
+      ],
+      "note": "JSX child interpolation ({value} inside markup) is React's default safe-rendering path - functionally equivalent to textContent, not innerHTML - and never parses the interpolated value as HTML or executes it as script. The deliberate exception, dangerouslySetInnerHTML, was catalogued exhaustively under ASVS V1 (23 call sites, all either static literals or passed through a correct escaping helper); nothing renders untrusted text as HTML by omission."
+    },
+    {
+      "requirementId": "V3.2.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "tsconfig.base.json"
+      ],
+      "conditions": [
+        {
+          "condition": "the shared base tsconfig still disables strict type checking for the whole monorepo",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "tsconfig.base.json"
+          ],
+          "patterns": [
+            "\"strict\": false"
+          ]
+        }
+      ],
+      "note": "Two of the four mitigations this requirement names are genuinely in place: the codebase is ES modules throughout (import/export, no global <script>-tag variable pollution), which is real namespace isolation, and the one document.* assignment pattern found anywhere in apps/web/lib and apps/web/app is document.cookie (a legitimate browser API), not a global variable stored on the document object. The other named mitigation, strict type checking, is explicitly absent: tsconfig.base.json sets \"strict\": false, and neither apps/web/tsconfig.json nor apps/api/tsconfig.json overrides it back to true - both inherit the relaxed setting. Strict mode is exactly the check that would catch a DOM-clobbering-shaped bug at compile time (an implicit any where a clobbered element silently satisfies a type that expected a primitive or a real global); without it, that class of bug has no compiler backstop."
+    },
+    {
+      "requirementId": "V3.3.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/web/lib/server/auth-session-response.ts",
+        "apps/web/lib/server/gekta-mfa-ticket.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "session and CSRF cookies are still set with plain names carrying neither the __Host- nor the __Secure- prefix",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/lib"
+          ],
+          "patterns": [
+            "__host-",
+            "__secure-"
+          ]
+        }
+      ],
+      "note": "Cookies do carry the Secure attribute (secure: process.env.NODE_ENV === 'production' in auth-session-response.ts and gekta-mfa-ticket.ts, among others), but this requirement is a conjunction: Secure alone is not enough without the __Host- or __Secure- name prefix. A scan of apps/web/lib for either prefix on any cookie name returns zero matches - pc_csrf_token, pc_session and the other cookie names in this codebase carry neither."
+    },
+    {
+      "requirementId": "V3.3.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/server/auth-session-response.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "SameSite is still set per cookie purpose rather than a single blanket value",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/auth-session-response.ts"
+          ],
+          "patterns": [
+            "sameSite: controlPlane ? 'strict' : 'lax'"
+          ]
+        }
+      ],
+      "note": "SameSite is a deliberate, purpose-driven choice rather than a single default copied everywhere: auth-session-response.ts sets strict for control-plane (authentication) cookies and lax for the rest, and the CSRF, MFA-ticket and membership-selection cookies elsewhere in apps/web/lib follow the same reasoning with their own explicit 'strict'/'lax' values."
+    },
+    {
+      "requirementId": "V3.3.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/web/lib/server/auth-session-response.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no cookie name in the web app still carries the __Host- prefix",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/lib"
+          ],
+          "patterns": [
+            "__host-"
+          ]
+        }
+      ],
+      "note": "Same underlying gap as V3.3.1, assessed here against the narrower __Host- requirement specifically: no cookie set anywhere in apps/web/lib is named with the __Host- prefix, and there is no stated design reason any of them are meant to be shared with other hosts that would exempt them from it."
+    },
+    {
+      "requirementId": "V3.3.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/server/auth-session-response.ts",
+        "apps/web/lib/server/gekta-mfa-ticket.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the session and MFA-ticket cookies are still set with httpOnly: true",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ],
+          "patterns": [
+            "httpOnly: true,"
+          ]
+        }
+      ],
+      "note": "Cookies that carry a value not meant to be readable by client-side script (the session token in auth-session-response.ts, the MFA ticket in gekta-mfa-ticket.ts, the membership-selection cookie) are all set with httpOnly: true, and those values are only ever transferred via the Set-Cookie response header, never echoed into a response body or script. The one cookie that is deliberately client-readable, the CSRF token, is exactly the case this requirement is not about - it exists to be read by client JavaScript so it can be echoed back as a header (assessed under V3.5.1)."
+    },
+    {
+      "requirementId": "V3.4.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the middleware still sets Strict-Transport-Security with a max-age of at least one year and includeSubDomains on the responses it applies security headers to",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "'strict-transport-security', 'max-age=31536000; includesubdomains; preload'"
+          ]
+        }
+      ],
+      "note": "applySecurityHeaders() in middleware.ts sets strict-transport-security: max-age=31536000; includeSubDomains; preload on every response it produces, and the middleware matcher (/((?!_next/static|_next/image|favicon.ico).*)) covers essentially every request path; the function is called at every return point in the middleware (redirects, next(), locked/denied responses alike), not only a subset. 31536000 seconds is one year, satisfying the L1 minimum, and includeSubDomains satisfies the L2 requirement."
+    },
+    {
+      "requirementId": "V3.4.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/main.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "CORS is still configured with a single fixed origin value rather than a wildcard or a dynamic reflection of the request Origin header",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "app.enablecors({"
+          ]
+        }
+      ],
+      "note": "The API configures CORS with app.enableCors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000' }) - a single, application-controlled fixed value, not Access-Control-Allow-Origin: * and not a function that reflects whatever Origin header the request carried. This is the fixed-value branch this requirement asks for."
+    },
+    {
+      "requirementId": "V3.4.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/web/middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the served CSP still omits object-src 'none', still uses base-uri 'self' rather than 'none', and still permits 'unsafe-inline'/'unsafe-eval' in script-src rather than an allowlist, nonce or hash scheme",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+          ]
+        }
+      ],
+      "note": "The CSP actually served (set in middleware.ts, which - per the comment at the top of next.config.js - takes precedence over the different, now-vestigial policy still listed there) is: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'. This requirement's stated minimum is object-src 'none' and base-uri 'none', plus either an allowlist or a nonce/hash scheme for script-src. The served policy has no object-src directive at all (falls back to default-src 'self', which is not 'none'), sets base-uri 'self' rather than 'none', and permits both 'unsafe-inline' and 'unsafe-eval' in script-src - which is not an allowlist and specifically undermines the XSS-mitigation purpose the policy exists for, since either keyword lets an attacker who achieves any injection execute arbitrary inline or eval'd script regardless of origin. frame-ancestors 'none' is correctly present and is credited separately under V3.4.6."
+    },
+    {
+      "requirementId": "V3.4.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the middleware still sets X-Content-Type-Options: nosniff on the responses it applies security headers to",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "'x-content-type-options', 'nosniff'"
+          ]
+        }
+      ],
+      "note": "applySecurityHeaders() sets x-content-type-options: nosniff on every response it produces, covering essentially every request path per the middleware matcher."
+    },
+    {
+      "requirementId": "V3.4.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the middleware still sets a Referrer-Policy header on the responses it applies security headers to",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "'referrer-policy', 'no-referrer'"
+          ]
+        }
+      ],
+      "note": "applySecurityHeaders() sets referrer-policy: no-referrer on every response it produces - stricter than this requirement asks for (which would be satisfied by strict-origin-when-cross-origin), so no path or query data ever reaches a third-party Referer header at all."
+    },
+    {
+      "requirementId": "V3.4.6",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the served CSP still includes frame-ancestors 'none'",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "frame-ancestors 'none'"
+          ]
+        }
+      ],
+      "note": "The CSP applySecurityHeaders() sets includes frame-ancestors 'none', which this requirement specifically asks for over the obsolete X-Frame-Options mechanism (which is also set, to DENY, as a defence-in-depth fallback for the rare client that honours it and not the modern directive)."
+    },
+    {
+      "requirementId": "V3.4.7",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "repository-scan:no-csp-report-endpoint"
+      ],
+      "conditions": [
+        {
+          "condition": "the served CSP still specifies no report-uri or report-to directive anywhere",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "report-uri",
+            "report-to"
+          ]
+        }
+      ],
+      "note": "The CSP names no location to report violations to - neither report-uri nor report-to appears anywhere in the policy or in apps/web/lib or apps/web/app. Violations that do occur (including ones caused by the unsafe-inline/unsafe-eval gap recorded under V3.4.3) are invisible to the operator; the browser silently blocks or allows per the policy with nothing recorded anywhere this application controls."
+    },
+    {
+      "requirementId": "V3.4.8",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "repository-scan:no-coop-header"
+      ],
+      "conditions": [
+        {
+          "condition": "no Cross-Origin-Opener-Policy header is still set anywhere in the web app",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "cross-origin-opener-policy"
+          ]
+        }
+      ],
+      "note": "No response sets Cross-Origin-Opener-Policy - a scan of apps/web/lib and apps/web/app for the header name returns zero matches, and it is absent from applySecurityHeaders() alongside the headers that are set. Without it, a window this application opens (or is opened by) retains the default shared-window-object behaviour that enables tabnabbing and frame-counting-style attacks the header exists to close off."
+    },
+    {
+      "requirementId": "V3.5.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/server-request-security.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "assertCsrf() still validates the double-submit cookie against a non-CORS-safelisted header with a constant-time comparison, after first checking same-origin",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server-request-security.ts"
+          ],
+          "patterns": [
+            "export function assertcsrf(request: request)"
+          ]
+        }
+      ],
+      "note": "The application does not rely on CORS preflight for its CSRF defence; it has its own, and it is real: assertCsrf() in server-request-security.ts runs on every unsafe-method request, first checks the Origin header against the resolved target origin if present (assertSameOriginIfPresent), then compares the pc_csrf_token cookie value against the x-csrf-token request header using a length check plus crypto.timingSafeEqual - constant-time, not a plain ===. x-csrf-token is not a CORS-safelisted header field, so a cross-origin request cannot set it without a preflight the browser would block for an untrusted origin. This check is wired into 44 route files across the web app, not a handful."
+    },
+    {
+      "requirementId": "V3.5.2",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "apps/web/lib/server-request-security.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the CSRF defence this application actually uses (assertCsrf, credited under V3.5.1) is still independent of the CORS preflight mechanism",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server-request-security.ts"
+          ],
+          "patterns": [
+            "export function assertcsrf(request: request)"
+          ]
+        }
+      ],
+      "note": "This requirement only applies to an application that relies on the CORS preflight mechanism itself to block disallowed cross-origin requests. This application does not: its CSRF defence (V3.5.1) is a same-origin check plus a double-submit anti-forgery token, which holds regardless of whether a preflight would have been triggered. There is no preflight-reliant mechanism here for this requirement to find a gap in."
+    },
+    {
+      "requirementId": "V3.5.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/server-request-security.ts",
+        "apps/web/app/api/agro-chat/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "assertCsrf() still gates every unsafe HTTP method rather than only a subset",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server-request-security.ts"
+          ],
+          "patterns": [
+            "if (!isunsafemethod(request.method)) return { ok: true as const };"
+          ]
+        }
+      ],
+      "note": "Sensitive functionality is reached through POST/PUT/PATCH/DELETE routes gated by assertCsrf(), which explicitly returns ok for safe methods and enforces the origin/token check for every unsafe one - GET/HEAD/OPTIONS carry no side effects this defence needs to cover. Several routes additionally validate the sec-fetch-site request header directly (agro-chat, restricted-public-platform-assistant, gekta/entitlement, public-platform-assistant and its attachments route all check for sec-fetch-site: cross-site), the alternative mechanism this requirement names."
+    },
+    {
+      "requirementId": "V3.5.5",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-postmessage-listener"
+      ],
+      "conditions": [
+        {
+          "condition": "no window.postMessage listener still exists anywhere in the web app",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/app",
+            "apps/web/components"
+          ],
+          "patterns": [
+            "addeventlistener('message'"
+          ]
+        }
+      ],
+      "note": "The application never listens for postMessage events - a scan of apps/web/app and apps/web/components for a message-event listener returns zero matches. There is no postMessage receiver for this requirement to protect."
+    },
+    {
+      "requirementId": "V3.5.6",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-jsonp"
+      ],
+      "conditions": [
+        {
+          "condition": "no JSONP-shaped callback-wrapped response still exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "jsonp"
+          ]
+        }
+      ],
+      "note": "JSONP is not used anywhere in the API - a scan for the term across apps/api/src returns zero matches. There is no JSONP surface for XSSI to exploit."
+    },
+    {
+      "requirementId": "V3.5.7",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-fact:static-build-bundles-only"
+      ],
+      "conditions": [
+        {
+          "condition": "the API still never sets an application/javascript or text/javascript response content type anywhere",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "application/javascript",
+            "text/javascript"
+          ]
+        }
+      ],
+      "note": "The only JavaScript the browser ever loads is the Next.js build's static, versioned bundle output - the same file for every visitor, containing no per-user or authorization-scoped data. The API serves no script-typed (application/javascript) response at all - a scan of apps/api/src for that content type returns zero matches - so there is no per-user script response for this requirement to protect."
+    },
+    {
+      "requirementId": "V3.5.8",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/storage/storage.service.ts",
+        "repository-scan:no-corp-header"
+      ],
+      "conditions": [
+        {
+          "condition": "no Cross-Origin-Resource-Policy header is still set anywhere in the API or web app",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "cross-origin-resource-policy"
+          ]
+        }
+      ],
+      "note": "A handful of routes check sec-fetch-site (credited under V3.5.3), but that covers the chat/assistant endpoints specifically, not authenticated file access generally. The file-download path (storage.service.ts's getDownloadUrl, already assessed under V3.2.1) issues a presigned object-storage URL with a TTL - once issued, anyone holding that URL can load it directly against the storage origin for the life of the TTL, bypassing this application's request handling (and any Sec-Fetch check on it) entirely. No Cross-Origin-Resource-Policy header is set anywhere in the API or the web app - a scan returns zero matches - so there is no browser-side backstop instructing a cross-origin page not to embed a returned resource either."
+    },
+    {
+      "requirementId": "V3.6.1",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "apps/web/app/layout.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "fonts are still loaded via next/font (which self-hosts them as same-origin build output) rather than a live external stylesheet or script reference",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/layout.tsx"
+          ],
+          "patterns": [
+            "from 'next/font/google'"
+          ]
+        }
+      ],
+      "note": "The application loads no externally-hosted client-side asset. Fonts are loaded via next/font/google, which downloads and self-hosts the font files as same-origin static build output rather than referencing fonts.googleapis.com/fonts.gstatic.com live from the browser - the CSP still allowlists those hosts as a leftover from before this was adopted, but nothing in the rendered pages actually references them. No externally-hosted <script src> tag exists anywhere in the JSX. There is no external CDN asset for Subresource Integrity to protect."
+    },
+    {
+      "requirementId": "V3.7.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "repository-scan:no-legacy-plugin-technology"
+      ],
+      "conditions": [
+        {
+          "condition": "no legacy plugin technology (Flash, Shockwave, ActiveX, Silverlight, NaCl, Java applets) is still referenced anywhere in the web app",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/lib",
+            "apps/web/app",
+            "apps/web/components"
+          ],
+          "patterns": [
+            "activex",
+            "shockwave",
+            "silverlight",
+            "nsapi",
+            "applet"
+          ]
+        }
+      ],
+      "note": "The application is built entirely on React/Next.js/TypeScript. A scan for every legacy plugin technology this requirement names (ActiveX, Shockwave, Silverlight, NSAPI/NPAPI, Java applets) across the web app returns zero matches."
+    },
+    {
       "requirementId": "V4.1.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
