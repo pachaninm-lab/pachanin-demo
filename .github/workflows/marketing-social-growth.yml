@@ -42,7 +42,7 @@ env:
 
 jobs:
   marketing-safety:
-    name: RU channels · delivery · Telegram→QWO
+    name: RU channels · editorial evidence · Telegram→QWO
     runs-on: ubuntu-24.04
     timeout-minutes: 25
 
@@ -84,6 +84,11 @@ jobs:
           src/modules/marketing/connectors/vk.publisher.spec.ts
           src/modules/marketing/marketing-outbox.contract.spec.ts
           src/modules/marketing/marketing-durable-outbox.worker.spec.ts
+
+      - name: Verify radar evidence and topic-planning contracts
+        run: >-
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath
+          src/modules/marketing/marketing-editorial-core.spec.ts
 
       - name: Verify signed attribution HMAC authority
         run: >-
