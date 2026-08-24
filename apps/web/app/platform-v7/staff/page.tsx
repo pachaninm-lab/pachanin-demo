@@ -9,7 +9,7 @@ import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 import { staffAccessTaskCatalog } from '@/lib/platform-v7/staff-access-task-catalog';
-import { resolveServerApiOrigin } from '@/lib/server/server-api-origin';
+import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import { DEFAULT_LOCALE, isAppLocale, type AppLocale } from '@/i18n/locale';
 import { ownerAccessCenterMessages } from '@/i18n/owner-access-center-messages';
 import { staffOperationalWorkspaceMessages } from '@/i18n/staff-operational-workspace-messages';
@@ -40,7 +40,7 @@ function controlledSessionSecret(): string {
   return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
 }
 
-const API_ORIGIN = resolveServerApiOrigin();
+const API_BASE_URL = resolveServerApiBaseUrl();
 
 type VerifiedIdentity = {
   id?: string;
@@ -122,9 +122,9 @@ async function resolveLocale(): Promise<AppLocale> {
 async function verifyIdentity(accessToken: string): Promise<Verification> {
   const controlled = await verifyControlledIdentity(accessToken);
   if (controlled) return controlled;
-  if (!API_ORIGIN) return { status: 'unavailable' };
+  if (!API_BASE_URL) return { status: 'unavailable' };
   try {
-    const response = await fetch(`${API_ORIGIN}/auth/me`, {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
       cache: 'no-store',
       redirect: 'manual',
@@ -138,7 +138,7 @@ async function verifyIdentity(accessToken: string): Promise<Verification> {
       return { status: 'unauthenticated' };
     }
 
-    const capabilitiesResponse = await fetch(`${API_ORIGIN}/staff/capabilities/me`, {
+    const capabilitiesResponse = await fetch(`${API_BASE_URL}/staff/capabilities/me`, {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
       cache: 'no-store',
       redirect: 'manual',
