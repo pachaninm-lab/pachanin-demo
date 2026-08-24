@@ -10,7 +10,9 @@
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/remove-dead-mfa-guard-bypass-4638.json",
     "apps/api/src/common/guards/mfa.guard.ts",
-    "apps/api/src/modules/admin/admin.controller.ts"
+    "apps/api/src/modules/admin/admin.controller.ts",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
   ],
   "requiredInvariants": [
     "apps/api/src/common/guards/mfa.guard.ts is deleted outright, not weakened or left partially in place.",
@@ -19,7 +21,8 @@
     "No other security control (SettlementFinancialMfaGuard, policy-engine.service.ts, staff-access.service.ts, signing-authority.policy.ts) is touched or weakened.",
     "TypeScript build (pnpm --filter @pc/api typecheck) passes with zero errors.",
     "No production, REG.RU, DNS or database mutation.",
-    "This scope changes no business logic - it is a pure dead-code/security-hygiene removal."
+    "This scope changes no business logic - it is a pure dead-code/security-hygiene removal.",
+    "docs/security/cryptographic-inventory.json/CRYPTOGRAPHIC_INVENTORY.md are regenerated via scripts/security/discover-cryptography.mjs only (no hand edits) - deleting mfa.guard.ts shifts the tracked-file count these files record, which the exact-match test in discover-cryptography.test.mjs checks."
   ],
   "acceptance": [
     "apps/api/src/common/guards/mfa.guard.ts no longer exists.",
