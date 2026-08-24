@@ -34,6 +34,7 @@ export type MarketingAttribution = Readonly<{
 const SOURCE_SET = new Set<string>(MARKETING_ATTRIBUTION_SOURCES);
 const TAG_PATTERN = /^[A-Za-z0-9_-]{1,12}$/u;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const ATTRIBUTION_TOKEN_PATTERN = /^v1\.(?:tg|vk|dz|rt|ok)\.[A-Za-z0-9_-]{1,12}\.[A-Za-z0-9_-]{1,12}\.(?:-|ps|bp|lg|se|ls|bf|pp)\.(?:-|de|la|ql|do|fs|ei)\.[0-9a-f]{64}$/u;
 
 function cleanTag(value: string | null, fallback: string): string {
   const normalized = String(value ?? '').trim();
@@ -50,7 +51,8 @@ function isScenarioCode(value: string): value is MarketingScenarioCode {
 
 /**
  * Reads only a tiny allowlisted, non-PII attribution vocabulary from a public
- * landing URL. Unknown sources are ignored rather than being copied into audit.
+ * landing URL. It is UX input only; server analytics authority comes from the
+ * independently HMAC-verified `ma` token.
  */
 export function parseMarketingAttribution(search: string): MarketingAttribution | null {
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
@@ -70,9 +72,18 @@ export function parseMarketingAttribution(search: string): MarketingAttribution 
 }
 
 /**
+ * Returns an opaque signed token only when it matches the bounded public token
+ * grammar. Signature validity is intentionally NOT decided in browser code.
+ */
+export function readMarketingAttributionToken(search: string): string | null {
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  const token = String(params.get('ma') ?? '').trim();
+  return ATTRIBUTION_TOKEN_PATTERN.test(token) ? token : null;
+}
+
+/**
  * Correlation ID is already durably persisted by the existing organization
- * intake authority. Encoding bounded non-PII attribution here avoids a second
- * lead database while preserving source/campaign/content provenance.
+ * intake authority. This helper is used only after server-side HMAC validation.
  */
 export function buildMarketingCorrelationId(
   attribution: MarketingAttribution,
@@ -102,6 +113,7 @@ export function organizationIntakePrefill(attribution: MarketingAttribution | nu
 export function buildOrganizationWaitlistUrl(
   origin: string,
   attribution: MarketingAttribution,
+  signedAttributionToken?: string,
 ): string {
   const parsedOrigin = new URL(origin);
   if (parsedOrigin.protocol !== 'https:' || parsedOrigin.username || parsedOrigin.password) {
@@ -110,6 +122,9 @@ export function buildOrganizationWaitlistUrl(
   if (parsedOrigin.pathname !== '/' || parsedOrigin.search || parsedOrigin.hash) {
     throw new Error('Marketing public origin must not include path, query or fragment');
   }
+  if (signedAttributionToken && !ATTRIBUTION_TOKEN_PATTERN.test(signedAttributionToken)) {
+    throw new Error('Marketing attribution token has invalid format');
+  }
 
   const url = new URL('/platform-v7', parsedOrigin);
   url.searchParams.set('ms', attribution.source);
@@ -117,6 +132,7 @@ export function buildOrganizationWaitlistUrl(
   url.searchParams.set('mco', attribution.content);
   if (attribution.roleCode) url.searchParams.set('mr', attribution.roleCode);
   if (attribution.scenarioCode) url.searchParams.set('mc', attribution.scenarioCode);
+  if (signedAttributionToken) url.searchParams.set('ma', signedAttributionToken);
   url.hash = 'connect-organization';
   return url.toString();
 }
