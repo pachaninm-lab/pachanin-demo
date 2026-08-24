@@ -7451,6 +7451,392 @@
       "note": "The exception this requirement allows is session tokens, and the data stored is not that. The support widget writes a profile containing the user’s name, their phone number or email address, and their organization into sessionStorage and localStorage both, under three key names. The Gekta assistant persists whole conversations and project lists, and the documents dropzone persists per-deal document lists and checklists - commercial content about identifiable counterparties, on the client, indefinitely. What the platform does get right is credited and machine-checked: no token, JWT or password is written to browser storage anywhere in 2576 web source files, so the classic version of this failure is absent. Without a data classification (V14.1.1) there is no rule that would have told a component author the support profile was not theirs to persist."
     },
     {
+      "requirementId": "V15.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no document naming risk-based remediation time frames for vulnerable third-party components still exists",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "remediation time frame",
+            "patch within",
+            "update within"
+          ]
+        }
+      ],
+      "note": "No document names a risk-based remediation time frame for vulnerable third-party components or a general library-update policy. Checked docs/security and SECURITY.md directly for the relevant vocabulary; neither exists. A dependency audit and pinning ratchet exist and run in CI (npm/pnpm dependency audit, Trivy, the action-pinning baseline), which is real evidence-gathering machinery, but none of it is paired with a written statement of how quickly a finding must be acted on."
+    },
+    {
+      "requirementId": "V15.1.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "docs/ip/sbom-coverage-scope.json"
+      ],
+      "conditions": [
+        {
+          "condition": "the source-controlled SBOM coverage scope still names canonical CycloneDX and SPDX artefacts generated for every ecosystem in the tree",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/ip/sbom-coverage-scope.json"
+          ],
+          "patterns": [
+            "canonicalsboms",
+            "sbom-node.cdx.json",
+            "sbom-tai.cdx.json"
+          ]
+        }
+      ],
+      "note": "A real, CI-generated software bill of materials is maintained: docs/ip/sbom-coverage-scope.json defines a computed (not hand-entered) coverage denominator across every dependency-bearing root in the tree, and the pipeline produces canonical CycloneDX and SPDX artefacts for both npm ecosystems (root, apps/api, apps/web) and the Python ecosystem (apps/tai) - verified running in this same session's CI on every PR (Canonical CycloneDX + SPDX SBOM · api/web jobs). Components are declared from their standard package manifests and lockfiles, which pin integrity hashes per dependency - a real, if implicit, form of the \"trusted repository\" verification this requirement asks for."
+    },
+    {
+      "requirementId": "V15.1.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no document naming resource-demanding or time-consuming functionality, or how the application avoids exceeding a caller's timeout, still exists",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "resource-demanding",
+            "time-consuming",
+            "consumer's timeout"
+          ]
+        }
+      ],
+      "note": "No document names which parts of the application are resource-demanding or time-consuming, or how the application prevents a loss of availability from overusing them. Checked docs/security and SECURITY.md directly for the relevant vocabulary; neither exists. Generic defenses do exist in code (a rate-limit guard, request body size limits configured in main.ts), but nothing documents which specific functionality they were built to protect or why, which is what this requirement asks to be verified."
+    },
+    {
+      "requirementId": "V15.1.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no document naming \"risky components\" among the application's third-party libraries still exists",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "risky component"
+          ]
+        }
+      ],
+      "note": "No document names any third-party library as a \"risky component\". Checked docs/security and SECURITY.md directly for the relevant vocabulary; neither exists. The SBOM (V15.1.2) inventories every dependency but does not itself flag any of them as elevated-risk; no separate document does either."
+    },
+    {
+      "requirementId": "V15.1.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no document naming where \"dangerous functionality\" is used in the application still exists",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "dangerous functionality"
+          ]
+        }
+      ],
+      "note": "No document names where in the application \"dangerous functionality\" (raw SQL execution, outbound webhook dispatch, cryptographic key handling, and similar) is used. Checked docs/security and SECURITY.md directly for the relevant vocabulary; neither exists."
+    },
+    {
+      "requirementId": "V15.2.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V15.1.1"
+      ],
+      "conditions": [
+        {
+          "condition": "no document naming risk-based remediation time frames still exists for this decision to measure component age against",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "remediation time frame",
+            "patch within",
+            "update within"
+          ]
+        }
+      ],
+      "note": "Whether every component still respects its documented update and remediation time frame cannot be verified when no such time frame is documented (V15.1.1). This fails as a direct consequence rather than an independent finding; closing V15.1.1 is the precondition for this one ever being assessable as anything but FAIL."
+    },
+    {
+      "requirementId": "V15.2.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V15.1.3",
+        "apps/api/src/common/guards/rate-limit.guard.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no document naming resource-demanding functionality and a defense strategy for it still exists for this decision to measure implementation against",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "resource-demanding",
+            "time-consuming"
+          ]
+        }
+      ],
+      "note": "A generic rate-limit guard exists and is real (apps/api/src/common/guards/rate-limit.guard.ts, wired via a decorator across multiple controllers), which is genuine implemented defense against resource exhaustion in general. But this requirement asks whether availability defenses were implemented based on documented decisions and strategies for specific resource-demanding functionality (V15.1.3) - and since no such documentation exists, there is nothing to verify the implementation against; the rate limiter's existence cannot by itself close a requirement about implementing a documented strategy that was never written."
+    },
+    {
+      "requirementId": "V15.2.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "infra/docker/Dockerfile.api"
+      ],
+      "conditions": [
+        {
+          "condition": "the API image build is still multi-stage with a distroless runtime stage that copies only the compiled production output, not the build context or its test/dev files",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "infra/docker/Dockerfile.api"
+          ],
+          "patterns": [
+            "gcr.io/distroless/nodejs24-debian13:nonroot"
+          ]
+        }
+      ],
+      "note": "The production runtime image ships no test code, sample snippets or development tooling. The runtime stage is FROM gcr.io/distroless/nodejs24-debian13:nonroot, which has no shell or package manager, and copies only the compiled production output from the build stage via a scoped COPY --from=build - not the full build context, which is where test files and dev dependencies live. This is the same evidence already verified under ASVS V13.4.1 for a related requirement, re-cited here against this chapter's specific text."
+    },
+    {
+      "requirementId": "V15.2.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V15.1.4",
+        "depends-on:V15.1.5"
+      ],
+      "conditions": [
+        {
+          "condition": "no document naming \"risky components\" or \"dangerous functionality\" still exists for this decision to measure additional protections against",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "risky component",
+            "dangerous functionality"
+          ]
+        }
+      ],
+      "note": "Additional protections (sandboxing, encapsulation, containerization, network isolation) around parts of the application documented as risky or dangerous cannot be verified when no such documentation exists (V15.1.4, V15.1.5). This fails as a direct consequence, not an independent finding."
+    },
+    {
+      "requirementId": "V15.3.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/ml-client/ml-client.service.ts",
+        "redirect-guarded-counterexample:apps/api/src/modules/storage/object-storage.adapter.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the ML client fetch call still sets no redirect option, leaving it on fetch's default follow behaviour",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ml-client/ml-client.service.ts"
+          ],
+          "patterns": [
+            "redirect: 'error'",
+            "redirect: 'manual'"
+          ]
+        },
+        {
+          "condition": "the object-storage adapter still shows what the guarded version of this call looks like, for comparison",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/object-storage.adapter.ts"
+          ],
+          "patterns": [
+            "redirect: 'error'"
+          ]
+        }
+      ],
+      "note": "Of the 11 outbound fetch() call sites in the API, only object-storage.adapter.ts (2 sites) explicitly sets redirect: 'error', which fails the request rather than silently following a redirect - the correct, safe configuration this requirement asks for. The other 9 - ml-client.service.ts, partner-api.controller.ts, webhook-dispatcher.service.ts, restricted-public-qwen.service.ts (x2), ai-assistant.service.ts (x2), and vault-transit.service.ts (x2) - set no redirect option at all, which means fetch's default (follow) applies: a 3xx response from any of those endpoints is followed automatically. This compounds the already-recorded SSRF-shaped gap in the partner webhook path (ASVS V13.2.4/V13.2.5, V1.2.2, V1.3.6): a partner-controlled webhook URL that responds with a redirect to an internal address would be followed, not rejected."
+    },
+    {
+      "requirementId": "V15.3.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/main.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the global ValidationPipe still strips properties that are not declared on the target DTO class",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "whitelist: true"
+          ]
+        }
+      ],
+      "note": "main.ts registers a global ValidationPipe with whitelist: true, which strips any property not declared on the target class-validator DTO before the handler ever sees it - real, class-validator-enforced protection against mass assignment for every route that uses a decorated DTO class. The one caveat, already recorded precisely under ASVS V1.4.2: a route that declares its body as a plain TypeScript type literal rather than a decorated class (route-planner.controller.ts's tariff endpoint) has no decorators for whitelist to strip against, so that specific route sits outside this protection - a narrow, already-tracked exception rather than a reason to fail the mechanism itself, which is real and correctly configured everywhere it has something to enforce against."
+    },
+    {
+      "requirementId": "V15.3.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/common/security/trusted-proxy.ts",
+        "apps/api/src/main.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the trusted-proxy policy is still constructed at bootstrap and wired into Express's trust proxy setting",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "createtrustedproxypolicy(process.env)"
+          ]
+        }
+      ],
+      "note": "A real, carefully-built trusted-proxy client-IP resolver exists: trusted-proxy.ts parses and validates both IPv4 and IPv6 addresses, matches against configured CIDR ranges, caps the X-Forwarded-For chain walk at a bounded hop count and the header itself at 4096 bytes, and exposes a resolve() function used by both the pre-auth and standard rate-limit guards for their client-IP decisions. It is genuinely wired in, not latent: main.ts constructs the policy from environment configuration at bootstrap and sets it as Express's trust proxy setting before any request is handled."
+    },
+    {
+      "requirementId": "V15.3.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "tsconfig.base.json"
+      ],
+      "conditions": [
+        {
+          "condition": "the shared base tsconfig still disables strict type checking for the whole monorepo",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "tsconfig.base.json"
+          ],
+          "patterns": [
+            "\"strict\": false"
+          ]
+        }
+      ],
+      "note": "Same underlying fact as ASVS V3.2.3, assessed here against this requirement's specific text: tsconfig.base.json sets \"strict\": false, inherited by both apps/api/tsconfig.json and apps/web/tsconfig.json with no override. Strict mode is what would catch an implicit any or an unsound type assumption at compile time - exactly the class of bug this requirement is about (a variable silently being the wrong type, or a loose == comparison masking a type-confusion bug). Without it, the compiler gives no backstop for either."
+    },
+    {
+      "requirementId": "V15.4.1",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-fact:no-multi-threaded-code"
+      ],
+      "conditions": [
+        {
+          "condition": "the API still uses no worker_threads or Worker construct anywhere",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "worker_threads",
+            "new worker("
+          ]
+        }
+      ],
+      "note": "The API runs on Node.js's single-threaded event loop with no worker_threads or Worker usage anywhere in apps/api/src - a scan returns zero matches. There is no shared, multi-threaded in-process state for this requirement to protect; concurrency in this codebase is handled at the process/database level (Postgres transactions, advisory locks, the outbox pattern), which is a different mechanism this programme has already assessed elsewhere."
+    },
+    {
+      "requirementId": "V15.4.2",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-fact:no-multi-threaded-code"
+      ],
+      "conditions": [
+        {
+          "condition": "the API still uses no worker_threads or Worker construct anywhere",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "worker_threads",
+            "new worker("
+          ]
+        }
+      ],
+      "note": "Same reasoning as V15.4.1: this requirement is about a TOCTOU race between a check and a use in shared, multi-threaded in-process code, which this single-threaded application does not have."
+    },
+    {
+      "requirementId": "V15.4.3",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-fact:no-multi-threaded-code"
+      ],
+      "conditions": [
+        {
+          "condition": "the API still uses no worker_threads or Worker construct anywhere",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "worker_threads",
+            "new worker("
+          ]
+        }
+      ],
+      "note": "Same reasoning as V15.4.1: this requirement is about in-process thread locks, which this single-threaded application has no occasion to use."
+    },
+    {
+      "requirementId": "V15.4.4",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-fact:no-multi-threaded-code"
+      ],
+      "conditions": [
+        {
+          "condition": "the API still uses no worker_threads or Worker construct anywhere",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "worker_threads",
+            "new worker("
+          ]
+        }
+      ],
+      "note": "Same reasoning as V15.4.1: in-process thread starvation has no occasion to arise without in-process threads. The analogous resource-fairness question for external resources (database connection pooling) is a different topic, already recorded as a documentation gap under ASVS V13.1.2."
+    },
+    {
       "requirementId": "V16.1.1",
       "applicability": "APPLICABLE",
       "status": "FAIL",
