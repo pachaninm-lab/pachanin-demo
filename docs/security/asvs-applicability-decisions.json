@@ -857,7 +857,7 @@
       "conditions": [
         {
           "condition": "every command declares the status it may be issued from and the roles that may issue it",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/deals/deal-command.policy.ts"
           ],
@@ -869,7 +869,7 @@
         },
         {
           "condition": "the authoritative path rejects a command issued from any other status",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
           ],
@@ -926,7 +926,7 @@
         },
         {
           "condition": "that context is a database transaction with an explicit isolation level",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/common/prisma/rls-transaction.service.ts"
           ],
@@ -1719,7 +1719,7 @@
       "conditions": [
         {
           "condition": "a trusted-proxy policy decides which forwarded value to believe",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/common/security/trusted-proxy.ts"
           ],
@@ -2301,7 +2301,7 @@
       "conditions": [
         {
           "condition": "archive members are read into memory by exact name, never written out",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
@@ -2405,7 +2405,7 @@
       "conditions": [
         {
           "condition": "every on-disk path is internally generated",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
@@ -4521,7 +4521,7 @@
       "conditions": [
         {
           "condition": "authentication is a global guard rather than a per-route opt-in",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/app.module.ts"
           ],
@@ -4657,7 +4657,7 @@
       "conditions": [
         {
           "condition": "authorization is enforced by a server-side global guard",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/app.module.ts"
           ],
@@ -4668,7 +4668,7 @@
         },
         {
           "condition": "and again below the service layer, in the database",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "infra/sql/production-rls-policies.sql"
           ],
@@ -4714,7 +4714,7 @@
         },
         {
           "condition": "authorization values are read from the session row on each request",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/auth.service.ts"
           ],
@@ -4748,7 +4748,7 @@
         },
         {
           "condition": "acting on a client behalf is explicitly refused, not merely absent",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.ts"
           ],
@@ -4835,7 +4835,7 @@
         },
         {
           "condition": "administrative endpoints require a named permission and an access mode",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/staff-access/staff-access.controller.ts"
           ],
@@ -8375,7 +8375,7 @@
         },
         {
           "condition": "the test that fails when a class is enforced internally but not outbound is still present",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/common/security/sensitive-data.spec.ts"
           ],
@@ -8675,7 +8675,7 @@
       "conditions": [
         {
           "condition": "the source-controlled SBOM coverage scope still names canonical CycloneDX and SPDX artefacts generated for every ecosystem in the tree",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "docs/ip/sbom-coverage-scope.json"
           ],
@@ -9263,7 +9263,7 @@
         },
         {
           "condition": "and carries the subject and reason of the attempt",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/auth-audit.ts"
           ],
@@ -9342,7 +9342,7 @@
       "conditions": [
         {
           "condition": "a failure outcome with a reason is recordable",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/auth-audit.ts"
           ],
@@ -9407,7 +9407,7 @@
       "conditions": [
         {
           "condition": "the audit chain is enforced by database constraints rather than convention",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/prisma/migrations/20260803140000_auth_audit_chain_integrity/migration.sql"
           ],
