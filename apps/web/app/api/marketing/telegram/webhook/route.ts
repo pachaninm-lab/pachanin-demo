@@ -1,6 +1,10 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import {
+  marketingAttributionSecret,
+  signMarketingAttribution,
+} from '@/lib/platform-v7/marketing-attribution.server';
+import {
   parseTelegramStart,
   telegramRoleUrlKeyboard,
 } from '@/lib/platform-v7/telegram-marketing-qualification';
@@ -118,8 +122,17 @@ export async function POST(request: Request) {
   const origin = publicOrigin();
   if (!origin) return json({ ok: false, code: 'PUBLIC_ORIGIN_NOT_CONFIGURED' }, 503);
 
+  const attributionSecret = marketingAttributionSecret();
+  if (!attributionSecret) {
+    return json({ ok: false, code: 'ATTRIBUTION_AUTHORITY_NOT_CONFIGURED' }, 503);
+  }
+
   const seed = parseTelegramStart(String(update.message?.text ?? ''));
-  const replyMarkup = telegramRoleUrlKeyboard(origin, seed);
+  const replyMarkup = telegramRoleUrlKeyboard(
+    origin,
+    seed,
+    (attribution) => signMarketingAttribution(attribution, attributionSecret),
+  );
 
   return json({
     method: 'sendMessage',
