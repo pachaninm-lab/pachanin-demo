@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/one-c-compatible-connector-4607",
+  "status": "active",
+  "purpose": "Bounded 1С:Совместимо connector foundation under PC-CROP Federal Accounting / 1С / ЭДО. Restores the canonical seven-command protocol, fail-closed validation, self-discovery, one-time pairing and certification evidence. No Prisma, production, runtime credential, provider traffic or Connection Center maturity change in this slice.",
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "issue": 4321,
+  "trackingIssue": 4607,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/one-c-connector.protocol.ts",
+    "apps/api/src/modules/accounting/one-c-connector.protocol.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/one-c-connector-foundation-v1.md",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-one-c-connector-4321-4607.json"
+  ],
+  "requiredInvariants": [
+    "1С customer environments initiate outbound HTTPS; the platform does not require inbound Internet access into a customer 1С host.",
+    "Direct DBMS access to a 1С information base is forbidden; only documented 1С mechanisms may be used by a configuration adapter.",
+    "The v1 remote-operation allowlist is exactly UPSERT_COUNTERPARTY, CREATE_SALES_DRAFT, CREATE_PURCHASE_DRAFT, CREATE_CORRECTION_DRAFT, GET_DOCUMENT_STATUS, PUSH_PAYMENT_STATUS and GET_REFERENCE_CANDIDATES.",
+    "Unknown commands and unknown payload fields fail closed; no arbitrary SQL, arbitrary 1С code, generic RPC, database dump or unrestricted read is admitted.",
+    "Pairing material is high-entropy, only salted hash material belongs in the persistent shape, and the default pairing lifetime is ten minutes; this slice does not persist or issue a production credential.",
+    "One 1С information base may expose several legal entities, but a binding names one exact platform organization and one exact discovered 1С organization; discovery does not authorize sibling legal entities.",
+    "AUTO_POST is fail-closed to CREATE_DRAFT unless separate acceptance evidence exists for the exact installation and configuration version.",
+    "Network timeout or ambiguous external effect becomes UNKNOWN and requires reconciliation before retry; it is never promoted to success.",
+    "Compatibility/discovery evidence cannot mark ONE_C ADAPTER_READY, TEST or CONFIRMED_LIVE by itself; ONE_C.adapterImplemented remains false in this slice.",
+    "Generated cryptographic inventory must stay reproducible after adding production TypeScript and may not be bypassed or weakened.",
+    "No new mandatory recurring cost is introduced."
+  ]
+}
