@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/marketing-social-growth.yml'
-      - 'apps/api/src/app.module.ts'
+      - 'apps/api/package.json'
+      - 'apps/api/tsconfig.marketing-outbox-worker.json'
       - 'apps/api/src/marketing-outbox-worker.ts'
       - 'apps/api/src/marketing-outbox-worker.module.ts'
       - 'apps/api/src/modules/marketing/**'
@@ -12,7 +13,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/marketing-social-growth.yml'
-      - 'apps/api/src/app.module.ts'
+      - 'apps/api/package.json'
+      - 'apps/api/tsconfig.marketing-outbox-worker.json'
       - 'apps/api/src/marketing-outbox-worker.ts'
       - 'apps/api/src/marketing-outbox-worker.module.ts'
       - 'apps/api/src/modules/marketing/**'
@@ -52,6 +54,11 @@ jobs:
 
       - name: Typecheck API
         run: pnpm --filter @pc/api typecheck
+
+      - name: Build isolated marketing worker
+        run: |
+          pnpm --filter @pc/api build:marketing-outbox-worker
+          test -s apps/api/dist-marketing-outbox-worker/marketing-outbox-worker.js
 
       - name: Verify autonomous marketing safety contracts
         run: >-
