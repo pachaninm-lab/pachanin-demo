@@ -9,17 +9,21 @@ function env(values: Record<string, string | undefined>): NodeJS.ProcessEnv {
 }
 
 describe('server API origin authority', () => {
-  it('uses the exact canonical Compose API when production has no explicit server authority', () => {
+  it('uses the exact canonical Compose API base including the Nest global prefix', () => {
     expect(resolveServerApiOrigin(env({ NODE_ENV: 'production' })))
-      .toBe('http://api:3001');
-    expect(CANONICAL_COMPOSE_API_ORIGIN).toBe('http://api:3001');
+      .toBe('http://api:3001/api');
+    expect(CANONICAL_COMPOSE_API_ORIGIN).toBe('http://api:3001/api');
   });
 
-  it('accepts the exact canonical plaintext Compose authority in production', () => {
+  it('accepts only the exact canonical plaintext Compose API base in production', () => {
     expect(resolveServerApiOrigin(env({
       NODE_ENV: 'production',
-      API_URL: 'http://api:3001',
-    }))).toBe('http://api:3001');
+      API_URL: 'http://api:3001/api',
+    }))).toBe('http://api:3001/api');
+    expect(resolveServerApiOrigin(env({
+      NODE_ENV: 'production',
+      API_URL: 'http://api:3001/api/',
+    }))).toBe('http://api:3001/api');
   });
 
   it('accepts an explicit HTTPS server authority in production', () => {
@@ -30,11 +34,15 @@ describe('server API origin authority', () => {
   });
 
   it.each([
+    'http://api:3001',
     'http://attacker.example',
-    'http://api.evil:3001',
+    'http://api.evil:3001/api',
     'http://api:3001/extra',
-    'http://user:pass@api:3001',
-    'ftp://api:3001',
+    'http://api:3001/api/extra',
+    'http://user:pass@api:3001/api',
+    'http://api:3001/api?x=1',
+    'http://api:3001/api#fragment',
+    'ftp://api:3001/api',
     'javascript:alert(1)',
     'not-a-url',
   ])('rejects unsafe production server authority %s', (API_URL) => {
@@ -60,7 +68,7 @@ describe('server API origin authority', () => {
     expect(resolveServerApiOrigin(env({
       NODE_ENV: 'production',
       NEXT_PUBLIC_API_URL: 'https://attacker.example',
-    }))).toBe('http://api:3001');
+    }))).toBe('http://api:3001/api');
   });
 
   it('keeps NEXT_PUBLIC_API_URL available only as a non-production fallback', () => {
