@@ -50,6 +50,9 @@ export class TelegramPublisher {
           chat_id: chatId,
           text: normalized,
         }),
+        // The bot token is part of the endpoint path. Never follow a redirect
+        // that could replay that credential to a different origin.
+        redirect: 'error',
         signal: AbortSignal.timeout(TELEGRAM_TIMEOUT_MS),
       });
     } catch {
