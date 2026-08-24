@@ -270,11 +270,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 224,
+      "sites": 225,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 224,
+          "sites": 225,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",

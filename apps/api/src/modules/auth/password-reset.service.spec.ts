@@ -140,7 +140,7 @@ describe('PasswordResetService durable mail outbox', () => {
     expect(mailOutbox.enqueue).not.toHaveBeenCalled();
   });
 
-  it('keeps password confirmation behind the existing notification boundary', async () => {
+  it('completes the reset behind the delivery boundary and returns the notification target', async () => {
     const repository = repositoryMock();
     const mailOutbox = mailOutboxMock();
     const issued = issuePasswordResetToken();
@@ -166,6 +166,62 @@ describe('PasswordResetService durable mail outbox', () => {
       notificationDelivery: { email: 'person@example.test' },
     });
     expect(repository.revokeAllUserSessions).toHaveBeenCalledWith(repository.tx, 'user-1', 'PASSWORD_RESET');
+  });
+
+  it('queues the password-changed notice in the same transaction as the replacement', async () => {
+    const repository = repositoryMock();
+    const mailOutbox = mailOutboxMock();
+    const issued = issuePasswordResetToken();
+    repository.getChallengeForUpdate.mockResolvedValue({
+      id: issued.id,
+      user_id: 'user-1',
+      token_hash: issued.hash,
+      status: 'PENDING',
+      requested_ip_hash: null,
+      expires_at: new Date(Date.now() + 60_000),
+      consumed_at: null,
+      created_at: new Date(),
+    });
+    repository.replacePassword.mockResolvedValue('person@example.test');
+    repository.consumeChallenge.mockResolvedValue(true);
+    const service = new PasswordResetService(repository as never, mailOutbox as never);
+
+    await service.confirm(issued.token, 'New-Secure-Password-2026', '203.0.113.5', deliveryKey, 'corr-1');
+
+    expect(mailOutbox.enqueue).toHaveBeenCalledTimes(1);
+    expect(mailOutbox.enqueue).toHaveBeenCalledWith(
+      repository.tx,
+      expect.objectContaining({
+        kind: 'PASSWORD_CHANGED',
+        idempotencyKey: `auth-mail:password-changed:${issued.id}`,
+        correlationId: 'corr-1',
+        envelope: expect.objectContaining({ to: 'person@example.test' }),
+      }),
+    );
+    const [, enqueued] = mailOutbox.enqueue.mock.calls[0] as [unknown, { expiresAt: Date }];
+    expect(enqueued.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('does not queue a password-changed notice when the reset never completes', async () => {
+    const repository = repositoryMock();
+    const mailOutbox = mailOutboxMock();
+    const issued = issuePasswordResetToken();
+    repository.getChallengeForUpdate.mockResolvedValue({
+      id: issued.id,
+      user_id: 'user-1',
+      token_hash: issued.hash,
+      status: 'PENDING',
+      requested_ip_hash: null,
+      expires_at: new Date(Date.now() + 60_000),
+      consumed_at: null,
+      created_at: new Date(),
+    });
+    repository.replacePassword.mockResolvedValue(null);
+    const service = new PasswordResetService(repository as never, mailOutbox as never);
+
+    await expect(service.confirm(issued.token, 'New-Secure-Password-2026', undefined, deliveryKey))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(mailOutbox.enqueue).not.toHaveBeenCalled();
   });
 
   it('rejects a replayed or consumed reset token', async () => {

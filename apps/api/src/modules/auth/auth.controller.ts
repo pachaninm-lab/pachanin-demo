@@ -82,9 +82,10 @@ export class AuthController {
   confirmPasswordReset(
     @Body() dto: ConfirmPasswordResetDto,
     @Headers('x-password-reset-delivery-key') deliveryKey?: string,
+    @Headers('x-correlation-id') correlationId?: string,
     @Ip() ip?: string,
   ) {
-    return this.passwordReset.confirm(dto.token, dto.newPassword, ip, deliveryKey);
+    return this.passwordReset.confirm(dto.token, dto.newPassword, ip, deliveryKey, correlationId);
   }
 
   @Public()

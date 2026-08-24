@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { hashPassword } from './password-hashing';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { AuthMailOutboxService } from '../auth-mail/auth-mail-outbox.service';
-import { normalizeAuthMailLocale, passwordResetMail } from '../auth-mail/auth-mail-templates';
+import { normalizeAuthMailLocale, passwordChangedMail, passwordResetMail } from '../auth-mail/auth-mail-templates';
 import { hashAuthMaterial, hashClientValue, sha256, stableJson } from './auth-crypto';
 import type { AuthSqlClient } from './persistent-auth.repository';
 import { PasswordResetRepository } from './password-reset.repository';
@@ -18,6 +18,16 @@ const UNIVERSAL_RESPONSE = {
   accepted: true,
   message: 'If the account exists, password reset instructions will be sent.',
 } as const;
+
+/**
+ * Delivery window for the password-changed security notice.
+ *
+ * Unlike the reset mail, this notice carries no token, so its lifetime is not
+ * bounded by a credential. A day is long enough for the outbox to retry
+ * through a transient mail-transport outage, and short enough that a notice
+ * about a change nobody remembers is never delivered.
+ */
+const PASSWORD_CHANGED_NOTICE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function safeEqual(leftValue: string, rightValue: string): boolean {
   const left = Buffer.from(leftValue, 'utf8');
@@ -159,10 +169,19 @@ export class PasswordResetService {
     return UNIVERSAL_RESPONSE;
   }
 
-  async confirm(tokenInput: string, newPassword: string, ip?: string, deliveryKey?: string) {
+  async confirm(
+    tokenInput: string,
+    newPassword: string,
+    ip?: string,
+    deliveryKey?: string,
+    correlationIdInput?: string,
+  ) {
     assertPasswordPolicy(newPassword);
-    // Confirmation remains behind the existing server-to-server boundary until
-    // the password-changed security notice is moved to the same durable outbox.
+    // The password-changed notice now goes through the same durable outbox as
+    // the reset mail, so delivery no longer depends on the caller acting on the
+    // response body. The server-to-server boundary below is deliberately left
+    // in place: it governs who may complete a reset at all, which is a separate
+    // question from how the resulting notice is delivered.
     if (!deliveryAuthorized(deliveryKey)) throw this.invalidReset();
     const parsed = parsePasswordResetToken(tokenInput);
     if (!parsed) throw this.invalidReset();
@@ -170,6 +189,7 @@ export class PasswordResetService {
     const passwordHash = await hashPassword(newPassword);
     const now = new Date();
     const ipHash = hashClientValue(ip);
+    const correlationId = String(correlationIdInput || randomUUID()).trim().slice(0, 128);
 
     try {
       return await this.repository.transaction(async (tx) => {
@@ -203,6 +223,18 @@ export class PasswordResetService {
           outcome: 'SUCCESS',
           reason: 'PASSWORD_REPLACED_SESSIONS_REVOKED',
           metadata: { ipHash, challengeIdHash: hashAuthMaterial(challenge.id) },
+        });
+        // Queued in the same transaction as the password replacement: a
+        // committed reset can never leave the account holder unnotified, and a
+        // rolled-back one never queues a notice about a change that did not
+        // happen. The challenge id keys the idempotency, so a retried
+        // confirmation reuses the queued notice instead of sending a second.
+        await this.mailOutbox.enqueue(tx, {
+          kind: 'PASSWORD_CHANGED',
+          idempotencyKey: `auth-mail:password-changed:${challenge.id}`,
+          correlationId,
+          envelope: passwordChangedMail(notificationEmail),
+          expiresAt: new Date(now.getTime() + PASSWORD_CHANGED_NOTICE_TTL_MS),
         });
         return {
           success: true,
