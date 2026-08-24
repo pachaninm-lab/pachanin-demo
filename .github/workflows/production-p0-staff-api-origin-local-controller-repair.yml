@@ -8,6 +8,13 @@ on:
       - 'scripts/pc-tai-release-controller-core.sh'
       - 'scripts/pc-p0-staff-api-origin-local-repair.sh'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-p0-staff-api-origin-local-controller-4559.json'
+      - 'apps/web/lib/server/server-api-origin.ts'
+      - 'apps/web/app/platform-v7/staff/page.tsx'
+      - 'apps/web/app/api/staff/capabilities/me/route.ts'
+      - 'apps/web/app/api/staff/*path*/route.ts'
+      - 'apps/web/tests/unit/serverApiOrigin.test.ts'
+      - 'apps/web/tests/unit/platformV7StaffControlCenter.test.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-p0-staff-api-base-prefix-4559.json'
   issue_comment:
     types: [created]
 
@@ -56,36 +63,111 @@ jobs:
           node scripts/check-pc-tai-release-controller.mjs
           python3 - <<'PY'
           import json
+          import re
           from pathlib import Path
+
           workflow = Path('.github/workflows/production-p0-staff-api-origin-local-controller-repair.yml')
           core = Path('scripts/pc-tai-release-controller-core.sh')
           repair = Path('scripts/pc-p0-staff-api-origin-local-repair.sh')
-          scope_path = Path('docs/platform-v7/autopilot/scopes/pc-crop-p0-staff-api-origin-local-controller-4559.json')
+          resolver = Path('apps/web/lib/server/server-api-origin.ts')
+          resolver_test = Path('apps/web/tests/unit/serverApiOrigin.test.ts')
+          staff_test = Path('apps/web/tests/unit/platformV7StaffControlCenter.test.ts')
+          staff_page = Path('apps/web/app/platform-v7/staff/page.tsx')
+          capabilities_route = Path('apps/web/app/api/staff/capabilities/me/route.ts')
+          staff_proxy = Path('apps/web/app/api/staff/[...path]/route.ts')
+          scope_path = Path('docs/platform-v7/autopilot/scopes/pc-crop-p0-staff-api-base-prefix-4559.json')
           wf = workflow.read_text(encoding='utf-8')
           core_text = core.read_text(encoding='utf-8')
           repair_text = repair.read_text(encoding='utf-8')
+          resolver_text = resolver.read_text(encoding='utf-8')
+          resolver_test_text = resolver_test.read_text(encoding='utf-8')
+          staff_test_text = staff_test.read_text(encoding='utf-8')
+          staff_page_text = staff_page.read_text(encoding='utf-8')
+          capabilities_text = capabilities_route.read_text(encoding='utf-8')
+          staff_proxy_text = staff_proxy.read_text(encoding='utf-8')
           scope = json.loads(scope_path.read_text(encoding='utf-8'))
-          allowed = {str(workflow), str(core), str(repair), str(scope_path)}
+          allowed = {
+              str(workflow), str(repair), str(resolver), str(resolver_test), str(staff_test),
+              str(staff_page), str(capabilities_route), str(staff_proxy), str(scope_path),
+          }
           if scope.get('schemaVersion') != 'platform-v7.concurrent-scope.v1': raise SystemExit('SCOPE_SCHEMA')
-          if scope.get('branch') != 'fix/p0-staff-api-origin-local-controller-4559': raise SystemExit('SCOPE_BRANCH')
+          if scope.get('branch') != 'fix/p0-staff-api-base-root-cause-4559': raise SystemExit('SCOPE_BRANCH')
           if scope.get('status') != 'active' or set(scope.get('allowedPaths') or []) != allowed: raise SystemExit('SCOPE_PATHS')
           if scope.get('issue') != 4559 or scope.get('registrationIssue') != 3785 or scope.get('releaseIssue') != 3072: raise SystemExit('SCOPE_AUTHORITY')
+          if scope.get('authorityBaseExactMain') != 'd92b2b7e66a805aea830afd6519af7dcd320e3fa': raise SystemExit('SCOPE_BASE')
           if scope.get('newRecurringCostRub') != 0: raise SystemExit('SCOPE_COST')
           boundaries = scope.get('boundaries') or {}
+          for key in ('registrationOnly','sourceControlOnly','ownerCommandOnly','outboundOnlyProductionRunner'):
+              if boundaries.get(key) is not True: raise SystemExit(f'SCOPE_TRUE_BOUNDARY:{key}')
           required_false = (
-              'installedControllerWrapperMutation','sudoAuthorityMutation','databaseMutation','migrationMutation',
-              'credentialMutation','passwordMutation','sessionMutation','mfaMutation','userMutation',
-              'roleOrMembershipMutation','dnsMutation','caddyMutation','sshPinMutation','imageBuild','imagePull',
-              'apiContainerMutation','nonWebContainerMutation','inboundSshRequired','privateSshKeyUse',
+              'productionMutationInPr','installedControllerWrapperMutation','sudoAuthorityMutation','databaseMutation',
+              'migrationMutation','credentialMutation','passwordMutation','sessionMutation','mfaMutation','userMutation',
+              'roleOrMembershipMutation','dnsMutation','caddyMutation','sshPinMutation','dependencyMutation','imageBuild',
+              'imagePull','apiContainerMutation','nonWebContainerMutation','inboundSshRequired','privateSshKeyUse',
               'secretPublication','rawLogPublication','protectedPathPublication','containerIdPublication',
           )
-          if any(boundaries.get(key) is not False for key in required_false): raise SystemExit('SCOPE_BOUNDARY')
+          if any(boundaries.get(key) is not False for key in required_false): raise SystemExit('SCOPE_FALSE_BOUNDARY')
           if boundaries.get('productionMutation') != 'WEB_ONLY_API_ORIGIN_OVERRIDE_AND_RECREATE': raise SystemExit('SCOPE_MUTATION')
-          required_core = ('--pc-crop-staff-api-origin-repair-v1','run_pc_crop_staff_api_origin_repair','scripts/pc-p0-staff-api-origin-local-repair.sh','pc-crop.staff-api-origin-local-repair.v1','publish_file "$report" staff-api-origin-repair.json')
+          required_core = (
+              '--pc-crop-staff-api-origin-repair-v1','run_pc_crop_staff_api_origin_repair',
+              'scripts/pc-p0-staff-api-origin-local-repair.sh','pc-crop.staff-api-origin-local-repair.v1',
+              'publish_file "$report" staff-api-origin-repair.json',
+          )
           if any(marker not in core_text for marker in required_core): raise SystemExit('CORE_CONTRACT')
-          required_repair = ("CANONICAL_ORIGIN='http://api:3001'",'timeout 20s git ls-remote --heads "$REPOSITORY_URL" refs/heads/main',"stage='MUTATOR_QUIESCENCE'",'.pc-staff-api-origin.override.yml','API_URL: http://api:3001','up -d --no-deps --no-build --pull never web',"rollback_state='CONFIRMED'","trap 'rollback 143' TERM",'fsync_file_and_parent','CANDIDATE_CONFIG_CHANGED_BEYOND_API_URL','IMAGE_UNCHANGED=PASS','NONWEB_UNCHANGED=PASS')
+          required_resolver = (
+              "const COMPOSE_INTERNAL_API_BASE_URL = 'http://api:3001/api';",
+              'function normalizeConfiguredBaseUrl(', 'export function resolveServerApiBaseUrl(',
+              "if (url.origin !== 'http://api:3001') return '';",
+              "if (url.pathname !== '/api' && url.pathname !== '/api/') return '';",
+              'if (production) return COMPOSE_INTERNAL_API_BASE_URL;',
+              'export const CANONICAL_COMPOSE_API_BASE_URL = COMPOSE_INTERNAL_API_BASE_URL;',
+          )
+          if any(marker not in resolver_text for marker in required_resolver): raise SystemExit('RESOLVER_CONTRACT')
+          if 'resolveServerApiOrigin' in resolver_text or 'CANONICAL_COMPOSE_API_ORIGIN' in resolver_text: raise SystemExit('AMBIGUOUS_RESOLVER_NAME')
+          consumer_contracts = (
+              (staff_page_text, ('resolveServerApiBaseUrl();','fetch(`${API_BASE_URL}/auth/me`','fetch(`${API_BASE_URL}/staff/capabilities/me`')),
+              (capabilities_text, ('resolveServerApiBaseUrl();','fetch(`${API_BASE_URL}/staff/capabilities/me`')),
+              (staff_proxy_text, ('resolveServerApiBaseUrl();','const targetUrl = `${API_BASE_URL}/staff/${path}')),
+          )
+          if any(marker not in text for text, markers in consumer_contracts for marker in markers): raise SystemExit('CONSUMER_BASE_CONTRACT')
+          required_resolver_tests = (
+              "CANONICAL_COMPOSE_API_BASE_URL", "API_URL: 'http://api:3001/api'", "API_URL: 'http://api:3001'",
+              "'http://api:3002/api'", "'http://api:3001/api/extra'", "NEXT_PUBLIC_API_URL",
+          )
+          if any(marker not in resolver_test_text for marker in required_resolver_tests): raise SystemExit('RESOLVER_TEST_CONTRACT')
+          required_staff_tests = (
+              "app.setGlobalPrefix('api'", "const COMPOSE_INTERNAL_API_BASE_URL = 'http://api:3001/api';",
+              'resolveServerApiBaseUrl();', 'fetch(`${API_BASE_URL}/auth/me`', 'fetch(`${API_BASE_URL}/staff/capabilities/me`',
+          )
+          if any(marker not in staff_test_text for marker in required_staff_tests): raise SystemExit('STAFF_TEST_CONTRACT')
+          required_repair = (
+              "CANONICAL_BASE_URL='http://api:3001/api'",
+              "const COMPOSE_INTERNAL_API_BASE_URL = 'http://api:3001/api';",
+              "if (production) return COMPOSE_INTERNAL_API_BASE_URL;",
+              "canonical='http://api:3001/api'", "const canonical='http://api:3001/api';",
+              "const base='http://api:3001/api';", 'fetch(base+path',
+              "await p('/auth/me','AUTH_STATUS')", "await p('/staff/capabilities/me','CAP_STATUS')",
+              '.pc-staff-api-origin.override.yml', 'API_URL: http://api:3001/api',
+              "candidate_env.get('API_URL') != 'http://api:3001/api'",
+              'up -d --no-deps --no-build --pull never web', "rollback_state='CONFIRMED'",
+              "trap 'rollback 143' TERM", 'fsync_file_and_parent', 'CANDIDATE_CONFIG_CHANGED_BEYOND_API_URL',
+              'IMAGE_UNCHANGED=PASS', 'NONWEB_UNCHANGED=PASS',
+          )
           if any(marker not in repair_text for marker in required_repair): raise SystemExit('REPAIR_CONTRACT')
-          required_wf = ('/production p0-staff-api-origin-repair-local current-main','runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]','sudo -n /usr/local/sbin/pc-tai-release-controller','--pc-crop-staff-api-origin-repair-v1','TAI REG.RU Preflight','STALE_AUTOMATIC_REG_RU_PREFLIGHT_PROVEN','pc-crop.staff-api-origin-local-repair.v1')
+          for forbidden in (
+              "readonly CANONICAL_ORIGIN='http://api:3001'", "const origin='http://api:3001';",
+              "const canonical='http://api:3001';", "API_URL: http://api:3001\n",
+              "const COMPOSE_INTERNAL_API_ORIGIN = 'http://api:3001';",
+          ):
+              if forbidden in repair_text: raise SystemExit(f'PATHLESS_REPAIR_AUTHORITY:{forbidden}')
+          if re.search(r"API_URL:\s*http://api:3001\s*$", repair_text, re.M): raise SystemExit('PATHLESS_OVERRIDE')
+          required_wf = (
+              '/production p0-staff-api-origin-repair-local current-main',
+              'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]',
+              'sudo -n /usr/local/sbin/pc-tai-release-controller', '--pc-crop-staff-api-origin-repair-v1',
+              'TAI REG.RU Preflight', 'STALE_AUTOMATIC_REG_RU_PREFLIGHT_PROVEN',
+              'pc-crop.staff-api-origin-local-repair.v1', '/api/auth/me', '/api/staff/capabilities/me',
+          )
           if any(marker not in wf for marker in required_wf): raise SystemExit('WORKFLOW_CONTRACT')
           repair_job = wf[wf.index('\n  repair:\n'):wf.index('\n  publish:\n')]
           for forbidden in ('secrets.', 'ssh-keyscan', 'sshpass', 'StrictHostKeyChecking=no', 'StrictHostKeyChecking=accept-new'):
@@ -93,7 +175,7 @@ jobs:
           PY
           if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
             git fetch --no-tags origin main
-            GITHUB_HEAD_REF='fix/p0-staff-api-origin-local-controller-4559' bash scripts/p7-autopilot-guard.sh
+            GITHUB_HEAD_REF='fix/p0-staff-api-base-root-cause-4559' bash scripts/p7-autopilot-guard.sh
             git diff --check "origin/main...HEAD"
           fi
 
@@ -601,8 +683,8 @@ jobs:
           print(f"- resolved Compose origin before: `{v['composeBefore']}`")
           print(f"- repair mode: `{v['repairMode']}`")
           print(f"- active origin after: `{v['activeAfter']}`")
-          print(f"- internal anonymous /auth/me: `{v['authStatus']}`")
-          print(f"- internal anonymous /staff/capabilities/me: `{v['capStatus']}`")
+          print(f"- internal anonymous /api/auth/me: `{v['authStatus']}`")
+          print(f"- internal anonymous /api/staff/capabilities/me: `{v['capStatus']}`")
           print(f"- Web image unchanged: `{str(v['webImageUnchanged']).upper()}`")
           print(f"- API container unchanged: `{str(v['apiContainerUnchanged']).upper()}`")
           print(f"- all non-Web containers unchanged: `{str(v['nonWebContainersUnchanged']).upper()}`")

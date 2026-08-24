@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
-import { resolveServerApiOrigin } from '@/lib/server/server-api-origin';
+import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import { assertCsrf } from '@/lib/server-request-security';
 import { sendTransactionalMail } from '@/lib/server/transactional-mail';
 
@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 12;
 
-const API_URL = resolveServerApiOrigin();
+const API_BASE_URL = resolveServerApiBaseUrl();
 const STAFF_ACCESS_COOKIE = 'pc_staff_access_token';
 const STAFF_ACCESS_META_COOKIE = 'pc_staff_access_meta';
 const MAX_BODY_BYTES = 64 * 1024;
@@ -190,7 +190,7 @@ function parseMetadata(raw: string | undefined): StaffSessionMetadata | null {
 }
 
 async function listOwnSessions(accessToken: string, correlationId: string): Promise<StaffSessionRow[]> {
-  const upstream = await fetch(`${API_URL}/staff/access/sessions`, {
+  const upstream = await fetch(`${API_BASE_URL}/staff/access/sessions`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',
@@ -238,7 +238,7 @@ function persistedMetadata(row: StaffSessionRow): StaffSessionMetadata | null {
 
 async function cleanupActivatedSession(accessToken: string, sessionId: string, correlationId: string) {
   try {
-    await fetch(`${API_URL}/staff/access/sessions/${encodeURIComponent(sessionId)}/end`, {
+    await fetch(`${API_BASE_URL}/staff/access/sessions/${encodeURIComponent(sessionId)}/end`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -312,7 +312,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
     clearStaffSession(response);
     return response;
   }
-  if (!API_URL) {
+  if (!API_BASE_URL) {
     return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
   }
 
@@ -359,7 +359,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
   }
 
   const query = request.nextUrl.searchParams.toString();
-  const targetUrl = `${API_URL}/staff/${path}${query ? `?${query}` : ''}`;
+  const targetUrl = `${API_BASE_URL}/staff/${path}${query ? `?${query}` : ''}`;
   const ip = requestIp(request);
   const userAgent = request.headers.get('user-agent');
 

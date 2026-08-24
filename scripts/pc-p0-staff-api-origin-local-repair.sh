@@ -6,7 +6,7 @@ TARGET_SHA="${1:-}"
 RUN_ID="${2:-}"
 readonly REPOSITORY_ROOT='/var/lib/pc-release-authority/repository'
 readonly REPOSITORY_URL='https://github.com/pachaninm-lab/pachanin-demo.git'
-readonly CANONICAL_ORIGIN='http://api:3001'
+readonly CANONICAL_BASE_URL='http://api:3001/api'
 
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
 [[ "$RUN_ID" =~ ^[0-9]{1,20}$ ]]
@@ -178,9 +178,10 @@ deployed_sha="$web_revision"
 git -C "$REPOSITORY_ROOT" cat-file -e "$deployed_sha^{commit}"
 git -C "$REPOSITORY_ROOT" merge-base --is-ancestor "$deployed_sha" "$TARGET_SHA"
 resolver_source="$(git -C "$REPOSITORY_ROOT" show "$deployed_sha:apps/web/lib/server/server-api-origin.ts")"
-grep -Fq "const COMPOSE_INTERNAL_API_ORIGIN = 'http://api:3001';" <<< "$resolver_source"
-grep -Fq "if (production) return COMPOSE_INTERNAL_API_ORIGIN;" <<< "$resolver_source"
-grep -Fq "if (url.origin !== COMPOSE_INTERNAL_API_ORIGIN) return '';" <<< "$resolver_source"
+grep -Fq "const COMPOSE_INTERNAL_API_BASE_URL = 'http://api:3001/api';" <<< "$resolver_source"
+grep -Fq "if (production) return COMPOSE_INTERNAL_API_BASE_URL;" <<< "$resolver_source"
+grep -Fq "if (url.origin !== 'http://api:3001') return '';" <<< "$resolver_source"
+grep -Fq "if (url.pathname !== '/api' && url.pathname !== '/api/') return '';" <<< "$resolver_source"
 unset resolver_source
 web_image_id="$(docker inspect --format '{{.Image}}' "$web_id")"
 [[ "$web_image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
@@ -228,7 +229,7 @@ if isinstance(env, list):
             k,v=item.split('=',1); vals[k]=v
     env=vals
 raw=str(env.get('API_URL') or '').strip()
-canonical='http://api:3001'
+canonical='http://api:3001/api'
 def classify(raw):
     if not raw: return 'UNSET'
     try:
@@ -240,9 +241,13 @@ def classify(raw):
     if u.username or u.password: return 'INVALID_COMPONENTS'
     if u.query or u.fragment: return 'INVALID_COMPONENTS'
     if u.scheme == 'http':
-        if raw.rstrip('/') == canonical and (u.path in ('','/')): return 'CANONICAL'
-        if u.hostname != 'api' or u.port != 3001: return 'INVALID_HTTP_AUTHORITY'
-        if u.path not in ('','/'): return 'INVALID_HTTP_PATH'
+        if raw in (canonical, canonical + '/'): return 'CANONICAL'
+        try:
+            host, port = u.hostname, u.port
+        except ValueError:
+            return 'INVALID_HTTP_AUTHORITY'
+        if host != 'api' or port != 3001: return 'INVALID_HTTP_AUTHORITY'
+        if u.path not in ('/api','/api/'): return 'INVALID_HTTP_PATH'
         return 'INVALID_HTTP_AUTHORITY'
     return 'ACCEPTED_HTTPS'
 print(classify(raw))
@@ -252,7 +257,7 @@ PY
 classify_active_origin() {
   docker exec -i "$1" /nodejs/bin/node --input-type=commonjs - <<'NODE'
 const raw=String(process.env.API_URL||'').trim();
-const canonical='http://api:3001';
+const canonical='http://api:3001/api';
 let c='UNSET';
 if(raw){
   try{
@@ -260,8 +265,8 @@ if(raw){
     if(!['http:','https:'].includes(u.protocol)) c='INVALID_SCHEME';
     else if(u.username||u.password||u.search||u.hash) c='INVALID_COMPONENTS';
     else if(u.protocol==='http:'){
-      if(u.origin===canonical&&(u.pathname==='/'||u.pathname==='')) c='CANONICAL';
-      else if(u.origin!==canonical) c='INVALID_HTTP_AUTHORITY';
+      if(raw===canonical||raw===canonical+'/') c='CANONICAL';
+      else if(u.origin!=='http://api:3001') c='INVALID_HTTP_AUTHORITY';
       else c='INVALID_HTTP_PATH';
     } else c='ACCEPTED_HTTPS';
   }catch{c='INVALID_PARSE';}
@@ -277,11 +282,11 @@ compose_before="$(classify_json_origin "$tmp/base.json")"
 
 probe_internal() {
   docker exec -i "$1" /nodejs/bin/node --input-type=commonjs - <<'NODE'
-const origin='http://api:3001';
+const base='http://api:3001/api';
 const emit=(k,v)=>process.stdout.write(`${k}=${v}\n`);
 async function p(path,key){
   try{
-    const r=await fetch(origin+path,{redirect:'manual',signal:AbortSignal.timeout(5000),headers:{Accept:'application/json'}});
+    const r=await fetch(base+path,{redirect:'manual',signal:AbortSignal.timeout(5000),headers:{Accept:'application/json'}});
     emit(key,String(r.status)); await r.body?.cancel().catch(()=>{});
   }catch(e){emit(key,e&&e.name==='TimeoutError'?'TIMEOUT':'FETCH_ERROR');}
 }
@@ -374,7 +379,7 @@ cat > "$tmp/expected.override" <<'YAML'
 services:
   web:
     environment:
-      API_URL: http://api:3001
+      API_URL: http://api:3001/api
 YAML
 chmod 0600 "$tmp/expected.override"
 repair_mode='OVERRIDE_CREATED'
@@ -415,7 +420,7 @@ candidate_web=((normalized.get('services') or {}).get('web') or {})
 base_env=base_web.get('environment') or {}
 candidate_env=candidate_web.get('environment') or {}
 if not isinstance(base_env,dict) or not isinstance(candidate_env,dict): raise SystemExit('WEB_ENV_NOT_OBJECT')
-if candidate_env.get('API_URL') != 'http://api:3001': raise SystemExit('CANDIDATE_ORIGIN_NOT_CANONICAL')
+if candidate_env.get('API_URL') != 'http://api:3001/api': raise SystemExit('CANDIDATE_ORIGIN_NOT_CANONICAL')
 if 'API_URL' in base_env:
     candidate_env['API_URL']=base_env['API_URL']
 else:
