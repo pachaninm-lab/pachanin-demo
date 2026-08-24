@@ -1224,6 +1224,24 @@
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "fix/p0-registration-authority-rollover-4637": [
+      ".github/workflows/platform-v7-safe-merge.yml",
+      ".github/workflows/production-full-stack-exact-sha.yml",
+      ".github/workflows/production-auth-mail-outbox-cutover.yml",
+      ".github/workflows/production-p0-staff-api-origin-local-controller-repair.yml",
+      ".github/workflows/production-p0-reviewer-inspect.yml",
+      ".github/workflows/production-p0-first-customer-acceptance.yml",
+      ".github/workflows/production-p0-all-role-registration.yml",
+      "scripts/production-p0-reviewer-inspect.sh",
+      "scripts/check-production-full-stack-release.mjs",
+      "scripts/check-production-auth-mail-outbox-cutover.mjs",
+      "scripts/check-production-p0-reviewer-inspect.mjs",
+      "scripts/check-production-p0-first-customer-acceptance.mjs",
+      "scripts/check-production-p0-all-role-registration.mjs",
+      "docs/ops/production-full-stack-release.md",
+      "docs/ops/production-p0-first-customer-acceptance.md",
+      "docs/ops/production-p0-all-role-registration.md"
     ]
   },
   "currentAcceptance": [
