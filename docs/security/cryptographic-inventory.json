@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2137,
+  "scannedFiles": 2145,
   "operations": [
     {
       "operation": "encryption",
@@ -43,14 +43,16 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 78,
+      "sites": 80,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 78,
+          "sites": 80,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
+            "apps/api/src/modules/accounting/integration-command.policy.ts",
+            "apps/api/src/modules/accounting/integration-job-lease.policy.ts",
             "apps/api/src/modules/accounting/one-c-connector.protocol.ts",
             "apps/api/src/modules/accounting/one-c-machine-credential.policy.ts",
             "apps/api/src/modules/accounting/reconciliation.policy.ts",
@@ -238,13 +240,14 @@
     {
       "operation": "csprng",
       "label": "Cryptographic randomness",
-      "sites": 34,
+      "sites": 36,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 34,
+          "sites": 36,
           "files": [
             "apps/api/src/common/config/secrets.ts",
+            "apps/api/src/modules/accounting/integration-job-lease.policy.ts",
             "apps/api/src/modules/accounting/one-c-connector.protocol.ts",
             "apps/api/src/modules/accounting/one-c-machine-credential.policy.ts",
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
@@ -271,15 +274,18 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 226,
+      "sites": 229,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 226,
+          "sites": 229,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
+            "apps/api/src/modules/accounting/integration-job-lease.policy.ts",
             "apps/api/src/modules/accounting/one-c-connection-management.controller.ts",
             "apps/api/src/modules/accounting/one-c-connector.controller.ts",
+            "apps/api/src/modules/accounting/one-c-heartbeat.controller.ts",
+            "apps/api/src/modules/accounting/one-c-job-runtime.controller.ts",
             "apps/api/src/modules/accounting/one-c-machine-credential.policy.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
@@ -447,12 +453,14 @@
     {
       "operation": "constant-time",
       "label": "Constant-time comparison",
-      "sites": 23,
+      "sites": 25,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 23,
+          "sites": 25,
           "files": [
+            "apps/api/src/modules/accounting/integration-command.policy.ts",
+            "apps/api/src/modules/accounting/integration-job-lease.policy.ts",
             "apps/api/src/modules/accounting/one-c-connector.protocol.ts",
             "apps/api/src/modules/accounting/one-c-machine-credential.policy.ts",
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",

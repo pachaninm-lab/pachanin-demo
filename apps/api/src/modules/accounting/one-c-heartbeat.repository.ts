@@ -83,7 +83,7 @@ export class OneCHeartbeatRepository {
   > {
     validateOneCHeartbeatReport(report);
     const authentication = await this.runtime.authenticateMachineBearer(bearer, undefined, now);
-    if (!authentication.authorized) {
+    if (authentication.authorized === false) {
       return { outcome: OneCHeartbeatRecordOutcome.UNAUTHORIZED, reason: authentication.reason };
     }
     const diagnostics = report.diagnosticCodes.length === 0

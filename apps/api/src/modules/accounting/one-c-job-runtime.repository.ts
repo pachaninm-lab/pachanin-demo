@@ -228,7 +228,7 @@ export class OneCJobRuntimeRepository {
       throw new OneCJobRuntimeRepositoryError('ONE_C_JOB_LEASE_LIMIT_INVALID');
     }
     const authentication = await this.runtime.authenticateMachineBearer(machineBearer, undefined, now);
-    if (!authentication.authorized) return unauthorized(authentication.reason);
+    if (authentication.authorized === false) return unauthorized(authentication.reason);
     try {
       const rows = await this.prisma.$queryRaw<LeaseRow[]>(Prisma.sql`
         SELECT job_id AS "jobId", command, payload, payload_hash AS "payloadHash",
@@ -271,7 +271,7 @@ export class OneCJobRuntimeRepository {
   ) {
     validateOneCJobReceiptEnvelope(envelope);
     const authority = await this.authorizeLease(machineBearer, leaseBearer, now, false);
-    if (!authority.authorized) return authority.response;
+    if (authority.authorized === false) return authority.response;
     if (authority.lease.jobId !== jobId) return unauthorized('SCOPE_MISMATCH');
     try {
       const rows = await this.prisma.$queryRaw<ActionRow[]>(Prisma.sql`
@@ -297,7 +297,7 @@ export class OneCJobRuntimeRepository {
   ) {
     validateOneCJobResultReport(report);
     const authority = await this.authorizeLease(machineBearer, leaseBearer, now, true);
-    if (!authority.authorized) return authority.response;
+    if (authority.authorized === false) return authority.response;
     if (authority.lease.jobId !== jobId) return unauthorized('SCOPE_MISMATCH');
     try {
       const rows = await this.prisma.$queryRaw<ActionRow[]>(Prisma.sql`
@@ -324,7 +324,7 @@ export class OneCJobRuntimeRepository {
   ) {
     validateOneCJobFailureReport(report);
     const authority = await this.authorizeLease(machineBearer, leaseBearer, now, true);
-    if (!authority.authorized) return authority.response;
+    if (authority.authorized === false) return authority.response;
     if (authority.lease.jobId !== jobId) return unauthorized('SCOPE_MISMATCH');
     try {
       const rows = await this.prisma.$queryRaw<ActionRow[]>(Prisma.sql`
@@ -408,7 +408,9 @@ export class OneCJobRuntimeRepository {
     | { authorized: false; response: ReturnType<typeof unauthorized> }
   > {
     const authentication = await this.runtime.authenticateMachineBearer(machineBearer, undefined, now);
-    if (!authentication.authorized) return { authorized: false, response: unauthorized(authentication.reason) };
+    if (authentication.authorized === false) {
+      return { authorized: false, response: unauthorized(authentication.reason) };
+    }
     const leaseId = leaseIdFromBearer(leaseBearer);
     if (!leaseId) return { authorized: false, response: unauthorized('MALFORMED_BEARER') };
     const rows = await this.prisma.$queryRaw<LeaseVerifierRow[]>(Prisma.sql`
@@ -444,7 +446,9 @@ export class OneCJobRuntimeRepository {
       connectionId: authentication.connectionId,
       credentialId: authentication.credentialId,
     }, now, allowTerminalReplay);
-    if (!verification.authorized) return { authorized: false, response: unauthorized(verification.reason) };
+    if (verification.authorized === false) {
+      return { authorized: false, response: unauthorized(verification.reason) };
+    }
     return { authorized: true, authentication, lease };
   }
 }
