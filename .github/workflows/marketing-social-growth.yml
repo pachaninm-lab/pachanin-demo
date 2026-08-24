@@ -9,6 +9,11 @@ on:
       - 'apps/api/src/marketing-outbox-worker.ts'
       - 'apps/api/src/marketing-outbox-worker.module.ts'
       - 'apps/api/src/modules/marketing/**'
+      - 'apps/web/app/api/marketing/telegram/webhook/route.ts'
+      - 'apps/web/components/platform-v7/OrganizationConnectForm.tsx'
+      - 'apps/web/lib/platform-v7/marketing-attribution.ts'
+      - 'apps/web/lib/platform-v7/telegram-marketing-qualification.ts'
+      - 'apps/web/tests/unit/marketingSocialWaitlist.test.ts'
   push:
     branches: [main]
     paths:
@@ -18,6 +23,11 @@ on:
       - 'apps/api/src/marketing-outbox-worker.ts'
       - 'apps/api/src/marketing-outbox-worker.module.ts'
       - 'apps/api/src/modules/marketing/**'
+      - 'apps/web/app/api/marketing/telegram/webhook/route.ts'
+      - 'apps/web/components/platform-v7/OrganizationConnectForm.tsx'
+      - 'apps/web/lib/platform-v7/marketing-attribution.ts'
+      - 'apps/web/lib/platform-v7/telegram-marketing-qualification.ts'
+      - 'apps/web/tests/unit/marketingSocialWaitlist.test.ts'
   workflow_dispatch:
 
 permissions:
@@ -28,7 +38,7 @@ env:
 
 jobs:
   marketing-safety:
-    name: RU channel policy · connectors · type-scoped delivery
+    name: RU channels · delivery · Telegram→QWO
     runs-on: ubuntu-24.04
     timeout-minutes: 25
 
@@ -52,15 +62,17 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck API
-        run: pnpm --filter @pc/api typecheck
+      - name: Typecheck API and web
+        run: |
+          pnpm --filter @pc/api typecheck
+          pnpm --filter @pc/web typecheck
 
       - name: Build isolated marketing worker
         run: |
           pnpm --filter @pc/api build:marketing-outbox-worker
           test -s apps/api/dist-marketing-outbox-worker/marketing-outbox-worker.js
 
-      - name: Verify autonomous marketing safety contracts
+      - name: Verify outbound marketing safety contracts
         run: >-
           pnpm --filter @pc/api exec jest --runInBand --runTestsByPath
           src/modules/marketing/marketing-policy.service.spec.ts
@@ -68,3 +80,9 @@ jobs:
           src/modules/marketing/connectors/vk.publisher.spec.ts
           src/modules/marketing/marketing-outbox.contract.spec.ts
           src/modules/marketing/marketing-durable-outbox.worker.spec.ts
+
+      - name: Verify Telegram-to-QWO waitlist attribution
+        run: >-
+          pnpm --filter @pc/web exec vitest run
+          tests/unit/marketingSocialWaitlist.test.ts
+          tests/unit/platformV7OrganizationConnectIntake.test.ts
