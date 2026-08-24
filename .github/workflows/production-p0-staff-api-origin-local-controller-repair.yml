@@ -83,7 +83,7 @@ jobs:
           if boundaries.get('productionMutation') != 'WEB_ONLY_API_ORIGIN_OVERRIDE_AND_RECREATE': raise SystemExit('SCOPE_MUTATION')
           required_core = ('--pc-crop-staff-api-origin-repair-v1','run_pc_crop_staff_api_origin_repair','scripts/pc-p0-staff-api-origin-local-repair.sh','pc-crop.staff-api-origin-local-repair.v1','publish_file "$report" staff-api-origin-repair.json')
           if any(marker not in core_text for marker in required_core): raise SystemExit('CORE_CONTRACT')
-          required_repair = ("CANONICAL_ORIGIN='http://api:3001'",'git ls-remote --heads "$REPOSITORY_URL" refs/heads/main',"stage='MUTATOR_QUIESCENCE'",'.pc-staff-api-origin.override.yml','API_URL: http://api:3001','up -d --no-deps --no-build --pull never web',"rollback_state='CONFIRMED'",'IMAGE_UNCHANGED=PASS','NONWEB_UNCHANGED=PASS')
+          required_repair = ("CANONICAL_ORIGIN='http://api:3001'",'timeout 20s git ls-remote --heads "$REPOSITORY_URL" refs/heads/main',"stage='MUTATOR_QUIESCENCE'",'.pc-staff-api-origin.override.yml','API_URL: http://api:3001','up -d --no-deps --no-build --pull never web',"rollback_state='CONFIRMED'","trap 'rollback 143' TERM",'fsync_file_and_parent','CANDIDATE_CONFIG_CHANGED_BEYOND_API_URL','IMAGE_UNCHANGED=PASS','NONWEB_UNCHANGED=PASS')
           if any(marker not in repair_text for marker in required_repair): raise SystemExit('REPAIR_CONTRACT')
           required_wf = ('/production p0-staff-api-origin-repair-local current-main','runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]','sudo -n /usr/local/sbin/pc-tai-release-controller','--pc-crop-staff-api-origin-repair-v1','TAI REG.RU Preflight','pc-crop.staff-api-origin-local-repair.v1')
           if any(marker not in wf for marker in required_wf): raise SystemExit('WORKFLOW_CONTRACT')
@@ -92,9 +92,11 @@ jobs:
               if forbidden in repair_job: raise SystemExit(f'REPAIR_JOB_FORBIDDEN:{forbidden}')
           PY
           if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            git fetch --no-tags origin main
             GITHUB_HEAD_REF='fix/p0-staff-api-origin-local-controller-4559' bash scripts/p7-autopilot-guard.sh
             git diff --check "origin/main...HEAD"
           fi
+
 
   resolve:
     name: Resolve exact main and reject concurrent production mutations
@@ -357,7 +359,6 @@ jobs:
           rc=$?
           set -e
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
-          grep -E '^(PC_TAI_RELEASE_CONTROLLER|ACTION|TARGET_SHA|ERROR_CODE)=' "$RUNNER_TEMP/p0-staff-api-origin-controller.log" || true
       - name: Export sanitized bounded evidence
         id: evidence
         if: always()
@@ -366,6 +367,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          trap 'rm -f "$RUNNER_TEMP/p0-staff-api-origin-controller.log"' EXIT
           report="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/staff-api-origin-repair.json"
           python3 - "$report" "$TARGET_SHA" "$GITHUB_OUTPUT" "${CONTROLLER_RC:-99}" <<'PY'
           import json, sys
@@ -448,6 +450,8 @@ jobs:
       github.event.issue.number == 3072 &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
       github.event.comment.body == '/production p0-staff-api-origin-repair-local current-main' &&
       needs.resolve.result == 'success' &&
       needs.repair.outputs.evidence_json != ''
