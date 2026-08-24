@@ -1,0 +1,251 @@
+{
+  "schemaVersion": "pc-crop.data-classification.v1",
+  "authority": "Owner decision for «Прозрачная Цена» + «ГЕКТА». Canonical source of truth for code, tests, masking, AI minimization, outbound telemetry, the analytics boundary, the secret inventory, ASVS evidence and policy documents.",
+  "regulatoryBasis": {
+    "regime": "152-ФЗ",
+    "productionLevel": "УЗ-2",
+    "productionScope": "Ordinary personal data of users, employees, counterparties and sole traders.",
+    "specialAndBiometric": "Out of the current target scope. Collection, storage, processing and transfer are prohibited by default. Actual processing found in the product is a defect or a separate isolated contour. If ever introduced deliberately, the level is not below УЗ-1 until a separate decision.",
+    "publicContacts": "Business contacts published by the subject themselves are permitted only in an isolated public-only contour, where minimal УЗ-4 handling applies.",
+    "anonymised": "Anonymised and aggregated data that cannot identify a natural person directly or indirectly is not personal data."
+  },
+  "notAnAuthorityFor": [
+    "migration or re-encryption of production data",
+    "widening processing to special or biometric personal data",
+    "weakening any security control"
+  ],
+  "classes": [
+    {
+      "id": "C0_PUBLIC_NON_PD",
+      "title": "Public, not personal data",
+      "personalData": false,
+      "prohibited": false,
+      "examples": [
+        "public marketing content",
+        "publicly reachable pages",
+        "anonymised aggregate statistics"
+      ],
+      "handling": {}
+    },
+    {
+      "id": "C1_INTERNAL_NON_PD",
+      "title": "Internal, not personal data",
+      "personalData": false,
+      "prohibited": false,
+      "examples": [
+        "technical statuses",
+        "internal reference data without personal data",
+        "service metadata that identifies no natural person"
+      ],
+      "handling": {}
+    },
+    {
+      "id": "C2_BUSINESS_CONFIDENTIAL",
+      "title": "Commercially confidential, not necessarily personal",
+      "personalData": false,
+      "prohibited": false,
+      "examples": [
+        "non-public deal terms",
+        "prices",
+        "contract parameters",
+        "internal decisions",
+        "dispute and evidence material without personal data",
+        "legal-entity bank details not tied to a natural person"
+      ],
+      "handling": {
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true
+      },
+      "handlingSource": "Derived from the analytics boundary rule, which excludes every private, deal, document and payment surface. Per-class outbound rules for this class are not specified by the owner decision and are recorded as open."
+    },
+    {
+      "id": "C3_PD_BASIC",
+      "title": "Ordinary personal data, basic",
+      "personalData": true,
+      "prohibited": false,
+      "examples": [
+        "full name",
+        "work email",
+        "phone",
+        "job title",
+        "organisation membership",
+        "role in the system",
+        "business contact data of a natural person"
+      ],
+      "handling": {
+        "redactOutbound": true,
+        "neverSessionReplayOnPrivate": true
+      }
+    },
+    {
+      "id": "C4_PD_ACCOUNT",
+      "title": "Account and access personal data",
+      "personalData": true,
+      "prohibited": false,
+      "examples": [
+        "login or email as sign-in identifier",
+        "email and phone confirmation",
+        "auth events",
+        "MFA enrollment metadata",
+        "session ownership metadata",
+        "device or session linkage tied to a person"
+      ],
+      "handling": {
+        "redactOutbound": true,
+        "neverSessionReplayOnPrivate": true
+      }
+    },
+    {
+      "id": "C5_PD_IDENTITY",
+      "title": "Identity documents and identifiers",
+      "personalData": true,
+      "prohibited": false,
+      "examples": [
+        "passport data",
+        "INN of a natural person",
+        "SNILS",
+        "driving licence",
+        "other identifiers of a natural person"
+      ],
+      "handling": {
+        "redactInLogs": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverQueryString": true
+      }
+    },
+    {
+      "id": "C6_PD_FINANCIAL",
+      "title": "Financial data of a natural person or sole trader",
+      "personalData": true,
+      "prohibited": false,
+      "examples": [
+        "bank details of a natural person or sole trader",
+        "account numbers of a natural person or sole trader",
+        "payment identifiers",
+        "billing and payment records tied to a person",
+        "tax and settlement documents containing personal data"
+      ],
+      "handling": {
+        "redactInLogs": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverQueryString": true
+      }
+    },
+    {
+      "id": "C7_PD_OPERATIONAL",
+      "title": "Operational data that becomes personal through linkage",
+      "personalData": true,
+      "prohibited": false,
+      "examples": [
+        "routes and logistics events tied to a driver",
+        "geolocation of a natural person",
+        "information about an employee, driver, laboratory technician, surveyor or representative",
+        "documents and attachments containing personal data",
+        "document metadata that identifies a person"
+      ],
+      "handling": {
+        "redactInLogs": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverQueryString": true
+      }
+    },
+    {
+      "id": "C8_PD_SPECIAL",
+      "title": "Special categories of personal data",
+      "personalData": true,
+      "prohibited": true,
+      "examples": [
+        "out of scope by owner decision"
+      ],
+      "handling": {
+        "redactInLogs": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverQueryString": true
+      }
+    },
+    {
+      "id": "C9_PD_BIOMETRIC",
+      "title": "Biometric personal data",
+      "personalData": true,
+      "prohibited": true,
+      "examples": [
+        "out of scope by owner decision"
+      ],
+      "handling": {
+        "redactInLogs": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverQueryString": true
+      }
+    },
+    {
+      "id": "C10_AUTH_SECRET",
+      "title": "Authentication secrets",
+      "personalData": false,
+      "prohibited": false,
+      "examples": [
+        "passwords",
+        "password hashes",
+        "TOTP seeds",
+        "backup codes",
+        "recovery codes",
+        "session tokens",
+        "refresh tokens",
+        "cookies",
+        "user API tokens"
+      ],
+      "handling": {
+        "neverLog": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverExternalAI": true,
+        "neverQueryString": true,
+        "neverRedisplay": true
+      }
+    },
+    {
+      "id": "C11_CRYPTO_SECRET",
+      "title": "Cryptographic and system secrets",
+      "personalData": false,
+      "prohibited": false,
+      "examples": [
+        "encryption keys",
+        "KEK and DEK",
+        "signing keys",
+        "Vault secrets",
+        "application secrets",
+        "service credentials",
+        "private keys"
+      ],
+      "handling": {
+        "neverLog": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverExternalAI": true,
+        "neverQueryString": true,
+        "neverRedisplay": true
+      }
+    }
+  ],
+  "analyticsBoundary": "Analytics and session replay are permitted only on public-only pages. Private, account, admin, deal, document, payment, MFA and registration-sensitive surfaces are excluded fail-closed.",
+  "financialRule": "Legal-entity bank and settlement data with no link to a natural person is C2_BUSINESS_CONFIDENTIAL. The same data linked to a natural person or sole trader is C6_PD_FINANCIAL.",
+  "extensionRule": "A new data type must be mapped explicitly to one of C0–C11, or introduced as a new canonical class with evidence and tests. No downstream control may drop a canonical class because its own terminology differs.",
+  "openItems": [
+    "Per-class retention periods are not specified by this decision.",
+    "Database-level encryption requirements per class are not specified by this decision.",
+    "Integrity-verification requirements per class are not specified by this decision.",
+    "Per-class outbound rules for C2_BUSINESS_CONFIDENTIAL are not specified; it currently inherits protection from the analytics boundary only.",
+    "The necessity carve-out for C3/C4 in outbound channels is not defined per field. User agent is currently redacted under the literal rule; relaxing it for diagnostics would be an owner decision."
+  ]
+}

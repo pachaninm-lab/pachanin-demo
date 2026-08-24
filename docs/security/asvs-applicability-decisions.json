@@ -2693,7 +2693,8 @@
         "documentation-set:docs/security/THREAT_MODEL.md",
         "documentation-set:SECURITY.md",
         "implemented-rotation:apps/api/src/modules/settlement-engine/bank-key-registry.service.ts",
-        "implemented-rotation:apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+        "implemented-rotation:apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+        "data-policy:docs/security/DATA_CLASSIFICATION.md"
       ],
       "conditions": [
         {
@@ -2720,9 +2721,19 @@
             "crypto-period",
             "key management policy"
           ]
+        },
+        {
+          "condition": "the approved data classification exists and gives the key policy something to protect",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/data-classification.json"
+          ],
+          "patterns": [
+            "c11_crypto_secret"
+          ]
         }
       ],
-      "note": "There is no key management policy. docs/security/SECRET_ROTATION_REGISTER.md is named so that a reader will reach for it here, so it is named explicitly: it is a secret-exposure scan report plus an incident procedure for what to do when a credential is found in Git. It defines no crypto-period, no custody rule, no limit on how many entities may hold a shared secret, and no alignment to a key management standard. Its own closing line says the inventory for material held outside Git \"does not exist yet\". The gap is the policy, not the capability - two subsystems already implement real key replacement (versioned outbox keys, bank keys with overlapping windows and database-backed revocation), and they do it without a written rule to implement. What that rule should say is an owner decision."
+      "note": "There is no key management policy. docs/security/SECRET_ROTATION_REGISTER.md is named so that a reader will reach for it here, so it is named explicitly: it is a secret-exposure scan report plus an incident procedure for what to do when a credential is found in Git. It defines no crypto-period, no custody rule, no limit on how many entities may hold a shared secret, and no alignment to a key management standard. Its own closing line says the inventory for material held outside Git \"does not exist yet\". The gap is the policy, not the capability - two subsystems already implement real key replacement (versioned outbox keys, bank keys with overlapping windows and database-backed revocation), and they do it without a written rule to implement. What that rule should say is an owner decision. Update: the owner has since approved a canonical data classification, which supplies the policy basis this requirement was missing on one side - C11_CRYPTO_SECRET now names what counts as key material and states that it is never logged, never sent to analytics, telemetry or an external model, and never carried in a query string. That is handling, not lifecycle. This requirement additionally asks for a key management standard, a crypto-period per key and a limit on how many entities may hold a shared secret, and none of those is decided. The verdict therefore does not change, and the remaining gap is now smaller and precisely stated rather than open-ended."
     },
     {
       "requirementId": "V11.1.2",
@@ -2731,7 +2742,9 @@
       "evidence": [
         "adjacent-artefact:docs/security/SUPPLY_CHAIN_MATRIX.md",
         "documentation-set:docs/security/THREAT_MODEL.md",
-        "documentation-set:SECURITY.md"
+        "documentation-set:SECURITY.md",
+        "inventory:docs/security/cryptographic-inventory.json",
+        "data-policy:docs/security/DATA_CLASSIFICATION.md"
       ],
       "conditions": [
         {
@@ -2755,9 +2768,29 @@
           "patterns": [
             "sbom"
           ]
+        },
+        {
+          "condition": "the mechanical inventory of algorithms and key names exists",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/cryptographic-inventory.json"
+          ],
+          "patterns": [
+            "pc-crop.cryptographic-inventory.v1"
+          ]
+        },
+        {
+          "condition": "the data side of the mapping exists, so what is missing is the link between the two",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/data-classification.json"
+          ],
+          "patterns": [
+            "c11_crypto_secret"
+          ]
         }
       ],
-      "note": "No cryptographic inventory exists. The SBOM work already merged is adjacent and must not be offered as if it answered this: an SBOM enumerates components, while this requirement asks for keys, algorithms and certificates, where each key may and may not be used, and which data each key may protect. Nothing in the repository states any of that. The material for one is now measurable - one cipher (AES-256-GCM, 15 sites), one hash (SHA-256), one MAC (HMAC-SHA256), one KDF (HKDF-SHA256), one password function (bcrypt), and roughly eleven distinct key-holding subsystems - but a measurement taken once during an assessment is not a maintained inventory, and this decision does not pretend otherwise."
+      "note": "No cryptographic inventory exists. The SBOM work already merged is adjacent and must not be offered as if it answered this: an SBOM enumerates components, while this requirement asks for keys, algorithms and certificates, where each key may and may not be used, and which data each key may protect. Nothing in the repository states any of that. The material for one is now measurable - one cipher (AES-256-GCM, 15 sites), one hash (SHA-256), one MAC (HMAC-SHA256), one KDF (HKDF-SHA256), one password function (bcrypt), and roughly eleven distinct key-holding subsystems - but a measurement taken once during an assessment is not a maintained inventory, and this decision does not pretend otherwise. Update: two of the three pieces this requirement asks for now exist and are maintained. The algorithm and key-name inventory is generated by a repository-owned mechanism and guarded against going stale (V11.1.3), and the approved data classification defines the types of data that exist and how each class must be handled. What is still missing is the link between them - which key may protect which class of data, and where each key may and may not be used. That mapping is partly derivable from code and partly a decision: which keys a given subsystem is permitted to use is not observable from the fact that it currently uses them. The verdict stands, with the gap reduced to that single named artefact."
     },
     {
       "requirementId": "V11.1.3",
@@ -4120,78 +4153,89 @@
     {
       "requirementId": "V14.1.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "documentation-set:docs/security/THREAT_MODEL.md",
-        "documentation-set:SECURITY.md",
-        "not-this:docs/ip/proprietary-core-boundary.json",
-        "implicit-classification:apps/api/src/common/middleware/log-masking.middleware.ts"
+        "policy:docs/security/DATA_CLASSIFICATION.md",
+        "schema:docs/security/data-classification.json",
+        "code-mirror:apps/api/src/common/security/data-classes.ts",
+        "binding-test:apps/api/src/common/security/data-classes.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the security documentation set still identifies no sensitive data and no protection levels",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the approved classification still exists in machine-readable form",
+          "check": "PRESENT_AT_PATH",
           "paths": [
-            "docs/security/THREAT_MODEL.md",
-            "SECURITY.md"
+            "docs/security/data-classification.json"
           ],
           "patterns": [
-            "personal data",
-            "персональн",
-            "protection level",
-            "data classification"
+            "pc-crop.data-classification.v1"
           ]
         },
         {
-          "condition": "the platform still encodes an implicit view of which data classes are sensitive, so the raw material for a classification exists",
+          "condition": "it still records the regulatory level the classification was made against",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/common/middleware/log-masking.middleware.ts"
+            "docs/security/data-classification.json"
           ],
           "patterns": [
-            "mask"
+            "уз-2"
+          ]
+        },
+        {
+          "condition": "the policy document still carries the owner approval",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/DATA_CLASSIFICATION.md"
+          ],
+          "patterns": [
+            "approved by the owner"
+          ]
+        },
+        {
+          "condition": "the code still mirrors the class list",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/data-classes.ts"
+          ],
+          "patterns": [
+            "data_class_ids"
           ]
         }
       ],
-      "note": "No sensitive data has been identified or classified into protection levels. The absence is stated carefully because a keyword search misleads here: docs/ip/proprietary-core-boundary.json and docs/ip/CHAIN_OF_TITLE_REGISTER.md match a search for \"classification\" and classify code provenance, not data - they answer the IP programme, not this requirement. Neither the threat model nor the security policy mentions personal data at all. What makes this a documentation gap rather than an ignorance gap is that the platform already acts on an implicit classification: the log-masking middleware names eight data classes worth masking, and the AI assistant denies a further list of key names. Those lists disagree with each other, which is what happens when the classification is implicit. Writing the real one is an owner decision, and a regulatory one under 152-ФЗ rather than a technical one."
+      "note": "Sensitive data is identified and classified into protection levels, and the classification takes account of the regulation the platform is subject to. The owner approved twelve canonical classes - C0 public non-personal, C1 internal non-personal, C2 business confidential, C3 basic personal, C4 account and access, C5 identity, C6 financial, C7 operational-by-linkage, C8 special and C9 biometric as prohibited in the current scope, C10 authentication secrets and C11 cryptographic secrets - against a stated 152-ФЗ basis of not below УЗ-2 for the production contour, with special and biometric categories out of scope and prohibited by default, publicly self-disclosed business contacts confined to an isolated public-only contour at УЗ-4, and anonymised aggregates held not to be personal data at all. What makes this a classification rather than a document is that it is binding: the schema is machine-readable, the code mirrors it, and a test fails if the two disagree on the class list, on which classes are redacted outbound or on which may never appear in a query string. The three classifications that previously disagreed - eight value classes in log masking, eleven key names in the assistant minimizer, twenty-two secret names in the cryptographic inventory - are now mapped onto this one, and every field name resolves to exactly one class."
     },
     {
       "requirementId": "V14.1.2",
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "documentation-set:docs/security/THREAT_MODEL.md",
-        "documentation-set:SECURITY.md",
-        "unspecified-implementation:apps/api/src/modules/gekta/gekta-phone.service.ts",
-        "unspecified-implementation:apps/api/src/auth-mail-worker.ts"
+        "policy:docs/security/DATA_CLASSIFICATION.md",
+        "schema:docs/security/data-classification.json",
+        "binding-test:apps/api/src/common/security/data-classes.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "no protection requirements are documented for any data class",
-          "check": "ABSENT_AT_PATH",
+          "condition": "protection requirements exist for the classes, so the gap is the remaining elements rather than the whole document",
+          "check": "PRESENT_AT_PATH",
           "paths": [
-            "docs/security/THREAT_MODEL.md",
-            "SECURITY.md"
+            "docs/security/DATA_CLASSIFICATION.md"
           ],
           "patterns": [
-            "protection requirements",
-            "retention",
-            "database-level encryption",
-            "protection level"
+            "handling rules"
           ]
         },
         {
-          "condition": "implementations that such a document would govern still exist without it",
+          "condition": "the schema still records that retention, database-level encryption and integrity verification are unspecified",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/gekta/gekta-phone.service.ts"
+            "docs/security/data-classification.json"
           ],
           "patterns": [
-            "aes-256-gcm"
+            "per-class retention periods are not specified"
           ]
         }
       ],
-      "note": "With no protection levels defined (V14.1.1) there is nothing for protection requirements to attach to, but this requirement fails on its own evidence rather than by inheritance. It asks for a documented set covering encryption, integrity verification, retention, how data is logged, access control over sensitive data in logs, database-level encryption and privacy technologies. Several of those are implemented: phone numbers and MFA secrets are encrypted at rest with AES-256-GCM, personal data is masked before logging, and the auth-mail outbox redacts terminal entries after seven days. Not one of them is specified anywhere, so there is no statement an implementation could be measured against and no way to tell whether a data class that lacks a control is an omission or a decision."
+      "note": "Most of this requirement is now met and the remainder is named precisely rather than waved through. The owner decision documents protection requirements per class and they are enforced in code: C10 and C11 are never logged, never sent to analytics, telemetry or an external model, never carried in a query string; C5 to C9 are redacted in logs, outbound telemetry, breadcrumbs and error payloads and excluded from session replay; C3 and C4 are redacted outbound and excluded from replay on authenticated pages; and the analytics boundary is fail-closed. That covers the requirement’s elements on how data is logged, on confidentiality in outbound channels and on privacy-enhancing technology. Four of the elements the requirement enumerates are not specified, and the schema says so itself rather than leaving a reader to assume otherwise: per-class retention periods, database-level encryption requirements, integrity-verification requirements, and per-class outbound rules for C2, which currently inherits protection only from the analytics boundary. This is recorded as a failure rather than a pass because the requirement enumerates those elements explicitly and the approved artefact lists them as open. An owner statement that the decision is sufficient is authority over what the classification is; it is not evidence that a retention period exists, and recording a pass on it would be substituting an assertion for evidence. One further short decision - retention, database-level encryption and integrity verification per class - closes this."
     },
     {
       "requirementId": "V14.2.1",
