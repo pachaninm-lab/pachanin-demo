@@ -19,8 +19,10 @@
  * ended. Those run at flush, where they are appends rather than retractions.
  */
 import {
+  CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN,
   currentEvidenceVerdict,
   groundingAuthority,
+  isUngroundedCropProtectionPrescription,
   platformGroundingVerdict,
   sanitizeAnswer,
   splitAnswerBlocks,
@@ -146,6 +148,13 @@ export class StreamingAnswerGate {
       }
     }
 
+    if (progressiveFragment) {
+      const candidate = this.partialBlockOpen && this.progressiveSafetyContext
+        ? `${this.progressiveSafetyContext} ${head}`
+        : head;
+      if (CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN.test(candidate)) return EMPTY_COMMIT;
+    }
+
     this.pending = this.pending.slice(consumed);
 
     const flags: string[] = [];
@@ -167,6 +176,10 @@ export class StreamingAnswerGate {
       // rule makes a refused stream unusable end to end.
       if (WRITE_CLAIM_PATTERN.test(safetyBlock)) return this.refuse('WRITE_CLAIM');
       if (SECRET_PATTERN.test(safetyBlock)) return this.refuse('SECRET');
+      if (isUngroundedCropProtectionPrescription(safetyBlock)) {
+        flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+        continue;
+      }
 
       if (this.options.answerMode === 'verified_platform') {
         const verdict = platformGroundingVerdict(block, this.authority);

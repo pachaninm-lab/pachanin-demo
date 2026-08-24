@@ -42,8 +42,38 @@ export const LIVE_CAPABILITY_PATTERN = /(?:уже\s+(?:работает|дост
 // already-classified current-evidence contour.
 export const EXACT_CURRENT_CLAIM_PATTERN = /(?:\d{1,3}(?:[ \u00A0\u202F]\d{3})*(?:[.,]\d+)?\s*(?:%|₽|руб(?:\.|лей|ля)?|долл(?:\.|аров)?|т\/га|ц\/га|тонн(?:а|ы)?|тыс\.?|млн\.?|°c)|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})/iu;
 
+// Public general-agro answers do not carry a governed, current pesticide-registration
+// catalogue. Prescription-shaped chemical recommendations therefore fail closed: the
+// assistant may explain integrated protection and ask for region/stage, but must not
+// name an active ingredient/product as the user's treatment instruction.
+export const CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,200}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)/iu;
+export const UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,160}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)[^.!?。！？\n]{0,120}(?:на\s+основе|с\s+содержани\w*|с\s+действующ\w*\s+веществ\w*|\bс\s+[\p{L}-]{4,}(?:\s+или\s+[\p{L}-]{4,})?|containing|active\s+ingredient|with\s+[A-Za-z][A-Za-z-]{3,}|有效成分|含有)/iu;
+
+export function isUngroundedCropProtectionPrescription(block: string): boolean {
+  return UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN.test(block);
+}
+
+export function stripUngroundedCropProtectionPrescriptions(
+  answer: string,
+  safetyFlags?: string[],
+): string {
+  const filteredLines = answer.split('\n').map((line) => {
+    if (!isUngroundedCropProtectionPrescription(line)) return line;
+    const keptSentences = line
+      .split(/(?<=[!?。！？])\s+|(?<!\d)(?<=\.)\s+/u)
+      .filter((sentence) => {
+        if (!isUngroundedCropProtectionPrescription(sentence)) return true;
+        safetyFlags?.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+        return false;
+      });
+    return keptSentences.join(' ');
+  });
+
+  return filteredLines.join('\n').replace(/\n{3,}/gu, '\n\n').trim();
+}
+
 export function sanitizeAnswer(value: string): string {
-  return value
+  const cleaned = value
     .replace(/\[([^\]]+)\]\((?:https?:\/\/|\/)[^)]+\)/gu, '$1')
     .replace(/<[^>]+>/gu, ' ')
     .replace(/```[\s\S]*?```/gu, (block) => block.replace(/```\w*/gu, '').replace(/```/gu, ''))
@@ -58,6 +88,8 @@ export function sanitizeAnswer(value: string): string {
     .replace(/\n{3,}/gu, '\n\n')
     .trim()
     .slice(0, 12_000);
+
+  return cleaned;
 }
 
 export function splitAnswerBlocks(value: string): string[] {

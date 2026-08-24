@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-screenshot-defects-4561",
+  "status": "active",
+  "purpose": "Repair production Gekta defects proven by real mobile screenshots: streamed text boundary corruption, unreadable registration hero, project bullets/pluralization, internal registration copy leakage, mobile action color drift and unsafe over-specific plant-disease guidance.",
+  "approvedBy": "owner-instruction-2026-08-24-finish-all-gekta-screenshot-defects",
+  "authorityBaseExactMain": "b22ef29ab38347ed6953352da0faefb9e16d3981",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "concurrencyBoundary": "Gekta public/mobile presentation and restricted-public model safety/streaming only. PC-CROP staff registration authority, PostgreSQL, MFA, entitlement, billing, roles, Deal authority and production infrastructure must not be modified.",
+  "allowedPaths": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.internal-trace.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.internal-trace.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.disease-completeness.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/web/components/gekta/GektaProjectList.tsx",
+    "apps/web/components/gekta/GektaRegistrationClient.tsx",
+    "apps/web/components/gekta/GektaMessage.tsx",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/components/gekta/GektaAccessGate.tsx",
+    "apps/web/tests/unit/gektaWorkspaceIa.test.ts",
+    "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+    "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
+    "apps/web/tests/unit/gektaScreenshotDefects.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-screenshot-defects-4561.json"
+  ],
+  "requiredBehavior": [
+    "safe streamed fragments preserve inter-fragment whitespace exactly",
+    "internal reasoning/tool traces remain fail-closed",
+    "project lists never render browser bullets and Russian conversation counts use correct plural forms",
+    "registration hero remains readable even if gradients fail or are overridden",
+    "public registration helper copy contains no internal DECLARED marker",
+    "mobile chat controls use the Gekta slate/emerald palette rather than inherited link-blue styling",
+    "plant-disease guidance without region, crop stage and current registration evidence does not prescribe a concrete active ingredient, product, dose or interval",
+    "320/375/390/430 layouts retain zero horizontal overflow and primary actions at least 44x44 CSS px"
+  ],
+  "forbiddenCapabilities": [
+    "registration backend, auth, MFA, PostgreSQL, entitlement, billing, role or Deal-authority changes",
+    "model secret, identity, endpoint or deployment infrastructure changes",
+    "acceptance weakening, retries or masking the defect after rendering",
+    "new paid service, dependency or recurring cost",
+    "direct production mutation before exact-head gates and normal release authority"
+  ],
+  "acceptance": [
+    "all changed files remain inside allowedPaths",
+    "focused API/web unit regressions pass",
+    "exact-head CI, security, governance and production-like gates pass",
+    "after merge, exact-SHA REG.RU release and Gekta production mobile acceptance pass",
+    "production screenshots show readable registration header, no project bullets, correct Russian pluralization and intact answer whitespace"
+  ]
+}

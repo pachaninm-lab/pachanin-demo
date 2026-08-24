@@ -39,7 +39,6 @@ describe('StreamingAnswerGate', () => {
     expect(gate.push('Озимая пшеница страдает от').text).toBe('');
     const first = gate.push(' переувлажнения. Дальше идёт');
 
-    // The point of the whole path: usable text exists before generation ends.
     expect(first.text).toBe('Озимая пшеница страдает от переувлажнения.');
     expect(gate.withheld.trim()).toBe('Дальше идёт');
   });
@@ -53,6 +52,22 @@ describe('StreamingAnswerGate', () => {
     expect(first.text).toMatch(/корн|влажност/iu);
     expect(first.text.endsWith(' ')).toBe(false);
     expect(gate.violation).toBeNull();
+  });
+
+  it('does not progressively leak an ungrounded crop-protection prescription before the sentence is complete', () => {
+    const gate = generalGate();
+
+    const first = gate.push('Для профилактики болезни применяйте зарегистрированные препараты ');
+    expect(first.text).toBe('');
+    expect(gate.emitted).toBe('');
+
+    const second = gate.push('на основе манкозеба или металаксила. Проводите санитарную уборку поражённых листьев. ');
+    gate.flush();
+
+    expect(second.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(gate.emitted).not.toContain('манкозеба');
+    expect(gate.emitted).not.toContain('металаксила');
+    expect(gate.emitted).toContain('санитарную уборку');
   });
 
   it('keeps verified-platform text on complete-block release semantics', () => {
@@ -166,8 +181,6 @@ describe('StreamingAnswerGate', () => {
 
     expect(verdict.violation).toBe('WRITE_CLAIM');
     expect(gate.violation).toBe('WRITE_CLAIM');
-    // Nothing further is released: the caller seals the stream with a refusal,
-    // and a refused stream is unusable end to end.
     expect(gate.push('Ещё текст. ').text).toBe('');
   });
 
@@ -251,7 +264,6 @@ describe('ProviderStreamParser', () => {
   it('survives a chunk boundary inside a multi-byte character', () => {
     const parser = new ProviderStreamParser();
     const bytes = encode(sseChunk('小麦发黄'));
-    // Split at a byte that cannot be a character boundary for this payload.
     const cut = bytes.length - 6;
 
     const first = parser.push(bytes.slice(0, cut));
