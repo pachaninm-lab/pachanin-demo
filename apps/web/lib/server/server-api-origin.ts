@@ -1,4 +1,5 @@
 const COMPOSE_INTERNAL_API_ORIGIN = 'http://api:3001';
+const COMPOSE_INTERNAL_API_BASE = `${COMPOSE_INTERNAL_API_ORIGIN}/api`;
 
 function normalizeConfiguredOrigin(raw: string, production: boolean): string {
   try {
@@ -8,8 +9,8 @@ function normalizeConfiguredOrigin(raw: string, production: boolean): string {
 
     if (production && url.protocol === 'http:') {
       if (url.origin !== COMPOSE_INTERNAL_API_ORIGIN) return '';
-      if (url.pathname !== '/' && url.pathname !== '') return '';
-      return COMPOSE_INTERNAL_API_ORIGIN;
+      if (url.pathname !== '/api' && url.pathname !== '/api/') return '';
+      return COMPOSE_INTERNAL_API_BASE;
     }
 
     return url.toString().replace(/\/$/, '');
@@ -26,7 +27,7 @@ export function resolveServerApiOrigin(env: NodeJS.ProcessEnv = process.env): st
     return normalizeConfiguredOrigin(explicitServerOrigin, production);
   }
 
-  if (production) return COMPOSE_INTERNAL_API_ORIGIN;
+  if (production) return COMPOSE_INTERNAL_API_BASE;
 
   const publicDevelopmentOrigin = String(env.NEXT_PUBLIC_API_URL || '').trim();
   return publicDevelopmentOrigin
@@ -34,4 +35,4 @@ export function resolveServerApiOrigin(env: NodeJS.ProcessEnv = process.env): st
     : '';
 }
 
-export const CANONICAL_COMPOSE_API_ORIGIN = COMPOSE_INTERNAL_API_ORIGIN;
+export const CANONICAL_COMPOSE_API_ORIGIN = COMPOSE_INTERNAL_API_BASE;
