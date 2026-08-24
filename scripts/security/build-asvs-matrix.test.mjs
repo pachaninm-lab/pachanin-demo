@@ -133,6 +133,77 @@ test('PRESENT_AT_PATH holds only when every named path carries the control', () 
   assert.equal(one.holds, true);
 });
 
+test('PRESENT_AT_PATH treats several patterns as alternatives, PRESENT_ALL_AT_PATH as combined evidence', () => {
+  // The real case this came from: a condition claiming a verifier both checks a
+  // signature and rejects an invalid one. With .some(), deleting the rejection
+  // leaves the decision standing on the half that remains.
+  const halfGone = { 'a/verify.ts': 'const valid = await crypto.subtle.verify(alg, key, sig, body);\nreturn payload;' };
+  const intact = { 'a/verify.ts': 'const valid = await crypto.subtle.verify(alg, key, sig, body);\nif (!valid) return null;\nreturn payload;' };
+  const patterns = ['crypto.subtle.verify', 'if (!valid) return null'];
+
+  const anyOf = { condition: 'verified and rejected', check: 'PRESENT_AT_PATH', paths: ['a/verify.ts'], patterns };
+  assert.equal(evaluateCondition(anyOf, pathContext(intact)).holds, true);
+  assert.equal(
+    evaluateCondition(anyOf, pathContext(halfGone)).holds,
+    true,
+    'PRESENT_AT_PATH is an OR: this is why a condition meaning AND must not use it',
+  );
+
+  const allOf = { ...anyOf, check: 'PRESENT_ALL_AT_PATH' };
+  assert.equal(evaluateCondition(allOf, pathContext(intact)).holds, true);
+  assert.equal(
+    evaluateCondition(allOf, pathContext(halfGone)).holds,
+    false,
+    'PRESENT_ALL_AT_PATH revokes the decision as soon as one of the named facts goes',
+  );
+});
+
+test('PRESENT_ALL_AT_PATH needs every pattern in every named path, not one each', () => {
+  // The other half of the same defect: with .some() and two paths, each file
+  // matching a different pattern satisfies the condition, so a claim of "both
+  // facts on both paths" is only ever checked along the diagonal.
+  const split = {
+    'a/one.ts': "if (session_status === 'revoked') throw new Error();",
+    'b/two.ts': "if (session_status === 'expired') throw new Error();",
+  };
+  const patterns = ["session_status === 'revoked'", "session_status === 'expired'"];
+  const paths = ['a/one.ts', 'b/two.ts'];
+
+  assert.equal(
+    evaluateCondition({ condition: 'both statuses on both paths', check: 'PRESENT_AT_PATH', paths, patterns }, pathContext(split)).holds,
+    true,
+    'the OR check is satisfied by a diagonal, which is what makes it misleading here',
+  );
+  assert.equal(
+    evaluateCondition({ condition: 'both statuses on both paths', check: 'PRESENT_ALL_AT_PATH', paths, patterns }, pathContext(split)).holds,
+    false,
+  );
+
+  const complete = {
+    'a/one.ts': "if (session_status === 'revoked' || session_status === 'expired') throw new Error();",
+    'b/two.ts': "if (session_status === 'expired' || session_status === 'revoked') throw new Error();",
+  };
+  assert.equal(
+    evaluateCondition({ condition: 'both statuses on both paths', check: 'PRESENT_ALL_AT_PATH', paths, patterns }, pathContext(complete)).holds,
+    true,
+  );
+});
+
+test('PRESENT_ALL_AT_PATH keeps the missing-path and empty-pattern guards', () => {
+  const gone = evaluateCondition({
+    condition: 'control lives here', check: 'PRESENT_ALL_AT_PATH',
+    paths: ['apps/gone/route.ts'], patterns: ['a', 'b'],
+  }, pathContext({ 'apps/here/route.ts': 'ab' }));
+  assert.equal(gone.holds, false);
+  assert.match(gone.evidence, /path not tracked/u);
+
+  const noPatterns = evaluateCondition({
+    condition: 'declares nothing', check: 'PRESENT_ALL_AT_PATH',
+    paths: ['a/route.ts'], patterns: [],
+  }, pathContext({ 'a/route.ts': 'anything' }));
+  assert.equal(noPatterns.holds, false);
+});
+
 test('a decision pointing at a path that no longer exists stops holding', () => {
   const moved = evaluateCondition({
     condition: 'control lives here', check: 'PRESENT_AT_PATH',

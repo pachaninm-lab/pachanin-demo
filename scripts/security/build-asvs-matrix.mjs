@@ -196,7 +196,20 @@ export function evaluateCondition(condition, { tracked, readFile }) {
   // self-revoking - the moment somebody closes the gap, the condition stops
   // holding, the decision is rejected, and the requirement returns to
   // assessment. A FAIL cannot rust in the matrix after it has been fixed.
-  if (condition.check === 'PRESENT_AT_PATH' || condition.check === 'ABSENT_AT_PATH') {
+  // PRESENT_ALL_AT_PATH exists because the two checks above match their
+  // patterns with .some(): several patterns in one condition are alternatives,
+  // not combined evidence. That is right when the patterns are spellings of one
+  // control (a DI token and its class name), and wrong when a condition means
+  // "the check AND the rejection are both still here" - there, dropping the
+  // rejection leaves the other pattern matching and the decision standing on a
+  // control that is half gone. This check requires every pattern in every named
+  // path, so a condition can say which of the two it meant instead of leaving a
+  // reader to guess from the prose.
+  if (
+    condition.check === 'PRESENT_AT_PATH'
+    || condition.check === 'ABSENT_AT_PATH'
+    || condition.check === 'PRESENT_ALL_AT_PATH'
+  ) {
     const paths = condition.paths ?? [];
     if (paths.length === 0) {
       return { condition: condition.condition, holds: false, evidence: 'condition declares no paths' };
@@ -211,11 +224,14 @@ export function evaluateCondition(condition, { tracked, readFile }) {
         evidence: `path not tracked: ${missing.join(', ')}`,
       };
     }
+    const requireEveryPattern = condition.check === 'PRESENT_ALL_AT_PATH';
     const hits = paths.filter((path) => {
       const text = (readFile(path) ?? '').toLowerCase();
-      return patterns.some((pattern) => text.includes(pattern));
+      return requireEveryPattern
+        ? patterns.every((pattern) => text.includes(pattern))
+        : patterns.some((pattern) => text.includes(pattern));
     });
-    const wantPresent = condition.check === 'PRESENT_AT_PATH';
+    const wantPresent = condition.check !== 'ABSENT_AT_PATH';
     // PRESENT requires every named path to carry the control; ABSENT requires
     // none of them to. Neither is satisfied by a partial result.
     const holds = wantPresent ? hits.length === paths.length : hits.length === 0;
@@ -223,7 +239,7 @@ export function evaluateCondition(condition, { tracked, readFile }) {
       condition: condition.condition,
       holds,
       evidence: wantPresent
-        ? `${hits.length}/${paths.length} paths carry the control`
+        ? `${hits.length}/${paths.length} paths carry ${requireEveryPattern ? 'every pattern' : 'the control'}`
         : (hits.length === 0 ? `${paths.length} paths scanned, gap still open` : `gap closed in ${hits.join(', ')}`),
     };
   }
