@@ -4151,6 +4151,600 @@
       "note": "The three internal hops authenticate in three different ways, and only one is sound. Web to API signs each request with HMAC-SHA256 over a version, method, canonical path, timestamp and body hash, deriving the URL from the signed path constant so a signature can never cover a path other than the one dialled. API to Elasticsearch sends HTTP basic auth when ELASTICSEARCH_PASSWORD is set - a shared secret, and by V12.3.3 it travels over plaintext http, so the credential itself is exposed on the wire. API to the model service sends only Content-Type and no credential at all. Correction to the note this decision first carried: it said the other hops had no service token, signature or shared secret. That was wrong about Elasticsearch, and the condition that was meant to catch it searched for the wrong words - it looked for \"authorization\" where the file says \"auth:\" and \"password\". Both are fixed here."
     },
     {
+      "requirementId": "V13.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md",
+        "documentation-set:SECURITY.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the application still calls out to external services that a communication-needs document would have to enumerate",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ml-client/ml-client.service.ts",
+            "apps/api/src/modules/search/search.module.ts"
+          ],
+          "patterns": [
+            "fetch(",
+            "elasticsearchmodule"
+          ]
+        },
+        {
+          "condition": "no document enumerating external communication needs exists in the security documentation set",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "communication needs",
+            "external services relied upon"
+          ]
+        }
+      ],
+      "note": "No document enumerates what the application talks to over the network, for what purpose, or what happens when a call fails. THREAT_MODEL.md has trust boundaries and threat categories but no communications inventory; SECURITY.md has neither. The gap is real rather than a documentation nicety: this assessment itself had to rediscover, by reading source, that the platform calls an ML scoring service, Elasticsearch, an S3-compatible object store, a Qwen model endpoint, and Vault - and that one of those calls (ML) carries no authentication at all. A reader should not have to grep the codebase to learn that."
+    },
+    {
+      "requirementId": "V13.1.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/platform-v7/audit/SR2_POSTGRES_MIGRATION_PLAN.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the one place connection pooling is discussed is still a migration plan rather than an operating document",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/audit/SR2_POSTGRES_MIGRATION_PLAN.md"
+          ],
+          "patterns": [
+            "pgbouncer"
+          ]
+        },
+        {
+          "condition": "no per-service maximum-connections document exists in the security set",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "maximum concurrent connections",
+            "connection pool limit"
+          ]
+        }
+      ],
+      "note": "The one document that mentions connection pooling - a PgBouncer and Prisma connection_limit note in a PostgreSQL migration plan - is a future-state migration document, not a stated operating limit for any service today. No document says what the maximum concurrent connections to Postgres, Elasticsearch or the ML service are, or what the application does when a limit is reached."
+    },
+    {
+      "requirementId": "V13.1.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the application still holds resources - database connections, file handles, HTTP connections - across multiple external systems that a strategy document would have to cover",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ml-client/ml-client.service.ts",
+            "apps/api/src/modules/search/search.module.ts"
+          ],
+          "patterns": [
+            "fetch(",
+            "elasticsearchmodule"
+          ]
+        },
+        {
+          "condition": "no resource-management strategy document exists",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "resource-management strategy",
+            "resource management strategy"
+          ]
+        }
+      ],
+      "note": "Same absence as V13.1.2, for the wider set: no document states a resource-management strategy for any external system the platform depends on."
+    },
+    {
+      "requirementId": "V13.1.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/common/config/secrets.ts",
+        "documentation-set:docs/security/SECRET_ROTATION_REGISTER.md"
+      ],
+      "conditions": [
+        {
+          "condition": "critical secrets are still enumerated by name in the resolver, so the material for a list exists",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/config/secrets.ts"
+          ],
+          "patterns": [
+            "requiresecret"
+          ]
+        },
+        {
+          "condition": "no rotation schedule is documented for any secret",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/SECRET_ROTATION_REGISTER.md",
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "rotation schedule",
+            "rotate every"
+          ]
+        }
+      ],
+      "note": "The secrets critical to the platform are identifiable - every requireSecret() call site names one - but no document defines a rotation schedule for any of them, based on a threat model or otherwise. SECRET_ROTATION_REGISTER.md is a scan report and an incident procedure, not a schedule; its own text says the inventory for material held outside Git does not exist yet. This is the same gap already recorded against V11.1.1, seen from the configuration side."
+    },
+    {
+      "requirementId": "V13.2.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/ml-client/ml-client.service.ts",
+        "apps/api/src/modules/search/search.module.ts",
+        "staff-boundary-counterexample:apps/api/src/modules/staff-access/staff-authority-prisma.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the ML service client still sends no authentication header of any kind",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ml-client/ml-client.service.ts"
+          ],
+          "patterns": [
+            "authorization",
+            "x-api-key",
+            "bearer"
+          ]
+        },
+        {
+          "condition": "Elasticsearch authentication is still conditional on an env var with no fail-closed guard in production",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/search/search.module.ts"
+          ],
+          "patterns": [
+            "auth: process.env.elasticsearch_password"
+          ]
+        }
+      ],
+      "note": "Two backend components that do not share the application’s session mechanism are reached without authentication, or with authentication that silently disappears if a variable is unset. The ML scoring client (ml-client.service.ts) sends every request with no Authorization header, no API key, nothing - a scan of the file finds zero occurrences of any credential mechanism. Elasticsearch authentication depends on ELASTICSEARCH_PASSWORD; when unset, auth is undefined and the client connects with none, and nothing fails the startup or the request when that happens, unlike requireSecret() elsewhere in the platform which refuses to start in production without a configured value. The counterexample is worth naming: staff-authority-prisma.service.ts shows what this looks like when done right - a boundary that throws when misconfigured rather than silently degrading."
+    },
+    {
+      "requirementId": "V13.2.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/staff-access/staff-authority-prisma.service.ts",
+        "database-principal-boundary:apps/api/src/common/prisma/database-principal-boundary.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the staff datasource still requires a distinct PostgreSQL principal from every other datasource, and still throws rather than degrading when it is not",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/staff-access/staff-authority-prisma.service.ts"
+          ],
+          "patterns": [
+            "must use a different postgresql principal"
+          ]
+        }
+      ],
+      "note": "The staff-access boundary is a real least-privilege control, not an aspiration. STAFF_DATABASE_URL, AUTH_DATABASE_URL, DATABASE_URL and STORAGE_DATABASE_URL are each required to carry a distinct PostgreSQL principal - principalFromUrl() extracts and compares them, and the service throws if the staff principal collides with any other, rather than logging a warning and continuing. A companion inspection query checks the connected principal for superuser, bypass_rls, create_db, create_role and direct runtime-table privileges. Under shouldEnforceDatabasePrincipalBoundary(), a strict acceptance and production path cannot start without a distinct STAFF_DATABASE_URL at all. This is the pattern the rest of V13.2 is measured against, and it is why the other findings in this chapter read as gaps rather than as an unreachable bar."
+    },
+    {
+      "requirementId": "V13.2.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/common/config/secrets.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no default service-authentication credential is present in application or infrastructure source",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib"
+          ],
+          "patterns": [
+            "user: 'root'",
+            "password: 'admin'",
+            "password: 'postgres'",
+            "password: 'changeme'",
+            "password: 'password'"
+          ]
+        },
+        {
+          "condition": "the central secret resolver still refuses a literal fallback in production",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/config/secrets.ts"
+          ],
+          "patterns": [
+            "refusing to start with an insecure default"
+          ]
+        }
+      ],
+      "note": "No default credential exists for service authentication anywhere in application or infrastructure source. A scan of 1132 files for the common default-credential shapes (root/root, admin/admin, postgres/postgres, changeme, a literal \"password\") returns zero matches, and the central secret resolver requireSecret() is built specifically to make a shipped default impossible: it never returns a literal fallback in production, and in any other environment it generates a random ephemeral value per process rather than a stable guessable one - the rationale comment in the file states this design goal directly."
+    },
+    {
+      "requirementId": "V13.2.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "unallowlisted:apps/api/src/modules/partner-api/partner-api.controller.ts",
+        "unallowlisted:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+        "allowlisted-counterexample:apps/api/src/modules/ai-insights/ai-assistant.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the partner webhook path still takes a URL from request input with no allowlist check before dispatch",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+          ],
+          "patterns": [
+            "fetch(url"
+          ]
+        },
+        {
+          "condition": "the counterexample allowlist this chapter measures against is still in place elsewhere in the platform",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ai-insights/ai-assistant.service.ts"
+          ],
+          "patterns": [
+            "ai_assistant_allowed_hosts"
+          ]
+        }
+      ],
+      "note": "Of 11 outbound fetch sites in the API, two take a URL from data a partner controls with no allowlist: partner-api.controller.ts accepts a webhook URL at registration, and webhook-dispatcher.service.ts dispatches to it later with no host check at either point. This is the SSRF-shaped gap this programme has already named informally; V13 gives it a permanent ASVS record. The comparison that makes the gap precise rather than a general impression: ai-assistant.service.ts and restricted-public-qwen.service.ts both check an outbound host against an explicit allowlist (AI_ASSISTANT_ALLOWED_HOSTS, a hardcoded model-host list) before ever calling fetch. The partner webhook path could use the identical pattern and does not."
+    },
+    {
+      "requirementId": "V13.2.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "unallowlisted:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the server-side dispatch path is still the one making the unallowlisted request, not a client browser",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+          ],
+          "patterns": [
+            "await fetch(url"
+          ]
+        }
+      ],
+      "note": "Same defect as V13.2.4, read from the server’s side rather than the caller’s: the API server itself is the one issuing the unallowlisted outbound request, which is exactly what this requirement asks the application server not to do without a resource allowlist."
+    },
+    {
+      "requirementId": "V13.2.6",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V13.1.2",
+        "depends-on:V13.1.3"
+      ],
+      "conditions": [
+        {
+          "condition": "no per-connection configuration document exists for this to measure conformance against",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md",
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "maximum concurrent connections",
+            "connection pool limit"
+          ]
+        }
+      ],
+      "note": "This requirement asks whether each connection follows its documented configuration - maximum parallel connections, behaviour at the limit, and so on. V13.1.2 and V13.1.3 already establish that no such documentation exists for any service. A connection cannot be shown to follow a configuration that was never written down, so this fails as a direct consequence rather than as an independent finding; closing V13.1.2/V13.1.3 is the precondition for this one ever being assessable as anything but FAIL."
+    },
+    {
+      "requirementId": "V13.3.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/common/vault/vault-transit.service.ts",
+        "apps/api/src/common/vault/vault.module.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the Vault Transit client still has no caller outside its own module wiring",
+          "check": "NO_RUNTIME_CALLER",
+          "roots": [
+            "apps/api/src"
+          ],
+          "definedAt": [
+            "apps/api/src/common/vault/vault-transit.service.ts",
+            "apps/api/src/common/vault/vault.module.ts"
+          ],
+          "patterns": [
+            "vaulttransitservice"
+          ]
+        },
+        {
+          "condition": "the dev-mode stub in the same file is still a reversible non-encryption placeholder",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/vault/vault-transit.service.ts"
+          ],
+          "patterns": [
+            "return `stub:"
+          ]
+        }
+      ],
+      "note": "A secrets-management client exists and is not used. VaultTransitService implements encrypt/decrypt through HashiCorp Vault Transit, but a scan of 475 runtime files outside its own module finds no caller - the same \"latent, not live\" shape the V11 assessment found for a second-approval signing policy. Nothing in the platform is actually secured by a secrets-management solution today; secrets are resolved from environment variables and key files by requireSecret() and the auth-mail keyring, which is a different, narrower thing than a vault that creates, stores, controls access to and destroys backend secrets. The module’s own dev-mode fallback underlines the gap: without VAULT_ADDR set it returns stub:base64(plaintext), which is encoding, not encryption, and would be a serious defect if this path were ever reached from a live caller. It is not reached at all, which is what keeps this a documentation-shaped absence rather than a live vulnerability."
+    },
+    {
+      "requirementId": "V13.3.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/common/config/secrets.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the secret resolver still takes any name string with no scoping of which caller may resolve which secret",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/config/secrets.ts"
+          ],
+          "patterns": [
+            "export function requiresecret"
+          ]
+        }
+      ],
+      "note": "Least privilege for secret access has no code-level mechanism to be measured against. requireSecret(name) is a bare function taking an arbitrary string; any module in the API process can call it with any secret name and receive the value, because the application is a single Node process reading process.env with no capability model layered over it. This is a direct, code-observable fact rather than an infrastructure unknown - unlike host-level questions elsewhere in this programme, no host or edge access is needed to see that nothing here enforces least privilege among callers in the same process. It follows from V13.3.1: a real secrets manager with per-consumer policies (which Vault, unused, would have provided) is the mechanism this requirement is built around, and the platform does not have one in effect."
+    },
+    {
+      "requirementId": "V13.3.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "docs/security/cryptographic-inventory.json",
+        "apps/api/src/common/vault/vault-transit.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the cryptographic inventory still shows encryption and decryption executing in-process rather than through Vault",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/cryptographic-inventory.json"
+          ],
+          "patterns": [
+            "\"operation\": \"encryption\""
+          ]
+        },
+        {
+          "condition": "the isolated module that could carry this work is still uncalled",
+          "check": "NO_RUNTIME_CALLER",
+          "roots": [
+            "apps/api/src"
+          ],
+          "definedAt": [
+            "apps/api/src/common/vault/vault-transit.service.ts",
+            "apps/api/src/common/vault/vault.module.ts"
+          ],
+          "patterns": [
+            "vaulttransitservice"
+          ]
+        }
+      ],
+      "note": "No cryptographic operation in the platform is performed by an isolated security module. The cryptographic inventory this programme generates and keeps current (V11.1.3) accounts for every encryption, decryption, hashing, MAC and key-derivation call site, and all of them execute via node:crypto inside the application process. The one component that could route this work through an isolated module - Vault Transit - has no runtime caller (V13.3.1), so it protects nothing today. This is a direct consequence of that same absence, not a new instance of it."
+    },
+    {
+      "requirementId": "V13.3.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "documentation-set:docs/security/SECRET_ROTATION_REGISTER.md"
+      ],
+      "conditions": [
+        {
+          "condition": "no rotation schedule is documented for any secret, and V13.1.4 already establishes the underlying document does not exist",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/SECRET_ROTATION_REGISTER.md",
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "rotation schedule",
+            "rotate every"
+          ]
+        }
+      ],
+      "note": "A secret cannot be configured to expire or rotate per a documented schedule when no schedule is documented (V13.1.4). Two subsystems - the auth-mail outbox and the bank-callback key registry - already support rotation mechanically, accepting multiple key versions with overlapping validity, which is credited under V11.2.2. Neither is driven by a written schedule; both rotate only when an operator manually introduces a new key version. This requirement fails on the absence of the schedule itself, which this decision names as the precondition rather than repeating the mechanical-capability finding already recorded elsewhere."
+    },
+    {
+      "requirementId": "V13.4.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "infra/docker/Dockerfile.api"
+      ],
+      "conditions": [
+        {
+          "condition": "the API image build is still multi-stage with a distroless runtime stage that copies only the deployed output, not the build context",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "infra/docker/Dockerfile.api"
+          ],
+          "patterns": [
+            "gcr.io/distroless/nodejs"
+          ]
+        }
+      ],
+      "note": "Source-control metadata does not reach the deployed image. The build stage does COPY . . and therefore does have .git present, but the runtime stage - the one actually shipped and run - is FROM gcr.io/distroless/nodejs...:nonroot and copies only /prod/api/ from the build stage via a scoped COPY --from=build, which excludes .git. This was checked carefully rather than assumed: a single-stage Dockerfile with COPY . . would have failed this requirement, and the difference between the two is exactly the multi-stage boundary."
+    },
+    {
+      "requirementId": "V13.4.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/main.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the application still boots with the masked logger rather than a raw or verbose one, and no explicit debug flag is set",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "new maskedloggerservice()"
+          ]
+        }
+      ],
+      "note": "No debug mode is enabled by default. main.ts constructs the Nest application with MaskedLoggerService rather than the default console logger or a verbose/debug level, and no Prisma query-logging flag or Node inspector flag is set in the bootstrap. This is scoped narrowly to what was checked - the presence of an explicit debug toggle - and does not re-assess error-response verbosity, which V16 already covers."
+    },
+    {
+      "requirementId": "V13.4.3",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "edge-topology:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the application serves no static files itself that directory-listing behaviour could apply to",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "express.static",
+            "servestatic"
+          ]
+        },
+        {
+          "condition": "the transport section recording the edge-configuration blocker is still present",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "transport configuration"
+          ]
+        }
+      ],
+      "note": "Whether directory listings are exposed is a property of the Caddy edge, whose configuration is not under version control. The API itself serves no static files (no express.static call exists in the source), so if this behaviour arises anywhere it arises at the edge, consistent with the same blocker already recorded in V4, V11, V12, V14 and V16."
+    },
+    {
+      "requirementId": "V13.4.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "edge-topology:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the transport section recording the edge-configuration blocker is still present",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "transport configuration"
+          ]
+        }
+      ],
+      "note": "Whether the HTTP TRACE method is supported in production is decided by the Caddy edge, whose configuration is not in the repository. NestJS itself does not register a TRACE handler for any route, so no application-level path enables it, but the edge could in principle. Not assessed for the same reason as the transport requirements in V4, V11, V12 and V16."
+    },
+    {
+      "requirementId": "V13.4.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/health.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no interactive API documentation UI is mounted",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "swaggermodule",
+            "@nestjs/swagger"
+          ]
+        },
+        {
+          "condition": "the monitoring endpoints that are public are still explicitly decorated rather than open by omission",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/health.controller.ts"
+          ],
+          "patterns": [
+            "@public()\n  @get('metrics')"
+          ]
+        }
+      ],
+      "note": "Documentation and monitoring exposure is explicit, not accidental, which is what this requirement asks for - it permits exposure that is intended. No Swagger or OpenAPI UI is mounted anywhere in 661 API source files, so there is no internal-API documentation surface to leak. The monitoring endpoints that are public - health, ready, health/detailed, metrics, version - each carry an individual @Public() decorator rather than inheriting an open default, which is the deliberate-exposure the requirement’s \"unless explicitly intended\" clause allows for. Named rather than left implicit: /health/detailed and /metrics disclose internal topology - which integrations are configured, outbox queue depth, heap usage - which is an information-disclosure quality question in its own right, but it is outside this requirement’s literal text and is not counted against it here; V13.4.6 is the narrower requirement about version detail specifically, and is assessed separately below."
+    },
+    {
+      "requirementId": "V13.4.6",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/health.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the unauthenticated version endpoint still returns build date, commit and Node version alongside the version string",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/health.controller.ts"
+          ],
+          "patterns": [
+            "nodeversion: process.version"
+          ]
+        }
+      ],
+      "note": "A dedicated, explicitly public endpoint returns detailed backend version information with no authentication: GET /version responds with the application version, build date, commit hash and Node.js runtime version. This is precisely what the requirement names - detailed version information of backend components, exposed rather than withheld. Unlike V13.4.5, this requirement carries no \"unless explicitly intended\" allowance; being deliberate does not satisfy it."
+    },
+    {
+      "requirementId": "V13.4.7",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "edge-topology:docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the transport section recording the edge-configuration blocker is still present",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "transport configuration"
+          ]
+        }
+      ],
+      "note": "Which file extensions the web tier will serve is Caddy edge configuration, not under version control. Not assessed for the same reason as V4, V11, V12 and V16’s transport requirements."
+    },
+    {
       "requirementId": "V14.1.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
