@@ -2745,13 +2745,24 @@
       ],
       "conditions": [
         {
-          "condition": "the gov-id bridge still generates a per-transaction random state value bound to an httpOnly cookie",
+          "condition": "the state value is still generated from a cryptographically random source (node:crypto randomBytes), not a predictable one",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/web/lib/platform-v7/govIdentityBridge.ts"
           ],
           "patterns": [
-            "httponly: true"
+            "return randombytes(bytes).tostring('base64url')"
+          ]
+        },
+        {
+          "condition": "the start route still generates a state value with randomBridgeValue() and writes it to the state cookie before redirecting",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/start/route.ts"
+          ],
+          "patterns": [
+            "const state = randombridgevalue()",
+            "response.cookies.set(gov_id_state_cookie, state"
           ]
         },
         {
