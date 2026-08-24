@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, CheckCircle2, Phone, RotateCcw, ShieldCheck } from 'lucide-react';
 import { getOrganizationConnectCopy } from '@/i18n/platform-v7-organization-connect';
+import {
+  buildMarketingCorrelationId,
+  organizationIntakePrefill,
+  parseMarketingAttribution,
+} from '@/lib/platform-v7/marketing-attribution';
 import styles from './OrganizationConnectForm.module.css';
 
 type IntakeResult = {
@@ -28,12 +33,40 @@ export function OrganizationConnectForm({ locale }: { locale: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<IntakeResult | null>(null);
   const idempotencyKey = useRef('');
+  const marketingCorrelationId = useRef('');
   const formRef = useRef<HTMLFormElement>(null);
   const positionRef = useRef<HTMLInputElement>(null);
   const organizationRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     idempotencyKey.current = newIdempotencyKey();
+
+    // Social attribution is deliberately tiny and non-PII. The existing intake
+    // authority already persists correlationId alongside the organization
+    // request, audit event and outbox event, so no second contact database is
+    // introduced just for marketing analytics.
+    const attribution = parseMarketingAttribution(globalThis.location?.search ?? '');
+    if (attribution) {
+      try {
+        marketingCorrelationId.current = buildMarketingCorrelationId(
+          attribution,
+          globalThis.crypto.randomUUID(),
+        );
+      } catch {
+        marketingCorrelationId.current = '';
+      }
+
+      const prefill = organizationIntakePrefill(attribution);
+      const role = formRef.current?.elements.namedItem('organizationRole');
+      if (role instanceof HTMLSelectElement && prefill.organizationRole) {
+        role.value = prefill.organizationRole;
+      }
+      const scenario = formRef.current?.elements.namedItem('scenario');
+      if (scenario instanceof HTMLSelectElement && prefill.scenario) {
+        scenario.value = prefill.scenario;
+      }
+    }
+
     setReady(true);
   }, []);
 
@@ -114,13 +147,18 @@ export function OrganizationConnectForm({ locale }: { locale: string }) {
     }));
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Idempotency-Key': idempotencyKey.current || newIdempotencyKey(),
+      };
+      if (marketingCorrelationId.current) {
+        headers['x-correlation-id'] = marketingCorrelationId.current;
+      }
+
       const response = await fetch('/api/platform-v7/organization-connect', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'Idempotency-Key': idempotencyKey.current || newIdempotencyKey(),
-        },
+        headers,
         body: JSON.stringify(payload),
         cache: 'no-store',
         signal: AbortSignal.timeout(10_000),
