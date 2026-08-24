@@ -98,6 +98,8 @@ export type RadarEvidenceDecision =
   | Readonly<{ accepted: false; code: RadarQuarantineCode }>;
 
 export interface MarketingTopicScore {
+  evidenceId: string;
+  contentSha256: string;
   topic: MarketingEditorialTopic;
   targetRoles: readonly MarketingAudienceRole[];
   relevance: number;
@@ -212,6 +214,19 @@ function canonicalEvidenceHash(sourceId: string, title: string, text: string): s
     .digest('hex');
 }
 
+function hasValidEvidenceIdentity(
+  evidence: MarketingEvidenceRecord,
+  source: (typeof TRUSTED_MARKETING_SOURCES)[number],
+): boolean {
+  if (typeof evidence.contentSha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(evidence.contentSha256)) return false;
+  const expectedEvidenceId = `mktev.v1.${source.id.toLowerCase()}.${evidence.contentSha256.slice(0, 24)}`;
+  return evidence.evidenceId === expectedEvidenceId
+    && trustedSourceUrl(evidence.sourceUrl, source) !== null
+    && evidence.sourceKind === source.kind
+    && evidence.authorityScore === source.authority
+    && evidence.maxAgeHours === source.maxAgeHours;
+}
+
 export function normalizeMarketingRadarObservation(
   observation: MarketingRadarObservation,
   nowMs: number = Date.now(),
@@ -240,7 +255,8 @@ export function normalizeMarketingRadarObservation(
     return Object.freeze({ accepted: false, code: 'INVALID_TIMESTAMP' });
   }
   if (
-    publishedAtMs > nowMs + FUTURE_SKEW_MS
+    !Number.isFinite(nowMs)
+    || publishedAtMs > nowMs + FUTURE_SKEW_MS
     || fetchedAtMs > nowMs + FUTURE_SKEW_MS
     || publishedAtMs > fetchedAtMs + FUTURE_SKEW_MS
   ) {
@@ -282,7 +298,10 @@ export function normalizeMarketingRadarObservation(
 }
 
 function normalizedCorpus(evidence: MarketingEvidenceRecord): string {
-  return `${evidence.title} ${evidence.excerpt} ${evidence.topicHints.join(' ')}`
+  const topicHints = Array.isArray(evidence.topicHints)
+    ? evidence.topicHints.map((hint) => cleanText(hint, 80)).filter(Boolean)
+    : [];
+  return `${cleanText(evidence.title, MAX_TITLE_CHARS)} ${cleanText(evidence.excerpt, MAX_EXCERPT_CHARS)} ${topicHints.join(' ')}`
     .normalize('NFKC')
     .toLocaleLowerCase('ru-RU')
     .replace(/ё/gu, 'е');
@@ -316,26 +335,44 @@ export function scoreMarketingEvidence(
   nowMs: number = Date.now(),
   recentTopicKeys: ReadonlySet<string> = new Set<string>(),
 ): MarketingTopicScore {
+  const sourceId = cleanText(evidence.sourceId, 80);
+  const source = SOURCE_BY_ID.get(sourceId);
+  const identityValid = source ? hasValidEvidenceIdentity(evidence, source) : false;
+  const publishedAtMs = parseTimestamp(evidence.publishedAt);
+  const fetchedAtMs = parseTimestamp(evidence.fetchedAt);
+  const maxAgeMs = (source?.maxAgeHours ?? 1) * 60 * 60 * 1_000;
+  const temporalValid = Boolean(
+    identityValid
+    && Number.isFinite(nowMs)
+    && publishedAtMs !== null
+    && fetchedAtMs !== null
+    && publishedAtMs <= nowMs + FUTURE_SKEW_MS
+    && fetchedAtMs <= nowMs + FUTURE_SKEW_MS
+    && publishedAtMs <= fetchedAtMs + FUTURE_SKEW_MS
+    && nowMs - publishedAtMs <= maxAgeMs,
+  );
+  const validEvidence = identityValid && temporalValid;
+
   const corpus = normalizedCorpus(evidence);
   const topic = selectTopic(corpus);
   const targetRoles = Object.freeze(selectRoles(corpus));
   const topicMatches = countMatches(corpus, TOPIC_TERMS[topic]);
 
-  const relevance = topicMatches === 0
-    ? 0
-    : clamp01(0.38 + Math.min(topicMatches, 4) * 0.12 + Math.min(targetRoles.length, 3) * 0.06);
-  const authority = clamp01(evidence.authorityScore);
-  const publishedAtMs = Date.parse(evidence.publishedAt);
-  const maxAgeMs = evidence.maxAgeHours * 60 * 60 * 1_000;
-  const ageMs = Number.isFinite(publishedAtMs) ? Math.max(0, nowMs - publishedAtMs) : maxAgeMs;
-  const freshness = clamp01(1 - ageMs / maxAgeMs);
+  const relevance = validEvidence && topicMatches > 0
+    ? clamp01(0.38 + Math.min(topicMatches, 4) * 0.12 + Math.min(targetRoles.length, 3) * 0.06)
+    : 0;
+  const authority = validEvidence && source ? source.authority : 0;
+  const ageMs = validEvidence && publishedAtMs !== null ? Math.max(0, nowMs - publishedAtMs) : maxAgeMs;
+  const freshness = validEvidence ? clamp01(1 - ageMs / maxAgeMs) : 0;
   const topicKey = `${topic}:${targetRoles.slice().sort().join(',') || 'ALL'}`;
-  const novelty = recentTopicKeys.has(topicKey) ? 0.28 : 0.9;
-  const conversionPotential = clamp01(
-    0.42
-    + Math.min(targetRoles.length, 4) * 0.1
-    + (topic === 'QUALITY_LAB' || topic === 'LOGISTICS' || topic === 'FINANCE' || topic === 'PLATFORM_PROCESS' ? 0.12 : 0),
-  );
+  const novelty = validEvidence ? (recentTopicKeys.has(topicKey) ? 0.28 : 0.9) : 0;
+  const conversionPotential = validEvidence
+    ? clamp01(
+      0.42
+      + Math.min(targetRoles.length, 4) * 0.1
+      + (topic === 'QUALITY_LAB' || topic === 'LOGISTICS' || topic === 'FINANCE' || topic === 'PLATFORM_PROCESS' ? 0.12 : 0),
+    )
+    : 0;
   const total = roundScore(
     relevance * 0.32
     + authority * 0.24
@@ -345,6 +382,8 @@ export function scoreMarketingEvidence(
   );
 
   return Object.freeze({
+    evidenceId: identityValid ? evidence.evidenceId : '',
+    contentSha256: identityValid ? evidence.contentSha256 : '',
     topic,
     targetRoles,
     relevance: roundScore(relevance),
@@ -353,7 +392,7 @@ export function scoreMarketingEvidence(
     novelty: roundScore(novelty),
     conversionPotential: roundScore(conversionPotential),
     total,
-    eligible: topicMatches > 0 && total >= MIN_TOPIC_SCORE,
+    eligible: validEvidence && topicMatches > 0 && total >= MIN_TOPIC_SCORE,
   });
 }
 
@@ -378,9 +417,11 @@ function seriesForTopic(topic: MarketingEditorialTopic): string {
 
 export function planMarketingContent(
   evidence: MarketingEvidenceRecord,
-  score: MarketingTopicScore,
   editorialSlot: number,
+  nowMs: number = Date.now(),
+  recentTopicKeys: ReadonlySet<string> = new Set<string>(),
 ): MarketingContentPlan | null {
+  const score = scoreMarketingEvidence(evidence, nowMs, recentTopicKeys);
   if (!score.eligible) return null;
   const pillar = contentPillarForSlot(editorialSlot);
   const promotional = pillar !== 'USEFUL';
@@ -390,7 +431,7 @@ export function planMarketingContent(
     series: seriesForTopic(score.topic),
     topic: score.topic,
     targetRoles: score.targetRoles,
-    evidenceIds: Object.freeze([evidence.evidenceId]),
+    evidenceIds: Object.freeze([score.evidenceId]),
     classificationHint: promotional ? 'UNCERTAIN' : 'INFORMATIONAL',
     requiresLegalClassification: promotional,
     requiresEvidence: true,
