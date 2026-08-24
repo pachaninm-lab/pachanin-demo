@@ -60,3 +60,4 @@ jobs:
           src/modules/marketing/connectors/telegram.publisher.spec.ts
           src/modules/marketing/connectors/vk.publisher.spec.ts
           src/modules/marketing/marketing-outbox.contract.spec.ts
+          src/modules/marketing/marketing-durable-outbox.worker.spec.ts
