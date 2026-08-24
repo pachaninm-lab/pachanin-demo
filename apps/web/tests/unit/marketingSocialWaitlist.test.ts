@@ -92,7 +92,7 @@ describe('Telegram qualification without Telegram PII persistence', () => {
     expect(keyboard.inline_keyboard).toHaveLength(7);
     for (const row of keyboard.inline_keyboard) {
       expect(row).toHaveLength(1);
-      expect(row[0].url).toContain('https://xn----8sbpahw2al5bza9c.xn--p1ai/platform-v7?');
+      expect(row[0].url).toContain('https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?');
       expect(row[0].url).toContain('ms=tg');
       expect(row[0]).not.toHaveProperty('callback_data');
     }
