@@ -2568,6 +2568,1162 @@
       "note": "Files accepted from untrusted sources are parsed and their text returned with no malware scanning. docs/security/THREAT_MODEL.md already names malware scan and quarantine as a required control; it is not implemented."
     },
     {
+      "requirementId": "V6.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.controller.ts",
+        "docs/security/THREAT_MODEL.md",
+        "docs/platform-v7/audit/SR5_REDIS_RATELIMIT_WEBSOCKET_PLAN.md"
+      ],
+      "conditions": [
+        {
+          "condition": "the SR5 plan doc still falsely claims no rate limiting exists anywhere in the API",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/audit/SR5_REDIS_RATELIMIT_WEBSOCKET_PLAN.md"
+          ],
+          "patterns": [
+            "no rate limiting"
+          ]
+        },
+        {
+          "condition": "THREAT_MODEL.md still does not document configured limits/windows or malicious-lockout prevention for the rate-limit mechanism",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "lockout"
+          ]
+        }
+      ],
+      "note": "apps/api/src/modules/auth/auth.controller.ts wires a distinct @RateLimit decorator (name/scope/limit/windowSeconds, most with an env override) to essentially every auth route (login 8/60s, register 5/300s, password-reset request 5/900s and confirm 8/900s, mfa/verify 10/60s, mfa-recovery/confirm 8/900s, and more) — a real, comprehensive, per-route anti-automation mechanism, not a stub. But the one document that names it, docs/security/THREAT_MODEL.md, gives it one line (\"rate limiting present across API surfaces\") with no thresholds, no windows, and nothing about preventing malicious lockout of a legitimate user. A second document, docs/platform-v7/audit/SR5_REDIS_RATELIMIT_WEBSOCKET_PLAN.md, actively contradicts the live code, stating \"No rate limiting. No @nestjs/throttler, no Throttle decorator, no gateway/middleware limiting requests\" — false today, verified against the same auth.controller.ts."
+    },
+    {
+      "requirementId": "V6.1.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "docs/security/THREAT_MODEL.md"
+      ],
+      "conditions": [
+        {
+          "condition": "docs/security/THREAT_MODEL.md still does not name a context-specific forbidden-word list (organization/product names, project codenames, department or role names) for password rejection",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "context-specific word",
+            "password blacklist",
+            "forbidden password"
+          ]
+        }
+      ],
+      "note": "No document anywhere under docs/ names or maintains a context-specific word list (organisation name, product name, system identifiers, project codenames, department/role names) for exclusion from passwords. strong-password.validator.ts rejects weak composition and trivial sequences (V6.2.5's FAIL notwithstanding, that check is about composition rules, not context words) but has no such list wired in either."
+    },
+    {
+      "requirementId": "V6.1.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/web/lib/platform-v7/govIdentityBridge.ts",
+        "apps/web/app/api/platform-v7/gov-id/start/route.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "govIdentityBridge.ts still gates a reachable OIDC-shaped identity-provider pathway behind PLATFORM_V7_GOV_ID_ENABLED, mounted at /api/platform-v7/gov-id/start and /callback",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "platform_v7_gov_id_enabled"
+          ]
+        },
+        {
+          "condition": "docs/security/THREAT_MODEL.md still does not name the gov-id bridge as a second authentication pathway",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "gov-id",
+            "govidentity",
+            "gosuslugi"
+          ]
+        }
+      ],
+      "note": "Corrected on review (an earlier pass wrongly cited apps/api/src/modules/mfa/mfa.service.ts's /api/mfa/* endpoints as a second live pathway; verified against mfa.controller.ts directly, that module never persists anything — initSetup and verifySetup's own code comments admit it ('In production: save secret to DB', 'In production: save hashed codes and enable MFA for user in DB', neither of which happens), verify checks a client-supplied secret against a client-supplied code with zero session or credential-state change, and apps/web has no reference to these routes outside one E2E test spec — it is decorative, not a genuine pathway, and is not evidence here). The real second pathway is apps/web/lib/platform-v7/govIdentityBridge.ts: a reachable, test-covered OIDC-shaped bridge mounted at /api/platform-v7/gov-id/start and /callback, gated by PLATFORM_V7_GOV_ID_ENABLED plus three other environment variables. When unset it fails safe (start redirects to a fallback page with reason=not-configured; callback never proceeds past a state-parameter check). Whether those environment variables are set in any live deployment is a runtime fact this repository cannot verify, matching the same limit already recorded for the Caddy edge configuration elsewhere in this programme — but the code path is real, reachable, and not documented anywhere as a second authentication pathway regardless of its current toggle state."
+    },
+    {
+      "requirementId": "V6.2.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/common/validators/strong-password.validator.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "strong-password.validator.ts still enforces MIN_PASSWORD_LENGTH = 12",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/validators/strong-password.validator.ts"
+          ],
+          "patterns": [
+            "min_password_length = 12"
+          ]
+        }
+      ],
+      "note": "strong-password.validator.ts sets MIN_PASSWORD_LENGTH = 12, applied via @IsStrongPassword() on RegisterDto.password and reused for recovery/admin-set passwords; ConfirmPasswordResetDto.newPassword separately enforces @MinLength(12). Both exceed the 8-character floor this requirement sets (the 15-character recommendation is non-mandatory)."
+    },
+    {
+      "requirementId": "V6.2.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.controller.ts",
+        "apps/api/src/modules/auth/password-reset.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "auth.controller.ts still exposes a self-service password-reset/confirm route backed by password-reset.service.ts",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.controller.ts"
+          ],
+          "patterns": [
+            "post('password-reset/confirm')"
+          ]
+        }
+      ],
+      "note": "Users can end up with a new password through the self-service password-reset/request + password-reset/confirm pair (email-token driven, no support/admin action required). ASVS does not mandate a specific UX for \"can change password\"; a working self-service path satisfies it. Whether that path independently verifies the current password is a different, separate requirement — see V6.2.3, which fails."
+    },
+    {
+      "requirementId": "V6.2.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/auth/password-reset.service.ts",
+        "depends-on:V6.2.2"
+      ],
+      "conditions": [
+        {
+          "condition": "no in-session \"change password\" route or DTO still exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "change-password",
+            "changepassworddto",
+            "requirecurrentpassword"
+          ]
+        }
+      ],
+      "note": "The only path that changes a password is password-reset.service.ts's confirm(token, newPassword) — it verifies possession of an emailed, single-use reset token, never the user's current password. There is no separate \"I know my current password, let me set a new one\" self-service flow, route, or DTO anywhere in apps/api/src. The two live hits for the literal terms currentPassword/oldPassword are both unrelated: authCredentialBoundary.spec.ts lists currentPassword only inside a regex of credential-argument names a test asserts get redacted, and sensitive-data.ts lists oldpassword/currentpassword only as log-redaction field names to scrub — neither implements or calls a real change-password feature. The requirement's \"current AND new password\" is therefore not met by the one change mechanism that exists."
+    },
+    {
+      "requirementId": "V6.2.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "manifest-scan:package.json"
+      ],
+      "conditions": [
+        {
+          "condition": "no breached/common-password-checking package (zxcvbn or an HIBP-style client) is declared in any package.json in the tree",
+          "check": "ABSENT_IN_MANIFESTS",
+          "roots": [
+            "."
+          ],
+          "patterns": [
+            "zxcvbn",
+            "have-i-been-pwned",
+            "hibp"
+          ]
+        }
+      ],
+      "note": "No package.json in the repository declares zxcvbn, a Have I Been Pwned client, or any other breached/common-password-list dependency, and no in-repo top-N password list exists either. Passwords are checked only against strong-password.validator.ts's length/composition/sequence rules (V6.2.1, V6.2.5) — never against a top-3000 list."
+    },
+    {
+      "requirementId": "V6.2.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/common/validators/strong-password.validator.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "isStrongPassword() in strong-password.validator.ts still rejects a password composed of fewer than 3 of the 4 character classes",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/validators/strong-password.validator.ts"
+          ],
+          "patterns": [
+            "if (classes < 3) return false;"
+          ]
+        }
+      ],
+      "note": "strong-password.validator.ts requires at least 3 of {lowercase, uppercase, digit, symbol} character classes (`const classes = [...].filter(...).length; if (classes < 3) return false;`). This is a composition rule, and V6.2.5 is explicit that ASVS 5.0 forbids exactly this: \"no requirement for a minimum number of upper or lower case characters, numbers, or special characters.\" The file's own doc-comment even names it as deliberate policy (\"requires at least 3 of {lowercase, uppercase, digit, symbol}\"), so this is a designed, not accidental, violation — an apparent holdover from an older password-composition standard rather than ASVS 5.0."
+    },
+    {
+      "requirementId": "V6.2.6",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/components/login-form.tsx",
+        "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+        "apps/web/components/gekta/GektaRegistrationClient.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "login-form.tsx and RegisterFormClient.tsx still render their password fields with type='password'",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/components/login-form.tsx"
+          ],
+          "patterns": [
+            "type=\"password\""
+          ]
+        }
+      ],
+      "note": "Every password input found across the web app masks its entry with type='password': login-form.tsx, RegisterFormClient.tsx, GektaRegistrationClient.tsx (both register and login modes), InvitationAcceptClient.tsx, and the platform-v7 /open page's access-code field. No plain-text password input was found anywhere."
+    },
+    {
+      "requirementId": "V6.2.7",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "stack-fact:no-paste-blocking"
+      ],
+      "conditions": [
+        {
+          "condition": "no onPaste handler exists anywhere in apps/web (which would be the mechanism to block pasting into a field)",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "onpaste"
+          ]
+        }
+      ],
+      "note": "A repo-wide scan of apps/web finds zero onPaste handlers, so nothing blocks pasting into the password field. Password inputs use autoComplete='current-password'/'new-password' (login-form.tsx, RegisterFormClient.tsx, GektaRegistrationClient.tsx) rather than autoComplete='off', which is the attribute that actively invites, rather than blocks, browser and external password-manager autofill."
+    },
+    {
+      "requirementId": "V6.2.8",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/auth/password-hashing.ts",
+        "apps/api/src/modules/auth/dto/register.dto.ts",
+        "apps/web/app/platform-v7/register/RegisterFormClient.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "hashPassword() in password-hashing.ts still passes the plaintext password straight to bcrypt.hash with no pre-hashing step",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/password-hashing.ts"
+          ],
+          "patterns": [
+            "bcrypt.hash(plain, password_bcrypt_cost)"
+          ]
+        }
+      ],
+      "note": "password-hashing.ts calls bcryptjs's bcrypt.hash(plain, PASSWORD_BCRYPT_COST) directly on the received password, with no SHA-256 (or similar) pre-hash step. bcrypt silently truncates its input at 72 bytes. RegisterDto.password (register.dto.ts) carries no @MaxLength — the backend accepts arbitrary length — and the register form's own UI explicitly supports up to 128 characters (RegisterFormClient.tsx: `maxLength={128}`), well past the 72-byte boundary; for Cyrillic input (2 bytes/char in UTF-8, and this is a Russian-language platform) truncation begins past just 36 characters, inside the length the app's own UI advertises as supported. Two passwords sharing the same first 72 bytes hash identically, and the excess is silently discarded rather than the exact-as-received comparison this requirement asks for."
+    },
+    {
+      "requirementId": "V6.2.9",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/dto/password-reset.dto.ts",
+        "apps/api/src/modules/auth/dto/register.dto.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "ConfirmPasswordResetDto.newPassword in password-reset.dto.ts still permits up to 128 characters",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/dto/password-reset.dto.ts"
+          ],
+          "patterns": [
+            "@maxlength(128)"
+          ]
+        }
+      ],
+      "note": "Passwords of at least 64 characters are accepted: RegisterDto.password carries no @MaxLength at all, and ConfirmPasswordResetDto.newPassword explicitly permits up to 128. Both flows accept the character count this requirement asks for. Whether those characters all actually participate in the resulting hash is a separate, failing requirement — V6.2.8."
+    },
+    {
+      "requirementId": "V6.2.10",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "stack-fact:no-forced-rotation"
+      ],
+      "conditions": [
+        {
+          "condition": "no password-expiry or forced-rotation mechanism still exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "passwordexpir",
+            "password_rotation",
+            "passwordage"
+          ]
+        }
+      ],
+      "note": "No code anywhere in apps/api/src tracks a password age or forces periodic rotation; a password set at registration or via reset stays valid indefinitely until the user rotates it or (per password-reset.service.ts) a reset event replaces it and revokes all sessions. This matches ASVS 5.0's explicit rejection of mandatory periodic credential rotation."
+    },
+    {
+      "requirementId": "V6.2.11",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V6.1.2"
+      ],
+      "conditions": [
+        {
+          "condition": "docs/security/THREAT_MODEL.md still does not name a context-specific forbidden-word list for this decision to measure enforcement against",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "docs/security/THREAT_MODEL.md"
+          ],
+          "patterns": [
+            "context-specific word",
+            "password blacklist",
+            "forbidden password"
+          ]
+        }
+      ],
+      "note": "Whether the documented context-specific word list is used to block easy-to-guess passwords cannot be verified when no such list is documented (V6.1.2). This fails as a direct consequence of V6.1.2's absence rather than as an independent finding; strong-password.validator.ts has no word-list check of any kind."
+    },
+    {
+      "requirementId": "V6.2.12",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "manifest-scan:package.json",
+        "depends-on:V6.2.4"
+      ],
+      "conditions": [
+        {
+          "condition": "no breached-password-checking package is declared in any package.json in the tree",
+          "check": "ABSENT_IN_MANIFESTS",
+          "roots": [
+            "."
+          ],
+          "patterns": [
+            "have-i-been-pwned",
+            "hibp",
+            "pwned-password"
+          ]
+        }
+      ],
+      "note": "Same underlying gap as V6.2.4: no package.json declares an HIBP client or any breached-password dataset, and no in-repo breach list exists. Passwords submitted at registration or on password change are never checked against a set of breached passwords."
+    },
+    {
+      "requirementId": "V6.3.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.controller.ts",
+        "depends-on:V6.1.1"
+      ],
+      "conditions": [
+        {
+          "condition": "the SR5 plan doc still falsely claims no rate limiting exists, and THREAT_MODEL.md still gives the mechanism no configuration detail",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "docs/platform-v7/audit/SR5_REDIS_RATELIMIT_WEBSOCKET_PLAN.md"
+          ],
+          "patterns": [
+            "no rate limiting"
+          ]
+        }
+      ],
+      "note": "The implementation itself is genuinely strong — @RateLimit is wired to essentially every auth endpoint with sane, distinct limits (login 8/60s, password-reset request 5/900s, mfa/verify 10/60s, and more), and rate-limit.service.ts HMACs the bucket key with a production-enforced pepper rather than storing raw IPs. But this requirement asks whether the controls are \"implemented according to the application's security documentation\" (V6.1.1), and that documentation is either too thin to check against or actively wrong (SR5 doc). This fails as a consequence of V6.1.1, not because the rate-limiting code itself is weak."
+    },
+    {
+      "requirementId": "V6.3.2",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-fact:no-production-seed"
+      ],
+      "conditions": [
+        {
+          "condition": "apps/api/prisma still contains no .ts file at all (the package.json seed script points at prisma/seed.ts, which is not in the repository) — there is nowhere left for a default-account seed to live",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/prisma"
+          ],
+          "patterns": [
+            "role: 'admin'",
+            "email: 'admin@",
+            "email: 'root@"
+          ]
+        }
+      ],
+      "note": "apps/api/package.json references a \"prisma/seed.ts\" script, but no such file exists in the repository — only a test fixture at apps/api/test/one-deal/seed.ts, which is not part of any production deployment path. No hardcoded default account (\"root\", \"admin\", \"sa\") was found seeded anywhere; every account in the system is created through the registration, invitation, or admin-provisioning flows."
+    },
+    {
+      "requirementId": "V6.3.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/common/security/policy-engine.service.ts",
+        "apps/api/src/modules/settlement-engine/settlement-financial-mfa.guard.ts",
+        "apps/api/src/modules/auth/auth.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "settlement-financial-mfa.guard.ts still fails closed on a recent, server-side mfaVerified/mfaVerifiedAt timestamp rather than trusting a client header",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/settlement-engine/settlement-financial-mfa.guard.ts"
+          ],
+          "patterns": [
+            "assertrecentsettlementfinancialmfa"
+          ]
+        },
+        {
+          "condition": "the unused, header-bypassable RequiresMfaGuard (common/guards/mfa.guard.ts) is still not wired via @UseGuards anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "@useguards(requiresmfaguard"
+          ]
+        }
+      ],
+      "note": "MFA is genuinely, redundantly enforced through multiple independent, live, fail-closed mechanisms: policy-engine.service.ts denies financial operations ≥100,000₽ and document-signing when mfaVerified===false; staff-access.service.ts and signing-authority.policy.ts each require a fresh mfaVerified timestamp (15 min / 300 s respectively); settlement-financial-mfa.guard.ts is a hard @UseGuards on every settlement money-mutation route and explicitly never trusts client headers; and auth.service.ts's createLoginSession computes mfaRequired = requiresRoleMfa(role) || is_org_admin || credential.mfa_enabled at login itself, putting the session into MFA_PENDING until a TOTP (RFC 6238, CSPRNG-seeded) or backup code clears it. Important caveat, verified and worth flagging even though it does not change this verdict: common/guards/mfa.guard.ts defines a separate RequiresMfaGuard containing an unconditional `X-MFA-Verified: true` header bypass with no NODE_ENV gate, and admin.controller.ts's own status self-report falsely lists it as \"status: 'live'\" MFA enforcement — but grep confirms zero @UseGuards(RequiresMfaGuard) usages anywhere in the API; it is dead code, not a live bypass. It is exactly the kind of landmine that gets wired in later by someone trusting the doc-comment or the false status line, and should be deleted or fixed as a follow-up."
+    },
+    {
+      "requirementId": "V6.3.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V6.1.3",
+        "apps/web/lib/platform-v7/govIdentityBridge.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "govIdentityBridge.ts still gates a reachable OIDC-shaped identity-provider pathway behind PLATFORM_V7_GOV_ID_ENABLED",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "platform_v7_gov_id_enabled"
+          ]
+        }
+      ],
+      "note": "Downstream of V6.1.3, not an independent finding: this requirement asks whether an existing second authentication pathway is documented AND consistently enforced. Whether the gov-id bridge's authentication strength is consistent with the primary password(+TOTP) pathway cannot be verified when the bridge itself is not documented as existing (V6.1.3) — there is nothing written down to check the code against. (Corrected on review: an earlier pass rested this FAIL on apps/api/src/modules/mfa/mfa.service.ts's /api/mfa/* endpoints being a second live, inconsistently-enforced MFA implementation; verified directly against mfa.controller.ts, that module never persists a secret or backup-code hash anywhere and changes no session or credential state — see V6.1.3's corrected note — so it enforces nothing and is not evidence of an inconsistency.)"
+    },
+    {
+      "requirementId": "V6.3.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/auth-mail/auth-mail-templates.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no mail template naming a suspicious/unusual-location/new-device authentication notice still exists in auth-mail-templates.ts",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth-mail/auth-mail-templates.ts"
+          ],
+          "patterns": [
+            "suspicious",
+            "unusual location",
+            "new device"
+          ]
+        }
+      ],
+      "note": "auth-mail-templates.ts defines registrationVerificationMail, passwordResetMail, passwordChangedMail, organizationInvitationMail, registrationJoinReviewMail, mfaRecoveryMail and mfaRecoveryCompletedMail — a real, fairly complete set of account-lifecycle notifications — but none of them address a suspicious or unusual authentication attempt (unfamiliar location/client, partial MFA completion, login after a long dormancy, or success after repeated failures). No such template or notification path was found anywhere in the API."
+    },
+    {
+      "requirementId": "V6.3.6",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "stack-fact:no-email-otp"
+      ],
+      "conditions": [
+        {
+          "condition": "no email-OTP or magic-link authentication mechanism still exists in the auth or mfa modules",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src/modules/auth",
+            "apps/api/src/modules/mfa"
+          ],
+          "patterns": [
+            "magic-link",
+            "magiclink",
+            "email otp",
+            "emailotp"
+          ]
+        }
+      ],
+      "note": "Email is used only as an account identifier (LoginDto.email, @IsEmail()) and as a delivery channel for tokens the user must additionally present back to the app (registration verification, password reset, MFA recovery) — never as the authentication factor itself. There is no email-OTP-as-MFA-factor or magic-link-login mechanism anywhere in the auth or mfa modules; the live second factor is TOTP or a backup code, both auth-crypto.ts based."
+    },
+    {
+      "requirementId": "V6.3.7",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/auth-mail/auth-mail-templates.ts",
+        "apps/api/src/modules/auth/password-reset.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "passwordChangedMail is still defined in auth-mail-templates.ts but never referenced from the auth module that would need to call it",
+          "check": "NO_RUNTIME_CALLER",
+          "roots": [
+            "apps/api/src/modules/auth"
+          ],
+          "patterns": [
+            "passwordchangedmail"
+          ]
+        }
+      ],
+      "note": "A passwordChangedMail(to) template exists in auth-mail-templates.ts, but grep across the whole API finds no call site for it anywhere — it is defined and never invoked. password-reset.service.ts's confirm() returns a `notificationDelivery: { email }` field in its response payload rather than sending the mail itself, and its own code comment concedes the gap directly: \"Confirmation remains behind the existing server-to-server boundary until the password-changed security notice is moved to the same durable outbox.\" auth.controller.ts's password-reset/confirm handler returns that payload straight to the HTTP caller with nothing in this repository turning it into a sent email. No notification of any kind was found for a credential reset, and none exists for a username/email change either."
+    },
+    {
+      "requirementId": "V6.3.8",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/password-hashing.ts",
+        "apps/api/src/modules/auth/password-reset.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "password-hashing.ts still computes DUMMY_PASSWORD_HASH once at module load, at the same bcrypt cost as real passwords, for the account-not-found login branch",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/password-hashing.ts"
+          ],
+          "patterns": [
+            "dummy_password_hash"
+          ]
+        },
+        {
+          "condition": "password-reset.service.ts still returns the same UNIVERSAL_RESPONSE regardless of whether the email exists",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/password-reset.service.ts"
+          ],
+          "patterns": [
+            "universal_response"
+          ]
+        }
+      ],
+      "note": "Login: password-hashing.ts's DUMMY_PASSWORD_HASH is computed once at module load with the same PASSWORD_BCRYPT_COST as real hashes, and verifyPassword() always runs bcrypt.compare against either the real hash or the dummy — a code comment names a previously-fixed timing bug (dummy cost 10 vs real cost 12) this construction now prevents. Forgot-password: password-reset.service.ts's request() path returns the identical UNIVERSAL_RESPONSE constant whether or not the email is registered, and the transaction/outbox work happens before that constant response either way. Registration: no distinguishable \"email already exists\" response or code path was found in gekta-registration.service.ts or registration-application.service.ts. All three surfaces this requirement names were checked; none was found to leak account existence."
+    },
+    {
+      "requirementId": "V6.4.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/opaque-token-authority.ts",
+        "apps/api/src/modules/auth/registration-token.ts",
+        "apps/api/src/modules/auth/password-reset-token.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "opaque-token-authority.ts still mints credential secrets with randomBytes(32)",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/opaque-token-authority.ts"
+          ],
+          "patterns": [
+            "randombytes(32)"
+          ]
+        }
+      ],
+      "note": "There is no system-generated \"initial password\" concept anywhere — every account (registration, invitation) is set up with a password the user chooses under strong-password.validator.ts, never one assigned by the system. The closest analogues, activation/verification/reset tokens, are all minted through the shared opaque-token authority with a 32-byte CSPRNG secret (randomBytes(32)), are digest-only in storage, and each carries a bounded lifetime: registration email token 30 min, password reset token 15 min, invitation token 72 h, MFA recovery token 30 min. None of them can themselves become a long-term credential — they only ever authorize a one-time state transition (verify email, set a new password, accept an invitation, reset MFA)."
+    },
+    {
+      "requirementId": "V6.4.2",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-fact:no-security-questions"
+      ],
+      "conditions": [
+        {
+          "condition": "no security-question or knowledge-based-authentication feature still exists anywhere in the API or web app",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web"
+          ],
+          "patterns": [
+            "секретный вопрос",
+            "security question",
+            "knowledge-based authentication"
+          ]
+        }
+      ],
+      "note": "No security-question or knowledge-based-authentication (\"secret question\") feature exists anywhere in the codebase. (The `password-hint` DOM ids on the register/invitation forms are ARIA descriptions of the composition rule shown under the field, e.g. minimum length — not a recovery hint or knowledge-based factor, and are excluded from this decision's condition for exactly that reason.)"
+    },
+    {
+      "requirementId": "V6.4.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/password-reset.service.ts",
+        "apps/api/src/modules/auth/auth.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "password-reset.service.ts's confirm() still revokes all of the user's sessions on a successful reset rather than leaving an existing session live",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/password-reset.service.ts"
+          ],
+          "patterns": [
+            "revokealluser"
+          ]
+        }
+      ],
+      "note": "password-reset.service.ts's confirm() replaces the password hash, then calls revokeAllUserSessions and expirePending in the same transaction — it does not touch mfa_enabled or the stored MFA secret. Because every session is revoked, the next login goes back through auth.service.ts's createLoginSession, which recomputes mfaRequired = requiresRoleMfa(role) || is_org_admin || credential.mfa_enabled — so if MFA was enabled before the reset, it is still required immediately after. A password reset via emailed token cannot be used to skip an already-enabled MFA factor."
+    },
+    {
+      "requirementId": "V6.4.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/organization-invitation.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "organization-invitation.service.ts's resetMembershipMfa still forbids an admin from resetting their own MFA and requires requireAdmin authorization",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/organization-invitation.service.ts"
+          ],
+          "patterns": [
+            "self_mfa_reset_forbidden"
+          ]
+        }
+      ],
+      "note": "MFA-factor loss is recovered through resetMembershipMfa: an org admin (requireAdmin, self-reset explicitly forbidden) authorizes the reset with an idempotency key and a recorded reason, which mints a CSPRNG MFA-recovery credential delivered to the affected member's own verified email (mfaRecoveryMail) rather than to whoever is asking. This substitutes an authorized-admin decision plus proof of continued email possession for a full re-run of the original registration KYC, which is a reasonable, evidenced level of re-proofing for this kind of recovery event, not a rubber stamp — the request cannot be replayed (idempotency + request hash) and is audited."
+    },
+    {
+      "requirementId": "V6.4.5",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-fact:nothing-expires-on-a-schedule",
+        "depends-on:V6.2.10"
+      ],
+      "conditions": [
+        {
+          "condition": "no password-expiry/forced-rotation mechanism still exists (V6.2.10)",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "passwordexpir",
+            "password_rotation"
+          ]
+        },
+        {
+          "condition": "no WebAuthn/hardware-credential functional call still exists, so no certificate-style authentication mechanism expires on a schedule either",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/components/platform-v7/WebAuthnPanel.tsx"
+          ],
+          "patterns": [
+            "navigator.credentials"
+          ]
+        }
+      ],
+      "note": "This requirement is about renewal reminders for an authentication mechanism that expires on a schedule. Nothing in this application does: passwords never expire (V6.2.10), TOTP secrets and backup codes do not expire once enrolled, and the only certificate/hardware-key-shaped authentication surface (WebAuthnPanel.tsx) is a roadmap/status display with no navigator.credentials call anywhere — there is no live certificate-based mechanism either. With no expiring authentication mechanism in the product, there is nothing for a renewal reminder to be sent about."
+    },
+    {
+      "requirementId": "V6.4.6",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/support/support.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "support.service.ts's resetUserPassword still derives its returned resetToken from Date.now().toString(36) rather than a CSPRNG",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/support/support.service.ts"
+          ],
+          "patterns": [
+            "date.now().tostring(36)"
+          ]
+        }
+      ],
+      "note": "support.service.ts exposes POST support/users/:userId/reset-password, gated to SUPPORT_MANAGER/ADMIN via assertSupport() — correctly restricted, and it does not let the admin choose or see the user's new password (good so far). But resetUserPassword() computes `const resetToken = 'RESET-' + Date.now().toString(36).toUpperCase()`, an entirely predictable, non-CSPRNG value, and never persists it anywhere (this whole SupportService is backed by an in-memory `tickets` array, not Prisma) or wires it into password-reset-token.ts/password-reset.service.ts's real, opaque-token-based reset system. The feature is a non-functional stub: the token it hands back does not actually reset anything and could not be presented to the real password-reset/confirm endpoint, which expects a differently-shaped opaque token. \"Administrative users can initiate the password reset process for the user\" is not actually true today, and if this stub were ever wired to something real without being rebuilt on the opaque-token authority, the predictable token would be a serious account-takeover vector."
+    },
+    {
+      "requirementId": "V6.5.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/auth/auth-crypto.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "auth.service.ts and product-session.service.ts still call verifyTotp(secret, code) with no used-code/replay tracking anywhere in the auth module",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src/modules/auth"
+          ],
+          "patterns": [
+            "usedtotpcounter",
+            "totpreplay",
+            "lastusedcounter"
+          ]
+        }
+      ],
+      "note": "Backup/lookup codes and one-time tokens genuinely are single-use, correctly: auth.service.ts and product-session.service.ts remove a matched backup-code hash from mfa_backup_hashes after use (`remainingBackupHashes: hashes.filter((_, index) => index !== matchedIndex)`), and every opaque-token-authority-issued credential (registration, reset, invitation, MFA-recovery) is consumed/expired on use via its own status transition. TOTP is the exception: verifyTotp(secret, code, unixMs = Date.now()) in auth-crypto.ts checks candidate codes against three time steps ([-1, 0, 1] × 30s) but never records that a specific code value has already been accepted, so the same valid 6-digit code can be submitted more than once within its acceptance window and will verify every time. The requirement asks that TOTPs specifically be \"only successfully usable once,\" and this implementation does not enforce that."
+    },
+    {
+      "requirementId": "V6.5.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/auth/auth-crypto.ts",
+        "apps/api/src/modules/auth/opaque-token-authority.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "generateBackupCodes() in auth-crypto.ts still derives each code from randomBytes(6) and stores it through digestMfaBackupCode's HMAC-SHA256 keyed digest rather than a salted password-storage hash",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/opaque-token-authority.ts"
+          ],
+          "patterns": [
+            "function digestmfabackupcode"
+          ]
+        }
+      ],
+      "note": "Corrected on review: an earlier pass additionally cited apps/api/src/modules/mfa/mfa.service.ts's backup-code hashing (a bare, unsalted createHash('sha256')) as a second, worse-off storage violation. Verified directly against mfa.service.ts and mfa.controller.ts: that module's generateBackupCodes/verifyBackupCode pair is never called with a persistence step anywhere — verifySetup's own code comment admits the hashed codes are never saved ('In production: save hashed codes and enable MFA for user in DB') — so nothing is ever actually stored through that path, and V6.5.2 (which is specifically about backend storage) does not apply to it. The finding rests on the one implementation that is real and live: auth-crypto.ts's generateBackupCodes (randomBytes(6) = 48 bits of entropy, under the 112-bit safe-harbor this requirement sets), stored via opaque-token-authority.ts's digestMfaBackupCode — an HMAC-SHA256 keyed MAC, not the \"approved password storage hashing algorithm with a 32-bit random salt\" (bcrypt/argon2/scrypt/PBKDF2) the requirement literally asks for. The HMAC key requirement is a real, partial mitigation (a leaked table of digests alone is not enough to brute force; the server-side HMAC secret is also needed), but it is still not literally compliant."
+    },
+    {
+      "requirementId": "V6.5.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/auth-crypto.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "generateTotpSecret() in auth-crypto.ts still seeds TOTP secrets with randomBytes(20)",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "randombytes(20)"
+          ]
+        }
+      ],
+      "note": "TOTP secrets are generated with generateTotpSecret() = base32Encode(randomBytes(20)) — a 160-bit CSPRNG seed, matching common authenticator-app conventions. Backup codes, OOB/MFA-recovery tokens, and registration/reset tokens are all likewise minted from Node's crypto.randomBytes via auth-crypto.ts or opaque-token-authority.ts; no Math.random() or other non-CSPRNG source was found generating any of these secrets."
+    },
+    {
+      "requirementId": "V6.5.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/auth-crypto.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "generateBackupCodes() in auth-crypto.ts still derives each code from randomBytes(6)",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "randombytes(6)"
+          ]
+        }
+      ],
+      "note": "The live, actually-used backup codes (auth-crypto.ts, randomBytes(6) = 48 bits per code) and the legacy MfaService codes (randomBytes(4) = 32 bits) both clear the 20-bit entropy floor this requirement sets by a wide margin. Whether that entropy is protected adequately at rest is a separate, failing requirement — V6.5.2."
+    },
+    {
+      "requirementId": "V6.5.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/auth/auth-crypto.ts",
+        "apps/api/src/modules/auth/organization-invitation.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "verifyTotp in auth-crypto.ts still accepts a ±1 step window ([-1, 0, 1] × 30s) rather than the current step alone",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "[-1, 0, 1].some"
+          ]
+        },
+        {
+          "condition": "organization-invitation.service.ts's MFA_RECOVERY_TTL_MS is still set to 30 minutes, above the 10-minute OOB maximum",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/organization-invitation.service.ts"
+          ],
+          "patterns": [
+            "mfa_recovery_ttl_ms = 30 * 60 * 1000"
+          ]
+        }
+      ],
+      "note": "Two distinct lifetime overruns. TOTP: verifyTotp accepts a candidate code across three consecutive 30-second steps (previous/current/next), a common clock-drift allowance, but its effect is that a single code value stays acceptable for up to just under 90 seconds from an attacker's perspective — exceeding the 30-second maximum this requirement sets, even though the tolerance is a deliberate, reasonable engineering choice rather than an oversight. OOB-shaped recovery: the MFA-recovery credential minted by resetMembershipMfa carries MFA_RECOVERY_TTL_MS = 30 minutes, three times the 10-minute maximum this requirement sets for out-of-band authentication requests delivered to a separate channel (here, email) and presented back to the app."
+    },
+    {
+      "requirementId": "V6.5.6",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.controller.ts",
+        "apps/api/src/modules/auth/organization-invitation.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "auth.controller.ts still exposes organization-memberships/:membershipId/mfa-reset for admin-initiated factor revocation",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.controller.ts"
+          ],
+          "patterns": [
+            "organization-memberships/:membershipid/mfa-reset"
+          ]
+        }
+      ],
+      "note": "A lost or stolen MFA factor can be revoked: POST auth/organization-memberships/:membershipId/mfa-reset (rate-limited, admin-authorized per V6.4.4) clears the member's existing TOTP secret/backup codes and issues a recovery credential to their verified email, forcing re-enrollment on next use of a protected route."
+    },
+    {
+      "requirementId": "V6.5.7",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "apps/web/components/platform-v7/WebAuthnPanel.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "WebAuthnPanel.tsx still contains no functional navigator.credentials/PublicKeyCredential call — it remains a status/roadmap display, not a live integration",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/components/platform-v7/WebAuthnPanel.tsx"
+          ],
+          "patterns": [
+            "navigator.credentials",
+            "publickeycredential"
+          ]
+        }
+      ],
+      "note": "No biometric or WebAuthn/FIDO authentication mechanism is live anywhere in the product. WebAuthnPanel.tsx (the only file mentioning WebAuthn) is a purely descriptive roadmap panel with status labels (\"Платформа\"/done, \"Доработка\"/planned) and zero navigator.credentials.create/get or PublicKeyCredential calls — no biometric factor exists for this requirement to constrain."
+    },
+    {
+      "requirementId": "V6.5.8",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/auth-crypto.ts",
+        "apps/api/src/modules/auth/auth.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "both live call sites of verifyTotp still call it with exactly two arguments (secret, code), never supplying a caller-controlled unixMs",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "verifytotp(secret, code)"
+          ]
+        }
+      ],
+      "note": "verifyTotp(secret, code, unixMs = Date.now()) in auth-crypto.ts defaults its time source to the server's own clock. Both live call sites (auth.service.ts:1051, product-session.service.ts:454) invoke it as verifyTotp(secret, code) — exactly two arguments — so the default server Date.now() is always used; no request ever supplies a client- or caller-provided timestamp for TOTP verification."
+    },
+    {
+      "requirementId": "V6.6.1",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-fact:no-sms-provider"
+      ],
+      "conditions": [
+        {
+          "condition": "no SMS/PSTN OTP delivery provider is still declared anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "twilio",
+            "smsc.ru"
+          ]
+        }
+      ],
+      "note": "No SMS or PSTN-based OTP delivery mechanism exists in the codebase — no Twilio/SMSC-style provider integration was found anywhere in apps/api/src. The only out-of-band-shaped channel is email (registration verification, password reset, MFA recovery), which this requirement does not govern."
+    },
+    {
+      "requirementId": "V6.6.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/organization-invitation.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "resetMembershipMfa in organization-invitation.service.ts still binds its recovery challenge to a requestHash covering purpose, membershipId, actorId, requestId, version and reason",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/organization-invitation.service.ts"
+          ],
+          "patterns": [
+            "purpose: 'auth.membership.mfa_reset'"
+          ]
+        }
+      ],
+      "note": "The MFA-recovery credential (the closest live analogue to an out-of-band code in this codebase) is bound to the specific triggering request: requestHash is computed from purpose, membershipId, actorId, the caller-supplied idempotency key, the membership version, and the stated reason, and a replay of the same idempotency key returns the same already-issued challenge rather than minting a new usable one or accepting a stale token against a different request."
+    },
+    {
+      "requirementId": "V6.6.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "auth.controller.ts still rate-limits mfa-recovery/confirm to 8 requests per 900 seconds per IP",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.controller.ts"
+          ],
+          "patterns": [
+            "auth_mfa_recovery_confirm"
+          ]
+        }
+      ],
+      "note": "POST auth/mfa-recovery/confirm carries @RateLimit({ name: 'auth_mfa_recovery_confirm', scope: 'ip', limit: 8, windowSeconds: 900 }), and the recovery credential itself is a CSPRNG opaque token (V6.5.3) rather than a short numeric code — both the rate limit and the credential's own entropy make brute force impractical."
+    },
+    {
+      "requirementId": "V6.6.4",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "manifest-scan:package.json"
+      ],
+      "conditions": [
+        {
+          "condition": "no push-notification SDK (Firebase/APNs/web-push) is still declared in any package.json in the tree",
+          "check": "ABSENT_IN_MANIFESTS",
+          "roots": [
+            "."
+          ],
+          "patterns": [
+            "firebase-admin",
+            "web-push",
+            "apn"
+          ]
+        }
+      ],
+      "note": "No push-notification SDK (Firebase Admin, APNs, web-push, or similar) is declared in any package.json, and no push-based MFA challenge mechanism exists in the codebase — the live second factors are TOTP and backup codes only."
+    },
+    {
+      "requirementId": "V6.7.1",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "apps/web/components/platform-v7/WebAuthnPanel.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "WebAuthnPanel.tsx still contains no functional navigator.credentials/PublicKeyCredential call",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/components/platform-v7/WebAuthnPanel.tsx"
+          ],
+          "patterns": [
+            "navigator.credentials",
+            "publickeycredential"
+          ]
+        }
+      ],
+      "note": "No certificate-based or hardware-token cryptographic authentication mechanism is live in this product (same evidence as V6.5.7) — there are no certificates verifying authentication assertions for this requirement to constrain the storage of."
+    },
+    {
+      "requirementId": "V6.7.2",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "apps/web/components/platform-v7/WebAuthnPanel.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "WebAuthnPanel.tsx still contains no functional navigator.credentials/PublicKeyCredential call",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/components/platform-v7/WebAuthnPanel.tsx"
+          ],
+          "patterns": [
+            "navigator.credentials",
+            "publickeycredential"
+          ]
+        }
+      ],
+      "note": "Same reasoning as V6.7.1: no cryptographic hardware-authentication device or challenge/nonce protocol is live in this product for this requirement to apply to."
+    },
+    {
+      "requirementId": "V6.8.1",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "auth.service.ts's sberBusinessStart/sberBusinessCallback/oidcProviders/oidcAuthorizationUrl still all return status: 'not_configured' rather than performing any real external IdP exchange",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "status: 'not_configured'"
+          ]
+        },
+        {
+          "condition": "the web-side gov-id callback route still never exchanges the authorization code for a token and never establishes a session — no second IdP identity is ever actually resolved, regardless of the bridge's environment-variable toggle",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+          ],
+          "patterns": [
+            "access_token",
+            "id_token"
+          ]
+        }
+      ],
+      "note": "auth.service.ts's SberBusiness/OIDC methods are unconfigured stubs (see original note below). A second, separate integration point also exists: apps/web/lib/platform-v7/govIdentityBridge.ts, mounted at /api/platform-v7/gov-id/start and /callback, gated by PLATFORM_V7_GOV_ID_ENABLED. Verified directly: the callback route validates the OAuth state parameter for CSRF binding, then redirects — it never calls a token endpoint, never fetches or parses an id_token, and never creates a session. Because no second identity is ever actually established by either integration point, there is no live IdP for a user identity to be spoofed across, independent of whether the bridge's environment variables happen to be set in a given deployment (a runtime fact this repository cannot verify, matching the same limit already recorded for the Caddy edge configuration elsewhere in this programme). — Original note: sberBusinessStart/sberBusinessCallback both return `{ status: 'not_configured', message: '... is not configured in this environment' }`, oidcProviders() returns `{ providers: [] }`, and oidcAuthorizationUrl() returns `{ url: null }`."
+    },
+    {
+      "requirementId": "V6.8.2",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "auth.service.ts's SberBusiness/OIDC entry points are still all unconfigured stubs",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "status: 'not_configured'"
+          ]
+        },
+        {
+          "condition": "the web-side gov-id callback route still never fetches or parses an id_token, so no assertion signature is ever there to validate",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+          ],
+          "patterns": [
+            "access_token",
+            "id_token"
+          ]
+        }
+      ],
+      "note": "With no live external IdP integration completing a token exchange anywhere (see V6.8.1, corrected to also cover the gov-id bridge), there are no JWT/SAML authentication assertions from an IdP for the application to validate signatures on."
+    },
+    {
+      "requirementId": "V6.8.3",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "auth.service.ts's SberBusiness/OIDC entry points are still all unconfigured stubs",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "status: 'not_configured'"
+          ]
+        },
+        {
+          "condition": "the web-side gov-id callback route still never fetches or parses an id_token, so no SAML/OIDC assertion is ever processed to be replayed",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+          ],
+          "patterns": [
+            "access_token",
+            "id_token"
+          ]
+        }
+      ],
+      "note": "With no live SAML or OIDC integration completing a token exchange anywhere (see V6.8.1, corrected to also cover the gov-id bridge), there is no assertion-replay surface for this requirement to constrain."
+    },
+    {
+      "requirementId": "V6.8.4",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "auth.service.ts's SberBusiness/OIDC entry points are still all unconfigured stubs",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "status: 'not_configured'"
+          ]
+        },
+        {
+          "condition": "the web-side gov-id callback route still never fetches or parses an id_token, so no IdP-asserted strength/recency claim is ever available to check",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+          ],
+          "patterns": [
+            "access_token",
+            "id_token"
+          ]
+        }
+      ],
+      "note": "With no live external IdP integration completing a token exchange anywhere (see V6.8.1, corrected to also cover the gov-id bridge), there is no IdP-asserted authentication strength/recency (acr/amr/auth_time-style claims) for the application to verify or fall back from — MFA strength is instead decided entirely in-app (V6.3.3)."
+    },
+    {
       "requirementId": "V7.1.1",
       "applicability": "APPLICABLE",
       "status": "FAIL",
