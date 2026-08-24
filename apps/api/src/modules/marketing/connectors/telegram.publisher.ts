@@ -2,6 +2,7 @@ import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 
 const TELEGRAM_MAX_TEXT_LENGTH = 4096;
 const TELEGRAM_TIMEOUT_MS = 10_000;
+const TELEGRAM_BOT_TOKEN = /^\d{5,}:[A-Za-z0-9_-]{20,}$/u;
 
 type TelegramSendMessageResponse = {
   ok?: boolean;
@@ -34,8 +35,11 @@ export class TelegramPublisher {
     }
 
     const token = requiredEnvironment('MARKETING_TELEGRAM_BOT_TOKEN');
+    if (!TELEGRAM_BOT_TOKEN.test(token)) {
+      throw new ServiceUnavailableException('Telegram marketing bot token format is invalid.');
+    }
     const chatId = requiredEnvironment('MARKETING_TELEGRAM_CHANNEL_ID');
-    const endpoint = `https://api.telegram.org/bot${encodeURIComponent(token)}/sendMessage`;
+    const endpoint = `https://api.telegram.org/bot${token}/sendMessage`;
 
     let response: Response;
     try {
