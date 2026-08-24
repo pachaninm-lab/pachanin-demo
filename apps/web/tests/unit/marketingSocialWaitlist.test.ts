@@ -6,7 +6,13 @@ import {
   buildOrganizationWaitlistUrl,
   organizationIntakePrefill,
   parseMarketingAttribution,
+  readMarketingAttributionToken,
 } from '../../lib/platform-v7/marketing-attribution';
+import {
+  signMarketingAttribution,
+  verifiedMarketingCorrelationId,
+  verifyMarketingAttributionToken,
+} from '../../lib/platform-v7/marketing-attribution.server';
 import {
   parseTelegramStart,
   telegramRoleUrlKeyboard,
@@ -15,9 +21,12 @@ import {
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 const webhook = read('app/api/marketing/telegram/webhook/route.ts');
 const intakeForm = read('components/platform-v7/OrganizationConnectForm.tsx');
+const intakeBff = read('app/api/platform-v7/organization-connect/route.ts');
+const SECRET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef_1234567890';
+const UUID = '550e8400-e29b-41d4-a716-446655440000';
 
 describe('marketing social waitlist attribution', () => {
-  it('accepts only bounded non-PII source/campaign/content tags', () => {
+  it('accepts only bounded non-PII source/campaign/content UX tags', () => {
     expect(parseMarketingAttribution('?ms=tg&mca=harvest26&mco=lab01&mr=ps&mc=ql')).toEqual({
       source: 'tg',
       campaign: 'harvest26',
@@ -36,27 +45,41 @@ describe('marketing social waitlist attribution', () => {
     });
   });
 
-  it('encodes social provenance into the existing safe correlation-id vocabulary', () => {
-    const attribution = parseMarketingAttribution('?ms=vk&mca=grain26&mco=post7');
-    expect(attribution).not.toBeNull();
-    const correlation = buildMarketingCorrelationId(
-      attribution!,
-      '550e8400-e29b-41d4-a716-446655440000',
-    );
-    expect(correlation).toBe('mktg.vk.grain26.post7.550e8400-e29b-41d4-a716-446655440000');
+  it('requires a valid HMAC before producing trusted marketing correlation', () => {
+    const attribution = parseMarketingAttribution('?ms=vk&mca=grain26&mco=post7&mr=bp')!;
+    const token = signMarketingAttribution(attribution, SECRET);
+
+    expect(verifyMarketingAttributionToken(token, SECRET)).toEqual(attribution);
+    expect(
+      verifiedMarketingCorrelationId(token, UUID, { MARKETING_ATTRIBUTION_HMAC_SECRET: SECRET }),
+    ).toBe(`mktg.vk.grain26.post7.${UUID}`);
+
+    const tampered = token.replace('.grain26.', '.grain27.');
+    expect(verifyMarketingAttributionToken(tampered, SECRET)).toBeNull();
+    expect(
+      verifiedMarketingCorrelationId(tampered, UUID, { MARKETING_ATTRIBUTION_HMAC_SECRET: SECRET }),
+    ).toBeNull();
+    expect(verifiedMarketingCorrelationId(token, UUID, {})).toBeNull();
+  });
+
+  it('keeps durable marketing correlation inside the existing safe vocabulary', () => {
+    const attribution = parseMarketingAttribution('?ms=vk&mca=grain26&mco=post7')!;
+    const correlation = buildMarketingCorrelationId(attribution, UUID);
+    expect(correlation).toBe(`mktg.vk.grain26.post7.${UUID}`);
     expect(correlation).toMatch(/^[A-Za-z0-9._:-]{8,128}$/u);
     expect(correlation).not.toMatch(/@|\+|\s/u);
   });
 
-  it('builds HTTPS waitlist URLs and canonical role/scenario prefill', () => {
-    const attribution = parseMarketingAttribution('?ms=tg&mca=grain26&mco=post7&mr=ls&mc=ql');
-    expect(attribution).not.toBeNull();
-    const url = buildOrganizationWaitlistUrl('https://процент-агро.рф', attribution!);
+  it('builds HTTPS waitlist URLs with an opaque signed token and canonical prefill', () => {
+    const attribution = parseMarketingAttribution('?ms=tg&mca=grain26&mco=post7&mr=ls&mc=ql')!;
+    const token = signMarketingAttribution(attribution, SECRET);
+    const url = buildOrganizationWaitlistUrl('https://процент-агро.рф', attribution, token);
     const parsed = new URL(url);
     expect(parsed.protocol).toBe('https:');
     expect(parsed.pathname).toBe('/platform-v7');
     expect(parsed.searchParams.get('ms')).toBe('tg');
     expect(parsed.searchParams.get('mr')).toBe('ls');
+    expect(readMarketingAttributionToken(parsed.search)).toBe(token);
     expect(parsed.hash).toBe('#connect-organization');
     expect(organizationIntakePrefill(attribution)).toEqual({
       organizationRole: 'LAB_SURVEYOR',
@@ -64,11 +87,13 @@ describe('marketing social waitlist attribution', () => {
     });
   });
 
-  it('rejects unsafe public origins', () => {
+  it('rejects unsafe origins and malformed signed-token envelopes', () => {
     const attribution = parseMarketingAttribution('?ms=tg&mca=x&mco=y')!;
     expect(() => buildOrganizationWaitlistUrl('http://example.com', attribution)).toThrow(/HTTPS origin/i);
     expect(() => buildOrganizationWaitlistUrl('https://user:pass@example.com', attribution)).toThrow(/HTTPS origin/i);
     expect(() => buildOrganizationWaitlistUrl('https://example.com/path', attribution)).toThrow(/must not include path/i);
+    expect(() => buildOrganizationWaitlistUrl('https://example.com', attribution, 'forged')).toThrow(/token/i);
+    expect(readMarketingAttributionToken('?ma=forged')).toBeNull();
   });
 });
 
@@ -84,24 +109,31 @@ describe('Telegram qualification without Telegram PII persistence', () => {
     });
   });
 
-  it('returns seven URL role choices and no callback state', () => {
+  it('returns seven signed URL role choices and no callback state', () => {
     const keyboard = telegramRoleUrlKeyboard(
       'https://процент-агро.рф',
       { campaign: 'harvest26', content: 'lab01' },
+      (attribution) => signMarketingAttribution(attribution, SECRET),
     );
     expect(keyboard.inline_keyboard).toHaveLength(7);
     for (const row of keyboard.inline_keyboard) {
       expect(row).toHaveLength(1);
       expect(row[0].url).toContain('https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?');
-      expect(row[0].url).toContain('ms=tg');
+      const parsed = new URL(row[0].url);
+      expect(parsed.searchParams.get('ms')).toBe('tg');
+      const token = readMarketingAttributionToken(parsed.search);
+      expect(token).not.toBeNull();
+      expect(verifyMarketingAttributionToken(token!, SECRET)?.source).toBe('tg');
       expect(row[0]).not.toHaveProperty('callback_data');
     }
   });
 
-  it('authenticates Telegram webhook requests and never needs a bot token at runtime', () => {
+  it('authenticates Telegram webhook requests and signs attribution without exposing a bot token', () => {
     expect(webhook).toContain("request.headers.get('x-telegram-bot-api-secret-token')");
     expect(webhook).toContain('timingSafeEqual');
     expect(webhook).toContain('MARKETING_TELEGRAM_WEBHOOK_SECRET');
+    expect(webhook).toContain('marketingAttributionSecret');
+    expect(webhook).toContain('signMarketingAttribution');
     expect(webhook).toContain('MARKETING_OUTBOUND_ENABLED');
     expect(webhook).toContain('MARKETING_TELEGRAM_COMMUNITY_ENABLED');
     expect(webhook).toContain("method: 'sendMessage'");
@@ -111,10 +143,15 @@ describe('Telegram qualification without Telegram PII persistence', () => {
     expect(webhook).not.toMatch(/username|first_name|last_name|phone_number/);
   });
 
-  it('passes bounded marketing provenance through the existing durable organization intake correlation', () => {
-    expect(intakeForm).toContain('parseMarketingAttribution');
-    expect(intakeForm).toContain('buildMarketingCorrelationId');
-    expect(intakeForm).toContain("headers['x-correlation-id'] = marketingCorrelationId.current");
-    expect(intakeForm).not.toMatch(/headers\[['"]x-correlation-id['"]\].*(email|phone|inn|contactName)/u);
+  it('keeps mktg correlation authority server-side and rejects public spoofing of that prefix', () => {
+    expect(intakeForm).toContain('readMarketingAttributionToken');
+    expect(intakeForm).toContain("headers['x-marketing-attribution'] = marketingAttributionToken.current");
+    expect(intakeForm).not.toContain('buildMarketingCorrelationId');
+    expect(intakeForm).not.toContain("headers['x-correlation-id']");
+
+    expect(intakeBff).toContain('verifiedMarketingCorrelationId');
+    expect(intakeBff).toContain("request.headers.get('x-marketing-attribution')");
+    expect(intakeBff).toContain("!requested.startsWith('mktg.')");
+    expect(intakeBff).toContain("'x-correlation-id': correlationId");
   });
 });
