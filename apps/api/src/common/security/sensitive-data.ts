@@ -34,6 +34,14 @@ export const SENSITIVE_VALUE_RULES: readonly SensitiveValueRule[] = Object.freez
   { name: 'bank-account', pattern: /\b([0-9]{5})[0-9]{10}([0-9]{5})\b/g, replacement: '$1**********$2', dataClass: 'C6_PD_FINANCIAL' },
   { name: 'phone-ru', pattern: /(\+?7|8)[\s\-]?\(?\d{3}\)?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/g, replacement: '+7***XXXXX', dataClass: 'C3_PD_BASIC' },
   { name: 'email', pattern: /([a-zA-Z0-9._%+\-]{1,3})[a-zA-Z0-9._%+\-]+@([a-zA-Z0-9\-]+\.[a-zA-Z]{2,})/g, replacement: '$1***@$2', dataClass: 'C3_PD_BASIC' },
+  // Правило выше требует минимум два символа в локальной части: группа {1,3} и
+  // следующий за ней `+` вместе. Односимвольный адрес не совпадал с ним вовсе и
+  // проходил насквозь по всем трём каналам, включая outbound-telemetry.
+  // Частичная маскировка здесь помочь и не может: сохраняемый префикс - это вся
+  // локальная часть целиком, поэтому она вычищается полностью. Домен остаётся,
+  // как и в основном правиле. Порядок важен: правило стоит после `email`, иначе
+  // оно перехватывало бы последний символ длинной локальной части.
+  { name: 'email-short-local', pattern: /\b[a-zA-Z0-9._%+\-]@([a-zA-Z0-9\-]+\.[a-zA-Z]{2,})/g, replacement: '***@$1', dataClass: 'C3_PD_BASIC' },
   { name: 'card-number', pattern: /\b(\d{4})[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?(\d{4})\b/g, replacement: '$1 **** **** $2', dataClass: 'C6_PD_FINANCIAL' },
   { name: 'passport-ru', pattern: /\b\d{4}[\s]?\d{6}\b/g, replacement: '**** ******', dataClass: 'C5_PD_IDENTITY' },
 ]);
