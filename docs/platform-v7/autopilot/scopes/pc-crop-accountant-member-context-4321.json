@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/accountant-member-context-4321",
+  "status": "active",
+  "purpose": "Narrow DB-proven organization-member RLS transaction path for accounting job profiles, including GUEST-compatible accountants, without widening generic platform GUEST access.",
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "issue": 4321,
+  "trackingIssue": 4607,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "apps/api/src/common/prisma/rls-organization-member-context.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/accountant-member-context-v1.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-accountant-member-context-4321.json"
+  ],
+  "requiredInvariants": [
+    "Generic withTrustedContext continues to reject GUEST.",
+    "Organization-member work may start only after PostgreSQL resolves an ACTIVE durable membership for the exact authenticated identity context.",
+    "Missing membership fails closed before the business callback executes.",
+    "No unrelated contour receives a new GUEST admission path.",
+    "No database schema, migration, production, hosting or provider traffic change is introduced.",
+    "No new mandatory recurring cost is introduced."
+  ]
+}
