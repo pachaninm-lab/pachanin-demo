@@ -473,8 +473,8 @@ describePostgres('durable 1C runtime authority', () => {
     );
 
     await expect(prisma.$transaction(async (transaction) => {
-      await transaction.$executeRawUnsafe(
-        'SET LOCAL ROLE pc_one_c_organization_lock_authority',
+      await transaction.$executeRaw(
+        Prisma.sql`SET LOCAL ROLE pc_one_c_organization_lock_authority`,
       );
       await transaction.$executeRaw(Prisma.sql`
         UPDATE public."organizations"
@@ -484,7 +484,9 @@ describePostgres('durable 1C runtime authority', () => {
     })).rejects.toThrow();
 
     await expect(prisma.$transaction(async (transaction) => {
-      await transaction.$executeRawUnsafe('SET LOCAL ROLE pc_one_c_connector_authority');
+      await transaction.$executeRaw(
+        Prisma.sql`SET LOCAL ROLE pc_one_c_connector_authority`,
+      );
       await transaction.$executeRaw(Prisma.sql`
         UPDATE public."organizations"
            SET "updatedAt" = clock_timestamp()
