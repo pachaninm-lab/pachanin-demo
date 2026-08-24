@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4645,
+  "branch": "security/correct-v637-verdict-4645",
+  "status": "active",
+  "purpose": "Correct the ASVS V6.3.7 decision, which recorded FAIL on a factually wrong basis. The earlier note asserted that nothing in this repository turns the password-reset confirm() response into a sent email; the scan behind that claim was scoped to apps/api and generalised to the whole repository, and its call-site counts were taken by substring rather than word boundary. Both notices the requirement asks about are in fact sent, localised, from the web BFF. Evidence-register correction only - no application code changes.",
+  "authorityBaseExactMain": "fb4c66a914850b6cc0922c4ca3461364dfc8fa98",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/correct-v637-verdict-4645.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "Only the V6.3.7 decision changes; no other requirement's verdict, evidence or conditions are touched.",
+    "The new PASS carries self-revoking conditions tied to the actual send call sites, so removing either notification revokes the decision instead of leaving a stale PASS.",
+    "A condition also watches for the appearance of a username/email change flow, which would make the requirement's currently-vacuous third clause real and must re-open the assessment.",
+    "The durability limitation of the BFF send (no retry; a crash after the API commit leaves that user unnotified) is recorded honestly in the note rather than being hidden by the PASS, and is explicitly not scored as a failure of this requirement, which asks whether users are notified rather than whether delivery is guaranteed.",
+    "No security control is weakened; no application code changes.",
+    "No production, REG.RU, DNS or database mutation."
+  ],
+  "acceptance": [
+    "The evidence gate rejects 0 decisions and all three V6.3.7 conditions hold against the live tree.",
+    "The FAIL count drops by exactly one (122 to 121); decisionsApplied stays 332.",
+    "A file-wide applicability/status consistency check reports 0 inconsistencies.",
+    "node --test scripts/security/*.test.mjs reports 60/60."
+  ]
+}
