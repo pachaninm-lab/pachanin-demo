@@ -8,6 +8,7 @@ import {
 const SECRET_PATTERN = /^[A-Za-z0-9_-]{32,128}$/u;
 const SIGNATURE_PATTERN = /^[0-9a-f]{64}$/u;
 const TOKEN_PART_PATTERN = /^[A-Za-z0-9_-]{1,12}$/u;
+const MAX_TOKEN_LENGTH = 180;
 
 function compact(value: string | undefined): string {
   return value && TOKEN_PART_PATTERN.test(value) ? value : '-';
@@ -24,6 +25,26 @@ function canonical(attribution: MarketingAttribution): string {
   ].join('.');
 }
 
+function normalizedAttribution(attribution: MarketingAttribution): MarketingAttribution | null {
+  const params = new URLSearchParams({
+    ms: String(attribution.source ?? ''),
+    mca: String(attribution.campaign ?? ''),
+    mco: String(attribution.content ?? ''),
+  });
+  if (attribution.roleCode) params.set('mr', attribution.roleCode);
+  if (attribution.scenarioCode) params.set('mc', attribution.scenarioCode);
+  const normalized = parseMarketingAttribution(params.toString());
+  if (!normalized) return null;
+  if (
+    normalized.source !== attribution.source
+    || normalized.campaign !== attribution.campaign
+    || normalized.content !== attribution.content
+    || normalized.roleCode !== attribution.roleCode
+    || normalized.scenarioCode !== attribution.scenarioCode
+  ) return null;
+  return normalized;
+}
+
 export function marketingAttributionSecret(environment: NodeJS.ProcessEnv = process.env): string | null {
   const secret = String(environment.MARKETING_ATTRIBUTION_HMAC_SECRET ?? '').trim();
   return SECRET_PATTERN.test(secret) ? secret : null;
@@ -34,7 +55,9 @@ export function signMarketingAttribution(
   secret: string,
 ): string {
   if (!SECRET_PATTERN.test(secret)) throw new Error('Marketing attribution HMAC secret is invalid');
-  const unsigned = canonical(attribution);
+  const normalized = normalizedAttribution(attribution);
+  if (!normalized) throw new Error('Marketing attribution vocabulary is invalid');
+  const unsigned = canonical(normalized);
   const signature = createHmac('sha256', secret).update(unsigned, 'utf8').digest('hex');
   return `${unsigned}.${signature}`;
 }
@@ -44,7 +67,9 @@ export function verifyMarketingAttributionToken(
   secret: string,
 ): MarketingAttribution | null {
   if (!SECRET_PATTERN.test(secret)) return null;
-  const parts = String(token ?? '').trim().split('.');
+  const normalizedToken = String(token ?? '').trim();
+  if (!normalizedToken || normalizedToken.length > MAX_TOKEN_LENGTH) return null;
+  const parts = normalizedToken.split('.');
   if (parts.length !== 7 || parts[0] !== 'v1') return null;
   const [version, source, campaign, content, role, scenario, signature] = parts;
   if (
@@ -66,11 +91,7 @@ export function verifyMarketingAttributionToken(
     || !timingSafeEqual(actualBuffer, expectedBuffer)
   ) return null;
 
-  const params = new URLSearchParams({
-    ms: source,
-    mca: campaign,
-    mco: content,
-  });
+  const params = new URLSearchParams({ ms: source, mca: campaign, mco: content });
   if (role !== '-') params.set('mr', role);
   if (scenario !== '-') params.set('mc', scenario);
   return parseMarketingAttribution(params.toString());
