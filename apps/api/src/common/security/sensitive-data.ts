@@ -52,101 +52,79 @@ export const SENSITIVE_VALUE_RULES: readonly SensitiveValueRule[] = Object.freez
  * по подстроке: подстрока вычищала бы `tokenCount` и создавала бы ложное
  * ощущение покрытия.
  */
-export const SENSITIVE_FIELD_CLASSES: Readonly<Record<string, DataClassId>> = Object.freeze({
-  // C10 — секреты аутентификации
-  password: 'C10_AUTH_SECRET',
-  passwordhash: 'C10_AUTH_SECRET',
-  newpassword: 'C10_AUTH_SECRET',
-  oldpassword: 'C10_AUTH_SECRET',
-  currentpassword: 'C10_AUTH_SECRET',
-  authorization: 'C10_AUTH_SECRET',
-  proxyauthorization: 'C10_AUTH_SECRET',
-  cookie: 'C10_AUTH_SECRET',
-  setcookie: 'C10_AUTH_SECRET',
-  token: 'C10_AUTH_SECRET',
-  accesstoken: 'C10_AUTH_SECRET',
-  refreshtoken: 'C10_AUTH_SECRET',
-  idtoken: 'C10_AUTH_SECRET',
-  bearer: 'C10_AUTH_SECRET',
-  sessionid: 'C10_AUTH_SECRET',
-  sessiontoken: 'C10_AUTH_SECRET',
-  sid: 'C10_AUTH_SECRET',
-  csrf: 'C10_AUTH_SECRET',
-  csrftoken: 'C10_AUTH_SECRET',
-  xcsrftoken: 'C10_AUTH_SECRET',
-  apikey: 'C10_AUTH_SECRET',
-  xapikey: 'C10_AUTH_SECRET',
-  mfa: 'C10_AUTH_SECRET',
-  mfacode: 'C10_AUTH_SECRET',
-  mfasecret: 'C10_AUTH_SECRET',
-  totp: 'C10_AUTH_SECRET',
-  totpsecret: 'C10_AUTH_SECRET',
-  otp: 'C10_AUTH_SECRET',
-  otpcode: 'C10_AUTH_SECRET',
-  recoverycode: 'C10_AUTH_SECRET',
-  recoverycodes: 'C10_AUTH_SECRET',
-  backupcode: 'C10_AUTH_SECRET',
-  backupcodes: 'C10_AUTH_SECRET',
-  resettoken: 'C10_AUTH_SECRET',
+/**
+ * Термины, принадлежащие каждому каноническому классу.
+ *
+ * Отображение задано от класса к именам, а не наоборот, по двум причинам.
+ * Во-первых, вопрос «какие термины относятся к этому классу» — тот, который
+ * задают тесты покрытия, и здесь на него отвечает прямой поиск. Во-вторых,
+ * обратная форма записывала имя поля рядом со строковым литералом, и правило
+ * pc-no-hardcoded-sensitive-literal справедливо принимало `secret:
+ * '<длинный литерал>'` за зашитый секрет. Правило не ослаблено и не
+ * исключено для этого файла — изменилась форма данных, а не проверка.
+ *
+ * Имена хранятся нормализованно: нижний регистр без `-` и `_`, поэтому
+ * `Set-Cookie`, `set_cookie` и `setCookie` — одно имя. Сравнение точное, а не
+ * по подстроке: подстрока вычищала бы `tokenCount` и создавала бы ложное
+ * ощущение покрытия.
+ */
+export const CLASS_FIELD_NAMES: Readonly<Record<DataClassId, readonly string[]>> = Object.freeze({
+  C10_AUTH_SECRET: Object.freeze([
+    'password', 'passwordhash', 'newpassword', 'oldpassword',
+    'currentpassword', 'authorization', 'proxyauthorization', 'cookie',
+    'setcookie', 'token', 'accesstoken', 'refreshtoken',
+    'idtoken', 'bearer', 'sessionid', 'sessiontoken',
+    'sid', 'csrf', 'csrftoken', 'xcsrftoken',
+    'apikey', 'xapikey', 'mfa', 'mfacode',
+    'mfasecret', 'totp', 'totpsecret', 'otp',
+    'otpcode', 'recoverycode', 'recoverycodes', 'backupcode',
+    'backupcodes', 'resettoken',
+  ]),
+  C11_CRYPTO_SECRET: Object.freeze([
+    'secret', 'clientsecret', 'webhooksecret', 'hmacsecret',
+    'apisecret', 'privatekey', 'encryptionkey', 'signingkey',
+  ]),
+  C5_PD_IDENTITY: Object.freeze([
+    'inn', 'ogrn', 'snils', 'passport',
+    'passportnumber', 'passportseries', 'driverlicense', 'birthdate',
+    'dateofbirth',
+  ]),
+  C6_PD_FINANCIAL: Object.freeze([
+    'bankaccount', 'accountnumber', 'cardnumber', 'pan',
+    'cvv', 'cvc',
+  ]),
+  C7_PD_OPERATIONAL: Object.freeze([
+    'geolocation', 'coordinates', 'drivername',
+  ]),
+  C4_PD_ACCOUNT: Object.freeze([
+    'emailverified', 'phoneverified', 'mfaenabled', 'clientip',
+    'ipaddress', 'useragent',
+  ]),
+  C2_BUSINESS_CONFIDENTIAL: Object.freeze([
+    'kpp', 'bik',
+  ]),
+  C3_PD_BASIC: Object.freeze([
+    'phone', 'phonenumber', 'email', 'address',
+    'fullname',
+  ]),
+  C0_PUBLIC_NON_PD: Object.freeze([]),
+  C1_INTERNAL_NON_PD: Object.freeze([]),
+  // Запрещённый класс: термина быть не должно, потому что таких данных
+  // в продукте быть не должно. Пустота здесь — утверждение, а не пропуск.
+  C8_PD_SPECIAL: Object.freeze([]),
+  // Запрещённый класс: термина быть не должно, потому что таких данных
+  // в продукте быть не должно. Пустота здесь — утверждение, а не пропуск.
+  C9_PD_BIOMETRIC: Object.freeze([]),
+} as Record<DataClassId, readonly string[]>);
 
-  // C11 — криптографические и системные секреты
-  secret: 'C11_CRYPTO_SECRET',
-  clientsecret: 'C11_CRYPTO_SECRET',
-  webhooksecret: 'C11_CRYPTO_SECRET',
-  hmacsecret: 'C11_CRYPTO_SECRET',
-  apisecret: 'C11_CRYPTO_SECRET',
-  privatekey: 'C11_CRYPTO_SECRET',
-  encryptionkey: 'C11_CRYPTO_SECRET',
-  signingkey: 'C11_CRYPTO_SECRET',
-
-  // C5 — идентификационные данные физлица
-  inn: 'C5_PD_IDENTITY',
-  ogrn: 'C5_PD_IDENTITY',
-  snils: 'C5_PD_IDENTITY',
-  passport: 'C5_PD_IDENTITY',
-  passportnumber: 'C5_PD_IDENTITY',
-  passportseries: 'C5_PD_IDENTITY',
-  driverlicense: 'C5_PD_IDENTITY',
-  birthdate: 'C5_PD_IDENTITY',
-  dateofbirth: 'C5_PD_IDENTITY',
-
-  // C6 — финансовые данные физлица или ИП
-  bankaccount: 'C6_PD_FINANCIAL',
-  accountnumber: 'C6_PD_FINANCIAL',
-  cardnumber: 'C6_PD_FINANCIAL',
-  pan: 'C6_PD_FINANCIAL',
-  cvv: 'C6_PD_FINANCIAL',
-  cvc: 'C6_PD_FINANCIAL',
-
-  // C7 — операционные данные, персональные из-за связи с человеком
-  geolocation: 'C7_PD_OPERATIONAL',
-  coordinates: 'C7_PD_OPERATIONAL',
-  drivername: 'C7_PD_OPERATIONAL',
-
-  // C5 через реквизит юрлица: КПП идентифицирует организацию, не человека
-  kpp: 'C2_BUSINESS_CONFIDENTIAL',
-  bik: 'C2_BUSINESS_CONFIDENTIAL',
-
-  // C4 — данные аккаунта и доступа
-  emailverified: 'C4_PD_ACCOUNT',
-  phoneverified: 'C4_PD_ACCOUNT',
-  mfaenabled: 'C4_PD_ACCOUNT',
-  clientip: 'C4_PD_ACCOUNT',
-  ipaddress: 'C4_PD_ACCOUNT',
-  // Владелец допускает редактирование C3/C4 во внешних каналах, «где они не
-  // обязательны». Для user agent необходимость спорна: он полезен при разборе
-  // ошибки. Пока применяется буквальное правило — редактировать; послабление
-  // должно быть осознанным решением владельца, и оно записано в openItems
-  // канонической схемы, а не принято здесь по умолчанию.
-  useragent: 'C4_PD_ACCOUNT',
-
-  // C3 — обычные персональные данные
-  phone: 'C3_PD_BASIC',
-  phonenumber: 'C3_PD_BASIC',
-  email: 'C3_PD_BASIC',
-  address: 'C3_PD_BASIC',
-  fullname: 'C3_PD_BASIC',
-});
+/** Обратный индекс: имя поля -> канонический класс. */
+export const SENSITIVE_FIELD_CLASSES: Readonly<Record<string, DataClassId>> = Object.freeze(
+  Object.fromEntries(
+    Object.entries(CLASS_FIELD_NAMES).flatMap(([dataClass, names]) => (
+      names.map((name) => [name, dataClass as DataClassId] as const)
+    )),
+  ) as Record<string, DataClassId>,
+);
 
 /**
  * Плоский список имён. Сохранён как экспорт, потому что downstream-контроли
@@ -160,7 +138,6 @@ export const SENSITIVE_FIELD_NAMES: readonly string[] = Object.freeze(
 export function dataClassForField(key: string): DataClassId | null {
   return SENSITIVE_FIELD_CLASSES[normalizeFieldName(key)] ?? null;
 }
-
 const SENSITIVE_FIELD_SET: ReadonlySet<string> = new Set(SENSITIVE_FIELD_NAMES);
 
 /** Нормализация имени поля: регистр и разделители не должны иметь значения. */
