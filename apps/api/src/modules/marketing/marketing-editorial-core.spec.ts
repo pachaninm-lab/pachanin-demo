@@ -112,9 +112,32 @@ describe('marketing editorial core — radar → evidence → topic planning', (
     const evidence = accepted();
     const score = scoreMarketingEvidence(evidence, NOW);
     expect(score.eligible).toBe(true);
+    expect(score.evidenceId).toBe(evidence.evidenceId);
+    expect(score.contentSha256).toBe(evidence.contentSha256);
     expect(score.topic).toBe('QUALITY_LAB');
     expect(score.targetRoles).toEqual(expect.arrayContaining(['SELLER', 'BUYER', 'LAB']));
     expect(score.total).toBeGreaterThanOrEqual(0.62);
+  });
+
+  it('rebinds source authority and freshness instead of trusting forged evidence metadata', () => {
+    const evidence = accepted();
+    const forgedAuthority = {
+      ...evidence,
+      authorityScore: 1,
+      maxAgeHours: 24 * 365,
+    };
+    const forgedScore = scoreMarketingEvidence(forgedAuthority, NOW);
+    expect(forgedScore.authority).toBe(0);
+    expect(forgedScore.total).toBe(0);
+    expect(forgedScore.eligible).toBe(false);
+    expect(planMarketingContent(forgedAuthority, 0, NOW)).toBeNull();
+
+    const stale = {
+      ...evidence,
+      publishedAt: '2026-07-01T08:00:00.000Z',
+    };
+    expect(scoreMarketingEvidence(stale, NOW).eligible).toBe(false);
+    expect(planMarketingContent(stale, 0, NOW)).toBeNull();
   });
 
   it('rejects trusted but off-topic evidence instead of defaulting it to market content', () => {
@@ -127,19 +150,17 @@ describe('marketing editorial core — radar → evidence → topic planning', (
     expect(score.topic).toBe('GENERAL_AGRO');
     expect(score.relevance).toBe(0);
     expect(score.eligible).toBe(false);
-    expect(planMarketingContent(evidence, score, 0)).toBeNull();
+    expect(planMarketingContent(evidence, 0, NOW)).toBeNull();
   });
 
   it('penalizes recently repeated topic-role clusters', () => {
     const evidence = accepted();
     const fresh = scoreMarketingEvidence(evidence, NOW);
-    const repeated = scoreMarketingEvidence(
-      evidence,
-      NOW,
-      new Set([`${fresh.topic}:${fresh.targetRoles.slice().sort().join(',') || 'ALL'}`]),
-    );
+    const repeatedTopicKeys = new Set([`${fresh.topic}:${fresh.targetRoles.slice().sort().join(',') || 'ALL'}`]);
+    const repeated = scoreMarketingEvidence(evidence, NOW, repeatedTopicKeys);
     expect(repeated.novelty).toBeLessThan(fresh.novelty);
     expect(repeated.total).toBeLessThan(fresh.total);
+    expect(planMarketingContent(evidence, 0, NOW, repeatedTopicKeys)?.evidenceIds).toEqual([evidence.evidenceId]);
   });
 
   it('enforces the 70/20/10 useful/product/conversion editorial mix deterministically', () => {
@@ -151,17 +172,16 @@ describe('marketing editorial core — radar → evidence → topic planning', (
 
   it('never auto-classifies promotional slots as informational advertising-safe content', () => {
     const evidence = accepted();
-    const score = scoreMarketingEvidence(evidence, NOW);
 
-    const useful = planMarketingContent(evidence, score, 0);
+    const useful = planMarketingContent(evidence, 0, NOW);
     expect(useful?.classificationHint).toBe('INFORMATIONAL');
     expect(useful?.requiresLegalClassification).toBe(false);
 
-    const product = planMarketingContent(evidence, score, 7);
+    const product = planMarketingContent(evidence, 7, NOW);
     expect(product?.classificationHint).toBe('UNCERTAIN');
     expect(product?.requiresLegalClassification).toBe(true);
 
-    const conversion = planMarketingContent(evidence, score, 9);
+    const conversion = planMarketingContent(evidence, 9, NOW);
     expect(conversion?.classificationHint).toBe('UNCERTAIN');
     expect(conversion?.callToAction).toBe('QWO_WAITLIST');
   });
