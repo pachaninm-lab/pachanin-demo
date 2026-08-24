@@ -13,6 +13,7 @@ const correction = fs.readFileSync(correctionPath, 'utf8');
 
 const workflowMarkers = [
   "github.event.issue.number == 3072",
+  "github.event.issue.number == 4637",
   "github.event.comment.user.login == github.repository_owner",
   "github.actor == github.repository_owner",
   "github.triggering_actor == github.repository_owner",
@@ -21,6 +22,7 @@ const workflowMarkers = [
   'contents: read\n      issues: write',
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'bash scripts/production-p0-reviewer-inspect.sh',
+  'PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER: ${{ github.event.issue.number }}',
   migrationPath,
   correctionPath,
 ];
@@ -36,6 +38,10 @@ const runnerMarkers = [
   "DEFAULT_HOST='195.19.12.120'",
   "LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'",
   "COMMAND='/production p0-reviewer-inspect current-main'",
+  "LEGACY_RELEASE_ISSUE_NUMBER='3072'",
+  "CONTINUATION_ISSUE_NUMBER='4637'",
+  ': "${PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER:?PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER is required}"',
+  'RELEASE_ISSUE_NUMBER="$PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER"',
   'gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha',
   'StrictHostKeyChecking=yes',
   'ssh-keyscan -T 10',

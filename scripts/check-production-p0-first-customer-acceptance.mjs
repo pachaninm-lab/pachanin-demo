@@ -4,6 +4,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const ACCEPTANCE='scripts/production-p0-first-customer-acceptance.sh';
+const WORKFLOW='.github/workflows/production-p0-first-customer-acceptance.yml';
 const CORE_BLOB='b02ce590dc308ce46c41df33416dd7b11700ae98';
 const CHECKER_BLOB='5b315be49d4f7025069441a5ff551729dbc46d36';
 const fail=(m)=>{ throw new Error(`P0_FIRST_CUSTOMER_ALIAS_CONTRACT: ${m}`); };
@@ -14,6 +15,23 @@ const run=(cmd,args,opts={})=>{
 };
 
 const wrapper=fs.readFileSync(ACCEPTANCE,'utf8');
+const workflow=fs.readFileSync(WORKFLOW,'utf8');
+for(const marker of [
+  'github.event.issue.number == 4637',
+  "github.event.comment.body == '/production p0-first-customer current-main'",
+  'RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}',
+]) if(!workflow.includes(marker)) fail(`continuation workflow marker missing: ${marker}`);
+const repairStart=workflow.indexOf('\n  repair-production-reviewer:');
+const acceptanceStart=workflow.indexOf('\n  accept-production-first-customers:');
+if(repairStart<0 || acceptanceStart<=repairStart) fail('continuation workflow job boundaries missing');
+const repairJob=workflow.slice(repairStart,acceptanceStart);
+if(repairJob.includes('github.event.issue.number == 4637')) {
+  fail('historical reviewer membership repair must not be authorized on continuation issue');
+}
+const acceptanceJob=workflow.slice(acceptanceStart);
+if(!acceptanceJob.includes('(github.event.issue.number == 3072 || github.event.issue.number == 4637)')) {
+  fail('first-customer acceptance must bind legacy or exact continuation authority');
+}
 for(const marker of [
   `CORE_BLOB='${CORE_BLOB}'`,
   "'pc_auth_runtime', 'one_deal_auth', 'app_auth', 'app_service'",

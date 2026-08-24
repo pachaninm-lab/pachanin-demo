@@ -7,6 +7,11 @@ on:
         description: 'Set only by the owner-authorized production release controller.'
         required: true
         type: boolean
+      controller_issue_number:
+        description: 'Exact owner-validated release issue propagated by the controller.'
+        required: false
+        default: 0
+        type: number
   pull_request:
     branches: [main]
     paths:
@@ -58,6 +63,7 @@ env:
   DEFAULT_HOST: 195.19.12.120
   EVIDENCE_DIR: artifacts/production-full-stack-release
   RELEASE_ISSUE_NUMBER: 3072
+  CONTINUATION_ISSUE_NUMBER: 4637
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
   SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -74,7 +80,16 @@ jobs:
   contract:
     name: Validate full-stack release contract
     if: >-
-      (inputs.owner_release_authorized == true) ||
+      (inputs.owner_release_authorized == true &&
+       (((inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+         inputs.controller_issue_number == github.event.issue.number &&
+         github.event.comment.user.login == github.repository_owner &&
+         github.event.comment.author_association == 'OWNER' &&
+         github.event.comment.body == '/production release current-main' &&
+         github.actor == github.repository_owner &&
+         github.triggering_actor == github.repository_owner) ||
+        (inputs.controller_issue_number == 0 &&
+         github.event.issue.number == 3072))) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
@@ -99,7 +114,16 @@ jobs:
     name: Migrate, deploy API and web, verify live intake
     needs: contract
     if: >-
-      (inputs.owner_release_authorized == true) ||
+      (inputs.owner_release_authorized == true &&
+       (((inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+         inputs.controller_issue_number == github.event.issue.number &&
+         github.event.comment.user.login == github.repository_owner &&
+         github.event.comment.author_association == 'OWNER' &&
+         github.event.comment.body == '/production release current-main' &&
+         github.actor == github.repository_owner &&
+         github.triggering_actor == github.repository_owner) ||
+        (inputs.controller_issue_number == 0 &&
+         github.event.issue.number == 3072))) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
@@ -457,9 +481,11 @@ jobs:
           BACKUP_MODE: ${{ steps.production.outputs.backup_mode }}
           LIVE_OUTCOME: ${{ steps.live.outcome }}
           DATABASE_OUTCOME: ${{ steps.database.outcome }}
+          EVIDENCE_ISSUE_NUMBER: ${{ inputs.owner_release_authorized == true && inputs.controller_issue_number || 3072 }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$EVIDENCE_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]
           live="$(sed -n 's/^LIVE_ACCEPTANCE=//p' "$EVIDENCE_DIR/live.log" 2>/dev/null | tail -1 || true)"
           request="$(sed -n 's/^LIVE_REQUEST_NUMBER=//p' "$EVIDENCE_DIR/live.log" 2>/dev/null | tail -1 || true)"
           durable="$(sed -n 's/^DURABLE_INTAKE_DB=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
@@ -488,8 +514,8 @@ jobs:
             echo "- Watchtower retired: \`${WATCHTOWER_RETIRED:-0}\`"
           } > "$record"
           find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
-          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
-          if [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" ]]; then
+          gh issue comment "$EVIDENCE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          if [[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" && "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" ]]; then
             gh issue close "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --reason completed
           fi
 

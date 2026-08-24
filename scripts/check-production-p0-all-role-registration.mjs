@@ -31,6 +31,7 @@ function forbid(sourceName, pattern, message) {
 requireAll('workflow', [
   'name: Production P0 All-Role Registration',
   "github.event.issue.number == 3072",
+  "github.event.issue.number == 4637",
   "github.event.comment.body == '/production p0-all-role-registration current-main'",
   'actions/workflows/production-p0-first-customer-acceptance.yml/runs',
   'production-p0-first-customer-$TARGET_SHA-$deep_run_id',
@@ -52,6 +53,7 @@ requireAll('workflow', [
   'P0_ALL_ROLE_REGISTRATION=PASS',
   'actions/upload-artifact@v4',
   'Remove protected runner credentials',
+  'RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}',
 ]);
 
 requireAll('runner', [

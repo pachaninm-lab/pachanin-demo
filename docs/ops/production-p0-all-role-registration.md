@@ -4,7 +4,7 @@ This runbook closes issue #3785 only when the canonical REG.RU production system
 
 ## Command and prerequisite
 
-The repository owner starts the matrix on release issue #3072 with:
+Issue #3072 remains the legacy historical authority. The repository owner starts the bounded remaining matrix on successor issue #4637 with:
 
 ```text
 /production p0-all-role-registration current-main
@@ -18,7 +18,7 @@ The reviewer decision rate window from the deep prerequisite is allowed to expir
 
 ## Human reviewer ceremony
 
-GitHub Actions receives no reviewer email, password, TOTP seed, one-time code, cookie, token or staff session. When the eight new-organization applications are ready, the workflow posts only an aggregate count and the non-personal legal-name marker to issue #3072.
+GitHub Actions receives no reviewer email, password, TOTP seed, one-time code, cookie, token or staff session. When the eight new-organization applications are ready, the workflow posts only an aggregate count and the non-personal legal-name marker to the validated triggering authority issue #4637.
 
 The existing production PLATFORM_OWNER must use the ordinary production browser:
 
