@@ -358,33 +358,48 @@ export function validateOneCJob(job: OneCConnectorJob): void {
     throw new OneCProtocolValidationError('attempt must be a non-negative integer');
   }
 
-  const shape = commandPayloadShape[job.command];
-  const keys = Object.keys(job.payload);
+  validateOneCCommandPayload(job.command, job.payload);
+}
+
+/** Validate only the fixed command/payload pair before server-owned scope is attached. */
+export function validateOneCCommandPayload(
+  command: OneCCommand,
+  payload: Readonly<Record<string, unknown>>,
+): void {
+  if (!isOneCCommand(command)) {
+    throw new OneCProtocolValidationError(`unsupported command: ${String(command)}`);
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new OneCProtocolValidationError('payload must be an object');
+  }
+
+  const shape = commandPayloadShape[command];
+  const keys = Object.keys(payload);
   for (const key of keys) {
     if (!shape.allowed.includes(key)) {
       throw new OneCProtocolValidationError(
-        `payload field is not allowed for ${job.command}: ${key}`,
+        `payload field is not allowed for ${command}: ${key}`,
       );
     }
+    requireScalar(payload[key], key);
   }
   for (const key of shape.required) {
-    if (!(key in job.payload)) {
+    if (!(key in payload)) {
       throw new OneCProtocolValidationError(
-        `payload field is required for ${job.command}: ${key}`,
+        `payload field is required for ${command}: ${key}`,
       );
     }
-    requireScalar(job.payload[key], key);
   }
 
-  if (job.command === OneCCommand.PUSH_PAYMENT_STATUS) {
-    const amount = job.payload.amountKopecks;
+  if (command === OneCCommand.PUSH_PAYMENT_STATUS) {
+    const amount = payload.amountKopecks;
     if (typeof amount !== 'string' || /^-?\d+$/.test(amount) === false) {
       throw new OneCProtocolValidationError('amountKopecks must be a whole number string');
     }
   }
 
-  if (job.command === OneCCommand.GET_REFERENCE_CANDIDATES && 'limit' in job.payload) {
-    const limit = job.payload.limit;
+  if (command === OneCCommand.GET_REFERENCE_CANDIDATES && 'limit' in payload) {
+    const limit = payload.limit;
     if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1 || limit > 100) {
       throw new OneCProtocolValidationError('limit must be an integer from 1 to 100');
     }
@@ -518,5 +533,8 @@ function requireScalar(value: unknown, field: string): void {
   }
   if (typeof value === 'string' && value.trim() === '') {
     throw new OneCProtocolValidationError(`${field} must not be blank`);
+  }
+  if (typeof value === 'string' && value.length > 4096) {
+    throw new OneCProtocolValidationError(`${field} is too long`);
   }
 }

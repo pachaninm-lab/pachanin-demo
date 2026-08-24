@@ -10,6 +10,16 @@ import { ConnectionAttestationRepository } from './connection-attestation.reposi
 import { ConnectionCenterRepository } from './connection-center.repository';
 import { OneCConnectionManagementController } from './one-c-connection-management.controller';
 import { OneCConnectorController } from './one-c-connector.controller';
+import {
+  OneCConnectorHeartbeatController,
+  OneCHeartbeatManagementController,
+} from './one-c-heartbeat.controller';
+import { OneCHeartbeatRepository } from './one-c-heartbeat.repository';
+import {
+  OneCConnectorJobController,
+  OneCJobManagementController,
+} from './one-c-job-runtime.controller';
+import { OneCJobRuntimeRepository } from './one-c-job-runtime.repository';
 import { OneCRuntimeRepository } from './one-c-runtime.repository';
 import { ReconciliationRepository } from './reconciliation.repository';
 import { AccountingPeriodRepository } from './accounting-period.repository';
@@ -32,6 +42,10 @@ import { WorkTaskRepository } from './work-task.repository';
     AccountingController,
     OneCConnectionManagementController,
     OneCConnectorController,
+    OneCConnectorHeartbeatController,
+    OneCHeartbeatManagementController,
+    OneCConnectorJobController,
+    OneCJobManagementController,
   ],
   providers: [
     AccountingSourceSnapshotRepository,
@@ -47,6 +61,8 @@ import { WorkTaskRepository } from './work-task.repository';
     ConnectionCenterRepository,
     ConnectionAttestationRepository,
     OneCRuntimeRepository,
+    OneCHeartbeatRepository,
+    OneCJobRuntimeRepository,
   ],
   exports: [
     AccountingSourceSnapshotRepository,
@@ -62,6 +78,8 @@ import { WorkTaskRepository } from './work-task.repository';
     ConnectionCenterRepository,
     ConnectionAttestationRepository,
     OneCRuntimeRepository,
+    OneCHeartbeatRepository,
+    OneCJobRuntimeRepository,
   ],
 })
 export class AccountingModule {}

@@ -26,8 +26,8 @@ import {
  * Pairing is the one unauthenticated connector operation: possession of the
  * high-entropy, short-lived one-time code is the bootstrap credential. It is
  * IP-rate-limited and returns a machine bearer once. Every later connector
- * operation will require that bearer and is intentionally absent from this
- * controller until the job/heartbeat runtime slice is accepted.
+ * operation requires that bearer and lives in the dedicated heartbeat/job
+ * controllers; events and mappings remain closed.
  */
 @Controller('connector/v1')
 export class OneCConnectorController {
