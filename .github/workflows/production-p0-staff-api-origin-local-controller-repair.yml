@@ -241,7 +241,7 @@ jobs:
               const name = String(run.name || '');
               const headSha = String(run.head_sha || '');
               if (name !== 'TAI Automatic REG.RU Preflight') return false;
-              if (!['queued', 'in_progress'].includes(String(run.status || ''))) return false;
+              if (String(run.status || '') !== 'queued') return false;
               if (run.event !== 'workflow_run' || Number(run.workflow_id) !== 328831221) return false;
               if (String(run.path || '') !== '.github/workflows/tai-automatic-reg-ru-preflight.yml') return false;
               if (!/^[0-9a-f]{40}$/.test(headSha) || headSha === process.env.TARGET_SHA) return false;
@@ -271,7 +271,7 @@ jobs:
                 return job && job.status === 'completed' && job.conclusion === 'success';
               })) return false;
               const live = byName.get('Exact-main REG.RU controller inventory');
-              if (!live || !['queued', 'in_progress'].includes(String(live.status || '')) || live.conclusion != null) return false;
+              if (!live || String(live.status || '') !== 'queued' || live.conclusion != null) return false;
 
               async function fetchAt(path, ref) {
                 const response = await github.rest.repos.getContent({
@@ -285,10 +285,11 @@ jobs:
                 return Buffer.from(data.content.replace(/\s/g, ''), 'base64').toString('utf8');
               }
 
-              let source, controller;
+              let source, wrapper, controller;
               try {
-                [source, controller] = await Promise.all([
+                [source, wrapper, controller] = await Promise.all([
                   fetchAt('.github/workflows/tai-automatic-reg-ru-preflight.yml', headSha),
+                  fetchAt('scripts/pc-tai-release-controller.sh', headSha),
                   fetchAt('scripts/pc-tai-release-controller-core.sh', headSha),
                 ]);
               } catch (error) {
@@ -317,8 +318,40 @@ jobs:
               if (controllerCalls.length !== 1) return false;
               if (!liveSource.includes('sudo -n /usr/local/sbin/pc-tai-release-controller \\\n            preflight "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"')) return false;
               if (/docker\s+(?:run|exec|compose|restart|stop|rm|kill|update|build|push)\b/i.test(liveSource)) return false;
+
+              const wrapperFetch = `git -C "$REPOSITORY_ROOT" fetch --force --prune --no-tags origin '+refs/heads/main:refs/remotes/origin/main' >/dev/null`;
+              const wrapperMainCheck = `[[ "$(git -C "$REPOSITORY_ROOT" rev-parse refs/remotes/origin/main)" == "$TARGET_SHA" ]] || fail TARGET_IS_NOT_CURRENT_MAIN 22`;
+              const wrapperCheckout = `git -C "$REPOSITORY_ROOT" checkout --force --detach "$TARGET_SHA" >/dev/null`;
+              const wrapperExact = `[[ "$(sha256sum "$INSTALLED_CONTROLLER" | awk '{print $1}')" == "$(sha256sum "$WRAPPER_PATH" | awk '{print $1}')" ]] || fail INSTALLED_CONTROLLER_NOT_EXACT_TARGET 27`;
+              const wrapperDelegate = `bash "$CORE_PATH" "$@"`;
+              const wrapperOrder = [wrapperFetch, wrapperMainCheck, wrapperCheckout, wrapperExact, wrapperDelegate].map((marker) => wrapper.indexOf(marker));
+              if (wrapperOrder.some((index) => index < 0)) return false;
+              if (!wrapperOrder.every((index, i) => i === 0 || wrapperOrder[i - 1] < index)) return false;
+              const beforeMainCheck = wrapper.slice(0, wrapperOrder[1]);
+              if (/docker\s+(?:run|exec|compose|restart|stop|rm|kill|update|build|push)\b/i.test(beforeMainCheck)) return false;
+              if (/(?:systemctl|service)\s+(?:start|restart|stop|enable|disable)\b/i.test(beforeMainCheck)) return false;
+
               if (!controller.includes('if [[ "$ACTION" == finalize-activation ]]; then sync_target false; else sync_target true; fi')) return false;
               if (!controller.includes('[[ "$(git -C "$REPOSITORY_ROOT" rev-parse refs/remotes/origin/main)" == "$TARGET_SHA" ]] || fail TARGET_IS_NOT_CURRENT_MAIN 21')) return false;
+
+              let latestRun, latestJobs;
+              try {
+                [latestRun, latestJobs] = await Promise.all([
+                  github.rest.actions.getWorkflowRun({ owner: context.repo.owner, repo: context.repo.repo, run_id: run.id }),
+                  github.paginate(github.rest.actions.listJobsForWorkflowRun, { owner: context.repo.owner, repo: context.repo.repo, run_id: run.id, per_page: 100 }),
+                ]);
+              } catch (error) {
+                core.warning(`Stale automatic preflight final revalidation failed for run ${run.id}; status=${Number(error?.status || 0) || 'unknown'}`);
+                return false;
+              }
+              const latest = latestRun.data || {};
+              if (String(latest.status || '') !== 'queued' || latest.event !== 'workflow_run' ||
+                  Number(latest.workflow_id) !== 328831221 || String(latest.path || '') !== '.github/workflows/tai-automatic-reg-ru-preflight.yml' ||
+                  String(latest.head_sha || '') !== headSha || Number(latest.run_attempt || 0) !== 1) return false;
+              if (latestJobs.length !== 4) return false;
+              const latestLive = latestJobs.find((job) => String(job.name || '') === 'Exact-main REG.RU controller inventory');
+              if (!latestLive || String(latestLive.status || '') !== 'queued' || latestLive.conclusion != null) return false;
+
               core.notice(`STALE_AUTOMATIC_REG_RU_PREFLIGHT_PROVEN id=${run.id} head_sha=${headSha} current_main=${process.env.TARGET_SHA}`);
               return true;
             }
