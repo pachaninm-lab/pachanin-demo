@@ -85,8 +85,12 @@ jobs:
           src/modules/marketing/marketing-outbox.contract.spec.ts
           src/modules/marketing/marketing-durable-outbox.worker.spec.ts
 
-      - name: Verify signed Telegram-to-QWO waitlist attribution
+      - name: Verify signed Telegram-to-QWO attribution
         run: >-
           pnpm --filter @pc/web exec vitest run
           tests/unit/marketingSocialWaitlist.test.ts
+
+      - name: Verify existing organization-intake regression
+        run: >-
+          pnpm --filter @pc/web exec vitest run
           tests/unit/platformV7OrganizationConnectIntake.test.ts
