@@ -5,6 +5,652 @@
   "policy": "A decision must name what was examined and carry conditions re-evaluated on every run. Having a control is not evidence that a requirement is met: no PASS may be inferred from the presence of MFA, RLS, CodeQL, an SBOM or a passing test. Anything without a valid, currently-holding decision stays PENDING and NOT_ASSESSED.",
   "decisions": [
     {
+      "requirementId": "V1.1.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "react-jsx-default-escaping",
+        "apps/api/src/modules/staff-access/staff-audit.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "React JSX still escapes interpolated values by default, so dangerouslySetInnerHTML remains the deliberate, auditable exception rather than the default",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/lib"
+          ],
+          "patterns": [
+            "dangerouslysetinnerhtml"
+          ]
+        },
+        {
+          "condition": "raw SQL access still goes through Prisma tagged templates rather than a string-built query",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/staff-access/staff-audit.service.ts"
+          ],
+          "patterns": [
+            "prisma.sql`"
+          ]
+        }
+      ],
+      "note": "The two interpreters the application relies on most for output encoding both do it themselves, by default, at the point of use: React JSX escapes every interpolated value unless a component explicitly opts out with dangerouslySetInnerHTML, and Prisma parameterizes every value inside a Prisma.sql or plain tagged-template call before it reaches PostgreSQL. The deliberate exceptions to both defaults are real and are tracked as their own specific findings below (V1.2.1 for unescaped XML building, V1.2.9/V1.2.10/V1.2.3 for the other encoding-adjacent gaps) rather than folded into this architectural PASS."
+    },
+    {
+      "requirementId": "V1.2.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/exports/exports.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the MSH XML report builder still interpolates free-text deal fields into element content with no XML escaping",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.service.ts"
+          ],
+          "patterns": [
+            "<Культура>${d.culture ?? ''}</Культура>"
+          ]
+        }
+      ],
+      "note": "buildMshXml() in exports.service.ts constructs an outgoing regulatory report by interpolating deal fields directly into XML element content: d.dealNumber, d.status, d.culture and d.region are written in with a plain template literal, with no escaping of &, < or > at all. culture and region are free-text String? columns in prisma/schema.prisma, not enums, so a deal record whose culture field contains XML metacharacters (entered anywhere upstream that writes to that column) would corrupt the document structure or inject unintended elements into a report this application hands to a regulator. This is a real, traceable defect, not a hypothetical one: the same file also builds a CSV report from the same free-text fields, assessed separately below under V1.2.10."
+    },
+    {
+      "requirementId": "V1.2.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "unallowlisted:apps/api/src/modules/partner-api/partner-api.controller.ts",
+        "unallowlisted:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the partner webhook path still dispatches to a URL taken from partner-controlled input with no protocol allowlist anywhere in the registration or dispatch code",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+          ],
+          "patterns": [
+            "await fetch(url"
+          ]
+        }
+      ],
+      "note": "When a URL is built or accepted from untrusted data, this requirement asks that only safe protocols be permitted and javascript:/data: specifically disallowed. webhook-dispatcher.service.ts calls fetch(url, ...) with a URL read verbatim from a partner subscription record, and partner-api.controller.ts, where that URL is registered, contains no IsUrl validator and no protocol check of any kind - grepped directly, not inferred. The same absence of an allowlist is recorded under V1.3.6 (SSRF) and was first found under ASVS V13.2.4/V13.2.5; this decision assesses it fresh against V1.2.2s narrower protocol-safety text rather than re-stating the earlier finding without re-checking it."
+    },
+    {
+      "requirementId": "V1.2.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/gekta/seo.ts",
+        "inconsistent-but-static:apps/web/components/platform-v7/PlatformV7StructuredData.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "the escaping helper used for dynamic JSON-LD content still exists and still escapes the script-breakout character",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/gekta/seo.ts"
+          ],
+          "patterns": [
+            "replace(/</gu, '\\\\u003c')"
+          ]
+        }
+      ],
+      "note": "safeJsonLd(value) in apps/web/lib/gekta/seo.ts is JSON.stringify(value).replace(/</gu, \\u003c) - the standard, correct mitigation for breaking a script tag via a literal < inside JSON-LD content - and it is the function used on the one page in the codebase that embeds database-sourced content this way (the Gekta topic pages). Two other pages (PlatformV7StructuredData.tsx and platform-v7/head.tsx) embed JSON-LD via the same dangerouslySetInnerHTML-plus-JSON.stringify pattern without the escaping helper, but both were read in full: every field in both objects is a hardcoded literal or a constant brand-origin URL, with no database or request-derived content anywhere in either. There is no live injection path today. Named rather than left implicit: this is an inconsistency worth closing (use safeJsonLd() everywhere this pattern appears, not just where it currently matters) so that the safety does not depend on both pages staying static forever - but it does not fail the requirement as it stands, since no untrusted data reaches either unescaped call site."
+    },
+    {
+      "requirementId": "V1.2.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/staff-access/staff-audit.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no call site in the API still uses the unparameterized Prisma raw-query variants",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "queryrawunsafe",
+            "executerawunsafe"
+          ]
+        },
+        {
+          "condition": "no call site still uses Prisma.raw() to interpolate an unparameterized identifier or fragment into a tagged-template query",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "prisma.raw("
+          ]
+        },
+        {
+          "condition": "raw SQL access is still expressed through Prisma tagged templates, which parameterize every interpolated value",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/staff-access/staff-audit.service.ts"
+          ],
+          "patterns": [
+            "prisma.sql`"
+          ]
+        }
+      ],
+      "note": "The application uses parameterized queries throughout. 73 files call $queryRaw or $executeRaw, and every one of them does so as a tagged template (Prisma.sql`...` or a plain template literal), which Prisma parameterizes automatically - a scan for the two unparameterized escape hatches Prisma exposes, $queryRawUnsafe/$executeRawUnsafe and Prisma.raw() (which bypasses parameterization for whatever is interpolated inside it, typically identifiers), returns zero matches across apps/api/src. Everywhere else, the ORM layer (Prisma Client's generated query builder) parameterizes by construction."
+    },
+    {
+      "requirementId": "V1.2.5",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-os-command-execution"
+      ],
+      "conditions": [
+        {
+          "condition": "the API still never shells out to the operating system",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "require('child_process')",
+            "from 'child_process'",
+            "execsync(",
+            "spawnsync("
+          ]
+        }
+      ],
+      "note": "The API never executes an operating-system command. A scan for child_process imports and its exec/execSync/spawn/spawnSync functions across apps/api/src returns zero matches - every earlier grep hit on the substring exec( was RegExp.prototype.exec(), not a shell call. There is no OS command surface for this requirement to protect."
+    },
+    {
+      "requirementId": "V1.2.6",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-ldap-integration"
+      ],
+      "conditions": [
+        {
+          "condition": "no LDAP client or connection string still exists anywhere in the codebase",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "ldapjs",
+            "ldap://"
+          ]
+        }
+      ],
+      "note": "The application has no LDAP integration of any kind - no LDAP client library is a dependency and no ldap:// connection string exists anywhere in the source. There is no directory-query surface for LDAP injection to target."
+    },
+    {
+      "requirementId": "V1.2.7",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-xpath-usage"
+      ],
+      "conditions": [
+        {
+          "condition": "no XPath query construction still exists anywhere in the codebase",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "xpath"
+          ]
+        }
+      ],
+      "note": "The application never builds or evaluates an XPath query - the one XML-processing component in the codebase (the FGIS grain custom parser, assessed under V1.5.1) walks a parsed document tree directly rather than through XPath expressions. There is no XPath surface for this requirement to protect."
+    },
+    {
+      "requirementId": "V1.2.8",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-latex-processing"
+      ],
+      "conditions": [
+        {
+          "condition": "no LaTeX processor invocation still exists anywhere in the codebase",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "pdflatex",
+            "xelatex",
+            "shell-escape"
+          ]
+        }
+      ],
+      "note": "The application never invokes a LaTeX processor - no pdflatex/xelatex call and no --shell-escape flag exists anywhere in the source. There is no LaTeX-injection surface for this requirement to protect."
+    },
+    {
+      "requirementId": "V1.2.9",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/documents/document-template.service.ts",
+        "attacker-controlled-input:apps/api/src/modules/documents/documents.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the document template substitution loop still builds a RegExp directly from an object key with no escaping",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/documents/document-template.service.ts"
+          ],
+          "patterns": [
+            "new regexp(`\\\\{\\\\{${key}\\\\}\\\\}`, 'g')"
+          ]
+        },
+        {
+          "condition": "those object keys still originate from the raw HTTP request body rather than a fixed, code-controlled set",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/documents/documents.controller.ts"
+          ],
+          "patterns": [
+            "@body() variables: record<string, string | number>"
+          ]
+        }
+      ],
+      "note": "document-template.service.ts builds a RegExp from every key of the variables object with new RegExp(`\\{\\{${key}\\}\\}`, 'g') and no escaping of regex metacharacters in key. Traced the call chain rather than assumed it: documents.controller.ts's POST templates/:id/generate route takes variables straight from @Body() as Record<string, string | number>, so an attacker submitting a JSON body chooses the object's property names as well as their values - both reach the unescaped RegExp constructor. A key containing regex metacharacters can therefore corrupt the intended placeholder match or, combined with a crafted pattern, feed a pathological expression into .replace() over the full template content - the concrete precondition this chapter's V1.3.12 (ReDoS) also depends on, and is recorded there against the same evidence."
+    },
+    {
+      "requirementId": "V1.2.10",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/exports/exports.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the Rosstat CSV builder still interpolates free-text culture values into quoted CSV fields with neither embedded-quote doubling nor formula-injection character escaping",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.service.ts"
+          ],
+          "patterns": [
+            "`\"${c}\",\"${v}\"`"
+          ]
+        }
+      ],
+      "note": "Two CSV builders exist in exports.service.ts and were read in full. The main deal export does correctly double embedded double-quotes per RFC 4180 (.replace(/\"/g, '\"\"')), which is real and creditable, but neither builder escapes a leading =, +, -, @, tab or null character in a field value with a single quote, which this requirement explicitly requires in addition to RFC 4180 quoting. The second builder, buildRosstatCsv(), is weaker still: its cultureSummary rows are built as `\"${c}\",\"${v}\"` with no quote-doubling at all for the free-text culture value c (a String? column, not an enum), so an embedded double-quote would itself corrupt the row, on top of the shared formula-injection gap. A deal or lot whose culture field is set to a string starting with = or @ would open as an executable formula in Excel or a compatible spreadsheet application when either export is downloaded and opened - the exact scenario this requirement names."
+    },
+    {
+      "requirementId": "V1.3.1",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-wysiwyg-editor:apps/web/package.json"
+      ],
+      "conditions": [
+        {
+          "condition": "no WYSIWYG rich-text editor dependency still exists in the web package manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "roots": [],
+          "patterns": [
+            "react-quill",
+            "tiptap",
+            "slate",
+            "draft-js",
+            "ckeditor",
+            "lexical"
+          ]
+        }
+      ],
+      "note": "The application accepts no rich-text or HTML-formatted input anywhere in the product - no WYSIWYG editor package (Quill, TipTap, Slate, Draft.js, CKEditor, Lexical) is a dependency of apps/web, and no HTML sanitization library (DOMPurify, sanitize-html) is either, which is consistent: there is nothing that would need one. There is no untrusted-HTML-rendering surface for this requirement to protect."
+    },
+    {
+      "requirementId": "V1.3.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "repository-scan:no-dynamic-code-execution"
+      ],
+      "conditions": [
+        {
+          "condition": "no eval() or new Function() call still exists anywhere in application source",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "eval(",
+            "new function("
+          ]
+        }
+      ],
+      "note": "The application never dynamically executes code from a string. A scan for eval( and new Function( across apps/api/src, apps/web/lib and apps/web/app returns zero matches."
+    },
+    {
+      "requirementId": "V1.3.4",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-svg-upload-surface"
+      ],
+      "conditions": [
+        {
+          "condition": "no SVG upload or scriptable-content handling still exists anywhere in the API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "'image/svg",
+            ".svg\""
+          ]
+        }
+      ],
+      "note": "The application has no SVG upload or rendering surface - a scan for the image/svg content type and .svg file handling across apps/api/src returns zero matches. There is no scriptable-SVG surface for this requirement to protect."
+    },
+    {
+      "requirementId": "V1.3.5",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-template-language-rendering:apps/web/package.json"
+      ],
+      "conditions": [
+        {
+          "condition": "no markdown, CSS or XSL rendering dependency still exists in the web package manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "roots": [],
+          "patterns": [
+            "react-markdown",
+            "markdown-it",
+            "\"marked\"",
+            "remark"
+          ]
+        }
+      ],
+      "note": "The application renders no user-supplied Markdown, CSS or XSL stylesheet content - no Markdown rendering library is a dependency of apps/web. There is no scriptable-template-language surface for this requirement to protect."
+    },
+    {
+      "requirementId": "V1.3.6",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "unallowlisted:apps/api/src/modules/partner-api/partner-api.controller.ts",
+        "unallowlisted:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+        "allowlisted-counterexample:apps/api/src/modules/ai-insights/ai-assistant.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the partner webhook dispatch path still takes a URL from partner-controlled input with no allowlist check of protocol, domain, path or port before fetch()",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+          ],
+          "patterns": [
+            "await fetch(url"
+          ]
+        }
+      ],
+      "note": "Same defect as ASVS V13.2.4/V13.2.5 and V1.2.2 above, assessed here against this requirement's specific SSRF text: partner-api.controller.ts registers a partner-supplied webhook URL with no validation, and webhook-dispatcher.service.ts later calls fetch(url, ...) against it with no allowlist of protocol, domain, path or port at either point. The comparison that makes the gap precise: ai-assistant.service.ts and restricted-public-qwen.service.ts both check an outbound host against an explicit allowlist (AI_ASSISTANT_ALLOWED_HOSTS) before ever calling fetch. The partner webhook path could use the identical pattern and does not."
+    },
+    {
+      "requirementId": "V1.3.7",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-template-engine:apps/api/package.json",
+        "apps/api/src/modules/documents/document-template.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "no template-execution engine dependency still exists in the API package manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "roots": [],
+          "patterns": [
+            "handlebars",
+            "\"ejs\"",
+            "\"pug\"",
+            "mustache",
+            "nunjucks"
+          ]
+        }
+      ],
+      "note": "The application never builds an executable template from untrusted input - no template-execution engine (Handlebars, EJS, Pug, Mustache, Nunjucks) is a dependency. document-template.service.ts performs a literal {{key}} text substitution, not template compilation or execution; the defect in how it builds that substitution's RegExp is a real, separate finding recorded under V1.2.9 and V1.3.12, not a template-injection issue as this requirement defines it."
+    },
+    {
+      "requirementId": "V1.3.8",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-mismatch:jndi-is-java-specific"
+      ],
+      "conditions": [
+        {
+          "condition": "the application is still implemented in TypeScript/Node.js rather than Java",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "javax.naming",
+            "jndi"
+          ]
+        }
+      ],
+      "note": "JNDI (Java Naming and Directory Interface) is a Java platform API. This application is implemented entirely in TypeScript running on Node.js, which has no JNDI equivalent and no dependency that provides one. This requirement does not apply to this technology stack."
+    },
+    {
+      "requirementId": "V1.3.9",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-memcache-integration:apps/api/package.json"
+      ],
+      "conditions": [
+        {
+          "condition": "no memcache client dependency still exists in the API package manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "roots": [],
+          "patterns": [
+            "memcached",
+            "memjs"
+          ]
+        }
+      ],
+      "note": "The application has no memcache integration - no memcache client library is a dependency. There is no memcache-injection surface for this requirement to protect."
+    },
+    {
+      "requirementId": "V1.3.10",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-mismatch:no-printf-style-format-strings"
+      ],
+      "conditions": [
+        {
+          "condition": "the application still uses no printf-style format-string API",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "sprintf("
+          ]
+        }
+      ],
+      "note": "The classic format-string vulnerability class (a user-controlled value passed as a printf format specifier, letting %n and similar directives read or write arbitrary memory) requires a printf-family API operating on raw memory. Node.js/TypeScript has no such API in this codebase - no sprintf-style formatter is used - so there is no format-string surface for this requirement to protect."
+    },
+    {
+      "requirementId": "V1.3.11",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth-mail/auth-mail-smtp.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the SMTP client still rejects CR, LF and NUL in header values before sending",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth-mail/auth-mail-smtp.ts"
+          ],
+          "patterns": [
+            "/[\\r\\n\\0]/.test(value)"
+          ]
+        },
+        {
+          "condition": "header values are still passed through an ASCII-safe encoder before being placed on the wire",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth-mail/auth-mail-smtp.ts"
+          ],
+          "patterns": [
+            "function encodeheader(value: string)"
+          ]
+        }
+      ],
+      "note": "auth-mail-smtp.ts explicitly guards against SMTP/IMAP-style header injection: header-value assembly rejects any value containing \\r, \\n or \\0 before it is used, the sender/recipient address validator separately rejects \\r\\n\\0< and >, and encodeHeader() is applied to values (such as the display name) placed into the Subject and From headers. This is deliberate, verified protection, not an absence of attack surface."
+    },
+    {
+      "requirementId": "V1.3.12",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/documents/document-template.service.ts",
+        "attacker-controlled-input:apps/api/src/modules/documents/documents.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the document template substitution loop still builds an unsanitized RegExp from attacker-controlled object keys and applies it with .replace() over the full template content",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/documents/document-template.service.ts"
+          ],
+          "patterns": [
+            "new regexp(`\\\\{\\\\{${key}\\\\}\\\\}`, 'g')"
+          ]
+        }
+      ],
+      "note": "Same defect as V1.2.9, assessed here against the ReDoS-specific text: a RegExp built from an unescaped, attacker-controlled key (traced to @Body() in documents.controller.ts) and then run with .replace() over the full template string is exactly the precondition for a runaway-regex denial of service, not only a matching-correctness bug. No dedicated ReDoS-detection tool was run across the rest of the codebase's regular expressions in this pass, so this FAIL is scoped to the one concrete, traced instance rather than claimed as a full sweep."
+    },
+    {
+      "requirementId": "V1.4.1",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-mismatch:memory-managed-runtime"
+      ],
+      "conditions": [
+        {
+          "condition": "the application is still implemented entirely in memory-managed TypeScript/JavaScript with no native or unmanaged code in application source",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            ".node'",
+            "ffi-napi",
+            "node-gyp"
+          ]
+        }
+      ],
+      "note": "The application is written entirely in TypeScript running on Node.js/V8, a garbage-collected, memory-managed runtime with no raw pointer arithmetic or manual memory copying available to application code. There is no native addon (.node binary), FFI binding or node-gyp build anywhere in application source. This requirement targets memory-unsafe languages and unmanaged code, which this codebase does not contain."
+    },
+    {
+      "requirementId": "V1.4.2",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-mismatch:no-fixed-width-integer-wraparound",
+        "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the application is still implemented in a runtime without C-style fixed-width integer wraparound, and money/version fields still use BigInt where precision matters",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+          ],
+          "patterns": [
+            "bigint(deal.version"
+          ]
+        }
+      ],
+      "note": "JavaScript numbers do not silently wrap around on overflow the way fixed-width C integers do; a computation exceeding Number.MAX_SAFE_INTEGER loses precision rather than wrapping to a small or negative value. Where that precision loss would matter - deal version numbers, money amounts in kopecks - the codebase uses BigInt explicitly (confirmed in postgresql-deal-command.service.ts and deal-registry-query.service.ts). This requirement targets fixed-width integer overflow in unmanaged languages, which this runtime does not have."
+    },
+    {
+      "requirementId": "V1.4.3",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "stack-mismatch:garbage-collected-runtime"
+      ],
+      "conditions": [
+        {
+          "condition": "the application is still implemented entirely in a garbage-collected runtime with no manual memory release or raw pointers in application code",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "ffi-napi",
+            "node-gyp"
+          ]
+        }
+      ],
+      "note": "Node.js/V8 garbage-collects all application-level objects; there is no free(), no manual pointer management, and therefore no dangling-pointer or use-after-free class of defect reachable from application TypeScript. This requirement targets unmanaged memory, which this codebase does not have."
+    },
+    {
+      "requirementId": "V1.5.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the custom FGIS XML parser still rejects any named entity reference beyond the five predefined XML entities and numeric character references",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts"
+          ],
+          "patterns": [
+            "named entity &${entity}; is forbidden"
+          ]
+        }
+      ],
+      "note": "The one XML parser in the codebase that handles incoming (externally-sourced) XML - a hand-written parser for FGIS grain-exchange documents, not a general-purpose library - has no DOCTYPE or ENTITY declaration handling anywhere in its 1457 lines: it implements no DTD-subset parsing at all. Its entity-reference resolution is a hard allowlist of the five predefined XML entities plus decimal and hex numeric character references; any other named entity is explicitly rejected with INVALID_ENTITY_REFERENCE (Named entity &...; is forbidden), read directly from the source rather than inferred. A parser with no mechanism to declare or resolve an external (SYSTEM/PUBLIC) entity cannot be made to fetch one - this is a structural absence of the XXE attack surface, not a configuration flag that happens to be off today."
+    },
+    {
+      "requirementId": "V1.5.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "repository-scan:json-parse-only-deserialization"
+      ],
+      "conditions": [
+        {
+          "condition": "no unsafe deserialization library still exists in the API package manifest",
+          "check": "ABSENT_IN_MANIFESTS",
+          "roots": [],
+          "patterns": [
+            "js-yaml",
+            "node-serialize",
+            "unserialize"
+          ]
+        }
+      ],
+      "note": "The application deserializes untrusted input with JSON.parse and nothing else - no YAML loader, no node-serialize or unserialize-style library is a dependency. JSON.parse builds plain data objects and cannot itself instantiate arbitrary classes or execute code, which is the mechanism the deserialization attacks this requirement targets rely on; there is no unsafe deserialization surface here."
+    },
+    {
       "requirementId": "V2.1.1",
       "applicability": "APPLICABLE",
       "status": "FAIL",
