@@ -4350,11 +4350,12 @@
       "applicability": "APPLICABLE",
       "status": "PASS",
       "evidence": [
-        "apps/api/src/common/config/secrets.ts"
+        "apps/api/src/common/config/secrets.ts",
+        "ci-ephemeral-service-container:.github/workflows/auction-atomic-acceptance.yml"
       ],
       "conditions": [
         {
-          "condition": "no default service-authentication credential is present in application or infrastructure source",
+          "condition": "no default service-authentication credential is present in the deployed application source",
           "check": "ABSENT_IN_TREE",
           "roots": [
             "apps/api/src",
@@ -4377,9 +4378,19 @@
           "patterns": [
             "refusing to start with an insecure default"
           ]
+        },
+        {
+          "condition": "the CI-only ephemeral postgres/postgres service-container credential this note relies on as a named counterexample is still present in the workflow file",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            ".github/workflows/auction-atomic-acceptance.yml"
+          ],
+          "patterns": [
+            "password: postgres"
+          ]
         }
       ],
-      "note": "No default credential exists for service authentication anywhere in application or infrastructure source. A scan of 1132 files for the common default-credential shapes (root/root, admin/admin, postgres/postgres, changeme, a literal \"password\") returns zero matches, and the central secret resolver requireSecret() is built specifically to make a shipped default impossible: it never returns a literal fallback in production, and in any other environment it generates a random ephemeral value per process rather than a stable guessable one - the rationale comment in the file states this design goal directly."
+      "note": "No default credential exists for service authentication in the deployed application source. A scan of apps/api/src and apps/web/lib for the common default-credential shapes (root/root, admin/admin, postgres/postgres, changeme, a literal \"password\") returns zero matches. A prior version of this note said the scan covered \"application or infrastructure source\" and claimed zero matches \"anywhere\" — that overstated what was checked: a repository-wide review comment correctly pointed out that .github/workflows/*.yml was never scanned, and it is not. Checked in response: 20 workflow files do set POSTGRES_USER: postgres and POSTGRES_PASSWORD: postgres, all inside a GitHub Actions \"services:\" block, for example auction-atomic-acceptance.yml. Each of those is an ephemeral service container the runner creates fresh for that one job, bound only to the runner’s own localhost network, and destroyed when the job ends; none of it is present in a deployed image, a Compose file, or any path the production credential resolver reads. This is the standard CI test-fixture idiom, not a default account \"present ... before deploying to production,\" which is the harm this requirement targets, so it does not change the verdict. The central secret resolver requireSecret() is built specifically to make a shipped default impossible in the deployed application: it never returns a literal fallback in production, and in any other environment it generates a random ephemeral value per process rather than a stable guessable one — the rationale comment in the file states this design goal directly."
     },
     {
       "requirementId": "V13.2.4",
@@ -4599,23 +4610,45 @@
     {
       "requirementId": "V13.4.2",
       "applicability": "APPLICABLE",
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": [
-        "apps/api/src/main.ts"
+        "apps/api/src/main.ts",
+        "apps/api/src/common/logger/masked-logger.service.ts",
+        "apps/api/src/common/kafka/kafka-producer.service.ts"
       ],
       "conditions": [
         {
-          "condition": "the application still boots with the masked logger rather than a raw or verbose one, and no explicit debug flag is set",
+          "condition": "the bootstrap logger still extends ConsoleLogger with no logLevels restriction, so Nest’s default level set stays active in production",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/main.ts"
+            "apps/api/src/common/logger/masked-logger.service.ts"
           ],
           "patterns": [
-            "new maskedloggerservice()"
+            "extends consolelogger"
+          ]
+        },
+        {
+          "condition": "no logLevels restriction exists anywhere in the API source to narrow that default",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "loglevels"
+          ]
+        },
+        {
+          "condition": "a runtime call site still logs at debug level with message content, proving the level is live rather than theoretical",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/kafka/kafka-producer.service.ts"
+          ],
+          "patterns": [
+            "logger.debug("
           ]
         }
       ],
-      "note": "No debug mode is enabled by default. main.ts constructs the Nest application with MaskedLoggerService rather than the default console logger or a verbose/debug level, and no Prisma query-logging flag or Node inspector flag is set in the bootstrap. This is scoped narrowly to what was checked - the presence of an explicit debug toggle - and does not re-assess error-response verbosity, which V16 already covers."
+      "note": "Corrected on review: an earlier version of this decision recorded PASS on the reasoning that MaskedLoggerService is not a \"verbose or debug\" logger, which conflated masking with level suppression — they are different things, and only the first is true here. main.ts does construct the Nest application with new MaskedLoggerService(), and that class does redact sensitive substrings from every log call. But MaskedLoggerService extends ConsoleLogger with no constructor and no logLevels option, so it inherits Nest’s default logger levels, which include debug and verbose; nothing anywhere in apps/api/src sets logLevels or LOG_LEVEL to narrow that default for any environment, including production. This is not a theoretical gap: kafka-producer.service.ts calls this.logger.debug() at two call sites with the Kafka topic and the serialized message value, so debug-level output does execute at runtime whenever the transport-unavailable path is hit, unmasked by anything other than MaskedLoggerService’s substring redaction. Debug/diagnostic log levels are enabled by default, which is exactly what this requirement asks to be verified false. Masking sensitive substrings within debug output is a separate, real control (V16 territory) and does not substitute for the level itself being disabled."
     },
     {
       "requirementId": "V13.4.3",
@@ -4673,34 +4706,33 @@
     {
       "requirementId": "V13.4.5",
       "applicability": "APPLICABLE",
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": [
         "apps/api/src/health.controller.ts"
       ],
       "conditions": [
         {
-          "condition": "no interactive API documentation UI is mounted",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/api/src"
-          ],
-          "patterns": [
-            "swaggermodule",
-            "@nestjs/swagger"
-          ]
-        },
-        {
-          "condition": "the monitoring endpoints that are public are still explicitly decorated rather than open by omission",
+          "condition": "the detailed-health endpoint is still labelled internal-only in its own source comment while being publicly reachable",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/health.controller.ts"
           ],
           "patterns": [
-            "@public()\n  @get('metrics')"
+            "for internal monitoring only"
+          ]
+        },
+        {
+          "condition": "that endpoint still carries no access restriction beyond the blanket @Public() decorator",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/health.controller.ts"
+          ],
+          "patterns": [
+            "@public()\n  @get('health/detailed')"
           ]
         }
       ],
-      "note": "Documentation and monitoring exposure is explicit, not accidental, which is what this requirement asks for - it permits exposure that is intended. No Swagger or OpenAPI UI is mounted anywhere in 661 API source files, so there is no internal-API documentation surface to leak. The monitoring endpoints that are public - health, ready, health/detailed, metrics, version - each carry an individual @Public() decorator rather than inheriting an open default, which is the deliberate-exposure the requirement’s \"unless explicitly intended\" clause allows for. Named rather than left implicit: /health/detailed and /metrics disclose internal topology - which integrations are configured, outbox queue depth, heap usage - which is an information-disclosure quality question in its own right, but it is outside this requirement’s literal text and is not counted against it here; V13.4.6 is the narrower requirement about version detail specifically, and is assessed separately below."
+      "note": "Corrected on review: an earlier version of this decision read every @Public() decorator in this controller as proof of deliberate, requirement-satisfying public exposure. A review comment correctly pointed out that @Public() only proves authentication was bypassed on purpose; it does not by itself prove the operator intended public exposure, and the code’s own text contradicts that reading for one endpoint. The comment directly above health/detailed reads \"Detailed health per ТЗ 13.4 — for internal monitoring only,\" yet the route is decorated @Public() with no IP allowlist, network-boundary check, or authentication of any kind, and the response body discloses database status, configured integrations, outbox queue depth, and heap usage. That is the requirement’s literal case: technical information disclosure that is not protected, and the \"unless explicitly intended\" exception cannot be claimed for an endpoint whose own author’s comment says the opposite of \"intended for the public.\" No Swagger/OpenAPI UI is mounted (still true, still checked), and the plain health/ready/metrics/version endpoints are a separate question — metrics and version are each assessed on their own merits elsewhere (V13.4.6 covers version) — but health/detailed alone is enough to fail this requirement as written."
     },
     {
       "requirementId": "V13.4.6",
