@@ -307,7 +307,7 @@ function countMatches(corpus: string, terms: readonly string[]): number {
 
 function selectTopic(corpus: string): MarketingEditorialTopic {
   let selected: MarketingEditorialTopic = 'GENERAL_AGRO';
-  let bestMatches = -1;
+  let bestMatches = 0;
   for (const [topic, terms] of Object.entries(TOPIC_TERMS) as [MarketingEditorialTopic, readonly string[]][]) {
     const matches = countMatches(corpus, terms);
     if (matches > bestMatches) {
@@ -334,7 +334,9 @@ export function scoreMarketingEvidence(
   const targetRoles = Object.freeze(selectRoles(corpus));
   const topicMatches = countMatches(corpus, TOPIC_TERMS[topic]);
 
-  const relevance = clamp01(0.38 + Math.min(topicMatches, 4) * 0.12 + Math.min(targetRoles.length, 3) * 0.06);
+  const relevance = topicMatches === 0
+    ? 0
+    : clamp01(0.38 + Math.min(topicMatches, 4) * 0.12 + Math.min(targetRoles.length, 3) * 0.06);
   const authority = clamp01(evidence.authorityScore);
   const publishedAtMs = Date.parse(evidence.publishedAt);
   const maxAgeMs = evidence.maxAgeHours * 60 * 60 * 1_000;
@@ -364,7 +366,7 @@ export function scoreMarketingEvidence(
     novelty: roundScore(novelty),
     conversionPotential: roundScore(conversionPotential),
     total,
-    eligible: total >= MIN_TOPIC_SCORE,
+    eligible: topicMatches > 0 && total >= MIN_TOPIC_SCORE,
   });
 }
 
