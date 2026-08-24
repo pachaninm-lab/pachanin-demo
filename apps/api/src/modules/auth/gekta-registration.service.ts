@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { hashPassword, verifyPassword } from './password-hashing';
+import {
+  isStrongPassword,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+} from '../../common/validators/strong-password.validator';
 import { randomUUID } from 'crypto';
 import { appendAuthAudit } from './auth-audit';
 import { hashAuthMaterial, hashClientValue, secureEqual } from './auth-crypto';
@@ -47,11 +52,13 @@ export type GektaRegistrationInput = {
 };
 
 function assertPasswordPolicy(password: string): void {
-  const classes = [/[a-z]/u, /[A-Z]/u, /\d/u, /[^A-Za-z0-9]/u].filter((pattern) => pattern.test(password)).length;
-  if (password.length < 12 || password.length > 128 || classes < 3) {
+  // Delegates to the one policy in strong-password.validator.ts. This used to
+  // be a private copy, and the copy had already lost the all-same and
+  // sequential checks the shared rule applies.
+  if (!isStrongPassword(password)) {
     throw new BadRequestException({
       code: 'PASSWORD_POLICY_FAILED',
-      message: 'Пароль должен быть от 12 до 128 символов и содержать минимум три класса символов.',
+      message: `Пароль должен быть от ${MIN_PASSWORD_LENGTH} до ${MAX_PASSWORD_LENGTH} символов, содержать минимум три класса символов и не быть простой последовательностью.`,
     });
   }
 }
