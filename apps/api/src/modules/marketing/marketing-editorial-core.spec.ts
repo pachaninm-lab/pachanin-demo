@@ -25,7 +25,7 @@ function observation(overrides: Partial<MarketingRadarObservation> = {}): Market
 
 function accepted(overrides: Partial<MarketingRadarObservation> = {}): MarketingEvidenceRecord {
   const result = normalizeMarketingRadarObservation(observation(overrides), NOW);
-  if (!result.accepted) throw new Error(`Expected accepted evidence, got ${result.code}`);
+  if (result.accepted === false) throw new Error(`Expected accepted evidence, got ${result.code}`);
   return result.evidence;
 }
 
@@ -33,7 +33,7 @@ describe('marketing editorial core — radar → evidence → topic planning', (
   it('accepts a fresh observation only from the fixed trusted-source registry', () => {
     const result = normalizeMarketingRadarObservation(observation(), NOW);
     expect(result.accepted).toBe(true);
-    if (!result.accepted) return;
+    if (result.accepted === false) return;
     expect(result.evidence.evidenceId).toMatch(/^mktev\.v1\.specagro_ru\.[0-9a-f]{24}$/u);
     expect(result.evidence.contentSha256).toMatch(/^[0-9a-f]{64}$/u);
     expect(result.evidence.authorityScore).toBe(0.95);
