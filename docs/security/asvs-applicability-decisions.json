@@ -152,20 +152,23 @@
       ],
       "conditions": [
         {
-          "condition": "the API still never shells out to the operating system",
-          "check": "ABSENT_IN_TREE",
+          "condition": "the child_process module is still never imported by any runtime (non-test) file in the API, under either module specifier form",
+          "check": "NO_RUNTIME_CALLER",
           "roots": [
             "apps/api/src"
           ],
+          "definedAt": [],
           "patterns": [
-            "require('child_process')",
             "from 'child_process'",
-            "execsync(",
-            "spawnsync("
+            "from \"child_process\"",
+            "from 'node:child_process'",
+            "from \"node:child_process\"",
+            "require('child_process')",
+            "require('node:child_process')"
           ]
         }
       ],
-      "note": "The API never executes an operating-system command. A scan for child_process imports and its exec/execSync/spawn/spawnSync functions across apps/api/src returns zero matches - every earlier grep hit on the substring exec( was RegExp.prototype.exec(), not a shell call. There is no OS command surface for this requirement to protect."
+      "note": "The deployed API never executes an operating-system command. A scan for every way the child_process module can be imported (bare and node:-prefixed specifiers, ESM import and CommonJS require) across non-test files in apps/api/src returns zero matches. The condition was corrected twice on review, both times by real findings: the first pass checked only the unprefixed specifier and two synchronous calls, missing the node:child_process form and async spawn/fork; broadening it to a bare .exec( substring then matched RegExp.prototype.exec() calls elsewhere (pattern.exec(pending) and similar), and separately, scanning all files rather than only runtime ones matched a legitimate test-only import - rls-transaction.service.spec.ts imports execFileSync from node:child_process to shell out during a test fixture, which never runs in the deployed process and is not part of the applications attack surface. The condition now keys on the module import itself (avoiding the call-shape false positive) restricted to non-test files (avoiding the test-fixture false positive), which is what the claim - the deployed API never shells out - actually means."
     },
     {
       "requirementId": "V1.2.6",
@@ -566,25 +569,35 @@
     },
     {
       "requirementId": "V1.4.2",
-      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
-      "status": "NOT_APPLICABLE",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
       "evidence": [
-        "stack-mismatch:no-fixed-width-integer-wraparound",
-        "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+        "apps/api/src/modules/route-planner/route-planner.controller.ts",
+        "apps/api/src/modules/route-planner/route-planner.service.ts"
       ],
       "conditions": [
         {
-          "condition": "the application is still implemented in a runtime without C-style fixed-width integer wraparound, and money/version fields still use BigInt where precision matters",
+          "condition": "the tariff endpoint still takes distanceKm/weightTons as a plain, undecorated type literal rather than a class-validator DTO, so no range check runs before the multiplication",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+            "apps/api/src/modules/route-planner/route-planner.controller.ts"
           ],
           "patterns": [
-            "bigint(deal.version"
+            "body: { distancekm: number; weighttons: number"
+          ]
+        },
+        {
+          "condition": "the service still multiplies those two values directly into a kopeck amount with no prior range or sign check",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/route-planner/route-planner.service.ts"
+          ],
+          "patterns": [
+            "math.round(distancekm * weighttons * ratepertonkmkopecks)"
           ]
         }
       ],
-      "note": "JavaScript numbers do not silently wrap around on overflow the way fixed-width C integers do; a computation exceeding Number.MAX_SAFE_INTEGER loses precision rather than wrapping to a small or negative value. Where that precision loss would matter - deal version numbers, money amounts in kopecks - the codebase uses BigInt explicitly (confirmed in postgresql-deal-command.service.ts and deal-registry-query.service.ts). This requirement targets fixed-width integer overflow in unmanaged languages, which this runtime does not have."
+      "note": "Corrected on review: the original version of this decision reasoned that JavaScript numbers do not wrap around the way fixed-width C integers do, and concluded the requirement does not apply to this runtime at all. That is too broad - the requirement is about sign, range and input validation preventing unsafe arithmetic results, and this codebase has a concrete, live instance of exactly that being skipped. POST tariff in route-planner.controller.ts declares its body as a plain type literal, { distanceKm: number; weightTons: number; vehicleType?: ... }, not a class-validator DTO class - the application does have a global ValidationPipe (main.ts), but class-validator only enforces decorators on an actual class, and there is none here, so nothing validates these two numbers before they reach the service. estimateLogisticsTariff() in route-planner.service.ts multiplies them directly - Math.round(distanceKm * weightTons * ratePerTonKmKopecks) - with no sign or range check first. A caller can submit a negative, non-numeric-after-coercion, or extremely large distanceKm/weightTons and get a nonsensical, negative, NaN or Infinity tariff back with no rejection. The BigInt usage this decision originally cited (deal version numbers, money in kopecks in the settlement path) is real and still a good pattern, but it does not cover this endpoint, so it cannot support a blanket NOT_APPLICABLE for the requirement as a whole."
     },
     {
       "requirementId": "V1.4.3",
