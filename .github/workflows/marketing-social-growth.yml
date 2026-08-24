@@ -1,0 +1,62 @@
+name: Marketing Social Growth Safety Gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/marketing-social-growth.yml'
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/src/marketing-outbox-worker.ts'
+      - 'apps/api/src/marketing-outbox-worker.module.ts'
+      - 'apps/api/src/modules/marketing/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/marketing-social-growth.yml'
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/src/marketing-outbox-worker.ts'
+      - 'apps/api/src/marketing-outbox-worker.module.ts'
+      - 'apps/api/src/modules/marketing/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  marketing-safety:
+    name: RU channel policy · connectors · type-scoped delivery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck API
+        run: pnpm --filter @pc/api typecheck
+
+      - name: Verify autonomous marketing safety contracts
+        run: >-
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath
+          src/modules/marketing/marketing-policy.service.spec.ts
+          src/modules/marketing/connectors/telegram.publisher.spec.ts
+          src/modules/marketing/connectors/vk.publisher.spec.ts
+          src/modules/marketing/marketing-outbox.contract.spec.ts
