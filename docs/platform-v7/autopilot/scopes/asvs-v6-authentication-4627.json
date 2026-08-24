@@ -4,7 +4,7 @@
   "branch": "sec/asvs-v6-authentication-4627",
   "status": "active",
   "purpose": "Record applicability and evidence-backed verdicts for OWASP ASVS 5.0.0 chapter V6 (Authentication) — 47 requirements — in the machine-readable decision register, with no code changes.",
-  "authorityBaseExactMain": "a8a43d0bb8956f29bc613dc6cf0945a2cab21285",
+  "authorityBaseExactMain": "d2ee8d795f4e90630a7fedc35b0f7ee1b59c8918",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
