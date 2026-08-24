@@ -585,8 +585,18 @@ const DATABASE_CODES = new Set([
   'ONE_C_ENTITY_ALREADY_BOUND_TO_ANOTHER_ORGANIZATION',
 ]);
 
+const DATABASE_CODE_BY_SQLSTATE = new Map([
+  ['P1C01', 'ONE_C_ENTITY_ALREADY_BOUND_TO_ANOTHER_ORGANIZATION'],
+]);
+
 function oneCDatabaseCode(error: unknown): string {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const sqlState = typeof error.meta?.code === 'string' ? error.meta.code : null;
+    const codeFromSqlState = sqlState === null
+      ? undefined
+      : DATABASE_CODE_BY_SQLSTATE.get(sqlState);
+    if (codeFromSqlState !== undefined) return codeFromSqlState;
+
     const text = `${error.message} ${String(error.meta?.message ?? '')}`;
     for (const code of DATABASE_CODES) {
       if (text.includes(code)) return code;

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { Role, type RequestUser } from '../../common/types/request-user';
@@ -187,6 +187,33 @@ describe('OneCRuntimeRepository human authority', () => {
       expect.objectContaining<Partial<OneCRuntimeRepositoryError>>({
         message: 'ONE_C_ORGANIZATION_NOT_FOUND_IN_DISCOVERY',
         code: 'ONE_C_ORGANIZATION_NOT_FOUND_IN_DISCOVERY',
+      }),
+    );
+  });
+
+  it('maps the cross-organization collision from its stable SQLSTATE when Prisma redacts the message', async () => {
+    const test = fixture();
+    test.prismaQuery.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('opaque database refusal', {
+        code: 'P2010',
+        clientVersion: '5.22.0',
+        meta: {
+          code: 'P1C01',
+          message: 'ERROR: database refusal',
+        },
+      }),
+    );
+
+    await expect(
+      test.repository.consumePairing({
+        pairingCode: 'abcdefghijklmnopqrstuvwx12345678',
+        discovery: DISCOVERY,
+        correlationId: 'corr-pair-cross-organization-collision',
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<OneCRuntimeRepositoryError>>({
+        message: 'ONE_C_ENTITY_ALREADY_BOUND_TO_ANOTHER_ORGANIZATION',
+        code: 'ONE_C_ENTITY_ALREADY_BOUND_TO_ANOTHER_ORGANIZATION',
       }),
     );
   });

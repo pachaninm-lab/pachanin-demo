@@ -256,7 +256,11 @@ BEGIN
        AND binding.status = 'ACTIVE'
      FOR UPDATE;
     IF FOUND THEN
-      RAISE EXCEPTION 'ONE_C_ENTITY_ALREADY_BOUND_TO_ANOTHER_ORGANIZATION' USING ERRCODE = '23505';
+      -- Prisma may redact the server message for generic unique-violation
+      -- SQLSTATE 23505. A dedicated code keeps this bounded refusal machine-safe
+      -- without exposing database wording to the connector.
+      RAISE EXCEPTION 'ONE_C_ENTITY_ALREADY_BOUND_TO_ANOTHER_ORGANIZATION'
+        USING ERRCODE = 'P1C01';
     END IF;
 
     v_binding_id := 'one-c-binding-' || gen_random_uuid()::text;
