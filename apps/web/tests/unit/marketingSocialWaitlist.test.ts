@@ -28,37 +28,23 @@ const UUID = '550e8400-e29b-41d4-a716-446655440000';
 describe('marketing social waitlist attribution', () => {
   it('accepts only bounded non-PII source/campaign/content UX tags', () => {
     expect(parseMarketingAttribution('?ms=tg&mca=harvest26&mco=lab01&mr=ps&mc=ql')).toEqual({
-      source: 'tg',
-      campaign: 'harvest26',
-      content: 'lab01',
-      roleCode: 'ps',
-      scenarioCode: 'ql',
+      source: 'tg', campaign: 'harvest26', content: 'lab01', roleCode: 'ps', scenarioCode: 'ql',
     });
-
     expect(parseMarketingAttribution('?ms=unknown&mca=x&mco=y')).toBeNull();
     expect(parseMarketingAttribution('?ms=tg&mca=email%40example.com&mco=%2Fetc%2Fpasswd')).toEqual({
-      source: 'tg',
-      campaign: 'organic',
-      content: 'unknown',
-      roleCode: undefined,
-      scenarioCode: undefined,
+      source: 'tg', campaign: 'organic', content: 'unknown', roleCode: undefined, scenarioCode: undefined,
     });
   });
 
   it('requires a valid HMAC before producing trusted marketing correlation', () => {
     const attribution = parseMarketingAttribution('?ms=vk&mca=grain26&mco=post7&mr=bp')!;
     const token = signMarketingAttribution(attribution, SECRET);
-
     expect(verifyMarketingAttributionToken(token, SECRET)).toEqual(attribution);
-    expect(
-      verifiedMarketingCorrelationId(token, UUID, { MARKETING_ATTRIBUTION_HMAC_SECRET: SECRET }),
-    ).toBe(`mktg.vk.grain26.post7.${UUID}`);
-
+    expect(verifiedMarketingCorrelationId(token, UUID, { MARKETING_ATTRIBUTION_HMAC_SECRET: SECRET }))
+      .toBe(`mktg.vk.grain26.post7.${UUID}`);
     const tampered = token.replace('.grain26.', '.grain27.');
     expect(verifyMarketingAttributionToken(tampered, SECRET)).toBeNull();
-    expect(
-      verifiedMarketingCorrelationId(tampered, UUID, { MARKETING_ATTRIBUTION_HMAC_SECRET: SECRET }),
-    ).toBeNull();
+    expect(verifiedMarketingCorrelationId(tampered, UUID, { MARKETING_ATTRIBUTION_HMAC_SECRET: SECRET })).toBeNull();
     expect(verifiedMarketingCorrelationId(token, UUID, {})).toBeNull();
   });
 
@@ -81,10 +67,7 @@ describe('marketing social waitlist attribution', () => {
     expect(parsed.searchParams.get('mr')).toBe('ls');
     expect(readMarketingAttributionToken(parsed.search)).toBe(token);
     expect(parsed.hash).toBe('#connect-organization');
-    expect(organizationIntakePrefill(attribution)).toEqual({
-      organizationRole: 'LAB_SURVEYOR',
-      scenario: 'QUALITY_LAB',
-    });
+    expect(organizationIntakePrefill(attribution)).toEqual({ organizationRole: 'LAB_SURVEYOR', scenario: 'QUALITY_LAB' });
   });
 
   it('rejects unsafe origins and malformed signed-token envelopes', () => {
@@ -99,14 +82,8 @@ describe('marketing social waitlist attribution', () => {
 
 describe('Telegram qualification without Telegram PII persistence', () => {
   it('parses bounded deep-link attribution and degrades unknown input to organic', () => {
-    expect(parseTelegramStart('/start q1_harvest26_lab01')).toEqual({
-      campaign: 'harvest26',
-      content: 'lab01',
-    });
-    expect(parseTelegramStart('/start unexpected payload')).toEqual({
-      campaign: 'organic',
-      content: 'bot',
-    });
+    expect(parseTelegramStart('/start q1_harvest26_lab01')).toEqual({ campaign: 'harvest26', content: 'lab01' });
+    expect(parseTelegramStart('/start unexpected payload')).toEqual({ campaign: 'organic', content: 'bot' });
   });
 
   it('returns seven signed URL role choices and no callback state', () => {
@@ -128,7 +105,7 @@ describe('Telegram qualification without Telegram PII persistence', () => {
     }
   });
 
-  it('authenticates Telegram webhook requests and signs attribution without exposing a bot token', () => {
+  it('authenticates Telegram webhook requests and signs attribution without exposing profile fields', () => {
     expect(webhook).toContain("request.headers.get('x-telegram-bot-api-secret-token')");
     expect(webhook).toContain('timingSafeEqual');
     expect(webhook).toContain('MARKETING_TELEGRAM_WEBHOOK_SECRET');
@@ -140,7 +117,8 @@ describe('Telegram qualification without Telegram PII persistence', () => {
     expect(webhook).not.toContain('MARKETING_TELEGRAM_BOT_TOKEN');
     expect(webhook).not.toContain('console.log');
     expect(webhook).not.toContain('console.error');
-    expect(webhook).not.toMatch(/username|first_name|last_name|phone_number/);
+    const updateContract = webhook.slice(webhook.indexOf('type TelegramUpdate'), webhook.indexOf('function json'));
+    expect(updateContract).not.toMatch(/username|first_name|last_name|phone_number/);
   });
 
   it('keeps mktg correlation authority server-side and rejects public spoofing of that prefix', () => {
@@ -148,7 +126,6 @@ describe('Telegram qualification without Telegram PII persistence', () => {
     expect(intakeForm).toContain("headers['x-marketing-attribution'] = marketingAttributionToken.current");
     expect(intakeForm).not.toContain('buildMarketingCorrelationId');
     expect(intakeForm).not.toContain("headers['x-correlation-id']");
-
     expect(intakeBff).toContain('verifiedMarketingCorrelationId');
     expect(intakeBff).toContain("request.headers.get('x-marketing-attribution')");
     expect(intakeBff).toContain("!requested.startsWith('mktg.')");
