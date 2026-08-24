@@ -231,7 +231,7 @@ export class OneCRuntimeRepository {
             expires_at AS "expiresAt"
           FROM connector.create_one_c_pairing_challenge(
             ${input.correlationId},
-            ${input.ttlSeconds ?? 600}
+            ${input.ttlSeconds ?? 600}::integer
           )
         `);
         const row = rows[0];
