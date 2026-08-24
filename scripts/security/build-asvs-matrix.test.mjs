@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -296,4 +298,56 @@ test('NO_RUNTIME_CALLER does not count the defining module as its own caller', (
     'apps/api/src/auth/authority.policy.ts': 'export function evaluateGrant() {} evaluateGrant();',
   }));
   assert.equal(selfOnly.holds, true);
+});
+
+// The unit tests above prove the primitive. This one proves the register that
+// uses it: every conjunctive condition must actually hold today, and must stop
+// holding if any single fact it names disappears. Both defects that produced
+// this check - patterns joined by .some(), and a pattern matching an import
+// rather than a call - were invisible to reading the condition and only showed
+// up when a fact was removed, so the property is asserted rather than reviewed.
+test('every PRESENT_ALL_AT_PATH condition in the register holds and is revocable', () => {
+  const register = JSON.parse(readFileSync('docs/security/asvs-applicability-decisions.json', 'utf8'));
+  const tracked = execFileSync('git', ['ls-files']).toString().split('\n').filter(Boolean);
+  const real = (path) => { try { return readFileSync(path, 'utf8'); } catch { return null; } };
+
+  const stripAll = (text, needle) => {
+    const hay = text.toLowerCase();
+    const pin = needle.toLowerCase();
+    let out = '';
+    let cursor = 0;
+    for (;;) {
+      const at = hay.indexOf(pin, cursor);
+      if (at === -1) return out + text.slice(cursor);
+      out += `${text.slice(cursor, at)}__FACT_REMOVED__`;
+      cursor = at + pin.length;
+    }
+  };
+
+  const conjunctive = register.decisions.flatMap((decision) => (decision.conditions ?? [])
+    .filter((condition) => condition.check === 'PRESENT_ALL_AT_PATH')
+    .map((condition) => [decision.requirementId, condition]));
+
+  assert.ok(conjunctive.length > 0, 'the register should carry conjunctive conditions once they are migrated');
+
+  for (const [requirementId, condition] of conjunctive) {
+    assert.equal(
+      evaluateCondition(condition, { tracked, readFile: real }).holds,
+      true,
+      `${requirementId}: conjunctive condition does not hold against the live tree`,
+    );
+
+    for (const pattern of condition.patterns) {
+      for (const path of condition.paths) {
+        const source = real(path);
+        if (!source || !source.toLowerCase().includes(pattern.toLowerCase())) continue;
+        const readFile = (candidate) => (candidate === path ? stripAll(source, pattern) : real(candidate));
+        assert.equal(
+          evaluateCondition(condition, { tracked, readFile }).holds,
+          false,
+          `${requirementId}: removing ${JSON.stringify(pattern)} from ${path} left the condition holding`,
+        );
+      }
+    }
+  }
 });
