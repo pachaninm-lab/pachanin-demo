@@ -2686,7 +2686,7 @@
     },
     {
       "requirementId": "V10.1.1",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
@@ -2711,7 +2711,7 @@
     },
     {
       "requirementId": "V10.1.2",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
@@ -2769,7 +2769,7 @@
     },
     {
       "requirementId": "V10.2.2",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "apps/web/lib/platform-v7/govIdentityBridge.ts"
@@ -2814,7 +2814,7 @@
     },
     {
       "requirementId": "V10.3.1",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-resource-server"
@@ -2837,7 +2837,7 @@
     },
     {
       "requirementId": "V10.3.2",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-resource-server"
@@ -2860,7 +2860,7 @@
     },
     {
       "requirementId": "V10.3.3",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-resource-server"
@@ -2883,7 +2883,7 @@
     },
     {
       "requirementId": "V10.3.4",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-resource-server"
@@ -2906,7 +2906,7 @@
     },
     {
       "requirementId": "V10.3.5",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-resource-server"
@@ -2929,7 +2929,7 @@
     },
     {
       "requirementId": "V10.4.1",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -2954,7 +2954,7 @@
     },
     {
       "requirementId": "V10.4.2",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -2979,7 +2979,7 @@
     },
     {
       "requirementId": "V10.4.3",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3004,7 +3004,7 @@
     },
     {
       "requirementId": "V10.4.4",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3029,7 +3029,7 @@
     },
     {
       "requirementId": "V10.4.5",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3054,7 +3054,7 @@
     },
     {
       "requirementId": "V10.4.6",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3079,7 +3079,7 @@
     },
     {
       "requirementId": "V10.4.7",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3104,7 +3104,7 @@
     },
     {
       "requirementId": "V10.4.8",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3129,7 +3129,7 @@
     },
     {
       "requirementId": "V10.4.9",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3154,7 +3154,7 @@
     },
     {
       "requirementId": "V10.4.10",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3179,7 +3179,7 @@
     },
     {
       "requirementId": "V10.4.11",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3204,7 +3204,7 @@
     },
     {
       "requirementId": "V10.4.12",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3229,7 +3229,7 @@
     },
     {
       "requirementId": "V10.4.13",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3254,7 +3254,7 @@
     },
     {
       "requirementId": "V10.4.14",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3279,7 +3279,7 @@
     },
     {
       "requirementId": "V10.4.15",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3304,7 +3304,7 @@
     },
     {
       "requirementId": "V10.4.16",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3329,7 +3329,7 @@
     },
     {
       "requirementId": "V10.5.1",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
@@ -3354,7 +3354,7 @@
     },
     {
       "requirementId": "V10.5.2",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
@@ -3379,7 +3379,7 @@
     },
     {
       "requirementId": "V10.5.3",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
@@ -3404,7 +3404,7 @@
     },
     {
       "requirementId": "V10.5.4",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
@@ -3429,7 +3429,7 @@
     },
     {
       "requirementId": "V10.5.5",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "gov-id-bridge-incomplete:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
@@ -3454,7 +3454,7 @@
     },
     {
       "requirementId": "V10.6.1",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-openid-provider"
@@ -3479,7 +3479,7 @@
     },
     {
       "requirementId": "V10.6.2",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-openid-provider"
@@ -3504,7 +3504,7 @@
     },
     {
       "requirementId": "V10.7.1",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3529,7 +3529,7 @@
     },
     {
       "requirementId": "V10.7.2",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
@@ -3554,7 +3554,7 @@
     },
     {
       "requirementId": "V10.7.3",
-      "applicability": "APPLICABLE",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
       "evidence": [
         "repository-scan:no-oauth-authorization-server"
