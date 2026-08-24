@@ -11,7 +11,9 @@
     ".github/workflows/marketing-social-growth.yml",
     "apps/api/src/modules/marketing/marketing-editorial-core.spec.ts",
     "apps/api/src/modules/marketing/marketing-editorial-core.ts",
-    "docs/platform-v7/autopilot/scopes/marketing-editorial-core-4616.json"
+    "docs/platform-v7/autopilot/scopes/marketing-editorial-core-4616.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
   ],
   "requiredInvariants": [
     "Only fixed trusted source identifiers and exact HTTPS hosts are admitted; environment variables cannot expand the registry.",
@@ -28,6 +30,7 @@
     "The isolated marketing worker builds on the exact PR head.",
     "Radar evidence, off-topic rejection, duplicate URL-variant rejection, deterministic 70/20/10 planning and legal-classification tests pass.",
     "Existing outbound safety, Telegram, VK, attribution, Telegram-to-QWO and organization-intake regression gates remain green.",
-    "Every changed non-governance path is contained in allowedPaths."
+    "Every changed non-governance path is contained in allowedPaths.",
+    "Generated cryptographic inventory artifacts are refreshed from the exact PR head and remain derived evidence only."
   ]
 }

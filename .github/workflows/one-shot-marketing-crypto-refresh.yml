@@ -1,0 +1,57 @@
+name: One-shot cryptographic inventory refresh
+
+on:
+  push:
+    branches:
+      - feat/marketing-editorial-core-4616
+    paths:
+      - .github/workflows/one-shot-marketing-crypto-refresh.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-marketing-crypto-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Verify exact source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+
+      - name: Regenerate and verify cryptographic inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/security/discover-cryptography.mjs
+          node --test scripts/security/discover-cryptography.test.mjs
+          git diff --check
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 2
+          printf '%s\n' "${changed[@]}" | sort > /tmp/actual
+          printf '%s\n' \
+            docs/security/CRYPTOGRAPHIC_INVENTORY.md \
+            docs/security/cryptographic-inventory.json | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/actual
+
+      - name: Commit generated evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/security/CRYPTOGRAPHIC_INVENTORY.md docs/security/cryptographic-inventory.json
+          git commit -m "chore(security): refresh cryptographic inventory for marketing"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
