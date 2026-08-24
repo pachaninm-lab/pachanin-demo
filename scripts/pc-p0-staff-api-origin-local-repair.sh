@@ -11,7 +11,7 @@ readonly CANONICAL_ORIGIN='http://api:3001'
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
 [[ "$RUN_ID" =~ ^[0-9]{1,20}$ ]]
 [[ "$(id -u)" -eq 0 ]]
-for command in docker python3 flock realpath git pgrep sed sort grep awk install cp rm stat cmp seq sleep tail; do
+for command in docker python3 flock realpath git pgrep sed sort grep awk install cp rm stat cmp seq sleep tail timeout; do
   command -v "$command" >/dev/null
 done
 [[ -d "$REPOSITORY_ROOT/.git" && ! -L "$REPOSITORY_ROOT" ]]
@@ -21,9 +21,25 @@ done
 
 guard_current_main() {
   local observed
-  observed="$(git ls-remote --heads "$REPOSITORY_URL" refs/heads/main 2>/dev/null | awk 'NR==1 {print $1}')"
+  observed="$(timeout 20s git ls-remote --heads "$REPOSITORY_URL" refs/heads/main 2>/dev/null | awk 'NR==1 {print $1}')"
   [[ "$observed" == "$TARGET_SHA" ]]
 }
+
+fsync_file_and_parent() {
+  python3 - "$1" <<'PY_FSYNC'
+import os, sys
+path = os.path.abspath(sys.argv[1])
+if os.path.isfile(path):
+    fd = os.open(path, os.O_RDONLY)
+    try: os.fsync(fd)
+    finally: os.close(fd)
+parent = os.path.dirname(path)
+fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+try: os.fsync(fd)
+finally: os.close(fd)
+PY_FSYNC
+}
+
 guard_current_main
 
 tmp="$(mktemp -d /tmp/p0-staff-api-origin.XXXXXX)"
@@ -73,8 +89,8 @@ report_failure() {
 }
 
 rollback() {
-  local rc=$?
-  trap - ERR
+  local rc="${1:-$?}"
+  trap - ERR INT TERM
   set +e
   if [[ "$mutated" == 1 && "$completed" == 0 && -n "$override_path" && -n "$working_dir" && ${#rollback_args[@]} -gt 0 ]]; then
     rollback_state='FAILED'
@@ -83,6 +99,9 @@ rollback() {
       cp -a "$tmp/override.backup" "$override_path" >/dev/null 2>&1 || restore_ok=0
     else
       rm -f -- "$override_path" >/dev/null 2>&1 || restore_ok=0
+    fi
+    if (( restore_ok == 1 )); then
+      fsync_file_and_parent "$override_path" >/dev/null 2>&1 || restore_ok=0
     fi
     if (( restore_ok == 1 )); then
       docker compose "${rollback_args[@]}" up -d --no-deps --no-build --pull never web > "$tmp/rollback.log" 2>&1 || restore_ok=0
@@ -131,6 +150,8 @@ rollback() {
   report_failure "$rc"
 }
 trap rollback ERR
+trap 'rollback 130' INT
+trap 'rollback 143' TERM
 trap 'rm -rf -- "$tmp"' EXIT
 
 stage='LOCK'
@@ -366,6 +387,7 @@ else
   guard_current_main
   mutated=1
   install -m 0600 -o root -g root "$tmp/expected.override" "$override_path"
+  fsync_file_and_parent "$override_path"
 fi
 
 stage='CANDIDATE_CONFIG'
@@ -373,6 +395,29 @@ candidate_args=("${base_args[@]}" -f "$override_path")
 docker compose "${candidate_args[@]}" config --format json > "$tmp/candidate.json" 2>/dev/null
 candidate_class="$(classify_json_origin "$tmp/candidate.json")"
 [[ "$candidate_class" == CANONICAL ]]
+python3 - "$tmp/base.json" "$tmp/candidate.json" <<'PY_CONFIG_DELTA'
+import copy, json, sys
+base=json.load(open(sys.argv[1],encoding='utf-8'))
+candidate=json.load(open(sys.argv[2],encoding='utf-8'))
+if not isinstance(base,dict) or not isinstance(candidate,dict): raise SystemExit('CONFIG_NOT_OBJECT')
+normalized=copy.deepcopy(candidate)
+base_web=((base.get('services') or {}).get('web') or {})
+candidate_web=((normalized.get('services') or {}).get('web') or {})
+base_env=base_web.get('environment') or {}
+candidate_env=candidate_web.get('environment') or {}
+if not isinstance(base_env,dict) or not isinstance(candidate_env,dict): raise SystemExit('WEB_ENV_NOT_OBJECT')
+if candidate_env.get('API_URL') != 'http://api:3001': raise SystemExit('CANDIDATE_ORIGIN_NOT_CANONICAL')
+if 'API_URL' in base_env:
+    candidate_env['API_URL']=base_env['API_URL']
+else:
+    candidate_env.pop('API_URL',None)
+candidate_web['environment']=candidate_env
+if not base_env:
+    # Compose may omit an empty environment mapping entirely.
+    candidate_web.pop('environment',None)
+normalized['services']['web']=candidate_web
+if normalized != base: raise SystemExit('CANDIDATE_CONFIG_CHANGED_BEYOND_API_URL')
+PY_CONFIG_DELTA
 candidate_image_ref="$(python3 - "$tmp/candidate.json" <<'PY'
 import json,sys
 cfg=json.load(open(sys.argv[1],encoding='utf-8'))
