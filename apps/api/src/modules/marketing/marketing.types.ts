@@ -79,6 +79,8 @@ export interface MarketingPolicyDecision {
 export interface MarketingPublishRequest {
   channel: string;
   text: string;
+  /** Stable command identity. Required even before every connector has native deduplication support. */
+  idempotencyKey: string;
   policy: Omit<MarketingPolicyInput, 'channel' | 'text'>;
 }
 
