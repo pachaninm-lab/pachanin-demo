@@ -4,9 +4,9 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, CheckCircle2, Phone, RotateCcw, ShieldCheck } from 'lucide-react';
 import { getOrganizationConnectCopy } from '@/i18n/platform-v7-organization-connect';
 import {
-  buildMarketingCorrelationId,
   organizationIntakePrefill,
   parseMarketingAttribution,
+  readMarketingAttributionToken,
 } from '@/lib/platform-v7/marketing-attribution';
 import styles from './OrganizationConnectForm.module.css';
 
@@ -33,7 +33,7 @@ export function OrganizationConnectForm({ locale }: { locale: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<IntakeResult | null>(null);
   const idempotencyKey = useRef('');
-  const marketingCorrelationId = useRef('');
+  const marketingAttributionToken = useRef('');
   const formRef = useRef<HTMLFormElement>(null);
   const positionRef = useRef<HTMLInputElement>(null);
   const organizationRef = useRef<HTMLInputElement>(null);
@@ -41,21 +41,13 @@ export function OrganizationConnectForm({ locale }: { locale: string }) {
   useEffect(() => {
     idempotencyKey.current = newIdempotencyKey();
 
-    // Social attribution is deliberately tiny and non-PII. The existing intake
-    // authority already persists correlationId alongside the organization
-    // request, audit event and outbox event, so no second contact database is
-    // introduced just for marketing analytics.
-    const attribution = parseMarketingAttribution(globalThis.location?.search ?? '');
+    const search = globalThis.location?.search ?? '';
+    // Public query parameters are UX hints only. The opaque `ma` token is
+    // forwarded to the same-origin BFF, which independently validates its HMAC
+    // before any marketing correlation is allowed into durable evidence.
+    marketingAttributionToken.current = readMarketingAttributionToken(search) ?? '';
+    const attribution = parseMarketingAttribution(search);
     if (attribution) {
-      try {
-        marketingCorrelationId.current = buildMarketingCorrelationId(
-          attribution,
-          globalThis.crypto.randomUUID(),
-        );
-      } catch {
-        marketingCorrelationId.current = '';
-      }
-
       const prefill = organizationIntakePrefill(attribution);
       const role = formRef.current?.elements.namedItem('organizationRole');
       if (role instanceof HTMLSelectElement && prefill.organizationRole) {
@@ -152,8 +144,8 @@ export function OrganizationConnectForm({ locale }: { locale: string }) {
         Accept: 'application/json',
         'Idempotency-Key': idempotencyKey.current || newIdempotencyKey(),
       };
-      if (marketingCorrelationId.current) {
-        headers['x-correlation-id'] = marketingCorrelationId.current;
+      if (marketingAttributionToken.current) {
+        headers['x-marketing-attribution'] = marketingAttributionToken.current;
       }
 
       const response = await fetch('/api/platform-v7/organization-connect', {
