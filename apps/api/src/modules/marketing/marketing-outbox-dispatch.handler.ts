@@ -1,8 +1,5 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import {
-  type ClaimedOutboxEntry,
-  DurableOutboxWorker,
-} from '../integration-events/durable-outbox.worker';
+import { Injectable } from '@nestjs/common';
+import type { ClaimedOutboxEntry } from '../integration-events/durable-outbox.worker';
 import {
   MARKETING_SOCIAL_PUBLISH_EVENT_TYPE,
   assertMarketingSocialPublishPayload,
@@ -10,18 +7,8 @@ import {
 import { MarketingPublisherService } from './marketing-publisher.service';
 
 @Injectable()
-export class MarketingOutboxDispatchHandler implements OnModuleInit {
-  constructor(
-    private readonly worker: DurableOutboxWorker,
-    private readonly publisher: MarketingPublisherService,
-  ) {}
-
-  onModuleInit(): void {
-    this.worker.registerHandler(
-      MARKETING_SOCIAL_PUBLISH_EVENT_TYPE,
-      (entry) => this.dispatch(entry),
-    );
-  }
+export class MarketingOutboxDispatchHandler {
+  constructor(private readonly publisher: MarketingPublisherService) {}
 
   async dispatch(entry: ClaimedOutboxEntry): Promise<void> {
     if (entry.type !== MARKETING_SOCIAL_PUBLISH_EVENT_TYPE) {
