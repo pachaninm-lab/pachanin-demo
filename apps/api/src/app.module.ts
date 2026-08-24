@@ -59,6 +59,7 @@ import { StaffAccessModule } from './modules/staff-access/staff-access.module';
 import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
 import { GektaModule } from './modules/gekta/gekta.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
+import { MarketingModule } from './modules/marketing/marketing.module';
 
 @Module({
   imports: [
@@ -116,6 +117,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
     TaiToolsModule,
     GektaModule,
     AccountingModule,
+    MarketingModule,
   ],
   controllers: [HealthController],
   providers: [
