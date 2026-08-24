@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/one-c-machine-identity-4321",
+  "status": "active",
+  "purpose": "Stacked bounded 1С scoped machine-identity policy on the canonical seven-command connector protocol. Tightens bearer and persistent-record shapes before any credential persistence or runtime route exists.",
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "issue": 4321,
+  "trackingIssue": 4607,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/one-c-machine-credential.policy.ts",
+    "apps/api/src/modules/accounting/one-c-machine-credential.policy.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/one-c-machine-identity-v1.md",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-one-c-machine-identity-4321-4607.json"
+  ],
+  "requiredInvariants": [
+    "The 1С connector authenticates as a machine, never by borrowing a farmer, accountant, administrator or tenant-wide human session.",
+    "Bearer material proves possession only; organization, 1С legal entity, connection, installation, protocol and command authorization remain server-owned state.",
+    "The bearer is exactly UUID + dot + 43 base64url characters from a 32-byte random secret; malformed or oversized input is rejected before hashing.",
+    "Persistent secret material is only a 16-byte random hex salt plus SHA-256 verifier; plaintext bearer secret is not part of the persistent record shape.",
+    "Verification is timing-safe and fails closed for malformed persistent state, expiry, revocation, scope mismatch, protocol drift, command denial or secret mismatch.",
+    "Revocation chronology cannot predate issuance and record version remains positive; future concurrent revoke/rotate authority belongs to the database transaction.",
+    "No credential persistence, Prisma migration, runtime route, provider traffic, Connection Center maturity change or production credential is introduced in this slice.",
+    "Generated cryptographic inventory remains reproducible and security gates are not weakened.",
+    "No new mandatory recurring cost is introduced."
+  ]
+}
