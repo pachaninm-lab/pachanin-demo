@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4616,
+  "branch": "ci/pin-rollover-checkout-4616",
+  "status": "active",
+  "purpose": "Restore the immutable GitHub Actions ratchet required by the Social Growth Engine PR by pinning only the two checkout references introduced by the PC-CROP rollover guard hardening.",
+  "authorityBaseExactMain": "0e9b7b13426264f11c7dd2a2695c4d83f5803340",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/platform-v7-autopilot-guard.yml",
+    "docs/platform-v7/autopilot/scopes/pin-rollover-checkout-4616.json"
+  ],
+  "requiredInvariants": [
+    "Exactly the two checkout references introduced by the rollover hardening are pinned to the already repository-approved immutable actions/checkout v4 commit SHA.",
+    "The pre-existing historical floating checkout reference remains unchanged, so the ratchet returns to its recorded ceiling without disguising legacy debt.",
+    "No workflow conditions, permissions, commands, production authority, REG.RU state, credentials or application code change.",
+    "New recurring spend remains 0 RUB."
+  ],
+  "acceptance": [
+    "The action-pinning ratchet returns to WITHIN_BASELINE with 1028 floating references.",
+    "Workflow syntax and the PC-CROP rollover guard regression tests pass.",
+    "The source-controlled scope resolves to exactly the two declared paths."
+  ]
+}
