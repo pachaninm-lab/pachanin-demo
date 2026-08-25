@@ -3366,23 +3366,71 @@
     {
       "requirementId": "V6.4.6",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/modules/support/support.service.ts"
+        "apps/api/src/modules/support/support.service.ts",
+        "apps/api/src/modules/support/support.module.ts",
+        "apps/api/src/modules/auth/password-reset.service.ts",
+        "apps/api/src/modules/support/support-password-reset.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "support.service.ts's resetUserPassword still derives its returned resetToken from Date.now().toString(36) rather than a CSPRNG",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the predictable, time-derived token is gone from the administrative path",
+          "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/support/support.service.ts"
           ],
           "patterns": [
             "date.now().tostring(36)"
           ]
+        },
+        {
+          "condition": "the administrative path delegates issuance to the real reset authority and gates on support role and recent MFA",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/support/support.service.ts"
+          ],
+          "patterns": [
+            "this.passwordreset.request(email",
+            "this.assertsupport(user)",
+            "this.assertrecentmfa(user)"
+          ]
+        },
+        {
+          "condition": "the path fails closed when the database or the reset authority is absent, instead of reporting success",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/support/support.service.ts"
+          ],
+          "patterns": [
+            "serviceunavailableexception",
+            "!this.prisma || !this.passwordreset"
+          ]
+        },
+        {
+          "condition": "the support module is actually wired to the module that provides the reset authority",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/support/support.module.ts"
+          ],
+          "patterns": [
+            "authmodule"
+          ]
+        },
+        {
+          "condition": "tests assert that no token reaches the administrator and that the answer does not distinguish an existing account",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/support/support-password-reset.spec.ts"
+          ],
+          "patterns": [
+            "result.resettoken).tobeundefined()",
+            "answers identically whether or not the account exists",
+            "recent_admin_mfa_required"
+          ]
         }
       ],
-      "note": "support.service.ts exposes POST support/users/:userId/reset-password, gated to SUPPORT_MANAGER/ADMIN via assertSupport() — correctly restricted, and it does not let the admin choose or see the user's new password (good so far). But resetUserPassword() computes `const resetToken = 'RESET-' + Date.now().toString(36).toUpperCase()`, an entirely predictable, non-CSPRNG value, and never persists it anywhere (this whole SupportService is backed by an in-memory `tickets` array, not Prisma) or wires it into password-reset-token.ts/password-reset.service.ts's real, opaque-token-based reset system. The feature is a non-functional stub: the token it hands back does not actually reset anything and could not be presented to the real password-reset/confirm endpoint, which expects a differently-shaped opaque token. \"Administrative users can initiate the password reset process for the user\" is not actually true today, and if this stub were ever wired to something real without being rebuilt on the opaque-token authority, the predictable token would be a serious account-takeover vector."
+      "note": "Путь живой, и это доказано цепочкой, а не предположено: app.module.ts регистрирует SupportModule, support.controller.ts отдаёт POST users/:userId/reset-password и вызывает support.service.ts. Прежняя реализация возвращала RESET-${Date.now().toString(36).toUpperCase()} - полностью предсказуемое значение, которое нигде не сохранялось и ни с чем не было связано, то есть контроль был одновременно заявлен и не существовал. Захват учётной записи при этом не демонстрировался и не утверждается: токен ничего не открывал именно потому, что ни к чему не был подключён. Теперь administrative path не выдаёт токен вовсе. Он передаёт запуск штатной authority PasswordResetService.request(), которая создаёт непрозрачный токен, сохраняет его и отправляет владельцу учётной записи через durable outbox. Администратору не возвращается ни пароль, ни токен, ни признак существования учётной записи - ответ одинаков и когда пользователь найден, и когда нет, и когда сам поиск упал. Это строже требования: администратор не только не выбирает пароль, но и не может воспользоваться ссылкой сам. Ключ границы доставки берётся из окружения самим API; круг вызывающих это не расширяет, поскольку эндпоинт уже закрыт assertSupport по ролям SUPPORT_MANAGER и ADMIN, что строже общего ключа. Без Prisma или без authority поведение fail-closed: ServiceUnavailable и запись в аудит, а не имитация успеха. Свежий MFA обеспечен переиспользованием уже существующего и уже применённого механизма assertRecentSettlementFinancialMfa, который читает mfaVerified и mfaVerifiedAt из серверной сессии и не верит клиентским заголовкам; логика не дублируется, переписывается только код отказа на контекстный RECENT_ADMIN_MFA_REQUIRED, поскольку возвращать сообщение про settlement с эндпоинта поддержки было бы сообщением не о том. Тесты привязаны к поведению: восстановление прежней заглушки роняет 7 из 13 исходных случаев. Границы утверждения: durable one-time state, bounded TTL, hash/verifier и atomic consume обеспечивает та самая authority, к которой путь подключён, и здесь они не переизобретаются; этот реестр-пункт утверждает административную инициацию, а не переоценку самой системы сброса."
     },
     {
       "requirementId": "V6.5.1",
