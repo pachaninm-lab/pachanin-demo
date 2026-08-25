@@ -159,7 +159,7 @@ one(
     else
       REGISTRATION_HTTP_STATUS=UNKNOWN
     fi
-    REGISTRATION_PUBLIC_CODE=\"$(python3 - \"$response\" <<'PY'
+    REGISTRATION_PUBLIC_CODE=\"$(python3 - \"$response\" <<'REGISTRATION_CODE_PY'
 import json, re, sys
 try:
     payload = json.load(open(sys.argv[1], encoding='utf-8'))
@@ -168,7 +168,7 @@ except Exception:
     raise SystemExit(0)
 code = payload.get('code')
 print(code if isinstance(code, str) and re.fullmatch(r'[A-Z0-9_]{4,100}', code) else 'UNKNOWN')
-PY
+REGISTRATION_CODE_PY
 )\"
     [[ \"$REGISTRATION_PUBLIC_CODE\" =~ ^[A-Z0-9_]{4,100}$ ]] || REGISTRATION_PUBLIC_CODE=UNKNOWN
     printf 'P0_REGISTRATION_HTTP_STATUS=%s\\n' \"$REGISTRATION_HTTP_STATUS\"
