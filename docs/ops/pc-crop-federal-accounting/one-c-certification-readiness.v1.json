@@ -1,0 +1,175 @@
+{
+  "schemaVersion": "pc-crop.one-c-certification-readiness.v1",
+  "status": "BLOCKED_EXTERNAL_PREREQUISITES",
+  "asOf": "2026-08-25",
+  "authority": {
+    "issue": 4321,
+    "trackingIssue": 4607,
+    "correspondence": "SV-1097",
+    "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING"
+  },
+  "sourceBase": {
+    "pullRequest": 4663,
+    "headSha": "198ae9fe100c5e5ad0ff462a6acf33ed0e2fd60f",
+    "treeSha": "ae04ee3298a08a2bbd8962c1e69115de2cde3c07",
+    "workflowSelection": "latest pull_request run by workflow name",
+    "workflowOutcome": {
+      "success": 20,
+      "expectedSkipped": 2,
+      "failedOrIncomplete": 0
+    }
+  },
+  "facts": {
+    "certified": false,
+    "compiledCfePresent": false,
+    "licensedOneCRuntimeAcceptance": false,
+    "productionConnected": false,
+    "productionCredentialPresent": false,
+    "realOneCDataUsed": false,
+    "directInformationBaseDatabaseAccess": false,
+    "newMandatoryCostRub": 0
+  },
+  "categoryDecision": {
+    "status": "BLOCKED",
+    "selectedCategory": null,
+    "candidates": [
+      "SECTION_7_DATA_EXCHANGE_PRODUCT",
+      "SECTION_8_CONFIGURATION_EXTENSION"
+    ],
+    "decisionAuthority": "1C response in SV-1097"
+  },
+  "requiredDecisions": [
+    {
+      "id": "CERTIFICATION_CATEGORY",
+      "owner": "1C",
+      "status": "BLOCKED",
+      "requiredValue": "one exact certification category, including whether the extension and external platform require one or two applications"
+    },
+    {
+      "id": "TARGET_CONFIGURATION",
+      "owner": "1C",
+      "status": "BLOCKED",
+      "requiredValue": "full configuration name, edition and exact current release"
+    },
+    {
+      "id": "TARGET_PLATFORM_VERSION",
+      "owner": "1C",
+      "status": "BLOCKED",
+      "requiredValue": "recommended exact 1C:Enterprise platform version"
+    },
+    {
+      "id": "EXTENSION_PURPOSE",
+      "owner": "1C",
+      "status": "BLOCKED",
+      "requiredValue": "Adaptation or Addition, if section 8 applies"
+    },
+    {
+      "id": "REGISTERED_IDENTITY",
+      "owner": "1C",
+      "status": "BLOCKED",
+      "requiredValue": "registered prefix, product name and installation catalog procedure"
+    },
+    {
+      "id": "SECURITY_PROFILE",
+      "owner": "1C",
+      "status": "BLOCKED",
+      "requiredValue": "required security profile and unsafe-mode treatment for pinned outbound HTTPS"
+    },
+    {
+      "id": "BSP_AND_SECRET_STORAGE",
+      "owner": "1C",
+      "status": "BLOCKED",
+      "requiredValue": "BSP availability and accepted protected storage mechanism in the exact target"
+    },
+    {
+      "id": "DEMONSTRATION_STAND_ROUTE",
+      "owner": "1C",
+      "status": "BLOCKED",
+      "requiredValue": "expected demonstration database or test-stand delivery route"
+    },
+    {
+      "id": "SUBMISSION_PACKAGE_ROUTE",
+      "owner": "1C",
+      "status": "BLOCKED",
+      "requiredValue": "application and package format after category selection"
+    },
+    {
+      "id": "LICENSED_TOOLCHAIN",
+      "owner": "project owner",
+      "status": "BLOCKED",
+      "requiredValue": "lawfully licensed target configuration, platform and build/check tooling"
+    },
+    {
+      "id": "APPLICANT_LEGAL_FACTS",
+      "owner": "project owner",
+      "status": "BLOCKED",
+      "requiredValue": "applicant legal identity, support channel, warranty terms, signature and seal where required"
+    }
+  ],
+  "officialSources": [
+    "https://1c.ru/rus/products/1c/predpr/compat/soft/requirements.htm",
+    "https://1c.ru/rus/products/1c/predpr/compat/soft/condition.htm",
+    "https://sovmestimo.1c.ru/cert/",
+    "https://its.1c.ru/db/content/v8std/src/400/100/i8100456.htm",
+    "https://its.1c.ru/db/content/v8std/src/400/100/i8100453.htm",
+    "https://its.1c.ru/db/content/v8std/src/600/i8100669.htm",
+    "https://its.1c.ru/db/content/v8std/src/600/i8100740.htm"
+  ],
+  "sourceFiles": [
+    {
+      "path": "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConfigurationAdapter.bsl",
+      "sha256": "29046358e1c9cea3d954ebc5aab558c3ed8efeec7e87810fff348a06d9d486c1"
+    },
+    {
+      "path": "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorCommands.bsl",
+      "sha256": "d29278242a4b9676a192138e6a2b449699a1621efb6f33d7ee51078e1d20dd24"
+    },
+    {
+      "path": "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorDiscovery.bsl",
+      "sha256": "3c7424ca0ddc13c6bcff40a9f4ef4daa6028643c7c25d9d83c240d61de873622"
+    },
+    {
+      "path": "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorHttp.bsl",
+      "sha256": "8daf8d9efd8166c2f45ef8719aae9219b4c634ea7b9a552e191a10e9f00b05bf"
+    },
+    {
+      "path": "apps/api/src/modules/accounting/one-c-extension-source/README.md",
+      "sha256": "434ca83b1bf9c738d90be4512935a772ff7ea0015b8ecec525a590014eb612b4"
+    }
+  ],
+  "requiredAcceptanceCases": [
+    "INSTALL-BSP",
+    "INSTALL-PLATFORM",
+    "UPDATE",
+    "DISABLE",
+    "REMOVE",
+    "RELEASE-CHANGE",
+    "MULTI-EXTENSION",
+    "EXCEPTION-CHAIN",
+    "PAIRING-ONE-TIME",
+    "SECURE-STORAGE",
+    "OUTBOUND-HTTPS",
+    "NO-INBOUND",
+    "MULTI-ORGANIZATION",
+    "UNSUPPORTED-COMMAND",
+    "ACK-BEFORE-EFFECT",
+    "ACK-AMBIGUOUS",
+    "RESULT-AMBIGUOUS",
+    "OFFLINE-LEASE-EXPIRY",
+    "RECONCILIATION",
+    "SEVEN-COMMANDS",
+    "NO-DIRECT-DB",
+    "NO-REAL-DATA",
+    "LOG-SECRET-SCRUB",
+    "DEMO-WALKTHROUGH",
+    "UPGRADE-COEXISTENCE"
+  ],
+  "controlledFiles": {
+    "complianceMatrix": "docs/ops/pc-crop-federal-accounting/one-c-certification-compliance.v1.json",
+    "packageManifestTemplate": "docs/ops/pc-crop-federal-accounting/one-c-submission-package.template.json",
+    "userGuideTemplate": "docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md",
+    "acceptanceProtocol": "docs/ops/pc-crop-federal-accounting/one-c-isolated-acceptance-protocol.md",
+    "syntheticScenario": "docs/ops/pc-crop-federal-accounting/one-c-synthetic-demo-scenario.v1.json",
+    "correspondenceDraft": "docs/ops/pc-crop-federal-accounting/one-c-sv-1097-final-draft.md"
+  }
+}

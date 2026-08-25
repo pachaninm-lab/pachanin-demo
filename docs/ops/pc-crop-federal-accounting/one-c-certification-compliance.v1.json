@@ -1,0 +1,399 @@
+{
+  "schemaVersion": "pc-crop.one-c-certification-compliance.v1",
+  "asOf": "2026-08-25",
+  "status": "NOT_SUBMISSION_READY",
+  "applicability": {
+    "common": "REQUIRED",
+    "exchangeProductSection7": "CANDIDATE_AWAITING_1C",
+    "configurationExtensionSection8": "CANDIDATE_AWAITING_1C",
+    "otherProductCategories": "OUT_OF_SCOPE_UNLESS_1C_DIRECTS_OTHERWISE"
+  },
+  "sources": {
+    "requirements": "https://1c.ru/rus/products/1c/predpr/compat/soft/requirements.htm",
+    "conditions": "https://1c.ru/rus/products/1c/predpr/compat/soft/condition.htm",
+    "application": "https://sovmestimo.1c.ru/cert/"
+  },
+  "requirements": [
+    {
+      "requirementId": "COMMON-1.1",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-extension-transport-20260818.md"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "Provider-neutral repeatable design exists; end-user installation without developer assistance is not yet proven."
+    },
+    {
+      "requirementId": "COMMON-1.2",
+      "status": "BLOCKED",
+      "evidence": [],
+      "blockers": ["REGISTERED_IDENTITY"],
+      "note": "Official product name and trademark review are not confirmed."
+    },
+    {
+      "requirementId": "COMMON-1.3",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": ["APPLICANT_LEGAL_FACTS", "TARGET_CONFIGURATION"],
+      "note": "The required guide structure is prepared; applicant, support, exact target and final page metadata remain unset."
+    },
+    {
+      "requirementId": "COMMON-1.4",
+      "status": "EVIDENCED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-extension-transport-20260818.md", "docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": [],
+      "note": "Interaction direction, protocol, typed command surface and failure semantics are explicitly documented."
+    },
+    {
+      "requirementId": "COMMON-1.5",
+      "status": "PARTIAL",
+      "evidence": ["apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorHttp.bsl"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "Source uses documented platform HTTPS and JSON mechanisms; licensed runtime execution is absent."
+    },
+    {
+      "requirementId": "COMMON-1.6",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": ["TARGET_CONFIGURATION", "LICENSED_TOOLCHAIN"],
+      "note": "No compiled extension or end-user installation package exists."
+    },
+    {
+      "requirementId": "COMMON-1.7",
+      "status": "EVIDENCED",
+      "evidence": ["apps/api/src/modules/accounting/one-c-extension-source/README.md", "docs/ops/pc-crop-federal-accounting/one-c-submission-package.template.json"],
+      "blockers": [],
+      "note": "No 1C logo or compatibility logo is used or claimed before certification."
+    },
+    {
+      "requirementId": "COMMON-1.8",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-isolated-acceptance-protocol.md"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "Regression and release-change gates are defined but not executed against a certified product."
+    },
+    {
+      "requirementId": "COMMON-1.9",
+      "status": "NOT_APPLICABLE",
+      "evidence": [],
+      "blockers": [],
+      "note": "There is no previously certified edition. Any future functional edition will require a new certification decision."
+    },
+    {
+      "requirementId": "COMMON-1.10",
+      "status": "NOT_APPLICABLE",
+      "evidence": [],
+      "blockers": [],
+      "note": "No certified functionality has yet been removed. Future release notes must announce removals."
+    },
+    {
+      "requirementId": "COMMON-1.11",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": ["APPLICANT_LEGAL_FACTS"],
+      "note": "Update and support obligations are represented in the guide template; final support authority is unset."
+    },
+    {
+      "requirementId": "COMMON-1.12",
+      "status": "BLOCKED",
+      "evidence": [],
+      "blockers": ["APPLICANT_LEGAL_FACTS"],
+      "note": "The signed applicant warranty is an owner/legal action and has not been produced."
+    },
+    {
+      "requirementId": "COMMON-1.13",
+      "status": "PARTIAL",
+      "evidence": ["apps/api/src/modules/accounting/one-c-extension-source/README.md"],
+      "blockers": ["APPLICANT_LEGAL_FACTS"],
+      "note": "No third-party extension fragments are declared; final IP warranty remains a legal action."
+    },
+    {
+      "requirementId": "COMMON-1.14",
+      "status": "EVIDENCED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": [],
+      "note": "The package plan requires lawful ownership of the supported 1C base product and includes no copied typical-configuration source."
+    },
+    {
+      "requirementId": "COMMON-1.15",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-synthetic-demo-scenario.v1.json"],
+      "blockers": ["DEMONSTRATION_STAND_ROUTE", "LICENSED_TOOLCHAIN"],
+      "note": "A synthetic scenario is defined, but no ready stand or demonstration video exists."
+    },
+
+    {
+      "requirementId": "EXCHANGE-7.1",
+      "status": "PARTIAL",
+      "evidence": ["apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorHttp.bsl"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "Only standard outbound HTTPS and JSON are represented; execution on the exact runtime is unproven."
+    },
+    {
+      "requirementId": "EXCHANGE-7.2",
+      "status": "BLOCKED",
+      "evidence": [],
+      "blockers": ["TARGET_CONFIGURATION", "TARGET_PLATFORM_VERSION"],
+      "note": "Current supported configuration, edition and release are not selected."
+    },
+    {
+      "requirementId": "EXCHANGE-7.3",
+      "status": "BLOCKED",
+      "evidence": ["apps/api/src/modules/accounting/one-c-extension-source/README.md"],
+      "blockers": ["REGISTERED_IDENTITY", "TARGET_CONFIGURATION", "LICENSED_TOOLCHAIN"],
+      "note": "Own objects are not yet formatted, prefixed and checked as a final configuration product."
+    },
+    {
+      "requirementId": "EXCHANGE-7.4",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": ["APPLICANT_LEGAL_FACTS", "TARGET_CONFIGURATION"],
+      "note": "A complete guide skeleton exists but contains explicit blocked fields."
+    },
+    {
+      "requirementId": "EXCHANGE-7.5",
+      "status": "BLOCKED",
+      "evidence": [],
+      "blockers": ["TARGET_CONFIGURATION", "TARGET_PLATFORM_VERSION"],
+      "note": "The guide cannot name exact supported versions before the target decision."
+    },
+    {
+      "requirementId": "EXCHANGE-7.6",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "Connection procedures are drafted; no installable artifact has been verified."
+    },
+    {
+      "requirementId": "EXCHANGE-7.7",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-extension-transport-20260818.md", "docs/ops/pc-crop-federal-accounting/one-c-isolated-acceptance-protocol.md"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "Mechanism and examples are specified; screenshots and a runtime transcript remain absent."
+    },
+    {
+      "requirementId": "EXCHANGE-7.8",
+      "status": "CONDITIONAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-extension-transport-20260818.md"],
+      "blockers": ["CERTIFICATION_CATEGORY"],
+      "note": "The connector uses its own fixed protocol, not EnterpriseData. 1C must confirm that EnterpriseData conformance is not the submitted basis."
+    },
+    {
+      "requirementId": "EXCHANGE-7.9",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-submission-package.template.json"],
+      "blockers": ["REGISTERED_IDENTITY", "TARGET_CONFIGURATION", "TARGET_PLATFORM_VERSION", "LICENSED_TOOLCHAIN"],
+      "note": "The readme package fields and artifacts are deliberately unset."
+    },
+    {
+      "requirementId": "EXCHANGE-8.0",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-submission-package.template.json"],
+      "blockers": ["REGISTERED_IDENTITY", "LICENSED_TOOLCHAIN"],
+      "note": "Release-notes placement is defined; there is no released product version."
+    },
+    {
+      "requirementId": "EXCHANGE-8.1",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-synthetic-demo-scenario.v1.json"],
+      "blockers": ["DEMONSTRATION_STAND_ROUTE", "LICENSED_TOOLCHAIN"],
+      "note": "No interaction stand or final demonstration description has been accepted by 1C."
+    },
+
+    {
+      "requirementId": "EXTENSION-8.1",
+      "status": "BLOCKED",
+      "evidence": [],
+      "blockers": ["TARGET_CONFIGURATION", "TARGET_PLATFORM_VERSION"],
+      "note": "The current exact extendable configuration and release are unknown."
+    },
+    {
+      "requirementId": "EXTENSION-8.2",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-extension-transport-20260818.md"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "The design is provider-neutral and repeatable; end-user deployment has not been demonstrated."
+    },
+    {
+      "requirementId": "EXTENSION-8.3",
+      "status": "BLOCKED",
+      "evidence": [],
+      "blockers": ["EXTENSION_PURPOSE"],
+      "note": "Adaptation versus Addition is not selected."
+    },
+    {
+      "requirementId": "EXTENSION-8.4",
+      "status": "PARTIAL",
+      "evidence": ["apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConfigurationAdapter.bsl", "docs/ops/pc-crop-federal-accounting/one-c-isolated-acceptance-protocol.md"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "The reference adapter fails closed; autonomy, coexistence and exception-chain behavior still require runtime proof."
+    },
+    {
+      "requirementId": "EXTENSION-8.5",
+      "status": "BLOCKED",
+      "evidence": ["apps/api/src/modules/accounting/one-c-extension-source/README.md"],
+      "blockers": ["REGISTERED_IDENTITY"],
+      "note": "A registered extension prefix has not been assigned and therefore cannot yet be applied to objects, methods and variables."
+    },
+    {
+      "requirementId": "EXTENSION-8.6",
+      "status": "CONDITIONAL",
+      "evidence": ["apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConfigurationAdapter.bsl"],
+      "blockers": ["TARGET_CONFIGURATION"],
+      "note": "The reference source does not extend target methods; any exact profile must re-evaluate parameter parity."
+    },
+    {
+      "requirementId": "EXTENSION-8.7",
+      "status": "BLOCKED",
+      "evidence": [],
+      "blockers": ["TARGET_CONFIGURATION", "TARGET_PLATFORM_VERSION"],
+      "note": "Extension properties cannot be matched until the target metadata is known."
+    },
+    {
+      "requirementId": "EXTENSION-8.8",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-submission-package.template.json"],
+      "blockers": ["REGISTERED_IDENTITY", "APPLICANT_LEGAL_FACTS"],
+      "note": "Official name, synonym, supplier, copyright, URLs and version are unset."
+    },
+    {
+      "requirementId": "EXTENSION-8.9",
+      "status": "CONDITIONAL",
+      "evidence": ["apps/api/src/modules/accounting/one-c-extension-source/README.md"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "No non-software protection is introduced; final artifact inspection is still required."
+    },
+    {
+      "requirementId": "EXTENSION-8.10",
+      "status": "BLOCKED",
+      "evidence": ["apps/api/src/modules/accounting/one-c-extension-source/README.md"],
+      "blockers": ["REGISTERED_IDENTITY", "TARGET_CONFIGURATION", "LICENSED_TOOLCHAIN"],
+      "note": "Own objects have not passed target-aware syntax, configuration and standards checks."
+    },
+    {
+      "requirementId": "EXTENSION-8.11.1",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": ["APPLICANT_LEGAL_FACTS", "TARGET_CONFIGURATION"],
+      "note": "Required guide sections exist as a blocked template."
+    },
+    {
+      "requirementId": "EXTENSION-8.11.2",
+      "status": "EVIDENCED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": [],
+      "note": "The guide scope is limited to connector and extension behavior, not the full target configuration."
+    },
+    {
+      "requirementId": "EXTENSION-8.11.3",
+      "status": "BLOCKED",
+      "evidence": [],
+      "blockers": ["TARGET_CONFIGURATION"],
+      "note": "Full target configuration name, edition and release are unset."
+    },
+    {
+      "requirementId": "EXTENSION-8.11.4",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": ["SECURITY_PROFILE"],
+      "note": "The required client-server security-profile wording awaits exact confirmation."
+    },
+    {
+      "requirementId": "EXTENSION-8.11.5",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md", "docs/ops/pc-crop-federal-accounting/one-c-isolated-acceptance-protocol.md"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "Install, update, disable, remove and release-change procedures are drafted but unexecuted."
+    },
+    {
+      "requirementId": "EXTENSION-8.11.6",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": ["BSP_AND_SECRET_STORAGE", "TARGET_CONFIGURATION"],
+      "note": "BSP presence and the exact administration path are unknown."
+    },
+    {
+      "requirementId": "EXTENSION-8.11.7",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md", "docs/ops/pc-crop-federal-accounting/one-c-synthetic-demo-scenario.v1.json"],
+      "blockers": ["LICENSED_TOOLCHAIN"],
+      "note": "Every command has a planned synthetic example; runtime screenshots and outcomes are absent."
+    },
+    {
+      "requirementId": "EXTENSION-8.11.8",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md"],
+      "blockers": ["SECURITY_PROFILE"],
+      "note": "Unsafe-mode and external-resource requirements must be determined for the exact target."
+    },
+    {
+      "requirementId": "EXTENSION-8.11.9",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-isolated-acceptance-protocol.md"],
+      "blockers": ["TARGET_CONFIGURATION", "LICENSED_TOOLCHAIN"],
+      "note": "A release-change gate is specified, but no target release pair has been tested."
+    },
+    {
+      "requirementId": "EXTENSION-8.12",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-submission-package.template.json"],
+      "blockers": ["REGISTERED_IDENTITY", "TARGET_CONFIGURATION", "TARGET_PLATFORM_VERSION", "LICENSED_TOOLCHAIN"],
+      "note": "CFE, final readme, version fields and package files are absent."
+    },
+    {
+      "requirementId": "EXTENSION-8.13",
+      "status": "PARTIAL",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-submission-package.template.json"],
+      "blockers": ["REGISTERED_IDENTITY", "LICENSED_TOOLCHAIN"],
+      "note": "Release-note naming and placement are planned; no released version exists."
+    },
+    {
+      "requirementId": "EXTENSION-8.14",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-synthetic-demo-scenario.v1.json"],
+      "blockers": ["DEMONSTRATION_STAND_ROUTE", "LICENSED_TOOLCHAIN", "TARGET_CONFIGURATION"],
+      "note": "No demonstration database with a connected extension exists."
+    },
+
+    {
+      "requirementId": "CONDITION-2.2.1-CATEGORY",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-sv-1097-final-draft.md"],
+      "blockers": ["CERTIFICATION_CATEGORY"],
+      "note": "The official application requires one category; that category is awaiting 1C confirmation."
+    },
+    {
+      "requirementId": "CONDITION-2.2.1-TARGET",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-sv-1097-final-draft.md"],
+      "blockers": ["TARGET_CONFIGURATION", "TARGET_PLATFORM_VERSION"],
+      "note": "The application target list cannot be completed without exact versions."
+    },
+    {
+      "requirementId": "CONDITION-2.2.1-SIGNATURE",
+      "status": "BLOCKED",
+      "evidence": [],
+      "blockers": ["APPLICANT_LEGAL_FACTS"],
+      "note": "Signature, seal and applicant facts are owner/legal actions."
+    },
+    {
+      "requirementId": "CONDITION-2.2.3-COST",
+      "status": "EVIDENCED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-certification-readiness-20260825.md"],
+      "blockers": [],
+      "note": "Two checks are free; any third or fourth 15,000 RUB check is outside authority and requires separate approval. Current new mandatory cost is zero."
+    },
+    {
+      "requirementId": "CONDITION-2.2.4-PACKAGE",
+      "status": "BLOCKED",
+      "evidence": ["docs/ops/pc-crop-federal-accounting/one-c-submission-package.template.json"],
+      "blockers": ["SUBMISSION_PACKAGE_ROUTE", "LICENSED_TOOLCHAIN", "APPLICANT_LEGAL_FACTS"],
+      "note": "The final product, documentation, registration questionnaire and warranty agreement are absent."
+    },
+    {
+      "requirementId": "CONDITION-2.2.5-REVIEW",
+      "status": "BLOCKED",
+      "evidence": [],
+      "blockers": ["SUBMISSION_PACKAGE_ROUTE"],
+      "note": "No application or product package has been submitted for official review."
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/one-c-certification-readiness-4321",
+  "status": "active",
+  "purpose": "Stacked documentation-and-verification-only readiness gate over the green 1C source extension: bind exact source hashes, map official 1C requirements, prepare blocked submission/user/demo/acceptance materials and a final unsent SV-1097 text without selecting an unknown target or claiming certification.",
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "issue": 4321,
+  "trackingIssue": 4607,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/one-c-certification-readiness.contract.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/one-c-certification-compliance.v1.json",
+    "docs/ops/pc-crop-federal-accounting/one-c-certification-readiness-20260825.md",
+    "docs/ops/pc-crop-federal-accounting/one-c-certification-readiness.v1.json",
+    "docs/ops/pc-crop-federal-accounting/one-c-isolated-acceptance-protocol.md",
+    "docs/ops/pc-crop-federal-accounting/one-c-submission-package.template.json",
+    "docs/ops/pc-crop-federal-accounting/one-c-sv-1097-final-draft.md",
+    "docs/ops/pc-crop-federal-accounting/one-c-synthetic-demo-scenario.v1.json",
+    "docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-one-c-certification-readiness-4321.json",
+    "scripts/verify-one-c-certification-readiness.mjs"
+  ],
+  "requiredInvariants": [
+    "This slice remains source-only documentation and verification; it does not add runtime, metadata, compiled artifacts, provider traffic or deployment changes.",
+    "The candidate certification category remains blocked between official sections 7 and 8 until 1C confirms one category per application and whether one or two applications are required.",
+    "The exact target configuration, edition, release, platform version and extension purpose remain null until confirmed by 1C in SV-1097.",
+    "No compiled CFE, licensed 1C runtime acceptance, demonstration database or official submission is claimed.",
+    "Five source files remain bound to the exact PR #4663 head/tree and hard-coded SHA-256 values; any source or manifest tamper fails the deterministic gate.",
+    "The synthetic scenario contains no real 1С data, personal data or real requisites and may run only in an isolated approved database.",
+    "No direct information-base database access, arbitrary SQL, generic RPC, dynamic procedure call, database dump or unrestricted read is introduced or authorized.",
+    "No production credential, production connection, production REG.RU mutation, merge or deployment is introduced or authorized.",
+    "The text for 1C remains explicitly unsent in the existing SV-1097 chain; sending requires the owner's literal command Отправляй.",
+    "The materials must not state or imply 1С:Совместимо, logo rights or target compatibility before the official positive certification result.",
+    "Possible third/fourth review fees are not authorized; new mandatory cost remains exactly 0 RUB.",
+    "The pull request remains draft and unmerged; repository CI proves only repository behavior, never 1C-side or production acceptance."
+  ]
+}
