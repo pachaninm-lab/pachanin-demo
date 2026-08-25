@@ -9214,34 +9214,93 @@
       "applicability": "APPLICABLE",
       "status": "PASS",
       "evidence": [
-        "masking:apps/api/src/common/middleware/log-masking.middleware.ts",
-        "global-wiring:apps/api/src/app.module.ts"
+        "apps/api/src/common/security/data-classes.ts",
+        "apps/api/src/common/security/sensitive-data.ts",
+        "apps/api/src/common/logger/masked-logger.service.ts",
+        "apps/api/src/common/middleware/log-masking.middleware.ts",
+        "apps/api/src/app.module.ts",
+        "apps/api/src/sentry.ts",
+        "apps/api/src/common/security/data-classes.spec.ts",
+        "apps/api/src/common/logger/masked-logger.service.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "sensitive values are masked before they reach a log line",
+          "condition": "sensitive-data.ts still holds the canonical classification and still maps every field name to a protection class",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/sensitive-data.ts"
+          ],
+          "patterns": [
+            "dataclassforfield",
+            "sensitive_field_classes"
+          ]
+        },
+        {
+          "condition": "the global application logger still consumes the canonical classification instead of a private list",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/logger/masked-logger.service.ts"
+          ],
+          "patterns": [
+            "from '../security/sensitive-data'",
+            "issensitivefieldname(key)"
+          ]
+        },
+        {
+          "condition": "the HTTP access-log middleware still consumes the canonical classification",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/common/middleware/log-masking.middleware.ts"
           ],
           "patterns": [
-            "mask_rules",
-            "maskip",
-            "sensitive_body_fields"
+            "from '../security/sensitive-data'"
           ]
         },
         {
-          "condition": "the masking middleware is applied to every route",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the access-log middleware is still actually installed, and installed for every route",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/app.module.ts"
           ],
           "patterns": [
-            "logmaskingmiddleware"
+            "logmaskingmiddleware",
+            "forroutes('*')"
+          ]
+        },
+        {
+          "condition": "the outbound telemetry handler still masks both structured payloads and free text through the canonical maskers",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/sentry.ts"
+          ],
+          "patterns": [
+            "maskdeep(",
+            "masktext("
+          ]
+        },
+        {
+          "condition": "the per-class handling rules are still bound to actual masking behaviour by tests that enumerate every term of every class",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/data-classes.spec.ts"
+          ],
+          "patterns": [
+            "isoutboundredacted(id)",
+            "never_query_string_classes.includes(id)"
+          ]
+        },
+        {
+          "condition": "the global-logger channel is still covered exhaustively rather than by sampled field names",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/logger/masked-logger.service.spec.ts"
+          ],
+          "patterns": [
+            "sensitive_field_names"
           ]
         }
       ],
-      "note": "Logging is enforced according to the data protection level rather than left to each call site. The middleware masks Russian INN, OGRN, BIK, bank account, phone, email, card number and passport patterns, masks addresses, replaces declared sensitive body fields outright, and recurses into nested objects. It is applied globally via forRoutes(*), so a new route inherits it rather than having to remember it."
+      "note": "Классификация с уровнями защиты объявлена в data-classes.ts (12 классов) и в машиночитаемом docs/security/data-classification.json; отображение имён и правил значений в классы живёт в sensitive-data.ts (SENSITIVE_FIELD_CLASSES, dataClassForField, dataClass на каждом правиле значения). Три канала логирования берут этот один источник: строка доступа (log-masking.middleware.ts, подключён в app.module.ts через forRoutes('*')), глобальный логгер приложения (masked-logger.service.ts, ставится в main.ts, outbox-worker.ts и marketing-outbox-worker.ts) и outbound-telemetry (sentry.ts). Обработка различается по уровню: имена полей чувствительных классов заменяются целиком на [REDACTED], а правила значений маскируют частично там, где это допустимо (карта — первые и последние четыре, email — локальная часть, телефон — середина). Точная граница утверждения: класс не участвует в runtime-решении — маскер работает по плоскому списку имён и правил ради предсказуемой стоимости на каждом лог-вызове. Привязка класса к поведению обеспечивается тестом, а не рантаймом: data-classes.spec.ts перебирает SENSITIVE_FIELD_CLASSES целиком и требует, чтобы каждый термин каждого outbound-redacted класса вычищался в теле запроса, в заголовках и во внутреннем канале, а каждый термин класса из NEVER_QUERY_STRING_CLASSES — в query string; masked-logger.service.spec.ts перебирает SENSITIVE_FIELD_NAMES целиком для канала глобального логгера. Поэтому имя, добавленное в класс, но пропущенное маскером, роняет CI, а не проходит молча. До PR #4655 это утверждение было бы неверным для глобального логгера: он не импортировал классификацию вовсе и держал свои двенадцать шаблонов с семью именами ключей против канонических ~70 — spec против той реализации давал 73 провала из 85. Прежнее доказательство под этим требованием было недействительным независимо от вердикта: два из трёх его паттернов (MASK_RULES, SENSITIVE_BODY_FIELDS) не встречаются в репозитории нигде, а третий (maskip) совпадал случайно с приватным помощником усечения IP."
     },
     {
       "requirementId": "V16.3.1",
