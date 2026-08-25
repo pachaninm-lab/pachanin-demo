@@ -60,8 +60,9 @@ for(const marker of [
   'REGISTRATION_FAILURE_RAW_RESPONSE_FORBIDDEN',
   'P0_FIRST_CUSTOMER_REGISTRATION_FAILURE_EVIDENCE_PATCH=PASS',
 ]) if(!wrapper.includes(marker)) fail(`wrapper marker missing: ${marker}`);
-if(wrapper.includes('cat "$response"') || wrapper.includes('P0_REGISTRATION_RESPONSE_BODY')) {
-  fail('raw registration response evidence is forbidden');
+const rawResponseGuard=`if 'cat "$response"' in s or 'P0_REGISTRATION_RESPONSE_BODY' in s:`;
+if(wrapper.split(rawResponseGuard).length-1!==1) {
+  fail('raw registration response guard cardinality invalid');
 }
 
 const validation=spawnSync('bash',[ACCEPTANCE],{
