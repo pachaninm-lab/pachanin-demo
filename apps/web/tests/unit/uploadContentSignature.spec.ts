@@ -138,6 +138,51 @@ describe('assertContentMatchesExtension', () => {
   });
 });
 
+/**
+ * Polyglot and ambiguity: pinning what the control actually does, so the claim
+ * cannot quietly grow. Detection keys on the leading signature, so a polyglot
+ * is admitted only under the extension matching that signature and refused
+ * under every other one. That is the safe direction, and it is not the same as
+ * being polyglot-proof.
+ */
+describe('polyglot and ambiguous content', () => {
+  const ZIP_HEAD = bytes(0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0);
+  const PDF_HEAD = Buffer.from('%PDF-1.7\n', 'latin1');
+
+  it.each([
+    ['a PDF header over a ZIP body', Buffer.concat([PDF_HEAD, ZIP_HEAD]), 'pdf'],
+    ['a ZIP header over a PDF body', Buffer.concat([ZIP_HEAD, PDF_HEAD]), 'zip'],
+    ['a PNG header over a ZIP body', Buffer.concat([PNG, ZIP_HEAD]), 'png'],
+  ])('%s is classified by its leading signature', (_label, buffer, expected) => {
+    expect(detectContent(buffer)).toBe(expected);
+  });
+
+  it('admits a polyglot only under the extension its leading signature claims', () => {
+    const polyglot = Buffer.concat([PDF_HEAD, ZIP_HEAD]);
+    expect(() => assertContentMatchesExtension('pdf', polyglot)).not.toThrow();
+    for (const ext of ['docx', 'xlsx', 'png', 'txt', 'heic']) {
+      expect(() => assertContentMatchesExtension(ext, polyglot)).toThrow(
+        `CONTENT_TYPE_MISMATCH:${ext}`,
+      );
+    }
+  });
+
+  it('does not distinguish docx from xlsx, and does not pretend to', () => {
+    // Both are ZIP. The same archive satisfies both, by design; the extractors
+    // are what fail on the wrong archive.
+    expect(() => assertContentMatchesExtension('docx', ZIP)).not.toThrow();
+    expect(() => assertContentMatchesExtension('xlsx', ZIP)).not.toThrow();
+  });
+
+  it('treats a truncated header as a mismatch rather than guessing', () => {
+    for (const partial of [PDF_HEAD.subarray(0, 3), PNG.subarray(0, 4), ZIP_HEAD.subarray(0, 2)]) {
+      expect(detectContent(partial)).toBeNull();
+      expect(() => assertContentMatchesExtension('pdf', partial)).toThrow();
+      expect(() => assertContentMatchesExtension('png', partial)).toThrow();
+    }
+  });
+});
+
 describe('MEDIA_TYPES', () => {
   it('covers every extension the route dispatches on', () => {
     const dispatched = [...TEXT_EXTENSIONS, 'png', 'jpg', 'jpeg', 'heic', 'pdf', 'docx', 'xlsx'];
