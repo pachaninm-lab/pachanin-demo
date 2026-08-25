@@ -186,28 +186,35 @@
     {
       "operation": "kdf-scrypt",
       "label": "Key derivation (scrypt)",
-      "sites": 0,
-      "algorithms": []
+      "sites": 2,
+      "algorithms": [
+        {
+          "algorithm": "scrypt",
+          "sites": 2,
+          "files": [
+            "apps/api/src/modules/auth/password-hashing.ts"
+          ]
+        }
+      ]
     },
     {
       "operation": "password-hash",
       "label": "Password hashing",
-      "sites": 4,
+      "sites": 3,
       "algorithms": [
-        {
-          "algorithm": "hash",
-          "sites": 2,
-          "files": [
-            "apps/api/scripts/seed-design-system-v8-identities.mjs",
-            "apps/api/src/modules/auth/password-hashing.ts"
-          ]
-        },
         {
           "algorithm": "hashsync",
           "sites": 2,
           "files": [
             "apps/api/src/modules/auth/password-hashing.ts",
             "apps/api/src/modules/deals/canonical-test-deal.seed.ts"
+          ]
+        },
+        {
+          "algorithm": "hash",
+          "sites": 1,
+          "files": [
+            "apps/api/scripts/seed-design-system-v8-identities.mjs"
           ]
         }
       ]
@@ -239,16 +246,17 @@
     {
       "operation": "csprng",
       "label": "Cryptographic randomness",
-      "sites": 30,
+      "sites": 31,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 30,
+          "sites": 31,
           "files": [
             "apps/api/src/common/config/secrets.ts",
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
             "apps/api/src/modules/auth/opaque-token-authority.ts",
+            "apps/api/src/modules/auth/password-hashing.ts",
             "apps/api/src/modules/gekta/gekta-phone.service.ts",
             "apps/api/src/modules/mfa/mfa.service.ts",
             "apps/api/src/modules/partner-api/partner-api.service.ts",
@@ -443,16 +451,17 @@
     {
       "operation": "constant-time",
       "label": "Constant-time comparison",
-      "sites": 23,
+      "sites": 24,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 23,
+          "sites": 24,
           "files": [
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
             "apps/api/src/modules/auth/opaque-token-authority.ts",
             "apps/api/src/modules/auth/organization-invitation.service.ts",
+            "apps/api/src/modules/auth/password-hashing.ts",
             "apps/api/src/modules/auth/password-reset.service.ts",
             "apps/api/src/modules/auth/registration-application.service.ts",
             "apps/api/src/modules/auth/registration-decision.service.ts",
