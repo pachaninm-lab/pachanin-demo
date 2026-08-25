@@ -22,6 +22,7 @@ const VALUE_SAMPLES: Record<string, string> = {
   'bank-account': '40702810900000012345',
   'phone-ru': '+7 916 123-45-67',
   email: 'ivan.petrov@example.com',
+  'email-short-local': 'q@example.org',
   'card-number': '4276 3801 1234 5678',
   'passport-ru': '4509 123456',
 };
@@ -40,6 +41,36 @@ describe('sensitive-data classification', () => {
       expect(maskText(`payload=${sample}`)).not.toContain(sample);
       expect(rule).toBeTruthy();
     }
+  });
+
+  // The main email rule needs at least two characters before the @, so a
+  // one-character address matched nothing at all and travelled unmasked on
+  // every channel, the Sentry outbound one included. Partial masking cannot
+  // help there: the prefix the rule would keep is the whole local part.
+  describe('email local part shorter than the retained prefix', () => {
+    it.each(['a@b.co', 'x@mail.ru', 'q@example.org', 'user q@example.org wrote'])(
+      'removes the local part entirely: %s',
+      (sample) => {
+        const masked = maskText(sample);
+        expect(masked).toContain('***@');
+        expect(masked).not.toMatch(/(^|[^*])[a-zA-Z0-9._%+-]@/u);
+      },
+    );
+
+    it('keeps the domain, like every other rule here', () => {
+      expect(maskText('a@b.co')).toBe('***@b.co');
+      expect(maskText('x@mail.ru')).toBe('***@mail.ru');
+    });
+
+    it('does not disturb a longer local part', () => {
+      // Ordering matters: placed before the main rule, this one would strip the
+      // last character of a long local part instead of leaving it to that rule.
+      expect(maskText('ab@b.co')).toBe('a***@b.co');
+      expect(maskText('abcde@example.com')).toBe('abc***@example.com');
+      expect(maskText('ivan.petrov@example.com')).toBe('iva***@example.com');
+      expect(maskText('a.b@x.com')).toBe('a.***@x.com');
+      expect(maskText('user_1@sub.domain.co.uk')).toBe('use***@sub.domain.co.uk');
+    });
   });
 
   it('is insensitive to case and to separators in field names', () => {
