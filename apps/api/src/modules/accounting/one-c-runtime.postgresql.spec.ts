@@ -582,6 +582,7 @@ describePostgres('durable 1C runtime authority', () => {
     expect(lease.jobs).toHaveLength(1);
     const leased = lease.jobs[0];
     expect(leased.id).toBe(enqueued.job.jobId);
+    expect(leased.payloadHash).toBe(enqueued.job.payloadHash);
     const leaseSecret = leased.leaseBearer.split('.')[1] ?? '';
     const storedLease = await prisma.$queryRaw<Array<{ salt: string; bearerHash: string }>>(Prisma.sql`
       SELECT salt, bearer_hash AS "bearerHash"

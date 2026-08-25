@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/one-c-extension-4321",
+  "status": "active",
+  "purpose": "Stacked source-only 1С extension boundary over the green durable runtime: pinned outbound HTTPS, exact discovery, exact leased-job receipts, static seven-command dispatch and a fail-closed configuration seam; no compiled compatibility claim, provider traffic or production activation.",
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "issue": 4321,
+  "trackingIssue": 4607,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/one-c-extension-discovery.contract.spec.ts",
+    "apps/api/src/modules/accounting/one-c-extension-source.contract.spec.ts",
+    "apps/api/src/modules/accounting/one-c-extension-source/README.md",
+    "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConfigurationAdapter.bsl",
+    "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorCommands.bsl",
+    "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorDiscovery.bsl",
+    "apps/api/src/modules/accounting/one-c-extension-source/TransparentPriceConnectorHttp.bsl",
+    "apps/api/src/modules/accounting/one-c-job-runtime.repository.spec.ts",
+    "apps/api/src/modules/accounting/one-c-job-runtime.repository.ts",
+    "apps/api/src/modules/accounting/one-c-runtime.postgresql.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/one-c-extension-transport-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-one-c-extension-source-4321.json"
+  ],
+  "requiredInvariants": [
+    "The source represents outbound HTTPS only to the compile-time pinned production host with OS trust-store certificate validation; redirects and arbitrary paths are refused.",
+    "Machine and one-time lease bearers pass exact bounded header gates and are never logged, persisted by these modules or placed in a JSON body.",
+    "Every leased job includes the canonical payload hash, one-time lease bearer and lease expiry returned by the durable PostgreSQL authority.",
+    "ACK, result and fail use the exact server receipt envelope and X-One-C-Job-Lease header; replay uses a deterministic per-lease idempotency key.",
+    "No configuration business operation runs before a successful ACK, and an ambiguous ACK or terminal report never becomes local success.",
+    "The dispatcher contains exactly the seven canonical commands and no arbitrary RPC, dynamic procedure name, SQL, database dump or unrestricted read primitive.",
+    "Discovery and business operations remain fail-closed until one exact configuration and release are confirmed and separately accepted.",
+    "No direct information-base database access, real 1С data, provider traffic, production credential, production deployment, merge or certification claim is introduced.",
+    "This source-only slice does not claim a compiled CFE, 1С-side execution, licensed test-base acceptance or official 1С:Совместимо certification.",
+    "No new mandatory recurring cost is introduced."
+  ]
+}
