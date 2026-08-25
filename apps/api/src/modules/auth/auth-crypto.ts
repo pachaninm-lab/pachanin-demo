@@ -151,12 +151,40 @@ function base32Decode(input: string): Buffer {
   return Buffer.from(bytes);
 }
 
+export const TOTP_STEP_SECONDS = 30;
+const TOTP_STEP_MS = TOTP_STEP_SECONDS * 1_000;
+
+/**
+ * Which time steps a submitted code is checked against, relative to the step
+ * the server is in when it arrives.
+ *
+ * Only the current one. A step is 30 seconds, so this is the longest a single
+ * code value can stay acceptable, and ASVS 5.0 V6.5.5 caps a TOTP's lifetime
+ * at exactly that. Accepting the neighbouring steps as well - the usual
+ * clock-drift allowance, and what this function used to do - keeps one code
+ * value usable for close to ninety seconds from an attacker's side, which is
+ * over the cap however reasonable the intent.
+ *
+ * This is a deliberate divergence from RFC 6238 s5.2, which recommends
+ * allowing at most one step of drift. The two documents disagree; neither is
+ * wrong, and this codebase follows the stricter bound. The practical cost is
+ * that a device whose clock is off by more than a step stops being able to log
+ * in by TOTP, which NTP-synchronised phones are not, and the practical gain is
+ * that a code shoulder-surfed or captured in transit stops working within the
+ * step rather than a minute later.
+ *
+ * Narrowing the window is not replay protection. The same code presented twice
+ * inside its own step still verifies twice; that is V6.5.1, it needs durable
+ * per-user state, and it is tracked separately in #4682.
+ */
+export const TOTP_ACCEPTED_STEP_OFFSETS: readonly number[] = Object.freeze([0]);
+
 export function generateTotpSecret(): string {
   return base32Encode(randomBytes(20));
 }
 
 function totpAt(secret: string, unixMs: number): string {
-  const counter = BigInt(Math.floor(unixMs / 30_000));
+  const counter = BigInt(Math.floor(unixMs / TOTP_STEP_MS));
   const buffer = Buffer.alloc(8);
   buffer.writeBigUInt64BE(counter);
   const hmac = createHmac('sha1', base32Decode(secret)).update(buffer).digest();
@@ -171,13 +199,15 @@ function totpAt(secret: string, unixMs: number): string {
 export function verifyTotp(secret: string, code: string, unixMs = Date.now()): boolean {
   const normalized = String(code ?? '').replace(/\s+/g, '');
   if (!/^\d{6}$/.test(normalized)) return false;
-  return [-1, 0, 1].some((offset) => secureEqual(totpAt(secret, unixMs + offset * 30_000), normalized));
+  return TOTP_ACCEPTED_STEP_OFFSETS.some(
+    (offset) => secureEqual(totpAt(secret, unixMs + offset * TOTP_STEP_MS), normalized),
+  );
 }
 
 export function buildOtpAuthUri(email: string, secret: string): string {
   const issuer = 'Transparent Price';
   const label = `${issuer}:${email}`;
-  return `otpauth://totp/${encodeURIComponent(label)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
+  return `otpauth://totp/${encodeURIComponent(label)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=${TOTP_STEP_SECONDS}`;
 }
 
 /**

@@ -3530,34 +3530,82 @@
     {
       "requirementId": "V6.5.5",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
         "apps/api/src/modules/auth/auth-crypto.ts",
-        "apps/api/src/modules/auth/organization-invitation.service.ts"
+        "apps/api/src/modules/auth/auth-crypto.totp.spec.ts",
+        "apps/api/src/modules/auth/organization-invitation.service.ts",
+        "apps/web/lib/server/mfa-recovery-mail.ts",
+        "apps/web/tests/unit/mfaRecoveryMailLifetime.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "verifyTotp in auth-crypto.ts still accepts a ±1 step window ([-1, 0, 1] × 30s) rather than the current step alone",
-          "check": "PRESENT_AT_PATH",
+          "condition": "verifyTotp still accepts only the step the server is in, and the step is still 30 seconds",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/auth-crypto.ts"
           ],
           "patterns": [
-            "[-1, 0, 1].some"
+            "totp_accepted_step_offsets: readonly number[] = object.freeze([0])",
+            "totp_step_seconds = 30"
           ]
         },
         {
-          "condition": "organization-invitation.service.ts's MFA_RECOVERY_TTL_MS is still set to 30 minutes, above the 10-minute OOB maximum",
+          "condition": "the three-step acceptance window has not come back into auth-crypto.ts",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "[-1, 0, 1]",
+            "[-2, -1, 0, 1, 2]"
+          ]
+        },
+        {
+          "condition": "the out-of-band MFA-recovery credential is still minted with a ten-minute lifetime",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/organization-invitation.service.ts"
           ],
           "patterns": [
-            "mfa_recovery_ttl_ms = 30 * 60 * 1000"
+            "mfa_recovery_ttl_ms = 10 * 60 * 1000"
+          ]
+        },
+        {
+          "condition": "the pending-MFA challenge window is still bounded at ten minutes on both session services",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts",
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "mfa_challenge_ttl_ms = 10 * 60 * 1000"
+          ]
+        },
+        {
+          "condition": "the recovery mail still clamps what it claims to the ten-minute ceiling",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/mfa-recovery-mail.ts"
+          ],
+          "patterns": [
+            "oob_max_lifetime_minutes = 10"
+          ]
+        },
+        {
+          "condition": "no hardcoded thirty-minute claim has returned to the recovery mail in any language",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/mfa-recovery-mail.ts"
+          ],
+          "patterns": [
+            "30 минут",
+            "30 minutes",
+            "30分钟"
           ]
         }
       ],
-      "note": "Two distinct lifetime overruns. TOTP: verifyTotp accepts a candidate code across three consecutive 30-second steps (previous/current/next), a common clock-drift allowance, but its effect is that a single code value stays acceptable for up to just under 90 seconds from an attacker's perspective — exceeding the 30-second maximum this requirement sets, even though the tolerance is a deliberate, reasonable engineering choice rather than an oversight. OOB-shaped recovery: the MFA-recovery credential minted by resetMembershipMfa carries MFA_RECOVERY_TTL_MS = 30 minutes, three times the 10-minute maximum this requirement sets for out-of-band authentication requests delivered to a separate channel (here, email) and presented back to the app."
+      "note": "Both ceilings this requirement sets are now enforced in runtime code and held there by tests that fail when either is widened. TOTP. verifyTotp checked a submitted code against three consecutive 30-second steps, which kept one code value acceptable for close to ninety seconds. It now checks the current step alone, so a code's lifetime is the 30 seconds the requirement allows. The implementation is checked against the RFC 6238 Appendix B published vectors through the real verifier, not against a copy of itself, so the six window assertions rest on an implementation independently shown to be correct. Restoring the wide window fails 4 of the 10 cases. This is a deliberate divergence from RFC 6238 s5.2, which recommends allowing at most one step of drift - that is, exactly what was there before. The two documents disagree and neither is wrong; this codebase takes the stricter bound, and the cost is recorded rather than hidden: a device whose clock is off by more than one step can no longer log in by TOTP. The otpauth URI handed to the authenticator app derives its period from the same constant, so what is advertised and what is enforced cannot drift apart. Out of band. MFA_RECOVERY_TTL_MS was 30 minutes and is now 10. No migration was needed: expires_at was already computed from the constant, and challenges minted earlier keep the expiry they were issued with and age out. The pending-MFA challenge window on both session services was already at the ceiling and is now held there by condition rather than by luck. The mail is the other half of the same claim, and it was the weaker half: the delivery type already carried expiresInSeconds and the copy ignored it, restating thirty minutes in three languages. The sentence is now a function of the delivered lifetime, clamped to the ceiling, so it can understate the lifetime but never overstate it, and a delivery arriving without one falls back to the ceiling rather than guessing. apps/api/src/modules/auth-mail/auth-mail-templates.ts holds an unreferenced second copy of the same mail; it is not deleted, because a template is not a control, but it now takes the lifetime as a required argument so a future caller cannot inherit a stale number. Scope, stated so the PASS is not read wider than it is. Narrowing the window is not replay protection: the same code presented twice inside its own step still verifies twice. That is V6.5.1, it needs durable per-user state, and it remains FAIL under #4682. The invitation credential (72 hours) and the registration email-verification link (30 minutes) are untouched and are not out-of-band authentication requests - the first admits nobody on its own and opens a review by a human administrator, the second proves control of an address during registration rather than authenticating an existing account, and V6.4.1 governs it with no fixed number. Whether the pending-MFA challenge counts as an out-of-band request at all is arguable; it is bounded at the ceiling either way and the condition holds it there. apps/api/src/modules/mfa/mfa.service.ts still carries a second verifyTotp with the same wide window; it persists nothing and is not a live pathway (see the corrected note on V6.1.3), so it is not evidence here, and the decorative module is a separate pass."
     },
     {
       "requirementId": "V6.5.6",
