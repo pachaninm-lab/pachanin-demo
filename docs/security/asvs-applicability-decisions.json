@@ -2191,39 +2191,68 @@
     {
       "requirementId": "V5.2.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+        "apps/web/lib/uploads/content-signature.ts",
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
+        "apps/web/tests/unit/uploadContentSignature.spec.ts",
+        ".github/workflows/ci.yml"
       ],
       "conditions": [
         {
-          "condition": "dispatch is driven by the filename extension",
+          "condition": "the content-signature table and the extension-versus-content check still exist",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/content-signature.ts"
+          ],
+          "patterns": [
+            "content_signatures",
+            "export function assertcontentmatchesextension("
+          ]
+        },
+        {
+          "condition": "the upload route still runs the check before it dispatches on the extension",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "text_extensions",
-            "image_extensions",
-            "function extension("
+            "assertcontentmatchesextension(ext, bytes)"
           ]
         },
         {
-          "condition": "no content-based file type detection is performed",
+          "condition": "the route no longer echoes the client-declared media type back to consumers",
           "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "magic",
-            "file-type",
-            "filetype",
-            "mime-check",
-            "detect-content"
+            "file.type ||"
+          ]
+        },
+        {
+          "condition": "the check is bound to tests that assert both a matching and a mismatching file",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/uploadContentSignature.spec.ts"
+          ],
+          "patterns": [
+            "content_type_mismatch",
+            "detectcontent("
+          ]
+        },
+        {
+          "condition": "CI actually runs that spec, so the control cannot regress unnoticed",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            ".github/workflows/ci.yml"
+          ],
+          "patterns": [
+            "tests/unit/uploadcontentsignature.spec.ts"
           ]
         }
       ],
-      "note": "Processing is selected purely from the filename extension. Nothing inspects the file signature, and the reported mediaType is echoed from the client-controlled file.type. A file may declare any extension its content does not match."
+      "note": "Расширение имени по-прежнему выбирает обработчик, но до разбора байтов содержимое сверяется с заявленным типом по сигнатуре (ASVS V5.2.2 прямо называет 'magic bytes' одним из способов). Проверка вынесена в apps/web/lib/uploads/content-signature.ts — модуль без зависимостей, поэтому контроль проверяем сам по себе, тогда как маршрут тянет next/server, ExcelJS и дочерние процессы. Несовпадение отвергается кодом CONTENT_TYPE_MISMATCH:<ext> и попадает в уже существующее поле rejected ответа. Границы утверждения записаны прямо. Для txt/md/csv/json/xml сигнатуры не существует, и проверка её наличия здесь не заявляется: проверяется обратное — что файл с текстовым расширением не является узнаваемым бинарным контейнером (PDF, ZIP, PNG, JPEG, OLE2). docx и xlsx оба ZIP, и по контейнеру они неразличимы; здесь проверяется контейнер, а несоответствие внутри архива ловят сами экстракторы. HEIC дополнительно сверяется по бренду ISO-BMFF, иначе под него прошёл бы любой MP4 или QuickTime. mediaType теперь выводится сервером из проверенного расширения, а не копируется из клиентского file.type. Тесты привязаны к контролю, а не к его наличию: при нейтрализации проверки падают 19 из 47. Прежний вердикт FAIL был верен по существу — диспетчеризация шла исключительно по строке, которую задаёт отправитель, и байты уходили в zipEntry, extractPdf, ExcelJS и во внешний OCR на этом основании."
     },
     {
       "requirementId": "V5.2.3",
