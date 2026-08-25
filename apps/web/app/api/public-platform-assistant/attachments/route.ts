@@ -7,6 +7,11 @@ import { promisify } from 'node:util';
 import { inflateRawSync, inflateSync } from 'node:zlib';
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
+import {
+  MEDIA_TYPES,
+  TEXT_EXTENSIONS,
+  assertContentMatchesExtension,
+} from '../../../../lib/uploads/content-signature';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -21,7 +26,6 @@ const OCR_TIMEOUT_MS = 30_000;
 const MIN_NATIVE_PDF_TEXT = 80;
 const OCR_LANGUAGES = 'rus+eng+chi_sim';
 
-const TEXT_EXTENSIONS = new Set(['txt', 'md', 'csv', 'json', 'xml']);
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'heic']);
 const RECOGNIZED_BUT_NOT_CONNECTED = new Set(['doc']);
 
@@ -267,6 +271,10 @@ async function extract(file: File): Promise<ExtractedDocument> {
   const checksumSha256 = createHash('sha256').update(bytes).digest('hex');
   let extracted: { text: string; truncated: boolean };
 
+  // До любого разбора: содержимое обязано соответствовать расширению, иначе
+  // обработчик выбирается строкой, которую задаёт отправитель.
+  assertContentMatchesExtension(ext, bytes);
+
   if (TEXT_EXTENSIONS.has(ext)) {
     extracted = cleanText(bytes.toString('utf8'));
   } else if (ext === 'xlsx') {
@@ -288,7 +296,7 @@ async function extract(file: File): Promise<ExtractedDocument> {
   return {
     id: randomUUID(),
     name: file.name.slice(0, 180),
-    mediaType: file.type || 'application/octet-stream',
+    mediaType: MEDIA_TYPES[ext] ?? 'application/octet-stream',
     size: file.size,
     checksumSha256,
     text: extracted.text,
