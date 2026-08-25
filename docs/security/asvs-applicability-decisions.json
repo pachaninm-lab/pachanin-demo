@@ -2358,38 +2358,83 @@
     {
       "requirementId": "V5.2.6",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+        "apps/web/lib/uploads/image-dimensions.ts",
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
+        "apps/web/tests/unit/uploadImagePixelBudget.spec.ts",
+        ".github/workflows/ci.yml"
       ],
       "conditions": [
         {
-          "condition": "uploaded images are passed to an image pipeline",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the header-only geometry reader and the per-image width, height and pixel limits still exist",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+            "apps/web/lib/uploads/image-dimensions.ts"
           ],
           "patterns": [
-            "ocrimage",
-            "image_extensions"
+            "max_image_width",
+            "max_image_height",
+            "max_image_pixels",
+            "export function readimagegeometry("
           ]
         },
         {
-          "condition": "no pixel-dimension limit is applied",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the cumulative per-request budget still exists and is still spent, not merely declared",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/image-dimensions.ts"
+          ],
+          "patterns": [
+            "max_request_image_pixels",
+            "budget.remaining -= total"
+          ]
+        },
+        {
+          "condition": "an unreadable or malformed header is refused rather than allowed through",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/image-dimensions.ts"
+          ],
+          "patterns": [
+            "image_header_unreadable"
+          ]
+        },
+        {
+          "condition": "the route still enforces the budget, and enforces it before the decoder runs",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "maxpixels",
-            "max_pixels",
-            "maxwidth",
-            "max_width",
-            "pixellimit"
+            "assertimagewithinpixelbudget(ext, bytes, budget)",
+            "createpixelbudget()"
+          ]
+        },
+        {
+          "condition": "the limits are bound to tests covering the declared-huge, boundary and cumulative cases",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/uploadImagePixelBudget.spec.ts"
+          ],
+          "patterns": [
+            "tiny file that declares an enormous image",
+            "image_request_pixel_budget_exceeded",
+            "image_header_unreadable"
+          ]
+        },
+        {
+          "condition": "CI actually runs that spec, so the control cannot regress unnoticed",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            ".github/workflows/ci.yml"
+          ],
+          "patterns": [
+            "tests/unit/uploadimagepixelbudget.spec.ts"
           ]
         }
       ],
-      "note": "Uploaded images go straight to normalisation and OCR with no maximum pixel dimension. The 30 s OCR timeout limits the damage but is not the control this requirement asks for."
+      "note": "Маршрут принимает изображения ровно четырёх расширений - png, jpg, jpeg, heic - и это проверено по IMAGE_EXTENSIONS, а не предположено; WebP и GIF не принимаются. До запуска декодера объявленные размеры читаются из заголовка без декодирования пикселей: PNG - IHDR плюс acTL для числа кадров APNG, JPEG - ограниченный обход маркеров до SOF, HEIC - обход боксов ISO-BMFF до ispe с максимумом по всем найденным и их числом как числом кадров. Пределы: 20000 по ширине, 20000 по высоте, 30 Mpx на изображение и накопительные 60 Mpx на запрос, поскольку четыре по отдельности допустимых файла вместе исчерпывают память. Переполнение исключено порядком проверок: стороны сверяются с пределами до умножения. Нечитаемый или обрезанный заголовок - отказ, а не пропуск: IHDR, SOF и ispe обязательны по своим спецификациям, поэтому нечитаемость означает malformed. Проверка стоит до записи файла на диск и до запуска tesseract или convert. Тесты привязаны к поведению: при нейтрализации проверки падают 12 из 21. Границы утверждения записаны прямо и не расширяются. Первое: предел резидентной памяти самого декодера здесь не вводится - соответствующие флаги ImageMagick в среде сборки проверить нечем, поскольку ни convert, ни magick, ни identify в ней отсутствуют, а в runtime-образ identify не копируется вовсе. Второе: PDF-путь не покрыт - pdftoppm растрирует страницу по её геометрии, и страница с огромным MediaBox даёт огромный растр, тогда как MAX_OCR_PDF_PAGES ограничивает число страниц, а не их размер; это тот же класс исчерпания ресурсов, но другой формат и другой парсер, и он остаётся открытым. Третье: библиотека не использовалась потому, что sharp присутствует только в pnpm.overrides и из apps/web не разрешается, а apps/web не объявляет ни одной image-библиотеки; новая нативная зависимость потребовала бы license/provenance/SBOM review и здесь не вводится."
     },
     {
       "requirementId": "V5.3.1",

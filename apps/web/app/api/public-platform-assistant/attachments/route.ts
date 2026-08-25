@@ -12,6 +12,11 @@ import {
   TEXT_EXTENSIONS,
   assertContentMatchesExtension,
 } from '../../../../lib/uploads/content-signature';
+import {
+  type PixelBudget,
+  assertImageWithinPixelBudget,
+  createPixelBudget,
+} from '../../../../lib/uploads/image-dimensions';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -265,7 +270,7 @@ async function extractWorkbook(file: File): Promise<{ text: string; truncated: b
   return cleanText(lines.join('\n'));
 }
 
-async function extract(file: File): Promise<ExtractedDocument> {
+async function extract(file: File, budget: PixelBudget): Promise<ExtractedDocument> {
   const ext = extension(file.name);
   const bytes: Buffer = Buffer.from(new Uint8Array(await file.arrayBuffer()));
   const checksumSha256 = createHash('sha256').update(bytes).digest('hex');
@@ -274,6 +279,10 @@ async function extract(file: File): Promise<ExtractedDocument> {
   // До любого разбора: содержимое обязано соответствовать расширению, иначе
   // обработчик выбирается строкой, которую задаёт отправитель.
   assertContentMatchesExtension(ext, bytes);
+
+  // И до запуска декодера: объявленные размеры обязаны укладываться в пределы.
+  // Предел размера файла ограничивает вход, а не выход распаковщика.
+  assertImageWithinPixelBudget(ext, bytes, budget);
 
   if (TEXT_EXTENSIONS.has(ext)) {
     extracted = cleanText(bytes.toString('utf8'));
@@ -332,9 +341,10 @@ export async function POST(request: NextRequest) {
 
   const documents: ExtractedDocument[] = [];
   const rejected: Array<{ name: string; code: string }> = [];
+  const budget = createPixelBudget();
   for (const file of files) {
     try {
-      documents.push(await extract(file));
+      documents.push(await extract(file, budget));
     } catch (error) {
       const code = error instanceof Error ? error.message : 'DOCUMENT_EXTRACTION_FAILED';
       rejected.push({ name: file.name.slice(0, 180), code });
