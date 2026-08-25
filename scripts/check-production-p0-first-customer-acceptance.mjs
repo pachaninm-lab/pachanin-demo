@@ -48,7 +48,21 @@ for(const marker of [
   'PC_P0_FIRST_CUSTOMER_ALIAS_VALIDATE_ONLY',
   'P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS',
   'P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=PASS',
+  'REGISTRATION_FAILURE_STATE',
+  'REGISTRATION_FAILURE_ENV',
+  'REGISTRATION_FAILURE_RECORD',
+  'REGISTRATION_FAILURE_CLASSIFIER',
+  'P0_REGISTRATION_HTTP_STATUS',
+  'P0_REGISTRATION_PUBLIC_CODE',
+  "payload['registrationHttpStatus']",
+  "payload['registrationPublicCode']",
+  "re.fullmatch(r'[A-Z0-9_]{4,100}', code)",
+  'REGISTRATION_FAILURE_RAW_RESPONSE_FORBIDDEN',
+  'P0_FIRST_CUSTOMER_REGISTRATION_FAILURE_EVIDENCE_PATCH=PASS',
 ]) if(!wrapper.includes(marker)) fail(`wrapper marker missing: ${marker}`);
+if(wrapper.includes('cat "$response"') || wrapper.includes('P0_REGISTRATION_RESPONSE_BODY')) {
+  fail('raw registration response evidence is forbidden');
+}
 
 const validation=spawnSync('bash',[ACCEPTANCE],{
   encoding:'utf8',
@@ -57,7 +71,8 @@ const validation=spawnSync('bash',[ACCEPTANCE],{
 if(validation.status!==0
   || !validation.stdout.includes('P0_FIRST_CUSTOMER_AUTH_ALIAS_PATCH=PASS')
   || !validation.stdout.includes('P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS')
-  || !validation.stdout.includes('P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=PASS')) {
+  || !validation.stdout.includes('P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=PASS')
+  || !validation.stdout.includes('P0_FIRST_CUSTOMER_REGISTRATION_FAILURE_EVIDENCE_PATCH=PASS')) {
   fail(`wrapper validation failed: ${(validation.stderr||validation.stdout||'').trim().slice(0,600)}`);
 }
 
@@ -87,7 +102,13 @@ if(!restored.includes("'app_service'")) fail('wrapper restore failed');
 if(!restored.includes('REMOTE_BLOCKER_PERSIST') || !restored.includes('REMOTE_BLOCKER_RECOVER')) {
   fail('remote blocker propagation wrapper restore failed');
 }
+if(!restored.includes('REGISTRATION_FAILURE_CLASSIFIER')
+  || !restored.includes("payload['registrationHttpStatus']")
+  || !restored.includes("payload['registrationPublicCode']")) {
+  fail('registration failure evidence wrapper restore failed');
+}
 console.log('P0_FIRST_CUSTOMER_ACCEPTANCE_CONTRACT=PASS');
 console.log('P0_FIRST_CUSTOMER_AUTH_ALIAS_COMPATIBILITY=HARDENED_LEGACY_APP_SERVICE');
 console.log('P0_FIRST_CUSTOMER_IMAP_RECIPIENT_CANONICALIZATION=IDNA_ASCII');
 console.log('P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=SHARED_TMP_FAIL_CLOSED');
+console.log('P0_FIRST_CUSTOMER_REGISTRATION_FAILURE_EVIDENCE=HTTP_STATUS_AND_ALLOWLISTED_PUBLIC_CODE_ONLY');

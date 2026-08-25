@@ -116,6 +116,68 @@ one(
     safe_failure_record || true""",
     'REMOTE_BLOCKER_RECOVER',
 )
+one(
+    "REVIEWER_USER_ID=''\n",
+    "REVIEWER_USER_ID=''\nREGISTRATION_HTTP_STATUS=''\nREGISTRATION_PUBLIC_CODE=''\n",
+    'REGISTRATION_FAILURE_STATE',
+)
+one(
+    """  P0_BLOCKER=\"$BLOCKER_CODE\" \\
+    python3 - \"$EVIDENCE_DIR/result.json\" <<'PY'
+import json, os, sys
+""",
+    """  P0_BLOCKER=\"$BLOCKER_CODE\" \\
+  P0_REGISTRATION_HTTP_STATUS=\"${REGISTRATION_HTTP_STATUS:-}\" \\
+  P0_REGISTRATION_PUBLIC_CODE=\"${REGISTRATION_PUBLIC_CODE:-}\" \\
+    python3 - \"$EVIDENCE_DIR/result.json\" <<'PY'
+import json, os, re, sys
+""",
+    'REGISTRATION_FAILURE_ENV',
+)
+one(
+    """    'blocker': os.environ.get('P0_BLOCKER', 'UNEXPECTED_P0_ACCEPTANCE_FAILURE'),
+}
+with open(sys.argv[1], 'w', encoding='utf-8') as handle:
+""",
+    """    'blocker': os.environ.get('P0_BLOCKER', 'UNEXPECTED_P0_ACCEPTANCE_FAILURE'),
+}
+if str(payload['stage']).startswith('registration-'):
+    status = os.environ.get('P0_REGISTRATION_HTTP_STATUS', '')
+    code = os.environ.get('P0_REGISTRATION_PUBLIC_CODE', '')
+    payload['registrationHttpStatus'] = int(status) if re.fullmatch(r'[1-5][0-9]{2}', status) else 'UNKNOWN'
+    payload['registrationPublicCode'] = code if re.fullmatch(r'[A-Z0-9_]{4,100}', code) else 'UNKNOWN'
+with open(sys.argv[1], 'w', encoding='utf-8') as handle:
+""",
+    'REGISTRATION_FAILURE_RECORD',
+)
+one(
+    """  [[ \"$status\" == 202 ]] || fail \"P0_REGISTRATION_${label^^}_FAILED\" 31
+""",
+    """  if [[ \"$status\" != 202 ]]; then
+    if [[ \"$status\" =~ ^[1-5][0-9]{2}$ ]]; then
+      REGISTRATION_HTTP_STATUS=\"$status\"
+    else
+      REGISTRATION_HTTP_STATUS=UNKNOWN
+    fi
+    REGISTRATION_PUBLIC_CODE=\"$(python3 - \"$response\" <<'PY'
+import json, re, sys
+try:
+    payload = json.load(open(sys.argv[1], encoding='utf-8'))
+except Exception:
+    print('UNKNOWN')
+    raise SystemExit(0)
+code = payload.get('code')
+print(code if isinstance(code, str) and re.fullmatch(r'[A-Z0-9_]{4,100}', code) else 'UNKNOWN')
+PY
+)\"
+    [[ \"$REGISTRATION_PUBLIC_CODE\" =~ ^[A-Z0-9_]{4,100}$ ]] || REGISTRATION_PUBLIC_CODE=UNKNOWN
+    printf 'P0_REGISTRATION_HTTP_STATUS=%s\\n' \"$REGISTRATION_HTTP_STATUS\"
+    printf 'P0_REGISTRATION_PUBLIC_CODE=%s\\n' \"$REGISTRATION_PUBLIC_CODE\"
+    fail \"P0_REGISTRATION_${label^^}_FAILED\" 31
+  fi
+""",
+    'REGISTRATION_FAILURE_CLASSIFIER',
+)
 
 required=[
     "principal.rolsuper !== false",
@@ -134,8 +196,13 @@ required=[
     "client.login(username, password)",
     "recipients.append(canonical)",
     "REMOTE_BLOCKER_PERSIST",
+    "REGISTRATION_FAILURE_STATE",
+    "P0_REGISTRATION_HTTP_STATUS",
+    "P0_REGISTRATION_PUBLIC_CODE",
+    "registrationHttpStatus",
+    "registrationPublicCode",
 ]
-missing=[x for x in required if x not in s and x != "REMOTE_BLOCKER_PERSIST"]
+missing=[x for x in required if x not in s and x not in {"REMOTE_BLOCKER_PERSIST", "REGISTRATION_FAILURE_STATE"}]
 if missing:
     raise SystemExit('SECURITY_INVARIANT_MISSING='+'|'.join(missing))
 if s.count("'app_service'") != 1:
@@ -146,6 +213,12 @@ if s.count('$TMP_ROOT/remote-blocker') != 4:
     raise SystemExit('REMOTE_BLOCKER_BOUNDARY_CARDINALITY_INVALID')
 if "BLOCKER_CODE=\"$remote_blocker\"" not in s:
     raise SystemExit('REMOTE_BLOCKER_RECOVERY_MISSING')
+if s.count("payload['registrationHttpStatus']") != 1 or s.count("payload['registrationPublicCode']") != 1:
+    raise SystemExit('REGISTRATION_FAILURE_EVIDENCE_CARDINALITY_INVALID')
+if s.count("REGISTRATION_PUBLIC_CODE=\"$(python3 - \"$response\"") != 1:
+    raise SystemExit('REGISTRATION_FAILURE_CLASSIFIER_CARDINALITY_INVALID')
+if 'cat "$response"' in s or 'P0_REGISTRATION_RESPONSE_BODY' in s:
+    raise SystemExit('REGISTRATION_FAILURE_RAW_RESPONSE_FORBIDDEN')
 p.write_text(s,encoding='utf-8')
 PY
 
@@ -157,6 +230,7 @@ if [[ "${PC_P0_FIRST_CUSTOMER_ALIAS_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_FIRST_CUSTOMER_IMAP_IDNA_PATCH=PASS\n'
   printf 'P0_FIRST_CUSTOMER_IMAP_LOGIN_IDNA_PATCH=PASS\n'
   printf 'P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=PASS\n'
+  printf 'P0_FIRST_CUSTOMER_REGISTRATION_FAILURE_EVIDENCE_PATCH=PASS\n'
   exit 0
 fi
 
