@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "pc-crop.one-c-synthetic-demo-scenario.v1",
+  "status": "PLAN_ONLY",
+  "asOf": "2026-08-25",
+  "purpose": "Isolated deterministic walkthrough for a future licensed 1C test base after the exact target is approved",
+  "dataBoundary": {
+    "containsRealData": false,
+    "containsPersonalData": false,
+    "containsRealRequisites": false,
+    "externalTransmissionAllowed": false,
+    "productionEndpointAllowed": false,
+    "generatedPlatformGuidsOnlyInsideIsolatedDatabaseAtRuntime": true
+  },
+  "fictionalFixtures": [
+    {
+      "ref": "ORG-NORTH-FIELD",
+      "kind": "LEGAL_ENTITY_ALIAS",
+      "displayName": "Северное Поле — учебное хозяйство"
+    },
+    {
+      "ref": "PARTNER-RYE-HARBOR",
+      "kind": "COUNTERPARTY_ALIAS",
+      "displayName": "Ржаная Пристань — учебный контрагент"
+    },
+    {
+      "ref": "DOC-HARVEST-SALE-A",
+      "kind": "DOCUMENT_ALIAS",
+      "displayName": "Учебная реализация урожая"
+    },
+    {
+      "ref": "DOC-SEED-PURCHASE-A",
+      "kind": "DOCUMENT_ALIAS",
+      "displayName": "Учебное приобретение семян"
+    },
+    {
+      "ref": "DOC-HARVEST-CORRECTION-A",
+      "kind": "DOCUMENT_ALIAS",
+      "displayName": "Учебное исправление реализации"
+    },
+    {
+      "ref": "PAYMENT-HARVEST-A",
+      "kind": "PAYMENT_ALIAS",
+      "displayName": "Учебный статус оплаты"
+    }
+  ],
+  "runtimeFixturePolicy": {
+    "opaqueIdentifiersGeneratedAtRuntime": true,
+    "legalEntityFieldsGeneratedByApprovedFixtureBuilder": true,
+    "valuesCopiedFromCustomerSystems": false,
+    "fixtureExportMayLeaveIsolatedStand": false,
+    "runtimePayloadRecordedInRepository": false
+  },
+  "steps": [
+    {
+      "sequence": 1,
+      "command": "UPSERT_COUNTERPARTY",
+      "fixtureRefs": ["PARTNER-RYE-HARBOR"],
+      "expectedState": "COUNTERPARTY_DRAFT_AVAILABLE",
+      "requiresRuntimePayload": true
+    },
+    {
+      "sequence": 2,
+      "command": "CREATE_SALES_DRAFT",
+      "fixtureRefs": ["PARTNER-RYE-HARBOR", "DOC-HARVEST-SALE-A"],
+      "expectedState": "CREATED_IN_1C",
+      "requiresRuntimePayload": true
+    },
+    {
+      "sequence": 3,
+      "command": "CREATE_PURCHASE_DRAFT",
+      "fixtureRefs": ["PARTNER-RYE-HARBOR", "DOC-SEED-PURCHASE-A"],
+      "expectedState": "CREATED_IN_1C",
+      "requiresRuntimePayload": true
+    },
+    {
+      "sequence": 4,
+      "command": "CREATE_CORRECTION_DRAFT",
+      "fixtureRefs": ["DOC-HARVEST-SALE-A", "DOC-HARVEST-CORRECTION-A"],
+      "expectedState": "CREATED_IN_1C",
+      "requiresRuntimePayload": true
+    },
+    {
+      "sequence": 5,
+      "command": "GET_DOCUMENT_STATUS",
+      "fixtureRefs": ["DOC-HARVEST-SALE-A"],
+      "expectedState": "STATUS_RETURNED",
+      "requiresRuntimePayload": true
+    },
+    {
+      "sequence": 6,
+      "command": "PUSH_PAYMENT_STATUS",
+      "fixtureRefs": ["PAYMENT-HARVEST-A"],
+      "expectedState": "PAYMENT_STATUS_RECORDED",
+      "requiresRuntimePayload": true
+    },
+    {
+      "sequence": 7,
+      "command": "GET_REFERENCE_CANDIDATES",
+      "fixtureRefs": ["PARTNER-RYE-HARBOR"],
+      "expectedState": "BOUNDED_CANDIDATES_RETURNED",
+      "requiresRuntimePayload": true
+    }
+  ],
+  "mandatoryNegativeChecks": [
+    "unknown command is rejected",
+    "unknown payload field is rejected",
+    "business effect never runs before durable ACK",
+    "ambiguous ACK or result enters reconciliation",
+    "expired lease cannot be reused",
+    "one organization binding cannot authorize a sibling legal entity",
+    "logs contain no bearer, pairing material or runtime payload",
+    "no direct information-base database connection exists",
+    "no production endpoint is reachable from the stand"
+  ],
+  "execution": {
+    "executed": false,
+    "licensedRuntime": false,
+    "exactTargetSelected": false,
+    "evidenceDirectory": null,
+    "approvedBy": null
+  }
+}

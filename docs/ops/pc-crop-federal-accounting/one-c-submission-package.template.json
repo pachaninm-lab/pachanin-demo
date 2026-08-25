@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "pc-crop.one-c-submission-package.v1",
+  "status": "TEMPLATE_BLOCKED",
+  "asOf": "2026-08-25",
+  "authority": {
+    "issue": 4321,
+    "trackingIssue": 4607,
+    "correspondence": "SV-1097"
+  },
+  "application": {
+    "certificationCategory": null,
+    "productName": null,
+    "productVersion": null,
+    "targetConfigurationFullName": null,
+    "targetConfigurationEdition": null,
+    "targetConfigurationRelease": null,
+    "targetPlatformVersion": null,
+    "extensionPurpose": null,
+    "registeredPrefix": null,
+    "registeredExtensionName": null,
+    "installationCatalogProcedure": null
+  },
+  "applicant": {
+    "legalName": null,
+    "legalAddress": null,
+    "supportChannel": null,
+    "warrantyTerms": null,
+    "authorizedSignatory": null,
+    "signaturePresent": false,
+    "sealPresentWhereRequired": false
+  },
+  "artifacts": [
+    {
+      "id": "COMPILED_CFE",
+      "status": "NOT_BUILT",
+      "path": null,
+      "sha256": null,
+      "provenance": null
+    },
+    {
+      "id": "USER_GUIDE",
+      "status": "TEMPLATE_ONLY",
+      "path": "docs/ops/pc-crop-federal-accounting/one-c-user-guide.template.md",
+      "sha256": null,
+      "provenance": "source-controlled template; blocked fields remain"
+    },
+    {
+      "id": "README",
+      "status": "SOURCE_ONLY",
+      "path": "apps/api/src/modules/accounting/one-c-extension-source/README.md",
+      "sha256": "434ca83b1bf9c738d90be4512935a772ff7ea0015b8ecec525a590014eb612b4",
+      "provenance": "PR #4663 exact source-base tree"
+    },
+    {
+      "id": "RELEASE_NOTES",
+      "status": "NOT_BUILT",
+      "path": null,
+      "sha256": null,
+      "provenance": null
+    },
+    {
+      "id": "DEMONSTRATION_DATABASE",
+      "status": "NOT_BUILT",
+      "path": null,
+      "sha256": null,
+      "provenance": null
+    },
+    {
+      "id": "DEMONSTRATION_SCENARIO",
+      "status": "PLAN_ONLY",
+      "path": "docs/ops/pc-crop-federal-accounting/one-c-synthetic-demo-scenario.v1.json",
+      "sha256": null,
+      "provenance": "source-controlled synthetic plan; no 1C runtime execution"
+    },
+    {
+      "id": "SOURCE_TEXTS",
+      "status": "HASH_BOUND_SOURCE_ONLY",
+      "path": "apps/api/src/modules/accounting/one-c-extension-source/",
+      "sha256": null,
+      "provenance": "individual file hashes are bound by one-c-certification-readiness.v1.json"
+    },
+    {
+      "id": "INTEGRITY_MANIFEST",
+      "status": "PRE_SUBMISSION_ONLY",
+      "path": "docs/ops/pc-crop-federal-accounting/one-c-certification-readiness.v1.json",
+      "sha256": null,
+      "provenance": "deterministically checked in repository CI"
+    }
+  ],
+  "facts": {
+    "certified": false,
+    "officialApplicationSubmitted": false,
+    "compiledCfePresent": false,
+    "licensedRuntimeAccepted": false,
+    "productionConnected": false,
+    "productionCredentialPresent": false,
+    "realDataPresent": false,
+    "directInformationBaseDatabaseAccess": false,
+    "newMandatoryCostRub": 0
+  },
+  "blockers": [
+    "CERTIFICATION_CATEGORY",
+    "TARGET_CONFIGURATION",
+    "TARGET_PLATFORM_VERSION",
+    "EXTENSION_PURPOSE",
+    "REGISTERED_IDENTITY",
+    "SECURITY_PROFILE",
+    "BSP_AND_SECRET_STORAGE",
+    "DEMONSTRATION_STAND_ROUTE",
+    "SUBMISSION_PACKAGE_ROUTE",
+    "LICENSED_TOOLCHAIN",
+    "APPLICANT_LEGAL_FACTS"
+  ],
+  "submissionPolicy": {
+    "maySubmitNow": false,
+    "mayClaimCompatibilityMark": false,
+    "mayUseOneCCompatibilityLogo": false,
+    "mayCreateProductionCredential": false,
+    "mayConnectProduction": false,
+    "externalCorrespondenceThread": "SV-1097",
+    "sendRequiresExplicitOwnerCommand": "Отправляй"
+  }
+}
