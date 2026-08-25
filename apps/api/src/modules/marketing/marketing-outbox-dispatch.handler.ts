@@ -15,7 +15,7 @@ export class MarketingOutboxDispatchHandler {
       throw new Error('Marketing outbox handler received an unsupported event type');
     }
 
-    const request = assertMarketingSocialPublishPayload(entry.payload, entry.idempotencyKey);
-    await this.publisher.publish(request);
+    const admission = assertMarketingSocialPublishPayload(entry.payload);
+    await this.publisher.publish(admission, entry.idempotencyKey);
   }
 }
