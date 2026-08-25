@@ -60,6 +60,8 @@ export class OneCJobRuntimeRepositoryError extends Error {
 }
 
 export interface LeasedOneCJob extends OneCConnectorJob {
+  /** Hash of the exact canonical payload; echoed in every lease receipt. */
+  readonly payloadHash: string;
   /** One-time lease bearer. It is never persisted or returned by human reads. */
   readonly leaseBearer: string;
   readonly leaseExpiresAt: Date;
@@ -246,6 +248,7 @@ export class OneCJobRuntimeRepository {
           id: row.jobId,
           command: row.command,
           payload: row.payload,
+          payloadHash: row.payloadHash,
           idempotencyKey: row.idempotencyKey,
           correlationId: row.correlationId,
           organizationId: row.organizationId,
