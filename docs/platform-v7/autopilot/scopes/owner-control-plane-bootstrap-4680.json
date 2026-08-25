@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4680,
+  "branch": "p0/owner-control-plane-bootstrap-4680",
+  "status": "active",
+  "purpose": "Unblock the authenticated PLATFORM_OWNER from creating and activating the existing bounded CONTROL_PLANE staff-access session required to review the two verified PC-CROP registration applications, while preserving current authorization, MFA, CSRF and audit boundaries.",
+  "authorityBaseExactMain": "a6d3aaad7d0bd9a4d953277d189c19f71a564d63",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/owner-control-plane-bootstrap-4680.json",
+    "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
+    "apps/web/components/platform-v7/staff/OwnerAccessCenterV4.module.css",
+    "apps/web/components/platform-v7/staff/OwnerAccessCenterV4.tsx",
+    "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "The bootstrap is visible only for a real active PLATFORM_OWNER assignment and does not synthesize or impersonate a role.",
+    "The requested authority remains CONTROL_PLANE manage_staff with only staff-request:read and staff-request:approve, ticket PC-CROP-3785 and a 30-minute TTL.",
+    "The browser supplies current authentication, fresh MFA and CSRF; the backend remains the sole authorization and grant authority.",
+    "No break-glass path, direct database mutation, capability-token exposure, localStorage or sessionStorage authority is introduced.",
+    "The cryptographic inventory outputs are regenerated only by scripts/security/discover-cryptography.mjs against the merged branch tree; the scanner and policy tests are unchanged.",
+    "apps/landing, lockfiles, packages, production, REG.RU, DNS, credentials and database state are not changed by this branch.",
+    "The scope is exact to this branch and these seven paths; it does not widen the globally active autopilot scope."
+  ],
+  "acceptance": [
+    "The owner can request and activate the bounded staff session and the page reloads the protected registration queue under that active session.",
+    "The owner access-center source contract passes for role authority, exact permissions, CSRF, no break-glass, mobile layout and RU/EN/ZH copy.",
+    "node --test scripts/security/*.test.mjs scripts/ip/*.test.mjs passes, including the committed-inventory staleness check.",
+    "scripts/p7-autopilot-guard.sh accepts exactly the four functional files, two generated inventory files and this manifest."
+  ]
+}
