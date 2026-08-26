@@ -39,6 +39,9 @@ requireAll('workflow', [
   'PC_P0_REVIEWER_WINDOW_NOT_BEFORE_EPOCH',
   "pnpm install --filter @pc/web... --frozen-lockfile --ignore-scripts",
   'playwright install --with-deps chromium',
+  "require.resolve('@playwright/test')",
+  "typeof chromium.launch !== 'function'",
+  "printf -- '- blocker:",
   'PC_P0_PLAYWRIGHT_MODULE',
   'PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE',
   'PC_PROD_P0_MAILBOX_IMAP_PASSWORD',
@@ -131,6 +134,10 @@ forbid('workflow', /\bDEFAULT_HOST\b/u,
   'a historical production host constant is forbidden; protected host must match current DNS');
 forbid('workflow', /\b195[.]19[.]12[.]120\b/u,
   'a historical REG.RU address is forbidden; resolve current DNS at execution time');
+forbid('workflow', /require[.]resolve\(['"]playwright['"]\)/u,
+  'transitive Playwright module resolution is forbidden; resolve the direct @playwright/test dependency');
+forbid('workflow', /echo\s+"[^"\n]*`[^"\n]*"/u,
+  'double-quoted Markdown backticks invoke shell command substitution; use printf');
 
 forbid('runner', /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP|CREATE)\s+(?:INTO\s+)?auth\./iu,
   'direct production auth SQL mutation is forbidden');
