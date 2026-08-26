@@ -1245,8 +1245,12 @@
     ],
     "fix/p0-owner-control-plane-audit-lock-4698": [
       "apps/api/src/modules/staff-access/staff-access.repository.ts",
-      "apps/api/src/modules/staff-access/staff-access.repository.spec.ts",
-      "docs/platform-v7/autopilot/scopes/owner-control-plane-audit-lock-4698.json"
+      "apps/api/src/modules/staff-access/staff-access.repository.spec.ts"
+    ],
+    "governance/harden-p0-owner-control-plane-audit-lock-4698": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
     ]
   },
   "currentAcceptance": [
