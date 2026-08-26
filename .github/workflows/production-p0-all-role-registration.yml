@@ -268,7 +268,7 @@ jobs:
           PC_P0_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           PC_P0_LIVE_BASE: ${{ env.LIVE_BASE }}
           PC_P0_EVIDENCE_DIR: ${{ env.EVIDENCE_DIR }}
-          PC_P0_REVIEWER_WINDOW_NOT_BEFORE_EPOCH: ${{ steps.deep.outputs.reviewer_window_not_before_epoch }}
+          PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH: ${{ steps.deep.outputs.reviewer_window_not_before_epoch }}
           PC_P0_PLAYWRIGHT_MODULE: ${{ steps.browser.outputs.module }}
           PC_P0_EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE || secrets.PC_PROD_P0_EMAIL_TEMPLATE }}
           PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
