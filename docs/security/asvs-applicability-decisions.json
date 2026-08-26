@@ -2893,22 +2893,29 @@
       "status": "FAIL",
       "evidence": [
         "apps/api/src/modules/auth/password-hashing.ts",
-        "apps/api/src/modules/auth/dto/register.dto.ts",
-        "apps/web/app/platform-v7/register/RegisterFormClient.tsx"
+        "apps/api/src/modules/auth/password-hashing-versioned.spec.ts",
+        "apps/api/src/modules/auth/persistent-auth.repository.ts"
       ],
       "conditions": [
         {
-          "condition": "hashPassword() in password-hashing.ts still passes the plaintext password straight to bcrypt.hash with no pre-hashing step",
+          "condition": "legacy bcrypt hashes are still verified by bcrypt, which truncates its input at 72 bytes",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/password-hashing.ts"
           ],
           "patterns": [
-            "bcrypt.hash(plain, password_bcrypt_cost)"
+            "return bcrypt.compare(plain, stored)"
+          ]
+        },
+        {
+          "condition": "no code path writes an upgraded password hash back, so a legacy account never leaves the truncating scheme on its own",
+          "check": "ABSENT_IN_TREE",
+          "patterns": [
+            "set password_hash"
           ]
         }
       ],
-      "note": "password-hashing.ts calls bcryptjs's bcrypt.hash(plain, PASSWORD_BCRYPT_COST) directly on the received password, with no SHA-256 (or similar) pre-hash step. bcrypt silently truncates its input at 72 bytes. RegisterDto.password (register.dto.ts) carries no @MaxLength — the backend accepts arbitrary length — and the register form's own UI explicitly supports up to 128 characters (RegisterFormClient.tsx: `maxLength={128}`), well past the 72-byte boundary; for Cyrillic input (2 bytes/char in UTF-8, and this is a Russian-language platform) truncation begins past just 36 characters, inside the length the app's own UI advertises as supported. Two passwords sharing the same first 72 bytes hash identically, and the excess is silently discarded rather than the exact-as-received comparison this requirement asks for."
+      "note": "Существенно продвинуто, но НЕ закрыто, и вердикт остаётся FAIL сознательно. Сделано: hashPassword переведён на scrypt из node:crypto - схема не усекает вход, несёт явный маркер алгоритма, версии и параметров ($scrypt$v=1$n=65536,r=8,p=1$...), новой зависимости не вводит. Параметры выбраны измерением на целевом стеке, а не по памяти: bcrypt cost 12 verify 338.8 ms против scrypt N=65536,r=8,p=1 350.0 ms; сопоставимость обязательна, потому что DUMMY_PASSWORD_HASH остаётся bcrypt-овым, и расхождение стоимости заново открыло бы timing-оракул, ради закрытия которого написан весь модуль. Все пять точек записи пароля - регистрация, Gekta-регистрация, принятие приглашения, сброс - теперь пишут non-truncating хеш. Реализован и протестирован verifyPasswordWithUpgrade: verify old, затем compute new, затем условная запись с передачей прежнего значения как предусловия; сбой записи не превращает верный пароль в отказ и не стирает старый валидный хеш; массовой перезаписи нет и быть не может, поскольку единственный вход требует предъявленного и подтверждённого пароля. Почему всё-таки FAIL: требование говорит о проверке пароля ровно так, как он получен, а для существующей учётной записи с legacy-хешем проверка по-прежнему идёт через bcrypt и по-прежнему усекает на 72 байтах. Upgrade реализован, но НЕ подключён к пути входа, и подключение упирается в границу, которую этот проход не пересекает. Уточнение, сделанное после того как гейт отверг первую формулировку и заставил перепроверить: репозиторий действительно выполняет прямые UPDATE auth.<таблица> в восьми местах, так что дело не в паттерне доступа - моё первоначальное объяснение было неточным. Настоящая причина в модели привилегий: auth.resolve_login_credential объявлена SECURITY DEFINER, принадлежит роли pc_identity_bootstrap и имеет REVOKE ALL FROM PUBLIC, то есть роль API читает учётные данные через функцию именно потому, что прямая запись в эту таблицу ей не предполагается, тогда как восемь существующих UPDATE адресуют таблицы троттлинга и челленджей. Обратная запись потребовала бы новой SECURITY DEFINER функции, то есть миграции. Подтвердить, разрешил бы прямой UPDATE действующий grant, без живой базы в этой среде нельзя, и утверждать это я не буду. Владелец разрешил реализацию в source code, но не высказывался ни о миграции, ни о смене паттерна доступа, и подставлять его согласие по аналогии я не буду. Пока legacy-хеши не вытеснены, контроль действует только для паролей, заданных или изменённых после этого изменения. Production rollout, migration evidence и rollback plan остаются отдельным незакрытым этапом с отдельной authority; production PASS не заявляется. Оговорка о параметрах: N=2^16 - это 64 МиБ на одну проверку, повышение до N=2^17 дало бы 128 МиБ на проверку на VPS, где живут и API, и воркеры; это операционное решение владельца. Сверка параметров с актуальными первичными OWASP/NIST/vendor источниками в этой среде не выполнялась, и ссылка по памяти не приводится."
     },
     {
       "requirementId": "V6.2.9",

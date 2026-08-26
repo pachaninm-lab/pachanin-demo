@@ -1,5 +1,6 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { verifyPassword } from './password-hashing';
 import * as fs from 'fs';
 import * as path from 'path';
 import { GektaRegistrationService, normalizeDeclaredPhone } from './gekta-registration.service';
@@ -100,7 +101,12 @@ describe('Регистрация в Гекте не спрашивает орг�
     // Открытый пароль в базу не уходит: передаётся только bcrypt-хеш.
     const [, prepared] = repo.prepareGektaRegistrationIdentity.mock.calls[0] as [unknown, { passwordHash: string }];
     expect(prepared.passwordHash).not.toContain(VALID.password);
-    expect(await bcrypt.compare(VALID.password, prepared.passwordHash)).toBe(true);
+    // Asserted through the module's own verifier rather than bcrypt directly:
+    // stored passwords moved to the non-truncating scheme for ASVS V6.2.8, and
+    // the property that matters here is that the stored value is a hash of this
+    // password, not which algorithm produced it.
+    expect(await verifyPassword(VALID.password, prepared.passwordHash)).toBe(true);
+    expect(await verifyPassword('a-different-password', prepared.passwordHash)).toBe(false);
 
     const publicResult = await service(repository('CREATED')).register(VALID);
     expect(publicResult).not.toHaveProperty('emailDelivery');
