@@ -273,15 +273,15 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
         ? '平台演示文稿'
         : 'Презентация платформы';
     const presentationHint = locale === 'en'
-      ? 'Final PDF · available for repeated download at any time.'
+      ? 'Final presentation · available for repeated download at any time.'
       : locale === 'zh'
-        ? '最终 PDF · 可随时重复下载。'
-        : 'Финальная версия PDF · доступна для повторного скачивания в любое время.';
+        ? '最终演示文稿 · 可随时重复下载。'
+        : 'Финальная презентация · доступна для повторного скачивания в любое время.';
     const presentationButton = locale === 'en'
-      ? 'Download presentation (PDF)'
+      ? 'Download presentation'
       : locale === 'zh'
-        ? '下载演示文稿（PDF）'
-        : 'Скачать презентацию (PDF)';
+        ? '下载演示文稿'
+        : 'Скачать презентацию';
 
     return (
       <>
@@ -313,8 +313,8 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
                 <span style={{ color: '#526159', fontSize: '14px', lineHeight: 1.45 }}>{presentationHint}</span>
               </div>
               <a
-                href='/downloads/prozrachnaya-tsena-presentation.pdf'
-                download='Прозрачная_Цена_и_ГЕКТА.pdf'
+                href='/downloads/prozrachnaya-tsena-presentation'
+                download='Прозрачная_Цена_и_ГЕКТА.pptx'
                 style={{
                   display: 'inline-flex',
                   minHeight: '44px',
