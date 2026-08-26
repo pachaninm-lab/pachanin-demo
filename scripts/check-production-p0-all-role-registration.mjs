@@ -82,6 +82,12 @@ requireAll('runner', [
   "CABINET_ROUTE[employee]='/platform-v7/profile'",
   'PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH',
   'APPROVAL_WINDOW_NAMESPACE',
+  'REGISTRATION_RATE_LIMIT_RETRY',
+  'P0_REGISTRATION_RATE_LIMIT_CONTRACT_INVALID',
+  'P0_REGISTRATION_RATE_LIMIT_RETRY_EXHAUSTED',
+  'payload.get("code") != "RATE_LIMITED"',
+  'payload.get("retryAfterSeconds")',
+  'guarded_wait_seconds "$retry_after"',
   "if env | grep -Eq '^PC_(P0|PROD_P0)_REVIEWER_'; then",
   'P0_REVIEWER_CREDENTIAL_INPUT_FORBIDDEN',
   'wait_for_reviewer_rate_window',
@@ -178,6 +184,7 @@ const wrapperMarkers = [
   'P0_ALL_ROLE_IMAP_LOGIN_IDNA_PATCH=PASS',
   'P0_ALL_ROLE_IMAP_RECIPIENT_IDNA_PATCH=PASS',
   'P0_ALL_ROLE_APPROVAL_WINDOW_NAMESPACE=PASS',
+  'P0_ALL_ROLE_REGISTRATION_RATE_LIMIT_RETRY=PASS',
   'P0_ALL_ROLE_REVIEWER_CREDENTIAL_BAN=PASS',
 ];
 if (wrapperValidation.status !== 0) {

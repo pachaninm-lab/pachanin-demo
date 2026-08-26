@@ -72,6 +72,50 @@ one(
     'APPROVAL_WINDOW_NAMESPACE',
 )
 
+one(
+    """  local csrf status token not_before result mail_rc""",
+    """  local csrf status token not_before result mail_rc rate_attempt retry_after""",
+    'REGISTRATION_RATE_LIMIT_LOCALS',
+)
+one(
+    r"""  status="$(http_request "$response" "$jar" \
+    -X POST "$LIVE_BASE/api/auth/register" \
+    -H 'Content-Type: application/json' \
+    -H "Origin: $LIVE_BASE" \
+    -H "x-csrf-token: $csrf" \
+    -H "Idempotency-Key: p0-all-role-register:$TARGET_SHA:$RUN_ID:$label" \
+    -H "x-correlation-id: p0-all-role-register:${TARGET_SHA:0:12}:$RUN_ID:$label" \
+    --data-binary "@$request")"
+  [[ "$status" == 202 ]] || fail "P0_${label^^}_REGISTRATION_FAILED" 30""",
+    r"""  rate_attempt=0
+  while :; do
+    status="$(http_request "$response" "$jar" \
+      -X POST "$LIVE_BASE/api/auth/register" \
+      -H 'Content-Type: application/json' \
+      -H "Origin: $LIVE_BASE" \
+      -H "x-csrf-token: $csrf" \
+      -H "Idempotency-Key: p0-all-role-register:$TARGET_SHA:$RUN_ID:$label" \
+      -H "x-correlation-id: p0-all-role-register:${TARGET_SHA:0:12}:$RUN_ID:$label" \
+      --data-binary "@$request")"
+    [[ "$status" == 429 ]] || break
+    retry_after="$(python3 -c 'import json, sys
+payload = json.load(open(sys.argv[1], encoding="utf-8"))
+value = payload.get("retryAfterSeconds")
+if payload.get("code") != "RATE_LIMITED" or isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 86400:
+    raise SystemExit(1)
+print(value + 2)' "$response")" \
+      || fail P0_REGISTRATION_RATE_LIMIT_CONTRACT_INVALID 91
+    rate_attempt=$(( rate_attempt + 1 ))
+    (( rate_attempt <= 4 )) || fail P0_REGISTRATION_RATE_LIMIT_RETRY_EXHAUSTED 92
+    CURRENT_STAGE="registration-rate-window-$label"
+    guarded_wait_seconds "$retry_after"
+    CURRENT_STAGE="registration-$label"
+    csrf="$(csrf_token "$jar")"
+  done
+  [[ "$status" == 202 ]] || fail "P0_${label^^}_REGISTRATION_FAILED" 30""",
+    'REGISTRATION_RATE_LIMIT_RETRY',
+)
+
 required=[
     "PLATFORM_LABELS=(seller buyer logistics driver elevator lab surveyor bank)",
     "ALL_LABELS=(seller buyer logistics driver elevator lab surveyor bank employee)",
@@ -94,6 +138,10 @@ required=[
     "CABINET_ROUTE[bank]='/platform-v7/bank'",
     "CABINET_ROUTE[employee]='/platform-v7/profile'",
     "PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH",
+    "payload.get(\"code\") != \"RATE_LIMITED\"",
+    "payload.get(\"retryAfterSeconds\")",
+    "P0_REGISTRATION_RATE_LIMIT_RETRY_EXHAUSTED",
+    "guarded_wait_seconds \"$retry_after\"",
     "if env | grep -Eq '^PC_(P0|PROD_P0)_REVIEWER_'; then",
     "P0_REVIEWER_CREDENTIAL_INPUT_FORBIDDEN",
     "wait_for_reviewer_rate_window",
@@ -145,6 +193,10 @@ if s.count('client.login(username, password)') != 1:
     raise SystemExit('IMAP_LOGIN_EXECUTION_CARDINALITY_INVALID')
 if s.count('PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH') != 1:
     raise SystemExit('APPROVAL_WINDOW_NAMESPACE_CARDINALITY_INVALID')
+if s.count('P0_REGISTRATION_RATE_LIMIT_RETRY_EXHAUSTED') != 1:
+    raise SystemExit('REGISTRATION_RATE_LIMIT_RETRY_CARDINALITY_INVALID')
+if s.count('payload.get("retryAfterSeconds")') != 1:
+    raise SystemExit('REGISTRATION_RATE_LIMIT_CONTRACT_CARDINALITY_INVALID')
 if 'PC_P0_REVIEWER_WINDOW_NOT_BEFORE_EPOCH' in s:
     raise SystemExit('REVIEWER_WINDOW_NAMESPACE_REMAINS')
 reviewer_guard = """  if env | grep -Eq '^PC_(P0|PROD_P0)_REVIEWER_'; then
@@ -164,6 +216,7 @@ if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_ALL_ROLE_IMAP_LOGIN_IDNA_PATCH=PASS\n'
   printf 'P0_ALL_ROLE_IMAP_RECIPIENT_IDNA_PATCH=PASS\n'
   printf 'P0_ALL_ROLE_APPROVAL_WINDOW_NAMESPACE=PASS\n'
+  printf 'P0_ALL_ROLE_REGISTRATION_RATE_LIMIT_RETRY=PASS\n'
   printf 'P0_ALL_ROLE_REVIEWER_CREDENTIAL_BAN=PASS\n'
   exit 0
 fi
