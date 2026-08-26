@@ -165,7 +165,8 @@ jobs:
           corepack enable
           pnpm install --filter @pc/web... --frozen-lockfile --ignore-scripts
           pnpm --filter @pc/web exec playwright install --with-deps chromium
-          module="$(pnpm --filter @pc/web exec node -p "require.resolve('playwright')")"
+          module="$(pnpm --filter @pc/web exec node -p "require.resolve('@playwright/test')")"
+          pnpm --filter @pc/web exec node -e "const { chromium } = require('@playwright/test'); if (!chromium || typeof chromium.launch !== 'function') process.exit(1)"
           [[ "$module" == /* && -f "$module" ]]
           echo "module=$module" >> "$GITHUB_OUTPUT"
 
@@ -389,14 +390,14 @@ jobs:
           {
             echo "## Production P0 all-role registration"
             echo
-            echo "- exact main: `$TARGET_SHA`"
-            echo "- result: `$result`"
-            echo "- matrix: `9/9 required`"
-            echo "- topology: `8 organizations / 8 tenants / 9 memberships`"
-            echo "- desktop Chromium: `${{ steps.evidence.outcome == 'success' && 'PASS' || 'FAIL' }}`"
-            echo "- mobile Chromium and relogin: `${{ steps.evidence.outcome == 'success' && 'PASS' || 'FAIL' }}`"
-            echo "- blocker: `${blocker:-none}`"
-            echo "- raw identity or credential data published: `0`"
+            printf -- '- exact main: `%s`\n' "$TARGET_SHA"
+            printf -- '- result: `%s`\n' "$result"
+            printf -- '- matrix: `9/9 required`\n'
+            printf -- '- topology: `8 organizations / 8 tenants / 9 memberships`\n'
+            printf -- '- desktop Chromium: `%s`\n' "${{ steps.evidence.outcome == 'success' && 'PASS' || 'FAIL' }}"
+            printf -- '- mobile Chromium and relogin: `%s`\n' "${{ steps.evidence.outcome == 'success' && 'PASS' || 'FAIL' }}"
+            printf -- '- blocker: `%s`\n' "${blocker:-none}"
+            printf -- '- raw identity or credential data published: `0`\n'
             echo "- run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } > "$record"
           gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
