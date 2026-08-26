@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feature/public-presentation-download-clean-20260826",
+  "status": "active",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/PresentationDownload.module.css",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf"
+  ]
+}
