@@ -66,6 +66,7 @@ ARG OPENSSL_SECURITY_VERSION=3.5.7-1~deb13u2
 WORKDIR /tmp/openssl-security
 RUN set -eux; \
   apt-get update; \
+  apt-get install -y --no-install-recommends ca-certificates; \
   apt-get download \
     "libssl3t64=${OPENSSL_SECURITY_VERSION}" \
     "openssl-provider-legacy=${OPENSSL_SECURITY_VERSION}"; \
