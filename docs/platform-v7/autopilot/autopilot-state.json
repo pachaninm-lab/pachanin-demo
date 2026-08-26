@@ -1244,8 +1244,8 @@
       "docs/ops/production-p0-all-role-registration.md"
     ],
     "fix/p0-owner-control-plane-audit-lock-4698": [
-      "apps/api/prisma/migrations/20260826120000_p0_app_service_staff_audit_lock_execute_repair/**",
-      "apps/api/src/common/prisma/app-service-staff-audit-lock-execute-repair.spec.ts",
+      "apps/api/src/modules/staff-access/staff-access.repository.ts",
+      "apps/api/src/modules/staff-access/staff-access.repository.spec.ts",
       "docs/platform-v7/autopilot/scopes/owner-control-plane-audit-lock-4698.json"
     ]
   },
