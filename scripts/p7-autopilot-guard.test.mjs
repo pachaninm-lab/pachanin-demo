@@ -5,7 +5,10 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-const implementationBranch = 'fix/p0-registration-authority-rollover-4637';
+const implementationBranches = [
+  'fix/p0-registration-authority-rollover-4637',
+  'fix/p0-owner-control-plane-audit-lock-4698',
+];
 const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
 const sourceWorkflow = path.resolve('.github/workflows/platform-v7-autopilot-guard.yml');
@@ -28,8 +31,8 @@ function commit(root, message) {
   git(root, ['commit', '-m', message]);
 }
 
-function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-rollover-guard-'));
+function fixture(t, implementationBranch) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-immutable-scope-guard-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
@@ -52,10 +55,10 @@ function fixture(t) {
   commit(root, 'baseline');
   const baseline = git(root, ['rev-parse', 'HEAD']);
   git(root, ['switch', '-c', implementationBranch]);
-  return { root, baseline };
+  return { root, baseline, implementationBranch };
 }
 
-function runGuard({ root, baseline }) {
+function runGuard({ root, baseline, implementationBranch }) {
   return spawnSync('bash', ['scripts/p7-autopilot-guard.sh'], {
     cwd: root,
     env: {
@@ -72,8 +75,9 @@ function output(result) {
   return `${result.stdout}\n${result.stderr}`;
 }
 
-test('accepts only a path approved by the immutable base state', (t) => {
-  const context = fixture(t);
+for (const implementationBranch of implementationBranches) {
+test(`${implementationBranch}: accepts only a path approved by the immutable base state`, (t) => {
+  const context = fixture(t, implementationBranch);
   write(context.root, 'allowed.txt', 'authorized change\n');
   commit(context.root, 'authorized change');
 
@@ -82,8 +86,8 @@ test('accepts only a path approved by the immutable base state', (t) => {
   assert.match(result.stdout, /Scope guard passed\./u);
 });
 
-test('does not inherit allowedCurrentScope on the rollover implementation branch', (t) => {
-  const context = fixture(t);
+test(`${implementationBranch}: does not inherit allowedCurrentScope`, (t) => {
+  const context = fixture(t, implementationBranch);
   write(context.root, 'README.md', 'not branch-approved\n');
   commit(context.root, 'try global current scope');
 
@@ -92,8 +96,8 @@ test('does not inherit allowedCurrentScope on the rollover implementation branch
   assert.match(output(result), /Files outside current autopilot scope/u);
 });
 
-test('does not inherit a legacy diff-triggered scope expansion', (t) => {
-  const context = fixture(t);
+test(`${implementationBranch}: does not inherit a legacy diff-triggered scope expansion`, (t) => {
+  const context = fixture(t, implementationBranch);
   write(
     context.root,
     'apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx',
@@ -106,8 +110,8 @@ test('does not inherit a legacy diff-triggered scope expansion', (t) => {
   assert.match(output(result), /OwnerAccessCenter\.tsx/u);
 });
 
-test('validates both sides when an unapproved source is renamed into approved scope', (t) => {
-  const context = fixture(t);
+test(`${implementationBranch}: validates both sides of a rename into approved scope`, (t) => {
+  const context = fixture(t, implementationBranch);
   fs.mkdirSync(path.join(context.root, 'approved'), { recursive: true });
   git(context.root, ['mv', 'apps/api/src/app.module.ts', 'approved/app.module.ts']);
   commit(context.root, 'try rename into approved scope');
@@ -117,8 +121,8 @@ test('validates both sides when an unapproved source is renamed into approved sc
   assert.match(output(result), /apps\/api\/src\/app\.module\.ts/u);
 });
 
-test('does not treat a plain approved file as a subtree prefix', (t) => {
-  const context = fixture(t);
+test(`${implementationBranch}: does not treat a plain file as a subtree prefix`, (t) => {
+  const context = fixture(t, implementationBranch);
   fs.rmSync(path.join(context.root, 'allowed.txt'));
   write(context.root, 'allowed.txt/evil.sh', 'unapproved descendant\n');
   commit(context.root, 'try plain-entry subtree expansion');
@@ -128,8 +132,8 @@ test('does not treat a plain approved file as a subtree prefix', (t) => {
   assert.match(output(result), /allowed\.txt\/evil\.sh/u);
 });
 
-test('rejects branch-local state expansion before it can authorize another path', (t) => {
-  const context = fixture(t);
+test(`${implementationBranch}: rejects branch-local state expansion`, (t) => {
+  const context = fixture(t, implementationBranch);
   const stateFile = path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json');
   const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
   state.approvedConcurrentScopes[implementationBranch].push('README.md');
@@ -142,8 +146,8 @@ test('rejects branch-local state expansion before it can authorize another path'
   assert.match(output(result), /Mutable scope authority changed/u);
 });
 
-test('rejects a branch-local source-controlled scope manifest', (t) => {
-  const context = fixture(t);
+test(`${implementationBranch}: rejects a branch-local scope manifest`, (t) => {
+  const context = fixture(t, implementationBranch);
   write(context.root, 'docs/platform-v7/autopilot/scopes/attack.json', `${JSON.stringify({
     schemaVersion: 'platform-v7.concurrent-scope.v1',
     branch: implementationBranch,
@@ -158,8 +162,8 @@ test('rejects a branch-local source-controlled scope manifest', (t) => {
   assert.match(output(result), /Mutable scope authority changed/u);
 });
 
-test('rejects changes to the guard authority itself', (t) => {
-  const context = fixture(t);
+test(`${implementationBranch}: rejects changes to the guard authority`, (t) => {
+  const context = fixture(t, implementationBranch);
   fs.appendFileSync(path.join(context.root, 'scripts/p7-autopilot-guard.sh'), '\n# branch-local mutation\n');
   commit(context.root, 'try guard mutation');
 
@@ -168,8 +172,8 @@ test('rejects changes to the guard authority itself', (t) => {
   assert.match(output(result), /Mutable scope authority changed/u);
 });
 
-test('fails closed when the immutable base does not authorize the branch', (t) => {
-  const context = fixture(t);
+test(`${implementationBranch}: fails closed without immutable base authority`, (t) => {
+  const context = fixture(t, implementationBranch);
   const stateFile = path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json');
   const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
   delete state.approvedConcurrentScopes[implementationBranch];
@@ -179,31 +183,34 @@ test('fails closed when the immutable base does not authorize the branch', (t) =
   write(context.root, 'allowed.txt', 'attempt without base authority\n');
   commit(context.root, 'attempt without authority');
 
-  const result = runGuard({ root: context.root, baseline: unauthorizedBase });
+  const result = runGuard({ ...context, baseline: unauthorizedBase });
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /no immutable approved scope/u);
 });
+}
 
-test('runs the rollover authority check from a read-only trusted-base workflow', () => {
+test('runs immutable authority checks from a read-only trusted-base workflow', () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   for (const marker of [
     'pull_request_target:',
     'group: platform-v7-autopilot-guard-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}',
-    'name: PC-CROP rollover immutable scope · trusted base',
+    'name: PC-CROP implementation immutable scope · trusted base',
     "github.event.pull_request.head.ref == 'fix/p0-registration-authority-rollover-4637'",
+    "github.event.pull_request.head.ref == 'fix/p0-owner-control-plane-audit-lock-4698'",
     'HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}',
     'if [ "$HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then',
-    'PC-CROP rollover authority rejects same-name branches from forks.',
+    'PC-CROP immutable-scope authority rejects same-name branches from forks.',
     'checks: write\n      contents: read',
     'ref: ${{ github.event.pull_request.base.sha }}',
     'git fetch --no-tags origin "$HEAD_SHA"',
-    'BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF="$ROLLOVER_BRANCH"',
+    'IMMUTABLE_SCOPE_BRANCH: ${{ github.event.pull_request.head.ref }}',
+    'BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF="$IMMUTABLE_SCOPE_BRANCH"',
     'Emit required guard context from trusted base on the PR head',
     '"repos/$GITHUB_REPOSITORY/check-runs"',
     "-f name='guard'",
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
-    "name: ${{ github.event_name == 'pull_request' && github.head_ref == 'fix/p0-registration-authority-rollover-4637' && 'PC-CROP rollover scope · PR-head defense' || 'guard' }}",
+    "github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}",
     'needs: standard_validation',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
