@@ -1,10 +1,15 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "feature/public-presentation-download-clean-20260826",
+  "branch": "fix/public-presentation-real-pdf-20260826",
   "status": "active",
   "allowedPaths": [
-    "apps/web/app/platform-v7/PresentationDownload.module.css",
-    "apps/web/app/platform-v7/layout.tsx",
-    "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf"
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+    "apps/web/public/downloads/.presentation/chunk-00.b64",
+    "apps/web/public/downloads/.presentation/chunk-01.b64",
+    "apps/web/public/downloads/.presentation/chunk-02.b64",
+    "apps/web/public/downloads/.presentation/chunk-03.b64",
+    "apps/web/public/downloads/.presentation/chunk-04.b64",
+    "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf",
+    "docs/platform-v7/autopilot/scopes/public-presentation-download-4695.json"
   ]
 }
