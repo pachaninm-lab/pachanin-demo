@@ -122,6 +122,11 @@ one(
     'REGISTRATION_FAILURE_STATE',
 )
 one(
+    '  local label="$1" jar="$TMP_ROOT/$label.cookies" response="$TMP_ROOT/$label-team.json"',
+    '  local label="$1"\n  local jar="$TMP_ROOT/$label.cookies" response="$TMP_ROOT/$label-team.json"',
+    'READ_CUSTOMER_RESOURCE_SET_U',
+)
+one(
     """  P0_BLOCKER=\"$BLOCKER_CODE\" \\
     python3 - \"$EVIDENCE_DIR/result.json\" <<'PY'
 import json, os, sys
@@ -197,6 +202,7 @@ required=[
     "recipients.append(canonical)",
     "REMOTE_BLOCKER_PERSIST",
     "REGISTRATION_FAILURE_STATE",
+    'local label="$1"\n  local jar="$TMP_ROOT/$label.cookies" response="$TMP_ROOT/$label-team.json"',
     "P0_REGISTRATION_HTTP_STATUS",
     "P0_REGISTRATION_PUBLIC_CODE",
     "registrationHttpStatus",
@@ -217,6 +223,10 @@ if s.count("payload['registrationHttpStatus']") != 1 or s.count("payload['regist
     raise SystemExit('REGISTRATION_FAILURE_EVIDENCE_CARDINALITY_INVALID')
 if s.count("REGISTRATION_PUBLIC_CODE=\"$(python3 - \"$response\"") != 1:
     raise SystemExit('REGISTRATION_FAILURE_CLASSIFIER_CARDINALITY_INVALID')
+if s.count('local label="$1"\n  local jar="$TMP_ROOT/$label.cookies" response="$TMP_ROOT/$label-team.json"') != 1:
+    raise SystemExit('READ_CUSTOMER_RESOURCE_SET_U_PATCH_CARDINALITY_INVALID')
+if 'local label="$1" jar="$TMP_ROOT/$label.cookies"' in s:
+    raise SystemExit('READ_CUSTOMER_RESOURCE_UNBOUND_LOCAL_REMAINS')
 if 'cat "$response"' in s or 'P0_REGISTRATION_RESPONSE_BODY' in s:
     raise SystemExit('REGISTRATION_FAILURE_RAW_RESPONSE_FORBIDDEN')
 p.write_text(s,encoding='utf-8')
@@ -231,6 +241,7 @@ if [[ "${PC_P0_FIRST_CUSTOMER_ALIAS_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_FIRST_CUSTOMER_IMAP_LOGIN_IDNA_PATCH=PASS\n'
   printf 'P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=PASS\n'
   printf 'P0_FIRST_CUSTOMER_REGISTRATION_FAILURE_EVIDENCE_PATCH=PASS\n'
+  printf 'P0_FIRST_CUSTOMER_READ_RESOURCE_SET_U_PATCH=PASS\n'
   exit 0
 fi
 
