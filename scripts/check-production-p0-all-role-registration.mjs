@@ -36,7 +36,7 @@ requireAll('workflow', [
   'actions/workflows/production-p0-first-customer-acceptance.yml/runs',
   'production-p0-first-customer-$TARGET_SHA-$deep_run_id',
   'production.p0.first-customer.acceptance.v1',
-  'PC_P0_REVIEWER_WINDOW_NOT_BEFORE_EPOCH',
+  'PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH',
   "pnpm install --filter @pc/web... --frozen-lockfile --ignore-scripts",
   'playwright install --with-deps chromium',
   "require.resolve('@playwright/test')",
@@ -80,6 +80,9 @@ requireAll('runner', [
   "CABINET_ROUTE[surveyor]='/platform-v7/surveyor'",
   "CABINET_ROUTE[bank]='/platform-v7/bank'",
   "CABINET_ROUTE[employee]='/platform-v7/profile'",
+  'PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH',
+  'APPROVAL_WINDOW_NAMESPACE',
+  "if env | grep -Eq '^PC_(P0|PROD_P0)_REVIEWER_'; then",
   'P0_REVIEWER_CREDENTIAL_INPUT_FORBIDDEN',
   'wait_for_reviewer_rate_window',
   'wait_for_platform_approvals',
@@ -138,6 +141,8 @@ forbid('workflow', /require[.]resolve\(['"]playwright['"]\)/u,
   'transitive Playwright module resolution is forbidden; resolve the direct @playwright/test dependency');
 forbid('workflow', /echo\s+"[^"\n]*`[^"\n]*"/u,
   'double-quoted Markdown backticks invoke shell command substitution; use printf');
+forbid('workflow', /PC_(?:P0|PROD_P0)_REVIEWER_/u,
+  'Actions must not inject reviewer-namespaced inputs');
 
 forbid('runner', /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP|CREATE)\s+(?:INTO\s+)?auth\./iu,
   'direct production auth SQL mutation is forbidden');
@@ -163,6 +168,27 @@ if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(expectedPaths)) failur
 
 const syntax = spawnSync('bash', ['-n', paths.runner], { encoding: 'utf8' });
 if (syntax.status !== 0) failures.push(`${paths.runner}: bash syntax failed: ${syntax.stderr.trim()}`);
+
+const wrapperValidation = spawnSync('bash', [paths.runner], {
+  encoding: 'utf8',
+  env: { ...process.env, PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY: '1' },
+});
+const wrapperMarkers = [
+  'P0_ALL_ROLE_CORE_BLOB=PASS',
+  'P0_ALL_ROLE_IMAP_LOGIN_IDNA_PATCH=PASS',
+  'P0_ALL_ROLE_IMAP_RECIPIENT_IDNA_PATCH=PASS',
+  'P0_ALL_ROLE_APPROVAL_WINDOW_NAMESPACE=PASS',
+  'P0_ALL_ROLE_REVIEWER_CREDENTIAL_BAN=PASS',
+];
+if (wrapperValidation.status !== 0) {
+  failures.push(`${paths.runner}: immutable core validation failed: ${wrapperValidation.stderr.trim()}`);
+} else {
+  for (const marker of wrapperMarkers) {
+    if (!wrapperValidation.stdout.includes(marker)) {
+      failures.push(`${paths.runner}: immutable core validation missing ${marker}`);
+    }
+  }
+}
 
 const roleAssignments = [...sources.runner.matchAll(/EXPECTED_ROLE\[([a-z]+)\]='([A-Z_]+)'/gu)];
 const cabinetAssignments = [...sources.runner.matchAll(/CABINET_ROUTE\[([a-z]+)\]='([^']+)'/gu)];
