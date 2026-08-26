@@ -14,6 +14,7 @@ import {
   readVerifiedCabinetSessionContext,
   type VerifiedCabinetRole,
 } from '@/lib/platform-v7/verified-session';
+import presentationStyles from './PresentationDownload.module.css';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
@@ -290,46 +291,17 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
           <aside
             aria-label={presentationTitle}
             data-testid='platform-v7-presentation-download'
-            style={{
-              borderTop: '1px solid #d7e1db',
-              background: '#f5f8f6',
-              color: '#102019',
-            }}
+            className={presentationStyles.panel}
           >
-            <div
-              style={{
-                width: 'min(1180px, calc(100% - 32px))',
-                margin: '0 auto',
-                padding: '22px 0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '16px',
-                flexWrap: 'wrap',
-              }}
-            >
-              <div style={{ display: 'grid', gap: '4px', minWidth: 0 }}>
-                <strong style={{ fontSize: '16px', lineHeight: 1.3 }}>{presentationTitle}</strong>
-                <span style={{ color: '#526159', fontSize: '14px', lineHeight: 1.45 }}>{presentationHint}</span>
+            <div className={presentationStyles.inner}>
+              <div className={presentationStyles.copy}>
+                <strong>{presentationTitle}</strong>
+                <span>{presentationHint}</span>
               </div>
               <a
                 href='/downloads/prozrachnaya-tsena-presentation.pdf'
                 download='Прозрачная_Цена_и_ГЕКТА.pdf'
-                style={{
-                  display: 'inline-flex',
-                  minHeight: '44px',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '10px 16px',
-                  borderRadius: '12px',
-                  background: '#087a3b',
-                  color: '#ffffff',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                }}
+                className={presentationStyles.button}
               >
                 {presentationButton}
               </a>
