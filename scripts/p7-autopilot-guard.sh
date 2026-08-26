@@ -4,20 +4,28 @@ set -euo pipefail
 BASE_REF="${BASE_REF:-origin/main}"
 HEAD_REF="${HEAD_REF:-HEAD}"
 STATE_FILE="docs/platform-v7/autopilot/autopilot-state.json"
-ROLLOVER_IMPLEMENTATION_BRANCH="fix/p0-registration-authority-rollover-4637"
+REGISTRATION_ROLLOVER_BRANCH="fix/p0-registration-authority-rollover-4637"
+OWNER_AUDIT_LOCK_BRANCH="fix/p0-owner-control-plane-audit-lock-4698"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
+
+is_immutable_scope_branch() {
+  case "$1" in
+    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH") return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 if git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
   if ! git merge-base "$BASE_REF" "$HEAD_REF" >/dev/null 2>&1; then
     git fetch --unshallow origin main 2>/dev/null || git fetch origin main
   fi
-  if [ "$CURRENT_BRANCH" = "$ROLLOVER_IMPLEMENTATION_BRANCH" ]; then
+  if is_immutable_scope_branch "$CURRENT_BRANCH"; then
     DIFF_FILES=$(git diff --no-renames --name-only "$BASE_REF...$HEAD_REF")
   else
     DIFF_FILES=$(git diff --name-only "$BASE_REF...$HEAD_REF")
   fi
 else
-  if [ "$CURRENT_BRANCH" = "$ROLLOVER_IMPLEMENTATION_BRANCH" ]; then
+  if is_immutable_scope_branch "$CURRENT_BRANCH"; then
     DIFF_FILES=$(git diff --no-renames --name-only "HEAD~1...$HEAD_REF")
   else
     DIFF_FILES=$(git diff --name-only "HEAD~1...$HEAD_REF")
@@ -38,9 +46,9 @@ if [ ! -f "$STATE_FILE" ]; then
   exit 1
 fi
 
-if [ "$CURRENT_BRANCH" = "$ROLLOVER_IMPLEMENTATION_BRANCH" ]; then
-  # The registration authority rollover is production-capable. Its scope is
-  # resolved exclusively from the immutable base commit below, never from the
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+  # The scope for these production-capable repairs is resolved exclusively
+  # from the immutable base commit below, never from the
   # pull request's working tree or the globally active implementation scope.
   ALLOWED_CURRENT=''
 else
@@ -325,7 +333,7 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$EXACT_MAIN_LIVE_EVIDENCE_SCOPE")
 fi
 
-if [ "$CURRENT_BRANCH" = "$ROLLOVER_IMPLEMENTATION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
   APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" node - <<'JS'
 const { execFileSync } = require('node:child_process');
 
@@ -333,7 +341,7 @@ const baseRef = String(process.env.BASE_REF || '').trim();
 const stateFile = String(process.env.STATE_FILE || '').trim();
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
 if (!baseRef || !stateFile || !branch) {
-  throw new Error('P7_ROLLOVER_SCOPE: immutable scope inputs are required');
+  throw new Error('P7_IMMUTABLE_SCOPE: immutable scope inputs are required');
 }
 
 let state;
@@ -342,26 +350,26 @@ try {
   state = JSON.parse(raw);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  throw new Error(`P7_ROLLOVER_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
+  throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
 }
 
 const scopes = state.approvedConcurrentScopes?.[branch];
 if (!Array.isArray(scopes) || scopes.length === 0) {
-  throw new Error(`P7_ROLLOVER_SCOPE: no immutable approved scope for ${branch}`);
+  throw new Error(`P7_IMMUTABLE_SCOPE: no immutable approved scope for ${branch}`);
 }
 
 const normalized = scopes.map((entry, index) => {
   if (typeof entry !== 'string') {
-    throw new Error(`P7_ROLLOVER_SCOPE: scope[${index}] is not a string`);
+    throw new Error(`P7_IMMUTABLE_SCOPE: scope[${index}] is not a string`);
   }
   const value = entry.trim().replace(/\/+$/u, '');
   if (!value || value.includes('\\') || value === '..' || value.startsWith('../') || value.includes('/../')) {
-    throw new Error(`P7_ROLLOVER_SCOPE: unsafe path ${JSON.stringify(entry)}`);
+    throw new Error(`P7_IMMUTABLE_SCOPE: unsafe path ${JSON.stringify(entry)}`);
   }
   return value;
 });
 if (new Set(normalized).size !== normalized.length) {
-  throw new Error('P7_ROLLOVER_SCOPE: duplicate immutable approved paths');
+  throw new Error('P7_IMMUTABLE_SCOPE: duplicate immutable approved paths');
 }
 process.stdout.write(`${normalized.join('\n')}\n`);
 JS
@@ -379,7 +387,7 @@ JS
   )
 fi
 
-if [ "$CURRENT_BRANCH" = "$ROLLOVER_IMPLEMENTATION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
   # Discard every legacy hardcoded or diff-triggered scope expansion above.
   # This branch receives exactly the immutable base-approved entries and no
   # union with global, legacy, or branch-local authorities.
@@ -388,7 +396,7 @@ elif [ -n "$APPROVED_BRANCH_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$APPROVED_BRANCH_SCOPE")
 fi
 
-if [ "$CURRENT_BRANCH" = "$ROLLOVER_IMPLEMENTATION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
   SOURCE_CONTROLLED_SCOPE=''
 else
   SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node scripts/p7-source-controlled-scope.mjs)
@@ -398,10 +406,10 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if [ "$CURRENT_BRANCH" = "$ROLLOVER_IMPLEMENTATION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$)' || true)
   if [ -n "$MUTABLE_SCOPE_AUTHORITIES" ]; then
-    echo "Mutable scope authority changed on the PC-CROP rollover implementation branch:"
+    echo "Mutable scope authority changed on a PC-CROP immutable-scope implementation branch:"
     printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES"
     exit 1
   fi
@@ -457,7 +465,7 @@ if [ -n "$FORBIDDEN_FILES" ]; then
   exit 1
 fi
 
-if [ "$CURRENT_BRANCH" = "$ROLLOVER_IMPLEMENTATION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
   P7_EXACT_APPROVED_SCOPE=1
 else
   P7_EXACT_APPROVED_SCOPE=0
