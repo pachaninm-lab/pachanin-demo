@@ -78,7 +78,7 @@ one(
     'REGISTRATION_RATE_LIMIT_LOCALS',
 )
 one(
-    """  status="$(http_request "$response" "$jar" \
+    r"""  status="$(http_request "$response" "$jar" \
     -X POST "$LIVE_BASE/api/auth/register" \
     -H 'Content-Type: application/json' \
     -H "Origin: $LIVE_BASE" \
@@ -87,7 +87,7 @@ one(
     -H "x-correlation-id: p0-all-role-register:${TARGET_SHA:0:12}:$RUN_ID:$label" \
     --data-binary "@$request")"
   [[ "$status" == 202 ]] || fail "P0_${label^^}_REGISTRATION_FAILED" 30""",
-    """  rate_attempt=0
+    r"""  rate_attempt=0
   while :; do
     status="$(http_request "$response" "$jar" \
       -X POST "$LIVE_BASE/api/auth/register" \
