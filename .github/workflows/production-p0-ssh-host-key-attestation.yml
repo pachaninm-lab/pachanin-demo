@@ -87,12 +87,17 @@ jobs:
               if marker not in text:
                   raise SystemExit(f'MISSING_CONTRACT_MARKER:{marker}')
           forbidden = [
-              'StrictHostKeyChecking=no', 'StrictHostKeyChecking=accept-new',
-              'UserKnownHostsFile=/dev/null', 'sshpass', 'PasswordAuthentication=yes',
-              'secrets.PC_PROD_SSH_KEY', 'secrets.PC_PROD_SSH_PRIVATE_KEY', 'secrets.VPS_SSH_KEY',
-              'docker compose', 'docker run', 'docker rm', 'docker rmi', 'docker prune',
-              'systemctl restart', 'systemctl stop', 'systemctl start', 'prisma migrate',
-              'psql ', 'gh secret set', 'gh variable set',
+              ''.join(parts)
+              for parts in [
+                  ('StrictHostKeyChecking=', 'no'), ('StrictHostKeyChecking=', 'accept-new'),
+                  ('UserKnownHostsFile=', '/dev/null'), ('ssh', 'pass'), ('PasswordAuthentication=', 'yes'),
+                  ('secrets.', 'PC_PROD_SSH_KEY'), ('secrets.', 'PC_PROD_SSH_PRIVATE_KEY'),
+                  ('secrets.', 'VPS_SSH_KEY'), ('docker ', 'compose'), ('docker ', 'run'),
+                  ('docker ', 'rm'), ('docker ', 'rmi'), ('docker ', 'prune'),
+                  ('systemctl ', 'restart'), ('systemctl ', 'stop'), ('systemctl ', 'start'),
+                  ('prisma ', 'migrate'), ('psql', ' '), ('gh secret ', 'set'),
+                  ('gh variable ', 'set'), ('actions', ': write'),
+              ]
           ]
           for marker in forbidden:
               if marker in text:
@@ -107,7 +112,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      actions: write
+      actions: read
     env:
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
       SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -186,7 +191,6 @@ jobs:
     permissions:
       contents: read
       actions: read
-      actions: write
     env:
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
     steps:
