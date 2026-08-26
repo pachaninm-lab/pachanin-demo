@@ -307,6 +307,69 @@ describe('auth and staff principal provisioning', () => {
     );
   });
 
+  it('keeps both registration application row locks with only id-column UPDATE authority', () => {
+    const authority = repositoryFile(
+      'apps/api/prisma/migrations/20260808140000_p0_registration_decision_authority/migration.sql',
+    );
+    const migration = repositoryFile(
+      'apps/api/prisma/migrations/20260826180000_p0_registration_decision_application_lock_privilege/migration.sql',
+    );
+
+    expect(authority).toMatch(/^\s*FOR UPDATE OF application, organization;$/mu);
+    expect(authority).toMatch(/^\s*FOR UPDATE OF candidate, organization;$/mu);
+    expect(migration.match(
+      /GRANT UPDATE\s*\([^)]*\)\s*ON TABLE auth\.registration_applications/gi,
+    )).toEqual(['GRANT UPDATE (id) ON TABLE auth.registration_applications']);
+    expect(migration).not.toMatch(
+      /GRANT UPDATE\s*\([^)]*(?:status|version)[^)]*\)\s*ON TABLE auth\.registration_applications/i,
+    );
+    expect(migration).not.toMatch(
+      /GRANT UPDATE\s+ON TABLE auth\.registration_applications/i,
+    );
+    expect(migration).not.toMatch(
+      /GRANT UPDATE\s*\(id\)\s*ON TABLE auth\.registration_applications[^;]*WITH GRANT OPTION/i,
+    );
+    expect(migration).not.toMatch(/\b(?:REVOKE|ALTER)\b/i);
+    expect(migration).not.toContain('CREATE OR REPLACE FUNCTION');
+    expect(migration).toContain(
+      "has_column_privilege(\n       'pc_registration_decision_authority',\n       'auth.registration_applications',\n       'id',\n       'UPDATE'",
+    );
+    expect(migration).toContain(
+      "has_any_column_privilege(\n       'pc_registration_decision_authority',\n       'auth.registration_applications',\n       'UPDATE WITH GRANT OPTION'",
+    );
+    expect(migration).toContain("attribute.attrelid = 'auth.registration_applications'::regclass");
+    expect(migration).toContain('attribute.attnum > 0');
+    expect(migration).toContain('NOT attribute.attisdropped');
+    expect(migration).toContain(') <> 1 THEN');
+    expect(migration).toContain("'INSERT'\n     )");
+    expect(migration).toContain("'DELETE'\n     )");
+    expect(migration).toContain('procedure.proconfig @> ARRAY[');
+    expect(migration).toContain("acl.grantee = 0");
+    expect(migration).toContain("acl.privilege_type = 'EXECUTE'");
+    expect(migration).toContain('NOT role.rolreplication');
+
+    const rehearsal = repositoryFile('scripts/platform-v7-database-dr-rehearsal.sh');
+    expect(rehearsal).toContain(
+      'REVOKE ALL PRIVILEGES ON auth.registration_applications\n      FROM pc_registration_decision_authority;',
+    );
+    expect(rehearsal).toContain(
+      'GRANT UPDATE (id) ON TABLE auth.registration_applications\n      TO pc_registration_decision_authority;',
+    );
+
+    const integration = repositoryFile('scripts/platform-v7-rls-integration.sh');
+    expect(integration).toContain('P0_REGISTRATION_DECISION_LOCK_PRIVILEGE_MIGRATION=');
+    expect(integration).toContain('[[ -f "$P0_REGISTRATION_DECISION_LOCK_PRIVILEGE_MIGRATION" ]]');
+    expect(integration).toContain('admin -f "$P0_REGISTRATION_DECISION_LOCK_PRIVILEGE_MIGRATION"');
+    expect(integration).toContain('SET LOCAL ROLE pc_registration_decision_authority;');
+    expect(integration).toMatch(
+      /SELECT id\s+FROM auth\.registration_applications\s+WHERE false\s+FOR UPDATE;/m,
+    );
+    expect(integration).toMatch(
+      /UPDATE auth\.registration_applications\s+SET status = status, version = version\s+WHERE false;/m,
+    );
+    expect(integration).toContain("grep -Fq '42501'");
+  });
+
   it('separates read-only account export from bounded anonymization', () => {
     const migration = repositoryFile(
       'apps/api/prisma/migrations/20260808160000_p0_account_lifecycle_authority/migration.sql',
@@ -503,6 +566,28 @@ describe('auth and staff principal provisioning', () => {
       expect(proof).toContain(
         "NOT has_table_privilege('pc_mfa_recovery_identity_authority', 'auth.credential_states', 'UPDATE')",
       );
+      expect(proof).toContain(
+        "NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE')",
+      );
+      expect(proof).toContain(
+        "has_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'id', 'UPDATE')",
+      );
+      expect(proof).toContain(
+        "NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE WITH GRANT OPTION')",
+      );
+      expect(proof).toContain(
+        "NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')",
+      );
+      expect(proof).toContain(
+        "NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')",
+      );
+      expect(proof).toContain(
+        "NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'DELETE')",
+      );
+      expect(proof).toContain(
+        "attribute.attrelid = 'auth.registration_applications'::regclass",
+      );
+      expect(proof).toContain(')) = 1');
     }
     expect(oneDeal).toContain('REGISTRATION_DECISION_AUTHORITY_PROOF');
     expect(oneDeal).toContain('ACCOUNT_LIFECYCLE_AUTHORITY_PROOF');

@@ -679,6 +679,8 @@ BEGIN
     GRANT USAGE ON SCHEMA public, auth TO pc_registration_decision_authority;
     REVOKE ALL PRIVILEGES ON public.users, public.user_orgs, public.organizations
       FROM pc_registration_decision_authority;
+    REVOKE ALL PRIVILEGES ON auth.registration_applications
+      FROM pc_registration_decision_authority;
     GRANT SELECT ON public.users, public.user_orgs, public.organizations
       TO pc_registration_decision_authority;
     GRANT UPDATE ("status", "updatedAt") ON public.users
@@ -689,6 +691,8 @@ BEGIN
     GRANT UPDATE ("status", "verifiedAt", "version", "updatedAt")
       ON public.organizations TO pc_registration_decision_authority;
     GRANT SELECT ON auth.sessions, auth.credential_states, auth.staff_assignments, auth.registration_applications
+      TO pc_registration_decision_authority;
+    GRANT UPDATE (id) ON TABLE auth.registration_applications
       TO pc_registration_decision_authority;
 
     GRANT EXECUTE ON FUNCTION auth.registration_platform_actor_authorized(text,text)
@@ -1335,6 +1339,21 @@ SELECT
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.organizations', 'INSERT')
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.organizations', 'DELETE')
     AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE')
+    AND has_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'id', 'UPDATE')
+    AND NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE WITH GRANT OPTION')
+    AND (SELECT count(*) FROM pg_attribute attribute
+         WHERE attribute.attrelid = 'auth.registration_applications'::regclass
+           AND attribute.attnum > 0
+           AND NOT attribute.attisdropped
+           AND has_column_privilege(
+             'pc_registration_decision_authority',
+             'auth.registration_applications',
+             attribute.attname,
+             'UPDATE'
+           )) = 1
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')
+    AND NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'DELETE')
   )::int::text
   || ':' ||
   (
