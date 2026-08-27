@@ -9,7 +9,6 @@ SINCE='2026-08-27T06:44:30Z'
 UNTIL='2026-08-27T06:51:30Z'
 
 fail(){ printf 'P0_ALL_ROLE_FAILURE_CLASSIFIER=FAIL\nP0_BLOCKER=%s\n' "$1"; exit "${2:-1}"; }
-[[ "$TARGET_SHA" == "$SOURCE_SHA" ]] || fail P0_SOURCE_SHA_NO_LONGER_CURRENT 10
 [[ "${GITHUB_REPOSITORY:-}" == 'pachaninm-lab/pachanin-demo' ]] || fail P0_REPOSITORY_MISMATCH 11
 [[ "${PC_P0_SSH_HOST:-}" == '195.19.12.120' ]] || fail P0_SSH_HOST_MISMATCH 12
 [[ "${PC_P0_SSH_USER:-}" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || fail P0_SSH_USER_INVALID 13
@@ -22,9 +21,9 @@ output="$(ssh \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
   -o UserKnownHostsFile="$PC_P0_SSH_KNOWN_HOSTS" -o ConnectTimeout=15 \
   "$PC_P0_SSH_USER@$PC_P0_SSH_HOST" \
-  bash -s -- "$TARGET_SHA" "$CORRELATION_ID" "$SINCE" "$UNTIL" <<'REMOTE'
+  bash -s -- "$SOURCE_SHA" "$CORRELATION_ID" "$SINCE" "$UNTIL" <<'REMOTE'
 set -Eeuo pipefail
-target="$1"; correlation="$2"; since="$3"; until="$4"
+source_sha="$1"; correlation="$2"; since="$3"; until="$4"
 remote_fail(){ printf 'ERROR_CODE=%s\n' "$1"; exit "${2:-1}"; }
 [[ "$(id -u)" == 0 ]] || remote_fail P0_REMOTE_NOT_ROOT 20
 mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
@@ -36,7 +35,7 @@ mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$
 api_id="${api_ids[0]}"
 web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
 api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
-[[ "$web_revision" == "$target" && "$api_revision" == "$target" ]] || remote_fail P0_PRODUCTION_REVISION_MISMATCH 23
+[[ "$web_revision" == "$source_sha" && "$api_revision" == "$source_sha" ]] || remote_fail P0_SOURCE_PRODUCTION_REVISION_UNAVAILABLE 23
 log_file="$(mktemp)"; trap 'rm -f "$log_file"' EXIT
 docker logs --since "$since" --until "$until" "$web_id" >"$log_file" 2>&1
 python3 - "$log_file" "$correlation" <<'PY'
@@ -82,7 +81,6 @@ for raw in open(path, encoding='utf-8', errors='replace'):
 if not records:
     print('P0_CLASSIFICATION=NO_CORRELATED_WEB_LOG')
     raise SystemExit(0)
-# Correlation is unique for the failed request. Publish only allowlisted non-PII fields.
 last=records[-1]
 print('P0_CLASSIFICATION='+last['class'])
 if 'status' in last: print('P0_UPSTREAM_STATUS='+str(last['status']))
@@ -99,4 +97,6 @@ REMOTE
 }
 printf '%s\n' "$output"
 [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]] || fail P0_MAIN_ADVANCED 16
+printf 'P0_SOURCE_RUN_ID=%s\n' "$SOURCE_RUN_ID"
+printf 'P0_SOURCE_SHA=%s\n' "$SOURCE_SHA"
 printf 'P0_PRODUCTION_MUTATION=NONE\nP0_ALL_ROLE_FAILURE_CLASSIFIER=PASS\n'
