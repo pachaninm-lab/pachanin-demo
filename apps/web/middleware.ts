@@ -17,7 +17,8 @@ import publicSeoRouteRegistry from '@/lib/platform-v7/public-seo-routes.json';
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 const CSRF_COOKIE = 'pc_csrf_token';
 
-const PUBLIC_EXACT = new Set(['/', '/login', '/register', '/gekta']);
+const PRESENTATION_DOWNLOAD_PATH = '/downloads/prozrachnaya-tsena-presentation.pdf';
+const PUBLIC_EXACT = new Set(['/', '/login', '/register', '/gekta', PRESENTATION_DOWNLOAD_PATH]);
 const PUBLIC_PREFIX = [
   '/_next/',
   '/favicon',
@@ -533,6 +534,12 @@ export async function middleware(req: NextRequest) {
     const response = withRoleHeaders(req, routeRole, privateModeEnabled && protectedPath, isIndexable);
     if (isPublicRegistrationPath(p)) clearPresentationRoleCookie(response);
     else persistRoleCookie(req, response, routeRole);
+    if (p === PRESENTATION_DOWNLOAD_PATH) {
+      response.headers.set(
+        'content-disposition',
+        'attachment; filename="prozrachnaya-tsena-presentation.pdf"',
+      );
+    }
     return response;
   }
 

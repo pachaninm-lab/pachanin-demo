@@ -76,8 +76,16 @@ requireAll(paths.runner, runner, [
   'CHROMIUM_CABINET_SERVER_AUTHORITY_MISSING',
   'CHROMIUM_HOST_ONLY_SCOPE_GUARD_MISSING',
   'CHROMIUM_REQUIRED_JAR_COOKIE_GUARD_MISSING',
+  'LABEL_BOUND_COOKIE_JAR_PATCH_INJECTION',
+  'PRIME_CSRF_LABEL_BOUND_BEFORE_JAR',
+  'REGISTER_LABEL_BOUND_BEFORE_JAR',
+  'LOGIN_LABEL_BOUND_BEFORE_JAR',
+  'LOGOUT_LABEL_BOUND_BEFORE_JAR',
+  'BASH_DYNAMIC_SCOPE_COOKIE_JAR_BINDING_REMAINS',
+  'LABEL_BOUND_COOKIE_JAR_INVARIANT_MISSING',
   'P0_ALL_ROLE_CHROMIUM_EXACT_PATH_PRESERVATION=PASS',
   'P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS',
+  'P0_ALL_ROLE_LABEL_BOUND_COOKIE_JARS=PASS',
 ]);
 
 requireAll(paths.runbook, runbook, [
@@ -178,6 +186,22 @@ if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(expectedPaths)) failur
 const syntax = spawnSync('bash', ['-n', paths.runner], { encoding: 'utf8' });
 if (syntax.status !== 0) failures.push(`${paths.runner}: bash syntax failed: ${syntax.stderr.trim()}`);
 
+const labelBindingRegression = spawnSync('bash', ['--noprofile', '--norc', '-c', String.raw`
+set -euo pipefail
+TMP_ROOT=/tmp/p0-label-binding
+label=bank
+bind_jar() {
+  local label="$1"
+  local jar="$TMP_ROOT/$label.cookies"
+  printf '%s' "$jar"
+}
+[[ "$(bind_jar seller)" == "$TMP_ROOT/seller.cookies" ]]
+[[ "$(bind_jar employee)" == "$TMP_ROOT/employee.cookies" ]]
+`], { encoding: 'utf8' });
+if (labelBindingRegression.status !== 0) {
+  failures.push(`${paths.runner}: label-first Bash cookie-jar binding regression failed`);
+}
+
 const wrapperValidation = spawnSync('bash', [paths.runner], {
   encoding: 'utf8',
   env: { ...process.env, PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY: '1' },
@@ -193,6 +217,7 @@ const wrapperMarkers = [
   'P0_ALL_ROLE_REVIEWER_CREDENTIAL_BAN=PASS',
   'P0_ALL_ROLE_CHROMIUM_EXACT_PATH_PRESERVATION=PASS',
   'P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS',
+  'P0_ALL_ROLE_LABEL_BOUND_COOKIE_JARS=PASS',
 ];
 if (wrapperValidation.status !== 0) {
   failures.push(`${paths.runner}: immutable wrapper validation failed: ${wrapperValidation.stderr.trim()}`);
@@ -212,4 +237,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Production P0 all-role registration contract PASS: exact-main deep prerequisite, eight visible reviewer decisions, exact host-only cookie domain with source-preserved cookie paths, server-authoritative access/cabinet proof, nine roles, protected read and logout/relogin.');
+console.log('Production P0 all-role registration contract PASS: exact-main deep prerequisite, eight visible reviewer decisions, label-bound cookie jars, exact host-only cookie domain with source-preserved cookie paths, server-authoritative access/cabinet proof, nine roles, protected read and logout/relogin.');

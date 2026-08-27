@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-presentation-pdf-runtime-final-20260827",
+  "status": "active",
+  "allowedPaths": [
+    "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts"
+  ]
+}

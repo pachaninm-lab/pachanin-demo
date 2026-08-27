@@ -58,6 +58,67 @@ one(
 """,
     'CHROMIUM_SERVER_PATH_AUTHORITY',
 )
+one(
+    "p.write_text(s,encoding='utf-8')",
+    r"""one(
+    '''prime_csrf() {
+  local label="$1" jar="$TMP_ROOT/$label.cookies" page="$TMP_ROOT/$label-csrf.html" status''',
+    '''prime_csrf() {
+  local label="$1"
+  local jar="$TMP_ROOT/$label.cookies" page="$TMP_ROOT/$label-csrf.html" status''',
+    'PRIME_CSRF_LABEL_BOUND_BEFORE_JAR',
+)
+one(
+    '''register_and_verify() {
+  local label="$1" jar="$TMP_ROOT/$label.cookies"''',
+    '''register_and_verify() {
+  local label="$1"
+  local jar="$TMP_ROOT/$label.cookies"''',
+    'REGISTER_LABEL_BOUND_BEFORE_JAR',
+)
+one(
+    '''login_identity() {
+  local label="$1" mode="$2" jar="$TMP_ROOT/$label.cookies"''',
+    '''login_identity() {
+  local label="$1" mode="$2"
+  local jar="$TMP_ROOT/$label.cookies"''',
+    'LOGIN_LABEL_BOUND_BEFORE_JAR',
+)
+one(
+    '''logout_identity() {
+  local label="$1" jar="$TMP_ROOT/$label.cookies"''',
+    '''logout_identity() {
+  local label="$1"
+  local jar="$TMP_ROOT/$label.cookies"''',
+    'LOGOUT_LABEL_BOUND_BEFORE_JAR',
+)
+
+unsafe_jar_bindings = [
+    '  local label="$1" jar="$TMP_ROOT/$label.cookies"',
+    '  local label="$1" mode="$2" jar="$TMP_ROOT/$label.cookies"',
+]
+if any(fragment in s for fragment in unsafe_jar_bindings):
+    raise SystemExit('BASH_DYNAMIC_SCOPE_COOKIE_JAR_BINDING_REMAINS')
+required_jar_bindings = [
+    '''prime_csrf() {
+  local label="$1"
+  local jar="$TMP_ROOT/$label.cookies"''',
+    '''register_and_verify() {
+  local label="$1"
+  local jar="$TMP_ROOT/$label.cookies"''',
+    '''login_identity() {
+  local label="$1" mode="$2"
+  local jar="$TMP_ROOT/$label.cookies"''',
+    '''logout_identity() {
+  local label="$1"
+  local jar="$TMP_ROOT/$label.cookies"''',
+]
+if any(fragment not in s for fragment in required_jar_bindings):
+    raise SystemExit('LABEL_BOUND_COOKIE_JAR_INVARIANT_MISSING')
+
+p.write_text(s,encoding='utf-8')""",
+    'LABEL_BOUND_COOKIE_JAR_PATCH_INJECTION',
+)
 
 if "if ((pathValue || '/') !== '/') continue;" in s:
     raise SystemExit('CHROMIUM_NONROOT_PATH_FILTER_REMAINS')
@@ -73,6 +134,8 @@ if "domain: target.hostname" not in s or "includeSubdomainsValue.toUpperCase() !
     raise SystemExit('CHROMIUM_HOST_ONLY_SCOPE_GUARD_MISSING')
 if "P0_CHROMIUM_JAR_ACCESS_COOKIE_MISSING" not in s or "P0_CHROMIUM_JAR_CABINET_COOKIE_MISSING" not in s:
     raise SystemExit('CHROMIUM_REQUIRED_JAR_COOKIE_GUARD_MISSING')
+if 'BASH_DYNAMIC_SCOPE_COOKIE_JAR_BINDING_REMAINS' not in s or 'LABEL_BOUND_COOKIE_JAR_INVARIANT_MISSING' not in s:
+    raise SystemExit('LABEL_BOUND_COOKIE_JAR_PATCH_MISSING')
 
 p.write_text(s, encoding='utf-8')
 PY
@@ -89,6 +152,7 @@ if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then
   (( rc == 0 )) || exit "$rc"
   printf 'P0_ALL_ROLE_CHROMIUM_EXACT_PATH_PRESERVATION=PASS\n'
   printf 'P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS\n'
+  printf 'P0_ALL_ROLE_LABEL_BOUND_COOKIE_JARS=PASS\n'
   exit 0
 fi
 
