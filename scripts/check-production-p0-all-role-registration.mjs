@@ -120,9 +120,15 @@ requireAll('runner', [
   "kind === 'mobile'",
   'page.goto',
   'context.addCookies',
-  'url: target.origin',
+  'domain: target.hostname',
   "includeSubdomainsValue.toUpperCase() !== 'FALSE'",
   "for (const required of ['pc_access_token', 'pc_v7_cabinet'])",
+  'context.cookies()',
+  'P0_CHROMIUM_JAR_ACCESS_COOKIE_MISSING',
+  'P0_CHROMIUM_JAR_CABINET_COOKIE_MISSING',
+  'P0_CHROMIUM_ACCESS_COOKIE_IMPORT_MISSING',
+  'P0_CHROMIUM_CABINET_COOKIE_IMPORT_MISSING',
+  'P0_CHROMIUM_IMPORTED_COOKIE_SCOPE_INVALID',
   "context.request.get(origin + '/api/auth/me'",
   'maxRedirects: 0',
   'P0_CHROMIUM_IMPORTED_SESSION_CONTEXT_INVALID',
@@ -190,6 +196,8 @@ forbid('runner', /P0_CHROMIUM_(?:SERVER|CLIENT)_REDIRECT_PATH=/u,
   'raw redirect paths are forbidden in production evidence');
 forbid('runner', /normalizedDomain/u,
   'broad Domain cookies must not be normalized into host-only scope');
+forbid('runner', /url:\s*target[.]origin/u,
+  'URL-based cookie import is forbidden; preserve exact host-only domain/path semantics');
 
 const expectedPaths = [
   paths.workflow,
@@ -248,4 +256,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Production P0 all-role registration contract PASS: exact-main deep prerequisite, eight visible reviewer decisions, one tenant-authoritative employee join, nine first-TOTP identities, eight tenants, desktop/mobile Chromium, protected read and logout/relogin.');
+console.log('Production P0 all-role registration contract PASS: exact-main deep prerequisite, eight visible reviewer decisions, one tenant-authoritative employee join, nine first-TOTP identities, eight tenants, exact host-only Chromium cookie transfer, protected read and logout/relogin.');
