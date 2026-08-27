@@ -111,6 +111,7 @@ one(
     r"""function cookiesFromJar(path, origin) {
   const target = new URL(origin);
   const rows = [];
+  const nowSeconds = Math.floor(Date.now() / 1000);
   for (const original of fs.readFileSync(path, 'utf8').split(/\r?\n/)) {
     let line = original;
     let httpOnly = false;
@@ -134,16 +135,23 @@ one(
     const cookie = {
       name,
       value,
-      url: target.origin,
+      domain: target.hostname,
+      path: '/',
       secure,
       httpOnly,
       sameSite: 'Lax',
     };
     const expires = Number(expiresValue);
-    if (Number.isFinite(expires) && expires > 0) cookie.expires = expires;
+    if (Number.isFinite(expires) && expires > 0) {
+      if (expires <= nowSeconds) fail('P0_CHROMIUM_COOKIE_EXPIRED');
+      cookie.expires = expires;
+    }
     rows.push(cookie);
   }
   if (!rows.length) fail('P0_CHROMIUM_COOKIE_IMPORT_EMPTY');
+  const jarNames = new Set(rows.filter((cookie) => cookie.value).map((cookie) => cookie.name));
+  if (!jarNames.has('pc_access_token')) fail('P0_CHROMIUM_JAR_ACCESS_COOKIE_MISSING');
+  if (!jarNames.has('pc_v7_cabinet')) fail('P0_CHROMIUM_JAR_CABINET_COOKIE_MISSING');
   return rows;
 }""",
     'CHROMIUM_CANONICAL_COOKIE_SCOPE',
@@ -187,11 +195,22 @@ one(
 """,
     """    const origin = process.env.PC_P0_BROWSER_ORIGIN;
     const route = process.env.PC_P0_BROWSER_ROUTE;
+    const browserHost = new URL(origin).hostname;
     await context.addCookies(cookiesFromJar(process.env.PC_P0_BROWSER_JAR, origin));
-    const imported = await context.cookies(origin);
-    const importedNames = new Set(imported.filter((cookie) => cookie.value).map((cookie) => cookie.name));
+    const imported = await context.cookies();
     for (const required of ['pc_access_token', 'pc_v7_cabinet']) {
-      if (!importedNames.has(required)) fail('P0_CHROMIUM_AUTH_COOKIE_MISSING');
+      const cookie = imported.find((candidate) => candidate.name === required);
+      if (!cookie || !cookie.value) {
+        fail(required === 'pc_access_token'
+          ? 'P0_CHROMIUM_ACCESS_COOKIE_IMPORT_MISSING'
+          : 'P0_CHROMIUM_CABINET_COOKIE_IMPORT_MISSING');
+      }
+      if (cookie.domain !== browserHost
+        || cookie.path !== '/'
+        || cookie.secure !== true
+        || cookie.httpOnly !== true) {
+        fail('P0_CHROMIUM_IMPORTED_COOKIE_SCOPE_INVALID');
+      }
     }
     const importedMe = await context.request.get(origin + '/api/auth/me', {
       failOnStatusCode: false,
@@ -394,10 +413,14 @@ required=[
     "target = canonical_mailbox(os.environ['P0_TARGET_EMAIL'])",
     "recipients.append(canonical)",
     "client.login(username, password)",
-    "url: target.origin",
+    "domain: target.hostname",
     "includeSubdomainsValue.toUpperCase() !== 'FALSE'",
     "P0_CHROMIUM_COOKIE_SCOPE_INVALID",
-    "P0_CHROMIUM_AUTH_COOKIE_MISSING",
+    "P0_CHROMIUM_JAR_ACCESS_COOKIE_MISSING",
+    "P0_CHROMIUM_JAR_CABINET_COOKIE_MISSING",
+    "P0_CHROMIUM_ACCESS_COOKIE_IMPORT_MISSING",
+    "P0_CHROMIUM_CABINET_COOKIE_IMPORT_MISSING",
+    "P0_CHROMIUM_IMPORTED_COOKIE_SCOPE_INVALID",
     "P0_CHROMIUM_IMPORTED_SESSION_CONTEXT_INVALID",
     "P0_CHROMIUM_SERVER_SESSION_REJECTED",
     "P0_CHROMIUM_CLIENT_REDIRECTED",
@@ -429,8 +452,10 @@ if s.count('gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY"
     raise SystemExit('HUMAN_REVIEW_ISSUE_ROUTING_CARDINALITY_INVALID')
 if 'gh issue comment 3072 --repo' in s:
     raise SystemExit('HARDCODED_HUMAN_REVIEW_ISSUE_REMAINS')
-if s.count('url: target.origin') != 1 or s.count('cookiesFromJar(process.env.PC_P0_BROWSER_JAR, origin)') != 1:
+if s.count('domain: target.hostname') != 1 or s.count('cookiesFromJar(process.env.PC_P0_BROWSER_JAR, origin)') != 1:
     raise SystemExit('CHROMIUM_CANONICAL_COOKIE_SCOPE_CARDINALITY_INVALID')
+if 'url: target.origin' in s:
+    raise SystemExit('CHROMIUM_URL_COOKIE_IMPORT_REMAINS')
 if s.count("includeSubdomainsValue.toUpperCase() !== 'FALSE'") != 1 or s.count('domain !== target.hostname') != 1:
     raise SystemExit('CHROMIUM_HOST_ONLY_COOKIE_SCOPE_CARDINALITY_INVALID')
 if 'REDIRECT_PATH=' in s or 'UNSAFE_PATH' in s:
@@ -439,6 +464,14 @@ if s.count('P0_CHROMIUM_SERVER_REDIRECT_CLASS=') != 3 or s.count('P0_CHROMIUM_CL
     raise SystemExit('CHROMIUM_REDIRECT_CLASS_CARDINALITY_INVALID')
 if s.count("for (const required of ['pc_access_token', 'pc_v7_cabinet'])") != 1:
     raise SystemExit('CHROMIUM_REQUIRED_COOKIE_PROOF_CARDINALITY_INVALID')
+if s.count('P0_CHROMIUM_JAR_ACCESS_COOKIE_MISSING') != 1 or s.count('P0_CHROMIUM_JAR_CABINET_COOKIE_MISSING') != 1:
+    raise SystemExit('CHROMIUM_JAR_COOKIE_PROOF_CARDINALITY_INVALID')
+if s.count('P0_CHROMIUM_ACCESS_COOKIE_IMPORT_MISSING') != 1 or s.count('P0_CHROMIUM_CABINET_COOKIE_IMPORT_MISSING') != 1:
+    raise SystemExit('CHROMIUM_IMPORTED_COOKIE_PROOF_CARDINALITY_INVALID')
+if s.count('P0_CHROMIUM_IMPORTED_COOKIE_SCOPE_INVALID') != 1:
+    raise SystemExit('CHROMIUM_IMPORTED_COOKIE_SCOPE_CARDINALITY_INVALID')
+if s.count('context.cookies()') != 1:
+    raise SystemExit('CHROMIUM_FULL_COOKIE_STORE_PROOF_CARDINALITY_INVALID')
 if s.count("maxRedirects: 0") != 2:
     raise SystemExit('CHROMIUM_SERVER_REDIRECT_PROOF_CARDINALITY_INVALID')
 if s.count('PC_P0_BROWSER_BLOCKER_FILE') != 2 or s.count('fail "$browser_blocker" 69') != 1:
