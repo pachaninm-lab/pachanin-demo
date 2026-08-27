@@ -4,6 +4,7 @@
   "status": "active",
   "allowedPaths": [
     "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf",
+    "apps/web/middleware.ts",
     "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
     "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/chunks/chunk-01.ts",
     "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/chunks/chunk-02.ts",
