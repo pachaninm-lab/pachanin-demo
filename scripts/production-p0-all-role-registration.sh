@@ -71,6 +71,11 @@ one(
     "PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH",
     'APPROVAL_WINDOW_NAMESPACE',
 )
+one(
+    '  gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body-file "$TMP_ROOT/human-review-comment.md" >/dev/null',
+    '  gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$TMP_ROOT/human-review-comment.md" >/dev/null',
+    'HUMAN_REVIEW_ISSUE_ROUTING',
+)
 
 one(
     """  local csrf status token not_before result mail_rc""",
@@ -138,6 +143,7 @@ required=[
     "CABINET_ROUTE[bank]='/platform-v7/bank'",
     "CABINET_ROUTE[employee]='/platform-v7/profile'",
     "PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH",
+    'gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY"',
     "payload.get(\"code\") != \"RATE_LIMITED\"",
     "payload.get(\"retryAfterSeconds\")",
     "P0_REGISTRATION_RATE_LIMIT_RETRY_EXHAUSTED",
@@ -199,6 +205,10 @@ if s.count('payload.get("retryAfterSeconds")') != 1:
     raise SystemExit('REGISTRATION_RATE_LIMIT_CONTRACT_CARDINALITY_INVALID')
 if 'PC_P0_REVIEWER_WINDOW_NOT_BEFORE_EPOCH' in s:
     raise SystemExit('REVIEWER_WINDOW_NAMESPACE_REMAINS')
+if s.count('gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY"') != 1:
+    raise SystemExit('HUMAN_REVIEW_ISSUE_ROUTING_CARDINALITY_INVALID')
+if 'gh issue comment 3072 --repo' in s:
+    raise SystemExit('HARDCODED_HUMAN_REVIEW_ISSUE_REMAINS')
 reviewer_guard = """  if env | grep -Eq '^PC_(P0|PROD_P0)_REVIEWER_'; then
     fail P0_REVIEWER_CREDENTIAL_INPUT_FORBIDDEN 27
   fi"""
@@ -216,6 +226,7 @@ if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_ALL_ROLE_IMAP_LOGIN_IDNA_PATCH=PASS\n'
   printf 'P0_ALL_ROLE_IMAP_RECIPIENT_IDNA_PATCH=PASS\n'
   printf 'P0_ALL_ROLE_APPROVAL_WINDOW_NAMESPACE=PASS\n'
+  printf 'P0_ALL_ROLE_HUMAN_REVIEW_ISSUE_ROUTING=PASS\n'
   printf 'P0_ALL_ROLE_REGISTRATION_RATE_LIMIT_RETRY=PASS\n'
   printf 'P0_ALL_ROLE_REVIEWER_CREDENTIAL_BAN=PASS\n'
   exit 0
