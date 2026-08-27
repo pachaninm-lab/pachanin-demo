@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-presentation-real-pdf-20260827-v2",
+  "status": "active",
+  "allowedPaths": [
+    "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf",
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/chunks/00.ts",
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/chunks/01.ts",
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/chunks/02.ts",
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/chunks/03.ts",
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/chunks/04.ts",
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/chunks/05.ts",
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/chunks/06.ts",
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/chunks/07.ts"
+  ]
+}
