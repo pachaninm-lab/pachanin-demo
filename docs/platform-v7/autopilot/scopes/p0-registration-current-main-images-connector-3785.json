@@ -1,6 +1,8 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
   "scopeId": "p0-registration-current-main-images-connector-3785",
+  "branch": "fix/p0-registration-images-authority-rollover-4637",
+  "status": "active",
   "authority": {
     "registrationIssue": 3785,
     "releaseIssue": 4637,
