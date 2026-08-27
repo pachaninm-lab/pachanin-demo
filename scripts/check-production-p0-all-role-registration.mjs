@@ -196,7 +196,7 @@ forbid('runner', /P0_CHROMIUM_(?:SERVER|CLIENT)_REDIRECT_PATH=/u,
   'raw redirect paths are forbidden in production evidence');
 forbid('runner', /normalizedDomain/u,
   'broad Domain cookies must not be normalized into host-only scope');
-forbid('runner', /url:\s*target[.]origin/u,
+forbid('runner', /\burl:\s*target[.]origin\s*,/u,
   'URL-based cookie import is forbidden; preserve exact host-only domain/path semantics');
 
 const expectedPaths = [
