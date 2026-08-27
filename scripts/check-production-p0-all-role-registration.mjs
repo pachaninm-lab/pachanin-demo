@@ -54,6 +54,11 @@ requireAll('workflow', [
   'StrictHostKeyChecking=yes',
   "bash scripts/production-p0-all-role-registration.sh",
   'P0_ALL_ROLE_REGISTRATION=PASS',
+  'name: Scan bounded redacted 9-role evidence',
+  'id: redaction',
+  'name: Enforce terminal PASS in bounded 9-role evidence',
+  "if: always() && steps.redaction.outcome == 'success'",
+  "steps.redaction.outcome == 'success'",
   'actions/upload-artifact@v4',
   'Remove protected runner credentials',
   'RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}',
@@ -83,6 +88,10 @@ requireAll('runner', [
   'PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH',
   'APPROVAL_WINDOW_NAMESPACE',
   'HUMAN_REVIEW_ISSUE_ROUTING',
+  'CHROMIUM_CANONICAL_COOKIE_SCOPE',
+  'CHROMIUM_COOKIE_HANDOFF_PROOF',
+  'CHROMIUM_SAFE_REDIRECT_CLASSIFICATION',
+  'CHROMIUM_BLOCKER_CAPTURE_FINISH',
   'gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY"',
   'REGISTRATION_RATE_LIMIT_RETRY',
   'P0_REGISTRATION_RATE_LIMIT_CONTRACT_INVALID',
@@ -111,6 +120,19 @@ requireAll('runner', [
   "kind === 'mobile'",
   'page.goto',
   'context.addCookies',
+  'url: target.origin',
+  "includeSubdomainsValue.toUpperCase() !== 'FALSE'",
+  "for (const required of ['pc_access_token', 'pc_v7_cabinet'])",
+  "context.request.get(origin + '/api/auth/me'",
+  'maxRedirects: 0',
+  'P0_CHROMIUM_IMPORTED_SESSION_CONTEXT_INVALID',
+  'P0_CHROMIUM_SERVER_SESSION_REJECTED',
+  'P0_CHROMIUM_SERVER_ROLE_REDIRECT',
+  'P0_CHROMIUM_SERVER_REDIRECT_CLASS=',
+  'P0_CHROMIUM_CLIENT_REDIRECT_CLASS=',
+  'P0_CHROMIUM_CLIENT_REDIRECTED',
+  'PC_P0_BROWSER_BLOCKER_FILE',
+  'fail "$browser_blocker" 69',
   'assert_topology',
   'P0_ALL_ROLE_REGISTRATION_COUNT=9/9',
   'P0_ALL_ROLE_TOPOLOGY=8_ORGS_8_TENANTS_9_MEMBERSHIPS',
@@ -151,6 +173,12 @@ forbid('workflow', /echo\s+"[^"\n]*`[^"\n]*"/u,
   'double-quoted Markdown backticks invoke shell command substitution; use printf');
 forbid('workflow', /PC_(?:P0|PROD_P0)_REVIEWER_/u,
   'Actions must not inject reviewer-namespaced inputs');
+if (!/name: Upload bounded production 9-role evidence[\s\S]*?steps[.]redaction[.]outcome == 'success'[\s\S]*?uses: actions\/upload-artifact@v4/u.test(sources.workflow)) {
+  failures.push(`${paths.workflow}: redacted failure evidence must remain uploadable`);
+}
+if (/name: Upload bounded production 9-role evidence[\s\S]{0,240}steps[.]evidence[.]outcome == 'success'/u.test(sources.workflow)) {
+  failures.push(`${paths.workflow}: PASS enforcement must not suppress a redacted failure artifact`);
+}
 
 forbid('runner', /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP|CREATE)\s+(?:INTO\s+)?auth\./iu,
   'direct production auth SQL mutation is forbidden');
@@ -158,6 +186,10 @@ forbid('runner', /\/api\/staff\/registration\/applications\//u,
   'CI must not call the staff decision endpoint');
 forbid('runner', /curl[^\n]+(?:127[.]0[.]0[.]1:3001|\/auth\/registration\/applications)/u,
   'direct API approval or activation is forbidden');
+forbid('runner', /P0_CHROMIUM_(?:SERVER|CLIENT)_REDIRECT_PATH=/u,
+  'raw redirect paths are forbidden in production evidence');
+forbid('runner', /normalizedDomain/u,
+  'broad Domain cookies must not be normalized into host-only scope');
 
 const expectedPaths = [
   paths.workflow,
@@ -188,6 +220,7 @@ const wrapperMarkers = [
   'P0_ALL_ROLE_APPROVAL_WINDOW_NAMESPACE=PASS',
   'P0_ALL_ROLE_HUMAN_REVIEW_ISSUE_ROUTING=PASS',
   'P0_ALL_ROLE_REGISTRATION_RATE_LIMIT_RETRY=PASS',
+  'P0_ALL_ROLE_CHROMIUM_COOKIE_HANDOFF=PASS',
   'P0_ALL_ROLE_REVIEWER_CREDENTIAL_BAN=PASS',
 ];
 if (wrapperValidation.status !== 0) {

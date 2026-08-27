@@ -78,6 +78,217 @@ one(
 )
 
 one(
+    r"""function cookiesFromJar(path) {
+  const rows = [];
+  for (const original of fs.readFileSync(path, 'utf8').split(/\r?\n/)) {
+    let line = original;
+    let httpOnly = false;
+    if (line.startsWith('#HttpOnly_')) {
+      httpOnly = true;
+      line = line.slice('#HttpOnly_'.length);
+    } else if (!line || line.startsWith('#')) {
+      continue;
+    }
+    const fields = line.split('\t');
+    if (fields.length !== 7) continue;
+    const [domain, , pathValue, secureValue, expiresValue, name, value] = fields;
+    const cookie = {
+      name,
+      value,
+      domain,
+      path: pathValue || '/',
+      secure: secureValue.toUpperCase() === 'TRUE',
+      httpOnly,
+      sameSite: 'Lax',
+    };
+    const expires = Number(expiresValue);
+    if (Number.isFinite(expires) && expires > 0) cookie.expires = expires;
+    rows.push(cookie);
+  }
+  if (!rows.length) fail('P0_CHROMIUM_COOKIE_IMPORT_EMPTY');
+  return rows;
+}""",
+    r"""function cookiesFromJar(path, origin) {
+  const target = new URL(origin);
+  const rows = [];
+  for (const original of fs.readFileSync(path, 'utf8').split(/\r?\n/)) {
+    let line = original;
+    let httpOnly = false;
+    if (line.startsWith('#HttpOnly_')) {
+      httpOnly = true;
+      line = line.slice('#HttpOnly_'.length);
+    } else if (!line || line.startsWith('#')) {
+      continue;
+    }
+    const fields = line.split('\t');
+    if (fields.length !== 7) continue;
+    const [domain, includeSubdomainsValue, pathValue, secureValue, expiresValue, name, value] = fields;
+    const secure = secureValue.toUpperCase() === 'TRUE';
+    if (domain !== target.hostname
+      || includeSubdomainsValue.toUpperCase() !== 'FALSE'
+      || target.protocol !== 'https:'
+      || !secure) {
+      fail('P0_CHROMIUM_COOKIE_SCOPE_INVALID');
+    }
+    if ((pathValue || '/') !== '/') continue;
+    const cookie = {
+      name,
+      value,
+      url: target.origin,
+      secure,
+      httpOnly,
+      sameSite: 'Lax',
+    };
+    const expires = Number(expiresValue);
+    if (Number.isFinite(expires) && expires > 0) cookie.expires = expires;
+    rows.push(cookie);
+  }
+  if (!rows.length) fail('P0_CHROMIUM_COOKIE_IMPORT_EMPTY');
+  return rows;
+}""",
+    'CHROMIUM_CANONICAL_COOKIE_SCOPE',
+)
+
+one(
+    r"""chromium_probe() {
+  local label="$1" kind="$2" expected_admin=true
+  [[ "$label" == employee ]] && expected_admin=false
+  CURRENT_STAGE="$label-$kind-chromium"
+  assert_exact_main
+  PC_P0_BROWSER_LABEL="$label" \
+""",
+    r"""chromium_probe() {
+  local label="$1" kind="$2" expected_admin=true
+  local browser_blocker browser_blocker_file="$TMP_ROOT/$label-$kind-chromium.blocker"
+  [[ "$label" == employee ]] && expected_admin=false
+  CURRENT_STAGE="$label-$kind-chromium"
+  assert_exact_main
+  if ! PC_P0_BROWSER_LABEL="$label" \
+""",
+    'CHROMIUM_BLOCKER_CAPTURE_START',
+)
+
+one(
+    r"""  PC_P0_BROWSER_MEMBERSHIP="${MEMBERSHIP_ID[$label]}" \
+  PC_P0_BROWSER_ADMIN="$expected_admin" \
+    node <<'NODE'
+""",
+    r"""  PC_P0_BROWSER_MEMBERSHIP="${MEMBERSHIP_ID[$label]}" \
+  PC_P0_BROWSER_ADMIN="$expected_admin" \
+  PC_P0_BROWSER_BLOCKER_FILE="$browser_blocker_file" \
+    node <<'NODE'
+""",
+    'CHROMIUM_BLOCKER_FILE_INPUT',
+)
+
+one(
+    """    await context.addCookies(cookiesFromJar(process.env.PC_P0_BROWSER_JAR));
+    const page = await context.newPage();
+""",
+    """    const origin = process.env.PC_P0_BROWSER_ORIGIN;
+    const route = process.env.PC_P0_BROWSER_ROUTE;
+    await context.addCookies(cookiesFromJar(process.env.PC_P0_BROWSER_JAR, origin));
+    const imported = await context.cookies(origin);
+    const importedNames = new Set(imported.filter((cookie) => cookie.value).map((cookie) => cookie.name));
+    for (const required of ['pc_access_token', 'pc_v7_cabinet']) {
+      if (!importedNames.has(required)) fail('P0_CHROMIUM_AUTH_COOKIE_MISSING');
+    }
+    const importedMe = await context.request.get(origin + '/api/auth/me', {
+      failOnStatusCode: false,
+      maxRedirects: 0,
+    });
+    if (importedMe.status() !== 200) fail('P0_CHROMIUM_IMPORTED_SESSION_INVALID');
+    const importedProfile = await importedMe.json().catch(() => ({}));
+    if (importedProfile.authenticated !== true
+      || importedProfile.id !== process.env.PC_P0_BROWSER_USER
+      || importedProfile.orgId !== process.env.PC_P0_BROWSER_ORG
+      || importedProfile.tenantId !== process.env.PC_P0_BROWSER_TENANT
+      || importedProfile.membershipId !== process.env.PC_P0_BROWSER_MEMBERSHIP
+      || importedProfile.role !== process.env.PC_P0_BROWSER_ROLE) {
+      fail('P0_CHROMIUM_IMPORTED_SESSION_CONTEXT_INVALID');
+    }
+    const cabinetResponse = await context.request.get(origin + route, {
+      failOnStatusCode: false,
+      maxRedirects: 0,
+    });
+    if (cabinetResponse.status() >= 300 && cabinetResponse.status() < 400) {
+      const location = cabinetResponse.headers().location || '';
+      const destination = new URL(location, origin);
+      if (destination.origin !== origin) {
+        process.stderr.write('P0_CHROMIUM_SERVER_REDIRECT_CLASS=CROSS_ORIGIN\\n');
+        fail('P0_CHROMIUM_SERVER_ORIGIN_REDIRECT');
+      }
+      if (destination.pathname === '/platform-v7/login') {
+        process.stderr.write('P0_CHROMIUM_SERVER_REDIRECT_CLASS=LOGIN\\n');
+        fail('P0_CHROMIUM_SERVER_SESSION_REJECTED');
+      }
+      process.stderr.write('P0_CHROMIUM_SERVER_REDIRECT_CLASS=SAME_ORIGIN_OTHER\\n');
+      fail('P0_CHROMIUM_SERVER_ROLE_REDIRECT');
+    }
+    if (cabinetResponse.status() >= 400) fail('P0_CHROMIUM_CABINET_HTTP_INVALID');
+    const page = await context.newPage();
+""",
+    'CHROMIUM_COOKIE_HANDOFF_PROOF',
+)
+
+one(
+    """      process.env.PC_P0_BROWSER_ORIGIN + process.env.PC_P0_BROWSER_ROUTE,
+""",
+    """      origin + route,
+""",
+    'CHROMIUM_CANONICAL_NAVIGATION',
+)
+
+one(
+    """    if (current.origin !== process.env.PC_P0_BROWSER_ORIGIN
+      || current.pathname !== process.env.PC_P0_BROWSER_ROUTE) {
+      fail('P0_CHROMIUM_CABINET_REDIRECTED');
+    }
+""",
+    """    if (current.origin !== origin || current.pathname !== route) {
+      process.stderr.write('P0_CHROMIUM_CLIENT_REDIRECT_CLASS='
+        + (current.origin === origin ? 'SAME_ORIGIN_OTHER' : 'CROSS_ORIGIN') + '\\n');
+      fail(current.origin === origin
+        ? 'P0_CHROMIUM_CLIENT_REDIRECTED'
+        : 'P0_CHROMIUM_CLIENT_ORIGIN_REDIRECT');
+    }
+""",
+    'CHROMIUM_SAFE_REDIRECT_CLASSIFICATION',
+)
+
+one(
+    """  const code = /^[A-Z0-9_]{4,100}$/.test(String(error && error.message))
+    ? error.message : 'P0_CHROMIUM_PROBE_FAILED';
+  process.stderr.write(code + '\\n');
+  process.exitCode = 1;
+});
+NODE
+  assert_exact_main
+}
+""",
+    """  const code = /^[A-Z0-9_]{4,100}$/.test(String(error && error.message))
+    ? error.message : 'P0_CHROMIUM_PROBE_FAILED';
+  try {
+    fs.writeFileSync(process.env.PC_P0_BROWSER_BLOCKER_FILE, code + '\\n', { mode: 0o600 });
+  } catch {}
+  process.stderr.write(code + '\\n');
+  process.exitCode = 1;
+});
+NODE
+  then
+    browser_blocker="$(sed -n '/^P0_[A-Z0-9_]*$/p' "$browser_blocker_file" 2>/dev/null | tail -1)"
+    rm -f -- "$browser_blocker_file"
+    [[ "$browser_blocker" =~ ^P0_[A-Z0-9_]{4,96}$ ]] || browser_blocker=P0_CHROMIUM_PROBE_FAILED
+    fail "$browser_blocker" 69
+  fi
+  rm -f -- "$browser_blocker_file"
+  assert_exact_main
+}
+""",
+    'CHROMIUM_BLOCKER_CAPTURE_FINISH',
+)
+
+one(
     """  local csrf status token not_before result mail_rc""",
     """  local csrf status token not_before result mail_rc rate_attempt retry_after""",
     'REGISTRATION_RATE_LIMIT_LOCALS',
@@ -183,6 +394,15 @@ required=[
     "target = canonical_mailbox(os.environ['P0_TARGET_EMAIL'])",
     "recipients.append(canonical)",
     "client.login(username, password)",
+    "url: target.origin",
+    "includeSubdomainsValue.toUpperCase() !== 'FALSE'",
+    "P0_CHROMIUM_COOKIE_SCOPE_INVALID",
+    "P0_CHROMIUM_AUTH_COOKIE_MISSING",
+    "P0_CHROMIUM_IMPORTED_SESSION_CONTEXT_INVALID",
+    "P0_CHROMIUM_SERVER_SESSION_REJECTED",
+    "P0_CHROMIUM_CLIENT_REDIRECTED",
+    "PC_P0_BROWSER_BLOCKER_FILE",
+    'fail "$browser_blocker" 69',
 ]
 missing=[x for x in required if x not in s]
 if missing:
@@ -209,6 +429,20 @@ if s.count('gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY"
     raise SystemExit('HUMAN_REVIEW_ISSUE_ROUTING_CARDINALITY_INVALID')
 if 'gh issue comment 3072 --repo' in s:
     raise SystemExit('HARDCODED_HUMAN_REVIEW_ISSUE_REMAINS')
+if s.count('url: target.origin') != 1 or s.count('cookiesFromJar(process.env.PC_P0_BROWSER_JAR, origin)') != 1:
+    raise SystemExit('CHROMIUM_CANONICAL_COOKIE_SCOPE_CARDINALITY_INVALID')
+if s.count("includeSubdomainsValue.toUpperCase() !== 'FALSE'") != 1 or s.count('domain !== target.hostname') != 1:
+    raise SystemExit('CHROMIUM_HOST_ONLY_COOKIE_SCOPE_CARDINALITY_INVALID')
+if 'REDIRECT_PATH=' in s or 'UNSAFE_PATH' in s:
+    raise SystemExit('CHROMIUM_RAW_REDIRECT_PATH_LOGGING_REMAINS')
+if s.count('P0_CHROMIUM_SERVER_REDIRECT_CLASS=') != 3 or s.count('P0_CHROMIUM_CLIENT_REDIRECT_CLASS=') != 1:
+    raise SystemExit('CHROMIUM_REDIRECT_CLASS_CARDINALITY_INVALID')
+if s.count("for (const required of ['pc_access_token', 'pc_v7_cabinet'])") != 1:
+    raise SystemExit('CHROMIUM_REQUIRED_COOKIE_PROOF_CARDINALITY_INVALID')
+if s.count("maxRedirects: 0") != 2:
+    raise SystemExit('CHROMIUM_SERVER_REDIRECT_PROOF_CARDINALITY_INVALID')
+if s.count('PC_P0_BROWSER_BLOCKER_FILE') != 2 or s.count('fail "$browser_blocker" 69') != 1:
+    raise SystemExit('CHROMIUM_BLOCKER_CAPTURE_CARDINALITY_INVALID')
 reviewer_guard = """  if env | grep -Eq '^PC_(P0|PROD_P0)_REVIEWER_'; then
     fail P0_REVIEWER_CREDENTIAL_INPUT_FORBIDDEN 27
   fi"""
@@ -228,6 +462,7 @@ if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_ALL_ROLE_APPROVAL_WINDOW_NAMESPACE=PASS\n'
   printf 'P0_ALL_ROLE_HUMAN_REVIEW_ISSUE_ROUTING=PASS\n'
   printf 'P0_ALL_ROLE_REGISTRATION_RATE_LIMIT_RETRY=PASS\n'
+  printf 'P0_ALL_ROLE_CHROMIUM_COOKIE_HANDOFF=PASS\n'
   printf 'P0_ALL_ROLE_REVIEWER_CREDENTIAL_BAN=PASS\n'
   exit 0
 fi

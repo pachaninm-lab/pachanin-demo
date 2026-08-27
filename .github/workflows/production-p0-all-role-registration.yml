@@ -288,8 +288,8 @@ jobs:
           bash scripts/production-p0-all-role-registration.sh '${{ steps.target.outputs.sha }}' \
             | tee "$EVIDENCE_DIR/run.log"
 
-      - name: Enforce bounded redacted 9-role evidence
-        id: evidence
+      - name: Scan bounded redacted 9-role evidence
+        id: redaction
         if: always()
         shell: bash
         run: |
@@ -309,6 +309,15 @@ jobs:
             1) ;;
             *) echo P0_ALL_ROLE_EVIDENCE_SCAN_FAILED >&2; exit 31 ;;
           esac
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 \
+            | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+
+      - name: Enforce terminal PASS in bounded 9-role evidence
+        id: evidence
+        if: always() && steps.redaction.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
           node - "$EVIDENCE_DIR/result.json" '${{ steps.target.outputs.sha }}' <<'NODE'
           const fs = require('node:fs');
           const [path, target] = process.argv.slice(2);
@@ -322,8 +331,6 @@ jobs:
             || result.desktopChromium !== true || result.mobileChromium !== true
             || result.logoutRelogin !== true || result.secretsOrPiiInEvidence !== false) process.exit(2);
           NODE
-          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 \
-            | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
 
       - name: Guard exact main before artifact publication
         id: artifact_guard
@@ -340,7 +347,7 @@ jobs:
         id: upload
         if: >-
           always() &&
-          steps.evidence.outcome == 'success' &&
+          steps.redaction.outcome == 'success' &&
           steps.artifact_guard.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
@@ -382,6 +389,7 @@ jobs:
             grep -Fxq P0_ALL_ROLE_REGISTRATION=PASS "$EVIDENCE_DIR/run.log" && result=PASS
           fi
           [[ "${{ steps.matrix.outcome }}" == success ]] || result=FAIL
+          [[ "${{ steps.redaction.outcome }}" == success ]] || result=FAIL
           [[ "${{ steps.evidence.outcome }}" == success ]] || result=FAIL
           [[ "${{ steps.artifact_guard.outcome }}" == success ]] || result=FAIL
           [[ "${{ steps.upload.outcome }}" == success ]] || result=FAIL
@@ -414,6 +422,7 @@ jobs:
           set -euo pipefail
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           [[ '${{ steps.matrix.outcome }}' == success ]]
+          [[ '${{ steps.redaction.outcome }}' == success ]]
           [[ '${{ steps.evidence.outcome }}' == success ]]
           [[ '${{ steps.artifact_guard.outcome }}' == success ]]
           [[ '${{ steps.upload.outcome }}' == success ]]
