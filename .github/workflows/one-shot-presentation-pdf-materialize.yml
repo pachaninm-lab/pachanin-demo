@@ -1,0 +1,95 @@
+name: One-shot presentation PDF materialization
+
+on:
+  push:
+    branches:
+      - fix/public-presentation-real-pdf-20260827
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-presentation-pdf-materialize
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch preserved final presentation source
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            feature/home-presentation-download-20260826-final2:refs/remotes/origin/presentation-source
+
+      - name: Reconstruct final PPTX from preserved chunks
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/presentation-source
+          for n in 00 01 02; do
+            git show "origin/presentation-source:apps/web/app/downloads/prozrachnaya-tsena-presentation/chunks/${n}.ts" \
+              > "/tmp/presentation-source/${n}.ts"
+          done
+          node <<'NODE'
+          const fs = require('fs');
+          const parts = ['00', '01', '02'].map((n) => {
+            const source = fs.readFileSync(`/tmp/presentation-source/${n}.ts`, 'utf8').trim();
+            const match = source.match(/^export default '([A-Za-z0-9+/=]+)';?$/);
+            if (!match) throw new Error(`Invalid preserved chunk ${n}`);
+            return match[1];
+          });
+          const pptx = Buffer.from(parts.join(''), 'base64');
+          if (pptx.length < 100000 || pptx[0] !== 0x50 || pptx[1] !== 0x4b) {
+            throw new Error(`Invalid reconstructed PPTX (${pptx.length} bytes)`);
+          }
+          fs.writeFileSync('/tmp/Prozrachnaya_Cena_GEKTA.pptx', pptx);
+          console.log(`PPTX_BYTES=${pptx.length}`);
+          NODE
+          unzip -t /tmp/Prozrachnaya_Cena_GEKTA.pptx >/dev/null
+          slides="$(unzip -Z1 /tmp/Prozrachnaya_Cena_GEKTA.pptx | grep -Ec '^ppt/slides/slide[0-9]+\.xml$')"
+          test "$slides" = "14"
+          echo "PPTX_SLIDES=$slides"
+
+      - name: Install isolated conversion tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libreoffice-impress poppler-utils >/dev/null
+
+      - name: Convert and prove final PDF
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pdf-out
+          soffice --headless --convert-to pdf --outdir /tmp/pdf-out /tmp/Prozrachnaya_Cena_GEKTA.pptx >/tmp/soffice.log 2>&1
+          cat /tmp/soffice.log
+          pdf=/tmp/pdf-out/Prozrachnaya_Cena_GEKTA.pdf
+          test -s "$pdf"
+          test "$(head -c 5 "$pdf")" = "%PDF-"
+          pages="$(pdfinfo "$pdf" | awk '/^Pages:/ {print $2}')"
+          test "$pages" = "14"
+          bytes="$(stat -c %s "$pdf")"
+          test "$bytes" -gt 100000
+          sha="$(sha256sum "$pdf" | awk '{print $1}')"
+          echo "PDF_PAGES=$pages"
+          echo "PDF_BYTES=$bytes"
+          echo "PDF_SHA256=$sha"
+          install -D -m 0644 "$pdf" apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf
+
+      - name: Commit only the real PDF and retire this one-shot workflow
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/one-shot-presentation-pdf-materialize.yml
+          git add apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf
+          changed="$(git diff --cached --name-only)"
+          test "$changed" = "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(web): replace presentation placeholder with final PDF'
+          git push origin HEAD:fix/public-presentation-real-pdf-20260827
