@@ -1,9 +1,12 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
   "scopeId": "p0-registration-current-main-images-connector-3785",
+  "branch": "fix/p0-registration-images-authority-rollover-4637",
+  "status": "active",
   "authority": {
     "registrationIssue": 3785,
-    "releaseIssue": 3072,
+    "releaseIssue": 4637,
+    "historicalReleaseIssue": 3072,
     "trustedConnectorAppId": 1144995
   },
   "purpose": "Allow the repository owner, including owner-issued commands relayed by the trusted ChatGPT GitHub connector, to build and prove canonical API/Web/migration images for the exact current main SHA without production mutation.",
@@ -13,7 +16,7 @@
   ],
   "invariants": [
     "PC-CROP registration scope only",
-    "issue #3072 owner-issued command only",
+    "active successor issue #4637 owner-issued command only; historical issue #3072 is retained as non-command history because its comment limit is exhausted",
     "trusted connector provenance must be GitHub App 1144995 when the actor is not the repository owner",
     "exact current-main SHA must be frozen before image build",
     "API, Web and migration OCI revision labels must equal the frozen SHA",
