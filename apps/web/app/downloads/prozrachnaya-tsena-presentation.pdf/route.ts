@@ -35,7 +35,7 @@ const PRESENTATION_PDF_BROTLI_BASE64 = [
   PRESENTATION_PDF_BROTLI_BASE64_PART_13,
 ].join("");
 
-export function presentationPdfBytes(): Uint8Array {
+function presentationPdfBytes(): Uint8Array {
   const compressed = Buffer.from(PRESENTATION_PDF_BROTLI_BASE64, "base64");
   return new Uint8Array(brotliDecompressSync(compressed));
 }
