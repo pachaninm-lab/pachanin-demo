@@ -18,9 +18,13 @@ fail() {
 command -v docker >/dev/null 2>&1 || fail DOCKER_UNAVAILABLE 5
 command -v python3 >/dev/null 2>&1 || fail PYTHON_UNAVAILABLE 6
 command -v df >/dev/null 2>&1 || fail DF_UNAVAILABLE 7
-docker version >/dev/null 2>&1 || fail DOCKER_DAEMON_UNAVAILABLE 8
-[[ "$(docker info --format '{{.DockerRootDir}}')" == '/var/lib/docker' ]] || fail DOCKER_STORAGE_ROOT_MISMATCH 9
-[[ -d /var/lib/docker && ! -L /var/lib/docker ]] || fail DOCKER_STORAGE_ROOT_INVALID 10
+command -v stat >/dev/null 2>&1 || fail STAT_UNAVAILABLE 8
+docker version >/dev/null 2>&1 || fail DOCKER_DAEMON_UNAVAILABLE 9
+[[ "$(docker info --format '{{.DockerRootDir}}')" == '/var/lib/docker' ]] || fail DOCKER_STORAGE_ROOT_MISMATCH 10
+[[ -d /var/lib/docker && ! -L /var/lib/docker ]] || fail DOCKER_STORAGE_ROOT_INVALID 11
+[[ -d /var/lib/containerd && ! -L /var/lib/containerd ]] || fail CONTAINERD_STORAGE_ROOT_INVALID 12
+[[ "$(stat -c '%d' /var/lib/docker)" == "$(stat -c '%d' /var/lib/containerd)" ]] || fail CONTAINERD_STORAGE_FILESYSTEM_MISMATCH 13
+printf 'CONTAINERD_STORAGE_FILESYSTEM_SHARED=1\n'
 
 report="$(mktemp)"
 trap 'rm -f "$report"' EXIT
@@ -335,7 +339,7 @@ PY_RECLAIM
 rc=$?
 set -e
 
-[[ -s "$report" && ! -L "$report" ]] || fail DOCKER_HEADROOM_EVIDENCE_MISSING 11
+[[ -s "$report" && ! -L "$report" ]] || fail DOCKER_HEADROOM_EVIDENCE_MISSING 14
 python3 - "$report" "$TARGET_SHA" "$RUN_ID" "$REQUIRED_KB" "$TARGET_KB" <<'PY_VALIDATE'
 import json
 import sys
@@ -397,4 +401,4 @@ print(f"DOCKER_HEADROOM_TARGET_REACHED={str(value['targetReached']).lower()}")
 print(f"DOCKER_HEADROOM_RECOVERY={'PASS' if value['passed'] else 'FAIL'}")
 PY_EMIT
 
-(( rc == 0 )) || fail DOCKER_HEADROOM_INSUFFICIENT_SAFE_RECLAIM 12
+(( rc == 0 )) || fail DOCKER_HEADROOM_INSUFFICIENT_SAFE_RECLAIM 15
