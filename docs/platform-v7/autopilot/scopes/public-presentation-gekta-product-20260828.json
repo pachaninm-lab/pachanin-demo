@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-presentation-gekta-product-20260828",
   "status": "active",
-  "purpose": "Publish the verified revised 14-page presentation while preserving the established visual format and positioning ГЕКТА accurately as both a standalone agricultural AI product and an analysis capability inside the «Прозрачная Цена» platform. The verified PDF bytes are transported as bounded source-controlled base64 parts and reconstructed only by the exact public download route.",
+  "purpose": "Publish the verified revised 14-page presentation while preserving the established visual format and positioning ГЕКТА accurately as both a standalone agricultural AI product and an analysis capability inside the «Прозрачная Цена» platform. The verified PDF is Brotli-compressed, transported as bounded source-controlled base64 parts, and reconstructed only by the exact public download route.",
   "allowedPaths": [
     "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf",
     "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
@@ -12,17 +12,26 @@
     "apps/web/lib/presentation-pdf/part-03.ts",
     "apps/web/lib/presentation-pdf/part-04.ts",
     "apps/web/lib/presentation-pdf/part-05.ts",
+    "apps/web/lib/presentation-pdf/part-06.ts",
+    "apps/web/lib/presentation-pdf/part-07.ts",
+    "apps/web/lib/presentation-pdf/part-08.ts",
+    "apps/web/lib/presentation-pdf/part-09.ts",
+    "apps/web/lib/presentation-pdf/part-10.ts",
+    "apps/web/lib/presentation-pdf/part-11.ts",
+    "apps/web/lib/presentation-pdf/part-12.ts",
+    "apps/web/lib/presentation-pdf/part-13.ts",
     "apps/web/tests/unit/platformV7PresentationDownload.test.ts"
   ],
   "requiredBehavior": [
     "The existing public download URL /downloads/prozrachnaya-tsena-presentation.pdf remains unchanged and repeatedly returns the same valid, unencrypted, web-readable PDF with exactly 14 pages.",
-    "The exact revised payload is 352861 bytes with SHA-256 6325b4415fec45485094d2572947651df2f0ce375ea9b771ad34743307bd0458.",
+    "The exact revised PDF payload is 352861 bytes with SHA-256 6325b4415fec45485094d2572947651df2f0ce375ea9b771ad34743307bd0458.",
+    "The source transport is exactly 193976 Brotli-compressed bytes encoded as 258636 base64 characters split into 14 bounded parts of 18474 characters each.",
     "The revised deck preserves the established 16:9 visual system and presents ГЕКТА explicitly as a standalone agricultural AI product with its own /gekta entry point.",
     "The revised deck also presents ГЕКТА as an analysis capability available inside the «Прозрачная Цена» deal workflow without merging the two products into one undefined offering.",
     "The Ministry of Agriculture wording inherited from the supplied source remains unchanged and is not expanded into an unverified endorsement, integration or production claim.",
-    "The exact route reconstructs only the pinned PDF from the six source-controlled base64 parts and sets application/pdf, attachment and no-store headers without user-controlled file or path input.",
+    "The exact route concatenates the 14 pinned base64 parts, decodes and Brotli-decompresses them, then returns only the verified PDF with application/pdf, attachment and no-store headers and no user-controlled file or path input.",
     "The existing presentation CTA, middleware public boundary, authentication, RBAC, tenant and organization behavior remain unchanged.",
-    "The focused unit test pins the exact reconstructed PDF byte length and SHA-256 digest, verifies the 14-page payload marker, route ownership and repeated deterministic decoding."
+    "The focused unit test pins the compressed transport contract and the exact reconstructed PDF byte length and SHA-256 digest, verifies the 14-page payload marker, route ownership and repeated deterministic decoding."
   ],
   "forbiddenChanges": [
     "web UI, layout, CTA placement, middleware, authentication, RBAC, tenant, role or organization behavior",
@@ -30,6 +39,6 @@
     "any generic download proxy, user-controlled path, broad /downloads bypass or dynamic external fetch",
     "claims that a bank, government system, EDI provider or other external integration is connected without verified runtime evidence",
     "claims that the platform guarantees payment, releases money itself, is production-ready or fully integrated",
-    "changes outside the exact nine implementation paths listed above"
+    "changes outside the exact seventeen implementation paths listed above"
   ]
 }
