@@ -1,10 +1,31 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { brotliDecompressSync } from "node:zlib";
 
-const EXPECTED_BYTES = 686396;
+import { GET, presentationPdfBytes } from "../../app/downloads/prozrachnaya-tsena-presentation.pdf/route";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_00 } from "../../lib/presentation-pdf/part-00";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_01 } from "../../lib/presentation-pdf/part-01";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_02 } from "../../lib/presentation-pdf/part-02";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_03 } from "../../lib/presentation-pdf/part-03";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_04 } from "../../lib/presentation-pdf/part-04";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_05 } from "../../lib/presentation-pdf/part-05";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_06 } from "../../lib/presentation-pdf/part-06";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_07 } from "../../lib/presentation-pdf/part-07";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_08 } from "../../lib/presentation-pdf/part-08";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_09 } from "../../lib/presentation-pdf/part-09";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_10 } from "../../lib/presentation-pdf/part-10";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_11 } from "../../lib/presentation-pdf/part-11";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_12 } from "../../lib/presentation-pdf/part-12";
+import { PRESENTATION_PDF_BROTLI_BASE64_PART_13 } from "../../lib/presentation-pdf/part-13";
+
+const EXPECTED_BYTES = 312533;
 const EXPECTED_SHA256 =
-  "d12bb86daacfde3d6885c3a1d41c53a81c25c9ddaf190ca9773ee8ad8587e6a9";
+  "1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5";
+const EXPECTED_COMPRESSED_BYTES = 198423;
+const EXPECTED_COMPRESSED_SHA256 =
+  "e99c503bb653bfc1f4c2fd800a5bc230404a6d22d02f3d1362cb66e1172b0612";
+const EXPECTED_BASE64_LENGTH = 264564;
 const DOWNLOAD_PATH = "/downloads/prozrachnaya-tsena-presentation.pdf";
 const PUBLIC_FILE = resolve(process.cwd(), `public${DOWNLOAD_PATH}`);
 const middlewareSource = readFileSync(resolve(process.cwd(), "middleware.ts"), "utf8");
@@ -19,6 +40,27 @@ const publicEntrySource = readFileSync(
   "utf8",
 );
 const nextConfigSource = readFileSync(resolve(process.cwd(), "next.config.js"), "utf8");
+
+const parts = [
+  PRESENTATION_PDF_BROTLI_BASE64_PART_00,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_01,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_02,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_03,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_04,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_05,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_06,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_07,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_08,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_09,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_10,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_11,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_12,
+  PRESENTATION_PDF_BROTLI_BASE64_PART_13,
+];
+
+function sha256(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
 
 function sourceBlock(declaration: string, terminator: string): string {
   const start = middlewareSource.indexOf(declaration);
@@ -45,8 +87,7 @@ describe("public presentation download", () => {
     expect(heroEnd).toBeGreaterThan(heroStart);
     const heroActions = strategicHomeSource.slice(heroStart, heroEnd);
 
-    expect(heroActions.split("data-testid='platform-v7-presentation-download'"))
-      .toHaveLength(2);
+    expect(heroActions.split("data-testid='platform-v7-presentation-download'")).toHaveLength(2);
     expect(heroActions.split(`href='${DOWNLOAD_PATH}'`)).toHaveLength(2);
     expect(heroActions).toContain("download='Прозрачная_Цена_и_ГЕКТА.pdf'");
     expect(heroActions).toContain("type='application/pdf'");
@@ -92,16 +133,41 @@ describe("public presentation download", () => {
     expect(sessionGate).toBeGreaterThan(downloadHeaderBranch);
   });
 
-  it("repeatedly reads the exact verified 14-page PDF payload", () => {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const bytes = readFileSync(PUBLIC_FILE);
+  it("pins and repeatedly decodes the exact 14-page presentation payload", () => {
+    expect(existsSync(PUBLIC_FILE)).toBe(false);
+    expect(parts).toHaveLength(14);
+    expect(parts.slice(0, 13).every((part) => part.length === 18900)).toBe(true);
+    expect(parts[13]).toHaveLength(18864);
 
+    const base64 = parts.join("");
+    expect(base64).toHaveLength(EXPECTED_BASE64_LENGTH);
+    const compressed = Buffer.from(base64, "base64");
+    expect(compressed).toHaveLength(EXPECTED_COMPRESSED_BYTES);
+    expect(sha256(compressed)).toBe(EXPECTED_COMPRESSED_SHA256);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const bytes = new Uint8Array(brotliDecompressSync(compressed));
+      expect(bytes).toEqual(presentationPdfBytes());
       expect(bytes.byteLength).toBe(EXPECTED_BYTES);
-      expect(bytes.subarray(0, 5).toString("ascii")).toBe("%PDF-");
-      expect(bytes.subarray(-32).includes("%%EOF")).toBe(true);
-      expect(createHash("sha256").update(bytes).digest("hex")).toBe(
-        EXPECTED_SHA256,
+      expect(Buffer.from(bytes.subarray(0, 5)).toString("ascii")).toBe("%PDF-");
+      expect(Buffer.from(bytes.subarray(-32)).includes(Buffer.from("%%EOF"))).toBe(true);
+      expect(Buffer.from(bytes).toString("latin1").match(/\/Type\/Page\b/g)).toHaveLength(14);
+      expect(sha256(bytes)).toBe(EXPECTED_SHA256);
+    }
+  });
+
+  it("serves the exact PDF with download-safe headers on repeated requests", async () => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const response = await GET();
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe("application/pdf");
+      expect(response.headers.get("content-disposition")).toBe(
+        'attachment; filename="prozrachnaya-tsena-presentation.pdf"',
       );
+      expect(response.headers.get("cache-control")).toContain("no-store");
+      expect(response.headers.get("content-length")).toBe(String(EXPECTED_BYTES));
+      expect(sha256(bytes)).toBe(EXPECTED_SHA256);
     }
   });
 });
