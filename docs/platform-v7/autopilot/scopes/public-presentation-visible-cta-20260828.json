@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-presentation-visible-cta-20260828",
+  "status": "active",
+  "purpose": "Make the already verified public presentation PDF visibly downloadable from the real /platform-v7 production route by moving its CTA from the bypassed shared layout into the landing page rendered by the isolated public-entry rewrite.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/page.tsx",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts"
+  ],
+  "requiredBehavior": [
+    "The RU, EN and ZH homepage variants render one visible presentation download CTA in initial server HTML.",
+    "The CTA uses the exact public path /downloads/prozrachnaya-tsena-presentation.pdf and a download filename.",
+    "The CTA is owned by the landing page imported by /pc-public-entry/platform-v7, not by the bypassed platform-v7 layout.",
+    "The existing verified PDF bytes, download route, middleware authorization boundary, public-entry rewrite, authentication and contact dock remain unchanged."
+  ],
+  "forbiddenChanges": [
+    "presentation PDF payload or download route semantics",
+    "API, database, authentication, RBAC, tenant, role or organization behavior",
+    "production workflow, host topology, secrets, volumes, networks or external services",
+    "homepage product claims or unrelated visual redesign"
+  ]
+}
