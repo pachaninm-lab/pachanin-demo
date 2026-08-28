@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CheckCircle2,
   CircleDollarSign,
+  Download,
   FileCheck2,
   FlaskConical,
   Link2,
@@ -71,6 +72,11 @@ export async function PlatformV7StrategicHome() {
   const heroMessage = getPlatformV7HeroMessage(locale);
   const story = getPlatformV7HomeStoryCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
+  const presentationDownloadLabel = locale === 'en'
+    ? 'Download presentation (PDF)'
+    : locale === 'zh'
+      ? '下载演示文稿（PDF）'
+      : 'Скачать презентацию (PDF)';
 
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
   // Platform scenario: "See Gekta in action" demonstrates the platform itself and must stay on
@@ -145,23 +151,23 @@ export async function PlatformV7StrategicHome() {
             </h1>
             <p className='pc-v6-hero-lead'>{heroMessage.lead}</p>
             <div className='pc-v6-actions'>
+              <a
+                href='/downloads/prozrachnaya-tsena-presentation.pdf'
+                download='Прозрачная_Цена_и_ГЕКТА.pdf'
+                type='application/pdf'
+                className='pc-v6-primary'
+                data-testid='platform-v7-presentation-download'
+              >
+                {presentationDownloadLabel}<Download aria-hidden='true' size={19} />
+              </a>
               <PublicExperienceLink
                 href='#live'
-                className='pc-v6-primary'
+                className='pc-v6-secondary'
                 eventName='deal_demo_open'
                 locale={locale}
                 params={{ source: 'home_v4_hero' }}
               >
-                {copy.hero.primary}<ArrowRight aria-hidden='true' size={19} />
-              </PublicExperienceLink>
-              <PublicExperienceLink
-                href='#connect-organization'
-                className='pc-v6-secondary'
-                eventName='connection_start'
-                locale={locale}
-                params={{ source: 'home_v4_hero' }}
-              >
-                {copy.hero.secondary}<ArrowRight aria-hidden='true' size={17} />
+                {copy.hero.primary}<ArrowRight aria-hidden='true' size={17} />
               </PublicExperienceLink>
             </div>
           </div>
