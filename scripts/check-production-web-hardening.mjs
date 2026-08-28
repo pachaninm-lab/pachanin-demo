@@ -92,6 +92,8 @@ requireText('release', [
   'PERSISTED_WEB_IMAGE=',
   '--pull never',
   'PC_LIVE_ACCEPTANCE_SCRIPT',
+  'command -v python3',
+  'Python 3 is required for strict live acceptance JSON parsing',
   'LEGACY_WEB_PARKED=1',
   'LEGACY_WEB_ADOPTED=1',
   'LEGACY_CONTAINER_RESTORED=',
@@ -128,9 +130,8 @@ requireText('live', [
   'ticket=%s',
   'content_type=%s',
   'body_bytes=%s',
-  'extract_json_string_field()',
-  'json_boolean_field_is_true()',
-  'if json_boolean_field_is_true "$reserve_body" allowed',
+  'extract_entitlement_ticket()',
+  'answer_ticket="$(extract_entitlement_ticket "$reserve_body"',
   'LIVE_ACTION=',
   'LIVE_ACCEPTANCE=PASS',
 ]);
@@ -312,10 +313,9 @@ for (const path of [files.release, files.remote, files.live]) {
 }
 
 const live = contents.get('live') ?? '';
-const extractor = live.match(/extract_json_string_field\(\) \{\n[\s\S]*?\n\}/)?.[0];
-const booleanProbe = live.match(/json_boolean_field_is_true\(\) \{\n[\s\S]*?\n\}/)?.[0];
-if (!extractor || !booleanProbe) {
-  failures.push(`${files.live}: JSON field helpers are not readable by the regression probe`);
+const extractor = live.match(/extract_entitlement_ticket\(\) \{\n[\s\S]*?\n\}/)?.[0];
+if (!extractor) {
+  failures.push(`${files.live}: entitlement JSON parser is not readable by the regression probe`);
 } else {
   const validTicket = 'mtce8wuh.L18UUCeYU1yRvdgM';
   const extractorProbe = spawnSync(
@@ -324,14 +324,12 @@ if (!extractor || !booleanProbe) {
       '-c',
       `set -euo pipefail
 ${extractor}
-${booleanProbe}
-json_boolean_field_is_true <(printf '%s\\n' '{"allowed":true}') allowed
-! json_boolean_field_is_true <(printf '%s\\n' '{"allowed":false}') allowed
-parsed="$(extract_json_string_field <(printf '%s\\n' '{"entitlement":{"state":"ANONYMOUS_FREE"},"allowed":true,"ticket":"${validTicket}"}') ticket)"
+parsed="$(extract_entitlement_ticket <(printf '%s\\n' '{"entitlement":{"state":"ANONYMOUS_FREE"},"allowed":true,"ticket":"${validTicket}"}'))"
 [[ "$parsed" == '${validTicket}' ]]
 [[ "$parsed" =~ ^[0-9a-z]{8,12}\\.[A-Za-z0-9_-]{16}$ ]]
-missing="$(extract_json_string_field <(printf '%s\\n' '{"allowed":false}') ticket)"
-[[ -z "$missing" ]]`,
+! extract_entitlement_ticket <(printf '%s\\n' '{"allowed":false,"ticket":"${validTicket}"}') >/dev/null
+! extract_entitlement_ticket <(printf '%s\\n' '{"meta":{"allowed":true,"ticket":"${validTicket}"},"allowed":false,"ticket":null}') >/dev/null
+! extract_entitlement_ticket <(printf '%s\\n' '{"allowed":true,"ticket":"${validTicket}","allowed":false,"ticket":null}') >/dev/null`,
     ],
     { encoding: 'utf8' },
   );
