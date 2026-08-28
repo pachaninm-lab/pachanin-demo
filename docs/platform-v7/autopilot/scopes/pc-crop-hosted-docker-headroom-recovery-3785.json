@@ -25,6 +25,7 @@
     "delete only local ghcr.io/pachaninm-lab/grainflow-api web migration or tai images that are unused by every running or stopped container",
     "protect every image referenced by any running or stopped container every image whose OCI revision equals exact current main and the two newest local images per canonical component",
     "never remove containers volumes networks build cache arbitrary third-party images or model-host artifacts",
+    "before deleting anything prove that Docker root and the observed containerd snapshot root share the same filesystem so the free-space threshold covers the failed extraction path",
     "stop reclaim when Docker filesystem available space reaches 6 GiB and fail closed if the hard 5 GiB release threshold is still not met",
     "prove running API and web container identity and OCI revisions remain unchanged after a successful reclaim",
     "prove container volume and network object counts remain unchanged after a successful reclaim",
