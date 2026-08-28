@@ -31,19 +31,25 @@ link_has_attributes() {
   return 1
 }
 
-extract_json_string_field() {
-  local file="$1" field="$2"
-  [[ "$field" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || return 1
-  tr -d '\r\n' < "$file" |
-    sed -nE 's/.*"'"$field"'"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' |
-    head -n1
-}
+extract_entitlement_ticket() {
+  local file="$1"
+  python3 - "$file" <<'PY'
+import json
+import sys
 
-json_boolean_field_is_true() {
-  local file="$1" field="$2"
-  [[ "$field" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || return 1
-  tr -d '\r\n' < "$file" |
-    grep -Eq '"'"$field"'"[[:space:]]*:[[:space:]]*true[[:space:]]*[,}]'
+try:
+    with open(sys.argv[1], "rb") as source:
+        payload = json.load(source)
+except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+    raise SystemExit(1)
+
+if not isinstance(payload, dict) or payload.get("allowed") is not True:
+    raise SystemExit(1)
+ticket = payload.get("ticket")
+if not isinstance(ticket, str):
+    raise SystemExit(1)
+sys.stdout.write(ticket)
+PY
 }
 
 check_html() {
@@ -160,10 +166,7 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   reserve_rc=$?
   set -e
 
-  answer_ticket=''
-  if json_boolean_field_is_true "$reserve_body" allowed; then
-    answer_ticket="$(extract_json_string_field "$reserve_body" ticket 2>/dev/null || true)"
-  fi
+  answer_ticket="$(extract_entitlement_ticket "$reserve_body" 2>/dev/null || true)"
   reserve_ok=0
   ticket_state=invalid
   if [[ "$reserve_rc" == 0 && "$reserve_code" == 200 && "$answer_ticket" =~ ^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$ ]]; then
