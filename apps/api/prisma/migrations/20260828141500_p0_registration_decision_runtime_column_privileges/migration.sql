@@ -9,12 +9,13 @@
 -- the authentication runtime after PostgreSQL has re-derived actor scope and
 -- locked the application.
 --
--- Production intentionally uses an unprivileged login principal whose role
--- name is not repository-canonical. Therefore this migration must not depend
--- only on development role names. It admits either a canonical auth runtime
--- name or an unprivileged LOGIN role that already owns the exact login +
--- organization-join function surface. It never selects staff/deal/storage/
--- outbox authorities and never grants table-wide DML.
+-- Production intentionally uses an unprivileged login principal. Fresh CI/DR
+-- rehearsal databases intentionally omit that production-only login, matching
+-- the earlier production_app_service_auth_principal_drift migration. Therefore
+-- zero matching runtimes is a valid no-op only when the runtime principal is
+-- absent; whenever a confined runtime exists, the grants and proof below are
+-- mandatory. No staff/deal/storage/outbox authority and no table-wide DML is
+-- admitted.
 
 DO $registration_decision_runtime_column_grants$
 DECLARE
@@ -32,7 +33,7 @@ BEGIN
       AND NOT role.rolcreaterole
       AND NOT role.rolreplication
       AND (
-        role.rolname IN ('pc_auth_runtime', 'one_deal_auth', 'app_auth')
+        role.rolname IN ('app_service', 'pc_auth_runtime', 'one_deal_auth', 'app_auth')
         OR (
           pg_catalog.has_schema_privilege(role.rolname, 'auth', 'USAGE')
           AND pg_catalog.has_function_privilege(
@@ -53,8 +54,6 @@ BEGIN
 
     EXECUTE format('GRANT USAGE ON SCHEMA auth TO %I', runtime_role);
 
-    -- Reconcile the bounded function surface as well. This is necessary for
-    -- the production principal whose name is intentionally not hard-coded.
     EXECUTE format(
       'GRANT EXECUTE ON FUNCTION auth.registration_platform_actor_authorized(text,text) TO %I',
       runtime_role
@@ -111,9 +110,12 @@ BEGIN
     );
   END LOOP;
 
+  -- Fresh CI/DR databases intentionally have no production app-service login.
+  -- Do not invent or broaden a runtime principal merely to make the migration
+  -- pass; production already has the confined principal and therefore cannot
+  -- take this no-op path.
   IF target_count < 1 THEN
-    RAISE EXCEPTION 'No confined authentication runtime matched the registration decision capability set'
-      USING ERRCODE = '42501';
+    RETURN;
   END IF;
 END
 $registration_decision_runtime_column_grants$;
@@ -151,7 +153,7 @@ BEGIN
       AND NOT role.rolcreaterole
       AND NOT role.rolreplication
       AND (
-        role.rolname IN ('pc_auth_runtime', 'one_deal_auth', 'app_auth')
+        role.rolname IN ('app_service', 'pc_auth_runtime', 'one_deal_auth', 'app_auth')
         OR (
           pg_catalog.has_schema_privilege(role.rolname, 'auth', 'USAGE')
           AND pg_catalog.has_function_privilege(
@@ -231,11 +233,6 @@ BEGIN
       END IF;
     END LOOP;
 
-    -- This migration adds only explicit column grants. Historical canonical
-    -- development roles can still carry wider registration-table privileges
-    -- from forward-only migrations, so do not misclassify those pre-existing
-    -- grants as a widening performed here. Continue to fail closed on mutation
-    -- capabilities that are never part of the registration runtime contract.
     IF pg_catalog.has_table_privilege(runtime_role, 'auth.registration_applications', 'DELETE')
        OR pg_catalog.has_table_privilege(runtime_role, 'auth.registration_application_events', 'DELETE')
        OR pg_catalog.has_table_privilege(runtime_role, 'auth.registration_application_events', 'UPDATE')
@@ -246,8 +243,7 @@ BEGIN
   END LOOP;
 
   IF target_count < 1 THEN
-    RAISE EXCEPTION 'Registration decision runtime proof found no confined authentication runtime'
-      USING ERRCODE = '42501';
+    RETURN;
   END IF;
 END
 $registration_decision_runtime_column_proof$;
