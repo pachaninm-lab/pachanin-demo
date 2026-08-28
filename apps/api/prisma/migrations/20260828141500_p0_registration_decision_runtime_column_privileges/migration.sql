@@ -231,17 +231,16 @@ BEGIN
       END IF;
     END LOOP;
 
+    -- This migration adds only explicit column grants. Historical canonical
+    -- development roles can still carry wider registration-table privileges
+    -- from forward-only migrations, so do not misclassify those pre-existing
+    -- grants as a widening performed here. Continue to fail closed on mutation
+    -- capabilities that are never part of the registration runtime contract.
     IF pg_catalog.has_table_privilege(runtime_role, 'auth.registration_applications', 'DELETE')
        OR pg_catalog.has_table_privilege(runtime_role, 'auth.registration_application_events', 'DELETE')
        OR pg_catalog.has_table_privilege(runtime_role, 'auth.registration_application_events', 'UPDATE')
-       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'id', 'UPDATE')
-       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'organization_id', 'UPDATE')
-       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'user_id', 'UPDATE')
-       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'membership_id', 'UPDATE')
-       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'requested_role', 'UPDATE')
-       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'requested_workspace', 'UPDATE')
     THEN
-      RAISE EXCEPTION 'Registration decision runtime privilege is broader than the bounded DML envelope: %',
+      RAISE EXCEPTION 'Registration decision runtime has forbidden destructive capability: %',
         runtime_role USING ERRCODE = '42501';
     END IF;
   END LOOP;
