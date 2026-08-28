@@ -118,10 +118,10 @@ if any(fragment not in s for fragment in required_jar_bindings):
 
 one(
     '--max-time 40',
-    '--max-time 90',
+    '--max-time 110',
     'HTTP_REQUEST_TIMEOUT_ENVELOPE',
 )
-if s.count('--max-time 90') != 1:
+if s.count('--max-time 110') != 1:
     raise SystemExit('HTTP_REQUEST_TIMEOUT_ENVELOPE_INVALID')
 
 p.write_text(s,encoding='utf-8')""",
@@ -144,7 +144,7 @@ if "P0_CHROMIUM_JAR_ACCESS_COOKIE_MISSING" not in s or "P0_CHROMIUM_JAR_CABINET_
     raise SystemExit('CHROMIUM_REQUIRED_JAR_COOKIE_GUARD_MISSING')
 if 'BASH_DYNAMIC_SCOPE_COOKIE_JAR_BINDING_REMAINS' not in s or 'LABEL_BOUND_COOKIE_JAR_INVARIANT_MISSING' not in s:
     raise SystemExit('LABEL_BOUND_COOKIE_JAR_PATCH_MISSING')
-if 'HTTP_REQUEST_TIMEOUT_ENVELOPE' not in s or "'--max-time 90'" not in s:
+if 'HTTP_REQUEST_TIMEOUT_ENVELOPE' not in s or "'--max-time 110'" not in s:
     raise SystemExit('HTTP_REQUEST_TIMEOUT_PATCH_MISSING')
 
 p.write_text(s, encoding='utf-8')

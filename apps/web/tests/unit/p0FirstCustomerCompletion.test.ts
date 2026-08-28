@@ -94,16 +94,16 @@ describe('P0 first-customer completion boundaries', () => {
     );
 
     expect(api).toContain('timeout: 15_000, maxWait: 5_000');
-    expect(bff).toContain('export const maxDuration = 80;');
-    expect(bff).toContain('const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 60_000;');
+    expect(bff).toContain('export const maxDuration = 100;');
+    expect(bff).toContain('const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 75_000;');
     expect(bff).toContain('signal: AbortSignal.timeout(JOIN_DECISION_UPSTREAM_TIMEOUT_MS)');
     expect(bff).toContain('await sendTransactionalMail({');
     expect(mail).toContain('const MAIL_TIMEOUT_MS = 5_000;');
     expect(mail).toContain('}, MAIL_TIMEOUT_MS + 2_500);');
-    expect(decideJoin).toContain('signal: AbortSignal.timeout(95_000)');
+    expect(decideJoin).toContain('signal: AbortSignal.timeout(120_000)');
     expect(decideJoin).not.toContain('signal: AbortSignal.timeout(15_000)');
     expect(acceptance).toContain("'HTTP_REQUEST_TIMEOUT_ENVELOPE'");
-    expect(acceptance).toContain("'--max-time 90'");
+    expect(acceptance).toContain("'--max-time 110'");
 
     expect(bff).toContain('assertCsrf(request)');
     expect(bff).toContain('request.cookies.get(ACCESS_COOKIE)?.value');

@@ -217,7 +217,7 @@ export function OrganizationTeamAdminClient({
       const response = await fetch(`/api/auth/organization-join-requests/${encodeURIComponent(applicationId)}/decision`, {
         method: 'POST',
         headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': globalThis.crypto.randomUUID() }),
-        body: JSON.stringify({ decision, reason, locale }), cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(95_000),
+        body: JSON.stringify({ decision, reason, locale }), cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(120_000),
       });
       const payload = await readJson(response);
       if (!response.ok) throw new Error(String(payload.correlationId || ''));

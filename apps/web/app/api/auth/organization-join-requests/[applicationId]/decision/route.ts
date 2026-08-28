@@ -6,12 +6,13 @@ import { sendTransactionalMail } from '@/lib/server/transactional-mail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 80;
+export const maxDuration = 100;
 
 // The API performs four guarded database stages before a Serializable
-// transaction whose maxWait + timeout envelope is 20 seconds. Keep a bounded
-// contention margin while leaving room for the synchronous mail fallback.
-const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 60_000;
+// transaction whose maxWait + timeout envelope is 20 seconds. Four default
+// 10-second pool-acquisition windows plus that transaction total 60 seconds;
+// keep explicit transport/query headroom before the synchronous mail fallback.
+const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 75_000;
 
 const mailCopy = {
   ru: { subject: 'Прозрачная Цена — решение по присоединению', text: (status: string, reason: string) => `Статус заявки на присоединение: ${status}. Основание: ${reason}. Проверьте состояние по исходной защищённой ссылке.` },
