@@ -20,7 +20,8 @@
     "apps/web/lib/presentation-pdf/part-11.ts",
     "apps/web/lib/presentation-pdf/part-12.ts",
     "apps/web/lib/presentation-pdf/part-13.ts",
-    "apps/web/tests/unit/platformV7PresentationDownload.test.ts"
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+    "docs/security/cryptographic-inventory.json"
   ],
   "requiredBehavior": [
     "The existing public download URL /downloads/prozrachnaya-tsena-presentation.pdf remains unchanged and repeatedly returns the same valid, unencrypted, web-readable PDF with exactly 14 pages.",
@@ -31,7 +32,8 @@
     "The Ministry of Agriculture wording inherited from the supplied source remains unchanged and is not expanded into an unverified endorsement, integration or production claim.",
     "The exact route concatenates the 14 pinned base64 parts, decodes and Brotli-decompresses them, then returns only the verified PDF with application/pdf, attachment and no-store headers and no user-controlled file or path input.",
     "The existing presentation CTA, middleware public boundary, authentication, RBAC, tenant and organization behavior remain unchanged.",
-    "The focused unit test pins the compressed transport contract and the exact reconstructed PDF byte length and SHA-256 digest, verifies the 14-page payload marker, route ownership and repeated deterministic decoding."
+    "The focused unit test pins the compressed transport contract and the exact reconstructed PDF byte length and SHA-256 digest, verifies the 14-page payload marker, route ownership and repeated deterministic decoding.",
+    "The cryptographic inventory remains generated metadata only and is refreshed solely because this scoped change adds tracked TypeScript source files; it does not add a cryptographic operation or key-material claim."
   ],
   "forbiddenChanges": [
     "web UI, layout, CTA placement, middleware, authentication, RBAC, tenant, role or organization behavior",
@@ -39,6 +41,6 @@
     "any generic download proxy, user-controlled path, broad /downloads bypass or dynamic external fetch",
     "claims that a bank, government system, EDI provider or other external integration is connected without verified runtime evidence",
     "claims that the platform guarantees payment, releases money itself, is production-ready or fully integrated",
-    "changes outside the exact seventeen implementation paths listed above"
+    "changes outside the exact eighteen scoped implementation/generated-metadata paths listed above"
   ]
 }
