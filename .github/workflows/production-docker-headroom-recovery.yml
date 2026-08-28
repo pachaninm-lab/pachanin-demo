@@ -14,7 +14,8 @@ permissions:
   issues: write
 
 concurrency:
-  group: production-docker-headroom-recovery
+  # Serialize this storage mutation with the exact-SHA production rollout.
+  group: production-full-stack-exact-sha
   cancel-in-progress: false
 
 env:
@@ -111,10 +112,10 @@ jobs:
                   raise SystemExit(f'forbidden recovery capability: {pattern}')
           if scope.get('branch') != 'fix/pc-crop-docker-headroom-rollover-4637':
               raise SystemExit('scope branch mismatch')
-          if scope.get('issue') != 4637 or scope.get('evidenceIssue') != 4637:
-              raise SystemExit('continuation authority mismatch')
-          if scope.get('historicalEvidenceIssue') != 3072 or scope.get('registrationMatrixIssue') != 3785:
+          if scope.get('issue') != 3785 or scope.get('evidenceIssue') != 3072:
               raise SystemExit('historical authority binding mismatch')
+          if scope.get('authorityContinuationIssue') != 4637 or scope.get('registrationMatrixIssue') != 3785:
+              raise SystemExit('continuation authority mismatch')
           if scope.get('newRecurringCostRub') != 0:
               raise SystemExit('scope recurring cost mismatch')
           print('PASS: bounded hosted recovery preserves running/stopped container images, exact-main images, two newest canonical rollback images, and forbids broad prune/delete capabilities.')
