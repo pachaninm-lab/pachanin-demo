@@ -1,9 +1,7 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-presentation-gekta-product-20260828",
-  "status": "paused",
-  "pausedReason": "PC-CROP production registration is the exclusive P0 until same-SHA production acceptance proves all 9 of 9 registration journeys. Unrelated presentation implementation and merge activity must remain stopped until that gate is complete.",
-  "resumeGate": "PC-CROP_REGISTRATION_PRODUCTION_9_OF_9_PASS",
+  "status": "active",
   "purpose": "Publish the revised 14-page presentation while preserving the established visual format and positioning ГЕКТА accurately as both a standalone agricultural AI product and an analysis capability inside the «Прозрачная Цена» platform. Because the connector cannot write binary repository files directly, the verified PDF bytes are transported as bounded source-controlled base64 parts and reconstructed by the exact public download route.",
   "allowedPaths": [
     "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf",
