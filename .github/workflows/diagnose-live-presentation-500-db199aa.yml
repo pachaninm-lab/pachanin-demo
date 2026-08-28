@@ -1,0 +1,71 @@
+name: Diagnose Live Presentation 500 db199aa
+
+on:
+  push:
+    branches:
+      - verify/live-presentation-db199aa-20260828
+    paths:
+      - '.github/workflows/diagnose-live-presentation-500-db199aa.yml'
+
+permissions:
+  contents: read
+
+env:
+  CANONICAL_VPS: '195.19.12.120'
+  INCIDENT_FROM: '2026-08-28T18:39:40Z'
+  INCIDENT_UNTIL: '2026-08-28T18:40:10Z'
+
+jobs:
+  diagnose:
+    name: Read-only presentation route diagnostic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - name: Resolve pinned production SSH
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          key="$HOME/.ssh/id_pc_prod"; known="$HOME/.ssh/known_hosts"
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          validate_key(){ local src="$1" pub; tr -d '\r' < "$src" > "$key"; chmod 0600 "$key"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          try_key(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          host="$(trim "${PC_PROD_HOST:-$CANONICAL_VPS}")"; user="$(trim "${PC_PROD_SSH_USER:-}")"; port="$(trim "${PC_PROD_SSH_PORT:-22}")"; expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == "$CANONICAL_VPS" && -n "$user" && "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"
+          scan="$(mktemp)"; match="$(mktemp)"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" == "$expected" ]] && printf '%s\n' "$line" >> "$match"; done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]; mv "$match" "$known"; chmod 0600 "$known"; rm -f "$scan"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Read web logs for exact incident window
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" bash -s -- "$INCIDENT_FROM" "$INCIDENT_UNTIL" <<'REMOTE'
+          set -Eeuo pipefail
+          from="${1:?}"; until="${2:?}"
+          mapfile -t ids < <(docker ps -q --filter 'label=com.docker.compose.service=web' | sort -u)
+          [[ ${#ids[@]} -eq 1 ]]
+          id="${ids[0]}"
+          echo "WEB_REVISION=$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$id")"
+          echo '--- PRESENTATION INCIDENT LOG ---'
+          docker logs --since "$from" --until "$until" "$id" 2>&1 \
+            | sed -E 's/([0-9]{1,3}\.){3}[0-9]{1,3}/[IP]/g; s/(token|secret|password|authorization|cookie)=?[^[:space:]]*/\1=[REDACTED]/Ig' \
+            | grep -Ei -C 8 'presentation|brotli|zlib|decompress|ERR_|error|exception|RangeError|TypeError|Buffer|route' \
+            | tail -240 || true
+          echo '--- END LOG ---'
+REMOTE
