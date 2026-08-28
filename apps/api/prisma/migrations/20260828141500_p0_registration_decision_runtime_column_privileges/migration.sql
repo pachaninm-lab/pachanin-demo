@@ -3,27 +3,82 @@
 --
 -- Production evidence from all-role run 33155036583 and the bounded read-only
 -- classifier proved SQLSTATE 42501 before the ninth employee decision could
--- commit.  The bounded SECURITY DEFINER authorization/row-lock functions are
+-- commit. The bounded SECURITY DEFINER authorization/row-lock functions are
 -- present and the row-lock privilege migration is applied; the remaining gap
--- is that the auth runtime executes a small, parameterized DML envelope on the
--- two auth registration relations after PostgreSQL has re-derived the actor
--- scope and locked the application.
+-- is the small, parameterized registration decision DML envelope executed by
+-- the authentication runtime after PostgreSQL has re-derived actor scope and
+-- locked the application.
 --
--- Do not grant table-wide SELECT/INSERT/UPDATE/DELETE.  Give only the columns
--- that RegistrationDecisionService and the bounded production verifier read or
--- write. Identity, tenant, organization and membership mutation remains behind
--- the existing bounded SECURITY DEFINER functions.
+-- Production intentionally uses an unprivileged login principal whose role
+-- name is not repository-canonical. Therefore this migration must not depend
+-- only on development role names. It admits either a canonical auth runtime
+-- name or an unprivileged LOGIN role that already owns the exact login +
+-- organization-join function surface. It never selects staff/deal/storage/
+-- outbox authorities and never grants table-wide DML.
 
 DO $registration_decision_runtime_column_grants$
 DECLARE
   runtime_role text;
+  target_count integer := 0;
 BEGIN
   FOR runtime_role IN
-    SELECT rolname
-    FROM pg_catalog.pg_roles
-    WHERE rolname IN ('pc_auth_runtime', 'one_deal_auth', 'app_auth')
+    SELECT role.rolname
+    FROM pg_catalog.pg_roles role
+    WHERE
+      role.rolcanlogin
+      AND NOT role.rolsuper
+      AND NOT role.rolbypassrls
+      AND NOT role.rolcreatedb
+      AND NOT role.rolcreaterole
+      AND NOT role.rolreplication
+      AND (
+        role.rolname IN ('pc_auth_runtime', 'one_deal_auth', 'app_auth')
+        OR (
+          pg_catalog.has_schema_privilege(role.rolname, 'auth', 'USAGE')
+          AND pg_catalog.has_function_privilege(
+            role.rolname,
+            'auth.resolve_login_credential(text)',
+            'EXECUTE'
+          )
+          AND pg_catalog.has_function_privilege(
+            role.rolname,
+            'auth.registration_organization_join_queue(text,text,text,text,text,integer)',
+            'EXECUTE'
+          )
+        )
+      )
+    ORDER BY role.rolname
   LOOP
+    target_count := target_count + 1;
+
     EXECUTE format('GRANT USAGE ON SCHEMA auth TO %I', runtime_role);
+
+    -- Reconcile the bounded function surface as well. This is necessary for
+    -- the production principal whose name is intentionally not hard-coded.
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION auth.registration_platform_actor_authorized(text,text) TO %I',
+      runtime_role
+    );
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION auth.registration_organization_admin_context(text,text,text,text,text) TO %I',
+      runtime_role
+    );
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION auth.registration_platform_review_queue(text,text,integer) TO %I',
+      runtime_role
+    );
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION auth.registration_organization_join_queue(text,text,text,text,text,integer) TO %I',
+      runtime_role
+    );
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION auth.lock_registration_decision_application(text,text,text,text,text,text,text) TO %I',
+      runtime_role
+    );
+    EXECUTE format(
+      'GRANT EXECUTE ON FUNCTION auth.apply_registration_identity_transition(text,text,text,text,text,text,text,text) TO %I',
+      runtime_role
+    );
 
     EXECUTE format(
       'GRANT SELECT ('
@@ -55,6 +110,11 @@ BEGIN
       runtime_role
     );
   END LOOP;
+
+  IF target_count < 1 THEN
+    RAISE EXCEPTION 'No confined authentication runtime matched the registration decision capability set'
+      USING ERRCODE = '42501';
+  END IF;
 END
 $registration_decision_runtime_column_grants$;
 
@@ -62,6 +122,7 @@ DO $registration_decision_runtime_column_proof$
 DECLARE
   runtime_role text;
   column_name text;
+  target_count integer := 0;
   application_select_columns constant text[] := ARRAY[
     'id', 'kind', 'user_id', 'organization_id', 'membership_id',
     'requested_workspace', 'requested_role', 'status', 'version', 'correlation_id',
@@ -80,12 +141,62 @@ DECLARE
   ];
 BEGIN
   FOR runtime_role IN
-    SELECT rolname
-    FROM pg_catalog.pg_roles
-    WHERE rolname IN ('pc_auth_runtime', 'one_deal_auth', 'app_auth')
+    SELECT role.rolname
+    FROM pg_catalog.pg_roles role
+    WHERE
+      role.rolcanlogin
+      AND NOT role.rolsuper
+      AND NOT role.rolbypassrls
+      AND NOT role.rolcreatedb
+      AND NOT role.rolcreaterole
+      AND NOT role.rolreplication
+      AND (
+        role.rolname IN ('pc_auth_runtime', 'one_deal_auth', 'app_auth')
+        OR (
+          pg_catalog.has_schema_privilege(role.rolname, 'auth', 'USAGE')
+          AND pg_catalog.has_function_privilege(
+            role.rolname,
+            'auth.resolve_login_credential(text)',
+            'EXECUTE'
+          )
+          AND pg_catalog.has_function_privilege(
+            role.rolname,
+            'auth.registration_organization_join_queue(text,text,text,text,text,integer)',
+            'EXECUTE'
+          )
+        )
+      )
+    ORDER BY role.rolname
   LOOP
+    target_count := target_count + 1;
+
+    IF NOT pg_catalog.has_schema_privilege(runtime_role, 'auth', 'USAGE')
+       OR NOT pg_catalog.has_function_privilege(
+         runtime_role,
+         'auth.registration_organization_admin_context(text,text,text,text,text)',
+         'EXECUTE'
+       )
+       OR NOT pg_catalog.has_function_privilege(
+         runtime_role,
+         'auth.registration_organization_join_queue(text,text,text,text,text,integer)',
+         'EXECUTE'
+       )
+       OR NOT pg_catalog.has_function_privilege(
+         runtime_role,
+         'auth.lock_registration_decision_application(text,text,text,text,text,text,text)',
+         'EXECUTE'
+       )
+       OR NOT pg_catalog.has_function_privilege(
+         runtime_role,
+         'auth.apply_registration_identity_transition(text,text,text,text,text,text,text,text)',
+         'EXECUTE'
+       ) THEN
+      RAISE EXCEPTION 'Registration decision bounded function surface is incomplete for %', runtime_role
+        USING ERRCODE = '42501';
+    END IF;
+
     FOREACH column_name IN ARRAY application_select_columns LOOP
-      IF NOT has_column_privilege(
+      IF NOT pg_catalog.has_column_privilege(
         runtime_role, 'auth.registration_applications', column_name, 'SELECT'
       ) THEN
         RAISE EXCEPTION 'Missing registration application SELECT column privilege for %: %',
@@ -94,7 +205,7 @@ BEGIN
     END LOOP;
 
     FOREACH column_name IN ARRAY application_update_columns LOOP
-      IF NOT has_column_privilege(
+      IF NOT pg_catalog.has_column_privilege(
         runtime_role, 'auth.registration_applications', column_name, 'UPDATE'
       ) THEN
         RAISE EXCEPTION 'Missing registration application UPDATE column privilege for %: %',
@@ -103,7 +214,7 @@ BEGIN
     END LOOP;
 
     FOREACH column_name IN ARRAY event_select_columns LOOP
-      IF NOT has_column_privilege(
+      IF NOT pg_catalog.has_column_privilege(
         runtime_role, 'auth.registration_application_events', column_name, 'SELECT'
       ) THEN
         RAISE EXCEPTION 'Missing registration event SELECT column privilege for %: %',
@@ -112,7 +223,7 @@ BEGIN
     END LOOP;
 
     FOREACH column_name IN ARRAY event_insert_columns LOOP
-      IF NOT has_column_privilege(
+      IF NOT pg_catalog.has_column_privilege(
         runtime_role, 'auth.registration_application_events', column_name, 'INSERT'
       ) THEN
         RAISE EXCEPTION 'Missing registration event INSERT column privilege for %: %',
@@ -120,19 +231,24 @@ BEGIN
       END IF;
     END LOOP;
 
-    IF has_table_privilege(runtime_role, 'auth.registration_applications', 'DELETE')
-       OR has_table_privilege(runtime_role, 'auth.registration_application_events', 'DELETE')
-       OR has_table_privilege(runtime_role, 'auth.registration_application_events', 'UPDATE')
-       OR has_column_privilege(runtime_role, 'auth.registration_applications', 'id', 'UPDATE')
-       OR has_column_privilege(runtime_role, 'auth.registration_applications', 'organization_id', 'UPDATE')
-       OR has_column_privilege(runtime_role, 'auth.registration_applications', 'user_id', 'UPDATE')
-       OR has_column_privilege(runtime_role, 'auth.registration_applications', 'membership_id', 'UPDATE')
-       OR has_column_privilege(runtime_role, 'auth.registration_applications', 'requested_role', 'UPDATE')
-       OR has_column_privilege(runtime_role, 'auth.registration_applications', 'requested_workspace', 'UPDATE')
+    IF pg_catalog.has_table_privilege(runtime_role, 'auth.registration_applications', 'DELETE')
+       OR pg_catalog.has_table_privilege(runtime_role, 'auth.registration_application_events', 'DELETE')
+       OR pg_catalog.has_table_privilege(runtime_role, 'auth.registration_application_events', 'UPDATE')
+       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'id', 'UPDATE')
+       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'organization_id', 'UPDATE')
+       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'user_id', 'UPDATE')
+       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'membership_id', 'UPDATE')
+       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'requested_role', 'UPDATE')
+       OR pg_catalog.has_column_privilege(runtime_role, 'auth.registration_applications', 'requested_workspace', 'UPDATE')
     THEN
       RAISE EXCEPTION 'Registration decision runtime privilege is broader than the bounded DML envelope: %',
         runtime_role USING ERRCODE = '42501';
     END IF;
   END LOOP;
+
+  IF target_count < 1 THEN
+    RAISE EXCEPTION 'Registration decision runtime proof found no confined authentication runtime'
+      USING ERRCODE = '42501';
+  END IF;
 END
 $registration_decision_runtime_column_proof$;
