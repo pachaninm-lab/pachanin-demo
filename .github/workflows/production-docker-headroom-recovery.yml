@@ -20,7 +20,7 @@ concurrency:
 env:
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   DEFAULT_HOST: 195.19.12.120
-  RECOVERY_ISSUE_NUMBER: 3072
+  RECOVERY_ISSUE_NUMBER: 4637
   EVIDENCE_DIR: artifacts/production-docker-headroom-recovery
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
@@ -36,7 +36,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
-       github.event.issue.number == 3072 &&
+       github.event.issue.number == 4637 &&
        github.event.comment.body == '/production reclaim-docker current-main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -59,7 +59,7 @@ jobs:
           script = pathlib.Path('scripts/production-docker-headroom-recovery.sh').read_text(encoding='utf-8')
           scope = json.loads(pathlib.Path('docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json').read_text(encoding='utf-8'))
           required_workflow = [
-              "github.event.issue.number == 3072",
+              "github.event.issue.number == 4637",
               "github.event.comment.body == '/production reclaim-docker current-main'",
               'github.event.comment.user.login',
               'github.repository_owner',
@@ -107,8 +107,12 @@ jobs:
           for pattern in forbidden:
               if re.search(pattern, combined, re.I):
                   raise SystemExit(f'forbidden recovery capability: {pattern}')
-          if scope.get('branch') != 'fix/pc-crop-hosted-docker-headroom-recovery-3785':
+          if scope.get('branch') != 'fix/pc-crop-docker-headroom-rollover-4637':
               raise SystemExit('scope branch mismatch')
+          if scope.get('issue') != 4637 or scope.get('evidenceIssue') != 4637:
+              raise SystemExit('continuation authority mismatch')
+          if scope.get('historicalEvidenceIssue') != 3072 or scope.get('registrationMatrixIssue') != 3785:
+              raise SystemExit('historical authority binding mismatch')
           if scope.get('newRecurringCostRub') != 0:
               raise SystemExit('scope recurring cost mismatch')
           print('PASS: bounded hosted recovery preserves running/stopped container images, exact-main images, two newest canonical rollback images, and forbids broad prune/delete capabilities.')
@@ -118,7 +122,7 @@ jobs:
     name: Resolve owner-authorized exact current main
     if: >-
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
+      github.event.issue.number == 4637 &&
       github.event.comment.body == '/production reclaim-docker current-main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
