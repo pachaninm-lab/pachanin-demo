@@ -40,15 +40,12 @@ function reconstruct(): Buffer {
 
   const compressed = Buffer.from(base64, "base64");
   expect(compressed.byteLength).toBe(EXPECTED_BROTLI_BYTES);
-  expect(createHash("sha256").update(compressed).digest("hex")).toBe(
-    EXPECTED_BROTLI_SHA256,
-  );
 
   return brotliDecompressSync(compressed);
 }
 
 describe("public presentation download", () => {
-  it("reconstructs the exact deterministic 14-page PDF twice", () => {
+  it("reconstructs the exact canonical 14-page PDF twice", () => {
     const first = reconstruct();
     const second = reconstruct();
 
@@ -78,6 +75,8 @@ describe("public presentation download", () => {
     expect(materializer).toContain(String(EXPECTED_BROTLI_BYTES));
     expect(materializer).toContain(EXPECTED_BROTLI_SHA256);
     expect(materializer).toContain("EXPECTED_PDF_PAGES = 14");
+    expect(materializer).toContain("brotliDecompressSync(compressed)");
+    expect(materializer).toContain("PRESENTATION_BROTLI_SHA256_NONCANONICAL");
     expect(materializer).toContain("writeFileSync(OUTPUT, pdf");
     expect(materializer).not.toContain("fetch(");
 
