@@ -74,6 +74,7 @@ fi
 [[ -d "$(dirname "$PC_IMAGE_OVERRIDE")" ]] || fail "image override directory does not exist: $(dirname "$PC_IMAGE_OVERRIDE")"
 if [[ "$ACTION" != audit ]]; then
   [[ -x "$LIVE_ACCEPTANCE_SCRIPT" ]] || fail 'PC_LIVE_ACCEPTANCE_SCRIPT must point to an executable acceptance script'
+  command -v python3 >/dev/null 2>&1 || fail 'Python 3 is required for strict live acceptance JSON parsing'
 fi
 
 compose_version="$(docker compose version --short | sed 's/^v//')"
