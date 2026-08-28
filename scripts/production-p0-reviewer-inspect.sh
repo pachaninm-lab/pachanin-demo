@@ -15,10 +15,23 @@ RELEASE_ISSUE_NUMBER="$PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER"
   || "$RELEASE_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]
 COMMAND='/production p0-reviewer-inspect current-main'
 
+# Fixed, read-only diagnostic target from the exact failed 9-role run. The
+# classifier reads only the bounded historical Docker log window and publishes
+# allowlisted classes; it never replays the join decision or emits raw logs.
+JOIN_DIAG_SOURCE_RUN_ID='33155036583-1'
+JOIN_DIAG_SOURCE_REVISION='0069e8bdc741d0c955823b14ad629513570a7bb7'
+JOIN_DIAG_SINCE='2026-08-28T08:45:05Z'
+JOIN_DIAG_UNTIL='2026-08-28T08:45:45Z'
+JOIN_DIAG_CORRELATION='p0-all-role-employee-join:0069e8bdc741:33155036583-1'
+
 key_path="$RUNNER_TEMP/pc-p0-reviewer-inspect-key"
 known_hosts="$RUNNER_TEMP/pc-p0-reviewer-inspect-known-hosts"
 result_published=0
 TARGET_SHA='unknown'
+join_diag_class='NOT_RUN'
+join_diag_basis='NONE'
+join_diag_http='UNKNOWN'
+join_diag_code='UNKNOWN'
 
 cleanup() {
   rm -f -- "$key_path" "$known_hosts"
@@ -34,6 +47,13 @@ publish_failure() {
 - result: \`FAIL\`
 - production mutation: \`NONE\`
 - blocker: \`REVIEWER_INSPECT_FAILED_CLOSED\`
+- employee join source run: \`$JOIN_DIAG_SOURCE_RUN_ID\`
+- employee join safe classifier: \`$join_diag_class\`
+- employee join classifier basis: \`$join_diag_basis\`
+- employee join safe HTTP class: \`$join_diag_http\`
+- employee join safe application code: \`$join_diag_code\`
+- raw production logs published: \`0\`
+- employee join replay: \`NONE\`
 - exit code: \`$rc\`" >/dev/null || true
   fi
   exit "$rc"
@@ -125,6 +145,162 @@ ssh -i "$key_path" -p "$port" \
   -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
   "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null' \
   >/dev/null
+
+# Diagnose the already-failed employee decision before any current-revision
+# readiness assertion. This remains useful even if unrelated main changes have
+# advanced since the source run. Raw log bytes never leave the remote shell.
+set +e
+join_diag_output="$(ssh -i "$key_path" -p "$port" \
+  -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+  -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
+  -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+  "$user@$host" "bash -s -- '$JOIN_DIAG_SOURCE_REVISION' '$JOIN_DIAG_SINCE' '$JOIN_DIAG_UNTIL' '$JOIN_DIAG_CORRELATION'" 2>/dev/null <<'REMOTE_DIAG'
+set -euo pipefail
+revision="$1"
+since="$2"
+until="$3"
+correlation="$4"
+[[ "$(id -u)" -eq 0 ]]
+command -v docker >/dev/null 2>&1
+[[ "$revision" == '0069e8bdc741d0c955823b14ad629513570a7bb7' ]]
+[[ "$since" == '2026-08-28T08:45:05Z' ]]
+[[ "$until" == '2026-08-28T08:45:45Z' ]]
+[[ "$correlation" == 'p0-all-role-employee-join:0069e8bdc741:33155036583-1' ]]
+
+collect_service_logs() {
+  local service="$1" id current_revision chunk aggregate=''
+  mapfile -t ids < <(docker ps -aq --filter "label=com.docker.compose.service=$service")
+  (( ${#ids[@]} >= 1 && ${#ids[@]} <= 32 )) || return 2
+  matched=0
+  for id in "${ids[@]}"; do
+    current_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$id" 2>/dev/null || true)"
+    [[ "$current_revision" != "$revision" ]] || {
+      matched=$((matched + 1))
+      chunk="$(docker logs --since "$since" --until "$until" "$id" 2>&1 || true)"
+      aggregate+="${aggregate:+$'\n'}$chunk"
+    }
+  done
+  (( matched >= 1 && matched <= 8 )) || return 3
+  printf '%s' "$aggregate"
+}
+
+api_logs="$(collect_service_logs api)" || api_logs=''
+web_logs="$(collect_service_logs web)" || web_logs=''
+combined="${api_logs}${api_logs:+$'\n'}${web_logs}"
+
+safe_class='NO_SAFE_LOG_MATCH'
+basis='NONE'
+http_class='UNKNOWN'
+app_code='UNKNOWN'
+
+if grep -Fq "$correlation" <<< "$combined"; then
+  basis='CORRELATION_BOUND'
+elif [[ -n "$combined" ]]; then
+  basis='FIXED_TIME_WINDOW'
+fi
+
+# Prefer explicit Web transport markers when they are present.
+if grep -Fq 'organization_join_decision_upstream_failure' <<< "$web_logs"; then
+  if grep -Fq 'UPSTREAM_TIMEOUT' <<< "$web_logs"; then
+    safe_class='WEB_UPSTREAM_TIMEOUT'
+    app_code='JOIN_REQUEST_SERVICE_UNAVAILABLE'
+    http_class='503'
+  elif grep -Fq 'UPSTREAM_TRANSPORT' <<< "$web_logs"; then
+    safe_class='WEB_UPSTREAM_TRANSPORT'
+    app_code='JOIN_REQUEST_SERVICE_UNAVAILABLE'
+    http_class='503'
+  fi
+fi
+
+# API/Prisma classes. These are allowlisted labels only; no raw error text is
+# copied out of the container.
+if [[ "$safe_class" == 'NO_SAFE_LOG_MATCH' ]]; then
+  if grep -Eqi 'P2028|Transaction API error|expired transaction|transaction[^[:alnum:]]+timeout|timeout[^[:alnum:]]+15000' <<< "$api_logs"; then
+    safe_class='API_PRISMA_TRANSACTION_ENVELOPE_TIMEOUT'
+  elif grep -Eqi 'P2024|Timed out fetching a new connection|connection pool[^[:alnum:]]+timeout' <<< "$api_logs"; then
+    safe_class='API_PRISMA_POOL_TIMEOUT'
+  elif grep -Eqi 'P2034|SQLSTATE[^0-9A-Z]*40001|serialization failure|deadlock detected' <<< "$api_logs"; then
+    safe_class='API_SERIALIZATION_OR_DEADLOCK'
+  elif grep -Eqi 'SQLSTATE[^0-9A-Z]*42501|permission denied' <<< "$api_logs"; then
+    safe_class='API_DB_PRIVILEGE_DENIED'
+  elif grep -Eqi 'SQLSTATE[^0-9A-Z]*57014|canceling statement due to statement timeout' <<< "$api_logs"; then
+    safe_class='API_STATEMENT_TIMEOUT'
+  fi
+fi
+
+# Safe application error-code allowlist. The first exact match is enough to
+# distinguish authorization/state failures without publishing a response body.
+for code in \
+  FRESH_MFA_REQUIRED \
+  ORGANIZATION_ADMIN_REQUIRED \
+  REGISTRATION_APPLICATION_NOT_FOUND \
+  REGISTRATION_STATE_CONFLICT \
+  ORGANIZATION_NOT_ELIGIBLE_FOR_JOIN \
+  ROLE_PERMISSION_CEILING_EXCEEDED \
+  REGISTRATION_IDENTITY_TRANSITION_CONFLICT \
+  REGISTRATION_VERSION_CONFLICT \
+  REGISTRATION_LIFECYCLE_RECEIPT_MISSING \
+  JOIN_REQUEST_SERVICE_UNAVAILABLE; do
+  if grep -Fq "$code" <<< "$combined"; then
+    app_code="$code"
+    [[ "$safe_class" != 'NO_SAFE_LOG_MATCH' ]] || safe_class="APP_${code}"
+    break
+  fi
+done
+
+# Correlation-bound structured access logs may expose only the numeric status.
+if [[ "$basis" == 'CORRELATION_BOUND' ]]; then
+  for status in 403 409 429 500 503; do
+    if grep -E "$correlation.*(status|statusCode)[^0-9]{0,8}$status([^0-9]|$)" <<< "$combined" >/dev/null 2>&1; then
+      http_class="$status"
+      break
+    fi
+  done
+fi
+
+# Never publish a speculative single cause when several conflicting low-level
+# classes are visible in the same fixed window without correlation binding.
+low_level_count=0
+for pattern in \
+  'P2028|Transaction API error|expired transaction|transaction[^[:alnum:]]+timeout|timeout[^[:alnum:]]+15000' \
+  'P2024|Timed out fetching a new connection|connection pool[^[:alnum:]]+timeout' \
+  'P2034|SQLSTATE[^0-9A-Z]*40001|serialization failure|deadlock detected' \
+  'SQLSTATE[^0-9A-Z]*42501|permission denied' \
+  'SQLSTATE[^0-9A-Z]*57014|canceling statement due to statement timeout'; do
+  grep -Eqi "$pattern" <<< "$api_logs" && low_level_count=$((low_level_count + 1))
+done
+if [[ "$basis" == 'FIXED_TIME_WINDOW' && "$low_level_count" -gt 1 ]]; then
+  safe_class='AMBIGUOUS_MULTIPLE_API_CLASSES'
+  http_class='UNKNOWN'
+  app_code='UNKNOWN'
+fi
+
+printf 'EMPLOYEE_JOIN_DIAG|%s|%s|%s|%s\n' "$safe_class" "$basis" "$http_class" "$app_code"
+printf 'PRODUCTION_MUTATION=NONE\n'
+unset api_logs web_logs combined
+REMOTE_DIAG
+)"
+join_diag_rc=$?
+set -e
+if [[ "$join_diag_rc" == 0 ]]; then
+  join_diag_marker="$(grep '^EMPLOYEE_JOIN_DIAG|' <<< "$join_diag_output" | tail -n1)"
+  join_diag_mutation="$(grep '^PRODUCTION_MUTATION=' <<< "$join_diag_output" | tail -n1)"
+  if [[ "$join_diag_mutation" == 'PRODUCTION_MUTATION=NONE' ]]; then
+    IFS='|' read -r join_diag_tag join_diag_class join_diag_basis join_diag_http join_diag_code <<< "$join_diag_marker"
+    [[ "$join_diag_tag" == 'EMPLOYEE_JOIN_DIAG' ]] || join_diag_class='DIAGNOSTIC_OUTPUT_INVALID'
+    [[ "$join_diag_class" =~ ^[A-Z0-9_]{3,96}$ ]] || join_diag_class='DIAGNOSTIC_OUTPUT_INVALID'
+    [[ "$join_diag_basis" =~ ^[A-Z0-9_]{3,32}$ ]] || join_diag_basis='NONE'
+    [[ "$join_diag_http" =~ ^(UNKNOWN|[45][0-9]{2})$ ]] || join_diag_http='UNKNOWN'
+    [[ "$join_diag_code" =~ ^[A-Z0-9_]{3,96}$ ]] || join_diag_code='UNKNOWN'
+  else
+    join_diag_class='DIAGNOSTIC_MUTATION_ASSERTION_MISSING'
+  fi
+else
+  join_diag_class='DIAGNOSTIC_SOURCE_LOGS_UNAVAILABLE'
+fi
+unset join_diag_output join_diag_marker join_diag_mutation
+
+guard_main
 
 output="$(ssh -i "$key_path" -p "$port" \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
@@ -300,6 +476,13 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 - reviewer password credentials ready: \`$passwords / $assignments\`
 - reviewer TOTP enrollments ready: \`$mfa / $assignments\`
 - structurally login-ready and unlocked reviewers: \`$login / $assignments\`
+- employee join source run: \`$JOIN_DIAG_SOURCE_RUN_ID\`
+- employee join safe classifier: \`$join_diag_class\`
+- employee join classifier basis: \`$join_diag_basis\`
+- employee join safe HTTP class: \`$join_diag_http\`
+- employee join safe application code: \`$join_diag_code\`
+- raw production logs published: \`0\`
+- employee join replay: \`NONE\`
 - production mutation: \`NONE\`
 - next: \`$next\`" >/dev/null
 result_published=1
