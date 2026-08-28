@@ -73,8 +73,8 @@ jobs:
             'auth.registration_applications',
             'auth.registration_application_events',
             'PRODUCTION_MUTATION=NONE',
-            'employee decision replay: `NONE`',
-            'raw identifiers or credentials published: `0`',
+            'employee decision replay: \\`NONE\\`',
+            'raw identifiers or credentials published: \\`0\\`',
           ];
           for (const marker of required) {
             if (!source.includes(marker)) throw new Error(`Missing employee state inspector marker: ${marker}`);
