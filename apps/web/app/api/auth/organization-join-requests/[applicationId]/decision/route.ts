@@ -6,7 +6,12 @@ import { sendTransactionalMail } from '@/lib/server/transactional-mail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 15;
+export const maxDuration = 80;
+
+// The API performs four guarded database stages before a Serializable
+// transaction whose maxWait + timeout envelope is 20 seconds. Keep a bounded
+// contention margin while leaving room for the synchronous mail fallback.
+const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 60_000;
 
 const mailCopy = {
   ru: { subject: 'Прозрачная Цена — решение по присоединению', text: (status: string, reason: string) => `Статус заявки на присоединение: ${status}. Основание: ${reason}. Проверьте состояние по исходной защищённой ссылке.` },
@@ -67,7 +72,7 @@ export async function POST(
       body: JSON.stringify({ decision, reason }),
       cache: 'no-store',
       redirect: 'manual',
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(JOIN_DECISION_UPSTREAM_TIMEOUT_MS),
     });
     if (upstreamResponse.status >= 300 && upstreamResponse.status < 400) {
       return json({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId }, 502);
@@ -97,7 +102,14 @@ export async function POST(
       }));
     }
     return json({ ...payload, notificationDelivered, correlationId }, upstreamResponse.status);
-  } catch {
+  } catch (error) {
+    const failureClass = error instanceof Error && error.name === 'TimeoutError'
+      ? 'UPSTREAM_TIMEOUT'
+      : 'UPSTREAM_TRANSPORT';
+    console.warn('organization_join_decision_upstream_failure', JSON.stringify({
+      correlationId,
+      failureClass,
+    }));
     return json({ ok: false, code: 'JOIN_REQUEST_SERVICE_UNAVAILABLE', correlationId }, 503);
   }
 }
