@@ -1,6 +1,7 @@
 services:
   web:
     container_name: !reset null
+    labels: !reset {}
     init: true
     restart: unless-stopped
     stop_grace_period: 30s
