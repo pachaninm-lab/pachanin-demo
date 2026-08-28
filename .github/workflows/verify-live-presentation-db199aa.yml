@@ -1,0 +1,75 @@
+name: Verify Live Presentation db199aa
+
+on:
+  push:
+    branches:
+      - verify/live-presentation-db199aa-20260828
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify public presentation twice
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      TARGET_SHA: db199aa21f3dac117723ec1df0af0b74e7845d43
+      EXPECTED_PDF_SHA256: 1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5
+      EXPECTED_PDF_BYTES: '312533'
+      EXPECTED_PDF_PAGES: '14'
+    steps:
+      - name: Verify exact live revision and public download CTA
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p evidence
+          cache="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          manifest="$(curl -fsSL --compressed --retry 3 --retry-all-errors --connect-timeout 15 --max-time 45 "$LIVE_BASE/manifest-pc-deploy.json?presentation_verify=$cache")"
+          grep -Fq "$TARGET_SHA" <<< "$manifest"
+
+          home_code="$(curl -sS -L --compressed --retry 3 --retry-all-errors --connect-timeout 15 --max-time 45 -o evidence/platform-v7.html -w '%{http_code}' "$LIVE_BASE/platform-v7?lang=ru&presentation_verify=$cache")"
+          [[ "$home_code" == 200 ]]
+          grep -Fq 'href="/downloads/prozrachnaya-tsena-presentation.pdf"' evidence/platform-v7.html
+          grep -Fq 'data-testid="platform-v7-presentation-download"' evidence/platform-v7.html
+          printf 'LIVE_REVISION=%s\nHOME_HTTP=%s\nCTA=PASS\n' "$TARGET_SHA" "$home_code" > evidence/summary.txt
+
+      - name: Verify two independent PDF downloads
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if ! command -v pdfinfo >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq poppler-utils
+          fi
+          url="$LIVE_BASE/downloads/prozrachnaya-tsena-presentation.pdf"
+          for n in 1 2; do
+            pdf="evidence/live-presentation-$n.pdf"
+            hdr="evidence/live-presentation-$n.headers"
+            code="$(curl -sS -L --retry 3 --retry-all-errors --connect-timeout 15 --max-time 60 -D "$hdr" -o "$pdf" -w '%{http_code}' "$url?presentation_verify=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-$n")"
+            [[ "$code" == 200 ]]
+            grep -Eiq '^content-type:[[:space:]]*application/pdf([;[:space:]]|$)' "$hdr"
+            grep -Eiq '^content-disposition:[[:space:]]*attachment;.*prozrachnaya-tsena-presentation\.pdf' "$hdr"
+            bytes="$(stat -c%s "$pdf")"
+            sha="$(sha256sum "$pdf" | awk '{print $1}')"
+            pages="$(pdfinfo "$pdf" | awk '/^Pages:/ {print $2}')"
+            [[ "$bytes" == "$EXPECTED_PDF_BYTES" ]]
+            [[ "$sha" == "$EXPECTED_PDF_SHA256" ]]
+            [[ "$pages" == "$EXPECTED_PDF_PAGES" ]]
+            head -c 5 "$pdf" | grep -Fq '%PDF-'
+            printf 'DOWNLOAD_%s_HTTP=%s\nDOWNLOAD_%s_BYTES=%s\nDOWNLOAD_%s_SHA256=%s\nDOWNLOAD_%s_PAGES=%s\n' "$n" "$code" "$n" "$bytes" "$n" "$sha" "$n" "$pages" >> evidence/summary.txt
+          done
+          cmp -s evidence/live-presentation-1.pdf evidence/live-presentation-2.pdf
+          printf 'BYTE_IDENTICAL=YES\nLIVE_PRESENTATION_VERIFICATION=PASS\n' >> evidence/summary.txt
+          cat evidence/summary.txt
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-presentation-db199aa-${{ github.run_id }}
+          path: evidence
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
