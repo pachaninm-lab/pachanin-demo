@@ -15,7 +15,11 @@ const ROUTE_FILE = resolve(
   process.cwd(),
   "app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
 );
-const STATIC_FILE = resolve(process.cwd(), `public${DOWNLOAD_PATH}`);
+const MATERIALIZER_FILE = resolve(
+  process.cwd(),
+  "scripts/materialize-presentation-pdf.mjs",
+);
+const PACKAGE_FILE = resolve(process.cwd(), "package.json");
 
 function readPart(index: number): string {
   const suffix = String(index).padStart(2, "0");
@@ -61,17 +65,24 @@ describe("public presentation download", () => {
     expect(first.equals(second)).toBe(true);
   });
 
-  it("keeps the exact route as the sole owner of the public URL", () => {
-    const route = readFileSync(ROUTE_FILE, "utf8");
+  it("materializes the exact PDF before dev/build and keeps the live URL static", () => {
+    const materializer = readFileSync(MATERIALIZER_FILE, "utf8");
+    const pkg = JSON.parse(readFileSync(PACKAGE_FILE, "utf8")) as {
+      scripts: Record<string, string>;
+    };
 
-    expect(existsSync(STATIC_FILE)).toBe(false);
-    expect(route).toContain('import { brotliDecompressSync } from "node:zlib"');
-    expect(route).toContain("PRESENTATION_PDF_BROTLI_BASE64_PART_00");
-    expect(route).toContain("PRESENTATION_PDF_BROTLI_BASE64_PART_13");
-    expect(route).toContain('"content-type": "application/pdf"');
-    expect(route).toContain("attachment; filename=\"prozrachnaya-tsena-presentation.pdf\"");
-    expect(route).toContain('"cache-control": "no-store, max-age=0"');
-    expect(route).not.toContain("readFileSync");
-    expect(route).not.toContain("fetch(");
+    expect(existsSync(ROUTE_FILE)).toBe(false);
+    expect(materializer).toContain("public/downloads/prozrachnaya-tsena-presentation.pdf");
+    expect(materializer).toContain(String(EXPECTED_PDF_BYTES));
+    expect(materializer).toContain(EXPECTED_PDF_SHA256);
+    expect(materializer).toContain(String(EXPECTED_BROTLI_BYTES));
+    expect(materializer).toContain(EXPECTED_BROTLI_SHA256);
+    expect(materializer).toContain("EXPECTED_PDF_PAGES = 14");
+    expect(materializer).toContain("writeFileSync(OUTPUT, pdf");
+    expect(materializer).not.toContain("fetch(");
+
+    expect(pkg.scripts.dev).toContain("node scripts/materialize-presentation-pdf.mjs");
+    expect(pkg.scripts.build).toContain("node scripts/materialize-presentation-pdf.mjs");
+    expect(DOWNLOAD_PATH).toBe("/downloads/prozrachnaya-tsena-presentation.pdf");
   });
 });
