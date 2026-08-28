@@ -1236,6 +1236,7 @@
       "apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts",
       "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
       "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
+      "scripts/production-p0-all-role-registration.sh",
       "scripts/production-p0-reviewer-inspect.sh",
       "scripts/check-production-full-stack-release.mjs",
       "scripts/check-production-auth-mail-outbox-cutover.mjs",
