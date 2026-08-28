@@ -2,16 +2,9 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-presentation-gekta-product-20260828",
   "status": "active",
-  "purpose": "Publish the revised 14-page presentation while preserving the established visual format and positioning ГЕКТА accurately as both a standalone agricultural AI product and an analysis capability inside the «Прозрачная Цена» platform. Because the connector cannot write binary repository files directly, the verified PDF bytes are transported as bounded source-controlled base64 parts and reconstructed by the exact public download route.",
+  "purpose": "Replace the existing public presentation PDF in place with the verified revised 14-page «Прозрачная Цена + ГЕКТА» deck, preserving the established download URL, visible CTA, middleware boundary and all authentication/business behavior.",
   "allowedPaths": [
     "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf",
-    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
-    "apps/web/lib/presentation-pdf/part-00.ts",
-    "apps/web/lib/presentation-pdf/part-01.ts",
-    "apps/web/lib/presentation-pdf/part-02.ts",
-    "apps/web/lib/presentation-pdf/part-03.ts",
-    "apps/web/lib/presentation-pdf/part-04.ts",
-    "apps/web/lib/presentation-pdf/part-05.ts",
     "apps/web/tests/unit/platformV7PresentationDownload.test.ts"
   ],
   "requiredBehavior": [
@@ -20,9 +13,8 @@
     "The revised deck preserves the established 16:9 visual system and presents ГЕКТА explicitly as a standalone agricultural AI product with its own /gekta entry point.",
     "The revised deck also presents ГЕКТА as an analysis capability available inside the «Прозрачная Цена» deal workflow without merging the two products into one undefined offering.",
     "The Ministry of Agriculture wording inherited from the supplied source remains unchanged and is not expanded into an unverified endorsement, integration or production claim.",
-    "The route reconstructs only the pinned PDF from source-controlled base64 parts, sets application/pdf plus attachment/no-store headers, and has no user-controlled file selector or filesystem path input.",
-    "The existing presentation CTA, middleware public boundary, authentication, RBAC, tenant and organization behavior remain unchanged.",
-    "The focused unit test pins the exact reconstructed PDF byte length and SHA-256 digest, verifies the 14-page payload contract, route ownership and repeated deterministic decoding."
+    "The existing presentation CTA, middleware exact public boundary, attachment filename, authentication, RBAC, tenant and organization behavior remain unchanged.",
+    "The focused unit test pins the exact PDF byte length and SHA-256 digest, verifies PDF framing and the 14-page payload marker, and reads the payload twice to prove deterministic repeatable download content."
   ],
   "forbiddenChanges": [
     "web UI, layout, CTA placement, middleware, authentication, RBAC, tenant, role or organization behavior",
@@ -30,6 +22,6 @@
     "any generic download proxy, user-controlled path, broad /downloads bypass or dynamic external fetch",
     "claims that a bank, government system, EDI provider or other external integration is connected without verified runtime evidence",
     "claims that the platform guarantees payment, releases money itself, is production-ready or fully integrated",
-    "changes outside the exact nine implementation paths listed above"
+    "changes outside the exact two implementation paths listed above"
   ]
 }
