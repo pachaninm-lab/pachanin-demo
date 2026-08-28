@@ -42,8 +42,10 @@ export function presentationPdfBytes(): Uint8Array {
 
 export async function GET(): Promise<Response> {
   const pdf = presentationPdfBytes();
+  const body = new ArrayBuffer(pdf.byteLength);
+  new Uint8Array(body).set(pdf);
 
-  return new Response(pdf, {
+  return new Response(body, {
     status: 200,
     headers: {
       "content-type": "application/pdf",
