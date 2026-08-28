@@ -107,7 +107,7 @@ jobs:
           for pattern in forbidden:
               if re.search(pattern, combined, re.I):
                   raise SystemExit(f'forbidden recovery capability: {pattern}')
-          if scope.get('branch') != 'fix/pc-crop-hosted-docker-headroom-recovery-3785':
+          if scope.get('branch') != 'fix/pc-crop-docker-headroom-rollover-4637':
               raise SystemExit('scope branch mismatch')
           if scope.get('newRecurringCostRub') != 0:
               raise SystemExit('scope recurring cost mismatch')
