@@ -31,6 +31,21 @@ link_has_attributes() {
   return 1
 }
 
+extract_json_string_field() {
+  local file="$1" field="$2"
+  [[ "$field" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || return 1
+  tr -d '\r\n' < "$file" |
+    sed -nE 's/.*"'"$field"'"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/p' |
+    head -n1
+}
+
+json_boolean_field_is_true() {
+  local file="$1" field="$2"
+  [[ "$field" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || return 1
+  tr -d '\r\n' < "$file" |
+    grep -Eq '"'"$field"'"[[:space:]]*:[[:space:]]*true[[:space:]]*[,}]'
+}
+
 check_html() {
   local body="$1" locale_label="$2" lang="$3" title="$4" h1="$5" canonical="$6"
   local html_tag missing=()
@@ -145,11 +160,10 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   reserve_rc=$?
   set -e
 
-  answer_ticket="$(node -e '
-    const fs = require("node:fs");
-    const payload = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-    if (payload?.allowed === true && typeof payload.ticket === "string") process.stdout.write(payload.ticket);
-  ' "$reserve_body" 2>/dev/null || true)"
+  answer_ticket=''
+  if json_boolean_field_is_true "$reserve_body" allowed; then
+    answer_ticket="$(extract_json_string_field "$reserve_body" ticket 2>/dev/null || true)"
+  fi
   reserve_ok=0
   ticket_state=invalid
   if [[ "$reserve_rc" == 0 && "$reserve_code" == 200 && "$answer_ticket" =~ ^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$ ]]; then
