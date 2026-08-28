@@ -10,9 +10,9 @@
 -- scope and locked the application.
 --
 -- Do not grant table-wide SELECT/INSERT/UPDATE/DELETE.  Give only the columns
--- that RegistrationDecisionService already reads/writes.  Identity, tenant,
--- organization and membership mutation remains behind the existing bounded
--- SECURITY DEFINER functions.
+-- that RegistrationDecisionService and the bounded production verifier read or
+-- write. Identity, tenant, organization and membership mutation remains behind
+-- the existing bounded SECURITY DEFINER functions.
 
 DO $registration_decision_runtime_column_grants$
 DECLARE
@@ -29,7 +29,7 @@ BEGIN
       'GRANT SELECT ('
       || 'id, kind, user_id, organization_id, membership_id, '
       || 'requested_workspace, requested_role, status, version, correlation_id, '
-      || 'email, decision_reason'
+      || 'email, decision_reason, decided_at'
       || ') ON auth.registration_applications TO %I',
       runtime_role
     );
@@ -65,7 +65,7 @@ DECLARE
   application_select_columns constant text[] := ARRAY[
     'id', 'kind', 'user_id', 'organization_id', 'membership_id',
     'requested_workspace', 'requested_role', 'status', 'version', 'correlation_id',
-    'email', 'decision_reason'
+    'email', 'decision_reason', 'decided_at'
   ];
   application_update_columns constant text[] := ARRAY[
     'status', 'decided_at', 'decision_reason', 'decision_actor_user_id', 'version', 'updated_at'
