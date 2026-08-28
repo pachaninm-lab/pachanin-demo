@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-presentation-gekta-product-20260828",
+  "status": "active",
+  "purpose": "Replace the public presentation PDF in place while preserving its established visual format and positioning ГЕКТА accurately as both a standalone agricultural AI product and an analysis capability inside the «Прозрачная Цена» platform.",
+  "allowedPaths": [
+    "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts"
+  ],
+  "requiredBehavior": [
+    "The existing public download path /downloads/prozrachnaya-tsena-presentation.pdf continues to return one valid, unencrypted, web-readable PDF with exactly 14 pages.",
+    "The revised deck preserves the established 16:9 visual system and presents ГЕКТА explicitly as a standalone agricultural AI product with its own /gekta entry point.",
+    "The revised deck also presents ГЕКТА as an analysis capability available inside the «Прозрачная Цена» Deal workflow without merging the two products into one undefined offering.",
+    "The Ministry of Agriculture wording inherited from the supplied source remains unchanged and is not expanded into an unverified endorsement, integration or production claim.",
+    "The focused unit test pins the exact PDF byte length and SHA-256 digest and verifies the 14-page payload and public-download contract.",
+    "The existing presentation CTA, route semantics, middleware boundary and application runtime remain unchanged."
+  ],
+  "forbiddenChanges": [
+    "web UI, layout, CTA placement, route handlers, middleware, authentication, RBAC, tenant, role or organization behavior",
+    "API, database schema or migrations, packages, lockfiles, production workflows, hosting topology, secrets, volumes, networks or external services",
+    "claims that a bank, government system, EDI provider or other external integration is connected without verified runtime evidence",
+    "claims that the platform guarantees payment, releases money itself, is production-ready or fully integrated",
+    "changes to any presentation-download implementation file other than the exact PDF payload and its focused unit test"
+  ]
+}
