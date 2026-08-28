@@ -82,6 +82,43 @@ describe('P0 first-customer completion boundaries', () => {
     expect(decisions).toContain('ROLE_PERMISSION_CEILING_EXCEEDED');
   });
 
+  it('keeps organization join decisions inside coherent API, mail and browser time budgets', () => {
+    const api = read('apps/api/src/modules/auth/registration-decision.service.ts');
+    const bff = read('apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts');
+    const client = read('apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx');
+    const mail = read('apps/web/lib/server/transactional-mail.ts');
+    const acceptance = read('scripts/production-p0-all-role-registration.sh');
+    const decideJoin = client.slice(
+      client.indexOf('async function decideJoin'),
+      client.indexOf('async function memberCommand'),
+    );
+
+    expect(api).toContain('timeout: 15_000, maxWait: 5_000');
+    expect(bff).toContain('export const maxDuration = 100;');
+    expect(bff).toContain('const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 75_000;');
+    expect(bff).toContain('signal: AbortSignal.timeout(JOIN_DECISION_UPSTREAM_TIMEOUT_MS)');
+    expect(bff).toContain('await sendTransactionalMail({');
+    expect(mail).toContain('const MAIL_TIMEOUT_MS = 5_000;');
+    expect(mail).toContain('}, MAIL_TIMEOUT_MS + 2_500);');
+    expect(decideJoin).toContain('signal: AbortSignal.timeout(120_000)');
+    expect(decideJoin).not.toContain('signal: AbortSignal.timeout(15_000)');
+    expect(acceptance).toContain("'HTTP_REQUEST_TIMEOUT_ENVELOPE'");
+    expect(acceptance).toContain("'--max-time 110'");
+
+    expect(bff).toContain('assertCsrf(request)');
+    expect(bff).toContain('request.cookies.get(ACCESS_COOKIE)?.value');
+    expect(bff).toContain("'Idempotency-Key': idempotencyKey");
+    expect(bff).toContain("'X-Registration-Delivery-Key': deliveryKey");
+    expect(bff).toContain("code: 'JOIN_REQUEST_SERVICE_UNAVAILABLE', correlationId }, 503");
+
+    expect(bff).toContain("error instanceof Error && error.name === 'TimeoutError'");
+    expect(bff).toContain("? 'UPSTREAM_TIMEOUT'");
+    expect(bff).toContain(": 'UPSTREAM_TRANSPORT'");
+    expect(bff).toMatch(/console\.warn\('organization_join_decision_upstream_failure', JSON\.stringify\(\{\s*correlationId,\s*failureClass,\s*\}\)\);/);
+    expect(bff).not.toContain('error.message');
+    expect(bff).not.toContain('String(error)');
+  });
+
   it('offers an authenticated one-time MFA step-up instead of requiring a new login', () => {
     const api = read('apps/api/src/modules/auth/auth.service.ts');
     const start = read('apps/web/app/api/auth/mfa-step-up/start/route.ts');
