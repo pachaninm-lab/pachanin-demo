@@ -128,6 +128,9 @@ requireText('live', [
   'ticket=%s',
   'content_type=%s',
   'body_bytes=%s',
+  'extract_json_string_field()',
+  'json_boolean_field_is_true()',
+  'if json_boolean_field_is_true "$reserve_body" allowed',
   'LIVE_ACTION=',
   'LIVE_ACCEPTANCE=PASS',
 ]);
@@ -299,12 +302,44 @@ forbid('remote', [/sshpass/i, /PC_PROD_SSH_PASSWORD/, /VPS_SSH_PASSWORD/]);
 forbid('live', [
   /cat\s+"?\$stream_body"?/,
   /(?:echo|printf)[^\n]*\$answer_ticket/,
+  /node\s+-e/,
 ]);
 forbid('hardening', [/Netlify.*production/i, /Vercel.*production/i]);
 
 for (const path of [files.release, files.remote, files.live]) {
   const result = spawnSync('bash', ['-n', path], { encoding: 'utf8' });
   if (result.status !== 0) failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
+}
+
+const live = contents.get('live') ?? '';
+const extractor = live.match(/extract_json_string_field\(\) \{\n[\s\S]*?\n\}/)?.[0];
+const booleanProbe = live.match(/json_boolean_field_is_true\(\) \{\n[\s\S]*?\n\}/)?.[0];
+if (!extractor || !booleanProbe) {
+  failures.push(`${files.live}: JSON field helpers are not readable by the regression probe`);
+} else {
+  const validTicket = 'mtce8wuh.L18UUCeYU1yRvdgM';
+  const extractorProbe = spawnSync(
+    'bash',
+    [
+      '-c',
+      `set -euo pipefail
+${extractor}
+${booleanProbe}
+json_boolean_field_is_true <(printf '%s\\n' '{"allowed":true}') allowed
+! json_boolean_field_is_true <(printf '%s\\n' '{"allowed":false}') allowed
+parsed="$(extract_json_string_field <(printf '%s\\n' '{"entitlement":{"state":"ANONYMOUS_FREE"},"allowed":true,"ticket":"${validTicket}"}') ticket)"
+[[ "$parsed" == '${validTicket}' ]]
+[[ "$parsed" =~ ^[0-9a-z]{8,12}\\.[A-Za-z0-9_-]{16}$ ]]
+missing="$(extract_json_string_field <(printf '%s\\n' '{"allowed":false}') ticket)"
+[[ -z "$missing" ]]`,
+    ],
+    { encoding: 'utf8' },
+  );
+  if (extractorProbe.status !== 0) {
+    failures.push(
+      `${files.live}: node-free entitlement ticket extraction probe failed: ${extractorProbe.stderr.trim()}`,
+    );
+  }
 }
 
 if (failures.length > 0) {
