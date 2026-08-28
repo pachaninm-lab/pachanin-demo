@@ -20,16 +20,23 @@
     "apps/web/lib/presentation-pdf/part-11.ts",
     "apps/web/lib/presentation-pdf/part-12.ts",
     "apps/web/lib/presentation-pdf/part-13.ts",
+    "apps/web/lib/presentation-pdf/part-14.ts",
+    "apps/web/lib/presentation-pdf/part-15.ts",
+    "apps/web/lib/presentation-pdf/part-16.ts",
+    "apps/web/lib/presentation-pdf/part-17.ts",
+    "apps/web/lib/presentation-pdf/part-18.ts",
+    "apps/web/lib/presentation-pdf/part-19.ts",
+    "apps/web/lib/presentation-pdf/part-20.ts",
     "apps/web/tests/unit/platformV7PresentationDownload.test.ts"
   ],
   "requiredBehavior": [
     "The existing public download URL /downloads/prozrachnaya-tsena-presentation.pdf remains unchanged and repeatedly returns the same valid, unencrypted, web-readable PDF with exactly 14 pages.",
     "The deterministic revised PDF payload is exactly 312533 bytes with SHA-256 1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5. It is derived from the approved 692279-byte final deck without changing its 14-page extracted text or presentation content; repeated deterministic normalization yields identical bytes.",
-    "The source transport is exactly 198423 Brotli-compressed bytes with SHA-256 e99c503bb653bfc1f4c2fd800a5bc230404a6d22d02f3d1362cb66e1172b0612 encoded as 264564 base64 characters split into 14 bounded parts: parts 00-12 are 18900 characters each and part 13 is 18864 characters.",
+    "The source transport is exactly 198423 Brotli-compressed bytes with SHA-256 e99c503bb653bfc1f4c2fd800a5bc230404a6d22d02f3d1362cb66e1172b0612 encoded as 264564 base64 characters split into 21 bounded parts: parts 00-06 are 18900 characters each, parts 07-19 are 9448 characters each and part 20 is 9440 characters.",
     "The revised deck preserves the established 16:9 visual system and presents ГЕКТА explicitly as a standalone agricultural AI product with its own /gekta entry point.",
     "The revised deck also presents ГЕКТА as an analysis capability available inside the «Прозрачная Цена» deal workflow without merging the two products into one undefined offering.",
     "The Ministry of Agriculture wording inherited from the supplied source remains unchanged and is not expanded into an unverified endorsement, integration or production claim.",
-    "The exact route concatenates the 14 pinned base64 parts, decodes and Brotli-decompresses them, then returns only the verified PDF with application/pdf, attachment and no-store headers and no user-controlled file or path input.",
+    "The exact route concatenates the 21 pinned base64 parts, decodes and Brotli-decompresses them, then returns only the verified PDF with application/pdf, attachment and no-store headers and no user-controlled file or path input.",
     "The existing presentation CTA, middleware public boundary, authentication, RBAC, tenant and organization behavior remain unchanged.",
     "The focused unit test pins the compressed transport contract and the exact reconstructed PDF byte length and SHA-256 digest, verifies the 14-page payload marker, route ownership and repeated deterministic decoding."
   ],
@@ -39,6 +46,6 @@
     "any generic download proxy, user-controlled path, broad /downloads bypass or dynamic external fetch",
     "claims that a bank, government system, EDI provider or other external integration is connected without verified runtime evidence",
     "claims that the platform guarantees payment, releases money itself, is production-ready or fully integrated",
-    "changes outside the exact seventeen implementation paths listed above"
+    "changes outside the exact twenty-four implementation paths listed above"
   ]
 }
