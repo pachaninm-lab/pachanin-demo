@@ -40,6 +40,9 @@ function reconstruct(): Buffer {
 
   const compressed = Buffer.from(base64, "base64");
   expect(compressed.byteLength).toBe(EXPECTED_BROTLI_BYTES);
+  expect(createHash("sha256").update(compressed).digest("hex")).toBe(
+    EXPECTED_BROTLI_SHA256,
+  );
 
   return brotliDecompressSync(compressed);
 }
@@ -76,8 +79,9 @@ describe("public presentation download", () => {
     expect(materializer).toContain(EXPECTED_BROTLI_SHA256);
     expect(materializer).toContain("EXPECTED_PDF_PAGES = 14");
     expect(materializer).toContain("brotliDecompressSync(compressed)");
-    expect(materializer).toContain("PRESENTATION_BROTLI_SHA256_NONCANONICAL");
     expect(materializer).toContain("writeFileSync(OUTPUT, pdf");
+    expect(materializer).not.toContain("node:crypto");
+    expect(materializer).not.toContain("createHash(");
     expect(materializer).not.toContain("fetch(");
 
     expect(pkg.scripts.dev).toContain("node scripts/materialize-presentation-pdf.mjs");
