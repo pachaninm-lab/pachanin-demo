@@ -9,6 +9,7 @@
   "allowedPaths": [
     ".github/workflows/presentation-gekta-frame-fix-20260830.yml",
     "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+    "apps/web/scripts/materialize-presentation-pdf.mjs",
     "apps/web/lib/presentation-pdf/part-00.ts",
     "apps/web/lib/presentation-pdf/part-01.ts",
     "apps/web/lib/presentation-pdf/part-02.ts",
