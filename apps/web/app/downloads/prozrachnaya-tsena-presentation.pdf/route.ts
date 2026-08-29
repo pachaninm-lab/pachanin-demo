@@ -63,14 +63,13 @@ function loadPresentationPdf(): Uint8Array {
   return Uint8Array.from(pdf);
 }
 
-const PRESENTATION_PDF = loadPresentationPdf();
-
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export function GET() {
-  const body = new ArrayBuffer(PRESENTATION_PDF.byteLength);
-  new Uint8Array(body).set(PRESENTATION_PDF);
+  const presentationPdf = loadPresentationPdf();
+  const body = new ArrayBuffer(presentationPdf.byteLength);
+  new Uint8Array(body).set(presentationPdf);
 
   return new NextResponse(body, {
     status: 200,
@@ -78,7 +77,7 @@ export function GET() {
       'Content-Type': 'application/pdf',
       'Content-Disposition':
         `attachment; filename="prozrachnaya-tsena-presentation.pdf"; filename*=UTF-8''${encodeURIComponent('Прозрачная_Цена_ГЕКТА_актуальная_презентация.pdf')}`,
-      'Content-Length': String(PRESENTATION_PDF.byteLength),
+      'Content-Length': String(presentationPdf.byteLength),
       'Cache-Control': 'private, no-store, max-age=0',
       'X-Content-Type-Options': 'nosniff',
     },
