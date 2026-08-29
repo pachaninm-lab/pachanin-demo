@@ -1,0 +1,164 @@
+name: One-shot presentation Gekta frame fix
+
+on:
+  push:
+    branches:
+      - fix/presentation-gekta-frame-download-20260830-v2
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PDF tooling
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ghostscript fonts-liberation
+          python -m pip install --disable-pip-version-check --quiet pymupdf brotli
+
+      - name: Rebuild and correct presentation
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import base64, brotli, fitz, hashlib, json, re, subprocess
+
+          root = Path('.')
+          web = root / 'apps/web'
+          parts_dir = web / 'lib/presentation-pdf'
+
+          chunks = []
+          for i in range(14):
+              source = (parts_dir / f'part-{i:02d}.ts').read_text(encoding='utf-8')
+              literals = re.findall(r'"([A-Za-z0-9+/=]+)"', source)
+              if not literals:
+                  raise SystemExit(f'no payload in part {i:02d}')
+              chunks.append(''.join(literals))
+
+          old_pdf = brotli.decompress(base64.b64decode(''.join(chunks)))
+          if not old_pdf.startswith(b'%PDF-'):
+              raise SystemExit('current payload is not PDF')
+
+          overlay = Path('/tmp/presentation-overlay.pdf')
+          corrected = Path('/tmp/presentation-corrected.pdf')
+          doc = fitz.open(stream=old_pdf, filetype='pdf')
+          if doc.page_count != 14:
+              raise SystemExit(f'page count before fix: {doc.page_count}')
+          page = doc[0]
+          green = (15/255, 118/255, 110/255)
+          page.draw_rect(
+              fitz.Rect(39.5718994140625, 315.32598876953125, 277.1719970703125, 353.0),
+              color=None, fill=green, overlay=True,
+          )
+          font_path = '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf'
+          if not Path(font_path).exists():
+              font_path = '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
+          page.insert_font(fontname='Ffix', fontfile=font_path)
+          page.insert_text(
+              (62.277000427246094, 330.718017578125),
+              'платформа + отдельный ИИ-продукт ',
+              fontsize=10.48799991607666, fontname='Ffix', color=(1,1,1), overlay=True,
+          )
+          page.insert_text(
+              (136.17620849609375, 344.805908203125),
+              '«ГЕКТА»',
+              fontsize=10.48799991607666, fontname='Ffix', color=(1,1,1), overlay=True,
+          )
+          doc.save(overlay, garbage=4, deflate=True, clean=True)
+          doc.close()
+
+          subprocess.run([
+              'gs', '-q', '-dNOPAUSE', '-dBATCH', '-sDEVICE=pdfwrite',
+              '-dPDFSETTINGS=/screen', '-dCompatibilityLevel=1.6',
+              f'-sOutputFile={corrected}', str(overlay),
+          ], check=True)
+
+          pdf = corrected.read_bytes()
+          check = fitz.open(corrected)
+          if check.page_count != 14:
+              raise SystemExit(f'page count after fix: {check.page_count}')
+          p0 = check[0]
+          banner_rects = [d['rect'] for d in p0.get_drawings()
+                          if d.get('fill') and d['rect'].x0 < 50 and 310 < d['rect'].y0 < 320]
+          if not any(r.y1 >= 352.5 for r in banner_rects):
+              raise SystemExit('corrected green frame not found')
+          gekta = [w for w in p0.get_text('words') if 'ГЕКТА' in w[4] and 320 < w[1] < 350]
+          if not gekta or max(w[3] for w in gekta) > 352.5:
+              raise SystemExit('ГЕКТА is not fully inside corrected frame')
+          check.close()
+
+          compressed = brotli.compress(pdf, quality=11)
+          payload = base64.b64encode(compressed).decode('ascii')
+          pdf_sha = hashlib.sha256(pdf).hexdigest()
+          br_sha = hashlib.sha256(compressed).hexdigest()
+
+          q, rem = divmod(len(payload), 14)
+          start = 0
+          for i in range(14):
+              size = q + (1 if i < rem else 0)
+              chunk = payload[start:start+size]
+              start += size
+              name = f'PRESENTATION_PDF_BROTLI_BASE64_PART_{i:02d}'
+              (parts_dir / f'part-{i:02d}.ts').write_text(
+                  f'export const {name} =\n  "{chunk}";\n', encoding='utf-8'
+              )
+          assert start == len(payload)
+
+          def replace_constants(path: Path):
+              text = path.read_text(encoding='utf-8')
+              text = re.sub(r'const EXPECTED_PDF_BYTES = \d+;', f'const EXPECTED_PDF_BYTES = {len(pdf)};', text)
+              text = re.sub(r'const EXPECTED_BROTLI_BYTES = \d+;', f'const EXPECTED_BROTLI_BYTES = {len(compressed)};', text)
+              text = re.sub(r'const EXPECTED_BASE64_LENGTH = \d+;', f'const EXPECTED_BASE64_LENGTH = {len(payload)};', text)
+              text = re.sub(r"const EXPECTED_PDF_SHA256 = '[0-9a-f]+';", f"const EXPECTED_PDF_SHA256 = '{pdf_sha}';", text)
+              text = re.sub(r"const EXPECTED_BROTLI_SHA256 = '[0-9a-f]+';", f"const EXPECTED_BROTLI_SHA256 = '{br_sha}';", text)
+              path.write_text(text, encoding='utf-8')
+
+          replace_constants(web / 'app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts')
+          replace_constants(web / 'tests/unit/platformV7PresentationDownload.test.ts')
+          replace_constants(web / 'scripts/materialize-presentation-pdf.mjs')
+
+          scope_path = root / 'docs/platform-v7/autopilot/scopes/presentation-gekta-frame-download-20260830.json'
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          scope['evidence'] = {
+              'expectedPdfBytes': len(pdf),
+              'expectedPdfPages': 14,
+              'expectedPdfSha256': pdf_sha,
+              'expectedBrotliBytes': len(compressed),
+              'expectedBrotliSha256': br_sha,
+              'expectedBase64Length': len(payload),
+              'visualCorrection': 'PASS: ГЕКТА is fully contained inside the green frame on slide 1',
+          }
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          print(f'PDF_BYTES={len(pdf)}')
+          print(f'PDF_SHA256={pdf_sha}')
+          print(f'BROTLI_BYTES={len(compressed)}')
+          print(f'BROTLI_SHA256={br_sha}')
+          print(f'BASE64_LENGTH={len(payload)}')
+          PY
+
+      - name: Remove one-shot workflow and commit result
+        run: |
+          rm -f .github/workflows/presentation-gekta-frame-fix-20260830.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts \
+                  apps/web/scripts/materialize-presentation-pdf.mjs \
+                  apps/web/lib/presentation-pdf/part-*.ts \
+                  apps/web/tests/unit/platformV7PresentationDownload.test.ts \
+                  docs/platform-v7/autopilot/scopes/presentation-gekta-frame-download-20260830.json \
+                  .github/workflows/presentation-gekta-frame-fix-20260830.yml
+          git commit -m 'fix(web): keep Gekta label inside presentation frame'
+          git push origin HEAD:fix/presentation-gekta-frame-download-20260830-v2
