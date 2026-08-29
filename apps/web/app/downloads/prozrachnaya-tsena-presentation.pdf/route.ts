@@ -1,50 +1,47 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
 import { NextResponse } from 'next/server';
-
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_00 } from '@/lib/presentation-pdf/part-00';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_01 } from '@/lib/presentation-pdf/part-01';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_02 } from '@/lib/presentation-pdf/part-02';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_03 } from '@/lib/presentation-pdf/part-03';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_04 } from '@/lib/presentation-pdf/part-04';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_05 } from '@/lib/presentation-pdf/part-05';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_06 } from '@/lib/presentation-pdf/part-06';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_07 } from '@/lib/presentation-pdf/part-07';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_08 } from '@/lib/presentation-pdf/part-08';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_09 } from '@/lib/presentation-pdf/part-09';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_10 } from '@/lib/presentation-pdf/part-10';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_11 } from '@/lib/presentation-pdf/part-11';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_12 } from '@/lib/presentation-pdf/part-12';
-import { PRESENTATION_PDF_BROTLI_BASE64_PART_13 } from '@/lib/presentation-pdf/part-13';
 
 const EXPECTED_BASE64_LENGTH = 264564;
 const EXPECTED_BROTLI_BYTES = 198423;
 const EXPECTED_PDF_BYTES = 312533;
+const PRESENTATION_PART_COUNT = 14;
 
-const PRESENTATION_PDF_BROTLI_BASE64 = [
-  PRESENTATION_PDF_BROTLI_BASE64_PART_00,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_01,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_02,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_03,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_04,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_05,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_06,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_07,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_08,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_09,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_10,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_11,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_12,
-  PRESENTATION_PDF_BROTLI_BASE64_PART_13,
-].join('');
+let cachedPresentationPdf: Uint8Array | undefined;
 
-function loadPresentationPdf(): Uint8Array {
-  if (PRESENTATION_PDF_BROTLI_BASE64.length !== EXPECTED_BASE64_LENGTH) {
-    throw new Error(
-      `Presentation Base64 length mismatch: ${PRESENTATION_PDF_BROTLI_BASE64.length}`,
-    );
+function readPresentationPart(index: number): string {
+  const suffix = String(index).padStart(2, '0');
+  const source = readFileSync(
+    resolve(process.cwd(), `lib/presentation-pdf/part-${suffix}.ts`),
+    'utf8',
+  );
+  const literals = [...source.matchAll(/"([A-Za-z0-9+/=]+)"/g)].map(
+    (match) => match[1],
+  );
+
+  if (literals.length === 0) {
+    throw new Error(`Presentation part ${suffix} contains no Base64 payload.`);
   }
 
-  const compressed = Buffer.from(PRESENTATION_PDF_BROTLI_BASE64, 'base64');
+  return literals.join('');
+}
+
+function loadPresentationPdf(): Uint8Array {
+  if (cachedPresentationPdf) {
+    return cachedPresentationPdf;
+  }
+
+  const base64 = Array.from(
+    { length: PRESENTATION_PART_COUNT },
+    (_, index) => readPresentationPart(index),
+  ).join('');
+
+  if (base64.length !== EXPECTED_BASE64_LENGTH) {
+    throw new Error(`Presentation Base64 length mismatch: ${base64.length}`);
+  }
+
+  const compressed = Buffer.from(base64, 'base64');
   if (compressed.byteLength !== EXPECTED_BROTLI_BYTES) {
     throw new Error(`Presentation Brotli length mismatch: ${compressed.byteLength}`);
   }
@@ -60,7 +57,8 @@ function loadPresentationPdf(): Uint8Array {
     throw new Error('Presentation PDF EOF marker is missing.');
   }
 
-  return Uint8Array.from(pdf);
+  cachedPresentationPdf = Uint8Array.from(pdf);
+  return cachedPresentationPdf;
 }
 
 export const dynamic = 'force-dynamic';
