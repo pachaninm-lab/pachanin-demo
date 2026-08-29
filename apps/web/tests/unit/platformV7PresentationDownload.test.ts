@@ -50,7 +50,7 @@ describe('public presentation download', () => {
     );
   });
 
-  it('serves the PDF directly from the stable platform URL', () => {
+  it('serves the PDF from bundled payload constants at the stable platform URL', () => {
     const route = readFileSync(ROUTE_FILE, 'utf8');
     const home = readFileSync(HOME_FILE, 'utf8');
     const pkg = JSON.parse(readFileSync(PACKAGE_FILE, 'utf8')) as {
@@ -60,10 +60,14 @@ describe('public presentation download', () => {
     expect(DOWNLOAD_PATH).toBe('/downloads/prozrachnaya-tsena-presentation.pdf');
     expect(route).not.toContain('drive.google.com');
     expect(route).not.toContain('NextResponse.redirect');
-    expect(route).toContain('readFileSync');
-    expect(route).toContain('lib/presentation-pdf/part-');
+    expect(route).not.toContain("from 'node:fs'");
+    expect(route).not.toContain('readFileSync');
+    expect(route).not.toContain('process.cwd()');
+    expect(route).toContain("from '@/lib/presentation-pdf/part-00'");
+    expect(route).toContain("from '@/lib/presentation-pdf/part-13'");
+    expect(route).toContain('const PRESENTATION_PDF_BROTLI_BASE64 = [');
+    expect(route).toContain('cachedPresentationPdf');
     expect(route).toContain('brotliDecompressSync');
-    expect(route).not.toContain("from '@/lib/presentation-pdf/part-");
     expect(route).toContain("'Content-Type': 'application/pdf'");
     expect(route).toContain("'Content-Disposition'");
     expect(route).toContain('attachment; filename=');
