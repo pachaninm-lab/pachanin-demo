@@ -1,4 +1,4 @@
-name: Regenerate approved presentation transport
+name: Recover exact presentation transport
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  regenerate:
+  recover:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -18,18 +18,7 @@ jobs:
           ref: fix/presentation-regenerate-approved-source-20260829
           fetch-depth: 1
 
-      - name: Fetch and verify approved source PDF
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m pip install --disable-pip-version-check --quiet gdown
-          python3 -m gdown 'https://drive.google.com/uc?id=11qCiCF_svPoqsh4ZczBxFi1CehQnDAiZ' -O /tmp/approved.pdf
-          test "$(wc -c < /tmp/approved.pdf)" -eq 692279
-          printf '%s  %s\n' '5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63' '/tmp/approved.pdf' | sha256sum -c -
-          head -c 5 /tmp/approved.pdf | grep -q '%PDF-'
-          tail -c 128 /tmp/approved.pdf | grep -q '%%EOF'
-
-      - name: Generate exact 14-part Brotli transport and route
+      - name: Recover one displaced Base64 symbol against exact digest
         shell: bash
         run: |
           set -euo pipefail
@@ -37,202 +26,109 @@ jobs:
           const fs = require('node:fs');
           const crypto = require('node:crypto');
           const zlib = require('node:zlib');
-          const pdf = fs.readFileSync('/tmp/approved.pdf');
-          const sha = crypto.createHash('sha256').update(pdf).digest('hex');
-          if (pdf.length !== 692279) throw new Error(`pdf bytes ${pdf.length}`);
-          if (sha !== '5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63') throw new Error(`pdf sha ${sha}`);
-          const compressed = zlib.brotliCompressSync(pdf, {
-            params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
-          });
-          const b64 = compressed.toString('base64');
-          if (b64.length % 14 !== 0) throw new Error(`base64 length not divisible by 14: ${b64.length}`);
-          const partLength = b64.length / 14;
-          fs.mkdirSync('apps/web/lib/presentation-pdf', { recursive: true });
-          for (let i = 0; i < 14; i++) {
-            const suffix = String(i).padStart(2, '0');
-            const part = b64.slice(i * partLength, (i + 1) * partLength);
-            fs.writeFileSync(`apps/web/lib/presentation-pdf/part-${suffix}.ts`, `export const PRESENTATION_PDF_BROTLI_BASE64_PART_${suffix} =\n  ${JSON.stringify(part)};\n`);
-          }
-          fs.writeFileSync('/tmp/presentation-contract.env', [
-            `B64_LEN=${b64.length}`,
-            `PART_LEN=${partLength}`,
-            `BR_BYTES=${compressed.length}`,
-            `BR_SHA=${crypto.createHash('sha256').update(compressed).digest('hex')}`,
-          ].join('\n') + '\n');
-          NODE
 
-          . /tmp/presentation-contract.env
-          cat > apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts <<EOF
-          import { createHash } from 'node:crypto';
-          import { brotliDecompressSync } from 'node:zlib';
-          import { NextResponse } from 'next/server';
-
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_00 } from '@/lib/presentation-pdf/part-00';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_01 } from '@/lib/presentation-pdf/part-01';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_02 } from '@/lib/presentation-pdf/part-02';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_03 } from '@/lib/presentation-pdf/part-03';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_04 } from '@/lib/presentation-pdf/part-04';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_05 } from '@/lib/presentation-pdf/part-05';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_06 } from '@/lib/presentation-pdf/part-06';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_07 } from '@/lib/presentation-pdf/part-07';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_08 } from '@/lib/presentation-pdf/part-08';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_09 } from '@/lib/presentation-pdf/part-09';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_10 } from '@/lib/presentation-pdf/part-10';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_11 } from '@/lib/presentation-pdf/part-11';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_12 } from '@/lib/presentation-pdf/part-12';
-          import { PRESENTATION_PDF_BROTLI_BASE64_PART_13 } from '@/lib/presentation-pdf/part-13';
-
-          const EXPECTED_BASE64_LENGTH = ${B64_LEN};
-          const EXPECTED_BROTLI_BYTES = ${BR_BYTES};
-          const EXPECTED_BROTLI_SHA256 = '${BR_SHA}';
-          const EXPECTED_PDF_BYTES = 692279;
-          const EXPECTED_PDF_SHA256 = '5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63';
-
-          const PRESENTATION_PDF_BROTLI_BASE64 = [
-            PRESENTATION_PDF_BROTLI_BASE64_PART_00,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_01,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_02,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_03,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_04,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_05,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_06,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_07,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_08,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_09,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_10,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_11,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_12,
-            PRESENTATION_PDF_BROTLI_BASE64_PART_13,
-          ].join('');
-
-          let cachedPresentationPdf: Uint8Array | undefined;
-
-          function loadPresentationPdf(): Uint8Array {
-            if (cachedPresentationPdf) return cachedPresentationPdf;
-            if (PRESENTATION_PDF_BROTLI_BASE64.length !== EXPECTED_BASE64_LENGTH) throw new Error('Presentation Base64 length mismatch.');
-            const compressed = Buffer.from(PRESENTATION_PDF_BROTLI_BASE64, 'base64');
-            if (compressed.byteLength !== EXPECTED_BROTLI_BYTES) throw new Error('Presentation Brotli length mismatch.');
-            if (createHash('sha256').update(compressed).digest('hex') !== EXPECTED_BROTLI_SHA256) throw new Error('Presentation Brotli SHA-256 mismatch.');
-            const pdf = brotliDecompressSync(compressed);
-            if (pdf.byteLength !== EXPECTED_PDF_BYTES) throw new Error('Presentation PDF length mismatch.');
-            if (createHash('sha256').update(pdf).digest('hex') !== EXPECTED_PDF_SHA256) throw new Error('Presentation PDF SHA-256 mismatch.');
-            if (pdf.subarray(0, 5).toString('ascii') !== '%PDF-') throw new Error('Presentation output is not a PDF.');
-            if (!pdf.subarray(-128).includes(Buffer.from('%%EOF'))) throw new Error('Presentation PDF EOF marker is missing.');
-            cachedPresentationPdf = Uint8Array.from(pdf);
-            return cachedPresentationPdf;
-          }
-
-          export const dynamic = 'force-dynamic';
-          export const runtime = 'nodejs';
-
-          export function GET() {
-            const presentationPdf = loadPresentationPdf();
-            const body = new ArrayBuffer(presentationPdf.byteLength);
-            new Uint8Array(body).set(presentationPdf);
-            return new NextResponse(body, {
-              status: 200,
-              headers: {
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename=\"prozrachnaya-tsena-presentation.pdf\"; filename*=UTF-8''${encodeURIComponent('Прозрачная_Цена_ГЕКТА_актуальная_презентация.pdf')}`,
-                'Content-Length': String(presentationPdf.byteLength),
-                'Cache-Control': 'private, no-store, max-age=0',
-                'X-Content-Type-Options': 'nosniff',
-              },
-            });
-          }
-          EOF
-
-          cat > apps/web/tests/unit/platformV7PresentationDownload.test.ts <<EOF
-          import { createHash } from 'node:crypto';
-          import { readFileSync } from 'node:fs';
-          import { resolve } from 'node:path';
-          import { brotliDecompressSync } from 'node:zlib';
-
-          const EXPECTED_PDF_BYTES = 692279;
-          const EXPECTED_PDF_SHA256 = '5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63';
-          const EXPECTED_PDF_PAGES = 14;
-          const EXPECTED_BROTLI_BYTES = ${BR_BYTES};
-          const EXPECTED_BROTLI_SHA256 = '${BR_SHA}';
-          const EXPECTED_BASE64_LENGTH = ${B64_LEN};
-          const DOWNLOAD_PATH = '/downloads/prozrachnaya-tsena-presentation.pdf';
-          const ROUTE_FILE = resolve(process.cwd(), 'app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts');
-          const HOME_FILE = resolve(process.cwd(), 'components/platform-v7/PlatformV7StrategicHome.tsx');
-
-          function readPart(index: number): string {
-            const suffix = String(index).padStart(2, '0');
-            const source = readFileSync(resolve(process.cwd(), `lib/presentation-pdf/part-${suffix}.ts`), 'utf8');
-            const literals = [...source.matchAll(/\"([A-Za-z0-9+/=]+)\"/g)].map((match) => match[1]);
-            expect(literals.length).toBeGreaterThan(0);
-            return literals.join('');
-          }
-
-          describe('public presentation download', () => {
-            it('reconstructs the exact approved 14-page source PDF', () => {
-              const base64 = Array.from({ length: 14 }, (_, index) => readPart(index)).join('');
-              expect(base64).toHaveLength(EXPECTED_BASE64_LENGTH);
-              const compressed = Buffer.from(base64, 'base64');
-              expect(compressed.byteLength).toBe(EXPECTED_BROTLI_BYTES);
-              expect(createHash('sha256').update(compressed).digest('hex')).toBe(EXPECTED_BROTLI_SHA256);
-              const pdf = brotliDecompressSync(compressed);
-              expect(pdf.byteLength).toBe(EXPECTED_PDF_BYTES);
-              expect(createHash('sha256').update(pdf).digest('hex')).toBe(EXPECTED_PDF_SHA256);
-              expect(pdf.subarray(0, 5).toString('ascii')).toBe('%PDF-');
-              expect(pdf.subarray(-128).includes('%%EOF')).toBe(true);
-              expect(pdf.toString('latin1').match(/\\/Type\\s*\\/Page\\b/g) ?? []).toHaveLength(EXPECTED_PDF_PAGES);
-            });
-
-            it('serves only the bundled verified PDF at the stable platform URL', () => {
-              const route = readFileSync(ROUTE_FILE, 'utf8');
-              const home = readFileSync(HOME_FILE, 'utf8');
-              expect(route).not.toContain('drive.google.com');
-              expect(route).not.toContain('NextResponse.redirect');
-              expect(route).not.toContain("from 'node:fs'");
-              expect(route).toContain('EXPECTED_PDF_SHA256');
-              expect(route).toContain('EXPECTED_BROTLI_SHA256');
-              expect(route).toContain('brotliDecompressSync');
-              expect(route).toContain("'Content-Type': 'application/pdf'");
-              expect(route).toContain("export const runtime = 'nodejs'");
-              expect(home).toContain(`href='${DOWNLOAD_PATH}'`);
-            });
-          });
-          EOF
-
-      - name: Verify regenerated payload locally
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd apps/web
-          node <<'NODE'
-          const fs = require('node:fs');
-          const crypto = require('node:crypto');
-          const zlib = require('node:zlib');
-          let b64 = '';
-          for (let i = 0; i < 14; i++) {
-            const suffix = String(i).padStart(2, '0');
-            const src = fs.readFileSync(`lib/presentation-pdf/part-${suffix}.ts`, 'utf8');
+          const targetBrotliSha = 'e99c503bb653bfc1f4c2fd800a5bc230404a6d22d02f3d1362cb66e1172b0612';
+          const targetPdfSha = '1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5';
+          const hash = b => crypto.createHash('sha256').update(b).digest('hex');
+          const read = i => {
+            const s = String(i).padStart(2, '0');
+            const src = fs.readFileSync(`apps/web/lib/presentation-pdf/part-${s}.ts`, 'utf8');
             const m = src.match(/"([A-Za-z0-9+/=]+)"/);
-            if (!m) throw new Error(`missing ${suffix}`);
-            b64 += m[1];
+            if (!m) throw new Error(`missing part ${s}`);
+            return m[1];
+          };
+          const parts = Array.from({length:14}, (_,i)=>read(i));
+          console.log('PART_LENGTHS=' + parts.map(x=>x.length).join(','));
+          if (parts[1].length !== 18899 || parts[5].length !== 18901) {
+            throw new Error('unexpected drift shape');
           }
-          const pdf = zlib.brotliDecompressSync(Buffer.from(b64, 'base64'));
-          const sha = crypto.createHash('sha256').update(pdf).digest('hex');
-          const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
-          console.log(`PDF_BYTES=${pdf.length}`);
-          console.log(`PDF_SHA256=${sha}`);
-          console.log(`PDF_PAGES=${pages}`);
-          if (pdf.length !== 692279 || sha !== '5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63' || pages !== 14) process.exit(1);
+          const prefixBefore1 = parts[0];
+          const middle2to4 = parts.slice(2,5).join('');
+          const suffixAfter5 = parts.slice(6).join('');
+          const p1 = parts[1];
+          const p5 = parts[5];
+
+          function verify(c1, c5, label) {
+            const b64 = prefixBefore1 + c1 + middle2to4 + c5 + suffixAfter5;
+            if (b64.length !== 264564) return false;
+            const compressed = Buffer.from(b64, 'base64');
+            if (compressed.length !== 198423) return false;
+            if (hash(compressed) !== targetBrotliSha) return false;
+            const pdf = zlib.brotliDecompressSync(compressed);
+            const pdfSha = hash(pdf);
+            const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
+            if (pdf.length !== 312533 || pdfSha !== targetPdfSha || pages !== 14) {
+              throw new Error(`digest matched but PDF contract failed ${label}`);
+            }
+            console.log(`FOUND=${label}`);
+            fs.writeFileSync('/tmp/found.json', JSON.stringify({c1,c5,label}));
+            return true;
+          }
+
+          let found = false;
+          // Most likely: one symbol belonging at a chunk boundary was displaced into part-05.
+          for (let remove = 0; remove < p5.length && !found; remove++) {
+            const ch = p5[remove];
+            const c5 = p5.slice(0, remove) + p5.slice(remove + 1);
+            found = verify(p1 + ch, c5, `p5[${remove}] -> end(p1)`);
+            if (!found) found = verify(ch + p1, c5, `p5[${remove}] -> start(p1)`);
+          }
+          // Secondary bounded case: extra symbol is at either edge of part-05,
+          // but belongs at an interior position of part-01.
+          const edgeRemovals = [0, p5.length - 1];
+          for (const remove of edgeRemovals) {
+            if (found) break;
+            const ch = p5[remove];
+            const c5 = p5.slice(0, remove) + p5.slice(remove + 1);
+            for (let ins = 1; ins < p1.length && !found; ins++) {
+              const c1 = p1.slice(0, ins) + ch + p1.slice(ins);
+              found = verify(c1, c5, `p5[${remove}] -> p1[${ins}]`);
+            }
+          }
+          if (!found) throw new Error('bounded single-symbol recovery did not match target digest');
+
+          const {c1,c5,label} = JSON.parse(fs.readFileSync('/tmp/found.json','utf8'));
+          fs.writeFileSync('apps/web/lib/presentation-pdf/part-01.ts', `export const PRESENTATION_PDF_BROTLI_BASE64_PART_01 =\n  ${JSON.stringify(c1)};\n`);
+          fs.writeFileSync('apps/web/lib/presentation-pdf/part-05.ts', `export const PRESENTATION_PDF_BROTLI_BASE64_PART_05 =\n  ${JSON.stringify(c5)};\n`);
+          console.log(`RECOVERY_LABEL=${label}`);
           NODE
 
-      - name: Commit regenerated transport to fix branch
+      - name: Verify route-level exact contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const zlib = require('node:zlib');
+          const hash = b => crypto.createHash('sha256').update(b).digest('hex');
+          let b64='';
+          for (let i=0;i<14;i++) {
+            const s=String(i).padStart(2,'0');
+            const src=fs.readFileSync(`apps/web/lib/presentation-pdf/part-${s}.ts`,'utf8');
+            const m=src.match(/"([A-Za-z0-9+/=]+)"/); if(!m) throw new Error(s); b64+=m[1];
+          }
+          const br=Buffer.from(b64,'base64');
+          const pdf=zlib.brotliDecompressSync(br);
+          const pages=(pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length;
+          console.log(`B64=${b64.length}`);
+          console.log(`BR_BYTES=${br.length}`);
+          console.log(`BR_SHA=${hash(br)}`);
+          console.log(`PDF_BYTES=${pdf.length}`);
+          console.log(`PDF_SHA=${hash(pdf)}`);
+          console.log(`PAGES=${pages}`);
+          if (b64.length!==264564) process.exit(1);
+          if (br.length!==198423 || hash(br)!=='e99c503bb653bfc1f4c2fd800a5bc230404a6d22d02f3d1362cb66e1172b0612') process.exit(1);
+          if (pdf.length!==312533 || hash(pdf)!=='1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5' || pages!==14) process.exit(1);
+          NODE
+
+      - name: Commit exact correction to fix branch
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'pachaninm-lab'
           git config user.email 'pachaninm@gmail.com'
-          git add \
-            apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts \
-            apps/web/lib/presentation-pdf/part-*.ts \
-            apps/web/tests/unit/platformV7PresentationDownload.test.ts
+          git add apps/web/lib/presentation-pdf/part-01.ts apps/web/lib/presentation-pdf/part-05.ts
           git diff --cached --check
-          git commit -m 'fix(web): regenerate presentation transport from approved PDF'
+          git commit -m 'fix(web): restore exact presentation transport bytes'
           git push origin HEAD:fix/presentation-regenerate-approved-source-20260829
