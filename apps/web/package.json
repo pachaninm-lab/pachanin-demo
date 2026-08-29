@@ -3,8 +3,8 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "dev": "node scripts/materialize-presentation-pdf.mjs && next dev -p 3000",
-    "build": "node scripts/materialize-presentation-pdf.mjs && next build",
+    "dev": "next dev -p 3000",
+    "build": "next build",
     "start": "next start -p 3000",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
@@ -54,6 +54,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/browser": "^4.1.9",
+    "@vitest/coverage-v8": "^4.1.9",
     "@vitest/ui": "^4.1.9",
     "autoprefixer": "^10.4.18",
     "axe-core": "^4.11.2",
