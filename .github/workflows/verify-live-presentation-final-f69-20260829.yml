@@ -1,4 +1,4 @@
-name: Diagnose live presentation 500
+name: Recover canonical presentation source
 
 on:
   push:
@@ -10,80 +10,123 @@ on:
 permissions:
   contents: read
 
-env:
-  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
-  DEFAULT_HOST: 195.19.12.120
-  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
-  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
-  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
-  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
-
 jobs:
-  diagnose:
+  recover:
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
-      - name: Resolve protected SSH authority
-        id: ssh
-        shell: bash
-        run: |
-          set -euo pipefail
-          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
-          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
-          user="$(trim "${SSH_USER_SECRET:-}")"
-          port="$(trim "${SSH_PORT_SECRET:-22}")"
-          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
-          [[ "$host" == "$DEFAULT_HOST" ]]
-          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$port" =~ ^[0-9]+$ ]]
-          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
-          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
-          validate_key(){ local source="$1" target="$HOME/.ssh/id_pc_prod" pub; tr -d '\r' < "$source" > "$target"; chmod 600 "$target"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
-          try_slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
-          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
-          scan="$(mktemp)"; match="$(mktemp)"
-          ssh-keyscan -T 15 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
-          while IFS= read -r line; do fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
-          [[ "$(grep -c . "$match" || true)" == 1 ]]
-          mv "$match" "$HOME/.ssh/known_hosts"; chmod 600 "$HOME/.ssh/known_hosts"; rm -f "$scan"
-          echo "host=$host" >> "$GITHUB_OUTPUT"
-          echo "port=$port" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Read-only production diagnosis
-        env:
-          HOST: ${{ steps.ssh.outputs.host }}
-          PORT: ${{ steps.ssh.outputs.port }}
+      - name: Diagnose current transport and historical presentation refs
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" 'bash -se' <<'REMOTE'
-          set -euo pipefail
-          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
-          echo "WEB_CONTAINER_COUNT=${#web_ids[@]}"
-          (( ${#web_ids[@]} == 1 ))
-          web="${web_ids[0]}"
-          echo "WEB_REVISION=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web")"
-          echo "WEB_IMAGE=$(docker inspect --format '{{.Config.Image}}' "$web")"
-          echo "WEB_STATE=$(docker inspect --format '{{.State.Status}}' "$web")"
-          echo "WEB_ENTRYPOINT=$(docker inspect --format '{{json .Config.Entrypoint}}' "$web")"
-          echo "WEB_CMD=$(docker inspect --format '{{json .Config.Cmd}}' "$web")"
-          ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$web")"
-          echo "WEB_IP_PRESENT=$([[ -n "$ip" ]] && echo 1 || echo 0)"
-          echo '--- direct container request ---'
-          headers="$(mktemp)"; body="$(mktemp)"
-          set +e
-          status="$(curl -sS --connect-timeout 10 --max-time 30 -D "$headers" -o "$body" -w '%{http_code}' "http://${ip}:3000/downloads/prozrachnaya-tsena-presentation.pdf")"
-          rc=$?
-          set -e
-          echo "INTERNAL_CURL_RC=$rc"
-          echo "INTERNAL_HTTP=$status"
-          echo "INTERNAL_BYTES=$(wc -c < "$body" | tr -d '[:space:]')"
-          awk 'BEGIN{IGNORECASE=1} /^(content-type|content-disposition|content-length|etag):/ {gsub(/\r/,""); print "INTERNAL_HEADER_" toupper($1) substr($0,index($0,":")+1)}' "$headers" || true
-          rm -f "$headers" "$body"
-          echo '--- recent web logs ---'
-          docker logs --since 15m --tail 800 "$web" 2>&1 | sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g' | tail -500 || true
-          echo 'DIAGNOSTIC_COMPLETE=1'
-          REMOTE
+          git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+
+          echo '=== CURRENT TRANSPORT ==='
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const zlib = require('node:zlib');
+          const parts = [];
+          for (let i=0;i<14;i++) {
+            const p = `apps/web/lib/presentation-pdf/part-${String(i).padStart(2,'0')}.ts`;
+            const s = fs.readFileSync(p,'utf8');
+            const m = [...s.matchAll(/"([A-Za-z0-9+/=]+)"/g)].map(x=>x[1]);
+            console.log(`PART_${i}_LITERALS=${m.length}`);
+            parts.push(m.join(''));
+          }
+          const b64 = parts.join('');
+          const b = Buffer.from(b64,'base64');
+          console.log(`BASE64_LENGTH=${b64.length}`);
+          console.log(`DECODED_BYTES=${b.length}`);
+          console.log(`DECODED_SHA256=${crypto.createHash('sha256').update(b).digest('hex')}`);
+          console.log(`HEAD_HEX=${b.subarray(0,32).toString('hex')}`);
+          console.log(`TAIL_HEX=${b.subarray(-32).toString('hex')}`);
+          const tests = [
+            ['brotli', zlib.brotliDecompressSync],
+            ['gunzip', zlib.gunzipSync],
+            ['inflate', zlib.inflateSync],
+            ['inflateRaw', zlib.inflateRawSync],
+            ['unzip', zlib.unzipSync],
+          ];
+          for (const [name, fn] of tests) {
+            try {
+              const out = fn(b);
+              console.log(`${name.toUpperCase()}=PASS bytes=${out.length} sha256=${crypto.createHash('sha256').update(out).digest('hex')} head=${out.subarray(0,8).toString('hex')}`);
+            } catch (e) {
+              console.log(`${name.toUpperCase()}=FAIL code=${e.code||'none'} message=${String(e.message).replace(/\s+/g,' ').slice(0,140)}`);
+            }
+          }
+          NODE
+          file /dev/stdin <<< test >/dev/null 2>&1 || true
+
+          echo '=== PRESENTATION-LIKE REMOTE BRANCHES ==='
+          git for-each-ref --format='%(refname:short)' refs/remotes/origin \
+            | grep -Ei 'presentation|prezent|pdf' \
+            | sort -u \
+            | head -120 || true
+
+          echo '=== MATCHING FILES ON LIKELY BRANCHES ==='
+          mapfile -t refs < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin \
+            | grep -Ei 'presentation|prezent|pdf' \
+            | sort -u \
+            | head -120)
+          for ref in "${refs[@]}"; do
+            matches="$(git ls-tree -r --name-only "$ref" 2>/dev/null \
+              | grep -Ei '(presentation|prezent|презент|prozrachnaya.*\.pdf$|\.pdf$)' \
+              | head -40 || true)"
+            [[ -n "$matches" ]] || continue
+            echo "--- $ref ---"
+            printf '%s\n' "$matches"
+          done
+
+          echo '=== VALID PDF CANDIDATES ==='
+          count=0
+          for ref in "${refs[@]}"; do
+            while IFS= read -r path; do
+              [[ -n "$path" ]] || continue
+              case "$path" in *.pdf|*.PDF) ;; *) continue ;; esac
+              tmp="$(mktemp)"
+              if git show "$ref:$path" > "$tmp" 2>/dev/null; then
+                bytes="$(wc -c < "$tmp" | tr -d '[:space:]')"
+                sha="$(sha256sum "$tmp" | awk '{print $1}')"
+                kind="$(file -b "$tmp" | tr '\n' ' ')"
+                pages="unknown"
+                if command -v pdfinfo >/dev/null 2>&1; then
+                  pages="$(pdfinfo "$tmp" 2>/dev/null | awk '/^Pages:/ {print $2}' || true)"
+                  pages="${pages:-unknown}"
+                fi
+                echo "PDF_CANDIDATE ref=$ref path=$path bytes=$bytes pages=$pages sha256=$sha kind=$kind"
+                count=$((count+1))
+              fi
+              rm -f "$tmp"
+              (( count < 80 )) || break 2
+            done < <(git ls-tree -r --name-only "$ref" 2>/dev/null | grep -Ei '\.pdf$' | head -30 || true)
+          done
+          echo "PDF_CANDIDATE_COUNT=$count"
+
+          echo '=== HISTORY: CURRENT TRANSPORT / DOWNLOAD ROUTE ==='
+          git log --all --date=iso --format='%H %ad %s' -- \
+            apps/web/lib/presentation-pdf/part-00.ts \
+            apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts \
+            apps/web/scripts/materialize-presentation-pdf.mjs \
+            | head -160 || true
+
+          echo '=== HISTORY FILE NAMES AROUND PRESENTATION COMMITS ==='
+          mapfile -t commits < <(git log --all --format='%H' -- \
+            apps/web/lib/presentation-pdf/part-00.ts \
+            apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts \
+            apps/web/scripts/materialize-presentation-pdf.mjs \
+            | head -80)
+          for c in "${commits[@]}"; do
+            subject="$(git log -1 --format='%s' "$c")"
+            names="$(git diff-tree --no-commit-id --name-only -r "$c" \
+              | grep -Ei 'presentation|prezent|\.pdf$' \
+              | head -30 || true)"
+            [[ -n "$names" ]] || continue
+            echo "--- COMMIT $c $subject ---"
+            printf '%s\n' "$names"
+          done
