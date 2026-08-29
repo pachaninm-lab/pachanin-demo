@@ -1,0 +1,46 @@
+name: Prove source presentation payload
+
+on:
+  push:
+    branches:
+      - verify/presentation-source-payload-20260829
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Verify source payload bytes and decompression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const zlib = require('node:zlib');
+          let base64 = '';
+          for (let i = 0; i < 14; i++) {
+            const suffix = String(i).padStart(2, '0');
+            const path = `apps/web/lib/presentation-pdf/part-${suffix}.ts`;
+            if (!fs.existsSync(path)) throw new Error(`missing ${path}`);
+            const src = fs.readFileSync(path, 'utf8');
+            const literals = [...src.matchAll(/"([A-Za-z0-9+/=]+)"/g)].map(m => m[1]);
+            if (!literals.length) throw new Error(`no payload ${suffix}`);
+            const part = literals.join('');
+            console.log(`PART_${suffix}_LENGTH=${part.length}`);
+            console.log(`PART_${suffix}_SHA256=${crypto.createHash('sha256').update(part).digest('hex')}`);
+            base64 += part;
+          }
+          console.log(`BASE64_LENGTH=${base64.length}`);
+          const compressed = Buffer.from(base64, 'base64');
+          console.log(`BROTLI_BYTES=${compressed.length}`);
+          console.log(`BROTLI_SHA256=${crypto.createHash('sha256').update(compressed).digest('hex')}`);
+          const pdf = zlib.brotliDecompressSync(compressed);
+          console.log(`PDF_BYTES=${pdf.length}`);
+          console.log(`PDF_SHA256=${crypto.createHash('sha256').update(pdf).digest('hex')}`);
+          console.log(`PDF_PAGES=${(pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length}`);
+          NODE
