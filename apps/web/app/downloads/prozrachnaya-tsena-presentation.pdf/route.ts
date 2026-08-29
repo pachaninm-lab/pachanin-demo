@@ -20,7 +20,7 @@ const EXPECTED_BASE64_LENGTH = 264564;
 const EXPECTED_BROTLI_BYTES = 198423;
 const EXPECTED_PDF_BYTES = 312533;
 
-export const PRESENTATION_GEKTA_FRAME_PATCH_MARKER =
+const PRESENTATION_GEKTA_FRAME_PATCH_MARKER =
   '% PC-GEKTA-FRAME-PATCH-V1';
 
 const OVERLAY_STREAM =
@@ -72,7 +72,7 @@ function xrefEntry(offset: number): string {
   return `${String(offset).padStart(10, '0')} 00000 n`;
 }
 
-export function applyPresentationGektaFramePatch(pdf: Buffer): Buffer {
+function applyPresentationGektaFramePatch(pdf: Buffer): Buffer {
   if (pdf.subarray(0, 5).toString('ascii') !== '%PDF-') {
     throw new Error('Presentation source is not a PDF.');
   }
