@@ -6,7 +6,7 @@ import { brotliDecompressSync } from 'node:zlib';
 import {
   applyPresentationGektaFramePatch,
   PRESENTATION_GEKTA_FRAME_PATCH_MARKER,
-} from '../../lib/presentation-pdf/gekta-frame-patch';
+} from '../../app/downloads/prozrachnaya-tsena-presentation.pdf/route';
 
 const EXPECTED_PDF_BYTES = 312533;
 const EXPECTED_PDF_SHA256 = '1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5';
@@ -86,7 +86,8 @@ describe('public presentation download', () => {
     expect(route).not.toContain('process.cwd()');
     expect(route).toContain("from '@/lib/presentation-pdf/part-00'");
     expect(route).toContain("from '@/lib/presentation-pdf/part-13'");
-    expect(route).toContain("from '@/lib/presentation-pdf/gekta-frame-patch'");
+    expect(route).not.toContain("from '@/lib/presentation-pdf/gekta-frame-patch'");
+    expect(route).toContain('export function applyPresentationGektaFramePatch');
     expect(route).toContain('const PRESENTATION_PDF_BROTLI_BASE64 = [');
     expect(route).toContain('cachedPresentationPdf');
     expect(route).toContain('brotliDecompressSync');
