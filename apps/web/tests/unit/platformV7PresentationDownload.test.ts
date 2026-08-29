@@ -3,10 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
 
-import {
-  applyPresentationGektaFramePatch,
-  PRESENTATION_GEKTA_FRAME_PATCH_MARKER,
-} from '../../app/downloads/prozrachnaya-tsena-presentation.pdf/route';
+import { GET } from '../../app/downloads/prozrachnaya-tsena-presentation.pdf/route';
 
 const EXPECTED_PDF_BYTES = 312533;
 const EXPECTED_PDF_SHA256 = '1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5';
@@ -38,7 +35,7 @@ function readPart(index: number): string {
 }
 
 describe('public presentation download', () => {
-  it('reconstructs the approved base PDF and applies the frame correction deterministically', () => {
+  it('reconstructs the approved base PDF and serves a deterministic corrected frame', async () => {
     const base64 = Array.from({ length: 14 }, (_, index) => readPart(index)).join('');
     expect(base64).toHaveLength(EXPECTED_BASE64_LENGTH);
 
@@ -54,21 +51,25 @@ describe('public presentation download', () => {
       EXPECTED_PDF_PAGES,
     );
 
-    const correctedA = applyPresentationGektaFramePatch(pdf);
-    const correctedB = applyPresentationGektaFramePatch(pdf);
+    const responseA = GET();
+    const responseB = GET();
+    expect(responseA.status).toBe(200);
+    expect(responseB.status).toBe(200);
+    expect(responseA.headers.get('content-type')).toBe('application/pdf');
+
+    const correctedA = Buffer.from(await responseA.arrayBuffer());
+    const correctedB = Buffer.from(await responseB.arrayBuffer());
     expect(Buffer.compare(correctedA, correctedB)).toBe(0);
     expect(correctedA.byteLength).toBeGreaterThan(EXPECTED_PDF_BYTES);
     expect(correctedA.subarray(0, 5).toString('ascii')).toBe('%PDF-');
     expect(correctedA.subarray(-64).includes('%%EOF')).toBe(true);
+    expect(responseA.headers.get('content-length')).toBe(String(correctedA.byteLength));
 
     const correctedText = correctedA.toString('latin1');
-    expect(correctedText).toContain(PRESENTATION_GEKTA_FRAME_PATCH_MARKER);
+    expect(correctedText).toContain('% PC-GEKTA-FRAME-PATCH-V1');
     expect(correctedText).toContain('0.0588379 0.462646 0.431396 rg');
     expect(correctedText).toContain('42.01 187.80 39.55 190.26 39.55 193.30 c');
     expect(correctedText).toMatch(/\/Contents \[\d+ 0 R \d+ 0 R\]/);
-    expect(() => applyPresentationGektaFramePatch(correctedA)).toThrow(
-      'Presentation Gekta frame patch is already applied.',
-    );
   });
 
   it('serves the corrected PDF from the stable platform URL', () => {
@@ -87,7 +88,9 @@ describe('public presentation download', () => {
     expect(route).toContain("from '@/lib/presentation-pdf/part-00'");
     expect(route).toContain("from '@/lib/presentation-pdf/part-13'");
     expect(route).not.toContain("from '@/lib/presentation-pdf/gekta-frame-patch'");
-    expect(route).toContain('export function applyPresentationGektaFramePatch');
+    expect(route).toContain('function applyPresentationGektaFramePatch');
+    expect(route).not.toContain('export function applyPresentationGektaFramePatch');
+    expect(route).toContain('Presentation Gekta frame patch is already applied.');
     expect(route).toContain('const PRESENTATION_PDF_BROTLI_BASE64 = [');
     expect(route).toContain('cachedPresentationPdf');
     expect(route).toContain('brotliDecompressSync');
