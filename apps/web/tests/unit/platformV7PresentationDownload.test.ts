@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
 
@@ -9,9 +9,13 @@ const EXPECTED_PDF_PAGES = 14;
 const EXPECTED_BROTLI_BYTES = 198423;
 const EXPECTED_BASE64_LENGTH = 264564;
 const DOWNLOAD_PATH = '/downloads/prozrachnaya-tsena-presentation.pdf';
-const ROUTE_FILE = resolve(
+const LEGACY_ROUTE_FILE = resolve(
   process.cwd(),
   'app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts',
+);
+const MATERIALIZER_FILE = resolve(
+  process.cwd(),
+  'scripts/materialize-presentation-pdf.mjs',
 );
 const HOME_FILE = resolve(
   process.cwd(),
@@ -50,32 +54,24 @@ describe('public presentation download', () => {
     );
   });
 
-  it('serves the PDF from bundled payload constants at the stable platform URL', () => {
-    const route = readFileSync(ROUTE_FILE, 'utf8');
+  it('materializes the exact PDF before Next.js compiles and serves the stable public asset', () => {
+    const materializer = readFileSync(MATERIALIZER_FILE, 'utf8');
     const home = readFileSync(HOME_FILE, 'utf8');
     const pkg = JSON.parse(readFileSync(PACKAGE_FILE, 'utf8')) as {
       scripts: Record<string, string>;
     };
 
     expect(DOWNLOAD_PATH).toBe('/downloads/prozrachnaya-tsena-presentation.pdf');
-    expect(route).not.toContain('drive.google.com');
-    expect(route).not.toContain('NextResponse.redirect');
-    expect(route).not.toContain("from 'node:fs'");
-    expect(route).not.toContain('readFileSync');
-    expect(route).not.toContain('process.cwd()');
-    expect(route).toContain("from '@/lib/presentation-pdf/part-00'");
-    expect(route).toContain("from '@/lib/presentation-pdf/part-13'");
-    expect(route).toContain('const PRESENTATION_PDF_BROTLI_BASE64 = [');
-    expect(route).toContain('cachedPresentationPdf');
-    expect(route).toContain('brotliDecompressSync');
-    expect(route).toContain("'Content-Type': 'application/pdf'");
-    expect(route).toContain("'Content-Disposition'");
-    expect(route).toContain('attachment; filename=');
-    expect(route).toContain("'Content-Length'");
-    expect(route).toContain("export const runtime = 'nodejs'");
+    expect(existsSync(LEGACY_ROUTE_FILE)).toBe(false);
+    expect(materializer).toContain(
+      "public/downloads/prozrachnaya-tsena-presentation.pdf",
+    );
+    expect(materializer).toContain('if (pdfSha256 !== EXPECTED_PDF_SHA256)');
+    expect(pkg.scripts.predev).toBe('node scripts/materialize-presentation-pdf.mjs');
+    expect(pkg.scripts.dev).toBe('next dev -p 3000');
+    expect(pkg.scripts.prebuild).toBe('node scripts/materialize-presentation-pdf.mjs');
+    expect(pkg.scripts.build).toBe('next build');
     expect(home).toContain(`href='${DOWNLOAD_PATH}'`);
     expect(home).toContain("download='Прозрачная_Цена_и_ГЕКТА.pdf'");
-    expect(pkg.scripts.build).toBe('next build');
-    expect(pkg.scripts.dev).toBe('next dev -p 3000');
   });
 });

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +13,10 @@ const EXPECTED_BASE64_LENGTH = 264564;
 
 const WEB_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const OUTPUT = resolve(WEB_ROOT, 'public/downloads/prozrachnaya-tsena-presentation.pdf');
+
+function sha256(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
 
 function readPart(index) {
   const suffix = String(index).padStart(2, '0');
@@ -35,6 +40,10 @@ const compressed = Buffer.from(base64, 'base64');
 if (compressed.byteLength !== EXPECTED_BROTLI_BYTES) {
   throw new Error(`Presentation Brotli length mismatch: ${compressed.byteLength}`);
 }
+const compressedSha256 = sha256(compressed);
+if (compressedSha256 !== EXPECTED_BROTLI_SHA256) {
+  throw new Error(`Presentation Brotli SHA-256 mismatch: ${compressedSha256}`);
+}
 
 const pdf = brotliDecompressSync(compressed);
 if (pdf.byteLength !== EXPECTED_PDF_BYTES) {
@@ -50,12 +59,15 @@ const pages = pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? [];
 if (pages.length !== EXPECTED_PDF_PAGES) {
   throw new Error(`Presentation page count mismatch: ${pages.length}`);
 }
+const pdfSha256 = sha256(pdf);
+if (pdfSha256 !== EXPECTED_PDF_SHA256) {
+  throw new Error(`Presentation PDF SHA-256 mismatch: ${pdfSha256}`);
+}
 
 mkdirSync(dirname(OUTPUT), { recursive: true });
 writeFileSync(OUTPUT, pdf, { mode: 0o644 });
 
 console.log(`PRESENTATION_PDF_MATERIALIZED=${OUTPUT}`);
-console.log(`PRESENTATION_BROTLI_SHA256_CONTRACT=${EXPECTED_BROTLI_SHA256}`);
 console.log(`PRESENTATION_PDF_BYTES=${pdf.byteLength}`);
 console.log(`PRESENTATION_PDF_PAGES=${pages.length}`);
-console.log(`PRESENTATION_PDF_SHA256_CONTRACT=${EXPECTED_PDF_SHA256}`);
+console.log(`PRESENTATION_PDF_SHA256=${pdfSha256}`);

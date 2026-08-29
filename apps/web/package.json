@@ -3,7 +3,9 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "predev": "node scripts/materialize-presentation-pdf.mjs",
     "dev": "next dev -p 3000",
+    "prebuild": "node scripts/materialize-presentation-pdf.mjs",
     "build": "next build",
     "start": "next start -p 3000",
     "typecheck": "tsc -p tsconfig.json --noEmit",
