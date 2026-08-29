@@ -68,25 +68,22 @@ jobs:
           echo "WEB_REVISION=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web")"
           echo "WEB_IMAGE=$(docker inspect --format '{{.Config.Image}}' "$web")"
           echo "WEB_STATE=$(docker inspect --format '{{.State.Status}}' "$web")"
-          echo '--- internal request ---'
-          docker exec "$web" node - <<'NODE'
-          (async () => {
-            try {
-              const r = await fetch('http://127.0.0.1:3000/downloads/prozrachnaya-tsena-presentation.pdf', {cache:'no-store'});
-              const ab = await r.arrayBuffer();
-              console.log('INTERNAL_HTTP=' + r.status);
-              console.log('INTERNAL_BYTES=' + ab.byteLength);
-              console.log('INTERNAL_CONTENT_TYPE=' + (r.headers.get('content-type') || ''));
-              console.log('INTERNAL_CONTENT_DISPOSITION=' + (r.headers.get('content-disposition') || ''));
-              console.log('INTERNAL_ETAG=' + (r.headers.get('etag') || ''));
-              if (ab.byteLength) console.log('INTERNAL_PREFIX=' + Buffer.from(ab).subarray(0,80).toString('utf8').replace(/\s+/g,' '));
-            } catch (e) {
-              console.log('INTERNAL_FETCH_ERROR=' + (e && e.stack ? e.stack : String(e)));
-            }
-          })();
-          NODE
-          echo '--- route bundle ---'
-          docker exec "$web" sh -lc 'find .next/server -path "*downloads*prozrachnaya-tsena-presentation*" -maxdepth 12 -type f -print 2>/dev/null | head -20' || true
+          echo "WEB_ENTRYPOINT=$(docker inspect --format '{{json .Config.Entrypoint}}' "$web")"
+          echo "WEB_CMD=$(docker inspect --format '{{json .Config.Cmd}}' "$web")"
+          ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$web")"
+          echo "WEB_IP_PRESENT=$([[ -n "$ip" ]] && echo 1 || echo 0)"
+          echo '--- direct container request ---'
+          headers="$(mktemp)"; body="$(mktemp)"
+          set +e
+          status="$(curl -sS --connect-timeout 10 --max-time 30 -D "$headers" -o "$body" -w '%{http_code}' "http://${ip}:3000/downloads/prozrachnaya-tsena-presentation.pdf")"
+          rc=$?
+          set -e
+          echo "INTERNAL_CURL_RC=$rc"
+          echo "INTERNAL_HTTP=$status"
+          echo "INTERNAL_BYTES=$(wc -c < "$body" | tr -d '[:space:]')"
+          awk 'BEGIN{IGNORECASE=1} /^(content-type|content-disposition|content-length|etag):/ {gsub(/\r/,""); print "INTERNAL_HEADER_" toupper($1) substr($0,index($0,":")+1)}' "$headers" || true
+          rm -f "$headers" "$body"
           echo '--- recent web logs ---'
-          docker logs --since 10m --tail 500 "$web" 2>&1 | sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g' | tail -300
+          docker logs --since 15m --tail 800 "$web" 2>&1 | sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g' | tail -500 || true
+          echo 'DIAGNOSTIC_COMPLETE=1'
           REMOTE
