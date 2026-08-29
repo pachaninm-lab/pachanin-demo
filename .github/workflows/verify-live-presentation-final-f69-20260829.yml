@@ -1,4 +1,4 @@
-name: Recover canonical presentation source
+name: Locate historical presentation binaries
 
 on:
   push:
@@ -11,122 +11,62 @@ permissions:
   contents: read
 
 jobs:
-  recover:
+  locate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Diagnose current transport and historical presentation refs
+      - name: Find presentation PDF candidates
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+          git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1
+          refs=(
+            origin/fix/direct-presentation-download-20260829
+            origin/fix/direct-static-presentation-20260829
+            origin/fix/presentation-approved-source-exact-20260829
+            origin/fix/presentation-download-live-hotfix-20260829
+            origin/fix/presentation-download-lockfile-hotfix-20260829
+            origin/fix/presentation-regenerate-approved-source-20260829
+            origin/fix/presentation-runtime-static-imports-20260829
+            origin/fix/presentation-static-pdf-current-20260829
+            origin/governance/direct-presentation-binary-20260829
+            origin/governance/direct-presentation-download-20260829
+            origin/governance/public-presentation-embedded-pdf-20260828
+            origin/governance/public-presentation-real-pdf-20260827
+            origin/ops/regenerate-presentation-approved-source-20260829
+            origin/verify/live-presentation-ff07563-20260829
+            origin/verify/pdf-final-gate-db199aa-20260828
+            origin/verify/presentation-source-payload-20260829
+            origin/verify/presentation-transport-21parts-20260829
+            origin/verify/presentation-transport-source-39b77b5-20260829
+          )
 
-          echo '=== CURRENT TRANSPORT ==='
-          node <<'NODE'
-          const fs = require('node:fs');
-          const crypto = require('node:crypto');
-          const zlib = require('node:zlib');
-          const parts = [];
-          for (let i=0;i<14;i++) {
-            const p = `apps/web/lib/presentation-pdf/part-${String(i).padStart(2,'0')}.ts`;
-            const s = fs.readFileSync(p,'utf8');
-            const m = [...s.matchAll(/"([A-Za-z0-9+/=]+)"/g)].map(x=>x[1]);
-            console.log(`PART_${i}_LITERALS=${m.length}`);
-            parts.push(m.join(''));
-          }
-          const b64 = parts.join('');
-          const b = Buffer.from(b64,'base64');
-          console.log(`BASE64_LENGTH=${b64.length}`);
-          console.log(`DECODED_BYTES=${b.length}`);
-          console.log(`DECODED_SHA256=${crypto.createHash('sha256').update(b).digest('hex')}`);
-          console.log(`HEAD_HEX=${b.subarray(0,32).toString('hex')}`);
-          console.log(`TAIL_HEX=${b.subarray(-32).toString('hex')}`);
-          const tests = [
-            ['brotli', zlib.brotliDecompressSync],
-            ['gunzip', zlib.gunzipSync],
-            ['inflate', zlib.inflateSync],
-            ['inflateRaw', zlib.inflateRawSync],
-            ['unzip', zlib.unzipSync],
-          ];
-          for (const [name, fn] of tests) {
-            try {
-              const out = fn(b);
-              console.log(`${name.toUpperCase()}=PASS bytes=${out.length} sha256=${crypto.createHash('sha256').update(out).digest('hex')} head=${out.subarray(0,8).toString('hex')}`);
-            } catch (e) {
-              console.log(`${name.toUpperCase()}=FAIL code=${e.code||'none'} message=${String(e.message).replace(/\s+/g,' ').slice(0,140)}`);
-            }
-          }
-          NODE
-          file /dev/stdin <<< test >/dev/null 2>&1 || true
-
-          echo '=== PRESENTATION-LIKE REMOTE BRANCHES ==='
-          git for-each-ref --format='%(refname:short)' refs/remotes/origin \
-            | grep -Ei 'presentation|prezent|pdf' \
-            | sort -u \
-            | head -120 || true
-
-          echo '=== MATCHING FILES ON LIKELY BRANCHES ==='
-          mapfile -t refs < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin \
-            | grep -Ei 'presentation|prezent|pdf' \
-            | sort -u \
-            | head -120)
+          found=0
           for ref in "${refs[@]}"; do
-            matches="$(git ls-tree -r --name-only "$ref" 2>/dev/null \
-              | grep -Ei '(presentation|prezent|презент|prozrachnaya.*\.pdf$|\.pdf$)' \
-              | head -40 || true)"
-            [[ -n "$matches" ]] || continue
-            echo "--- $ref ---"
-            printf '%s\n' "$matches"
-          done
-
-          echo '=== VALID PDF CANDIDATES ==='
-          count=0
-          for ref in "${refs[@]}"; do
+            git rev-parse --verify "$ref" >/dev/null 2>&1 || continue
             while IFS= read -r path; do
               [[ -n "$path" ]] || continue
-              case "$path" in *.pdf|*.PDF) ;; *) continue ;; esac
-              tmp="$(mktemp)"
-              if git show "$ref:$path" > "$tmp" 2>/dev/null; then
+              tmp="$(mktemp --suffix=.pdf)"
+              if git show "$ref:$path" > "$tmp" 2>/dev/null && head -c5 "$tmp" | grep -q '^%PDF-'; then
                 bytes="$(wc -c < "$tmp" | tr -d '[:space:]')"
                 sha="$(sha256sum "$tmp" | awk '{print $1}')"
-                kind="$(file -b "$tmp" | tr '\n' ' ')"
-                pages="unknown"
-                if command -v pdfinfo >/dev/null 2>&1; then
-                  pages="$(pdfinfo "$tmp" 2>/dev/null | awk '/^Pages:/ {print $2}' || true)"
-                  pages="${pages:-unknown}"
-                fi
-                echo "PDF_CANDIDATE ref=$ref path=$path bytes=$bytes pages=$pages sha256=$sha kind=$kind"
-                count=$((count+1))
+                pages="$(grep -aoE '/Type[[:space:]]*/Page([^sA-Za-z]|$)' "$tmp" | wc -l | tr -d '[:space:]')"
+                echo "PDF_CANDIDATE ref=$ref path=$path bytes=$bytes pages=$pages sha256=$sha"
+                found=$((found+1))
               fi
               rm -f "$tmp"
-              (( count < 80 )) || break 2
-            done < <(git ls-tree -r --name-only "$ref" 2>/dev/null | grep -Ei '\.pdf$' | head -30 || true)
+            done < <(git ls-tree -r --name-only "$ref" | grep -Ei '\.pdf$' | grep -Ei 'presentation|prezent|prozrachnaya|transparent|price|gekta' || true)
           done
-          echo "PDF_CANDIDATE_COUNT=$count"
 
-          echo '=== HISTORY: CURRENT TRANSPORT / DOWNLOAD ROUTE ==='
-          git log --all --date=iso --format='%H %ad %s' -- \
-            apps/web/lib/presentation-pdf/part-00.ts \
-            apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts \
-            apps/web/scripts/materialize-presentation-pdf.mjs \
-            | head -160 || true
+          echo "TARGET_HASH_HISTORY"
+          git log --all -S'1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5' --date=iso --format='HASH_COMMIT %H %ad %s' --name-status -- \
+            apps/web ':!apps/web/lib/presentation-pdf/part-*' | head -120 || true
 
-          echo '=== HISTORY FILE NAMES AROUND PRESENTATION COMMITS ==='
-          mapfile -t commits < <(git log --all --format='%H' -- \
-            apps/web/lib/presentation-pdf/part-00.ts \
-            apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts \
-            apps/web/scripts/materialize-presentation-pdf.mjs \
-            | head -80)
-          for c in "${commits[@]}"; do
-            subject="$(git log -1 --format='%s' "$c")"
-            names="$(git diff-tree --no-commit-id --name-only -r "$c" \
-              | grep -Ei 'presentation|prezent|\.pdf$' \
-              | head -30 || true)"
-            [[ -n "$names" ]] || continue
-            echo "--- COMMIT $c $subject ---"
-            printf '%s\n' "$names"
-          done
+          echo "PDF_PATH_HISTORY"
+          git log --all --date=iso --format='PDF_COMMIT %H %ad %s' --name-status -- '*.pdf' | grep -Ei '^(PDF_COMMIT|[AMD].*(presentation|prezent|prozrachnaya|transparent|price|gekta))' | head -160 || true
+
+          echo "FOUND=$found"
