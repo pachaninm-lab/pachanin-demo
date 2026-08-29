@@ -7,6 +7,7 @@
   "baseline": {"branch": "main", "commit": "f69a308d15e5eba5b79666e5957a99086a87afb2"},
   "purpose": "Correct slide 1 so the ГЕКТА label is fully contained inside the existing green frame, preserving the stable public platform download URL and the remaining 13 slides.",
   "allowedPaths": [
+    ".github/workflows/presentation-gekta-frame-fix-20260830.yml",
     "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
     "apps/web/lib/presentation-pdf/part-00.ts",
     "apps/web/lib/presentation-pdf/part-01.ts",
