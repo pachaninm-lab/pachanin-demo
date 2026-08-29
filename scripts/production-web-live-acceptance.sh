@@ -112,6 +112,38 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   root_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
   public_headers="$(curl -sS -D - -o /dev/null --compressed --max-time 15 "$LIVE_BASE/platform-v7?release=$cache_bust" 2>/dev/null | tr -d '\r' || true)"
 
+  presentation_headers_file="$(mktemp)"
+  presentation_body_file="$(mktemp)"
+  set +e
+  presentation_code="$(curl -sS -D "$presentation_headers_file" -o "$presentation_body_file" -w '%{http_code}' --max-time 30 \
+    "$LIVE_BASE/downloads/prozrachnaya-tsena-presentation.pdf?release=$cache_bust")"
+  presentation_rc=$?
+  set -e
+  presentation_bytes="$(wc -c < "$presentation_body_file" | tr -d '[:space:]')"
+  presentation_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$presentation_headers_file" | tr -d '\r')"
+  presentation_length="$(awk 'BEGIN{IGNORECASE=1} /^content-length:/ {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$presentation_headers_file" | tr -d '\r')"
+  presentation_length_ok=0
+  if [[ -z "$presentation_length" || "$presentation_length" == "$presentation_bytes" ]]; then
+    presentation_length_ok=1
+  fi
+  presentation_ok=0
+  if [[ "$presentation_rc" == 0 && "$presentation_code" == 200 ]] \
+    && (( presentation_bytes > 312533 )) \
+    && grep -Eiq '^application/pdf([[:space:]]*;|[[:space:]]*$)' <<< "$presentation_type" \
+    && [[ "$(head -c 5 "$presentation_body_file")" == '%PDF-' ]] \
+    && tail -c 64 "$presentation_body_file" | grep -aFq '%%EOF' \
+    && grep -aFq '% PC-GEKTA-FRAME-PATCH-V1' "$presentation_body_file" \
+    && grep -aFq '0.0588379 0.462646 0.431396 rg' "$presentation_body_file" \
+    && grep -aEq '/Contents \[[0-9]+ 0 R [0-9]+ 0 R\]' "$presentation_body_file" \
+    && grep -aEq '/Count[[:space:]]+14([^0-9]|$)' "$presentation_body_file" \
+    && (( presentation_length_ok == 1 )); then
+    presentation_ok=1
+  fi
+  printf 'PRESENTATION_DOWNLOAD_DETAIL attempt=%s rc=%s http=%s bytes=%s content_type=%s content_length=%s length_match=%s corrected=%s\n' \
+    "$attempt" "$presentation_rc" "${presentation_code:-000}" "${presentation_bytes:-0}" \
+    "${presentation_type:-missing}" "${presentation_length:-missing}" "$presentation_length_ok" "$presentation_ok"
+  rm -f "$presentation_headers_file" "$presentation_body_file"
+
   manifest_ok=0
   grep -Fq "$TARGET_SHA" <<< "$manifest" && manifest_ok=1
 
@@ -227,7 +259,7 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
 
   rm -f "$cookie_jar" "$reserve_body" "$stream_headers" "$stream_body"
 
-  if (( manifest_ok == 1 && crawler_ok == 1 && compat_ok == 1 && indexation_ok == 1 && stream_ok == 1 )) \
+  if (( manifest_ok == 1 && crawler_ok == 1 && compat_ok == 1 && indexation_ok == 1 && stream_ok == 1 && presentation_ok == 1 )) \
     && [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]] \
     && [[ "$deal_ru_code" == 200 && "$deal_en_code" == 200 && "$deal_zh_code" == 200 ]] \
     && [[ "$gekta_ru_code" == 200 && "$gekta_en_code" == 200 && "$gekta_zh_code" == 200 ]]; then
@@ -238,6 +270,7 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     printf 'LIVE_LANG_CODES=ru:%s,en:%s,zh:%s\n' "$ru_code" "$en_code" "$zh_code"
     printf 'LIVE_DEAL_JOURNEY_CODES=ru:%s,en:%s,zh:%s\n' "$deal_ru_code" "$deal_en_code" "$deal_zh_code"
     printf 'LIVE_GEKTA_CODES=ru:%s,en:%s,zh:%s\n' "$gekta_ru_code" "$gekta_en_code" "$gekta_zh_code"
+    printf 'PRESENTATION_DOWNLOAD=PASS bytes=%s pages=14 corrected=1\n' "$presentation_bytes"
     printf 'GEKTA_CRAWLER_HTML=PASS\n'
     printf 'GEKTA_COMPAT_REDIRECT=PASS\n'
     printf 'GEKTA_STREAM=PASS\n'
@@ -245,7 +278,7 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     exit 0
   fi
 
-  printf 'LIVE_ATTEMPT=%s/%s action=%s health_route_code=%s manifest_sha=%s indexation=%s crawler=%s crawler_locales=ru:%s,en:%s,zh:%s compat=%s stream=%s codes=ru:%s,en:%s,zh:%s deal=ru:%s,en:%s,zh:%s gekta=ru:%s,en:%s,zh:%s\n' \
+  printf 'LIVE_ATTEMPT=%s/%s action=%s health_route_code=%s manifest_sha=%s indexation=%s crawler=%s crawler_locales=ru:%s,en:%s,zh:%s compat=%s presentation=%s presentation_bytes=%s stream=%s codes=ru:%s,en:%s,zh:%s deal=ru:%s,en:%s,zh:%s gekta=ru:%s,en:%s,zh:%s\n' \
     "$attempt" "$ATTEMPTS" "$ACTION" "${health_code:-missing}" \
     "$([[ "$manifest_ok" == 1 ]] && echo match || echo mismatch)" \
     "$([[ "$indexation_ok" == 1 ]] && echo pass || echo fail)" \
@@ -254,6 +287,8 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     "$([[ "$crawler_en_ok" == 1 ]] && echo pass || echo fail)" \
     "$([[ "$crawler_zh_ok" == 1 ]] && echo pass || echo fail)" \
     "$([[ "$compat_ok" == 1 ]] && echo pass || echo fail)" \
+    "$([[ "$presentation_ok" == 1 ]] && echo pass || echo fail)" \
+    "${presentation_bytes:-0}" \
     "$([[ "$stream_ok" == 1 ]] && echo pass || echo fail)" \
     "${ru_code:-missing}" "${en_code:-missing}" "${zh_code:-missing}" \
     "${deal_ru_code:-missing}" "${deal_en_code:-missing}" "${deal_zh_code:-missing}" \
