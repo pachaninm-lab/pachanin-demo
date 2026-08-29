@@ -22,9 +22,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --retry 3 --retry-delay 2 \
-            'https://drive.google.com/uc?export=download&id=11qCiCF_svPoqsh4ZczBxFi1CehQnDAiZ' \
-            --output /tmp/approved.pdf
+          python3 -m pip install --disable-pip-version-check --quiet gdown
+          python3 -m gdown 'https://drive.google.com/uc?id=11qCiCF_svPoqsh4ZczBxFi1CehQnDAiZ' -O /tmp/approved.pdf
           test "$(wc -c < /tmp/approved.pdf)" -eq 692279
           printf '%s  %s\n' '5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63' '/tmp/approved.pdf' | sha256sum -c -
           head -c 5 /tmp/approved.pdf | grep -q '%PDF-'
@@ -38,15 +37,12 @@ jobs:
           const fs = require('node:fs');
           const crypto = require('node:crypto');
           const zlib = require('node:zlib');
-          const path = require('node:path');
           const pdf = fs.readFileSync('/tmp/approved.pdf');
           const sha = crypto.createHash('sha256').update(pdf).digest('hex');
           if (pdf.length !== 692279) throw new Error(`pdf bytes ${pdf.length}`);
           if (sha !== '5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63') throw new Error(`pdf sha ${sha}`);
           const compressed = zlib.brotliCompressSync(pdf, {
-            params: {
-              [zlib.constants.BROTLI_PARAM_QUALITY]: 11,
-            },
+            params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
           });
           const b64 = compressed.toString('base64');
           if (b64.length % 14 !== 0) throw new Error(`base64 length not divisible by 14: ${b64.length}`);
@@ -55,10 +51,7 @@ jobs:
           for (let i = 0; i < 14; i++) {
             const suffix = String(i).padStart(2, '0');
             const part = b64.slice(i * partLength, (i + 1) * partLength);
-            fs.writeFileSync(
-              `apps/web/lib/presentation-pdf/part-${suffix}.ts`,
-              `export const PRESENTATION_PDF_BROTLI_BASE64_PART_${suffix} =\n  ${JSON.stringify(part)};\n`,
-            );
+            fs.writeFileSync(`apps/web/lib/presentation-pdf/part-${suffix}.ts`, `export const PRESENTATION_PDF_BROTLI_BASE64_PART_${suffix} =\n  ${JSON.stringify(part)};\n`);
           }
           fs.writeFileSync('/tmp/presentation-contract.env', [
             `B64_LEN=${b64.length}`,
@@ -116,21 +109,13 @@ jobs:
 
           function loadPresentationPdf(): Uint8Array {
             if (cachedPresentationPdf) return cachedPresentationPdf;
-            if (PRESENTATION_PDF_BROTLI_BASE64.length !== EXPECTED_BASE64_LENGTH) {
-              throw new Error('Presentation Base64 length mismatch.');
-            }
+            if (PRESENTATION_PDF_BROTLI_BASE64.length !== EXPECTED_BASE64_LENGTH) throw new Error('Presentation Base64 length mismatch.');
             const compressed = Buffer.from(PRESENTATION_PDF_BROTLI_BASE64, 'base64');
-            if (compressed.byteLength !== EXPECTED_BROTLI_BYTES) {
-              throw new Error('Presentation Brotli length mismatch.');
-            }
-            if (createHash('sha256').update(compressed).digest('hex') !== EXPECTED_BROTLI_SHA256) {
-              throw new Error('Presentation Brotli SHA-256 mismatch.');
-            }
+            if (compressed.byteLength !== EXPECTED_BROTLI_BYTES) throw new Error('Presentation Brotli length mismatch.');
+            if (createHash('sha256').update(compressed).digest('hex') !== EXPECTED_BROTLI_SHA256) throw new Error('Presentation Brotli SHA-256 mismatch.');
             const pdf = brotliDecompressSync(compressed);
             if (pdf.byteLength !== EXPECTED_PDF_BYTES) throw new Error('Presentation PDF length mismatch.');
-            if (createHash('sha256').update(pdf).digest('hex') !== EXPECTED_PDF_SHA256) {
-              throw new Error('Presentation PDF SHA-256 mismatch.');
-            }
+            if (createHash('sha256').update(pdf).digest('hex') !== EXPECTED_PDF_SHA256) throw new Error('Presentation PDF SHA-256 mismatch.');
             if (pdf.subarray(0, 5).toString('ascii') !== '%PDF-') throw new Error('Presentation output is not a PDF.');
             if (!pdf.subarray(-128).includes(Buffer.from('%%EOF'))) throw new Error('Presentation PDF EOF marker is missing.');
             cachedPresentationPdf = Uint8Array.from(pdf);
