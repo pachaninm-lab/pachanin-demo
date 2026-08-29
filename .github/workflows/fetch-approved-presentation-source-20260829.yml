@@ -1,0 +1,68 @@
+name: Fetch approved presentation source once
+
+on:
+  push:
+    branches:
+      - fix/presentation-approved-source-exact-20260829
+    paths:
+      - .github/workflows/fetch-approved-presentation-source-20260829.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-approved-pdf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/presentation-approved-source-exact-20260829
+          fetch-depth: 0
+
+      - name: Fetch and verify exact approved PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://drive.usercontent.google.com/download?id=11qCiCF_svPoqsh4ZczBxFi1CehQnDAiZ&export=download&confirm=t'
+          expected_bytes='692279'
+          expected_sha='5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63'
+          tmp="$(mktemp)"
+          trap 'rm -f "$tmp"' EXIT
+
+          curl -fL --retry 4 --retry-all-errors --connect-timeout 15 --max-time 90 \
+            -o "$tmp" "$url"
+
+          bytes="$(wc -c < "$tmp" | tr -d '[:space:]')"
+          sha="$(sha256sum "$tmp" | awk '{print $1}')"
+          signature="$(head -c 5 "$tmp")"
+
+          test "$bytes" = "$expected_bytes"
+          test "$sha" = "$expected_sha"
+          test "$signature" = '%PDF-'
+
+          if ! command -v pdfinfo >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq poppler-utils
+          fi
+          pages="$(pdfinfo "$tmp" | awk '/^Pages:/ {print $2}')"
+          test "$pages" = '14'
+
+          mkdir -p apps/web/public/downloads
+          cp "$tmp" apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf
+
+          echo "APPROVED_PDF_BYTES=$bytes"
+          echo "APPROVED_PDF_SHA256=$sha"
+          echo "APPROVED_PDF_PAGES=$pages"
+
+      - name: Commit exact approved PDF to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          path='apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf'
+          git add "$path"
+          git diff --cached --quiet && exit 0
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(web): source-control approved presentation PDF'
+          git push origin HEAD:fix/presentation-approved-source-exact-20260829
