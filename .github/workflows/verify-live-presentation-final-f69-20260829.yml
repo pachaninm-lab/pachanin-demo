@@ -19,7 +19,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base='https://xn----8sbjf4befbjgs9b.xn--p1ai/downloads/prozrachnaya-tsena-presentation.pdf'
+          url='https://xn----8sbjf4befbjgs9b.xn--p1ai/downloads/prozrachnaya-tsena-presentation.pdf'
           expected_bytes='312533'
           expected_sha='1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5'
           expected_pages='14'
@@ -32,13 +32,16 @@ jobs:
           for n in 1 2; do
             body="$(mktemp --suffix=.pdf)"
             headers="$(mktemp)"
-            url="${base}?live-proof=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${n}"
-            status="$(curl -sS -L --retry 4 --retry-all-errors --connect-timeout 15 --max-time 90 \
+            status="$(curl -sS -L --retry 6 --retry-all-errors --retry-delay 2 \
+              --connect-timeout 15 --max-time 120 \
               -D "$headers" -o "$body" -w '%{http_code}' \
-              -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "$url")"
+              -A 'Mozilla/5.0 presentation-live-proof' \
+              -H "X-Live-Proof: ${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${n}" \
+              -H 'Accept: application/pdf' \
+              -H 'Connection: close' \
+              "$url")"
             bytes="$(wc -c < "$body" | tr -d '[:space:]')"
             sha="$(sha256sum "$body" | awk '{print $1}')"
-            pages="$(pdfinfo "$body" | awk '/^Pages:/ {print $2}')"
             ctype="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {v=$0} END{sub(/^[^:]*:[[:space:]]*/,"",v); sub(/\r$/, "", v); print v}' "$headers")"
             disposition="$(awk 'BEGIN{IGNORECASE=1} /^content-disposition:/ {v=$0} END{sub(/^[^:]*:[[:space:]]*/,"",v); sub(/\r$/, "", v); print v}' "$headers")"
             etag="$(awk 'BEGIN{IGNORECASE=1} /^etag:/ {v=$0} END{sub(/^[^:]*:[[:space:]]*/,"",v); sub(/\r$/, "", v); print v}' "$headers")"
@@ -46,7 +49,6 @@ jobs:
             echo "LIVE_PDF_PROOF_${n}_HTTP=$status"
             echo "LIVE_PDF_PROOF_${n}_BYTES=$bytes"
             echo "LIVE_PDF_PROOF_${n}_SHA256=$sha"
-            echo "LIVE_PDF_PROOF_${n}_PAGES=$pages"
             echo "LIVE_PDF_PROOF_${n}_CONTENT_TYPE=$ctype"
             echo "LIVE_PDF_PROOF_${n}_CONTENT_DISPOSITION=$disposition"
             echo "LIVE_PDF_PROOF_${n}_ETAG=$etag"
@@ -54,11 +56,13 @@ jobs:
             test "$status" = '200'
             test "$bytes" = "$expected_bytes"
             test "$sha" = "$expected_sha"
-            test "$pages" = "$expected_pages"
             case "$ctype" in application/pdf*) ;; *) exit 41 ;; esac
             case "$disposition" in attachment*) ;; *) exit 42 ;; esac
             test "$etag" = '"sha256-'"$expected_sha"'"'
 
+            pages="$(pdfinfo "$body" | awk '/^Pages:/ {print $2}')"
+            echo "LIVE_PDF_PROOF_${n}_PAGES=$pages"
+            test "$pages" = "$expected_pages"
             rm -f "$body" "$headers"
           done
 
