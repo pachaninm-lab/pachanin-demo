@@ -1,0 +1,120 @@
+name: Restore approved presentation transport once
+
+on:
+  push:
+    branches:
+      - fix/presentation-build-static-materialization-20260829
+    paths:
+      - .github/workflows/restore-approved-presentation-transport-20260829.yml
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/presentation-build-static-materialization-20260829
+          fetch-depth: 0
+
+      - name: Fetch and verify approved PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://drive.usercontent.google.com/download?id=11qCiCF_svPoqsh4ZczBxFi1CehQnDAiZ&export=download&confirm=t'
+          curl -fL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 15 --max-time 120 -o /tmp/approved.pdf "$url"
+          bytes="$(wc -c < /tmp/approved.pdf | tr -d '[:space:]')"
+          sha="$(sha256sum /tmp/approved.pdf | awk '{print $1}')"
+          test "$bytes" = '692279'
+          test "$sha" = '5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63'
+          test "$(head -c 5 /tmp/approved.pdf)" = '%PDF-'
+          echo "APPROVED_PDF_BYTES=$bytes"
+          echo "APPROVED_PDF_SHA256=$sha"
+
+      - name: Regenerate governed Brotli transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const zlib = require('node:zlib');
+          const path = require('node:path');
+
+          const pdf = fs.readFileSync('/tmp/approved.pdf');
+          const pdfSha = crypto.createHash('sha256').update(pdf).digest('hex');
+          if (pdf.length !== 692279) throw new Error(`PDF bytes ${pdf.length}`);
+          if (pdfSha !== '5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63') throw new Error(`PDF sha ${pdfSha}`);
+
+          const compressed = zlib.brotliCompressSync(pdf, {
+            params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 },
+          });
+          const compressedSha = crypto.createHash('sha256').update(compressed).digest('hex');
+          if (compressed.length !== 410255) throw new Error(`Brotli bytes ${compressed.length}`);
+          if (compressedSha !== '5e955667c35ef6b0586236a8208668a35d291fdbbc41416fe388b356903d1abd') throw new Error(`Brotli sha ${compressedSha}`);
+
+          const base64 = compressed.toString('base64');
+          if (base64.length !== 547008) throw new Error(`Base64 length ${base64.length}`);
+
+          const dir = path.join(process.cwd(), 'apps/web/lib/presentation-pdf');
+          fs.mkdirSync(dir, { recursive: true });
+          const count = 14;
+          for (let i = 0; i < count; i++) {
+            const start = Math.floor(base64.length * i / count);
+            const end = Math.floor(base64.length * (i + 1) / count);
+            const suffix = String(i).padStart(2, '0');
+            const payload = base64.slice(start, end);
+            fs.writeFileSync(
+              path.join(dir, `part-${suffix}.ts`),
+              `export const PRESENTATION_PDF_BROTLI_BASE64_PART_${suffix} =\n  ${JSON.stringify(payload)};\n`,
+              'utf8',
+            );
+          }
+
+          const replacements = [
+            ['EXPECTED_PDF_BYTES', '692279'],
+            ['EXPECTED_PDF_SHA256', "'5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63'"],
+            ['EXPECTED_PDF_PAGES', '14'],
+            ['EXPECTED_BROTLI_BYTES', '410255'],
+            ['EXPECTED_BROTLI_SHA256', "'5e955667c35ef6b0586236a8208668a35d291fdbbc41416fe388b356903d1abd'"],
+            ['EXPECTED_BASE64_LENGTH', '547008'],
+          ];
+          for (const file of [
+            'apps/web/scripts/materialize-presentation-pdf.mjs',
+            'apps/web/tests/unit/platformV7PresentationDownload.test.ts',
+          ]) {
+            let src = fs.readFileSync(file, 'utf8');
+            for (const [name, value] of replacements) {
+              const re = new RegExp(`(const\\s+${name}\\s*=\\s*)(?:'[^']*'|"[^"]*"|\\d+)(\\s*;)`);
+              if (re.test(src)) src = src.replace(re, `$1${value}$2`);
+            }
+            fs.writeFileSync(file, src, 'utf8');
+          }
+
+          console.log(`PRESENTATION_BROTLI_BYTES=${compressed.length}`);
+          console.log(`PRESENTATION_BROTLI_SHA256=${compressedSha}`);
+          console.log(`PRESENTATION_BASE64_LENGTH=${base64.length}`);
+          NODE
+
+      - name: Prove materialized static asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          node apps/web/scripts/materialize-presentation-pdf.mjs
+          out='apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf'
+          test "$(wc -c < "$out" | tr -d '[:space:]')" = '692279'
+          test "$(sha256sum "$out" | awk '{print $1}')" = '5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63'
+
+      - name: Commit restored source transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add apps/web/lib/presentation-pdf/part-*.ts apps/web/scripts/materialize-presentation-pdf.mjs apps/web/tests/unit/platformV7PresentationDownload.test.ts
+          git diff --cached --quiet && exit 0
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(web): restore exact approved presentation transport'
+          git push origin HEAD:fix/presentation-build-static-materialization-20260829
