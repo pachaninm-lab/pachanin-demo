@@ -31,6 +31,9 @@ __pycache__/
 # It has already slipped into a commit once; ignoring it keeps that accidental.
 /apps/tai/model-bundle-authority.v2.json
 
+# Build-time materialization from the governed presentation transport parts.
+/apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf
+
 # Local run output of scripts/security/build-asvs-matrix.mjs (ASVS evidence
 # matrix CSV/summary). Regenerated on every local verification pass of the
 # ASVS applicability-decisions register; CI produces its own copy. Never
