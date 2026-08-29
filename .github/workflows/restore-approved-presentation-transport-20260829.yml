@@ -54,7 +54,7 @@ jobs:
           });
           const compressedSha = crypto.createHash('sha256').update(compressed).digest('hex');
           if (compressed.length !== 410255) throw new Error(`Brotli bytes ${compressed.length}`);
-          if (compressedSha !== '5e955667c35ef6b0586236a8208668a35d291fdbbc41416fe388b356903d1abd') throw new Error(`Brotli sha ${compressedSha}`);
+          if (compressedSha !== '5e955a1a473942e5c16cd427a86124c0420f9c6a323004b401aab2ef01bb5c23') throw new Error(`Brotli sha ${compressedSha}`);
 
           const base64 = compressed.toString('base64');
           if (base64.length !== 547008) throw new Error(`Base64 length ${base64.length}`);
@@ -79,7 +79,7 @@ jobs:
             ['EXPECTED_PDF_SHA256', "'5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63'"],
             ['EXPECTED_PDF_PAGES', '14'],
             ['EXPECTED_BROTLI_BYTES', '410255'],
-            ['EXPECTED_BROTLI_SHA256', "'5e955667c35ef6b0586236a8208668a35d291fdbbc41416fe388b356903d1abd'"],
+            ['EXPECTED_BROTLI_SHA256', "'5e955a1a473942e5c16cd427a86124c0420f9c6a323004b401aab2ef01bb5c23'"],
             ['EXPECTED_BASE64_LENGTH', '547008'],
           ];
           for (const file of [
