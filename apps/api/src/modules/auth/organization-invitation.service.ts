@@ -37,7 +37,23 @@ import {
 import { PersistentAuthRepository, type AuthSqlClient } from './persistent-auth.repository';
 
 const INVITATION_TTL_MS = 72 * 60 * 60 * 1000;
-const MFA_RECOVERY_TTL_MS = 30 * 60 * 1000;
+
+/**
+ * The MFA-recovery credential is minted here, delivered to a separate channel
+ * (email) and presented back to the application, which makes it an out-of-band
+ * authentication request. ASVS 5.0 V6.5.5 caps those at ten minutes; this was
+ * thirty.
+ *
+ * An invitation is not the same kind of credential and keeps its own, much
+ * longer lifetime: it admits nobody on its own, it starts a review by a human
+ * administrator, and it is not a step in authenticating an existing account.
+ * The cap belongs to the credential that completes an authentication.
+ *
+ * Anything that tells a user how long this link lasts must derive the number
+ * from here rather than restate it, which is why the delivery payload carries
+ * expiresInSeconds.
+ */
+export const MFA_RECOVERY_TTL_MS = 10 * 60 * 1000;
 
 type AdminMembership = {
   id: string;
