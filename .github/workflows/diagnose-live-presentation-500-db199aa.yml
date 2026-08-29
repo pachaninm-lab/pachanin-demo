@@ -1,4 +1,4 @@
-name: Diagnose Live Presentation 500 db199aa
+name: Diagnose Live Presentation Current 500
 
 on:
   push:
@@ -12,12 +12,12 @@ permissions:
 
 env:
   CANONICAL_VPS: '195.19.12.120'
-  INCIDENT_FROM: '2026-08-28T18:39:40Z'
-  INCIDENT_UNTIL: '2026-08-28T18:40:10Z'
+  LIVE_BASE: 'https://xn----8sbjf4befbjgs9b.xn--p1ai'
+  TARGET_SHA: 'ff07563c300f2cd98dd8ef08497545a19366c83d'
 
 jobs:
   diagnose:
-    name: Read-only presentation route diagnostic
+    name: Read-only current presentation route diagnostic
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -47,7 +47,7 @@ jobs:
           [[ "$(grep -c . "$match" || true)" == 1 ]]; mv "$match" "$known"; chmod 0600 "$known"; rm -f "$scan"
           echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
 
-      - name: Read web logs for exact incident window
+      - name: Reproduce current 500 and read exact web exception
         shell: bash
         env:
           HOST: ${{ steps.ssh.outputs.host }}
@@ -55,17 +55,33 @@ jobs:
           PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -Eeuo pipefail
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" bash -s -- "$INCIDENT_FROM" "$INCIDENT_UNTIL" <<'REMOTE'
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" bash -s -- "$LIVE_BASE" "$TARGET_SHA" "$GITHUB_RUN_ID" <<'REMOTE'
           set -Eeuo pipefail
-          from="${1:?}"; until="${2:?}"
+          live_base="${1:?}"; target_sha="${2:?}"; run_id="${3:?}"
           mapfile -t ids < <(docker ps -q --filter 'label=com.docker.compose.service=web' | sort -u)
           [[ ${#ids[@]} -eq 1 ]]
           id="${ids[0]}"
-          echo "WEB_REVISION=$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$id")"
-          echo '--- PRESENTATION INCIDENT LOG ---'
-          docker logs --since "$from" --until "$until" "$id" 2>&1 \
+          revision="$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$id")"
+          state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id")"
+          echo "WEB_REVISION=$revision"
+          echo "WEB_STATE=$state"
+          [[ "$revision" == "$target_sha" ]]
+
+          probe_start="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          hdr="$(mktemp)"; body="$(mktemp)"
+          code="$(curl -sS -L --connect-timeout 15 --max-time 60 -D "$hdr" -o "$body" -w '%{http_code}' "$live_base/downloads/prozrachnaya-tsena-presentation.pdf?diag=$run_id" || true)"
+          bytes="$(stat -c%s "$body" 2>/dev/null || echo 0)"
+          echo "PROBE_START=$probe_start"
+          echo "PDF_HTTP=$code"
+          echo "PDF_BYTES=$bytes"
+          echo '--- RESPONSE HEADERS ---'
+          sed -E 's/(set-cookie:).*/\1 [REDACTED]/Ig; s/(authorization:).*/\1 [REDACTED]/Ig' "$hdr" | tail -80
+          echo '--- END RESPONSE HEADERS ---'
+          sleep 2
+          echo '--- CURRENT PRESENTATION EXCEPTION ---'
+          docker logs --since "$probe_start" "$id" 2>&1 \
             | sed -E 's/([0-9]{1,3}\.){3}[0-9]{1,3}/[IP]/g; s/(token|secret|password|authorization|cookie)=?[^[:space:]]*/\1=[REDACTED]/Ig' \
-            | grep -Ei -C 8 'presentation|brotli|zlib|decompress|ERR_|error|exception|RangeError|TypeError|Buffer|route' \
-            | tail -240 || true
-          echo '--- END LOG ---'
+            | tail -320
+          echo '--- END CURRENT PRESENTATION EXCEPTION ---'
+          rm -f "$hdr" "$body"
 REMOTE
