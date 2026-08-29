@@ -1,0 +1,100 @@
+name: Scan presentation payload candidates
+
+on:
+  push:
+    branches:
+      - verify/presentation-source-payload-20260829
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+      - name: Fetch candidate refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for ref in \
+            fix/public-presentation-gekta-product-20260828 \
+            fix/public-presentation-gekta-product-20260828-part10-temp \
+            fix/public-presentation-gekta-product-20260828-part10-temp2 \
+            fix/public-presentation-contract-parts-20260828 \
+            fix/public-presentation-contract-refresh-20260828 \
+            fix/public-presentation-transport-stage-20260828 \
+            governance/public-presentation-transport-14parts-20260828 \
+            governance/public-presentation-embedded-pdf-20260828 \
+            fix/static-presentation-download-20260828 \
+            fix/public-presentation-visible-cta-20260828 \
+            fix/public-presentation-pdf-runtime-final-20260827 \
+            fix/public-presentation-web-pdf-final-20260827 \
+            feature/public-presentation-pdf-final-20260827 \
+            fix/public-presentation-real-pdf-20260827 \
+            fix/public-presentation-real-pdf-20260827-v2
+          do
+            git fetch --no-tags origin "refs/heads/$ref:refs/remotes/origin/$ref" || true
+          done
+      - name: Scan payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const crypto = require('node:crypto');
+          const zlib = require('node:zlib');
+          const refs = [
+            'fix/public-presentation-gekta-product-20260828',
+            'fix/public-presentation-gekta-product-20260828-part10-temp',
+            'fix/public-presentation-gekta-product-20260828-part10-temp2',
+            'fix/public-presentation-contract-parts-20260828',
+            'fix/public-presentation-contract-refresh-20260828',
+            'fix/public-presentation-transport-stage-20260828',
+            'governance/public-presentation-transport-14parts-20260828',
+            'governance/public-presentation-embedded-pdf-20260828',
+            'fix/static-presentation-download-20260828',
+            'fix/public-presentation-visible-cta-20260828',
+            'fix/public-presentation-pdf-runtime-final-20260827',
+            'fix/public-presentation-web-pdf-final-20260827',
+            'feature/public-presentation-pdf-final-20260827',
+            'fix/public-presentation-real-pdf-20260827',
+            'fix/public-presentation-real-pdf-20260827-v2',
+          ];
+          const sha = b => crypto.createHash('sha256').update(b).digest('hex');
+          for (const ref of refs) {
+            let base64 = '';
+            let complete = true;
+            for (let i = 0; i < 14; i++) {
+              const suffix = String(i).padStart(2, '0');
+              const path = `apps/web/lib/presentation-pdf/part-${suffix}.ts`;
+              let src;
+              try {
+                src = execFileSync('git', ['show', `refs/remotes/origin/${ref}:${path}`], { encoding: 'utf8', stdio: ['ignore','pipe','ignore'] });
+              } catch {
+                complete = false;
+                break;
+              }
+              const literals = [...src.matchAll(/"([A-Za-z0-9+/=]+)"/g)].map(m => m[1]);
+              if (!literals.length) { complete = false; break; }
+              base64 += literals.join('');
+            }
+            if (!complete) {
+              console.log(`CANDIDATE ref=${ref} complete=0`);
+              continue;
+            }
+            const compressed = Buffer.from(base64, 'base64');
+            let result = `CANDIDATE ref=${ref} complete=1 base64=${base64.length} brotli_bytes=${compressed.length} brotli_sha=${sha(compressed)}`;
+            try {
+              const pdf = zlib.brotliDecompressSync(compressed);
+              const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
+              result += ` decompress=PASS pdf_bytes=${pdf.length} pdf_sha=${sha(pdf)} pages=${pages}`;
+            } catch (err) {
+              result += ` decompress=FAIL code=${err && err.code || 'unknown'}`;
+            }
+            console.log(result);
+          }
+          NODE
