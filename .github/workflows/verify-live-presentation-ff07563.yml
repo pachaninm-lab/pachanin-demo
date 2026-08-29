@@ -1,0 +1,85 @@
+name: Verify live presentation ff07563
+
+on:
+  push:
+    branches:
+      - verify/live-presentation-ff07563-20260829
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-pdf:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Download and verify public presentation twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          base='https://xn----8sbjf4befbjgs9b.xn--p1ai'
+          url="$base/downloads/prozrachnaya-tsena-presentation.pdf"
+
+          for n in 1 2; do
+            cache_bust="${GITHUB_SHA:0:7}-${GITHUB_RUN_ID}-${n}"
+            code="$(curl --fail-with-body -sS -L \
+              --retry 2 --retry-all-errors --connect-timeout 10 --max-time 60 \
+              -D "evidence/headers-${n}.txt" \
+              -o "evidence/presentation-${n}.pdf" \
+              -w '%{http_code}' \
+              "$url?verify=$cache_bust")"
+            printf '%s\n' "$code" > "evidence/http-${n}.txt"
+            echo "DOWNLOAD_${n}_HTTP=$code"
+            [[ "$code" == 200 ]]
+          done
+
+          curl --fail-with-body -sS -L --compressed \
+            --connect-timeout 10 --max-time 30 \
+            "$base/platform-v7?verify=${GITHUB_RUN_ID}" \
+            -o evidence/platform-v7.html
+          grep -Fq '/downloads/prozrachnaya-tsena-presentation.pdf' evidence/platform-v7.html
+          echo 'CTA_PATH=PASS'
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import re
+
+          expected_bytes = 312533
+          expected_sha = '1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5'
+          expected_pages = 14
+
+          payloads = []
+          for n in (1, 2):
+              p = Path(f'evidence/presentation-{n}.pdf')
+              data = p.read_bytes()
+              headers = Path(f'evidence/headers-{n}.txt').read_text('utf-8', errors='replace').lower()
+              sha = hashlib.sha256(data).hexdigest()
+              pages = len(re.findall(rb'/Type\s*/Page\b', data))
+              assert len(data) == expected_bytes, (n, 'bytes', len(data))
+              assert sha == expected_sha, (n, 'sha256', sha)
+              assert pages == expected_pages, (n, 'pages', pages)
+              assert data.startswith(b'%PDF-'), (n, 'magic')
+              assert b'%%EOF' in data[-64:], (n, 'eof')
+              assert 'content-type: application/pdf' in headers, (n, 'content-type')
+              assert 'content-disposition:' in headers and 'attachment;' in headers, (n, 'content-disposition')
+              payloads.append(data)
+              print(f'DOWNLOAD_{n}_BYTES={len(data)}')
+              print(f'DOWNLOAD_{n}_PAGES={pages}')
+              print(f'DOWNLOAD_{n}_SHA256={sha}')
+
+          assert payloads[0] == payloads[1], 'two live downloads differ'
+          print('TWO_DOWNLOADS_IDENTICAL=PASS')
+          print('LIVE_PRESENTATION_VERDICT=PASS')
+          PY
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: live-presentation-ff07563-${{ github.run_id }}
+          path: evidence
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
