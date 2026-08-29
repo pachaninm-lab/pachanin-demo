@@ -61,7 +61,7 @@ jobs:
           mapfile -t ids < <(docker ps -q --filter 'label=com.docker.compose.service=web' | sort -u)
           [[ ${#ids[@]} -eq 1 ]]
           id="${ids[0]}"
-          revision="$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "$id")"
+          revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$id")"
           state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id")"
           echo "WEB_REVISION=$revision"
           echo "WEB_STATE=$state"
