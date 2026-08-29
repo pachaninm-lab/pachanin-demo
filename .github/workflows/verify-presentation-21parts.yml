@@ -1,0 +1,63 @@
+name: Verify historical presentation 21-part transport
+
+on:
+  push:
+    branches:
+      - verify/presentation-transport-21parts-20260829
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Verify exact aggregate transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const zlib = require('node:zlib');
+          const hash = b => crypto.createHash('sha256').update(b).digest('hex');
+          let base64 = '';
+          let count = 0;
+          for (let i = 0; i < 21; i++) {
+            const suffix = String(i).padStart(2, '0');
+            const path = `apps/web/lib/presentation-pdf/part-${suffix}.ts`;
+            if (!fs.existsSync(path)) {
+              console.log(`MISSING=${path}`);
+              continue;
+            }
+            const src = fs.readFileSync(path, 'utf8');
+            const literals = [...src.matchAll(/"([A-Za-z0-9+/=]+)"/g)].map(m => m[1]);
+            if (!literals.length) throw new Error(`missing payload ${suffix}`);
+            const part = literals.join('');
+            console.log(`PART_${suffix}_LENGTH=${part.length}`);
+            console.log(`PART_${suffix}_SHA256=${hash(Buffer.from(part))}`);
+            base64 += part;
+            count++;
+          }
+          console.log(`PART_COUNT=${count}`);
+          console.log(`BASE64_LENGTH=${base64.length}`);
+          const compressed = Buffer.from(base64, 'base64');
+          const compressedSha = hash(compressed);
+          console.log(`BROTLI_BYTES=${compressed.length}`);
+          console.log(`BROTLI_SHA256=${compressedSha}`);
+          const pdf = zlib.brotliDecompressSync(compressed);
+          const pdfSha = hash(pdf);
+          const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
+          console.log(`PDF_BYTES=${pdf.length}`);
+          console.log(`PDF_SHA256=${pdfSha}`);
+          console.log(`PDF_PAGES=${pages}`);
+          if (base64.length !== 264564) throw new Error('base64 length');
+          if (compressed.length !== 198423) throw new Error('brotli length');
+          if (compressedSha !== 'e99c503bb653bfc1f4c2fd800a5bc230404a6d22d02f3d1362cb66e1172b0612') throw new Error('brotli sha');
+          if (pdf.length !== 312533) throw new Error('pdf length');
+          if (pdfSha !== '1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5') throw new Error('pdf sha');
+          if (pages !== 14) throw new Error('pages');
+          console.log('HISTORICAL_21_PART_VERDICT=PASS');
+          NODE
