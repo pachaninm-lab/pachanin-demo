@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "presentation-gekta-frame-download-20260830",
+  "branch": "fix/presentation-gekta-frame-download-20260830",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "f69a308d15e5eba5b79666e5957a99086a87afb2"
+  },
+  "purpose": "Publish the corrected 14-page presentation at the existing public platform download URL. The only visual content change is on page 1: the word «ГЕКТА» is fully contained inside the existing green product frame. The platform CTA, URL, filename and all other presentation pages remain unchanged.",
+  "allowedPaths": [
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+    "apps/web/lib/presentation-pdf/part-00.ts",
+    "apps/web/lib/presentation-pdf/part-01.ts",
+    "apps/web/lib/presentation-pdf/part-02.ts",
+    "apps/web/lib/presentation-pdf/part-03.ts",
+    "apps/web/lib/presentation-pdf/part-04.ts",
+    "apps/web/lib/presentation-pdf/part-05.ts",
+    "apps/web/lib/presentation-pdf/part-06.ts",
+    "apps/web/lib/presentation-pdf/part-07.ts",
+    "apps/web/lib/presentation-pdf/part-08.ts",
+    "apps/web/lib/presentation-pdf/part-09.ts",
+    "apps/web/lib/presentation-pdf/part-10.ts",
+    "apps/web/lib/presentation-pdf/part-11.ts",
+    "apps/web/lib/presentation-pdf/part-12.ts",
+    "apps/web/lib/presentation-pdf/part-13.ts",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+    "docs/platform-v7/autopilot/scopes/presentation-gekta-frame-download-20260830.json"
+  ],
+  "requiredChecks": [
+    "platform-v7 scope guard",
+    "web unit presentation contract",
+    "web build",
+    "exact public PDF download HTTP 200",
+    "14 pages and exact SHA-256"
+  ],
+  "newRecurringCostRub": 0
+}
