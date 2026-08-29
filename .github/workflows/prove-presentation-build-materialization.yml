@@ -1,0 +1,36 @@
+name: Prove presentation build materialization
+
+on:
+  push:
+    branches:
+      - verify/live-presentation-ff07563-20260829
+
+permissions:
+  contents: read
+
+jobs:
+  prove-materialization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Materialize approved PDF on Node 24
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          node apps/web/scripts/materialize-presentation-pdf.mjs
+          pdf='apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf'
+          test -f "$pdf"
+          bytes="$(wc -c < "$pdf" | tr -d '[:space:]')"
+          sha="$(sha256sum "$pdf" | awk '{print $1}')"
+          pages="$(grep -a -o -E '/Type[[:space:]]*/Page([^sA-Za-z]|$)' "$pdf" | wc -l | tr -d '[:space:]')"
+          echo "MATERIALIZED_BYTES=$bytes"
+          echo "MATERIALIZED_SHA256=$sha"
+          echo "MATERIALIZED_PAGES=$pages"
+          [[ "$bytes" == 312533 ]]
+          [[ "$sha" == 1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5 ]]
+          [[ "$pages" == 14 ]]
+          head -c 5 "$pdf" | grep -Fq '%PDF-'
+          tail -c 64 "$pdf" | grep -Fq '%%EOF'
+          echo 'BUILD_MATERIALIZATION=PASS'
