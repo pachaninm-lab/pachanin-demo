@@ -3,6 +3,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
 
+import {
+  applyPresentationGektaFramePatch,
+  PRESENTATION_GEKTA_FRAME_PATCH_MARKER,
+} from '../../lib/presentation-pdf/gekta-frame-patch';
+
 const EXPECTED_PDF_BYTES = 312533;
 const EXPECTED_PDF_SHA256 = '1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5';
 const EXPECTED_PDF_PAGES = 14;
@@ -33,7 +38,7 @@ function readPart(index: number): string {
 }
 
 describe('public presentation download', () => {
-  it('reconstructs the approved normalized 14-page PDF exactly', () => {
+  it('reconstructs the approved base PDF and applies the frame correction deterministically', () => {
     const base64 = Array.from({ length: 14 }, (_, index) => readPart(index)).join('');
     expect(base64).toHaveLength(EXPECTED_BASE64_LENGTH);
 
@@ -48,9 +53,25 @@ describe('public presentation download', () => {
     expect(pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? []).toHaveLength(
       EXPECTED_PDF_PAGES,
     );
+
+    const correctedA = applyPresentationGektaFramePatch(pdf);
+    const correctedB = applyPresentationGektaFramePatch(pdf);
+    expect(Buffer.compare(correctedA, correctedB)).toBe(0);
+    expect(correctedA.byteLength).toBeGreaterThan(EXPECTED_PDF_BYTES);
+    expect(correctedA.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+    expect(correctedA.subarray(-64).includes('%%EOF')).toBe(true);
+
+    const correctedText = correctedA.toString('latin1');
+    expect(correctedText).toContain(PRESENTATION_GEKTA_FRAME_PATCH_MARKER);
+    expect(correctedText).toContain('0.0588379 0.462646 0.431396 rg');
+    expect(correctedText).toContain('42.01 187.80 39.55 190.26 39.55 193.30 c');
+    expect(correctedText).toMatch(/\/Contents \[\d+ 0 R \d+ 0 R\]/);
+    expect(() => applyPresentationGektaFramePatch(correctedA)).toThrow(
+      'Presentation Gekta frame patch is already applied.',
+    );
   });
 
-  it('serves the PDF from bundled payload constants at the stable platform URL', () => {
+  it('serves the corrected PDF from the stable platform URL', () => {
     const route = readFileSync(ROUTE_FILE, 'utf8');
     const home = readFileSync(HOME_FILE, 'utf8');
     const pkg = JSON.parse(readFileSync(PACKAGE_FILE, 'utf8')) as {
@@ -65,9 +86,11 @@ describe('public presentation download', () => {
     expect(route).not.toContain('process.cwd()');
     expect(route).toContain("from '@/lib/presentation-pdf/part-00'");
     expect(route).toContain("from '@/lib/presentation-pdf/part-13'");
+    expect(route).toContain("from '@/lib/presentation-pdf/gekta-frame-patch'");
     expect(route).toContain('const PRESENTATION_PDF_BROTLI_BASE64 = [');
     expect(route).toContain('cachedPresentationPdf');
     expect(route).toContain('brotliDecompressSync');
+    expect(route).toContain('applyPresentationGektaFramePatch(pdf)');
     expect(route).toContain("'Content-Type': 'application/pdf'");
     expect(route).toContain("'Content-Disposition'");
     expect(route).toContain('attachment; filename=');
