@@ -48,7 +48,7 @@ function reconstruct(): Buffer {
 }
 
 describe("public presentation download", () => {
-  it("reconstructs the exact deterministic 14-page PDF twice", () => {
+  it("reconstructs the exact canonical 14-page PDF twice", () => {
     const first = reconstruct();
     const second = reconstruct();
 
@@ -78,7 +78,10 @@ describe("public presentation download", () => {
     expect(materializer).toContain(String(EXPECTED_BROTLI_BYTES));
     expect(materializer).toContain(EXPECTED_BROTLI_SHA256);
     expect(materializer).toContain("EXPECTED_PDF_PAGES = 14");
+    expect(materializer).toContain("brotliDecompressSync(compressed)");
     expect(materializer).toContain("writeFileSync(OUTPUT, pdf");
+    expect(materializer).not.toContain("node:crypto");
+    expect(materializer).not.toContain("createHash(");
     expect(materializer).not.toContain("fetch(");
 
     expect(pkg.scripts.dev).toContain("node scripts/materialize-presentation-pdf.mjs");
