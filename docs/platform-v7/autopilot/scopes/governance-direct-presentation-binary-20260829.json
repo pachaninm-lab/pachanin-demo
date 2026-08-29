@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/direct-presentation-binary-20260829",
+  "status": "active",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/governance-direct-presentation-binary-20260829.json",
+    "docs/platform-v7/autopilot/scopes/direct-presentation-download-20260829.json"
+  ]
+}
