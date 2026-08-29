@@ -1,0 +1,65 @@
+name: Verify live presentation twice
+
+on:
+  push:
+    branches:
+      - verify/presentation-live-final-f69-20260829-r2
+    paths:
+      - .github/workflows/verify-live-presentation-final-f69-20260829.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-pdf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify two independent live downloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://xn----8sbjf4befbjgs9b.xn--p1ai/downloads/prozrachnaya-tsena-presentation.pdf'
+          expected_bytes='312533'
+          expected_sha='1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5'
+          expected_pages='14'
+
+          if ! command -v pdfinfo >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq poppler-utils
+          fi
+
+          for n in 1 2; do
+            body="$(mktemp --suffix=.pdf)"
+            headers="$(mktemp)"
+            url="${base}?live-proof=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${n}"
+            status="$(curl -sS -L --retry 4 --retry-all-errors --connect-timeout 15 --max-time 90 \
+              -D "$headers" -o "$body" -w '%{http_code}' \
+              -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "$url")"
+            bytes="$(wc -c < "$body" | tr -d '[:space:]')"
+            sha="$(sha256sum "$body" | awk '{print $1}')"
+            pages="$(pdfinfo "$body" | awk '/^Pages:/ {print $2}')"
+            ctype="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {v=$0} END{sub(/^[^:]*:[[:space:]]*/,"",v); sub(/\r$/, "", v); print v}' "$headers")"
+            disposition="$(awk 'BEGIN{IGNORECASE=1} /^content-disposition:/ {v=$0} END{sub(/^[^:]*:[[:space:]]*/,"",v); sub(/\r$/, "", v); print v}' "$headers")"
+            etag="$(awk 'BEGIN{IGNORECASE=1} /^etag:/ {v=$0} END{sub(/^[^:]*:[[:space:]]*/,"",v); sub(/\r$/, "", v); print v}' "$headers")"
+
+            echo "LIVE_PDF_PROOF_${n}_HTTP=$status"
+            echo "LIVE_PDF_PROOF_${n}_BYTES=$bytes"
+            echo "LIVE_PDF_PROOF_${n}_SHA256=$sha"
+            echo "LIVE_PDF_PROOF_${n}_PAGES=$pages"
+            echo "LIVE_PDF_PROOF_${n}_CONTENT_TYPE=$ctype"
+            echo "LIVE_PDF_PROOF_${n}_CONTENT_DISPOSITION=$disposition"
+            echo "LIVE_PDF_PROOF_${n}_ETAG=$etag"
+
+            test "$status" = '200'
+            test "$bytes" = "$expected_bytes"
+            test "$sha" = "$expected_sha"
+            test "$pages" = "$expected_pages"
+            case "$ctype" in application/pdf*) ;; *) exit 41 ;; esac
+            case "$disposition" in attachment*) ;; *) exit 42 ;; esac
+            test "$etag" = '"sha256-'"$expected_sha"'"'
+
+            rm -f "$body" "$headers"
+          done
+
+          echo 'LIVE_PDF_FINAL_VERDICT=PASS'
