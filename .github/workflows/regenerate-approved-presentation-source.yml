@@ -33,15 +33,15 @@ jobs:
           const read = i => {
             const s = String(i).padStart(2, '0');
             const src = fs.readFileSync(`apps/web/lib/presentation-pdf/part-${s}.ts`, 'utf8');
-            const m = src.match(/"([A-Za-z0-9+/=]+)"/);
-            if (!m) throw new Error(`missing part ${s}`);
-            return m[1];
+            const literals = [...src.matchAll(/"([A-Za-z0-9+/=]+)"/g)].map(m => m[1]);
+            if (!literals.length) throw new Error(`missing part ${s}`);
+            return literals.join('');
           };
           const parts = Array.from({length:14}, (_,i)=>read(i));
           console.log('PART_LENGTHS=' + parts.map(x=>x.length).join(','));
-          if (parts[1].length !== 18899 || parts[5].length !== 18901) {
-            throw new Error('unexpected drift shape');
-          }
+          if (parts[1].length !== 18899 || parts[5].length !== 18901) throw new Error('unexpected drift shape');
+          if (parts.reduce((n,x)=>n+x.length,0) !== 264564) throw new Error('unexpected aggregate length');
+
           const prefixBefore1 = parts[0];
           const middle2to4 = parts.slice(2,5).join('');
           const suffixAfter5 = parts.slice(6).join('');
@@ -50,31 +50,25 @@ jobs:
 
           function verify(c1, c5, label) {
             const b64 = prefixBefore1 + c1 + middle2to4 + c5 + suffixAfter5;
-            if (b64.length !== 264564) return false;
             const compressed = Buffer.from(b64, 'base64');
             if (compressed.length !== 198423) return false;
             if (hash(compressed) !== targetBrotliSha) return false;
             const pdf = zlib.brotliDecompressSync(compressed);
             const pdfSha = hash(pdf);
             const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length;
-            if (pdf.length !== 312533 || pdfSha !== targetPdfSha || pages !== 14) {
-              throw new Error(`digest matched but PDF contract failed ${label}`);
-            }
-            console.log(`FOUND=${label}`);
+            if (pdf.length !== 312533 || pdfSha !== targetPdfSha || pages !== 14) throw new Error(`matched digest but bad PDF ${label}`);
             fs.writeFileSync('/tmp/found.json', JSON.stringify({c1,c5,label}));
+            console.log(`FOUND=${label}`);
             return true;
           }
 
           let found = false;
-          // Most likely: one symbol belonging at a chunk boundary was displaced into part-05.
           for (let remove = 0; remove < p5.length && !found; remove++) {
             const ch = p5[remove];
             const c5 = p5.slice(0, remove) + p5.slice(remove + 1);
             found = verify(p1 + ch, c5, `p5[${remove}] -> end(p1)`);
             if (!found) found = verify(ch + p1, c5, `p5[${remove}] -> start(p1)`);
           }
-          // Secondary bounded case: extra symbol is at either edge of part-05,
-          // but belongs at an interior position of part-01.
           const edgeRemovals = [0, p5.length - 1];
           for (const remove of edgeRemovals) {
             if (found) break;
@@ -106,7 +100,9 @@ jobs:
           for (let i=0;i<14;i++) {
             const s=String(i).padStart(2,'0');
             const src=fs.readFileSync(`apps/web/lib/presentation-pdf/part-${s}.ts`,'utf8');
-            const m=src.match(/"([A-Za-z0-9+/=]+)"/); if(!m) throw new Error(s); b64+=m[1];
+            const literals=[...src.matchAll(/"([A-Za-z0-9+/=]+)"/g)].map(m=>m[1]);
+            if(!literals.length) throw new Error(s);
+            b64+=literals.join('');
           }
           const br=Buffer.from(b64,'base64');
           const pdf=zlib.brotliDecompressSync(br);
