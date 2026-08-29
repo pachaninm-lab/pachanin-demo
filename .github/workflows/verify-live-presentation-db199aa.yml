@@ -1,4 +1,4 @@
-name: Verify Live Presentation db199aa
+name: Verify Live Presentation 2fd54c74
 
 on:
   push:
@@ -15,17 +15,10 @@ jobs:
     timeout-minutes: 10
     env:
       LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
-      TARGET_SHA: db199aa21f3dac117723ec1df0af0b74e7845d43
+      TARGET_SHA: 2fd54c74ecb122066a129feb2316f218429064ff
       EXPECTED_PDF_SHA256: 1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5
       EXPECTED_PDF_BYTES: '312533'
       EXPECTED_PDF_PAGES: '14'
-      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
-      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
-      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
-      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
-      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     steps:
       - name: Verify exact live revision and public download CTA
         shell: bash
@@ -35,46 +28,48 @@ jobs:
           cache="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           manifest="$(curl -fsSL --compressed --retry 3 --retry-all-errors --connect-timeout 15 --max-time 45 "$LIVE_BASE/manifest-pc-deploy.json?presentation_verify=$cache")"
           grep -Fq "$TARGET_SHA" <<< "$manifest"
+
           home_code="$(curl -sS -L --compressed --retry 3 --retry-all-errors --connect-timeout 15 --max-time 45 -o evidence/platform-v7.html -w '%{http_code}' "$LIVE_BASE/platform-v7?lang=ru&presentation_verify=$cache")"
           [[ "$home_code" == 200 ]]
           grep -Fq 'href="/downloads/prozrachnaya-tsena-presentation.pdf"' evidence/platform-v7.html
           grep -Fq 'data-testid="platform-v7-presentation-download"' evidence/platform-v7.html
           printf 'LIVE_REVISION=%s\nHOME_HTTP=%s\nCTA=PASS\n' "$TARGET_SHA" "$home_code" > evidence/summary.txt
 
-      - name: Probe live PDF once
-        id: pdf
+      - name: Verify two independent PDF downloads
         shell: bash
-        continue-on-error: true
         run: |
           set -Eeuo pipefail
+          if ! command -v pdfinfo >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq poppler-utils
+          fi
           url="$LIVE_BASE/downloads/prozrachnaya-tsena-presentation.pdf"
-          code="$(curl -sS -L --connect-timeout 15 --max-time 60 -D evidence/live-presentation.headers -o evidence/live-presentation.pdf -w '%{http_code}' "$url?presentation_verify=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}")"
-          printf 'PDF_HTTP=%s\n' "$code" | tee -a evidence/summary.txt
-          [[ "$code" == 200 ]]
-
-      - name: Capture read-only web runtime error
-        if: steps.pdf.outcome == 'failure'
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          key="$RUNNER_TEMP/prod-key"
-          known="$RUNNER_TEMP/known-hosts"
-          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
-          validate_key(){ local src="$1" pub; tr -d '\r' < "$src" > "$key"; chmod 0600 "$key"; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
-          try_key(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
-          host="$(trim "${PC_PROD_HOST:-195.19.12.120}")"; user="$(trim "${PC_PROD_SSH_USER:-}")"; port="$(trim "${PC_PROD_SSH_PORT:-22}")"; expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
-          try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"
-          scan="$(mktemp)"; match="$(mktemp)"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
-          while IFS= read -r line; do fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
-          sort -u -o "$match" "$match"; [[ "$(grep -c . "$match" || true)" == 1 ]]; mv "$match" "$known"; chmod 0600 "$known"
-          ssh -i "$key" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" "$user@$host" 'set -Eeuo pipefail; mapfile -t w < <(docker ps -q --filter "label=com.docker.compose.service=web"); ((${#w[@]}==1)); docker logs --since 5m "${w[0]}" 2>&1 | grep -E "presentation|Brotli|brotli|zlib|Buffer|ReferenceError|TypeError|ERR_|Error:" | tail -120' | sed -E 's/(Bearer|token|cookie|authorization)[^ ]*/\1=[REDACTED]/Ig' | tee evidence/runtime-error.log
+          for n in 1 2; do
+            pdf="evidence/live-presentation-$n.pdf"
+            hdr="evidence/live-presentation-$n.headers"
+            code="$(curl -sS -L --retry 3 --retry-all-errors --connect-timeout 15 --max-time 60 -D "$hdr" -o "$pdf" -w '%{http_code}' "$url?presentation_verify=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-$n")"
+            [[ "$code" == 200 ]]
+            grep -Eiq '^content-type:[[:space:]]*application/pdf([;[:space:]]|$)' "$hdr"
+            grep -Eiq '^content-disposition:[[:space:]]*attachment;.*prozrachnaya-tsena-presentation\.pdf' "$hdr"
+            bytes="$(stat -c%s "$pdf")"
+            sha="$(sha256sum "$pdf" | awk '{print $1}')"
+            pages="$(pdfinfo "$pdf" | awk '/^Pages:/ {print $2}')"
+            [[ "$bytes" == "$EXPECTED_PDF_BYTES" ]]
+            [[ "$sha" == "$EXPECTED_PDF_SHA256" ]]
+            [[ "$pages" == "$EXPECTED_PDF_PAGES" ]]
+            head -c 5 "$pdf" | grep -Fq '%PDF-'
+            printf 'DOWNLOAD_%s_HTTP=%s\nDOWNLOAD_%s_BYTES=%s\nDOWNLOAD_%s_SHA256=%s\nDOWNLOAD_%s_PAGES=%s\n' "$n" "$code" "$n" "$bytes" "$n" "$sha" "$n" "$pages" >> evidence/summary.txt
+          done
+          cmp -s evidence/live-presentation-1.pdf evidence/live-presentation-2.pdf
+          printf 'BYTE_IDENTICAL=YES\nLIVE_PRESENTATION_VERIFICATION=PASS\n' >> evidence/summary.txt
+          cat evidence/summary.txt
 
       - name: Upload verification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: live-presentation-diagnostic-${{ github.run_id }}
+          name: live-presentation-2fd54c74-${{ github.run_id }}
           path: evidence
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
           compression-level: 0
