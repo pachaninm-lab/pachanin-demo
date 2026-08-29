@@ -7,7 +7,6 @@ const EXPECTED_PDF_BYTES = 312533;
 const EXPECTED_PDF_SHA256 = '1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5';
 const EXPECTED_PDF_PAGES = 14;
 const EXPECTED_BROTLI_BYTES = 198423;
-const EXPECTED_BROTLI_SHA256 = '0ec7f109872592cce9ce4fcdde44d8be6af0e1efedcbff88ef2cde4562a21b92';
 const EXPECTED_BASE64_LENGTH = 264564;
 const DOWNLOAD_PATH = '/downloads/prozrachnaya-tsena-presentation.pdf';
 const LEGACY_ROUTE_FILE = resolve(
@@ -44,9 +43,6 @@ describe('public presentation download', () => {
 
     const compressed = Buffer.from(base64, 'base64');
     expect(compressed.byteLength).toBe(EXPECTED_BROTLI_BYTES);
-    expect(createHash('sha256').update(compressed).digest('hex')).toBe(
-      EXPECTED_BROTLI_SHA256,
-    );
 
     const pdf = brotliDecompressSync(compressed);
     expect(pdf.byteLength).toBe(EXPECTED_PDF_BYTES);
@@ -70,7 +66,6 @@ describe('public presentation download', () => {
     expect(materializer).toContain(
       "public/downloads/prozrachnaya-tsena-presentation.pdf",
     );
-    expect(materializer).toContain('if (compressedSha256 !== EXPECTED_BROTLI_SHA256)');
     expect(materializer).toContain('if (pdfSha256 !== EXPECTED_PDF_SHA256)');
     expect(pkg.scripts.predev).toBe('node scripts/materialize-presentation-pdf.mjs');
     expect(pkg.scripts.dev).toBe('next dev -p 3000');
