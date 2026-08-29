@@ -1,5 +1,4 @@
 import { brotliDecompressSync } from 'node:zlib';
-import { NextResponse } from 'next/server';
 
 import { PRESENTATION_PDF_BROTLI_BASE64_PART_00 } from '@/lib/presentation-pdf/part-00';
 import { PRESENTATION_PDF_BROTLI_BASE64_PART_01 } from '@/lib/presentation-pdf/part-01';
@@ -246,17 +245,17 @@ export const runtime = 'nodejs';
 
 export function GET() {
   const presentationPdf = loadPresentationPdf();
-  const body = new ArrayBuffer(presentationPdf.byteLength);
-  new Uint8Array(body).set(presentationPdf);
+  const body = new Uint8Array(presentationPdf.byteLength);
+  body.set(presentationPdf);
 
-  return new NextResponse(body, {
+  return new Response(body, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition':
         `attachment; filename="prozrachnaya-tsena-presentation.pdf"; filename*=UTF-8''${encodeURIComponent('Прозрачная_Цена_ГЕКТА_актуальная_презентация.pdf')}`,
       'Content-Length': String(presentationPdf.byteLength),
-      'Cache-Control': 'private, no-store, max-age=0',
+      'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
       'X-Content-Type-Options': 'nosniff',
     },
   });
