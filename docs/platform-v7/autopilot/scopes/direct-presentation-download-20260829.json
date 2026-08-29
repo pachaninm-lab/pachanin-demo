@@ -20,6 +20,7 @@
     "apps/web/lib/presentation-pdf/part-13.ts",
     "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
     "docs/ip/FILE_PROVENANCE.csv",
-    "docs/ip/FILE_PROVENANCE.json"
+    "docs/ip/FILE_PROVENANCE.json",
+    "docs/security/cryptographic-inventory.json"
   ]
 }
