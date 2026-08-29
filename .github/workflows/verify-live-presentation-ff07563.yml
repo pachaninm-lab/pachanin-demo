@@ -83,3 +83,74 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
+
+  diagnose-production-pdf:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      SSH_HOST: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+    steps:
+      - name: Resolve bounded SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          host="${SSH_HOST:-195.19.12.120}"
+          user="${SSH_USER:-}"
+          port="${SSH_PORT:-22}"
+          key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
+          [[ "$host" == '195.19.12.120' ]]
+          [[ -n "$user" && -n "$key" ]]
+          [[ "$port" =~ ^[0-9]+$ ]]
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$key" | tr -d '\r' > "$HOME/.ssh/id_pc_prod"
+          chmod 600 "$HOME/.ssh/id_pc_prod"
+          ssh-keyscan -T 10 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          echo "SSH_HOST_RESOLVED=$host" >> "$GITHUB_ENV"
+          echo "SSH_USER_RESOLVED=$user" >> "$GITHUB_ENV"
+          echo "SSH_PORT_RESOLVED=$port" >> "$GITHUB_ENV"
+
+      - name: Probe route and capture only presentation errors
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT_RESOLVED" \
+            -o BatchMode=yes -o ConnectTimeout=15 -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER_RESOLVED@$SSH_HOST_RESOLVED" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          expected='ff07563c300f2cd98dd8ef08497545a19366c83d'
+          container='grainflow-web-1'
+          actual="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$container")"
+          state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container")"
+          echo "PRODUCTION_WEB_REVISION=$actual"
+          echo "PRODUCTION_WEB_STATE=$state"
+          [[ "$actual" == "$expected" ]]
+          [[ "$state" == healthy ]]
+
+          marker="pdfdiag-$(date +%s)"
+          code="$(curl -sS -o /tmp/pc-pdf-diag-body -w '%{http_code}' --max-time 30 \
+            "https://xn----8sbjf4befbjgs9b.xn--p1ai/downloads/prozrachnaya-tsena-presentation.pdf?diag=$marker" || true)"
+          echo "PDF_PROBE_HTTP=$code"
+          sleep 1
+
+          echo 'PRESENTATION_LOG_BEGIN'
+          docker logs --since 2m "$container" 2>&1 \
+            | grep -Ei 'presentation|brotli|decompress|base64 length|pdf length|ERR__ERROR_FORMAT' \
+            | tail -80 \
+            | sed -E 's/(token|password|secret|authorization|cookie)=[^[:space:]]+/\1=[REDACTED]/Ig' \
+            || true
+          echo 'PRESENTATION_LOG_END'
+
+          if [[ -s /tmp/pc-pdf-diag-body ]]; then
+            bytes="$(wc -c < /tmp/pc-pdf-diag-body | tr -d '[:space:]')"
+            echo "PDF_ERROR_BODY_BYTES=$bytes"
+          fi
+          rm -f /tmp/pc-pdf-diag-body
+          REMOTE
