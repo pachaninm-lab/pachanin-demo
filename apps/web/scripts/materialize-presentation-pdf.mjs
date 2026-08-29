@@ -8,6 +8,7 @@ const EXPECTED_PDF_BYTES = 312533;
 const EXPECTED_PDF_SHA256 = '1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5';
 const EXPECTED_PDF_PAGES = 14;
 const EXPECTED_BROTLI_BYTES = 198423;
+const EXPECTED_BROTLI_SHA256 = 'e99c503bb653bfc1f4c2fd800a5bc230404a6d22d02f3d1362cb66e1172b0612';
 const EXPECTED_BASE64_LENGTH = 264564;
 
 const WEB_ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -38,6 +39,10 @@ if (base64.length !== EXPECTED_BASE64_LENGTH) {
 const compressed = Buffer.from(base64, 'base64');
 if (compressed.byteLength !== EXPECTED_BROTLI_BYTES) {
   throw new Error(`Presentation Brotli length mismatch: ${compressed.byteLength}`);
+}
+const compressedSha256 = sha256(compressed);
+if (compressedSha256 !== EXPECTED_BROTLI_SHA256) {
+  throw new Error(`Presentation Brotli SHA-256 mismatch: ${compressedSha256}`);
 }
 
 const pdf = brotliDecompressSync(compressed);
