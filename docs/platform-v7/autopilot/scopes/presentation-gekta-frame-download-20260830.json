@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "presentation-gekta-frame-download-20260830",
+  "branch": "fix/presentation-gekta-frame-download-20260830-v2",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {"branch": "main", "commit": "f69a308d15e5eba5b79666e5957a99086a87afb2"},
+  "purpose": "Correct slide 1 so the ГЕКТА label is fully contained inside the existing green frame, preserving the stable public platform download URL and the remaining 13 slides.",
+  "allowedPaths": [
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+    "apps/web/lib/presentation-pdf/part-00.ts",
+    "apps/web/lib/presentation-pdf/part-01.ts",
+    "apps/web/lib/presentation-pdf/part-02.ts",
+    "apps/web/lib/presentation-pdf/part-03.ts",
+    "apps/web/lib/presentation-pdf/part-04.ts",
+    "apps/web/lib/presentation-pdf/part-05.ts",
+    "apps/web/lib/presentation-pdf/part-06.ts",
+    "apps/web/lib/presentation-pdf/part-07.ts",
+    "apps/web/lib/presentation-pdf/part-08.ts",
+    "apps/web/lib/presentation-pdf/part-09.ts",
+    "apps/web/lib/presentation-pdf/part-10.ts",
+    "apps/web/lib/presentation-pdf/part-11.ts",
+    "apps/web/lib/presentation-pdf/part-12.ts",
+    "apps/web/lib/presentation-pdf/part-13.ts",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+    "docs/platform-v7/autopilot/scopes/presentation-gekta-frame-download-20260830.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/ip/FILE_PROVENANCE.csv",
+    "docs/ip/FILE_PROVENANCE.json"
+  ],
+  "evidence": {
+    "expectedPdfBytes": 320314,
+    "expectedPdfPages": 14,
+    "expectedPdfSha256": "310ed42d1b06326cdd9a799d3b2a3956ef04efaa027cc4a4907382bd3e9b3584",
+    "expectedBrotliBytes": 206712,
+    "expectedBrotliSha256": "2a0cc4e6880aaf43c4aff6a5d6fd0b50ce9f7b70f46e38cf2c6adff4d305e4d9",
+    "expectedBase64Length": 275616,
+    "visualCorrection": "PASS: ГЕКТА is fully contained inside the green frame on slide 1"
+  },
+  "forbiddenChanges": ["public CTA URL or filename", "slides 2-14 content", "API/database/auth/registration/roles/tenant logic", "new recurring cost"],
+  "newRecurringCostRub": 0
+}
