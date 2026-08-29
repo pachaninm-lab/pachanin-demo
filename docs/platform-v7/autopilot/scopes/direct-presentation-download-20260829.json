@@ -5,6 +5,8 @@
   "allowedPaths": [
     "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
     "apps/web/public/_generated/prozrachnaya-tsena-presentation.pdf.br",
-    "apps/web/tests/unit/platformV7PresentationDownload.test.ts"
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+    "docs/ip/FILE_PROVENANCE.csv",
+    "docs/ip/FILE_PROVENANCE.json"
   ]
 }
