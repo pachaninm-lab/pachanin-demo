@@ -69,10 +69,8 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export function GET() {
-  const body = PRESENTATION_PDF.buffer.slice(
-    PRESENTATION_PDF.byteOffset,
-    PRESENTATION_PDF.byteOffset + PRESENTATION_PDF.byteLength,
-  );
+  const body = new ArrayBuffer(PRESENTATION_PDF.byteLength);
+  new Uint8Array(body).set(PRESENTATION_PDF);
 
   return new NextResponse(body, {
     status: 200,
