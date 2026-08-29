@@ -1,6 +1,7 @@
 import { brotliDecompressSync } from 'node:zlib';
 import { NextResponse } from 'next/server';
 
+import { applyPresentationGektaFramePatch } from '@/lib/presentation-pdf/gekta-frame-patch';
 import { PRESENTATION_PDF_BROTLI_BASE64_PART_00 } from '@/lib/presentation-pdf/part-00';
 import { PRESENTATION_PDF_BROTLI_BASE64_PART_01 } from '@/lib/presentation-pdf/part-01';
 import { PRESENTATION_PDF_BROTLI_BASE64_PART_02 } from '@/lib/presentation-pdf/part-02';
@@ -66,7 +67,18 @@ function loadPresentationPdf(): Uint8Array {
     throw new Error('Presentation PDF EOF marker is missing.');
   }
 
-  cachedPresentationPdf = Uint8Array.from(pdf);
+  const correctedPdf = applyPresentationGektaFramePatch(pdf);
+  if (correctedPdf.byteLength <= pdf.byteLength) {
+    throw new Error('Corrected presentation PDF was not extended.');
+  }
+  if (correctedPdf.subarray(0, 5).toString('ascii') !== '%PDF-') {
+    throw new Error('Corrected presentation output is not a PDF.');
+  }
+  if (!correctedPdf.subarray(-64).includes(Buffer.from('%%EOF'))) {
+    throw new Error('Corrected presentation PDF EOF marker is missing.');
+  }
+
+  cachedPresentationPdf = Uint8Array.from(correctedPdf);
   return cachedPresentationPdf;
 }
 
