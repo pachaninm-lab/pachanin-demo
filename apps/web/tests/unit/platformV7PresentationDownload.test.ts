@@ -60,8 +60,10 @@ describe('public presentation download', () => {
     expect(DOWNLOAD_PATH).toBe('/downloads/prozrachnaya-tsena-presentation.pdf');
     expect(route).not.toContain('drive.google.com');
     expect(route).not.toContain('NextResponse.redirect');
-    expect(route).not.toContain('readFileSync');
+    expect(route).toContain('readFileSync');
+    expect(route).toContain('lib/presentation-pdf/part-');
     expect(route).toContain('brotliDecompressSync');
+    expect(route).not.toContain("from '@/lib/presentation-pdf/part-");
     expect(route).toContain("'Content-Type': 'application/pdf'");
     expect(route).toContain("'Content-Disposition'");
     expect(route).toContain('attachment; filename=');
