@@ -1,4 +1,4 @@
-name: Verify live presentation twice
+name: Diagnose live presentation 500
 
 on:
   push:
@@ -10,60 +10,83 @@ on:
 permissions:
   contents: read
 
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
 jobs:
-  verify-live-pdf:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
     steps:
-      - name: Verify two independent live downloads
+      - name: Resolve protected SSH authority
+        id: ssh
         shell: bash
         run: |
           set -euo pipefail
-          url='https://xn----8sbjf4befbjgs9b.xn--p1ai/downloads/prozrachnaya-tsena-presentation.pdf'
-          expected_bytes='312533'
-          expected_sha='1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5'
-          expected_pages='14'
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]]
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){ local source="$1" target="$HOME/.ssh/id_pc_prod" pub; tr -d '\r' < "$source" > "$target"; chmod 600 "$target"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          try_slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 15 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"; chmod 600 "$HOME/.ssh/known_hosts"; rm -f "$scan"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
 
-          if ! command -v pdfinfo >/dev/null 2>&1; then
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq poppler-utils
-          fi
-
-          for n in 1 2; do
-            body="$(mktemp --suffix=.pdf)"
-            headers="$(mktemp)"
-            status="$(curl -sS -L --retry 6 --retry-all-errors --retry-delay 2 \
-              --connect-timeout 15 --max-time 120 \
-              -D "$headers" -o "$body" -w '%{http_code}' \
-              -A 'Mozilla/5.0 presentation-live-proof' \
-              -H "X-Live-Proof: ${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${n}" \
-              -H 'Accept: application/pdf' \
-              -H 'Connection: close' \
-              "$url")"
-            bytes="$(wc -c < "$body" | tr -d '[:space:]')"
-            sha="$(sha256sum "$body" | awk '{print $1}')"
-            ctype="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {v=$0} END{sub(/^[^:]*:[[:space:]]*/,"",v); sub(/\r$/, "", v); print v}' "$headers")"
-            disposition="$(awk 'BEGIN{IGNORECASE=1} /^content-disposition:/ {v=$0} END{sub(/^[^:]*:[[:space:]]*/,"",v); sub(/\r$/, "", v); print v}' "$headers")"
-            etag="$(awk 'BEGIN{IGNORECASE=1} /^etag:/ {v=$0} END{sub(/^[^:]*:[[:space:]]*/,"",v); sub(/\r$/, "", v); print v}' "$headers")"
-
-            echo "LIVE_PDF_PROOF_${n}_HTTP=$status"
-            echo "LIVE_PDF_PROOF_${n}_BYTES=$bytes"
-            echo "LIVE_PDF_PROOF_${n}_SHA256=$sha"
-            echo "LIVE_PDF_PROOF_${n}_CONTENT_TYPE=$ctype"
-            echo "LIVE_PDF_PROOF_${n}_CONTENT_DISPOSITION=$disposition"
-            echo "LIVE_PDF_PROOF_${n}_ETAG=$etag"
-
-            test "$status" = '200'
-            test "$bytes" = "$expected_bytes"
-            test "$sha" = "$expected_sha"
-            case "$ctype" in application/pdf*) ;; *) exit 41 ;; esac
-            case "$disposition" in attachment*) ;; *) exit 42 ;; esac
-            test "$etag" = '"sha256-'"$expected_sha"'"'
-
-            pages="$(pdfinfo "$body" | awk '/^Pages:/ {print $2}')"
-            echo "LIVE_PDF_PROOF_${n}_PAGES=$pages"
-            test "$pages" = "$expected_pages"
-            rm -f "$body" "$headers"
-          done
-
-          echo 'LIVE_PDF_FINAL_VERDICT=PASS'
+      - name: Read-only production diagnosis
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          echo "WEB_CONTAINER_COUNT=${#web_ids[@]}"
+          (( ${#web_ids[@]} == 1 ))
+          web="${web_ids[0]}"
+          echo "WEB_REVISION=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web")"
+          echo "WEB_IMAGE=$(docker inspect --format '{{.Config.Image}}' "$web")"
+          echo "WEB_STATE=$(docker inspect --format '{{.State.Status}}' "$web")"
+          echo '--- internal request ---'
+          docker exec "$web" node - <<'NODE'
+          (async () => {
+            try {
+              const r = await fetch('http://127.0.0.1:3000/downloads/prozrachnaya-tsena-presentation.pdf', {cache:'no-store'});
+              const ab = await r.arrayBuffer();
+              console.log('INTERNAL_HTTP=' + r.status);
+              console.log('INTERNAL_BYTES=' + ab.byteLength);
+              console.log('INTERNAL_CONTENT_TYPE=' + (r.headers.get('content-type') || ''));
+              console.log('INTERNAL_CONTENT_DISPOSITION=' + (r.headers.get('content-disposition') || ''));
+              console.log('INTERNAL_ETAG=' + (r.headers.get('etag') || ''));
+              if (ab.byteLength) console.log('INTERNAL_PREFIX=' + Buffer.from(ab).subarray(0,80).toString('utf8').replace(/\s+/g,' '));
+            } catch (e) {
+              console.log('INTERNAL_FETCH_ERROR=' + (e && e.stack ? e.stack : String(e)));
+            }
+          })();
+          NODE
+          echo '--- route bundle ---'
+          docker exec "$web" sh -lc 'find .next/server -path "*downloads*prozrachnaya-tsena-presentation*" -maxdepth 12 -type f -print 2>/dev/null | head -20' || true
+          echo '--- recent web logs ---'
+          docker logs --since 10m --tail 500 "$web" 2>&1 | sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g' | tail -300
+          REMOTE
