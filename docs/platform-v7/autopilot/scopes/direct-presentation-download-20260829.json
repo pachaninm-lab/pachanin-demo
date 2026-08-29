@@ -4,7 +4,7 @@
   "status": "active",
   "allowedPaths": [
     "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
-    "apps/web/public/_generated/prozrachnaya-tsena-presentation.pdf",
+    "apps/web/public/_generated/prozrachnaya-tsena-presentation.pdf.br",
     "apps/web/tests/unit/platformV7PresentationDownload.test.ts"
   ]
 }
