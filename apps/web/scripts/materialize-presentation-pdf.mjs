@@ -6,6 +6,7 @@ import { brotliDecompressSync } from 'node:zlib';
 
 import { PRESENTATION_PDF_CONTRACT } from './presentation-pdf-contract.mjs';
 
+// Build-time only: verify the approved transport and emit the static public PDF deterministically.
 const WEB_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const OUTPUT = resolve(WEB_ROOT, `public${PRESENTATION_PDF_CONTRACT.downloadPath}`);
 const PRESENTATION_GEKTA_FRAME_PATCH_MARKER = '% PC-GEKTA-FRAME-PATCH-V1';
