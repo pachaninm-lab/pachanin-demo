@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "static-presentation-buildtime-download-20260830",
+  "branch": "fix/static-presentation-download-buildtime-20260830",
+  "issue": 3048,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "2840942bd857074b8a2f9c172d49b7ca510e6335"
+  },
+  "purpose": "Remove the failing runtime Brotli presentation route. Materialize the already approved deterministic 14-page presentation during the web build and let Next.js serve the generated public PDF from the unchanged download URL.",
+  "allowedPaths": [
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+    "apps/web/package.json",
+    "apps/web/scripts/materialize-presentation-pdf.mjs",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+    "docs/platform-v7/autopilot/scopes/static-presentation-buildtime-download-20260830.json"
+  ],
+  "requiredBehavior": [
+    "The public URL /downloads/prozrachnaya-tsena-presentation.pdf remains unchanged.",
+    "No Brotli decompression or PDF reconstruction runs in the production request path.",
+    "The build fails if the approved presentation source cannot be reconstructed or validated.",
+    "The generated PDF preserves the approved 14-page presentation and Gekta frame correction.",
+    "Two independent production downloads must return HTTP 200, application/pdf and identical non-empty PDF bytes."
+  ],
+  "forbiddenChanges": [
+    "presentation content or design",
+    "public CTA URL or filename",
+    "authentication, registration, API, database, roles, tenants or Gekta runtime logic",
+    "production release gates, secrets, external storage or recurring cost"
+  ],
+  "newRecurringCostRub": 0
+}
