@@ -4,7 +4,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { PartnerApiService } from './partner-api.service';
 import { WebhookDispatcherService } from './webhook-dispatcher.service';
-import { outboundUrlProblem } from '../../common/security/outbound-url';
+import { configuredAllowedHosts, safeOutboundRequest } from '../../common/security/safe-outbound-request';
 
 @Controller('api/partner')
 @UseGuards(JwtAuthGuard)
@@ -60,10 +60,6 @@ export class PartnerApiController {
     const wh = active.find((w) => w.id === id);
     if (!wh) return { error: `Webhook subscription ${id} not found or inactive for event` };
 
-    // This is the fetch that a partner can actually reach - dispatch() has no
-    // runtime caller - so the check has to be here and not only there.
-    const problem = outboundUrlProblem(wh.url);
-    if (problem) return { subscriptionId: id, url: wh.url, delivered: false, error: problem };
 
     const eventType = body.eventType ?? 'test.ping';
     const testPayload = body.testData ?? { message: 'GrainFlow webhook test', at: new Date().toISOString() };
@@ -77,7 +73,10 @@ export class PartnerApiController {
     let error: string | undefined;
 
     try {
-      const response = await fetch(wh.url, {
+      // This is the fetch a partner can actually reach - dispatch() has no
+      // runtime caller - so the destination is vetted and pinned here, and
+      // every redirect hop is put through the same checks.
+      const response = await safeOutboundRequest(wh.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,10 +86,12 @@ export class PartnerApiController {
           'User-Agent': 'GrainFlow-Webhook-Test/3.0',
         },
         body: bodyStr,
-        signal: AbortSignal.timeout(10_000),
+        timeoutMs: 10_000,
+        allowedHosts: configuredAllowedHosts(),
       });
-      delivered = response.ok;
+      delivered = response.delivered;
       httpStatus = response.status;
+      error = response.refusedBecause;
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
     }

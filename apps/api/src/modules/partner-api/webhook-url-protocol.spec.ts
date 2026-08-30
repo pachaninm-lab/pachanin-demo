@@ -84,54 +84,41 @@ describe('an unsafe URL scheme is refused at registration', () => {
   });
 });
 
-describe('the fetch a partner can reach refuses before it fetches', () => {
+describe('the reachable path routes through the outbound guard', () => {
   /**
-   * fetch is replaced so a passing case cannot leave the process, and so a
-   * failing case is visible as a call that should never have happened.
+   * The transport is no longer global fetch, so a fetch spy would pass every
+   * case while proving nothing. These use destinations that are refused from
+   * the literal address alone - no DNS, no socket - and assert the refusal
+   * reaches the caller. The guard's own behaviour is covered in
+   * safe-outbound-request.spec.ts, where the transport is injectable.
    */
-  const realFetch = globalThis.fetch;
-  let calls: string[] = [];
-
-  beforeEach(() => {
-    calls = [];
-    globalThis.fetch = (async (input: unknown) => {
-      calls.push(String(input));
-      return { ok: true, status: 200 } as Response;
-    }) as typeof fetch;
-  });
-
-  afterEach(() => { globalThis.fetch = realFetch; });
-
-  it.each(UNSAFE)('does not fetch %p from the test endpoint', async (url) => {
+  it.each([
+    ['javascript:alert(1)', 'OUTBOUND_URL_PROTOCOL_NOT_ALLOWED'],
+    ['file:///etc/passwd', 'OUTBOUND_URL_PROTOCOL_NOT_ALLOWED'],
+    ['not a url at all', 'OUTBOUND_URL_UNPARSEABLE'],
+    ['http://127.0.0.1/hook', 'ADDRESS_LOOPBACK'],
+    ['http://169.254.169.254/latest/meta-data/', 'ADDRESS_LINK_LOCAL'],
+    ['http://10.0.0.1/hook', 'ADDRESS_PRIVATE'],
+  ])('surfaces the refusal for %p from the test endpoint', async (url, reason) => {
     const { partnerApi, controller } = harness();
     const id = seedSubscriptionDirectly(partnerApi, url);
 
-    const result = await controller.testWebhook(id, {}, PARTNER) as { delivered: boolean; error?: string };
+    const result = await controller.testWebhook(id, {}, PARTNER) as
+      { delivered: boolean; error?: string };
 
-    expect(calls).toEqual([]);
     expect(result.delivered).toBe(false);
-    expect(result.error).toMatch(/^OUTBOUND_URL_/u);
-  });
-
-  it('still fetches a safe URL, so the guard is not simply refusing everything', async () => {
-    const { partnerApi, controller } = harness();
-    const id = seedSubscriptionDirectly(partnerApi, 'https://partner.example.test/hook');
-
-    await controller.testWebhook(id, {}, PARTNER);
-
-    expect(calls).toEqual(['https://partner.example.test/hook']);
+    expect(result.error).toBe(reason);
   });
 
   it('the dispatcher refuses a stored row too, and keeps going', async () => {
     const { partnerApi, dispatcher } = harness();
-    seedSubscriptionDirectly(partnerApi, 'javascript:alert(1)');
+    seedSubscriptionDirectly(partnerApi, 'http://169.254.169.254/latest/meta-data/');
 
     const results = await dispatcher.dispatch('test.ping', {});
 
-    expect(calls).toEqual([]);
     expect(results).toHaveLength(1);
     expect(results[0].status).toBe('failed');
-    expect(results[0].error).toBe('OUTBOUND_URL_PROTOCOL_NOT_ALLOWED');
+    expect(results[0].error).toBe('ADDRESS_LINK_LOCAL');
   });
 });
 

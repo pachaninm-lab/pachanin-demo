@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { PartnerApiService } from './partner-api.service';
-import { outboundUrlProblem } from '../../common/security/outbound-url';
+import { configuredAllowedHosts, safeOutboundRequest } from '../../common/security/safe-outbound-request';
 
 export interface WebhookPayload {
   eventType: string;
@@ -49,21 +49,15 @@ export class WebhookDispatcherService {
     secret: string,
     payload: WebhookPayload,
   ): Promise<DeliveryResult> {
-    // Checked again here, not only at registration: a subscription stored
-    // before this control existed has never been through it, and refusing at
-    // the point of use is what makes that safe without a data migration.
-    const problem = outboundUrlProblem(url);
-    if (problem) {
-      this.logger.warn(`Webhook refused: sub=${subscriptionId} reason=${problem}`);
-      return { subscriptionId, url, status: 'failed', error: problem };
-    }
-
     const body = JSON.stringify(payload);
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const sig = this.sign(secret, timestamp, body);
 
     try {
-      const response = await fetch(url, {
+      // The destination is chosen by a partner, so it is vetted and pinned
+      // rather than handed to a client that would resolve it again. A refusal
+      // for one subscription must not stop the others, so it is returned.
+      const response = await safeOutboundRequest(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -73,11 +67,17 @@ export class WebhookDispatcherService {
           'User-Agent': 'GrainFlow-Webhook/3.0',
         },
         body,
-        signal: AbortSignal.timeout(10_000),
+        timeoutMs: 10_000,
+        allowedHosts: configuredAllowedHosts(),
       });
 
-      const ok = response.ok;
-      this.logger.log(`Webhook delivered: sub=${subscriptionId} url=${url} status=${response.status} ok=${ok}`);
+      if (response.refusedBecause) {
+        this.logger.warn(`Webhook refused: sub=${subscriptionId} reason=${response.refusedBecause}`);
+        return { subscriptionId, url, status: 'failed', error: response.refusedBecause };
+      }
+
+      const ok = response.delivered;
+      this.logger.log(`Webhook delivered: sub=${subscriptionId} status=${response.status} ok=${ok}`);
       return { subscriptionId, url, status: ok ? 'delivered' : 'failed', httpStatus: response.status };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
