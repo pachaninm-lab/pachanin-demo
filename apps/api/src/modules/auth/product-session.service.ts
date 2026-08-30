@@ -427,6 +427,12 @@ export class ProductSessionService {
     // The same idle limit as the platform pathway, from the same constant. Two
     // session stores with two different idle rules would be the inconsistency
     // V6.3.4 is about, and the number is not worth having in two places.
+    //
+    // The privileged fifteen-minute tier does not apply here and is not faked:
+    // a product session carries a scope, not a platform role, so there is no
+    // role on this row to decide it from. Reaching for staffRoles to invent one
+    // would be a second authority for who is privileged, which is the thing
+    // that consistency requirement forbids.
     if (context.session_last_seen_at.getTime() + SESSION_IDLE_TIMEOUT_MS <= Date.now()) {
       return 'SESSION_IDLE_TIMEOUT';
     }

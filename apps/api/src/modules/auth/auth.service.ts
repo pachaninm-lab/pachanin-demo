@@ -53,30 +53,55 @@ const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
  * How long a session may sit unused before it stops being one.
  *
  * The absolute cap is thirty days and is re-checked on every request, but an
- * absolute cap does not bound idle exposure: until now a session left untouched
- * on a shared or lost device stayed valid for the whole thirty days. The
- * timestamp to bound it with was already stored and already maintained - every
- * authenticated request touches last_seen_at, throttled to one write a minute -
- * and nothing read it.
+ * absolute cap does not bound idle exposure: until this was added, a session
+ * left untouched on a shared or lost device stayed valid for the whole thirty
+ * days. The timestamp to bound it with was already stored and already
+ * maintained - every authenticated request touches last_seen_at, throttled to
+ * one write a minute - and nothing read it.
  *
- * Twelve hours is chosen, and the reasoning is recorded because ASVS V7.3.1
- * asks for a limit that follows risk analysis rather than a number someone
- * liked. It is longer than the gaps that occur inside a working day, because
- * this platform is used by drivers, elevator operators and surveyors whose work
- * is interrupted by the job rather than by choice, and an idle limit that logs
- * them out mid-shift would be met by keeping a tab awake rather than by better
- * security. It is sixty times shorter than the absolute cap, so an abandoned
- * session stops being useful the same day instead of the same month.
+ * One hour for an ordinary session, fifteen minutes for a privileged one.
  *
- * It is not the only control on the operations that matter: financial commands
- * above a threshold already demand recently verified MFA regardless of how old
- * the session is, so the idle limit bounds ambient exposure rather than
- * standing alone in front of the risky actions.
+ * The first version of this control used twelve hours, and the reasoning
+ * recorded for it argued that drivers, elevator operators and surveyors are
+ * interrupted by the job rather than by choice, so a shorter limit would be met
+ * by keeping a tab awake rather than by better security. That argument was
+ * rejected by the owner, and the rejection is the right one: it treated the
+ * session as the only way to preserve work. The answer to an interrupted shift
+ * is to keep the state and let the person reauthenticate back into it, not to
+ * leave an authenticated session lying open on a device in a truck cab for
+ * half a day. An idle limit that is generous because logging back in is
+ * inconvenient is a limit set by the UX budget rather than by risk.
  *
- * One constant. If the operational answer is a different number, this is the
- * line to change.
+ * The privileged tier is decided from the role already on the session row that
+ * this same function is validating - not from staffRoles, not from a second
+ * lookup - so there is one authority for who is privileged and it is the same
+ * one the rest of the request uses. The set is ROLES_REQUIRING_MFA, which is
+ * this platform's existing definition of a privileged actor; inventing a second
+ * notion of "privileged" here is precisely the inconsistency V6.3.4 is about.
+ *
+ * Neither number stands alone in front of the risky operations: financial
+ * commands above a threshold already demand recently verified MFA regardless of
+ * session age, and that step-up is not relaxed to compensate for a shorter idle
+ * window. The idle limit bounds ambient exposure.
+ *
+ * Two constants. If the operational answer is a different number, these are the
+ * lines to change.
  */
-export const SESSION_IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
+export const SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+export const PRIVILEGED_SESSION_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+
+/**
+ * The idle limit that applies to a session held by this role.
+ *
+ * Takes the role as it appears on the session context row, so an unknown or
+ * malformed value falls to the shorter-lived ordinary limit rather than to no
+ * limit at all.
+ */
+export function idleTimeoutMsForRole(role: string | null | undefined): number {
+  return ROLES_REQUIRING_MFA.includes(role as Role)
+    ? PRIVILEGED_SESSION_IDLE_TIMEOUT_MS
+    : SESSION_IDLE_TIMEOUT_MS;
+}
 
 const MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 const MEMBERSHIP_SELECTION_TTL_MS = 5 * 60 * 1000;
@@ -1061,7 +1086,7 @@ export class AuthService {
     if (context.session_status === 'EXPIRED' || context.session_expires_at <= new Date()) return 'SESSION_EXPIRED';
     // Evaluated before touchSession runs, so the reading is the previous
     // activity rather than this request's own.
-    if (context.session_last_seen_at.getTime() + SESSION_IDLE_TIMEOUT_MS <= Date.now()) {
+    if (context.session_last_seen_at.getTime() + idleTimeoutMsForRole(context.role) <= Date.now()) {
       return 'SESSION_IDLE_TIMEOUT';
     }
     if (context.session_status !== 'ACTIVE' && !(allowMfaPending && context.session_status === 'MFA_PENDING')) {
