@@ -2700,37 +2700,50 @@
     {
       "requirementId": "V6.1.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/web/lib/platform-v7/govIdentityBridge.ts",
-        "apps/web/app/api/platform-v7/gov-id/start/route.ts",
-        "apps/web/app/api/platform-v7/gov-id/callback/route.ts"
+        "docs/security/THREAT_MODEL.md",
+        "scripts/security/verify-authentication-pathways.test.mjs",
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/auth/product-session.service.ts",
+        "apps/api/src/modules/auth/gekta-registration.service.ts",
+        "apps/web/lib/platform-v7/demo-login-policy.ts",
+        "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
       ],
       "conditions": [
         {
-          "condition": "govIdentityBridge.ts still gates a reachable OIDC-shaped identity-provider pathway behind PLATFORM_V7_GOV_ID_ENABLED, mounted at /api/platform-v7/gov-id/start and /callback",
-          "check": "PRESENT_AT_PATH",
-          "paths": [
-            "apps/web/lib/platform-v7/govIdentityBridge.ts"
-          ],
-          "patterns": [
-            "platform_v7_gov_id_enabled"
-          ]
-        },
-        {
-          "condition": "docs/security/THREAT_MODEL.md still does not name the gov-id bridge as a second authentication pathway",
-          "check": "ABSENT_AT_PATH",
+          "condition": "THREAT_MODEL.md still carries the pathway inventory with the controls and the strength behind each entry, not only a list of names",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "docs/security/THREAT_MODEL.md"
           ],
           "patterns": [
-            "gov-id",
-            "govidentity",
-            "gosuslugi"
+            "## authentication pathways",
+            "proof required",
+            "### consistency",
+            "platform login",
+            "gekta product login",
+            "gekta registration email verification",
+            "/api/auth/demo",
+            "/platform-v7/staff/open-cabinet",
+            "/api/platform-v7/cabinet-session",
+            "/api/platform-v7/cabinet-lock-login"
+          ]
+        },
+        {
+          "condition": "the inventory is still enforced against the tree rather than asserted, by a test that enumerates every minting surface",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-authentication-pathways.test.mjs"
+          ],
+          "patterns": [
+            "every session-minting surface is inventoried",
+            "every inventoried pathway is documented in the threat model",
+            "known_surfaces"
           ]
         }
       ],
-      "note": "The second pathway this requirement would govern is apps/web/lib/platform-v7/govIdentityBridge.ts: an OIDC-shaped bridge mounted at /api/platform-v7/gov-id/start and /callback, gated by PLATFORM_V7_GOV_ID_ENABLED plus three other environment variables, and failing safe when unset. It is not documented anywhere in docs/security/THREAT_MODEL.md, which is what this requirement asks for and why this is FAIL. The decorative apps/api/src/modules/mfa module referenced in an earlier version of this note was removed in #4687 and no longer exists. Recorded here because that earlier note described it as decorative and leaned partly on apps/web not referencing its routes: that is a fact about the web app and did not establish that the API routes were unmounted, and they were - app.module.ts listed MfaModule in its imports. The conclusion the note drew, that it was not a second authentication pathway because it changed no session or credential state, held and still holds; nothing in this verdict rested on it. Open and unresolved on this requirement, raised in #4690: re-reading the bridge for that removal showed its callback never exchanges the authorization code and never mints a session, so it may not be an authentication pathway at all; and a surface this note never mentioned - /api/auth/sber-business/start and /callback - has a stubbed server half returning status: 'not_configured' but a completed web half that would set access, refresh, session and CSRF cookies from any upstream payload carrying a token, validating no state parameter and taking no MFA step. Whether this requirement is FAIL, NOT_APPLICABLE or PASS depends on facts #4690 settles; it stays FAIL until then, which is the conservative reading."
+      "note": "This requirement asks for a document, so a document is the control - and the reason it was FAIL is that the document was not merely missing, it was wrong. A survey of every file in the tree that signs a session token or writes a session cookie found twelve surfaces. The one pathway the previous evidence named, the gov-id bridge, mints nothing at all: its callback validates state against a cookie, then redirects to a fallback target with a reason and clears its own cookies, never exchanging the authorization code and never writing a session, access, refresh or CSRF cookie. Five real pathways were unnamed: three demo-login routes plus a proxy branch; the owner cabinet open at /platform-v7/staff/open-cabinet; /api/platform-v7/cabinet-session; /api/platform-v7/cabinet-lock-login; and the Gekta registration email verification, which mints an enrolment session from a one-time token. All of them are controlled - no open door was found. Demo login is fail-closed because demoLoginAllowed checks NODE_ENV before it reads its enabling flag, its token is not a signed JWT and the API accepts exactly one format, and the web proxy refuses to forward it. Cabinet lock login answers 410 in production before reading its own configuration. The owner cabinet open, the one cabinet route reachable in production, requires a CSRF token compared in constant time plus an allow-listed origin, an existing access cookie, and then either an API-confirmed ACTIVE PLATFORM_OWNER assignment with MFA already verified - a higher bar than ordinary login clears - or a fixture token gated behind three environment variables including a hard expiry, whose claim names a real access token does not carry; the role is bound server-side to a fixed controlled test organization. So the finding was never that these are weak. It was that the security record did not know they existed, which is exactly what this requirement is about. THREAT_MODEL.md now carries the inventory with the proof and the strength for each entry and a separate list of surfaces that are not ways in - refresh, MFA step-up, the staff-access header, the gov-id bridge and the removed Sber callback. It is PASS on a document only because the document is held to the tree: scripts/security/verify-authentication-pathways.test.mjs enumerates every minting surface and fails when one is not accounted for, and fails again when a named pathway leaves the document. Both directions are mutation-checked. Whether the controls behind those twelve surfaces are enforced CONSISTENTLY is the separate second half of V6.3.4, which stays FAIL and is not claimed here. Raised as #4780."
     },
     {
       "requirementId": "V6.2.1",
@@ -3093,21 +3106,34 @@
       "status": "FAIL",
       "evidence": [
         "depends-on:V6.1.3",
-        "apps/web/lib/platform-v7/govIdentityBridge.ts"
+        "docs/security/THREAT_MODEL.md",
+        "scripts/security/verify-authentication-pathways.test.mjs",
+        "apps/web/middleware.ts",
+        "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
       ],
       "conditions": [
         {
-          "condition": "govIdentityBridge.ts still gates a reachable OIDC-shaped identity-provider pathway behind PLATFORM_V7_GOV_ID_ENABLED",
+          "condition": "a cabinet cookie is still minted by a route whose consistency with the primary pathway has not been proven surface by surface",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+            "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
           ],
           "patterns": [
-            "platform_v7_gov_id_enabled"
+            "signcabinetsession"
+          ]
+        },
+        {
+          "condition": "the middleware still resolves a role from that cabinet cookie",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "cabinet_session_cookie"
           ]
         }
       ],
-      "note": "Downstream of V6.1.3, not an independent finding: this requirement asks whether an existing second authentication pathway is documented AND consistently enforced, and whether the gov-id bridge's authentication strength matches the primary password(+TOTP) pathway cannot be verified while the bridge is not documented as existing - there is nothing written down to check the code against. The decorative apps/api/src/modules/mfa module referenced in an earlier version of this note was removed in #4687 and no longer exists. Recorded here because that earlier note described it as decorative and leaned partly on apps/web not referencing its routes: that is a fact about the web app and did not establish that the API routes were unmounted, and they were - app.module.ts listed MfaModule in its imports. The conclusion the note drew, that it was not a second authentication pathway because it changed no session or credential state, held and still holds; nothing in this verdict rested on it. See #4690: the sber-business web callback would mint a full session with no MFA step and no state validation if its stubbed server half ever returned a token, which is exactly the inconsistency this requirement is about, on a surface this note previously did not name."
+      "note": "The first half of this requirement is now met and the second is not, which is why it stays FAIL rather than following V6.1.3 to PASS. There are no longer undocumented pathways: THREAT_MODEL.md names all twelve minting surfaces and scripts/security/verify-authentication-pathways.test.mjs fails the build when a new one appears or a documented one disappears, in both directions, mutation-checked. What is not established is that security controls and authentication strength are enforced CONSISTENTLY across them. The API side is coherent: one access-token format, issuer, audience and type all checked, session scope re-read from auth.sessions on every request rather than trusted from the token, and every one-time bearer credential minted purpose-bound and versioned by the opaque token authority. The web tier is where the question is open. Three routes mint a cabinet cookie signed with JWT_SECRET that the API never sees and never accepts, and the Next.js middleware reads it to decide which role's pages render. Proving consistency means proving, surface by surface, what the middleware trusts that cookie to assert and that a cabinet role cannot present as more than the account behind it - and the strongest of the three, the owner cabinet open, already demands an ACTIVE PLATFORM_OWNER assignment with MFA verified, so the likely answer is that it holds. Likely is not evidence. The remaining differences that are settled and deliberate are recorded rather than left implicit: Gekta login requires MFA unconditionally where platform login requires it by role and account, which makes the second pathway stronger rather than inconsistent and is a property of the account rather than of the route the caller picks; and the demo and cabinet-lock contours produce credentials production cannot mint. Raised as #4780."
     },
     {
       "requirementId": "V6.3.5",
