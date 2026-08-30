@@ -42,6 +42,37 @@ export type VerifiedCabinetSessionContext = {
   ownerAccess: boolean;
 };
 
+/**
+ * Purpose binding for tokens this module accepts.
+ *
+ * Cabinet sessions and API access tokens are both HS256 under JWT_SECRET, so a
+ * signature check alone says only that the platform minted the token - not what
+ * it minted it for. Until now the two were told apart by which claim each
+ * happened to carry: a cabinet token has `cab`, an access token does not, and
+ * an access token carries no `role` claim so the role reader returned null for
+ * it. Both are true today and neither is a check. Adding one `role` claim to
+ * the access token, for any reason, would have turned the web tier into
+ * something that derives a cabinet role from a credential minted for the API.
+ *
+ * ASVS V9.2.2 asks the receiving service to verify the type, and V9.2.3 the
+ * audience. Both are verified here now, so the separation is structural.
+ *
+ * The access values are the API's own, restated because the web app cannot
+ * import from it; tokenPurposeBinding.spec.ts reads access-token.ts and fails
+ * if they ever drift apart.
+ */
+export const CABINET_TOKEN_TYPE = 'cabinet';
+export const CABINET_TOKEN_AUDIENCE = 'pc-v7-cabinet';
+const API_ACCESS_TOKEN_TYPE = 'access';
+const API_ACCESS_ISSUER = 'transparent-price-api';
+const API_ACCESS_AUDIENCE = 'transparent-price-platform';
+
+/** `aud` is a string or an array of strings in RFC 7519; both must be handled. */
+function audienceIncludes(claim: unknown, expected: string): boolean {
+  if (typeof claim === 'string') return claim === expected;
+  return Array.isArray(claim) && claim.includes(expected);
+}
+
 export function mapApiRoleToCabinetRole(apiRole: unknown): VerifiedCabinetRole | null {
   if (typeof apiRole !== 'string') return null;
   return API_ROLE_TO_CABINET[apiRole] ?? null;
@@ -112,6 +143,13 @@ export async function readVerifiedCabinetRole(
   if (!claims) return null;
   if (typeof claims.exp === 'number' && claims.exp <= nowSeconds) return null;
   if (typeof claims.nbf === 'number' && claims.nbf > nowSeconds) return null;
+  // This reads a credential the API minted, so it is accepted only as what the
+  // API minted it as. A cabinet session, a fixture token or anything else
+  // signed with the same secret is refused here rather than inspected for a
+  // role claim it was never meant to carry.
+  if (claims.typ !== API_ACCESS_TOKEN_TYPE) return null;
+  if (claims.iss !== API_ACCESS_ISSUER) return null;
+  if (!audienceIncludes(claims.aud, API_ACCESS_AUDIENCE)) return null;
   return mapApiRoleToCabinetRole(claims.role);
 }
 
@@ -140,6 +178,8 @@ export async function signCabinetSession(
     const header = bytesToBase64Url(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
     const payload = bytesToBase64Url(
       enc.encode(JSON.stringify({
+        typ: CABINET_TOKEN_TYPE,
+        aud: CABINET_TOKEN_AUDIENCE,
         cab: role,
         sub: opts.userId || undefined,
         membership: opts.membershipId || undefined,
@@ -168,6 +208,8 @@ export async function readVerifiedCabinetSessionContext(
   if (!claims) return null;
   if (typeof claims.exp === 'number' && claims.exp <= nowSeconds) return null;
   if (typeof claims.nbf === 'number' && claims.nbf > nowSeconds) return null;
+  if (claims.typ !== CABINET_TOKEN_TYPE) return null;
+  if (!audienceIncludes(claims.aud, CABINET_TOKEN_AUDIENCE)) return null;
   const cab = claims.cab;
   if (typeof cab !== 'string' || !VALID_CABINET_ROLES.has(cab)) return null;
   return {
