@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { brotliDecompressSync } from 'node:zlib';
+import { brotliDecompressSync, inflateSync } from 'node:zlib';
 
 import { PRESENTATION_PDF_CONTRACT } from './presentation-pdf-contract.mjs';
 
@@ -10,6 +10,8 @@ import { PRESENTATION_PDF_CONTRACT } from './presentation-pdf-contract.mjs';
 const WEB_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const OUTPUT = resolve(WEB_ROOT, `public${PRESENTATION_PDF_CONTRACT.downloadPath}`);
 const PRESENTATION_GEKTA_FRAME_PATCH_MARKER = '% PC-GEKTA-FRAME-PATCH-V1';
+const FONT_RESOURCE_PATTERN =
+  /\/(?:Type\s*\/Font\b|FontFile[23]?\b|FontDescriptor\b|BaseFont\b|ToUnicode\b|Font\b)/;
 const OVERLAY_STREAM = [
   'q',
   '0.0588379 0.462646 0.431396 rg',
@@ -50,6 +52,48 @@ function requiredMatch(value, pattern, label) {
 
 function xrefEntry(offset) {
   return `${String(offset).padStart(10, '0')} 00000 n`;
+}
+
+function assertFontIndependentPdf(pdf) {
+  if (PRESENTATION_PDF_CONTRACT.textRendering !== 'vector-outlines') {
+    throw new Error('Presentation PDF text rendering contract is not vector-outlines.');
+  }
+
+  const syntaxBuffers = [pdf];
+  const streamStartMarker = Buffer.from('stream\n', 'ascii');
+  const streamEndMarker = Buffer.from('\nendstream', 'ascii');
+  let cursor = 0;
+  let decodedStreams = 0;
+
+  while (cursor < pdf.byteLength) {
+    const markerOffset = pdf.indexOf(streamStartMarker, cursor);
+    if (markerOffset < 0) break;
+
+    const streamOffset = markerOffset + streamStartMarker.byteLength;
+    const streamEnd = pdf.indexOf(streamEndMarker, streamOffset);
+    if (streamEnd < 0) {
+      throw new Error('Presentation PDF stream terminator is missing.');
+    }
+
+    try {
+      syntaxBuffers.push(inflateSync(pdf.subarray(streamOffset, streamEnd)));
+      decodedStreams += 1;
+    } catch {
+      // Image and incremental streams may use another filter or no compression.
+    }
+    cursor = streamEnd + streamEndMarker.byteLength;
+  }
+
+  if (decodedStreams === 0) {
+    throw new Error('Presentation PDF contains no inspectable compressed streams.');
+  }
+
+  const inspectableSyntax = Buffer.concat(syntaxBuffers).toString('latin1');
+  if (FONT_RESOURCE_PATTERN.test(inspectableSyntax)) {
+    throw new Error('Presentation PDF contains a font resource incompatible with vector-outlines.');
+  }
+
+  return decodedStreams;
 }
 
 function applyPresentationGektaFramePatch(pdf) {
@@ -206,14 +250,20 @@ const pages = basePdf.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? [];
 if (pages.length !== PRESENTATION_PDF_CONTRACT.pdfPages) {
   throw new Error(`Presentation page count mismatch: ${pages.length}`);
 }
+const decodedPdfStreams = assertFontIndependentPdf(basePdf);
 
 const correctedPdf = applyPresentationGektaFramePatch(basePdf);
-if (correctedPdf.byteLength <= basePdf.byteLength) {
-  throw new Error('Corrected presentation PDF was not extended.');
+if (correctedPdf.byteLength !== PRESENTATION_PDF_CONTRACT.correctedPdfBytes) {
+  throw new Error(`Corrected presentation PDF length mismatch: ${correctedPdf.byteLength}`);
 }
 if (!correctedPdf.subarray(-64).includes(Buffer.from('%%EOF'))) {
   throw new Error('Corrected presentation PDF EOF marker is missing.');
 }
+const correctedPdfSha = sha256(correctedPdf);
+if (correctedPdfSha !== PRESENTATION_PDF_CONTRACT.correctedPdfSha256) {
+  throw new Error(`Corrected presentation PDF SHA-256 mismatch: ${correctedPdfSha}`);
+}
+assertFontIndependentPdf(correctedPdf);
 
 mkdirSync(dirname(OUTPUT), { recursive: true });
 writeFileSync(OUTPUT, correctedPdf, { mode: 0o644 });
@@ -223,5 +273,7 @@ console.log('PRESENTATION_BROTLI_SHA256_REFERENCE_MATCH=1');
 console.log(`PRESENTATION_BASE_PDF_BYTES=${basePdf.byteLength}`);
 console.log(`PRESENTATION_PDF_PAGES=${pages.length}`);
 console.log(`PRESENTATION_BASE_PDF_SHA256=${basePdfSha}`);
+console.log(`PRESENTATION_INSPECTED_FLATE_STREAMS=${decodedPdfStreams}`);
+console.log('PRESENTATION_IOS_QUICKLOOK_FONT_DEPENDENCY=NONE');
 console.log('PRESENTATION_GEKTA_FRAME_PATCH=PASS');
-console.log(`PRESENTATION_PDF_SHA256=${sha256(correctedPdf)}`);
+console.log(`PRESENTATION_PDF_SHA256=${correctedPdfSha}`);
