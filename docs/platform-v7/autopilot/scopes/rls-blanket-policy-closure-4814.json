@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4814,
+  "branch": "security/rls-blanket-policy-closure-4814",
+  "status": "active",
+  "purpose": "Close two blanket row policies that neutralise tenant scoping on a migration-only database, and make the class impossible to reintroduce. 0001_postgresql_initial installed policies granted to PUBLIC whose qualifier is literally true on deals, audit_events and ledger_entries; their DROP statements existed only in infra/sql/production-rls-policies.sql, which no deploy path applies. PostgreSQL ORs permissive policies, so on audit_events and ledger_entries the blanket SELECT is the only SELECT policy there is.",
+  "authorityBaseExactMain": "8236dcb1fef952742f49f502ba61b6439743d7fe",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/rls-blanket-policy-closure-4814.json",
+    "apps/api/prisma/migrations/20260830190000_migration_chain_rls_permissive_closure/migration.sql",
+    "scripts/sql/identity-rls-no-inert-policies.sql",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The permissive policies are replaced, never merely dropped. On audit_events and ledger_entries the blanket SELECT is the only SELECT policy present, so dropping it alone would deny every audit and ledger read. The strict replacements are installed in the same statement block.",
+    "public.deals is deliberately NOT touched, and is excluded from the new gate in source control with the reason. Closing it needs a deals_update policy that exists only in infra/sql/production-rls-policies.sql, and that artifact has drifted from the migration chain in both directions: its deals_insert is broader than the narrowing 20260712195000 installed, and its deals_select is missing the app_deal_basis_deal_visible branch the chain has. Copying it would revert a deliberate tightening.",
+    "The gate keys on the grantee, not the qualifier. Around sixty policies in this schema are written as FOR SELECT TO some_narrow_role USING (true), where the role is the boundary and the trivial qualifier is correct. Only a policy granted to PUBLIC whose every qualifier is true fails.",
+    "The first version of this gate keyed on the presence of a tenantId column and was wrong: ledger_entries has no such column and would have been missed. The predicate was corrected to the grantee before anything was committed, and a case proves ledger_entries is caught.",
+    "Exclusions are source-controlled with a reason each, and there are exactly two: deals, tracked as #4814, and regulatory_rule_versions, which carries ruleKey, versionTag, effective dates and payload and no tenant or organization column of any kind, so a blanket read is the correct boundary rather than a missing one.",
+    "The migration is idempotent, so the database converges on the same state whether or not the artifact was ever applied to it. This is verified by applying it twice.",
+    "No Prisma schema change, no table or column change, no data migration. Only row policies. The 1C, marketing and presentation contours are not touched, and no production, REG.RU, DNS or credential mutation is performed.",
+    "V8.2.2 stays FAIL and its note is corrected rather than quietly improved: the sentence claiming that data-specific access is decided per row wherever a policy exists described the database CI builds, not the one a deploy builds."
+  ],
+  "acceptance": [
+    "Verified against a real PostgreSQL 16, not by reading: the gate names public.audit_events and public.ledger_entries while the blanket policies are present, and reports NO_INERT_RLS_POLICIES:PASS once the migration has replaced them.",
+    "The gate does not fire on a role-scoped policy with the same trivial qualifier - proved with FOR SELECT TO pc_password_reset_authority USING (true) present in the same database.",
+    "The gate does not fire on either registered exclusion, and fires again the moment a blanket policy is reintroduced on an already-closed table.",
+    "The migration applies cleanly and a second application succeeds unchanged, leaving exactly audit_events_select, audit_events_insert, ledger_entries_select and ledger_entries_insert.",
+    "The matrix rebuilds at applied 332 / rejected 0 with no verdict moved: this pass closes a control without earning a PASS, and says so."
+  ]
+}
