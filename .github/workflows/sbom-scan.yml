@@ -15,6 +15,9 @@ on:
       - 'scripts/security/verify-web-unit-coverage.mjs'
       - 'scripts/security/verify-web-unit-coverage.test.mjs'
       - 'docs/platform-v7/qa/web-unit-coverage-registry.json'
+      - 'scripts/security/verify-key-usage.mjs'
+      - 'scripts/security/verify-key-usage.test.mjs'
+      - 'docs/security/cryptographic-key-usage.json'
       - 'docs/security/cryptographic-inventory.json'
       - 'docs/security/asvs-applicability-decisions.json'
       - 'docs/ip/**'
@@ -45,6 +48,9 @@ on:
       - 'scripts/security/verify-web-unit-coverage.mjs'
       - 'scripts/security/verify-web-unit-coverage.test.mjs'
       - 'docs/platform-v7/qa/web-unit-coverage-registry.json'
+      - 'scripts/security/verify-key-usage.mjs'
+      - 'scripts/security/verify-key-usage.test.mjs'
+      - 'docs/security/cryptographic-key-usage.json'
       - 'docs/security/cryptographic-inventory.json'
       - 'docs/security/asvs-applicability-decisions.json'
       - 'docs/ip/**'
@@ -185,6 +191,9 @@ jobs:
 
       - name: Verify GitHub Actions pinning ratchet
         run: node scripts/security/verify-action-pinning.mjs
+
+      - name: Verify every key records where it may be used
+        run: node scripts/security/verify-key-usage.mjs
 
       - name: Scan the working tree for exposed secrets
         run: node scripts/security/scan-secret-history.mjs

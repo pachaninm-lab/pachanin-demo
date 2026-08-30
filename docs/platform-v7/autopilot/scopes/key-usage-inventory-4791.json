@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4791,
+  "branch": "security/key-usage-inventory-4791",
+  "status": "active",
+  "purpose": "Close ASVS V11.1.2 by recording, for every piece of key material the generated inventory finds, where it may be used and what data it may and may not protect - and by holding that record to the inventory so a key cannot spread into a new file without the decision being revisited. Documentation and a gate only; no runtime change and no production deploy.",
+  "authorityBaseExactMain": "b81b4c7a2d4a038e0df8b8039b93b06725c9278e",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/key-usage-inventory-4791.json",
+    "docs/security/cryptographic-key-usage.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/verify-key-usage.mjs",
+    "scripts/security/verify-key-usage.test.mjs",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "No runtime code is touched. Not one file under apps/ changes; the pass records what the keys are for and does not alter what they do.",
+    "The earlier verdict rested on a fact that had stopped being true - that no cryptographic inventory exists. One does, it is generated from the tree, and CI already fails when the committed copy goes stale. The correction is recorded rather than the verdict being quietly moved.",
+    "The map is held to the generated inventory in both directions and on the file list of every key, so a key that spreads into a new file fails the build until someone revisits what that key is allowed to protect. That coupling is the control; the prose alone would not be one.",
+    "Both key-separation violations found while building the map are named in it rather than smoothed over, and a condition plus a test keep them named. The deal-registry cursor falls back to signing with JWT_SECRET, and its safety today rests on message shape rather than key separation - #4790. ACCESS_TOKEN_SECRET is required by the API's env validation while nothing in the API signs with it.",
+    "Certificates are answered honestly rather than claimed: the application performs no certificate handling of its own, and the only key of that kind in the inventory is the acceptance matrix's local TLS key. Edge TLS material is hosting configuration and is recorded as outside the application's custody.",
+    "V11.1.1 is not touched and remains FAIL. An inventory says what exists and what it is for; a key management policy says what the lifecycle of that material must be. Nothing here is offered as the latter, and the note says so.",
+    "The workflow edit only adds: three path entries and one blocking step. No check is removed and no gate is weakened.",
+    "No production, REG.RU, DNS, database or credential mutation. No secret value appears in the map - only names, files and purposes. The 1C, marketing and presentation contours are not touched."
+  ],
+  "acceptance": [
+    "All 27 pieces of key material carry both halves of a boundary; a missing half fails on its own case.",
+    "A new key with no recorded boundary fails; an entry for a key that no longer exists fails; a key appearing in a file the map does not account for fails; a key no longer appearing where the map says it does fails.",
+    "Smoothing the recorded violations out of the map fails both the test and the matrix condition - applied 331 / rejected 1, PASS back to 105.",
+    "The matrix rebuilds at applied 332 / rejected 0: PASS 105 to 106, FAIL 114 to 113, NOT_ASSESSED unchanged at 38.",
+    "node --test scripts/security passes with the new suite included."
+  ]
+}

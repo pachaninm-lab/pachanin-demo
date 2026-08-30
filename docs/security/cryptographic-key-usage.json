@@ -1,0 +1,405 @@
+{
+  "schemaVersion": "pc-crop.key-usage.v1",
+  "purpose": "ASVS 5.0 V11.1.2 asks the cryptographic inventory to record where each key may and may not be used and what data it may and may not protect. The generated inventory answers what exists and where it appears; that is discoverable by scanning. This answers what each key is for, which is not - so it is written here and held to the generated inventory by scripts/security/verify-key-usage.mjs. A key that spreads to a new file fails the build until the decision is revisited.",
+  "boundKeys": 27,
+  "keys": [
+    {
+      "name": "ACCESS_TOKEN_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/lib/server-request-actor.ts"
+      ],
+      "mayProtect": [
+        "Nothing that this repository mints. The commercial-surface actor reader in the web tier verifies tokens under it, and no code here issues one"
+      ],
+      "mustNotProtect": [
+        "Platform access tokens, which are signed under JWT_SECRET. The API's env validation requires this name while no API code signs with it - recorded rather than silently tidied away"
+      ]
+    },
+    {
+      "name": "AI_ASSISTANT_API_KEY",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
+      ],
+      "mayProtect": [
+        "Nothing. It authenticates to the model provider"
+      ],
+      "mustNotProtect": [
+        "Any application data. It is a third-party service credential"
+      ]
+    },
+    {
+      "name": "AI_ASSISTANT_MAX_TOKENS",
+      "kind": "configuration",
+      "usedIn": [
+        "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
+      ],
+      "mayProtect": [
+        "Nothing. It is a request budget"
+      ],
+      "mustNotProtect": [
+        "Any data. It is configuration that matches the key-material pattern by name and is kept and labelled rather than silently dropped"
+      ]
+    },
+    {
+      "name": "AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION",
+      "kind": "configuration",
+      "usedIn": [
+        "apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+      ],
+      "mayProtect": [
+        "Nothing. It selects which keyring version is current"
+      ],
+      "mustNotProtect": [
+        "Any data. It is configuration"
+      ]
+    },
+    {
+      "name": "AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE",
+      "kind": "configuration",
+      "usedIn": [
+        "apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+      ],
+      "mayProtect": [
+        "Nothing. It names the file holding the current version pointer"
+      ],
+      "mustNotProtect": [
+        "Any data. It is configuration"
+      ]
+    },
+    {
+      "name": "AUTH_MAIL_OUTBOX_KEY",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+      ],
+      "mayProtect": [
+        "Auth-mail outbox payloads at rest, under a versioned keyring where each version derives its own key"
+      ],
+      "mustNotProtect": [
+        "Any credential or session material. This contour encrypts queued mail, not anything that admits a request"
+      ]
+    },
+    {
+      "name": "AUTH_MAIL_OUTBOX_KEYRING_DIR",
+      "kind": "configuration",
+      "usedIn": [
+        "apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+      ],
+      "mayProtect": [
+        "Nothing. It names where the keyring lives"
+      ],
+      "mustNotProtect": [
+        "Any data. It is configuration, not key material, and is inventoried because where a key lives is part of an inventory"
+      ]
+    },
+    {
+      "name": "BANK_HMAC_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/settlement-engine/bank-key-registry.service.ts"
+      ],
+      "mayProtect": [
+        "Bank callback authenticity, as the legacy single-key entry in a registry that accepts several keys at once with validity windows"
+      ],
+      "mustNotProtect": [
+        "Any session, credential or application data at rest. It authenticates an inbound counterparty message and nothing else"
+      ]
+    },
+    {
+      "name": "CRM_WEBHOOK_TOKEN",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/app/api/platform-v7/leads/route.ts"
+      ],
+      "mayProtect": [
+        "Lead delivery to CRM, as the legacy name behind PLATFORM_V7_CRM_WEBHOOK_TOKEN"
+      ],
+      "mustNotProtect": [
+        "Anything in the platform contour"
+      ]
+    },
+    {
+      "name": "DEAL_REGISTRY_CURSOR_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/deals/deal-registry-query.service.ts"
+      ],
+      "mayProtect": [
+        "Deal-registry pagination cursors, binding a cursor to the filter set it was issued for"
+      ],
+      "mustNotProtect": [
+        "Any session or credential. Its fallback to JWT_SECRET when unset is a boundary violation recorded as #4790"
+      ]
+    },
+    {
+      "name": "EDO_WEBHOOK_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/integrations/edo-webhook.controller.ts"
+      ],
+      "mayProtect": [
+        "EDO webhook authenticity, as an HMAC-SHA256 signature over the raw request body"
+      ],
+      "mustNotProtect": [
+        "Any session or credential material, and any other integration's webhooks - each integration authenticates under its own secret"
+      ]
+    },
+    {
+      "name": "GEKTA_ANONYMOUS_SESSION_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/lib/gekta/anonymous-session.ts"
+      ],
+      "mayProtect": [
+        "Anonymous Gekta browsing sessions, which carry no identity and no entitlement"
+      ],
+      "mustNotProtect": [
+        "Any authenticated session. An anonymous session must never be upgradable into one by re-signing"
+      ]
+    },
+    {
+      "name": "GEKTA_PHONE_ENCRYPTION_KEY",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/gekta/gekta-phone.service.ts"
+      ],
+      "mayProtect": [
+        "Stored phone numbers, encrypted at rest with a 32-byte key"
+      ],
+      "mustNotProtect": [
+        "Lookup indexes. Searching by phone uses a separate pepper, so the encryption key never has to be present to answer a lookup"
+      ]
+    },
+    {
+      "name": "GEKTA_PHONE_LOOKUP_PEPPER",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/gekta/gekta-phone.service.ts"
+      ],
+      "mayProtect": [
+        "The blind index that makes a stored phone number searchable without decrypting it"
+      ],
+      "mustNotProtect": [
+        "The phone numbers themselves. It produces a lookup value, never plaintext, and cannot reverse one"
+      ]
+    },
+    {
+      "name": "JWT_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/auth/access-token.ts",
+        "apps/api/src/modules/auth/auth-crypto.ts",
+        "apps/api/src/modules/auth/opaque-token-authority.ts",
+        "apps/api/src/modules/deals/deal-registry-query.service.ts",
+        "apps/web/app/api/platform-v7/cabinet-session/route.ts",
+        "apps/web/app/platform-v7/control-tower/page.tsx",
+        "apps/web/app/platform-v7/driver/layout.tsx",
+        "apps/web/app/platform-v7/layout.tsx",
+        "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx",
+        "apps/web/apps/web/middleware.ts",
+        "apps/web/lib/platform-v7/owner-controlled-cabinet-server.ts",
+        "apps/web/lib/server/auth-session-response.ts",
+        "apps/web/middleware.ts"
+      ],
+      "mayProtect": [
+        "Platform and Gekta access tokens, signed and verified as HS256 with a stated algorithm allowlist",
+        "Cabinet session cookies in the web tier, which select which role's pages render and grant no API access",
+        "The MFA secret encryption key, derived from this material inside auth-crypto"
+      ],
+      "mustNotProtect": [
+        "Opaque one-time credentials. Password reset, MFA recovery, invitation, email verification, membership selection, refresh, MFA challenge, registration status, backup code and staff access digests derive a separate key by HKDF under a purpose label, and the API refuses to start in production without a dedicated key for it",
+        "Anything outside the authentication contour. Its reuse as the deal-registry cursor fallback is a boundary violation recorded as #4790, not a sanctioned use"
+      ]
+    },
+    {
+      "name": "MARKETING_TELEGRAM_WEBHOOK_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/app/api/marketing/telegram/webhook/route.ts"
+      ],
+      "mayProtect": [
+        "Telegram marketing webhook authenticity"
+      ],
+      "mustNotProtect": [
+        "Anything in the platform contour. The marketing surface holds no authority over deals, money or identity"
+      ]
+    },
+    {
+      "name": "MFA_LOGIN_TICKET_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/playwright.acceptance.config.ts"
+      ],
+      "mayProtect": [
+        "Short-lived MFA login tickets in the web tier, minimum 32 characters enforced at read time"
+      ],
+      "mustNotProtect": [
+        "Any session that survives the MFA step. A ticket carries a pending challenge, not an authenticated identity"
+      ]
+    },
+    {
+      "name": "ORGANIZATION_INVITATION_DELIVERY_KEY",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/auth/organization-invitation.service.ts",
+        "apps/web/app/api/auth/mfa-recovery/confirm/route.ts",
+        "apps/web/app/api/auth/organization-invitations/[invitationId]/resend/route.ts",
+        "apps/web/app/api/auth/organization-invitations/route.ts",
+        "apps/web/app/api/auth/organization-memberships/[membershipId]/mfa-recovery/route.ts"
+      ],
+      "mayProtect": [
+        "The delivery boundary for organization invitations and MFA-recovery mail: proof that the caller is the mail delivery path"
+      ],
+      "mustNotProtect": [
+        "The invitation credential itself, which is minted and digested by the opaque token authority under its own key"
+      ]
+    },
+    {
+      "name": "PASSWORD_RESET_DELIVERY_KEY",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/auth/password-reset.service.ts",
+        "apps/api/src/modules/support/support.service.ts",
+        "apps/web/app/api/auth/forgot-password/route.ts",
+        "apps/web/app/api/auth/reset-password/route.ts"
+      ],
+      "mayProtect": [
+        "The delivery boundary for password-reset mail"
+      ],
+      "mustNotProtect": [
+        "The reset credential itself, and any other delivery contour - registration and invitation each hold their own key"
+      ]
+    },
+    {
+      "name": "PC_ACCEPTANCE_JWT_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/playwright.acceptance.config.ts"
+      ],
+      "mayProtect": [
+        "Tokens inside the acceptance browser matrix only"
+      ],
+      "mustNotProtect": [
+        "Anything production reaches. It exists so acceptance never borrows a real signing secret"
+      ]
+    },
+    {
+      "name": "PC_ACCEPTANCE_TLS_KEY",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/playwright.acceptance.config.ts"
+      ],
+      "mayProtect": [
+        "The TLS key of the local HTTPS server the acceptance matrix runs against"
+      ],
+      "mustNotProtect": [
+        "Any production endpoint. It is generated for the run and never leaves it"
+      ]
+    },
+    {
+      "name": "PC_CABINET_SESSION_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/app/platform-v7/control-tower/page.tsx",
+        "apps/web/app/platform-v7/driver/layout.tsx",
+        "apps/web/app/platform-v7/layout.tsx",
+        "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx",
+        "apps/web/apps/web/middleware.ts",
+        "apps/web/lib/platform-v7/owner-controlled-cabinet-server.ts",
+        "apps/web/lib/server/auth-session-response.ts",
+        "apps/web/middleware.ts"
+      ],
+      "mayProtect": [
+        "Cabinet session cookies, but only as a fallback when JWT_SECRET is unset"
+      ],
+      "mustNotProtect": [
+        "Anything on its own. It is a fallback name for the same material rather than a separate key, so it inherits every boundary JWT_SECRET has"
+      ]
+    },
+    {
+      "name": "PLATFORM_V7_CRM_WEBHOOK_TOKEN",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/app/api/platform-v7/leads/route.ts"
+      ],
+      "mayProtect": [
+        "Lead delivery to CRM, preferred over the legacy name"
+      ],
+      "mustNotProtect": [
+        "Anything in the platform contour"
+      ]
+    },
+    {
+      "name": "REGISTRATION_DELIVERY_KEY",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/auth/gekta-registration.service.ts",
+        "apps/api/src/modules/auth/registration-application.service.ts",
+        "apps/api/src/modules/auth/registration-decision.service.ts",
+        "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.ts",
+        "apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts",
+        "apps/web/app/api/auth/register/route.ts",
+        "apps/web/app/api/auth/registration/resend/route.ts",
+        "apps/web/app/api/auth/registration/verify/route.ts",
+        "apps/web/app/api/staff/[...path]/route.ts",
+        "apps/web/lib/server/gekta-auth-route.ts"
+      ],
+      "mayProtect": [
+        "The delivery boundary for registration and registration-decision mail"
+      ],
+      "mustNotProtect": [
+        "The registration credential itself, and any other delivery contour"
+      ]
+    },
+    {
+      "name": "RESEND_API_KEY",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/app/api/auth/register/route.ts",
+        "apps/web/app/api/auth/registration/resend/route.ts",
+        "apps/web/app/api/auth/reset-password/route.ts",
+        "apps/web/app/api/platform-v7/inquiries/route.ts",
+        "apps/web/app/api/platform-v7/leads/route.ts",
+        "apps/web/lib/server/mfa-recovery-mail.ts",
+        "apps/web/lib/server/organization-invitation-mail.ts",
+        "apps/web/lib/server/transactional-mail.ts"
+      ],
+      "mayProtect": [
+        "Nothing. It authenticates to the Resend mail provider"
+      ],
+      "mustNotProtect": [
+        "Any application data. It is a third-party service credential"
+      ]
+    },
+    {
+      "name": "TAI_PLATFORM_TOOL_HMAC_SECRET_B64",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/modules/tai-tools/tai-tool-assertion.ts"
+      ],
+      "mayProtect": [
+        "Tool-call assertions between the platform and the Gekta tool runtime"
+      ],
+      "mustNotProtect": [
+        "User sessions and any credential a person presents. It binds a machine-to-machine assertion"
+      ]
+    },
+    {
+      "name": "VAULT_TOKEN",
+      "kind": "secret",
+      "usedIn": [
+        "apps/api/src/common/vault/vault-transit.service.ts"
+      ],
+      "mayProtect": [
+        "Nothing directly. It authenticates this application to HashiCorp Vault's transit engine"
+      ],
+      "mustNotProtect": [
+        "Any application data. It is a credential to an external service, and the material Vault holds never becomes this token"
+      ]
+    }
+  ]
+}
