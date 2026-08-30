@@ -9,19 +9,35 @@
     "branch": "main",
     "commit": "2840942bd857074b8a2f9c172d49b7ca510e6335"
   },
-  "purpose": "Remove the failing runtime Brotli presentation route. Materialize the already approved deterministic 14-page presentation during the web build and let Next.js serve the generated public PDF from the unchanged download URL.",
+  "purpose": "Remove the failing runtime presentation route, restore the previously verified complete 14-part source transport from commit 39b77b5bbc7a4efef5572114fabf92abcb027a53, validate it by exact Brotli/PDF SHA-256 during the web build, apply the deterministic Gekta frame correction, and let Next.js serve the generated public PDF from the unchanged download URL.",
   "allowedPaths": [
     "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
     "apps/web/package.json",
     "apps/web/scripts/materialize-presentation-pdf.mjs",
+    "apps/web/scripts/presentation-pdf-contract.mjs",
+    "apps/web/lib/presentation-pdf/part-00.ts",
+    "apps/web/lib/presentation-pdf/part-01.ts",
+    "apps/web/lib/presentation-pdf/part-02.ts",
+    "apps/web/lib/presentation-pdf/part-03.ts",
+    "apps/web/lib/presentation-pdf/part-04.ts",
+    "apps/web/lib/presentation-pdf/part-05.ts",
+    "apps/web/lib/presentation-pdf/part-06.ts",
+    "apps/web/lib/presentation-pdf/part-07.ts",
+    "apps/web/lib/presentation-pdf/part-08.ts",
+    "apps/web/lib/presentation-pdf/part-09.ts",
+    "apps/web/lib/presentation-pdf/part-10.ts",
+    "apps/web/lib/presentation-pdf/part-11.ts",
+    "apps/web/lib/presentation-pdf/part-12.ts",
+    "apps/web/lib/presentation-pdf/part-13.ts",
     "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
     "docs/platform-v7/autopilot/scopes/static-presentation-buildtime-download-20260830.json"
   ],
   "requiredBehavior": [
     "The public URL /downloads/prozrachnaya-tsena-presentation.pdf remains unchanged.",
     "No Brotli decompression or PDF reconstruction runs in the production request path.",
-    "The build fails if the approved presentation source cannot be reconstructed or validated.",
-    "The generated PDF preserves the approved 14-page presentation and Gekta frame correction.",
+    "The build fails closed unless the compressed source is exactly 198423 bytes with SHA-256 e99c503bb653bfc1f4c2fd800a5bc230404a6d22d02f3d1362cb66e1172b0612.",
+    "The build fails closed unless the reconstructed base PDF is exactly 312533 bytes, 14 pages and SHA-256 1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5.",
+    "The generated PDF preserves the approved presentation and deterministic Gekta frame correction.",
     "Two independent production downloads must return HTTP 200, application/pdf and identical non-empty PDF bytes."
   ],
   "forbiddenChanges": [
