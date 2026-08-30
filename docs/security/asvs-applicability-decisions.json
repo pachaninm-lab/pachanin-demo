@@ -5211,27 +5211,92 @@
     {
       "requirementId": "V9.2.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
         "apps/api/src/modules/auth/access-token.ts",
         "apps/web/lib/platform-v7/verified-session.ts",
+        "apps/web/lib/platform-v7/fixture-token.ts",
         "apps/web/app/auth/me/route.ts",
         "apps/web/app/staff/[...path]/route.ts",
-        "apps/web/app/platform-v7/staff/page.tsx"
+        "apps/web/app/platform-v7/staff/page.tsx",
+        "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+        "apps/web/tests/unit/fixtureTokenAudience.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the fixture contour still admits its token by a purpose flag rather than by an audience naming the service",
+          "condition": "the fixture contour still decides acceptance by audience and type together, not by a purpose flag",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/fixture-token.ts"
+          ],
+          "patterns": [
+            "fixture_token_type = 'fixture'",
+            "claims.typ !== fixture_token_type",
+            "audienceincludes(claims.aud, audience)"
+          ]
+        },
+        {
+          "condition": "each of the four fixture consumers still requires its own audience",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/web/app/auth/me/route.ts"
           ],
           "patterns": [
-            "claims.testaccess !== true"
+            "fixture_audience.identityprobe"
+          ]
+        },
+        {
+          "condition": "the staff proxy still requires its own audience",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "fixture_audience.staffproxy"
+          ]
+        },
+        {
+          "condition": "the staff page still requires its own audience",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/platform-v7/staff/page.tsx"
+          ],
+          "patterns": [
+            "fixture_audience.staffpage"
+          ]
+        },
+        {
+          "condition": "the owner cabinet route still requires its own audience",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
+          ],
+          "patterns": [
+            "fixture_audience.ownercabinet"
+          ]
+        },
+        {
+          "condition": "the API verifier still passes an audience to jwt.verify",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "audience: access_audience"
+          ]
+        },
+        {
+          "condition": "the cabinet reader still requires the cabinet audience",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ],
+          "patterns": [
+            "audienceincludes(claims.aud, cabinet_token_audience)"
           ]
         }
       ],
-      "note": "Narrowed from the whole web tier to the surface where it is still true. The API verifier passes an audience to jwt.verify and always did. The two general-purpose web readers now do too: cabinet sessions carry an explicit audience and the reader requires it, and the access-token reader requires the API's audience, accepting the array form RFC 7519 allows as well as the string. What remains is the fixture contour. /auth/me, /staff/[...path] and the staff page each verify the signature and then admit the token on testAccess, with owner or a role where relevant - a purpose binding, and a real one, but not an audience naming the service. The consequence is precise: a fixture token minted for one of those three is accepted by the others, because nothing in it says which one it was for. That is exactly what this requirement is about, so it stays FAIL rather than being read as satisfied by a different mechanism. The contour is gated - two of the three refuse to run unless their fixture environment variables are set - which bounds the exposure without meeting the requirement. Closing it means giving those tokens an aud and requiring it at each of the three, which is a change to the fixture minting path and is not in the scope of this pass."
+      "note": "Every service that accepts a self-contained token now accepts only tokens naming it. The API verifier always passed an audience to jwt.verify. #4787 gave cabinet sessions an explicit audience and made both general-purpose web readers require one. What was left, and what kept this FAIL, was the fixture contour: four surfaces - the identity probe at /auth/me, the staff proxy at /staff/[...path], the staff page and the controlled branch of the owner cabinet route - each verified the signature and then admitted the token on testAccess, with owner or a role where relevant. That says the token is a fixture token; it does not say which of the four it was minted for, so a token issued for any one was accepted by the other three and replay across those service boundaries worked by construction. Each now has its own audience and accepts only that one, checked together with an explicit fixture token type so a token carrying the right audience under the wrong type is refused rather than inspected further. Reachability was established before anything was changed, and it produced two facts the earlier record did not have. Nothing in this repository mints a token carrying testAccess, owner or tokenType - every occurrence is a consumer - so these tokens are minted outside the tree. And the three environment variables that enable the contour are set nowhere in the repository: not in a workflow, not in infra, not in helm, not in an env example. In anything version-controlled the contour is therefore dead in both directions, with nothing to switch it on and nothing to supply it. Whether production sets those variables is not visible from here, and that is stated rather than assumed either way. The cost of the change is named for the same reason: a fixture token minted before this, by whatever mints them, stops being accepted, because it carries no audience. That is the fail-closed direction the owner accepted for cabinet cookies in #4787 and it is the same choice here. No minting helper was added. Introducing a first-party way to issue a credential that four surfaces trust would be a larger decision than the one this closes, and the negative cases prove the refusals without one: the full replay matrix in both directions across all four services, a missing audience, a foreign audience, an empty audience, the right audience under four wrong types, the RFC 7519 list form accepted only when it names the service, and absent claims refused rather than treated as unconstrained. Four mutations are caught - removing the audience check, removing the type check, giving two services the same audience, and one consumer ceasing to require its own. Raised and recorded as #4789."
     },
     {
       "requirementId": "V9.2.4",
