@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import * as bcrypt from 'bcryptjs';
 import {
   DUMMY_PASSWORD_HASH,
@@ -206,9 +208,39 @@ describe('work factor configuration', () => {
   // Deliberately not a wall-clock test: the existing suite explains that timing
   // on shared CI runners is unstable and does not explain a failure. The
   // parameters are asserted instead, exactly as bcrypt's cost is.
-  it('keeps scrypt at the measured equivalent of the bcrypt cost in use', () => {
-    expect(PASSWORD_SCRYPT_PARAMS).toEqual({ N: 65_536, r: 8, p: 1 });
+  it('uses the profile the primary source names, not one derived from what was already in place', () => {
+    // OWASP Password Storage Cheat Sheet lists scrypt as N=2^17 (128 MiB),
+    // r=8, p=1 at the top of a ladder that trades memory for parallelism down
+    // to N=2^13, r=8, p=10. The value this module used before — N=2^16, r=8,
+    // p=1 — appears nowhere on that ladder; it was chosen for equivalence with
+    // the bcrypt cost already configured, which measures what was there rather
+    // than what is recommended.
+    expect(PASSWORD_SCRYPT_PARAMS).toEqual({ N: 131_072, r: 8, p: 1 });
     expect(PASSWORD_BCRYPT_COST).toBe(12);
+  });
+
+  it('sits on a rung of the published ladder rather than between two', () => {
+    const LADDER = [
+      { N: 2 ** 17, r: 8, p: 1 },
+      { N: 2 ** 16, r: 8, p: 2 },
+      { N: 2 ** 15, r: 8, p: 3 },
+      { N: 2 ** 14, r: 8, p: 5 },
+      { N: 2 ** 13, r: 8, p: 10 },
+    ];
+    expect(LADDER).toContainEqual({ ...PASSWORD_SCRYPT_PARAMS });
+  });
+
+  it('asks for enough memory to run the profile it declares', () => {
+    // scrypt needs 128 * N * r bytes. A maxmem below that does not weaken the
+    // hash, it makes every verification throw — the failure would be total
+    // rather than subtle, but it would still be a failure introduced by
+    // raising N without raising the ceiling.
+    const { N, r } = PASSWORD_SCRYPT_PARAMS;
+    const required = 128 * N * r;
+    const source = readFileSync(join(__dirname, 'password-hashing.ts'), 'utf8');
+    const declared = /const SCRYPT_MAXMEM = (\d+) \* 1024 \* 1024;/u.exec(source);
+    expect(declared).not.toBeNull();
+    expect(Number(declared![1]) * 1024 * 1024).toBeGreaterThanOrEqual(required);
   });
 
   it('keeps N a power of two, which scrypt requires', () => {
@@ -221,5 +253,58 @@ describe('work factor configuration', () => {
     // the two branches would diverge in cost and the timing oracle this module
     // exists to close would reopen.
     expect(DUMMY_PASSWORD_HASH.startsWith('$2')).toBe(true);
+  });
+});
+
+describe('the upgrade is actually invoked by the login paths', () => {
+  /**
+   * This is the defect that made the rest of the module inert. The versioned
+   * scheme, the legacy verify and verifyPasswordWithUpgrade all existed and
+   * were correct, and both login paths called verifyPassword instead — so no
+   * stored bcrypt hash was ever rewritten and the 72-byte truncation stayed in
+   * place for every existing account.
+   *
+   * A control that nothing calls is the shape this programme keeps finding, so
+   * the wiring is asserted rather than assumed.
+   */
+  const read = (file: string) => readFileSync(join(__dirname, file), 'utf8');
+
+  it.each(['auth.service.ts', 'gekta-registration.service.ts'])(
+    '%s verifies through the upgrading form',
+    (file) => {
+      const source = read(file);
+      expect(source).toContain('verifyPasswordWithUpgrade(');
+      expect(source).toContain('upgradePasswordHashFormat(');
+    },
+  );
+
+  it.each(['auth.service.ts', 'gekta-registration.service.ts'])(
+    '%s no longer uses the non-upgrading form on the login path',
+    (file) => {
+      // verifyPassword cannot rewrite anything, so a login path that calls it
+      // leaves every legacy hash exactly as it found it.
+      expect(read(file)).not.toMatch(/await verifyPassword\(/u);
+    },
+  );
+
+  it('the write is conditional on the previous hash, so a concurrent change wins', () => {
+    const repository = read('persistent-auth.repository.ts');
+    expect(repository).toContain('auth.upgrade_password_hash_format(${userId}, ${nextHash}, ${expectedHash})');
+  });
+
+  it('a failed upgrade does not turn a correct password into a refusal', async () => {
+    const legacyHash = await bcrypt.hash(LEGACY, PASSWORD_BCRYPT_COST);
+    const outcome = await verifyPasswordWithUpgrade(LEGACY, legacyHash, async () => {
+      throw new Error('database unavailable');
+    });
+    expect(outcome).toEqual({ valid: true, upgraded: false });
+  });
+
+  it('a wrong password is never upgraded, whatever the persist callback does', async () => {
+    const legacyHash = await bcrypt.hash(LEGACY, PASSWORD_BCRYPT_COST);
+    const persist = jest.fn(async () => true);
+    const outcome = await verifyPasswordWithUpgrade('not the password', legacyHash, persist);
+    expect(outcome).toEqual({ valid: false, upgraded: false });
+    expect(persist).not.toHaveBeenCalled();
   });
 });

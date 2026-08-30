@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { verifyPassword } from './password-hashing';
+import { verifyPasswordWithUpgrade } from './password-hashing';
 import { randomUUID } from 'crypto';
 import {
   FINANCIAL_MFA_THRESHOLD_KOPECKS,
@@ -127,7 +127,24 @@ export class AuthService {
       this.repository.prisma,
       email,
     );
-    const validPassword = await verifyPassword(dto.password, loginCredential?.password_hash);
+    // The upgrade is opportunistic and runs only after the password verified.
+    // It was written when the versioned scheme landed and never called: both
+    // login paths used verifyPassword, so no legacy bcrypt hash was ever
+    // rewritten and the 72-byte truncation stayed in place for every existing
+    // account. A failed rewrite never turns a correct password into a refusal —
+    // the password was already verified, and the next login tries again.
+    const { valid: validPassword } = await verifyPasswordWithUpgrade(
+      dto.password,
+      loginCredential?.password_hash,
+      loginCredential
+        ? (next, conditionalOn) => this.repository.upgradePasswordHashFormat(
+          this.repository.prisma,
+          loginCredential.user_id,
+          next,
+          conditionalOn,
+        )
+        : undefined,
+    );
 
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);

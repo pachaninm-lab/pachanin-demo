@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { hashPassword, verifyPassword } from './password-hashing';
+import { hashPassword, verifyPasswordWithUpgrade } from './password-hashing';
 import {
   isStrongPassword,
   MAX_PASSWORD_LENGTH,
@@ -346,7 +346,21 @@ export class GektaRegistrationService {
     const email = String(emailInput ?? '').trim().toLowerCase();
     const accountHash = hashAuthMaterial(`account:${email}`);
     const credential = await this.repository.findGektaLoginCredential(this.repository.prisma, email);
-    const validPassword = await verifyPassword(String(password ?? ''), credential?.password_hash);
+    // Same opportunistic upgrade as the platform pathway, from the same
+    // function. Two login paths with two different rehash rules would leave one
+    // population truncated at 72 bytes forever.
+    const { valid: validPassword } = await verifyPasswordWithUpgrade(
+      String(password ?? ''),
+      credential?.password_hash,
+      credential
+        ? (next, conditionalOn) => this.repository.upgradePasswordHashFormat(
+          this.repository.prisma,
+          credential.user_id,
+          next,
+          conditionalOn,
+        )
+        : undefined,
+    );
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);
       const throttle = await this.repository.getLoginThrottle(tx, accountHash, true);
