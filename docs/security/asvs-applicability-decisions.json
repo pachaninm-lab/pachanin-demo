@@ -3495,11 +3495,14 @@
       "status": "FAIL",
       "evidence": [
         "apps/api/src/modules/auth/auth-crypto.ts",
-        "apps/api/src/modules/auth/opaque-token-authority.ts"
+        "apps/api/src/modules/auth/opaque-token-authority.ts",
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/auth/product-session.service.ts",
+        "apps/api/src/modules/auth/mfaBackupCodeEntropy.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "generateBackupCodes() in auth-crypto.ts still derives each code from randomBytes(6) and stores it through digestMfaBackupCode's HMAC-SHA256 keyed digest rather than a salted password-storage hash",
+          "condition": "backup codes are still stored through digestMfaBackupCode's keyed HMAC rather than a salted password-storage hash",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/opaque-token-authority.ts"
@@ -3507,9 +3510,19 @@
           "patterns": [
             "function digestmfabackupcode"
           ]
+        },
+        {
+          "condition": "newly minted codes still carry at least the 112 bits that make a standard hash the allowed option",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "backup_code_entropy_bytes = 15"
+          ]
         }
       ],
-      "note": "The finding rests on the one backup-code implementation that is real and live: generateBackupCodes in apps/api/src/modules/auth/auth-crypto.ts derives each code from randomBytes(6) - 48 bits, under the 112-bit safe harbour this requirement sets - and stores it through opaque-token-authority.ts's digestMfaBackupCode, an HMAC-SHA256 keyed MAC rather than the approved password storage hashing algorithm with a 32-bit random salt the requirement literally asks for. The HMAC key is a real, partial mitigation: a leaked table of digests alone is not enough to brute force, since the server-side HMAC secret is also needed. It is still not literally compliant. The decorative apps/api/src/modules/mfa module referenced in an earlier version of this note was removed in #4687 and no longer exists. Recorded here because that earlier note described it as decorative and leaned partly on apps/web not referencing its routes: that is a fact about the web app and did not establish that the API routes were unmounted, and they were - app.module.ts listed MfaModule in its imports. The conclusion the note drew, that it was not a second authentication pathway because it changed no session or credential state, held and still holds; nothing in this verdict rested on it. That module held a second backup-code implementation that was worse on both counts - randomBytes(4), 32 bits, digested with a bare unsalted createHash('sha256') - but it never persisted anything, so V6.5.2, which is about backend storage, did not apply to it and it was never evidence here. Its removal therefore moves no verdict; it only removes the weaker implementation from the tree, which the cryptographic inventory records as two sha256 sites and one HMAC site fewer."
+      "note": "Half of this requirement is now met and the half that is not is the reason the verdict stays FAIL. The requirement offers two ways to be compliant: a lookup secret below 112 bits of entropy must be kept under an approved password storage hash with a 32-bit random salt, or it must carry 112 bits or more, in which case a standard hash function is allowed. Backup codes are stored through opaque-token-authority.ts's digestMfaBackupCode, an HMAC-SHA256 keyed MAC, so the second route is the one this codebase has to take. It could not, because generateBackupCodes drew randomBytes(6) - 48 bits. #4776 raised the draw to base32Encode(randomBytes(15)) - 120 bits in 24 RFC 4648 characters with no padding - so every code minted from that commit onward is on the right side of the threshold, and mfaBackupCodeEntropy.spec.ts measures that on generated values rather than on the constant: lowering the draw back to six bytes fails three of its eight cases. Salting was considered and rejected on the merits rather than on cost. A salted hash cannot be looked up by value, so verification would have to try each of a user's stored codes in turn at password-hash cost - seconds of work per submitted attempt, none of it paid for by an attacker submitting garbage - where the keyed digest is one deterministic computation and one index lookup. Raising the secret buys the same compliance without that. What still fails: the requirement is about what is stored, and the codes stored before this change are 48-bit codes under that same keyed digest. They cannot be re-hashed, because a digest is all the backend has; the code itself is gone. They also cannot be told apart from new ones - the digest is fixed-width and carries no format - so the verifier accepts both, deliberately: a format check on input would lock every existing user out of their own recovery path without warning. So for any account enrolled before #4776 and not since re-enrolled, the stored secret is still under 112 bits under a standard hash, which is exactly what the requirement forbids. Moving this to PASS needs that population gone, by invalidating outstanding backup codes and forcing re-enrolment. The owner decided in #4777 not to, and the reasoning is recorded there rather than left implicit, because a residual accepted for a reason is not the same record as one nobody looked at. The entropy is not what defends these codes; the server-side digest key is, and in production that key is mandatory - the process refuses to start without AUTH_OPAQUE_TOKEN_DIGEST_KEY or AUTH_TOKEN_PEPPER. Against a database-only compromise, the scenario this threat model actually carries, 48 bits and 120 bits are equally safe: an HMAC cannot be brute-forced or searched by value without its key. Against a host compromise both are equally lost, since an attacker holding the signing secret mints access tokens directly and has no reason to attack a backup code. Online guessing is bounded by the challenge attempt counter regardless of entropy. The one scenario where 120 bits beats 48 is a leaked digest key together with a database dump but without the session-signing secret - narrow, and not what invalidation would be paid for. What it would be paid with is the platform owner's own recovery path: the existing reset acts on a membership and needs an administrator, and above the platform owner there is none, so burning printed codes removes the last rung of that ladder while bus factor 1 is still an open gap in the threat model. The population drains on its own instead - the stored set is rewritten on every code use and on re-enrolment - and if it is ever to be cleared on a schedule, the mechanism already exists and needs no new code: the admin MFA reset sets mfa_backup_hashes to NULL, clears the TOTP secret and issues a recovery credential to the verified address. It is recorded as FAIL and not as partial credit because the size of the affected population cannot be measured from the source tree, and this matrix does not read production data; nothing else in this matrix depends on it. A second backup-code generator was removed rather than left to drift: issueMfaBackupCodeCredential in the authority minted its own randomBytes(6) code with no runtime caller, beside the live generator. Raising entropy in one of two generators for the same purpose is how a stale number waits to be inherited by the next caller, so the issuer now takes the minted code and the entropy decision is made in exactly one place; the same test fails if the second generator comes back. The decorative apps/api/src/modules/mfa module referenced in earlier versions of this note was removed in #4688 and never persisted anything, so it was never evidence here."
     },
     {
       "requirementId": "V6.5.3",
@@ -3537,21 +3550,22 @@
       "applicability": "APPLICABLE",
       "status": "PASS",
       "evidence": [
-        "apps/api/src/modules/auth/auth-crypto.ts"
+        "apps/api/src/modules/auth/auth-crypto.ts",
+        "apps/api/src/modules/auth/mfaBackupCodeEntropy.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "generateBackupCodes() in auth-crypto.ts still derives each code from randomBytes(6)",
+          "condition": "generateBackupCodes() in auth-crypto.ts still draws its codes from a named entropy constant of 15 bytes",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/auth-crypto.ts"
           ],
           "patterns": [
-            "randombytes(6)"
+            "backup_code_entropy_bytes = 15"
           ]
         }
       ],
-      "note": "The live, actually-used backup codes (auth-crypto.ts, randomBytes(6) = 48 bits per code) and the legacy MfaService codes (randomBytes(4) = 32 bits) both clear the 20-bit entropy floor this requirement sets by a wide margin. Whether that entropy is protected adequately at rest is a separate, failing requirement — V6.5.2."
+      "note": "Backup codes clear the 20-bit floor this requirement sets by a very wide margin: each is base32Encode of a 15-byte CSPRNG draw - 120 bits - handed to the user as four groups of six RFC 4648 characters. The margin was already wide before #4776 raised the draw from six bytes (48 bits), so this verdict does not move; the condition does, because it named the six-byte draw and that draw no longer exists anywhere in the tree. Left as it was, it would have been rejected and this decision would have fallen silently to NOT_ASSESSED. It is bound to the named entropy constant the generator actually draws from instead, which is the fact the verdict rests on. Whether that entropy is protected adequately at rest is a separate, still-failing requirement - V6.5.2."
     },
     {
       "requirementId": "V6.5.5",

@@ -7,7 +7,7 @@ import {
   timingSafeEqual,
 } from 'crypto';
 import { requireSecret } from '../../common/config/secrets';
-import { digestMfaBackupCode } from './opaque-token-authority';
+import { issueMfaBackupCodeCredential } from './opaque-token-authority';
 
 const JWT_SECRET = requireSecret('JWT_SECRET');
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -211,17 +211,53 @@ export function buildOtpAuthUri(email: string, secret: string): string {
 }
 
 /**
+ * 15 bytes is 120 bits, which clears the 112-bit safe harbour in 24 base32
+ * characters with nothing left over to pad.
+ */
+export const BACKUP_CODE_ENTROPY_BYTES = 15;
+const BACKUP_CODE_GROUP = 6;
+
+/**
+ * Mint one backup code.
+ *
+ * ASVS 5.0 V6.5.2 lets a lookup secret be kept under a standard hash only when
+ * it carries 112 bits of entropy or more; below that it wants an approved
+ * password-storage hash with a random salt. These were drawn from six bytes -
+ * 48 bits - so the keyed HMAC they are stored under was not the option the
+ * requirement allows, and of the two ways out, raising the secret is the one
+ * that costs nothing at verification time.
+ *
+ * Salting would have cost more than it bought. A salted hash cannot be looked
+ * up by value, so verification would have to try each of a user's stored codes
+ * in turn; at password-hash cost that is seconds of work per attempt, and an
+ * attacker submitting garbage would pay for none of it. Raising entropy keeps
+ * verification a single deterministic digest and one index lookup.
+ *
+ * base32 rather than hex: RFC 4648 leaves out 0, 1, 8 and 9, so there is no
+ * O/0 or I/1 to mistype, and 24 characters carry what 30 hex characters would.
+ */
+function mintBackupCode(): string {
+  const raw = base32Encode(randomBytes(BACKUP_CODE_ENTROPY_BYTES));
+  const groups: string[] = [];
+  for (let index = 0; index < raw.length; index += BACKUP_CODE_GROUP) {
+    groups.push(raw.slice(index, index + BACKUP_CODE_GROUP));
+  }
+  return groups.join('-');
+}
+
+/**
  * Backup codes are one-time bearer credentials, so their stored form comes from
  * the opaque token authority rather than the generic keyed hash: a backup code
- * cannot be presented as any other kind of token.
+ * cannot be presented as any other kind of token. Minting goes through the
+ * authority's typed issuer for the same reason, so the purpose binding and the
+ * digest version are structural here rather than restated at this call site.
  */
 export function generateBackupCodes(count = 8): { codes: string[]; hashes: string[] } {
-  const codes = Array.from({ length: count }, () => {
-    const raw = randomBytes(6).toString('hex').toUpperCase();
-    return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`;
-  });
+  const issued = Array.from({ length: count }, () =>
+    issueMfaBackupCodeCredential(mintBackupCode()),
+  );
   return {
-    codes,
-    hashes: codes.map(digestMfaBackupCode),
+    codes: issued.map((credential) => credential.rawToken),
+    hashes: issued.map((credential) => credential.storedDigest),
   };
 }

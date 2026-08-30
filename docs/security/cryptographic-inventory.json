@@ -247,11 +247,11 @@
     {
       "operation": "csprng",
       "label": "Cryptographic randomness",
-      "sites": 31,
+      "sites": 30,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 31,
+          "sites": 30,
           "files": [
             "apps/api/src/common/config/secrets.ts",
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
