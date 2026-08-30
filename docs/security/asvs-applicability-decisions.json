@@ -114,24 +114,72 @@
     {
       "requirementId": "V1.2.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "unallowlisted:apps/api/src/modules/partner-api/partner-api.controller.ts",
-        "unallowlisted:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+        "apps/api/src/common/security/outbound-url.ts",
+        "apps/api/src/modules/partner-api/partner-api.service.ts",
+        "apps/api/src/modules/partner-api/partner-api.controller.ts",
+        "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+        "apps/api/src/modules/partner-api/webhook-url-protocol.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the partner webhook path still dispatches to a URL taken from partner-controlled input with no protocol allowlist anywhere in the registration or dispatch code",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the allowlist is still an allowlist of safe schemes, not a denylist of known-bad ones",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/outbound-url.ts"
+          ],
+          "patterns": [
+            "const safe_outbound_protocols: readonly string[] = ['https:', 'http:'];",
+            "if (!safe_outbound_protocols.includes(parsed.protocol)) {",
+            "return 'outbound_url_protocol_not_allowed';"
+          ]
+        },
+        {
+          "condition": "registration still refuses an unsafe scheme at the door",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/partner-api.service.ts"
+          ],
+          "patterns": [
+            "const problem = outboundurlproblem(params.url);",
+            "if (problem) throw new badrequestexception({ code: problem });"
+          ]
+        },
+        {
+          "condition": "the reachable fetch, in the test endpoint, still refuses before fetching",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/partner-api.controller.ts"
+          ],
+          "patterns": [
+            "const problem = outboundurlproblem(wh.url);",
+            "if (problem) return { subscriptionid: id, url: wh.url, delivered: false, error: problem };"
+          ]
+        },
+        {
+          "condition": "the dispatcher still refuses a subscription stored before this control existed",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
           ],
           "patterns": [
-            "await fetch(url"
+            "const problem = outboundurlproblem(url);",
+            "return { subscriptionid, url, status: 'failed', error: problem };"
+          ]
+        },
+        {
+          "condition": "credentials in an outbound URL are still refused rather than sent",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/outbound-url.ts"
+          ],
+          "patterns": [
+            "return 'outbound_url_has_credentials';"
           ]
         }
       ],
-      "note": "When a URL is built or accepted from untrusted data, this requirement asks that only safe protocols be permitted and javascript:/data: specifically disallowed. webhook-dispatcher.service.ts calls fetch(url, ...) with a URL read verbatim from a partner subscription record, and partner-api.controller.ts, where that URL is registered, contains no IsUrl validator and no protocol check of any kind - grepped directly, not inferred. The same absence of an allowlist is recorded under V1.3.6 (SSRF) and was first found under ASVS V13.2.4/V13.2.5; this decision assesses it fresh against V1.2.2s narrower protocol-safety text rather than re-stating the earlier finding without re-checking it."
+      "note": "A partner registers a webhook URL through the partner API and this application later fetches it. The URL was stored verbatim: the endpoint declares its body as an inline TypeScript type, which erases to Object at runtime, so ValidationPipe skipped the parameter and no validator ever saw the field. Reachability was established before anything was changed, and it corrected the earlier record. That record named one fetch site, WebhookDispatcherService.dispatch, and a grep for callers finds none anywhere in the tree - the method is exported from its module but nothing invokes it. The fetch a partner can actually reach is in the controller's test endpoint, POST webhooks/:id/test, and it was not named. So the requirement was failing on a path the evidence did not mention, which is the same failure mode as the requirement itself. The check is applied at three points, not one: at registration, so a bad scheme is refused at the door; in the test endpoint, because that is the live path; and in the dispatcher, because a subscription stored before this existed has never been through registration and refusing at the point of use makes that safe without a data migration. http is on the allowlist deliberately. This requirement asks that the scheme be of a safe kind and names javascript: and data:; transport confidentiality is V12, and narrowing to https alone would break every partner already registered over http, which is a product decision rather than this control's to make. That choice is written down rather than left implied by an omission. What is deliberately not claimed: this does not decide where the URL points. Loopback, link-local and private ranges still pass, and the test suite asserts that they do, so the boundary is visible in the suite and not only in prose. Blocking them, and the DNS rebinding that defeats a naive version of it, is server-side request forgery under V1.3.6, which stays FAIL. Mutation results: removing the guard from the reachable fetch fails 8 of 22, removing it from registration fails 9, removing the allowlist fails 8, and removing it from the dispatcher fails 1 - one, because the dispatcher has one case, because it has no runtime caller."
     },
     {
       "requirementId": "V1.2.3",

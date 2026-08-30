@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { PartnerApiService } from './partner-api.service';
+import { outboundUrlProblem } from '../../common/security/outbound-url';
 
 export interface WebhookPayload {
   eventType: string;
@@ -48,6 +49,15 @@ export class WebhookDispatcherService {
     secret: string,
     payload: WebhookPayload,
   ): Promise<DeliveryResult> {
+    // Checked again here, not only at registration: a subscription stored
+    // before this control existed has never been through it, and refusing at
+    // the point of use is what makes that safe without a data migration.
+    const problem = outboundUrlProblem(url);
+    if (problem) {
+      this.logger.warn(`Webhook refused: sub=${subscriptionId} reason=${problem}`);
+      return { subscriptionId, url, status: 'failed', error: problem };
+    }
+
     const body = JSON.stringify(payload);
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const sig = this.sign(secret, timestamp, body);

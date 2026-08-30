@@ -1,7 +1,8 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser } from '../../common/types/request-user';
+import { outboundUrlProblem } from '../../common/security/outbound-url';
 
 export interface ApiKey {
   id: string;
@@ -95,6 +96,11 @@ export class PartnerApiService {
     params: { url: string; events: string[] },
     user: RequestUser,
   ): { subscriptionId: string; secret: string } {
+    // The endpoint declares its body as an inline type, which erases at runtime,
+    // so ValidationPipe never sees this field. The check has to be here.
+    const problem = outboundUrlProblem(params.url);
+    if (problem) throw new BadRequestException({ code: problem });
+
     const id = `wh-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const secret = `whsec_${randomBytes(24).toString('hex')}`;
     const sub: WebhookSubscription = {
