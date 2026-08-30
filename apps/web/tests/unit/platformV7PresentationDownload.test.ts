@@ -1,16 +1,17 @@
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { brotliDecompressSync } from 'node:zlib';
 
-import { GET } from '../../app/downloads/prozrachnaya-tsena-presentation.pdf/route';
-
-const EXPECTED_PDF_BYTES = 312533;
-const EXPECTED_PDF_SHA256 = '1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5';
+const EXPECTED_BASE_PDF_BYTES = 312533;
+const EXPECTED_BASE_PDF_SHA256 = '1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5';
 const EXPECTED_PDF_PAGES = 14;
 const EXPECTED_BROTLI_BYTES = 198423;
 const EXPECTED_BASE64_LENGTH = 264564;
 const DOWNLOAD_PATH = '/downloads/prozrachnaya-tsena-presentation.pdf';
+const STATIC_PDF_FILE = resolve(process.cwd(), 'public/downloads/prozrachnaya-tsena-presentation.pdf');
+const MATERIALIZER_FILE = resolve(process.cwd(), 'scripts/materialize-presentation-pdf.mjs');
 const ROUTE_FILE = resolve(
   process.cwd(),
   'app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts',
@@ -20,6 +21,7 @@ const HOME_FILE = resolve(
   'components/platform-v7/PlatformV7StrategicHome.tsx',
 );
 const PACKAGE_FILE = resolve(process.cwd(), 'package.json');
+const DOCKER_FILE = resolve(process.cwd(), '../../infra/docker/Dockerfile.web');
 
 function readPart(index: number): string {
   const suffix = String(index).padStart(2, '0');
@@ -35,74 +37,59 @@ function readPart(index: number): string {
 }
 
 describe('public presentation download', () => {
-  it('reconstructs the approved base PDF and serves a deterministic corrected frame', async () => {
+  it('materializes a non-empty corrected 14-page PDF into public downloads', () => {
     const base64 = Array.from({ length: 14 }, (_, index) => readPart(index)).join('');
     expect(base64).toHaveLength(EXPECTED_BASE64_LENGTH);
 
     const compressed = Buffer.from(base64, 'base64');
     expect(compressed.byteLength).toBe(EXPECTED_BROTLI_BYTES);
 
-    const pdf = brotliDecompressSync(compressed);
-    expect(pdf.byteLength).toBe(EXPECTED_PDF_BYTES);
-    expect(pdf.subarray(0, 5).toString('ascii')).toBe('%PDF-');
-    expect(pdf.subarray(-64).includes('%%EOF')).toBe(true);
-    expect(createHash('sha256').update(pdf).digest('hex')).toBe(EXPECTED_PDF_SHA256);
-    expect(pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? []).toHaveLength(
+    const basePdf = brotliDecompressSync(compressed);
+    expect(basePdf.byteLength).toBe(EXPECTED_BASE_PDF_BYTES);
+    expect(createHash('sha256').update(basePdf).digest('hex')).toBe(
+      EXPECTED_BASE_PDF_SHA256,
+    );
+    expect(basePdf.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? []).toHaveLength(
       EXPECTED_PDF_PAGES,
     );
 
-    const responseA = GET();
-    const responseB = GET();
-    expect(responseA.status).toBe(200);
-    expect(responseB.status).toBe(200);
-    expect(responseA.headers.get('content-type')).toBe('application/pdf');
+    rmSync(STATIC_PDF_FILE, { force: true });
+    const output = execFileSync(process.execPath, [MATERIALIZER_FILE], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    });
 
-    const correctedA = Buffer.from(await responseA.arrayBuffer());
-    const correctedB = Buffer.from(await responseB.arrayBuffer());
-    expect(Buffer.compare(correctedA, correctedB)).toBe(0);
-    expect(correctedA.byteLength).toBeGreaterThan(EXPECTED_PDF_BYTES);
-    expect(correctedA.subarray(0, 5).toString('ascii')).toBe('%PDF-');
-    expect(correctedA.subarray(-64).includes('%%EOF')).toBe(true);
-    expect(responseA.headers.get('content-length')).toBe(String(correctedA.byteLength));
+    expect(output).toContain('PRESENTATION_PDF_PAGES=14');
+    expect(output).toContain('PRESENTATION_GEKTA_FRAME_PATCH=PASS');
+    expect(existsSync(STATIC_PDF_FILE)).toBe(true);
 
-    const correctedText = correctedA.toString('latin1');
+    const correctedPdf = readFileSync(STATIC_PDF_FILE);
+    const correctedText = correctedPdf.toString('latin1');
+    expect(correctedPdf.byteLength).toBeGreaterThan(EXPECTED_BASE_PDF_BYTES);
+    expect(correctedPdf.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+    expect(correctedPdf.subarray(-64).includes('%%EOF')).toBe(true);
     expect(correctedText).toContain('% PC-GEKTA-FRAME-PATCH-V1');
     expect(correctedText).toContain('0.0588379 0.462646 0.431396 rg');
     expect(correctedText).toContain('42.01 187.80 39.55 190.26 39.55 193.30 c');
     expect(correctedText).toMatch(/\/Contents \[\d+ 0 R \d+ 0 R\]/);
   });
 
-  it('serves the corrected PDF from the stable platform URL', () => {
-    const route = readFileSync(ROUTE_FILE, 'utf8');
+  it('serves the presentation as a Docker-packaged static asset from the stable platform URL', () => {
     const home = readFileSync(HOME_FILE, 'utf8');
     const pkg = JSON.parse(readFileSync(PACKAGE_FILE, 'utf8')) as {
       scripts: Record<string, string>;
     };
+    const docker = readFileSync(DOCKER_FILE, 'utf8');
 
     expect(DOWNLOAD_PATH).toBe('/downloads/prozrachnaya-tsena-presentation.pdf');
-    expect(route).not.toContain('drive.google.com');
-    expect(route).not.toContain('NextResponse.redirect');
-    expect(route).not.toContain("from 'node:fs'");
-    expect(route).not.toContain('readFileSync');
-    expect(route).not.toContain('process.cwd()');
-    expect(route).toContain("from '@/lib/presentation-pdf/part-00'");
-    expect(route).toContain("from '@/lib/presentation-pdf/part-13'");
-    expect(route).not.toContain("from '@/lib/presentation-pdf/gekta-frame-patch'");
-    expect(route).toContain('function applyPresentationGektaFramePatch');
-    expect(route).not.toContain('export function applyPresentationGektaFramePatch');
-    expect(route).toContain('Presentation Gekta frame patch is already applied.');
-    expect(route).toContain('const PRESENTATION_PDF_BROTLI_BASE64 = [');
-    expect(route).toContain('cachedPresentationPdf');
-    expect(route).toContain('brotliDecompressSync');
-    expect(route).toContain('applyPresentationGektaFramePatch(pdf)');
-    expect(route).toContain("'Content-Type': 'application/pdf'");
-    expect(route).toContain("'Content-Disposition'");
-    expect(route).toContain('attachment; filename=');
-    expect(route).toContain("'Content-Length'");
-    expect(route).toContain("export const runtime = 'nodejs'");
+    expect(existsSync(ROUTE_FILE)).toBe(false);
+    expect(pkg.scripts.build).toBe(
+      'node scripts/materialize-presentation-pdf.mjs && next build',
+    );
+    expect(docker).toContain(
+      'COPY --from=build --chown=nonroot:nonroot /workspace/apps/web/public ./public',
+    );
     expect(home).toContain(`href='${DOWNLOAD_PATH}'`);
     expect(home).toContain("download='Прозрачная_Цена_и_ГЕКТА.pdf'");
-    expect(pkg.scripts.build).toBe('next build');
-    expect(pkg.scripts.dev).toBe('next dev -p 3000');
   });
 });
