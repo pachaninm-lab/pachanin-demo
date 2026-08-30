@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4786,
+  "branch": "security/web-unit-coverage-gate-4786",
+  "status": "active",
+  "purpose": "Repair the four unit files that were red on a clean main, put them into CI, and close the structural hole that let them sit unrun: the web-unit step names its files by hand, so a test file can exist in the repository and be checked by nothing. Adds a fail-closed coverage gate and the classified inventory behind it. No production deploy.",
+  "authorityBaseExactMain": "7d72ff0fbbd6245a0b3bdf4dfe201bc44a66a7e2",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/web-unit-coverage-gate-4786.json",
+    "docs/platform-v7/qa/web-unit-coverage-registry.json",
+    "scripts/security/verify-web-unit-coverage.mjs",
+    "scripts/security/verify-web-unit-coverage.test.mjs",
+    "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts",
+    "apps/web/tests/unit/platformV7BrowserAcceptanceRepairs.test.ts",
+    "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+    "apps/web/tests/unit/platformV7LogisticsDriverBoundary.test.ts",
+    "apps/web/app/platform-v7/logistics/page.tsx",
+    ".github/workflows/ci.yml",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "Not one red test was deleted, skipped, excluded, weakened or declared legacy to reach green. Every failing assertion was classified first: does the contract still have to hold, or does the test pin behaviour that was deliberately cancelled.",
+    "Nine of the ten failing assertions were the second kind, and in three places what replaced them is stronger, not weaker. The acceptance suite stopped forging a cabinet session with signCabinetSession and now drives the real login route; the persistent actor harness stopped rediscovering identities by querying organizations and now enters through AuthService.login, reading role, tenant and organization only from the server-side session projection; the protected layout moved from reading a role to reading the whole verified session context. Restoring those assertions verbatim would have demanded a regression, so each is rewritten to the contract that now holds.",
+    "The one class-A failure is fixed in source, not in the test. The logistics dashboard carried a handoff link into /platform-v7/driver while its own dispatcher screen existed unlinked; the link could never work, because that cabinet layout requires a verified driver session and bounces anyone else straight out. The handoff now points at /platform-v7/logistics/drivers, and the assertion is widened from /driver/field to the whole driver cabinet - the narrow form is exactly what let this sit unnoticed.",
+    "Rewritten assertions are tightened where the source allows it: absence of a fixture-only branch in the owner cabinet selector, absence of the retired resolver names, a non-optional organization binding, the RBAC/idempotency/audit boundary statement on the dispatcher screen, and exactly one support mount per tree rather than a bare tag.",
+    "One rewritten assertion strips comments before scanning. The harness explains in prose which resolvers were retired, and a scanner that counts that explanation as a live call reports the opposite of the truth.",
+    "The four repaired files are executed by CI and are forbidden from ever being excluded; a test asserts both.",
+    "The coverage gate reads the executed list from the workflow rather than restating it, and only from lines that actually invoke vitest. Restating it would recreate the original defect one level up: two lists that can disagree with nothing comparing them.",
+    "No broad wildcard. Turning on all 909 files at once would mix hundreds of unclassified failures into CI in one step. The registry is a work queue with a measured status per file and is meant to reach zero, not a permanent exemption list.",
+    "No hidden exclusions. An entry without a concrete reason fails the gate, and so does an entry for a file that no longer exists, a file both executed and excluded, and a file CI names that is not in the tree.",
+    "The measured statuses are recorded as measured locally on this branch, not asserted as CI outcomes. 662 green and 233 red is what the inventory run produced here; the registry says so rather than claiming those files would behave identically in CI.",
+    "The workflow edits only add. A gate step and three path entries; no check is removed, no step is skipped, no gate is weakened.",
+    "No production, REG.RU, DNS, database or credential mutation. The 1C, marketing and presentation contours are not touched."
+  ],
+  "acceptance": [
+    "The four repaired files pass: 25 tests across them, and the full CI web-unit set is 14 files / 214 tests green.",
+    "The gate fails on a new unit file that is neither run by CI nor registered - verified by adding one and removing it again.",
+    "The gate fails on a blank or token justification, a stale registry entry, a file both executed and excluded, and a CI-named file missing from the tree; each has its own case.",
+    "A path merely mentioned in the workflow does not count as executed, so a comment cannot silently satisfy the gate.",
+    "node --test scripts/security 82/82 and scripts/ip 41/41; web tsc --noEmit exit 0.",
+    "The inventory is stated rather than summarised away: 909 unit test files exist, CI ran 10 before this change and runs 14 after, and 895 remain registered - 662 measured green, 233 measured red."
+  ]
+}

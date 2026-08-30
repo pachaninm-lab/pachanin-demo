@@ -43,10 +43,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Web unit coverage gate
+        run: node scripts/security/verify-web-unit-coverage.mjs
+
       - name: Platform-v7 unit checks
         run: |
           set -o pipefail
-          pnpm --filter @pc/web exec vitest run tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx tests/unit/uploadContentSignature.spec.ts tests/unit/uploadImagePixelBudget.spec.ts tests/unit/sessionMintingSurface.spec.ts tests/unit/mfaRecoveryMailLifetime.spec.ts tests/unit/tokenPurposeBinding.spec.ts 2>&1 | tee /tmp/ci-web-unit.log
+          pnpm --filter @pc/web exec vitest run tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx tests/unit/uploadContentSignature.spec.ts tests/unit/uploadImagePixelBudget.spec.ts tests/unit/sessionMintingSurface.spec.ts tests/unit/mfaRecoveryMailLifetime.spec.ts tests/unit/tokenPurposeBinding.spec.ts tests/unit/platformV7ControlledTestOrganizations.test.ts tests/unit/platformV7BrowserAcceptanceRepairs.test.ts tests/unit/platformV7FinalAcceptanceContract.test.ts tests/unit/platformV7LogisticsDriverBoundary.test.ts 2>&1 | tee /tmp/ci-web-unit.log
 
       - name: Upload web unit log
         if: failure()
