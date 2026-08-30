@@ -25,6 +25,8 @@ on:
       - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
       - 'docs/security/asvs-applicability-decisions.json'
+      - 'scripts/security/verify-decision-evidence.mjs'
+      - 'scripts/security/verify-decision-evidence.test.mjs'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -63,6 +65,8 @@ on:
       - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
       - 'docs/security/asvs-applicability-decisions.json'
+      - 'scripts/security/verify-decision-evidence.mjs'
+      - 'scripts/security/verify-decision-evidence.test.mjs'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -204,6 +208,9 @@ jobs:
 
       - name: Verify every key records where it may be used
         run: node scripts/security/verify-key-usage.mjs
+
+      - name: Verify no decision cites something that is gone
+        run: node scripts/security/verify-decision-evidence.mjs
 
       - name: Verify every algorithm has a migration path
         run: node scripts/security/verify-crypto-migration-plan.mjs
