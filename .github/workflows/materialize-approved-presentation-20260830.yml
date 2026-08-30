@@ -34,7 +34,7 @@ jobs:
           bytes="$(wc -c < "$tmp" | tr -d '[:space:]')"
           sha="$(sha256sum "$tmp" | awk '{print $1}')"
           signature="$(head -c 5 "$tmp")"
-          pages="$(pdfinfo "$tmp" | awk '/^Pages:/ {print $2}')"
+          pages="$(node -e "const fs=require('fs');const s=fs.readFileSync(process.argv[1]).toString('latin1');console.log((s.match(/\\/Type\\s*\\/Page\\b/g)||[]).length)" "$tmp")"
 
           test "$bytes" -gt 100000
           test "$bytes" -lt 5000000
