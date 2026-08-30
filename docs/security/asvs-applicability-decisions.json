@@ -5060,34 +5060,39 @@
     {
       "requirementId": "V9.1.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "api-verifier:apps/api/src/modules/auth/access-token.ts",
-        "web-verifier:apps/web/lib/platform-v7/verified-session.ts"
+        "apps/api/src/modules/auth/access-token.ts",
+        "apps/web/lib/platform-v7/verified-session.ts",
+        "apps/web/lib/server-request-actor.ts",
+        "apps/web/tests/unit/tokenPurposeBinding.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the API verifier still states no algorithm allowlist",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the API states its algorithm allowlist on both signing and verification rather than inheriting a library default",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/access-token.ts"
           ],
           "patterns": [
-            "algorithms:"
+            "access_token_algorithm = 'hs256'",
+            "algorithm: access_token_algorithm",
+            "algorithms: [access_token_algorithm]"
           ]
         },
         {
-          "condition": "the web verifier does state one",
+          "condition": "both web verifiers still refuse any header algorithm other than HS256",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/web/lib/platform-v7/verified-session.ts"
+            "apps/web/lib/platform-v7/verified-session.ts",
+            "apps/web/lib/server-request-actor.ts"
           ],
           "patterns": [
             "header.alg !== 'hs256'"
           ]
         }
       ],
-      "note": "The two verifiers disagree. The web verifier rejects any header whose alg is not HS256 before verifying - that is the allowlist the requirement asks for. The API verifier passes no algorithms option to jwt.verify. jsonwebtoken 9 refuses alg none and, given a string secret, restricts itself to HMAC, so the protection is real - but it comes from a library default rather than from a stated allowlist, and a future dependency change or a switch to a key object would move it silently. The requirement asks for the allowlist to be stated."
+      "note": "All three verifiers in this codebase now state the allowlist. The two web verifiers already did - each refuses any header whose alg is not HS256 before checking the signature. The API verifier passed no algorithms option to jwt.verify: jsonwebtoken 9 refuses alg none and, given a string secret, confines itself to HMAC, so the protection was real, but it came from a library default rather than from a stated allowlist, and a dependency bump or a switch to a key object would have moved it with no line changing here. The allowlist is now stated in one exported constant used on both sides of the pair - algorithm on sign, algorithms on verify - so signing and verification cannot drift apart either. Removing it fails tokenPurposeBinding.spec.ts."
     },
     {
       "requirementId": "V9.1.3",
@@ -5160,15 +5165,28 @@
     {
       "requirementId": "V9.2.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "api-verifier:apps/api/src/modules/auth/access-token.ts",
-        "cabinet-session:apps/web/app/api/platform-v7/cabinet-session/route.ts",
-        "web-verifier:apps/web/lib/platform-v7/verified-session.ts"
+        "apps/api/src/modules/auth/access-token.ts",
+        "apps/web/lib/platform-v7/verified-session.ts",
+        "apps/web/lib/server-request-actor.ts",
+        "apps/web/tests/unit/tokenPurposeBinding.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the API verifier does check the token type",
+          "condition": "the cabinet reader and the access-token reader each require the type the token was issued as",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ],
+          "patterns": [
+            "claims.typ !== cabinet_token_type",
+            "claims.typ !== api_access_token_type",
+            "claims.iss !== api_access_issuer"
+          ]
+        },
+        {
+          "condition": "the API verifier still rejects a token whose type is not access",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/access-token.ts"
@@ -5178,62 +5196,42 @@
           ]
         },
         {
-          "condition": "the web verifier still checks neither type nor audience",
+          "condition": "the commercial-surface verifier no longer treats an absent type claim as acceptable",
           "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/web/lib/platform-v7/verified-session.ts"
+            "apps/web/lib/server-request-actor.ts"
           ],
           "patterns": [
-            "claims.typ",
-            "claims.aud"
-          ]
-        },
-        {
-          "condition": "the cabinet session route signs and verifies with the API token secret",
-          "check": "PRESENT_AT_PATH",
-          "paths": [
-            "apps/web/app/api/platform-v7/cabinet-session/route.ts"
-          ],
-          "patterns": [
-            "process.env.jwt_secret"
+            "payload.type && payload.type !=="
           ]
         }
       ],
-      "note": "The API verifier does this correctly: it rejects a token whose typ is not access. The web verifier does not check type at all, and the cabinet session route hands it process.env.JWT_SECRET - the same secret the API signs access tokens with. So any HS256 token signed with that secret verifies there regardless of what it was issued for. In practice an access token yields no cabinet role because it carries no role claim, but that is a behavioural accident, not a type check. The staff route is not part of this gap: it does check purpose-bearing claims (owner, testAccess, sub, email) after verifying."
+      "note": "Every place that verifies a self-contained token now checks what the token was issued as, before using it. This was FAIL because two of them did not. The web cabinet reader checked no type at all and was handed the same JWT_SECRET the API signs access tokens with, so any HS256 token under that secret verified there; an access token yielded no cabinet role only because it carries no role claim, which is a behavioural accident rather than a check - adding one role claim to the access token, for any reason, would have turned the web tier into something that derives a cabinet role from a credential minted for the API. The commercial-surface verifier in server-request-actor.ts was worse in kind: its check read payload.type && payload.type !== 'access', so it ran only when the token volunteered a type and a token that omitted the claim was accepted. Both are fixed. Cabinet sessions are now minted with an explicit type and audience and the reader requires both; the access-token reader requires type, issuer and audience; the commercial-surface verifier fails closed on an absent type. The API verifier already rejected a non-access type and is unchanged. The fixture surfaces - /auth/me, /staff/[...path] and the staff page - each require testAccess, and the owner cabinet route additionally requires owner and tokenType, so they were never part of this gap. tokenPurposeBinding.spec.ts enumerates every verifying site from git ls-files rather than trusting the four known ones, and presents each token to the reader built for the other one; removing any single check fails it."
     },
     {
       "requirementId": "V9.2.3",
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "api-verifier:apps/api/src/modules/auth/access-token.ts",
-        "web-verifier:apps/web/lib/platform-v7/verified-session.ts",
-        "cabinet-session:apps/web/app/api/platform-v7/cabinet-session/route.ts"
+        "apps/api/src/modules/auth/access-token.ts",
+        "apps/web/lib/platform-v7/verified-session.ts",
+        "apps/web/app/auth/me/route.ts",
+        "apps/web/app/staff/[...path]/route.ts",
+        "apps/web/app/platform-v7/staff/page.tsx"
       ],
       "conditions": [
         {
-          "condition": "the API verifier does constrain the audience",
+          "condition": "the fixture contour still admits its token by a purpose flag rather than by an audience naming the service",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/access-token.ts"
+            "apps/web/app/auth/me/route.ts"
           ],
           "patterns": [
-            "audience: access_audience"
-          ]
-        },
-        {
-          "condition": "the web verifier still applies no audience restriction",
-          "check": "ABSENT_AT_PATH",
-          "paths": [
-            "apps/web/lib/platform-v7/verified-session.ts"
-          ],
-          "patterns": [
-            "claims.aud",
-            "audience"
+            "claims.testaccess !== true"
           ]
         }
       ],
-      "note": "The API verifier passes an audience to jwt.verify, so a token minted for another audience is refused there. The web verifier applies no audience restriction, so it accepts tokens not intended for it. One of the two services meets the requirement; the requirement is about the service receiving the token, and one of them does not."
+      "note": "Narrowed from the whole web tier to the surface where it is still true. The API verifier passes an audience to jwt.verify and always did. The two general-purpose web readers now do too: cabinet sessions carry an explicit audience and the reader requires it, and the access-token reader requires the API's audience, accepting the array form RFC 7519 allows as well as the string. What remains is the fixture contour. /auth/me, /staff/[...path] and the staff page each verify the signature and then admit the token on testAccess, with owner or a role where relevant - a purpose binding, and a real one, but not an audience naming the service. The consequence is precise: a fixture token minted for one of those three is accepted by the others, because nothing in it says which one it was for. That is exactly what this requirement is about, so it stays FAIL rather than being read as satisfied by a different mechanism. The contour is gated - two of the three refuse to run unless their fixture environment variables are set - which bounds the exposure without meeting the requirement. Closing it means giving those tokens an aud and requiring it at each of the three, which is a change to the fixture minting path and is not in the scope of this pass."
     },
     {
       "requirementId": "V9.2.4",
