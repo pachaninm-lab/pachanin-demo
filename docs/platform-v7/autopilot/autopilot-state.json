@@ -200,6 +200,30 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "fix/static-presentation-download-buildtime-20260830": [
+      "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+      "apps/web/package.json",
+      "apps/web/scripts/materialize-presentation-pdf.mjs",
+      "apps/web/scripts/presentation-pdf-contract.mjs",
+      "apps/web/lib/presentation-pdf/part-00.ts",
+      "apps/web/lib/presentation-pdf/part-01.ts",
+      "apps/web/lib/presentation-pdf/part-02.ts",
+      "apps/web/lib/presentation-pdf/part-03.ts",
+      "apps/web/lib/presentation-pdf/part-04.ts",
+      "apps/web/lib/presentation-pdf/part-05.ts",
+      "apps/web/lib/presentation-pdf/part-06.ts",
+      "apps/web/lib/presentation-pdf/part-07.ts",
+      "apps/web/lib/presentation-pdf/part-08.ts",
+      "apps/web/lib/presentation-pdf/part-09.ts",
+      "apps/web/lib/presentation-pdf/part-10.ts",
+      "apps/web/lib/presentation-pdf/part-11.ts",
+      "apps/web/lib/presentation-pdf/part-12.ts",
+      "apps/web/lib/presentation-pdf/part-13.ts",
+      "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+      "docs/platform-v7/autopilot/scopes/static-presentation-buildtime-download-20260830.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
     "claude/autonomous-execution-contract-oc7ds7": [
       "apps/api/prisma/schema.prisma",
       "apps/api/prisma/migrations/*_pc_crop_job_profile_capabilities/**",
