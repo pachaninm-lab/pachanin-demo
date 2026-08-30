@@ -100,6 +100,14 @@ export type SessionContextRow = IdentityRow & {
   mfa_level: string;
   mfa_verified_at: Date | null;
   session_expires_at: Date;
+  /**
+   * When this session was last used, throttled to one write a minute by
+   * touchSession. The column has been stored since the sessions table was
+   * created; nothing read it, so an idle session stayed valid for its full
+   * absolute lifetime. It is selected here so the inactivity limit can be
+   * decided from it.
+   */
+  session_last_seen_at: Date;
   revoked_at: Date | null;
   revocation_reason: string | null;
   current_credential_version: number;
@@ -131,6 +139,7 @@ export type ProductSessionContextRow = {
   mfa_level: string;
   mfa_verified_at: Date | null;
   session_expires_at: Date;
+  session_last_seen_at: Date;
   revoked_at: Date | null;
   revocation_reason: string | null;
   current_credential_version: number;
@@ -767,6 +776,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -798,6 +808,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -842,6 +853,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -1026,6 +1038,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -1065,6 +1078,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -1112,6 +1126,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,

@@ -49,6 +49,35 @@ import {
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/**
+ * How long a session may sit unused before it stops being one.
+ *
+ * The absolute cap is thirty days and is re-checked on every request, but an
+ * absolute cap does not bound idle exposure: until now a session left untouched
+ * on a shared or lost device stayed valid for the whole thirty days. The
+ * timestamp to bound it with was already stored and already maintained - every
+ * authenticated request touches last_seen_at, throttled to one write a minute -
+ * and nothing read it.
+ *
+ * Twelve hours is chosen, and the reasoning is recorded because ASVS V7.3.1
+ * asks for a limit that follows risk analysis rather than a number someone
+ * liked. It is longer than the gaps that occur inside a working day, because
+ * this platform is used by drivers, elevator operators and surveyors whose work
+ * is interrupted by the job rather than by choice, and an idle limit that logs
+ * them out mid-shift would be met by keeping a tab awake rather than by better
+ * security. It is sixty times shorter than the absolute cap, so an abandoned
+ * session stops being useful the same day instead of the same month.
+ *
+ * It is not the only control on the operations that matter: financial commands
+ * above a threshold already demand recently verified MFA regardless of how old
+ * the session is, so the idle limit bounds ambient exposure rather than
+ * standing alone in front of the risky actions.
+ *
+ * One constant. If the operational answer is a different number, this is the
+ * line to change.
+ */
+export const SESSION_IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
+
 const MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 const MEMBERSHIP_SELECTION_TTL_MS = 5 * 60 * 1000;
 const MFA_FRESHNESS_MS = 15 * 60 * 1000;
@@ -1030,6 +1059,11 @@ export class AuthService {
   private sessionInvalidReason(context: SessionContextRow, allowMfaPending = false): string | null {
     if (context.session_status === 'REVOKED') return 'SESSION_REVOKED';
     if (context.session_status === 'EXPIRED' || context.session_expires_at <= new Date()) return 'SESSION_EXPIRED';
+    // Evaluated before touchSession runs, so the reading is the previous
+    // activity rather than this request's own.
+    if (context.session_last_seen_at.getTime() + SESSION_IDLE_TIMEOUT_MS <= Date.now()) {
+      return 'SESSION_IDLE_TIMEOUT';
+    }
     if (context.session_status !== 'ACTIVE' && !(allowMfaPending && context.session_status === 'MFA_PENDING')) {
       return 'SESSION_NOT_ACTIVE';
     }

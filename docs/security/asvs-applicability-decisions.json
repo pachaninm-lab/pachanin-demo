@@ -3939,37 +3939,40 @@
     {
       "requirementId": "V7.1.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "session-service:apps/api/src/modules/auth/product-session.service.ts",
-        "documentation-set:docs/security/THREAT_MODEL.md",
-        "documentation-set:SECURITY.md"
+        "docs/security/SESSION_POLICY.md",
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/auth/product-session.service.ts",
+        "apps/api/src/modules/auth/session-idle-timeout.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "a session lifetime exists in code and would be what a document has to state",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the policy still states both limits, names the constants that enforce them, and says what it does not cover",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/product-session.service.ts"
+            "docs/security/SESSION_POLICY.md"
           ],
           "patterns": [
-            "session_ttl_ms"
+            "12 hours",
+            "30 days",
+            "session_idle_timeout_ms",
+            "session_ttl_ms",
+            "what this policy does not cover"
           ]
         },
         {
-          "condition": "no document states an inactivity timeout or a maximum session lifetime",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the idle limit the policy states is still the one the code enforces",
+          "check": "PRESENT_AT_PATH",
           "paths": [
-            "docs/security/THREAT_MODEL.md",
-            "SECURITY.md"
+            "apps/api/src/modules/auth/auth.service.ts"
           ],
           "patterns": [
-            "inactivity timeout",
-            "session lifetime"
+            "session_idle_timeout_ms = 12 * 60 * 60 * 1000"
           ]
         }
       ],
-      "note": "A 30 day absolute lifetime exists in code. No document states it, states an inactivity timeout, or justifies either against risk. An undocumented timeout cannot be reviewed as appropriate, which is what this requirement asks."
+      "note": "Both limits are now written down with the reasoning behind them, and the document names the constants that enforce them so a reviewer checks it against the code rather than taking its word. The inactivity timeout is twelve hours and the absolute maximum is thirty days. The reasoning for twelve is recorded rather than asserted: shorter would be worked around rather than observed, because this platform is used by drivers, elevator operators and surveyors whose work is interrupted by the job rather than by choice, and an idle limit that ends a session mid-shift is met by keeping a tab awake - the same exposure with the control now being evaded instead of followed. Longer would leave a found or borrowed device carrying a live session for a season rather than a shift; sixty times shorter than the absolute cap is the property being bought. The document is also explicit that the idle limit does not stand alone in front of the operations that matter, because financial commands above a threshold already demand recently verified MFA regardless of session age. One honesty is recorded rather than smoothed: thirty days was in the code before it was in a document, so what is written is the reasoning that supports it, arrived at by reading which controls already invalidate a session - credential version change, membership deactivation, organization unverification, role removal - rather than a record of a review held at the time. The document says that about itself. It also says what it does not cover: concurrent session limits, which are neither defined nor enforced and leave V7.1.2 FAIL, and key lifecycle, which is a key management policy and leaves V11.1.1 FAIL."
     },
     {
       "requirementId": "V7.1.2",
@@ -4158,71 +4161,73 @@
     {
       "requirementId": "V7.3.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "product-path:apps/api/src/modules/auth/product-session.service.ts"
+        "docs/security/SESSION_POLICY.md",
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/auth/product-session.service.ts",
+        "apps/api/src/modules/auth/session-idle-timeout.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "an absolute lifetime exists",
+          "condition": "both session pathways still refuse a session idle beyond the limit, from one shared constant",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "session_idle_timeout_ms = 12 * 60 * 60 * 1000",
+            "return 'session_idle_timeout'"
+          ]
+        },
+        {
+          "condition": "the product pathway still takes the limit from that constant rather than restating a number",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/product-session.service.ts"
           ],
           "patterns": [
-            "session_ttl_ms"
-          ]
-        },
-        {
-          "condition": "no inactivity tracking exists to build a timeout on",
-          "check": "ABSENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/auth/product-session.service.ts"
-          ],
-          "patterns": [
-            "lastactivity",
-            "lastseen",
-            "idletimeout",
-            "inactivity"
+            "session_idle_timeout_ms"
           ]
         }
       ],
-      "note": "There is no inactivity timeout, and no last-activity timestamp from which one could be derived. A session left untouched stays valid for its full 30 day absolute lifetime. This is a separate gap from V7.3.2: an absolute cap does not bound idle exposure."
+      "note": "The earlier verdict said there is no last-activity timestamp from which an inactivity timeout could be derived. There is, and there has been since the sessions table was created: auth.sessions.last_seen_at, maintained on every authenticated request through touchSession and throttled to one write a minute so it costs one UPDATE per session per minute rather than one per request. What was missing was a reader. Nothing enforced a limit against it, so a session left untouched stayed valid for the full thirty-day absolute lifetime - which is the gap this requirement is about, since an absolute cap does not bound idle exposure. The timestamp is now selected into the session context and checked in sessionInvalidReason, the single place every admitted request passes through, so the platform login, the refresh rotation and the MFA challenge path all inherit it without a second implementation; the product pathway checks the same way from the same exported constant, because two session stores with two idle rules would be exactly the inconsistency V6.3.4 is about. No schema change and no migration were needed - the column and its maintenance already existed, and the queries that build the context read auth.sessions inline rather than through a SECURITY DEFINER function, so only the SELECT list changed. The check runs before touchSession, so it reads the previous activity rather than the request making it, and an idle session is revoked with reason SESSION_IDLE_TIMEOUT rather than merely refused, so it does not have to be caught again. Twelve hours, with the risk reasoning recorded under V7.1.1. Three mutations fail the suite: removing the platform check, giving the product pathway its own literal, and widening the limit to the absolute cap."
     },
     {
       "requirementId": "V7.3.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "product-path:apps/api/src/modules/auth/product-session.service.ts",
-        "documentation-set:docs/security/THREAT_MODEL.md"
+        "docs/security/SESSION_POLICY.md",
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/auth/product-session.service.ts",
+        "apps/api/src/modules/auth/session-idle-timeout.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "an absolute maximum lifetime is enforced",
+          "condition": "the absolute maximum is still thirty days and still set at creation rather than extended by use",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/product-session.service.ts"
           ],
           "patterns": [
-            "session_ttl_ms",
-            "session_expires_at"
+            "session_ttl_ms = 30 * 24 * 60 * 60 * 1000"
           ]
         },
         {
-          "condition": "no documented limit exists to enforce it against",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the policy still records the absolute maximum and the honest provenance of its justification",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "docs/security/THREAT_MODEL.md",
-            "SECURITY.md"
+            "docs/security/SESSION_POLICY.md"
           ],
           "patterns": [
-            "session lifetime",
-            "maximum session"
+            "30 days",
+            "why 30 days absolute",
+            "the honest limit of this justification"
           ]
         }
       ],
-      "note": "An absolute maximum is enforced and re-checked on every request, which is the mechanical half of this requirement. It fails on the other half: the requirement asks that the limit follow risk analysis and documentation, and 30 days is stated nowhere and justified nowhere. Recorded as FAIL rather than PASS because an unreviewed number is not a risk decision."
+      "note": "The mechanical half was already met: the absolute maximum is set as expires_at at session creation and re-checked on every request, and activity does not extend it - which is what separates it from the inactivity timeout that activity does reset. It failed on the other half, that the limit follow risk analysis and documentation, because thirty days was stated nowhere and justified nowhere. It is now stated in docs/security/SESSION_POLICY.md with the reasoning: the re-authentication it forces puts a floor under how long a credential change, a role change or a device handover can go unreflected in a live session, and it is a backstop rather than the primary control, because a session is already invalidated immediately when the credential version changes, when the membership stops being active, when the organization stops being verified, or when the role becomes one the platform does not admit. The provenance of that justification is recorded rather than dressed up: thirty days was in the code before it was in a document, so what is written is reasoning arrived at by reading what the surrounding controls already enforce, not a record of a review held at the time. The document says so about itself, and says where a different number would go if a review reaches one. With V7.3.1 now enforced, the two limits do different work rather than one standing in for the other."
     },
     {
       "requirementId": "V7.4.1",
