@@ -13,9 +13,19 @@ import { requireSecret } from '../../common/config/secrets';
  */
 
 const JWT_SECRET = requireSecret('JWT_SECRET');
+/**
+ * The one algorithm this contour signs and accepts.
+ *
+ * jsonwebtoken refuses `alg: none` and, given a string secret, confines itself
+ * to HMAC, so the protection was already real - but it came from a library
+ * default rather than from anything stated here, and a dependency bump or a
+ * switch to a key object would have moved it without a line changing. ASVS
+ * V9.1.2 asks for the allowlist to be stated, so it is stated.
+ */
+export const ACCESS_TOKEN_ALGORITHM = 'HS256' as const;
 const ACCESS_TOKEN_TTL = '15m';
-const ACCESS_ISSUER = 'transparent-price-api';
-const ACCESS_AUDIENCE = 'transparent-price-platform';
+export const ACCESS_ISSUER = 'transparent-price-api';
+export const ACCESS_AUDIENCE = 'transparent-price-platform';
 
 export type AccessClaims = jwt.JwtPayload & {
   sub: string;
@@ -35,6 +45,7 @@ export function signAccessToken(userId: string, sessionId: string, credentialVer
       subject: userId,
       issuer: ACCESS_ISSUER,
       audience: ACCESS_AUDIENCE,
+      algorithm: ACCESS_TOKEN_ALGORITHM,
       expiresIn: ACCESS_TOKEN_TTL,
       jwtid: randomUUID(),
     },
@@ -44,6 +55,7 @@ export function signAccessToken(userId: string, sessionId: string, credentialVer
 export function verifyAccessClaims(token: string): AccessClaims {
   try {
     const raw = jwt.verify(token, JWT_SECRET, {
+      algorithms: [ACCESS_TOKEN_ALGORITHM],
       issuer: ACCESS_ISSUER,
       audience: ACCESS_AUDIENCE,
     });
