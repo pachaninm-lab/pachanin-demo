@@ -1,0 +1,33 @@
+name: Refresh crypto inventory once 20260830
+
+on:
+  push:
+    branches:
+      - fix/static-presentation-download-buildtime-20260830
+    paths:
+      - .github/workflows/refresh-crypto-inventory-once-20260830.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Regenerate committed cryptographic inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/security/discover-cryptography.mjs
+          git diff --check
+          git diff --exit-code -- docs/security/cryptographic-inventory.json docs/security/CRYPTOGRAPHIC_INVENTORY.md && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/security/cryptographic-inventory.json docs/security/CRYPTOGRAPHIC_INVENTORY.md
+          git commit -m "chore(security): refresh cryptographic inventory"
+          git push origin HEAD:fix/static-presentation-download-buildtime-20260830
