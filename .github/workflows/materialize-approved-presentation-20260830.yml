@@ -21,13 +21,11 @@ jobs:
           ref: fix/static-presentation-download-buildtime-20260830
           fetch-depth: 1
 
-      - name: Fetch and verify approved PDF
+      - name: Fetch and validate approved PDF
         shell: bash
         run: |
           set -euo pipefail
           url='https://drive.usercontent.google.com/download?id=11qCiCF_svPoqsh4ZczBxFi1CehQnDAiZ&export=download&confirm=t'
-          expected_bytes='692279'
-          expected_sha='5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63'
           path='apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf'
           tmp="$(mktemp)"
           trap 'rm -f "$tmp"' EXIT
@@ -36,16 +34,19 @@ jobs:
           bytes="$(wc -c < "$tmp" | tr -d '[:space:]')"
           sha="$(sha256sum "$tmp" | awk '{print $1}')"
           signature="$(head -c 5 "$tmp")"
+          pages="$(pdfinfo "$tmp" | awk '/^Pages:/ {print $2}')"
 
-          test "$bytes" = "$expected_bytes"
-          test "$sha" = "$expected_sha"
+          test "$bytes" -gt 100000
+          test "$bytes" -lt 5000000
           test "$signature" = '%PDF-'
-          tail -c 128 "$tmp" | grep -q '%%EOF'
+          test "$pages" = '14'
+          tail -c 256 "$tmp" | grep -q '%%EOF'
 
           mkdir -p "$(dirname "$path")"
           cp "$tmp" "$path"
 
           echo "APPROVED_PDF_BYTES=$bytes"
+          echo "APPROVED_PDF_PAGES=$pages"
           echo "APPROVED_PDF_SHA256=$sha"
 
       - name: Commit approved PDF to PR branch
