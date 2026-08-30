@@ -164,14 +164,15 @@
     {
       "operation": "kdf-hkdf",
       "label": "Key derivation (HKDF)",
-      "sites": 3,
+      "sites": 4,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 3,
+          "sites": 4,
           "files": [
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
             "apps/api/src/modules/auth/opaque-token-authority.ts",
+            "apps/api/src/modules/deals/deal-registry-query.service.ts",
             "apps/web/lib/server/gekta-mfa-ticket.ts"
           ]
         }

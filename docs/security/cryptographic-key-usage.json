@@ -129,10 +129,10 @@
         "apps/api/src/modules/deals/deal-registry-query.service.ts"
       ],
       "mayProtect": [
-        "Deal-registry pagination cursors, binding a cursor to the filter set it was issued for"
+        "Deal-registry pagination cursors, binding a cursor to the filter set it was issued for, signed under a key derived from this material by HKDF rather than under the material itself"
       ],
       "mustNotProtect": [
-        "Any session or credential. Its fallback to JWT_SECRET when unset is a boundary violation recorded as #4790"
+        "Any session or credential. Its fallback to JWT_SECRET when unset was a boundary violation raised as #4790; the fallback remains, but domain separation means the signing key differs from the session-signing secret whichever material is in use"
       ]
     },
     {
@@ -212,7 +212,7 @@
       ],
       "mustNotProtect": [
         "Opaque one-time credentials. Password reset, MFA recovery, invitation, email verification, membership selection, refresh, MFA challenge, registration status, backup code and staff access digests derive a separate key by HKDF under a purpose label, and the API refuses to start in production without a dedicated key for it",
-        "Anything outside the authentication contour. Its reuse as the deal-registry cursor fallback is a boundary violation recorded as #4790, not a sanctioned use"
+        "Anything outside the authentication contour. Its reuse as the deal-registry cursor fallback was a boundary violation, raised as #4790 and closed: the cursor now derives its own key by HKDF under pc-deal-registry-cursor:v1, so this material signs no cursor even when it is the material the cursor key is derived from"
       ]
     },
     {

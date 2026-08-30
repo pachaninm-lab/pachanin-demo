@@ -120,8 +120,8 @@ bound to the algorithm the device was provisioned with.
 
 ## HKDF-SHA256 — key derivation, 3 sites
 
-**Derives** the opaque-token digest key and the auth-mail per-version keys from
-master material, under purpose labels.
+**Derives** the opaque-token digest key, the auth-mail per-version keys and the
+deal-registry cursor key from master material, under purpose labels.
 
 **Why it stays** It is the mechanism that keeps those contours separated, and it
 is unbroken.
