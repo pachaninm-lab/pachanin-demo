@@ -12,7 +12,7 @@ import {
   generateTotpSecret,
   hashClientValue,
   secureEqual,
-  verifyTotp,
+  matchTotpCounter,
 } from './auth-crypto';
 import {
   digestMfaBackupCode,
@@ -158,7 +158,7 @@ export class ProductSessionService {
       const credentialMatchesChallenge = credential
         && (enrollment ? !credential.mfa_enabled : credential.mfa_enabled);
       const verification = credentialMatchesChallenge
-        ? this.verifyMfaCode(credential, code, !enrollment)
+        ? await this.verifyMfaCode(tx, credential, code, !enrollment)
         : null;
       if (!verification) {
         // Попытка последняя, если счётчик уже достиг предела: тот же порог и
@@ -443,11 +443,12 @@ export class ProductSessionService {
     return null;
   }
 
-  private verifyMfaCode(
+  private async verifyMfaCode(
+    client: AuthSqlClient,
     credential: CredentialStateRow,
     code: string,
     allowBackup: boolean,
-  ): { method: 'TOTP' } | { method: 'BACKUP'; remainingBackupHashes: string[] } | null {
+  ): Promise<{ method: 'TOTP' } | { method: 'BACKUP'; remainingBackupHashes: string[] } | null> {
     let secret: string | null = null;
     if (credential.mfa_secret_ciphertext) {
       try {
@@ -458,7 +459,16 @@ export class ProductSessionService {
         secret = null;
       }
     }
-    if (secret && verifyTotp(secret, code)) return { method: 'TOTP' };
+    if (secret) {
+      const counter = matchTotpCounter(secret, code);
+      if (counter !== null) {
+        // Same consume as the platform pathway, from the same repository
+        // method. A product session that accepted a replayed code while the
+        // platform refused it would be the inconsistency V6.3.4 is about.
+        const consumed = await this.repository.consumeTotpCounter(client, credential.user_id, counter);
+        return consumed ? { method: 'TOTP' } : null;
+      }
+    }
 
     // Enrollment proves possession of the newly presented TOTP secret. An old
     // recovery code must never be able to approve a replacement authenticator.

@@ -196,12 +196,40 @@ function totpAt(secret: string, unixMs: number): string {
   return String(binary % 1_000_000).padStart(6, '0');
 }
 
-export function verifyTotp(secret: string, code: string, unixMs = Date.now()): boolean {
+/**
+ * Returns the TOTP time-step counter this code proves, or null.
+ *
+ * It used to return a boolean, and that is what made single-use enforcement
+ * impossible: a verifier that knows a code is valid but not WHICH time step it
+ * belongs to has nothing to record, so the same six digits verified again for
+ * as long as the acceptance window held. RFC 6238 section 5.2 asks the verifier
+ * to remember the last accepted time step, which it can only do if the match
+ * tells it one.
+ *
+ * The acceptance window is unchanged - the same three steps, the same
+ * constant-time comparison. Only the return type carries more truth.
+ */
+export function matchTotpCounter(secret: string, code: string, unixMs = Date.now()): number | null {
   const normalized = String(code ?? '').replace(/\s+/g, '');
-  if (!/^\d{6}$/.test(normalized)) return false;
-  return TOTP_ACCEPTED_STEP_OFFSETS.some(
-    (offset) => secureEqual(totpAt(secret, unixMs + offset * TOTP_STEP_MS), normalized),
-  );
+  if (!/^\d{6}$/.test(normalized)) return null;
+  for (const offset of TOTP_ACCEPTED_STEP_OFFSETS) {
+    const at = unixMs + offset * TOTP_STEP_MS;
+    if (secureEqual(totpAt(secret, at), normalized)) {
+      return Math.floor(at / TOTP_STEP_MS);
+    }
+  }
+  return null;
+}
+
+/**
+ * Kept for callers that only ask whether a code is well-formed and current.
+ *
+ * This answer is not sufficient to authenticate anyone: it cannot be consumed,
+ * so a path that authenticates on this alone accepts the same code twice. The
+ * authentication pathways use matchTotpCounter and consume what it returns.
+ */
+export function verifyTotp(secret: string, code: string, unixMs = Date.now()): boolean {
+  return matchTotpCounter(secret, code, unixMs) !== null;
 }
 
 export function buildOtpAuthUri(email: string, secret: string): string {
