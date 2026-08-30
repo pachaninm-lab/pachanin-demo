@@ -124,6 +124,92 @@ one(
 if s.count('--max-time 110') != 1:
     raise SystemExit('HTTP_REQUEST_TIMEOUT_ENVELOPE_INVALID')
 
+one(
+    '''  local replay="$TMP_ROOT/employee-join-replay.json" csrf status''',
+    '''  local replay="$TMP_ROOT/employee-join-replay.json" csrf status decision_reconciled=0''',
+    'EMPLOYEE_DECISION_RECONCILIATION_LOCAL',
+)
+one(
+    r'''  [[ "$status" == 200 ]] || {
+    if python3 - "$response" "$EMPLOYEE_PLATFORM_OVERRIDE_BLOCKER" <<'PY'
+import json, sys
+try:
+    p = json.load(open(sys.argv[1], encoding='utf-8'))
+except Exception:
+    p = {}
+raise SystemExit(0 if p.get('code') == sys.argv[2] else 1)
+PY
+    then
+      fail P0_EMPLOYEE_PLATFORM_REVIEWER_OVERRIDE_FORBIDDEN 62
+    else
+      fail P0_EMPLOYEE_ORGANIZATION_ADMIN_APPROVAL_FAILED 63
+    fi
+  }''',
+    r'''  if [[ "$status" != 200 ]]; then
+    if python3 - "$response" "$EMPLOYEE_PLATFORM_OVERRIDE_BLOCKER" <<'PY'
+import json, sys
+try:
+    p = json.load(open(sys.argv[1], encoding='utf-8'))
+except Exception:
+    p = {}
+raise SystemExit(0 if p.get('code') == sys.argv[2] else 1)
+PY
+    then
+      fail P0_EMPLOYEE_PLATFORM_REVIEWER_OVERRIDE_FORBIDDEN 62
+    fi
+    if [[ "$status" =~ ^5[0-9]{2}$ ]]; then
+      CURRENT_STAGE=employee-organization-admin-decision-reconcile
+      csrf="$(csrf_token "$jar")"
+      status="$(http_request "$response" "$jar" \
+        -X POST "$LIVE_BASE/api/auth/organization-join-requests/${APP_ID[employee]}/decision" \
+        -H 'Content-Type: application/json' \
+        -H "Origin: $LIVE_BASE" \
+        -H "x-csrf-token: $csrf" \
+        -H "Idempotency-Key: p0-all-role-employee-join:$TARGET_SHA:$RUN_ID" \
+        -H "x-correlation-id: p0-all-role-employee-join-reconcile:${TARGET_SHA:0:12}:$RUN_ID" \
+        --data-binary "@$request")"
+      [[ "$status" == 200 ]] || fail P0_EMPLOYEE_ORGANIZATION_ADMIN_RECONCILE_FAILED 93
+      python3 - "$response" <<'PY' || fail P0_EMPLOYEE_ORGANIZATION_ADMIN_RECONCILE_INVALID 94
+import json, sys
+p = json.load(open(sys.argv[1], encoding='utf-8'))
+if p.get('status') != 'ACTIVATED' or p.get('nextAction') != 'LOGIN':
+    raise SystemExit(1)
+fresh = p.get('replayed') is False and p.get('notificationDelivered') is True
+replayed = p.get('replayed') is True and p.get('notificationDelivered') is False
+if not (fresh or replayed):
+    raise SystemExit(1)
+PY
+      decision_reconciled=1
+      printf 'P0_EMPLOYEE_JOIN_AMBIGUOUS_RECONCILIATION=PASS\n'
+      CURRENT_STAGE=employee-organization-admin-decision
+    else
+      fail P0_EMPLOYEE_ORGANIZATION_ADMIN_APPROVAL_FAILED 63
+    fi
+  fi''',
+    'EMPLOYEE_AMBIGUOUS_DECISION_RECONCILIATION',
+)
+one(
+    r'''  python3 - "$response" <<'PY' || fail P0_EMPLOYEE_ORGANIZATION_ADMIN_APPROVAL_INVALID 64
+import json, sys
+p = json.load(open(sys.argv[1], encoding='utf-8'))
+if p.get('status') != 'ACTIVATED' or p.get('nextAction') != 'LOGIN' or p.get('replayed') is not False or p.get('notificationDelivered') is not True:
+    raise SystemExit(1)
+PY''',
+    r'''  if (( decision_reconciled == 0 )); then
+    python3 - "$response" <<'PY' || fail P0_EMPLOYEE_ORGANIZATION_ADMIN_APPROVAL_INVALID 64
+import json, sys
+p = json.load(open(sys.argv[1], encoding='utf-8'))
+if p.get('status') != 'ACTIVATED' or p.get('nextAction') != 'LOGIN' or p.get('replayed') is not False or p.get('notificationDelivered') is not True:
+    raise SystemExit(1)
+PY
+  fi''',
+    'EMPLOYEE_DIRECT_DECISION_ASSERTION_GUARD',
+)
+if 'P0_EMPLOYEE_JOIN_AMBIGUOUS_RECONCILIATION=PASS' not in s:
+    raise SystemExit('EMPLOYEE_AMBIGUOUS_DECISION_RECONCILIATION_MISSING')
+if 'p0-all-role-employee-join-reconcile:${TARGET_SHA:0:12}:$RUN_ID' not in s:
+    raise SystemExit('EMPLOYEE_RECONCILIATION_CORRELATION_MISSING')
+
 p.write_text(s,encoding='utf-8')""",
     'LABEL_BOUND_COOKIE_JAR_PATCH_INJECTION',
 )
@@ -146,6 +232,8 @@ if 'BASH_DYNAMIC_SCOPE_COOKIE_JAR_BINDING_REMAINS' not in s or 'LABEL_BOUND_COOK
     raise SystemExit('LABEL_BOUND_COOKIE_JAR_PATCH_MISSING')
 if 'HTTP_REQUEST_TIMEOUT_ENVELOPE' not in s or "'--max-time 110'" not in s:
     raise SystemExit('HTTP_REQUEST_TIMEOUT_PATCH_MISSING')
+if 'EMPLOYEE_AMBIGUOUS_DECISION_RECONCILIATION' not in s or 'P0_EMPLOYEE_JOIN_AMBIGUOUS_RECONCILIATION=PASS' not in s:
+    raise SystemExit('EMPLOYEE_DECISION_RECONCILIATION_PATCH_MISSING')
 
 p.write_text(s, encoding='utf-8')
 PY
@@ -164,6 +252,7 @@ if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS\n'
   printf 'P0_ALL_ROLE_LABEL_BOUND_COOKIE_JARS=PASS\n'
   printf 'P0_ALL_ROLE_HTTP_TIMEOUT_ENVELOPE=PASS\n'
+  printf 'P0_ALL_ROLE_EMPLOYEE_JOIN_RECONCILIATION=PASS\n'
   exit 0
 fi
 
