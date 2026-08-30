@@ -407,3 +407,15 @@ test('NO_RUNTIME_CALLER is exempted on the same proven-data basis', () => {
   );
   assert.equal(result.holds, true, 'base64 must not read as a runtime caller');
 });
+
+test('a payload holding // inside its base64 is still recognised as data', () => {
+  // base64 uses '/', so a payload can contain '//'. Stripping line comments
+  // before string literals would eat the rest of that line and the file would
+  // stop reducing to a data skeleton - it would be scanned as code and the
+  // false revocations would come back for that part only, silently.
+  assert.equal(isOpaqueDataModule('export const P = "AA//BBcc==";\n'), true);
+});
+
+test('the detector reduces a documented, concatenated payload', () => {
+  assert.equal(isOpaqueDataModule('/** doc */\nexport const P: string =\n  "AAAA" +\n  "BBBB";\n'), true);
+});

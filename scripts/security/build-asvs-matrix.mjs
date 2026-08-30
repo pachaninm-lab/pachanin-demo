@@ -129,10 +129,30 @@ export function buildMatrixCsv(records) {
  * so this rule cannot be used as a hiding place. Anything else in the file and
  * it is scanned like any other source.
  */
-const OPAQUE_DATA_MODULE = /^(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\n]*\n)*export\s+const\s+[A-Za-z_$][\w$]*(?:\s*:\s*string)?\s*=\s*(?:(?:'[A-Za-z0-9+/=\s]*'|"[A-Za-z0-9+/=\s]*"|`[A-Za-z0-9+/=\s]*`)\s*\+?\s*)+;?\s*$/u;
+/**
+ * Written as successive single-pass strips rather than one pattern. An earlier
+ * head expressed this as a single regex whose literal group carried a nested
+ * quantifier; CodeQL rejected it, and rather than guess which alert fired -
+ * there is no way to read the alert text from here - the whole class is removed.
+ * Every expression below is one non-nested quantifier over a character class or
+ * a lazily bounded block, so none of them can backtrack super-linearly.
+ *
+ * Order matters and is not cosmetic. String literals are stripped before line
+ * comments because base64 contains `/`, so a payload can hold `//` inside a
+ * literal and stripping comments first would eat the rest of that line. Block
+ * comments go first so a documented payload still reduces cleanly.
+ */
+const DATA_SKELETON = /^exportconst[A-Za-z_$][\w$]*(?::string)?=;?$/u;
 
 export function isOpaqueDataModule(text) {
-  return OPAQUE_DATA_MODULE.test(String(text ?? ''));
+  const skeleton = String(text ?? '')
+    .replace(/\/\*[\s\S]*?\*\//gu, ' ')
+    .replace(/'[A-Za-z0-9+/=\s]*'/gu, ' ')
+    .replace(/"[A-Za-z0-9+/=\s]*"/gu, ' ')
+    .replace(/`[A-Za-z0-9+/=\s]*`/gu, ' ')
+    .replace(/\/\/[^\n]*/gu, ' ')
+    .replace(/[\s+]/gu, '');
+  return DATA_SKELETON.test(skeleton);
 }
 
 /**
