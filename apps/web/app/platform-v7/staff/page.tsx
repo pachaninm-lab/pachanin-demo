@@ -8,6 +8,7 @@ import { RegistrationReviewQueue } from '@/components/platform-v7/staff/Registra
 import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
+import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
 import { staffAccessTaskCatalog } from '@/lib/platform-v7/staff-access-task-catalog';
 import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import { DEFAULT_LOCALE, isAppLocale, type AppLocale } from '@/i18n/locale';
@@ -72,6 +73,7 @@ async function verifyControlledIdentity(accessToken: string): Promise<Verificati
 
   const claims = await verifyHs256Jwt(accessToken, secret);
   const expiresAt = typeof claims?.exp === 'number' ? claims.exp : 0;
+  if (!fixtureTokenIsForService(claims, FIXTURE_AUDIENCE.staffPage)) return null;
   if (!claims || claims.testAccess !== true) return null;
   if (
     expiresAt <= Math.floor(Date.now() / 1000)

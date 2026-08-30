@@ -8,6 +8,7 @@ import {
   type ControlledCabinetRole,
 } from '@/lib/platform-v7/controlled-test-organizations';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
+import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -75,6 +76,7 @@ async function ownerClaims(request: NextRequest): Promise<OwnerClaims | null> {
   const exp = typeof claims?.exp === 'number' ? claims.exp : 0;
   if (
     !claims
+    || !fixtureTokenIsForService(claims, FIXTURE_AUDIENCE.staffProxy)
     || claims.owner !== true
     || claims.testAccess !== true
     || typeof claims.sub !== 'string'
