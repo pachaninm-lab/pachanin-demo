@@ -4280,22 +4280,35 @@
       ],
       "conditions": [
         {
-          "condition": "the policy still states both limits, names the constants that enforce them, and says what it does not cover",
+          "condition": "the policy still states every limit, names the constants that enforce them, and says what it does not cover",
           "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "docs/security/SESSION_POLICY.md"
           ],
           "patterns": [
-            "12 hours",
+            "1 hour",
+            "15 minutes",
             "30 days",
             "session_idle_timeout_ms",
+            "privileged_session_idle_timeout_ms",
             "session_ttl_ms",
             "what this policy does not cover"
           ]
         },
         {
-          "condition": "the idle limit the policy states is still the one the code enforces",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the idle limits the policy states are the ones the code enforces",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "export const session_idle_timeout_ms = 60 * 60 * 1000;",
+            "export const privileged_session_idle_timeout_ms = 15 * 60 * 1000;"
+          ]
+        },
+        {
+          "condition": "the policy has not gone back to the rejected twelve-hour limit",
+          "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/auth.service.ts"
           ],
@@ -4304,7 +4317,7 @@
           ]
         }
       ],
-      "note": "Both limits are now written down with the reasoning behind them, and the document names the constants that enforce them so a reviewer checks it against the code rather than taking its word. The inactivity timeout is twelve hours and the absolute maximum is thirty days. The reasoning for twelve is recorded rather than asserted: shorter would be worked around rather than observed, because this platform is used by drivers, elevator operators and surveyors whose work is interrupted by the job rather than by choice, and an idle limit that ends a session mid-shift is met by keeping a tab awake - the same exposure with the control now being evaded instead of followed. Longer would leave a found or borrowed device carrying a live session for a season rather than a shift; sixty times shorter than the absolute cap is the property being bought. The document is also explicit that the idle limit does not stand alone in front of the operations that matter, because financial commands above a threshold already demand recently verified MFA regardless of session age. One honesty is recorded rather than smoothed: thirty days was in the code before it was in a document, so what is written is the reasoning that supports it, arrived at by reading which controls already invalidate a session - credential version change, membership deactivation, organization unverification, role removal - rather than a record of a review held at the time. The document says that about itself. It also says what it does not cover: concurrent session limits, which are neither defined nor enforced and leave V7.1.2 FAIL, and key lifecycle, which is a key management policy and leaves V11.1.1 FAIL."
+      "note": "Both limits are now written down with the reasoning behind them, and the document names the constants that enforce them so a reviewer checks it against the code rather than taking its word. The inactivity timeout is twelve hours and the absolute maximum is thirty days. The reasoning for twelve is recorded rather than asserted: shorter would be worked around rather than observed, because this platform is used by drivers, elevator operators and surveyors whose work is interrupted by the job rather than by choice, and an idle limit that ends a session mid-shift is met by keeping a tab awake - the same exposure with the control now being evaded instead of followed. Longer would leave a found or borrowed device carrying a live session for a season rather than a shift; sixty times shorter than the absolute cap is the property being bought. The document is also explicit that the idle limit does not stand alone in front of the operations that matter, because financial commands above a threshold already demand recently verified MFA regardless of session age. One honesty is recorded rather than smoothed: thirty days was in the code before it was in a document, so what is written is the reasoning that supports it, arrived at by reading which controls already invalidate a session - credential version change, membership deactivation, organization unverification, role removal - rather than a record of a review held at the time. The document says that about itself. It also says what it does not cover: concurrent session limits, which are neither defined nor enforced and leave V7.1.2 FAIL, and key lifecycle, which is a key management policy and leaves V11.1.1 FAIL. Revised after owner review: the twelve-hour limit this decision first recorded was rejected and replaced with one hour, and fifteen minutes for the roles ROLES_REQUIRING_MFA already names as privileged. The original justification argued that drivers and elevator operators are interrupted by the job, so a shorter limit would be worked around by keeping a tab awake. That argument was wrong in a way worth recording rather than deleting: it treated the session as the only way to preserve work in progress, when the answer to an interrupted shift is to keep the state and reauthenticate back into it. An idle limit chosen by how inconvenient logging in feels is set by the UX budget rather than by risk. The policy document keeps that history visible, because a policy that quietly replaces its own justification is the kind of record this programme keeps finding to be untrue. The privileged tier is decided from the role on the session context row being validated, so there is one authority for who is privileged rather than a second one built from staffRoles, and a malformed or absent role falls to the ordinary limit rather than to none. Product sessions carry a scope and not a platform role, so the tier does not apply there and is not faked."
     },
     {
       "requirementId": "V7.1.2",
@@ -4508,8 +4521,19 @@
             "apps/api/src/modules/auth/auth.service.ts"
           ],
           "patterns": [
-            "session_idle_timeout_ms = 12 * 60 * 60 * 1000",
+            "export const session_idle_timeout_ms = 60 * 60 * 1000;",
             "return 'session_idle_timeout'"
+          ]
+        },
+        {
+          "condition": "the limit applied is selected by role rather than fixed for everyone",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "idletimeoutmsforrole(context.role)",
+            "roles_requiring_mfa.includes(role as role)"
           ]
         },
         {
@@ -4523,7 +4547,7 @@
           ]
         }
       ],
-      "note": "The earlier verdict said there is no last-activity timestamp from which an inactivity timeout could be derived. There is, and there has been since the sessions table was created: auth.sessions.last_seen_at, maintained on every authenticated request through touchSession and throttled to one write a minute so it costs one UPDATE per session per minute rather than one per request. What was missing was a reader. Nothing enforced a limit against it, so a session left untouched stayed valid for the full thirty-day absolute lifetime - which is the gap this requirement is about, since an absolute cap does not bound idle exposure. The timestamp is now selected into the session context and checked in sessionInvalidReason, the single place every admitted request passes through, so the platform login, the refresh rotation and the MFA challenge path all inherit it without a second implementation; the product pathway checks the same way from the same exported constant, because two session stores with two idle rules would be exactly the inconsistency V6.3.4 is about. No schema change and no migration were needed - the column and its maintenance already existed, and the queries that build the context read auth.sessions inline rather than through a SECURITY DEFINER function, so only the SELECT list changed. The check runs before touchSession, so it reads the previous activity rather than the request making it, and an idle session is revoked with reason SESSION_IDLE_TIMEOUT rather than merely refused, so it does not have to be caught again. Twelve hours, with the risk reasoning recorded under V7.1.1. Three mutations fail the suite: removing the platform check, giving the product pathway its own literal, and widening the limit to the absolute cap."
+      "note": "The earlier verdict said there is no last-activity timestamp from which an inactivity timeout could be derived. There is, and there has been since the sessions table was created: auth.sessions.last_seen_at, maintained on every authenticated request through touchSession and throttled to one write a minute so it costs one UPDATE per session per minute rather than one per request. What was missing was a reader. Nothing enforced a limit against it, so a session left untouched stayed valid for the full thirty-day absolute lifetime - which is the gap this requirement is about, since an absolute cap does not bound idle exposure. The timestamp is now selected into the session context and checked in sessionInvalidReason, the single place every admitted request passes through, so the platform login, the refresh rotation and the MFA challenge path all inherit it without a second implementation; the product pathway checks the same way from the same exported constant, because two session stores with two idle rules would be exactly the inconsistency V6.3.4 is about. No schema change and no migration were needed - the column and its maintenance already existed, and the queries that build the context read auth.sessions inline rather than through a SECURITY DEFINER function, so only the SELECT list changed. The check runs before touchSession, so it reads the previous activity rather than the request making it, and an idle session is revoked with reason SESSION_IDLE_TIMEOUT rather than merely refused, so it does not have to be caught again. Twelve hours, with the risk reasoning recorded under V7.1.1. Three mutations fail the suite: removing the platform check, giving the product pathway its own literal, and widening the limit to the absolute cap. Limit revised on owner review from twelve hours to one hour, with fifteen minutes for ADMIN, COMPLIANCE_OFFICER and ARBITRATOR. Fifteen minutes matches the MFA freshness window already required for privileged operations, so the session and the step-up expire together rather than leaving a window where one is live and the other is not. Neither the financial step-up nor the control-plane step-up is relaxed to compensate for the shorter window."
     },
     {
       "requirementId": "V7.3.2",
