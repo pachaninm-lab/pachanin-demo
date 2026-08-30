@@ -250,13 +250,44 @@ export async function verifyPasswordWithUpgrade(
   persist?: (next: string, conditionalOn: string) => Promise<unknown>,
 ): Promise<PasswordUpgradeOutcome> {
   const valid = await verifyPassword(plain, storedHash);
-  if (!valid || !persist || !needsRehash(storedHash)) return { valid, upgraded: false };
+  if (!valid) return { valid, upgraded: false };
+  return { valid, upgraded: await upgradePasswordHashIfNeeded(plain, storedHash, persist) };
+}
+
+/**
+ * Перезапись хеша в новом формате — отдельно от проверки пароля.
+ *
+ * Разделение не косметическое, и цена слитности была найдена не рассуждением,
+ * а провалившимся CI. Оба пути входа перечитывают учётные данные внутри
+ * сериализуемой транзакции и отказывают, если сохранённый хеш изменился между
+ * доказательством пароля и этой точкой: смена пароля в этом окне обязана
+ * аннулировать доказательство. Перезапись, выполненная между теми же двумя
+ * точками, — это ровно такое изменение, и защита срабатывала на ней:
+ * CREDENTIAL_CHANGED_DURING_LOGIN, то есть первый же вход любой учётной записи
+ * с legacy-хешем получал отказ. Защита права, неправ был момент перезаписи.
+ *
+ * Поэтому апгрейд выполняется ПОСЛЕ того, как решение о входе принято, и
+ * только если вход удался. Два следствия, оба желаемые: перезапись не может
+ * повлиять на результат аутентификации, и хеш не переписывается при входе,
+ * который в итоге был отклонён — например, из-за отсутствия активного
+ * членства.
+ *
+ * Возвращает true, только если новый хеш действительно записан.
+ */
+export async function upgradePasswordHashIfNeeded(
+  plain: string,
+  storedHash: string | null | undefined,
+  persist?: (next: string, conditionalOn: string) => Promise<unknown>,
+): Promise<boolean> {
+  if (!persist || !needsRehash(storedHash)) return false;
 
   try {
     const next = await hashPassword(plain);
     await persist(next, storedHash as string);
-    return { valid: true, upgraded: true };
+    return true;
   } catch {
-    return { valid: true, upgraded: false };
+    // Сбой записи не имеет отношения к правильности пароля: он уже проверен.
+    // Старый валидный хеш остаётся на месте, следующий вход попробует снова.
+    return false;
   }
 }

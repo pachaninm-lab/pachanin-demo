@@ -270,20 +270,65 @@ describe('the upgrade is actually invoked by the login paths', () => {
   const read = (file: string) => readFileSync(join(__dirname, file), 'utf8');
 
   it.each(['auth.service.ts', 'gekta-registration.service.ts'])(
-    '%s verifies through the upgrading form',
+    '%s calls the upgrade at all',
     (file) => {
       const source = read(file);
-      expect(source).toContain('verifyPasswordWithUpgrade(');
+      expect(source).toContain('upgradePasswordHashIfNeeded(');
       expect(source).toContain('upgradePasswordHashFormat(');
     },
   );
 
+  /**
+   * The ordering, which is the part a text assertion cannot see and did not.
+   *
+   * The first version of this wiring called verifyPasswordWithUpgrade before
+   * the login transaction, and these tests were happy: the call was present,
+   * the non-upgrading form was absent, every unit case passed. CI was not
+   * happy. Both login paths re-read the credential inside the serializable
+   * transaction and refuse the proof if the stored hash changed since it was
+   * taken - a password reset in that window must not yield a session. A
+   * rewrite between those two points is exactly such a change, so the guard
+   * fired on it and every first login of a legacy bcrypt account failed with
+   * CREDENTIAL_CHANGED_DURING_LOGIN. The guard was right; the placement was
+   * wrong.
+   *
+   * So the property is not "the upgrade is called" but "the upgrade is called
+   * after the credential re-read". This asserts the order directly, and it is
+   * the assertion that fails if the call moves back where it was.
+   */
   it.each(['auth.service.ts', 'gekta-registration.service.ts'])(
-    '%s no longer uses the non-upgrading form on the login path',
+    '%s rewrites only after the transaction that re-reads the credential',
     (file) => {
-      // verifyPassword cannot rewrite anything, so a login path that calls it
-      // leaves every legacy hash exactly as it found it.
-      expect(read(file)).not.toMatch(/await verifyPassword\(/u);
+      const source = read(file);
+      const verifiedAt = source.indexOf('await verifyPassword(');
+      expect(verifiedAt).toBeGreaterThan(-1);
+
+      // Anchored at the password proof rather than at the file, because these
+      // services have other transactions earlier in them and an unanchored
+      // indexOf finds one of those instead - which is how the first version of
+      // this very assertion managed to fail on a correct file.
+      const afterProof = source.slice(verifiedAt);
+      const transactionAt = afterProof.indexOf('this.repository.transaction(');
+      const upgradedAt = afterProof.indexOf('await upgradePasswordHashIfNeeded(');
+
+      expect(transactionAt).toBeGreaterThan(-1);
+      expect(upgradedAt).toBeGreaterThan(-1);
+
+      // Proof, then the transaction that re-reads and decides, and only then
+      // the rewrite. A rewrite between the first two is the defect.
+      expect(upgradedAt).toBeGreaterThan(transactionAt);
+    },
+  );
+
+  it.each(['auth.service.ts', 'gekta-registration.service.ts'])(
+    '%s does not rewrite a hash for a login it refused',
+    (file) => {
+      // The password is proven before the transaction, but the transaction can
+      // still deny: a lockout, a credential that changed under the proof, or no
+      // usable membership. None of those should leave a rewritten hash behind.
+      const source = read(file);
+      expect(source).toMatch(/validPassword\s*&&/u);
+      expect(source).toMatch(/kind === 'invalid'/u);
     },
   );
 
