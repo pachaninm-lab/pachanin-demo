@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { RequestProductUser, isProductSessionScope } from '../../common/types/product-session';
 import { signAccessToken, verifyAccessClaims } from './access-token';
+import { SESSION_IDLE_TIMEOUT_MS } from './auth.service';
 import { appendAuthAudit } from './auth-audit';
 import {
   buildOtpAuthUri,
@@ -422,6 +423,12 @@ export class ProductSessionService {
     if (context.session_status === 'REVOKED') return 'SESSION_REVOKED';
     if (context.session_status === 'EXPIRED' || context.session_expires_at <= new Date()) {
       return 'SESSION_EXPIRED';
+    }
+    // The same idle limit as the platform pathway, from the same constant. Two
+    // session stores with two different idle rules would be the inconsistency
+    // V6.3.4 is about, and the number is not worth having in two places.
+    if (context.session_last_seen_at.getTime() + SESSION_IDLE_TIMEOUT_MS <= Date.now()) {
+      return 'SESSION_IDLE_TIMEOUT';
     }
     if (context.session_status !== 'ACTIVE') return 'SESSION_NOT_ACTIVE';
     if (context.user_status !== 'ACTIVE') return 'USER_NOT_ACTIVE';
