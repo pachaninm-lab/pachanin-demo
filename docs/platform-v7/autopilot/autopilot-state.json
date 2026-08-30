@@ -1279,6 +1279,10 @@
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "fgis/xml-escape-convergence-4806": [
+      "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
+      "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts"
     ]
   },
   "currentAcceptance": [
