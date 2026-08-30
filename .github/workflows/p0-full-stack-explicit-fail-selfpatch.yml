@@ -1,0 +1,65 @@
+name: P0 Full-Stack Explicit-Fail Self-Patch
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/p0-full-stack-explicit-fail-selfpatch.py'
+      - '.github/workflows/p0-full-stack-explicit-fail-selfpatch.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  patch:
+    name: Apply and verify bounded full-stack rollback patch
+    if: >-
+      github.event.pull_request.head.ref == 'fix/production-release-explicit-fail-rollback-4637-20260831' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify exact authority base
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor 6e7fabd32db6b943f2812d4591d445dd21f94db5 HEAD
+          [[ "$(git rev-parse origin/main)" == '6e7fabd32db6b943f2812d4591d445dd21f94db5' ]]
+
+      - name: Apply exact bounded patch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/p0-full-stack-explicit-fail-selfpatch.py
+          bash -n scripts/production-full-stack-exact-sha.sh
+          node scripts/check-production-full-stack-release.mjs
+          git diff --check
+          changed="$(git diff --name-only | sort)"
+          expected=$'scripts/check-production-full-stack-release.mjs\nscripts/production-full-stack-exact-sha.sh'
+          [[ "$changed" == "$expected" ]]
+
+      - name: Commit only final production-authority fix
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/production-full-stack-exact-sha.sh scripts/check-production-full-stack-release.mjs
+          git rm .github/workflows/p0-full-stack-explicit-fail-selfpatch.yml scripts/p0-full-stack-explicit-fail-selfpatch.py
+          staged="$(git diff --cached --name-only | sort)"
+          expected=$'.github/workflows/p0-full-stack-explicit-fail-selfpatch.yml\nscripts/check-production-full-stack-release.mjs\nscripts/p0-full-stack-explicit-fail-selfpatch.py\nscripts/production-full-stack-exact-sha.sh'
+          [[ "$staged" == "$expected" ]]
+          git commit -m 'fix(registration): rollback explicit full-stack failures'
+          git push origin "HEAD:$HEAD_BRANCH"
