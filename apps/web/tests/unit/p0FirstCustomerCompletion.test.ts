@@ -1,6 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { NextRequest } from 'next/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { sendTransactionalMail } from '@/lib/server/transactional-mail';
+
+vi.mock('@/lib/server-request-security', () => ({
+  assertCsrf: vi.fn(() => ({ ok: true })),
+}));
+
+vi.mock('@/lib/server/transactional-mail', () => ({
+  sendTransactionalMail: vi.fn(),
+}));
 
 const root = process.cwd().endsWith(path.join('apps', 'web'))
   ? path.resolve(process.cwd(), '..', '..')
@@ -8,6 +19,13 @@ const root = process.cwd().endsWith(path.join('apps', 'web'))
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
 describe('P0 first-customer completion boundaries', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
   it('keeps invitation delivery secrets and raw tokens inside server-only routes', () => {
     const api = read('apps/api/src/modules/auth/organization-invitation.service.ts');
     const bff = read('apps/web/app/api/auth/organization-invitations/route.ts');
@@ -97,7 +115,10 @@ describe('P0 first-customer completion boundaries', () => {
     expect(bff).toContain('export const maxDuration = 100;');
     expect(bff).toContain('const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 75_000;');
     expect(bff).toContain('signal: AbortSignal.timeout(JOIN_DECISION_UPSTREAM_TIMEOUT_MS)');
+    expect(bff).toContain('let upstreamResponse: Response;');
     expect(bff).toContain('await sendTransactionalMail({');
+    expect(bff).toContain('organization_join_decision_notification_failure');
+    expect(bff).toContain("failureClass: 'NOTIFICATION_TRANSPORT'");
     expect(mail).toContain('const MAIL_TIMEOUT_MS = 5_000;');
     expect(mail).toContain('}, MAIL_TIMEOUT_MS + 2_500);');
     expect(decideJoin).toContain('signal: AbortSignal.timeout(120_000)');
@@ -117,6 +138,68 @@ describe('P0 first-customer completion boundaries', () => {
     expect(bff).toMatch(/console\.warn\('organization_join_decision_upstream_failure', JSON\.stringify\(\{\s*correlationId,\s*failureClass,\s*\}\)\);/);
     expect(bff).not.toContain('error.message');
     expect(bff).not.toContain('String(error)');
+  });
+
+  it('does not relabel a committed join decision as upstream 503 when notification code throws', async () => {
+    vi.stubEnv('API_URL', 'https://api.example.test');
+    vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+    vi.mocked(sendTransactionalMail).mockRejectedValue(new Error('synthetic notification failure'));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: false,
+      notificationDelivery: {
+        email: 'synthetic-employee@example.test',
+        status: 'ACTIVATED',
+        reason: 'approved',
+      },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+    const request = new NextRequest(
+      'https://app.example.test/api/auth/organization-join-requests/reg_employee/decision',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'p0-employee-join-post-commit-boundary',
+          'x-correlation-id': 'p0-employee-join-post-commit-boundary',
+          cookie: `${ACCESS_COOKIE}=seller-access-token`,
+        },
+        body: JSON.stringify({
+          decision: 'APPROVE',
+          reason: 'Production employee organization join approval',
+          locale: 'ru',
+        }),
+      },
+    );
+    request.cookies.set(ACCESS_COOKIE, 'seller-access-token');
+
+    const response = await POST(request, {
+      params: Promise.resolve({ applicationId: 'reg_employee' }),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: false,
+      notificationDelivered: false,
+      correlationId: 'p0-employee-join-post-commit-boundary',
+    });
+    expect(payload).not.toHaveProperty('notificationDelivery');
+    expect(warn).toHaveBeenCalledWith(
+      'organization_join_decision_notification_failure',
+      JSON.stringify({
+        correlationId: 'p0-employee-join-post-commit-boundary',
+        failureClass: 'NOTIFICATION_TRANSPORT',
+      }),
+    );
   });
 
   it('offers an authenticated one-time MFA step-up instead of requiring a new login', () => {
@@ -184,10 +267,10 @@ describe('P0 first-customer completion boundaries', () => {
 
   it('does not render the staff control plane for an ordinary authenticated business user', () => {
     const staffPage = read('apps/web/app/platform-v7/staff/page.tsx');
-    expect(staffPage).toContain('fetch(`${API_ORIGIN}/staff/capabilities/me`');
+    expect(staffPage).toContain('fetch(`${API_BASE_URL}/staff/capabilities/me`');
     expect(staffPage).toContain('parseStaffCapabilitiesContract(');
     expect(staffPage).toContain('capabilities.identity.id !== identity.id');
-    expect(staffPage).not.toContain('fetch(`${API_ORIGIN}/staff/assignments/me`');
+    expect(staffPage).not.toContain('fetch(`${API_BASE_URL}/staff/assignments/me`');
     expect(staffPage).not.toContain('staffRoles.length === 0 || identity.mfaVerified !== true');
     expect(staffPage).toContain("capabilitiesResponse.status === 403");
     expect(staffPage).toContain("verification.status === 'forbidden'");
