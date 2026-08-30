@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4804,
+  "branch": "security/webhook-url-protocol-1222",
+  "status": "active",
+  "purpose": "Close ASVS V1.2.2 on the partner webhook path. A partner-registered URL was stored verbatim and later fetched, with no protocol allowlist at registration and none at either place that fetches it, so javascript:, data:, file: and ftp: were all accepted. Reachability was re-established first, and it corrected the earlier record: the fetch the record named has no runtime caller, and the fetch a partner can reach was unnamed.",
+  "authorityBaseExactMain": "906aebd99ad9e0b5a82d103262d4ada6af29aed2",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/webhook-url-protocol-1222.json",
+    "apps/api/src/common/security/outbound-url.ts",
+    "apps/api/src/modules/partner-api/partner-api.service.ts",
+    "apps/api/src/modules/partner-api/partner-api.controller.ts",
+    "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+    "apps/api/src/modules/partner-api/webhook-url-protocol.spec.ts",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "An allowlist of safe schemes, never a denylist of known-bad ones. A denylist would pass every scheme nobody thought of, which is the same shape of defect as the one being fixed.",
+    "The check is applied at all three points and the live one is not assumed. Registration refuses at the door; the controller's test endpoint refuses because that is the fetch a partner can actually reach; the dispatcher refuses because a subscription stored before this control existed never passed registration, and refusing at the point of use avoids a data migration.",
+    "http stays on the allowlist, and the reason is written down rather than left implied. This requirement is about the scheme being of a safe kind - transport confidentiality is V12 - and narrowing to https alone would break every partner already registered over http, which is a product decision and not this control's to make.",
+    "SSRF is not claimed and not implied. Loopback, link-local and private ranges still pass, and the suite asserts that they do, so the boundary is visible in the tests rather than only in prose. V1.3.6 stays FAIL.",
+    "A refusal is recorded, not swallowed. The dispatcher returns a failed delivery naming the reason and continues with the remaining subscriptions; the endpoint returns the reason rather than a generic failure.",
+    "No partner loses a working subscription. A URL that was safe stays accepted, and a case asserts the guard still fetches a safe URL rather than simply refusing everything.",
+    "Registration business logic beyond this validation, 1C, marketing and presentation are not touched. No production, REG.RU, DNS, database or credential mutation, no migration and no new dependency."
+  ],
+  "acceptance": [
+    "webhook-url-protocol.spec.ts passes 22 of 22, with fetch replaced so a passing case cannot leave the process and a regression is visible as a call that should not have happened.",
+    "Four mutations are caught: removing the guard from the reachable fetch fails 8 of 22, from registration fails 9, removing the allowlist fails 8, and removing it from the dispatcher fails 1 - one case, because the dispatcher has one, because it has no runtime caller.",
+    "V1.2.2 revokes on a negative mutation at the matrix level: removing the controller guard rejects the decision.",
+    "The matrix rebuilds at applied 332 / rejected 0, PASS 111 to 112 and FAIL 108 to 107, with no other verdict moved.",
+    "tsc --noEmit exit 0, node --test scripts/security passes in full, guard=0."
+  ]
+}

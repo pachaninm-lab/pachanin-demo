@@ -4,6 +4,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { PartnerApiService } from './partner-api.service';
 import { WebhookDispatcherService } from './webhook-dispatcher.service';
+import { outboundUrlProblem } from '../../common/security/outbound-url';
 
 @Controller('api/partner')
 @UseGuards(JwtAuthGuard)
@@ -58,6 +59,11 @@ export class PartnerApiController {
     const active = this.partnerApi.getActiveSubscriptionsForEvent(body.eventType ?? 'test.ping');
     const wh = active.find((w) => w.id === id);
     if (!wh) return { error: `Webhook subscription ${id} not found or inactive for event` };
+
+    // This is the fetch that a partner can actually reach - dispatch() has no
+    // runtime caller - so the check has to be here and not only there.
+    const problem = outboundUrlProblem(wh.url);
+    if (problem) return { subscriptionId: id, url: wh.url, delivered: false, error: problem };
 
     const eventType = body.eventType ?? 'test.ping';
     const testPayload = body.testData ?? { message: 'GrainFlow webhook test', at: new Date().toISOString() };
