@@ -1,9 +1,14 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { UnauthorizedException } from '@nestjs/common';
-import { Role, type RequestUser } from '../../common/types/request-user';
+import { Role, ROLES_REQUIRING_MFA, type RequestUser } from '../../common/types/request-user';
 import { signAccessToken } from './access-token';
-import { AuthService, SESSION_IDLE_TIMEOUT_MS } from './auth.service';
+import {
+  AuthService,
+  PRIVILEGED_SESSION_IDLE_TIMEOUT_MS,
+  SESSION_IDLE_TIMEOUT_MS,
+  idleTimeoutMsForRole,
+} from './auth.service';
 import type { SessionContextRow } from './persistent-auth.repository';
 
 /**
@@ -93,28 +98,59 @@ describe('session inactivity timeout (ASVS V7.3.1)', () => {
   });
 });
 
-describe('the limit is one reviewed number, in one place', () => {
+describe('the two limits are reviewed numbers, in one place', () => {
   const ABSOLUTE_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 
-  it('bounds idle exposure far more tightly than the absolute cap', () => {
-    expect(SESSION_IDLE_TIMEOUT_MS).toBeLessThan(ABSOLUTE_LIFETIME_MS / 10);
-    // Long enough that an ordinary interruption inside a working day does not
-    // end the session; the reasoning is recorded at the constant.
-    expect(SESSION_IDLE_TIMEOUT_MS).toBeGreaterThanOrEqual(4 * 60 * 60 * 1000);
+  it('is one hour for an ordinary session and fifteen minutes for a privileged one', () => {
+    expect(SESSION_IDLE_TIMEOUT_MS).toBe(60 * 60 * 1000);
+    expect(PRIVILEGED_SESSION_IDLE_TIMEOUT_MS).toBe(15 * 60 * 1000);
+  });
+
+  it('orders the limits so a privileged session is never the longest-lived', () => {
+    expect(PRIVILEGED_SESSION_IDLE_TIMEOUT_MS).toBeLessThan(SESSION_IDLE_TIMEOUT_MS);
+    expect(SESSION_IDLE_TIMEOUT_MS).toBeLessThan(ABSOLUTE_LIFETIME_MS / 100);
+  });
+
+  it('gives the shorter limit to exactly the roles this platform already calls privileged', () => {
+    for (const role of ROLES_REQUIRING_MFA) {
+      expect(idleTimeoutMsForRole(role)).toBe(PRIVILEGED_SESSION_IDLE_TIMEOUT_MS);
+    }
+    for (const role of [Role.FARMER, Role.BUYER, Role.DRIVER, Role.LOGISTICIAN, Role.ELEVATOR]) {
+      expect(idleTimeoutMsForRole(role)).toBe(SESSION_IDLE_TIMEOUT_MS);
+    }
+  });
+
+  it('falls to the ordinary limit, never to no limit, for an unknown role', () => {
+    // A malformed or absent role must not become an unbounded session. The
+    // ordinary limit is the floor, not an exemption.
+    for (const value of ['', 'NOT_A_ROLE', null, undefined]) {
+      expect(idleTimeoutMsForRole(value)).toBe(SESSION_IDLE_TIMEOUT_MS);
+    }
   });
 
   it('is shared by both session pathways rather than restated', () => {
     const product = readFileSync(join(__dirname, 'product-session.service.ts'), 'utf8');
     expect(product).toContain('SESSION_IDLE_TIMEOUT_MS');
-    // A second literal would be a second policy. Only the definition may carry
-    // the number.
-    expect(product).not.toMatch(/12 \* 60 \* 60 \* 1000/u);
+    // A locally declared idle constant would be a second policy. The 30-day
+    // absolute TTLs in that file are a different limit and legitimately local.
+    expect(product).not.toMatch(/const\s+\w*IDLE\w*\s*=/u);
+  });
+
+  it('does not invent a second authority for who is privileged', () => {
+    const auth = readFileSync(join(__dirname, 'auth.service.ts'), 'utf8');
+    // The tier is decided from the role on the session row being validated.
+    expect(auth).toContain('idleTimeoutMsForRole(context.role)');
+    // staffRoles is a separate internal authority; using it here would mean two
+    // answers to the same question.
+    expect(auth).not.toMatch(/idleTimeoutMsForRole\(\s*[^)]*staffRoles/u);
   });
 
   it('is documented where a reviewer would look for it', () => {
     const policy = readFileSync(join(__dirname, '..', '..', '..', '..', '..', 'docs', 'security', 'SESSION_POLICY.md'), 'utf8');
-    expect(policy).toContain('12 hours');
+    expect(policy).toContain('1 hour');
+    expect(policy).toContain('15 minutes');
     expect(policy).toContain('30 days');
     expect(policy).toContain('SESSION_IDLE_TIMEOUT_MS');
+    expect(policy).toContain('PRIVILEGED_SESSION_IDLE_TIMEOUT_MS');
   });
 });
