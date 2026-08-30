@@ -39,23 +39,77 @@
     {
       "requirementId": "V1.2.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/modules/exports/exports.service.ts"
+        "apps/api/src/common/security/xml-escape.ts",
+        "apps/api/src/common/security/csv-cell.ts",
+        "apps/api/src/modules/exports/exports.service.ts",
+        "apps/api/src/modules/exports/exports-output-encoding.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the MSH XML report builder still interpolates free-text deal fields into element content with no XML escaping",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the shared escaper still encodes the three characters that change element structure, rather than deleting them",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/xml-escape.ts"
+          ],
+          "patterns": [
+            ".replace(/&/gu, '&amp;')",
+            ".replace(/</gu, '&lt;')",
+            ".replace(/>/gu, '&gt;')",
+            ".replace(/\"/gu, '&quot;')"
+          ]
+        },
+        {
+          "condition": "every free-text field in the ministry report still goes through the escaper",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/exports/exports.service.ts"
           ],
           "patterns": [
-            "<Культура>${d.culture ?? ''}</Культура>"
+            "${xmltext(d.culture)}",
+            "${xmltext(d.region)}",
+            "${xmltext(d.status)}",
+            "${xmltext(d.dealnumber ?? d.id)}"
+          ]
+        },
+        {
+          "condition": "the financial-monitoring report still escapes the organisation identifiers it carries",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.service.ts"
+          ],
+          "patterns": [
+            "${xmltext(d.sellerorgid)}",
+            "${xmltext(d.buyerorgid)}"
+          ]
+        },
+        {
+          "condition": "the CSV reports still quote through the shared cell rather than by hand",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.service.ts"
+          ],
+          "patterns": [
+            "csvrow([d.id",
+            "csvrow([e.id",
+            "csvrow([c, v])"
+          ]
+        },
+        {
+          "condition": "no report builder interpolates a free-text deal field into XML unescaped again",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.service.ts"
+          ],
+          "patterns": [
+            "<культура>${d.culture",
+            "<регион>${d.region",
+            "<статус>${d.status}"
           ]
         }
       ],
-      "note": "buildMshXml() in exports.service.ts constructs an outgoing regulatory report by interpolating deal fields directly into XML element content: d.dealNumber, d.status, d.culture and d.region are written in with a plain template literal, with no escaping of &, < or > at all. culture and region are free-text String? columns in prisma/schema.prisma, not enums, so a deal record whose culture field contains XML metacharacters (entered anywhere upstream that writes to that column) would corrupt the document structure or inject unintended elements into a report this application hands to a regulator. This is a real, traceable defect, not a hypothetical one: the same file also builds a CSV report from the same free-text fields, assessed separately below under V1.2.10."
+      "note": "buildMshXml, buildRosfinXml and buildRosstatCsv in exports.service.ts interpolated deal fields into an outgoing regulatory document with plain template literals and no encoding of any kind. culture and region are free-text String? columns on the Deal model, not enums, so a deal whose culture read a closing tag followed by another element did not produce a report describing that culture - it produced a different document, addressed to a ministry. The same file's Rosstat CSV wrote a culture into a quoted field without doubling the quote, which ends the field early and shifts every column after it. Two facts shaped this. First, an encoder that deleted metacharacters would also defeat injection while filing a report that disagrees with the database, so every case asserts both that the structure is unchanged and that decoding the field returns the original value byte for byte; the deleting variant fails 5 of the 11. Null and undefined now render as an empty element rather than as the words null and undefined, which is what the template literal wrote. Characters XML 1.0 cannot carry are dropped rather than escaped, because no entity represents them and a parser rejects the document either way. Second, and recorded here because it is a real limitation rather than a tidy result: this repository already escaped XML correctly. The FGIS-Grain codec has escapeXmlText and escapeXmlAttribute, private to that file, which is precisely how the export builders came to be written without them - the control existed and was reachable from one place only. The right answer is one implementation, and it was written and then reverted. The pc-crop-08c gate enforces an immutable scope: any change touching apps/api/src/modules/regulatory-integration/fgis-grain must contain only that contour's files, and it correctly refused a pass that also carried the export builders and this decision file. So there are two escaping implementations in the tree right now. That is stated rather than glossed, the convergence is raised as #4806 to be done inside the PC-CROP-08C scope where it belongs, and this decision claims only what the export path does. The CSV cell additionally prefixes a leading =, +, - or @ with an apostrophe: the file is well-formed with or without it, but the injection happens in the spreadsheet that opens it, and the reader here is a regulator. That guard marks a negative number too, which is the named cost and is taken knowingly, since a reader cannot tell -1 from a payload by its first character either. Mutation results: returning culture to raw interpolation fails 3 of 11, deleting instead of encoding fails 5, dropping the CSV quote doubling fails 2, dropping the formula guard fails 2. Separately recorded and not claimed here: the codec's FORBIDDEN_CONTROL_CHARACTER refusal is protected by no test on its reachable inbound path, found by mutation while confirming the reverted refactor preserved behaviour, and raised as #4801."
     },
     {
       "requirementId": "V1.2.2",
@@ -271,23 +325,69 @@
     {
       "requirementId": "V1.2.10",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/modules/exports/exports.service.ts"
+        "apps/api/src/common/security/csv-cell.ts",
+        "apps/api/src/modules/exports/exports.service.ts",
+        "apps/api/src/modules/exports/exports-output-encoding.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the Rosstat CSV builder still interpolates free-text culture values into quoted CSV fields with neither embedded-quote doubling nor formula-injection character escaping",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the cell still guards every character this requirement names, including tab and NUL",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/csv-cell.ts"
+          ],
+          "patterns": [
+            "const formula_triggers = new set(['=', '+', '-', '@', '\\t', '\\0', '\\r']);"
+          ]
+        },
+        {
+          "condition": "the guard is still applied to the first character and still prefixes an apostrophe",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/csv-cell.ts"
+          ],
+          "patterns": [
+            "formula_triggers.has(raw[0]) ? `'${raw}` : raw"
+          ]
+        },
+        {
+          "condition": "RFC 4180 quoting still doubles an embedded quote rather than dropping it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/csv-cell.ts"
+          ],
+          "patterns": [
+            "`\"${guarded.replace(/\"/gu, '\"\"')}\"`"
+          ]
+        },
+        {
+          "condition": "all three CSV producers still render through the shared cell rather than quoting by hand",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/exports/exports.service.ts"
           ],
           "patterns": [
-            "`\"${c}\",\"${v}\"`"
+            "csvrow([d.id",
+            "csvrow([e.id",
+            "csvrow([c, v])",
+            "csvrow(['grainflow'"
+          ]
+        },
+        {
+          "condition": "no CSV producer builds a quoted field by hand again",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.service.ts"
+          ],
+          "patterns": [
+            "`\"${c}\",\"${v}\"`",
+            "`\"${string(v).replace(/\"/g, '\"\"')}\"`"
           ]
         }
       ],
-      "note": "Two CSV builders exist in exports.service.ts and were read in full. The main deal export does correctly double embedded double-quotes per RFC 4180 (.replace(/\"/g, '\"\"')), which is real and creditable, but neither builder escapes a leading =, +, -, @, tab or null character in a field value with a single quote, which this requirement explicitly requires in addition to RFC 4180 quoting. The second builder, buildRosstatCsv(), is weaker still: its cultureSummary rows are built as `\"${c}\",\"${v}\"` with no quote-doubling at all for the free-text culture value c (a String? column, not an enum), so an embedded double-quote would itself corrupt the row, on top of the shared formula-injection gap. A deal or lot whose culture field is set to a string starting with = or @ would open as an executable formula in Excel or a compatible spreadsheet application when either export is downloaded and opened - the exact scenario this requirement names."
+      "note": "Three CSV producers exist in exports.service.ts and all three were read. Two of them - the deal export and the ledger export - did double an embedded quote per RFC 4180 section 2.7, which was real and was credited, but neither escaped a leading =, +, -, @, tab or NUL, which this requirement names in addition to RFC 4180. The third, the Rosstat culture summary, did not even double quotes: it wrote a free-text culture into a quoted field directly, so a culture containing a quote ended the field early and shifted every column after it. All three now render through one csvCell, which encloses every field, doubles embedded quotes, and prefixes an apostrophe when the first character is one of the six this requirement lists. The trigger set is the requirement's own list plus carriage return, because some readers strip a leading CR and expose the character behind it. The guard marks a negative number too. That is the named cost and it is taken knowingly: a spreadsheet cannot distinguish the quantity -1 from a payload beginning with a minus sign either, so the alternative is not a cleaner report but an unprotected one. The apostrophe is deliberately visible rather than the character being deleted, because silently changing a value in a regulatory report is worse than a visible mark. Mutation results: removing the quote doubling fails 2 of the 11 cases, removing the formula guard fails 2. This requirement is credited only for CSV and formula injection; the XML side of the same file is V1.2.1, and the two were fixed in the same pass because they are the same defect in two output formats."
     },
     {
       "requirementId": "V1.3.1",

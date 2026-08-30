@@ -2,6 +2,8 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
+import { xmlAttribute, xmlText } from '../../common/security/xml-escape';
+import { csvRow } from '../../common/security/csv-cell';
 
 const EXPORT_ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.COMPLIANCE_OFFICER, Role.ACCOUNTING, Role.EXECUTIVE];
 
@@ -28,9 +30,7 @@ export class ExportsService {
     });
     const header = 'id,dealNumber,status,sellerOrgId,buyerOrgId,culture,cropClass,volumeTons,totalRub,currency,region,createdAt,closedAt\n';
     const rows = deals.map(d =>
-      [d.id, d.dealNumber ?? '', d.status, d.sellerOrgId, d.buyerOrgId, d.culture ?? '', d.cropClass ?? '', d.volumeTons ?? '', d.totalRub ?? '', d.currency, d.region ?? '', d.createdAt.toISOString(), d.closedAt?.toISOString() ?? '']
-        .map(v => `"${String(v).replace(/"/g, '""')}"`)
-        .join(',')
+      csvRow([d.id, d.dealNumber ?? '', d.status, d.sellerOrgId, d.buyerOrgId, d.culture ?? '', d.cropClass ?? '', d.volumeTons ?? '', d.totalRub ?? '', d.currency, d.region ?? '', d.createdAt.toISOString(), d.closedAt?.toISOString() ?? ''])
     ).join('\n');
     return header + rows;
   }
@@ -94,9 +94,7 @@ export class ExportsService {
     }).catch(() => []);
     const header = 'id,entryType,debitAccount,creditAccount,amountKopecks,currency,reference,idempotencyKey,createdAt\n';
     const rows = entries.map(e =>
-      [e.id, e.entryType, e.debitAccount, e.creditAccount, e.amountKopecks, e.currency, e.reference ?? '', e.idempotencyKey, e.createdAt.toISOString()]
-        .map(v => `"${String(v).replace(/"/g, '""')}"`)
-        .join(',')
+      csvRow([e.id, e.entryType, e.debitAccount, e.creditAccount, e.amountKopecks, e.currency, e.reference ?? '', e.idempotencyKey, e.createdAt.toISOString()])
     ).join('\n');
     return header + rows;
   }
@@ -150,22 +148,22 @@ export class ExportsService {
   private buildMshXml(deals: any[], from: Date, to: Date): { format: string; filename: string; content: string } {
     const rows = deals.map(d => `
     <Сделка>
-      <НомерСделки>${d.dealNumber ?? d.id}</НомерСделки>
-      <Статус>${d.status}</Статус>
-      <Культура>${d.culture ?? ''}</Культура>
-      <Регион>${d.region ?? ''}</Регион>
-      <ОбъёмТонн>${d.volumeTons ?? 0}</ОбъёмТонн>
-      <СуммаРуб>${d.totalRub ?? 0}</СуммаРуб>
-      <ДатаСоздания>${d.createdAt.toISOString()}</ДатаСоздания>
-      <ДатаЗакрытия>${d.closedAt?.toISOString() ?? ''}</ДатаЗакрытия>
+      <НомерСделки>${xmlText(d.dealNumber ?? d.id)}</НомерСделки>
+      <Статус>${xmlText(d.status)}</Статус>
+      <Культура>${xmlText(d.culture)}</Культура>
+      <Регион>${xmlText(d.region)}</Регион>
+      <ОбъёмТонн>${xmlText(d.volumeTons ?? 0)}</ОбъёмТонн>
+      <СуммаРуб>${xmlText(d.totalRub ?? 0)}</СуммаРуб>
+      <ДатаСоздания>${xmlText(d.createdAt.toISOString())}</ДатаСоздания>
+      <ДатаЗакрытия>${xmlText(d.closedAt?.toISOString())}</ДатаЗакрытия>
     </Сделка>`).join('');
 
     const content = `<?xml version="1.0" encoding="UTF-8"?>
 <ОтчётМСХ xmlns="urn:grainflow:msh:1.0"
-  ДатаОт="${from.toISOString().split('T')[0]}"
-  ДатаДо="${to.toISOString().split('T')[0]}"
-  ДатаФормирования="${new Date().toISOString()}"
-  КоличествоСделок="${deals.length}">
+  ДатаОт="${xmlAttribute(from.toISOString().split('T')[0])}"
+  ДатаДо="${xmlAttribute(to.toISOString().split('T')[0])}"
+  ДатаФормирования="${xmlAttribute(new Date().toISOString())}"
+  КоличествоСделок="${xmlAttribute(deals.length)}">
   <Сделки>${rows}
   </Сделки>
 </ОтчётМСХ>`;
@@ -179,7 +177,7 @@ export class ExportsService {
     const totalRub = closedDeals.reduce((s, d) => s + (d.totalRub ?? 0), 0);
 
     const header = 'Форма 29-СХ,Период,Количество сделок,Объём (т),Сумма (руб)\n';
-    const row = `"GrainFlow","${from.toISOString().split('T')[0]} - ${to.toISOString().split('T')[0]}","${closedDeals.length}","${totalVol}","${totalRub}"\n`;
+    const row = `${csvRow(['GrainFlow', `${from.toISOString().split('T')[0]} - ${to.toISOString().split('T')[0]}`, closedDeals.length, totalVol, totalRub])}\n`;
 
     const cultureSummary = Object.entries(
       deals.reduce((acc, d) => {
@@ -187,7 +185,7 @@ export class ExportsService {
         acc[c] = (acc[c] ?? 0) + (d.volumeTons ?? 0);
         return acc;
       }, {} as Record<string, number>)
-    ).map(([c, v]) => `"${c}","${v}"`).join('\n');
+    ).map(([c, v]) => csvRow([c, v])).join('\n');
 
     const content = header + row + '\nКультура,Объём (т)\n' + cultureSummary;
     return { format: 'csv', filename: `rosstat-29sx-${Date.now()}.csv`, content };
@@ -200,13 +198,13 @@ export class ExportsService {
 
     const content = `<?xml version="1.0" encoding="UTF-8"?>
 <Файл xmlns="urn:grainflow:fns:onf:1.0"
-  ИдФайл="GF-${Date.now()}"
-  ДатаФайл="${new Date().toISOString().split('T')[0]}">
-  <ОтчётныйПериод ДатаНачала="${from.toISOString().split('T')[0]}" ДатаОкончания="${to.toISOString().split('T')[0]}"/>
+  ИдФайл="GF-${xmlAttribute(Date.now())}"
+  ДатаФайл="${xmlAttribute(new Date().toISOString().split('T')[0])}">
+  <ОтчётныйПериод ДатаНачала="${xmlAttribute(from.toISOString().split('T')[0])}" ДатаОкончания="${xmlAttribute(to.toISOString().split('T')[0])}"/>
   <СведенияОреализации>
-    <КоличествоОпераций>${taxableDeals.length}</КоличествоОпераций>
-    <ОбщаяСумма>${totalBase.toFixed(2)}</ОбщаяСумма>
-    <НДС>${vatAmount.toFixed(2)}</НДС>
+    <КоличествоОпераций>${xmlText(taxableDeals.length)}</КоличествоОпераций>
+    <ОбщаяСумма>${xmlText(totalBase.toFixed(2))}</ОбщаяСумма>
+    <НДС>${xmlText(vatAmount.toFixed(2))}</НДС>
   </СведенияОреализации>
 </Файл>`;
 
@@ -299,18 +297,18 @@ export class ExportsService {
     const rows = largeDeals.map(d => `
   <Операция>
     <КодОперации>1010</КодОперации>
-    <Дата>${d.createdAt.toISOString().split('T')[0]}</Дата>
-    <Сумма>${d.totalRub ?? 0}</Сумма>
+    <Дата>${xmlText(d.createdAt.toISOString().split('T')[0])}</Дата>
+    <Сумма>${xmlText(d.totalRub ?? 0)}</Сумма>
     <Валюта>RUB</Валюта>
-    <НомерДокумента>${d.dealNumber ?? d.id}</НомерДокумента>
-    <ПродавецОргИд>${d.sellerOrgId}</ПродавецОргИд>
-    <ПокупательОргИд>${d.buyerOrgId}</ПокупательОргИд>
+    <НомерДокумента>${xmlText(d.dealNumber ?? d.id)}</НомерДокумента>
+    <ПродавецОргИд>${xmlText(d.sellerOrgId)}</ПродавецОргИд>
+    <ПокупательОргИд>${xmlText(d.buyerOrgId)}</ПокупательОргИд>
   </Операция>`).join('');
 
     const content = `<?xml version="1.0" encoding="UTF-8"?>
 <ФЭС407 xmlns="urn:grainflow:rosfinmon:407:1.0"
-  ДатаФормирования="${new Date().toISOString()}"
-  КоличествоОпераций="${largeDeals.length}">
+  ДатаФормирования="${xmlAttribute(new Date().toISOString())}"
+  КоличествоОпераций="${xmlAttribute(largeDeals.length)}">
   <Операции>${rows}
   </Операции>
 </ФЭС407>`;
