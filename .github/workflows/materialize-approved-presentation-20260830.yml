@@ -21,6 +21,13 @@ jobs:
           ref: fix/static-presentation-download-buildtime-20260830
           fetch-depth: 1
 
+      - name: Install PDF verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+
       - name: Fetch and validate approved PDF
         shell: bash
         run: |
@@ -34,7 +41,12 @@ jobs:
           bytes="$(wc -c < "$tmp" | tr -d '[:space:]')"
           sha="$(sha256sum "$tmp" | awk '{print $1}')"
           signature="$(head -c 5 "$tmp")"
-          pages="$(node -e "const fs=require('fs');const s=fs.readFileSync(process.argv[1]).toString('latin1');console.log((s.match(/\\/Type\\s*\\/Page\\b/g)||[]).length)" "$tmp")"
+          pages="$(pdfinfo "$tmp" | awk '/^Pages:/ {print $2}')"
+
+          echo "APPROVED_PDF_BYTES=$bytes"
+          echo "APPROVED_PDF_PAGES=$pages"
+          echo "APPROVED_PDF_SHA256=$sha"
+          echo "APPROVED_PDF_SIGNATURE=$signature"
 
           test "$bytes" -gt 100000
           test "$bytes" -lt 5000000
@@ -44,10 +56,6 @@ jobs:
 
           mkdir -p "$(dirname "$path")"
           cp "$tmp" "$path"
-
-          echo "APPROVED_PDF_BYTES=$bytes"
-          echo "APPROVED_PDF_PAGES=$pages"
-          echo "APPROVED_PDF_SHA256=$sha"
 
       - name: Commit approved PDF to PR branch
         shell: bash
