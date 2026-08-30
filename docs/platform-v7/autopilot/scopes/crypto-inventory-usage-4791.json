@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4791,
+  "branch": "security/crypto-inventory-usage-4791",
+  "status": "active",
+  "purpose": "Close ASVS V11.1.2 and V11.1.4 together, because they are one subject: the cryptographic inventory must record what each key is for, and must carry a plan for replacing each algorithm. Both are derived from the generated inventory rather than written beside it. Documentation and two gates; no runtime change and no production deploy.",
+  "authorityBaseExactMain": "317956188b54afa888c409be9ffc3a8ca43db5c5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/crypto-inventory-usage-4791.json",
+    "docs/security/cryptographic-key-usage.json",
+    "docs/security/CRYPTO_MIGRATION_PLAN.md",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/verify-key-usage.mjs",
+    "scripts/security/verify-key-usage.test.mjs",
+    "scripts/security/verify-crypto-migration-plan.mjs",
+    "scripts/security/verify-crypto-migration-plan.test.mjs",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "No runtime code is touched. Not one file under apps/ changes; the pass records what the cryptography is for and does not alter what it does.",
+    "V11.1.2's verdict rested on a fact that had stopped being true - that no cryptographic inventory exists. One does, generated from the tree, with CI already failing when the committed copy goes stale. The correction is recorded rather than the verdict being quietly moved.",
+    "Both records are derived from the generated inventory, not restated beside it. The usage map must name exactly the keys it found and list exactly the files it saw them in; the migration plan's algorithm set is read from it. Restating either would recreate the defect this programme keeps finding - a record that was true when written and stopped being true with nobody noticing.",
+    "A key that spreads into a new file fails the build until someone revisits what that key is allowed to protect. That coupling is the control; the prose alone would not be one.",
+    "Both key-separation violations found while writing the usage map are named in it rather than smoothed over, and a condition plus a test keep them named: the deal-registry cursor's fallback to JWT_SECRET (#4790), and ACCESS_TOKEN_SECRET being required by the API's env validation while nothing in the API signs with it.",
+    "The post-quantum position is measured, not asserted: the inventory reports zero sites for signing, verification, key-pair generation and key exchange, and a test fails if any of those counts ever stops being zero, because that is when the section would silently become wrong.",
+    "HMAC-SHA1 is named rather than hidden. One site, TOTP, RFC 6238 specifies SHA-1, and the property TOTP relies on is not collision resistance; its trigger is recorded as an ecosystem one rather than a cryptographic one.",
+    "Migration costs are stated per algorithm and the expensive one is not softened: moving HMAC-SHA256 means invalidating outstanding opaque credentials, the same class of decision settled in #4777.",
+    "No dates are invented. Every entry states a trigger, on the ground that a plan built on dates it cannot keep is a worse record than one built on conditions.",
+    "Certificates are answered rather than claimed: the application performs no certificate handling of its own, and edge TLS material is recorded as hosting configuration outside the application's custody.",
+    "V11.1.1 is not touched and remains FAIL, and both records say so. An inventory says what exists and what it is for, and a plan says what replaces an algorithm; neither says what the lifecycle of key material must be.",
+    "The workflow edits only add: six path entries and two blocking steps. No check is removed and no gate is weakened.",
+    "No secret value appears anywhere - only names, files, purposes and algorithms. No production, REG.RU, DNS, database or credential mutation. The 1C, marketing and presentation contours are not touched."
+  ],
+  "acceptance": [
+    "All 27 pieces of key material carry both halves of a boundary; a missing half fails on its own case.",
+    "A new key with no boundary fails; an entry for a key that no longer exists fails; a key appearing where the map does not account for it fails; a key no longer appearing where the map says it does fails.",
+    "Eight algorithm subjects derived from the inventory are each addressed with a trigger, a target and a cost.",
+    "Removing one algorithm's section fails the gate and revokes V11.1.4 at the matrix level - applied 331 / rejected 1.",
+    "Smoothing the recorded key-separation violations out of the usage map fails both the test and the V11.1.2 condition.",
+    "A skeleton carrying every required word but no entries fails as FEWER_ENTRIES_THAN_ALGORITHMS, so headings without content do not count.",
+    "The matrix rebuilds at applied 332 / rejected 0: PASS 105 to 107, FAIL 114 to 112, NOT_ASSESSED unchanged at 38.",
+    "node --test scripts/security passes with both new suites included."
+  ]
+}
