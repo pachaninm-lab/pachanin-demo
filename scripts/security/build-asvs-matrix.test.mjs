@@ -13,6 +13,7 @@ import {
   buildSummary,
   csvCell,
   evaluateCondition,
+  isOpaqueDataModule,
   validateStandard,
   verifyPinnedSourceDigest,
 } from './build-asvs-matrix.mjs';
@@ -350,4 +351,59 @@ test('every PRESENT_ALL_AT_PATH condition in the register holds and is revocable
       }
     }
   }
+});
+
+/**
+ * #4764. A committed base64 payload is data, and substring-scanning it revoked
+ * two unrelated decisions by chance: `jwks` inside the presentation PDF's
+ * part-12, `sgx` inside parts 04, 07 and 08. Both sides are lowercased, so every
+ * case variant collides and a four-character pattern is near certain to hit
+ * 265 KB of base64.
+ */
+const PAYLOAD = 'export const PRESENTATION_PART_12 =\n  "LAxMldwA24cqaOJWKS4LTSqnAl7OyXSGX7uTC";\n';
+
+test('a tree scan ignores a file proven to be one opaque exported literal', () => {
+  const result = evaluateCondition(
+    { condition: 'no JWKS verifier', check: 'ABSENT_IN_TREE', roots: ['apps'], patterns: ['jwks', 'sgx'] },
+    { tracked: ['apps/web/lib/presentation-pdf/part-12.ts'], readFile: () => PAYLOAD },
+  );
+  assert.equal(result.holds, true, 'base64 payload must not revoke a decision');
+});
+
+test('a tree scan still reports the same patterns when they appear in real code', () => {
+  const code = 'import { createRemoteJWKSet } from "jose";\nexport const verifier = createRemoteJWKSet(url);\n';
+  const result = evaluateCondition(
+    { condition: 'no JWKS verifier', check: 'ABSENT_IN_TREE', roots: ['apps'], patterns: ['jwks'] },
+    { tracked: ['apps/api/src/verify.ts'], readFile: () => code },
+  );
+  assert.equal(result.holds, false, 'a real JWKS verifier must still revoke the decision');
+});
+
+test('the data-payload exemption cannot hide executable code', () => {
+  for (const smuggled of [
+    'export const X = "AAAA";\nimport fs from "node:fs";\n',
+    'export const X = "AAAA"; doThing();\n',
+    'export const X = "AAAA";\nexport function jwksVerify() {}\n',
+  ]) {
+    assert.equal(isOpaqueDataModule(smuggled), false, `must not exempt: ${smuggled}`);
+    const result = evaluateCondition(
+      { condition: 'no caller', check: 'ABSENT_IN_TREE', roots: ['apps'], patterns: ['import', 'dothing', 'jwks'] },
+      { tracked: ['apps/web/lib/payload.ts'], readFile: () => smuggled },
+    );
+    assert.equal(result.holds, false, 'a file with any code in it must still be scanned');
+  }
+});
+
+test('NO_RUNTIME_CALLER is exempted on the same proven-data basis', () => {
+  const result = evaluateCondition(
+    {
+      condition: 'no runtime caller',
+      check: 'NO_RUNTIME_CALLER',
+      roots: ['apps'],
+      definedAt: ['apps/api/src/policy.ts'],
+      patterns: ['sgx'],
+    },
+    { tracked: ['apps/web/lib/presentation-pdf/part-04.ts'], readFile: () => PAYLOAD },
+  );
+  assert.equal(result.holds, true, 'base64 must not read as a runtime caller');
 });

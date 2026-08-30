@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4764,
+  "branch": "security/asvs-scan-data-payloads-4764",
+  "status": "active",
+  "purpose": "Stop a committed base64 payload from silently revoking unrelated ASVS decisions. The presentation PDF is stored as 265 KB of base64 string literals under apps/web/lib/presentation-pdf, and `jwks` occurs inside part-12 while `sgx` occurs inside parts 04, 07 and 08 by chance. Both patterns and file text are lowercased before matching, so every case variant collides, and V9.1.3 and V11.7.1 were revoked on that noise.",
+  "authorityBaseExactMain": "f7b79a7ef43fcf273bfa6760d213a640e6ce9275",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-scan-data-payloads-4764.json",
+    "scripts/security/build-asvs-matrix.mjs",
+    "scripts/security/build-asvs-matrix.test.mjs"
+  ],
+  "requiredInvariants": [
+    "The exemption is by proven file shape, never by path. A file is skipped only when its entire body parses as one exported opaque string literal - no import, no call, no declaration, nothing executable. Excluding a directory instead would turn this into a hiding place for real code, which is the opposite of what the scan is for.",
+    "Coverage over actual source is unchanged. The same patterns still revoke a decision when they appear in code: a real createRemoteJWKSet import is still caught, and a file that carries a literal plus any statement is scanned like any other source. Three smuggling shapes are asserted to remain scanned.",
+    "No decision's recorded status is edited. The two requirements return to the verdicts the decision file already records - V9.1.3 to PASS, V11.7.1 to its recorded NOT_ASSESSED - because their decisions stop being rejected. Nothing new is asserted about either requirement.",
+    "Applies to both root-scanning checks, ABSENT_IN_TREE and NO_RUNTIME_CALLER: a base64 blob can no more be a runtime caller than it can be a JWKS verifier.",
+    "docs/security/asvs-applicability-decisions.json is deliberately NOT edited. The fix belongs in the scanner that produced the false positives, not in the decisions it mis-scanned; rewriting the conditions to dodge the noise would have narrowed real tripwires.",
+    "The presentation contour's files are not touched.",
+    "No schema change, no new dependency. No production, REG.RU, DNS, database or credential mutation."
+  ],
+  "acceptance": [
+    "The matrix rebuilds at applied 332 / rejected 0, against 330 / 2 before.",
+    "PASS 101 -> 102 and NOT_ASSESSED 39 -> 38, entirely from V9.1.3's decision being applied again; FAIL is unchanged at 117.",
+    "Removing the exemption line fails 2 of the 24 builder tests and reproduces exactly the V9.1.3 and V11.7.1 rejections."
+  ]
+}
