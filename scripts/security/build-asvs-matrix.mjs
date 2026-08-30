@@ -115,6 +115,47 @@ export function buildMatrixCsv(records) {
 }
 
 /**
+ * A tracked .ts file can be data rather than code. The presentation PDF is
+ * committed as base64 string literals - 265 KB of them - and a substring scan
+ * over that is noise, not evidence: `jwks` occurs inside part-12 and `sgx`
+ * inside parts 04, 07 and 08 purely by chance, which silently revoked V9.1.3
+ * and V11.7.1 (#4764). Patterns and file text are both lowercased below, so
+ * every case variant collides; on a payload that size a four-character pattern
+ * is near certain to match something.
+ *
+ * Excluding such files by path would let anyone hide real code under a blessed
+ * directory. A file is skipped only when its entire body is proven to be one
+ * exported opaque literal - no import, no call, no logic, nothing executable -
+ * so this rule cannot be used as a hiding place. Anything else in the file and
+ * it is scanned like any other source.
+ */
+/**
+ * Written as successive single-pass strips rather than one pattern. An earlier
+ * head expressed this as a single regex whose literal group carried a nested
+ * quantifier; CodeQL rejected it, and rather than guess which alert fired -
+ * there is no way to read the alert text from here - the whole class is removed.
+ * Every expression below is one non-nested quantifier over a character class or
+ * a lazily bounded block, so none of them can backtrack super-linearly.
+ *
+ * Order matters and is not cosmetic. String literals are stripped before line
+ * comments because base64 contains `/`, so a payload can hold `//` inside a
+ * literal and stripping comments first would eat the rest of that line. Block
+ * comments go first so a documented payload still reduces cleanly.
+ */
+const DATA_SKELETON = /^exportconst[A-Za-z_$][\w$]*(?::string)?=;?$/u;
+
+export function isOpaqueDataModule(text) {
+  const skeleton = String(text ?? '')
+    .replace(/\/\*[\s\S]*?\*\//gu, ' ')
+    .replace(/'[A-Za-z0-9+/=\s]*'/gu, ' ')
+    .replace(/"[A-Za-z0-9+/=\s]*"/gu, ' ')
+    .replace(/`[A-Za-z0-9+/=\s]*`/gu, ' ')
+    .replace(/\/\/[^\n]*/gu, ' ')
+    .replace(/[\s+]/gu, '');
+  return DATA_SKELETON.test(skeleton);
+}
+
+/**
  * Conditions are evaluated here rather than trusted from the decision file, so
  * a decision cannot keep standing on a fact that has since changed.
  */
@@ -129,7 +170,9 @@ export function evaluateCondition(condition, { tracked, readFile }) {
       && /\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(path)
     ));
     const hits = candidates.filter((path) => {
-      const text = (readFile(path) ?? '').toLowerCase();
+      const raw = readFile(path) ?? '';
+      if (isOpaqueDataModule(raw)) return false;
+      const text = raw.toLowerCase();
       return patterns.some((pattern) => text.includes(pattern));
     });
     return {
@@ -178,7 +221,9 @@ export function evaluateCondition(condition, { tracked, readFile }) {
       && !definedAt.includes(path)
     ));
     const hits = candidates.filter((path) => {
-      const text = (readFile(path) ?? '').toLowerCase();
+      const raw = readFile(path) ?? '';
+      if (isOpaqueDataModule(raw)) return false;
+      const text = raw.toLowerCase();
       return patterns.some((pattern) => text.includes(pattern));
     });
     return {
