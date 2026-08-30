@@ -117,6 +117,7 @@
       "status": "PASS",
       "evidence": [
         "apps/api/src/common/security/outbound-url.ts",
+        "apps/api/src/common/security/safe-outbound-request.ts",
         "apps/api/src/modules/partner-api/partner-api.service.ts",
         "apps/api/src/modules/partner-api/partner-api.controller.ts",
         "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
@@ -147,25 +148,25 @@
           ]
         },
         {
-          "condition": "the reachable fetch, in the test endpoint, still refuses before fetching",
+          "condition": "the scheme check still runs first on every outbound attempt, before any address work",
           "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/partner-api/partner-api.controller.ts"
+            "apps/api/src/common/security/safe-outbound-request.ts"
           ],
           "patterns": [
-            "const problem = outboundurlproblem(wh.url);",
-            "if (problem) return { subscriptionid: id, url: wh.url, delivered: false, error: problem };"
+            "const schemeproblem = outboundurlproblem(raw);",
+            "if (schemeproblem) return { refusedbecause: schemeproblem };"
           ]
         },
         {
-          "condition": "the dispatcher still refuses a subscription stored before this control existed",
+          "condition": "both untrusted-destination call sites still route through the guard rather than calling fetch directly",
           "check": "PRESENT_ALL_AT_PATH",
           "paths": [
+            "apps/api/src/modules/partner-api/partner-api.controller.ts",
             "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
           ],
           "patterns": [
-            "const problem = outboundurlproblem(url);",
-            "return { subscriptionid, url, status: 'failed', error: problem };"
+            "safeoutboundrequest("
           ]
         },
         {
@@ -179,7 +180,7 @@
           ]
         }
       ],
-      "note": "A partner registers a webhook URL through the partner API and this application later fetches it. The URL was stored verbatim: the endpoint declares its body as an inline TypeScript type, which erases to Object at runtime, so ValidationPipe skipped the parameter and no validator ever saw the field. Reachability was established before anything was changed, and it corrected the earlier record. That record named one fetch site, WebhookDispatcherService.dispatch, and a grep for callers finds none anywhere in the tree - the method is exported from its module but nothing invokes it. The fetch a partner can actually reach is in the controller's test endpoint, POST webhooks/:id/test, and it was not named. So the requirement was failing on a path the evidence did not mention, which is the same failure mode as the requirement itself. The check is applied at three points, not one: at registration, so a bad scheme is refused at the door; in the test endpoint, because that is the live path; and in the dispatcher, because a subscription stored before this existed has never been through registration and refusing at the point of use makes that safe without a data migration. http is on the allowlist deliberately. This requirement asks that the scheme be of a safe kind and names javascript: and data:; transport confidentiality is V12, and narrowing to https alone would break every partner already registered over http, which is a product decision rather than this control's to make. That choice is written down rather than left implied by an omission. What is deliberately not claimed: this does not decide where the URL points. Loopback, link-local and private ranges still pass, and the test suite asserts that they do, so the boundary is visible in the suite and not only in prose. Blocking them, and the DNS rebinding that defeats a naive version of it, is server-side request forgery under V1.3.6, which stays FAIL. Mutation results: removing the guard from the reachable fetch fails 8 of 22, removing it from registration fails 9, removing the allowlist fails 8, and removing it from the dispatcher fails 1 - one, because the dispatcher has one case, because it has no runtime caller."
+      "note": "A partner registers a webhook URL through the partner API and this application later fetches it. The URL was stored verbatim: the endpoint declares its body as an inline TypeScript type, which erases to Object at runtime, so ValidationPipe skipped the parameter and no validator ever saw the field. Reachability was established before anything was changed, and it corrected the earlier record. That record named one fetch site, WebhookDispatcherService.dispatch, and a grep for callers finds none anywhere in the tree - the method is exported from its module but nothing invokes it. The fetch a partner can actually reach is in the controller's test endpoint, POST webhooks/:id/test, and it was not named. So the requirement was failing on a path the evidence did not mention, which is the same failure mode as the requirement itself. The check is applied at three points, not one: at registration, so a bad scheme is refused at the door; in the test endpoint, because that is the live path; and in the dispatcher, because a subscription stored before this existed has never been through registration and refusing at the point of use makes that safe without a data migration. http is on the allowlist deliberately. This requirement asks that the scheme be of a safe kind and names javascript: and data:; transport confidentiality is V12, and narrowing to https alone would break every partner already registered over http, which is a product decision rather than this control's to make. That choice is written down rather than left implied by an omission. What is deliberately not claimed: this does not decide where the URL points. Loopback, link-local and private ranges still pass, and the test suite asserts that they do, so the boundary is visible in the suite and not only in prose. Blocking them, and the DNS rebinding that defeats a naive version of it, is server-side request forgery under V1.3.6, which stays FAIL. Mutation results at the time this was closed: removing the guard from the reachable fetch failed 8 of 22, removing it from registration failed 9, removing the allowlist failed 8, removing it from the dispatcher failed 1. The two call sites have since been moved from a bare fetch onto the SSRF guard for V1.3.6, which begins with this same scheme check, so the conditions here name that entry point rather than the fetch call that no longer exists. The scheme check remains a separate control from the address rules and is credited separately: it proves the URL is of a safe kind, and V1.3.6 proves where it may point."
     },
     {
       "requirementId": "V1.2.3",
@@ -532,25 +533,103 @@
     {
       "requirementId": "V1.3.6",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "unallowlisted:apps/api/src/modules/partner-api/partner-api.controller.ts",
-        "unallowlisted:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
-        "allowlisted-counterexample:apps/api/src/modules/ai-insights/ai-assistant.service.ts"
+        "apps/api/src/common/security/ip-address-policy.ts",
+        "apps/api/src/common/security/safe-outbound-request.ts",
+        "apps/api/src/common/security/ip-address-policy.spec.ts",
+        "apps/api/src/common/security/safe-outbound-request.spec.ts",
+        "apps/api/src/modules/partner-api/partner-api.controller.ts",
+        "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
       ],
       "conditions": [
         {
-          "condition": "the partner webhook dispatch path still takes a URL from partner-controlled input with no allowlist check of protocol, domain, path or port before fetch()",
-          "check": "PRESENT_AT_PATH",
+          "condition": "loopback, link-local, private, CGNAT, unique-local and multicast are still refused by the address policy",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
+            "apps/api/src/common/security/ip-address-policy.ts"
+          ],
+          "patterns": [
+            "if (a === 127) return 'address_loopback';",
+            "if (a === 169 && b === 254) return 'address_link_local';",
+            "if (a === 10) return 'address_private';",
+            "if (a === 172 && b >= 16 && b <= 31) return 'address_private';",
+            "if (a === 100 && b >= 64 && b <= 127) return 'address_shared_cgnat';",
+            "if ((b[0] & 0xfe) === 0xfc) return 'address_unique_local';",
+            "if (b[0] === 0xfe && (b[1] & 0xc0) === 0x80) return 'address_link_local';"
+          ]
+        },
+        {
+          "condition": "IPv6 forms that carry an IPv4 address inside are still unwrapped and judged on what is inside",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/ip-address-policy.ts"
+          ],
+          "patterns": [
+            "b[10] === 0xff && b[11] === 0xff",
+            "'address_embeds_blocked_ipv4'"
+          ]
+        },
+        {
+          "condition": "every resolved address is checked, not only the first",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/safe-outbound-request.ts"
+          ],
+          "patterns": [
+            "for (const address of addresses) {",
+            "if (reason) return { refusedbecause: reason };"
+          ]
+        },
+        {
+          "condition": "the connection is pinned to the vetted address, so a second resolution cannot be substituted",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/safe-outbound-request.ts"
+          ],
+          "patterns": [
+            "callback(null, pinnedaddress,",
+            "lookup: pinnedlookup as never,",
+            "await send(vetted.url, vetted.addresses[0], options);"
+          ]
+        },
+        {
+          "condition": "every redirect hop goes through the whole check again",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/safe-outbound-request.ts"
+          ],
+          "patterns": [
+            "const vetted = await vetdestination(target, options);",
+            "target = new url(outcome.location, vetted.url).tostring();",
+            "'outbound_too_many_redirects'"
+          ]
+        },
+        {
+          "condition": "both untrusted-destination call sites still go through the guard rather than calling fetch directly",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/partner-api.controller.ts",
             "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
           ],
           "patterns": [
-            "await fetch(url"
+            "safeoutboundrequest("
+          ]
+        },
+        {
+          "condition": "neither untrusted-destination call site has gone back to a bare fetch",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/partner-api.controller.ts",
+            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+          ],
+          "patterns": [
+            "await fetch(wh.url",
+            "await fetch(url,"
           ]
         }
       ],
-      "note": "Same defect as ASVS V13.2.4/V13.2.5 and V1.2.2 above, assessed here against this requirement's specific SSRF text: partner-api.controller.ts registers a partner-supplied webhook URL with no validation, and webhook-dispatcher.service.ts later calls fetch(url, ...) against it with no allowlist of protocol, domain, path or port at either point. The comparison that makes the gap precise: ai-assistant.service.ts and restricted-public-qwen.service.ts both check an outbound host against an explicit allowlist (AI_ASSISTANT_ALLOWED_HOSTS) before ever calling fetch. The partner webhook path could use the identical pattern and does not."
+      "note": "The outbound surface was inventoried before anything was written, because the policy depends on which destinations are actually needed. Thirteen fetch call sites exist in apps/api. Eleven take a destination the operator chose: ML_SERVICE_URL, VAULT_ADDR, the object storage endpoint, the two AI services which already check an explicit host allowlist, and the Telegram and VK endpoints which are constants. Two take a destination an outside party chose: the partner webhook dispatcher and the controller's test endpoint. That split decides the shape of the control. A blanket policy over every outbound call would refuse ml-service:8001 and vault:8200, which resolve into private space by design and were chosen by the operator - it would break real integrations while protecting nothing. The guard is therefore on the two untrusted-destination sites and nowhere else, and that is a deliberate boundary rather than an oversight. A second inventory fact shaped the compatibility choice: webhook subscriptions live in an in-memory Map with no Prisma model and no persistence, so no subscription survives a restart and there is no durable partner integration for a strict policy to break. Even so, the default is not a host allowlist - a partner endpoint is by nature an arbitrary address on the public internet, and a default-deny host list would make the feature unusable. The default is the category: public unicast only. PARTNER_WEBHOOK_ALLOWED_HOSTS narrows it further when an operator wants that, and an entry may name a host or a host:port, which is the ports dimension this requirement enumerates. Paths are deliberately unconstrained: the path is the partner's own endpoint, and reaching an arbitrary path on a public server is not SSRF against this application. Ports are unconstrained by default for the same reason - every internal destination is already removed by the address rules, so a port restriction on a public address protects nothing while breaking partners on non-standard ports. Three properties hold together and each defeats a different attack. Every resolved address is checked, not the first, because a name can carry a public A record and a loopback one and the attacker picks. The socket is pinned to the address that was vetted via the lookup hook, so there is no second resolution between check and connect for rebinding to poison. Every redirect hop is re-vetted from the scheme onward, because a 302 is a new destination chosen by the same party. Everything else refuses: an unparseable address, a failed or empty resolution, a redirect without a location, too many redirects, a transport error. Octal, hexadecimal and integer spellings of an address are refused rather than given a second interpretation, since a resolver may read 0177.0.0.1 as loopback. Six mutations are caught: checking only the first resolved address fails 1 of 180, re-resolving at connect time fails 1, following a redirect without re-vetting fails 3, dropping the literal-address check fails 2, dropping IPv4 link-local fails 9, and dropping the IPv4-mapped IPv6 unwrapping fails 4. Refusals are distinguishable from connection failures by their code, so a case cannot pass by failing to connect to something it should have refused."
     },
     {
       "requirementId": "V1.3.7",
@@ -8155,25 +8234,40 @@
     {
       "requirementId": "V13.2.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "unallowlisted:apps/api/src/modules/partner-api/partner-api.controller.ts",
-        "unallowlisted:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
-        "allowlisted-counterexample:apps/api/src/modules/ai-insights/ai-assistant.service.ts"
+        "apps/api/src/common/security/safe-outbound-request.ts",
+        "apps/api/src/common/security/ip-address-policy.ts",
+        "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+        "apps/api/src/modules/partner-api/partner-api.controller.ts",
+        "apps/api/src/modules/ai-insights/ai-assistant.service.ts"
       ],
       "conditions": [
         {
-          "condition": "the partner webhook path still takes a URL from request input with no allowlist check before dispatch",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the application-layer allowlist still governs both untrusted-destination sites",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+            "apps/api/src/modules/partner-api/partner-api.controller.ts"
           ],
           "patterns": [
-            "fetch(url"
+            "safeoutboundrequest(",
+            "configuredallowedhosts()"
           ]
         },
         {
-          "condition": "the counterexample allowlist this chapter measures against is still in place elsewhere in the platform",
+          "condition": "the allowlist still admits only public unicast destinations and still supports an operator host or host:port narrowing",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/safe-outbound-request.ts"
+          ],
+          "patterns": [
+            "entry === host || entry === `${host}:${port}`",
+            "'outbound_host_not_allowed'"
+          ]
+        },
+        {
+          "condition": "the allowlist the AI contour already used is still in place",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/ai-insights/ai-assistant.service.ts"
@@ -8183,28 +8277,40 @@
           ]
         }
       ],
-      "note": "Of 11 outbound fetch sites in the API, two take a URL from data a partner controls with no allowlist: partner-api.controller.ts accepts a webhook URL at registration, and webhook-dispatcher.service.ts dispatches to it later with no host check at either point. This is the SSRF-shaped gap this programme has already named informally; V13 gives it a permanent ASVS record. The comparison that makes the gap precise rather than a general impression: ai-assistant.service.ts and restricted-public-qwen.service.ts both check an outbound host against an explicit allowlist (AI_ASSISTANT_ALLOWED_HOSTS, a hardcoded model-host list) before ever calling fetch. The partner webhook path could use the identical pattern and does not."
+      "note": "Corrected on re-measurement: the earlier note counted 11 outbound fetch sites in the API and there are 13. The classification is what matters and it was re-derived rather than carried forward. Eleven sites take a destination the operator chose - ML_SERVICE_URL, VAULT_ADDR, the object storage endpoint, the two AI services which already check AI_ASSISTANT_ALLOWED_HOSTS, and the Telegram and VK endpoints which are constants in the source. Two take a destination an outside party chose: the partner webhook dispatcher and the controller's test endpoint. This requirement asks for an allowlist defining the external systems the application may communicate with, and permits it at the application layer. That allowlist now exists at the application layer for both untrusted-destination sites, in three dimensions: protocol, by an explicit list; destination address, by admitting only public unicast and refusing loopback, link-local, private, CGNAT, unique-local, multicast, reserved and documentation ranges in both IPv4 and IPv6 including the forms that carry an IPv4 address inside an IPv6 one; and host or host:port, by PARTNER_WEBHOOK_ALLOWED_HOSTS when an operator sets it. The operator-chosen destinations are deliberately outside this allowlist. They resolve into private space by design, so applying the same policy would refuse ml-service:8001 and vault:8200 and break working integrations while protecting nothing, because the operator already decided those addresses. Naming that boundary is part of the decision rather than an omission from it. The full enforcement, the DNS pinning that closes rebinding, and the redirect re-vetting are assessed under V1.3.6; this requirement is credited for the allowlist existing and governing every untrusted-destination call site."
     },
     {
       "requirementId": "V13.2.5",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "unallowlisted:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+        "apps/api/src/common/security/safe-outbound-request.ts",
+        "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+        "apps/api/src/modules/partner-api/partner-api.controller.ts"
       ],
       "conditions": [
         {
-          "condition": "the server-side dispatch path is still the one making the unallowlisted request, not a client browser",
+          "condition": "the server-side dispatch path still sends through the allowlisted guard rather than issuing a bare request",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
           ],
           "patterns": [
-            "await fetch(url"
+            "safeoutboundrequest("
+          ]
+        },
+        {
+          "condition": "the server-side dispatch path has not gone back to a bare fetch",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+          ],
+          "patterns": [
+            "await fetch(url,"
           ]
         }
       ],
-      "note": "Same defect as V13.2.4, read from the server’s side rather than the caller’s: the API server itself is the one issuing the unallowlisted outbound request, which is exactly what this requirement asks the application server not to do without a resource allowlist."
+      "note": "Same control as V13.2.4 read from the server's side rather than the caller's: this requirement asks that the application server itself be configured with an allowlist of resources it may send requests to. The API server issues outbound requests from two untrusted-destination sites and both now go through one guard that admits only an allowlisted protocol and a public unicast address, with an optional operator host or host:port narrowing. The allowlist is implemented at the application layer, which this requirement's sibling V13.2.4 explicitly permits; no firewall or web-server layer rule is claimed, because none was added and claiming one would be evidence this programme does not have."
     },
     {
       "requirementId": "V13.2.6",
