@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
 import { TextDecoder } from 'node:util';
+import {
+  escapeXmlAttribute as escapeXmlAttributeCharacters,
+  escapeXmlText as escapeXmlTextCharacters,
+} from '../../../common/security/xml-escape';
 import type {
   RegulatoryInboundEnvelope,
   RegulatorySignatureMetadata,
@@ -335,18 +339,34 @@ function decodeEntityReferences(value: string): string {
   return output;
 }
 
+/**
+ * Escaping is the shared implementation; the refusal is this codec's own.
+ *
+ * These two functions were a private copy, and common/security/xml-escape was
+ * written because of that copy: the export builders interpolated deal fields
+ * into XML with no escaping at all, precisely because the working control lived
+ * here and was reachable from nowhere else. That module's own note already says
+ * "both now call these" - a claim about a convergence that had not happened,
+ * because these two files were outside the scope the change was allowed to
+ * touch. It is true from here on.
+ *
+ * What is deliberately NOT shared is the response to a character XML 1.0 cannot
+ * carry. The two callers need opposite behaviour and the difference is not an
+ * inconsistency to iron out. A regulatory export must still be produced, so it
+ * drops those characters via removeForbiddenXmlCharacters. A message on this
+ * wire must not be produced at all if it contains one: a SOAP envelope with a
+ * silently-removed character is a message that no longer says what the caller
+ * asked it to say, and it would carry a signature over the altered bytes.
+ * assertSafeCharacters therefore stays, and stays in front.
+ */
 function escapeXmlText(value: string): string {
   assertSafeCharacters(value);
-  return value
-    .replace(/&/gu, '&amp;')
-    .replace(/</gu, '&lt;')
-    .replace(/>/gu, '&gt;');
+  return escapeXmlTextCharacters(value);
 }
 
 function escapeXmlAttribute(value: string): string {
-  return escapeXmlText(value)
-    .replace(/"/gu, '&quot;')
-    .replace(/'/gu, '&apos;');
+  assertSafeCharacters(value);
+  return escapeXmlAttributeCharacters(value);
 }
 
 function bytesFromInput(
