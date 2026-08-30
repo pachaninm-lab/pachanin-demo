@@ -1,4 +1,4 @@
-name: Production P0 Reviewer Inspect
+name: Production P0 Employee Join Inspect
 
 on:
   pull_request:
@@ -6,19 +6,13 @@ on:
     paths:
       - '.github/workflows/production-p0-reviewer-inspect.yml'
       - 'scripts/production-p0-reviewer-inspect.sh'
-      - 'scripts/production-p0-employee-join-state-inspect.sh'
       - 'scripts/check-production-p0-reviewer-inspect.mjs'
-      - 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql'
-      - 'apps/api/prisma/migrations/20260810125000_p0_reviewer_login_readiness_acl_correction/migration.sql'
   push:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-reviewer-inspect.yml'
       - 'scripts/production-p0-reviewer-inspect.sh'
-      - 'scripts/production-p0-employee-join-state-inspect.sh'
       - 'scripts/check-production-p0-reviewer-inspect.mjs'
-      - 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql'
-      - 'apps/api/prisma/migrations/20260810125000_p0_reviewer_login_readiness_acl_correction/migration.sql'
   issue_comment:
     types: [created]
 
@@ -26,22 +20,22 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-p0-reviewer-inspect
+  group: production-p0-employee-join-inspect
   cancel-in-progress: false
 
 jobs:
   contract:
-    name: Validate production reviewer inspect contract
+    name: Validate production employee join inspect contract
     if: >-
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
       (
         github.event_name == 'issue_comment' &&
-        (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+        github.event.issue.number == 4637 &&
         github.event.comment.user.login == github.repository_owner &&
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
-        github.event.comment.body == '/production p0-reviewer-inspect current-main'
+        github.event.comment.body == '/production p0-employee-join-inspect 33293760567-1 9639a2a3d06f0aa3b38187bc22891450468115c0'
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -56,56 +50,18 @@ jobs:
           node-version: '24'
       - run: node scripts/check-production-p0-reviewer-inspect.mjs
       - run: bash -n scripts/production-p0-reviewer-inspect.sh
-      - name: Validate bounded employee join state inspector
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash -n scripts/production-p0-employee-join-state-inspect.sh
-          node <<'NODE'
-          const fs = require('node:fs');
-          const source = fs.readFileSync('scripts/production-p0-employee-join-state-inspect.sh', 'utf8');
-          const required = [
-            "SOURCE_RUN='33155036583-1'",
-            "SOURCE_SHA='0069e8bdc741d0c955823b14ad629513570a7bb7'",
-            "REGISTER_CORRELATION='p0-all-role-register:0069e8bdc741:33155036583-1:employee'",
-            "DECISION_CORRELATION='p0-all-role-employee-join:0069e8bdc741:33155036583-1'",
-            'StrictHostKeyChecking=yes',
-            'auth.registration_applications',
-            'auth.registration_application_events',
-            'PRODUCTION_MUTATION=NONE',
-            'employee decision replay: \\`NONE\\`',
-            'raw identifiers or credentials published: \\`0\\`',
-          ];
-          for (const marker of required) {
-            if (!source.includes(marker)) throw new Error(`Missing employee state inspector marker: ${marker}`);
-          }
-          const forbidden = [
-            /\bINSERT\s+INTO\b/i,
-            /\bUPDATE\s+(?:auth\.|public\.)/i,
-            /\bDELETE\s+FROM\b/i,
-            /\bCREATE\s+(?:ROLE|USER|TABLE|FUNCTION)\b/i,
-            /\bALTER\s+(?:ROLE|USER|TABLE)\b/i,
-            /\bDROP\s+(?:ROLE|USER|TABLE|FUNCTION)\b/i,
-            /-X\s+POST\b/i,
-            /curl[^\n]+--data/i,
-            /console\.(?:log|error)\([^\n]*(?:DATABASE_URL|password|token|email|phone|application\.id)/i,
-          ];
-          for (const pattern of forbidden) {
-            if (pattern.test(source)) throw new Error(`Employee state inspector is not bounded read-only: ${pattern}`);
-          }
-          NODE
 
   inspect:
-    name: Read-only REG.RU reviewer login readiness
+    name: Read-only REG.RU employee join diagnostic
     needs: contract
     if: >-
       needs.contract.result == 'success' &&
       github.event_name == 'issue_comment' &&
-      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+      github.event.issue.number == 4637 &&
       github.event.comment.user.login == github.repository_owner &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
-      github.event.comment.body == '/production p0-reviewer-inspect current-main'
+      github.event.comment.body == '/production p0-employee-join-inspect 33293760567-1 9639a2a3d06f0aa3b38187bc22891450468115c0'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -127,9 +83,6 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Inspect failed employee join persisted state without mutation
-        shell: bash
-        run: bash scripts/production-p0-employee-join-state-inspect.sh
-      - name: Inspect exact-main reviewer readiness without mutation
+      - name: Inspect exact failed employee join without mutation
         shell: bash
         run: bash scripts/production-p0-reviewer-inspect.sh
