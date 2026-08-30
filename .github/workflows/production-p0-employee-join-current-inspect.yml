@@ -1,0 +1,135 @@
+name: Production P0 Current Employee Join Inspect
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-employee-join-current-inspect.yml'
+      - 'scripts/production-p0-employee-join-current-inspect.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-current-employee-join-inspect
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate current employee join inspect contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 4637 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-employee-join-inspect 33322244053-1 5c4d50824baf78cdf26e062b621184d2500e5217'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate bounded read-only inspector
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-p0-employee-join-current-inspect.sh
+          node <<'NODE'
+          const fs = require('node:fs');
+          const p = 'scripts/production-p0-employee-join-current-inspect.sh';
+          const s = fs.readFileSync(p, 'utf8');
+          const required = [
+            "SOURCE_RUN='33322244053-1'",
+            "SOURCE_REVISION='5c4d50824baf78cdf26e062b621184d2500e5217'",
+            "LOG_SINCE='2026-08-30T16:49:08Z'",
+            "LOG_UNTIL='2026-08-30T16:49:24Z'",
+            'p0-all-role-register:5c4d50824baf:33322244053-1:employee',
+            'p0-all-role-employee-join:5c4d50824baf:33322244053-1',
+            'AUTH_DATABASE_URL',
+            "new PrismaClient({ datasources: { db: { url: authUrl } } })",
+            "$executeRawUnsafe('SET TRANSACTION READ ONLY')",
+            "current_setting('transaction_read_only') = 'on'",
+            'auth.registration_organization_admin_context',
+            'auth.registration_organization_join_queue',
+            'auth.lock_registration_decision_application',
+            'auth.apply_registration_identity_transition',
+            'auth.emit_registration_lifecycle_receipt',
+            'ACTIVATED_COMMITTED',
+            'PENDING_NO_DECISION',
+            'PRODUCTION_MUTATION=NONE',
+            'employee join replay: \\`NONE\\`',
+            'raw identifiers, principals, credentials, URLs or error messages published: \\`0\\`',
+            'StrictHostKeyChecking=yes',
+            'ssh-keyscan -T 10',
+            'git merge-base --is-ancestor "$SOURCE_REVISION" "$TARGET_SHA"',
+          ];
+          for (const marker of required) {
+            if (!s.includes(marker)) throw new Error(`missing bounded inspector marker: ${marker}`);
+          }
+          if ((s.match(/\$executeRawUnsafe\(/g) || []).length !== 1) {
+            throw new Error('read-only inspector has unexpected raw execute count');
+          }
+          const forbidden = [
+            /\bINSERT\s+INTO\s+(?:auth|public)\./i,
+            /\bUPDATE\s+(?:auth|public)\./i,
+            /\bDELETE\s+FROM\s+(?:auth|public)\./i,
+            /\bCREATE\s+(?:ROLE|USER|TABLE|FUNCTION)\b/i,
+            /\bALTER\s+(?:ROLE|USER|TABLE)\b/i,
+            /\bDROP\s+(?:ROLE|USER|TABLE|FUNCTION)\b/i,
+            /-X\s+POST\b/i,
+            /curl[^\n]+--data/i,
+            /bootstrap-platform-owner\.mjs/i,
+            /PC_PROD_P0_(?:STAFF|REVIEWER)_(?:PASSWORD|TOTP_SECRET)/i,
+            /FROM\s+auth\.lock_registration_decision_application\s*\(/i,
+            /FROM\s+auth\.apply_registration_identity_transition\s*\(/i,
+            /FROM\s+auth\.emit_registration_lifecycle_receipt\s*\(/i,
+          ];
+          for (const pattern of forbidden) {
+            if (pattern.test(s)) throw new Error(`inspector is not bounded read-only: ${pattern}`);
+          }
+          console.log('PASS: current employee join inspector is exact-run, pinned-SSH, AUTH-datasource read-only and mutation-free.');
+          NODE
+
+  inspect:
+    name: Read-only REG.RU current employee join diagnostic
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-employee-join-inspect 33322244053-1 5c4d50824baf78cdf26e062b621184d2500e5217'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Inspect exact failed employee join without mutation
+        shell: bash
+        run: bash scripts/production-p0-employee-join-current-inspect.sh
