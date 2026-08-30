@@ -1,17 +1,18 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "scopeId": "static-presentation-download-20260828",
-  "branch": "fix/static-presentation-download-20260828",
+  "branch": "fix/static-presentation-buildtime-20260830",
   "issue": 3048,
   "status": "active",
   "authorizedBy": "explicit-user-instruction",
   "baseline": {
     "branch": "main",
-    "commit": "db199aa21f3dac117723ec1df0af0b74e7845d43"
+    "commit": "2840942bd857074b8a2f9c172d49b7ca510e6335"
   },
-  "purpose": "Repair the proven live presentation download failure by replacing the internally inconsistent mixed Brotli transport with the complete deterministic 14-part transport that already produced the approved normalized 14-page PDF. Materialize it at web build time and serve it as the existing public static asset. Presentation content, design, page count, CTA URL and filename remain unchanged.",
+  "purpose": "Repair the proven live presentation download failure by eliminating runtime Brotli reconstruction. The already-approved deterministic 14-part transport is materialized during the web image build, copied into the production public directory as a normal PDF asset, and served from the unchanged public URL with explicit PDF download headers. Presentation content, design, page count, CTA URL and filename remain unchanged.",
   "allowedPaths": [
     "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+    "apps/web/next.config.js",
     "apps/web/package.json",
     "apps/web/scripts/materialize-presentation-pdf.mjs",
     "apps/web/lib/presentation-pdf/part-00.ts",
@@ -34,13 +35,10 @@
     "docs/ip/FILE_PROVENANCE.json"
   ],
   "evidence": {
-    "releaseRun": 33199863110,
-    "deployedSha": "db199aa21f3dac117723ec1df0af0b74e7845d43",
-    "releaseResult": "PASS",
-    "liveVerificationRun": 33200294324,
-    "liveHomeHttp": 200,
-    "liveCta": "PASS",
-    "liveDownloadHttp": 500,
+    "priorReleaseRun": 33199863110,
+    "priorLiveVerificationRun": 33200294324,
+    "priorLiveDownloadHttp": 500,
+    "failedRuntimeRouteMain": "2840942bd857074b8a2f9c172d49b7ca510e6335",
     "approvedFinalSourceBytes": 692279,
     "approvedFinalSourceSha256": "5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63",
     "transportSourcePr": 4751,
@@ -51,7 +49,6 @@
     "expectedBrotliBytes": 198423,
     "expectedBrotliSha256": "e99c503bb653bfc1f4c2fd800a5bc230404a6d22d02f3d1362cb66e1172b0612",
     "expectedBase64Length": 264564,
-    "previousMixedTransportSha256": "0ec7f109872592cce9ce4fcdde44d8be6af0e1efedcbff88ef2cde4562a21b92",
     "normalizationVisualRegressionMaxChangedFraction": 0.0006861
   },
   "forbiddenChanges": [
@@ -64,10 +61,10 @@
   "requiredChecks": [
     "platform-v7 scope guard",
     "web unit presentation contract",
-    "web build successfully materializes the exact PDF",
-    "canonical web image build",
+    "web build successfully materializes the corrected PDF",
+    "canonical web image build contains the generated public PDF",
     "exact-SHA REG.RU web-only release",
-    "two independent live HTTP 200 PDF downloads with exact bytes, SHA-256 and 14 pages"
+    "two independent live HTTP 200 PDF downloads with non-zero bytes, application/pdf, attachment headers and corrected Gekta frame marker"
   ],
   "newRecurringCostRub": 0
 }

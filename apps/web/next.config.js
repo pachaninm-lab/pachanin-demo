@@ -60,6 +60,16 @@ const serviceWorkerRecoveryHeaders = [
   { key: 'Service-Worker-Allowed', value: '/' },
 ];
 
+const presentationDownloadHeaders = [
+  { key: 'Content-Type', value: 'application/pdf' },
+  {
+    key: 'Content-Disposition',
+    value: `attachment; filename="prozrachnaya-tsena-presentation.pdf"; filename*=UTF-8''${encodeURIComponent('Прозрачная_Цена_и_ГЕКТА.pdf')}`,
+  },
+  { key: 'Cache-Control', value: 'private, no-store, max-age=0, must-revalidate' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+];
+
 const nextConfig = {
   reactStrictMode: true,
   eslint: {
@@ -85,6 +95,10 @@ const nextConfig = {
       {
         source: '/sw.js',
         headers: serviceWorkerRecoveryHeaders,
+      },
+      {
+        source: '/downloads/prozrachnaya-tsena-presentation.pdf',
+        headers: presentationDownloadHeaders,
       },
       {
         source: '/(.*)',
