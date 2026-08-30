@@ -59,8 +59,9 @@ export async function POST(
     return json({ ok: false, code: 'JOIN_REQUEST_SERVICE_UNAVAILABLE', correlationId }, 503);
   }
 
+  let upstreamResponse: Response;
   try {
-    const upstreamResponse = await fetch(`${upstream}/auth/organization-join-requests/${encodeURIComponent(applicationId)}/decision`, {
+    upstreamResponse = await fetch(`${upstream}/auth/organization-join-requests/${encodeURIComponent(applicationId)}/decision`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -75,19 +76,31 @@ export async function POST(
       redirect: 'manual',
       signal: AbortSignal.timeout(JOIN_DECISION_UPSTREAM_TIMEOUT_MS),
     });
-    if (upstreamResponse.status >= 300 && upstreamResponse.status < 400) {
-      return json({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId }, 502);
-    }
-    const payload = await upstreamResponse.json().catch(() => ({} as Record<string, unknown>));
-    const notification = payload.notificationDelivery && typeof payload.notificationDelivery === 'object'
-      ? payload.notificationDelivery as { email?: unknown; status?: unknown; reason?: unknown }
-      : null;
-    delete payload.notificationDelivery;
+  } catch (error) {
+    const failureClass = error instanceof Error && error.name === 'TimeoutError'
+      ? 'UPSTREAM_TIMEOUT'
+      : 'UPSTREAM_TRANSPORT';
+    console.warn('organization_join_decision_upstream_failure', JSON.stringify({
+      correlationId,
+      failureClass,
+    }));
+    return json({ ok: false, code: 'JOIN_REQUEST_SERVICE_UNAVAILABLE', correlationId }, 503);
+  }
 
-    if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);
+  if (upstreamResponse.status >= 300 && upstreamResponse.status < 400) {
+    return json({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId }, 502);
+  }
+  const payload = await upstreamResponse.json().catch(() => ({} as Record<string, unknown>));
+  const notification = payload.notificationDelivery && typeof payload.notificationDelivery === 'object'
+    ? payload.notificationDelivery as { email?: unknown; status?: unknown; reason?: unknown }
+    : null;
+  delete payload.notificationDelivery;
 
-    let notificationDelivered = false;
-    if (typeof notification?.email === 'string' && notification.email) {
+  if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);
+
+  let notificationDelivered = false;
+  if (typeof notification?.email === 'string' && notification.email) {
+    try {
       const copy = mailCopy[locale];
       const delivery = await sendTransactionalMail({
         to: notification.email,
@@ -101,16 +114,13 @@ export async function POST(
         provider: delivery.provider,
         reason: delivery.reason,
       }));
+    } catch {
+      notificationDelivered = false;
+      console.warn('organization_join_decision_notification_failure', JSON.stringify({
+        correlationId,
+        failureClass: 'NOTIFICATION_TRANSPORT',
+      }));
     }
-    return json({ ...payload, notificationDelivered, correlationId }, upstreamResponse.status);
-  } catch (error) {
-    const failureClass = error instanceof Error && error.name === 'TimeoutError'
-      ? 'UPSTREAM_TIMEOUT'
-      : 'UPSTREAM_TRANSPORT';
-    console.warn('organization_join_decision_upstream_failure', JSON.stringify({
-      correlationId,
-      failureClass,
-    }));
-    return json({ ok: false, code: 'JOIN_REQUEST_SERVICE_UNAVAILABLE', correlationId }, 503);
   }
+  return json({ ...payload, notificationDelivered, correlationId }, upstreamResponse.status);
 }
