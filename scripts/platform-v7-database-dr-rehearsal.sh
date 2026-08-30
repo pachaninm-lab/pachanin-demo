@@ -248,6 +248,12 @@ DECLARE
     'auth.resolve_password_reset_subject(text)',
     'auth.replace_password_after_reset(text,text,text,timestamptz)'
   ];
+  -- Owned by its own authority, not by the reset one. A dump carries the
+  -- function but not the cluster-level role, so a restore leaves it owned by
+  -- whoever ran the restore unless this puts it back.
+  password_format_owned text[] := ARRAY[
+    'auth.upgrade_password_hash_format(text,text,text)'
+  ];
   organization_access_owned text[] := ARRAY[
     'auth.organization_team_snapshot(text,text,text,text,text)',
     'auth.resolve_organization_admin_session(text,text,text,text,text)',
@@ -451,6 +457,27 @@ BEGIN
     REVOKE ALL ON FUNCTION auth.resolve_password_reset_subject(text)
       FROM one_deal_app, one_deal_staff, one_deal_storage;
     REVOKE ALL ON FUNCTION auth.replace_password_after_reset(text,text,text,timestamptz)
+      FROM one_deal_app, one_deal_staff, one_deal_storage;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_password_format_authority') THEN
+    ALTER ROLE pc_password_format_authority
+      NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+    IF EXISTS (
+      SELECT 1 FROM pg_auth_members membership
+      JOIN pg_roles granted ON granted.oid = membership.roleid
+      WHERE granted.rolname = 'pc_password_format_authority') THEN
+      RAISE EXCEPTION 'pc_password_format_authority must have no members after restore';
+    END IF;
+    FOREACH target IN ARRAY password_format_owned LOOP
+      EXECUTE format('ALTER FUNCTION %s OWNER TO pc_password_format_authority', target);
+    END LOOP;
+    GRANT USAGE ON SCHEMA public, auth TO pc_password_format_authority;
+    REVOKE ALL PRIVILEGES ON public.users FROM pc_password_format_authority;
+    GRANT SELECT ("id", "passwordHash") ON public.users TO pc_password_format_authority;
+    GRANT UPDATE ("passwordHash") ON public.users TO pc_password_format_authority;
+    GRANT EXECUTE ON FUNCTION auth.upgrade_password_hash_format(text,text,text) TO one_deal_auth;
+    REVOKE ALL ON FUNCTION auth.upgrade_password_hash_format(text,text,text)
       FROM one_deal_app, one_deal_staff, one_deal_storage;
   END IF;
 

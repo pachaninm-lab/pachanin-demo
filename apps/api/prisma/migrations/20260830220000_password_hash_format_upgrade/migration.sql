@@ -42,10 +42,27 @@
 --
 -- Raised as #4683.
 
+-- The flags are the house standard for an authority role, spelled out rather
+-- than left to defaults. NOINHERIT is the one that matters most: it means no
+-- role that is granted membership can pick these rights up implicitly, so the
+-- authority can only ever act through the definer function below. The
+-- no-members check is the other half - an authority nobody can join.
 DO $role$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'pc_password_format_authority') THEN
-    CREATE ROLE pc_password_format_authority NOLOGIN;
+    CREATE ROLE pc_password_format_authority
+      NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+  ELSE
+    ALTER ROLE pc_password_format_authority
+      NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_auth_members membership
+    JOIN pg_catalog.pg_roles granted ON granted.oid = membership.roleid
+    WHERE granted.rolname = 'pc_password_format_authority'
+  ) THEN
+    RAISE EXCEPTION 'pc_password_format_authority must have no members';
   END IF;
 END;
 $role$;
@@ -103,7 +120,15 @@ DECLARE
 BEGIN
   FOR runtime_role IN
     SELECT rolname FROM pg_catalog.pg_roles
-    WHERE rolname IN ('pc_auth_runtime', 'one_deal_auth', 'app_auth')
+    -- app_service is the production runtime principal, and it is the one that
+    -- was missing: migration 20260808180000 revokes ALL on schema auth from it
+    -- and re-grants only an enumerated list, so a function absent from that
+    -- list is denied to the runtime however the login path reaches it. The
+    -- upgrade was therefore refused on every login in the acceptance
+    -- environments - silently, because a failed rewrite is caught and the
+    -- login still succeeds, which is exactly how a control comes to exist and
+    -- be reachable from nowhere.
+    WHERE rolname IN ('pc_auth_runtime', 'one_deal_auth', 'app_auth', 'app_service')
   LOOP
     EXECUTE format(
       'GRANT EXECUTE ON FUNCTION auth.upgrade_password_hash_format(text,text,text) TO %I',

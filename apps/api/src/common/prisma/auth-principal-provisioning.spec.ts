@@ -35,6 +35,7 @@ const AUTH_RUNTIME_FUNCTIONS = [
   'auth.registration_join_notification_recipients(TEXT, TEXT, TEXT)',
   'auth.resolve_password_reset_subject(TEXT)',
   'auth.replace_password_after_reset(TEXT, TEXT, TEXT, TIMESTAMPTZ)',
+  'auth.upgrade_password_hash_format(TEXT, TEXT, TEXT)',
   'auth.organization_team_snapshot(TEXT, TEXT, TEXT, TEXT, TEXT)',
   'auth.resolve_organization_admin_session(TEXT, TEXT, TEXT, TEXT, TEXT)',
   'auth.organization_membership_exists_for_email(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT)',
