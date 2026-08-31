@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4848,
+  "branch": "security/upload-body-bound-4848",
+  "status": "active",
+  "purpose": "Close ASVS V5.2.1 on the public attachment route. The requirement asks that the application only accept files of a size it can process without a loss of performance or a denial of service. The route's guard read content-length, which two ordinary requests defeat: a chunked request carries no such header, so Number(null || '0') is zero and the comparison never fires; and a malformed value gives NaN, so Number.isFinite(NaN) short-circuits the same comparison. Both were proven by running them. Past that guard the route called request.formData(), which buffers the whole body before any size is knowable. The endpoint requires no authentication.",
+  "authorityBaseExactMain": "dad4232bdc2f5791c23a0769554c2ad0178be7a1",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/upload-body-bound-4848.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    ".github/workflows/ci.yml",
+    "apps/web/lib/uploads/bounded-body.ts",
+    "apps/web/tests/unit/uploadBodyBound.spec.ts",
+    "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+  ],
+  "requiredInvariants": [
+    "The declared size is no longer a boundary. It stays only as a cheap refusal for an honest client; the actual bound counts bytes as they arrive and cancels the stream at the ceiling, so nothing the sender declares participates in the decision.",
+    "The stream is cancelled rather than merely abandoned, so a sender is not left writing into a socket nobody reads.",
+    "The bound sits ahead of formData(). Reading first and measuring afterwards is the defect; a limit that runs after the body is buffered bounds nothing.",
+    "The reader is proved to be reached from the route, not only to exist. A mutation restoring request.formData() typechecks cleanly and passes every function-level test, which is exactly why the route-level cases exist.",
+    "No production, REG.RU, DNS, database or credential mutation. No migration, no new dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Both bypasses proven by running them before the fix: with no content-length the guard passes at any size (Number(null || '0') === 0), and with content-length: not-a-number it passes again (Number.isFinite(NaN) === false). The second was not in the original note and was found while measuring the first.",
+    "formData() was measured buffering a 12 MiB body in 123 ms before any size check could run.",
+    "uploadBodyBound.spec.ts 10 of 10, seven on the reader and three through the route.",
+    "Three mutations, each caught: removing the cancel fails 1; an off-by-one at the ceiling fails 1; and reverting the route to request.formData() fails 2 - that last one passes the type check and every reader-level test, which is why it is the one that matters.",
+    "A local type check that was reported as passing had not been running at all: ./node_modules/.bin/tsc does not exist at the repository root, and `echo $?` after a pipeline reports the exit status of tail rather than of tsc. The real binary is node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc, and running it immediately rejected the first version of this change (Uint8Array is not BodyInit). The reader now returns an ArrayBuffer, which is, and the real check passes.",
+    "One test expectation was wrong when first written and the expectation was corrected rather than the code: a small multipart body parses as an empty form, so the route answers FILES_REQUIRED rather than a parse error - which demonstrates the point better, since it means the body got past the bound and was parsed."
+  ]
+}
