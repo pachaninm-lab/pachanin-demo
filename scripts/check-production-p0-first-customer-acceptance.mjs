@@ -38,7 +38,8 @@ for(const marker of [
   'git checkout --detach "$target"',
   'Validate acceptance contract from immutable candidate',
   'assert_no_newer_release_intent()',
-  'P0_NEWER_RELEASE_INTENT_BLOCKS_FIRST_CUSTOMER',
+  'node - "$runs" > "$candidates_parser_file"',
+  'mapfile -t candidates < "$candidates_parser_file"',
   'PC_P0_RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}',
   'PC_P0_RELEASE_RUN_ATTEMPT: ${{ steps.target.outputs.release_run_attempt }}',
   'P0_RELEASE_ATTEMPT_CHANGED_BEFORE_FIRST_CUSTOMER',
@@ -74,12 +75,25 @@ if(!(acceptanceExecution>=0 && acceptanceAttemptRecheck>acceptanceExecution
   fail('release run attempt must be rechecked and continuously supervised inside the acceptance step');
 }
 const artifactGuard=workflow.indexOf('- name: Guard immutable release candidate before artifact publication');
-const artifactLatestIntent=workflow.indexOf('assert_no_newer_release_intent ||',artifactGuard);
+const artifactLatestIntent=workflow.indexOf('assert_no_newer_release_intent\n',artifactGuard);
 const artifactFinalAttempt=workflow.indexOf('P0_RELEASE_ATTEMPT_CHANGED_BEFORE_FIRST_CUSTOMER_ARTIFACT',artifactGuard);
 const artifactUpload=workflow.indexOf('- name: Upload bounded P0 acceptance evidence',artifactGuard);
 if(!(artifactGuard>=0 && artifactLatestIntent>artifactGuard
   && artifactFinalAttempt>artifactLatestIntent && artifactUpload>artifactFinalAttempt)) {
   fail('artifact publication must follow the final release-attempt and candidate-ancestry recheck');
+}
+if(/mapfile -t \w+ < <\(node/u.test(workflow)) {
+  fail('latest-intent parser exit status must not be hidden by process substitution');
+}
+if(/assert_no_newer_release_intent\s*(?:\\\n\s*)?\|\|/u.test(workflow)) {
+  fail('latest-intent guard must be called directly so Bash errexit remains active inside the function');
+}
+const parserFailureProbe=spawnSync('bash',['-c',
+  'set -euo pipefail; out="$(mktemp)"; trap \'rm -f "$out"\' EXIT; node -e \'process.stdout.write("partial\\n");process.exit(7)\' > "$out"; mapfile -t rows < "$out"; echo FAIL_OPEN'],
+  {encoding:'utf8'},
+);
+if(parserFailureProbe.status===0 || parserFailureProbe.stdout.includes('FAIL_OPEN')) {
+  fail('status-checked latest-intent parser failure probe did not fail closed');
 }
 if((workflow.match(/^\s+queue: max$/gmu)||[]).length!==3) {
   fail('workflow, bounded reviewer repair, and First Customer acceptance must retain every serialized pending invocation');

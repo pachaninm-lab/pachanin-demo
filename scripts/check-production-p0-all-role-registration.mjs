@@ -73,6 +73,8 @@ requireAll(paths.workflow, workflow, [
   'Validate 9-role contract from immutable candidate',
   'deep_run_attempt=$deep_run_attempt',
   'assert_first_customer_intent_current()',
+  'node - "$runs" > "$candidates_parser_file"',
+  'mapfile -t candidates < "$candidates_parser_file"',
   '"$current_attempt" == "$DEEP_RUN_ATTEMPT"',
   'production-p0-first-customer-acceptance.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER',
   'P0_NEWER_FIRST_CUSTOMER_INTENT_BLOCKS_ALL_ROLE',
@@ -140,7 +142,7 @@ if (!(firstCustomerAttemptRecheck > matrixExecution
   failures.push(`${paths.workflow}: selected First Customer and release attempts must be rechecked and continuously supervised inside the matrix step`);
 }
 const artifactGuard = workflow.indexOf('- name: Guard immutable candidate before artifact publication');
-const artifactReleaseScan = workflow.indexOf('assert_no_newer_release_intent ||', artifactGuard);
+const artifactReleaseScan = workflow.indexOf('assert_no_newer_release_intent\n', artifactGuard);
 const artifactDeepFinal = workflow.indexOf('P0_FIRST_CUSTOMER_ATTEMPT_CHANGED_BEFORE_ALL_ROLE_ARTIFACT', artifactGuard);
 const artifactReleaseFinal = workflow.indexOf('P0_RELEASE_ATTEMPT_CHANGED_BEFORE_ALL_ROLE_ARTIFACT', artifactGuard);
 const artifactUpload = workflow.indexOf('- name: Upload bounded production 9-role evidence', artifactGuard);
@@ -148,6 +150,18 @@ if (!(artifactGuard >= 0 && artifactReleaseScan > artifactGuard
   && artifactDeepFinal > artifactReleaseScan && artifactReleaseFinal > artifactDeepFinal
   && artifactUpload > artifactReleaseFinal)) {
   failures.push(`${paths.workflow}: artifact publication must follow the final combined source-attempt and candidate-ancestry recheck`);
+}
+if (/mapfile -t \w+ < <\(node/u.test(workflow)) {
+  failures.push(`${paths.workflow}: latest-intent parser exit status must not be hidden by process substitution`);
+}
+if (/assert_(?:first_customer_intent_current|no_newer_release_intent)\s*(?:\\\n\s*)?\|\|/u.test(workflow)) {
+  failures.push(`${paths.workflow}: latest-intent guards must be called directly so Bash errexit remains active inside the functions`);
+}
+const parserFailureProbe = spawnSync('bash', ['-c',
+  'set -euo pipefail; out="$(mktemp)"; trap \'rm -f "$out"\' EXIT; node -e \'process.stdout.write("partial\\n");process.exit(7)\' > "$out"; mapfile -t rows < "$out"; echo FAIL_OPEN',
+], { encoding: 'utf8' });
+if (parserFailureProbe.status === 0 || parserFailureProbe.stdout.includes('FAIL_OPEN')) {
+  failures.push(`${paths.checker}: status-checked latest-intent parser failure probe did not fail closed`);
 }
 if ((workflow.match(/^\s+queue: max$/gmu) || []).length !== 2) {
   failures.push(`${paths.workflow}: workflow and 9-role acceptance must both retain every serialized pending invocation`);
