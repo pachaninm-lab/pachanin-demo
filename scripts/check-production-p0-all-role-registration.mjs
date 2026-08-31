@@ -8,12 +8,14 @@ const paths = {
   checker: 'scripts/check-production-p0-all-role-registration.mjs',
   runbook: 'docs/ops/production-p0-all-role-registration.md',
   scope: 'docs/platform-v7/autopilot/scopes/production-p0-all-role-registration-3785.json',
+  decisionBff: 'apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts',
 };
 
 const EXPECTED_BASE_WRAPPER_BLOB = '718fa79314369361c9e5947dfee1dc1aafd7cb32';
 const runner = readFileSync(paths.runner, 'utf8');
 const workflow = readFileSync(paths.workflow, 'utf8');
 const runbook = readFileSync(paths.runbook, 'utf8');
+const decisionBff = readFileSync(paths.decisionBff, 'utf8');
 const scope = JSON.parse(readFileSync(paths.scope, 'utf8'));
 const failures = [];
 
@@ -39,6 +41,30 @@ function requireAll(name, source, fragments) {
 
 function forbid(name, source, pattern, message) {
   if (pattern.test(source)) failures.push(`${name}: ${message}`);
+}
+
+requireAll(paths.decisionBff, decisionBff, [
+  'if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);',
+  'return json({ ...payload, notificationDelivered, correlationId }, 200);',
+]);
+forbid(
+  paths.decisionBff,
+  decisionBff,
+  /return json\(\{ \.\.\.payload, notificationDelivered, correlationId \}, upstreamResponse\.status\);/u,
+  'a successful organization-join decision must use the canonical public HTTP 200 contract',
+);
+const decisionErrorPassthrough = decisionBff.indexOf(
+  'if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);',
+);
+const decisionNotification = decisionBff.indexOf('let notificationDelivered = false;', decisionErrorPassthrough);
+const decisionSuccess = decisionBff.indexOf(
+  'return json({ ...payload, notificationDelivered, correlationId }, 200);',
+  decisionNotification,
+);
+if (!(decisionErrorPassthrough >= 0
+  && decisionNotification > decisionErrorPassthrough
+  && decisionSuccess > decisionNotification)) {
+  failures.push(`${paths.decisionBff}: only post-notification success may normalize to HTTP 200`);
 }
 
 requireAll(paths.workflow, workflow, [

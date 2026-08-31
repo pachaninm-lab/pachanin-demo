@@ -122,5 +122,5 @@ export async function POST(
       }));
     }
   }
-  return json({ ...payload, notificationDelivered, correlationId }, upstreamResponse.status);
+  return json({ ...payload, notificationDelivered, correlationId }, 200);
 }
