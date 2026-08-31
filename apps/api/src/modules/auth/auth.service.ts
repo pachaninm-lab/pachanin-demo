@@ -27,7 +27,7 @@ import {
   secureEqual,
   sha256,
   stableJson,
-  verifyTotp,
+  matchTotpCounter,
 } from './auth-crypto';
 import { CURRENT_CONSENT_VERSION } from './consent-policy';
 import {
@@ -509,7 +509,7 @@ export class AuthService {
 
       const credential = await this.requireCredentialState(tx, challenge.user_id, true);
       if (!credential.mfa_secret_ciphertext) return { kind: 'invalid' as const };
-      const verification = this.verifyMfaCode(credential, dto.code);
+      const verification = await this.verifyMfaCode(tx, credential, dto.code);
       if (!verification) {
         const terminal = challenge.challenge_attempts + 1 >= challenge.challenge_max_attempts;
         await this.repository.recordMfaFailure(tx, challenge.challenge_id, terminal);
@@ -672,7 +672,7 @@ export class AuthService {
       if (!credential.mfa_enabled || !credential.mfa_secret_ciphertext) {
         return { kind: 'invalid' as const };
       }
-      const verification = this.verifyMfaCode(credential, dto.code);
+      const verification = await this.verifyMfaCode(tx, credential, dto.code);
       if (!verification) {
         const terminal = challenge.challenge_attempts + 1 >= challenge.challenge_max_attempts;
         await this.repository.recordMfaFailure(tx, challenge.challenge_id, terminal);
@@ -1100,14 +1100,33 @@ export class AuthService {
     return null;
   }
 
-  private verifyMfaCode(
+  /**
+   * Async because a TOTP match is not an acceptance until the time step it
+   * proves has been consumed, and consuming is a database write.
+   *
+   * The consume lives here rather than in the callers on purpose. There are
+   * three call sites, and a control that each of them has to remember to invoke
+   * is a control that one of them will eventually not invoke - which is how the
+   * matching backup-code path stayed correct while this one did not. Here there
+   * is no way to obtain a TOTP acceptance without having consumed it.
+   */
+  private async verifyMfaCode(
+    client: AuthSqlClient,
     credential: CredentialStateRow,
     code: string,
-  ): { method: 'TOTP' } | { method: 'BACKUP'; remainingBackupHashes: string[] } | null {
+  ): Promise<{ method: 'TOTP' } | { method: 'BACKUP'; remainingBackupHashes: string[] } | null> {
     const secret = credential.mfa_secret_ciphertext
       ? decryptMfaSecret(credential.mfa_secret_ciphertext)
       : null;
-    if (secret && verifyTotp(secret, code)) return { method: 'TOTP' };
+    if (secret) {
+      const counter = matchTotpCounter(secret, code);
+      if (counter !== null) {
+        // A replayed or stale counter advances nothing, and a refusal to
+        // advance is a refusal to authenticate. Fail closed.
+        const consumed = await this.repository.consumeTotpCounter(client, credential.user_id, counter);
+        return consumed ? { method: 'TOTP' } : null;
+      }
+    }
     const hashes = Array.isArray(credential.mfa_backup_hashes)
       ? credential.mfa_backup_hashes.filter((item): item is string => typeof item === 'string')
       : [];
