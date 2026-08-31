@@ -64,6 +64,20 @@ async function readJson(response: Response) {
   return response.json().catch(() => ({} as Record<string, unknown>)) as Promise<Record<string, unknown>>;
 }
 
+async function stableJoinDecisionKey(
+  applicationId: string,
+  version: string,
+  decision: 'APPROVE' | 'REJECT',
+) {
+  const bytes = new TextEncoder().encode(`${applicationId}${version}${decision}`);
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  const marker = Array.from(new Uint8Array(digest))
+    .slice(0, 16)
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
+  return `organization-join:${marker}:${decision.toLowerCase()}`;
+}
+
 export function OrganizationTeamAdminClient({
   locale,
   currentRole,
@@ -214,9 +228,12 @@ export function OrganizationTeamAdminClient({
     if (reason.length < 8) { setError(copy.reason); return; }
     setBusy(`join:${applicationId}`); setError(''); setMessage('');
     try {
+      const application = joins.find((item) => item.applicationId === applicationId);
+      if (!application) throw new Error('join_request_not_found');
+      const idempotencyKey = await stableJoinDecisionKey(applicationId, application.version, decision);
       const response = await fetch(`/api/auth/organization-join-requests/${encodeURIComponent(applicationId)}/decision`, {
         method: 'POST',
-        headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': globalThis.crypto.randomUUID() }),
+        headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': idempotencyKey }),
         body: JSON.stringify({ decision, reason, locale }), cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(120_000),
       });
       const payload = await readJson(response);
