@@ -7,6 +7,7 @@
   "allowedPaths": [
     ".github/workflows/p0-registration-decision-durable-outbox-controller.yml",
     "scripts/p0-registration-decision-durable-outbox-patch.py",
+    "scripts/p0-registration-decision-durable-outbox-runner.py",
     "docs/platform-v7/autopilot/scopes/p0-registration-decision-outbox-controller-4858.json"
   ],
   "boundaries": {
