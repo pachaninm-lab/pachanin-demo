@@ -1,0 +1,169 @@
+name: Production P0 Reviewer Decision Notification Autostart
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-decision-notification-autostart.yml'
+      - 'scripts/production-p0-reviewer-decision-notification-diagnostic.sh'
+      - 'scripts/check-production-p0-reviewer-decision-notification-autostart.mjs'
+      - 'docs/platform-v7/autopilot/scopes/p0-reviewer-decision-notification-autostart-4858.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-decision-notification-autostart.yml'
+      - 'scripts/production-p0-reviewer-decision-notification-diagnostic.sh'
+      - 'scripts/check-production-p0-reviewer-decision-notification-autostart.mjs'
+      - 'docs/platform-v7/autopilot/scopes/p0-reviewer-decision-notification-autostart-4858.json'
+
+permissions:
+  contents: read
+
+env:
+  DIAGNOSTIC_ISSUE: '4858'
+  FAILED_RUN_ID: '33425716125'
+  FAILED_RUN_ATTEMPT: '2'
+  FAILED_TARGET_SHA: '1bffaec1a7aad09840df136e886c07d2b32e2008'
+  DIAGNOSTIC_SINCE: '2026-08-31T19:18:00Z'
+  DIAGNOSTIC_UNTIL: '2026-08-31T19:20:30Z'
+
+concurrency:
+  group: ${{ github.event_name == 'push' && 'pc-crop-registration-lifecycle' || format('production-p0-reviewer-decision-notification-autostart-{0}', github.event.pull_request.number || github.run_id) }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  contract:
+    name: Validate one-shot read-only diagnostic contract
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate exact source-controlled boundaries
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-production-p0-reviewer-decision-notification-autostart.mjs
+          bash -n scripts/production-p0-reviewer-decision-notification-diagnostic.sh
+
+      - name: Verify owner-attributed merge provenance
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          [[ "$GITHUB_ACTOR" == "$owner" ]]
+          [[ "${{ github.ref }}" == 'refs/heads/main' ]]
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]]
+          [[ "$(git rev-parse HEAD)" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          git cat-file -e "$FAILED_TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$FAILED_TARGET_SHA" HEAD
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo OWNER_ATTRIBUTED_MAIN_PUSH=PASS
+
+  diagnostic:
+    name: Inspect failed reviewer ceremony without production mutation
+    needs: contract
+    if: github.event_name == 'push' && needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run bounded aggregate diagnostic
+        id: inspect
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          result="$RUNNER_TEMP/p0-reviewer-decision-notification-diagnostic.env"
+          trap 'rm -f -- "$result"' EXIT
+          bash scripts/production-p0-reviewer-decision-notification-diagnostic.sh > "$result"
+          while IFS='=' read -r key value; do
+            case "$key" in
+              P0_CLASSIFICATION|P0_CEREMONY_EVENTS_TOTAL|P0_UNIQUE_APPLICATIONS|P0_APPROVE_COMMITTED|P0_APPROVE_COMMITTED_DELIVERED|P0_APPROVE_COMMITTED_UNDELIVERED|P0_APPROVE_REPLAYED|P0_REPLAY_EVENTS|P0_REPLAY_SUPPRESSED|P0_REPLAY_MISSING|P0_DELIVERY_EVENTS|P0_DELIVERY_TRUE|P0_DELIVERY_FALSE|P0_DELIVERY_REASON_SENT|P0_DELIVERY_REASON_TIMEOUT|P0_DELIVERY_REASON_AUTH|P0_DELIVERY_REASON_TRANSPORT|P0_DELIVERY_REASON_RECIPIENT|P0_DELIVERY_REASON_TEMPORARY|P0_DELIVERY_REASON_OTHER)
+                echo "$key=$value" >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+          done < "$result"
+
+      - name: Publish sanitized aggregate evidence
+        shell: bash
+        env:
+          CLASSIFICATION: ${{ steps.inspect.outputs.P0_CLASSIFICATION }}
+          CEREMONY_EVENTS: ${{ steps.inspect.outputs.P0_CEREMONY_EVENTS_TOTAL }}
+          UNIQUE_APPLICATIONS: ${{ steps.inspect.outputs.P0_UNIQUE_APPLICATIONS }}
+          APPROVE_COMMITTED: ${{ steps.inspect.outputs.P0_APPROVE_COMMITTED }}
+          APPROVE_DELIVERED: ${{ steps.inspect.outputs.P0_APPROVE_COMMITTED_DELIVERED }}
+          APPROVE_UNDELIVERED: ${{ steps.inspect.outputs.P0_APPROVE_COMMITTED_UNDELIVERED }}
+          APPROVE_REPLAYED: ${{ steps.inspect.outputs.P0_APPROVE_REPLAYED }}
+          REPLAY_EVENTS: ${{ steps.inspect.outputs.P0_REPLAY_EVENTS }}
+          REPLAY_SUPPRESSED: ${{ steps.inspect.outputs.P0_REPLAY_SUPPRESSED }}
+          REPLAY_MISSING: ${{ steps.inspect.outputs.P0_REPLAY_MISSING }}
+          DELIVERY_EVENTS: ${{ steps.inspect.outputs.P0_DELIVERY_EVENTS }}
+          DELIVERY_TRUE: ${{ steps.inspect.outputs.P0_DELIVERY_TRUE }}
+          DELIVERY_FALSE: ${{ steps.inspect.outputs.P0_DELIVERY_FALSE }}
+          REASON_SENT: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_SENT }}
+          REASON_TIMEOUT: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_TIMEOUT }}
+          REASON_AUTH: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_AUTH }}
+          REASON_TRANSPORT: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_TRANSPORT }}
+          REASON_RECIPIENT: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_RECIPIENT }}
+          REASON_TEMPORARY: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_TEMPORARY }}
+          REASON_OTHER: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_OTHER }}
+        run: |
+          set -Eeuo pipefail
+          for value in "$CEREMONY_EVENTS" "$UNIQUE_APPLICATIONS" "$APPROVE_COMMITTED" "$APPROVE_DELIVERED" "$APPROVE_UNDELIVERED" "$APPROVE_REPLAYED" "$REPLAY_EVENTS" "$REPLAY_SUPPRESSED" "$REPLAY_MISSING" "$DELIVERY_EVENTS" "$DELIVERY_TRUE" "$DELIVERY_FALSE" "$REASON_SENT" "$REASON_TIMEOUT" "$REASON_AUTH" "$REASON_TRANSPORT" "$REASON_RECIPIENT" "$REASON_TEMPORARY" "$REASON_OTHER"; do
+            [[ "$value" =~ ^[0-9]+$ ]]
+          done
+          [[ "$CLASSIFICATION" =~ ^[A-Z0-9_]+$ ]]
+          record="$RUNNER_TEMP/p0-reviewer-decision-notification-diagnostic.md"
+          {
+            echo '## Production P0 reviewer decision notification diagnostic'
+            echo
+            printf -- '- failed run/attempt: `%s-%s`\n' "$FAILED_RUN_ID" "$FAILED_RUN_ATTEMPT"
+            printf -- '- immutable runtime SHA: `%s`\n' "$FAILED_TARGET_SHA"
+            printf -- '- bounded UTC window: `%s` — `%s`\n' "$DIAGNOSTIC_SINCE" "$DIAGNOSTIC_UNTIL"
+            printf -- '- classification: `%s`\n' "$CLASSIFICATION"
+            printf -- '- ceremony events / unique applications: `%s / %s`\n' "$CEREMONY_EVENTS" "$UNIQUE_APPLICATIONS"
+            printf -- '- committed approvals total / delivered / undelivered: `%s / %s / %s`\n' "$APPROVE_COMMITTED" "$APPROVE_DELIVERED" "$APPROVE_UNDELIVERED"
+            printf -- '- approval calls already replayed: `%s`\n' "$APPROVE_REPLAYED"
+            printf -- '- replay events / suppressed / missing: `%s / %s / %s`\n' "$REPLAY_EVENTS" "$REPLAY_SUPPRESSED" "$REPLAY_MISSING"
+            printf -- '- delivery events / true / false: `%s / %s / %s`\n' "$DELIVERY_EVENTS" "$DELIVERY_TRUE" "$DELIVERY_FALSE"
+            printf -- '- reason classes sent/timeout/auth/transport/recipient/temporary/other: `%s/%s/%s/%s/%s/%s/%s`\n' "$REASON_SENT" "$REASON_TIMEOUT" "$REASON_AUTH" "$REASON_TRANSPORT" "$REASON_RECIPIENT" "$REASON_TEMPORARY" "$REASON_OTHER"
+            echo '- production mutation: `NONE`'
+            echo '- raw logs, application identifiers, PII and credentials published: `0`'
+            echo "- workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$record"
+          ! grep -Eq '@|postgres(?:ql)?://|BEGIN (OPENSSH |RSA |EC )?PRIVATE KEY|pc_(staff_)?(access|refresh)_token|bearer[[:space:]]+[A-Za-z0-9._~-]{20,}' "$record"
+          gh issue comment "$DIAGNOSTIC_ISSUE" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f -- "$record"
