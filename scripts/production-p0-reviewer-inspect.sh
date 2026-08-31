@@ -377,7 +377,12 @@ const sanitizeErrorCode = (error) => {
                current_user,
                to_regprocedure('auth.staff_reviewer_login_readiness()'),
                'EXECUTE'
-             ), false) AS reviewer_readiness_execute
+             ), false) AS reviewer_readiness_execute,
+             coalesce(has_function_privilege(
+               current_user,
+               to_regprocedure('auth.staff_reviewer_credential_format_ready(text)'),
+               'EXECUTE'
+             ), false) AS reviewer_credential_format_execute
       FROM pg_roles
       WHERE rolname = current_user
     `);
@@ -387,11 +392,89 @@ const sanitizeErrorCode = (error) => {
         || principal.can_read_deals || principal.can_read_users
         || principal.can_read_memberships || principal.can_read_organizations
         || principal.can_read_credentials || principal.can_read_assignments
-        || !principal.reviewer_preflight_execute || !principal.reviewer_readiness_execute) {
+        || !principal.reviewer_preflight_execute || !principal.reviewer_readiness_execute
+        || !principal.reviewer_credential_format_execute) {
       console.error('P0_STAFF_PRINCIPAL_BOUNDARY_INVALID');
       process.exitCode = 32;
       return;
     }
+
+    const formatRows = await db.$queryRawUnsafe(`
+      SELECT
+        auth.staff_reviewer_credential_format_ready(
+          '$2b$12$' || repeat('A', 53)
+        ) AS bcrypt_ready,
+        auth.staff_reviewer_credential_format_ready(
+          '$scrypt$v=1$n=131072,r=8,p=1$'
+          || repeat('A', 22) || '$' || repeat('B', 42) || 'A'
+        ) AS scrypt_ready,
+        auth.staff_reviewer_credential_format_ready(
+          '$scrypt$v=1$n=65536,r=8,p=1$'
+          || repeat('A', 22) || '$' || repeat('B', 42) || 'A'
+        ) AS stale_scrypt_ready,
+        auth.staff_reviewer_credential_format_ready(
+          '$scrypt$v=1$n=131072,r=8,p=1$'
+          || repeat('A', 21) || 'B$' || repeat('B', 42) || 'A'
+        ) AS noncanonical_salt_ready,
+        auth.staff_reviewer_credential_format_ready(
+          '$scrypt$v=1$n=131072,r=8,p=1$'
+          || repeat('A', 22) || '$' || repeat('B', 43)
+        ) AS noncanonical_key_ready,
+        auth.staff_reviewer_credential_format_ready(
+          '$scrypt$v=2$n=131072,r=8,p=1$'
+          || repeat('A', 22) || '$' || repeat('B', 42) || 'A'
+        ) AS wrong_version_ready,
+        auth.staff_reviewer_credential_format_ready(
+          '$scrypt$v=1$n=131072,r=16,p=1$'
+          || repeat('A', 22) || '$' || repeat('B', 42) || 'A'
+        ) AS wrong_r_ready,
+        auth.staff_reviewer_credential_format_ready(
+          '$scrypt$v=1$n=131072,r=8,p=2$'
+          || repeat('A', 22) || '$' || repeat('B', 42) || 'A'
+        ) AS wrong_p_ready,
+        auth.staff_reviewer_credential_format_ready(
+          '$scrypt$v=1$n=131072,r=8,p=1$'
+          || repeat('A', 21) || '$' || repeat('B', 42) || 'A'
+        ) AS short_salt_ready,
+        auth.staff_reviewer_credential_format_ready(
+          '$scrypt$v=1$n=131072,r=8,p=1$'
+          || repeat('A', 22) || '$' || repeat('B', 43) || 'A'
+        ) AS long_key_ready,
+        auth.staff_reviewer_credential_format_ready(
+          '$scrypt$v=1$n=131072,r=8,p=1$'
+          || repeat('A', 20) || '!A$' || repeat('B', 42) || 'A'
+        ) AS invalid_alphabet_ready,
+        auth.staff_reviewer_credential_format_ready('malformed') AS malformed_ready,
+        auth.staff_reviewer_credential_format_ready(NULL) AS null_ready,
+        (
+          SELECT function.prosrc
+          FROM pg_catalog.pg_proc function
+          WHERE function.oid = to_regprocedure(
+            'auth.staff_reviewer_credential_format_ready(text)'
+          )
+        ) AS format_source
+    `);
+    const format = formatRows[0];
+    const expectedFormatSource = [
+      'SELECT',
+      "candidate ~ '^\\$2[aby]\\$[0-9]{2}\\$[./A-Za-z0-9]{53}$'",
+      "OR candidate ~ '^\\$scrypt\\$v=1\\$n=131072,r=8,p=1\\$[A-Za-z0-9_-]{21}[AQgw]\\$[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$'",
+    ].join(' ');
+    const formatSource = String(format?.format_source ?? '').trim().replace(/\s+/g, ' ');
+    if (formatRows.length !== 1 || format?.bcrypt_ready !== true
+        || format?.scrypt_ready !== true || format?.stale_scrypt_ready !== false
+        || format?.noncanonical_salt_ready !== false
+        || format?.noncanonical_key_ready !== false
+        || format?.wrong_version_ready !== false || format?.wrong_r_ready !== false
+        || format?.wrong_p_ready !== false || format?.short_salt_ready !== false
+        || format?.long_key_ready !== false || format?.invalid_alphabet_ready !== false
+        || format?.malformed_ready !== false || format?.null_ready !== null
+        || formatSource !== expectedFormatSource) {
+      console.error('P0_REVIEWER_CREDENTIAL_FORMAT_CONTRACT_INVALID');
+      process.exitCode = 37;
+      return;
+    }
+    console.log('REVIEWER_CREDENTIAL_FORMAT|V2_BCRYPT_OR_SCRYPT_131072_R8_P1|PASS');
 
     const rows = await db.$queryRawUnsafe(`
       SELECT
@@ -446,8 +529,10 @@ REMOTE
 )"
 
 marker="$(grep '^REVIEWER_LOGIN_READINESS|' <<< "$output" | tail -n1)"
+credential_format="$(grep '^REVIEWER_CREDENTIAL_FORMAT|' <<< "$output" | tail -n1)"
 mutation="$(grep '^PRODUCTION_MUTATION=' <<< "$output" | tail -n1)"
 [[ "$mutation" == 'PRODUCTION_MUTATION=NONE' ]]
+[[ "$credential_format" == 'REVIEWER_CREDENTIAL_FORMAT|V2_BCRYPT_OR_SCRYPT_131072_R8_P1|PASS' ]]
 IFS='|' read -r tag principal owners reviewers assignments identities memberships passwords mfa login <<< "$marker"
 [[ "$tag" == 'REVIEWER_LOGIN_READINESS' && "$principal" == 'pc_staff_runtime' ]]
 for count in "$owners" "$reviewers" "$assignments" "$identities" "$memberships" "$passwords" "$mfa" "$login"; do

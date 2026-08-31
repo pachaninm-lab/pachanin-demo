@@ -5,11 +5,19 @@ const workflowPath = '.github/workflows/production-p0-reviewer-inspect.yml';
 const runnerPath = 'scripts/production-p0-reviewer-inspect.sh';
 const migrationPath = 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql';
 const correctionPath = 'apps/api/prisma/migrations/20260810125000_p0_reviewer_login_readiness_acl_correction/migration.sql';
+const compatibilityPath = 'apps/api/prisma/migrations/20260831160000_p0_reviewer_scrypt_readiness/migration.sql';
+const passwordHashingPath = 'apps/api/src/modules/auth/password-hashing.ts';
+const passwordResetPath = 'apps/api/src/modules/auth/password-reset.service.ts';
+const passwordResetRepositoryPath = 'apps/api/src/modules/auth/password-reset.repository.ts';
 
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 const runner = fs.readFileSync(runnerPath, 'utf8');
 const migration = fs.readFileSync(migrationPath, 'utf8');
 const correction = fs.readFileSync(correctionPath, 'utf8');
+const compatibility = fs.readFileSync(compatibilityPath, 'utf8');
+const passwordHashing = fs.readFileSync(passwordHashingPath, 'utf8');
+const passwordReset = fs.readFileSync(passwordResetPath, 'utf8');
+const passwordResetRepository = fs.readFileSync(passwordResetRepositoryPath, 'utf8');
 
 const workflowMarkers = [
   "github.event.issue.number == 3072",
@@ -39,6 +47,10 @@ const workflowMarkers = [
   'if: inputs.controller_authorized != true',
   migrationPath,
   correctionPath,
+  compatibilityPath,
+  passwordHashingPath,
+  passwordResetPath,
+  passwordResetRepositoryPath,
 ];
 
 for (const marker of workflowMarkers) {
@@ -92,11 +104,18 @@ const runnerMarkers = [
   'principal.can_read_assignments',
   "to_regprocedure('auth.staff_reviewer_preflight()')",
   "to_regprocedure('auth.staff_reviewer_login_readiness()')",
+  "to_regprocedure('auth.staff_reviewer_credential_format_ready(text)')",
   'FROM auth.staff_reviewer_preflight() preflight',
   'CROSS JOIN auth.staff_reviewer_login_readiness() readiness',
   'P0_REVIEWER_READINESS_INVALID_COUNTS',
   'P0_REVIEWER_READINESS_NON_MONOTONIC',
   'P0_REVIEWER_LOGIN_NOT_READY',
+  'P0_REVIEWER_CREDENTIAL_FORMAT_CONTRACT_INVALID',
+  'REVIEWER_CREDENTIAL_FORMAT|V2_BCRYPT_OR_SCRYPT_131072_R8_P1|PASS',
+  'function.prosrc',
+  'formatSource !== expectedFormatSource',
+  'wrong_version_ready',
+  'invalid_alphabet_ready',
   'P0_REVIEWER_INSPECT_DB_ERROR|',
   'REVIEWER_LOGIN_READINESS|',
   'HUMAN_REVIEWER_LOGIN_CEREMONY_REQUIRED',
@@ -241,19 +260,115 @@ for (const marker of correctionMarkers) {
   }
 }
 
+const compatibilityMarkers = [
+  'CREATE OR REPLACE FUNCTION auth.staff_reviewer_credential_format_ready(candidate text)',
+  'RETURNS boolean',
+  'LANGUAGE sql',
+  'IMMUTABLE',
+  'STRICT',
+  'SECURITY INVOKER',
+  'SET search_path = pg_catalog, pg_temp',
+  "candidate ~ '^\\$2[aby]\\$[0-9]{2}\\$[./A-Za-z0-9]{53}$'",
+  "candidate ~ '^\\$scrypt\\$v=1\\$n=131072,r=8,p=1\\$[A-Za-z0-9_-]{21}[AQgw]\\$[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$'",
+  'ALTER FUNCTION auth.staff_reviewer_credential_format_ready(text)',
+  'OWNER TO pc_staff_authority',
+  'REVOKE ALL ON FUNCTION auth.staff_reviewer_credential_format_ready(text) FROM PUBLIC',
+  'GRANT EXECUTE ON FUNCTION auth.staff_reviewer_credential_format_ready(text)',
+  'P0_REVIEWER_CREDENTIAL_FORMAT_V2_BCRYPT_OR_SCRYPT_131072_R8_P1',
+  'CREATE OR REPLACE FUNCTION auth.staff_reviewer_login_readiness()',
+  'auth.staff_reviewer_credential_format_ready(subject."passwordHash") AS password_ready',
+  'CREATE OR REPLACE FUNCTION auth.staff_reviewer_password_reset_subject()',
+  'OR NOT auth.staff_reviewer_credential_format_ready(subject."passwordHash")',
+  "bcrypt_sample text := '$2b$12$' || repeat('A', 53)",
+  "scrypt_sample text := '$scrypt$v=1$n=131072,r=8,p=1$'",
+  "stale_scrypt_sample text := '$scrypt$v=1$n=65536,r=8,p=1$'",
+  "noncanonical_salt_sample text := '$scrypt$v=1$n=131072,r=8,p=1$'",
+  "noncanonical_key_sample text := '$scrypt$v=1$n=131072,r=8,p=1$'",
+  "wrong_version_sample text := '$scrypt$v=2$n=131072,r=8,p=1$'",
+  "wrong_r_sample text := '$scrypt$v=1$n=131072,r=16,p=1$'",
+  "wrong_p_sample text := '$scrypt$v=1$n=131072,r=8,p=2$'",
+  "short_salt_sample text := '$scrypt$v=1$n=131072,r=8,p=1$'",
+  "long_key_sample text := '$scrypt$v=1$n=131072,r=8,p=1$'",
+  "invalid_alphabet_sample text := '$scrypt$v=1$n=131072,r=8,p=1$'",
+  'reviewer credential-format truth table is invalid',
+  'PUBLIC must not execute the reviewer credential-format helper',
+];
+for (const marker of compatibilityMarkers) {
+  if (!compatibility.includes(marker)) {
+    console.error(`Missing reviewer scrypt-readiness compatibility marker: ${marker}`);
+    process.exit(1);
+  }
+}
+if ((compatibility.match(/auth\.staff_reviewer_credential_format_ready\(subject\."passwordHash"\)/gmu) || []).length !== 2) {
+  console.error('Both reviewer readiness and reset eligibility must use the same credential-format predicate.');
+  process.exit(1);
+}
+const helperDefinition = compatibility.match(
+  /CREATE OR REPLACE FUNCTION auth\.staff_reviewer_credential_format_ready\(candidate text\)([\s\S]*?)\$function\$;/u,
+)?.[1] ?? '';
+if (!helperDefinition.includes('SECURITY INVOKER') || helperDefinition.includes('SECURITY DEFINER')) {
+  console.error('Reviewer credential-format helper must remain a table-free SECURITY INVOKER function.');
+  process.exit(1);
+}
+const helperBody = compatibility.match(
+  /CREATE OR REPLACE FUNCTION auth\.staff_reviewer_credential_format_ready\(candidate text\)[\s\S]*?AS \$function\$\n([\s\S]*?)\n\$function\$;/u,
+)?.[1]?.trim().replace(/\s+/gu, ' ') ?? '';
+const expectedHelperBody = [
+  'SELECT',
+  "candidate ~ '^\\$2[aby]\\$[0-9]{2}\\$[./A-Za-z0-9]{53}$'",
+  "OR candidate ~ '^\\$scrypt\\$v=1\\$n=131072,r=8,p=1\\$[A-Za-z0-9_-]{21}[AQgw]\\$[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$'",
+].join(' ');
+if (helperBody !== expectedHelperBody) {
+  console.error('Reviewer credential-format helper body must contain exactly the reviewed bcrypt and current-scrypt predicates.');
+  process.exit(1);
+}
+
+for (const marker of [
+  "const SCRYPT_KEY_BYTES = 32",
+  "const SCRYPT_SALT_BYTES = 16",
+  "const SCRYPT_SCHEME = 'scrypt'",
+  'const SCRYPT_VERSION = 1',
+  'PASSWORD_SCRYPT_PARAMS = Object.freeze({ N: 131_072, r: 8, p: 1 })',
+  'return `$${SCRYPT_SCHEME}$v=${SCRYPT_VERSION}$n=${N},r=${r},p=${p}$${salt.toString(\'base64url\')}$${key.toString(\'base64url\')}`',
+  'return encodeScryptHash(salt, key)',
+]) {
+  if (!passwordHashing.includes(marker)) {
+    console.error(`Password-hashing implementation drifted from reviewer credential-format readiness: ${marker}`);
+    process.exit(1);
+  }
+}
+for (const marker of [
+  "import { hashPassword } from './password-hashing'",
+  'const passwordHash = await hashPassword(newPassword)',
+]) {
+  if (!passwordReset.includes(marker)) {
+    console.error(`Password-reset writer drifted from the reviewed hash-format authority: ${marker}`);
+    process.exit(1);
+  }
+}
+if (!/this\.repository\.replacePassword\(\s*tx,\s*challenge\.id,\s*challenge\.user_id,\s*passwordHash,\s*now,\s*\)/u.test(passwordReset)) {
+  console.error('Password reset must pass the current hash unchanged into the bounded repository sink.');
+  process.exit(1);
+}
+if (!/FROM auth\.replace_password_after_reset\(\s*\$\{challengeId\},\s*\$\{userId\},\s*\$\{passwordHash\},\s*\$\{now\}\s*\)/u.test(passwordResetRepository)) {
+  console.error('Password-reset repository must bind the reviewed hash into the PostgreSQL replacement authority.');
+  process.exit(1);
+}
+
 if (/RETURNS\s+TABLE\s*\([^)]*(?:email|user_id|membership_id|organization_id|tenant_id|session_id|password_hash|secret|ciphertext|backup|token)/is.test(migration)) {
   console.error('Reviewer login-readiness function must return aggregate counts only.');
   process.exit(1);
 }
-if (/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER)[^;]*(?:pc_staff_runtime|app_staff|one_deal_staff)/is.test(migration + '\n' + correction)) {
+const readinessMigrations = migration + '\n' + correction + '\n' + compatibility;
+if (/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER)[^;]*(?:pc_staff_runtime|app_staff|one_deal_staff)/is.test(readinessMigrations)) {
   console.error('No staff runtime may receive direct table privileges from the readiness migrations.');
   process.exit(1);
 }
-if (/\b(?:INSERT\s+INTO|UPDATE\s+(?:auth|public)\.|DELETE\s+FROM\s+(?:auth|public)\.)\b/i.test(migration + '\n' + correction)) {
+if (/\b(?:INSERT\s+INTO|UPDATE\s+(?:auth|public)\.|DELETE\s+FROM\s+(?:auth|public)\.)\b/i.test(readinessMigrations)) {
   console.error('Reviewer login-readiness migrations must not mutate business or identity rows.');
   process.exit(1);
 }
-if (/\b(?:CREATE|ALTER)\s+(?:ROLE|USER)\b/i.test(migration + '\n' + correction)) {
+if (/\b(?:CREATE|ALTER)\s+(?:ROLE|USER)\b/i.test(readinessMigrations)) {
   console.error('Reviewer login-readiness migrations must reuse confined principals, not create/elevate them.');
   process.exit(1);
 }
@@ -270,4 +385,4 @@ if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
   process.exit(1);
 }
 
-console.log('PASS: reviewer login-readiness inspect is owner-only, immutable-candidate-bound, exact-worker-ready, pinned-SSH, aggregate-only, identity-RLS-bounded, credential-state-ACL-bounded, Node-24-safe and mutation-free.');
+console.log('PASS: reviewer login-readiness inspect is owner-only, immutable-candidate-bound, exact-worker-ready, bcrypt/scrypt-format-aware, pinned-SSH, aggregate-only, identity-RLS-bounded, credential-state-ACL-bounded, Node-24-safe and mutation-free.');
