@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4839,
+  "branch": "security/export-tenant-scope-4839",
+  "status": "active",
+  "purpose": "Close the consumer side of the cross-tenant read measured in #4839. On a live PostgreSQL 16 carrying all 182 forward-only migrations, under the application role app_runtime (NOSUPERUSER, NOBYPASSRLS) and with no RLS context set - which is exactly how ExportsService runs, since it takes PrismaService rather than rls-transaction.service - a deals read with no tenant predicate returned both tenants' rows. The cause is the policy deals_app_access USING (true): PostgreSQL combines permissive policies with OR, so it nullifies the strict deals_select. Five export reads had no tenant predicate at all; assertExportRole checked the role and nothing else, and user.tenantId never reached a query.",
+  "authorityBaseExactMain": "f91eba9f5bac987d8bcb9c8547385fd4ca428d20",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/export-tenant-scope-4839.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "apps/api/src/modules/exports/exports.service.ts",
+    "apps/api/src/modules/exports/exports-tenant-scope.spec.ts"
+  ],
+  "requiredInvariants": [
+    "Five reads, not one. exportDealsCsv, exportRegulatoryReport, exportEvidenceBundle, exportLedgerCsv and exportDealReport all read deal-owned data and none carried a tenant predicate. Closing one and leaving four would repeat the defect this programme keeps finding.",
+    "A missing tenant is a refusal, not a wider read. If user.tenantId is absent the export throws rather than querying without a predicate - otherwise the exact read being closed would survive for any caller whose token lacks a tenant. Same fail-closed shape as postgresql-deal-command.service.ts.",
+    "Another tenant's deal is indistinguishable from a missing one: findFirst with the tenant predicate, never findUnique by id followed by a check.",
+    "The ledger keeps its ownership check even though RLS already returns nothing for it. ledger_entries has no tenant column, so ownership is established through the deal. Relying on 'the query returns nothing anyway' would be a control that holds because of an unrelated accident.",
+    "The role check still runs first, so a caller without an export role is refused for that reason rather than for the tenant.",
+    "deals_app_access is NOT touched. Closing that policy needs a deals_update policy and the deal command path exercised against it; it is recorded in #4814 and belongs to its own pass. Fixing RLS inside an export pass is the substitution this programme forbids.",
+    "V8.2.3 and V8.4.1 are NOT claimed and stay FAIL. This closes five consumers of a boundary that is still open; the boundary is the policy. Marking them PASS here would answer the requirement with the evidence of a narrower one - which is why the ASVS decisions file is not touched by this pass at all.",
+    "exportOutboxStatus is deliberately left alone and recorded: it reads the outbox queue with no tenant predicate and returns raw entries, but whether that queue is tenant-scoped at all is a semantic question rather than a missing predicate, and guessing would either break an infrastructure view or leave a false sense of closure.",
+    "No production, REG.RU, DNS, database or credential mutation. No migration, no new dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Measured before fixing, on a live database rather than argued from reading: 182 migrations applied clean, app_runtime confirmed super=false bypassrls=false, and with no RLS context a deals read returned 2 rows across both tenants while a ledger read returned 0. The policy list confirmed deals_app_access | ALL | true alongside the strict deals_select.",
+    "exports-tenant-scope.spec.ts 11 of 11, covering all five reads plus the role-first ordering.",
+    "Four mutations, each caught: dropping the predicate from exportDealsCsv fails 1; dropping it from the regulatory report fails 1; going back to findUnique by id for the evidence bundle fails 1; and letting a missing tenant through instead of refusing fails 5 - the sharpest of them, because that is the shape the defect would take if the guard were softened later.",
+    "Not proven and not claimed: production grants. In a migration-only database app_runtime has no table privileges at all, so SELECT was granted by hand to test RLS specifically. Nothing is asserted about the production principal.",
+    "The regulatory report is called out separately because its rows leave the platform - they are filed to МСХ, Росстат, ФНС and Росфинмониторинг. A foreign tenant's deal there is not a wrong screen, it is a wrong filing."
+  ]
+}
