@@ -15,6 +15,8 @@ const ADMIN: RequestUser = {
   orgId: 'org-1',
   role: Role.ADMIN,
   email: 'exports@example.test',
+  // См. #4839: без тенанта экспорт отказывает, поэтому фикстура его несёт.
+  tenantId: 'tenant-1',
 };
 
 function makeResponse() {

@@ -12,7 +12,9 @@
     "docs/security/cryptographic-inventory.json",
     "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
     "apps/api/src/modules/exports/exports.service.ts",
-    "apps/api/src/modules/exports/exports-tenant-scope.spec.ts"
+    "apps/api/src/modules/exports/exports-tenant-scope.spec.ts",
+    "apps/api/src/modules/exports/exports-output-encoding.spec.ts",
+    "apps/api/src/modules/exports/exports-content-disposition.spec.ts"
   ],
   "requiredInvariants": [
     "Five reads, not one. exportDealsCsv, exportRegulatoryReport, exportEvidenceBundle, exportLedgerCsv and exportDealReport all read deal-owned data and none carried a tenant predicate. Closing one and leaving four would repeat the defect this programme keeps finding.",
@@ -30,6 +32,7 @@
     "exports-tenant-scope.spec.ts 11 of 11, covering all five reads plus the role-first ordering.",
     "Four mutations, each caught: dropping the predicate from exportDealsCsv fails 1; dropping it from the regulatory report fails 1; going back to findUnique by id for the evidence bundle fails 1; and letting a missing tenant through instead of refusing fails 5 - the sharpest of them, because that is the shape the defect would take if the guard were softened later.",
     "Not proven and not claimed: production grants. In a migration-only database app_runtime has no table privileges at all, so SELECT was granted by hand to test RLS specifically. Nothing is asserted about the production principal.",
-    "The regulatory report is called out separately because its rows leave the platform - they are filed to МСХ, Росстат, ФНС and Росфинмониторинг. A foreign tenant's deal there is not a wrong screen, it is a wrong filing."
+    "The regulatory report is called out separately because its rows leave the platform - they are filed to МСХ, Росстат, ФНС and Росфинмониторинг. A foreign tenant's deal there is not a wrong screen, it is a wrong filing.",
+    "Two pre-existing spec fixtures had to be corrected, and the question of which side was wrong was answered rather than assumed: exports-output-encoding.spec.ts and exports-content-disposition.spec.ts built an ADMIN with no tenantId, so seven tests failed once the tenant became mandatory. The platform's own deal command path (assertTrustedUser in postgresql-deal-command.service.ts) already refuses a user without tenantId, so those fixtures described a caller the system would reject anyway. The fixtures were made representative; the guard was not softened to fit them. exports + content-disposition 31 of 31."
   ]
 }
