@@ -1257,6 +1257,7 @@
       ".github/workflows/production-p0-reviewer-inspect.yml",
       ".github/workflows/production-p0-first-customer-acceptance.yml",
       ".github/workflows/production-p0-all-role-registration.yml",
+      ".github/workflows/production-p0-runtime-revision-parity-diagnostic.yml",
       "apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts",
       "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
       "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
