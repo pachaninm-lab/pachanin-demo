@@ -203,6 +203,21 @@ const TEMPLATES: Record<TemplateId, string> = {
 Хеш документа: {{documentHash}}`,
 };
 
+/**
+ * Поле шаблона. Выражение постоянно и из пользовательского ввода не строится:
+ * именно это и есть контрол. Раньше на каждый ключ отправителя собиралось своё
+ * выражение, и ключ попадал в него без экранирования, поэтому `.*` переписывал
+ * все поля разом, а `(.*)*x` вешал event loop дольше двух минут на обычном
+ * договоре в 1901 символ.
+ */
+const TEMPLATE_FIELD_PATTERN = /\{\{([^}]+)\}\}/gu;
+
+/**
+ * Значение поля хеша на время подсчёта самого хеша. Величина, по которой хеш
+ * считается, менять нельзя - на ней держится проверка уже выданных документов.
+ */
+const DOCUMENT_HASH_SENTINEL = 'PLACEHOLDER';
+
 @Injectable()
 export class DocumentTemplateService {
   listTemplates(): Array<{ id: TemplateId; name: string; version: string; requiredFields: string[] }> {
@@ -225,23 +240,45 @@ export class DocumentTemplateService {
     if (!template) throw new NotFoundException(`Template ${templateId} not found`);
 
     const version = CURRENT_TEMPLATE_VERSIONS[templateId];
-    const enriched = {
-      ...variables,
-      templateVersion: version,
-      documentHash: 'PLACEHOLDER',
-    };
 
-    let content = template;
-    for (const [key, value] of Object.entries(enriched)) {
-      content = content.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), String(value ?? ''));
+    // Значения задаёт отправитель, поэтому имена берутся из шаблона, а не из
+    // ввода: шаблон сканируется один раз, и каждое найденное поле ищется в
+    // карте. Регулярное выражение здесь постоянное, из ввода не строится
+    // ничего, и подстановка не пересканируется.
+    const values = new Map<string, string>(
+      Object.entries(variables).map(([name, value]) => [name, String(value ?? '')]),
+    );
+    // Эти два поля задаёт платформа и отправитель их перебить не может -
+    // записываются после его значений.
+    values.set('templateVersion', version);
+    values.set('documentHash', DOCUMENT_HASH_SENTINEL);
+
+    let rendered = '';
+    let cursor = 0;
+    let hashFieldAt = -1;
+    for (const match of template.matchAll(TEMPLATE_FIELD_PATTERN)) {
+      const at = match.index ?? 0;
+      const name = match[1];
+      rendered += template.slice(cursor, at);
+      if (name === 'documentHash') hashFieldAt = rendered.length;
+      // Отсутствующее поле становится пустой строкой - как и прежде.
+      rendered += values.get(name) ?? '';
+      cursor = at + match[0].length;
     }
+    rendered += template.slice(cursor);
 
-    // Replace missing variables with empty string
-    content = content.replace(/\{\{[^}]+\}\}/g, '');
-
-    const hash = createHash('sha256').update(content).digest('hex');
-    // Replace placeholder with actual hash
-    content = content.replace('PLACEHOLDER', hash);
+    // Хеш считается по документу, в поле хеша которого стоит литерал
+    // DOCUMENT_HASH_SENTINEL. Менять это нельзя: проверка всех ранее выданных
+    // документов опирается на ту же величину.
+    const hash = createHash('sha256').update(rendered).digest('hex');
+    // Подстановка по запомненной позиции, а не по первому вхождению строки:
+    // иначе значение отправителя, равное сентинелу, забирает хеш себе.
+    const content =
+      hashFieldAt >= 0
+        ? rendered.slice(0, hashFieldAt) +
+          hash +
+          rendered.slice(hashFieldAt + DOCUMENT_HASH_SENTINEL.length)
+        : rendered;
 
     return {
       templateId,
