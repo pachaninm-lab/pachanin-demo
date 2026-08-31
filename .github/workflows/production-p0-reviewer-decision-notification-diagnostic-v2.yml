@@ -1,0 +1,252 @@
+name: Production P0 Reviewer Decision Notification Diagnostic V2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-decision-notification-diagnostic-v2.yml'
+      - 'scripts/check-production-p0-reviewer-decision-notification-diagnostic-v2.mjs'
+      - 'docs/platform-v7/autopilot/scopes/p0-reviewer-decision-notification-diagnostic-v2-4858.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  FAILED_RUN_ID: '33425716125'
+  FAILED_RUN_ATTEMPT: '2'
+  FAILED_TARGET_SHA: '1bffaec1a7aad09840df136e886c07d2b32e2008'
+  DIAGNOSTIC_SINCE: '2026-08-31T19:18:00Z'
+  DIAGNOSTIC_UNTIL: '2026-08-31T19:20:30Z'
+  DIAGNOSTIC_ISSUE: '4858'
+  DIAGNOSTIC_COMMAND: '/production p0-reviewer-decision-notification-diagnostic-v2 attempt-33425716125-2'
+
+concurrency:
+  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 4858 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) || github.event.comment.performed_via_github_app.id == 1144995) && github.event.comment.body == '/production p0-reviewer-decision-notification-diagnostic-v2 attempt-33425716125-2' && 'pc-crop-registration-lifecycle' || format('p0-reviewer-notification-diagnostic-v2-{0}', github.event.pull_request.number || github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate compact read-only diagnostic
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 4858 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-decision-notification-diagnostic-v2 attempt-33425716125-2'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.bind.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate source contract
+        run: node scripts/check-production-p0-reviewer-decision-notification-diagnostic-v2.mjs
+
+      - name: Verify exact owner provenance
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq .owner.login)"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq .user.login)"
+          association="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq .author_association)"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq .body)"
+          app_id="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$association" == OWNER && "$body" == "$DIAGNOSTIC_COMMAND" ]]
+          [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]] \
+            || [[ "$app_id" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+
+      - name: Bind immutable failed runtime
+        id: bind
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse HEAD)" == "$current" && "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$FAILED_TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$FAILED_TARGET_SHA" "$current"
+          [[ "$FAILED_RUN_ID" =~ ^[0-9]{2,20}$ && "$FAILED_RUN_ATTEMPT" == 2 ]]
+          echo "sha=$FAILED_TARGET_SHA" >> "$GITHUB_OUTPUT"
+
+  diagnostic:
+    name: Aggregate immutable production evidence
+    needs: contract
+    if: github.event_name == 'issue_comment' && needs.contract.result == 'success' && needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Inspect bounded production logs read-only
+        id: inspect
+        run: |
+          set -Eeuo pipefail
+          host='195.19.12.120'
+          live_domain='xn----8sbjf4befbjgs9b.xn--p1ai'
+          user="${PC_PROD_SSH_USER:-}"
+          port="${PC_PROD_SSH_PORT:-22}"
+          expected="${PC_PROD_SSH_HOST_FINGERPRINT:-}"
+          key="$RUNNER_TEMP/p0-reviewer-notification-v2-key"
+          known="$RUNNER_TEMP/p0-reviewer-notification-v2-known"
+          result="$RUNNER_TEMP/p0-reviewer-notification-v2-result"
+          trap 'rm -f -- "$key" "$known" "$result"' EXIT
+
+          [[ "${PC_PROD_HOST:-$host}" == "$host" ]]
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$live_domain" | awk '{print $1}' | sort -u | grep -Fxq "$host"
+
+          write_key() {
+            local raw="$1" mode="$2"
+            [[ -n "$raw" ]] || return 1
+            case "$mode" in
+              plain) printf '%s\n' "$raw" | tr -d '\r' > "$key" ;;
+              escaped) printf '%s' "${raw//\\n/$'\n'}" | tr -d '\r' > "$key" ;;
+              base64) printf '%s' "$raw" | base64 --decode 2>/dev/null | tr -d '\r' > "$key" || return 1 ;;
+            esac
+            chmod 0600 "$key"
+            ! grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && ssh-keygen -y -P '' -f "$key" >/dev/null 2>&1
+          }
+          raw="${PC_PROD_SSH_KEY:-${PC_PROD_SSH_PRIVATE_KEY:-${VPS_SSH_KEY:-}}}"
+          write_key "$raw" plain || write_key "$raw" escaped || write_key "$raw" base64
+
+          scan="$RUNNER_TEMP/p0-reviewer-notification-v2-scan"
+          match="$RUNNER_TEMP/p0-reviewer-notification-v2-match"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          : > "$match"
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          sort -u -o "$match" "$match"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$known"
+          chmod 0600 "$known"
+          rm -f "$scan"
+
+          ssh -i "$key" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" -o ConnectTimeout=15 \
+            "$user@$host" 'bash -s' -- "$TARGET_SHA" "$DIAGNOSTIC_SINCE" "$DIAGNOSTIC_UNTIL" > "$result" <<'REMOTE'
+          set -Eeuo pipefail
+          target="$1"; since="$2"; until="$3"
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          web_id="${web_ids[0]}"
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" == "$target" ]]
+          docker logs --since "$since" --until "$until" --timestamps "$web_id" 2>&1 | awk '
+          BEGIN { total=0; committed=0; delivered=0; undelivered=0; approve_replayed=0; replay=0; suppressed=0; delivery_total=0; delivery_true=0; delivery_false=0 }
+          /p0_human_reviewer_ceremony/ {
+            total++
+            approve=index($0,"p0-human-approve:")>0
+            replay_phase=index($0,"p0-human-replay:")>0
+            replayed=index($0,"\"replayed\":true")>0
+            not_replayed=index($0,"\"replayed\":false")>0
+            notice_true=index($0,"\"notificationDelivered\":true")>0
+            notice_false=index($0,"\"notificationDelivered\":false")>0
+            suppressed_true=index($0,"\"notificationSuppressed\":true")>0
+            if (approve && not_replayed) { committed++; if (notice_true) delivered++; if (notice_false) undelivered++ }
+            if (approve && replayed) approve_replayed++
+            if (replay_phase) { replay++; if (replayed && suppressed_true) suppressed++ }
+          }
+          /registration_decision_notification_result/ {
+            delivery_total++
+            if (index($0,"\"delivered\":true")>0) delivery_true++
+            if (index($0,"\"delivered\":false")>0) delivery_false++
+          }
+          END {
+            missing=committed-suppressed; if (missing<0) missing=0
+            classification="PARTIAL_OR_LOG_WINDOW_MISMATCH"
+            if (undelivered>0 || delivery_false>0) classification="COMMIT_SUCCEEDED_NOTIFICATION_FAILED"
+            else if (approve_replayed>0 && delivered<8) classification="PRIOR_COMMIT_REPLAY_WITHOUT_FIRST_DELIVERY"
+            else if (missing>0 && committed>0) classification="COMMIT_SUCCEEDED_REPLAY_MISSING"
+            else if (committed==8 && delivered==8 && suppressed==8) classification="CEREMONY_EVIDENCE_COMPLETE"
+            else if (total==0) classification="NO_CEREMONY_EVENTS_IN_BOUND_WINDOW"
+            print "P0_CEREMONY_EVENTS=" total
+            print "P0_APPROVE_COMMITTED=" committed
+            print "P0_APPROVE_DELIVERED=" delivered
+            print "P0_APPROVE_UNDELIVERED=" undelivered
+            print "P0_APPROVE_REPLAYED=" approve_replayed
+            print "P0_REPLAY_EVENTS=" replay
+            print "P0_REPLAY_SUPPRESSED=" suppressed
+            print "P0_REPLAY_MISSING=" missing
+            print "P0_DELIVERY_EVENTS=" delivery_total
+            print "P0_DELIVERY_TRUE=" delivery_true
+            print "P0_DELIVERY_FALSE=" delivery_false
+            print "P0_CLASSIFICATION=" classification
+            print "PRODUCTION_MUTATION=NONE"
+            print "RAW_LOGS_PUBLISHED=0"
+          }'
+          REMOTE
+
+          [[ -s "$result" ]]
+          expected_keys='P0_CEREMONY_EVENTS P0_APPROVE_COMMITTED P0_APPROVE_DELIVERED P0_APPROVE_UNDELIVERED P0_APPROVE_REPLAYED P0_REPLAY_EVENTS P0_REPLAY_SUPPRESSED P0_REPLAY_MISSING P0_DELIVERY_EVENTS P0_DELIVERY_TRUE P0_DELIVERY_FALSE P0_CLASSIFICATION PRODUCTION_MUTATION RAW_LOGS_PUBLISHED'
+          for key_name in $expected_keys; do
+            [[ "$(grep -Ec "^${key_name}=[A-Z0-9_]+$" "$result")" == 1 ]]
+          done
+          [[ "$(wc -l < "$result" | tr -d ' ')" == 14 ]]
+          grep -Fxq PRODUCTION_MUTATION=NONE "$result"
+          grep -Fxq RAW_LOGS_PUBLISHED=0 "$result"
+          classification="$(sed -n 's/^P0_CLASSIFICATION=//p' "$result")"
+          [[ "$classification" =~ ^(COMMIT_SUCCEEDED_NOTIFICATION_FAILED|PRIOR_COMMIT_REPLAY_WITHOUT_FIRST_DELIVERY|COMMIT_SUCCEEDED_REPLAY_MISSING|CEREMONY_EVIDENCE_COMPLETE|NO_CEREMONY_EVENTS_IN_BOUND_WINDOW|PARTIAL_OR_LOG_WINDOW_MISMATCH)$ ]]
+          while IFS='=' read -r key_name value; do echo "$key_name=$value" >> "$GITHUB_OUTPUT"; done < "$result"
+
+      - name: Publish aggregate classification
+        run: |
+          set -Eeuo pipefail
+          record="$RUNNER_TEMP/p0-reviewer-notification-v2.md"
+          {
+            echo '## Production P0 reviewer decision notification diagnostic v2'
+            echo
+            echo '- failed run/attempt: `33425716125-2`'
+            printf -- '- immutable runtime SHA: `%s`\n' "$TARGET_SHA"
+            printf -- '- classification: `%s`\n' '${{ steps.inspect.outputs.P0_CLASSIFICATION }}'
+            printf -- '- ceremony / committed / delivered / undelivered: `%s / %s / %s / %s`\n' '${{ steps.inspect.outputs.P0_CEREMONY_EVENTS }}' '${{ steps.inspect.outputs.P0_APPROVE_COMMITTED }}' '${{ steps.inspect.outputs.P0_APPROVE_DELIVERED }}' '${{ steps.inspect.outputs.P0_APPROVE_UNDELIVERED }}'
+            printf -- '- approval replay / replay events / suppressed / missing: `%s / %s / %s / %s`\n' '${{ steps.inspect.outputs.P0_APPROVE_REPLAYED }}' '${{ steps.inspect.outputs.P0_REPLAY_EVENTS }}' '${{ steps.inspect.outputs.P0_REPLAY_SUPPRESSED }}' '${{ steps.inspect.outputs.P0_REPLAY_MISSING }}'
+            printf -- '- delivery events / true / false: `%s / %s / %s`\n' '${{ steps.inspect.outputs.P0_DELIVERY_EVENTS }}' '${{ steps.inspect.outputs.P0_DELIVERY_TRUE }}' '${{ steps.inspect.outputs.P0_DELIVERY_FALSE }}'
+            echo '- production mutation: `NONE`'
+            echo '- raw logs, identifiers, PII and credentials published: `0`'
+            echo "- workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$record"
+          ! grep -Eq '@|postgres(?:ql)?://|BEGIN (OPENSSH |RSA |EC )?PRIVATE KEY|pc_(staff_)?(access|refresh)_token|bearer[[:space:]]+[A-Za-z0-9._~-]{20,}' "$record"
+          gh issue comment "$DIAGNOSTIC_ISSUE" --repo "$GITHUB_REPOSITORY" --body-file "$record"
