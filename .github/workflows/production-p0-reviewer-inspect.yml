@@ -26,12 +26,8 @@ on:
       - 'scripts/production-p0-reviewer-inspect.sh'
       - 'scripts/production-p0-employee-join-state-inspect.sh'
       - 'scripts/check-production-p0-reviewer-inspect.mjs'
-      - 'apps/api/src/modules/auth/password-hashing.ts'
-      - 'apps/api/src/modules/auth/password-reset.service.ts'
-      - 'apps/api/src/modules/auth/password-reset.repository.ts'
       - 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql'
       - 'apps/api/prisma/migrations/20260810125000_p0_reviewer_login_readiness_acl_correction/migration.sql'
-      - 'apps/api/prisma/migrations/20260831160000_p0_reviewer_scrypt_readiness/migration.sql'
   push:
     branches: [main]
     paths:
@@ -39,12 +35,8 @@ on:
       - 'scripts/production-p0-reviewer-inspect.sh'
       - 'scripts/production-p0-employee-join-state-inspect.sh'
       - 'scripts/check-production-p0-reviewer-inspect.mjs'
-      - 'apps/api/src/modules/auth/password-hashing.ts'
-      - 'apps/api/src/modules/auth/password-reset.service.ts'
-      - 'apps/api/src/modules/auth/password-reset.repository.ts'
       - 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql'
       - 'apps/api/prisma/migrations/20260810125000_p0_reviewer_login_readiness_acl_correction/migration.sql'
-      - 'apps/api/prisma/migrations/20260831160000_p0_reviewer_scrypt_readiness/migration.sql'
   issue_comment:
     types: [created]
 

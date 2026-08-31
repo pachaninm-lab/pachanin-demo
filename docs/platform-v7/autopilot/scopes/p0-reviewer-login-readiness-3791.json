@@ -1,8 +1,8 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/p0-reviewer-scrypt-readiness-4637",
+  "branch": "fix/p0-reviewer-reset-preflight-4637",
   "status": "active",
-  "operationalStatus": "P0_REVIEWER_SCRYPT_READINESS_COMPATIBILITY",
+  "operationalStatus": "P0_REVIEWER_RESET_PREFLIGHT_READ_ONLY",
   "issue": 4637,
   "allowedPaths": [
     ".github/workflows/production-p0-reviewer-inspect.yml",
@@ -10,11 +10,9 @@
     ".github/workflows/production-p0-reviewer-reset-drift-tolerant-preflight.yml",
     "apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql",
     "apps/api/prisma/migrations/20260810125000_p0_reviewer_login_readiness_acl_correction/migration.sql",
-    "apps/api/prisma/migrations/20260831160000_p0_reviewer_scrypt_readiness/migration.sql",
     "docs/platform-v7/autopilot/scopes/p0-reviewer-login-readiness-3791.json",
     "scripts/check-production-p0-reviewer-inspect.mjs",
-    "scripts/production-p0-reviewer-inspect.sh",
-    "scripts/release/production-like-kubernetes-outbox-runtime.sh"
+    "scripts/production-p0-reviewer-inspect.sh"
   ],
   "boundaries": {
     "productionMutation": false,
@@ -35,9 +33,6 @@
     "only aggregate monotonic readiness counts are published",
     "the current-runtime diagnostic classifies reviewer readiness without requiring a redeploy",
     "the continuation reset preflight proves capabilities without creating a reset challenge or sending mail",
-    "reviewer readiness accepts legacy bcrypt and the exact current scrypt envelope written by password reset",
-    "a successful current-format password reset makes the reviewer ineligible for another reset request",
-    "the deep outbox evidence snapshots exactly two current Ready workers after scale-down before reading logs and still fails closed on any selected pod log error",
     "no email, identifier, tenant, password hash, MFA ciphertext, backup code, token or cookie is published",
     "the inspector is explicit CommonJS and all awaits remain inside a bounded async IIFE",
     "production output includes PRODUCTION_MUTATION=NONE",
