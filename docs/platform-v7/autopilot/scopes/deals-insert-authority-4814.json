@@ -10,7 +10,9 @@
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/deals-insert-authority-4814.json",
     "apps/api/prisma/migrations/20260831180000_deals_permissive_all_policy_closure/migration.sql",
-    "scripts/sql/identity-rls-no-inert-policies.sql"
+    "scripts/sql/identity-rls-no-inert-policies.sql",
+    "infra/sql/production-rls-policies.sql",
+    "infra/sql/postgresql-deal-authority-policies.sql"
   ],
   "requiredInvariants": [
     "The policy is not simply dropped, and the reason is measured rather than assumed. Dropping it closes SELECT as well, and 21 files read the deal model; the export and analytics readers take PrismaService rather than the RLS transaction service, so they would return nothing. Read behaviour is therefore preserved bit-for-bit under deals_uncontexted_read.",
@@ -20,7 +22,8 @@
     "The two survivors are named for what they are and carry COMMENT ON POLICY saying they are deliberate gaps rather than boundaries. The difference this pass makes is that they cover two named commands instead of everything.",
     "The artifact infra/sql/production-rls-policies.sql is NOT copied. Its deals_insert is broader than the narrowing 20260712195000 installed and its deals_select lacks the app_deal_basis_deal_visible branch this chain has, so copying it would revert a deliberate tightening - and it is applied by no deploy path anyway.",
     "V8.2.2 and V8.4.1 are NOT claimed and stay FAIL. Those requirements are about the cross-tenant read, and the read is still open. The ASVS decisions file is not touched by this pass at all. Claiming them on the strength of an INSERT closure would answer the requirement with the evidence of a different one.",
-    "No production, REG.RU, DNS, database or credential mutation. The migration is forward-only and is applied to production only in a separate controlled exact-SHA release, per the owner decision of 30.08. No new dependency, no lockfile change. New mandatory cost: 0 RUB."
+    "No production, REG.RU, DNS, database or credential mutation. The migration is forward-only and is applied to production only in a separate controlled exact-SHA release, per the owner decision of 30.08. No new dependency, no lockfile change. New mandatory cost: 0 RUB.",
+    "The two new permissive policies must not reach an environment that applies the deploy artifacts. Those artifacts install the strict set and drop the policies they know about by name - and they cannot drop a name that did not exist when they were written. Both artifacts therefore drop deals_uncontexted_read and deals_uncontexted_update. This is not a widening of the pass: an environment that applies these files never had a permissive fallback on deals, and must not gain one from a migration written for the environments that do not."
   ],
   "acceptance": [
     "Measured before fixing, on a live PostgreSQL 16 rather than argued from reading: the whole chain applied clean, app_runtime confirmed super=false bypassrls=false, and with no RLS context SELECT returned 2 rows across both tenants, UPDATE of another tenant's deal reported UPDATE 1, DELETE of another tenant's deal reported DELETE 1, and an INSERT of a deal with status SIGNED, sellerOrgId org-attacker and no basis reported INSERT 0 1. pg_policies confirmed the cause directly: deals_app_access | ALL | PERMISSIVE | has_using=t | has_check=f.",
@@ -34,6 +37,8 @@
     "DELETE was confirmed to have no caller before being closed: no .deal.delete or .deal.deleteMany anywhere in non-test source, and no raw SQL delete outside test teardown. The teardowns that do delete run as postgres - a superuser, to which RLS does not apply - per pc-crop-accounting-acceptance.yml.",
     "Recorded rather than smoothed over: with no DELETE policy the rows are simply invisible to DELETE, so PostgreSQL reports DELETE 0 rather than raising. Fail-closed, but silent. Describing it as an error would be wrong.",
     "Recorded and NOT acted on: public.deals is not under FORCE ROW LEVEL SECURITY, unlike audit_events and ledger_entries, so the table owner bypasses every policy here. Whether the production principal owns these tables is not determinable from the repository, and adding FORCE would be a tightening that breaks the application if it does. Left for its own pass.",
-    "Not proven and not claimed: production grants. In a migration-only database app_runtime has no table privileges at all, so they were granted by hand to test RLS specifically. Nothing is asserted about the production principal."
+    "Not proven and not claimed: production grants. In a migration-only database app_runtime has no table privileges at all, so they were granted by hand to test RLS specifically. Nothing is asserted about the production principal.",
+    "CI caught a real defect in the first version of this pass and it is recorded rather than smoothed over. The one-deal E2E gate (12 roles / 19 commands / PostgreSQL RLS / DR restore) failed at 'Run industrial one-deal exploitation gate'. Cause: scripts/platform-v7-one-deal-e2e.sh applies infra/sql/production-rls-policies.sql and infra/sql/postgresql-deal-authority-policies.sql after the migration chain, and neither dropped the two policy names this pass introduces - so they survived alongside the artifact's strict deals_select and deals_update and ORed them away. The migration preserved behaviour on a migration-only database exactly as intended, and WEAKENED it everywhere the artifact is applied. That is the opposite of this pass's purpose.",
+    "Fixed and proved behaviourally on a live database, not by reading the policy list. Same chain, same seed, one role app_runtime confirmed NOBYPASSRLS. With the ORIGINAL artifacts the deals table ended up carrying six policies, two of them permissive-everything, and an uncontexted read returned 2 rows across both tenants with an uncontexted UPDATE permitted. With the artifacts carrying the two DROP statements the table carries four, the uncontexted read returns 0 and the uncontexted UPDATE reports UPDATE 0 - which is precisely the strict behaviour those environments had before this pass existed."
   ]
 }
