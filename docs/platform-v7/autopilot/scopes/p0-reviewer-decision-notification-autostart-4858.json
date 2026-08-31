@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-decision-notification-autostart-4858",
+  "status": "active",
+  "purpose": "Automatically execute the already-bounded read-only reviewer decision notification diagnostic once when its exact source-controlled workflow is merged to main, because the connected GitHub surface does not expose issue-comment creation. Inspect only failed production run 33425716125 attempt 2 and publish aggregate evidence without raw logs, identifiers, PII or credentials.",
+  "approvedBy": "owner-issue-4858",
+  "authorityBaseExactMain": "1bffaec1a7aad09840df136e886c07d2b32e2008",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-decision-notification-diagnostic.yml",
+    "scripts/check-production-p0-reviewer-decision-notification-diagnostic.mjs",
+    "docs/platform-v7/autopilot/scopes/p0-reviewer-decision-notification-diagnostic-4858.json",
+    ".github/workflows/production-p0-reviewer-decision-notification-autostart.yml",
+    "scripts/production-p0-reviewer-decision-notification-diagnostic.sh",
+    "scripts/check-production-p0-reviewer-decision-notification-autostart.mjs",
+    "docs/platform-v7/autopilot/scopes/p0-reviewer-decision-notification-autostart-4858.json"
+  ],
+  "requiredBehavior": [
+    "run the production diagnostic only on an owner-attributed push to main that changes the exact one-shot workflow, script or scope manifest",
+    "serialize with pc-crop-registration-lifecycle and never cancel an in-progress registration lifecycle operation",
+    "bind to failed run 33425716125 attempt 2, immutable runtime SHA 1bffaec1a7aad09840df136e886c07d2b32e2008 and the fixed UTC log window",
+    "require the failed runtime SHA to remain an ancestor of current main and the live Web OCI revision to equal that immutable SHA",
+    "use pinned REG.RU SSH identity and parse raw Web logs only on the production host",
+    "emit and publish only a strict aggregate whitelist and a bounded failure classification",
+    "perform no production mutation and create no new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "production container restart, stop, remove, compose or service mutation",
+    "database insert, update, delete, truncate, role change or ad-hoc SQL mutation",
+    "HTTP POST to a production application endpoint",
+    "reviewer impersonation, credential retrieval or session handoff",
+    "MFA, RLS, CSRF, role, tenant, rate-limit, audit, outbox or notification weakening",
+    "raw log, application identifier, hash marker, email, token, cookie, database URL or credential publication",
+    "unrelated repository or production changes"
+  ],
+  "acceptanceEvidence": [
+    "source-controlled contract PASS",
+    "owner-attributed main push PASS",
+    "pinned REG.RU SSH identity PASS",
+    "live Web revision equals immutable failed runtime SHA",
+    "strict aggregate output whitelist PASS",
+    "bounded classification published to issue 4858",
+    "production mutation NONE and raw logs published zero"
+  ]
+}
