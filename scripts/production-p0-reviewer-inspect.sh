@@ -43,7 +43,7 @@ publish_failure() {
   if [[ "$result_published" == '0' ]]; then
     gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer login-readiness inspect
 
-- exact main: \`$TARGET_SHA\`
+- immutable release candidate: \`$TARGET_SHA\`
 - result: \`FAIL\`
 - production mutation: \`NONE\`
 - blocker: \`REVIEWER_INSPECT_FAILED_CLOSED\`
@@ -69,15 +69,19 @@ trim() {
   printf '%s' "$value"
 }
 
-guard_main() {
-  [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+assert_release_candidate() {
+  local current_main
+  git fetch --no-tags origin main >/dev/null
+  current_main="$(git rev-parse origin/main)"
+  [[ "$current_main" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+  git cat-file -e "${TARGET_SHA}^{commit}"
+  git merge-base --is-ancestor "$TARGET_SHA" "$current_main"
 }
 
-TARGET_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+TARGET_SHA="${PC_P0_TARGET_SHA:-$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)}"
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
-git fetch --no-tags origin main >/dev/null
-[[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
 [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+assert_release_candidate
 
 host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
 user="$(trim "${PC_PROD_SSH_USER:-}")"
@@ -121,7 +125,7 @@ try_key "${PC_PROD_SSH_KEY:-}" \
   || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" \
   || try_key "${VPS_SSH_KEY:-}"
 
-guard_main
+assert_release_candidate
 
 domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
 grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
@@ -139,7 +143,7 @@ mv "$match" "$known_hosts"
 rm -f "$scan"
 chmod 0600 "$known_hosts"
 
-guard_main
+assert_release_candidate
 ssh -i "$key_path" -p "$port" \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
   -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
@@ -300,7 +304,7 @@ else
 fi
 unset join_diag_output join_diag_marker join_diag_mutation
 
-guard_main
+assert_release_candidate
 
 output="$(ssh -i "$key_path" -p "$port" \
   -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
@@ -322,9 +326,19 @@ mapfile -t api_ids < <(docker ps -q \
   --filter 'label=com.docker.compose.service=api')
 (( ${#api_ids[@]} == 1 ))
 api_id="${api_ids[0]}"
+mapfile -t worker_ids < <(docker ps -q \
+  --filter "label=com.docker.compose.project=$project" \
+  --filter 'label=com.docker.compose.service=auth-mail-worker')
+(( ${#worker_ids[@]} == 1 ))
+worker_id="${worker_ids[0]}"
 api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
 web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
-[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" ]]
+worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"
+[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]
+worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$worker_id")"
+[[ "$worker_health" == healthy ]]
+docker exec "$worker_id" /nodejs/bin/node -e \
+  "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(async r=>{if(!r.ok)process.exit(1);const x=await r.json();if(x.status!=='ready'||x.component!=='auth-mail-worker'||x.checks?.database!==true)process.exit(1)}).catch(()=>process.exit(1))"
 
 docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
 const { PrismaClient } = require('@prisma/client');
@@ -446,7 +460,11 @@ done
 (( mfa <= passwords ))
 (( login <= mfa ))
 
-guard_main
+assert_release_candidate
+(( login > 0 )) || {
+  echo P0_REVIEWER_LOGIN_NOT_READY >&2
+  exit 36
+}
 if (( login > 0 )); then
   next='HUMAN_REVIEWER_LOGIN_CEREMONY_REQUIRED'
 elif (( mfa > 0 )); then
@@ -466,7 +484,7 @@ fi
 gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer login-readiness inspect
 
 - command: \`$COMMAND\`
-- exact main: \`$TARGET_SHA\`
+- immutable release candidate: \`$TARGET_SHA\`
 - result: \`PASS\`
 - staff principal: \`$principal\`
 - active PLATFORM_OWNER assignments: \`$owners\`
@@ -486,3 +504,6 @@ gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## 
 - production mutation: \`NONE\`
 - next: \`$next\`" >/dev/null
 result_published=1
+printf 'P0_REVIEWER_READINESS=PASS\n'
+printf 'P0_REVIEWER_RELEASE_CANDIDATE=%s\n' "$TARGET_SHA"
+printf 'P0_REVIEWER_AUTH_MAIL_WORKER=EXACT_READY\n'

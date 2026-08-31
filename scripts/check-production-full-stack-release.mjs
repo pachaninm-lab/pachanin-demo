@@ -98,30 +98,27 @@ requireAll('workflow', [
   'Production Full-Stack Exact-SHA Release',
   'workflow_call:',
   'owner_release_authorized:',
+  "description: 'Immutable release candidate captured by the owner controller.'",
+  'target_sha:',
   'controller_issue_number:',
-  'required: false',
+  'required: true',
+  "default: ''",
   'default: 0',
-  "github.event_name == 'workflow_call'",
   'inputs.owner_release_authorized == true',
+  'Reject every non-controller reusable release authority',
+  '[[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ && "$TARGET_SHA" == "$EVENT_SHA" ]]',
   '(inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637)',
   'inputs.controller_issue_number == github.event.issue.number',
-  'inputs.controller_issue_number == 0',
-  'DEPLOY-FULL-STACK-EXACT-SHA',
   'github.actor == github.repository_owner',
-  'issue_comment:',
-  'workflow_run:',
-  "workflows: ['Build & Publish Canonical Docker Images']",
-  "github.event_name == 'workflow_run'",
-  "github.event.workflow_run.conclusion == 'success'",
-  "github.event.workflow_run.event == 'push'",
-  "github.event.workflow_run.head_branch == 'main'",
-  'github.event.workflow_run.head_sha',
-  'github.event.issue.number == 3072',
+  'github.triggering_actor == github.repository_owner',
   'github.event.comment.user.login == github.repository_owner',
-  "github.event.comment.body == '/production full-stack current-main'",
-  "github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event_name == 'workflow_call' && github.event.repository.default_branch || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref_name",
-  "if [[ '${{ github.event_name }}' == issue_comment || '${{ github.event_name }}' == workflow_call ]]; then",
-  "if [[ '${{ github.event_name }}' == workflow_run ]]; then",
+  "github.event.comment.body == '/production release current-main'",
+  'ref: ${{ inputs.target_sha }}',
+  "target='${{ inputs.target_sha }}'",
+  'git merge-base --is-ancestor "$target" "$current_main"',
+  'RELEASE_CANDIDATE_NO_LONGER_ANCESTOR',
+  'group: pc-crop-production-release-candidate',
+  'queue: max',
   'RELEASE_ISSUE_NUMBER: 3072',
   'CONTINUATION_ISSUE_NUMBER: 4637',
   'for component in api web migration',
@@ -142,24 +139,42 @@ requireAll('workflow', [
   'gh issue comment "$EVIDENCE_ISSUE_NUMBER"',
   '[[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$EVIDENCE_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]',
   'retention-days: 90',
+  'production-full-stack-release-${{ github.run_id }}-${{ github.run_attempt }}',
 ]);
 const workflowSource = text.workflow ?? '';
-if (/github\.event_name\s*==\s*'workflow_call'\s*&&\s*inputs\.owner_release_authorized\s*==\s*true/.test(workflowSource)) {
-  failures.push(`${paths.workflow}: reusable owner authorization must not depend on the inherited caller event name`);
+if ((workflowSource.match(/^\s+queue: max$/gmu) || []).length !== 2) {
+  failures.push(`${paths.workflow}: workflow and production job must both retain every serialized pending invocation`);
 }
+if ((workflowSource.match(/git merge-base --is-ancestor "\$TARGET_SHA" "\$current_main"/gu) || []).length < 2
+  || !workflowSource.includes('git merge-base --is-ancestor "$target" "$current_main"')) {
+  failures.push(`${paths.workflow}: immutable candidate ancestry must be rechecked before every production mutation boundary`);
+}
+forbid('workflow', [
+  /^\s{2}workflow_run:/m,
+  /^\s{2}workflow_dispatch:/m,
+  /^\s{2}issue_comment:/m,
+  /github\.event\.workflow_run/,
+  /\/production full-stack current-main/,
+  /DEPLOY-FULL-STACK-EXACT-SHA/,
+  /inputs\.controller_issue_number == 0/,
+  /inputs\.target_sha \|\| github\.sha/,
+]);
 requireAll('controller', [
   '/production release current-main',
+  'pc-crop-registration-lifecycle',
+  'queue: max',
   'gh workflow run docker-publish.yml',
   'gh run watch "$image_run_id"',
   'Build API image',
   'Build web image',
   'Build migration image',
-  'Main advanced during image publication',
+  'Release candidate is no longer an ancestor of main.',
   'production-full-stack-execution-3072:',
   'needs: production-release-control-3072',
   "github.event.comment.body == '/production release current-main'",
   'uses: ./.github/workflows/production-full-stack-exact-sha.yml',
   'owner_release_authorized: true',
+  'target_sha: ${{ github.sha }}',
   'controller_issue_number: ${{ github.event.issue.number }}',
   '(github.event.issue.number == 3072 || github.event.issue.number == 4637)',
   'github.actor == github.repository_owner',
@@ -171,6 +186,11 @@ requireAll('middleware', [
   '|| PUBLIC_API_EXACT.has(p)',
 ]);
 const controllerSource = text.controller ?? '';
+const controllerConcurrencyGroup = controllerSource.match(/^concurrency:\n\s+group: ([^\n]+)$/mu)?.[1] ?? '';
+if (!controllerConcurrencyGroup.includes('pc-crop-registration-lifecycle')
+  || controllerConcurrencyGroup.includes('github.triggering_actor')) {
+  failures.push(`${paths.controller}: reruns of the original owner release command must remain in the serialized lifecycle group`);
+}
 const publishDispatchIndex = controllerSource.indexOf('gh workflow run docker-publish.yml');
 const imageWatchIndex = controllerSource.indexOf('gh run watch "$image_run_id"');
 const reusableReleaseIndex = controllerSource.indexOf('production-full-stack-execution-3072:');
@@ -180,12 +200,9 @@ if (!(publishDispatchIndex >= 0 && imageWatchIndex > publishDispatchIndex && reu
 if (controllerSource.includes('gh workflow run production-full-stack-exact-sha.yml')) {
   failures.push(`${paths.controller}: the controller must not dispatch a second workflow as github-actions[bot]`);
 }
-if (workflowSource.split('inputs.controller_issue_number == github.event.issue.number').length - 1 !== 2) {
-  failures.push(`${paths.workflow}: both reusable jobs must bind the controller issue to the triggering issue`);
-}
-if (workflowSource.split('inputs.controller_issue_number == 0').length - 1 !== 2
-  || workflowSource.split('github.event.issue.number == 3072').length - 1 < 4) {
-  failures.push(`${paths.workflow}: both reusable jobs must preserve only the legacy #3072 caller fallback`);
+if (workflowSource.split('inputs.controller_issue_number == github.event.issue.number').length - 1 !== 1
+  || !workflowSource.includes('[[ "$CONTROLLER_ISSUE_NUMBER" == "$EVENT_ISSUE_NUMBER" ]]')) {
+  failures.push(`${paths.workflow}: contract guard and deploy job must bind the controller issue to the triggering issue`);
 }
 if (!workflowSource.includes('"$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER"')
   || !workflowSource.includes('gh issue comment "$EVIDENCE_ISSUE_NUMBER"')) {
@@ -358,4 +375,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log('PASS: exact API/web/migration images, serialized image publication, trusted post-image workflow-run authority, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, public organization intake, live acceptance and PostgreSQL/audit/outbox evidence are enforced.');
+console.log('PASS: exact API/web/migration images, owner-controller-only immutable release authority, serialized release chain, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, public organization intake, live acceptance and PostgreSQL/audit/outbox evidence are enforced.');

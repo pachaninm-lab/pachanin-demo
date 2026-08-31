@@ -18,6 +18,28 @@ const root = process.cwd().endsWith(path.join('apps', 'web'))
   : process.cwd();
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
+function employeeJoinDecisionRequest() {
+  const request = new NextRequest(
+    'https://app.example.test/api/auth/organization-join-requests/reg_employee/decision',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'p0-employee-join-http-contract',
+        'x-correlation-id': 'p0-employee-join-http-contract',
+        cookie: `${ACCESS_COOKIE}=seller-access-token`,
+      },
+      body: JSON.stringify({
+        decision: 'APPROVE',
+        reason: 'Production employee organization join approval',
+        locale: 'ru',
+      }),
+    },
+  );
+  request.cookies.set(ACCESS_COOKIE, 'seller-access-token');
+  return request;
+}
+
 describe('P0 first-customer completion boundaries', () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -131,6 +153,7 @@ describe('P0 first-customer completion boundaries', () => {
     expect(bff).toContain("'Idempotency-Key': idempotencyKey");
     expect(bff).toContain("'X-Registration-Delivery-Key': deliveryKey");
     expect(bff).toContain("code: 'JOIN_REQUEST_SERVICE_UNAVAILABLE', correlationId }, 503");
+    expect(bff).toContain('return json({ ...payload, notificationDelivered, correlationId }, 200);');
 
     expect(bff).toContain("error instanceof Error && error.name === 'TimeoutError'");
     expect(bff).toContain("? 'UPSTREAM_TIMEOUT'");
@@ -138,6 +161,71 @@ describe('P0 first-customer completion boundaries', () => {
     expect(bff).toMatch(/console\.warn\('organization_join_decision_upstream_failure', JSON\.stringify\(\{\s*correlationId,\s*failureClass,\s*\}\)\);/);
     expect(bff).not.toContain('error.message');
     expect(bff).not.toContain('String(error)');
+  });
+
+  it('normalizes a successful upstream join decision to the public HTTP 200 contract', async () => {
+    vi.stubEnv('API_URL', 'https://api.example.test');
+    vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: true,
+      provider: 'smtp',
+      reason: 'sent',
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: false,
+      notificationDelivery: {
+        email: 'synthetic-employee@example.test',
+        status: 'ACTIVATED',
+        reason: 'approved',
+      },
+    }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+    const response = await POST(employeeJoinDecisionRequest(), {
+      params: Promise.resolve({ applicationId: 'reg_employee' }),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: false,
+      notificationDelivered: true,
+      correlationId: 'p0-employee-join-http-contract',
+    });
+    expect(payload).not.toHaveProperty('notificationDelivery');
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves an unsuccessful upstream join decision status', async () => {
+    vi.stubEnv('API_URL', 'https://api.example.test');
+    vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 'REGISTRATION_STATE_CONFLICT',
+      status: 'ACTIVATED',
+    }), {
+      status: 409,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+    const response = await POST(employeeJoinDecisionRequest(), {
+      params: Promise.resolve({ applicationId: 'reg_employee' }),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(409);
+    expect(payload).toMatchObject({
+      code: 'REGISTRATION_STATE_CONFLICT',
+      correlationId: 'p0-employee-join-http-contract',
+    });
+    expect(sendTransactionalMail).not.toHaveBeenCalled();
   });
 
   it('does not relabel a committed join decision as upstream 503 when notification code throws', async () => {
