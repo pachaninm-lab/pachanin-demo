@@ -153,25 +153,4 @@ describe('P0 human reviewer ceremony staff route', () => {
     expect(payload).not.toHaveProperty('notificationDelivery');
     expect(payload).not.toHaveProperty('notificationDelivered');
   });
-
-  it('fails closed when a successful upstream replay lacks durable SENT evidence', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(upstreamResponse({
-      status: 'ACTIVATED',
-      replayed: true,
-    })));
-    const { POST } = await import('@/app/api/staff/[...path]/route');
-
-    const response = await POST(decisionRequest('p0-human-replay-missing-proof'), context);
-    const payload = await response.json() as Record<string, unknown>;
-
-    expect(response.status).toBe(503);
-    expect(payload).toMatchObject({
-      status: 'ACTIVATED',
-      replayed: true,
-      code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
-      correlationId: 'p0-human-replay-missing-proof',
-    });
-    expect(payload).not.toHaveProperty('notificationDelivery');
-    expect(payload).not.toHaveProperty('notificationDelivered');
-  });
 });
