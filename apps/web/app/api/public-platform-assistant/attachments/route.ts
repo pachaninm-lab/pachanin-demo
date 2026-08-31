@@ -19,6 +19,7 @@ import {
 import {
   type InflateBudget,
   assertArchiveDeclared,
+  assertArchiveInflatesWithinBudget,
   createInflateBudget,
   inflatePdfStream,
   readArchiveEntry,
@@ -276,6 +277,10 @@ async function extract(
   if (TEXT_EXTENSIONS.has(ext)) {
     extracted = cleanText(bytes.toString('utf8'));
   } else if (ext === 'xlsx') {
+    // Распаковывает ExcelJS, остановить его на потолке нельзя. Поэтому записи
+    // разжимаются здесь под бюджетом и выбрасываются: подделанный каталог не
+    // дойдёт до него, а бюджет спишется по фактическим байтам.
+    assertArchiveInflatesWithinBudget(ext, bytes, inflateBudget);
     extracted = await extractWorkbook(file);
   } else if (ext === 'docx') {
     extracted = extractDocx(bytes, inflateBudget);

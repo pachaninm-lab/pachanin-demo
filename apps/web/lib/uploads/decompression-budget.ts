@@ -299,3 +299,73 @@ export function inflatePdfStream(stream: Buffer, budget: InflateBudget): Buffer 
     return null;
   }
 }
+
+/**
+ * Проверка объявленного — необходимая, но не достаточная.
+ *
+ * Объявленный размер пишет отправитель, и для docx и PDF за ним стоит
+ * исполняющая граница: распаковывает их этот модуль, и `maxOutputLength`
+ * останавливает бомбу независимо от того, что она о себе сказала.
+ *
+ * Для xlsx такой границы нет: распаковывает ExcelJS через JSZip, а тот сверяет
+ * объявленный размер с фактическим уже **после** того, как данные получены.
+ * Значит подделанный на два байта каталог проходил предпроверку и дальше
+ * разжимался без потолка — и предъявлять это как закрытое требование было бы
+ * неправдой.
+ *
+ * Поэтому записи xlsx распаковываются здесь, под тем же бюджетом, и результат
+ * выбрасывается. Это доказывает, что каталог не соврал, и списывает с бюджета
+ * ровно те байты, которые ExcelJS затем и займёт, — списания не удваивая.
+ * Пиковая память самой проверки — одна запись: разжатое не удерживается.
+ */
+export function assertArchiveInflatesWithinBudget(
+  ext: string,
+  buffer: Buffer,
+  budget: InflateBudget,
+): void {
+  if (!ARCHIVE_EXTENSIONS.has(ext)) return;
+
+  let eocd = -1;
+  for (let offset = Math.max(0, buffer.length - 65_557); offset <= buffer.length - 22; offset += 1) {
+    if (buffer.readUInt32LE(offset) === 0x06054b50) eocd = offset;
+  }
+  if (eocd < 0) throw new DecompressionBudgetError(`ARCHIVE_DIRECTORY_UNREADABLE:${ext}`);
+
+  const entries = buffer.readUInt16LE(eocd + 10);
+  assertArchiveEntryCount(entries, ext);
+
+  let cursor = buffer.readUInt32LE(eocd + 16);
+  for (let index = 0; index < entries; index += 1) {
+    if (cursor + 46 > buffer.length || buffer.readUInt32LE(cursor) !== 0x02014b50) {
+      throw new DecompressionBudgetError(`ARCHIVE_DIRECTORY_UNREADABLE:${ext}`);
+    }
+    const method = buffer.readUInt16LE(cursor + 10);
+    const compressedSize = buffer.readUInt32LE(cursor + 20);
+    const nameLength = buffer.readUInt16LE(cursor + 28);
+    const extraLength = buffer.readUInt16LE(cursor + 30);
+    const commentLength = buffer.readUInt16LE(cursor + 32);
+    const localOffset = buffer.readUInt32LE(cursor + 42);
+
+    if (localOffset + 30 > buffer.length || buffer.readUInt32LE(localOffset) !== 0x04034b50) {
+      throw new DecompressionBudgetError(`ARCHIVE_DIRECTORY_UNREADABLE:${ext}`);
+    }
+    const localNameLength = buffer.readUInt16LE(localOffset + 26);
+    const localExtraLength = buffer.readUInt16LE(localOffset + 28);
+    const start = localOffset + 30 + localNameLength + localExtraLength;
+    const compressed = buffer.subarray(start, start + compressedSize);
+
+    if (method === 0) {
+      if (compressed.length > budget.remaining) {
+        throw new DecompressionBudgetError(`ARCHIVE_REQUEST_BUDGET_EXCEEDED:${ext}`);
+      }
+      budget.remaining -= compressed.length;
+    } else if (method === 8) {
+      // Результат не нужен: нужен сам факт, что он умещается в потолок.
+      inflateWithinBudget(compressed, budget, { raw: true, label: ext });
+    } else {
+      throw new DecompressionBudgetError(`ARCHIVE_UNSUPPORTED_COMPRESSION:${ext}`);
+    }
+
+    cursor += 46 + nameLength + extraLength + commentLength;
+  }
+}

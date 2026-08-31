@@ -13,6 +13,7 @@ import {
   assertDeclaredEntry,
   createInflateBudget,
   inflateWithinBudget,
+  assertArchiveInflatesWithinBudget,
   inflatePdfStream,
   isArchiveExtension,
   readArchiveEntry,
@@ -251,6 +252,62 @@ describe('archive and PDF decoders under the budget — V5.2.3', () => {
  * единственное, что держит предраспаковочную проверку на месте, это вызов в
  * `extract`. Убрать его молча можно; вот здесь и нельзя.
  */
+describe('xlsx has no enforcing ceiling of its own — V5.2.3', () => {
+  it('refuses an archive whose directory lied about the uncompressed size', () => {
+    // Проверки объявленного мало: объявление пишет отправитель. ExcelJS через
+    // JSZip сверяет размер уже после того, как данные получены, поэтому
+    // подделанный на два байта каталог проходил бы предпроверку и разжимался
+    // без потолка. Найдено ревью на #4833.
+    const budget = createInflateBudget();
+    const honestLooking = 4_096;
+    const archive = zip(
+      'xl/worksheets/sheet1.xml',
+      bomb(MAX_INFLATED_ENTRY_BYTES + 4_096),
+      honestLooking,
+    );
+
+    // Объявленному верят — предпроверка пропускает.
+    expect(() => assertArchiveDeclared('xlsx', archive, budget)).not.toThrow();
+    // Распаковка — нет.
+    expect(() => assertArchiveInflatesWithinBudget('xlsx', archive, budget)).toThrow(
+      /ARCHIVE_INFLATED_TOO_LARGE/u,
+    );
+  });
+
+  it('debits the request budget by what actually inflated, across files', () => {
+    // Раньше declaredTotal сверялся с остатком, но не списывался, и каждый
+    // следующий архив видел полный бюджет заново. Найдено ревью на #4833.
+    const budget = createInflateBudget();
+    const body = Buffer.alloc(2 * 1024 * 1024, 0x41);
+    const archive = zip('xl/worksheets/sheet1.xml', deflateRawSync(body), body.length);
+
+    assertArchiveInflatesWithinBudget('xlsx', archive, budget);
+    expect(budget.remaining).toBe(MAX_REQUEST_INFLATED_BYTES - body.length);
+
+    assertArchiveInflatesWithinBudget('xlsx', archive, budget);
+    expect(budget.remaining).toBe(MAX_REQUEST_INFLATED_BYTES - 2 * body.length);
+  });
+
+  it('refuses once the shared budget is spent, however honest the archive', () => {
+    const budget = createInflateBudget();
+    budget.remaining = 1_024;
+    const body = Buffer.alloc(64 * 1024, 0x41);
+    const archive = zip('xl/worksheets/sheet1.xml', deflateRawSync(body), body.length);
+
+    expect(() => assertArchiveInflatesWithinBudget('xlsx', archive, budget)).toThrow(
+      DecompressionBudgetError,
+    );
+  });
+
+  it('leaves a format that this module does decompress itself alone', () => {
+    // Для pdf проверять нечего: у него нет каталога, и его потоки разжимает
+    // этот же модуль под тем же бюджетом.
+    const budget = createInflateBudget();
+    expect(() => assertArchiveInflatesWithinBudget('pdf', Buffer.alloc(64, 7), budget)).not.toThrow();
+    expect(budget.remaining).toBe(MAX_REQUEST_INFLATED_BYTES);
+  });
+});
+
 describe('POST /api/public-platform-assistant/attachments — V5.2.3 wiring', () => {
   async function post(files: Array<{ name: string; bytes: Buffer }>) {
     const { POST } = await import(
@@ -275,6 +332,18 @@ describe('POST /api/public-platform-assistant/attachments — V5.2.3 wiring', ()
 
     expect(status).toBe(422);
     expect(JSON.stringify(body)).toMatch(/ARCHIVE_ENTRY_TOO_LARGE/u);
+  });
+
+  it('rejects an xlsx that forged its declared sizes, through the route itself', async () => {
+    const archive = zip(
+      'xl/worksheets/sheet1.xml',
+      bomb(MAX_INFLATED_ENTRY_BYTES + 4_096),
+      4_096,
+    );
+    const { status, body } = await post([{ name: 'forged.xlsx', bytes: archive }]);
+
+    expect(status).toBe(422);
+    expect(JSON.stringify(body)).toMatch(/ARCHIVE_INFLATED_TOO_LARGE/u);
   });
 
   it('rejects a docx bomb through the route itself', async () => {

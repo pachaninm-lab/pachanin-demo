@@ -13,7 +13,9 @@
     "apps/web/lib/uploads/decompression-budget.ts",
     "apps/web/tests/unit/uploadDecompressionBudget.spec.ts",
     "apps/web/app/api/public-platform-assistant/attachments/route.ts",
-    ".github/workflows/ci.yml"
+    ".github/workflows/ci.yml",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
   ],
   "requiredInvariants": [
     "Both halves of the requirement are present because neither is sufficient alone. The declared uncompressed size sits in the zip central directory at offset +24 and is written by the sender, so checking it alone believes a liar; maxOutputLength alone spends memory up to the ceiling on a file that already declared itself unacceptable. The word 'before' in the requirement is the first half; the second is what makes it true regardless of the declaration.",
@@ -25,7 +27,8 @@
     "V5.2.1 is not claimed and stays FAIL. With Transfer-Encoding: chunked there is no content-length, Number(null || '0') is 0, the pre-check passes and request.formData() buffers the whole body. That is a different defect in the body-reading path and wants streaming byte accounting, not a decompression ceiling.",
     "The route's own limits (4 files, 8 MiB per file, 24 MiB total) are not weakened, and the OCR paths are untouched.",
     "No production, REG.RU, DNS, database or credential mutation. No migration, no new dependency, no lockfile change. New mandatory cost: 0 RUB.",
-    "The new suite is added to the explicit spec list in ci.yml, beside uploadContentSignature and uploadImagePixelBudget. CI runs named specs rather than a directory, so a suite left out of that list never runs - it would be a test that exists and is reached from nothing, which is the defect this programme keeps finding, this time in the tests written to close it."
+    "The new suite is added to the explicit spec list in ci.yml, beside uploadContentSignature and uploadImagePixelBudget. CI runs named specs rather than a directory, so a suite left out of that list never runs - it would be a test that exists and is reached from nothing, which is the defect this programme keeps finding, this time in the tests written to close it.",
+    "xlsx is not left on the declaration alone. ExcelJS unzips it through JSZip, which compares the declared size only after producing the decompressed data, so a two-byte lie in the central directory would pass the pre-check and then inflate without a ceiling on a public endpoint. Its entries are inflated here under the same budget and discarded: that proves the directory did not lie, and debits the budget by the bytes ExcelJS will then hold, without double-charging. Peak memory of the check itself is one entry."
   ],
   "acceptance": [
     "uploadDecompressionBudget.spec.ts passes 17 of 17; the three upload suites together 91 of 91.",
@@ -35,6 +38,8 @@
     "V5.2.5 and V5.3.3 were rejected mid-pass and that is recorded rather than quietly repaired. Moving the archive reader out of the route broke the binding of two other PASS verdicts that rested on it. The property they assert - a member selected by equality on the whole name, returned in memory, never written out - is unchanged and was re-verified at the new location; the conditions were re-pointed to where the code now lives and the absence checks were widened to cover both files. The self-revoking mechanism caught a material fact moving, which is what it is for.",
     "tsc exit 0 for apps/web. One real type error was caught and fixed by it: inflatePdfStream returns Buffer<ArrayBufferLike> and the PDF loop's local was Buffer<ArrayBuffer>.",
     "Caught before pushing: the new spec was not in ci.yml's explicit list and would never have run in CI. Verified that uploadContentSignature.spec.ts and uploadImagePixelBudget.spec.ts - the sibling upload suites - are enforced there, and added this one beside them.",
-    "apps/web's full tests/unit directory has two pre-existing local failures unrelated to this pass, marketRfqRoute.test.tsx and platformV7AccessRequest.test.tsx, both failing with NEXT_REDIRECT on page render. Neither is in any workflow's spec list, so neither reaches CI, and neither touches the attachments route. Recorded rather than silently passed over."
+    "apps/web's full tests/unit directory has two pre-existing local failures unrelated to this pass, marketRfqRoute.test.tsx and platformV7AccessRequest.test.tsx, both failing with NEXT_REDIRECT on page render. Neither is in any workflow's spec list, so neither reaches CI, and neither touches the attachments route. Recorded rather than silently passed over.",
+    "Two further findings from review on the PR, both correct, both fixed rather than argued with. P1: the xlsx control was the declared-size pre-check alone, which a forged central directory defeats - a route-level test now proves a forged archive is refused, and the mutation removing the wiring fails it and revokes V5.2.3. P2: the declared total was compared against the remaining budget but never deducted, so four archives each saw the full 96 MiB - the inflate-verify pass debits it now, and the mutation that verifies without debiting fails the cumulative test. Suite 22 of 22, up from 17.",
+    "CI caught a third thing this pass had to fix: scripts/security/discover-cryptography.test.mjs failed with 'committed inventory is not stale'. The new library file moved scannedFiles from 2172 to 2173, so docs/security/cryptographic-inventory.json and CRYPTOGRAPHIC_INVENTORY.md were regenerated with scripts/security/discover-cryptography.mjs rather than edited by hand."
   ]
 }
