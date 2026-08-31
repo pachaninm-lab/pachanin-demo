@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4869,
+  "branch": "fix/action-pinning-ratchet-main",
+  "status": "active",
+  "purpose": "main is red and every open pull request inherits it. scripts/security/verify-action-pinning.mjs fails closed on main itself - floating action references rose from the baseline ceiling of 1028 to 1035 - which skips every later step of the Canonical SBOM Generation and IP Clean Room job, so artifacts/ip-clean-room is never built and the baseline evidence gate then reports every expected file missing. The visible failure is the evidence gate; the cause is eight unpinned uses: lines added by the four workflows landed since 7c9ae3353, the last commit on which that workflow was green.",
+  "authorityBaseExactMain": "d3d00c0fe",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/action-pinning-ratchet-main.json",
+    ".github/workflows/p0-registration-decision-durable-outbox-controller.yml",
+    ".github/workflows/production-p0-reviewer-decision-notification-diagnostic-v2.yml",
+    ".github/workflows/production-p0-reviewer-decision-notification-diagnostic.yml",
+    ".github/workflows/production-p0-reviewer-reset-drift-tolerant-preflight.yml"
+  ],
+  "requiredInvariants": [
+    "The ratchet is not weakened to pass. The baseline ceiling is untouched and no reference is exempted; the eight new references are pinned to a commit SHA, which is what the ratchet asks for.",
+    "The SHAs are the repository's own, not chosen here: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 is already used at 13 sites and actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 at 2. Introducing a different revision would be an unreviewed supply-chain change smuggled into a CI repair.",
+    "Only the four workflows that introduced the regression are touched. The ratchet reports 1025 remaining floating references across the repository - historical debt that this pass does not pretend to fix and does not claim to.",
+    "The baseline is deliberately NOT tightened, although the tool invites it. Lowering the ceiling from 1028 to 1025 is a real improvement but it would fail any in-flight pull request that adds a floating reference, which is a decision separate from restoring main. Recorded as the next safe step instead.",
+    "No source code, no migration, no production or REG.RU mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Established as a base-branch failure before anything was changed, rather than assumed: scripts/security/verify-action-pinning.mjs run against a clean worktree of origin/main exits 1 with 'floating references rose from 1028 to 1035', identical to the failure seen on the pull requests that inherit it.",
+    "The regression was bisected to the four workflow files changed between 7c9ae3353 - the last commit on which Canonical SBOM Generation was green - and d3d00c0fe. The diff adds six actions/checkout@v4 and two actions/upload-artifact@v4 references.",
+    "After pinning, the ratchet exits 0: floating references 1025, below the 1028 ceiling, and pinned references rise from 27 to 37.",
+    "The failure that was actually reported on the pull requests - 'IP evidence incomplete: missing or empty REPOSITORY_INVENTORY.json ...' - is a consequence, not the cause. Step 11 fails, steps 12 through 23 are skipped, artifacts/ip-clean-room is never produced, and steps 24 and 25 then fail on its absence. Reading the rollup or the last error would have sent this pass after the evidence generator instead of the ratchet."
+  ]
+}
