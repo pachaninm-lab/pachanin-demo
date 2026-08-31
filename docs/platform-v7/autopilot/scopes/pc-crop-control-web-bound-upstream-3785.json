@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-control-web-bound-upstream-3785",
+  "status": "active",
+  "purpose": "Resolve the independently attested control-host primary-route contract blocker for PC-CROP #3785 using the deployed application's permanent redirect contract, exact OCI revision binding, value-free public acceptance evidence and bounded authenticated rollback without exposing production topology.",
+  "authorityBaseExactMain": "9dab729c7edb28591133c06d455ef9a7274e9bb2",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
+    ".github/workflows/company-os-control-host-readiness-v2.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-control-web-bound-upstream-3785.json"
+  ],
+  "requiredInvariants": [
+    "The repair remains exact-main, canonical-DNS, absent-AAAA, pinned-SSH, owner-authorized and concurrency-guarded.",
+    "When the primary-host route has one or more dials, selection requires exactly one dial in the intersection of that route and the running-web shared-network identity set; unrelated primary-host backend dials may coexist.",
+    "The legacy PRIMARY_HOST_MATCH mode is retained only for one primary-host dial whose web-bound intersection is also exactly one; multiple primary-host dials with exactly one web-bound member use UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM.",
+    "A global fallback is permitted only when the exact-primary-host match count is zero and exactly one well-formed Caddy reverse-proxy dial is a per-network DNS alias of the single running Compose web container on a Docker network shared with Caddy.",
+    "Zero or multiple primary-host web-bound intersections, a global fallback with zero or multiple web-bound dials, a network-unrelated alias, or any selected dial that is not web-bound must fail before backup or mutation.",
+    "Unrelated Caddy upstreams may coexist but no upstream value, alias, network, container ID, working path or secret may reach Actions output, artifacts, summaries or issue comments.",
+    "Readiness may publish only validated numeric cardinalities or UNKNOWN for exact matches, dial format, network intersection, alias binding and current-IP binding; it must never publish the underlying values.",
+    "An already-enabled control route may return no-op success only when its persistent Compose wiring and sole marked reverse_proxy dial are revalidated against the newly selected current web upstream.",
+    "The original production Compose files remain unedited; the previously authorized fixed additive override is the only permitted gate-wiring repair.",
+    "The current immutable web image ID and exact OCI revision f1f2a094e78bf9949ca35883c627a7ed5ce70086 remain unchanged; only web may be recreated and every non-web container ID, including Caddy, remains unchanged.",
+    "Candidate Compose and Caddy configuration validate before mutation; internal and external rollback semantics remain unchanged.",
+    "Candidate Caddy validation streams the candidate through stdin to a validation process in the existing Caddy container with its current environment and read-only configuration mounts; it writes no candidate into the live mount and performs no reload.",
+    "Every public-acceptance round persists only normalized HTTP status codes, bounded redirect and exact-revision classifications, plus the first bounded failed-check name; certificate details, response bodies, headers, URLs, topology and secrets stay outside the uploaded artifact.",
+    "Any nonzero curl exit status normalizes to status 000 and fails closed even when curl emitted an HTTP code or partial response; the ten-round criteria and every existing route-isolation assertion remain unchanged or stricter.",
+    "The deployed application source at the exact OCI revision permanently redirects the primary root to /platform-v7; acceptance therefore requires an exact HTTP 308, exactly one Location header whose value case-sensitively equals /platform-v7 or the exact canonical absolute URL, a bounded PLATFORM_V7 target classification, and a direct primary /platform-v7 HTTP 200.",
+    "No nonexistent public version endpoint is treated as revision evidence; exact revision acceptance is bound to the selected running Web container OCI label and the fixed deployed application revision before public probing.",
+    "Authenticated rollback emits only a bounded stage enum, restores the original Caddy and environment state before recreating web, and allows sixty direct primary /platform-v7 checks with a five-second transfer cap inside a sixty-minute job without weakening the required final HTTP 200 result.",
+    "Ten consecutive public acceptance rounds remain mandatory before success is published.",
+    "GO remains forbidden until reviewer MFA, First Customer and all 9 of 9 role journeys pass."
+  ],
+  "acceptance": [
+    "Workflow YAML and all embedded remote Bash scripts parse before merge.",
+    "The candidate validator uses caddy validate with stdin, the explicit caddyfile adapter and /etc/caddy as its working directory so existing imports and environment substitutions are evaluated without a production config write.",
+    "Static workflow checks prove every curl-derived status is normalized before evidence or assertion, the failure artifact contains only an approved bounded enum, and a transport failure cannot satisfy a deny-route assertion.",
+    "Static workflow checks prove the exact deployed root source contains permanentRedirect('/platform-v7'), primary root is accepted only as 308 with exactly one case-sensitive canonical Location value classified as PLATFORM_V7, and direct primary /platform-v7 must return HTTP 200.",
+    "Static workflow checks prove no /version.json probe remains, exact OCI revision equality is mandatory, and rollback records INPUT, remote restore, web verification and primary-health stages without publishing protected values while still requiring direct primary /platform-v7 HTTP 200.",
+    "Static positive and negative fixtures prove a primary route with one web dial plus unrelated backend dials selects only the web-bound intersection, while zero, two, and wrong-network web-bound candidates fail closed.",
+    "A read-only readiness run publishes enough redacted cardinality evidence to distinguish exact-match ambiguity, malformed dials, absent shared networks, alias mismatch and current-IP coupling without publishing topology.",
+    "Read-only readiness reaches a READY_*_UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM_BEFORE_BACKUP or READY_*_UNIQUE_WEB_BOUND_UPSTREAM_BEFORE_BACKUP state without publishing topology.",
+    "The guarded cutover reports PRIMARY_HOST_MATCH, UNIQUE_PRIMARY_WEB_BOUND_UPSTREAM or UNIQUE_WEB_BOUND_UPSTREAM and passes TLS, control-login, host-isolation, parent redirect, API denial, exact-revision and primary-domain checks for 10 of 10 rounds.",
+    "Any pre-acceptance failure is either no-mutation or internally rolled back; any public-acceptance failure invokes the authenticated external rollback."
+  ]
+}

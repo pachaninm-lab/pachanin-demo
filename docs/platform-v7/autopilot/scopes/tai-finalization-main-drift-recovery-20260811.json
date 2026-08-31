@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-finalization-main-drift-recovery-20260811",
+  "status": "active",
+  "title": "TAI exact activation finalization under main drift",
+  "priority": "P0",
+  "baselineExactMain": "10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d",
+  "objective": "Close the proven activation run 31478303771 safely after main advanced during its long hosted acceptance, and prevent the same exact-SHA finalization race from recurring without weakening current-main activation authority.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-finalization-recovery-command.yml",
+    ".github/workflows/tai-owner-finalization-recovery-diagnostic.yml",
+    "scripts/pc-tai-release-controller.sh",
+    "scripts/pc-tai-release-controller-core.sh",
+    "scripts/check-pc-tai-release-controller.mjs",
+    "scripts/check-tai-finalization-main-drift-recovery.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-20260811.json"
+  ],
+  "boundaries": [
+    "Preflight and activation must still target the exact current main at their start; only finalization may operate on the activation target after main advances",
+    "A stale-target accept is permitted only when the activation target is an ancestor of current main, the exact controller job state still names that target, activation evidence passed, hosted acceptance passed, and live API, web and TAI revisions still equal that target",
+    "Any divergent target, missing state, failed or skipped acceptance, changed live revision, malformed evidence or unverified controller digest fails closed",
+    "The one-time recovery command is owner-only and fixed to activation run 31478303771 and target b57b1e4e6c50e01acefc1a1da0deea05a0099a92",
+    "The recovery diagnostic command is owner-only, read-only and fixed to the same activation target; it may list only the bounded recovery workflow runs and job conclusions, download only failed job logs, redact secret-like content and publish only a bounded diagnosis to issue 3365",
+    "Recovery diagnostics may not write commit statuses, deploy, connect to REG.RU, read repository secrets, mutate application, Docker, database or model state, or widen runner authority",
+    "The recovery may atomically synchronize only the exact current root-controller wrapper through the existing bounded controller-sync script, then write the already-proven final acceptance marker and bounded evidence",
+    "The recovery must not run application deployment, Docker mutation, database mutation, model mutation, rollback, migration, inbound production SSH from the restricted runner, or widen runner sudo/Docker authority",
+    "Provider timeout, response budgets, HMAC signing, private model transport, semantic acceptance, rollback scripts and hosted Chromium criteria remain unchanged",
+    "No Netlify, Vercel, Railway or paid LLM dependency is introduced",
+    "New recurring cost is 0 RUB"
+  ],
+  "productionEvidence": {
+    "activationRun": 31478303771,
+    "targetSha": "b57b1e4e6c50e01acefc1a1da0deea05a0099a92",
+    "activationJob": 93737449372,
+    "hostedAcceptanceJob": 93738361753,
+    "failedFinalizationJob": 93746092416,
+    "failureCode": "TARGET_IS_NOT_CURRENT_MAIN",
+    "currentMainAtFailure": "10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d"
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

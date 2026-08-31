@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { IDENTITY_AUTHORITY, normalizePublicQwenAssessment } from './tai-public-assessment-contract.mjs';
 
 const liveBase = process.env.LIVE_BASE;
 const targetSha = process.env.TARGET_SHA;
@@ -401,15 +402,18 @@ try {
       answerCharacters: answer.length,
       source: assessment?.source ?? null,
       answerMode: assessment?.answerMode ?? null,
-      modelIdentity: assessment?.modelIdentity ?? null,
+      // Identity is not published on the public contour; see the contract module.
+      identityAuthority: IDENTITY_AUTHORITY,
+      publicModelIdentityExposed: false,
       streamComplete: done?.event === 'done' && done.complete === true,
       status: 'PENDING',
     };
     evidence.push(row);
-    if (!assessment) throw new Error(`${testCase.id}_assessment_missing`);
-    if (assessment.source !== 'local_qwen') throw new Error(`${testCase.id}_source_invalid:${assessment.source}`);
-    if (assessment.modelIdentity !== 'tai-qwen3-8b-q4km') throw new Error(`${testCase.id}_model_identity_invalid`);
-    if (assessment.answerMode !== 'general_agro') throw new Error(`${testCase.id}_answer_mode_invalid:${assessment.answerMode}`);
+    const verified = normalizePublicQwenAssessment(assessment, testCase.id);
+    row.streaming = verified.streaming;
+    row.finishReason = verified.finishReason;
+    row.truncated = verified.truncated;
+    row.safetyFlags = verified.safetyFlags;
     if (done?.event !== 'done' || done.complete !== true) throw new Error(`${testCase.id}_stream_incomplete`);
     row.matchedTerms = assertAgriculturalAnswer(answer, testCase, 'endpoint');
     row.status = 'PASS';
@@ -420,7 +424,7 @@ try {
   await hidden.evaluate(node => node.click());
   const dialog = page.locator('#pc-public-assistant-panel');
   await dialog.waitFor({ state: 'visible', timeout: 30_000 });
-  const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
+  const composer = dialog.getByRole('textbox', { name: 'Спроси Гекту о земле, урожае или агробизнесе' });
 
   const answeredMessages = dialog.locator(
     '.pc-public-assistant-message[data-role="assistant"][data-stream-status="answered"]',

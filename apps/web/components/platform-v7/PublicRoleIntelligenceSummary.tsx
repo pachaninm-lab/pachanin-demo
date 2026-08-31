@@ -62,7 +62,7 @@ export function PublicRoleIntelligenceSummary({ perspective, locale }: { perspec
       className='pc-public-role-intelligence'
       onClick={() => trackEvent('role_intelligence_opened', { role: perspective, locale: localeKey, source: 'home_role_card' })}
     >
-      <b><Sparkles size={13} aria-hidden='true' />TAI</b>
+      <b><Sparkles size={13} aria-hidden='true' />{localeKey === 'ru' ? 'Гекта' : 'Gekta'}</b>
       <small>{text} →</small>
     </span>
   );

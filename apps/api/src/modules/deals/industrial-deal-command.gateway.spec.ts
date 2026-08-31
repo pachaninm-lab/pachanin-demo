@@ -17,8 +17,9 @@ const BUYER: RequestUser = {
   id: 'user-buyer-001',
   email: 'buyer@demo.ru',
   role: Role.BUYER,
-  orgId: 'untrusted-token-org',
+  orgId: DEAL.buyerOrgId,
   tenantId: DEAL.tenantId,
+  membershipId: 'membership-buyer-001',
   sessionId: 'session-buyer-001',
 };
 
@@ -51,6 +52,9 @@ function outboxRows(count: number) {
 
 function fixture() {
   const tx = {
+    userOrg: {
+      findFirst: jest.fn().mockResolvedValue({ id: BUYER.membershipId }),
+    },
     dealParticipant: {
       findFirst: jest.fn().mockResolvedValue({
         id: 'participant-buyer-001',
@@ -75,16 +79,6 @@ function fixture() {
     },
   };
   const prisma = {
-    userOrg: {
-      findMany: jest.fn().mockResolvedValue([
-        {
-          userId: BUYER.id,
-          organizationId: DEAL.buyerOrgId,
-          role: Role.BUYER,
-          isDefault: true,
-        },
-      ]),
-    },
     // Bank-callback scope resolution: the SECURITY DEFINER binding
     // (dealId, operationId) → (tenant, buyer org) replaces hardcoded values.
     $queryRaw: jest.fn().mockResolvedValue([
@@ -120,11 +114,20 @@ function fixture() {
 }
 
 describe('IndustrialDealCommandGateway', () => {
-  it('derives tenant, organization and role from DB membership plus active DealParticipant', async () => {
+  it('uses the exact server-verified session membership plus active DealParticipant', async () => {
     const test = fixture();
 
     await test.gateway.workspace(CANONICAL_TEST_DEAL_ID, BUYER);
 
+    expect(test.tx.userOrg.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: BUYER.membershipId,
+        userId: BUYER.id,
+        organizationId: DEAL.buyerOrgId,
+        role: Role.BUYER,
+      },
+      select: { id: true },
+    });
     expect(test.tx.dealParticipant.findFirst).toHaveBeenCalledWith({
       where: {
         dealId: CANONICAL_TEST_DEAL_ID,
@@ -147,6 +150,8 @@ describe('IndustrialDealCommandGateway', () => {
         role: Role.BUYER,
         orgId: DEAL.buyerOrgId,
         tenantId: DEAL.tenantId,
+        membershipId: BUYER.membershipId,
+        sessionId: BUYER.sessionId,
       }),
     );
   });
@@ -161,6 +166,17 @@ describe('IndustrialDealCommandGateway', () => {
     expect(test.commands.workspace).not.toHaveBeenCalled();
   });
 
+  it('fails closed when the verified session membership is absent', async () => {
+    const test = fixture();
+    test.tx.userOrg.findFirst.mockResolvedValueOnce(null);
+
+    await expect(test.gateway.workspace(CANONICAL_TEST_DEAL_ID, BUYER)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(test.tx.dealParticipant.findFirst).not.toHaveBeenCalled();
+    expect(test.commands.workspace).not.toHaveBeenCalled();
+  });
+
   it('fails closed when verified session tenant is absent', async () => {
     const test = fixture();
     const withoutTenant = { ...BUYER, tenantId: undefined };
@@ -168,7 +184,7 @@ describe('IndustrialDealCommandGateway', () => {
     await expect(test.gateway.workspace(CANONICAL_TEST_DEAL_ID, withoutTenant)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
-    expect(test.prisma.userOrg.findMany).not.toHaveBeenCalled();
+    expect(test.tx.userOrg.findFirst).not.toHaveBeenCalled();
   });
 
   it('rejects a human request to confirm reserve or release before any command write', async () => {
@@ -185,7 +201,7 @@ describe('IndustrialDealCommandGateway', () => {
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'BANK_CALLBACK_REQUIRED' }),
     });
-    expect(test.prisma.userOrg.findMany).not.toHaveBeenCalled();
+    expect(test.tx.userOrg.findFirst).not.toHaveBeenCalled();
     expect(test.commands.execute).not.toHaveBeenCalled();
   });
 
@@ -217,6 +233,8 @@ describe('IndustrialDealCommandGateway', () => {
     expect(forwardedUser).toMatchObject({
       orgId: DEAL.buyerOrgId,
       tenantId: DEAL.tenantId,
+      membershipId: BUYER.membershipId,
+      sessionId: BUYER.sessionId,
     });
     expect(test.prisma).not.toHaveProperty('outboxEntry');
   });
@@ -299,6 +317,7 @@ describe('IndustrialDealCommandGateway', () => {
 
       await test.gateway.integrationStatus(CANONICAL_TEST_DEAL_ID, BUYER);
 
+      expect(test.tx.userOrg.findFirst).toHaveBeenCalled();
       expect(test.tx.dealParticipant.findFirst).toHaveBeenCalled();
       expect(test.rls.withTrustedContext).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -306,6 +325,8 @@ describe('IndustrialDealCommandGateway', () => {
           role: Role.BUYER,
           orgId: DEAL.buyerOrgId,
           tenantId: DEAL.tenantId,
+          membershipId: BUYER.membershipId,
+          sessionId: BUYER.sessionId,
         }),
         expect.any(Function),
       );

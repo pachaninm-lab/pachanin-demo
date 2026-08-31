@@ -4,27 +4,28 @@ import {
   Controller,
   Headers,
   Post,
+  Req,
+  Res,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { GatewayStreamWriter } from './ai-assistant-stream.contract';
 import { Public } from '../../common/decorators/public.decorator';
+import { stripInternalModelTrace } from './restricted-public-qwen.internal-trace';
 import {
   RestrictedPublicQwenService,
   type RestrictedPublicQwenResponse,
 } from './restricted-public-qwen.service';
 
+// Re-exported so callers and tests keep one import site for the removal rule.
+export { stripInternalModelTrace };
+
 const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const MAX_CLOCK_SKEW_SECONDS = 90;
 const INTERNAL_PATH = '/internal/tai/public-generate';
+export const INTERNAL_STREAM_PATH = '/internal/tai/public-generate-stream';
 const PRIVATE_PUBLIC_SOURCE = /^\/platform-v7\/(?:deals|staff|admin|operator|buyer|seller|bank|logistics|driver|elevator|laboratory|surveyor|compliance|arbitrator|executive)(?:\/|$)/u;
-const INTERNAL_TAG_BLOCK = /<\s*(think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/giu;
-const INTERNAL_TAG_TAIL = /<\s*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b[^>]*>[\s\S]*$/iu;
-const INTERNAL_FENCE_BLOCK = /```[ \t]*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b[^\n]*\n[\s\S]*?```/giu;
-const INTERNAL_CHANNEL_WITH_FINAL = /<\|channel\|>\s*(?:analysis|reasoning|commentary|tool)\s*<\|message\|>[\s\S]*?(?=<\|channel\|>\s*final\s*<\|message\|>)/giu;
-const INTERNAL_CHANNEL_TAIL = /<\|channel\|>\s*(?:analysis|reasoning|commentary|tool)\s*<\|message\|>[\s\S]*$/iu;
-
-const INTERNAL_MARKER = /(?:<\s*\/?\s*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b|```[ \t]*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b|<\|channel\|>\s*(?:analysis|reasoning|commentary|tool|final)\b)/iu;
 
 type HeaderMap = Record<string, string | string[] | undefined>;
 
@@ -42,33 +43,127 @@ export class RestrictedPublicQwenController {
     verifyPublicSourceBoundary(body);
     return this.qwen.generate(body).then(redactPublicModelInternals);
   }
-}
 
-export function stripInternalModelTrace(value: string): string {
-  let result = typeof value === 'string' ? value : '';
-  if (!result || !INTERNAL_MARKER.test(result)) return result.trim();
+  /**
+   * The incremental form of the same answer.
+   *
+   * It speaks the gateway stream contract rather than an internal dialect of its
+   * own, so the boundary that relays it validates frames with the same function
+   * that produced them. A second "almost the same" wire format between these two
+   * processes is how a field the public contour forbids eventually crosses it.
+   */
+  @Public()
+  @Post('public-generate-stream')
+  async generateStream(
+    @Body() body: unknown,
+    @Headers() headers: HeaderMap,
+    @Res() response: InternalStreamResponse,
+    @Req() request: InternalStreamRequest,
+  ): Promise<void> {
+    const streamId = randomUUID();
+    let authorized = false;
+    try {
+      verifyInternalSignature(body, headers, Math.floor(Date.now() / 1_000), process.env, INTERNAL_STREAM_PATH);
+      verifyPublicSourceBoundary(body);
+      authorized = true;
+    } catch (error) {
+      // Authorization failures answer with a status, not a stream: an
+      // unauthenticated caller must not learn the shape of the contour by
+      // reading refusal frames off a 200.
+      const status = error instanceof UnauthorizedException ? 401
+        : error instanceof BadRequestException ? 400
+          : 503;
+      response.status(status);
+      response.setHeader('Content-Type', 'application/json; charset=utf-8');
+      response.write(JSON.stringify({ message: 'Restricted public stream refused the request.' }));
+      response.end();
+    }
+    if (!authorized) return;
 
-  for (let pass = 0; pass < 4; pass += 1) {
-    const next = result.replace(INTERNAL_TAG_BLOCK, ' ');
-    if (next === result) break;
-    result = next;
+    response.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    response.setHeader('Cache-Control', 'no-store, no-transform');
+    response.setHeader('Connection', 'keep-alive');
+    response.setHeader('X-Accel-Buffering', 'no');
+    response.flushHeaders?.();
+
+    const writer = new GatewayStreamWriter((chunk) => response.write(chunk), 'public', streamId);
+    const aborter = new AbortController();
+    // IncomingMessage 'close' means the request body completed on modern Node;
+    // it is not a reliable client-disconnect signal. Aborting there races with
+    // normal POST completion and can kill a healthy llama.cpp stream before its
+    // first token. The underlying socket closing is the actual transport loss.
+    const onClientDisconnect = () => {
+      aborter.abort();
+      writer.abandon();
+    };
+    request.socket.on('close', onClientDisconnect);
+
+    try {
+      for await (const event of this.qwen.generateStream(body, aborter.signal)) {
+        if (writer.state.sealed) break;
+        if (event.type === 'meta') {
+          if (!writer.emit({ event: 'meta', mode: 'public', modelIdentity: event.modelIdentity })) break;
+          continue;
+        }
+        if (event.type === 'delta') {
+          // A late removal pass over each committed block. The gate already
+          // stripped internal traces; this refuses to forward anything that
+          // survived rather than trusting a single boundary.
+          const text = stripInternalModelTrace(event.text);
+          if (!text) continue;
+          if (!writer.emit({ event: 'token', text })) break;
+          continue;
+        }
+        writer.emit({
+          event: 'assessment',
+          summary: JSON.stringify({
+            modelIdentity: event.modelIdentity,
+            answerMode: event.answerMode,
+            latencyMs: event.latencyMs,
+            promptTokens: event.promptTokens,
+            completionTokens: event.completionTokens,
+            finishReason: event.finishReason,
+            truncated: event.truncated,
+            safetyFlags: event.safetyFlags,
+          }),
+          operationalStatus: 'NOT_ATTESTED',
+        });
+        writer.complete();
+      }
+      // A generator that ended without a `done` event never reached a complete
+      // answer, so the stream is invalidated rather than left looking finished.
+      if (!writer.state.sealed) writer.fail('UPSTREAM_ERROR', 'The restricted public stream ended without an answer.');
+    } catch (error) {
+      writer.fail(
+        aborter.signal.aborted ? 'CANCELLED' : 'UPSTREAM_ERROR',
+        error instanceof ServiceUnavailableException || error instanceof BadRequestException
+          ? 'The restricted public model could not complete the answer.'
+          : 'The restricted public stream failed.',
+      );
+    } finally {
+      request.socket.off('close', onClientDisconnect);
+      aborter.abort();
+      response.end();
+    }
   }
-
-  result = result
-    .replace(INTERNAL_FENCE_BLOCK, ' ')
-    .replace(INTERNAL_CHANNEL_WITH_FINAL, ' ')
-    .replace(INTERNAL_CHANNEL_TAIL, ' ')
-    .replace(INTERNAL_TAG_TAIL, ' ')
-    .replace(/<\|channel\|>\s*final\s*<\|message\|>/giu, ' ')
-    .replace(/<\|[^|>\r\n]{1,64}\|>/gu, ' ')
-    .replace(/<\s*\/?\s*(?:think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug)\b[^>]*>/giu, ' ')
-    .replace(/[ \t]+/gu, ' ')
-    .replace(/ *\n */gu, '\n')
-    .replace(/\n{3,}/gu, '\n\n')
-    .trim();
-
-  return result;
 }
+
+/** The two response members the streaming endpoint needs, declared locally. */
+export interface InternalStreamResponse {
+  status(code: number): unknown;
+  setHeader(name: string, value: string): unknown;
+  flushHeaders?(): unknown;
+  write(chunk: string): unknown;
+  end(): unknown;
+}
+
+export interface InternalStreamRequest {
+  socket: {
+    on(event: 'close', listener: () => void): unknown;
+    off(event: 'close', listener: () => void): unknown;
+  };
+}
+
 
 export function redactPublicModelInternals(
   response: RestrictedPublicQwenResponse,
@@ -90,8 +185,9 @@ export function redactPublicModelInternals(
 export function verifyInternalSignature(
   body: unknown,
   headers: HeaderMap,
-  nowSeconds = Math.floor(Date.now() / 1_000),
+  nowSeconds: number = Math.floor(Date.now() / 1_000),
   environment: NodeJS.ProcessEnv = process.env,
+  path: string = INTERNAL_PATH,
 ): void {
   const secret = (environment.TAI_PUBLIC_GATEWAY_HMAC_SECRET || '').trim();
   if (secret.length < 32) {
@@ -111,7 +207,7 @@ export function verifyInternalSignature(
   }
 
   const bodyHash = createHash('sha256').update(canonicalJson(body), 'utf8').digest('hex');
-  const signed = [SIGNATURE_VERSION, 'POST', INTERNAL_PATH, timestampText, bodyHash].join('\n');
+  const signed = [SIGNATURE_VERSION, 'POST', path, timestampText, bodyHash].join('\n');
   const expected = createHmac('sha256', secret).update(signed, 'utf8').digest('hex');
   const actualBuffer = Buffer.from(signature, 'hex');
   const expectedBuffer = Buffer.from(expected, 'hex');

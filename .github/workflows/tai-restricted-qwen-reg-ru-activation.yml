@@ -8,6 +8,7 @@ on:
       - ".github/workflows/tai-reg-ru-deploy.yml"
       - ".github/workflows/tai-reg-ru-preflight.yml"
       - ".github/workflows/tai-reg-ru-preflight-owner-command.yml"
+      - ".github/workflows/tai-automatic-reg-ru-preflight.yml"
       - "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
       - "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
       - "apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts"
@@ -16,13 +17,19 @@ on:
       - "scripts/pc-tai-release-controller.sh"
       - "scripts/pc-tai-release-controller-core.sh"
       - "scripts/tai-restricted-qwen-reg-ru-activate.sh"
+      - "scripts/tai-public-assessment-contract.mjs"
+      - "scripts/tai-conversation-subject-contract.mjs"
       - "scripts/tai-live-public-ai-acceptance.mjs"
       - "scripts/tai-potato-mobile-live-acceptance.mjs"
       - "scripts/install-pc-prod-actions-runner.sh"
       - "scripts/check-pc-tai-release-controller.mjs"
+      - "scripts/check-pc-release-authority-boundary.mjs"
+      - "scripts/install-pc-prod-actions-runner.sh"
+      - "scripts/resume-pc-prod-actions-runner.sh"
       - "scripts/check-tai-local-model-key-authority.mjs"
       - "scripts/check-tai-reg-ru-release-chain.mjs"
       - "scripts/check-tai-owner-activation-command.mjs"
+      - "scripts/check-tai-automatic-release-chain.mjs"
       - "scripts/select-tai-owner-preflight-run.mjs"
       - "scripts/check-tai-owner-preflight-run-selection.mjs"
       - "scripts/verify-tai-upstream-workflow-jobs.mjs"
@@ -35,6 +42,7 @@ on:
       - "docs/platform-v7/autopilot/scopes/tai-owner-activation-dispatch-bridge-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-potato-direct-route-activation-20260803.json"
       - "docs/platform-v7/autopilot/scopes/tai-general-agro-completeness-20260803.json"
+      - "docs/platform-v7/autopilot/scopes/tai-automatic-exact-release-chain-20260806.json"
   workflow_dispatch:
     inputs:
       target_sha:
@@ -46,11 +54,11 @@ on:
         required: true
         type: string
       upstream_run_id:
-        description: Exact successful owner preflight run ID
+        description: Exact successful REG.RU preflight run ID
         required: true
         type: string
       upstream_run_attempt:
-        description: Exact successful owner preflight run attempt
+        description: Exact successful REG.RU preflight run attempt
         required: true
         type: string
 
@@ -106,20 +114,55 @@ jobs:
           [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$UPSTREAM_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
-          gh api -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" > "$RUNNER_TEMP/preflight-run.json"
-          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
-            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" 'TAI Owner REG.RU Preflight' "$GITHUB_REPOSITORY"
-          node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
+          terminal=0
+          for attempt in $(seq 1 60); do
+            gh api -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}" \
+              > "$RUNNER_TEMP/preflight-run.json"
+            status="$(node - "$RUNNER_TEMP/preflight-run.json" <<'NODE'
+          const fs = require('node:fs');
+          const run = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          process.stdout.write(String(run.status || ''));
+          NODE
+            )"
+            if [[ "$status" == completed ]]; then terminal=1; break; fi
+            sleep 5
+          done
+          (( terminal == 1 )) || { echo 'REG.RU preflight did not reach a terminal state.' >&2; exit 4; }
+          preflight_kind="$(node - "$RUNNER_TEMP/preflight-run.json" "$OWNER" <<'NODE'
           const fs = require('node:fs');
           const [path, owner] = process.argv.slice(2);
           const run = JSON.parse(fs.readFileSync(path, 'utf8'));
-          if (
-            run.event !== 'issue_comment'
-            || run.actor?.login !== owner
-            || run.triggering_actor?.login !== owner
-          ) process.exit(3);
+          if (run.name === 'TAI Automatic REG.RU Preflight') {
+            const allowedActors = new Set([owner, 'github-actions[bot]']);
+            const actor = run.actor?.login;
+            const triggeringActor = run.triggering_actor?.login || actor;
+            if (
+              run.event !== 'workflow_run'
+              || run.head_branch !== 'main'
+              || !allowedActors.has(actor)
+              || !allowedActors.has(triggeringActor)
+            ) process.exit(3);
+            process.stdout.write('automatic');
+          } else if (run.name === 'TAI Owner REG.RU Preflight') {
+            if (
+              run.event !== 'issue_comment'
+              || run.actor?.login !== owner
+              || run.triggering_actor?.login !== owner
+            ) process.exit(3);
+            process.stdout.write('owner');
+          } else {
+            process.exit(3);
+          }
           NODE
+          )"
+          case "$preflight_kind" in
+            automatic) upstream_name='TAI Automatic REG.RU Preflight' ;;
+            owner) upstream_name='TAI Owner REG.RU Preflight' ;;
+            *) echo 'Unrecognized REG.RU preflight authority.' >&2; exit 3 ;;
+          esac
+          node scripts/verify-tai-upstream-workflow-jobs.mjs --run "$RUNNER_TEMP/preflight-run.json" \
+            "$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" "$upstream_name" "$GITHUB_REPOSITORY"
           gh api -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}/attempts/${UPSTREAM_RUN_ATTEMPT}/jobs?per_page=100" \
             > "$RUNNER_TEMP/preflight-jobs.json"
@@ -157,13 +200,17 @@ jobs:
           bash -n scripts/pc-tai-release-controller-core.sh
           bash -n scripts/tai-restricted-qwen-reg-ru-activate.sh
           bash -n scripts/install-pc-prod-actions-runner.sh
+          node --check scripts/tai-public-assessment-contract.mjs
+          node --check scripts/tai-conversation-subject-contract.mjs
           node --check scripts/tai-live-public-ai-acceptance.mjs
           node --check scripts/tai-potato-mobile-live-acceptance.mjs
           node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-pc-release-authority-boundary.mjs
           node scripts/check-tai-local-model-key-authority.mjs
           node scripts/check-tai-reg-ru-release-chain.mjs
           node scripts/check-tai-owner-activation-command.mjs
           node scripts/check-tai-owner-preflight-run-selection.mjs
+          node scripts/check-tai-automatic-release-chain.mjs
 
   image_authority:
     name: Exact-main API, web and migration image authority
@@ -260,6 +307,22 @@ jobs:
           if docker version >/dev/null 2>&1; then exit 21; fi
           sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
           [[ "$CONTROLLER_RUN_ID" =~ ^[0-9]{2,20}$ ]]
+          # Assert the boundary before relying on it. Three different scripts have
+          # written this path with disagreeing modes, and when one regressed it the
+          # failure surfaced as an opaque EACCES from `install` that read like a
+          # model or SSE defect. Naming the actual state turns the next regression
+          # into one line instead of a multi-run investigation.
+          state_root_mode="$(stat -c '%U:%G:%a' /var/lib/pc-release-authority)"
+          input_root_mode="$(stat -c '%U:%G:%a' /var/lib/pc-release-authority/runner-input)"
+          if [[ "$state_root_mode" != 'root:pcactions:710' ]]; then
+            echo "Release-authority root is ${state_root_mode}, expected root:pcactions:710." >&2
+            echo 'A writer regressed the shared boundary; the runner cannot traverse to runner-input.' >&2
+            exit 24
+          fi
+          if [[ "$input_root_mode" != 'root:pcactions:730' ]]; then
+            echo "runner-input is ${input_root_mode}, expected root:pcactions:730." >&2
+            exit 25
+          fi
           input="/var/lib/pc-release-authority/runner-input/${CONTROLLER_RUN_ID}"
           [[ ! -e "$input" ]] || { echo 'Attempt-scoped controller input already exists.' >&2; exit 23; }
           install -d -m 0700 "$input"
@@ -341,6 +404,10 @@ jobs:
     needs: [image_authority, activate]
     if: needs.activate.result == 'success'
     runs-on: ubuntu-24.04
+    # The matrix drives roughly forty live generations against the local model.
+    # Generous for that, and bounded so a hung panel fails in an hour rather
+    # than holding the release open for the six-hour default.
+    timeout-minutes: 120
     permissions:
       contents: read
     steps:
@@ -358,6 +425,11 @@ jobs:
           npm init -y >/dev/null
           npm install --no-audit --no-fund --ignore-scripts playwright@1.59.1 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
+          # Both scripts import the assessment contract by relative path, so it
+          # must land beside them here — they run from this scratch directory,
+          # not from the checkout.
+          cp "$GITHUB_WORKSPACE/scripts/tai-public-assessment-contract.mjs" "$work/tai-public-assessment-contract.mjs"
+          cp "$GITHUB_WORKSPACE/scripts/tai-conversation-subject-contract.mjs" "$work/tai-conversation-subject-contract.mjs"
           cp "$GITHUB_WORKSPACE/scripts/tai-live-public-ai-acceptance.mjs" "$work/acceptance.mjs"
           cp "$GITHUB_WORKSPACE/scripts/tai-potato-mobile-live-acceptance.mjs" "$work/potato-acceptance.mjs"
           LIVE_BASE="$LIVE_BASE" node "$work/acceptance.mjs"

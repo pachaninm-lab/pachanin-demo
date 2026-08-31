@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: tai-owner-direct-preflight-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   upstream_build_gate:
@@ -112,6 +112,7 @@ jobs:
           bash -n scripts/resume-pc-prod-actions-runner.sh
           node scripts/check-resume-pc-prod-actions-runner.mjs
           node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-pc-release-authority-boundary.mjs
           node scripts/check-tai-reg-ru-preflight.mjs
           node scripts/check-tai-reg-ru-release-chain.mjs
           node scripts/check-tai-bootstrap-preflight.mjs
@@ -202,6 +203,8 @@ jobs:
       packages: none
       statuses: none
     timeout-minutes: 35
+    outputs:
+      evidence_json: ${{ steps.evidence.outputs.json }}
     env:
       TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
       TARGET_SHORT: ${{ needs.image_authority.outputs.target_short }}
@@ -223,20 +226,36 @@ jobs:
           set -Eeuo pipefail
           sudo -n /usr/local/sbin/pc-tai-release-controller \
             preflight "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"
-      - name: Upload redacted preflight evidence
+      - name: Export bounded redacted preflight evidence
+        id: evidence
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-reg-ru-preflight-${{ env.TARGET_SHORT }}-${{ github.run_id }}
-          path: /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/preflight.json
-          if-no-files-found: error
-          retention-days: 30
+        run: |
+          set -Eeuo pipefail
+          report="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/preflight.json"
+          [[ -s "$report" ]]
+          python3 - "$report" "$GITHUB_OUTPUT" <<'PY'
+          import json
+          import sys
+
+          report_path, output_path = sys.argv[1:]
+          raw = open(report_path, 'rb').read()
+          if not raw or len(raw) > 65536:
+              raise SystemExit('redacted preflight evidence size is outside the 1..65536 byte boundary')
+          payload = json.loads(raw.decode('utf-8'))
+          if not isinstance(payload, dict) or payload.get('schemaVersion') != 'tai.reg-ru.preflight.v1':
+              raise SystemExit('redacted preflight evidence schema is invalid')
+          canonical = json.dumps(payload, ensure_ascii=True, separators=(',', ':'))
+          if '\n' in canonical or '\r' in canonical or len(canonical.encode('utf-8')) > 65536:
+              raise SystemExit('canonical redacted preflight evidence is invalid')
+          with open(output_path, 'a', encoding='utf-8') as output:
+              output.write(f'json={canonical}\n')
+          PY
       - name: Enforce strict or bootstrap-eligible preflight result
         if: always()
         run: |
           set -Eeuo pipefail
           python3 - "/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/preflight.json" "$TARGET_SHA" <<'PY'
-          import json, re, sys
+          import json, sys
           path, expected_sha = sys.argv[1:]
           report = json.load(open(path, encoding='utf-8'))
           if report.get('schemaVersion') != 'tai.reg-ru.preflight.v1': raise SystemExit('schema mismatch')
@@ -252,69 +271,184 @@ jobs:
           required = {
             'COMPOSE_AUTHORITY_READY','PROTECTED_COMPOSE_READABLE','CORE_TOPOLOGY_READY',
             'API_WEB_RUNTIME_PRESENT','API_WEB_BASELINE_HEALTHY','ROLLBACK_BASELINE_IDENTIFIED',
-            'API_WEB_EXACT_MAIN','DOCKER_DISK_CAPACITY_READY','HOST_MEMORY_CAPACITY_READY',
+            'DOCKER_DISK_CAPACITY_READY','HOST_MEMORY_CAPACITY_READY',
             'EXISTING_LOCAL_MODEL_ENV_READY','API_TO_PRIVATE_MODEL_HEALTHY','TAI_RELATIONS_READY',
             'ACTIVE_KNOWLEDGE_READY','ACTIVE_MODEL_PROFILE_READY','ACTIVE_MODEL_IDENTITY_MATCHED',
             'NO_PRODUCTION_MUTATION_DETECTED',
           }
+          codes = {row.get('code') for row in checks if isinstance(row, dict)}
           passed = {row.get('code') for row in checks if isinstance(row, dict) and row.get('status') == 'PASS'}
           missing = sorted(required - passed)
           if missing: raise SystemExit(f'missing critical PASS: {missing}')
           if not blockers:
+            if 'API_WEB_NOT_EXACT_MAIN' in codes: raise SystemExit('strict evidence contains non-exact API/web authority')
+            if 'API_WEB_EXACT_MAIN' not in passed: raise SystemExit('strict API/web exact-main authority missing')
             if report.get('passed') is not True: raise SystemExit('strict report did not pass')
             print('STRICT_PASS')
             raise SystemExit(0)
-          bootstrap = sorted({
+          full_stack_bootstrap = sorted({
+            'API_WEB_NOT_EXACT_MAIN',
             'TAI_SERVICE_NOT_MATERIALIZED',
             'TAI_DEDICATED_ENV_NOT_MATERIALIZED',
             'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
           })
-          if blockers != bootstrap: raise SystemExit(f'unexpected blockers: {blockers}')
+          post_full_stack_bootstrap = sorted({
+            'TAI_SERVICE_NOT_MATERIALIZED',
+            'TAI_DEDICATED_ENV_NOT_MATERIALIZED',
+            'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
+          })
           if report.get('passed') is not False: raise SystemExit('bootstrap raw evidence must retain passed=false')
-          print('BOOTSTRAP_ELIGIBLE')
+          if blockers == full_stack_bootstrap:
+            if 'API_WEB_EXACT_MAIN' in codes: raise SystemExit('full-stack bootstrap also asserted API_WEB_EXACT_MAIN')
+            api_mismatch = next((row for row in checks if isinstance(row, dict) and row.get('code') == 'API_WEB_NOT_EXACT_MAIN'), None)
+            if not api_mismatch or api_mismatch.get('status') != 'BLOCKED': raise SystemExit('full-stack API/web mismatch authority missing')
+            print('FULL_STACK_BOOTSTRAP_ELIGIBLE')
+            raise SystemExit(0)
+          elif blockers == post_full_stack_bootstrap:
+            if 'API_WEB_NOT_EXACT_MAIN' in codes: raise SystemExit('post-full-stack evidence contains non-exact API/web authority')
+            if 'API_WEB_EXACT_MAIN' not in passed: raise SystemExit('post-full-stack exact API/web authority missing')
+            print('POST_FULL_STACK_BOOTSTRAP_ELIGIBLE')
+            raise SystemExit(0)
+          raise SystemExit(f'unexpected blockers: {blockers}')
           PY
 
   publish_status:
     name: Publish REG.RU preflight status
-    if: always() && needs.image_authority.outputs.target_sha != ''
-    needs: [image_authority, live_preflight]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai preflight current-main'
+    needs: [upstream_build_gate, contract, image_authority, live_preflight]
     runs-on: ubuntu-24.04
     permissions:
       actions: read
       contents: read
+      issues: write
       statuses: write
     steps:
+      - name: Resolve terminal target and stage
+        id: terminal
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_TARGET: ${{ needs.upstream_build_gate.outputs.target_sha }}
+          IMAGE_TARGET: ${{ needs.image_authority.outputs.target_sha }}
+          UPSTREAM_RESULT: ${{ needs.upstream_build_gate.result }}
+          CONTRACT_RESULT: ${{ needs.contract.result }}
+          IMAGE_RESULT: ${{ needs.image_authority.result }}
+          PREFLIGHT_RESULT: ${{ needs.live_preflight.result }}
+        run: |
+          set -Eeuo pipefail
+          current_sha="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$current_sha" =~ ^[0-9a-f]{40}$ ]]
+          target_sha="${IMAGE_TARGET:-${UPSTREAM_TARGET:-$current_sha}}"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || target_sha="$current_sha"
+          stage='REG_RU_PREFLIGHT_FAILED'
+          description='REG.RU controller execution failed before accepted evidence'
+          if [[ "$UPSTREAM_RESULT" != success ]]; then
+            stage='UPSTREAM_BUILD_GATE_FAILED'
+            description='Owner authority or exact-main resolution failed'
+          elif [[ "$CONTRACT_RESULT" != success ]]; then
+            stage='PREFLIGHT_CONTRACT_FAILED'
+            description='TAI preflight contract failed'
+          elif [[ "$IMAGE_RESULT" != success ]]; then
+            stage='IMAGE_AUTHORITY_FAILED'
+            description='Exact-main canonical TAI image unavailable or invalid'
+          elif [[ "$PREFLIGHT_RESULT" == success ]]; then
+            stage='PREFLIGHT_EVIDENCE_READY'
+            description='REG.RU preflight evidence ready for hosted verification'
+          fi
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "current_sha=$current_sha" >> "$GITHUB_OUTPUT"
+          echo "stage=$stage" >> "$GITHUB_OUTPUT"
+          echo "description=$description" >> "$GITHUB_OUTPUT"
+      - name: Materialize bounded redacted preflight evidence
+        if: needs.live_preflight.result == 'success'
+        env:
+          PREFLIGHT_EVIDENCE_JSON: ${{ needs.live_preflight.outputs.evidence_json }}
+        run: |
+          set -Eeuo pipefail
+          [[ -n "$PREFLIGHT_EVIDENCE_JSON" ]]
+          install -d -m 0700 "$RUNNER_TEMP/preflight"
+          python3 - "$PREFLIGHT_EVIDENCE_JSON" "$RUNNER_TEMP/preflight/preflight.json" <<'PY'
+          import json
+          import os
+          import sys
+
+          raw, report_path = sys.argv[1:]
+          if not raw or len(raw.encode('utf-8')) > 65536 or '\n' in raw or '\r' in raw:
+              raise SystemExit('transferred redacted preflight evidence is outside the boundary')
+          payload = json.loads(raw)
+          if not isinstance(payload, dict) or payload.get('schemaVersion') != 'tai.reg-ru.preflight.v1':
+              raise SystemExit('transferred redacted preflight evidence schema is invalid')
+          canonical = json.dumps(payload, ensure_ascii=True, separators=(',', ':'))
+          if canonical != raw:
+              raise SystemExit('transferred redacted preflight evidence is not canonical')
+          with open(report_path, 'w', encoding='utf-8') as report:
+              report.write(canonical)
+              report.write('\n')
+              report.flush()
+              os.fsync(report.fileno())
+          PY
       - uses: actions/checkout@v4
+        if: needs.live_preflight.result == 'success'
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: actions/download-artifact@v4
         if: needs.live_preflight.result == 'success'
         with:
-          name: tai-reg-ru-preflight-${{ needs.image_authority.outputs.target_short }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/preflight
-      - name: Publish exact-main preflight commit status
-        if: always()
+          node-version: 22
+      - name: Classify accepted preflight evidence
+        id: classify
+        if: needs.live_preflight.result == 'success'
         env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
-          LIVE_RESULT: ${{ needs.live_preflight.result }}
+          TARGET_SHA: ${{ steps.terminal.outputs.target_sha }}
         run: |
           set -Eeuo pipefail
           report="$RUNNER_TEMP/preflight/preflight.json"
+          state=failure
+          description='TAI REG.RU preflight evidence rejected'
+          classification='EVIDENCE_REJECTED'
+          blockers='[]'
+          if result="$(node scripts/verify-tai-preflight-report.mjs "$report" "$TARGET_SHA" --allow-bootstrap)"; then
+            state=success
+            description="$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.write(r.description)' "$result")"
+            classification="$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.write(r.classification)' "$result")"
+            blockers="$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.write(JSON.stringify(r.blockers))' "$result")"
+          fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+          echo "description=$description" >> "$GITHUB_OUTPUT"
+          echo "classification=$classification" >> "$GITHUB_OUTPUT"
+          echo "blockers=$blockers" >> "$GITHUB_OUTPUT"
+      - name: Publish exact-main preflight status and terminal evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.terminal.outputs.target_sha }}
+          CURRENT_SHA: ${{ steps.terminal.outputs.current_sha }}
+          STAGE: ${{ steps.terminal.outputs.stage }}
+          TERMINAL_DESCRIPTION: ${{ steps.terminal.outputs.description }}
+          CLASSIFY_STATE: ${{ steps.classify.outputs.state }}
+          CLASSIFY_DESCRIPTION: ${{ steps.classify.outputs.description }}
+          CLASSIFICATION: ${{ steps.classify.outputs.classification }}
+          BLOCKERS: ${{ steps.classify.outputs.blockers }}
+          UPSTREAM_RESULT: ${{ needs.upstream_build_gate.result }}
+          CONTRACT_RESULT: ${{ needs.contract.result }}
+          IMAGE_RESULT: ${{ needs.image_authority.result }}
+          PREFLIGHT_RESULT: ${{ needs.live_preflight.result }}
+        run: |
+          set -Eeuo pipefail
           state=error
-          description='REG.RU controller execution failed before evidence'
-          if [[ "$LIVE_RESULT" == success && -s "$report" ]]; then
-            if result="$(node scripts/verify-tai-preflight-report.mjs "$report" "$TARGET_SHA" --allow-bootstrap)"; then
-              state=success
-              description="$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.write(r.description)' "$result")"
-            else
-              state=failure
-              description='TAI REG.RU preflight evidence rejected'
-            fi
+          description="$TERMINAL_DESCRIPTION"
+          classification="$STAGE"
+          blockers='[]'
+          if [[ "$PREFLIGHT_RESULT" == success ]]; then
+            state="${CLASSIFY_STATE:-failure}"
+            description="${CLASSIFY_DESCRIPTION:-TAI REG.RU preflight evidence rejected}"
+            classification="${CLASSIFICATION:-EVIDENCE_REJECTED}"
+            blockers="${BLOCKERS:-[]}"
           fi
           gh api --method POST -H 'Accept: application/vnd.github+json' \
             "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
@@ -322,6 +456,22 @@ jobs:
             -f context='TAI REG.RU Preflight' \
             -f description="$description" \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          cat > "$RUNNER_TEMP/comment.md" <<EOF
+          ## TAI owner REG.RU preflight
+
+          - exact target: \`$TARGET_SHA\`
+          - current main: \`$CURRENT_SHA\`
+          - terminal classification: \`$classification\`
+          - blockers: \`$blockers\`
+          - upstream build gate: \`$UPSTREAM_RESULT\`
+          - preflight contract: \`$CONTRACT_RESULT\`
+          - canonical image authority: \`$IMAGE_RESULT\`
+          - protected REG.RU preflight: \`$PREFLIGHT_RESULT\`
+          - production mutation: \`NONE\`
+          - run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          [[ "$state" == success ]]
 
   result_gate:
     name: Confirm REG.RU preflight chain result

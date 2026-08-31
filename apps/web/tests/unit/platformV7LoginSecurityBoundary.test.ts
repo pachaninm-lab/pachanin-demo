@@ -2,10 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
+const repositoryRoot = process.cwd().endsWith(path.join('apps', 'web'))
+  ? path.resolve(process.cwd(), '..', '..')
+  : process.cwd();
+const read = (relativePath: string) => fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8');
 const loginPage = read('apps/web/app/platform-v7/login/page.tsx');
 const loginClient = read('apps/web/app/platform-v7/login/LoginFormClient.tsx');
 const loginRoute = read('apps/web/app/api/auth/login/route.ts');
+const membershipSelectRoute = read('apps/web/app/api/auth/membership-select/route.ts');
 const mfaRoute = read('apps/web/app/api/auth/mfa-login/route.ts');
 const cancelRoute = read('apps/web/app/api/auth/mfa-login/cancel/route.ts');
 const session = read('apps/web/lib/server/auth-session-response.ts');
@@ -56,6 +60,23 @@ describe('platform-v7 server-authoritative login boundary', () => {
     expect(session).toContain('CABINET_SESSION_COOKIE');
   });
 
+  it('drops any previously authenticated browser identity before a password-proven pending flow', () => {
+    expect(loginRoute).toContain('clearAuthenticatedSession(response, { controlPlane })');
+    expect(loginRoute).toContain('response.cookies.set(CSRF_COOKIE, generateCsrfToken()');
+    expect(loginRoute).toContain("sameSite: controlPlane ? 'strict' : 'lax'");
+    const calls = loginRoute.match(/clearPreviousAuthenticatedBrowserSession\(response, controlPlane\);/g) ?? [];
+    expect(calls).toHaveLength(2);
+    expect(loginRoute).toMatch(/membershipSelectionRequired:[\s\S]*?clearPreviousAuthenticatedBrowserSession\(response, controlPlane\);[\s\S]*?MEMBERSHIP_SELECTION_COOKIE/);
+    expect(loginRoute).toMatch(/mfaRequired: true,[\s\S]*?clearPreviousAuthenticatedBrowserSession\(response, controlPlane\);[\s\S]*?MFA_PENDING_COOKIE/);
+  });
+
+  it('accepts the deliberately minimal pending-MFA identity projection', () => {
+    for (const route of [loginRoute, membershipSelectRoute]) {
+      expect(route).toContain('!payload.challengeToken || !payload.user?.email || !payload.user.role');
+      expect(route).not.toContain('!payload.challengeToken || !payload.user?.id');
+    }
+  });
+
   it('stores only the encrypted challenge in a bounded HttpOnly ticket', () => {
     expect(ticket).toContain("createCipheriv('aes-256-gcm'");
     expect(ticket).toContain('challengeToken: string');
@@ -69,7 +90,7 @@ describe('platform-v7 server-authoritative login boundary', () => {
   });
 
   it('keeps password, MFA and one-time backup-code disclosure as separate UI states', () => {
-    expect(loginClient).toContain("type LoginStep = 'password' | 'mfa' | 'backup-codes'");
+    expect(loginClient).toContain("type LoginStep = 'password' | 'membership' | 'mfa' | 'backup-codes'");
     expect(loginClient).toContain("type MfaMethod = 'totp' | 'backup_code'");
     expect(loginClient).toContain("requestJson('/api/auth/mfa-login'");
     expect(loginClient).toContain("autoComplete={method === 'totp' ? 'one-time-code' : 'off'}");

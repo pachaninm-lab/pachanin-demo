@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "owner/home-accounting-closure-value-20260818",
+  "status": "active",
+  "operationalStatus": "OWNER_DIRECTED_PUBLIC_VALUE_REFINEMENT",
+  "ownerDecision": {
+    "date": "2026-08-18",
+    "instruction": "Add the accounting, 1C, EDI, Gekta and protection value to the homepage quickly, harmoniously and without repeating existing sections."
+  },
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PlatformV7AccountingClosureValue.tsx",
+    "apps/web/components/platform-v7/PlatformV7AccountingClosureValue.module.css",
+    "apps/web/i18n/platform-v7-accounting-value.ts",
+    "apps/web/tests/unit/platformV7AccountingClosureValue.test.ts",
+    "docs/platform-v7/autopilot/scopes/home-accounting-closure-value-20260818.json"
+  ],
+  "placement": {
+    "after": "deal-path",
+    "before": "live",
+    "reason": "The visitor first understands the Deal path, then sees how it reaches documents, accounting and money, and only then opens the detailed live scenario."
+  },
+  "publicClaims": {
+    "directLiveIntegrationClaim": false,
+    "guaranteedPaymentClaim": false,
+    "replacementOf1COrEdoClaim": false,
+    "conditionalConnectionLanguageRequired": true
+  },
+  "boundaries": {
+    "dealArchitectureRewrite": false,
+    "apiOrDatabaseChange": false,
+    "authOrRbacChange": false,
+    "bankingAuthorityChange": false,
+    "externalConnectivityClaim": false,
+    "fakeLiveData": false,
+    "productionTopologyChange": false,
+    "netlifyOrVercelProductionDependency": false,
+    "existingGektaProductBoundaryChange": false
+  },
+  "requiredChecks": [
+    "node scripts/p7-autopilot-dispatcher.mjs",
+    "bash scripts/p7-autopilot-guard.sh",
+    "node scripts/check-production-hosting-authority.mjs",
+    "pnpm typecheck",
+    "pnpm test -- platformV7AccountingClosureValue.test.ts",
+    "existing platform-v7 homepage copy and safety regression tests"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newMandatoryCostsRub": 0
+}

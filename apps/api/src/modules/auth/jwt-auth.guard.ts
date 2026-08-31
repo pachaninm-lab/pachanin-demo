@@ -1,43 +1,19 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
-import * as jwt from 'jsonwebtoken';
 import type { RequestUser } from '../../common/types/request-user';
-import { requireSecret } from '../../common/config/secrets';
-
-const JWT_SECRET = requireSecret('JWT_SECRET');
-
-function extractBearerToken(authorization?: string): string | null {
-  if (!authorization) return null;
-  const [scheme, token] = authorization.split(' ');
-  if (!scheme || !token || scheme.toLowerCase() !== 'bearer') return null;
-  return token.trim() || null;
-}
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<{ headers: Record<string, string | string[] | undefined>; user?: RequestUser }>();
-    const rawAuthorization = request.headers.authorization;
-    const authorization = Array.isArray(rawAuthorization) ? rawAuthorization[0] : rawAuthorization;
-    const token = extractBearerToken(authorization);
+    const request = context.switchToHttp().getRequest<{ user?: RequestUser }>();
+    const user = request.user;
 
-    if (!token) {
-      throw new UnauthorizedException('Missing bearer token');
+    // AppAuthGuard has already verified the signed token against the live
+    // PostgreSQL session, user, membership, organization and tenant. Legacy
+    // route guards must preserve that authoritative context instead of decoding
+    // the short JWT and replacing it with incomplete, unverified role fields.
+    if (!user?.id || !user.sessionId || !user.membershipId || !user.orgId || !user.tenantId || !user.role) {
+      throw new UnauthorizedException('Verified server session is required');
     }
-
-    try {
-      const payload = jwt.verify(token, JWT_SECRET) as RequestUser;
-      request.user = {
-        id: payload.id,
-        email: payload.email,
-        role: payload.role,
-        orgId: payload.orgId,
-        fullName: payload.fullName,
-        surfaceRole: payload.surfaceRole,
-        sessionId: payload.sessionId,
-      };
-      return true;
-    } catch {
-      throw new UnauthorizedException('Invalid or expired access token');
-    }
+    return true;
   }
 }

@@ -7,7 +7,7 @@ const operatingCopy = {
       functions: '7 шагов Сделки',
       deal: 'Сделка в работе',
       roles: 'Для участников',
-      tai: 'ИИ в агробизнесе',
+      tai: 'Гекта',
     },
     heroDeal: {
       sampleLabel: 'Сделка в работе',
@@ -17,7 +17,7 @@ const operatingCopy = {
       { label: '12 ролей', text: 'Все участники работают в одной Сделке и видят свою ответственность' },
       { label: '19 этапов', text: 'От условий и торгов до расчёта, спора, доказательств и аналитики' },
       { label: 'RU · EN · ZH', text: 'Единый интерфейс и сценарии на русском, английском и китайском' },
-      { label: 'TAI внутри Сделки', text: 'ИИ сопоставляет факты, источники, риск и следующий шаг' },
+      { label: 'Гекта внутри Сделки', text: 'Аграрный интеллект сопоставляет факты, источники, риск и следующий шаг' },
     ],
     difference: {
       eyebrow: 'Единая система исполнения',
@@ -55,8 +55,8 @@ const operatingCopy = {
         },
         {
           index: '05',
-          title: 'Анализ TAI',
-          text: 'ИИ сопоставляет условия, события, документы, полномочия и источники.',
+          title: 'Анализ Гекты',
+          text: 'Гекта сопоставляет условия, события, документы, полномочия и источники.',
           result: 'Участник получает объяснение риска и допустимые следующие действия.',
         },
         {
@@ -114,12 +114,19 @@ const operatingCopy = {
       scenarioLead: 'Переключение роли показывает её данные, ответственность, действие, основание и денежное последствие.',
     },
     tai: {
-      eyebrow: 'ИИ в агробизнесе',
-      title: 'TAI анализирует Сделку и переводит данные в конкретное действие',
-      lead: 'Он сопоставляет условия, события, документы и полномочия, объясняет отклонение и показывает следующий шаг с источниками.',
+      eyebrow: 'Гекта · аграрный интеллект',
+      title: 'Гекта анализирует Сделку и переводит данные в конкретное действие',
+      lead: 'Она сопоставляет условия, события, документы и полномочия, объясняет отклонение и показывает следующий шаг с источниками.',
       state: 'Высокая уверенность · данные Сделки сопоставлены',
-      limit: 'TAI показывает факты, риски и варианты действий. Критические решения подтверждает уполномоченный участник.',
-      cta: 'Посмотреть ИИ в работе',
+      limit: 'Гекта показывает факты, риски и варианты действий. Критические решения подтверждает уполномоченный участник.',
+      cta: 'Посмотреть Гекту в работе',
+    },
+    gektaProduct: {
+      eyebrow: 'Отдельный продукт экосистемы',
+      title: 'Гекта — самостоятельный аграрный ИИ',
+      lead: 'AI-продукт «Прозрачной Цены» для сельского хозяйства и агробизнеса: растениеводство, животноводство, техника, хранение, логистика, документы и экономика хозяйства в одном диалоге.',
+      cta: 'Открыть Гекту',
+      navLabel: 'Гекта',
     },
     faq: {
       items: [
@@ -148,7 +155,7 @@ const operatingCopy = {
       functions: '7 Deal steps',
       deal: 'Deal in action',
       roles: 'For participants',
-      tai: 'AI for agribusiness',
+      tai: 'Gekta',
     },
     heroDeal: {
       sampleLabel: 'Deal in action',
@@ -158,7 +165,7 @@ const operatingCopy = {
       { label: '12 roles', text: 'Every participant works in one Deal and sees their responsibility' },
       { label: '19 stages', text: 'From terms and bidding to settlement, dispute, evidence and analytics' },
       { label: 'RU · EN · ZH', text: 'One interface and operating scenarios in Russian, English and Chinese' },
-      { label: 'TAI inside the Deal', text: 'AI matches facts, sources, risk and the next step' },
+      { label: 'Gekta inside the Deal', text: 'Agricultural intelligence matches facts, sources, risk and the next step' },
     ],
     difference: {
       eyebrow: 'Unified execution system',
@@ -174,7 +181,7 @@ const operatingCopy = {
         { index: '02', title: 'Bidding and award', text: 'Participant admission, offers, bids, term comparison and winner selection.', result: 'The selected offer becomes a controlled Deal.' },
         { index: '03', title: 'Delivery', text: 'Vehicle, driver, route, trip, checkpoints, weight and acceptance.', result: 'Lot movement and execution are confirmed by events and documents.' },
         { index: '04', title: 'Laboratory deviation', text: 'Sample, method, protocol, specification version and deviation value.', result: 'The discrepancy is tied to product, owner and monetary impact.' },
-        { index: '05', title: 'TAI analysis', text: 'AI compares terms, events, documents, authority and sources.', result: 'The participant receives a risk explanation and permitted next actions.' },
+        { index: '05', title: 'Gekta analysis', text: 'Gekta compares terms, events, documents, authority and sources.', result: 'The participant receives a risk explanation and permitted next actions.' },
         { index: '06', title: 'Participant decision', text: 'Recalculation, recheck, acceptance or opening a discrepancy.', result: 'The decision is retained with evidence, role, deadline and data version.' },
         { index: '07', title: 'Settlement or dispute', text: 'Partial or final settlement, hold, refund, dispute and closure.', result: 'Money and disputes rely on confirmed execution and evidence.' },
         { index: '08', title: 'Evidence and analytics', text: 'Immutable history, documents, decisions, KPI, API and reporting.', result: 'The organisation controls every Deal and the complete portfolio.' },
@@ -206,12 +213,19 @@ const operatingCopy = {
       scenarioLead: 'Changing the role shows its data, responsibility, action, evidence and monetary consequence.',
     },
     tai: {
-      eyebrow: 'AI for agribusiness',
-      title: 'TAI analyses the Deal and turns data into a concrete action',
+      eyebrow: 'Gekta · agricultural intelligence',
+      title: 'Gekta analyses the Deal and turns data into a concrete action',
       lead: 'It compares terms, events, documents and authority, explains the deviation and shows the next step with sources.',
       state: 'High confidence · Deal data matched',
-      limit: 'TAI shows facts, risks and action options. Critical decisions are confirmed by an authorised participant.',
-      cta: 'See AI in action',
+      limit: 'Gekta shows facts, risks and action options. Critical decisions are confirmed by an authorised participant.',
+      cta: 'See Gekta in action',
+    },
+    gektaProduct: {
+      eyebrow: 'A separate ecosystem product',
+      title: 'Gekta — a standalone agricultural AI',
+      lead: 'The Prozrachnaya Tsena AI product for farming and agribusiness: crops, livestock, machinery, storage, logistics, documents and farm economics in one conversation.',
+      cta: 'Open Gekta',
+      navLabel: 'Gekta',
     },
     faq: {
       items: [
@@ -228,7 +242,7 @@ const operatingCopy = {
       functions: '交易七步',
       deal: '交易运行',
       roles: '参与方价值',
-      tai: '农业商业 AI',
+      tai: 'Gekta',
     },
     heroDeal: {
       sampleLabel: '交易运行',
@@ -238,7 +252,7 @@ const operatingCopy = {
       { label: '12 个角色', text: '所有参与方在同一笔交易中工作，并看到自己的责任' },
       { label: '19 个阶段', text: '从条件和竞价到结算、争议、证据与分析' },
       { label: 'RU · EN · ZH', text: '俄语、英语和中文使用同一界面与业务场景' },
-      { label: '交易内的 TAI', text: 'AI 对照事实、来源、风险与下一步' },
+      { label: '交易内的 Gekta', text: '农业智能对照事实、来源、风险与下一步' },
     ],
     difference: {
       eyebrow: '统一执行系统',
@@ -254,7 +268,7 @@ const operatingCopy = {
         { index: '02', title: '竞价与选择', text: '参与资格、报价、出价、条件比较和中选。', result: '中选报价转化为受控交易。' },
         { index: '03', title: '交付', text: '车辆、司机、路线、运输、控制点、称重与验收。', result: '批次流转和履约由事件与文件确认。' },
         { index: '04', title: '实验室偏差', text: '样品、方法、报告、规格版本和偏差数值。', result: '差异与商品、责任方及资金影响关联。' },
-        { index: '05', title: 'TAI 分析', text: 'AI 对照条件、事件、文件、权限和来源。', result: '参与方获得风险解释和允许的下一步。' },
+        { index: '05', title: 'Gekta 分析', text: 'Gekta 对照条件、事件、文件、权限和来源。', result: '参与方获得风险解释和允许的下一步。' },
         { index: '06', title: '参与方决定', text: '重算、复检、接受结果或提出异议。', result: '决定与依据、角色、期限和数据版本一起保存。' },
         { index: '07', title: '结算或争议', text: '部分或最终结算、冻结、退款、争议与关闭。', result: '资金与争议以已确认履约和证据为依据。' },
         { index: '08', title: '证据与分析', text: '不可变历史、文件、决定、KPI、API 和报告。', result: '机构可以控制每笔交易和完整交易组合。' },
@@ -286,12 +300,19 @@ const operatingCopy = {
       scenarioLead: '切换角色即可看到其数据、责任、操作、依据与资金后果。',
     },
     tai: {
-      eyebrow: '农业商业 AI',
-      title: 'TAI 分析交易，并把数据转化为具体行动',
+      eyebrow: 'Gekta · 农业智能',
+      title: 'Gekta 分析交易，并把数据转化为具体行动',
       lead: '它对照条件、事件、文件与权限，解释偏差，并附带来源给出下一步。',
       state: '高置信度 · 交易数据已完成比对',
-      limit: 'TAI 展示事实、风险和操作选项，关键决定由获授权的参与方确认。',
-      cta: '查看 AI 如何工作',
+      limit: 'Gekta 展示事实、风险和操作选项，关键决定由获授权的参与方确认。',
+      cta: '查看 Gekta 如何工作',
+    },
+    gektaProduct: {
+      eyebrow: '生态中的独立产品',
+      title: 'Gekta — 独立的农业人工智能',
+      lead: '“透明价格”面向农业生产与农业经营的 AI 产品：种植、畜牧、农业机械、仓储、物流、文件与经营经济，都在同一个对话中。',
+      cta: '打开 Gekta',
+      navLabel: 'Gekta',
     },
     faq: {
       items: [
@@ -326,6 +347,7 @@ export function getPlatformV7HomeStoryCopy(locale: string) {
     },
     roles: { ...base.roles, ...localized.roles },
     tai: { ...base.tai, ...localized.tai },
+    gektaProduct: localized.gektaProduct,
     faq: { ...base.faq, ...localized.faq },
   };
 }

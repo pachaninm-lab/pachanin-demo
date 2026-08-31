@@ -46,12 +46,12 @@ export type HomeEnhancementCopy = {
 const ru: HomeEnhancementCopy = {
   nav: {
     participants: 'Участникам',
-    tai: 'TAI',
+    tai: 'Гекта',
   },
   heroTai: {
-    name: 'TAI — Transparent Agro Intelligence',
-    text: 'Операционный интеллект «Прозрачной Цены»: понимает контекст Сделки, выявляет блокеры и риск для сроков и денег, объясняет основание и готовит следующее действие.',
-    cta: 'Разобрать TAI',
+    name: 'Гекта',
+    text: 'Аграрный интеллект «Прозрачной Цены»: понимает контекст Сделки, выявляет блокеры и риск для сроков и денег, объясняет основание и готовит следующее действие.',
+    cta: 'Разобрать Гекту',
   },
   roles: {
     eyebrow: 'Вход по задаче',
@@ -102,14 +102,14 @@ const ru: HomeEnhancementCopy = {
     ],
   },
   tai: {
-    eyebrow: 'TAI · Transparent Agro Intelligence',
+    eyebrow: 'Гекта · аграрный интеллект',
     title: 'Операционный интеллект внутри каждой Сделки',
-    lead: 'TAI — не отдельный чат и не декоративный помощник. Он работает в контексте Сделки: связывает события, документы, роли и правила, чтобы участник быстрее принял проверяемое решение.',
-    definitionLabel: 'Для чего нужен TAI',
+    lead: 'Гекта — не отдельный чат и не декоративный помощник. Она работает в контексте Сделки: связывает события, документы, роли и правила, чтобы участник быстрее принял проверяемое решение.',
+    definitionLabel: 'Для чего нужна Гекта',
     definition: 'Чтобы за несколько секунд понять, что произошло, почему процесс остановился, как это влияет на сроки и деньги, на каком основании сделан вывод и какое действие требуется дальше.',
     impactLabel: 'Влияние на Сделку',
     impact: 'Окончательная выплата остаётся остановленной до подтверждения акта расхождений и договорного правила перерасчёта.',
-    workflowTitle: 'Как TAI формирует ответ',
+    workflowTitle: 'Как Гекта формирует ответ',
     workflow: [
       {
         index: '01',
@@ -138,12 +138,12 @@ const ru: HomeEnhancementCopy = {
 const en: HomeEnhancementCopy = {
   nav: {
     participants: 'Participants',
-    tai: 'TAI',
+    tai: 'Gekta',
   },
   heroTai: {
-    name: 'TAI — Transparent Agro Intelligence',
-    text: 'Transparent Price operational intelligence: it understands Deal context, detects blockers and schedule or monetary risk, explains the evidence and prepares the next action.',
-    cta: 'Explore TAI',
+    name: 'Gekta',
+    text: 'Transparent Price agricultural intelligence: it understands Deal context, detects blockers and schedule or monetary risk, explains the evidence and prepares the next action.',
+    cta: 'Explore Gekta',
   },
   roles: {
     eyebrow: 'Enter by task',
@@ -194,14 +194,14 @@ const en: HomeEnhancementCopy = {
     ],
   },
   tai: {
-    eyebrow: 'TAI · Transparent Agro Intelligence',
+    eyebrow: 'Gekta · agricultural intelligence',
     title: 'Operational intelligence inside every Deal',
-    lead: 'TAI is not a separate chat or a decorative assistant. It works in Deal context, connecting events, documents, roles and rules so participants can make faster, verifiable decisions.',
-    definitionLabel: 'What TAI is for',
+    lead: 'Gekta is not a separate chat or a decorative assistant. It works in Deal context, connecting events, documents, roles and rules so participants can make faster, verifiable decisions.',
+    definitionLabel: 'What Gekta is for',
     definition: 'To explain in seconds what happened, why execution stopped, how it affects time and money, what evidence supports the conclusion and which action comes next.',
     impactLabel: 'Deal impact',
     impact: 'Final payout remains paused until the discrepancy act and contractual recalculation rule are confirmed.',
-    workflowTitle: 'How TAI builds an answer',
+    workflowTitle: 'How Gekta builds an answer',
     workflow: [
       {
         index: '01',
@@ -230,12 +230,12 @@ const en: HomeEnhancementCopy = {
 const zh: HomeEnhancementCopy = {
   nav: {
     participants: '参与方',
-    tai: 'TAI',
+    tai: 'Gekta',
   },
   heroTai: {
-    name: 'TAI — Transparent Agro Intelligence',
-    text: '“透明价格”的运营智能：理解交易上下文，识别阻塞项以及进度和资金风险，说明依据并准备下一步行动。',
-    cta: '了解 TAI',
+    name: 'Gekta',
+    text: '“透明价格”的农业智能：理解交易上下文，识别阻塞项以及进度和资金风险，说明依据并准备下一步行动。',
+    cta: '了解 Gekta',
   },
   roles: {
     eyebrow: '按任务进入',
@@ -286,14 +286,14 @@ const zh: HomeEnhancementCopy = {
     ],
   },
   tai: {
-    eyebrow: 'TAI · Transparent Agro Intelligence',
+    eyebrow: 'Gekta · 农业智能',
     title: '每笔交易内部的运营智能',
-    lead: 'TAI 不是独立聊天窗口，也不是装饰性助手。它在交易上下文中连接事件、文件、角色与规则，帮助参与方更快作出可核验决策。',
-    definitionLabel: 'TAI 的用途',
+    lead: 'Gekta 不是独立聊天窗口，也不是装饰性助手。它在交易上下文中连接事件、文件、角色与规则，帮助参与方更快作出可核验决策。',
+    definitionLabel: 'Gekta 的用途',
     definition: '在数秒内说明发生了什么、流程为何停止、对时间与资金有什么影响、结论依据是什么，以及下一步需要采取什么行动。',
     impactLabel: '对交易的影响',
     impact: '在差异单和合同重算规则确认之前，最终付款保持暂停。',
-    workflowTitle: 'TAI 如何形成答案',
+    workflowTitle: 'Gekta 如何形成答案',
     workflow: [
       {
         index: '01',

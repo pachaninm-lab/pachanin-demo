@@ -1,6 +1,7 @@
 {
   "name": "prozrachnaya-cena-runtime",
   "private": true,
+  "license": "UNLICENSED",
   "packageManager": "pnpm@10.2.1",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
@@ -23,6 +24,8 @@
     "pilot:up": "bash ./scripts/pilot-up.sh",
     "audit:roles": "node ./scripts/audit-role-contract-consistency.mjs",
     "audit:flows": "node ./scripts/audit-critical-flows.mjs",
+    "audit:ip:packages": "node ./scripts/ip/verify-private-packages.mjs",
+    "audit:ip:clean-room": "node ./scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room",
     "release:industrial": "node ./scripts/build-industrial-release.mjs",
     "db:seed:service-providers": "pnpm --filter @pc/api ts-node prisma/service-providers.seed.ts",
     "verify:shared": "tsc -p ./tsconfig.shared-verify.json --noEmit",
@@ -52,7 +55,8 @@
       "engine.io@<6.6.7": "6.6.7",
       "socket.io-parser@>=4.0.0 <4.2.7": "4.2.7",
       "sharp": "0.35.3",
-      "postcss": "8.5.18"
+      "postcss": "8.5.18",
+      "nanoid@<3.3.18": "3.3.18"
     }
   },
   "devDependencies": {

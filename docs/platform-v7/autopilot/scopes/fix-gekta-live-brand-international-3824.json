@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "fix-gekta-live-brand-international-3824",
+  "branch": "fix/gekta-live-brand-international-3824",
+  "issue": 3824,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-to-finish-production-release",
+  "authorityBaseExactMain": "d9a240749e88c493553638769ed54abe8c19a6e0",
+  "purpose": "Replace the final visible retired TAI identity in the production-routed international homepage wrapper and bind that runtime source to the canonical RU, EN and ZH Gekta brand contract before retrying the protected REG.RU release.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx",
+    "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
+    "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-gekta-live-brand-international-3824.json"
+  ],
+  "canonical": {
+    "ru": "Гекта в процессе",
+    "en": "Gekta in the workflow",
+    "zh": "流程内的 Gekta"
+  },
+  "requiredInvariants": [
+    "The production-routed international homepage wrapper contains no visible retired TAI or Transparent Agro Intelligence identity.",
+    "RU, EN and ZH trust cards use canonical Gekta identity without changing their meaning or layout.",
+    "The international wrapper is included in the Gekta public brand source contract.",
+    "Existing DOM structure, routes, analytics events, technical TAI namespace and session behavior remain unchanged.",
+    "Protected REG.RU activation, hosted Chromium acceptance and rollback-on-failure remain mandatory.",
+    "No production deployment claim is made until exact-SHA live acceptance passes."
+  ],
+  "forbiddenChanges": [
+    "API behavior, prompts or model routing",
+    "database or tenant authority",
+    "production topology, credentials or secrets",
+    "runtime routes, analytics events or technical TAI namespace",
+    "apps/landing/**",
+    "acceptance-gate weakening"
+  ],
+  "requiredChecks": [
+    "Gekta public brand source contract",
+    "international homepage production-routing contract",
+    "web typecheck",
+    "full Design System v8 browser and accessibility matrix",
+    "git diff --check",
+    "canonical exact-main build and protected REG.RU live acceptance"
+  ],
+  "deploymentState": "browser-rejected-exact-sha-finalization-blocked-by-main-advance",
+  "evidence": {
+    "failedActivationRun": 31471602277,
+    "failedActivationArtifact": 9093931478,
+    "failedTargetSha": "0e7b3db076f0f55c8da303d6d3d3b09a54c14788",
+    "liveManifestSha": "0e7b3db076f0f55c8da303d6d3d3b09a54c14788",
+    "browserError": "retired_public_identity_visible:ru:TAI",
+    "visibleSource": "PlatformV7StrategicHomeInternational.tsx",
+    "finalizationSafetyCode": "TARGET_IS_NOT_CURRENT_MAIN"
+  }
+}

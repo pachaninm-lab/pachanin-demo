@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-first-user-mail-idna-3072",
+  "branch": "fix/gekta-first-user-mail-idna-3072",
+  "issue": 3072,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "5045702e6d7baeff2f49a50451c3e8a268a8a59d"
+  },
+  "purpose": "Make the Gekta first-user IMAP verification harness compare mailbox recipients using the same IDNA A-label canonicalization as production SMTP, without changing registration, mail delivery, auth, runtime, deployment or product behavior.",
+  "allowedPaths": [
+    "scripts/production-gekta-first-user-acceptance.mjs",
+    "scripts/check-production-gekta-first-user-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/gekta-first-user-mail-idna-3072.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "identityMutation": false,
+    "mailSend": false,
+    "mailRuntimeMutation": false,
+    "deploymentMutation": false,
+    "productCodeMutation": false,
+    "credentialOutput": false,
+    "piiOutput": false,
+    "ownerOnlyAcceptancePreserved": true,
+    "exactMainGuardPreserved": true,
+    "newRecurringCostRub": 0
+  },
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

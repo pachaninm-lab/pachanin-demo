@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4542,
+  "branch": "sec/asvs-v2-3-5-correction-4542",
+  "status": "active",
+  "purpose": "Correct false absence statements in merged ASVS decisions - claims that a control existed nowhere in the tree, where one did.",
+  "authorityBaseExactMain": "1cf8783cd95de52eae85797572b53206a2e8e4b3",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v2-3-5-correction-4542.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The verdict does not change: V2.3.5 stays FAIL.",
+    "The correction rests on a condition re-evaluated on every run, not on prose alone.",
+    "The gap is scoped to the money flow; the control that does exist is named and credited.",
+    "The correction does not equate this gap with the independent-review governance blocker.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "No decision note claims a control exists nowhere in the tree unless that is true.",
+    "V2.3.5 states both facts: the second-approval policy exists in full, and it has zero non-test callers, so it prevents nothing at runtime.",
+    "V2.3.5 no longer equates its gap with the independent code review blocker.",
+    "V12.3.5 states that the Elasticsearch hop does authenticate, with a shared password over plaintext, and its condition is retargeted to the hop that truly sends no credential.",
+    "V5.1.1 distinguishes what is bounded after extraction from what is uncapped during decompression.",
+    "Where a claim cannot yet be machine-anchored, the note says so and gives the command to reproduce it.",
+    "No verdict changes. Matrix state unchanged: 14 PASS, 23 FAIL, finalPass false."
+  ]
+}

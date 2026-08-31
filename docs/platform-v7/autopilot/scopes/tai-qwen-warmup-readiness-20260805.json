@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-qwen-warmup-readiness-20260805",
+  "baselineExactMain": "268389d58b9d6db35fb9c44ff208614301638c20",
+  "objective": "Promote the dedicated TAI runtime from persisted WARMING to READY when the authenticated Qwen3 llama.cpp endpoint returns valid output through content or reasoning_content, without weakening model, database, tenant or tool authority.",
+  "allowedPaths": [
+    "apps/tai/tai/production_entrypoint.py",
+    "apps/tai/tai/production_model_supervisor.py",
+    "apps/tai/tests/test_production_model_supervisor.py",
+    "docs/platform-v7/autopilot/scopes/tai-qwen-warmup-readiness-20260805.json"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "forbidden": [
+    "paid LLM API",
+    "public model listener",
+    "client-supplied role or tenant",
+    "write-capable Safe Tools",
+    "permanent model admission fabrication",
+    "direct production mutation from CI"
+  ]
+}

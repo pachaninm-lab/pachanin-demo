@@ -1,0 +1,3 @@
+
+# Per-run self-signed certificate for the Design System v8 acceptance server
+.acceptance-tls/

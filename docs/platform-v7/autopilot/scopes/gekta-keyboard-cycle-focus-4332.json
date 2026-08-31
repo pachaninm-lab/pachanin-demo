@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-keyboard-cycle-focus-4332",
+  "status": "active",
+  "operationalStatus": "OWNER_DIRECTED_GEKTA_MOBILE_ACCEPTANCE_REPAIR",
+  "ownerDecision": {
+    "date": "2026-08-18",
+    "instruction": "Close Gekta issue #4332 without weakening production acceptance; preserve keyboard ownership across transient focus loss and preserve controlled composer drafts under real Safari/WebKit input events."
+  },
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaViewportAuthority.tsx",
+    "apps/web/components/gekta/GektaComposer.tsx",
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "apps/web/tests/unit/gektaKeyboardStartContract.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-keyboard-cycle-focus-4332.json"
+  ],
+  "forbiddenPaths": ["apps/api", "prisma", "packages/domain-core"],
+  "constraints": [
+    "Do not weaken viewport, overlap, draft, caret, localization, touch-target or exact-revision gates.",
+    "A contracted visual viewport may retain keyboard ownership after transient focus loss only after a text-entry control was engaged; ownership must clear after the viewport expands below the keyboard threshold.",
+    "Composer edits must update the controlled draft from native input events in Chromium and WebKit without test-only fallbacks.",
+    "No backend, auth, model, database, registration, role or business-logic changes.",
+    "No new recurring cost."
+  ]
+}

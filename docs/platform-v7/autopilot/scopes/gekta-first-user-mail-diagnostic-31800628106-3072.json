@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-first-user-mail-diagnostic-31800628106-3072",
+  "branch": "fix/gekta-first-user-mail-diagnostic-historical-runtime-3072",
+  "status": "active",
+  "issue": 3072,
+  "sourceRun": 31800628106,
+  "sourceDeployedSha": "f4cca72a0716c0fe2c94fd5e838d18be774b9812",
+  "baseline": {
+    "branch": "main",
+    "commit": "ecbf37f6a4b25b2a25d81ab406665e1e2c7152d6"
+  },
+  "purpose": "Repair the read-only Gekta mail forensic so current runtime is not mistaken for the historical source-run runtime; select exact-source historical containers by OCI revision and lifecycle overlap while IMAP evidence remains independent.",
+  "allowedPaths": [
+    ".github/workflows/production-gekta-first-user-mail-diagnostic.yml",
+    "scripts/production-gekta-first-user-mail-diagnostic.sh",
+    "scripts/check-production-gekta-first-user-mail-diagnostic.mjs",
+    "docs/platform-v7/autopilot/scopes/gekta-first-user-mail-diagnostic-31800628106-3072.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "runtimeMutation": false,
+    "deploymentMutation": false,
+    "mailSend": false,
+    "resend": false,
+    "imapReadOnly": true,
+    "imapFolderDiscoveryReadOnly": true,
+    "historicalContainerInspectReadOnly": true,
+    "historicalContainerLogReadOnly": true,
+    "currentContainerEnvComparisonReadOnly": true,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawLogOutput": false,
+    "rawMailboxOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

@@ -7,8 +7,9 @@ import {
   KeyRound,
   ShieldCheck,
 } from 'lucide-react';
+import { applyCsrfHeader } from '@/lib/csrf';
 
-type LoginStep = 'password' | 'mfa' | 'backup-codes';
+type LoginStep = 'password' | 'membership' | 'mfa' | 'backup-codes';
 type MfaMethod = 'totp' | 'backup_code';
 type ErrorField = 'email' | 'password' | 'code' | 'form' | null;
 
@@ -20,6 +21,8 @@ type LoginResponse = {
   enrollmentRequired?: boolean;
   setupSecret?: string | null;
   backupCodes?: string[];
+  membershipSelectionRequired?: boolean;
+  memberships?: Array<{ membershipId: string; organizationName: string; role: string; isOrgAdmin: boolean }>;
 };
 
 export type LoginCopy = {
@@ -29,6 +32,10 @@ export type LoginCopy = {
   lead: string;
   mfaLead: string;
   backupCodesLead: string;
+  membershipTitle: string;
+  membershipLead: string;
+  membershipLabel: string;
+  membershipSubmit: string;
   required: string;
   invalidEmail: string;
   unavailable: string;
@@ -65,6 +72,7 @@ async function requestJson(url: string, init: RequestInit) {
   try {
     const response = await fetch(url, {
       ...init,
+      headers: applyCsrfHeader(init.headers),
       signal: controller.signal,
       cache: 'no-store',
       credentials: 'same-origin',
@@ -90,6 +98,8 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
   const [setupSecret, setSetupSecret] = React.useState('');
   const [backupCodes, setBackupCodes] = React.useState<string[]>([]);
   const [redirectTo, setRedirectTo] = React.useState('');
+  const [memberships, setMemberships] = React.useState<NonNullable<LoginResponse['memberships']>>([]);
+  const [selectedMembershipId, setSelectedMembershipId] = React.useState('');
   const emailRef = React.useRef<HTMLInputElement>(null);
   const passwordRef = React.useRef<HTMLInputElement>(null);
   const codeRef = React.useRef<HTMLInputElement>(null);
@@ -150,6 +160,15 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
 
       if (!response.ok || !payload.ok) throw new Error('login_failed');
 
+      if (payload.membershipSelectionRequired && Array.isArray(payload.memberships) && payload.memberships.length > 1) {
+        setMemberships(payload.memberships);
+        setSelectedMembershipId(payload.memberships[0].membershipId);
+        setPassword('');
+        setCapsLock(false);
+        setStep('membership');
+        return;
+      }
+
       if (payload.mfaRequired) {
         setSetupSecret(payload.enrollmentRequired ? String(payload.setupSecret || '') : '');
         setMethod('totp');
@@ -160,6 +179,35 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
         return;
       }
 
+      if (!payload.redirectTo?.startsWith('/platform-v7/')) throw new Error('invalid_redirect');
+      globalThis.location.assign(payload.redirectTo);
+    } catch {
+      fail(copy.unavailable, 'form');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitMembership(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting || !selectedMembershipId) return;
+    setSubmitting(true);
+    setError('');
+    setErrorField(null);
+    try {
+      const { response, payload } = await requestJson('/api/auth/membership-select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ membershipId: selectedMembershipId }),
+      });
+      if (!response.ok || !payload.ok) throw new Error('membership_failed');
+      if (payload.mfaRequired) {
+        setSetupSecret(payload.enrollmentRequired ? String(payload.setupSecret || '') : '');
+        setMethod('totp');
+        setCode('');
+        setStep('mfa');
+        return;
+      }
       if (!payload.redirectTo?.startsWith('/platform-v7/')) throw new Error('invalid_redirect');
       globalThis.location.assign(payload.redirectTo);
     } catch {
@@ -218,6 +266,7 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
     try {
       await fetch('/api/auth/mfa-login/cancel', {
         method: 'POST',
+        headers: applyCsrfHeader(),
         cache: 'no-store',
         credentials: 'same-origin',
       });
@@ -226,6 +275,8 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
       setMethod('totp');
       setCode('');
       setSetupSecret('');
+      setMemberships([]);
+      setSelectedMembershipId('');
       setError('');
       setErrorField(null);
       setSubmitting(false);
@@ -248,12 +299,16 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
 
   const heading = step === 'password'
     ? copy.title
+    : step === 'membership'
+      ? copy.membershipTitle
     : step === 'mfa'
       ? copy.mfaTitle
       : copy.backupCodesTitle;
 
   const lead = step === 'password'
     ? copy.lead
+    : step === 'membership'
+      ? copy.membershipLead
     : step === 'mfa'
       ? copy.mfaLead
       : copy.backupCodesLead;
@@ -457,6 +512,34 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
           >
             {copy.mfaBack}
           </button>
+        </form>
+      ) : null}
+
+      {step === 'membership' ? (
+        <form className='pc-auth-card' onSubmit={submitMembership} noValidate>
+          <label className='pc-auth-label' htmlFor='pc-auth-membership'>
+            <span>{copy.membershipLabel}</span>
+            <span className='pc-auth-field'>
+              <select
+                id='pc-auth-membership'
+                value={selectedMembershipId}
+                onChange={(event) => setSelectedMembershipId(event.target.value)}
+                disabled={submitting}
+                required
+              >
+                {memberships.map((membership) => (
+                  <option key={membership.membershipId} value={membership.membershipId}>
+                    {membership.organizationName} · {membership.role}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </label>
+          {error ? <p ref={errorRef} id='pc-auth-error' className='pc-auth-error' role='alert'>{error}</p> : null}
+          <button className='pc-auth-submit' type='submit' disabled={submitting || !selectedMembershipId} aria-busy={submitting}>
+            <span>{submitting ? copy.loading : copy.membershipSubmit}</span>
+          </button>
+          <button className='pc-auth-secondary' type='button' onClick={returnToPassword} disabled={submitting}>{copy.mfaBack}</button>
         </form>
       ) : null}
 

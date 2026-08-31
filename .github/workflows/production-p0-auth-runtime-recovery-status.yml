@@ -1,0 +1,125 @@
+name: Production P0 Auth Runtime Recovery Status
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-auth-runtime-recovery-status.yml'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-reuse-existing-auth-runtime-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-auth-runtime-recovery-status
+  cancel-in-progress: false
+
+env:
+  RELEASE_ISSUE_NUMBER: 3072
+  RECOVERY_WORKFLOW: production-p0-reuse-existing-auth-runtime.yml
+  COMMAND: /production p0-auth-runtime-recovery-status
+
+jobs:
+  contract:
+    name: Validate bounded recovery status contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-auth-runtime-recovery-status'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Validate no-mutation status contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          file='.github/workflows/production-p0-auth-runtime-recovery-status.yml'
+          grep -Fq 'actions: read' "$file"
+          grep -Fq 'issues: write' "$file"
+          grep -Fq 'RECOVERY_WORKFLOW: production-p0-reuse-existing-auth-runtime.yml' "$file"
+          grep -Fq 'PRODUCTION_MUTATION=NONE' "$file"
+          ! grep -Eq '(^|[[:space:]])ssh([[:space:]]|$)|(^|[[:space:]])scp([[:space:]]|$)|docker[[:space:]]+(compose|run|exec)|gh[[:space:]]+workflow[[:space:]]+run' "$file"
+
+  status:
+    name: Read recovery workflow run status only
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-runtime-recovery-status'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Publish bounded recovery run evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          record="$(mktemp)"
+          trap 'rm -f "$record"' EXIT
+
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+
+          mapfile -t rows < <(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/$RECOVERY_WORKFLOW/runs?event=issue_comment&per_page=8" \
+            --jq '.workflow_runs
+              | sort_by(.created_at)
+              | reverse
+              | .[:8]
+              | .[]
+              | [.id, .head_sha, .status, (.conclusion // "pending"), .created_at, .updated_at, .html_url]
+              | @tsv')
+
+          {
+            echo '## Production P0 auth-runtime recovery status'
+            echo
+            echo "- command: \`$COMMAND\`"
+            echo "- current main: \`$main_sha\`"
+            echo '- production mutation: `NONE`'
+            echo '- secret / environment / artifact contents: `NOT_READ`'
+            echo
+            if (( ${#rows[@]} == 0 )); then
+              echo '- recovery runs: `NONE_FOUND`'
+            else
+              echo '### Recent owner-command recovery runs'
+              for row in "${rows[@]}"; do
+                IFS=$'\t' read -r run_id head_sha run_status run_conclusion created updated url <<< "$row"
+                [[ "$run_id" =~ ^[0-9]+$ && "$head_sha" =~ ^[0-9a-f]{40}$ ]]
+                echo "- run [\`$run_id\`]($url): head=\`$head_sha\`, status=\`$run_status\`, conclusion=\`$run_conclusion\`, created=\`$created\`, updated=\`$updated\`"
+                gh api \
+                  -H 'Accept: application/vnd.github+json' \
+                  "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100" \
+                  --jq '.jobs[] | "  - " + .name + ": status=`" + .status + "`, conclusion=`" + (.conclusion // "pending") + "`, active/failed step=`" + (([.steps[]? | select(.status == "in_progress" or .conclusion == "failure") | .name][0]) // "none") + "`"'
+              done
+            fi
+          } > "$record"
+
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          cat "$record" >> "$GITHUB_STEP_SUMMARY"
+          echo 'PRODUCTION_MUTATION=NONE'

@@ -26,12 +26,6 @@ const LABELS: Record<Locale, { expand: string; collapse: string }> = {
   zh: { expand: '全屏显示', collapse: '退出全屏' },
 };
 
-const PUBLIC_ASSISTANT_BRANDING: Record<Locale, { title: string; subtitle: string }> = {
-  ru: { title: 'ИИ для агробизнеса', subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.' },
-  en: { title: 'AI for agribusiness', subtitle: 'Developed by Transparent Price for agriculture.' },
-  zh: { title: '农业商业人工智能', subtitle: '由“透明价格”为农业打造。' },
-};
-
 const PUBLIC_ASSISTANT_TIMEOUT_COPY: Record<Locale, { message: string; retry: string }> = {
   ru: { message: 'Ответ не завершён. Повтори последний запрос.', retry: 'Повторить запрос' },
   en: { message: 'The answer did not finish. Retry the last request.', retry: 'Retry request' },
@@ -411,12 +405,6 @@ function enhancePublicAssistant(panel: HTMLElement) {
 
   const scrubPublicUi = () => {
     enforcePublicAssistantIdentity(panel);
-    const identity = panel.querySelector<HTMLElement>('.pc-public-assistant-identity');
-    const title = identity?.querySelector<HTMLElement>('#pc-public-assistant-title');
-    const subtitle = identity?.querySelector<HTMLElement>("[data-pc-public-assistant-subtitle='true']");
-    const copy = PUBLIC_ASSISTANT_BRANDING[resolveLocale()];
-    if (title && title.textContent !== copy.title) title.textContent = copy.title;
-    if (subtitle && subtitle.textContent !== copy.subtitle) subtitle.textContent = copy.subtitle;
 
     for (const duplicate of panel.querySelectorAll<HTMLElement>('.pc-modal-sheet-fullscreen-button')) duplicate.remove();
 

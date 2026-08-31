@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-login-readiness-3791",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_LOGIN_READINESS_AGGREGATE_ONLY",
+  "issue": 3791,
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-inspect.yml",
+    "apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql",
+    "apps/api/prisma/migrations/20260810125000_p0_reviewer_login_readiness_acl_correction/migration.sql",
+    "docs/platform-v7/autopilot/scopes/p0-reviewer-login-readiness-3791.json",
+    "scripts/check-production-p0-reviewer-inspect.mjs",
+    "scripts/production-p0-reviewer-inspect.sh"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "humanPasswordInCI": false,
+    "humanTotpSecretInCI": false,
+    "rawIdentityOutput": false,
+    "runtimeTablePrivilege": false,
+    "rlsBypass": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "exact-main and exact-deployed API/Web revision are required before inspection",
+    "only the repository owner can trigger the production command",
+    "the production staff runtime remains table-free and function-only",
+    "the definer authority remains NOLOGIN, NOINHERIT, NOSUPERUSER and NOBYPASSRLS with no memberships",
+    "only aggregate monotonic readiness counts are published",
+    "no email, identifier, tenant, password hash, MFA ciphertext, backup code, token or cookie is published",
+    "the inspector is explicit CommonJS and all awaits remain inside a bounded async IIFE",
+    "production output includes PRODUCTION_MUTATION=NONE",
+    "the next step is a visible human reviewer ceremony or the ordinary password-reset/MFA path, never CI-held human credentials"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

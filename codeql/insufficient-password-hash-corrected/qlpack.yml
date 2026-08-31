@@ -1,0 +1,8 @@
+name: pachaninm-lab/insufficient-password-hash-corrected
+version: 1.0.0
+library: false
+# Resolved against the packs the analysis CLI already ships, never the registry:
+# the replacement must compile against exactly the library the built-in query
+# was compiled against, and a version range here would let those diverge.
+dependencies:
+  codeql/javascript-all: "*"

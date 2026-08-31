@@ -1,0 +1,29 @@
+{
+  "note": "Pinned upstream provenance for the one-for-one replacement of js/insufficient-password-hash. Drift protection compares the live analysis against these values and fails the job when they move. CodeQL CLI 2.26.4 was re-reviewed against 2.26.3: the inherited InsufficientPasswordHash query, flow configuration and customizations are byte-identical at the pinned upstream tags; only the bundled pack versions advanced.",
+  "codeqlCli": "2.26.4",
+  "codeqlActionMajor": "v4",
+  "upstreamTag": "codeql-cli/v2.26.4",
+  "queriesPack": {
+    "name": "codeql/javascript-queries",
+    "version": "2.4.4"
+  },
+  "upstream": {
+    "query": "javascript/ql/src/Security/CWE-916/InsufficientPasswordHash.ql",
+    "flowConfig": "javascript/ql/lib/semmle/javascript/security/dataflow/InsufficientPasswordHashQuery.qll",
+    "customizations": "javascript/ql/lib/semmle/javascript/security/dataflow/InsufficientPasswordHashCustomizations.qll"
+  },
+  "replacedRuleId": "js/insufficient-password-hash",
+  "replacementRuleId": "js/insufficient-password-hash-opaque-credential-aware",
+  "semanticDiff": [
+    "isBarrier additionally holds for values carrying full CSPRNG entropy (OpaqueCredentialBarrier).",
+    "Everything else is inherited from upstream: Source, Sink, Sanitizer, taint tracking, CWE-916, severity, security-severity, precision, tags and help metadata."
+  ],
+  "bundledLibraryPacks": {
+    "codeql/javascript-all": "2.10.0"
+  },
+  "reviewEvidence": {
+    "queryBlobSha": "1cfc3111ad9138f0c0be3bc294d8d8f0480c7865",
+    "flowConfigBlobSha": "c295925698802511a21679e28940f25e11e9d593",
+    "customizationsBlobSha": "8901be9962f84fe7b1b7a7930cebe120bc326048"
+  }
+}

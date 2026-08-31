@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-reset-api-failure-31901032491-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_31901032491_API_FAILURE_CLASSIFIER",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify the bounded API transaction failure for reviewer reset run 31901032491 without replay",
+  "sourceRun": 31901032491,
+  "sourceRevision": "056ed4461dafb5e7dab2efc9ea5a0d5877523169",
+  "attemptSinceUtc": "2026-08-15T18:24:20Z",
+  "attemptUntilUtc": "2026-08-15T18:25:05Z",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-api-failure-31901032491.yml",
+    "scripts/production-p0-reviewer-reset-api-failure-31901032491.sh",
+    "scripts/check-production-p0-reviewer-reset-api-failure-31901032491.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-api-failure-31901032491-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "resetReplay": false,
+    "mailSend": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "logReadOnly": true,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "owner-only command is fixed to release issue 3072 and reset run 31901032491",
+    "diagnostic main must contain reset revision 056ed4461dafb5e7dab2efc9ea5a0d5877523169 as an ancestor",
+    "only API containers whose immutable image revision equals the reset revision are scanned",
+    "docker logs are bounded to 2026-08-15T18:24:20Z through 2026-08-15T18:25:05Z",
+    "only the known Password reset challenge/outbox transaction failed event and a whitelist of sanitized error classes are evaluated",
+    "raw API logs, exception text, database rows, reviewer identity, account hashes, correlation ids, tokens and credentials are not published",
+    "no password reset request is replayed and no mail is sent",
+    "no database, identity, password, MFA, session, deployment or container lifecycle mutation occurs",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/owner-access-reset-exact-main-4414-v2",
+  "status": "active",
+  "purpose": "Restore the real PLATFORM_OWNER access path for issue #4414 by requesting one ordinary password-reset email for the sole active owner/reviewer after production proves password-ready but MFA-not-enrolled. This is a recovery request only; it does not set a password, MFA secret, role, membership, tenant or business identity.",
+  "authorityBaseExactMain": "9d1646189581f5e8a4080359cab5b66230ef51b5",
+  "productionRuntimePolicy": "API_WEB_AUTH_MAIL_WORKER_MUST_EQUAL_EXACT_CURRENT_MAIN",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-owner-access-reset-current-main.yml",
+    "docs/platform-v7/autopilot/scopes/owner-access-reset-current-main-4414.json"
+  ],
+  "requiredInvariants": [
+    "Only the repository owner or the trusted ChatGPT connector acting for the repository owner may trigger the production command.",
+    "The immutable reviewed reset source script is copied to RUNNER_TEMP and must retain its exact reviewed blob before the bounded readiness substitution.",
+    "The readiness exception permits password_ready_count to be either 0 or 1 only; active owner, usable reviewer, assignment, active identity and verified membership must each equal 1; MFA-enrolled and login-ready must each equal 0.",
+    "No reviewer email, reset token, password, TOTP secret, backup code, SMTP credential, SSH key, database URL or decrypted auth-mail payload may be published.",
+    "The only production mutation is one normal POST to /api/auth/forgot-password and its ordinary durable password-reset challenge/outbox effects.",
+    "No direct password write, direct MFA write, role mutation, tenant mutation, business membership impersonation, auth/RBAC weakening or customer-data read is allowed.",
+    "API, Web and auth-mail worker must each have OCI revision exactly equal to the command-time current main SHA. Any runtime drift fails closed before the reset request.",
+    "The owner-access recovery wrapper must not patch or weaken the reviewed source script revision-parity guards.",
+    "New recurring cost remains 0 RUB."
+  ],
+  "acceptance": [
+    "PR changes only this scope manifest and the owner-only recovery workflow.",
+    "Contract validates exact source blob, exact readiness-patch cardinality, unchanged exact-main revision guards and owner/connector provenance.",
+    "Before the production reset command, exact current main must be released to REG.RU with API, Web and auth-mail worker all on that same SHA.",
+    "Production request returns HTTP 202 and durable PASSWORD_RESET outbox reaches SENT.",
+    "A fresh one-time reset email reaches the connected owner mailbox without exposing its token in GitHub evidence.",
+    "After the human sets a password, the normal login flow requires TOTP enrollment before /platform-v7/staff owner access."
+  ]
+}

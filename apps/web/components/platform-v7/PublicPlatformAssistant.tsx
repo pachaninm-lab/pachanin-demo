@@ -115,14 +115,14 @@ type Copy = {
 
 const COPY: Record<Locale, Copy> = {
   ru: {
-    open: 'Спросить ИИ',
-    shortcutHint: 'ИИ-помощник',
-    close: 'Закрыть ИИ-помощника',
-    title: 'ИИ для агробизнеса',
-    subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.',
-    emptyTitle: 'Чем помочь?',
-    emptyBody: 'Отвечу по сельскому хозяйству, агробизнесу и возможностям «Прозрачной Цены».',
-    placeholder: 'Задай вопрос об агробизнесе или платформе',
+    open: 'Спросить Гекту',
+    shortcutHint: 'Аграрный интеллект',
+    close: 'Закрыть Гекту',
+    title: 'Гекта',
+    subtitle: 'ИИ для сельского хозяйства и агробизнеса от «Прозрачной Цены»',
+    emptyTitle: 'Чем я могу вам помочь?',
+    emptyBody: 'Разберу вопрос по земле, растениям, урожаю, сельскому хозяйству, агробизнесу и возможностям «Прозрачной Цены».',
+    placeholder: 'Спроси Гекту о земле, урожае или агробизнесе',
     send: 'Отправить',
     stop: 'Остановить ответ',
     newChat: 'Новый диалог',
@@ -133,7 +133,7 @@ const COPY: Record<Locale, Copy> = {
     sources: 'Источники',
     details: 'Основание ответа',
     privacy: 'Публичный режим · без доступа к данным личных кабинетов · не вводи пароли, токены и персональные данные',
-    processing: 'Формирую ответ…',
+    processing: 'Гекта анализирует…',
     copy: 'Копировать ответ',
     copied: 'Скопировано',
     retry: 'Повторить запрос',
@@ -143,14 +143,14 @@ const COPY: Record<Locale, Copy> = {
     currentLimited: 'Нет подтверждённых актуальных данных',
   },
   en: {
-    open: 'Ask AI',
-    shortcutHint: 'AI assistant',
-    close: 'Close AI assistant',
-    title: 'AI for agribusiness',
-    subtitle: 'Developed by Transparent Price for agriculture.',
-    emptyTitle: 'What would you like to know?',
-    emptyBody: 'Ask about agriculture, agribusiness, or Transparent Price capabilities.',
-    placeholder: 'Ask about agribusiness or the platform',
+    open: 'Ask Gekta',
+    shortcutHint: 'Agricultural intelligence',
+    close: 'Close Gekta',
+    title: 'Gekta',
+    subtitle: 'AI for farming and agribusiness by Prozrachnaya Tsena',
+    emptyTitle: 'How can I help you?',
+    emptyBody: 'Ask Gekta about land, crops, agriculture, agribusiness, or Transparent Price capabilities.',
+    placeholder: 'Ask Gekta about land, crops or agribusiness',
     send: 'Send',
     stop: 'Stop answer',
     newChat: 'New chat',
@@ -161,7 +161,7 @@ const COPY: Record<Locale, Copy> = {
     sources: 'Sources',
     details: 'Basis of the answer',
     privacy: 'Public mode · no access to workspace data · do not enter passwords, tokens or personal data',
-    processing: 'Preparing the answer…',
+    processing: 'Gekta is analysing…',
     copy: 'Copy answer',
     copied: 'Copied',
     retry: 'Retry request',
@@ -171,14 +171,14 @@ const COPY: Record<Locale, Copy> = {
     currentLimited: 'No verified current data',
   },
   zh: {
-    open: '询问 AI',
-    shortcutHint: 'AI 助手',
-    close: '关闭 AI 助手',
-    title: '农业商业人工智能',
-    subtitle: '由“透明价格”为农业打造。',
-    emptyTitle: '你想了解什么？',
-    emptyBody: '我可以回答农业、农业商业和“透明价格”平台相关问题。',
-    placeholder: '询问农业商业或平台问题',
+    open: '询问 Gekta',
+    shortcutHint: '农业智能',
+    close: '关闭 Gekta',
+    title: 'Gekta',
+    subtitle: '“透明价格”推出的农业与农业经营 AI',
+    emptyTitle: '我可以帮您做什么？',
+    emptyBody: '可以向 Gekta 咨询土地、作物、农业、农业经营或“透明价格”平台。',
+    placeholder: '向 Gekta 咨询土地、作物或农业经营',
     send: '发送',
     stop: '停止回答',
     newChat: '新对话',
@@ -189,7 +189,7 @@ const COPY: Record<Locale, Copy> = {
     sources: '来源',
     details: '回答依据',
     privacy: '公共模式 · 无法访问工作区数据 · 请勿输入密码、令牌或个人数据',
-    processing: '正在生成回答…',
+    processing: 'Gekta 正在分析…',
     copy: '复制回答',
     copied: '已复制',
     retry: '重试问题',
@@ -285,6 +285,22 @@ function defaultAssessment(): StreamAssessment {
   };
 }
 
+/**
+ * The assessment has two layers and they answer different questions.
+ *
+ * The outer record is the route's own account: which grounding it used, which
+ * answer mode it resolved, whether it forwarded frames incrementally. When a
+ * real model answered, how *generation* ended lives one level down, under
+ * `upstream` — because the relay reports what it did, and the model reports what
+ * it did, and flattening the two would let a clean relay hide a truncated
+ * answer. The grounded paths (`policy`, `verified_knowledge`) have no upstream
+ * model, so they state their outcome at the top level and are read there.
+ *
+ * Reading only the top level is what stranded this component after the route
+ * moved to real streaming: it silently saw `truncated: false, finishReason:
+ * null, safetyFlags: []` for every model answer, so a truncated reply looked
+ * indistinguishable from a complete one.
+ */
 function parseAssessment(value: string | null): StreamAssessment {
   if (!value) return defaultAssessment();
   try {
@@ -298,16 +314,23 @@ function parseAssessment(value: string | null): StreamAssessment {
     const answerMode: AnswerMode = row.answerMode === 'verified_platform' || row.answerMode === 'general_agro'
       ? row.answerMode
       : null;
+    // Present only on the incremental model path; absent on grounded answers.
+    const upstream = row.upstream !== null && typeof row.upstream === 'object' && !Array.isArray(row.upstream)
+      ? row.upstream as Record<string, unknown>
+      : null;
+    const outcome = upstream ?? row;
     return {
       source,
       answerMode,
       currentDataRequired: row.currentDataRequired === true,
-      modelIdentity: typeof row.modelIdentity === 'string' ? row.modelIdentity : null,
-      latencyMs: typeof row.latencyMs === 'number' ? row.latencyMs : null,
-      truncated: row.truncated === true,
-      finishReason: typeof row.finishReason === 'string' ? row.finishReason : null,
-      safetyFlags: Array.isArray(row.safetyFlags)
-        ? row.safetyFlags.filter((item): item is string => typeof item === 'string').slice(0, 12)
+      // The public contour publishes no model identity. A string here would be
+      // a leak, not a value to display, so nothing is read into it.
+      modelIdentity: null,
+      latencyMs: null,
+      truncated: outcome.truncated === true,
+      finishReason: typeof outcome.finishReason === 'string' ? outcome.finishReason : null,
+      safetyFlags: Array.isArray(outcome.safetyFlags)
+        ? outcome.safetyFlags.filter((item): item is string => typeof item === 'string').slice(0, 12)
         : [],
     };
   } catch {
@@ -316,7 +339,11 @@ function parseAssessment(value: string | null): StreamAssessment {
 }
 
 function sessionKey(locale: Locale) {
-  return `pc-public-assistant-v2:${locale}`;
+  return `pc-gekta-assistant-v1:${locale}`;
+}
+
+function legacySessionKeys(locale: Locale) {
+  return [`pc-public-assistant-v2:${locale}`] as const;
 }
 
 function safeStoredMessages(value: unknown): Message[] {
@@ -363,8 +390,9 @@ export function PublicPlatformAssistant() {
   const freshConversationRef = React.useRef(false);
   const stickToBottomRef = React.useRef(true);
   const hydratedStorageRef = React.useRef<Locale | null>(null);
+  const skipNextStorageWriteRef = React.useRef(false);
   const ui = COPY[locale];
-  const starterPrompts = (contextualPrompts.length ? contextualPrompts : (catalog?.starterPrompts || [])).slice(0, 3);
+  const starterPrompts = (contextualPrompts.length ? contextualPrompts : (catalog?.starterPrompts || [])).slice(0, 4);
   const hasConversation = messages.length > 0;
   const hasStreamingMessage = messages.some((message) => message.stream?.status === 'streaming');
 
@@ -375,20 +403,41 @@ export function PublicPlatformAssistant() {
   React.useEffect(() => {
     if (hydratedStorageRef.current === locale) return;
     hydratedStorageRef.current = locale;
+    const primaryKey = sessionKey(locale);
     try {
-      const stored = window.sessionStorage.getItem(sessionKey(locale));
-      if (stored) setMessages(safeStoredMessages(JSON.parse(stored)));
+      const stored = window.sessionStorage.getItem(primaryKey);
+      if (stored) {
+        skipNextStorageWriteRef.current = true;
+        setMessages(safeStoredMessages(JSON.parse(stored)));
+        return;
+      }
+
+      for (const legacyKey of legacySessionKeys(locale)) {
+        const legacyStored = window.sessionStorage.getItem(legacyKey);
+        if (!legacyStored) continue;
+        const migrated = safeStoredMessages(JSON.parse(legacyStored));
+        window.sessionStorage.setItem(primaryKey, JSON.stringify(migrated));
+        window.sessionStorage.removeItem(legacyKey);
+        skipNextStorageWriteRef.current = true;
+        setMessages(migrated);
+        break;
+      }
     } catch {
-      window.sessionStorage.removeItem(sessionKey(locale));
+      window.sessionStorage.removeItem(primaryKey);
+      for (const legacyKey of legacySessionKeys(locale)) window.sessionStorage.removeItem(legacyKey);
     }
   }, [locale]);
 
   React.useEffect(() => {
     if (hydratedStorageRef.current !== locale) return;
+    if (skipNextStorageWriteRef.current) {
+      skipNextStorageWriteRef.current = false;
+      return;
+    }
     try {
       window.sessionStorage.setItem(sessionKey(locale), JSON.stringify(messages.slice(-40)));
     } catch {
-      // Session persistence is optional; the assistant remains usable without it.
+      // Session persistence is optional; Gekta remains usable without it.
     }
   }, [locale, messages]);
 
@@ -481,6 +530,7 @@ export function PublicPlatformAssistant() {
     setSending(false);
     setCopiedId('');
     window.sessionStorage.removeItem(sessionKey(locale));
+    for (const legacyKey of legacySessionKeys(locale)) window.sessionStorage.removeItem(legacyKey);
     window.setTimeout(() => textareaRef.current?.focus(), 0);
     trackEvent('public_platform_assistant_reset');
   };
@@ -562,6 +612,42 @@ export function PublicPlatformAssistant() {
       return 'answered';
     }
 
+    // Stopping keeps what the reader already saw.
+    //
+    // Cancellation used to be handled like every other non-answer: drop the
+    // provisional message and return. But a reader who presses Stop has already
+    // read the text on screen, and erasing it makes Stop look like a failure
+    // that lost the answer rather than a deliberate halt. Text that arrived is
+    // text the model produced; only its continuation was cancelled. It is left
+    // in place, marked `refused` so nothing downstream mistakes a halted answer
+    // for a complete one, and so the streaming indicator ends.
+    if (snapshot.refusal === 'CANCELLED') {
+      const partial = sanitizeDisplayText(snapshot.text);
+      if (!partial) {
+        dropProvisional();
+        return 'handled';
+      }
+      setMessages((current) => {
+        const next = opened ? current.filter((message) => message.id !== id) : current;
+        opened = true;
+        return [...next, {
+          id,
+          role: 'assistant',
+          text: partial,
+          origin: parseAssessment(snapshot.assessment).source,
+          createdAt: new Date().toISOString(),
+          stream: {
+            status: 'refused',
+            refusal: 'CANCELLED',
+            citations: [],
+            modelIdentity: null,
+            assessment: parseAssessment(snapshot.assessment),
+          },
+        }];
+      });
+      return 'handled';
+    }
+
     dropProvisional();
     if (
       snapshot.refusal === 'FEATURE_DISABLED'
@@ -571,7 +657,6 @@ export function PublicPlatformAssistant() {
     ) {
       return 'fallback';
     }
-    if (snapshot.refusal === 'CANCELLED') return 'handled';
 
     setMessages((current) => [...current, {
       id,
@@ -619,6 +704,36 @@ export function PublicPlatformAssistant() {
     return true;
   };
 
+  /**
+   * Run one generation for a question that is already on screen.
+   *
+   * Shared by asking and regenerating so the two cannot drift: the only thing
+   * that differs between them is whether a user turn is added first.
+   */
+  const runGeneration = async (question: string, history: HistoryTurn[]) => {
+    setError('');
+    sendingRef.current = true;
+    setSending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const result = await streamAnswer(question, history, controller);
+      if (result === 'answered' || result === 'handled') return;
+      if (!await knowledgeFallback(question, history, controller)) throw new Error('knowledge_fallback_failed');
+    } catch (reason) {
+      if (reason instanceof DOMException && reason.name === 'AbortError') return;
+      setError(ui.error);
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        sendingRef.current = false;
+        setSending(false);
+        window.setTimeout(() => textareaRef.current?.focus(), 0);
+      }
+    }
+  };
+
   const submit = async (value: string) => {
     const normalized = value.replace(/\s+/gu, ' ').trim().slice(0, 1_200);
     if (!normalized || sendingRef.current) return;
@@ -633,28 +748,8 @@ export function PublicPlatformAssistant() {
     stickToBottomRef.current = true;
     setMessages((current) => [...current, userMessage]);
     setInput('');
-    setError('');
-    sendingRef.current = true;
-    setSending(true);
-    const controller = new AbortController();
-    abortRef.current = controller;
     trackEvent('public_platform_assistant_question', { length: normalized.length, locale, context: contextName });
-
-    try {
-      const result = await streamAnswer(normalized, history, controller);
-      if (result === 'answered' || result === 'handled') return;
-      if (!await knowledgeFallback(normalized, history, controller)) throw new Error('knowledge_fallback_failed');
-    } catch (reason) {
-      if (reason instanceof DOMException && reason.name === 'AbortError') return;
-      setError(ui.error);
-    } finally {
-      if (abortRef.current === controller) {
-        abortRef.current = null;
-        sendingRef.current = false;
-        setSending(false);
-        window.setTimeout(() => textareaRef.current?.focus(), 0);
-      }
-    }
+    await runGeneration(normalized, history);
   };
 
   const copyMessage = async (message: Message) => {
@@ -668,9 +763,48 @@ export function PublicPlatformAssistant() {
     }
   };
 
-  const retryMessage = (index: number) => {
-    const previous = [...messages.slice(0, index)].reverse().find((message) => message.role === 'user');
-    if (previous) void submit(previous.text);
+  /**
+   * Regenerate one assistant answer without re-asking the question.
+   *
+   * Retry used to call `submit()` with the earlier question's text, and
+   * `submit()` always appends a user turn — so every retry added a second copy
+   * of a question the reader had asked once. The duplicate was not only visual:
+   * `historyFrom` reads the message list, so the next request carried the same
+   * user turn twice and the derived conversation state saw the subject restated
+   * rather than revisited.
+   *
+   * So this replaces rather than re-asks. The user turn stays exactly where it
+   * was, the answer being retried is dropped, and history is built from the
+   * turns *before* the question — the answer under replacement cannot be part
+   * of the context used to replace it.
+   *
+   * Anything after the retried answer is dropped with it. Those turns were
+   * responses to an answer that no longer exists, and keeping them would leave
+   * a conversation whose visible history never happened in that order. Removing
+   * the invalidated branch is the deterministic reading; silently keeping it is
+   * not.
+   */
+  const regenerateAnswer = async (index: number) => {
+    if (sendingRef.current) return;
+
+    let userIndex = -1;
+    for (let i = Math.min(index, messages.length) - 1; i >= 0; i -= 1) {
+      if (messages[i].role === 'user') { userIndex = i; break; }
+    }
+    if (userIndex < 0) return;
+
+    const question = messages[userIndex].text;
+    if (!question.trim()) return;
+
+    // Only what preceded the question. Not the question itself — it is sent as
+    // the current request — and not the answer being replaced.
+    const history = historyFrom(messages.slice(0, userIndex));
+
+    stickToBottomRef.current = true;
+    setMessages((current) => current.slice(0, index));
+    freshConversationRef.current = false;
+    trackEvent('public_platform_assistant_retry', { length: question.length, locale, context: contextName });
+    await runGeneration(question, history);
   };
 
   const panelStyle: React.CSSProperties | undefined = fullscreen ? {
@@ -852,7 +986,7 @@ export function PublicPlatformAssistant() {
                           <button type='button' style={actionStyle} onClick={() => void copyMessage(message)} aria-label={ui.copy} title={ui.copy}>
                             <CopyIcon size={15} aria-hidden='true' />{copiedId === message.id ? ui.copied : ui.copy}
                           </button>
-                          <button type='button' style={actionStyle} onClick={() => retryMessage(index)} aria-label={ui.retry} title={ui.retry}>
+                          <button type='button' style={actionStyle} onClick={() => void regenerateAnswer(index)} aria-label={ui.retry} title={ui.retry}>
                             <RefreshCw size={15} aria-hidden='true' />{ui.retry}
                           </button>
                           <button type='button' style={actionStyle} onClick={() => trackEvent('public_platform_assistant_feedback', { value: 'useful', origin: origin || 'unknown' })} aria-label={ui.useful} title={ui.useful}>

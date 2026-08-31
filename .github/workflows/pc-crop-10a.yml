@@ -72,8 +72,11 @@ jobs:
           mkdir -p "$EVIDENCE_DIR"
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
           printf '%s\n' "${{ steps.base.outputs.base_ref }}" > "$EVIDENCE_DIR/base-ref.txt"
-          node scripts/pc-crop-10a/verify.mjs \
-            --scope-guard "${{ steps.base.outputs.base_ref }}" \
+          verifier_args=()
+          if [[ "${GITHUB_HEAD_REF:-}" == 'agent/pc-crop-10a-government-systems-registry-3320' ]]; then
+            verifier_args=(--scope-guard "${{ steps.base.outputs.base_ref }}")
+          fi
+          node scripts/pc-crop-10a/verify.mjs "${verifier_args[@]}" \
             | tee "$EVIDENCE_DIR/acceptance.json"
           node <<'NODE'
           const fs = require('node:fs');

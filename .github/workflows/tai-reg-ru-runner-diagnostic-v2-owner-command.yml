@@ -1,0 +1,495 @@
+name: TAI Owner REG.RU Runner Diagnostic v2
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-reg-ru-runner-diagnostic-v2-owner-command.yml"
+      - "docs/platform-v7/autopilot/scopes/pc-prod-runner-diagnostic-schema-3365.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-reg-ru-runner-diagnostic-v2-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  EVIDENCE_DIR: artifacts/pc-prod-runner-diagnostic-v2
+
+jobs:
+  contract:
+    name: Validate upstream-aligned read-only runner diagnostic
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prove fixed scope and remote upstream schema markers
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          workflow_path = Path('.github/workflows/tai-reg-ru-runner-diagnostic-v2-owner-command.yml')
+          scope_path = Path('docs/platform-v7/autopilot/scopes/pc-prod-runner-diagnostic-schema-3365.json')
+          workflow = workflow_path.read_text(encoding='utf-8')
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          expected_paths = {str(workflow_path), str(scope_path)}
+          if scope.get('schemaVersion') != 'platform-v7.concurrent-scope.v1':
+              raise SystemExit('scope schema mismatch')
+          if scope.get('branch') != 'fix/pc-prod-runner-diagnostic-schema-3365':
+              raise SystemExit('scope branch mismatch')
+          if scope.get('authorityBaseExactMain') != '720be1a8c51041c1e2641f30c4d32cde91ad19d7':
+              raise SystemExit('scope base mismatch')
+          if scope.get('upstreamAuthority') != 'actions/runner v2.336.0 src/Runner.Common/ConfigurationStore.cs RunnerSettings DataContract':
+              raise SystemExit('upstream authority mismatch')
+          if set(scope.get('allowedPaths') or []) != expected_paths:
+              raise SystemExit('scope path mismatch')
+          if "/tai diagnose-pc-prod-runner-v2 current-main" not in workflow:
+              raise SystemExit('owner command missing')
+          if "StrictHostKeyChecking=yes" not in workflow:
+              raise SystemExit('pinned SSH enforcement missing')
+          try:
+              remote = workflow.split("<<'REMOTE'\n", 1)[1].split("\n          REMOTE", 1)[0]
+          except IndexError as exc:
+              raise SystemExit('fixed remote diagnostic block missing') from exc
+          required_remote = [
+              "text('AgentName', 'agentName')",
+              "text('ServerUrl', 'serverUrl')",
+              "text('GitHubUrl', 'gitHubUrl')",
+              "text('ServerUrlV2', 'serverUrlV2')",
+              "host.endswith('.actions.githubusercontent.com')",
+              "host.endswith('.githubapp.com')",
+              "endpoint_status GITHUB github.com",
+              "endpoint_status API api.github.com",
+              "journalctl",
+              "df -Pk",
+              "df -Pi",
+              "RUNNER_CONNECTIVITY_DIAGNOSTIC_V2=PASS",
+          ]
+          for marker in required_remote:
+              if marker not in remote:
+                  raise SystemExit(f'missing remote diagnostic marker: {marker}')
+          forbidden_remote = [
+              'systemctl start', 'systemctl stop', 'systemctl restart', 'systemctl enable',
+              'systemctl disable', 'systemctl daemon-reload', './config.sh', './svc.sh',
+              'docker pull', 'docker push', 'docker rm ', 'docker rmi ', 'docker system prune',
+              'docker image prune', 'docker builder prune', 'docker compose up', 'docker compose down',
+              '.credentials', '.credentials_rsaparams', 'registration-token',
+          ]
+          for marker in forbidden_remote:
+              if marker in remote:
+                  raise SystemExit(f'forbidden remote capability: {marker}')
+          PY
+
+  diagnose:
+    name: Diagnose pc-prod runner without mutation
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/tai diagnose-pc-prod-runner-v2 current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main
+        id: target
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target_sha="$(git rev-parse origin/main)"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$target_sha" ]]
+          printf 'sha=%s\n' "$target_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected root key and pinned production identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+            ssh-keygen -lf "$public_key" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$public_key"
+          }
+          try_slot(){
+            local raw="$1" first second third
+            [[ -n "$raw" ]] || return 1
+            first="$(mktemp)"; second="$(mktemp)"; third="$(mktemp)"
+            printf '%s\n' "$raw" > "$first"
+            validate_key "$first" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$second"
+            validate_key "$second" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$third" 2>/dev/null && validate_key "$third" && { rm -f "$first" "$second" "$third"; return 0; }
+            rm -f "$first" "$second" "$third"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo 'No valid protected SSH private key is configured.' >&2
+            exit 14
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch.' >&2; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; echo ROOT_SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          printf 'host=%s\n' "$host" >> "$GITHUB_OUTPUT"
+          printf 'user=%s\n' "$user" >> "$GITHUB_OUTPUT"
+          printf 'port=%s\n' "$port" >> "$GITHUB_OUTPUT"
+
+      - name: Collect upstream-aligned read-only runner evidence
+        id: diagnostic
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          log="$EVIDENCE_DIR/diagnostic.log"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$USER@$HOST" 'bash -s' > "$log" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          [[ "$(id -u)" -eq 0 ]]
+          runner_root=/opt/actions-runner-pc-prod
+          [[ -d "$runner_root" && ! -L "$runner_root" ]]
+
+          mapfile -t service_files < <(find /etc/systemd/system -maxdepth 1 -type f -name 'actions.runner.pachaninm-lab-pachanin-demo.pc-prod-*.service' -print | sort -u)
+          [[ "${#service_files[@]}" -eq 1 ]] || { echo 'DIAGNOSTIC_ERROR=RUNNER_SERVICE_CARDINALITY'; exit 30; }
+          service="$(basename "${service_files[0]}")"
+          expected_name="${service#actions.runner.pachaninm-lab-pachanin-demo.}"
+          expected_name="${expected_name%.service}"
+          [[ "$expected_name" =~ ^pc-prod-[A-Za-z0-9._-]{1,48}$ ]] || { echo 'DIAGNOSTIC_ERROR=RUNNER_SERVICE_NAME'; exit 31; }
+          runner_user="$(systemctl show "$service" --property=User --value)"
+          [[ "$runner_user" == pcactions ]] || { echo 'DIAGNOSTIC_ERROR=RUNNER_SERVICE_USER'; exit 32; }
+          service_state="$(systemctl is-active "$service" 2>/dev/null || true)"
+          main_pid="$(systemctl show "$service" --property=MainPID --value)"
+          nrestarts="$(systemctl show "$service" --property=NRestarts --value)"
+          active_usec="$(systemctl show "$service" --property=ActiveEnterTimestampMonotonic --value)"
+          [[ "$main_pid" =~ ^[0-9]+$ && "$nrestarts" =~ ^[0-9]+$ && "$active_usec" =~ ^[0-9]+$ ]]
+          listener_count="$( (pgrep -u pcactions -f 'Runner.Listener' 2>/dev/null || true) | wc -l | tr -d ' ')"
+          worker_count="$( (pgrep -u pcactions -f 'Runner.Worker' 2>/dev/null || true) | wc -l | tr -d ' ')"
+          [[ "$listener_count" =~ ^[0-9]+$ && "$worker_count" =~ ^[0-9]+$ ]]
+
+          config_status="$(mktemp)"
+          python3 - "$runner_root/.runner" "$expected_name" > "$config_status" <<'PY'
+          import json
+          import re
+          import sys
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          path = Path(sys.argv[1])
+          expected = sys.argv[2]
+          name_re = re.compile(r'^pc-prod-[A-Za-z0-9._-]{1,48}$')
+          raw = path.read_bytes() if path.is_file() and not path.is_symlink() else b''
+          payload = None
+          if 0 < len(raw) <= 1024 * 1024:
+              for encoding in ('utf-8-sig', 'utf-16', 'utf-16-le', 'utf-16-be'):
+                  try:
+                      candidate = json.loads(raw.decode(encoding))
+                  except (UnicodeDecodeError, json.JSONDecodeError):
+                      continue
+                  if isinstance(candidate, dict):
+                      payload = candidate
+                      break
+
+          def text(key, legacy):
+              if not isinstance(payload, dict):
+                  return None
+              value = payload.get(key)
+              if not isinstance(value, str) or not value:
+                  value = payload.get(legacy)
+              return value if isinstance(value, str) and value else None
+
+          def host_from(value):
+              if not value:
+                  return None
+              try:
+                  parsed = urlparse(value)
+                  port = parsed.port
+              except ValueError:
+                  return None
+              if parsed.scheme != 'https' or parsed.username or parsed.password:
+                  return None
+              if port not in (None, 443):
+                  return None
+              host = (parsed.hostname or '').lower().rstrip('.')
+              if not re.fullmatch(r'[a-z0-9.-]{1,253}', host):
+                  return None
+              return host
+
+          def service_trusted(host):
+              return bool(host) and (
+                  host.endswith('.actions.githubusercontent.com')
+                  or host.endswith('.githubapp.com')
+              )
+
+          if payload is None:
+              print('RUNNER_CONFIG_PARSE=BLOCKED')
+              print('RUNNER_AGENT_NAME_STATUS=MISSING')
+              print('RUNNER_GITHUB_URL_STATUS=MISSING')
+              print('RUNNER_SERVER_URL_STATUS=MISSING')
+              print('RUNNER_SERVER_V2_URL_STATUS=MISSING')
+              raise SystemExit(0)
+
+          print('RUNNER_CONFIG_PARSE=PASS')
+          name = text('AgentName', 'agentName')
+          if name == expected:
+              name_status = 'MATCH'
+          elif name is None:
+              name_status = 'MISSING'
+          elif name_re.fullmatch(name):
+              name_status = 'MISMATCH'
+          else:
+              name_status = 'INVALID'
+          print(f'RUNNER_AGENT_NAME_STATUS={name_status}')
+
+          github_host = host_from(text('GitHubUrl', 'gitHubUrl'))
+          server_host = host_from(text('ServerUrl', 'serverUrl'))
+          server_v2_host = host_from(text('ServerUrlV2', 'serverUrlV2'))
+          github_status = 'TRUSTED' if github_host == 'github.com' else ('MISSING' if github_host is None else 'UNTRUSTED')
+          server_status = 'TRUSTED' if service_trusted(server_host) else ('MISSING' if server_host is None else 'UNTRUSTED')
+          server_v2_status = 'TRUSTED' if service_trusted(server_v2_host) else ('MISSING' if server_v2_host is None else 'UNTRUSTED')
+          print(f'RUNNER_GITHUB_URL_STATUS={github_status}')
+          print(f'RUNNER_SERVER_URL_STATUS={server_status}')
+          print(f'RUNNER_SERVER_V2_URL_STATUS={server_v2_status}')
+          if github_status == 'TRUSTED':
+              print(f'RUNNER_GITHUB_HOST={github_host}')
+          if server_status == 'TRUSTED':
+              print(f'RUNNER_SERVER_HOST={server_host}')
+          if server_v2_status == 'TRUSTED':
+              print(f'RUNNER_SERVER_V2_HOST={server_v2_host}')
+          PY
+          cat "$config_status"
+          config_value(){ sed -n "s/^$1=//p" "$config_status" | tail -1; }
+          runner_server_host="$(config_value RUNNER_SERVER_HOST || true)"
+          runner_server_v2_host="$(config_value RUNNER_SERVER_V2_HOST || true)"
+          rm -f "$config_status"
+
+          endpoint_status(){
+            local key="$1" host="$2" dns=SKIPPED https=SKIPPED code=000
+            if [[ -n "$host" ]]; then
+              dns=BLOCKED; https=BLOCKED
+              if getent ahostsv4 "$host" >/dev/null 2>&1; then dns=PASS; fi
+              code="$(curl --proto '=https' --tlsv1.2 -sS -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 "https://${host}/" 2>/dev/null || true)"
+              if [[ "$code" =~ ^[1-5][0-9][0-9]$ ]]; then https=PASS; fi
+            fi
+            printf 'DNS_%s=%s\n' "$key" "$dns"
+            printf 'HTTPS_%s=%s\n' "$key" "$https"
+            printf 'HTTP_%s_CODE=%s\n' "$key" "$code"
+          }
+
+          endpoint_status GITHUB github.com
+          endpoint_status API api.github.com
+          endpoint_status RUNNER_SERVER "$runner_server_host"
+          endpoint_status RUNNER_SERVER_V2 "$runner_server_v2_host"
+
+          python3 - "$runner_root/_diag" "$service" <<'PY'
+          import re
+          import subprocess
+          import sys
+          import time
+          from pathlib import Path
+
+          diag_dir = Path(sys.argv[1])
+          service = sys.argv[2]
+          categories = {
+              'SESSION_CONFLICT': re.compile(r'(session conflict|already has an active session)', re.I),
+              'AUTH': re.compile(r'(unauthorized|forbidden|oauth.*fail|credential.*fail|\b401\b|\b403\b)', re.I),
+              'DNS': re.compile(r'(name resolution|name or service not known|temporary failure in name resolution)', re.I),
+              'NETWORK': re.compile(r'(connection refused|connection reset|timed? out|network is unreachable|resource temporarily unavailable|ssl connection could not be established)', re.I),
+              'LISTENING': re.compile(r'listening for jobs', re.I),
+              'SESSION': re.compile(r'(create|created|creating).*session', re.I),
+          }
+
+          def classify(text):
+              counts = {key: 0 for key in categories}
+              last = 'NONE'
+              for line in text.splitlines():
+                  for key, pattern in categories.items():
+                      if pattern.search(line):
+                          counts[key] += 1
+                          last = key
+              return counts, last
+
+          files = sorted(
+              (p for p in diag_dir.glob('Runner_*.log') if p.is_file() and not p.is_symlink()),
+              key=lambda p: p.stat().st_mtime,
+          ) if diag_dir.is_dir() else []
+          if files:
+              latest = files[-1]
+              raw = latest.read_bytes()
+              if len(raw) > 4 * 1024 * 1024:
+                  raw = raw[-4 * 1024 * 1024:]
+              counts, last = classify(raw.decode('utf-8', errors='replace'))
+              age = max(0, int(time.time() - latest.stat().st_mtime))
+          else:
+              counts = {key: 0 for key in categories}
+              last = 'NONE'
+              age = -1
+          print(f'RUNNER_DIAG_AGE_SEC={age}')
+          for key in categories:
+              print(f'RUNNER_DIAG_{key}_COUNT={counts[key]}')
+          print(f'RUNNER_DIAG_LAST_CATEGORY={last}')
+
+          journal = subprocess.run(
+              ['journalctl', '-u', service, '--since=-30 minutes', '--no-pager', '-o', 'cat'],
+              check=False, capture_output=True, text=True, timeout=10,
+          )
+          counts, last = classify(journal.stdout[-2 * 1024 * 1024:])
+          for key in categories:
+              print(f'RUNNER_JOURNAL_{key}_COUNT={counts[key]}')
+          print(f'RUNNER_JOURNAL_LAST_CATEGORY={last}')
+          PY
+
+          root_available_kib="$(df -Pk / | awk 'NR==2{print $4}')"
+          root_available_inodes="$(df -Pi / | awk 'NR==2{print $4}')"
+          containerd_target=/var/lib/containerd
+          [[ -d "$containerd_target" ]] || containerd_target=/
+          containerd_available_kib="$(df -Pk "$containerd_target" | awk 'NR==2{print $4}')"
+          [[ "$root_available_kib" =~ ^[0-9]+$ && "$root_available_inodes" =~ ^[0-9]+$ && "$containerd_available_kib" =~ ^[0-9]+$ ]]
+
+          printf 'RUNNER_CONNECTIVITY_DIAGNOSTIC_V2=PASS\n'
+          printf 'RUNNER_SERVICE_STATE=%s\n' "$service_state"
+          printf 'RUNNER_EXPECTED_NAME=%s\n' "$expected_name"
+          printf 'RUNNER_MAIN_PID_PRESENT=%s\n' "$([[ "$main_pid" =~ ^[1-9][0-9]*$ ]] && echo true || echo false)"
+          printf 'RUNNER_NRESTARTS=%s\n' "$nrestarts"
+          printf 'RUNNER_ACTIVE_ENTER_MONOTONIC_USEC=%s\n' "$active_usec"
+          printf 'RUNNER_LISTENER_PROCESS_COUNT=%s\n' "$listener_count"
+          printf 'RUNNER_WORKER_PROCESS_COUNT=%s\n' "$worker_count"
+          printf 'ROOT_AVAILABLE_KIB=%s\n' "$root_available_kib"
+          printf 'ROOT_AVAILABLE_INODES=%s\n' "$root_available_inodes"
+          printf 'CONTAINERD_AVAILABLE_KIB=%s\n' "$containerd_available_kib"
+          REMOTE
+          grep -Fxq RUNNER_CONNECTIVITY_DIAGNOSTIC_V2=PASS "$log"
+          cat "$log"
+
+      - name: Classify and publish bounded diagnostic
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          log="$EVIDENCE_DIR/diagnostic.log"
+          value(){ sed -n "s/^$1=//p" "$log" 2>/dev/null | tail -1; }
+          outcome=FAIL
+          classification=DIAGNOSTIC_INCOMPLETE
+          if [[ "$(value RUNNER_CONNECTIVITY_DIAGNOSTIC_V2 || true)" == PASS ]]; then
+            outcome=PASS
+            diag_last="$(value RUNNER_DIAG_LAST_CATEGORY)"
+            journal_last="$(value RUNNER_JOURNAL_LAST_CATEGORY)"
+            if [[ "$(value RUNNER_SERVICE_STATE)" != active ]] || [[ "$(value RUNNER_LISTENER_PROCESS_COUNT)" == 0 ]]; then
+              classification=LOCAL_RUNNER_PROCESS
+            elif [[ "$(value DNS_GITHUB)" != PASS || "$(value HTTPS_GITHUB)" != PASS || "$(value DNS_API)" != PASS || "$(value HTTPS_API)" != PASS ]]; then
+              classification=OUTBOUND_GITHUB_CONNECTIVITY
+            elif [[ "$(value RUNNER_SERVER_URL_STATUS)" == UNTRUSTED || "$(value RUNNER_SERVER_V2_URL_STATUS)" == UNTRUSTED || "$(value RUNNER_GITHUB_URL_STATUS)" == UNTRUSTED ]]; then
+              classification=RUNNER_CONFIG_URL_AUTHORITY
+            elif [[ "$(value DNS_RUNNER_SERVER)" == BLOCKED || "$(value HTTPS_RUNNER_SERVER)" == BLOCKED || "$(value DNS_RUNNER_SERVER_V2)" == BLOCKED || "$(value HTTPS_RUNNER_SERVER_V2)" == BLOCKED ]]; then
+              classification=OUTBOUND_RUNNER_SERVICE_CONNECTIVITY
+            elif [[ "$diag_last" == SESSION_CONFLICT || "$journal_last" == SESSION_CONFLICT ]]; then
+              classification=GITHUB_SESSION_CONFLICT
+            elif [[ "$diag_last" == AUTH || "$journal_last" == AUTH ]]; then
+              classification=GITHUB_RUNNER_AUTH
+            elif [[ "$diag_last" == DNS || "$diag_last" == NETWORK || "$journal_last" == DNS || "$journal_last" == NETWORK ]]; then
+              classification=RUNNER_NETWORK_ERRORS
+            elif [[ "$(value RUNNER_AGENT_NAME_STATUS)" != MATCH ]]; then
+              classification=RUNNER_CONFIG_IDENTITY
+            elif [[ "$diag_last" == LISTENING || "$journal_last" == LISTENING ]]; then
+              classification=LISTENER_READY_SCHEDULER_PENDING
+            elif [[ "$diag_last" == SESSION || "$journal_last" == SESSION ]]; then
+              classification=SESSION_ACTIVE_NO_LISTENING_MARKER
+            else
+              classification=LISTENER_RUNNING_NO_CURRENT_READY_MARKER
+            fi
+          fi
+
+          record="$EVIDENCE_DIR/issue-record.md"
+          {
+            echo '## REG.RU pc-prod runner connectivity diagnostic v2'
+            echo
+            echo "- result: \`$outcome\`"
+            echo "- exact main: \`${TARGET_SHA:-unknown}\`"
+            echo "- classification: **$classification**"
+            echo "- service/listener/worker: \`$(value RUNNER_SERVICE_STATE || true) / $(value RUNNER_LISTENER_PROCESS_COUNT || true) / $(value RUNNER_WORKER_PROCESS_COUNT || true)\`"
+            echo "- runner config parse/name: \`$(value RUNNER_CONFIG_PARSE || true) / $(value RUNNER_AGENT_NAME_STATUS || true)\`"
+            echo "- runner URL authority GitHub/server/v2: \`$(value RUNNER_GITHUB_URL_STATUS || true) / $(value RUNNER_SERVER_URL_STATUS || true) / $(value RUNNER_SERVER_V2_URL_STATUS || true)\`"
+            echo "- fixed GitHub DNS/HTTPS: \`$(value DNS_GITHUB || true)/$(value HTTPS_GITHUB || true), $(value DNS_API || true)/$(value HTTPS_API || true)\`"
+            echo "- configured server DNS/HTTPS: \`$(value DNS_RUNNER_SERVER || true)/$(value HTTPS_RUNNER_SERVER || true), $(value DNS_RUNNER_SERVER_V2 || true)/$(value HTTPS_RUNNER_SERVER_V2 || true)\`"
+            echo "- runner diag age/last: \`$(value RUNNER_DIAG_AGE_SEC || true) / $(value RUNNER_DIAG_LAST_CATEGORY || true)\`"
+            echo "- journal last: \`$(value RUNNER_JOURNAL_LAST_CATEGORY || true)\`"
+            echo "- diag session-conflict/auth/dns/network/listening/session: \`$(value RUNNER_DIAG_SESSION_CONFLICT_COUNT || true)/$(value RUNNER_DIAG_AUTH_COUNT || true)/$(value RUNNER_DIAG_DNS_COUNT || true)/$(value RUNNER_DIAG_NETWORK_COUNT || true)/$(value RUNNER_DIAG_LISTENING_COUNT || true)/$(value RUNNER_DIAG_SESSION_COUNT || true)\`"
+            echo "- root/containerd available KiB: \`$(value ROOT_AVAILABLE_KIB || true) / $(value CONTAINERD_AVAILABLE_KIB || true)\`"
+            echo "- root available inodes: \`$(value ROOT_AVAILABLE_INODES || true)\`"
+            echo "- production mutation: \`NONE\`"
+            echo "- run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$record"
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          cat "$record" >> "$GITHUB_STEP_SUMMARY"
+          [[ "$outcome" == PASS ]]
+
+      - name: Remove local SSH key material
+        if: always()
+        shell: bash
+        run: rm -rf "$HOME/.ssh"

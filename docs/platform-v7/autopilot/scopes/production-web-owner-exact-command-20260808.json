@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-web-owner-exact-command-20260808",
+  "status": "active",
+  "purpose": "Add an owner-only issue-comment bridge that dispatches the existing canonical exact-SHA web-only production release for a validated historical main ancestor, avoiding full-stack API/database mutation for public web UX releases.",
+  "approvedBy": "owner-direct-continue-2026-08-08",
+  "authorityBaseExactMain": "aaf20a7c62f5fb68deb962dabdc1af153e37382f",
+  "allowedPaths": [
+    ".github/workflows/production-web-owner-exact-command.yml",
+    "scripts/check-production-web-owner-exact-command.mjs",
+    "docs/ops/production-web-owner-exact-command.md",
+    "docs/platform-v7/autopilot/scopes/production-web-owner-exact-command-20260808.json"
+  ],
+  "requiredBehavior": [
+    "only issue 3048 comments created by the repository owner can enter the command job",
+    "command grammar requires exactly /production web exact followed by one lowercase 40-character SHA",
+    "target commit must exist and be an ancestor of current origin/main",
+    "the bridge only dispatches production-web-exact-sha.yml with deploy and DEPLOY-EXACT-SHA confirmation",
+    "the bridge performs no direct production transport or runtime mutation",
+    "the canonical web release remains responsible for image verification health live acceptance evidence and rollback"
+  ],
+  "forbiddenCapabilities": [
+    "API deployment or API runtime mutation",
+    "database migration or database mutation",
+    "TAI model runtime workflow or infrastructure changes",
+    "direct SSH SCP or Docker production commands in the bridge",
+    "production credential handling",
+    "host verification weakening",
+    "full-stack release dispatch",
+    "application runtime changes",
+    "acceptance weakening"
+  ]
+}

@@ -43,10 +43,12 @@ function isProductionLikeCabinetSessionMode(env: NodeJS.ProcessEnv = process.env
 }
 
 function isDirectBodyRoleCabinetSessionAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (truthyEnv(env, BODY_ROLE_SESSION_FLAG)) return true;
-  if (truthyEnv(env, CONTROLLED_PILOT_BODY_ROLE_SESSION_FLAG)) return true;
   if (isProductionLikeCabinetSessionMode(env)) return false;
-  return envValue(env, 'NODE_ENV') === 'development' || envValue(env, 'NODE_ENV') === 'test';
+  const nonProduction = envValue(env, 'NODE_ENV') === 'development' || envValue(env, 'NODE_ENV') === 'test';
+  return nonProduction && (
+    truthyEnv(env, BODY_ROLE_SESSION_FLAG)
+    || truthyEnv(env, CONTROLLED_PILOT_BODY_ROLE_SESSION_FLAG)
+  );
 }
 
 function readBearerToken(request: Request): string | null {

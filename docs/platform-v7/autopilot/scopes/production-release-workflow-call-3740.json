@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-release-workflow-call-3740",
+  "status": "active",
+  "purpose": "Make the owner-authorized release controller execute its reusable exact-current-main full-stack workflow while preserving an explicit authorization input and exact-main target resolution.",
+  "approvedBy": "owner-direct-production-release-repair-2026-08-08",
+  "authorityBaseExactMain": "653c923bd8e0e0d0a72691203c83892b5c327757",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-full-stack-exact-sha.yml",
+    ".github/workflows/platform-v7-safe-merge.yml",
+    "scripts/check-production-full-stack-release.mjs",
+    "docs/platform-v7/autopilot/scopes/production-release-workflow-call-3740.json",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ]
+}

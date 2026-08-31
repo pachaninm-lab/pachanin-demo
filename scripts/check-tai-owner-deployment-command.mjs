@@ -5,6 +5,11 @@ const workflowPath = '.github/workflows/tai-owner-reg-ru-deployment-command.yml'
 const dockerPublishPath = '.github/workflows/docker-publish.yml';
 const workflow = readFileSync(workflowPath, 'utf8');
 const dockerPublish = readFileSync(dockerPublishPath, 'utf8');
+const deployStart = workflow.indexOf('\n  deploy:\n');
+const publishStart = workflow.indexOf('\n  publish:\n', deployStart);
+const deployJob = deployStart >= 0 && publishStart > deployStart
+  ? workflow.slice(deployStart, publishStart)
+  : '';
 const violations = [];
 const requireFragment = (fragment) => {
   if (!workflow.includes(fragment)) violations.push(`missing ${JSON.stringify(fragment)}`);
@@ -52,10 +57,15 @@ for (const fragment of [
   "user\" == '65532:65532'",
   'name: Deploy through protected REG.RU controller',
   'sudo -n /usr/local/sbin/pc-tai-release-controller deploy',
-  'name: Upload exact-main deployment evidence',
+  'name: Validate and checksum exact-main deployment evidence',
   'predeploy.json',
   'deployment.json',
   'postdeploy.json',
+  "target mismatch",
+  'successful evidence set incomplete',
+  'successful postflight invalid',
+  'tai-owner-deployment-evidence.sha256',
+  'sha256sum',
   'name: Publish exact-main owner deployment result',
   "context='TAI REG.RU Deployment'",
   "context='TAI REG.RU Preflight'",
@@ -63,6 +73,14 @@ for (const fragment of [
   'issues: write',
   'statuses: write',
 ]) requireFragment(fragment);
+
+if (!deployJob) violations.push('production deploy job boundary is missing');
+if (/^\s{6}- uses:/mu.test(deployJob)) {
+  violations.push('production self-hosted owner deployment job must be actionless');
+}
+if (/actions\/(?:upload|download)-artifact@v4/u.test(deployJob)) {
+  violations.push('artifact Actions are forbidden in the production owner deployment job');
+}
 
 const dispatchGuardCount = (workflow.match(/github\.event_name == 'workflow_dispatch'/gu) || []).length;
 if (dispatchGuardCount < 4) {
@@ -110,4 +128,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner deployment command contract PASS: exact activation proof, owner-only issue or main-branch workflow dispatch, rootless image, protected controller, rollback evidence and terminal status are fail-closed.');
+console.log('TAI owner deployment command contract PASS: the REG.RU deployment runner is actionless, exact activation proof and rootless image authority remain mandatory, and deployment evidence is target-bound and checksummed locally.');

@@ -1,0 +1,449 @@
+name: Production P0 Root Mail From Recovery
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-root-mail-from-recover.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-root-mail-from-recover
+  cancel-in-progress: false
+
+env:
+  RELEASE_ISSUE_NUMBER: '3072'
+  EXPECTED_DEPLOYED_SHA: bd01e7e3150230be1d457599497a213cd76d3984
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  ROOT_MAIL_FROM: access@xn----8sbjf4befbjgs9b.xn--p1ai
+  ACCEPTANCE_MAIL_DOMAIN: acceptance.xn----8sbjf4befbjgs9b.xn--p1ai
+
+jobs:
+  contract:
+    name: Validate bounded authenticated-sender recovery
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          (github.actor == 'chatgpt-codex-connector[bot]' && github.triggering_actor == 'chatgpt-codex-connector[bot]')
+        ) &&
+        github.event.comment.body == '/production p0-root-mail-from-recover current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate fixed incident contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/production-p0-root-mail-from-recover.yml')
+          text = path.read_text(encoding='utf-8')
+          required = (
+              '/production p0-root-mail-from-recover current-main',
+              'EXPECTED_DEPLOYED_SHA: bd01e7e3150230be1d457599497a213cd76d3984',
+              'ROOT_MAIL_FROM: access@xn----8sbjf4befbjgs9b.xn--p1ai',
+              'ACCEPTANCE_MAIL_DOMAIN: acceptance.xn----8sbjf4befbjgs9b.xn--p1ai',
+              'StrictHostKeyChecking=yes',
+              'SMTP_ROOT_FROM_PROBE=PASS',
+              'MAIL_RUNTIME_REWRITE=PASS',
+              'ROOT_ONLY_AUTH_MAIL_RUNTIME_FILE',
+              "['docker', 'inspect'",
+              'PRODUCTION_DB_MUTATION=NONE',
+              'PRODUCTION_DEPLOYMENT_MUTATION=NONE',
+          )
+          for marker in required:
+              assert marker in text, marker
+          marker = '\n  recover:\n'
+          assert text.count(marker) == 1
+          runtime = text.split(marker, 1)[1]
+          forbidden = (
+              'docker compose ' + 'up',
+              'docker compose ' + 'down',
+              'prisma ' + 'migrate',
+              'ps' + 'ql ',
+              'docker ' + 'volume',
+              'docker system ' + 'prune',
+          )
+          for item in forbidden:
+              assert item not in runtime, item
+          PY
+
+      - name: Verify owner or trusted connector provenance
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EVENT_ACTOR: ${{ github.actor }}
+          EVENT_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          EXPECTED_BODY: /production p0-root-mail-from-recover current-main
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$EVENT_ACTOR" == "$owner" && "$EVENT_TRIGGERING_ACTOR" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$EVENT_ACTOR" == 'chatgpt-codex-connector[bot]' ]]
+            [[ "$EVENT_TRIGGERING_ACTOR" == 'chatgpt-codex-connector[bot]' ]]
+            app_id="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // empty')"
+            [[ "$app_id" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$target"
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  recover:
+    name: Prove root sender and atomically rewrite mail runtime
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact current main and deployed ancestor
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          git merge-base --is-ancestor "$EXPECTED_DEPLOYED_SHA" "$TARGET_SHA"
+          [[ -z "$(git status --porcelain=v1)" ]]
+
+      - name: Resolve pinned REG.RU SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${PC_PROD_HOST:-}")"
+          user="$(trim "${PC_PROD_SSH_USER:-}")"
+          port="$(trim "${PC_PROD_SSH_PORT:-22}")"
+          expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ -n "$host" && -n "$user" ]]
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mapfile -t ips < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u)
+          (( ${#ips[@]} >= 1 ))
+          printf '%s\n' "${ips[@]}" | grep -Fxq "$host"
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          key="$HOME/.ssh/id_pc_prod"
+          validate_key(){
+            local source="$1"
+            tr -d '\r' < "$source" > "$key"
+            chmod 600 "$key"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1
+            ssh-keygen -y -P '' -f "$key" >/dev/null 2>&1
+          }
+          try_key(){
+            local raw="$1" tmp
+            [[ -n "$raw" ]] || return 1
+            tmp="$(mktemp)"
+            printf '%s\n' "$raw" > "$tmp"
+            if validate_key "$tmp"; then rm -f "$tmp"; return 0; fi
+            printf '%s' "${raw//\\n/$'\n'}" > "$tmp"
+            if validate_key "$tmp"; then rm -f "$tmp"; return 0; fi
+            if printf '%s' "$raw" | base64 --decode > "$tmp" 2>/dev/null && validate_key "$tmp"; then rm -f "$tmp"; return 0; fi
+            rm -f "$tmp"
+            return 1
+          }
+          try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"
+
+          raw_scan="$(mktemp)"
+          match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" > "$raw_scan" 2>/dev/null || true
+          [[ -s "$raw_scan" ]]
+          sort -u "$raw_scan" -o "$raw_scan"
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$raw_scan"
+          sort -u "$match" -o "$match"
+          [[ "$(grep -c . "$match" || true)" == '1' ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          rm -f "$raw_scan"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Prove root authenticated sender and rewrite only PC_MAIL_FROM
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          output="$(ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 \
+            "$USER@$HOST" "python3 - '$EXPECTED_DEPLOYED_SHA' '$ROOT_MAIL_FROM' '$ACCEPTANCE_MAIL_DOMAIN'" <<'PY'
+          import email
+          import imaplib
+          import os
+          import re
+          import secrets
+          import smtplib
+          import ssl
+          import stat
+          import subprocess
+          import sys
+          import time
+          from email.message import EmailMessage
+          from email.policy import default
+          from email.utils import getaddresses
+
+          expected_sha, root_from, acceptance_domain = sys.argv[1:]
+          if os.geteuid() != 0:
+              raise SystemExit(20)
+          if not re.fullmatch(r'[0-9a-f]{40}', expected_sha):
+              raise SystemExit(21)
+          if root_from != 'access@xn----8sbjf4befbjgs9b.xn--p1ai':
+              raise SystemExit(22)
+          if acceptance_domain != 'acceptance.xn----8sbjf4befbjgs9b.xn--p1ai':
+              raise SystemExit(23)
+
+          def run(args):
+              result = subprocess.run(args, check=False, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              if result.returncode != 0:
+                  raise RuntimeError('command_failed')
+              return result.stdout.strip()
+
+          web_ids = [x for x in run(['docker', 'ps', '-q', '--filter', 'label=com.docker.compose.service=web']).splitlines() if x]
+          if len(web_ids) != 1:
+              raise SystemExit(24)
+          web_id = web_ids[0]
+          project = run(['docker', 'inspect', '--format', '{{ index .Config.Labels "com.docker.compose.project" }}', web_id])
+          working = run(['docker', 'inspect', '--format', '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}', web_id])
+          web_revision = run(['docker', 'inspect', '--format', '{{ index .Config.Labels "org.opencontainers.image.revision" }}', web_id])
+          api_ids = [x for x in run([
+              'docker', 'ps', '-q',
+              '--filter', f'label=com.docker.compose.project={project}',
+              '--filter', 'label=com.docker.compose.service=api',
+          ]).splitlines() if x]
+          if len(api_ids) != 1:
+              raise SystemExit(25)
+          api_revision = run(['docker', 'inspect', '--format', '{{ index .Config.Labels "org.opencontainers.image.revision" }}', api_ids[0]])
+          if api_revision != expected_sha or web_revision != expected_sha:
+              raise SystemExit(26)
+          if not working.startswith('/') or working == '/' or not os.path.isdir(working) or os.path.islink(working):
+              raise SystemExit(27)
+
+          working_real = os.path.realpath(working)
+          runtime_path = os.path.realpath(os.path.join(working_real, '.pc-transactional-mail.env'))
+          if os.path.dirname(runtime_path) != working_real or not os.path.isfile(runtime_path) or os.path.islink(runtime_path):
+              raise SystemExit(28)
+          info = os.stat(runtime_path)
+          if info.st_uid != 0 or info.st_gid != 0 or stat.S_IMODE(info.st_mode) != 0o600:
+              raise SystemExit(29)
+
+          original_text = open(runtime_path, 'r', encoding='utf-8').read()
+          if not original_text.endswith('\n') or '\r' in original_text or '\x00' in original_text:
+              raise SystemExit(30)
+          values = {}
+          for line in original_text.rstrip('\n').split('\n'):
+              key, sep, value = line.partition('=')
+              if not sep or not key or key in values or not value or value != value.strip():
+                  raise SystemExit(31)
+              values[key] = value
+          expected_keys = {'PC_SMTP_HOST', 'PC_SMTP_USER', 'PC_SMTP_PASS', 'PC_SMTP_PORT', 'PC_MAIL_FROM'}
+          if set(values) != expected_keys:
+              raise SystemExit(32)
+
+          smtp_host = values['PC_SMTP_HOST']
+          smtp_user = values['PC_SMTP_USER']
+          smtp_pass = values['PC_SMTP_PASS']
+          smtp_port = values['PC_SMTP_PORT']
+          current_from = values['PC_MAIL_FROM']
+          if smtp_host not in {'mail.hosting.reg.ru', 'sm38.hosting.reg.ru'} or smtp_port != '465':
+              raise SystemExit(33)
+          if not re.fullmatch(r'[^\s@]{1,64}@[^\s@]{1,189}', smtp_user) or not smtp_user.endswith('@' + acceptance_domain):
+              raise SystemExit(34)
+          if current_from != smtp_user or not (1 <= len(smtp_pass) <= 512):
+              raise SystemExit(35)
+
+          token = 'PC-CROP-ROOT-FROM-' + secrets.token_hex(12)
+          message = EmailMessage()
+          message['From'] = root_from
+          message['To'] = smtp_user
+          message['Subject'] = 'PC-CROP authenticated root sender verification'
+          message.set_content(token)
+          tls = ssl.create_default_context()
+          with smtplib.SMTP_SSL(smtp_host, int(smtp_port), timeout=15, context=tls) as client:
+              client.login(smtp_user, smtp_pass)
+              client.send_message(message, from_addr=root_from, to_addrs=[smtp_user])
+
+          deadline = time.time() + 90
+          received = False
+          while time.time() < deadline and not received:
+              mailbox = imaplib.IMAP4_SSL('mail.hosting.reg.ru', 993, ssl_context=tls, timeout=15)
+              try:
+                  mailbox.login(smtp_user, smtp_pass)
+                  if mailbox.select('INBOX', readonly=True)[0] != 'OK':
+                      raise SystemExit(36)
+                  status, data = mailbox.search(None, 'ALL')
+                  if status != 'OK':
+                      raise SystemExit(37)
+                  for identifier in reversed((data[0] or b'').split()[-250:]):
+                      status, rows = mailbox.fetch(identifier, '(BODY.PEEK[])')
+                      if status != 'OK':
+                          continue
+                      raw = next((item[1] for item in rows if isinstance(item, tuple) and len(item) > 1), None)
+                      if not raw or token.encode('ascii') not in raw:
+                          continue
+                      parsed = email.message_from_bytes(raw, policy=default)
+                      senders = [address.lower() for _, address in getaddresses(parsed.get_all('from', [])) if address]
+                      if root_from.lower() not in senders:
+                          raise SystemExit(38)
+                      received = True
+                      break
+              finally:
+                  try:
+                      mailbox.logout()
+                  except Exception:
+                      pass
+              if not received:
+                  time.sleep(3)
+          if not received:
+              raise SystemExit(39)
+
+          order = ['PC_SMTP_HOST', 'PC_SMTP_USER', 'PC_SMTP_PASS', 'PC_SMTP_PORT', 'PC_MAIL_FROM']
+          values['PC_MAIL_FROM'] = root_from
+          rewritten = ''.join(f'{key}={values[key]}\n' for key in order).encode('utf-8')
+          original = original_text.encode('utf-8')
+          suffix = str(os.getpid())
+          backup = runtime_path + '.root-from-backup.' + suffix
+          temporary = runtime_path + '.root-from-temp.' + suffix
+          try:
+              flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+              fd = os.open(backup, flags, 0o600)
+              with os.fdopen(fd, 'wb') as handle:
+                  handle.write(original)
+                  handle.flush()
+                  os.fsync(handle.fileno())
+              os.chown(backup, 0, 0)
+              fd = os.open(temporary, flags, 0o600)
+              with os.fdopen(fd, 'wb') as handle:
+                  handle.write(rewritten)
+                  handle.flush()
+                  os.fsync(handle.fileno())
+              os.chown(temporary, 0, 0)
+              os.replace(temporary, runtime_path)
+              verify = open(runtime_path, 'rb').read()
+              if verify != rewritten:
+                  raise RuntimeError('rewrite_verification_failed')
+              os.unlink(backup)
+          except Exception:
+              try:
+                  if os.path.exists(backup):
+                      os.replace(backup, runtime_path)
+              finally:
+                  if os.path.exists(temporary):
+                      os.unlink(temporary)
+              raise
+
+          print('SMTP_ROOT_FROM_PROBE=PASS')
+          print('MAIL_RUNTIME_REWRITE=PASS')
+          print('PRODUCTION_MUTATION=ROOT_ONLY_AUTH_MAIL_RUNTIME_FILE')
+          print('PRODUCTION_DB_MUTATION=NONE')
+          print('PRODUCTION_DEPLOYMENT_MUTATION=NONE')
+          PY
+          )"
+          grep -Fxq 'SMTP_ROOT_FROM_PROBE=PASS' <<< "$output"
+          grep -Fxq 'MAIL_RUNTIME_REWRITE=PASS' <<< "$output"
+          grep -Fxq 'PRODUCTION_MUTATION=ROOT_ONLY_AUTH_MAIL_RUNTIME_FILE' <<< "$output"
+          grep -Fxq 'PRODUCTION_DB_MUTATION=NONE' <<< "$output"
+          grep -Fxq 'PRODUCTION_DEPLOYMENT_MUTATION=NONE' <<< "$output"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+      - name: Publish bounded PASS evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## PC-CROP authenticated root mail sender recovery
+
+          - exact main: \`$TARGET_SHA\`
+          - inspected deployed API/Web: \`$EXPECTED_DEPLOYED_SHA\`
+          - result: \`PASS\`
+          - pre-mutation real SMTP + IMAP root-From probe: \`PASS\`
+          - runtime change: \`PC_MAIL_FROM -> access@процент-агро.рф\`
+          - SMTP host/user/password/port: \`UNCHANGED\`
+          - production mutation: \`ROOT_ONLY_AUTH_MAIL_RUNTIME_FILE\`
+          - database/deployment mutation: \`NONE\`
+          - credentials / reset token / reviewer identity: \`NOT_PUBLISHED\`
+          - next: \`EXACT_MAIN_RELEASE_TO_RELOAD_MAIL_ENV\`" >/dev/null
+
+      - name: Cleanup SSH material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts" || true

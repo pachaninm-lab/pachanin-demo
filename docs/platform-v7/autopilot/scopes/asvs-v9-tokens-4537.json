@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4537,
+  "branch": "sec/asvs-v9-tokens-4537",
+  "status": "active",
+  "purpose": "Assess ASVS V9 Self-contained Tokens across both token verifiers in the tree, which do not behave the same way.",
+  "authorityBaseExactMain": "e123497c3a6c39f0beec38dcc24d4a979f24b6c5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v9-tokens-4537.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/build-asvs-matrix.test.mjs"
+  ],
+  "requiredInvariants": [
+    "Every V9 decision covers both verifiers; a decision describing only one of them is invalid.",
+    "A behavioural accident is never recorded as a control.",
+    "PASS only where the control is named by file and re-verified on every run.",
+    "FAIL is recorded and reported, never resolved by editing product logic.",
+    "finalPass stays false.",
+    "Requirement prose from the standard must not be copied into the evidence artifact.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "V9.2.2 and V9.2.3 name the cabinet session route specifically and credit the staff route, which does check purpose-bearing claims.",
+    "V9.1.2 explains why a library default is not the stated allowlist the requirement asks for.",
+    "No PASS rests on an access token happening to lack the claim the other verifier reads.",
+    "An over-broad absence pattern is proven to fail safe rather than manufacture evidence.",
+    "finalPass stays false.",
+    "The concurrent-scope guard accepts exactly the three authorized paths."
+  ]
+}

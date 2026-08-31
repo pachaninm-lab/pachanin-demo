@@ -1,0 +1,463 @@
+name: Gekta P0 SPEED Model Metrics
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-model-metrics.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed-model-metrics
+  cancel-in-progress: false
+
+env:
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prove read-only bounded contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const s = fs.readFileSync('.github/workflows/gekta-p0-speed-model-metrics.yml', 'utf8');
+          const forbidden = [
+            'sudo' + ' ',
+            'systemctl' + ' restart',
+            'systemctl' + ' stop',
+            'systemctl' + ' start',
+            'kill' + ' ',
+            'pkill' + ' ',
+            'docker' + ' ',
+            'curl -X' + ' POST',
+          ];
+          for (const x of forbidden) {
+            if (s.includes(x)) throw new Error(`mutation primitive forbidden: ${x}`);
+          }
+          for (const x of [
+            'TAI_MODEL_SSH_KEY',
+            'TAI_MODEL_SSH_HOST_KEY',
+            'StrictHostKeyChecking=yes',
+            '/metrics',
+            'LLAMA_API_KEY',
+            'LLAMA_ARG_PORT',
+            '--api-key',
+            '--api-key-file',
+            'Authorization',
+            'MODEL_METRICS_AUTH_SOURCE',
+            'MODEL_METRICS_PORT_SOURCE',
+            '/proc/',
+          ]) {
+            if (!s.includes(x)) throw new Error(`missing protected control: ${x}`);
+          }
+          if (!s.includes("grep -E '^MODEL_(METRICS|METRIC)_")) {
+            throw new Error('bounded output filter missing');
+          }
+          NODE
+
+  metrics:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/gekta speed-model-metrics current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact main
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" == "$(git rev-parse HEAD)" ]]
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"; rm -f "$a" "$b" "$c"; return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"
+          user="$(trim "${MODEL_USER_SECRET:-}")"
+          port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model"
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"
+          [[ -n "$pin" ]]
+          pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"
+          pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END {exit ok?0:1}'
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
+          chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Read whitelisted authenticated llama metrics
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw="$RUNNER_TEMP/metrics-raw"
+          bounded="$RUNNER_TEMP/metrics"
+          set +e
+          ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
+            -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST" \
+            python3 - > "$raw" <<'PY'
+          import http.client
+          import os
+          import pathlib
+          import re
+          import socket
+          import subprocess
+
+          def fail(code):
+              print(f'MODEL_METRICS_ERROR={code}')
+              raise SystemExit(40)
+
+          def clean_key(value):
+              value = value.strip()
+              if not (32 <= len(value) <= 4096):
+                  return None
+              try:
+                  text = value.decode('ascii')
+              except UnicodeDecodeError:
+                  return None
+              if any(ord(ch) < 33 or ord(ch) > 126 for ch in text):
+                  return None
+              return text
+
+          def first_key(value):
+              for candidate in value.split(b','):
+                  key = clean_key(candidate)
+                  if key:
+                      return key
+              return None
+
+          def valid_port(value):
+              try:
+                  port = int(value)
+              except (TypeError, ValueError):
+                  return None
+              return port if 1 <= port <= 65535 else None
+
+          def decode_ipv4(hex_address):
+              try:
+                  return socket.inet_ntoa(bytes.fromhex(hex_address)[::-1])
+              except (OSError, ValueError):
+                  return None
+
+          def owned_listener_endpoints(proc):
+              socket_inodes = set()
+              fd_dir = proc / 'fd'
+              try:
+                  entries = tuple(fd_dir.iterdir())
+              except OSError:
+                  return []
+              for entry in entries:
+                  try:
+                      target = os.readlink(entry)
+                  except OSError:
+                      continue
+                  match = re.fullmatch(r'socket:\[(\d+)\]', target)
+                  if match:
+                      socket_inodes.add(match.group(1))
+
+              endpoints = []
+              for table_name in ('net/tcp', 'net/tcp6'):
+                  table = proc / table_name
+                  try:
+                      lines = table.read_text(encoding='ascii', errors='replace').splitlines()[1:]
+                  except OSError:
+                      continue
+                  for line in lines:
+                      fields = line.split()
+                      if len(fields) < 10 or fields[3] != '0A' or fields[9] not in socket_inodes:
+                          continue
+                      try:
+                          address_hex, port_hex = fields[1].split(':', 1)
+                          port = int(port_hex, 16)
+                      except (ValueError, IndexError):
+                          continue
+                      if not 1 <= port <= 65535:
+                          continue
+                      if table_name == 'net/tcp':
+                          host = decode_ipv4(address_hex)
+                          if not host:
+                              continue
+                          if host == '0.0.0.0':
+                              host = '127.0.0.1'
+                          endpoints.append((host, port, 'PROC'))
+                      else:
+                          endpoints.append(('::1', port, 'PROC'))
+              return endpoints
+
+          def fetch_metrics(host, port, bearer):
+              connection = http.client.HTTPConnection(host, port, timeout=3)
+              try:
+                  connection.request(
+                      'GET',
+                      '/metrics',
+                      headers={'Authorization': f'Bearer {bearer}'},
+                  )
+                  response = connection.getresponse()
+                  body = response.read(512_000)
+                  return response.status, body.decode('utf-8', 'replace')
+              finally:
+                  connection.close()
+
+          try:
+              service = 'tai-qwen3-8b.service'
+              pid_text = subprocess.check_output(
+                  ['systemctl', 'show', service, '--property=MainPID', '--value'],
+                  text=True,
+              ).strip()
+              if not pid_text.isdigit() or int(pid_text) <= 0:
+                  fail('MODEL_PID_INVALID')
+              pid = int(pid_text)
+              proc = pathlib.Path(f'/proc/{pid}')
+              if proc.stat().st_uid != os.geteuid():
+                  fail('SERVICE_USER_MISMATCH')
+
+              argv_raw = [part for part in (proc / 'cmdline').read_bytes().split(b'\0') if part]
+              argv = [part.decode('utf-8', 'replace') for part in argv_raw]
+              if '--metrics' not in argv:
+                  fail('METRICS_FLAG_ABSENT')
+
+              env = {}
+              for entry in (proc / 'environ').read_bytes().split(b'\0'):
+                  if not entry or b'=' not in entry:
+                      continue
+                  key, value = entry.split(b'=', 1)
+                  env[key] = value
+
+              bearer = None
+              auth_source = None
+
+              # CLI has the strongest precedence in llama-server. Keep the
+              # credential entirely on the model host and only publish an enum.
+              for i, raw_token in enumerate(argv_raw):
+                  if raw_token == b'--api-key' and i + 1 < len(argv_raw):
+                      bearer = first_key(argv_raw[i + 1])
+                      if bearer:
+                          auth_source = 'ARGV'
+                          break
+                  if raw_token.startswith(b'--api-key='):
+                      bearer = first_key(raw_token.split(b'=', 1)[1])
+                      if bearer:
+                          auth_source = 'ARGV'
+                          break
+
+              if bearer is None:
+                  bearer = first_key(env.get(b'LLAMA_API_KEY', b''))
+                  if bearer:
+                      auth_source = 'ENV'
+
+              key_file = None
+              if bearer is None:
+                  for i, raw_token in enumerate(argv_raw):
+                      if raw_token == b'--api-key-file' and i + 1 < len(argv_raw):
+                          key_file = argv_raw[i + 1]
+                          break
+                      if raw_token.startswith(b'--api-key-file='):
+                          key_file = raw_token.split(b'=', 1)[1]
+                          break
+                  if key_file is None:
+                      key_file = env.get(b'LLAMA_ARG_API_KEY_FILE')
+
+              if bearer is None and key_file:
+                  try:
+                      file_path = pathlib.Path(os.fsdecode(key_file))
+                      stat = file_path.stat()
+                      if not file_path.is_file() or stat.st_size > 65536:
+                          fail('API_KEY_FILE_INVALID')
+                      for line in file_path.read_bytes().splitlines():
+                          stripped = line.strip()
+                          if not stripped or stripped.startswith(b'#'):
+                              continue
+                          bearer = clean_key(stripped)
+                          if bearer:
+                              auth_source = 'FILE'
+                              break
+                  except (OSError, ValueError):
+                      fail('API_KEY_FILE_UNREADABLE')
+
+              if bearer is None or auth_source is None:
+                  fail('AUTH_SOURCE_MISSING')
+
+              endpoints = []
+              seen = set()
+
+              def add_endpoint(host, port, source):
+                  port = valid_port(port)
+                  key = (host, port)
+                  if port is None or key in seen:
+                      return
+                  seen.add(key)
+                  endpoints.append((host, port, source))
+
+              for i, token in enumerate(argv):
+                  if token in ('--port', '--listen-port') and i + 1 < len(argv):
+                      for host in ('127.0.0.1', '::1'):
+                          add_endpoint(host, argv[i + 1], 'ARGV')
+                  elif token.startswith('--port=') or token.startswith('--listen-port='):
+                      value = token.split('=', 1)[1]
+                      for host in ('127.0.0.1', '::1'):
+                          add_endpoint(host, value, 'ARGV')
+
+              for key in (b'LLAMA_ARG_PORT', b'LLAMA_PORT'):
+                  if key in env:
+                      value = env[key].decode('ascii', 'ignore').strip()
+                      for host in ('127.0.0.1', '::1'):
+                          add_endpoint(host, value, 'ENV')
+
+              for host, port, source in owned_listener_endpoints(proc):
+                  add_endpoint(host, port, source)
+
+              if not endpoints:
+                  fail('LISTEN_PORT_UNRESOLVED')
+
+              body = None
+              selected_port = None
+              port_source = None
+              http_errors = []
+              for host, port, source in endpoints:
+                  try:
+                      status, candidate_body = fetch_metrics(host, port, bearer)
+                  except (ConnectionError, OSError, TimeoutError, http.client.HTTPException):
+                      continue
+                  if status == 200:
+                      body = candidate_body
+                      selected_port = port
+                      port_source = source
+                      break
+                  http_errors.append(status)
+
+              if body is None or selected_port is None or port_source is None:
+                  if http_errors:
+                      fail(f'HTTP_{http_errors[0]}')
+                  fail('METRICS_UNREACHABLE')
+
+              wanted = (
+                  'llamacpp:prompt_tokens_total',
+                  'llamacpp:prompt_seconds_total',
+                  'llamacpp:prompt_tokens_seconds',
+                  'llamacpp:tokens_predicted_total',
+                  'llamacpp:tokens_predicted_seconds_total',
+                  'llamacpp:predicted_tokens_seconds',
+                  'llamacpp:requests_processing',
+                  'llamacpp:requests_deferred',
+                  'llamacpp:n_tokens_max',
+                  'llamacpp:kv_cache_usage_ratio',
+                  'llamacpp:kv_cache_tokens',
+              )
+              found = {}
+              for line in body.splitlines():
+                  if not line or line.startswith('#'):
+                      continue
+                  match = re.match(r'^([^\s{]+)(?:\{[^}]*\})?\s+([-+0-9.eE]+)$', line)
+                  if match and match.group(1) in wanted:
+                      try:
+                          found.setdefault(match.group(1), []).append(float(match.group(2)))
+                      except ValueError:
+                          pass
+
+              print('MODEL_METRICS_READ_ONLY=1')
+              print(f'MODEL_METRICS_HTTP_PORT={selected_port}')
+              print(f'MODEL_METRICS_AUTH_SOURCE={auth_source}')
+              print(f'MODEL_METRICS_PORT_SOURCE={port_source}')
+              for name in wanted:
+                  values = found.get(name, [])
+                  key = name.split(':', 1)[1].upper().replace(':', '_')
+                  if values:
+                      print(f'MODEL_METRIC_{key}={sum(values):.9g}')
+                  else:
+                      print(f'MODEL_METRIC_{key}=MISSING')
+          except SystemExit:
+              raise
+          except Exception:
+              fail('INTERNAL_PROBE_FAILURE')
+          PY
+          rc=$?
+          set -e
+
+          grep -E '^MODEL_(METRICS|METRIC)_[A-Z0-9_]+=(1|[0-9]+|[-+0-9.eE]+|ARGV|ENV|FILE|PROC|MISSING|[A-Z0-9_]+)$' "$raw" > "$bounded" || true
+          if [[ ! -s "$bounded" ]]; then
+            echo 'MODEL_METRICS_ERROR=BOUNDED_EVIDENCE_MISSING' > "$bounded"
+          fi
+          cat "$bounded"
+          exit "$rc"
+
+      - name: Publish bounded metrics evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/comment.md"
+          {
+            echo '## Gekta P0 SPEED llama metrics'
+            echo
+            echo "- exact repository main: \`$TARGET_SHA\`"
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo '- mode: `READ_ONLY`'
+            echo '- production mutation: `NONE`'
+            echo
+            echo '```text'
+            if [[ -s "$RUNNER_TEMP/metrics" ]]; then cat "$RUNNER_TEMP/metrics"; else echo 'MODEL_METRICS_ERROR=probe_not_completed'; fi
+            echo '```'
+          } > "$body"
+          gh issue comment 3896 --repo "$GITHUB_REPOSITORY" --body-file "$body"

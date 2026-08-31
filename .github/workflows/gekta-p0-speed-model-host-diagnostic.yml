@@ -1,0 +1,389 @@
+name: Gekta P0 SPEED Model Host Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-model-host-diagnostic.yml'
+      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-capacity-3896.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed-model-host-diagnostic
+  cancel-in-progress: false
+
+env:
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove read-only contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=.github/workflows/gekta-p0-speed-model-host-diagnostic.yml
+          node - "$file" <<'NODE'
+          const fs = require('node:fs');
+          const text = fs.readFileSync(process.argv[2], 'utf8');
+          const begin = text.indexOf("<<'REMOTE'\n");
+          const end = begin < 0 ? -1 : text.indexOf('\n          REMOTE', begin);
+          if (begin < 0 || end < 0) throw new Error('remote diagnostic heredoc not found');
+          const remote = text.slice(begin, end);
+          for (const forbidden of [
+            'systemctl restart', 'systemctl start', 'systemctl stop',
+            'systemctl enable', 'systemctl disable', 'systemctl daemon-reload',
+            'apt ', 'apt-get ', 'dnf ', 'yum ', 'chmod ', 'chown ',
+            'kill ', 'pkill ', 'rm -', 'tee /'
+          ]) {
+            if (remote.includes(forbidden)) throw new Error(`forbidden remote mutation token: ${forbidden}`);
+          }
+
+          for (const credential of ['PC_PROD_SSH_KEY', 'PC_PROD_SSH_PRIVATE_KEY', 'VPS_SSH_KEY']) {
+            if (text.includes(`secrets.${credential}`)) {
+              throw new Error(`production credential in the model-host chain: ${credential}`);
+            }
+          }
+
+          for (const required of [
+            'secrets.TAI_MODEL_SSH_KEY',
+            'secrets.TAI_MODEL_SSH_HOST_KEY',
+            'TAI_MODEL_SSH_HOST_KEY is required',
+            'does not match the pinned TAI_MODEL_SSH_HOST_KEY',
+            'StrictHostKeyChecking=yes',
+          ]) {
+            if (!text.includes(required)) throw new Error(`missing model-host identity control: ${required}`);
+          }
+          if (/ssh-keyscan[^\n]*>\s*"?\$HOME\/\.ssh\/model_known_hosts/u.test(text)) {
+            throw new Error('trust-on-first-use: ssh-keyscan output written straight into known_hosts');
+          }
+
+          const readStepStart = text.lastIndexOf('      - name: Read whitelisted active service facts', begin);
+          if (readStepStart < 0 || readStepStart >= begin) throw new Error('diagnostic step not found before remote heredoc');
+          const readStepPreamble = text.slice(readStepStart, begin);
+          for (const forbidden of ['sudo ', 'su ', 'doas ']) {
+            if (readStepPreamble.includes(forbidden)) {
+              throw new Error(`privilege escalation is forbidden: ${forbidden.trim()}`);
+            }
+          }
+          NODE
+          GITHUB_HEAD_REF=fix/gekta-p0-speed-g3b-capacity-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
+
+  diagnose:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      startsWith(github.event.comment.body, '/gekta speed-model-diagnose current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$sha" == "$(git rev-parse HEAD)" ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve existing protected model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"
+          user="$(trim "${MODEL_USER_SECRET:-root}")"
+          port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          key="$(trim "${MODEL_KEY_SECRET:-}")"
+          if [[ -z "$key" ]]; then
+            echo "TAI_MODEL_SSH_KEY is required for the model host diagnostic." >&2
+            exit 20
+          fi
+          write_key "$key" "$HOME/.ssh/id_tai_model"
+
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"
+          if [[ -z "$pin" ]]; then
+            echo "TAI_MODEL_SSH_HOST_KEY is required: the model host identity must be pinned, not discovered." >&2
+            exit 21
+          fi
+          pin_type="$(printf '%s' "$pin" | awk '{ print $(NF-1) }')"
+          pin_material="$(printf '%s' "$pin" | awk '{ print $NF }')"
+          if [[ -z "$pin_type" || -z "$pin_material" ]]; then
+            echo "TAI_MODEL_SSH_HOST_KEY is malformed; expected a host key line." >&2
+            exit 21
+          fi
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          if ! printf '%s\n' "$scanned" \
+            | awk -v pinned="$pin_material" '$3 == pinned { matched = 1 } END { exit matched ? 0 : 1 }'; then
+            echo "model host key does not match the pinned TAI_MODEL_SSH_HOST_KEY" >&2
+            exit 21
+          fi
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
+          chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Read whitelisted active service facts
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "$MODEL_USER@$MODEL_HOST" /bin/bash -s > "$RUNNER_TEMP/raw-diag" <<'REMOTE'
+          set -Eeuo pipefail
+          service=tai-qwen3-8b.service
+          systemctl is-active --quiet "$service"
+          pid="$(systemctl show "$service" --property=MainPID --value)"
+          [[ "$pid" =~ ^[1-9][0-9]*$ ]]
+          python3 - "$pid" <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+          import sys
+
+          pid = int(sys.argv[1])
+          proc = pathlib.Path(f'/proc/{pid}')
+          cmdline = (proc / 'cmdline').read_bytes()
+          args = [part.decode('utf-8', 'replace') for part in cmdline.split(b'\0') if part]
+
+          value_flags = {
+              '--ctx-size':'ctx_size','-c':'ctx_size',
+              '--threads':'threads','-t':'threads',
+              '--threads-batch':'threads_batch','-tb':'threads_batch',
+              '--parallel':'parallel','-np':'parallel',
+              '--batch-size':'batch_size','-b':'batch_size',
+              '--ubatch-size':'ubatch_size','-ub':'ubatch_size',
+              '--cache-type-k':'cache_type_k','--cache-type-v':'cache_type_v',
+              '--defrag-thold':'defrag_thold','--poll':'poll',
+          }
+          boolean_flags = {
+              '--cont-batching':('cont_batching', True),
+              '--no-cont-batching':('cont_batching', False),
+              '--mlock':('mlock', True),
+              '--no-mmap':('mmap', False),
+              '--mmap':('mmap', True),
+              '--flash-attn':('flash_attn', True),
+              '--no-kv-offload':('kv_offload', False),
+              '--kv-unified':('kv_unified', True),
+              '--no-kv-unified':('kv_unified', False),
+              '--metrics':('metrics', True),
+          }
+          found = {}
+          i = 0
+          while i < len(args):
+              token = args[i]
+              if token in value_flags and i + 1 < len(args):
+                  value = args[i + 1]
+                  if re.fullmatch(r'[A-Za-z0-9_.:-]{1,32}', value):
+                      found[value_flags[token]] = value
+                  i += 2
+                  continue
+              if token in boolean_flags:
+                  key, value = boolean_flags[token]
+                  found[key] = value
+              i += 1
+
+          env_kv_mode = 'ABSENT'
+          for part in (proc / 'environ').read_bytes().split(b'\0'):
+              if not part.startswith(b'LLAMA_ARG_KV_UNIFIED='):
+                  continue
+              value = part.split(b'=', 1)[1].decode('ascii', 'ignore').strip().lower()
+              if value in {'1','true','yes','on'}:
+                  env_kv_mode = 'ON'
+              elif value in {'0','false','no','off'}:
+                  env_kv_mode = 'OFF'
+              else:
+                  env_kv_mode = 'INVALID'
+              break
+          arg_kv_mode = 'ABSENT'
+          if found.get('kv_unified') is True:
+              arg_kv_mode = 'ON'
+          elif found.get('kv_unified') is False:
+              arg_kv_mode = 'OFF'
+
+          status = (proc / 'status').read_text(encoding='utf-8')
+          meminfo = pathlib.Path('/proc/meminfo').read_text(encoding='utf-8')
+          def kb_value(text, key):
+              match = re.search(rf'^{re.escape(key)}:\s+(\d+)\s+kB$', text, re.M)
+              return int(match.group(1)) if match else 0
+
+          smaps_available = 0
+          pss_kb = 0
+          pss_anon_kb = 0
+          pss_file_kb = 0
+          private_dirty_kb = 0
+          try:
+              smaps = (proc / 'smaps_rollup').read_text(encoding='utf-8')
+              smaps_available = 1
+              pss_kb = kb_value(smaps, 'Pss')
+              pss_anon_kb = kb_value(smaps, 'Pss_Anon')
+              pss_file_kb = kb_value(smaps, 'Pss_File')
+              private_dirty_kb = kb_value(smaps, 'Private_Dirty')
+          except (FileNotFoundError, PermissionError, OSError):
+              pass
+
+          affinity = sorted(os.sched_getaffinity(pid))
+          physical = set()
+          for cpu in affinity:
+              topology = pathlib.Path(f'/sys/devices/system/cpu/cpu{cpu}/topology')
+              try:
+                  package = (topology / 'physical_package_id').read_text(encoding='ascii').strip()
+                  core = (topology / 'core_id').read_text(encoding='ascii').strip()
+                  physical.add((package, core))
+              except (FileNotFoundError, PermissionError, OSError):
+                  physical.clear()
+                  break
+          physical_cores = len(physical)
+          threads_per_core = len(affinity) // physical_cores if physical_cores and len(affinity) % physical_cores == 0 else 0
+
+          exe = (proc / 'exe').resolve(strict=True)
+          version = subprocess.run(
+              [str(exe), '--version'],
+              stdout=subprocess.PIPE,
+              stderr=subprocess.STDOUT,
+              text=True,
+              timeout=8,
+              check=False,
+              env={'PATH':'/usr/bin:/bin','LC_ALL':'C'},
+          )
+          version_text = version.stdout or ''
+          version_match = re.search(r'version:\s*(\d+)\s+\(([0-9a-fA-F]{7,40})\)', version_text)
+          build_number = int(version_match.group(1)) if version_match else 0
+          commit = version_match.group(2).lower() if version_match else 'unknown'
+
+          print('MODEL_DIAG_SERVICE_ACTIVE=1')
+          print(f'MODEL_DIAG_CPU_LOGICAL={os.cpu_count() or 0}')
+          print(f'MODEL_DIAG_AFFINITY_CPUS={len(affinity)}')
+          print(f'MODEL_DIAG_CPU_PHYSICAL_CORES={physical_cores}')
+          print(f'MODEL_DIAG_CPU_THREADS_PER_CORE={threads_per_core}')
+          print(f'MODEL_DIAG_MEM_TOTAL_KB={kb_value(meminfo, "MemTotal")}')
+          print(f'MODEL_DIAG_MEM_AVAILABLE_KB={kb_value(meminfo, "MemAvailable")}')
+          print(f'MODEL_DIAG_RSS_KB={kb_value(status, "VmRSS")}')
+          print(f'MODEL_DIAG_RSS_ANON_KB={kb_value(status, "RssAnon")}')
+          print(f'MODEL_DIAG_RSS_FILE_KB={kb_value(status, "RssFile")}')
+          print(f'MODEL_DIAG_SWAP_KB={kb_value(status, "VmSwap")}')
+          print(f'MODEL_DIAG_SMAPS_AVAILABLE={smaps_available}')
+          print(f'MODEL_DIAG_PSS_KB={pss_kb}')
+          print(f'MODEL_DIAG_PSS_ANON_KB={pss_anon_kb}')
+          print(f'MODEL_DIAG_PSS_FILE_KB={pss_file_kb}')
+          print(f'MODEL_DIAG_PRIVATE_DIRTY_KB={private_dirty_kb}')
+          print(f'MODEL_DIAG_KV_UNIFIED_ARG_MODE={arg_kv_mode}')
+          print(f'MODEL_DIAG_KV_UNIFIED_ENV_MODE={env_kv_mode}')
+          print(f'MODEL_DIAG_LLAMA_BUILD={build_number}')
+          print(f'MODEL_DIAG_LLAMA_COMMIT={commit}')
+          print('MODEL_DIAG_FLAGS_JSON=' + json.dumps(found, sort_keys=True, separators=(',', ':')))
+          print('MODEL_DIAG_CMDLINE_SHA256=' + hashlib.sha256(cmdline).hexdigest())
+          PY
+
+          active_state="$(systemctl show "$service" --property=ActiveState --value)"
+          sub_state="$(systemctl show "$service" --property=SubState --value)"
+          restarts="$(systemctl show "$service" --property=NRestarts --value)"
+          restart_policy="$(systemctl show "$service" --property=Restart --value)"
+          service_user="$(systemctl show "$service" --property=User --value)"
+          fragment="$(systemctl show "$service" --property=FragmentPath --value)"
+          [[ "$active_state" =~ ^[A-Za-z0-9_.:-]+$ ]]
+          [[ "$sub_state" =~ ^[A-Za-z0-9_.:-]+$ ]]
+          [[ "$restarts" =~ ^[0-9]+$ ]]
+          [[ "$restart_policy" =~ ^[A-Za-z0-9_.:-]+$ ]]
+          [[ -n "$service_user" ]]
+          user_match=0
+          [[ "$service_user" == "$(id -un)" ]] && user_match=1
+          fragment_writable=0
+          [[ -n "$fragment" && -w "$fragment" ]] && fragment_writable=1
+          printf 'MODEL_DIAG_RESTARTS=%s\n' "$restarts"
+          printf 'MODEL_DIAG_ACTIVE_STATE=%s\n' "$active_state"
+          printf 'MODEL_DIAG_SUB_STATE=%s\n' "$sub_state"
+          printf 'MODEL_DIAG_RESTART_POLICY=%s\n' "$restart_policy"
+          printf 'MODEL_DIAG_SERVICE_USER_MATCH=%s\n' "$user_match"
+          printf 'MODEL_DIAG_UNIT_FRAGMENT_WRITABLE=%s\n' "$fragment_writable"
+          REMOTE
+          grep -E '^MODEL_DIAG_(SERVICE_ACTIVE|CPU_LOGICAL|AFFINITY_CPUS|CPU_PHYSICAL_CORES|CPU_THREADS_PER_CORE|MEM_TOTAL_KB|MEM_AVAILABLE_KB|RSS_KB|RSS_ANON_KB|RSS_FILE_KB|SWAP_KB|SMAPS_AVAILABLE|PSS_KB|PSS_ANON_KB|PSS_FILE_KB|PRIVATE_DIRTY_KB|KV_UNIFIED_ARG_MODE|KV_UNIFIED_ENV_MODE|LLAMA_BUILD|LLAMA_COMMIT|FLAGS_JSON|CMDLINE_SHA256|RESTARTS|ACTIVE_STATE|SUB_STATE|RESTART_POLICY|SERVICE_USER_MATCH|UNIT_FRAGMENT_WRITABLE)=' \
+            "$RUNNER_TEMP/raw-diag" > "$RUNNER_TEMP/diag"
+          [[ "$(wc -l < "$RUNNER_TEMP/diag")" -ge 24 ]]
+          if grep -Ev '^MODEL_DIAG_[A-Z0-9_]+=([0-9]+|[a-f0-9]{7,64}|[A-Za-z0-9_.:-]+|\{.*\})$' "$RUNNER_TEMP/diag"; then
+            echo 'Diagnostic emitted a value outside the bounded public grammar.' >&2
+            exit 40
+          fi
+          cat "$RUNNER_TEMP/diag"
+
+      - name: Publish redacted diagnostic evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/comment.md"
+          {
+            echo '## Gekta P0 SPEED model-host diagnostic'
+            echo
+            echo "- exact repository main: \`$TARGET_SHA\`"
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo '- mode: `READ_ONLY`'
+            echo '- production mutation: `NONE`'
+            echo
+            echo '```text'
+            cat "$RUNNER_TEMP/diag"
+            echo '```'
+          } > "$body"
+          gh issue comment 3896 --repo "$GITHUB_REPOSITORY" --body-file "$body"

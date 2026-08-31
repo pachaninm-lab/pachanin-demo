@@ -1,0 +1,313 @@
+name: Production P0 Reuse Existing Auth Runtime
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reuse-existing-auth-runtime.yml'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-reuse-existing-auth-runtime-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reuse-existing-auth-runtime
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: 3072
+  EVIDENCE_DIR: artifacts/production-p0-reuse-existing-auth-runtime
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+
+jobs:
+  authority:
+    name: Validate exact owner authority and bounded reuse contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production reuse-existing-auth-runtime current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate bounded contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/provision-production-p0-password-reset-runtime.sh
+          grep -Fq 'PC_RECONCILE_ACTIVE_RUNTIME' scripts/provision-production-p0-password-reset-runtime.sh
+          grep -Fq 'RUNTIME_AUTHORITY_RECONCILED=' scripts/provision-production-p0-password-reset-runtime.sh
+          grep -Fq 'AUTH_MAIL_RUNTIME_VALID=1' scripts/provision-production-p0-password-reset-runtime.sh
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  reconcile:
+    name: Reuse root-only auth runtime in canonical REG.RU directory
+    needs: authority
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.authority.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact current-main checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          bash -n scripts/provision-production-p0-password-reset-runtime.sh
+
+      - name: Resolve protected root key and pinned REG.RU identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          host="$(trim "${SSH_HOST_SECRET:-}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ -n "$host" && "$host" == "${SSH_HOST_SECRET:-}" ]]
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mapfile -t dns_ipv4 < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u)
+          (( ${#dns_ipv4[@]} >= 1 ))
+          printf '%s\n' "${dns_ipv4[@]}" | grep -Fxq "$host"
+
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_slot(){
+            local raw="$1" first second third
+            [[ -n "$raw" ]] || return 1
+            first="$(mktemp)"; second="$(mktemp)"; third="$(mktemp)"
+            printf '%s\n' "$raw" > "$first"
+            validate_key "$first" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$second"
+            validate_key "$second" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$third" 2>/dev/null &&
+              validate_key "$third" &&
+              { rm -f "$first" "$second" "$third"; return 0; }
+            rm -f "$first" "$second" "$third"
+            return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" ||
+            try_slot "${SSH_KEY_SECONDARY:-}" ||
+            try_slot "${SSH_KEY_FALLBACK:-}" ||
+            exit 14
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 \
+            "$user@$host" \
+            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; echo ROOT_SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Reconcile existing protected runtime without disclosure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          remote_script="/tmp/pc-auth-runtime-reconcile-${GITHUB_RUN_ID}.sh"
+          remote_mail="/tmp/pc-password-reset-mail-${GITHUB_RUN_ID}.env"
+          prod_dir_b64="$(printf '%s' "${PROD_DIR_SECRET:-}" | base64 -w0)"
+          [[ -z "$prod_dir_b64" || "$prod_dir_b64" =~ ^[A-Za-z0-9+/=]+$ ]]
+
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          scp "${scp_common[@]}" scripts/provision-production-p0-password-reset-runtime.sh "$USER@$HOST:$remote_script"
+
+          ssh "${ssh_common[@]}" "$USER@$HOST" \
+            "PROD_DIR_B64='$prod_dir_b64' REMOTE_SCRIPT='$remote_script' REMOTE_MAIL='$remote_mail' bash -s" <<'REMOTE' \
+            | tee "$EVIDENCE_DIR/reconcile.log"
+          set -Eeuo pipefail
+          cleanup(){ rm -f -- "$REMOTE_SCRIPT" "$REMOTE_MAIL"; }
+          trap cleanup EXIT
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          active_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "${web_ids[0]}")"
+          [[ -n "$active_dir" && "$active_dir" == /* && "$active_dir" != / && -d "$active_dir" && ! -L "$active_dir" ]]
+          active_dir="$(realpath -e -- "$active_dir")"
+
+          active_delivery="$active_dir/.pc-password-reset-delivery.env"
+          active_mail="$active_dir/.pc-transactional-mail.env"
+          [[ -f "$active_delivery" && ! -L "$active_delivery" ]]
+          [[ -f "$active_mail" && ! -L "$active_mail" ]]
+          [[ "$(stat -c '%a:%u:%g' "$active_delivery")" == '600:0:0' ]]
+          [[ "$(stat -c '%a:%u:%g' "$active_mail")" == '600:0:0' ]]
+
+          /usr/bin/install -m 0600 -o 0 -g 0 "$active_mail" "$REMOTE_MAIL"
+          chmod 0700 "$REMOTE_SCRIPT"
+          PC_PROD_DIR_B64="$PROD_DIR_B64" PC_RECONCILE_ACTIVE_RUNTIME=1 \
+            "$REMOTE_SCRIPT" provision "$REMOTE_MAIL"
+          REMOTE
+
+          grep -Eq '^PASSWORD_RESET_DELIVERY_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/reconcile.log"
+          grep -Eq '^REGISTRATION_DELIVERY_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/reconcile.log"
+          grep -Eq '^TRANSACTIONAL_MAIL_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/reconcile.log"
+          grep -Eq '^TRANSACTIONAL_MAIL_CHANNEL=(RESEND|SMTP)$' "$EVIDENCE_DIR/reconcile.log"
+          grep -Fxq 'PASSWORD_RESET_RUNTIME_VALID=1' "$EVIDENCE_DIR/reconcile.log"
+          grep -Fxq 'AUTH_MAIL_RUNTIME_VALID=1' "$EVIDENCE_DIR/reconcile.log"
+          grep -Eq '^RUNTIME_AUTHORITY_RECONCILED=[01]$' "$EVIDENCE_DIR/reconcile.log"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+      - name: Remove local SSH credential
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+
+      - name: Upload bounded reconciliation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-reuse-existing-auth-runtime-${{ github.run_id }}
+          path: artifacts/production-p0-reuse-existing-auth-runtime
+          if-no-files-found: ignore
+          retention-days: 90
+
+  publish_images:
+    name: Publish exact current-main images
+    needs: [authority, reconcile]
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.reconcile.result == 'success' &&
+      needs.authority.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Dispatch and verify exact image publication
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(gh api "repos/$REPO/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          dispatch_started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run docker-publish.yml --repo "$REPO" --ref main -f services=all
+          image_run_id=''
+          for attempt in $(seq 1 30); do
+            image_run_id="$(gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "repos/$REPO/actions/workflows/docker-publish.yml/runs?event=workflow_dispatch&branch=main&per_page=30" \
+              --jq ".workflow_runs
+                | map(select(.head_sha == \"$TARGET_SHA\" and .created_at >= \"$dispatch_started\"))
+                | sort_by(.created_at)
+                | reverse
+                | .[0].id // empty")"
+            [[ "$image_run_id" =~ ^[0-9]+$ ]] && break
+            sleep 2
+          done
+          [[ "$image_run_id" =~ ^[0-9]+$ ]]
+          gh run watch "$image_run_id" --repo "$REPO" --exit-status --interval 10
+          [[ "$(gh run view "$image_run_id" --repo "$REPO" --json conclusion --jq '.conclusion // empty')" == success ]]
+          [[ "$(gh api "repos/$REPO/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+  release:
+    name: Activate reconciled runtime through exact release
+    needs: [authority, reconcile, publish_images]
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.reconcile.result == 'success' &&
+      needs.publish_images.result == 'success'
+    permissions:
+      contents: read
+      packages: read
+      issues: write
+    uses: ./.github/workflows/production-full-stack-exact-sha.yml
+    with:
+      owner_release_authorized: true
+    secrets: inherit

@@ -1,0 +1,234 @@
+name: Production Gekta MFA Runtime Repair
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-gekta-mfa-runtime-repair.yml'
+      - 'scripts/provision-production-gekta-mfa-runtime.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-gekta-mfa-runtime-repair
+  cancel-in-progress: false
+
+env:
+  RELEASE_ISSUE_NUMBER: 3072
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  EVIDENCE_DIR: artifacts/production-gekta-mfa-runtime-repair
+
+jobs:
+  contract:
+    name: Validate MFA runtime repair contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 3072 &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.body == '/production gekta-mfa-runtime-repair current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TARGET_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate bounded fail-closed implementation
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/provision-production-gekta-mfa-runtime.sh
+          node <<'NODE'
+          const fs = require('node:fs');
+          const script = fs.readFileSync('scripts/provision-production-gekta-mfa-runtime.sh', 'utf8');
+          const workflow = fs.readFileSync('.github/workflows/production-gekta-mfa-runtime-repair.yml', 'utf8');
+          const required = [
+            '.pc-auth-mfa-runtime.env',
+            'compose.pc-auth-mfa-runtime.override.yml',
+            'MFA_ENCRYPTION_KEY',
+            '--pull never --force-recreate api web',
+            'API_IMAGE_TAG_DRIFT',
+            'WEB_IMAGE_TAG_DRIFT',
+            'MFA_RUNTIME_LEAKED_TO_WEB',
+            'MFA_OVERRIDE_NOT_PERSISTED_IN_COMPOSE_AUTHORITY',
+            'GEKTA_MFA_EXISTING_RUNTIME_COMPAT=PASS',
+            'PRODUCTION_MUTATION=API_WEB_RECREATE_SAME_IMAGES',
+          ];
+          for (const value of required) if (!script.includes(value)) throw new Error(`missing ${value}`);
+          for (const pattern of [/set\s+-[^\n]*x/, /docker\s+exec/, /StrictHostKeyChecking=no/, /sshpass/i]) {
+            if (pattern.test(script)) throw new Error(`forbidden script pattern ${pattern}`);
+          }
+          if (!workflow.includes("github.event.comment.body == '/production gekta-mfa-runtime-repair current-main'")) throw new Error('owner command guard missing');
+          if (!workflow.includes('github.event.comment.user.login == github.repository_owner')) throw new Error('owner identity guard missing');
+          if (!workflow.includes('Remove remote repair script')) throw new Error('remote cleanup step missing');
+          NODE
+      - name: Resolve exact current-main owner authority
+        if: github.event_name == 'issue_comment'
+        env:
+          COMMENTER: ${{ github.event.comment.user.login }}
+          OWNER: ${{ github.repository_owner }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" && "$ACTOR" == "$OWNER" && "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+
+  repair:
+    name: Repair API MFA encryption runtime on REG.RU
+    needs: contract
+    if: github.event_name == 'issue_comment' && needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TARGET_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reconfirm exact main before production mutation
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          bash -n scripts/provision-production-gekta-mfa-runtime.sh
+      - name: Resolve protected root key and pinned REG.RU identity
+        id: ssh
+        run: |
+          set -Eeuo pipefail
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          host="$(trim "${SSH_HOST_SECRET:-}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ -n "$host" && "$host" == "${SSH_HOST_SECRET:-}" ]]
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mapfile -t dns_ipv4 < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u)
+          (( ${#dns_ipv4[@]} >= 1 ))
+          printf '%s\n' "${dns_ipv4[@]}" | grep -Fxq "$host"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 0700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
+            tr -d '\r' < "$source" > "$target"
+            chmod 0600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_slot(){
+            local raw="$1" first second third
+            [[ -n "$raw" ]] || return 1
+            first="$(mktemp)"; second="$(mktemp)"; third="$(mktemp)"
+            printf '%s\n' "$raw" > "$first"
+            validate_key "$first" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$second"
+            validate_key "$second" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$third" 2>/dev/null && validate_key "$third" && { rm -f "$first" "$second" "$third"; return 0; }
+            rm -f "$first" "$second" "$third"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 0600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; docker compose version >/dev/null; echo ROOT_RUNTIME_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_RUNTIME_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Execute bounded same-image MFA runtime repair
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          remote_script="/tmp/pc-gekta-mfa-runtime-${GITHUB_RUN_ID}.sh"
+          echo "REMOTE_SCRIPT=$remote_script" >> "$GITHUB_ENV"
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          scp "${scp_common[@]}" scripts/provision-production-gekta-mfa-runtime.sh "$USER@$HOST:$remote_script"
+          ssh "${ssh_common[@]}" "$USER@$HOST" \
+            "set -Eeuo pipefail; chmod 0700 '$remote_script'; '$remote_script' repair" \
+            | tee "$EVIDENCE_DIR/repair.log"
+          grep -Eq '^GEKTA_MFA_RUNTIME_REPAIR=(CREATED|EXISTING)$' "$EVIDENCE_DIR/repair.log"
+          grep -Fxq GEKTA_MFA_API_KEY=READY "$EVIDENCE_DIR/repair.log"
+          grep -Fxq GEKTA_MFA_WEB_ISOLATED=1 "$EVIDENCE_DIR/repair.log"
+          grep -Fxq GEKTA_MFA_API_IMAGE_UNCHANGED=1 "$EVIDENCE_DIR/repair.log"
+          grep -Fxq GEKTA_MFA_WEB_IMAGE_UNCHANGED=1 "$EVIDENCE_DIR/repair.log"
+          grep -Fxq GEKTA_MFA_COMPOSE_AUTHORITY=READY "$EVIDENCE_DIR/repair.log"
+          grep -Fxq GEKTA_MFA_EXISTING_RUNTIME_COMPAT=PASS "$EVIDENCE_DIR/repair.log"
+          grep -Eq '^PRODUCTION_MUTATION=(NONE_ALREADY_READY|API_WEB_RECREATE_SAME_IMAGES)$' "$EVIDENCE_DIR/repair.log"
+      - name: Verify public health after bounded recreate
+        run: |
+          set -Eeuo pipefail
+          ready=0
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent --show-error --max-time 10 "https://$LIVE_DOMAIN/api/health/ready?mfa-repair=$TARGET_SHA&run=$GITHUB_RUN_ID" >/dev/null \
+              && curl --fail --silent --show-error --max-time 10 "https://$LIVE_DOMAIN/gekta/register?mfa-repair=$TARGET_SHA&run=$GITHUB_RUN_ID" >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 3
+          done
+          [[ "$ready" == 1 ]]
+          printf 'POST_REPAIR_PUBLIC_HEALTH=PASS\n' | tee "$EVIDENCE_DIR/public-health.txt"
+      - name: Guard exact main after runtime repair
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          printf 'POST_REPAIR_EXACT_MAIN=PASS\n' | tee "$EVIDENCE_DIR/exact-main.txt"
+      - name: Upload bounded repair evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-gekta-mfa-runtime-${{ github.sha }}-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+      - name: Remove remote repair script
+        if: always() && steps.ssh.outputs.host != '' && env.REMOTE_SCRIPT != ''
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            "rm -f -- '$REMOTE_SCRIPT'" >/dev/null 2>&1
+      - name: Remove local SSH credential
+        if: always()
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"

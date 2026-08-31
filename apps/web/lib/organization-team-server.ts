@@ -7,9 +7,14 @@ export type OrganizationTeamMember = Readonly<{
   email: string;
   role: string;
   userStatus: string;
+  membershipStatus: string;
+  isOrgAdmin: boolean;
+  version: string;
   isDefault: boolean;
   joinedAt: string;
   current: boolean;
+  activeSessionCount: number | null;
+  lastSessionSeenAt: string | null;
 }>;
 
 export type OrganizationTeamSnapshot = Readonly<{
@@ -17,6 +22,10 @@ export type OrganizationTeamSnapshot = Readonly<{
   organizationId: string | null;
   tenantId: string | null;
   currentMembershipId: string | null;
+  organizationName: string | null;
+  currentRole: string | null;
+  isOrganizationAdmin: boolean;
+  hasFreshMfa: boolean;
   members: readonly OrganizationTeamMember[];
 }>;
 
@@ -25,6 +34,10 @@ const UNAVAILABLE: OrganizationTeamSnapshot = Object.freeze({
   organizationId: null,
   tenantId: null,
   currentMembershipId: null,
+  organizationName: null,
+  currentRole: null,
+  isOrganizationAdmin: false,
+  hasFreshMfa: false,
   members: Object.freeze([]),
 });
 
@@ -47,7 +60,14 @@ function parseSnapshot(value: unknown): OrganizationTeamSnapshot {
   const organizationId = requiredText(record.organizationId);
   const tenantId = requiredText(record.tenantId);
   const currentMembershipId = requiredText(record.currentMembershipId);
-  if (!organizationId || !tenantId || !currentMembershipId || !Array.isArray(record.members) || record.members.length > 100) return UNAVAILABLE;
+  const organizationName = requiredText(record.organizationName);
+  const currentRole = requiredText(record.currentRole);
+  if (
+    !organizationId || !tenantId || !currentMembershipId || !organizationName || !currentRole
+    || typeof record.isOrganizationAdmin !== 'boolean'
+    || typeof record.hasFreshMfa !== 'boolean'
+    || !Array.isArray(record.members) || record.members.length > 100
+  ) return UNAVAILABLE;
 
   const members: OrganizationTeamMember[] = [];
   for (const item of record.members) {
@@ -57,7 +77,17 @@ function parseSnapshot(value: unknown): OrganizationTeamSnapshot {
   }
   if (!members.some((member) => member.membershipId === currentMembershipId && member.current)) return UNAVAILABLE;
 
-  return Object.freeze({ available: true, organizationId, tenantId, currentMembershipId, members: Object.freeze(members) });
+  return Object.freeze({
+    available: true,
+    organizationId,
+    tenantId,
+    currentMembershipId,
+    organizationName,
+    currentRole,
+    isOrganizationAdmin: record.isOrganizationAdmin,
+    hasFreshMfa: record.hasFreshMfa,
+    members: Object.freeze(members),
+  });
 }
 
 function parseMember(value: unknown, currentMembershipId: string): OrganizationTeamMember | null {
@@ -69,11 +99,30 @@ function parseMember(value: unknown, currentMembershipId: string): OrganizationT
   const email = requiredText(record.email);
   const role = requiredText(record.role);
   const userStatus = requiredText(record.userStatus);
+  const membershipStatus = requiredText(record.membershipStatus);
+  const version = requiredText(record.version);
   const joinedAt = requiredDate(record.joinedAt);
-  if (!membershipId || !userId || !fullName || !email || !role || !userStatus || !joinedAt) return null;
-  if (typeof record.isDefault !== 'boolean' || typeof record.current !== 'boolean') return null;
+  if (!membershipId || !userId || !fullName || !email || !role || !userStatus || !membershipStatus || !version || !joinedAt) return null;
+  if (typeof record.isDefault !== 'boolean' || typeof record.current !== 'boolean' || typeof record.isOrgAdmin !== 'boolean') return null;
+  if (record.activeSessionCount !== null && (!Number.isInteger(record.activeSessionCount) || Number(record.activeSessionCount) < 0)) return null;
+  if (record.lastSessionSeenAt !== null && requiredDate(record.lastSessionSeenAt) === null) return null;
   if (record.current !== (membershipId === currentMembershipId)) return null;
-  return Object.freeze({ membershipId, userId, fullName, email, role, userStatus, isDefault: record.isDefault, joinedAt, current: record.current });
+  return Object.freeze({
+    membershipId,
+    userId,
+    fullName,
+    email,
+    role,
+    userStatus,
+    membershipStatus,
+    isOrgAdmin: record.isOrgAdmin,
+    version,
+    isDefault: record.isDefault,
+    joinedAt,
+    current: record.current,
+    activeSessionCount: record.activeSessionCount === null ? null : Number(record.activeSessionCount),
+    lastSessionSeenAt: record.lastSessionSeenAt === null ? null : String(record.lastSessionSeenAt),
+  });
 }
 
 function requiredText(value: unknown): string | null {

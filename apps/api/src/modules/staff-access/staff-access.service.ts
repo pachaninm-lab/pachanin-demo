@@ -9,6 +9,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { randomBytes, randomUUID } from 'crypto';
 import { RequestUser } from '../../common/types/request-user';
+import { digestOpaqueAuthToken, issueStaffAccessCredential } from '../auth/opaque-token-authority';
 import {
   hashAuthMaterial,
   hashClientValue,
@@ -127,7 +128,7 @@ export class StaffAccessService {
     const permissions = this.normalizePermissions(input.permissions);
     this.assertPermissionCeiling(role, permissions);
     this.assertModePermissions(input.accessMode, permissions);
-    const target = await this.validateTargetScope(input);
+    const target = await this.validateTargetScope(user, assignment.id, input);
     const maxDuration = MODE_MAX_DURATION_SECONDS[input.accessMode];
     if (!Number.isInteger(input.durationSeconds) || input.durationSeconds < 60 || input.durationSeconds > maxDuration) {
       throw new BadRequestException(`Duration must be between 60 and ${maxDuration} seconds`);
@@ -341,7 +342,9 @@ export class StaffAccessService {
   }
 
   async resolveAccessSession(user: RequestUser, token: string): Promise<StaffAccessContext> {
-    const tokenHash = hashAuthMaterial(String(token ?? ''));
+    const presented = String(token ?? '');
+    if (!presented) throw new UnauthorizedException('Invalid staff access session');
+    const tokenHash = digestOpaqueAuthToken({ purpose: 'staff-access', rawToken: presented });
     const session = await this.repository.getAccessSessionByHash(this.repository.prisma, tokenHash, user.id);
     if (!session || !isStaffRole(session.staff_role) || !isStaffAccessMode(session.access_mode)) {
       throw new UnauthorizedException('Invalid staff access session');
@@ -568,57 +571,6 @@ export class StaffAccessService {
     });
   }
 
-  async organizationDirectory(user: RequestUser) {
-    await this.requirePermission(user, StaffPermission.ORGANIZATION_LIST);
-    return this.repository.prisma.organization.findMany({
-      select: { id: true, tenantId: true, name: true, inn: true, status: true, kycStatus: true, amlStatus: true, updatedAt: true },
-      orderBy: [{ status: 'asc' }, { name: 'asc' }],
-      take: 500,
-    });
-  }
-
-  async organizationUsers(user: RequestUser, organizationId: string) {
-    await this.requirePermission(user, StaffPermission.USER_LIST);
-    return this.repository.prisma.userOrg.findMany({
-      where: { organizationId },
-      select: {
-        id: true,
-        role: true,
-        isDefault: true,
-        joinedAt: true,
-        user: { select: { id: true, email: true, fullName: true, status: true, mfaEnabled: true } },
-      },
-      orderBy: { joinedAt: 'asc' },
-      take: 500,
-    });
-  }
-
-  async cabinetProjection(user: RequestUser, organizationId: string, role: string) {
-    const staffRole = await this.requirePermission(user, StaffPermission.CABINET_VIEW_AS);
-    const organization = await this.repository.prisma.organization.findUnique({
-      where: { id: organizationId },
-      select: { id: true, tenantId: true, name: true, status: true, kycStatus: true, amlStatus: true },
-    });
-    if (!organization) throw new NotFoundException('Organization not found');
-    const members = await this.repository.prisma.userOrg.count({ where: { organizationId, role } });
-    const deals = await this.repository.prisma.deal.findMany({
-      where: { OR: [{ sellerOrgId: organizationId }, { buyerOrgId: organizationId }] },
-      select: { id: true, dealNumber: true, status: true, nextAction: true, slaAt: true, updatedAt: true },
-      orderBy: { updatedAt: 'desc' },
-      take: 100,
-    });
-    return {
-      mode: 'READ_ONLY_VIEW_AS',
-      actorUserId: user.id,
-      actorStaffRole: staffRole,
-      effectiveOrganization: organization,
-      effectiveRole: role,
-      roleMembers: members,
-      deals,
-      prohibitedActions: [...FORBIDDEN_STAFF_ACTIONS],
-    };
-  }
-
   async requirePermission(user: RequestUser, permission: StaffPermission): Promise<StaffRole> {
     const assignments = await this.requireAssignments(user);
     const assignment = assignments.find(({ role }) => ROLE_PERMISSION_CEILING[role].includes(permission));
@@ -677,29 +629,35 @@ export class StaffAccessService {
     }
   }
 
-  private async validateTargetScope(input: RequestStaffAccessInput) {
+  private async validateTargetScope(
+    user: RequestUser,
+    assignmentId: string,
+    input: RequestStaffAccessInput,
+  ) {
     const customerMode = input.accessMode !== StaffAccessMode.CONTROL_PLANE;
     if (customerMode && !input.targetOrganizationId && !input.targetTenantId && !input.targetDealId) {
       throw new BadRequestException('Customer-context access must be scoped to a tenant, organization or deal');
     }
-    let tenantId = input.targetTenantId || null;
-    const organizationId = input.targetOrganizationId || null;
-    const userId = input.targetUserId || null;
-    if (organizationId) {
-      const organization = await this.repository.prisma.organization.findUnique({
-        where: { id: organizationId },
-        select: { id: true, tenantId: true },
-      });
-      if (!organization) throw new NotFoundException('Target organization not found');
-      if (tenantId && tenantId !== organization.tenantId) throw new ForbiddenException('Tenant and organization scope mismatch');
-      tenantId = organization.tenantId;
+    if (input.targetUserId && !input.targetOrganizationId) {
+      throw new BadRequestException('Target user requires target organization');
     }
-    if (userId) {
-      if (!organizationId) throw new BadRequestException('Target user requires target organization');
-      const membership = await this.repository.prisma.userOrg.findFirst({ where: { userId, organizationId }, select: { id: true } });
-      if (!membership) throw new ForbiddenException('Target user is not a member of target organization');
+
+    const target = await this.repository.resolveTargetScope(this.repository.prisma, {
+      actorUserId: user.id,
+      assignmentId,
+      targetTenantId: input.targetTenantId ?? null,
+      targetOrganizationId: input.targetOrganizationId ?? null,
+      targetUserId: input.targetUserId ?? null,
+    });
+    if (!target) {
+      throw new ForbiddenException('Target staff access scope could not be verified');
     }
-    return { tenantId, organizationId, userId };
+
+    return {
+      tenantId: target.tenant_id,
+      organizationId: target.organization_id,
+      userId: target.user_id,
+    };
   }
 
   private canAutoApprove(role: StaffRole, mode: StaffAccessMode) {
@@ -721,11 +679,12 @@ export class StaffAccessService {
     return { id: grantId, expiresAt };
   }
 
+  // A staff access token is a bearer credential, so its stored form comes
+  // from the opaque token authority under its own purpose. It cannot be
+  // presented as an invitation, a password reset or any other token.
   private makeAccessToken() {
-    const id = `sat_${randomBytes(18).toString('base64url')}`;
-    const secret = randomBytes(32).toString('base64url');
-    const token = `${id}.${secret}`;
-    return { token, hash: hashAuthMaterial(token) };
+    const issued = issueStaffAccessCredential();
+    return { token: issued.rawToken, hash: issued.storedDigest };
   }
 
   private assertGrantActive(grant: StaffGrantRow) {

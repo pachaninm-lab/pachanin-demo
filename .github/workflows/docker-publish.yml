@@ -11,18 +11,32 @@ on:
       - "infra/docker/Dockerfile.web"
       - "infra/docker/Dockerfile.migrations"
       - "infra/docker/Dockerfile.tai"
+      - "infra/compose/production-web-hardening.override.yml"
       - ".github/workflows/docker-publish.yml"
+      - ".github/workflows/production-web-exact-sha.yml"
+      - ".github/workflows/production-web-owner-exact-command.yml"
       - ".github/workflows/production-full-stack-exact-sha.yml"
+      - ".github/workflows/production-p0-reviewer-password-reset-request.yml"
       - ".github/workflows/tai-reg-ru-preflight.yml"
+      - ".github/workflows/tai-reg-ru-preflight-owner-command.yml"
+      - ".github/workflows/tai-automatic-reg-ru-preflight.yml"
       - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
       - ".github/workflows/tai-reg-ru-deploy.yml"
       - ".github/workflows/tai-owner-reg-ru-deployment-command.yml"
       - ".github/workflows/tai-owner-controller-sync-command.yml"
+      - "scripts/production-web-exact-sha.sh"
+      - "scripts/production-web-live-acceptance.sh"
+      - "scripts/production-web-remote-entrypoint.sh"
       - "scripts/production-full-stack-exact-sha.sh"
       - "scripts/production-full-stack-live-acceptance.sh"
       - "scripts/check-production-full-stack-release.mjs"
+      - "scripts/production-p0-reviewer-password-reset-request.sh"
+      - "scripts/check-production-p0-reviewer-password-reset-request.mjs"
       - "scripts/tai-reg-ru-preflight.sh"
       - "scripts/check-tai-reg-ru-preflight.mjs"
+      - "scripts/verify-tai-preflight-report.mjs"
+      - "scripts/check-tai-bootstrap-preflight.mjs"
+      - "scripts/check-tai-automatic-release-chain.mjs"
       - "scripts/tai-restricted-qwen-reg-ru-activate.sh"
       - "scripts/tai-reg-ru-deploy.sh"
       - "scripts/pc-tai-release-controller.sh"
@@ -32,9 +46,23 @@ on:
       - "scripts/install-pc-prod-actions-runner.sh"
       - "scripts/resume-pc-prod-actions-runner.sh"
       - "scripts/check-pc-tai-release-controller.mjs"
+      - "scripts/check-pc-release-authority-boundary.mjs"
+      # The hosted acceptance scripts and the contract they read decide whether
+      # a release is confirmed. A change to them that never rebuilds an image
+      # leaves the release chain judging production by a reader the images were
+      # never built with — which is how a stale assessment schema survived.
+      - "scripts/tai-live-public-ai-acceptance.mjs"
+      - "scripts/tai-potato-mobile-live-acceptance.mjs"
+      - "scripts/tai-public-assessment-contract.mjs"
+      - "scripts/tai-conversation-subject-contract.mjs"
+      - "scripts/install-pc-prod-actions-runner.sh"
+      - "scripts/resume-pc-prod-actions-runner.sh"
       - "scripts/check-resume-pc-prod-actions-runner.mjs"
       - "apps/tai/TAI_REG_RU_PREFLIGHT.md"
       - "docs/platform-v7/autopilot/scopes/*reg-ru-preflight*.json"
+      - "docs/platform-v7/autopilot/scopes/*bootstrap-preflight*.json"
+      - "docs/platform-v7/autopilot/scopes/*bootstrap-canonical-images*.json"
+      - "docs/platform-v7/autopilot/scopes/*automatic-exact-release-chain*.json"
       - "docs/platform-v7/autopilot/scopes/*tai-runner*.json"
       - "docs/platform-v7/autopilot/scopes/*least-privilege-controller*.json"
       - "docs/platform-v7/autopilot/scopes/*controller-canonical-trigger*.json"
@@ -43,6 +71,13 @@ on:
     inputs:
       services:
         description: "Canonical services to build: api, web, tai, migration or all"
+        default: "all"
+        required: false
+  workflow_call:
+    inputs:
+      services:
+        description: "Canonical services to build: api, web, tai, migration or all"
+        type: string
         default: "all"
         required: false
 
@@ -59,9 +94,9 @@ jobs:
   build-api:
     name: Build API image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'api') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'api') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -93,7 +128,7 @@ jobs:
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
           cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
+          cache-to: type=gha,mode=max,scope=api,ignore-error=true
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}
@@ -101,9 +136,9 @@ jobs:
   build-web:
     name: Build web image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'web') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'web') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -135,7 +170,7 @@ jobs:
           tags: ${{ steps.meta-web.outputs.tags }}
           labels: ${{ steps.meta-web.outputs.labels }}
           cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
+          cache-to: type=gha,mode=max,scope=web,ignore-error=true
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}
@@ -143,9 +178,9 @@ jobs:
   build-tai:
     name: Build TAI image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'tai') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'tai') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -177,7 +212,7 @@ jobs:
           tags: ${{ steps.meta-tai.outputs.tags }}
           labels: ${{ steps.meta-tai.outputs.labels }}
           cache-from: type=gha,scope=tai
-          cache-to: type=gha,mode=max,scope=tai
+          cache-to: type=gha,mode=max,scope=tai,ignore-error=true
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}
@@ -186,9 +221,9 @@ jobs:
   build-migration:
     name: Build migration image
     runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'migration') ||
-      github.event.inputs.services == 'all' ||
+    if: >-
+      contains(inputs.services, 'migration') ||
+      inputs.services == 'all' ||
       github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
@@ -220,7 +255,7 @@ jobs:
           tags: ${{ steps.meta-migration.outputs.tags }}
           labels: ${{ steps.meta-migration.outputs.labels }}
           cache-from: type=gha,scope=migration
-          cache-to: type=gha,mode=max,scope=migration
+          cache-to: type=gha,mode=max,scope=migration,ignore-error=true
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}

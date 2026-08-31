@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reuse-active-runtime-v2-3785",
+  "status": "active",
+  "operationalStatus": "P0_REUSE_ACTIVE_AUTH_RUNTIME_V2",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Reuse the existing active root-only auth runtime and release exact current main",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reuse-active-auth-runtime-v2.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-reuse-active-runtime-v2-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "EXACT_SHA_FULL_STACK_RELEASE_ONLY",
+    "databaseMutation": true,
+    "deploymentMutation": true,
+    "credentialMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "only the repository owner can issue the exact release command on release issue 3072",
+    "exact current main is resolved and rechecked before protected runtime verification and exact image publication",
+    "the protected REG.RU host must be a current live-domain IPv4 answer and present the pinned SSH host fingerprint",
+    "the active Compose web container is the runtime authority when PC_PROD_DIR and PC_PROD_COMPOSE secrets are absent",
+    "the existing root-only password-reset delivery and transactional-mail files must already exist, validate and remain byte-identical during pre-release verification",
+    "no credential values, protected paths, raw environment or raw production logs are published",
+    "API, web and migration images are published for the same exact current-main SHA before release",
+    "production mutation is delegated only to the existing guarded production-full-stack-exact-sha reusable workflow",
+    "production remains the existing REG.RU contour and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

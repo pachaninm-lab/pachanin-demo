@@ -62,8 +62,14 @@ PY
 
 install -d -m 0700 -o root -g root \
   /etc/pc-release-authority \
-  /etc/transparent-price \
-  /var/lib/pc-release-authority \
+  /etc/transparent-price
+# Traverse-only for the runner group, matching the boundary the controller
+# maintains. Resuming a runner used to reset this to 0700 root:root, which is why
+# the release authority broke on restart rather than on any code change: with the
+# ancestor denied, pcactions cannot prepare attempt input, and the controller
+# that repairs the boundary is only reachable after that step succeeds.
+install -d -m 0710 -o root -g "$RUNNER_USER" /var/lib/pc-release-authority
+install -d -m 0700 -o root -g root \
   /var/lib/pc-release-authority/repository \
   /var/lib/pc-release-authority/controller-jobs
 install -d -m 0730 -o root -g "$RUNNER_USER" /var/lib/pc-release-authority/runner-input

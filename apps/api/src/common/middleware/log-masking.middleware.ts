@@ -1,30 +1,17 @@
 import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
+import { maskDeep, maskText } from '../security/sensitive-data';
 
 /**
  * Log masking middleware per ТЗ 11.3 (152-ФЗ).
- * Masks Personally Identifiable Information in request logs:
- * INN, OGRN, BIK, bank accounts, phone numbers, email addresses, card numbers.
+ *
+ * Классификация чувствительных данных живёт не здесь, а в
+ * common/security/sensitive-data.ts, и та же классификация применяется к
+ * outbound-telemetry. Пока список был локальным, внутренние логи и Sentry
+ * защищали одни и те же данные по-разному.
  *
  * Applied at the application level — intercepts outgoing response logging.
  */
-
-const MASK_RULES: Array<{ name: string; pattern: RegExp; replacement: string }> = [
-  { name: 'inn-12', pattern: /\b(\d{2})\d{8}(\d{2})\b/g, replacement: '$1********$2' },
-  { name: 'ogrn-15', pattern: /\b(\d{1})\d{11}(\d{3})\b/g, replacement: '$1***********$2' },
-  { name: 'bik', pattern: /\b04\d{7}\b/g, replacement: '04*******' },
-  { name: 'bank-account', pattern: /\b([0-9]{5})[0-9]{10}([0-9]{5})\b/g, replacement: '$1**********$2' },
-  { name: 'phone-ru', pattern: /(\+?7|8)[\s\-]?\(?\d{3}\)?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/g, replacement: '+7***XXXXX' },
-  { name: 'email', pattern: /([a-zA-Z0-9._%+\-]{1,3})[a-zA-Z0-9._%+\-]+@([a-zA-Z0-9\-]+\.[a-zA-Z]{2,})/g, replacement: '$1***@$2' },
-  { name: 'card-number', pattern: /\b(\d{4})[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?(\d{4})\b/g, replacement: '$1 **** **** $2' },
-  { name: 'passport-ru', pattern: /\b\d{4}[\s]?\d{6}\b/g, replacement: '**** ******' },
-];
-
-const SENSITIVE_BODY_FIELDS = new Set([
-  'password', 'passwordHash', 'secret', 'token', 'refreshToken', 'accessToken',
-  'inn', 'ogrn', 'passport', 'bankAccount', 'bik', 'cardNumber',
-  'phoneNumber', 'email', 'address', 'apiKey', 'webhookSecret',
-]);
 
 const LOG_EXCLUDED_PATHS = ['/health', '/ready', '/metrics', '/version'];
 
@@ -57,30 +44,12 @@ export class LogMaskingMiddleware implements NestMiddleware {
 
   /** Mask a text string applying all PII patterns */
   static maskText(text: string): string {
-    let result = text;
-    for (const rule of MASK_RULES) {
-      result = result.replace(rule.pattern, rule.replacement);
-    }
-    return result;
+    return maskText(text);
   }
 
   /** Recursively mask sensitive fields in an object */
   static maskObject(obj: unknown, depth = 0): unknown {
-    if (depth > 5) return obj;
-    if (obj === null || obj === undefined) return obj;
-    if (typeof obj === 'string') return LogMaskingMiddleware.maskText(obj);
-    if (typeof obj !== 'object') return obj;
-    if (Array.isArray(obj)) return obj.map((item) => LogMaskingMiddleware.maskObject(item, depth + 1));
-
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-      if (SENSITIVE_BODY_FIELDS.has(key)) {
-        result[key] = typeof value === 'string' ? `[MASKED:${key}]` : '[MASKED]';
-      } else {
-        result[key] = LogMaskingMiddleware.maskObject(value, depth + 1);
-      }
-    }
-    return result;
+    return maskDeep(obj, depth);
   }
 
   private maskText(text: string): string {

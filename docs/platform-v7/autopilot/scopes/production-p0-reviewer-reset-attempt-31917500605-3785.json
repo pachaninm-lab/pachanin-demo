@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-reset-attempt-31917500605-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_31917500605_READ_ONLY_CLASSIFIER",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify reviewer reset run 31917500605 without replay or secret exposure",
+  "sourceRun": 31917500605,
+  "sourceRevision": "50990d616463c3aa7a4888fc182bc6064931b080",
+  "attemptSinceUtc": "2026-08-16T00:33:48Z",
+  "attemptUntilUtc": "2026-08-16T00:35:28Z",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-attempt-31917500605.yml",
+    "scripts/production-p0-reviewer-reset-attempt-31917500605.sh",
+    "scripts/check-production-p0-reviewer-reset-attempt-31917500605.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-attempt-31917500605-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "credentialMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "resetReplay": false,
+    "mailSend": false,
+    "databaseReadOnly": true,
+    "logReadOnly": true,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "classify exact reset window 2026-08-16T00:33:48Z through 2026-08-16T00:35:28Z for source run 31917500605",
+    "distinguish COOLDOWN_ACTIVE from UNIVERSAL_NON_ELIGIBLE using aggregate auth.audit_events evidence",
+    "do not replay reset or send mail",
+    "do not publish reviewer identity, account hash, correlation id, reset token, credentials, raw rows or raw logs",
+    "production mutation is NONE and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

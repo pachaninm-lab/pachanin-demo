@@ -38,20 +38,23 @@ function fixture() {
   const access = {
     requirePermission: jest.fn().mockResolvedValue(StaffRole.PLATFORM_OWNER),
   } as any;
+  const staffAuthorityPrisma = { $queryRaw: jest.fn() } as any;
   return {
-    service: new StaffAccessRequestService(repository, access),
+    service: new StaffAccessRequestService(repository, access, staffAuthorityPrisma),
     repository,
     access,
     prisma,
+    staffAuthorityPrisma,
   };
 }
 
 describe('StaffAccessRequestService refreshed activation projection', () => {
   it('returns only the actor own requests with the latest nullable grant projection', async () => {
-    const { service, repository, prisma } = fixture();
+    const { service, repository, prisma, staffAuthorityPrisma } = fixture();
 
     await expect(service.listRequests(user)).resolves.toEqual(projected);
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(staffAuthorityPrisma.$queryRaw).not.toHaveBeenCalled();
     expect(repository.listAccessRequests).not.toHaveBeenCalled();
   });
 

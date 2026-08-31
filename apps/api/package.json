@@ -1,15 +1,18 @@
 {
   "name": "@pc/api",
   "private": true,
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "nest start --watch",
     "build": "prisma generate && tsc -p tsconfig.json",
     "build:outbox-worker": "prisma generate && tsc -p tsconfig.outbox-worker.json",
+    "build:marketing-outbox-worker": "prisma generate && tsc -p tsconfig.marketing-outbox-worker.json",
     "test": "jest --passWithNoTests",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma": "prisma",
     "start": "node dist/src/main.js",
     "start:outbox-worker": "node dist-outbox-worker/outbox-worker.js",
+    "start:marketing-outbox-worker": "node dist-marketing-outbox-worker/marketing-outbox-worker.js",
     "seed": "ts-node prisma/seed.ts",
     "seed:federal-catalog": "ts-node prisma/federal-counterparties.seed.ts",
     "typecheck": "pnpm prisma generate && tsc -p tsconfig.json --noEmit",

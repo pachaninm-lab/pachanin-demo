@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4539,
+  "branch": "fix/p0-staff-internal-api-authority-4539",
+  "status": "active",
+  "priority": "P0",
+  "authorityBaseExactMain": "e123497c3a6c39f0beec38dcc24d4a979f24b6c5",
+  "purpose": "Restore the production staff control plane by making its server-side Web-to-API authority consistent with the already-governed REG.RU Docker Compose authority without weakening browser-origin, CSRF, MFA, role or tenant controls.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/lib/server/server-api-origin.ts",
+    "apps/web/app/platform-v7/staff/page.tsx",
+    "apps/web/app/api/staff/capabilities/me/route.ts",
+    "apps/web/app/api/staff/[...path]/route.ts",
+    "apps/web/tests/unit/platformV7StaffControlCenter.test.ts",
+    "apps/web/tests/unit/serverApiOrigin.test.ts",
+    "docs/platform-v7/autopilot/scopes/p0-staff-internal-api-authority-4539.json"
+  ],
+  "requiredInvariants": [
+    "Explicit server-side API_URL remains highest priority.",
+    "Production plaintext HTTP is accepted only for the exact canonical Compose authority http://api:3001 and never for a suffix, alternate port, credentials, query, fragment or path-bearing variant.",
+    "When API_URL is absent in production, the only fallback is the exact canonical Compose authority http://api:3001.",
+    "NEXT_PUBLIC_API_URL is never production server authority.",
+    "Existing canonical control-host enforcement, exact-origin CSRF, double-submit token validation, MFA requirements, staff route allowlists, bearer secrecy, redirect refusal and server-side role/tenant authority remain unchanged.",
+    "No database, RLS, password, TOTP, staff assignment, DNS, Caddy, Compose, SSH pin, secret or production mutation is introduced by this branch.",
+    "Merge and CI success are not production acceptance."
+  ],
+  "acceptance": [
+    "Production exact http://api:3001 is accepted and production fallback resolves to exactly http://api:3001.",
+    "Arbitrary plaintext origins, lookalike hosts, credentials in URLs, non-http schemes, query and fragment authorities fail closed.",
+    "An explicit HTTPS server authority remains accepted.",
+    "NEXT_PUBLIC_API_URL remains available only outside production.",
+    "Staff SSR identity verification, capabilities BFF and bounded staff proxy use one shared resolver.",
+    "Focused unit regression and existing staff control-plane boundary tests pass on the exact branch head.",
+    "Production remains unchanged until governed exact-current-main release through issue 3072."
+  ]
+}

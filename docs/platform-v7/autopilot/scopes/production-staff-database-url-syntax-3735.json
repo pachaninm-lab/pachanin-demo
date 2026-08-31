@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-staff-database-url-syntax-3735",
+  "status": "active",
+  "purpose": "Repair the Python URL construction syntax in the protected production staff database provisioner and permanently reject the escaped-quote form that caused the REG.RU provision run to fail before any database mutation.",
+  "approvedBy": "owner-direct-registration-production-recovery-2026-08-08",
+  "authorityBaseExactMain": "bf5a87c6000275372cbfb89b1c9b5e77ca3a545f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/provision-production-staff-database-url.sh",
+    "scripts/check-production-staff-database-provision.mjs",
+    "docs/platform-v7/autopilot/scopes/production-staff-database-url-syntax-3735.json",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "forbiddenCapabilities": [
+    "secret value disclosure or repository storage",
+    "reuse of deal, auth or storage database principals",
+    "staff table grants, membership, SUPERUSER or BYPASSRLS",
+    "production host, SSH identity or protected Compose path disclosure",
+    "release gate weakening",
+    "application product-code change"
+  ]
+}

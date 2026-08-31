@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-regru-smtp-runtime-recover-20260811",
+  "status": "active",
+  "operationalStatus": "P0_REGRU_SMTP_RUNTIME_RECOVERY",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Recover protected auth-mail runtime from the existing REG.RU access mailbox",
+  "allowedPaths": [
+    ".github/workflows/production-p0-regru-smtp-runtime-recover.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-regru-smtp-runtime-recover-3785.json"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "boundaries": {
+    "productionMutation": "ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES_ONLY_AFTER_REG_RU_SMTP_AUTH",
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "credentialMutation": true,
+    "credentialOutput": false,
+    "piiOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "use only the existing REG.RU SMTP authority for access@процент-агро.рф",
+    "accept current or legacy protected secret aliases without publishing values",
+    "fail before SSH when no protected SMTP password is available",
+    "authenticate with implicit TLS on sm38.hosting.reg.ru:465 and send no message during the credential probe",
+    "require pinned REG.RU production SSH identity before any runtime file mutation",
+    "reuse scripts/provision-production-p0-password-reset-runtime.sh rather than duplicating delivery-key generation or validation",
+    "allow only root-owned mode-0600 auth-mail runtime files in the active Compose working directory",
+    "perform no database or deployment mutation",
+    "publish only bounded readiness markers and never paths, credentials, raw environment values or raw SMTP responses",
+    "add zero recurring cost"
+  ]
+}

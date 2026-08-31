@@ -96,23 +96,31 @@ if (!pushPaths) {
 
 requireAll('workflow', [
   'Production Full-Stack Exact-SHA Release',
-  'DEPLOY-FULL-STACK-EXACT-SHA',
+  'workflow_call:',
+  'owner_release_authorized:',
+  "description: 'Immutable release candidate captured by the owner controller.'",
+  'target_sha:',
+  'controller_issue_number:',
+  'required: true',
+  "default: ''",
+  'default: 0',
+  'inputs.owner_release_authorized == true',
+  'Reject every non-controller reusable release authority',
+  '[[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ && "$TARGET_SHA" == "$EVENT_SHA" ]]',
+  '(inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637)',
+  'inputs.controller_issue_number == github.event.issue.number',
   'github.actor == github.repository_owner',
-  'issue_comment:',
-  'workflow_run:',
-  "workflows: ['Build & Publish Canonical Docker Images']",
-  "github.event_name == 'workflow_run'",
-  "github.event.workflow_run.conclusion == 'success'",
-  "github.event.workflow_run.event == 'push'",
-  "github.event.workflow_run.head_branch == 'main'",
-  'github.event.workflow_run.head_sha',
-  'github.event.issue.number == 3072',
+  'github.triggering_actor == github.repository_owner',
   'github.event.comment.user.login == github.repository_owner',
-  "github.event.comment.body == '/production full-stack current-main'",
-  "github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref_name",
-  "if [[ '${{ github.event_name }}' == issue_comment ]]; then",
-  "if [[ '${{ github.event_name }}' == workflow_run ]]; then",
+  "github.event.comment.body == '/production release current-main'",
+  'ref: ${{ inputs.target_sha }}',
+  "target='${{ inputs.target_sha }}'",
+  'git merge-base --is-ancestor "$target" "$current_main"',
+  'RELEASE_CANDIDATE_NO_LONGER_ANCESTOR',
+  'group: pc-crop-production-release-candidate',
+  'queue: max',
   'RELEASE_ISSUE_NUMBER: 3072',
+  'CONTINUATION_ISSUE_NUMBER: 4637',
   'for component in api web migration',
   'grainflow-${component}:sha-${SHORT_SHA}',
   'PC_PROD_SSH_HOST_FINGERPRINT',
@@ -127,28 +135,78 @@ requireAll('workflow', [
   'Publish release evidence',
   'gh issue comment',
   'gh issue close',
+  'EVIDENCE_ISSUE_NUMBER: ${{ inputs.owner_release_authorized == true && inputs.controller_issue_number || 3072 }}',
+  'gh issue comment "$EVIDENCE_ISSUE_NUMBER"',
+  '[[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$EVIDENCE_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]',
   'retention-days: 90',
+  'production-full-stack-release-${{ github.run_id }}-${{ github.run_attempt }}',
+]);
+const workflowSource = text.workflow ?? '';
+if ((workflowSource.match(/^\s+queue: max$/gmu) || []).length !== 2) {
+  failures.push(`${paths.workflow}: workflow and production job must both retain every serialized pending invocation`);
+}
+if ((workflowSource.match(/git merge-base --is-ancestor "\$TARGET_SHA" "\$current_main"/gu) || []).length < 2
+  || !workflowSource.includes('git merge-base --is-ancestor "$target" "$current_main"')) {
+  failures.push(`${paths.workflow}: immutable candidate ancestry must be rechecked before every production mutation boundary`);
+}
+forbid('workflow', [
+  /^\s{2}workflow_run:/m,
+  /^\s{2}workflow_dispatch:/m,
+  /^\s{2}issue_comment:/m,
+  /github\.event\.workflow_run/,
+  /\/production full-stack current-main/,
+  /DEPLOY-FULL-STACK-EXACT-SHA/,
+  /inputs\.controller_issue_number == 0/,
+  /inputs\.target_sha \|\| github\.sha/,
 ]);
 requireAll('controller', [
   '/production release current-main',
+  'pc-crop-registration-lifecycle',
+  'queue: max',
   'gh workflow run docker-publish.yml',
   'gh run watch "$image_run_id"',
   'Build API image',
   'Build web image',
   'Build migration image',
-  'Main advanced during image publication',
-  'gh workflow run production-full-stack-exact-sha.yml',
+  'Release candidate is no longer an ancestor of main.',
+  'production-full-stack-execution-3072:',
+  'needs: production-release-control-3072',
+  "github.event.comment.body == '/production release current-main'",
+  'uses: ./.github/workflows/production-full-stack-exact-sha.yml',
+  'owner_release_authorized: true',
+  'target_sha: ${{ github.sha }}',
+  'controller_issue_number: ${{ github.event.issue.number }}',
+  '(github.event.issue.number == 3072 || github.event.issue.number == 4637)',
+  'github.actor == github.repository_owner',
+  'github.triggering_actor == github.repository_owner',
+  'secrets: inherit',
 ]);
 requireAll('middleware', [
   "'/api/platform-v7/organization-connect'",
   '|| PUBLIC_API_EXACT.has(p)',
 ]);
 const controllerSource = text.controller ?? '';
+const controllerConcurrencyGroup = controllerSource.match(/^concurrency:\n\s+group: ([^\n]+)$/mu)?.[1] ?? '';
+if (!controllerConcurrencyGroup.includes('pc-crop-registration-lifecycle')
+  || controllerConcurrencyGroup.includes('github.triggering_actor')) {
+  failures.push(`${paths.controller}: reruns of the original owner release command must remain in the serialized lifecycle group`);
+}
 const publishDispatchIndex = controllerSource.indexOf('gh workflow run docker-publish.yml');
 const imageWatchIndex = controllerSource.indexOf('gh run watch "$image_run_id"');
-const releaseDispatchIndex = controllerSource.indexOf('gh workflow run production-full-stack-exact-sha.yml');
-if (!(publishDispatchIndex >= 0 && imageWatchIndex > publishDispatchIndex && releaseDispatchIndex > imageWatchIndex)) {
-  failures.push(`${paths.controller}: exact image publication must complete before release dispatch`);
+const reusableReleaseIndex = controllerSource.indexOf('production-full-stack-execution-3072:');
+if (!(publishDispatchIndex >= 0 && imageWatchIndex > publishDispatchIndex && reusableReleaseIndex > imageWatchIndex)) {
+  failures.push(`${paths.controller}: exact image publication must complete before owner-authorized reusable release`);
+}
+if (controllerSource.includes('gh workflow run production-full-stack-exact-sha.yml')) {
+  failures.push(`${paths.controller}: the controller must not dispatch a second workflow as github-actions[bot]`);
+}
+if (workflowSource.split('inputs.controller_issue_number == github.event.issue.number').length - 1 !== 1
+  || !workflowSource.includes('[[ "$CONTROLLER_ISSUE_NUMBER" == "$EVENT_ISSUE_NUMBER" ]]')) {
+  failures.push(`${paths.workflow}: contract guard and deploy job must bind the controller issue to the triggering issue`);
+}
+if (!workflowSource.includes('"$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER"')
+  || !workflowSource.includes('gh issue comment "$EVIDENCE_ISSUE_NUMBER"')) {
+  failures.push(`${paths.workflow}: release evidence must use the validated triggering authority issue`);
 }
 requireAll('executor', [
   'COMPOSE_SERVICE_DISCOVERY_FAILED',
@@ -160,6 +218,11 @@ requireAll('executor', [
   'up -d --no-deps --pull never api',
   'up -d --no-deps --pull never web',
   'wait_api',
+  'redact_api_startup_log',
+  'emit_api_startup_diagnostics',
+  'API_STARTUP_DIAGNOSTICS_BEGIN',
+  'API_STARTUP_LOG_TAIL_BEGIN',
+  'docker logs --tail 80',
   'wait_web',
   'rollback_images',
   'verify_durable_intake',
@@ -237,6 +300,68 @@ for (const path of [paths.executor, paths.live]) {
   const result = spawnSync('bash', ['-n', path], { encoding: 'utf8' });
   if (result.status !== 0) failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
 }
+
+/**
+ * Go templates must reach Docker with real double quotes.
+ *
+ * A backslash inside a single-quoted shell word escapes nothing — the shell
+ * passes it through and Docker rejects the template with `unexpected "\" in
+ * operand`. `bash -n` cannot see this, because the shell syntax is valid; only
+ * Docker's parser objects, and only when the line actually runs. Both offending
+ * lines lived in the rollback path, which runs exclusively during an incident,
+ * so the defect stayed invisible until a production rollback needed it and then
+ * reported failure regardless of what happened to the containers.
+ */
+for (const [name, path] of [['executor', paths.executor], ['live', paths.live]]) {
+  const lines = String(text[name] ?? '').split(/\r?\n/);
+  lines.forEach((line, index) => {
+    const template = /--format\s+'([^']*)'/.exec(line) ?? /\binspect\s+-f\s+'([^']*)'/.exec(line);
+    if (template && template[1].includes('\\"')) {
+      failures.push(`${path}:${index + 1}: Go template escapes double quotes inside single quotes — Docker will reject it at runtime`);
+    }
+  });
+}
+
+/* The rollback verification says which check failed, and still fails on each. */
+requireAll('executor', [
+  'container_revision()',
+  "docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' \"$1\"",
+  'fail ROLLBACK_REVISION_UNREADABLE 57',
+  'fail ROLLBACK_REVISION_MISMATCH 58',
+  'fail AUTOMATIC_ROLLBACK_FAILED 50',
+  'RELEASE_ROLLBACK_ARMED=0',
+  'RELEASE_ROLLBACK_ACTIVE=0',
+  'rollback_and_exit()',
+  'RELEASE_ROLLBACK_ARMED=1',
+  "printf 'ROLLBACK_COMPLETE=1\\n' >&2",
+  "printf 'ROLLBACK_FAILED=1\\n' >&2",
+  "printf 'RUNNING_API_REVISION=%s\\n'",
+  "printf 'RUNNING_WEB_REVISION=%s\\n'",
+  'fail RUNNING_REVISION_MISMATCH 33',
+]);
+const executorSource = text.executor ?? '';
+const rollbackHandlerIndex = executorSource.indexOf('rollback_and_exit()');
+const rollbackArmIndex = executorSource.indexOf('RELEASE_ROLLBACK_ARMED=1');
+const targetOverrideIndex = executorSource.indexOf('write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1');
+const revisionMismatchIndex = executorSource.indexOf('fail RUNNING_REVISION_MISMATCH 33');
+const rollbackDisarmIndex = executorSource.lastIndexOf('RELEASE_ROLLBACK_ARMED=0');
+const successIndex = executorSource.indexOf("printf 'DEPLOYMENT_COMPLETE=1\\n'");
+if (!(rollbackHandlerIndex >= 0
+  && rollbackArmIndex > rollbackHandlerIndex
+  && targetOverrideIndex > rollbackArmIndex
+  && revisionMismatchIndex > targetOverrideIndex
+  && rollbackDisarmIndex > revisionMismatchIndex
+  && successIndex > rollbackDisarmIndex)) {
+  failures.push(`${paths.executor}: explicit-exit rollback arm/disarm order is invalid`);
+}
+if (executorSource.split('RELEASE_ROLLBACK_ARMED=1').length - 1 !== 1
+  || executorSource.split('RELEASE_ROLLBACK_ARMED=0').length - 1 !== 2
+  || executorSource.split('RELEASE_ROLLBACK_ACTIVE=0').length - 1 !== 1
+  || executorSource.split('rollback_and_exit').length - 1 !== 3
+  || executorSource.split('RUNNING_API_REVISION=').length - 1 !== 1
+  || executorSource.split('RUNNING_WEB_REVISION=').length - 1 !== 1) {
+  failures.push(`${paths.executor}: explicit-exit rollback safety marker cardinality is invalid`);
+}
 try {
   const scope = JSON.parse(text.scope ?? '{}');
   if (scope.branch !== 'ops/production-full-stack-release-v1') failures.push(`${paths.scope}: branch mismatch`);
@@ -250,4 +375,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log('PASS: exact API/web/migration images, serialized image publication, trusted post-image workflow-run authority, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, public organization intake, live acceptance and PostgreSQL/audit/outbox evidence are enforced.');
+console.log('PASS: exact API/web/migration images, owner-controller-only immutable release authority, serialized release chain, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, public organization intake, live acceptance and PostgreSQL/audit/outbox evidence are enforced.');

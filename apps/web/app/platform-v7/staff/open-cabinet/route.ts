@@ -6,7 +6,9 @@ import {
   controlledCabinetContext,
   type ControlledCabinetContext,
 } from '@/lib/platform-v7/controlled-test-organizations';
+import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { signCabinetSession, verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
+import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,6 +27,7 @@ const OWNER_CABINETS = {
   elevator: '/platform-v7/elevator',
   lab: '/platform-v7/lab',
   bank: '/platform-v7/bank',
+  organization: '/platform-v7/profile',
   arbitrator: '/platform-v7/arbitrator',
   compliance: '/platform-v7/compliance',
   executive: '/platform-v7/executive',
@@ -47,8 +50,6 @@ type ParsedRequest = {
   formSubmission: boolean;
   csrfOk: boolean;
 };
-type StaffIdentity = { id?: string; email?: string };
-type StaffAssignment = { role?: string; status?: string };
 
 function readEnv(name: string): string {
   return String(process.env[name] || '').trim();
@@ -182,6 +183,7 @@ async function parseRequest(request: NextRequest): Promise<ParsedRequest> {
 async function controlledOwnerAuthority(accessToken: string, secret: string): Promise<AuthorityResult | null> {
   if (!controlledFixtureEnabled()) return null;
   const claims = await verifyHs256Jwt(accessToken, secret);
+  if (!fixtureTokenIsForService(claims, FIXTURE_AUDIENCE.ownerCabinet)) return null;
   if (!claims || claims.testAccess !== true) return null;
 
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -214,45 +216,34 @@ async function apiOwnerAuthority(accessToken: string, correlationId: string): Pr
   if (!origin) return { status: 'unavailable' };
 
   try {
-    const commonHeaders = {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/json',
-      'x-correlation-id': correlationId,
-    };
-    const [identityResponse, assignmentsResponse] = await Promise.all([
-      fetch(`${origin}/auth/me`, {
-        headers: commonHeaders,
-        cache: 'no-store',
-        redirect: 'manual',
-        signal: AbortSignal.timeout(5_000),
-      }),
-      fetch(`${origin}/staff/assignments/me`, {
-        headers: commonHeaders,
-        cache: 'no-store',
-        redirect: 'manual',
-        signal: AbortSignal.timeout(5_000),
-      }),
-    ]);
+    const response = await fetch(`${origin}/staff/capabilities/me`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        'x-correlation-id': correlationId,
+      },
+      cache: 'no-store',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(5_000),
+    });
 
-    if ([identityResponse.status, assignmentsResponse.status].some((status) => status === 401 || status === 403)) {
-      return { status: 'denied' };
-    }
-    if (!identityResponse.ok || !assignmentsResponse.ok) return { status: 'unavailable' };
+    if (response.status === 401 || response.status === 403) return { status: 'denied' };
+    if (!response.ok) return { status: 'unavailable' };
 
-    const identity = await identityResponse.json().catch(() => null) as StaffIdentity | null;
-    const assignments = await assignmentsResponse.json().catch(() => null) as StaffAssignment[] | null;
-    const activeOwner = Array.isArray(assignments)
-      && assignments.some((item) => item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE');
+    const capabilities = parseStaffCapabilitiesContract(await response.json());
+    const activeOwner = capabilities?.assignments.some((item) => (
+      item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'
+    )) === true;
 
-    if (!identity || typeof identity.id !== 'string' || typeof identity.email !== 'string' || !activeOwner) {
+    if (!capabilities || !activeOwner || !capabilities.authenticationAssurance.mfaVerified) {
       return { status: 'denied' };
     }
 
     return {
       status: 'authorized',
       authority: {
-        actorId: identity.id,
-        email: identity.email,
+        actorId: capabilities.identity.id,
+        email: capabilities.identity.email,
         ttlSeconds: MAX_API_OWNER_TTL_SECONDS,
         source: 'staff-api',
       },
@@ -271,13 +262,19 @@ function resolveControlledOrganization(
   role: OwnerCabinetRole,
   submittedOrganizationId: unknown,
   authority: OwnerAuthority,
-): ControlledCabinetContext | null | 'invalid' {
-  if (authority.source !== 'controlled') return null;
+): ControlledCabinetContext | 'invalid' {
   const context = controlledCabinetContext(role);
   if (!context) return 'invalid';
-  if (typeof submittedOrganizationId !== 'string' || submittedOrganizationId !== context.organizationId) {
-    return 'invalid';
-  }
+
+  // The real production owner never chooses an arbitrary customer organization
+  // through this shortcut. The server binds the role to its fixed controlled
+  // test organization. The legacy controlled fixture still has to submit the
+  // exact expected organization so its regression contract stays fail-closed.
+  if (
+    authority.source === 'controlled'
+    && (typeof submittedOrganizationId !== 'string' || submittedOrganizationId !== context.organizationId)
+  ) return 'invalid';
+
   return context;
 }
 
@@ -287,7 +284,7 @@ function setCabinetCookies(
   role: OwnerCabinetRole,
   authority: OwnerAuthority,
   expiresAt: number,
-  organization: ControlledCabinetContext | null,
+  organization: ControlledCabinetContext,
 ) {
   response.cookies.set(CABINET_SESSION_COOKIE, cabinetToken, {
     path: '/',
@@ -303,8 +300,8 @@ function setCabinetCookies(
       role,
       exp: expiresAt,
       email: authority.email,
-      organizationId: organization?.organizationId || null,
-      tenantId: organization?.tenantId || null,
+      organizationId: organization.organizationId,
+      tenantId: organization.tenantId,
       ownerAccess: true,
     })),
     { ...sessionMarkerCookie(), maxAge: authority.ttlSeconds, priority: 'high' },
@@ -339,7 +336,7 @@ export async function POST(request: NextRequest) {
     return fail('OWNER_AUTHORITY_UNAVAILABLE', 'Не удалось проверить полномочия владельца.', 503);
   }
   if (authorityResult.status === 'denied') {
-    return fail('PLATFORM_OWNER_REQUIRED', 'Требуется активное назначение владельца платформы.', 403);
+    return fail('PLATFORM_OWNER_REQUIRED', 'Требуется активное назначение владельца платформы и подтверждённый MFA.', 403);
   }
 
   const { authority } = authorityResult;
@@ -352,8 +349,9 @@ export async function POST(request: NextRequest) {
   const cabinetToken = await signCabinetSession(parsed.role, secret, {
     nowSeconds,
     ttlSeconds: authority.ttlSeconds,
-    organizationId: organization?.organizationId || null,
-    tenantId: organization?.tenantId || null,
+    userId: authority.actorId,
+    organizationId: organization.organizationId,
+    tenantId: organization.tenantId,
     ownerAccess: true,
   });
   if (!cabinetToken) return fail('CABINET_SESSION_UNAVAILABLE', 'Не удалось открыть кабинет.', 503);
@@ -365,12 +363,12 @@ export async function POST(request: NextRequest) {
       ok: true,
       role: parsed.role,
       redirectTo: OWNER_CABINETS[parsed.role],
-      organization: organization ? {
+      organization: {
         id: organization.organizationId,
         name: organization.organizationName,
         tenantId: organization.tenantId,
         testData: true,
-      } : null,
+      },
       expiresAt: new Date(expiresAt * 1000).toISOString(),
       correlationId,
     });
@@ -382,7 +380,7 @@ export async function POST(request: NextRequest) {
     actor: authority.actorId,
     authoritySource: authority.source,
     role: parsed.role,
-    organizationId: organization?.organizationId || null,
+    organizationId: organization.organizationId,
     correlationId,
     transport: parsed.formSubmission ? 'native-form' : 'json-fetch',
   }));

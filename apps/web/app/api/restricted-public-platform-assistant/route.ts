@@ -1,9 +1,10 @@
-import { createHash, createHmac } from 'node:crypto';
+
 import { NextRequest, NextResponse } from 'next/server';
 import {
   GatewayStreamWriter,
   absoluteCitationUri,
-  chunkAnswer,
+  frameText,
+  type GatewayRefusal,
 } from '@pc/ai-assistant-stream-contract';
 import {
   GET as knowledgeGet,
@@ -15,13 +16,11 @@ import {
   type AssistantRoutingContext,
 } from '@/lib/platform-v7/assistant-relevance-router';
 import { buildAssistantRoutingContext } from '@/lib/platform-v7/assistant-server-context';
+import { resolveInternalStreamEndpoint, streamInternalModel } from '@/lib/platform-v7/tai-internal-stream';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const SIGNATURE_VERSION = 'tai-public-qwen.v1';
-const INTERNAL_PATH = '/internal/tai/public-generate';
-const MAX_API_RESPONSE_BYTES = 1_048_576;
 const DEFAULT_TIMEOUT_MS = 130_000;
 const MAX_HISTORY_TURNS = 12;
 const MAX_HISTORY_TURN_CHARS = 2_000;
@@ -47,21 +46,6 @@ type PublicKnowledgeAnswer = Readonly<{
   actionAllowed: false;
   sources: readonly Readonly<{ label: string; href: string }>[];
   understanding?: Readonly<{ normalizedQuestion?: string; detectedLocale?: string }>;
-}>;
-
-type ModelResponse = Readonly<{
-  answer: string;
-  provider: 'openai-compatible';
-  modelIdentity: string;
-  latencyMs: number;
-  promptTokens: number | null;
-  completionTokens: number | null;
-  operationalStatus: 'NOT_ATTESTED';
-  mode: 'read_only';
-  answerMode?: PublicAnswerMode;
-  finishReason?: 'stop' | 'length' | 'other';
-  truncated?: boolean;
-  safetyFlags?: readonly string[];
 }>;
 
 type RuntimeConfig = Readonly<{
@@ -266,36 +250,71 @@ function streamRestrictedAnswer(
           },
         };
 
-        let answer: ModelResponse;
+        if (answerMode === 'verified_platform') emitSources(writer, grounding.sources);
+
+        let relayed = 0;
+        let identity: string | null = null;
+        let upstream: Record<string, unknown> | null = null;
+        let terminal: { complete: boolean; refusal: GatewayRefusal | null } | null = null;
+
         try {
-          answer = await callInternalModel(
-            runtimeConfig,
+          for await (const event of streamInternalModel(
+            {
+              endpoint: runtimeConfig.endpoint,
+              secret: runtimeConfig.secret,
+              identity: runtimeConfig.identity,
+              timeoutMs: runtimeConfig.timeoutMs,
+            },
             payload,
             request.signal,
-            runtimeConfig.timeoutMs,
-          );
+          )) {
+            if (event.kind === 'meta') {
+              identity = event.modelIdentity;
+              continue;
+            }
+            if (event.kind === 'token') {
+              relayed += 1;
+              if (!writer.emit({ event: 'token', text: event.text })) return;
+              continue;
+            }
+            if (event.kind === 'assessment') {
+              upstream = readUpstreamAssessment(event.summary);
+              continue;
+            }
+            if (event.kind === 'terminal') {
+              terminal = { complete: event.complete, refusal: event.refusal };
+              break;
+            }
+          }
         } catch {
           if (request.signal.aborted) return;
-          if (answerMode === 'verified_platform') {
+          terminal = { complete: false, refusal: 'UPSTREAM_ERROR' };
+        }
+
+        if (request.signal.aborted) return;
+
+        // Once text has reached the reader there is no clean way back to a
+        // different answer, so the fallback is only available before that.
+        if (!terminal || !terminal.complete || relayed === 0) {
+          if (relayed === 0 && answerMode === 'verified_platform') {
             emitGroundedFallback(writer, grounding, answerMode, currentDataRequired, 'MODEL_RUNTIME_FALLBACK');
           } else {
-            writer.fail('UPSTREAM_ERROR', modelUnavailableCopy(locale));
+            writer.fail(terminal?.refusal ?? 'UPSTREAM_ERROR', modelUnavailableCopy(locale));
           }
           return;
         }
 
-        if (answerMode === 'verified_platform') emitSources(writer, grounding.sources);
-        for (const chunk of chunkAnswer(answer.answer)) {
-          if (!writer.emit({ event: 'token', text: chunk })) return;
-        }
         writer.emit({
           event: 'assessment',
           summary: JSON.stringify({
-            source: 'local_qwen', answerMode, currentDataRequired,
-            modelIdentity: answer.modelIdentity, latencyMs: answer.latencyMs,
-            truncated: answer.truncated === true,
-            finishReason: answer.finishReason || 'other',
-            safetyFlags: answer.safetyFlags || [],
+            source: 'local_qwen',
+            answerMode,
+            currentDataRequired,
+            streaming: 'incremental',
+            modelIdentity: identity,
+            finishReason: upstream?.finishReason ?? 'stop',
+            truncated: upstream?.truncated === true,
+            safetyFlags: upstream?.safetyFlags ?? [],
           }),
           operationalStatus: 'NOT_ATTESTED',
         });
@@ -344,7 +363,7 @@ function emitDirectAnswer(
   answer: string,
   assessment: Readonly<Record<string, unknown>>,
 ): void {
-  for (const chunk of chunkAnswer(answer)) {
+  for (const chunk of frameText(answer)) {
     if (!writer.emit({ event: 'token', text: chunk })) return;
   }
   writer.emit({ event: 'assessment', summary: JSON.stringify(assessment), operationalStatus: 'NOT_ATTESTED' });
@@ -367,58 +386,6 @@ function emitGroundedFallback(
     truncated: false,
     safetyFlags: [safetyFlag],
   });
-}
-
-async function callInternalModel(
-  config: RuntimeConfig,
-  payload: unknown,
-  readerSignal: AbortSignal,
-  timeoutMs = config.timeoutMs,
-): Promise<ModelResponse> {
-  if (!config.endpoint) throw new Error('restricted_runtime_endpoint_missing');
-  const timestamp = String(Math.floor(Date.now() / 1_000));
-  const body = canonicalJson(payload);
-  const bodyHash = createHash('sha256').update(body, 'utf8').digest('hex');
-  const signature = createHmac('sha256', config.secret)
-    .update([SIGNATURE_VERSION, 'POST', INTERNAL_PATH, timestamp, bodyHash].join('\n'), 'utf8')
-    .digest('hex');
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const onReaderAbort = () => controller.abort();
-  readerSignal.addEventListener('abort', onReaderAbort, { once: true });
-
-  try {
-    const response = await fetch(config.endpoint, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json; charset=utf-8',
-        'X-TAI-Signature-Version': SIGNATURE_VERSION,
-        'X-TAI-Timestamp': timestamp,
-        'X-TAI-Signature': signature,
-      },
-      body,
-      signal: controller.signal,
-    });
-    const raw = await response.text();
-    if (Buffer.byteLength(raw, 'utf8') > MAX_API_RESPONSE_BYTES) throw new Error('restricted_runtime_response_too_large');
-    if (!response.ok) throw new Error(`restricted_runtime_http_${response.status}`);
-    const decoded = JSON.parse(raw) as Partial<ModelResponse>;
-    if (
-      decoded.provider !== 'openai-compatible'
-      || decoded.mode !== 'read_only'
-      || decoded.operationalStatus !== 'NOT_ATTESTED'
-      || typeof decoded.answer !== 'string'
-      || !decoded.answer.trim()
-      || typeof decoded.modelIdentity !== 'string'
-      || decoded.modelIdentity.trim() !== config.identity
-    ) throw new Error('restricted_runtime_contract_invalid');
-    return decoded as ModelResponse;
-  } finally {
-    clearTimeout(timeout);
-    readerSignal.removeEventListener('abort', onReaderAbort);
-  }
 }
 
 function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): RuntimeConfig {
@@ -446,7 +413,7 @@ function readRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): Runtim
   }
   return Object.freeze({
     enabled: true,
-    endpoint: new URL('internal/tai/public-generate', base),
+    endpoint: resolveInternalStreamEndpoint(base),
     secret,
     identity,
     timeoutMs,
@@ -550,19 +517,6 @@ function rebuildRequestWithoutStream(request: NextRequest, rawBody: string): Nex
   return new NextRequest(url, { method: 'POST', headers, body: rawBody });
 }
 
-function canonicalJson(value: unknown): string {
-  if (value === null) return 'null';
-  if (typeof value === 'string') return JSON.stringify(value);
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new Error('non_finite_number');
-    return JSON.stringify(value);
-  }
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
-  if (typeof value !== 'object') throw new Error('unsupported_signed_value');
-  const row = value as Record<string, unknown>;
-  return `{${Object.keys(row).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(row[key])}`).join(',')}}`;
-}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -571,4 +525,24 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 function boundedInteger(raw: string | undefined, fallback: number, minimum: number, maximum: number): number {
   const parsed = Number(raw);
   return Number.isInteger(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
+}
+
+/**
+ * The upstream assessment, reduced to the fields the public contour may repeat.
+ * Parsed and re-projected rather than forwarded, so a field added upstream does
+ * not reach a public reader because nobody remembered this relay existed.
+ */
+function readUpstreamAssessment(summary: string): Record<string, unknown> | null {
+  try {
+    const row = JSON.parse(summary) as Record<string, unknown>;
+    return {
+      finishReason: typeof row.finishReason === 'string' ? row.finishReason : 'stop',
+      truncated: row.truncated === true,
+      safetyFlags: Array.isArray(row.safetyFlags)
+        ? row.safetyFlags.filter((flag) => typeof flag === 'string').slice(0, 12)
+        : [],
+    };
+  } catch {
+    return null;
+  }
 }

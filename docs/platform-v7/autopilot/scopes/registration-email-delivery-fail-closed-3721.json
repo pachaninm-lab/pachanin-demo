@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/registration-email-delivery-fail-closed",
+  "status": "active",
+  "purpose": "P0 reliability repair: fail closed when registration or verification-email resend cannot be delivered, so public success is returned only after the configured mail transport confirms delivery.",
+  "approvedBy": "owner-direct-registration-reliability-2026-08-08",
+  "authorityBaseExactMain": "b555942a759d01e0ecfc29b9315aac6e66b89175",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/api/auth/register/route.ts",
+    "apps/web/app/api/auth/registration/resend/route.ts",
+    "apps/web/tests/unit/platformV7FirstCustomerRegistrationBoundary.test.ts"
+  ]
+}

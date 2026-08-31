@@ -14,8 +14,8 @@ type Step = {
 const COPY = {
   ru: {
     platform: 'Как платформа фиксирует',
-    tai: 'Как TAI формирует вывод',
-    lead: 'TAI не придумывает состояние сделки. Он формирует вывод из зафиксированных событий, документов, полномочий, государственных оснований и ограничений.',
+    tai: 'Как Гекта формирует вывод',
+    lead: 'Гекта не придумывает состояние сделки. Она формирует вывод из зафиксированных событий, документов, полномочий, государственных оснований и ограничений.',
     conclusion: 'Вывод',
     conclusionValue: 'Расчёт пока невозможен',
     reason: 'Причина',
@@ -28,8 +28,8 @@ const COPY = {
   },
   en: {
     platform: 'How the platform records facts',
-    tai: 'How TAI forms a conclusion',
-    lead: 'TAI does not invent deal state. It forms conclusions from recorded events, documents, authority, government grounds, and restrictions.',
+    tai: 'How Gekta forms a conclusion',
+    lead: 'Gekta does not invent deal state. It forms conclusions from recorded events, documents, authority, government grounds, and restrictions.',
     conclusion: 'Conclusion',
     conclusionValue: 'Settlement is not yet possible',
     reason: 'Reason',
@@ -42,8 +42,8 @@ const COPY = {
   },
   zh: {
     platform: '平台如何记录事实',
-    tai: 'TAI 如何形成结论',
-    lead: 'TAI 不会编造交易状态。它基于已记录的事件、文件、权限、政府依据和限制形成结论。',
+    tai: 'Gekta 如何形成结论',
+    lead: 'Gekta 不会编造交易状态。它基于已记录的事件、文件、权限、政府依据和限制形成结论。',
     conclusion: '结论',
     conclusionValue: '目前无法结算',
     reason: '原因',

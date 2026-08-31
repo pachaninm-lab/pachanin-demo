@@ -1,0 +1,136 @@
+name: Company OS Control Host DNS Acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/company-os-control-host-dns-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: company-os-control-host-dns-acceptance
+  cancel-in-progress: false
+
+env:
+  CONTROL_DOMAIN: 'control.xn----8sbjf4befbjgs9b.xn--p1ai'
+  CANONICAL_VPS: '195.19.12.120'
+  TARGET_ISSUE: '4159'
+
+jobs:
+  dns-acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact current main
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for canonical public DNS
+        id: dns
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=ABSENT
+          a_records=''
+          aaaa_records=''
+
+          for attempt in $(seq 1 30); do
+            a_records="$(getent ahostsv4 "$CONTROL_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+            aaaa_records="$(getent ahostsv6 "$CONTROL_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+
+            if [[ -z "$a_records" ]]; then
+              state=ABSENT
+            elif [[ "$(grep -c . <<< "$a_records")" == 1 ]] && grep -Fxq "$CANONICAL_VPS" <<< "$a_records"; then
+              state=CANONICAL
+            else
+              state=MISMATCH
+            fi
+
+            if [[ "$state" == CANONICAL && -z "$aaaa_records" ]]; then
+              break
+            fi
+            (( attempt == 30 )) || sleep 10
+          done
+
+          [[ "$state" == CANONICAL ]]
+          [[ -z "$aaaa_records" ]]
+          echo "state=CANONICAL" >> "$GITHUB_OUTPUT"
+          echo "ipv6=ABSENT" >> "$GITHUB_OUTPUT"
+
+      - name: Probe TLS state without mutation
+        id: tls
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=NOT_READY
+          if timeout 20 bash -c "printf '' | openssl s_client -connect '$CONTROL_DOMAIN:443' -servername '$CONTROL_DOMAIN' -verify_return_error 2>/dev/null | openssl x509 -noout -checkend 0 -ext subjectAltName 2>/dev/null" > "$RUNNER_TEMP/control-cert.txt" 2>/dev/null; then
+            if grep -Fq "DNS:$CONTROL_DOMAIN" "$RUNNER_TEMP/control-cert.txt"; then
+              state=VALID_FOR_CONTROL_HOST
+            else
+              state=CERTIFICATE_NAME_MISMATCH
+            fi
+          fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+
+      - name: Record acceptance summary
+        shell: bash
+        env:
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          DNS_STATE: ${{ steps.dns.outputs.state }}
+          IPV6_STATE: ${{ steps.dns.outputs.ipv6 }}
+          TLS_STATE: ${{ steps.tls.outputs.state }}
+        run: |
+          set -euo pipefail
+          {
+            echo '## Company OS control-host DNS acceptance'
+            echo
+            echo "- Exact main: \`$MAIN_SHA\`"
+            echo "- DNS A: **$DNS_STATE**"
+            echo "- DNS AAAA: **$IPV6_STATE**"
+            echo "- TLS before cutover: \`$TLS_STATE\`"
+            echo
+            echo 'Production mutation: **NONE**.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish bounded acceptance to issue 4159
+        uses: actions/github-script@v7
+        env:
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          DNS_STATE: ${{ steps.dns.outputs.state }}
+          IPV6_STATE: ${{ steps.dns.outputs.ipv6 }}
+          TLS_STATE: ${{ steps.tls.outputs.state }}
+        with:
+          script: |
+            const body = [
+              '## Company OS control-host DNS acceptance',
+              '',
+              `- Exact main: \`${process.env.MAIN_SHA}\``,
+              `- DNS A: **${process.env.DNS_STATE}**`,
+              `- DNS AAAA: **${process.env.IPV6_STATE}**`,
+              `- TLS before cutover: \`${process.env.TLS_STATE}\``,
+              '',
+              'Production mutation: **NONE**.',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.TARGET_ISSUE),
+              body,
+            });

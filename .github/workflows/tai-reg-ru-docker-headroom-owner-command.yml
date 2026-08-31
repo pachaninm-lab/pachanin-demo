@@ -1,0 +1,245 @@
+name: TAI Owner REG.RU Docker Headroom Reclaim
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-reg-ru-docker-headroom-owner-command.yml'
+      - 'scripts/pc-tai-release-controller-core.sh'
+      - 'docs/platform-v7/autopilot/scopes/tai-reg-ru-docker-headroom-3365.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-reg-ru-docker-headroom
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove bounded reclaim contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/pc-tai-release-controller-core.sh
+          node scripts/check-pc-tai-release-controller.mjs
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const core = fs.readFileSync('scripts/pc-tai-release-controller-core.sh', 'utf8');
+          const workflow = fs.readFileSync('.github/workflows/tai-reg-ru-docker-headroom-owner-command.yml', 'utf8');
+          const scope = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/scopes/tai-reg-ru-docker-headroom-3365.json', 'utf8'));
+          const requiredCore = [
+            '--reclaim-docker-headroom-v1',
+            'run_docker_headroom_reclaim',
+            'grainflow-(api|web|migration|tai)',
+            'required_kb=$((5 * 1024 * 1024))',
+            'target_kb=$((6 * 1024 * 1024))',
+            "['docker', 'image', 'rm', *tags]",
+            'container_image_ids()',
+            "sorted(component_records, key=lambda row: row['created'], reverse=True)[:2]",
+            'org.opencontainers.image.revision',
+          ];
+          for (const fragment of requiredCore) {
+            if (!core.includes(fragment)) throw new Error(`missing reclaim control: ${fragment}`);
+          }
+          for (const forbidden of [
+            'docker system prune', 'docker image prune', 'docker builder prune',
+            'docker volume rm', 'docker container rm', 'docker network rm',
+            "['docker', 'image', 'rm', '-f'", "['docker', 'image', 'rm', '--force'"
+          ]) {
+            if (core.includes(forbidden)) throw new Error(`forbidden reclaim capability: ${forbidden}`);
+          }
+          for (const fragment of [
+            "github.event.issue.number == 3365",
+            "github.event.comment.body == '/tai reclaim-docker current-main'",
+            'github.repository_owner',
+            '--reclaim-docker-headroom-v1',
+          ]) {
+            if (!workflow.includes(fragment)) throw new Error(`missing owner command control: ${fragment}`);
+          }
+          if (scope.branch !== 'fix/tai-reg-ru-docker-headroom-3365') throw new Error('scope branch mismatch');
+          if (scope.newRecurringCostRub !== 0 || scope.productionHosting !== 'REG_RU_VPS_ONLY') throw new Error('scope cost/hosting mismatch');
+          for (const path of [
+            '.github/workflows/tai-reg-ru-docker-headroom-owner-command.yml',
+            'scripts/pc-tai-release-controller-core.sh',
+            'docs/platform-v7/autopilot/scopes/tai-reg-ru-docker-headroom-3365.json',
+          ]) {
+            if (!scope.allowedPaths.includes(path)) throw new Error(`path outside bounded scope: ${path}`);
+          }
+          NODE
+          bash scripts/p7-autopilot-guard.sh
+
+  resolve:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai reclaim-docker current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - name: Enforce repository-owner command authority
+        env:
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+      - name: Resolve exact current main
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  reclaim:
+    needs: resolve
+    if: needs.resolve.result == 'success'
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      evidence_json: ${{ steps.evidence.outputs.json }}
+      controller_rc: ${{ steps.invoke.outputs.rc }}
+    env:
+      TARGET_SHA: ${{ needs.resolve.outputs.target_sha }}
+    steps:
+      - name: Verify restricted REG.RU runner boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/pc-tai-release-controller)" == root:pcactions:750 ]]
+          sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
+      - name: Execute bounded Docker headroom reclaim
+        id: invoke
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set +e
+          sudo -n /usr/local/sbin/pc-tai-release-controller \
+            deploy "$TARGET_SHA" "$GITHUB_RUN_ID" --reclaim-docker-headroom-v1 \
+            > "$RUNNER_TEMP/reclaim-controller.log" 2>&1
+          rc=$?
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          grep -E '^(PC_TAI_RELEASE_CONTROLLER|ACTION|TARGET_SHA|ERROR_CODE)=' "$RUNNER_TEMP/reclaim-controller.log" || true
+      - name: Export bounded reclaim evidence
+        id: evidence
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          report="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/docker-reclaim.json"
+          [[ -s "$report" ]]
+          python3 - "$report" "$TARGET_SHA" "$GITHUB_OUTPUT" <<'PY'
+          import json, sys
+          path, sha, output = sys.argv[1:]
+          raw = open(path, 'rb').read()
+          if not raw or len(raw) > 32768:
+              raise SystemExit('bounded reclaim evidence size invalid')
+          value = json.loads(raw.decode('utf-8'))
+          if value.get('schemaVersion') != 'pc.reg-ru.docker-reclaim.v1':
+              raise SystemExit('reclaim schema mismatch')
+          if value.get('targetSha') != sha:
+              raise SystemExit('reclaim target mismatch')
+          allowed = {
+              'schemaVersion','targetSha','runId','mode','requiredAvailableKb','targetAvailableKb',
+              'beforeAvailableKb','afterAvailableKb','eligibleImageCount','protectedImageCount',
+              'deletedImageCount','skippedImageCount','reclaimedBytes','targetReached','passed'
+          }
+          if set(value) != allowed:
+              raise SystemExit('unexpected reclaim evidence field')
+          canonical = json.dumps(value, ensure_ascii=True, separators=(',', ':'))
+          if '\n' in canonical or '\r' in canonical:
+              raise SystemExit('invalid canonical evidence')
+          with open(output, 'a', encoding='utf-8') as handle:
+              handle.write(f'json={canonical}\n')
+          PY
+      - name: Enforce hard headroom threshold
+        if: always()
+        env:
+          CONTROLLER_RC: ${{ steps.invoke.outputs.rc }}
+          EVIDENCE_JSON: ${{ steps.evidence.outputs.json }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$CONTROLLER_RC" "$EVIDENCE_JSON" <<'PY'
+          import json, sys
+          rc = int(sys.argv[1] or '99')
+          value = json.loads(sys.argv[2])
+          if value.get('afterAvailableKb', 0) < value.get('requiredAvailableKb', 1):
+              raise SystemExit('Docker hard headroom threshold is still blocked')
+          if value.get('passed') is not True or rc != 0:
+              raise SystemExit('bounded reclaim controller did not pass')
+          PY
+
+  publish:
+    needs: [resolve, reclaim]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai reclaim-docker current-main' &&
+      needs.resolve.result == 'success' &&
+      needs.reclaim.outputs.evidence_json != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.resolve.outputs.target_sha }}
+      EVIDENCE_JSON: ${{ needs.reclaim.outputs.evidence_json }}
+    steps:
+      - name: Publish bounded reclaim result
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$EVIDENCE_JSON" "$TARGET_SHA" > "$RUNNER_TEMP/body.md" <<'PY'
+          import json, sys
+          value = json.loads(sys.argv[1])
+          sha = sys.argv[2]
+          gib = 1024 * 1024
+          before = value['beforeAvailableKb'] / gib
+          after = value['afterAvailableKb'] / gib
+          reclaimed = value['reclaimedBytes'] / (1024 ** 3)
+          status = 'PASS' if value['passed'] else 'BLOCKED'
+          print('## REG.RU bounded Docker headroom reclaim')
+          print()
+          print(f'- exact main: `{sha}`')
+          print(f'- status: **{status}**')
+          print(f'- Docker available: `{before:.2f} GiB -> {after:.2f} GiB`')
+          print(f'- reclaimed: `{reclaimed:.2f} GiB`')
+          print(f"- eligible/deleted/skipped images: `{value['eligibleImageCount']}/{value['deletedImageCount']}/{value['skippedImageCount']}`")
+          print(f"- protected images: `{value['protectedImageCount']}`")
+          print('- containers/volumes/networks/build cache: `UNCHANGED`')
+          PY
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/body.md"

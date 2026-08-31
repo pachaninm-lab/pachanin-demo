@@ -40,7 +40,7 @@ describe('platform-v7 TAI demonstration and twelve-role value scenario', () => {
     expect(roles).toBeGreaterThan(tai);
     expect(home).toContain('TAI · Transparent Agro Intelligence');
     expect(home).toContain("params={{ source: 'structured_ai_analysis' }}");
-    expect(home).toContain("const taiHref = `/platform-v7/ai-in-action");
+    expect(home).toContain("const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;");
   });
 
   it('avoids unverified scale, partner and connectivity claims', () => {

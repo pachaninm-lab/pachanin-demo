@@ -1,0 +1,232 @@
+name: Production P0 REG.RU Mailbox SMTP Bridge V2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-regru-mailbox-smtp-bridge.yml'
+      - 'scripts/production-p0-regru-mailbox-smtp-bridge-v2.sh'
+      - 'scripts/production-p0-regru-mailbox-smtp-proof.py'
+      - 'scripts/provision-production-p0-password-reset-runtime.sh'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-regru-mailbox-smtp-bridge-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-regru-mailbox-smtp-bridge
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: 3072
+  EVIDENCE_DIR: artifacts/production-p0-regru-mailbox-smtp-bridge-v2
+  SMTP_HOST: mail.hosting.reg.ru
+  SMTP_PORT: '465'
+  SMTP_FROM: access@xn----8sbjf4befbjgs9b.xn--p1ai
+
+jobs:
+  contract:
+    name: Validate bounded mailbox SMTP bridge V2 contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (
+            github.actor == github.repository_owner &&
+            github.triggering_actor == github.repository_owner
+          ) ||
+          (
+            github.actor == 'chatgpt-codex-connector[bot]' &&
+            github.triggering_actor == 'chatgpt-codex-connector[bot]' &&
+            github.event.comment.performed_via_github_app.id == 1144995
+          )
+        ) &&
+        github.event.comment.body == '/production p0-regru-mailbox-smtp-bridge current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate bounded contract and scripts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/production-p0-regru-mailbox-smtp-bridge-v2.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/production-p0-regru-mailbox-smtp-proof.py')
+          compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+          PY
+          node scripts/check-production-p0-password-reset-runtime-provision.mjs
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          scope = json.loads(Path('docs/platform-v7/autopilot/scopes/production-p0-regru-mailbox-smtp-bridge-3785.json').read_text())
+          assert scope['schemaVersion'] == 'platform-v7.concurrent-scope.v1'
+          assert scope['branch'] == 'fix/p0-regru-official-mail-host-3785'
+          assert scope['issue'] == 3785 and scope['releaseIssue'] == 3072
+          assert scope['productionHosting'] == 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
+          assert set(scope['allowedPaths']) == {
+              '.github/workflows/production-p0-regru-mailbox-smtp-bridge.yml',
+              'scripts/production-p0-regru-mailbox-smtp-bridge-v2.sh',
+              'scripts/production-p0-regru-mailbox-smtp-proof.py',
+              'docs/platform-v7/autopilot/scopes/production-p0-regru-mailbox-smtp-bridge-3785.json',
+          }
+          b = scope['boundaries']
+          assert b['newRecurringCostRub'] == 0
+          assert b['ownerOnly'] is True and b['exactMainGuard'] is True
+          assert b['databaseMutation'] is False and b['deploymentMutation'] is False
+          assert b['credentialOutput'] is False and b['piiOutput'] is False
+          assert b['rawEnvironmentOutput'] is False and b['rawLogOutput'] is False
+          assert b['probeEmailMutation'] is True
+          assert b['runtimeFileMutationAfterProbeOnly'] is True
+          PY
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  bridge:
+    name: Prove sender delivery and materialize auth-mail runtime
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != '' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner
+        ) ||
+        (
+          github.actor == 'chatgpt-codex-connector[bot]' &&
+          github.triggering_actor == 'chatgpt-codex-connector[bot]' &&
+          github.event.comment.performed_via_github_app.id == 1144995
+        )
+      ) &&
+      github.event.comment.body == '/production p0-regru-mailbox-smtp-bridge current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROBE_EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE || secrets.PC_PROD_P0_EMAIL_TEMPLATE }}
+      SMTP_USER: ${{ secrets.PC_SMTP_USER || secrets.PC_PROD_SMTP_USER || secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.PC_SMTP_PASS || secrets.PC_PROD_SMTP_PASS || secrets.SMTP_PASSWORD || secrets.SMTP_PASS || secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      MAILBOX_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      MAILBOX_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+      IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+      IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact current-main checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+
+      - name: Prove authenticated sender delivery and provision root-only runtime
+        id: bridge
+        continue-on-error: true
+        shell: bash
+        run: bash scripts/production-p0-regru-mailbox-smtp-bridge-v2.sh run
+
+      - name: Upload bounded bridge evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-regru-mailbox-smtp-bridge-v2-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish bounded bridge result
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          file="$EVIDENCE_DIR/result.txt"
+          result=FAIL
+          blocker=RESULT_EVIDENCE_MISSING
+          mutation=NONE
+          if [[ -f "$file" ]]; then
+            result="$(sed -n 's/^MAILBOX_SMTP_BRIDGE_V2=//p' "$file" | tail -n1)"
+            blocker="$(sed -n 's/^MAILBOX_SMTP_BRIDGE_V2_BLOCKER=//p' "$file" | tail -n1)"
+            mutation="$(sed -n 's/^MAILBOX_SMTP_BRIDGE_V2_MUTATION=//p' "$file" | tail -n1)"
+          fi
+          [[ "$result" =~ ^(PASS|FAIL)$ ]] || result=FAIL
+          [[ "$blocker" =~ ^[A-Z0-9_]+$ ]] || blocker=RESULT_EVIDENCE_INVALID
+          [[ "$mutation" =~ ^(NONE|ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES)$ ]] || mutation=NONE
+          send_proof=NOT_PROVEN
+          receipt_proof=NOT_PROVEN
+          if [[ "$result" == PASS ]]; then send_proof=PASS; receipt_proof=PASS; fi
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 mailbox → REG.RU SMTP bridge V2
+
+          - exact main: \`$TARGET_SHA\`
+          - result: \`$result\`
+          - blocker: \`$blocker\`
+          - authenticated test send: \`$send_proof\`
+          - IMAP receipt proof: \`$receipt_proof\`
+          - production mutation: \`$mutation\`
+          - credentials / mailbox identity / raw SMTP / raw IMAP: \`NOT_PUBLISHED\`
+          - new recurring cost: \`0 RUB\`" >/dev/null
+
+      - name: Enforce bridge V2 result
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${{ steps.bridge.outcome }}" == success ]]
+          grep -Fxq 'MAILBOX_SMTP_BRIDGE_V2=PASS' "$EVIDENCE_DIR/result.txt"
+          grep -Fxq 'MAILBOX_SMTP_BRIDGE_V2_BLOCKER=NONE' "$EVIDENCE_DIR/result.txt"
+          grep -Fxq 'MAILBOX_SMTP_BRIDGE_V2_MUTATION=ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES' "$EVIDENCE_DIR/result.txt"

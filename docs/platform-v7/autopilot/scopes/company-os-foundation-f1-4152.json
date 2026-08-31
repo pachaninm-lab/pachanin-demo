@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "company-os/foundation-f1-4152",
+  "status": "active",
+  "purpose": "Implement the first Company OS foundation sub-slice: a server-authoritative staff capabilities contract and make the existing staff entry consume that contract without creating a second staff-auth system or changing production infrastructure.",
+  "authorityBaseExactMain": "b08381504dd2c4604fca26e9544c31753371b198",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/src/modules/staff-access/staff-access.module.ts",
+    "apps/api/src/modules/staff-access/staff-capabilities.controller.ts",
+    "apps/api/src/modules/staff-access/staff-capabilities.service.ts",
+    "apps/api/test/staff-access/staff-capabilities.contract.spec.ts",
+    "apps/web/app/api/staff/capabilities/me/route.ts",
+    "apps/web/app/platform-v7/staff/page.tsx",
+    "apps/web/components/platform-v7/StaffControlCenterEntry.tsx",
+    "apps/web/lib/platform-v7/staff-capabilities.ts",
+    "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
+    "apps/web/tests/unit/platformV7StaffCapabilitiesContract.test.ts",
+    "apps/web/tests/unit/platformV7StaffControlCenter.test.ts",
+    "docs/company-os/truth-audit-v1.md"
+  ],
+  "requiredInvariants": [
+    "The endpoint is read-only and derives authority only from active server-side staff assignments and existing role permission ceilings.",
+    "The endpoint creates no staff access request, grant, session, role, tenant, organization, capability or database record.",
+    "No client-selected role, tenant, scope, cookie or presentation role can expand authority.",
+    "Staff access fails closed without an active staff assignment and verified MFA.",
+    "Active privileged-session permissions exposed to UI are intersected with the current durable role permission ceiling; stale grant metadata cannot expand UI authority.",
+    "Pending approval metadata is returned only when the actor currently holds an active CONTROL_PLANE access session whose effective permissions and current durable role ceiling both contain staff-request:approve.",
+    "Pending approval metadata excludes the actor's own requests, expired requests and non-pending requests and contains no reason, ticket, target scope or requested-permission payload.",
+    "The server-rendered staff page and the global staff navigation entry both consume the server-authoritative capabilities contract instead of interpreting assignment status arrays in the web layer.",
+    "A dedicated read-only staff capabilities BFF forwards only the server-held access token to GET /staff/capabilities/me and returns no credential material; the generic staff BFF write allowlist and staff-session credential handling remain unchanged.",
+    "Existing static authority regression tests are updated to assert the new capabilities endpoint rather than the superseded frontend assignment interpretation.",
+    "No database schema, migration, production Caddy, DNS, Compose, secret or control-host change is included in F1.",
+    "The follow-up implementation branch cannot edit this scope manifest, the autopilot guard, current serialized IR-10.4 authority, or unrelated platform code.",
+    "Merge, CI and image build are not production deployment evidence."
+  ],
+  "acceptance": [
+    "GET /staff/capabilities/me returns identity, active assignments, roles, deduplicated capability ceiling, workspaces, scopes, authentication assurance, active privileged-session metadata and a minimal pending-approval summary without exposing access tokens or approval-sensitive payloads.",
+    "Owner, non-owner, multi-role, no-assignment, MFA-failure, stale-session-permission and pending-approval visibility cases are covered by focused tests.",
+    "Pending approvals remain empty unless the actor has a currently active approval-capable CONTROL_PLANE session and the current durable role ceiling still permits staff-request:approve.",
+    "Direct URL access, presentation-role manipulation and navigation visibility cannot increase server permissions.",
+    "The global staff navigation entry is visible only when the capabilities contract parses successfully for an active MFA-verified staff actor.",
+    "Existing staff-control and first-customer boundary tests assert fail-closed consumption of the capabilities contract.",
+    "No new recurring cost is introduced."
+  ]
+}

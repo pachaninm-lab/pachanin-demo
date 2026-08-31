@@ -1,0 +1,745 @@
+{
+  "schemaVersion": "1.0.0",
+  "programme": "pc-crop-federal-accounting",
+  "contract": {
+    "id": "CLAUDE_CODE_PC_CROP_AUTONOMOUS_EXECUTION_FINAL_2026-08-15",
+    "sha256": "b3e892eac9532129cea90d8cbfe4e1af048259ad190dd987fcdb058df38125d4",
+    "bytes": 104981,
+    "sections": 84
+  },
+  "updatedAt": "2026-08-17T05:00:00.000Z",
+  "observedMainSha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
+  "observedMainShaAtSessionStart": "ba847b28c3756b83abd5a424cfeb9af48649fd89",
+  "observedProductionSha": null,
+  "observedProductionShaReason": "Environment network policy denies CONNECT to xn--80affnb9admdi3d.xn--p1ai:443 (403). Production revision cannot be observed from this session.",
+  "overallProgressPercent": 14.0,
+  "overallProgressBasis": "Section H weighted matrix applied to proven state. Credited shares are summed in integer hundredths, because summing them as floats shaved a tenth off the total in one revision. No rounding up.",
+  "status": "ACCOUNTING_MERGED_TO_MAIN_UI_SLICE_ON_BRANCH",
+  "maturityLanguage": "pre-integration / industrial-integration-ready-no-go",
+  "workstreams": [
+    {
+      "id": 1,
+      "name": "Truth Audit + architecture gap matrix",
+      "weightPercent": 3,
+      "milestoneModel": "documentation-equivalent",
+      "milestones": {
+        "artifactOnBranch": {
+          "weightShare": 0.35,
+          "done": true
+        },
+        "verifiedAgainstLiveRepo": {
+          "weightShare": 0.25,
+          "done": true
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "adoptedAsGovernanceReference": {
+          "weightShare": 0.1,
+          "done": false
+        },
+        "drivesAcceptedImplementationSlice": {
+          "weightShare": 0.15,
+          "done": false
+        }
+      },
+      "provenSharePercent": 60,
+      "creditedPercent": 1.8,
+      "evidence": [
+        "gap-matrix.md",
+        "governance-blocker.md",
+        "risk-register.md"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Identity / organization / job profiles / capabilities",
+      "weightPercent": 5,
+      "provenSharePercent": 60,
+      "creditedPercent": 3.75,
+      "milestoneModel": "code-workstream",
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "organization-job-profile.ts, membership-capability.resolver.ts, expand-only migration 20260815190000, schema.prisma +37/-0"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": true,
+          "evidence": "78 dedicated tests; full API suite 1312 passed / 0 failed; auth module 279 passed across 24 suites; forward-only migration gate passed; CI green on PR #4216 head ed4acac including 12 roles/RLS/DR restore, persistent sessions, PostgreSQL 16 RLS tenant isolation, API unit tests + TypeScript, security gate, CodeQL, migration gate and the autopilot scope guard"
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "Security baseline / threat model / IAM / RLS",
+      "weightPercent": 8,
+      "provenSharePercent": 60,
+      "creditedPercent": 0.38,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 3 lists sixteen components: framework mapping, threat model, IAM, RLS, security requirements registry, step-up, session inventory, connector identity, OAuth hardening, signed releases, document immutability, JIT/break-glass, supply chain, SOC events, incident response and recovery. Modelled as equal sixteenths, which is a stated flat assumption rather than an invented weighting.",
+        "componentBuilt": "RLS for the accounting contour (40% of that component — the identity contour predates this programme); document immutability (65% — accounting documents, contract versions, tax profiles and rule versions are immutable after signature or publication, deal documents and signed releases are not); step-up (20% — the signing policy requires fresh MFA but nothing else does)",
+        "componentSharePercent": 7,
+        "componentShareDerivation": "equal sixteenths at 6.25 each: RLS 40% = 2.5, document immutability 65% = 4.06, step-up 20% = 1.25; total 7.8, recorded as 7 with no rounding up. This is LOWER than the 12 previously recorded even though far more was built since. The earlier figure was a bare number with no component model behind it, and auditing it against the workstream's own component list shows it was over-credited; the growth since roughly cancels the correction out."
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "migration 20260815210000: pc_accounting_authority principal, app_pc_crop_membership_id() SECURITY DEFINER resolver, scoped SELECT policies on both tables; migration 20260815230000 adds pc_accounting_command_authority with attribution-bound insert policies and column-scoped update"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": true,
+          "evidence": "67 checks in the RLS integration gate; fourteen deliberate sabotages each make their gate or test fail, including three cases where a check was found to be measuring a neighbouring layer rather than its own"
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "Documents / contracts / regulatory / tax profiles",
+      "weightPercent": 7,
+      "provenSharePercent": 60,
+      "creditedPercent": 4.88,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 4 spans seven components: server-authoritative documents, contract versions, the regulatory registry, tax profiles, a format registry, a numbering policy and signing authority. They are modelled as equal sevenths — not because they are equal in size, but because any unequal weighting would be one this agent invented, and an invented weighting is worth less than a stated flat assumption. The stage credit is multiplied by the share actually built rather than crediting the whole workstream.",
+        "componentsInScope": [
+          "server-authoritative accounting documents",
+          "contract versions and commercial legal terms",
+          "document format registry",
+          "numbering policy",
+          "organization accounting/tax profile",
+          "regulatory rule versions",
+          "signing authority"
+        ],
+        "componentBuilt": "Accounting Core built inside the granted scope: all seven components, the atomic source snapshot, the version-creation transaction, a minimal API surface and a PostgreSQL acceptance workflow. Module wiring is NOT on this branch: pc-crop-01b3.yml claims apps/api/src/app.module.ts and refuses any diff carrying anything else, so the two wiring lines go in a separate single-file PR rather than weakening another workstream's control. Until that lands the contour compiles, is tested and is unreachable over HTTP.",
+        "componentSharePercent": 93,
+        "notBuilt": [
+          "module wiring into app.module.ts — deferred to a single-file PR that pc-crop-01b3.yml's bounded-scope rule accepts",
+          "credential provisioning for both NOLOGIN principals (infra/, not claimed — the contour runs through RlsTransactionService on the ordinary connection)",
+          "a laboratory-sample fixture, deliberately: the labs admission contour belongs to another workstream",
+          "no production deployment; ENV-PROD stands"
+        ],
+        "componentShareDerivation": "equal sevenths: signing authority 14.3, documents 95% = 13.6, numbering 95% = 13.6, format registry 90% = 12.9, rule versions 90% = 12.9, tax profile 90% = 12.9, contract versions 90% = 12.9; total 93.1. Recorded as 93 now that the acceptance workflow has completed a green run in CI on 954fb9b15 rather than only locally. Not higher: the contour is still unreachable over HTTP until the separate app.module.ts wiring PR lands, and no production deployment exists."
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "eight policies, the payload builder, the source snapshot and version repositories, the accounting module, controller and acceptance workflow; six models with migrations 20260815200000 through 20260816040000. Wiring into app.module.ts is not part of this branch."
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": true,
+          "evidence": "1564 unit tests including a module-instantiation check; 16 PostgreSQL acceptance tests across two suites; 67 RLS gate checks; fourteen sabotages each make their gate or test fail"
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "Accounting task engine / UX / projections",
+      "weightPercent": 6,
+      "provenSharePercent": 35,
+      "creditedPercent": 1.68,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 5 spans six components: the task model with its closing rules, the deriver that raises tasks from live sources, a repository and API surface, the dashboard itself, the per-role projections, and the KPI and tab read models. Modelled as equal sixths — a stated flat assumption rather than a weighting this agent invented.",
+        "componentsInScope": [
+          "work task model and the rules for closing one",
+          "derivation from live sources",
+          "repository and API surface",
+          "the /platform-v7/accounting dashboard",
+          "accountant, director, seller and buyer projections",
+          "KPI counters and tab read models"
+        ],
+        "componentBuilt": "The task model with its closing rules, the repository and API, the derivers, the per-audience projections, and now the first web slice: /platform-v7/accounting with the KPI row and task cards, and /platform-v7/deals/[id]/accounting naming every missing source. Server-authoritative throughout — the BFF forwards and holds nothing, and an unreachable API renders as a refusal rather than as an empty queue.",
+        "componentSharePercent": 80,
+        "componentShareDerivation": "six equal components: model and closing rules 100, deriver 55, repository and API 100, dashboard 60 (both routes exist with states, KPI and cards; no navigation entry, no EN/ZH dictionary entries yet, no e2e), role projections 90, KPI and tab read models 75. Sum 480 over six is 80.",
+        "notBuilt": [
+          "six of the eight registered derived types are not raised: their closing events come from 1C and EDO, which do not exist yet",
+          "no navigation entry: routes.ts and cabinet-access-policy.ts belong to pc-crop-01b4's bounded scope and a Next page does not need them",
+          "no EN/ZH dictionary entries yet; the runtime translates RU source text and the keys are not added",
+          "no Playwright acceptance for the new routes",
+          "no materialised read model: counts are computed per request"
+        ]
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "migration 20260816190000, work-task.policy.ts, work-task-projection.policy.ts, work-task.repository.ts, work-task.deriver.ts, four controller routes; 43 unit contracts, 23 PostgreSQL acceptance tests, RLS gate checks 68-78"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": false,
+          "evidence": "green locally including two sabotages, but not yet in CI: the acceptance workflow has not run on a head carrying these files."
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "Advances / services / payments / reconciliation",
+      "weightPercent": 6,
+      "provenSharePercent": 35,
+      "creditedPercent": 0.42,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 6 spans five components: advances, third-party services, payments, reconciliation and period close. Equal fifths — a stated flat assumption.",
+        "componentsInScope": [
+          "advances",
+          "third-party services",
+          "payments",
+          "reconciliation",
+          "period close"
+        ],
+        "componentBuilt": "Period close only, and deliberately scoped to what the platform is authority for: a closed period freezes the document set the platform owns — no new version of a document raised inside it, no signature on one. It is not an accounting ledger close and the code says so, because a screen reading «период закрыт» would otherwise be taken for the ledger and somebody would file on it.",
+        "componentSharePercent": 20,
+        "componentShareDerivation": "one of five equal components at 100 percent: the close works, is proven, composes with the task contour, opens its own successor when the window is a calendar month, and refuses to guess one when it is not. 100 of 500 is 20.",
+        "notBuilt": [
+          "advances, third-party services, payments and reconciliation: all four are money movement, which is the settlement contour's authority. Re-implementing it here would create the second source of truth this programme exists to remove"
+        ]
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "migration 20260816200000 and 20260816210000, accounting-period.policy.ts, accounting-period.repository.ts, four controller routes; 12 unit contracts, 17 PostgreSQL acceptance tests across two suites, RLS gate checks 79-85"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": false,
+          "evidence": "green locally; not yet run in CI on a head carrying these files."
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "name": "Connection Center / self-service onboarding",
+      "weightPercent": 4,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-3"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Integration Core / outbox / inbox / idempotency",
+      "weightPercent": 6,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-5"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "1C Connector / bindings / compatibility",
+      "weightPercent": 8,
+      "provenSharePercent": 35,
+      "creditedPercent": 0.84,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 9 spans five components: the transport contract an adapter must satisfy, the 1C adapter itself, entity and account bindings, compatibility across 1C configurations, and vendor attestation. Equal fifths.",
+        "componentsInScope": [
+          "transport contract and its suite",
+          "the adapter",
+          "bindings",
+          "configuration compatibility",
+          "vendor attestation"
+        ],
+        "componentBuilt": "The contract, the sending path and the readiness surface: a narrow port, a reusable suite any adapter must pass, a fake that passes it, two broken adapters that do not, a repository that sends and records the receipt once, and a route that answers whether a version could be sent and what is in the way. There is deliberately no send route: sending needs an attested adapter and none exists, and a route wired to the fake would be the fictitious «Подключено» the contract forbids.",
+        "componentSharePercent": 30,
+        "componentShareDerivation": "five components: transport contract 100, the adapter component at 50 (sending, receipt recording and the readiness surface exist; the vendor adapter does not), bindings 0, configuration compatibility 0, vendor attestation 0. 150 of 500 is 30.",
+        "notBuilt": [
+          "no 1C adapter: the vendor's protocol needs credentials and a test environment, and writing one against a guessed protocol would produce an adapter that passes its own tests and nothing else",
+          "no bindings, no configuration compatibility work",
+          "attestation is not duplicated — fgis_grain_provider_attestations already holds that authority and generalising it belongs to that workstream's owner"
+        ]
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "document-transport.port.ts, document-transport.contract.ts, document-transport.fake.ts; 16 unit contracts including two adapters written to fail"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": false,
+          "evidence": "green locally; not yet run in CI on a head carrying these files."
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": false
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "VENDOR-CREDENTIALS"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "name": "EDO routes / Diadoc / Saby / 1C-EDO",
+      "weightPercent": 7,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-5",
+        "EXT-EDO"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Grain / SDIZ",
+      "weightPercent": 4,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "EXT-FGIS"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Transport EPD",
+      "weightPercent": 4,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "EXT-EPD"
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Gekta Work Context / finance UX / read models",
+      "weightPercent": 7,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "GOV-3"
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Anti-Fraud",
+      "weightPercent": 6,
+      "provenSharePercent": 60,
+      "creditedPercent": 0.25,
+      "milestoneModel": "code-workstream-partial",
+      "sliceAccounting": {
+        "note": "Workstream 14 lists eight components: fraud signals, cases, decisions, versioned rules, beneficiary-change defence, duplicate and replay detection, insider controls and security holds. Modelled as equal eighths. The regulatory rule registry built in this programme is NOT the 'versioned rules' component: those are fraud rules, and crediting one for the other would be the kind of adjacency that makes a matrix stop meaning anything.",
+        "componentBuilt": "insider controls (40% — two-person rule, self-approval refusal keyed on the user, no escalation through a delegation chain, all enforced by the database); security holds (15% — the signing policy honours a hold, nothing raises one)",
+        "componentSharePercent": 6,
+        "componentShareDerivation": "equal eighths at 12.5 each: insider controls 40% = 5.0, security holds 15% = 1.9; total 6.9, recorded as 6 with no rounding up. Previously 15, a bare number with no component model. Lower on audit."
+      },
+      "milestones": {
+        "implementationOnBranch": {
+          "weightShare": 0.35,
+          "done": true,
+          "evidence": "accounting-authority-command.policy.ts; migration 20260815220000 with three CHECK constraints and a restricting foreign key"
+        },
+        "automatedAndNegativeTestsGreen": {
+          "weightShare": 0.25,
+          "done": true,
+          "evidence": "40 dedicated tests; four two-person-rule violations refused by a live PostgreSQL 16; delegation chain escalation refused"
+        },
+        "mergedToMain": {
+          "weightShare": 0.15,
+          "done": true,
+          "evidence": "merged into main as 066dc5e3e on 2026-08-16 at the owner's explicit one-time authorisation, with expected_head_sha=69561ac97 enforced by the REST merge API. Exact-main acceptance proven separately: forward-only exit 0, drift gate exit 0 on a clean database with all ten PC-CROP migrations, 1559 unit tests, 67 RLS gate checks PASS. Merge is not production acceptance."
+        },
+        "exactShaProductionDeployment": {
+          "weightShare": 0.1,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        },
+        "realProductionAcceptance": {
+          "weightShare": 0.15,
+          "done": false,
+          "blockedBy": "ENV-PROD"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "name": "Fleet / SOC / incident response / backup / DR",
+      "weightPercent": 7,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-1",
+        "ENV-PROD"
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Mobile / accessibility / cross-browser / performance",
+      "weightPercent": 4,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "GOV-3"
+      ]
+    },
+    {
+      "id": 17,
+      "name": "Production deployment + full real E2E acceptance",
+      "weightPercent": 8,
+      "provenSharePercent": 0,
+      "creditedPercent": 0,
+      "blockedBy": [
+        "ENV-PROD",
+        "GOV-1"
+      ]
+    }
+  ],
+  "weightCheck": {
+    "sum": 100,
+    "creditedTotal": 11.1
+  },
+  "completedEvidence": [
+    {
+      "id": "EXE-001",
+      "what": "Contract identity verified",
+      "detail": "Uploaded file SHA-256 matches b3e892ea...8125d4, 104981 bytes, 3877 lines, all 84 sections read."
+    },
+    {
+      "id": "EXE-002",
+      "what": "Live main observed and drift detected",
+      "detail": "ba847b28 at session start -> 9b07e319 during audit. Section F concurrent drift is real, not theoretical."
+    },
+    {
+      "id": "EXE-003",
+      "what": "ACCOUNTING role conflict proven from code",
+      "detail": "registration-application.service.ts:34 maps bank -> Role.ACCOUNTING; settlement-engine.controller.ts grants it money-movement commands. Contract section 6 assumption confirmed independently."
+    },
+    {
+      "id": "EXE-004",
+      "what": "Governance lock proven",
+      "detail": "autopilot-state.json forbiddenZones includes packages and apps/web; allowedCurrentScope is bound to IR-10.4; lockedUntilCurrentGreen covers IR-20/IR-21 needed by waves 5-8."
+    },
+    {
+      "id": "EXE-005",
+      "what": "Production unreachable",
+      "detail": "agentproxy status reports connect_rejected 403 for xn--80affnb9admdi3d.xn--p1ai:443."
+    },
+    {
+      "id": "EXE-006",
+      "what": "Existing strength inventory",
+      "detail": "RLS FORCE in 42 files; durable outbox PR #2378; FGIS grain contour with 11 models; anti-fraud module present; MFA/session persistence merged (#2276/#2280/#2282/#2283)."
+    },
+    {
+      "id": "EXE-007",
+      "what": "Governance lock independently confirmed by repo tooling",
+      "detail": "scripts/p7-autopilot-dispatcher.mjs prints: 'IR-10.4 Settlement PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-10.5.'"
+    },
+    {
+      "id": "EXE-008",
+      "what": "Defect found in mandated check script",
+      "detail": "The AGENTS.md-mandated dispatcher rewrites progress.json and drops noSelfModifyingWorkflow and noDirectPushToMain from rules, and weakens the codex task prompt. Reverted; not committed. See risk-register.md R-11."
+    },
+    {
+      "id": "EXE-009",
+      "what": "Wave 1 implemented and proven green",
+      "detail": "Scope guard passes with GITHUB_HEAD_REF set. Typecheck adds no new error over clean main (same two pre-existing tsconfig deprecations). No regression in the 9 market roles or registration authority #3785."
+    },
+    {
+      "id": "EXE-010",
+      "what": "Scope manifest schema defect caught before CI",
+      "detail": "The first manifest draft used ad-hoc keys. p7-source-controlled-scope.mjs requires schemaVersion platform-v7.concurrent-scope.v1 with allowedPaths and status active, and throws on a branch-matching manifest that fails validation. Rewritten to the canonical schema and verified to resolve."
+    },
+    {
+      "id": "EXE-011",
+      "what": "Wave 1 CI proven green end to end",
+      "detail": "The only real failure was a Prisma migrate-diff drift caused by hand-written constraint and index names, missing ON UPDATE CASCADE, clock_timestamp defaults and a partial index Prisma cannot express. Reproduced on a local PostgreSQL 16 before fixing. Three further red aggregate gates were cancellation artifacts of the superseded run, each running test \"cancelled\" = success on the old SHA."
+    },
+    {
+      "id": "EXE-012",
+      "what": "Wave 2 slice 1 implemented and proven",
+      "detail": "Signing authority policy plus expand-only migration 20260815200000. Nine invariants refused by a live PostgreSQL 16: delegated signer without or with blank MChD reference, empty document-type list, unknown signing mode, inverted window, negative amount limit, unknown authority type, cross-tenant organization reference, and a duplicate active authority for the same certificate. RLS enabled and forced with zero policies. Drift gate exit 0."
+    },
+    {
+      "id": "EXE-013",
+      "what": "Money representation corrected before it set",
+      "detail": "The policy first typed kopecks as JavaScript number. domain-core/money.ts forbids number arithmetic on money and every persisted money column in the schema is BIGINT, so the policy and its tests were moved to bigint before the convention could diverge."
+    },
+    {
+      "id": "EXE-014",
+      "what": "Accounting read authority proven isolating, and the proof proven able to fail",
+      "detail": "Six scenarios verified by hand and nine wired into the RLS integration gate: own-row read, forged organization claim, forged tenant, a dual-organization member in each direction, delegation recipient, absent context, write refusal and withheld-column refusal. Two deliberate sabotages — a policy trusting app.current_org_id alone, and an added UPDATE grant — each make the gate exit non-zero, so the checks are a regression gate rather than decoration."
+    },
+    {
+      "id": "EXE-015",
+      "what": "Implicit cross-migration dependency made explicit",
+      "detail": "The SECURITY DEFINER resolver needs pc_identity_bootstrap to retain SELECT on user_orgs. Withdrawing it was measured: the function raises permission denied, failing closed but breaking the whole read path. The migration now grants the four consulted columns itself instead of relying on the identity contour at a distance."
+    },
+    {
+      "id": "EXE-016",
+      "what": "Separation of duties enforced by the database, not only by policy",
+      "detail": "An ACTIVE signing authority must name a second approver who is neither the beneficiary nor the granter and who is a real membership of the same organization. All four violations were attempted against a live PostgreSQL 16 and refused. A revoked authority may still carry a null approver so historical rows stay writable. The command policy keys the self-approval refusal on the user rather than the membership, so one person with two memberships cannot approve their own grant by switching hats."
+    },
+    {
+      "id": "EXE-017",
+      "what": "Bounded write authority, with attribution enforced by the database",
+      "detail": "pc_accounting_command_authority may insert only rows attributing the grant to itself, and may update only status and revokedAt. Sixteen checks now run in the RLS gate. Four sabotages were used to confirm the gate can fail: a policy trusting the org setting alone, an added UPDATE grant on the read principal, full UPDATE on the command principal, and dropping the attribution condition. Capability enforcement is deliberately left in code so SQL does not become a second drifting source of truth; the database enforces attribution, scoping and immutability, which code alone cannot prove after a compromise."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "GOV-1",
+      "severity": "PROGRAMME_STOPPING",
+      "type": "owner-governance-decision",
+      "what": "autopilot-state.json allowedCurrentScope/agentWritableScope admit only IR-10.4 settlement files. No wave of this contract has a writable zone.",
+      "who": "repository owner",
+      "minimalAction": "Register programme in approvedConcurrentScopes using docs/platform-v7/autopilot/scopes/pc-crop-federal-accounting.json",
+      "externallyResolvable": false,
+      "resolved": true,
+      "resolution": "Owner decision 2026-08-15: programme approved as a separate concurrent workstream; Wave 1 only, bounded file list, recorded in autopilot-state.json approvedConcurrentScopes."
+    },
+    {
+      "id": "GOV-2",
+      "severity": "PROGRAMME_STOPPING",
+      "type": "owner-governance-decision",
+      "what": "forbiddenZones lists 'packages' and DB migrations are restricted to prefix 20260713*_settlement_postgresql_authority.",
+      "who": "repository owner",
+      "minimalAction": "Grant migration prefix + packages/domain-core write for this programme.",
+      "resolved": true,
+      "resolution": "Owner decision 2026-08-15: programme approved as a separate concurrent workstream; Wave 1 only, bounded file list, recorded in autopilot-state.json approvedConcurrentScopes."
+    },
+    {
+      "id": "GOV-3",
+      "severity": "PROGRAMME_STOPPING",
+      "type": "owner-governance-decision",
+      "what": "forbiddenZones lists 'apps/web'; every accounting/Connection Center/Gekta UX wave needs it.",
+      "who": "repository owner",
+      "resolved": true,
+      "resolution": "Owner decision 2026-08-15: programme approved as a separate concurrent workstream; Wave 1 only, bounded file list, recorded in autopilot-state.json approvedConcurrentScopes."
+    },
+    {
+      "id": "GOV-4",
+      "severity": "HIGH",
+      "type": "role-conflict",
+      "what": "AGENTS.md: 'Claude should not write competing implementation PRs for the same current step.' Wave 4 targets settlement-engine, which is the current IR-10.4 step owned by Codex.",
+      "who": "repository owner",
+      "minimalAction": "Confirm or waive this rule for this programme.",
+      "resolved": true,
+      "resolution": "Owner decision 2026-08-15: programme approved as a separate concurrent workstream; Wave 1 only, bounded file list, recorded in autopilot-state.json approvedConcurrentScopes."
+    },
+    {
+      "id": "GOV-5",
+      "severity": "HIGH",
+      "type": "dependency-lock",
+      "what": "lockedUntilCurrentGreen holds IR-20 Canonical Durable Outbox and IR-21 Durable Integration Inbox, which waves 5-8 depend on. IR-10.4 is not green.",
+      "who": "repository owner / IR-10.4 implementer",
+      "resolved": false,
+      "note": "Still applies to waves 5-8 (IR-20/IR-21). Does not block Wave 1."
+    },
+    {
+      "id": "ENV-PROD",
+      "severity": "HIGH",
+      "type": "environment-network-policy",
+      "what": "Outbound CONNECT to production domain denied (403). Sections H '+10% deployed' and '+15% production acceptance' unreachable for every workstream from this session.",
+      "who": "environment owner",
+      "minimalAction": "Run the programme from an environment whose network policy permits the production domain, or supply evidence out-of-band."
+    },
+    {
+      "id": "EXT-1C",
+      "severity": "MEDIUM",
+      "type": "vendor-credential",
+      "what": "1C compatibility/Fresh partner track credentials absent. Contract section Q permits IMPLEMENTED/TESTED without production acceptance.",
+      "who": "owner / 1C"
+    },
+    {
+      "id": "EXT-EDO",
+      "severity": "MEDIUM",
+      "type": "vendor-credential",
+      "what": "Diadoc / Saby application registration and written multi-tenant SaaS conditions absent.",
+      "who": "owner / Kontur / Tensor"
+    },
+    {
+      "id": "EXT-FGIS",
+      "severity": "MEDIUM",
+      "type": "vendor-credential",
+      "what": "FGIS Zerno production operator credentials not verifiable from this session.",
+      "who": "owner"
+    },
+    {
+      "id": "EXT-EPD",
+      "severity": "MEDIUM",
+      "type": "vendor-credential",
+      "what": "IS EPD operator contract absent.",
+      "who": "owner"
+    }
+  ],
+  "openPRs": [
+    {
+      "number": 4216,
+      "title": "PC-CROP federal accounting: Wave 0 truth audit, Wave 1 scope registration, job profile axis and capability resolver",
+      "head": "claude/autonomous-execution-contract-oc7ds7",
+      "state": "open",
+      "ciState": "green",
+      "awaiting": "human merge (noAutoMerge stands)"
+    }
+  ],
+  "openPRsNote": "Wave 1 PR is green and awaiting owner merge. noAutoMerge is a committed rule and was not touched.",
+  "repositoryHealthObservations": [
+    "100+ open PRs (list truncates at 100; oldest observed #2199).",
+    "Last 30 workflow runs on main: 19 skipped, 11 in_progress, 0 success.",
+    "243 workflow files in .github/workflows.",
+    "Recent main history shows repeated reviewer-reset attempts: 31819549601 -> 31823705807 -> 31896239515 -> 31899275062.",
+    "These are observations for the risk register, not part of this contract's scope."
+  ],
+  "nextActions": [
+    {
+      "order": 1,
+      "action": "Merge PR #4216 through the governance path (noAutoMerge stands: human review required).",
+      "owner": "human"
+    },
+    {
+      "order": 2,
+      "action": "Wave 1 follow-up slice: signing authority record plus the reading principal and tenant-scoped RLS policy for membership_delegations, wired to the API that needs them.",
+      "owner": "agent"
+    },
+    {
+      "order": 3,
+      "action": "Request the next minimal concurrent scope (Wave 2 server-authoritative documents), which depends on nothing external.",
+      "owner": "agent"
+    },
+    {
+      "order": 4,
+      "action": "Rebase onto live main before each push; main moved twice during this session.",
+      "owner": "agent"
+    }
+  ],
+  "securityFindingsSummary": {
+    "releaseBlockingFindings": 0,
+    "note": "No security review of new code was performed because no new code was written. Existing baseline (RLS FORCE, split DB principals, MFA persistence, tenant-leakage e2e) is documented in gap-matrix.md section 2 and was not modified.",
+    "newRequiredControlsIdentified": 6,
+    "newRequiredControlsList": [
+      "security_requirements_registry (section 32)",
+      "threat model per security-sensitive contour (section 33)",
+      "fraud_signals/cases/decisions persistence (section 41)",
+      "two-person rule for beneficiary change (section 41)",
+      "Gekta prompt-injection defenses (section 44)",
+      "proven ransomware/restore drill (section 50)"
+    ]
+  },
+  "productionEvidenceSummary": {
+    "exactShaDeploymentProven": false,
+    "sellerJourneyProven": false,
+    "buyerJourneyProven": false,
+    "externalAccountantIsolationProven": false,
+    "backupRestoreProven": false,
+    "reason": "ENV-PROD network policy; no production surface reachable."
+  },
+  "newMandatoryCostsRub": 0,
+  "completedEvidenceNote": "EXE-* ids are internal to this file. The auditable observation log with its own EV-* ids and sources is evidence-index.md; the two sequences are deliberately distinct.",
+  "projectedOnMergeOfPr4216": {
+    "note": "Not credited until proven. Merge adds the +15% stage to workstreams 1, 2 and 4.",
+    "wouldBecomePercent": 6.79
+  },
+  "progressAudits": [
+    {
+      "at": "2026-08-16T06:45:00.000Z",
+      "what": "Audited workstreams 3 and 14 against their own component lists.",
+      "found": "Both carried a bare component share with no model behind it (12 and 15). Under an explicit equal-share model they are 7 and 6.",
+      "effect": "Overall falls from 9.5 to 9.0 in a revision that added the issuing transaction. A matrix that only rises is not a measurement."
+    }
+  ],
+  "exactMainAcceptance": {
+    "sha": "066dc5e3ed6d7d8f91583308433d270a7529989e",
+    "localGates": "forward-only exit 0; drift exit 0 on a clean database; 1559 unit tests; 67 RLS gate checks PASS; no new type errors",
+    "ciAtReport": "76 checks: 60 success, 9 skipped, 4 still running, 3 failure",
+    "failuresNotCausedHere": "Confirm REG.RU preflight chain result, Publish REG.RU preflight status and Least-privilege preflight contract. Root cause is check-tai-bootstrap-preflight.mjs rejecting docs/platform-v7/autopilot/scopes/tai-bootstrap-canonical-images-20260806.json with \"branch mismatch\". That manifest belongs to another workstream and this PR never touched it. Reproduced locally on the previous main 7015115b3, before the merge: identical file, identical message, identical exit code. The other two cascade from it (CONTRACT_RESULT: failure -> PUBLISH_RESULT: failure).",
+    "notProductionAcceptance": true
+  }
+}

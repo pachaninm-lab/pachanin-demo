@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4600,
+  "branch": "sec/data-protection-requirements-4600",
+  "status": "active",
+  "purpose": "Complete the four items the canonical data classification left open: per-class retention, database-level encryption requirements, integrity-verification requirements, and an outbound telemetry rule for C2_BUSINESS_CONFIDENTIAL.",
+  "authorityBaseExactMain": "902c621f7b08c31ba7bfeebd630e550d050750fe",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/data-protection-requirements-4600.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/data-classification.json",
+    "apps/api/src/common/security/data-classes.ts",
+    "apps/api/src/common/security/data-classes.spec.ts"
+  ],
+  "requiredInvariants": [
+    "Documented requirement and proven enforcement are recorded separately for every class; neither is inferred from the other.",
+    "A retention value grounded in a named statute is labelled a proposed default pending confirmation, never a certified legal conclusion.",
+    "Every enforcement claim that names a file is checked by a test against that file's real content.",
+    "Completing the policy document may close V14.1.2 (documentation completeness); it must not by itself close any enforcement-focused requirement.",
+    "The C2 outbound rule is bound in code (OUTBOUND_REDACTED_CLASSES), not only stated in the document.",
+    "No security control is weakened; Semgrep, the pinning ratchet and every other gate stay at full strength.",
+    "No production, REG.RU, DNS or database mutation.",
+    "finalPass stays false."
+  ],
+  "acceptance": [
+    "Every class carries a retention, databaseEncryption and integrityVerification entry with a requirement and an enforcement statement.",
+    "The two prohibited classes are not-applicable across all three new dimensions.",
+    "C2's outbound redaction is proven by a Sentry-scrub test, not only by a schema flag.",
+    "Every cited enforcement fact (TTL constants, AES-256-GCM usage, the INN VarChar gap, the evidence-pack hash chain, contract-version immutability, the auth-mail retention job) is verified against the real file by test.",
+    "Three mutations were verified to turn the suite red: the C2 code binding removed (a compile-time failure), an enforcement citation gone stale, and a class silently losing its retention entry.",
+    "V14.1.2 moves FAIL to PASS.",
+    "V14.2.7 stays FAIL, with its note updated to say the classification gap it named is closed and the enforcement gap is what remains.",
+    "The evidence gate rejects 0 decisions; finalPass stays false."
+  ]
+}

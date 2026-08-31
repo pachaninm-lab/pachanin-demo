@@ -1,0 +1,82 @@
+name: Production P0 Reviewer Reset Delivery Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-delivery-diagnostic.yml'
+      - 'scripts/production-p0-reviewer-reset-delivery-diagnostic.sh'
+      - 'scripts/check-production-p0-reviewer-reset-delivery-diagnostic.mjs'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-delivery-diagnostic-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-delivery-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate reviewer reset delivery diagnostic contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-reviewer-reset-delivery-diagnose 31667978433'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-production-p0-reviewer-reset-delivery-diagnostic.mjs
+      - run: bash -n scripts/production-p0-reviewer-reset-delivery-diagnostic.sh
+
+  diagnose:
+    name: Read-only REG.RU reviewer reset delivery classifier
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-reviewer-reset-delivery-diagnose 31667978433'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      PC_REVIEWER_RESET_DELIVERY_DIAGNOSTIC_COMMAND: ${{ github.event.comment.body }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Classify delivery failure without sending mail or exposing reviewer data
+        shell: bash
+        run: bash scripts/production-p0-reviewer-reset-delivery-diagnostic.sh

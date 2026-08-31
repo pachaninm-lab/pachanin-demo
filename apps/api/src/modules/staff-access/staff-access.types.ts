@@ -29,6 +29,13 @@ export type StaffAccessMode = typeof StaffAccessMode[keyof typeof StaffAccessMod
 export const StaffPermission = {
   ORGANIZATION_LIST: 'organization:list',
   ORGANIZATION_READ: 'organization:read',
+  /**
+   * Settling an admission application: the only write the bounded staff
+   * authority surface in 20260806103000 performs on identity state. Held
+   * separately from ORGANIZATION_READ so reviewing a queue never carries the
+   * ability to admit anyone.
+   */
+  ORGANIZATION_ADMISSION_DECIDE: 'organization:admission:decide',
   USER_LIST: 'user:list',
   USER_READ: 'user:read',
   USER_SESSION_REVOKE: 'user:session:revoke',
@@ -92,6 +99,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
   PLATFORM_ADMIN: [
     StaffPermission.ORGANIZATION_LIST,
     StaffPermission.ORGANIZATION_READ,
+    StaffPermission.ORGANIZATION_ADMISSION_DECIDE,
     StaffPermission.USER_LIST,
     StaffPermission.USER_READ,
     StaffPermission.USER_SESSION_REVOKE,
@@ -180,6 +188,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
   COMPLIANCE_STAFF: [
     StaffPermission.ORGANIZATION_LIST,
     StaffPermission.ORGANIZATION_READ,
+    StaffPermission.ORGANIZATION_ADMISSION_DECIDE,
     StaffPermission.USER_LIST,
     StaffPermission.USER_READ,
     StaffPermission.DEAL_LIST,

@@ -63,7 +63,7 @@ SELECT
         ('deals','deals_select'),
         ('deals','deals_insert'),
         ('integration_events','integration_events_select'),
-        ('organizations','organizations_select'),
+        ('organizations','organizations_context_select'),
         ('deal_participants','deal_participants_insert')
       )) || ':' ||
   (SELECT count(*) FROM pg_policies

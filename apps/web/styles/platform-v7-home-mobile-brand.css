@@ -1,0 +1,58 @@
+/* Strategic-home-only narrow header correction.
+ * Final Design Project v4.0 requires the canonical brand to remain fully visible at 320 px.
+ * Keep the existing controls; use a two-line brand instead of ellipsis below 390 px.
+ */
+[data-testid='platform-v7-root-execution-cockpit'] .pc-site-mobile-menu > summary {
+  width: 45px !important;
+  min-width: 45px !important;
+}
+
+@media (max-width: 380px) {
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
+    gap: 8px !important;
+    padding-inline: 14px !important;
+  }
+
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-mark[data-brand-logo='primary'] {
+    flex: 0 0 auto !important;
+  }
+
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible !important;
+  }
+
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong {
+    display: block;
+    width: 100%;
+    max-width: 100% !important;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow: visible !important;
+    color: #071611;
+    font-size: 14px !important;
+    line-height: 1.05 !important;
+    white-space: normal !important;
+    overflow-wrap: normal;
+    word-break: normal;
+    text-overflow: clip !important;
+  }
+}
+
+@media (max-width: 340px) {
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
+    padding-inline: 12px !important;
+  }
+
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong {
+    font-size: 14px !important;
+  }
+}

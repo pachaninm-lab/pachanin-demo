@@ -20,6 +20,9 @@ on:
       - "scripts/verify-tai-upstream-workflow-jobs.mjs"
       - "scripts/check-tai-reg-ru-deploy.mjs"
       - "scripts/check-pc-tai-release-controller.mjs"
+      - "scripts/check-pc-release-authority-boundary.mjs"
+      - "scripts/install-pc-prod-actions-runner.sh"
+      - "scripts/resume-pc-prod-actions-runner.sh"
       - "scripts/check-tai-model-artifact-evidence.mjs"
       - "scripts/check-tai-exact-main-convergence.mjs"
       - "docs/platform-v7/autopilot/scopes/tai-owner-deployment-command-20260803.json"
@@ -69,6 +72,7 @@ jobs:
           node scripts/check-tai-owner-deployment-status-selection.mjs
           node scripts/check-tai-owner-deployment-command.mjs
           node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-pc-release-authority-boundary.mjs
           node scripts/check-tai-reg-ru-deploy.mjs
           node scripts/check-tai-model-artifact-evidence.mjs
           node scripts/check-tai-exact-main-convergence.mjs
@@ -168,6 +172,7 @@ jobs:
           bash -n scripts/tai-reg-ru-preflight.sh
           node scripts/check-tai-owner-deployment-command.mjs
           node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-pc-release-authority-boundary.mjs
           node scripts/check-tai-reg-ru-deploy.mjs
           node scripts/check-tai-model-artifact-evidence.mjs
           node scripts/check-tai-exact-main-convergence.mjs
@@ -301,17 +306,44 @@ jobs:
           print(f"TAI_DEPLOY_EXIT_CODE={value.get('exitCode')}")
           print(f"TAI_DEPLOY_ROLLBACK_STATUS={value.get('rollbackStatus') or 'UNKNOWN'}")
           PY
-      - name: Upload exact-main deployment evidence
+      - name: Validate and checksum exact-main deployment evidence
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-owner-reg-ru-deployment-${{ env.TARGET_SHORT }}-${{ github.run_id }}
-          path: |
-            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/predeploy.json
-            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/deployment.json
-            /var/lib/pc-release-authority/runner-output/${{ github.run_id }}/postdeploy.json
-          if-no-files-found: error
-          retention-days: 30
+        run: |
+          set -Eeuo pipefail
+          root="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}"
+          python3 - "$root" "$TARGET_SHA" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          target = sys.argv[2]
+          reports = {}
+          for name in ('predeploy.json', 'deployment.json', 'postdeploy.json'):
+              path = root / name
+              if not path.is_file() or path.is_symlink():
+                  continue
+              value = json.loads(path.read_text(encoding='utf-8'))
+              if not isinstance(value, dict) or value.get('targetSha') != target:
+                  raise SystemExit(f'{name}: target mismatch')
+              reports[name] = value
+          if 'deployment.json' not in reports:
+              raise SystemExit('deployment evidence missing')
+          if reports['deployment.json'].get('passed') is True:
+              if 'predeploy.json' not in reports or 'postdeploy.json' not in reports:
+                  raise SystemExit('successful evidence set incomplete')
+              if reports['postdeploy.json'].get('passed') is not True or reports['postdeploy.json'].get('blockers'):
+                  raise SystemExit('successful postflight invalid')
+          PY
+          manifest="$RUNNER_TEMP/tai-owner-deployment-evidence.sha256"
+          : > "$manifest"
+          for name in predeploy.json deployment.json postdeploy.json; do
+            if [[ -s "$root/$name" ]]; then
+              digest="$(sha256sum "$root/$name" | awk '{print $1}')"
+              printf '%s  %s\n' "$digest" "$name" >> "$manifest"
+            fi
+          done
+          [[ -s "$manifest" ]]
 
   publish:
     name: Publish exact-main owner deployment result

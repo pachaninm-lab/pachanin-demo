@@ -1,0 +1,313 @@
+name: Company OS F3 Stack Reconciler
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/company-os-f3-stack-reconciler.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: company-os-f3-stack-reconciler
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Configure repository writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'pachaninm-lab'
+          git config user.email 'pachaninm@gmail.com'
+          git config rerere.enabled true
+
+      - name: Reconcile F3 lifecycle policy foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch=company-os/f3-staff-lifecycle-foundation
+          git fetch --no-tags origin "$branch"
+          git checkout -B "$branch" "origin/$branch"
+          python <<'PY'
+          from pathlib import Path
+
+          types_path = Path('apps/api/src/staff-access/staff-lifecycle.types.ts')
+          policy_path = Path('apps/api/src/staff-access/staff-lifecycle.policy.ts')
+          test_path = Path('apps/api/src/staff-access/staff-lifecycle.policy.spec.ts')
+          types = types_path.read_text()
+          policy = policy_path.read_text()
+          tests = test_path.read_text()
+
+          if 'readonly allowedPermissions: readonly string[];' not in types:
+              anchor = '  readonly permissions: readonly string[];\n  readonly allowedRoles: readonly string[];'
+              if anchor not in types: raise SystemExit('F3 types allowedPermissions anchor missing')
+              types = types.replace(anchor, '  readonly permissions: readonly string[];\n  readonly allowedPermissions: readonly string[];\n  readonly allowedRoles: readonly string[];', 1)
+
+          if "'MARK_INVITATION_DELIVERED'" not in types:
+              anchor = "  'INVITE',\n  'ACKNOWLEDGE_EMAIL_VERIFICATION',"
+              if anchor not in types: raise SystemExit('F3 invitation action anchor missing')
+              types = types.replace(anchor, "  'INVITE',\n  'MARK_INVITATION_DELIVERED',\n  'ACKNOWLEDGE_EMAIL_VERIFICATION',", 1)
+          types_path.write_text(types)
+
+          if "MARK_INVITATION_DELIVERED: 'staff.lifecycle.invite'" not in policy:
+              anchor = "  INVITE: 'staff.lifecycle.invite',\n  ACKNOWLEDGE_EMAIL_VERIFICATION: 'staff.lifecycle.activate',"
+              if anchor not in policy: raise SystemExit('F3 permission mapping anchor missing')
+              policy = policy.replace(anchor, "  INVITE: 'staff.lifecycle.invite',\n  MARK_INVITATION_DELIVERED: 'staff.lifecycle.invite',\n  ACKNOWLEDGE_EMAIL_VERIFICATION: 'staff.lifecycle.activate',", 1)
+
+          if 'MARK_INVITATION_DELIVERED: {' not in policy:
+              anchor = "  ACKNOWLEDGE_EMAIL_VERIFICATION: {\n    INVITED: 'EMAIL_VERIFICATION_REQUIRED',\n    EMAIL_VERIFICATION_REQUIRED: 'MFA_ENROLLMENT_REQUIRED',\n  },"
+              if anchor not in policy: raise SystemExit('F3 transition anchor missing')
+              policy = policy.replace(anchor, "  MARK_INVITATION_DELIVERED: {\n    INVITED: 'EMAIL_VERIFICATION_REQUIRED',\n  },\n  ACKNOWLEDGE_EMAIL_VERIFICATION: {\n    EMAIL_VERIFICATION_REQUIRED: 'MFA_ENROLLMENT_REQUIRED',\n  },", 1)
+
+          if 'hasDuplicates(command.actor.allowedPermissions)' not in policy:
+              anchor = '    hasDuplicates(command.actor.permissions) ||\n    hasDuplicates(command.actor.allowedRoles) ||'
+              if anchor not in policy: raise SystemExit('F3 duplicate ceiling anchor missing')
+              policy = policy.replace(anchor, '    hasDuplicates(command.actor.permissions) ||\n    hasDuplicates(command.actor.allowedPermissions) ||\n    hasDuplicates(command.actor.allowedRoles) ||', 1)
+
+          policy = policy.replace(
+              'if (!isSubset(permissions, command.actor.permissions))',
+              'if (!isSubset(permissions, command.actor.allowedPermissions))',
+          )
+          policy = policy.replace(
+              'if (!isSubset(grant.requestedPermissions, command.actor.permissions))',
+              'if (!isSubset(grant.requestedPermissions, command.actor.allowedPermissions))',
+          )
+
+          if 'source.length === 0 || source.length > MAX_SET_SIZE' not in policy:
+              anchor = 'if (source.length > MAX_SET_SIZE || hasDuplicates(source))'
+              if anchor not in policy: raise SystemExit('F3 set cardinality anchor missing')
+              policy = policy.replace(anchor, 'if (source.length === 0 || source.length > MAX_SET_SIZE || hasDuplicates(source))', 1)
+
+          if '!(command.actor.sessionIssuedAt instanceof Date)' not in policy:
+              anchor = "  if (command.actor.sessionIssuedAt.getTime() > command.now.getTime()) {\n    return 'INVALID_COMMAND';\n  }"
+              if anchor not in policy: raise SystemExit('F3 session date anchor missing')
+              policy = policy.replace(anchor, "  if (\n    !(command.actor.sessionIssuedAt instanceof Date) ||\n    Number.isNaN(command.actor.sessionIssuedAt.getTime()) ||\n    command.actor.sessionIssuedAt.getTime() > command.now.getTime()\n  ) {\n    return 'INVALID_COMMAND';\n  }", 1)
+
+          start = policy.index('function evaluateGrantRequest')
+          end = policy.index('function evaluateGrantDecision', start)
+          segment = policy[start:end]
+          self_guard = "  if (command.actor.actorId === subject.identityId) {\n    return denied('SELF_APPROVAL_FORBIDDEN');\n  }\n"
+          segment = segment.replace(self_guard, '', 1)
+          segment = segment.replace('    payload.privileged,\n  );', '    true,\n  );', 1)
+          policy = policy[:start] + segment + policy[end:]
+          policy_path.write_text(policy)
+
+          if 'allowedPermissions:' not in tests:
+              anchor = "    allowedRoles: ['OPERATOR', 'MANAGER', 'OWNER', 'COMPLIANCE'],"
+              if anchor not in tests: raise SystemExit('F3 test ceiling anchor missing')
+              tests = tests.replace(anchor, "    allowedPermissions: ['deal.read', 'deal.manage', 'audit.read'],\n    allowedRoles: ['OPERATOR', 'MANAGER', 'OWNER', 'COMPLIANCE'],", 1)
+
+          if 'keeps invitation delivery and email acknowledgement as separate transitions' not in tests:
+              anchor = "  it('rejects a role outside the current server ceiling', () => {"
+              if anchor not in tests: raise SystemExit('F3 test insertion anchor missing')
+              additions = """  it('keeps invitation delivery and email acknowledgement as separate transitions', () => {\n    const invited = subject({ state: 'INVITED' });\n    expect(evaluateStaffLifecycleCommand(command({ action: 'MARK_INVITATION_DELIVERED', subject: invited }))).toEqual(\n      expect.objectContaining({ allowed: true, nextState: 'EMAIL_VERIFICATION_REQUIRED' }),\n    );\n    const awaitingEmail = subject({ state: 'EMAIL_VERIFICATION_REQUIRED', emailVerifiedAt: NOW });\n    expect(evaluateStaffLifecycleCommand(command({ action: 'ACKNOWLEDGE_EMAIL_VERIFICATION', subject: awaitingEmail }))).toEqual(\n      expect.objectContaining({ allowed: true, nextState: 'MFA_ENROLLMENT_REQUIRED' }),\n    );\n  });\n\n  it('allows self-service access requests but still requires independent approval', () => {\n    const target = subject();\n    const result = evaluateStaffLifecycleCommand(command({\n      action: 'REQUEST_ACCESS_GRANT',\n      actor: actor({ actorId: target.identityId }),\n      subject: target,\n      requestedRole: 'MANAGER',\n      requestedPermissions: ['deal.manage'],\n      requestedScopes: ['deals'],\n    }));\n    expect(result).toEqual(expect.objectContaining({ allowed: true, requiresIndependentApproval: true }));\n  });\n\n  it('rejects empty permission or scope grant payloads', () => {\n    expect(evaluateStaffLifecycleCommand(command({\n      action: 'REQUEST_ACCESS_GRANT', requestedRole: 'MANAGER', requestedPermissions: [], requestedScopes: ['deals'],\n    })).denialCode).toBe('INVALID_COMMAND');\n    expect(evaluateStaffLifecycleCommand(command({\n      action: 'REQUEST_ACCESS_GRANT', requestedRole: 'MANAGER', requestedPermissions: ['deal.manage'], requestedScopes: [],\n    })).denialCode).toBe('INVALID_COMMAND');\n  });\n\n"""
+              tests = tests.replace(anchor, additions + anchor, 1)
+          test_path.write_text(tests)
+          PY
+          rm -f .github/workflows/company-os-f3-foundation-autofix.yml \
+                .github/workflows/company-os-f3-policy-hardening-autofix.yml
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Company OS F3: reconcile hardened lifecycle authority'
+            git pull --rebase origin "$branch"
+            git push origin "HEAD:$branch"
+          fi
+
+      - name: Reconcile F3A atomic application service
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=company-os/f3-staff-lifecycle-foundation
+          branch=company-os/f3a-staff-lifecycle-application
+          git fetch --no-tags origin "$parent" "$branch"
+          git checkout -B "$branch" "origin/$branch"
+          git merge --no-edit "origin/$parent"
+          python <<'PY'
+          from pathlib import Path
+
+          service_path = Path('apps/api/src/staff-access/staff-lifecycle.service.ts')
+          test_path = Path('apps/api/src/staff-access/staff-lifecycle.service.spec.ts')
+          service = service_path.read_text()
+          tests = test_path.read_text()
+
+          if 'const EVENT_ID_PATTERN' not in service:
+              anchor = 'const ACTION_EVENT: Readonly<Record<StaffLifecycleAction, StaffLifecycleEventType>> = {'
+              if anchor not in service: raise SystemExit('F3A event pattern anchor missing')
+              service = service.replace(anchor, "const EVENT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;\n\n" + anchor, 1)
+
+          if "causeCode: 'INVALID_EVENT_ID'" not in tests and 'INVALID_EVENT_ID' not in service:
+              anchor = "  const commandDigest = digest(canonicalCommand(command));\n  return Object.freeze({\n    eventId: idGenerator.nextEventId(),"
+              if anchor not in service: raise SystemExit('F3A evidence id anchor missing')
+              service = service.replace(anchor, "  const commandDigest = digest(canonicalCommand(command));\n  const eventId = idGenerator.nextEventId();\n  if (!EVENT_ID_PATTERN.test(eventId)) {\n    throw new StaffLifecycleServiceError(\n      'PERSISTENCE_FAILURE',\n      'Staff lifecycle event identity is invalid.',\n      'INVALID_EVENT_ID',\n    );\n  }\n  return Object.freeze({\n    eventId,", 1)
+
+          if 'function validateExecutionBinding' not in service:
+              anchor = '\nexport class StaffLifecycleService {'
+              if anchor not in service: raise SystemExit('F3A class anchor missing')
+              helper = (
+                  "\nfunction validateExecutionBinding(\n"
+                  "  command: StaffLifecycleCommand,\n"
+                  "  decision: StaffLifecycleDecision,\n"
+                  "  evidence: StaffLifecycleEvidenceEnvelope,\n"
+                  "  execution: StaffLifecycleExecutionResult,\n"
+                  "): void {\n"
+                  "  if (execution.commandDigest !== evidence.commandDigest) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned evidence for a different command.', 'COMMAND_DIGEST_MISMATCH');\n"
+                  "  }\n"
+                  "  if (!EVENT_ID_PATTERN.test(execution.evidenceEventId) || !EVENT_ID_PATTERN.test(execution.outboxEventId) || execution.evidenceEventId !== evidence.eventId) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned invalid durable evidence identity.', 'EVIDENCE_ID_MISMATCH');\n"
+                  "  }\n"
+                  "  if (execution.identity.tenantId !== command.actor.tenantId) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned an identity from another tenant.', 'EXECUTION_TENANT_MISMATCH');\n"
+                  "  }\n"
+                  "  if (command.subject !== null && execution.identity.identityId !== command.subject.identityId) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned another staff identity.', 'EXECUTION_SUBJECT_MISMATCH');\n"
+                  "  }\n"
+                  "  if (decision.nextState !== null && execution.identity.state !== decision.nextState) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned an unexpected lifecycle state.', 'EXECUTION_STATE_MISMATCH');\n"
+                  "  }\n"
+                  "  if (!execution.replayed && command.expectedVersion !== null && execution.identity.version !== command.expectedVersion + 1) {\n"
+                  "    throw new StaffLifecycleServiceError('PERSISTENCE_FAILURE', 'Staff lifecycle repository returned an unexpected identity version.', 'EXECUTION_VERSION_MISMATCH');\n"
+                  "  }\n"
+                  "}\n"
+              )
+              service = service.replace(anchor, '\n' + helper + anchor, 1)
+
+          old = "      if (execution.commandDigest !== evidence.commandDigest) {\n        throw new StaffLifecycleServiceError(\n          'PERSISTENCE_FAILURE',\n          'Staff lifecycle repository returned evidence for a different command.',\n          'COMMAND_DIGEST_MISMATCH',\n        );\n      }\n      return Object.freeze({ status: 'APPLIED', decision, execution });"
+          if old in service:
+              service = service.replace(old, "      validateExecutionBinding(command, decision, evidence, execution);\n      return Object.freeze({ status: 'APPLIED', decision, execution });", 1)
+          service_path.write_text(service)
+
+          if 'rejects an invalid generated evidence identifier before persistence' not in tests:
+              anchor = "  it('maps unknown repository failures without returning partial success', async () => {"
+              if anchor not in tests: raise SystemExit('F3A test insertion anchor missing')
+              additions = """  it('rejects an invalid generated evidence identifier before persistence', async () => {\n    const repository = new RecordingRepository(async (write) => successfulResult(write));\n    const service = new StaffLifecycleService(repository, { nextEventId: () => 'bad' });\n    await expect(service.execute(command())).rejects.toEqual(\n      expect.objectContaining({ code: 'PERSISTENCE_FAILURE', causeCode: 'INVALID_EVENT_ID' }),\n    );\n    expect(repository.writes).toHaveLength(0);\n  });\n\n  it.each([\n    ['EVIDENCE_ID_MISMATCH', (write: StaffLifecycleAtomicWrite) => ({ ...successfulResult(write), outboxEventId: 'bad' })],\n    ['EXECUTION_TENANT_MISMATCH', (write: StaffLifecycleAtomicWrite) => ({ ...successfulResult(write), identity: subject({ tenantId: 'tenant-02', state: 'SUSPENDED', version: 5 }) })],\n    ['EXECUTION_SUBJECT_MISMATCH', (write: StaffLifecycleAtomicWrite) => ({ ...successfulResult(write), identity: subject({ identityId: 'staff-02', state: 'SUSPENDED', version: 5 }) })],\n    ['EXECUTION_STATE_MISMATCH', (write: StaffLifecycleAtomicWrite) => ({ ...successfulResult(write), identity: subject({ state: 'ACTIVE', version: 5 }) })],\n    ['EXECUTION_VERSION_MISMATCH', (write: StaffLifecycleAtomicWrite) => ({ ...successfulResult(write), identity: subject({ state: 'SUSPENDED', version: 8 }) })],\n  ] as const)('rejects repository result binding defect %s', async (causeCode, mutateResult) => {\n    const repository = new RecordingRepository(async (write) => mutateResult(write));\n    const service = new StaffLifecycleService(repository, new FixedIdGenerator());\n    await expect(service.execute(command())).rejects.toEqual(\n      expect.objectContaining({ code: 'PERSISTENCE_FAILURE', causeCode }),\n    );\n  });\n\n"""
+              tests = tests.replace(anchor, additions + anchor, 1)
+          test_path.write_text(tests)
+          PY
+          rm -f .github/workflows/company-os-f3a-foundation-sync.yml \
+                .github/workflows/company-os-f3a-service-hardening.yml
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Company OS F3A: reconcile atomic lifecycle service authority'
+            git pull --rebase origin "$branch"
+            git push origin "HEAD:$branch"
+          fi
+
+      - name: Reconcile F3B invitation and approval branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=company-os/f3a-staff-lifecycle-application
+          branch=company-os/f3b-invitation-approval-authority
+          git fetch --no-tags origin "$parent" "$branch"
+          git checkout -B "$branch" "origin/$branch"
+          git merge --no-edit "origin/$parent"
+          rm -f .github/workflows/company-os-f3b-parent-sync.yml
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Company OS F3B: reconcile hardened lifecycle parent'
+            git pull --rebase origin "$branch"
+            git push origin "HEAD:$branch"
+          fi
+
+      - name: Reconcile F3C session authority branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=company-os/f3a-staff-lifecycle-application
+          branch=company-os/f3c-session-revocation-authority
+          git fetch --no-tags origin "$parent" "$branch"
+          git checkout -B "$branch" "origin/$branch"
+          git merge --no-edit "origin/$parent"
+          rm -f .github/workflows/company-os-f3c-parent-sync.yml
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Company OS F3C: reconcile hardened lifecycle parent'
+            git pull --rebase origin "$branch"
+            git push origin "HEAD:$branch"
+          fi
+
+      - name: Reconcile F3D PostgreSQL authority branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=company-os/f3a-staff-lifecycle-application
+          branch=company-os/f3d-postgres-authority
+          git fetch --no-tags origin "$parent" "$branch"
+          git checkout -B "$branch" "origin/$branch"
+          git merge --no-edit "origin/$parent"
+          python <<'PY'
+          from pathlib import Path
+
+          migration = Path('prisma/migrations/20260818100000_company_os_staff_lifecycle_authority/migration.sql')
+          sql = migration.read_text()
+          pairs = [
+              ('CONSTRAINT staff_identities_tenant_user_unique UNIQUE NULLS NOT DISTINCT (tenant_id, user_id),', 'CONSTRAINT staff_identities_tenant_user_unique UNIQUE (tenant_id, user_id),'),
+              ('  CONSTRAINT staff_approvals_subject_fk\n    FOREIGN KEY (tenant_id, subject_identity_id)', '  CONSTRAINT staff_approvals_tenant_approval_unique UNIQUE (tenant_id, approval_id),\n  CONSTRAINT staff_approvals_subject_fk\n    FOREIGN KEY (tenant_id, subject_identity_id)'),
+              ('  CONSTRAINT staff_access_grants_approval_fk\n    FOREIGN KEY (approval_id)\n    REFERENCES company_os.staff_approvals (approval_id)', '  CONSTRAINT staff_access_grants_approval_fk\n    FOREIGN KEY (tenant_id, approval_id)\n    REFERENCES company_os.staff_approvals (tenant_id, approval_id)'),
+              ('  CONSTRAINT staff_lifecycle_commands_tenant_idempotency_unique UNIQUE (tenant_id, idempotency_key),', '  CONSTRAINT staff_lifecycle_commands_tenant_command_unique UNIQUE (tenant_id, command_id),\n  CONSTRAINT staff_lifecycle_commands_tenant_idempotency_unique UNIQUE (tenant_id, idempotency_key),'),
+              ('  CONSTRAINT staff_lifecycle_events_command_fk\n    FOREIGN KEY (command_id)\n    REFERENCES company_os.staff_lifecycle_commands (command_id)', '  CONSTRAINT staff_lifecycle_events_tenant_event_unique UNIQUE (tenant_id, event_id),\n  CONSTRAINT staff_lifecycle_events_command_fk\n    FOREIGN KEY (tenant_id, command_id)\n    REFERENCES company_os.staff_lifecycle_commands (tenant_id, command_id)'),
+              ('  CONSTRAINT staff_lifecycle_outbox_event_fk\n    FOREIGN KEY (lifecycle_event_id)\n    REFERENCES company_os.staff_lifecycle_events (event_id)', '  CONSTRAINT staff_lifecycle_outbox_event_fk\n    FOREIGN KEY (tenant_id, lifecycle_event_id)\n    REFERENCES company_os.staff_lifecycle_events (tenant_id, event_id)'),
+              ('  CONSTRAINT staff_session_revocations_command_fk\n    FOREIGN KEY (command_id)\n    REFERENCES company_os.staff_lifecycle_commands (command_id)', '  CONSTRAINT staff_session_revocations_command_fk\n    FOREIGN KEY (tenant_id, command_id)\n    REFERENCES company_os.staff_lifecycle_commands (tenant_id, command_id)'),
+              ('  CONSTRAINT staff_session_revocations_event_fk\n    FOREIGN KEY (lifecycle_event_id)\n    REFERENCES company_os.staff_lifecycle_events (event_id)', '  CONSTRAINT staff_session_revocations_event_fk\n    FOREIGN KEY (tenant_id, lifecycle_event_id)\n    REFERENCES company_os.staff_lifecycle_events (tenant_id, event_id)'),
+          ]
+          for old, new in pairs:
+              if old in sql:
+                  sql = sql.replace(old, new, 1)
+          migration.write_text(sql)
+
+          gate = Path('.github/workflows/company-os-staff-lifecycle-postgres.yml')
+          text = gate.read_text()
+          old = "          ! grep -Eiq 'CREATE[[:space:]]+ROLE|ALTER[[:space:]]+ROLE|GRANT[[:space:]].*[[:space:]]TO[[:space:]]+PUBLIC'\n"
+          new = "          ! grep -Eiq 'CREATE[[:space:]]+ROLE|ALTER[[:space:]]+ROLE|GRANT[[:space:]].*[[:space:]]TO[[:space:]]+PUBLIC' \"$migration\"\n"
+          if old in text:
+              text = text.replace(old, new, 1)
+          gate.write_text(text)
+          PY
+          rm -f .github/workflows/company-os-f3d-migration-hardening.yml \
+                .github/workflows/company-os-f3d-gate-hardening.yml \
+                .github/workflows/company-os-f3d-parent-sync.yml
+          migration=prisma/migrations/20260818100000_company_os_staff_lifecycle_authority/migration.sql
+          grep -Fq 'FOREIGN KEY (tenant_id, approval_id)' "$migration"
+          grep -Fq 'staff_lifecycle_events_tenant_event_unique' "$migration"
+          grep -Fq '"$migration"' .github/workflows/company-os-staff-lifecycle-postgres.yml
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Company OS F3D: reconcile tenant-local PostgreSQL authority'
+            git pull --rebase origin "$branch"
+            git push origin "HEAD:$branch"
+          fi
+
+      - name: Publish reconciliation result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 4152,
+              body: [
+                '## Company OS F3 stacked authority reconciliation',
+                '',
+                '- F3 policy branch: reconciled',
+                '- F3A atomic application branch: reconciled',
+                '- F3B invitation/approval branch: reconciled',
+                '- F3C session-revocation branch: reconciled',
+                '- F3D PostgreSQL branch: reconciled',
+                '- Production mutation: **NONE**',
+              ].join('\n'),
+            });

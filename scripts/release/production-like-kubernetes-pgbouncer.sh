@@ -4,6 +4,7 @@ kubectl create secret generic grainflow-pgbouncer-secrets -n "$NAMESPACE" \
   --from-literal=POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
   --from-literal=APP_DB_PASSWORD="$APP_DB_PASSWORD" \
   --from-literal=AUTH_DB_PASSWORD="$AUTH_DB_PASSWORD" \
+  --from-literal=STAFF_DB_PASSWORD="$STAFF_DB_PASSWORD" \
   --from-literal=STORAGE_DB_PASSWORD="$STORAGE_DB_PASSWORD" \
   --from-literal=OUTBOX_DB_PASSWORD="$OUTBOX_DB_PASSWORD"
 
@@ -14,6 +15,7 @@ kubectl rollout status -n "$NAMESPACE" deployment/pgbouncer --timeout=300s
 kubectl create secret generic grainflow-api-secrets -n "$NAMESPACE" \
   --from-literal=DATABASE_URL="postgresql://app_runtime:${APP_DB_PASSWORD}@pgbouncer:5432/grainflow?schema=public&connection_limit=20&pool_timeout=10" \
   --from-literal=AUTH_DATABASE_URL="postgresql://app_auth:${AUTH_DB_PASSWORD}@pgbouncer:5432/grainflow?schema=public&connection_limit=10&pool_timeout=10" \
+  --from-literal=STAFF_DATABASE_URL="postgresql://app_staff:${STAFF_DB_PASSWORD}@pgbouncer:5432/grainflow?schema=public&connection_limit=10&pool_timeout=10" \
   --from-literal=STORAGE_DATABASE_URL="postgresql://app_storage:${STORAGE_DB_PASSWORD}@pgbouncer:5432/grainflow?schema=public&connection_limit=10&pool_timeout=10" \
   --from-literal=JWT_SECRET="$JWT_SECRET" \
   --from-literal=AUTH_TOKEN_PEPPER="$AUTH_TOKEN_PEPPER" \
@@ -34,9 +36,10 @@ kubectl run pgbouncer-runtime-check -n "$NAMESPACE" --restart=Never \
   --image=ghcr.io/pachaninm-lab/ci-postgres@sha256:5660c2cbfea50c7a9127d17dc4e48543eedd3d7a41a595a2dfa572471e37e64c \
   --labels=app.kubernetes.io/name=grainflow-api \
   --env="APP_DB_PASSWORD=${APP_DB_PASSWORD}" \
+  --env="STAFF_DB_PASSWORD=${STAFF_DB_PASSWORD}" \
   --env="OUTBOX_DB_PASSWORD=${OUTBOX_DB_PASSWORD}" \
   --command -- sh -ec \
-  'PGPASSWORD="$APP_DB_PASSWORD" psql -h pgbouncer -p 5432 -U app_runtime -d grainflow -v ON_ERROR_STOP=1 -c "SELECT current_user, current_database()"; PGPASSWORD="$OUTBOX_DB_PASSWORD" psql -h pgbouncer -p 5432 -U app_outbox -d grainflow -v ON_ERROR_STOP=1 -c "SELECT current_user, current_database()"'
+  'PGPASSWORD="$APP_DB_PASSWORD" psql -h pgbouncer -p 5432 -U app_runtime -d grainflow -v ON_ERROR_STOP=1 -c "SELECT current_user, current_database()"; PGPASSWORD="$STAFF_DB_PASSWORD" psql -h pgbouncer -p 5432 -U app_staff -d grainflow -v ON_ERROR_STOP=1 -c "SELECT current_user, current_database()"; PGPASSWORD="$OUTBOX_DB_PASSWORD" psql -h pgbouncer -p 5432 -U app_outbox -d grainflow -v ON_ERROR_STOP=1 -c "SELECT current_user, current_database()"'
 
 for _ in $(seq 1 90); do
   phase="$(kubectl get pod pgbouncer-runtime-check -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || true)"

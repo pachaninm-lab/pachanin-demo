@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/production-api-readiness-diagnostics-3722",
+  "status": "active",
+  "purpose": "Production recovery diagnostic: expose only bounded and redacted API restart evidence when an exact-SHA release fails readiness, so the operator can fix the proven configuration defect without a blind redeploy.",
+  "approvedBy": "owner-direct-registration-production-recovery-2026-08-08",
+  "authorityBaseExactMain": "65d619b9ba1a8585dedecc9f5996b7358d9e88c1",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/production-full-stack-exact-sha.sh",
+    "scripts/check-production-full-stack-release.mjs",
+    "docs/platform-v7/autopilot/scopes/production-api-readiness-diagnostics-3722.json"
+  ],
+  "forbiddenCapabilities": [
+    "production environment mutation",
+    "secret, database URL, SSH identity or protected Compose path disclosure",
+    "release gate weakening",
+    "application product-code change"
+  ]
+}

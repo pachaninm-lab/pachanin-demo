@@ -1,13 +1,84 @@
-name: Canonical SBOM Generation
+name: Canonical SBOM Generation & IP Clean Room
 
 on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/ip/**'
+      - 'scripts/security/build-asvs-matrix.mjs'
+      - 'scripts/security/build-asvs-matrix.test.mjs'
+      - 'scripts/security/asvs-decisions.mjs'
+      - 'scripts/security/asvs-decisions.test.mjs'
+      - 'scripts/security/discover-cryptography.mjs'
+      - 'scripts/security/discover-cryptography.test.mjs'
+      - 'scripts/security/verify-web-unit-coverage.mjs'
+      - 'scripts/security/verify-web-unit-coverage.test.mjs'
+      - 'docs/platform-v7/qa/web-unit-coverage-registry.json'
+      - 'scripts/security/verify-key-usage.mjs'
+      - 'scripts/security/verify-key-usage.test.mjs'
+      - 'docs/security/cryptographic-key-usage.json'
+      - 'scripts/security/verify-crypto-migration-plan.mjs'
+      - 'scripts/security/verify-crypto-migration-plan.test.mjs'
+      - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/verify-authentication-pathways.test.mjs'
+      - 'docs/security/THREAT_MODEL.md'
+      - 'docs/security/cryptographic-inventory.json'
+      - 'docs/security/asvs-applicability-decisions.json'
+      - 'scripts/security/verify-decision-evidence.mjs'
+      - 'scripts/security/verify-decision-evidence.test.mjs'
+      - 'docs/ip/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'LICENSE'
+      - 'LICENSE-PROPRIETARY.md'
+      - 'NOTICE'
+      - 'COPYRIGHT'
+      - 'IP_POLICY.md'
+      - 'OPEN_SOURCE_POLICY.md'
+      - 'CONTRIBUTOR_IP_POLICY.md'
+      - 'THIRD_PARTY_NOTICES.md'
+      - '.github/CODEOWNERS'
+      - '.github/workflows/sbom-scan.yml'
   push:
     branches: [main]
     paths:
-      - 'apps/api/**'
-      - 'apps/web/**'
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/ip/**'
+      - 'scripts/security/build-asvs-matrix.mjs'
+      - 'scripts/security/build-asvs-matrix.test.mjs'
+      - 'scripts/security/asvs-decisions.mjs'
+      - 'scripts/security/asvs-decisions.test.mjs'
+      - 'scripts/security/discover-cryptography.mjs'
+      - 'scripts/security/discover-cryptography.test.mjs'
+      - 'scripts/security/verify-web-unit-coverage.mjs'
+      - 'scripts/security/verify-web-unit-coverage.test.mjs'
+      - 'docs/platform-v7/qa/web-unit-coverage-registry.json'
+      - 'scripts/security/verify-key-usage.mjs'
+      - 'scripts/security/verify-key-usage.test.mjs'
+      - 'docs/security/cryptographic-key-usage.json'
+      - 'scripts/security/verify-crypto-migration-plan.mjs'
+      - 'scripts/security/verify-crypto-migration-plan.test.mjs'
+      - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/verify-authentication-pathways.test.mjs'
+      - 'docs/security/THREAT_MODEL.md'
+      - 'docs/security/cryptographic-inventory.json'
+      - 'docs/security/asvs-applicability-decisions.json'
+      - 'scripts/security/verify-decision-evidence.mjs'
+      - 'scripts/security/verify-decision-evidence.test.mjs'
+      - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
+      - 'LICENSE'
+      - 'LICENSE-PROPRIETARY.md'
+      - 'NOTICE'
+      - 'COPYRIGHT'
+      - 'IP_POLICY.md'
+      - 'OPEN_SOURCE_POLICY.md'
+      - 'CONTRIBUTOR_IP_POLICY.md'
+      - 'THIRD_PARTY_NOTICES.md'
+      - '.github/CODEOWNERS'
       - '.github/workflows/sbom-scan.yml'
   schedule:
     - cron: '0 3 * * 1'
@@ -17,51 +88,182 @@ permissions:
   contents: read
 
 concurrency:
-  group: canonical-sbom-${{ github.ref }}
+  group: canonical-sbom-ip-clean-room-${{ github.ref }}
   cancel-in-progress: true
 
 env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   NODE_VERSION: '24'
   PNPM_VERSION: '10.2.1'
+  CDXGEN_VERSION: '12.8.3'
+  CDXGEN_INTEGRITY: 'sha512-EfLTkLRjzfWGUdSngTV+yOl8VkNv+mkpC6J7IuuzSumB7FsZFPsPG4EHiGKqoZdeXjdJN1zloXSedw7cW6cF/w=='
 
 jobs:
   sbom:
-    name: CycloneDX SBOM · ${{ matrix.service }}
+    name: Canonical CycloneDX + SPDX SBOM · ${{ matrix.service }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         service: [api, web]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Verify exact source revision
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
       - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
+        run: env -i PATH="$PATH" HOME="$HOME" CI=true pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Generate CycloneDX SBOM
+      - name: Verify pinned SBOM tool package integrity
+        run: test "$(env -i PATH="$PATH" HOME="$HOME" npm view @cyclonedx/cdxgen@${CDXGEN_VERSION} dist.integrity)" = "${CDXGEN_INTEGRITY}"
+
+      - name: Generate canonical CycloneDX + SPDX SBOM
         run: |
           mkdir -p artifacts/sbom
-          npx -y @cyclonedx/cdxgen@11 \
+          env -i PATH="$PATH" HOME="$HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
             -t pnpm \
-            -o "artifacts/sbom/sbom-${{ matrix.service }}.json" \
+            --format cyclonedx,spdx \
+            --validate \
+            -o "artifacts/sbom/sbom-${{ matrix.service }}.cdx.json" \
             "apps/${{ matrix.service }}"
-          test -s "artifacts/sbom/sbom-${{ matrix.service }}.json"
+          test -s "artifacts/sbom/sbom-${{ matrix.service }}.cdx.json"
+          test -s "artifacts/sbom/sbom-${{ matrix.service }}.spdx.json"
 
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+      - name: Upload canonical SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: sbom-${{ matrix.service }}-${{ github.sha }}
-          path: artifacts/sbom/sbom-${{ matrix.service }}.json
+          name: sbom-${{ matrix.service }}-${{ env.SOURCE_SHA }}
+          path: |
+            artifacts/sbom/sbom-${{ matrix.service }}.cdx.json
+            artifacts/sbom/sbom-${{ matrix.service }}.spdx.json
           if-no-files-found: error
           retention-days: 90
+
+  ip-evidence:
+    name: Conservative provenance, licenses & SBOM baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout full Git history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact source revision
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Test first-party IP policy logic
+        run: node --test scripts/ip/*.test.mjs
+
+      - name: Install locked Node dependencies
+        run: env -i PATH="$PATH" HOME="$HOME" CI=true pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Verify internal package no-publish policy
+        run: node scripts/ip/verify-private-packages.mjs --baseline
+
+      - name: Verify Qwen foundation-model immutability
+        run: node scripts/ip/verify-qwen-immutability.mjs
+
+      - name: Run first-party supply-chain policy tests
+        run: node --test scripts/security/*.test.mjs
+
+      - name: Verify GitHub Actions pinning ratchet
+        run: node scripts/security/verify-action-pinning.mjs
+
+      - name: Verify every key records where it may be used
+        run: node scripts/security/verify-key-usage.mjs
+
+      - name: Verify no decision cites something that is gone
+        run: node scripts/security/verify-decision-evidence.mjs
+
+      - name: Verify every algorithm has a migration path
+        run: node scripts/security/verify-crypto-migration-plan.mjs
+
+      - name: Scan the working tree for exposed secrets
+        run: node scripts/security/scan-secret-history.mjs
+
+      - name: Build full-history clean-room provenance
+        run: node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room
+
+      - name: Verify pinned SBOM tool package integrity
+        run: test "$(env -i PATH="$PATH" HOME="$HOME" npm view @cyclonedx/cdxgen@${CDXGEN_VERSION} dist.integrity)" = "${CDXGEN_INTEGRITY}"
+
+      - name: Generate Node/pnpm CycloneDX + SPDX SBOM
+        run: |
+          mkdir -p artifacts/ip-clean-room/sbom
+          env -i PATH="$PATH" HOME="$HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
+            -t pnpm \
+            --format cyclonedx,spdx \
+            --validate \
+            -o artifacts/ip-clean-room/sbom/sbom-node.cdx.json \
+            .
+
+      - name: Generate Python/TAI CycloneDX + SPDX SBOM
+        run: |
+          env -i PATH="$PATH" HOME="$HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
+            -t python \
+            --format cyclonedx,spdx \
+            --validate \
+            -o artifacts/ip-clean-room/sbom/sbom-tai.cdx.json \
+            apps/tai
+
+      - name: Build measured SBOM scope coverage
+        run: node scripts/ip/build-sbom-coverage.mjs artifacts/ip-clean-room docs/ip/sbom-coverage-scope.json
+
+      - name: Build transitive license map
+        run: node scripts/ip/build-license-map.mjs artifacts/ip-clean-room/sbom artifacts/ip-clean-room
+
+      - name: Build offline-only similarity evidence
+        run: node scripts/ip/build-offline-similarity-evidence.mjs artifacts/ip-clean-room
+
+      - name: Build pinned OWASP ASVS 5 evidence inventory
+        run: node scripts/security/build-asvs-matrix.mjs artifacts/ip-clean-room/security/asvs
+
+      - name: Upload immutable IP evidence bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ip-clean-room-${{ env.SOURCE_SHA }}
+          path: artifacts/ip-clean-room
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce conservative baseline evidence gate
+        if: always()
+        run: node scripts/ip/verify-ip-evidence.mjs artifacts/ip-clean-room --baseline

@@ -1,29 +1,69 @@
+import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { SESSION_COOKIE } from '../../../../lib/auth-cookies';
+import { ACCESS_COOKIE } from '../../../../lib/auth-cookies';
+import {
+  clearAuthenticatedSession,
+  normalizeSurfaceRole,
+} from '../../../../lib/server/auth-session-response';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const jar = await cookies();
-  const raw = jar.get(SESSION_COOKIE)?.value;
-  if (!raw) {
-    return NextResponse.json({ role: 'GUEST', authenticated: false });
+const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+
+function json(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+  });
+}
+
+export async function GET(request: Request) {
+  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const accessToken = (await cookies()).get(ACCESS_COOKIE)?.value || '';
+  if (!accessToken || accessToken.startsWith('demo.')) {
+    const response = json({ authenticated: false, code: 'UNAUTHENTICATED', correlationId }, 401);
+    clearAuthenticatedSession(response);
+    return response;
   }
+  if (!API_URL) {
+    return json({ authenticated: false, code: 'AUTH_SERVICE_UNAVAILABLE', correlationId }, 503);
+  }
+
   try {
-    const session = JSON.parse(decodeURIComponent(raw));
-    const now = Math.floor(Date.now() / 1000);
-    if (session.exp && session.exp < now) {
-      return NextResponse.json({ role: 'GUEST', authenticated: false, reason: 'expired' });
-    }
-    return NextResponse.json({
-      role: session.role || 'GUEST',
-      email: session.email || null,
-      surfaceRole: session.role || 'GUEST',
-      authenticated: true,
-      expiresAt: session.exp ? session.exp * 1000 : null,
+    const upstream = await fetch(`${API_URL}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'x-correlation-id': correlationId,
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5_000),
     });
-  } catch {
-    return NextResponse.json({ role: 'GUEST', authenticated: false });
+    const payload = await upstream.json().catch(() => ({})) as Record<string, unknown>;
+    if (!upstream.ok) {
+      const response = json({ authenticated: false, code: 'UNAUTHENTICATED', correlationId }, 401);
+      clearAuthenticatedSession(response);
+      return response;
+    }
+    const role = normalizeSurfaceRole(String(payload.role || ''), typeof payload.surfaceRole === 'string' ? payload.surfaceRole : undefined);
+    if (
+      !role
+      || typeof payload.id !== 'string'
+      || typeof payload.orgId !== 'string'
+      || typeof payload.tenantId !== 'string'
+      || typeof payload.membershipId !== 'string'
+    ) {
+      const response = json({ authenticated: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', correlationId }, 502);
+      clearAuthenticatedSession(response);
+      return response;
+    }
+    return json({ ...payload, authenticated: true, surfaceRole: role, correlationId });
+  } catch (error) {
+    console.error('auth_me_transport_failure', JSON.stringify({
+      correlationId,
+      reason: error instanceof Error ? error.name : 'unknown',
+    }));
+    return json({ authenticated: false, code: 'AUTH_SERVICE_UNAVAILABLE', correlationId }, 503);
   }
 }

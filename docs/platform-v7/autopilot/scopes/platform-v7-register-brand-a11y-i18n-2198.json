@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-register-brand-a11y-i18n-2198",
+  "branch": "fix/p7-register-brand-a11y-i18n-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "066dc5e3ed6d7d8f91583308433d270a7529989e"
+  },
+  "purpose": "Fix the single residual accessibility localization defect proven by exact production i18n acceptance run 31947878003: the register page brand home aria-label remains Russian on EN. Render the existing locale-native publicEntry.chrome brandHomeLabel directly in PublicSiteHeader and add a regression contract, without changing visual composition, authentication, registration semantics, routing, API, database, release authority or infrastructure.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/register/RegisterCleanClient.tsx",
+    "apps/web/tests/unit/platformV7ProductionI18nRuntimeBridge.test.tsx",
+    "docs/platform-v7/autopilot/scopes/platform-v7-register-brand-a11y-i18n-2198.json"
+  ],
+  "productionEvidence": {
+    "failedRun": 31947878003,
+    "failedRevision": "066dc5e3ed6d7d8f91583308433d270a7529989e",
+    "browserMatrix": "FAIL",
+    "provenRoute": "/platform-v7/register",
+    "provenViewport": "320x700",
+    "provenLocale": "en",
+    "residual": "aria-label: Прозрачная Цена — на главную",
+    "engines": ["chromium", "webkit"],
+    "downstreamGates": "NOT_ATTESTED"
+  },
+  "forbiddenChanges": [
+    "visual composition, hierarchy, typography, spacing or approved master copy",
+    "production i18n acceptance allowlist or fail-closed criteria",
+    "authentication, MFA, authorization, RBAC, RLS, tenant or organization authority",
+    "PC-CROP registration business semantics, reviewer or password-reset runtime",
+    "Deal, money, evidence, PostgreSQL or business-state authority",
+    "Gekta model, prompt, inference, latency or entitlement semantics",
+    "release credentials, DNS, SSH, Docker, Caddy or direct REG.RU mutation",
+    "paid services or new recurring cost"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "web-unit regression",
+    "web typecheck and build",
+    "security and governance gates",
+    "production i18n acceptance on a deployed descendant before claiming production PASS"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "This source fix may close the proven register accessibility localization defect. Horizontal overflow, ZH computed typography and locale persistence remain NOT_ATTESTED until the serial production browser matrix reaches them."
+}

@@ -36,7 +36,7 @@ const thresholds = {
   webReplicas: 2,
   outboxWorkerReplicas: 2,
   pgbouncerReplicas: 2,
-  pgbouncerRoutedPrincipals: 4,
+  pgbouncerRoutedPrincipals: 5,
   migrationExecutions: 1,
   apiAvailabilityProbeFailures: 0,
   webAvailabilityProbeFailures: 0,
@@ -163,7 +163,7 @@ const report = {
     canonicalRlsAuthorityApplied: actual.canonicalRlsAuthorityViolations === 0,
     outboxWorkerRuntimeClean: actual.outboxWorkerRuntimeErrors === 0,
     runtimeDatabaseAccessThroughPgBouncer:
-      actual.pgbouncerReplicas >= 2 && actual.pgbouncerRoutedPrincipals >= 4,
+      actual.pgbouncerReplicas >= 2 && actual.pgbouncerRoutedPrincipals >= 5,
     directRuntimeDatabaseBypassBlocked: actual.directDatabaseBypassConnections === 0,
     pgbouncerPeerDeletionAvailability: actual.pgbouncerAvailabilityProbeFailures === 0,
     immutablePlatformImages: actual.mutablePlatformImageReferences === 0,

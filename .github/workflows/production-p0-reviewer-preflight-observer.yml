@@ -1,0 +1,124 @@
+name: Production P0 Reviewer Preflight Observer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-preflight-observer.yml'
+      - 'scripts/check-production-p0-reviewer-preflight-observer.mjs'
+  workflow_run:
+    workflows: ['Production P0 Reviewer Preflight']
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-preflight-observer-${{ github.event_name }}-${{ github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_ISSUE_NUMBER: 3072
+
+jobs:
+  contract:
+    name: Validate reviewer-preflight observer contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-production-p0-reviewer-preflight-observer.mjs
+
+  publish-terminal-failure:
+    name: Publish bounded reviewer-preflight failure
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'issue_comment' &&
+      github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+      github.event.workflow_run.actor.login == github.repository_owner &&
+      github.event.workflow_run.triggering_actor.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - name: Resolve bounded failed job and step
+        id: terminal
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$SOURCE_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SOURCE_RUN_URL" == "https://github.com/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID" ]]
+          case "$SOURCE_CONCLUSION" in
+            failure|cancelled|timed_out|action_required|stale) ;;
+            *) echo "Unsupported terminal conclusion: $SOURCE_CONCLUSION" >&2; exit 20 ;;
+          esac
+
+          failed="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/jobs?per_page=100" \
+            --jq '[.jobs[]
+              | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out" or .conclusion == "action_required")
+              | {
+                  job: .name,
+                  step: (([.steps[]? | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out") | .name][0]) // "none")
+                }
+              ][0] // {job:"none",step:"none"}
+              | [.job,.step] | @tsv')"
+          IFS=$'\t' read -r failed_job failed_step <<< "$failed"
+          [[ -n "$failed_job" && -n "$failed_step" ]]
+          [[ "$failed_job" != *$'\n'* && "$failed_step" != *$'\n'* ]]
+          (( ${#failed_job} <= 180 && ${#failed_step} <= 180 ))
+
+          echo "run_id=$SOURCE_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "run_url=$SOURCE_RUN_URL" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$SOURCE_HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "conclusion=$SOURCE_CONCLUSION" >> "$GITHUB_OUTPUT"
+          echo "failed_job=$failed_job" >> "$GITHUB_OUTPUT"
+          echo "failed_step=$failed_step" >> "$GITHUB_OUTPUT"
+
+      - name: Publish bounded terminal failure to release authority
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ steps.terminal.outputs.run_id }}
+          SOURCE_RUN_URL: ${{ steps.terminal.outputs.run_url }}
+          SOURCE_HEAD_SHA: ${{ steps.terminal.outputs.head_sha }}
+          SOURCE_CONCLUSION: ${{ steps.terminal.outputs.conclusion }}
+          FAILED_JOB: ${{ steps.terminal.outputs.failed_job }}
+          FAILED_STEP: ${{ steps.terminal.outputs.failed_step }}
+        run: |
+          set -euo pipefail
+          body="$(cat <<EOF
+          ## Production P0 reviewer preflight — terminal failure
+
+          - source run: [\`$SOURCE_RUN_ID\`]($SOURCE_RUN_URL)
+          - exact head SHA: \`$SOURCE_HEAD_SHA\`
+          - conclusion: \`$SOURCE_CONCLUSION\`
+          - failed job: \`$FAILED_JOB\`
+          - failed step: \`$FAILED_STEP\`
+          - production mutation: \`NONE\`
+          - secrets / PII published: \`NONE\`
+          EOF
+          )"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$body"

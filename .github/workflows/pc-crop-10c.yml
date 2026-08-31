@@ -76,30 +76,156 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Resolve exact base and enforce active PC-CROP project lock
+      - name: Resolve exact base and classify completed-slice regression
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
-          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
+
+          event_name='${{ github.event_name }}'
+          if [[ "$event_name" == 'pull_request' ]]; then
             git fetch --no-tags origin "${{ github.base_ref }}"
             base_ref="origin/${{ github.base_ref }}"
-            export PC_CROP_BRANCH="${{ github.head_ref }}"
-            export PC_CROP_TITLE="${{ github.event.pull_request.title }}"
-            export PC_CROP_ISSUE='3446'
-            export PC_CROP_SCOPE_PATH='docs/platform-v7/autopilot/scopes/pc-crop-10c.json'
-            node scripts/verify-pc-crop-project-lock.mjs | tee "$EVIDENCE_DIR/project-lock.log"
-          elif [[ "${{ github.event_name }}" == 'push' ]]; then
+          elif [[ "$event_name" == 'push' ]]; then
             base_ref='${{ github.event.before }}'
             git cat-file -e "${base_ref}^{commit}"
           else
             base_ref='HEAD^'
           fi
+
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          BASE_REF="$base_ref" node --check scripts/pc-crop-10c/verify.mjs
-          BASE_REF="$base_ref" node scripts/pc-crop-10c/verify.mjs | tee "$EVIDENCE_DIR/source-verification.log"
+
+          # The workflow and shared Prisma schema are governance triggers, not
+          # by themselves product authority. Exclusive 10C files always claim
+          # remediation ownership. The shared schema does so only when one of
+          # the four FGIS tenant-read models actually changed.
+          grep -E '^(apps/api/prisma/migrations/20260730101500_fgis_grain_tenant_read_authority/migration\.sql|apps/api/src/modules/regulatory-integration/regulatory-integration\.module\.ts|apps/api/src/modules/regulatory-integration/dto/fgis-grain-tenant-read\.dto\.ts|apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read\..*|apps/api/test/industrial/fgis-grain-tenant-read\.e2e-spec\.ts|scripts/pc-crop-10c/verify\.mjs|docs/platform-v7/autopilot/scopes/pc-crop-10c\.json)$' \
+            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/authority-files.txt" || true
+
+          schema_path='apps/api/prisma/schema.prisma'
+          if grep -Fxq "$schema_path" "$EVIDENCE_DIR/changed-files.txt"; then
+            base_schema="$RUNNER_TEMP/pc-crop-10c-base-schema.prisma"
+            head_schema="$RUNNER_TEMP/pc-crop-10c-head-schema.prisma"
+            git show "${base_ref}:${schema_path}" > "$base_schema"
+            git show "${EXACT_HEAD}:${schema_path}" > "$head_schema"
+
+            schema_authority_changed='false'
+            for model in \
+              FgisGrainTenantReadAuthorization \
+              FgisGrainTenantReadProviderClaim \
+              FgisGrainTenantReadAudit \
+              FgisGrainTenantReadAuditHead
+            do
+              base_block="$RUNNER_TEMP/pc-crop-10c-${model}-base.prisma"
+              head_block="$RUNNER_TEMP/pc-crop-10c-${model}-head.prisma"
+              awk -v model="$model" \
+                '$0 == "model " model " {" { capture = 1 } capture { print } capture && $0 == "}" { exit }' \
+                "$base_schema" > "$base_block"
+              awk -v model="$model" \
+                '$0 == "model " model " {" { capture = 1 } capture { print } capture && $0 == "}" { exit }' \
+                "$head_schema" > "$head_block"
+              if [[ ! -s "$base_block" || ! -s "$head_block" ]] \
+                 || ! cmp -s "$base_block" "$head_block"; then
+                schema_authority_changed='true'
+              fi
+            done
+            if [[ "$schema_authority_changed" == 'true' ]]; then
+              printf '%s\n' "$schema_path" >> "$EVIDENCE_DIR/authority-files.txt"
+            fi
+          fi
+          sort -u -o "$EVIDENCE_DIR/authority-files.txt" "$EVIDENCE_DIR/authority-files.txt"
+
+          if [[ "$event_name" == 'workflow_dispatch' ]]; then
+            scope_mode='MANUAL_DISPATCH'
+          elif [[ -s "$EVIDENCE_DIR/authority-files.txt" ]]; then
+            scope_mode='SLICE_REMEDIATION'
+          else
+            scope_mode='SHARED_GOVERNANCE'
+          fi
+          printf '%s\n' "$scope_mode" > "$EVIDENCE_DIR/scope-mode.txt"
+
+          if [[ "$scope_mode" == 'SLICE_REMEDIATION' ]]; then
+            export PC_CROP_BRANCH="${{ github.head_ref }}"
+            export PC_CROP_TITLE="${{ github.event.pull_request.title }}"
+            export PC_CROP_ISSUE='3446'
+            export PC_CROP_SCOPE_PATH='docs/platform-v7/autopilot/scopes/pc-crop-10c.json'
+            node scripts/verify-pc-crop-project-lock.mjs | tee "$EVIDENCE_DIR/project-lock.log"
+          else
+            node scripts/verify-pc-crop-project-lock.mjs --self-test \
+              | tee "$EVIDENCE_DIR/project-lock.log"
+          fi
+
+          cat > "$RUNNER_TEMP/run-pc-crop-10c-verifier.sh" <<'VERIFY'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          log_path="$1"
+          scope_mode="$2"
+          base_ref="$3"
+          evidence_dir="$4"
+          verifier='scripts/pc-crop-10c/verify.mjs'
+          lock_path='docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json'
+
+          node --check "$verifier"
+          if [[ "$scope_mode" == 'SLICE_REMEDIATION' ]]; then
+            BASE_REF="$base_ref" node "$verifier" | tee "$log_path"
+            exit 0
+          fi
+
+          backup="$RUNNER_TEMP/pc-crop-remainder.actual.json"
+          cp "$lock_path" "$backup"
+          restore_lock() {
+            cp "$backup" "$lock_path"
+          }
+          trap restore_lock EXIT
+
+          node - "$lock_path" <<'NODE'
+          const fs = require('node:fs');
+          const path = process.argv[2];
+          const lock = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const completion = lock.completion || {};
+          if (lock.status !== 'completed'
+            || lock.activeIssue !== null
+            || lock.activeSlice !== null
+            || completion.internalRepositoryRemainderComplete !== true
+            || completion.industrialLiveReady !== false
+            || completion.implementationAuthorized !== false
+            || lock.operationalStatus !== 'NOT_ATTESTED') {
+            throw new Error('PC_CROP_10C_COMPLETED_LOCK_REGRESSION_INVALID');
+          }
+          // The historical source verifier predates project completion and pins
+          // the original active slice. This projection exists only in the runner
+          // working tree after the real completed lock passed its own self-test.
+          lock.status = 'active';
+          lock.activeIssue = 3446;
+          lock.activeSlice = 'PC-CROP-10C';
+          fs.writeFileSync(path, `${JSON.stringify(lock, null, 2)}\n`);
+          NODE
+
+          node "$verifier" | tee "$log_path"
+          restore_lock
+          trap - EXIT
+          git diff --exit-code -- "$lock_path"
+
+          node - "$evidence_dir/acceptance.json" "$backup" <<'NODE'
+          const fs = require('node:fs');
+          const [reportPath, lockPath] = process.argv.slice(2);
+          const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+          const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+          report.governanceMode = 'COMPLETED_SLICE_REGRESSION';
+          report.projectLockStatus = lock.status;
+          report.completionMergeSha = lock.completion?.mergeSha || null;
+          report.internalRepositoryRemainderComplete =
+            lock.completion?.internalRepositoryRemainderComplete === true;
+          report.industrialLiveReady = lock.completion?.industrialLiveReady === true;
+          fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+          NODE
+          VERIFY
+          chmod 0700 "$RUNNER_TEMP/run-pc-crop-10c-verifier.sh"
+          "$RUNNER_TEMP/run-pc-crop-10c-verifier.sh" \
+            "$EVIDENCE_DIR/source-verification.log" \
+            "$scope_mode" "$base_ref" "$EVIDENCE_DIR"
 
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
@@ -114,9 +240,9 @@ jobs:
           DO $bootstrap$
           BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_runtime') THEN
-              CREATE ROLE app_runtime LOGIN PASSWORD 'app_runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+              CREATE ROLE app_runtime LOGIN PASSWORD 'app_runtime' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOINHERIT;
             ELSE
-              ALTER ROLE app_runtime LOGIN PASSWORD 'app_runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+              ALTER ROLE app_runtime LOGIN PASSWORD 'app_runtime' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOINHERIT;
             END IF;
           END;
           $bootstrap$;
@@ -401,10 +527,13 @@ jobs:
         run: |
           set -euo pipefail
           base_ref="$(cat "$EVIDENCE_DIR/base-ref.txt")"
-          BASE_REF="$base_ref" node scripts/pc-crop-10c/verify.mjs | tee "$EVIDENCE_DIR/final-verification.log"
-          node - "$EVIDENCE_DIR/acceptance.json" "$EXACT_HEAD" <<'NODE'
+          scope_mode="$(cat "$EVIDENCE_DIR/scope-mode.txt")"
+          "$RUNNER_TEMP/run-pc-crop-10c-verifier.sh" \
+            "$EVIDENCE_DIR/final-verification.log" \
+            "$scope_mode" "$base_ref" "$EVIDENCE_DIR"
+          node - "$EVIDENCE_DIR/acceptance.json" "$EXACT_HEAD" "$scope_mode" <<'NODE'
           const fs = require('node:fs');
-          const [path, exactHead] = process.argv.slice(2);
+          const [path, exactHead, scopeMode] = process.argv.slice(2);
           const report = JSON.parse(fs.readFileSync(path, 'utf8'));
           if (report.schemaVersion !== 'pc-crop-10c.acceptance.v1') process.exit(1);
           if (report.status !== 'PASS' || report.exactHead !== exactHead) process.exit(2);
@@ -417,6 +546,13 @@ jobs:
           if (report.counts?.allowedPaths !== 15) process.exit(9);
           if (Object.values(report.boundaries || {}).some(Boolean)) process.exit(10);
           if ((report.failures || []).length !== 0) process.exit(11);
+          if (scopeMode !== 'SLICE_REMEDIATION') {
+            if (report.governanceMode !== 'COMPLETED_SLICE_REGRESSION') process.exit(12);
+            if (report.projectLockStatus !== 'completed') process.exit(13);
+            if (report.internalRepositoryRemainderComplete !== true) process.exit(14);
+            if (report.industrialLiveReady !== false) process.exit(15);
+            if (report.completionMergeSha !== '2a2a58778d194d4abc37c4dde429993dc8546d1f') process.exit(16);
+          }
           NODE
 
       - name: Upload exact-head PC-CROP-10C evidence

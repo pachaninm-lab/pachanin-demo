@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4584,
+  "branch": "sec/evidence-record-accuracy-4584",
+  "status": "active",
+  "purpose": "Restore main to green by regenerating the cryptographic inventory the staleness guard correctly rejected, and correct the V14.2.1 note whose supporting inference was wrong.",
+  "authorityBaseExactMain": "9d35dd9aee731af7468d478eb945c8ac5abba009",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/evidence-record-accuracy-4584.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "A guard that correctly rejects a stale artefact is satisfied by regenerating the artefact, never by weakening or removing the guard.",
+    "A note whose reasoning is wrong is corrected in place, and the correction says what was wrong.",
+    "A verdict changes only when the facts change; correcting reasoning does not move a verdict.",
+    "No product logic, dependency, production, REG.RU, DNS or database change.",
+    "The pinning ratchet stays at 1028.",
+    "finalPass stays false."
+  ],
+  "acceptance": [
+    "All 60 security-script tests pass, including the staleness guard that is failing on main.",
+    "The inventory records the bcrypt site count falling from 8 to 4, which is the password-hashing consolidation appearing in the record.",
+    "V14.2.1 stays FAIL; only its note and one condition change.",
+    "The replacement condition proves the middleware logs the path rather than the full URL.",
+    "The evidence gate rejects 0 decisions.",
+    "finalPass stays false."
+  ]
+}

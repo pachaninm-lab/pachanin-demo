@@ -1,6 +1,7 @@
 {
   "name": "@pc/design-tokens",
   "private": true,
+  "license": "UNLICENSED",
   "version": "0.1.0",
   "main": "src/index.ts",
   "types": "src/index.ts",
