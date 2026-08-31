@@ -5,6 +5,8 @@ import { spawnSync } from 'node:child_process';
 
 const ACCEPTANCE='scripts/production-p0-first-customer-acceptance.sh';
 const WORKFLOW='.github/workflows/production-p0-first-customer-acceptance.yml';
+const DECISION='apps/api/src/modules/auth/registration-decision.service.ts';
+const HUMAN_CEREMONY_TEST='apps/web/tests/unit/p0HumanReviewerCeremony.test.ts';
 const CORE_BLOB='b02ce590dc308ce46c41df33416dd7b11700ae98';
 const CHECKER_BLOB='5b315be49d4f7025069441a5ff551729dbc46d36';
 const HISTORICAL_COMMIT='c8038e36adb95d62ea9c862deccdda26547f7799';
@@ -266,6 +268,84 @@ if(setURegression.status!==0) {
   fail(`set -u read_customer_resource regression failed: ${(setURegression.stderr||setURegression.stdout||'').trim().slice(0,600)}`);
 }
 
+const decisionSource=fs.readFileSync(DECISION,'utf8');
+const humanCeremonySource=fs.readFileSync(HUMAN_CEREMONY_TEST,'utf8');
+const durableModeSignals=[
+  'queueRegistrationDecisionNotification(',
+  'completeDecisionResponse(',
+  'waitForRegistrationDecisionDelivery(',
+];
+const durableSignalCount=durableModeSignals.filter((marker)=>decisionSource.includes(marker)).length;
+if(durableSignalCount!==0 && durableSignalCount!==durableModeSignals.length) {
+  fail('registration decision durable outbox transition is only partially present');
+}
+const durableDecision=durableSignalCount===durableModeSignals.length;
+if(durableDecision) {
+  for(const marker of [
+    'await this.audit(tx, {',
+    'await this.emitRegistrationLifecycleReceipt(tx, application.id, correlationId);',
+    'await this.emitRegistrationLifecycleReceipt(tx, applicationId, correlationId);',
+    'FROM auth.emit_registration_lifecycle_receipt(',
+    'REGISTRATION_LIFECYCLE_RECEIPT_MISSING',
+    'private async queueRegistrationDecisionNotification(',
+    'private async completeDecisionResponse(',
+    'await this.mailOutbox.waitForRegistrationDecisionDelivery(',
+    "if (delivery.status !== 'SENT')",
+    "'REGISTRATION_DECISION_NOTIFICATION_FAILED'",
+    "'REGISTRATION_DECISION_NOTIFICATION_PENDING'",
+    "return { ...outcome.response, notificationDelivery: { status: 'SENT' } };",
+  ]) if(!decisionSource.includes(marker)) fail(`durable decision marker missing: ${marker}`);
+
+  const replayRead='response: await this.readResult(tx, applicationId, true),';
+  if((decisionSource.split(replayRead).length-1)!==2) {
+    fail('both exact decision replay branches must return replayed state after durable enqueue recovery');
+  }
+  const queueCall='await this.queueRegistrationDecisionNotification(';
+  if((decisionSource.split(queueCall).length-1)!==4) {
+    fail('both new decisions and both exact replays must bind one durable notification enqueue path');
+  }
+  const completionCall='return this.completeDecisionResponse(outcome, deliveryKey);';
+  if((decisionSource.split(completionCall).length-1)!==2) {
+    fail('both decision entry points must wait on the same durable delivery proof boundary');
+  }
+  for(const forbidden of [
+    'return this.readResult(tx, applicationId, deliveryKey, true);',
+    '...(!replayed && deliveryAuthorized(deliveryKey)',
+  ]) if(decisionSource.includes(forbidden)) fail(`legacy decision notification path remains: ${forbidden}`);
+
+  for(const receipt of [
+    'await this.emitRegistrationLifecycleReceipt(tx, application.id, correlationId);',
+    'await this.emitRegistrationLifecycleReceipt(tx, applicationId, correlationId);',
+  ]) {
+    const receiptIndex=decisionSource.indexOf(receipt);
+    const auditIndex=decisionSource.lastIndexOf('await this.audit(tx, {',receiptIndex);
+    const enqueueIndex=decisionSource.indexOf(queueCall,receiptIndex);
+    if(receiptIndex<0 || auditIndex<0 || auditIndex>receiptIndex || enqueueIndex<receiptIndex) {
+      fail(`durable notification must follow approval audit and causal receipt for ${receipt}`);
+    }
+  }
+
+  for(const marker of [
+    "await import('@/app/api/staff/[...path]/route')",
+    "await POST(decisionRequest('p0-human-approve:reg_p0_human_ceremony'), context)",
+    "await POST(decisionRequest('p0-human-replay:reg_p0_human_ceremony'), context)",
+    "notificationDelivery: { status: 'SENT' }",
+    "notificationDelivered: true",
+    "notificationSuppressed: true",
+    "fails closed when a successful upstream replay lacks durable SENT evidence",
+    "expect(response.status).toBe(503)",
+    "code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING'",
+    "expect(payload).not.toHaveProperty('notificationDelivery')",
+    "expect(payload).not.toHaveProperty('notificationDelivered')",
+  ]) if(!humanCeremonySource.includes(marker)) fail(`durable reviewer ceremony marker missing: ${marker}`);
+  if((humanCeremonySource.split("notificationDelivery: { status: 'SENT' }").length-1)!==2) {
+    fail('reviewer ceremony must prove durable SENT on initial delivery and exact replay');
+  }
+  if(humanCeremonySource.includes('sendTransactionalMail')) {
+    fail('reviewer ceremony must not retain a direct SMTP dependency');
+  }
+}
+
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pc-p0-first-customer-contract-'));
 const oldChecker=path.join(dir,'checker.mjs');
 const oldAcceptance=path.join(dir,'acceptance.sh');
@@ -280,15 +360,29 @@ try {
   const current=fs.readFileSync(ACCEPTANCE);
   const currentMode=fs.statSync(ACCEPTANCE).mode & 0o777;
   const currentWorkflow=fs.readFileSync(WORKFLOW);
+  const currentDecision=durableDecision ? fs.readFileSync(DECISION) : null;
+  const currentDecisionMode=durableDecision ? fs.statSync(DECISION).mode & 0o777 : null;
+  const currentHumanCeremony=durableDecision ? fs.readFileSync(HUMAN_CEREMONY_TEST) : null;
+  const currentHumanCeremonyMode=durableDecision ? fs.statSync(HUMAN_CEREMONY_TEST).mode & 0o777 : null;
   try {
     fs.copyFileSync(oldAcceptance,ACCEPTANCE);
     fs.copyFileSync(oldWorkflow,WORKFLOW);
+    if(durableDecision) {
+      fs.writeFileSync(DECISION,run('git',['show',`${HISTORICAL_COMMIT}:${DECISION}`]));
+      fs.writeFileSync(HUMAN_CEREMONY_TEST,run('git',['show',`${HISTORICAL_COMMIT}:${HUMAN_CEREMONY_TEST}`]));
+    }
     const historical=spawnSync(process.execPath,[oldChecker],{encoding:'utf8'});
     if(historical.status!==0) fail(`historical contract failed: ${(historical.stderr||historical.stdout||'').trim().slice(0,1200)}`);
   } finally {
     fs.writeFileSync(ACCEPTANCE,current);
     fs.chmodSync(ACCEPTANCE,currentMode);
     fs.writeFileSync(WORKFLOW,currentWorkflow);
+    if(durableDecision) {
+      fs.writeFileSync(DECISION,currentDecision);
+      fs.chmodSync(DECISION,currentDecisionMode);
+      fs.writeFileSync(HUMAN_CEREMONY_TEST,currentHumanCeremony);
+      fs.chmodSync(HUMAN_CEREMONY_TEST,currentHumanCeremonyMode);
+    }
   }
 } finally {
   fs.rmSync(dir,{recursive:true,force:true});
@@ -310,3 +404,4 @@ console.log('P0_FIRST_CUSTOMER_IMAP_RECIPIENT_CANONICALIZATION=IDNA_ASCII');
 console.log('P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=SHARED_TMP_FAIL_CLOSED');
 console.log('P0_FIRST_CUSTOMER_REGISTRATION_FAILURE_EVIDENCE=HTTP_STATUS_AND_ALLOWLISTED_PUBLIC_CODE_ONLY');
 console.log('P0_FIRST_CUSTOMER_READ_RESOURCE_SET_U=PASS');
+console.log(`P0_FIRST_CUSTOMER_DECISION_NOTIFICATION_CONTRACT=${durableDecision?'DURABLE_OUTBOX':'LEGACY_SYNCHRONOUS'}`);
