@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/p0-registration-decision-durable-outbox-controller.yml'
       - 'scripts/p0-registration-decision-durable-outbox-patch.py'
+      - 'scripts/p0-registration-decision-durable-outbox-runner.py'
       - 'docs/platform-v7/autopilot/scopes/p0-registration-decision-outbox-controller-4858.json'
   issue_comment:
     types: [created]
@@ -62,8 +63,10 @@ jobs:
           set +e
           (
             set -Eeuo pipefail
-            python3 -m py_compile scripts/p0-registration-decision-durable-outbox-patch.py
-            python3 scripts/p0-registration-decision-durable-outbox-patch.py check
+            python3 -m py_compile \
+              scripts/p0-registration-decision-durable-outbox-patch.py \
+              scripts/p0-registration-decision-durable-outbox-runner.py
+            python3 scripts/p0-registration-decision-durable-outbox-runner.py check
             python3 -m json.tool docs/platform-v7/autopilot/scopes/p0-registration-decision-outbox-controller-4858.json >/dev/null
             git diff --check
           ) >"$log" 2>&1
@@ -146,8 +149,8 @@ jobs:
             exit 1
           fi
           git checkout -b "$IMPLEMENTATION_BRANCH"
-          python3 scripts/p0-registration-decision-durable-outbox-patch.py apply
-          python3 scripts/p0-registration-decision-durable-outbox-patch.py check-applied
+          python3 scripts/p0-registration-decision-durable-outbox-runner.py apply
+          python3 scripts/p0-registration-decision-durable-outbox-runner.py check-applied
           python3 -m json.tool docs/platform-v7/autopilot/scopes/p0-registration-decision-durable-outbox-4858.json >/dev/null
           bash -n <(printf '%s\n' '#!/usr/bin/env bash' 'set -Eeuo pipefail')
           git diff --check
