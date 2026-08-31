@@ -229,6 +229,37 @@ describe('platform registration reviewer boundary', () => {
     }
   });
 
+  it('returns bounded SENT evidence after a durable replay recovery', async () => {
+    const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
+    const deliveryKey = 'registration-delivery-key-for-replay-proof';
+    process.env.REGISTRATION_DELIVERY_KEY = deliveryKey;
+    const { service, mailOutbox } = createService();
+    const complete = (service as unknown as {
+      completeDecisionResponse: (
+        outcome: Record<string, unknown>,
+        providedDeliveryKey?: string,
+      ) => Promise<Record<string, unknown>>;
+    }).completeDecisionResponse.bind(service);
+    try {
+      const result = await complete({
+        response: {
+          applicationId: 'application-1', status: 'ACTIVATED', nextAction: 'LOGIN',
+          version: '2', correlationId: 'correlation-replay-proof', replayed: true,
+        },
+        mailIdempotencyKey: `auth-mail:registration-decision:${'b'.repeat(64)}`,
+      }, deliveryKey);
+      expect(mailOutbox.waitForRegistrationDecisionDelivery).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({
+        replayed: true,
+        notificationDelivery: { status: 'SENT' },
+      });
+      expect(JSON.stringify(result)).not.toContain('@');
+    } finally {
+      if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
+      else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
+    }
+  });
+
   it('keeps the causal receipt inside a membership-free bounded PostgreSQL authority', () => {
     const migration = lifecycleReceiptMigration();
 
@@ -266,13 +297,7 @@ describe('platform registration reviewer boundary', () => {
         order.push('queue');
         return `auth-mail:registration-decision:${'a'.repeat(64)}`;
       }),
-      readResult: jest.fn(async () => {
-        order.push('read');
-        return {
-          applicationId: application.id, status: 'ACTIVATED', nextAction: 'LOGIN',
-          version: '3', correlationId: 'correlation-1', replayed: false,
-        };
-      }),
+      readResult: jest.fn(async () => { order.push('read'); return { status: 'ACTIVATED' }; }),
     });
 
     await expect(service.decide(

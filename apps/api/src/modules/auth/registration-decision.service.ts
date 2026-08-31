@@ -829,9 +829,7 @@ export class RegistrationDecisionService {
         retryAfterSeconds: 2,
       });
     }
-    return outcome.response.replayed
-      ? outcome.response
-      : { ...outcome.response, notificationDelivery: { status: 'SENT' } };
+    return { ...outcome.response, notificationDelivery: { status: 'SENT' } };
   }
 
   private async readResult(

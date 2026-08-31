@@ -187,6 +187,65 @@ describe('P0 first-customer completion boundaries', () => {
     expect(payload).not.toHaveProperty('notificationDelivery');
   });
 
+  it('accepts an exact join replay only after durable SENT evidence', async () => {
+    vi.stubEnv('API_URL', 'https://api.example.test');
+    vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: true,
+      notificationDelivery: { status: 'SENT' },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+    const response = await POST(employeeJoinDecisionRequest(), {
+      params: Promise.resolve({ applicationId: 'reg_employee' }),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: true,
+      correlationId: 'p0-employee-join-http-contract',
+    });
+    expect(payload).not.toHaveProperty('notificationDelivery');
+    expect(payload).not.toHaveProperty('notificationDelivered');
+  });
+
+  it('fails closed when an upstream join replay omits durable SENT evidence', async () => {
+    vi.stubEnv('API_URL', 'https://api.example.test');
+    vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 'ACTIVATED',
+      nextAction: 'LOGIN',
+      replayed: true,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })));
+
+    const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+    const response = await POST(employeeJoinDecisionRequest(), {
+      params: Promise.resolve({ applicationId: 'reg_employee' }),
+    });
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(503);
+    expect(payload).toMatchObject({
+      status: 'ACTIVATED',
+      replayed: true,
+      code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+      correlationId: 'p0-employee-join-http-contract',
+    });
+    expect(payload).not.toHaveProperty('notificationDelivery');
+    expect(payload).not.toHaveProperty('notificationDelivered');
+  });
+
   it('preserves an unsuccessful upstream join decision status', async () => {
     vi.stubEnv('API_URL', 'https://api.example.test');
     vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));

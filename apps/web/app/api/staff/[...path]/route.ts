@@ -383,6 +383,13 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
       ? safePayload.notificationDelivery as { status?: unknown }
       : null;
     delete safePayload.notificationDelivery;
+    if (upstream.ok && registrationDecision && notification?.status !== 'SENT') {
+      return json({
+        ...safePayload,
+        code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+        correlationId,
+      }, 503);
+    }
     if (upstream.ok && registrationDecision && payloadObject.replayed !== true) {
       const notificationDelivered = notification?.status === 'SENT';
       safePayload.notificationDelivered = notificationDelivered;

@@ -10,7 +10,7 @@ export const maxDuration = 100;
 // The API performs four guarded database stages before a Serializable
 // transaction whose maxWait + timeout envelope is 20 seconds. Four default
 // 10-second pool-acquisition windows plus that transaction total 60 seconds;
-// keep explicit transport/query headroom before the synchronous mail fallback.
+// keep explicit transport/query headroom before the bounded durable mail-delivery wait.
 const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 75_000;
 
 function json(body: Record<string, unknown>, status: number) {
@@ -90,10 +90,8 @@ export async function POST(
   delete payload.notificationDelivery;
 
   if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);
-  if (payload.replayed === true) return json({ ...payload, correlationId }, 200);
 
-  let notificationDelivered = false;
-  notificationDelivered = notification?.status === 'SENT';
+  const notificationDelivered = notification?.status === 'SENT';
   console.info('organization_join_decision_notification_result', JSON.stringify({
     correlationId,
     delivered: notificationDelivered,
@@ -107,5 +105,6 @@ export async function POST(
       correlationId,
     }, 503);
   }
+  if (payload.replayed === true) return json({ ...payload, correlationId }, 200);
   return json({ ...payload, notificationDelivered, correlationId }, 200);
 }
