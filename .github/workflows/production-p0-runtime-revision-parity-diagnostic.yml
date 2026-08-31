@@ -22,7 +22,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (
         github.event_name == 'issue_comment' &&
-        github.event.issue.number == 3072 &&
+        github.event.issue.number == 4637 &&
         github.event.comment.user.login == github.repository_owner &&
         github.event.comment.author_association == 'OWNER' &&
         (
@@ -63,6 +63,13 @@ jobs:
           missing = [item for item in required if item not in text]
           if missing:
               raise SystemExit('missing invariant: ' + ' | '.join(missing))
+          exactly_once = [
+              'github.event.issue.number == ' + '4637',
+              'gh issue comment ' + '4637',
+          ]
+          wrong_count = [item for item in exactly_once if text.count(item) != 1]
+          if wrong_count:
+              raise SystemExit('non-exact continuation invariant: ' + ' | '.join(wrong_count))
           forbidden = [
               'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',
               'docker ' + 'kill', 'docker ' + 'compose', 'docker ' + 'service',
@@ -70,6 +77,8 @@ jobs:
               'TRUNCATE ' + 'TABLE', 'ALTER ' + 'ROLE', 'MAIL ' + 'FROM',
               'RCPT ' + 'TO', '/api/auth/' + 'forgot-password',
               '--request ' + 'POST', '-X ' + 'POST', '--data-' + 'binary',
+              'github.event.issue.number == ' + '3072',
+              'gh issue comment ' + '3072',
           ]
           bad = [item for item in forbidden if item in text]
           if bad:
@@ -260,7 +269,7 @@ jobs:
           for rev in "$api" "$web" "$worker"; do git cat-file -e "${rev}^{commit}"; done
 
           printf -v comment_body '## Production P0 runtime revision parity diagnostic\n\n- exact main: `%s`\n- API revision: `%s`\n- Web revision: `%s`\n- auth-mail-worker revision: `%s`\n- auth-mail-worker state: `%s`\n- auth-mail-worker health: `%s`\n- revision parity: `%s`\n- reviewer identity exposure: `NONE`\n- PRODUCTION_MUTATION: `NONE`' "$TARGET_SHA" "$api" "$web" "$worker" "$state" "$health" "$parity"
-          gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body "$comment_body" >/dev/null
+          gh issue comment 4637 --repo "$GITHUB_REPOSITORY" --body "$comment_body" >/dev/null
 
           echo "API_REVISION=$api"
           echo "WEB_REVISION=$web"
