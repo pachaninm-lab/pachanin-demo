@@ -62,6 +62,52 @@ const gracefulAfter = [
   'fi',
 ].join('\n');
 
+const poisonBefore = [
+  'test "$(seed_small_entries "$healthy_suffix" 20 10)" = "20"',
+  'wait_for_sql "healthy entries beside poison" "20" 60 \\',
+  '  "SELECT count(*) FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${healthy_suffix}\' AND \\"status\\"=\'SENT\';" \\',
+  '  >/dev/null',
+  'admin_sql "',
+  '  UPDATE \\"outbox_entries\\"',
+  '  SET \\"nextRetryAt\\"=NOW()-INTERVAL \'1 second\'',
+  '  WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' AND \\"status\\"=\'PENDING\';',
+  '" >/dev/null',
+  'wait_for_sql "poison dead letter" "1" 60 \\',
+  '  "SELECT count(*) FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' AND \\"status\\"=\'DEAD_LETTER\';" \\',
+  '  >/dev/null',
+].join('\n');
+
+const poisonAfter = [
+  '# Observe a durable first retry before healthy work is introduced. The prior',
+  '# PROCESSING probe sampled once per second, but an oversized Kafka rejection',
+  '# can leave PROCESSING in milliseconds; missing that transient state made the',
+  '# acceptance timing-dependent even though the real worker path had executed.',
+  'wait_for_sql "poison first retry backoff before healthy seed" "FIRST_RETRY_BACKOFF" 60 \\',
+  '  "SELECT CASE WHEN \\"status\\"=\'PENDING\' AND \\"retryCount\\"=1 AND \\"nextRetryAt\\">NOW() AND \\"leaseOwner\\" IS NULL AND \\"leaseToken\\" IS NULL THEN \'FIRST_RETRY_BACKOFF\' ELSE COALESCE(\\"status\\",\'MISSING\') END FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' LIMIT 1;" \\',
+  '  >/dev/null',
+  'poison_first_retry="$(admin_sql "SELECT concat_ws(\'|\', \\"status\\"::text, \\"retryCount\\"::text, COALESCE(\\"nextRetryAt\\"::text,\'\')) FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' LIMIT 1;")"',
+  'test -n "$poison_first_retry"',
+  'printf \'%s\\n\' "$poison_first_retry" > "$RUNTIME_DIR/poison-first-retry.txt"',
+  'test "$(seed_small_entries "$healthy_suffix" 20 10)" = "20"',
+  'wait_for_sql "healthy entries beside a poison in retry backoff" "20" 60 \\',
+  '  "SELECT count(*) FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${healthy_suffix}\' AND \\"status\\"=\'SENT\';" \\',
+  '  >/dev/null',
+  '# Wait for the active poison attempt to become retryable (or already dead)',
+  '# before forcing the retry deadline. Updating nextRetryAt while PROCESSING is',
+  '# a no-op and previously left the second oversized send outside the 60s gate.',
+  'wait_for_sql "poison active attempt completion" "RETRYABLE_OR_DEAD" 120 \\',
+  '  "SELECT CASE WHEN \\"status\\" IN (\'PENDING\',\'DEAD_LETTER\') THEN \'RETRYABLE_OR_DEAD\' ELSE COALESCE(\\"status\\",\'MISSING\') END FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' LIMIT 1;" \\',
+  '  >/dev/null',
+  'admin_sql "',
+  '  UPDATE \\"outbox_entries\\"',
+  '  SET \\"nextRetryAt\\"=NOW()-INTERVAL \'1 second\'',
+  '  WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' AND \\"status\\"=\'PENDING\';',
+  '" >/dev/null',
+  'wait_for_sql "poison dead letter" "1" 120 \\',
+  '  "SELECT count(*) FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' AND \\"status\\"=\'DEAD_LETTER\';" \\',
+  '  >/dev/null',
+].join('\n');
+
 const consumerBefore = [
   'kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath=\'{.items[0].metadata.name}\')"',
   'set +e',
@@ -100,18 +146,23 @@ const consumerAfter = [
   'test "$consumer_status" = "0" || test "$consumer_status" = "1"',
 ].join('\n');
 
-if (!source.includes(gracefulBefore)) {
-  throw new Error('graceful shutdown assertion boundary not found');
-}
-if (!source.includes(consumerBefore)) {
-  throw new Error('Kafka delivery probe boundary not found');
+for (const [boundary, message] of [
+  [gracefulBefore, 'graceful shutdown assertion boundary'],
+  [poisonBefore, 'poison isolation scheduling boundary'],
+  [consumerBefore, 'Kafka delivery probe boundary'],
+]) {
+  if ((source.split(boundary).length - 1) !== 1) {
+    throw new Error(`${message} must exist exactly once`);
+  }
 }
 
 let rendered = source.replace(gracefulBefore, gracefulAfter);
+rendered = rendered.replace(poisonBefore, poisonAfter);
 rendered = rendered.replace(consumerBefore, consumerAfter);
 if (
   rendered === source ||
   rendered.includes(gracefulBefore) ||
+  rendered.includes(poisonBefore) ||
   rendered.includes(consumerBefore)
 ) {
   throw new Error('acceptance boundaries were not replaced exactly once');
