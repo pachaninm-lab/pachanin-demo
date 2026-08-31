@@ -128,6 +128,49 @@ describe('HealthController — durable outbox projections', () => {
     );
   });
 
+  it('keeps one database read in flight however often the probe fires', async () => {
+    // Дедлайн отпускает обработчик, но запрос продолжает занимать соединение
+    // пула. Проба приходит каждые пять секунд; если каждая начнёт свой запрос,
+    // стояние базы исчерпает пул Prisma за минуту и остановит уже не
+    // готовность, а весь трафик API. Найдено ревью на #4830.
+    fixHeapUsedMb(64);
+    const outbox = makeOutbox();
+    const controller = new HealthController(outbox);
+
+    jest.useFakeTimers();
+    jest.setSystemTime(1_000);
+    await controller.ready();
+    expect(outbox.queueStats).toHaveBeenCalledTimes(1);
+
+    outbox.queueStats.mockReturnValue(stalledForever());
+
+    for (let probe = 0; probe < 3; probe += 1) {
+      const pending = controller.ready();
+      await jest.advanceTimersByTimeAsync(READINESS_DATABASE_DEADLINE_MS);
+      await expect(pending).resolves.toEqual(
+        expect.objectContaining({ status: 'ready' }),
+      );
+    }
+
+    // Один успешный в начале и один зависший на все три пробы.
+    expect(outbox.queueStats).toHaveBeenCalledTimes(2);
+  });
+
+  it('starts a fresh read once the stalled one settles', async () => {
+    // Разделяется незавершённый запрос, а не результат: иначе готовность
+    // отвечала бы из одного чтения вечно.
+    fixHeapUsedMb(64);
+    const outbox = makeOutbox();
+    const controller = new HealthController(outbox);
+
+    jest.useFakeTimers();
+    jest.setSystemTime(1_000);
+    await controller.ready();
+    await controller.ready();
+
+    expect(outbox.queueStats).toHaveBeenCalledTimes(2);
+  });
+
   it('fails closed when the database stalls before any successful readiness read', async () => {
     // Дедлайн переводит зависание в отказ — но не выдаёт готовность за него.
     const outbox = makeOutbox();

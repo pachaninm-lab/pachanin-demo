@@ -81,6 +81,7 @@ interface DetailedHealthCheck {
 @Controller()
 export class HealthController {
   private lastSuccessfulQueueStats: { stats: QueueStats; recordedAt: number } | null = null;
+  private inFlightQueueStats: Promise<QueueStats> | null = null;
 
   constructor(private readonly outbox: OutboxService) {}
 
@@ -208,10 +209,38 @@ export class HealthController {
     };
   }
 
+  /**
+   * Один незавершённый запрос на процесс, а не один на probe.
+   *
+   * Дедлайн отпускает обработчик, но запрос от этого не прекращается: он
+   * продолжает занимать соединение пула, пока база не ответит. Проба приходит
+   * каждые пять секунд, и если каждая будет начинать свой запрос, стояние базы
+   * за минуту исчерпает пул Prisma - и остановит уже не готовность, а весь
+   * трафик API, включая тот, который к базе не обращается.
+   *
+   * Поэтому пробы разделяют один запрос. Ждущих может быть сколько угодно,
+   * занятое соединение при этом одно.
+   */
+  private readQueueStats(): Promise<QueueStats> {
+    const existing = this.inFlightQueueStats;
+    if (existing) return existing;
+
+    const started = this.outbox.queueStats();
+    this.inFlightQueueStats = started;
+    const release = (): void => {
+      if (this.inFlightQueueStats === started) this.inFlightQueueStats = null;
+    };
+    // Обработчики вешаются сразу: результат может быть уже никому не нужен -
+    // обёртка с дедлайном ответила из кэша, - и без них поздний отказ всплыл бы
+    // как unhandled rejection в процессе, который проба как раз и оценивает.
+    started.then(release, release);
+    return started;
+  }
+
   private async readinessStats(): Promise<ReadinessStats> {
     try {
       const stats = await withReadinessDeadline(
-        this.outbox.queueStats(),
+        this.readQueueStats(),
         READINESS_DATABASE_DEADLINE_MS,
       );
       this.lastSuccessfulQueueStats = { stats, recordedAt: Date.now() };
