@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-registration-decision-outbox-controller-4858",
+  "status": "active",
+  "issue": 4858,
+  "title": "Generate the bounded implementation that moves registration decision notification into the durable encrypted auth-mail outbox",
+  "allowedPaths": [
+    ".github/workflows/p0-registration-decision-durable-outbox-controller.yml",
+    "scripts/p0-registration-decision-durable-outbox-patch.py",
+    "docs/platform-v7/autopilot/scopes/p0-registration-decision-outbox-controller-4858.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "identityMutation": false,
+    "mailSend": false,
+    "deploymentMutation": false,
+    "securityControlWeakening": false,
+    "secretOutput": false,
+    "newRecurringCostRub": 0
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
