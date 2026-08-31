@@ -1,4 +1,5 @@
 name: TEMP Apply PC-CROP Release Candidate Patch
+# Armed only on the bounded registration authority branch; self-removes after a validated commit.
 
 on:
   push:
