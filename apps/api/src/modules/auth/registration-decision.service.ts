@@ -4,10 +4,13 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import type { RequestUser, Role } from '../../common/types/request-user';
+import { AuthMailOutboxService } from '../auth-mail/auth-mail-outbox.service';
+import { registrationDecisionMail } from '../auth-mail/auth-mail-templates';
 import { AuthPrismaService } from './auth-prisma.service';
 import { sha256, stableJson } from './auth-crypto';
 import { PUBLIC_WORKSPACE_CLASSES, type PublicWorkspaceClass } from './dto/register.dto';
@@ -24,6 +27,23 @@ export type RegistrationDecision = 'APPROVE' | 'REJECT' | 'REQUEST_INFORMATION' 
 type DecisionActorKind = 'ORGANIZATION_ADMIN' | 'PLATFORM_REVIEWER';
 const REVIEW_MFA_FRESHNESS_MS = 15 * 60 * 1000;
 const PLATFORM_REVIEWER_ROLES = new Set(['PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF']);
+const REGISTRATION_DECISION_MAIL_TTL_MS = 24 * 60 * 60 * 1000;
+const REGISTRATION_DECISION_DELIVERY_TIMEOUT_MS = 50_000;
+
+type RegistrationDecisionResponse = {
+  applicationId: string;
+  status: string;
+  nextAction: 'LOGIN' | 'WAIT';
+  version: string;
+  correlationId: string;
+  replayed: boolean;
+  notificationDelivery?: { status: 'SENT' };
+};
+
+type RegistrationDecisionTransactionResult = {
+  response: RegistrationDecisionResponse;
+  mailIdempotencyKey: string;
+};
 
 function deliveryAuthorized(provided?: string): boolean {
   const expected = Buffer.from(String(process.env.REGISTRATION_DELIVERY_KEY || '').trim(), 'utf8');
@@ -58,6 +78,7 @@ export class RegistrationDecisionService {
   constructor(
     private readonly prisma: AuthPrismaService,
     private readonly authRepository: PersistentAuthRepository,
+    private readonly mailOutbox: AuthMailOutboxService,
   ) {}
 
   async listPlatformReviewQueue(reviewer: RequestUser) {
@@ -186,7 +207,7 @@ export class RegistrationDecisionService {
     deliveryKey?: string,
   ) {
     const { reason, idempotencyKey } = this.validateDecisionInput(reasonInput, idempotencyKeyInput);
-    return this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx): Promise<RegistrationDecisionTransactionResult> => {
       const administrator = await this.requireOrganizationAdmin(reviewer, tx);
       const eventKey = `org-join-decision:${idempotencyKey}`;
       const existing = await tx.$queryRaw<Array<{ application_id: string; new_status: string }>>(Prisma.sql`
@@ -201,7 +222,13 @@ export class RegistrationDecisionService {
         if (existing[0].application_id !== applicationId) {
           throw new ConflictException({ code: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_TARGET' });
         }
-        return this.readResult(tx, applicationId, deliveryKey, true);
+        const mailIdempotencyKey = await this.queueRegistrationDecisionNotification(
+          tx, applicationId, eventKey, correlationId,
+        );
+        return {
+          response: await this.readResult(tx, applicationId, true),
+          mailIdempotencyKey,
+        };
       }
 
       const application = await this.lockApplication(
@@ -267,8 +294,15 @@ export class RegistrationDecisionService {
       if (decision === 'APPROVE') {
         await this.emitRegistrationLifecycleReceipt(tx, applicationId, correlationId);
       }
-      return this.readResult(tx, applicationId, deliveryKey);
+      const mailIdempotencyKey = await this.queueRegistrationDecisionNotification(
+        tx, applicationId, eventKey, correlationId,
+      );
+      return {
+        response: await this.readResult(tx, applicationId),
+        mailIdempotencyKey,
+      };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
+    return this.completeDecisionResponse(outcome, deliveryKey);
   }
 
   async decide(
@@ -284,7 +318,7 @@ export class RegistrationDecisionService {
     this.requireFreshMfa(reviewer);
     this.requirePlatformReviewer(reviewer);
 
-    return this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx): Promise<RegistrationDecisionTransactionResult> => {
       await this.requirePlatformDecisionAuthority(reviewer, tx);
       const eventKey = `decision:${idempotencyKey}`;
       const existing = await tx.$queryRaw<Array<{ application_id: string }>>(Prisma.sql`
@@ -297,7 +331,13 @@ export class RegistrationDecisionService {
         if (existing[0].application_id !== applicationId) {
           throw new ConflictException({ code: 'IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_TARGET' });
         }
-        return this.readResult(tx, applicationId, deliveryKey, true);
+        const mailIdempotencyKey = await this.queueRegistrationDecisionNotification(
+          tx, applicationId, eventKey, correlationId,
+        );
+        return {
+          response: await this.readResult(tx, applicationId, true),
+          mailIdempotencyKey,
+        };
       }
 
       const application = await this.lockApplication(
@@ -307,9 +347,6 @@ export class RegistrationDecisionService {
         'PLATFORM_REVIEWER',
       );
       if (application.kind !== 'NEW_ORGANIZATION') {
-        // Existing-organization joins belong exclusively to the verified
-        // administrator of that same tenant. A platform reviewer must not be
-        // able to bypass that organization-scoped approval boundary by ID.
         throw new ForbiddenException({ code: 'ORGANIZATION_ADMIN_DECISION_REQUIRED' });
       }
       if (application.user_id === reviewer.id) {
@@ -351,9 +388,15 @@ export class RegistrationDecisionService {
       if (decision === 'APPROVE') {
         await this.emitRegistrationLifecycleReceipt(tx, application.id, correlationId);
       }
-
-      return this.readResult(tx, application.id, deliveryKey);
+      const mailIdempotencyKey = await this.queueRegistrationDecisionNotification(
+        tx, application.id, eventKey, correlationId,
+      );
+      return {
+        response: await this.readResult(tx, application.id),
+        mailIdempotencyKey,
+      };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000, maxWait: 5_000 });
+    return this.completeDecisionResponse(outcome, deliveryKey);
   }
 
   private async approve(
@@ -724,21 +767,83 @@ export class RegistrationDecisionService {
     };
   }
 
+  private async queueRegistrationDecisionNotification(
+    client: AuthSqlClient,
+    applicationId: string,
+    eventKey: string,
+    correlationId: string,
+  ): Promise<string> {
+    const rows = await client.$queryRaw<Array<{
+      email: string;
+      status: string;
+      decision_reason: string | null;
+    }>>(Prisma.sql`
+      SELECT email, status, decision_reason
+      FROM auth.registration_applications
+      WHERE id = ${applicationId}
+      LIMIT 1
+    `);
+    const application = rows[0];
+    if (!application?.email) {
+      throw new ConflictException({ code: 'REGISTRATION_DECISION_NOTIFICATION_TARGET_MISSING' });
+    }
+    const mailIdempotencyKey = `auth-mail:registration-decision:${sha256(`${applicationId}${eventKey}`)}`;
+    const current = await this.mailOutbox.registrationDecisionStatus(client, mailIdempotencyKey);
+    if (current.status === 'MISSING') {
+      await this.mailOutbox.enqueue(client, {
+        kind: 'REGISTRATION_DECISION',
+        idempotencyKey: mailIdempotencyKey,
+        correlationId,
+        envelope: registrationDecisionMail({
+          to: application.email,
+          status: application.status,
+          reason: application.decision_reason,
+        }),
+        expiresAt: new Date(Date.now() + REGISTRATION_DECISION_MAIL_TTL_MS),
+        maxAttempts: 12,
+      });
+    }
+    return mailIdempotencyKey;
+  }
+
+  private async completeDecisionResponse(
+    outcome: RegistrationDecisionTransactionResult,
+    deliveryKey?: string,
+  ): Promise<RegistrationDecisionResponse> {
+    if (!deliveryAuthorized(deliveryKey)) return outcome.response;
+    const delivery = await this.mailOutbox.waitForRegistrationDecisionDelivery(
+      this.prisma,
+      outcome.mailIdempotencyKey,
+      { timeoutMs: REGISTRATION_DECISION_DELIVERY_TIMEOUT_MS, pollMs: 250 },
+    );
+    if (delivery.status !== 'SENT') {
+      throw new ServiceUnavailableException({
+        code: delivery.status === 'DEAD_LETTER'
+          ? 'REGISTRATION_DECISION_NOTIFICATION_FAILED'
+          : 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+        applicationId: outcome.response.applicationId,
+        status: outcome.response.status,
+        nextAction: outcome.response.nextAction,
+        replayed: outcome.response.replayed,
+        correlationId: outcome.response.correlationId,
+        retryAfterSeconds: 2,
+      });
+    }
+    return { ...outcome.response, notificationDelivery: { status: 'SENT' } };
+  }
+
   private async readResult(
     client: AuthSqlClient,
     applicationId: string,
-    deliveryKey?: string,
     replayed = false,
-  ) {
+  ): Promise<RegistrationDecisionResponse> {
     const rows = await client.$queryRaw<Array<{
       id: string;
       status: string;
       version: bigint;
       correlation_id: string;
-      email: string;
-      decision_reason: string | null;
     }>>(Prisma.sql`
-      SELECT id, status, version, correlation_id, email, decision_reason
+      SELECT id, status, version, correlation_id
       FROM auth.registration_applications
       WHERE id = ${applicationId}
       LIMIT 1
@@ -754,15 +859,6 @@ export class RegistrationDecisionService {
       version: application.version.toString(),
       correlationId: application.correlation_id,
       replayed,
-      ...(!replayed && deliveryAuthorized(deliveryKey)
-        ? {
-            notificationDelivery: {
-              email: application.email,
-              status: application.status,
-              reason: application.decision_reason,
-            },
-          }
-        : {}),
     };
   }
 

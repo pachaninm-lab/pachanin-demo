@@ -60,6 +60,26 @@ export function registrationVerificationMail(input: {
   };
 }
 
+export function registrationDecisionMail(input: {
+  to: string;
+  status: string;
+  reason: string | null;
+}): AuthMailEnvelope {
+  const status = String(input.status || 'UPDATED').trim().slice(0, 64);
+  const reason = String(input.reason || 'RECORDED').trim().slice(0, 1000);
+  return {
+    to: input.to,
+    subject: 'Прозрачная Цена — статус заявки / application status / 申请状态',
+    text: [
+      `Статус регистрационной заявки: ${status}. Основание: ${reason}. Откройте страницу статуса по исходной защищённой ссылке.`,
+      '',
+      `Registration application status: ${status}. Basis: ${reason}. Open the status page using the original protected link.`,
+      '',
+      `注册申请状态：${status}。依据：${reason}。请使用原始安全链接打开状态页面。`,
+    ].join('\n'),
+  };
+}
+
 export function passwordResetMail(input: {
   to: string;
   token: string;
