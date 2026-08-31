@@ -32,6 +32,7 @@ import {
   type ComposedAssistantAnswer,
 } from '@/lib/platform-v7/assistant-answer-composer';
 import { PLATFORM_KNOWLEDGE_VERSION } from '@/lib/platform-v7/platform-knowledge-sections';
+import { readBoundedBody } from '../../../lib/uploads/bounded-body';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -433,11 +434,27 @@ export async function POST(request: NextRequest) {
   if (isCrossSite(request)) return json({ code: 'PUBLIC_ASSISTANT_CROSS_SITE_DENIED', message: 'Cross-site requests are not accepted.' }, 403);
   const contentType = request.headers.get('content-type') || '';
   if (!contentType.toLowerCase().includes('application/json')) return json({ code: 'PUBLIC_ASSISTANT_JSON_REQUIRED', message: 'Content-Type application/json is required.' }, 415);
+  // Объявленный размер — быстрый отказ честному клиенту, и только. Границей он
+  // быть не может: у chunked-запроса заголовка нет и Number(null || '0') это
+  // ноль, а мусор в нём даёт NaN, и Number.isFinite коротко замыкает условие.
+  // Оба обхода проверены запуском (#4853). Пост-проверки размера тела здесь не
+  // было вовсе: MAX_MESSAGE_LENGTH ограничивает поле message, а не тело.
   const contentLength = Number(request.headers.get('content-length') || '0');
   if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) return json({ code: 'PUBLIC_ASSISTANT_BODY_TOO_LARGE', message: 'Request body is too large.' }, 413);
 
+  // Настоящая граница: счёт байтов на чтении с отменой потока на потолке.
+  // Обёрнуто, потому что оборвавшийся клиент роняет reader.read(), а маршрут
+  // публичный — обрывы на нём рядовые.
+  let raw: ArrayBuffer | null;
+  try {
+    raw = await readBoundedBody(request.body, MAX_BODY_BYTES);
+  } catch {
+    return json({ code: 'PUBLIC_ASSISTANT_INVALID_JSON', message: 'Invalid JSON body.' }, 400);
+  }
+  if (raw === null) return json({ code: 'PUBLIC_ASSISTANT_BODY_TOO_LARGE', message: 'Request body is too large.' }, 413);
+
   let payload: unknown;
-  try { payload = await request.json(); } catch { return json({ code: 'PUBLIC_ASSISTANT_INVALID_JSON', message: 'Invalid JSON body.' }, 400); }
+  try { payload = JSON.parse(new TextDecoder().decode(raw)); } catch { return json({ code: 'PUBLIC_ASSISTANT_INVALID_JSON', message: 'Invalid JSON body.' }, 400); }
   const body = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload as Record<string, unknown> : null;
   const message = typeof body?.message === 'string' ? body.message.trim() : '';
   const requestedLocale = localeFrom(body?.locale);

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4853,
+  "branch": "security/route-body-bounds-4853",
+  "status": "active",
+  "purpose": "Close the same content-length bypass #4852 closed on the attachment route, on the two further routes a sweep of all 39 body-reading routes found. Of the seven that consult content-length, two use it as a boundary the same defeatable way: a chunked request carries no such header so Number(null || '0') is zero, and a malformed value gives NaN so Number.isFinite short-circuits. Both were proven by running them.",
+  "authorityBaseExactMain": "9ea51864774e7699e2872099ce49d085b09cb304",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/route-body-bounds-4853.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    ".github/workflows/ci.yml",
+    "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/app/api/staff/[...path]/route.ts",
+    "apps/web/tests/unit/routeBodyBounds.spec.ts"
+  ],
+  "requiredInvariants": [
+    "The two routes are not equally bad, and the record says so rather than flattening them. public-platform-assistant has no post-read body bound at all - MAX_MESSAGE_LENGTH limits the message field, not the body - and requires no authentication. staff/[...path] does have a post-read check, so its limit holds; what fails is that it holds only after request.text() has already spent the memory. Reporting the second as an accepted-oversize defect would overstate it.",
+    "The staff route's malformed-header case was already handled by its author - it writes !Number.isFinite(...) and refuses - and that is left intact. Only the absent-header case is new.",
+    "The declared size stays as a cheap refusal for an honest client on both routes, and is no longer the boundary on either.",
+    "Reads are wrapped. A client disconnect rejects reader.read(); on the public route that would have become a 500 where the previous code gave 400, and on the staff route request.text() had no wrapper at all, so a disconnect was already an unhandled 500. The staff route gets a new REQUEST_BODY_UNREADABLE code because there was no prior mapping to preserve - unlike #4852, where an existing code covered it and reusing it was the minimal choice.",
+    "V5.2.1 is NOT claimed and its PASS from #4852 is untouched. Its text is about FILES; these routes accept JSON and a proxied body. No ASVS requirement covers raw body size on arbitrary routes - the nearest, V4.3.1 and V6.1.1, are about GraphQL/data-layer DoS and documenting rate limiting. This is an engineering defect with no requirement behind it, and filing it under a borrowed one would be the substitution this programme forbids. The ASVS decisions file is therefore not touched at all.",
+    "No production, REG.RU, DNS, database or credential mutation. No migration, no new dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Found by sweeping all 39 body-reading routes under apps/web/app/api; 7 consult content-length and all 7 were examined. Two are false positives that delete the header while rebuilding a request, not size checks.",
+    "routeBodyBounds.spec.ts 4 of 4, all at route level.",
+    "Two mutations, each caught: reverting the public route to request.json() fails 1, and dropping the stream-failure wrapper alone fails 1.",
+    "A test bug of mine, corrected rather than worked around: the happy-path case first used a plain Request and failed inside the route at request.nextUrl. That failure actually proved the body had passed the bound and parsed - the crash was an unrelated missing NextRequest property. The test now builds a NextRequest.",
+    "Real web tsc exit 0, run from apps/web against node_modules/.pnpm/typescript@5.9.3 with no pipe, since the repo root has no tsc and $? after a pipeline reports tail."
+  ]
+}
