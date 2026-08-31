@@ -54,12 +54,32 @@ jobs:
           persist-credentials: false
 
       - name: Validate patcher syntax and exact source anchors
+        id: patchcheck
+        shell: bash
         run: |
           set -Eeuo pipefail
-          python3 -m py_compile scripts/p0-registration-decision-durable-outbox-patch.py
-          python3 scripts/p0-registration-decision-durable-outbox-patch.py check
-          python3 -m json.tool docs/platform-v7/autopilot/scopes/p0-registration-decision-outbox-controller-4858.json >/dev/null
-          git diff --check
+          log="$RUNNER_TEMP/p0-registration-decision-outbox-patch-check.log"
+          set +e
+          (
+            set -Eeuo pipefail
+            python3 -m py_compile scripts/p0-registration-decision-durable-outbox-patch.py
+            python3 scripts/p0-registration-decision-durable-outbox-patch.py check
+            python3 -m json.tool docs/platform-v7/autopilot/scopes/p0-registration-decision-outbox-controller-4858.json >/dev/null
+            git diff --check
+          ) >"$log" 2>&1
+          rc=$?
+          set -e
+          cat "$log"
+          exit "$rc"
+
+      - name: Retain bounded patcher failure evidence
+        if: failure() && steps.patchcheck.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-registration-decision-outbox-patch-failure
+          path: ${{ runner.temp }}/p0-registration-decision-outbox-patch-check.log
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Verify exact owner-issued provenance
         if: github.event_name == 'issue_comment'
