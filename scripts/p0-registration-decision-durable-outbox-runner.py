@@ -9,6 +9,7 @@ PATCHER = Path(__file__).with_name('p0-registration-decision-durable-outbox-patc
 TARGET_PATH = 'apps/web/tests/unit/p0FirstCustomerCompletion.test.ts'
 TARGET_LABEL = 'durable join delivery fixture'
 SUCCESS_RESPONSE_SUFFIX = "    }), {\n      status: 201,"
+LEGACY_NEGATIVE_ASSERTION = "    expect(bff).not.toContain('sendTransactionalMail');\n"
 
 
 def load_patcher():
@@ -23,6 +24,7 @@ def load_patcher():
 def main() -> int:
     patcher = load_patcher()
     original_replace_once = patcher.Workspace.replace_once
+    original_patch_web_tests = patcher.patch_web_tests
 
     def replace_once(self, relative: str, old: str, new: str, label: str) -> None:
         if relative == TARGET_PATH and label == TARGET_LABEL:
@@ -43,7 +45,27 @@ def main() -> int:
             return
         original_replace_once(self, relative, old, new, label)
 
+    def patch_web_tests(workspace) -> None:
+        try:
+            original_patch_web_tests(workspace)
+            return
+        except patcher.PatchError as error:
+            expected = f'{TARGET_PATH}: legacy synchronous notification assertions remain'
+            if str(error) != expected:
+                raise
+        source = workspace.read(TARGET_PATH)
+        count = source.count(LEGACY_NEGATIVE_ASSERTION)
+        if count != 1:
+            raise patcher.PatchError(
+                f'{TARGET_PATH}: expected one obsolete direct-mail negative assertion, found {count}'
+            )
+        cleaned = source.replace(LEGACY_NEGATIVE_ASSERTION, '', 1)
+        if 'sendTransactionalMail' in cleaned:
+            raise patcher.PatchError(f'{TARGET_PATH}: legacy synchronous notification assertions remain')
+        workspace.set(TARGET_PATH, cleaned)
+
     patcher.Workspace.replace_once = replace_once
+    patcher.patch_web_tests = patch_web_tests
     mode = sys.argv[1] if len(sys.argv) > 1 else 'check'
     sys.argv = [str(PATCHER), mode]
     try:
