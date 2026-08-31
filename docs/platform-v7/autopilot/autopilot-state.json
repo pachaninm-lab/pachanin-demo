@@ -335,6 +335,13 @@
       "docs/platform-v7/autopilot/autopilot-state.json",
       "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
     ],
+    "fix/tai-owner-deployment-command-20260803": [
+      ".github/workflows/tai-owner-reg-ru-deployment-command.yml",
+      "scripts/select-tai-restricted-qwen-activation-status.mjs",
+      "scripts/check-tai-owner-deployment-status-selection.mjs",
+      "scripts/check-tai-owner-deployment-command.mjs",
+      "docs/platform-v7/autopilot/scopes/tai-owner-deployment-command-20260803.json"
+    ],
     "fix/public-ai-generic-platform-routing-3438": [
       "docs/platform-v7/autopilot/scopes/fix-public-ai-generic-platform-routing-3438.json",
       "apps/web/app/api/restricted-public-platform-assistant/route.ts",

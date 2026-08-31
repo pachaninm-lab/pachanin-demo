@@ -342,34 +342,58 @@
     {
       "requirementId": "V1.2.9",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
         "apps/api/src/modules/documents/document-template.service.ts",
+        "apps/api/src/modules/documents/document-template.service.spec.ts",
         "attacker-controlled-input:apps/api/src/modules/documents/documents.controller.ts"
       ],
       "conditions": [
         {
-          "condition": "the document template substitution loop still builds a RegExp directly from an object key with no escaping",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the substitution builds no regular expression from input at all - the pattern is a module constant and the template is scanned once, with each field name looked up in a map",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/documents/document-template.service.ts"
           ],
           "patterns": [
-            "new regexp(`\\\\{\\\\{${key}\\\\}\\\\}`, 'g')"
+            "const template_field_pattern =",
+            "template.matchall(template_field_pattern)",
+            "values.get(name)"
           ]
         },
         {
-          "condition": "those object keys still originate from the raw HTTP request body rather than a fixed, code-controlled set",
-          "check": "PRESENT_AT_PATH",
+          "condition": "no RegExp is constructed anywhere in this file, so no key can become pattern syntax",
+          "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/documents/documents.controller.ts"
+            "apps/api/src/modules/documents/document-template.service.ts"
           ],
           "patterns": [
-            "@body() variables: record<string, string | number>"
+            "new regexp("
+          ]
+        },
+        {
+          "condition": "the platform-set fields are written after the sender’s, so neither can be overridden",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/documents/document-template.service.ts"
+          ],
+          "patterns": [
+            "values.set('templateversion', version)",
+            "values.set('documenthash', document_hash_sentinel)"
+          ]
+        },
+        {
+          "condition": "the hash is placed at the remembered position of its own field rather than at the first occurrence of the sentinel string",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/documents/document-template.service.ts"
+          ],
+          "patterns": [
+            "hashfieldat"
           ]
         }
       ],
-      "note": "document-template.service.ts builds a RegExp from every key of the variables object with new RegExp(`\\{\\{${key}\\}\\}`, 'g') and no escaping of regex metacharacters in key. Traced the call chain rather than assumed it: documents.controller.ts's POST templates/:id/generate route takes variables straight from @Body() as Record<string, string | number>, so an attacker submitting a JSON body chooses the object's property names as well as their values - both reach the unescaped RegExp constructor. A key containing regex metacharacters can therefore corrupt the intended placeholder match or, combined with a crafted pattern, feed a pathological expression into .replace() over the full template content - the concrete precondition this chapter's V1.3.12 (ReDoS) also depends on, and is recorded there against the same evidence."
+      "note": "Closed by removing the class rather than escaping the input. The loop built new RegExp(`\\\\{\\\\{${key}\\\\}\\\\}`, 'g') once per key of the request body, with the braces escaped and the key not, and the reachability was traced rather than assumed: documents.controller.ts declares @Body() variables: Record<string, string | number>, an inline TypeScript type that erases at runtime, so ValidationPipe sees no class and the sender chooses both the property names and the values. The controller sits behind RolesGuard, so an authenticated user of any tenant is enough. Four separate defects were proven by running them, not argued: a key of `.*` rewrote every field of the document at once; a value of $` spliced the document text preceding the match into the field, because the second argument of .replace() interprets $&, $`, $' and $n; a key of (.*)*x against an ordinary 1901-character contract did not finish in 120 seconds, and Node being single-threaded that is the whole API process for that pod, not one slow request; and content.replace('PLACEHOLDER', hash) took the first occurrence of the string anywhere, so a sender whose field appeared earlier than the hash field took the hash and left the literal PLACEHOLDER in the document's own hash line. A fifth followed from the shape of the loop: substitution was iterative, so a value could introduce a placeholder that a later key then filled. The template is now scanned once against a module-constant pattern and each field name is looked up in a map, which removes all five: nothing is compiled from input, values are concatenated rather than used as a replacement string, and no substituted text is rescanned. The hash semantics are deliberately unchanged - it is still computed over the document carrying the literal sentinel in its hash field - because changing it would invalidate every previously issued document; a test pins that value. The service had no test of any kind before this. Mutations: restoring the original loop makes the suite hang rather than fail, which is the production symptom itself; placing the hash by first string occurrence fails the sentinel test; letting the sender's values win over the platform-set fields fails the override test."
     },
     {
       "requirementId": "V1.2.10",
@@ -755,21 +779,23 @@
       "status": "FAIL",
       "evidence": [
         "apps/api/src/modules/documents/document-template.service.ts",
-        "attacker-controlled-input:apps/api/src/modules/documents/documents.controller.ts"
+        "apps/api/src/modules/documents/document-template.service.spec.ts",
+        "no-repository-wide-backtracking-analysis"
       ],
       "conditions": [
         {
-          "condition": "the document template substitution loop still builds an unsanitized RegExp from attacker-controlled object keys and applies it with .replace() over the full template content",
-          "check": "PRESENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/documents/document-template.service.ts"
-          ],
+          "condition": "no repository-wide backtracking or ReDoS analysis exists: no such tool is declared in any manifest, so the requirement’s general claim is unestablished whatever the traced instance does",
+          "check": "ABSENT_IN_MANIFESTS",
           "patterns": [
-            "new regexp(`\\\\{\\\\{${key}\\\\}\\\\}`, 'g')"
+            "safe-regex",
+            "recheck",
+            "redos",
+            "vuln-regex-detector",
+            "re2"
           ]
         }
       ],
-      "note": "Same defect as V1.2.9, assessed here against the ReDoS-specific text: a RegExp built from an unescaped, attacker-controlled key (traced to @Body() in documents.controller.ts) and then run with .replace() over the full template string is exactly the precondition for a runaway-regex denial of service, not only a matching-correctness bug. No dedicated ReDoS-detection tool was run across the rest of the codebase's regular expressions in this pass, so this FAIL is scoped to the one concrete, traced instance rather than claimed as a full sweep."
+      "note": "The traced instance is closed in #4835 and this requirement still fails, which is the point of recording it separately. That instance was real and was proven by running it: a key of (.*)*x fed into a per-key RegExp did not finish against an ordinary 1901-character contract in 120 seconds, and Node being single-threaded that stops every request on the pod. The substitution now compiles nothing from input, so that path is gone. What is not established is the requirement's other half - that the application's regular expressions are free from elements causing exponential backtracking. Sixteen further new RegExp call sites exist under apps/api/src and apps/web/lib, none of them examined in this pass, and no backtracking-analysis tool is declared in any manifest, so there is no sweep to point at. Claiming PASS here on the strength of one closed instance would be exactly the substitution this programme forbids: a requirement answered with the evidence of a different, narrower one. The condition therefore watches for the sweep rather than for the instance - adding such a tool revokes this decision and forces the verdict to be taken again."
     },
     {
       "requirementId": "V1.4.1",
