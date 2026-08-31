@@ -116,4 +116,51 @@ BEGIN
 END;
 $no_public_blanket_policies$;
 
+-- A table that carries a tenant and has no policy has no tenant boundary below
+-- the service layer. V8.4.1 asks that a consumer operation NEVER affect a tenant
+-- it has no relationship with, and "never" cannot rest on every caller
+-- remembering to filter.
+--
+-- This is measured against the tables that NEED the control, not the tables that
+-- have it. That distinction is why the requirement was first recorded PASS on
+-- "72 tables with row level security and 268 policies": impressive numerators
+-- over the wrong denominator. Counted correctly, 40 tables carry a tenant
+-- column, and the exclusions below are the ones still uncovered.
+--
+-- Exclusions are listed here, in source control, with the reason. An unlisted
+-- table fails the gate. There are no silent exclusions.
+DO $tenant_tables_without_policy$
+DECLARE
+  excluded text[] := ARRAY[
+    -- Written by the regulatory integration ingest through raw SQL across six
+    -- repositories, and whether that path runs inside the RLS transaction has
+    -- not been established. Enabling row security on an ingest that carries no
+    -- tenant setting does not protect it, it stops it. Closing these needs that
+    -- path traced first. Tracked as #4828, and V8.4.1 stays FAIL until then.
+    'regulatory_integration_inbox_entries',
+    'regulatory_integration_inbox_conflicts'
+  ];
+  uncovered text;
+BEGIN
+  SELECT string_agg(DISTINCT relation.relname, ', ' ORDER BY relation.relname)
+  INTO uncovered
+  FROM pg_catalog.pg_class relation
+  JOIN pg_catalog.pg_namespace schema ON schema.oid = relation.relnamespace
+  JOIN pg_catalog.pg_attribute column_ ON column_.attrelid = relation.oid
+   AND NOT column_.attisdropped
+  WHERE schema.nspname = 'public'
+    AND relation.relkind IN ('r', 'p')
+    AND lower(column_.attname) IN ('tenantid', 'tenant_id')
+    AND (
+      NOT relation.relrowsecurity
+      OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policy p WHERE p.polrelid = relation.oid)
+    )
+    AND NOT (relation.relname = ANY (excluded));
+
+  IF uncovered IS NOT NULL THEN
+    RAISE EXCEPTION 'TENANT_TABLE_WITHOUT_ROW_POLICY:%', uncovered USING ERRCODE = '42501';
+  END IF;
+END;
+$tenant_tables_without_policy$;
+
 SELECT 'NO_INERT_RLS_POLICIES:PASS' AS result;

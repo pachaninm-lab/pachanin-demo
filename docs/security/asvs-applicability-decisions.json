@@ -5489,8 +5489,8 @@
       "status": "FAIL",
       "evidence": [
         "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts",
-        "policies:infra/sql/production-rls-policies.sql",
-        "uncovered-table:apps/api/prisma/migrations/20260712090000_industrial_transaction_core/migration.sql"
+        "boundary:apps/api/prisma/migrations/20260831010000_tenant_rls_uncovered_tables/migration.sql",
+        "gate:scripts/sql/identity-rls-no-inert-policies.sql"
       ],
       "conditions": [
         {
@@ -5504,17 +5504,30 @@
           ]
         },
         {
-          "condition": "a tenant-bearing table still carries no row level security",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the three tables closed in this pass are covered in the forward-only chain, not in a deploy artifact",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/prisma/migrations/20260712090000_industrial_transaction_core/migration.sql"
+            "apps/api/prisma/migrations/20260831010000_tenant_rls_uncovered_tables/migration.sql"
           ],
           "patterns": [
-            "row level security"
+            "alter table public.\"deal_events\" force row level security;",
+            "alter table public.\"fgis_grain_tenant_read_provider_claims\" force row level security;",
+            "alter table public.\"fgis_grain_tenant_read_audit_heads\" force row level security;"
+          ]
+        },
+        {
+          "condition": "the gate refuses any further tenant-bearing table that has no policy, with the remaining two listed in source",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/sql/identity-rls-no-inert-policies.sql"
+          ],
+          "patterns": [
+            "raise exception 'tenant_table_without_row_policy:%'",
+            "'regulatory_integration_inbox_entries',"
           ]
         }
       ],
-      "note": "The requirement says a consumer operation must NEVER affect a tenant they have no relationship with. \"Never\" is not established. Measured denominator: 40 Prisma models carry tenantId, 37 map to a table with ENABLE ROW LEVEL SECURITY, and 3 have no policy at all - deal_events, fgis_grain_tenant_read_provider_claims and fgis_grain_tenant_read_audit_heads. The two FGIS tables look missed rather than excluded: the same migration enables row level security on fgis_grain_tenant_read_authorizations and fgis_grain_tenant_read_audits. For those three tables there is no boundary below the service layer, which is exactly what the first version of this note claimed as its strength. Stated precisely in both directions. deal_events is live - the authoritative command path reads and writes it inside the RLS transaction - but with no policy on the table the transaction-local tenant setting constrains nothing there. No cross-tenant read is exposed today: the one service that would read it filtered by dealId alone, DealEventService, has no reference outside its own file and is registered in no module. So this is a missing control, not an observed breach. deal_events is not unprotected either - the industrial transaction core migration enforces append-only on it - but append-only is an integrity control, not a tenancy control, and says nothing about which tenant may read the rows. Also not a finding: the 165 plain-client Prisma calls against 146 transaction-wrapped ones. On a table that HAS a policy, a read outside the transaction has no tenant setting, the policy cannot match, and the read returns nothing - fail-closed, the correct direction. Correction: this decision was first recorded PASS on 72 tables with row level security and 268 policies. Those numbers are real and they were the wrong measurement: they count the tables that have the control, not the tables that need it. I flagged that denominator as unverified when reporting the chapter and then verified it, which is what turned the verdict."
+      "note": "Measured again on PostgreSQL 16 against the complete forward-only chain, and the recorded number was wrong: the gap is five tables of the forty that carry a tenant column, not three. regulatory_integration_inbox_entries and regulatory_integration_inbox_conflicts were not named before. Three are closed in this pass and two are not, so this requirement stays FAIL - \"never\" is not established while any tenant-bearing table has no boundary below the service layer. Closed: deal_events, which is live and written by postgresql-deal-command.service.ts inside RlsTransactionService, so the tenant setting is present on every legitimate write; and fgis_grain_tenant_read_provider_claims and fgis_grain_tenant_read_audit_heads, which have no runtime caller anywhere in apps/api/src and whose two siblings in the same migration were given row security while these two were not - an omission rather than a decision. deal_events gets a tenancy qualifier ONLY. Copying deal_documents' app_document_deal_authorized would have been easy and would have been a different control: the command path reads the previous event to compute prevHash, and making that read depend on per-deal visibility could break it for a case the migration cannot enumerate. V8.4.1 asks for the tenant boundary; per-deal visibility on this table is a separate decision with its own evidence. Append-only from 20260712090000 is untouched. Not closed, and why: the two inbox tables are written by the regulatory integration ingest through raw SQL across six repositories, and whether that path runs inside the RLS transaction has not been established. Enabling row security on an ingest that carries no tenant setting does not protect it, it stops it. That path has to be traced first, which is its own pass. They are listed as named exclusions in the gate, so a third uncovered table cannot appear quietly. Proven on a live database rather than asserted: with the context set to tenant A a same-tenant insert succeeds and a cross-tenant insert is refused with \"new row violates row-level security policy\"; a read under tenant A returns only tenant A's row, under tenant B only tenant B's, and with no context at all returns nothing. Dropping the deal_events policies makes the gate raise TENANT_TABLE_WITHOUT_ROW_POLICY:deal_events, and re-applying the migration restores it, which also shows the migration is idempotent. The revocation condition was rewritten for the same reason V4.2.5 was. It previously asserted the absence of the words \"row level security\" in migration 20260712090000 - a file that is already applied and must never be edited, so the condition could not have revoked no matter what was fixed. It now names the statements that would actually close the two remaining tables, in the migrations tree, so the FAIL retires when the gap does. Correction retained from the earlier record: this was first recorded PASS on 72 tables with row level security and 268 policies. Those numbers are real and they were the wrong measurement - they count the tables that have the control, not the tables that need it. One more correction, and it is the same mistake a third time in one sitting. The revocation condition written to replace the broken one was an ABSENT_IN_TREE over apps/api/prisma/migrations, naming the statements that would cover the two remaining tables. That evaluator filters candidates to .ts/.tsx/.js/.jsx/.mjs/.cjs and never reads .sql at all, so the condition scanned zero files and held unconditionally - a check that measures nothing, written while fixing a check that measured nothing. It was caught by mutation: adding the covering statement to the migration failed to revoke the decision. The condition is removed rather than reworded, because the revocation it was reaching for already exists and is already proven: the gate condition requires the two tables to be listed as named exclusions in identity-rls-no-inert-policies.sql, and closing the gap means removing them from that list, which rejects the decision. Verified by mutation in that direction."
     },
     {
       "requirementId": "V8.4.2",
