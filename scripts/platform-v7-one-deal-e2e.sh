@@ -232,6 +232,7 @@ GRANT EXECUTE ON FUNCTION auth.mark_registration_email_verified(TEXT, TEXT, TEXT
 GRANT EXECUTE ON FUNCTION auth.registration_join_notification_recipients(TEXT, TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_password_reset_subject(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.replace_password_after_reset(TEXT, TEXT, TEXT, TIMESTAMPTZ) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.upgrade_password_hash_format(TEXT, TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.organization_team_snapshot(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_organization_admin_session(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.organization_membership_exists_for_email(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
@@ -332,6 +333,7 @@ REVOKE ALL ON FUNCTION auth.mark_registration_email_verified(TEXT, TEXT, TEXT) F
 REVOKE ALL ON FUNCTION auth.registration_join_notification_recipients(TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_password_reset_subject(TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.replace_password_after_reset(TEXT, TEXT, TEXT, TIMESTAMPTZ) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.upgrade_password_hash_format(TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.organization_team_snapshot(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_organization_admin_session(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.organization_membership_exists_for_email(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;

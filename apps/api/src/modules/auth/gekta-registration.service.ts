@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { hashPassword, verifyPassword } from './password-hashing';
+import { hashPassword, upgradePasswordHashIfNeeded, verifyPassword } from './password-hashing';
 import {
   isStrongPassword,
   MAX_PASSWORD_LENGTH,
@@ -346,6 +346,9 @@ export class GektaRegistrationService {
     const email = String(emailInput ?? '').trim().toLowerCase();
     const accountHash = hashAuthMaterial(`account:${email}`);
     const credential = await this.repository.findGektaLoginCredential(this.repository.prisma, email);
+    // Same opportunistic upgrade as the platform pathway, from the same
+    // function. Two login paths with two different rehash rules would leave one
+    // population truncated at 72 bytes forever.
     const validPassword = await verifyPassword(String(password ?? ''), credential?.password_hash);
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);
@@ -425,6 +428,24 @@ export class GektaRegistrationService {
       });
       return { kind: 'mfa' as const, enrollment };
     });
+
+    // Перезапись legacy-хеша — после решения о входе и только при успехе.
+    // Между доказательством пароля и перечитыванием в транзакции её быть не
+    // может: перечитывание для того и существует, чтобы отказать, если хеш
+    // изменился, а перезапись — это ровно такое изменение. Так первый же вход
+    // каждой учётной записи с bcrypt-хешем и получал отказ.
+    if (credential && validPassword && result.kind !== 'invalid') {
+      await upgradePasswordHashIfNeeded(
+        String(password ?? ''),
+        credential.password_hash,
+        (next, conditionalOn) => this.repository.upgradePasswordHashFormat(
+          this.repository.prisma,
+          credential.user_id,
+          next,
+          conditionalOn,
+        ),
+      );
+    }
 
     if (result.kind === 'invalid') throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS' });
     return {

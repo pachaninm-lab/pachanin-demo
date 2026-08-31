@@ -306,6 +306,31 @@ export class PersistentAuthRepository {
     return rows[0] ?? null;
   }
 
+  /**
+   * Rewrites a stored password hash into the current format, or reports that it
+   * did not.
+   *
+   * Conditional on the exact previous value, so a concurrent password change or
+   * a parallel login that already upgraded wins and this call changes nothing.
+   * The narrow definer function is the write path because public."users" is
+   * under FORCE row level security; the runtime role cannot write that table
+   * directly and does not need to.
+   *
+   * This is not an authentication step. The caller has already verified the
+   * password against the previous hash.
+   */
+  async upgradePasswordHashFormat(
+    client: AuthSqlClient,
+    userId: string,
+    nextHash: string,
+    expectedHash: string,
+  ): Promise<boolean> {
+    const rows = await client.$queryRaw<Array<{ upgraded: boolean }>>(Prisma.sql`
+      SELECT auth.upgrade_password_hash_format(${userId}, ${nextHash}, ${expectedHash}) AS upgraded
+    `);
+    return rows[0]?.upgraded === true;
+  }
+
   async findIdentitiesByUser(
     client: AuthSqlClient,
     userId: string,

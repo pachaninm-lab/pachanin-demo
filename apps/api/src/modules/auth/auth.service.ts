@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { verifyPassword } from './password-hashing';
+import { upgradePasswordHashIfNeeded, verifyPassword } from './password-hashing';
 import { randomUUID } from 'crypto';
 import {
   FINANCIAL_MFA_THRESHOLD_KOPECKS,
@@ -261,6 +261,30 @@ export class AuthService {
 
       return this.createLoginSession(tx, selectedIdentity, credential, userAgent, ip);
     });
+
+    // The legacy hash is rewritten here, after the login decision and only for a
+    // login that succeeded — never between the password proof and the
+    // transaction's re-read. That re-read exists to refuse a proof whose
+    // credential changed underneath it, and a rewrite placed before it IS such a
+    // change: it made every first login of a bcrypt account fail with
+    // CREDENTIAL_CHANGED_DURING_LOGIN. The guard was right; the moment was wrong.
+    // Nothing here can turn a correct password into a refusal, because the
+    // decision is already made and this value is not read.
+    const loginDenied = result.kind === 'locked'
+      || result.kind === 'invalid'
+      || result.kind === 'no_context';
+    if (loginCredential && validPassword && !loginDenied) {
+      await upgradePasswordHashIfNeeded(
+        dto.password,
+        loginCredential.password_hash,
+        (next, conditionalOn) => this.repository.upgradePasswordHashFormat(
+          this.repository.prisma,
+          loginCredential.user_id,
+          next,
+          conditionalOn,
+        ),
+      );
+    }
 
     if (result.kind === 'locked') {
       const retryAfterSec = Math.max(1, Math.ceil((result.lockedUntil.getTime() - Date.now()) / 1000));

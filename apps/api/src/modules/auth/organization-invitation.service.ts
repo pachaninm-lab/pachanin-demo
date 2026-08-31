@@ -6,8 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
-import { hashPassword } from './password-hashing';
+import { hashPassword, verifyPassword } from './password-hashing';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { RequestUser } from '../../common/types/request-user';
 import { isStrongPassword } from '../../common/validators/strong-password.validator';
@@ -502,7 +501,7 @@ export class OrganizationInvitationService {
           existingUser.deletedAt
           || existingUser.status !== 'ACTIVE'
           || !existingUser.passwordHash
-          || !await bcrypt.compare(dto.password, existingUser.passwordHash)
+          || !await verifyPassword(dto.password, existingUser.passwordHash)
         )
       ) return { kind: 'invalid' as const };
       if (!existingUser && !isStrongPassword(dto.password)) {
@@ -932,7 +931,15 @@ export class OrganizationInvitationService {
       ) {
         return { kind: 'invalid' as const };
       }
-      const validPassword = await bcrypt.compare(dto.password, String(challenge.password_hash || ''));
+      // Through the owning module, not bcrypt.compare directly. A stored hash
+      // has not been guaranteed to be bcrypt since the versioned scheme landed:
+      // hashPassword writes scrypt, so any account whose password was set after
+      // that point already could not complete MFA recovery here - bcrypt.compare
+      // against a scrypt record returns false and the flow reports
+      // MFA_RECOVERY_INVALID for a correct password. Rewriting legacy hashes on
+      // login turns that from a bug affecting new accounts into one affecting
+      // every account, which is how it was found.
+      const validPassword = await verifyPassword(dto.password, challenge.password_hash);
       if (!validPassword) {
         const terminal = challenge.attempts + 1 >= challenge.max_attempts;
         const changed = await tx.$executeRaw(Prisma.sql`
