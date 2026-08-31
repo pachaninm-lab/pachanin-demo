@@ -1,0 +1,426 @@
+name: Production P0 Reviewer Decision Notification Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-decision-notification-diagnostic.yml'
+      - 'scripts/check-production-p0-reviewer-decision-notification-diagnostic.mjs'
+      - 'docs/platform-v7/autopilot/scopes/p0-reviewer-decision-notification-diagnostic-4858.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  FAILED_RUN_ID: '33425716125'
+  FAILED_RUN_ATTEMPT: '2'
+  FAILED_TARGET_SHA: '1bffaec1a7aad09840df136e886c07d2b32e2008'
+  DIAGNOSTIC_SINCE: '2026-08-31T19:18:00Z'
+  DIAGNOSTIC_UNTIL: '2026-08-31T19:20:30Z'
+  DIAGNOSTIC_ISSUE: '4858'
+  DIAGNOSTIC_COMMAND: '/production p0-reviewer-decision-notification-diagnostic attempt-33425716125-2'
+
+concurrency:
+  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 4858 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) || github.event.comment.performed_via_github_app.id == 1144995) && github.event.comment.body == '/production p0-reviewer-decision-notification-diagnostic attempt-33425716125-2' && 'pc-crop-registration-lifecycle' || format('production-p0-reviewer-decision-notification-diagnostic-{0}', github.event.pull_request.number || github.run_id) }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  contract:
+    name: Validate bounded read-only diagnostic contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 4858 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-decision-notification-diagnostic attempt-33425716125-2'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate source-controlled contract
+        shell: bash
+        run: node scripts/check-production-p0-reviewer-decision-notification-diagnostic.mjs
+
+      - name: Verify exact owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: ${{ env.DIAGNOSTIC_COMMAND }}
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          association="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app_id="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$association" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app_id" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+      - name: Bind diagnostic to failed immutable runtime
+        id: target
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          current_main="$(git rev-parse origin/main)"
+          [[ "$current_main" == "$(git rev-parse HEAD)" ]]
+          [[ "$current_main" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          git cat-file -e "$FAILED_TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$FAILED_TARGET_SHA" "$current_main"
+          [[ "$FAILED_RUN_ID" =~ ^[0-9]{2,20}$ && "$FAILED_RUN_ATTEMPT" == '2' ]]
+          [[ "$DIAGNOSTIC_SINCE" =~ ^2026-08-31T19:18:00Z$ ]]
+          [[ "$DIAGNOSTIC_UNTIL" =~ ^2026-08-31T19:20:30Z$ ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$FAILED_TARGET_SHA" >> "$GITHUB_OUTPUT"
+
+  diagnostic:
+    name: Aggregate reviewer decision and notification evidence
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Inspect bounded production logs read-only
+        id: inspect
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
+          DEFAULT_HOST='195.19.12.120'
+          key="$RUNNER_TEMP/p0-reviewer-decision-notification-diagnostic-key"
+          known_hosts="$RUNNER_TEMP/p0-reviewer-decision-notification-diagnostic-known-hosts"
+          scan="$RUNNER_TEMP/p0-reviewer-decision-notification-diagnostic-scan"
+          match="$RUNNER_TEMP/p0-reviewer-decision-notification-diagnostic-match"
+          result="$RUNNER_TEMP/p0-reviewer-decision-notification-diagnostic-result.env"
+          trap 'rm -f -- "$key" "$known_hosts" "$scan" "$match" "$result"' EXIT
+
+          git fetch --no-tags origin main >/dev/null
+          current_main="$(git rev-parse origin/main)"
+          [[ "$current_main" == "$(git rev-parse HEAD)" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current_main"
+
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+          validate_key() {
+            local source="$1" public_key
+            tr -d '\r' < "$source" > "$key"
+            chmod 0600 "$key"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$key" > "$public_key" 2>/dev/null \
+              || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_key() {
+            local raw="$1" plain escaped decoded
+            [[ -n "$raw" ]] || return 1
+            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
+            printf '%s\n' "$raw" > "$plain"
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null \
+              && validate_key "$decoded" \
+              && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            rm -f "$plain" "$escaped" "$decoded"
+            return 1
+          }
+
+          host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
+          user="$(trim "${PC_PROD_SSH_USER:-}")"
+          port="$(trim "${PC_PROD_SSH_PORT:-22}")"
+          expected_fingerprint="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected_fingerprint" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          try_key "${PC_PROD_SSH_KEY:-}" \
+            || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" \
+            || try_key "${VPS_SSH_KEY:-}"
+
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          pinned=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fingerprint" != "$expected_fingerprint" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            if [[ "$(grep -c . "$match" || true)" == '1' ]]; then
+              pinned=1
+              break
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned" == '1' ]]
+          mv "$match" "$known_hosts"
+          chmod 0600 "$known_hosts"
+
+          ssh -i "$key" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
+            "$user@$host" 'bash -s' -- "$TARGET_SHA" "$DIAGNOSTIC_SINCE" "$DIAGNOSTIC_UNTIL" > "$result" <<'REMOTE'
+          set -Eeuo pipefail
+          target_sha="$1"
+          since="$2"
+          until="$3"
+          command -v docker >/dev/null 2>&1
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          web_id="${web_ids[0]}"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          [[ "$web_revision" == "$target_sha" ]]
+
+          docker logs --since "$since" --until "$until" --timestamps "$web_id" 2>&1 \
+            | docker exec -i "$web_id" /nodejs/bin/node --input-type=commonjs -e '
+          const fs = require("node:fs");
+          const input = fs.readFileSync(0, "utf8");
+          const lines = input.split(/\r?\n/);
+          const ceremonies = [];
+          const deliveries = [];
+
+          function parseAfter(line, marker) {
+            const markerIndex = line.indexOf(marker);
+            if (markerIndex < 0) return null;
+            const jsonIndex = line.indexOf("{", markerIndex + marker.length);
+            if (jsonIndex < 0) return null;
+            try {
+              const value = JSON.parse(line.slice(jsonIndex));
+              return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+            } catch {
+              return null;
+            }
+          }
+
+          for (const line of lines) {
+            const ceremony = parseAfter(line, "p0_human_reviewer_ceremony");
+            if (ceremony?.marker === "P0_HUMAN_REVIEWER_CEREMONY") ceremonies.push(ceremony);
+            const delivery = parseAfter(line, "registration_decision_notification_result");
+            if (delivery) deliveries.push(delivery);
+          }
+
+          const phase = (value) => {
+            const correlation = String(value?.correlationId || "");
+            if (correlation.startsWith("p0-human-approve:")) return "approve";
+            if (correlation.startsWith("p0-human-replay:")) return "replay";
+            return "other";
+          };
+          const appKey = (value) => String(value?.applicationId || "");
+          const approve = ceremonies.filter((value) => phase(value) === "approve");
+          const replay = ceremonies.filter((value) => phase(value) === "replay");
+          const committed = approve.filter((value) => value.replayed === false);
+          const committedDelivered = committed.filter((value) => value.notificationDelivered === true);
+          const committedUndelivered = committed.filter((value) => value.notificationDelivered !== true);
+          const approveReplayed = approve.filter((value) => value.replayed === true);
+          const replaySuppressed = replay.filter((value) => value.replayed === true && value.notificationSuppressed === true);
+          const uniqueApplications = new Set(ceremonies.map(appKey).filter(Boolean));
+          const committedApplications = new Set(committed.map(appKey).filter(Boolean));
+          const suppressedApplications = new Set(replaySuppressed.map(appKey).filter(Boolean));
+          const replayMissing = [...committedApplications].filter((key) => !suppressedApplications.has(key)).length;
+          const deliveryTrue = deliveries.filter((value) => value.delivered === true).length;
+          const deliveryFalse = deliveries.filter((value) => value.delivered !== true).length;
+
+          const buckets = { SENT: 0, TIMEOUT: 0, AUTH: 0, TRANSPORT: 0, RECIPIENT: 0, TEMPORARY: 0, OTHER: 0 };
+          for (const value of deliveries) {
+            const reason = String(value?.reason || "").toLowerCase();
+            let bucket = "OTHER";
+            if (value?.delivered === true || reason.includes("sent")) bucket = "SENT";
+            else if (reason.includes("timeout") || reason.includes("timedout")) bucket = "TIMEOUT";
+            else if (reason.includes("auth") || reason.includes("credential") || reason.includes("login")) bucket = "AUTH";
+            else if (reason.includes("connect") || reason.includes("socket") || reason.includes("network") || reason.includes("econn") || reason.includes("tls")) bucket = "TRANSPORT";
+            else if (reason.includes("recipient") || reason.includes("rcpt") || reason.includes("mailbox") || reason.includes("550")) bucket = "RECIPIENT";
+            else if (reason.includes("temporary") || reason.includes("rate") || reason.includes("limit") || reason.includes("451") || reason.includes("421")) bucket = "TEMPORARY";
+            buckets[bucket] += 1;
+          }
+
+          let classification = "PARTIAL_OR_LOG_WINDOW_MISMATCH";
+          if (committedUndelivered.length > 0) classification = "COMMIT_SUCCEEDED_NOTIFICATION_FAILED";
+          else if (approveReplayed.length > 0 && committedDelivered.length < 8) classification = "PRIOR_COMMIT_REPLAY_WITHOUT_FIRST_DELIVERY";
+          else if (replayMissing > 0 && committed.length > 0) classification = "COMMIT_SUCCEEDED_REPLAY_MISSING";
+          else if (committedDelivered.length === 8 && replaySuppressed.length === 8 && uniqueApplications.size === 8) classification = "CEREMONY_EVIDENCE_COMPLETE";
+          else if (ceremonies.length === 0) classification = "NO_CEREMONY_EVENTS_IN_BOUND_WINDOW";
+
+          const output = {
+            P0_DIAGNOSTIC_SCHEMA: "production.p0.reviewer-decision-notification-diagnostic.v1",
+            P0_WEB_REVISION_EXACT: 1,
+            P0_CEREMONY_EVENTS_TOTAL: ceremonies.length,
+            P0_UNIQUE_APPLICATIONS: uniqueApplications.size,
+            P0_APPROVE_COMMITTED: committed.length,
+            P0_APPROVE_COMMITTED_DELIVERED: committedDelivered.length,
+            P0_APPROVE_COMMITTED_UNDELIVERED: committedUndelivered.length,
+            P0_APPROVE_REPLAYED: approveReplayed.length,
+            P0_REPLAY_EVENTS: replay.length,
+            P0_REPLAY_SUPPRESSED: replaySuppressed.length,
+            P0_REPLAY_MISSING: replayMissing,
+            P0_DELIVERY_EVENTS: deliveries.length,
+            P0_DELIVERY_TRUE: deliveryTrue,
+            P0_DELIVERY_FALSE: deliveryFalse,
+            P0_DELIVERY_REASON_SENT: buckets.SENT,
+            P0_DELIVERY_REASON_TIMEOUT: buckets.TIMEOUT,
+            P0_DELIVERY_REASON_AUTH: buckets.AUTH,
+            P0_DELIVERY_REASON_TRANSPORT: buckets.TRANSPORT,
+            P0_DELIVERY_REASON_RECIPIENT: buckets.RECIPIENT,
+            P0_DELIVERY_REASON_TEMPORARY: buckets.TEMPORARY,
+            P0_DELIVERY_REASON_OTHER: buckets.OTHER,
+            P0_CLASSIFICATION: classification,
+            PRODUCTION_MUTATION: "NONE",
+            RAW_LOGS_PUBLISHED: 0,
+          };
+          for (const [key, value] of Object.entries(output)) process.stdout.write(`${key}=${value}\n`);
+          '
+          REMOTE
+
+          [[ -s "$result" ]]
+          node - "$result" <<'NODE'
+          const fs = require('node:fs');
+          const path = process.argv[2];
+          const lines = fs.readFileSync(path, 'utf8').trim().split(/\r?\n/);
+          const allowed = new Set([
+            'P0_DIAGNOSTIC_SCHEMA', 'P0_WEB_REVISION_EXACT', 'P0_CEREMONY_EVENTS_TOTAL',
+            'P0_UNIQUE_APPLICATIONS', 'P0_APPROVE_COMMITTED', 'P0_APPROVE_COMMITTED_DELIVERED',
+            'P0_APPROVE_COMMITTED_UNDELIVERED', 'P0_APPROVE_REPLAYED', 'P0_REPLAY_EVENTS',
+            'P0_REPLAY_SUPPRESSED', 'P0_REPLAY_MISSING', 'P0_DELIVERY_EVENTS', 'P0_DELIVERY_TRUE',
+            'P0_DELIVERY_FALSE', 'P0_DELIVERY_REASON_SENT', 'P0_DELIVERY_REASON_TIMEOUT',
+            'P0_DELIVERY_REASON_AUTH', 'P0_DELIVERY_REASON_TRANSPORT', 'P0_DELIVERY_REASON_RECIPIENT',
+            'P0_DELIVERY_REASON_TEMPORARY', 'P0_DELIVERY_REASON_OTHER', 'P0_CLASSIFICATION',
+            'PRODUCTION_MUTATION', 'RAW_LOGS_PUBLISHED',
+          ]);
+          const values = new Map();
+          for (const line of lines) {
+            if (!/^[A-Z0-9_]+=[A-Z0-9_.-]+$/.test(line)) process.exit(2);
+            const separator = line.indexOf('=');
+            const key = line.slice(0, separator);
+            const value = line.slice(separator + 1);
+            if (!allowed.has(key) || values.has(key)) process.exit(3);
+            values.set(key, value);
+          }
+          for (const key of allowed) if (!values.has(key)) process.exit(4);
+          if (values.get('P0_DIAGNOSTIC_SCHEMA') !== 'production.p0.reviewer-decision-notification-diagnostic.v1'
+            || values.get('P0_WEB_REVISION_EXACT') !== '1'
+            || values.get('PRODUCTION_MUTATION') !== 'NONE'
+            || values.get('RAW_LOGS_PUBLISHED') !== '0') process.exit(5);
+          const classification = values.get('P0_CLASSIFICATION') || '';
+          if (!/^(COMMIT_SUCCEEDED_NOTIFICATION_FAILED|PRIOR_COMMIT_REPLAY_WITHOUT_FIRST_DELIVERY|COMMIT_SUCCEEDED_REPLAY_MISSING|CEREMONY_EVIDENCE_COMPLETE|NO_CEREMONY_EVENTS_IN_BOUND_WINDOW|PARTIAL_OR_LOG_WINDOW_MISMATCH)$/.test(classification)) process.exit(6);
+          NODE
+
+          while IFS='=' read -r key value; do
+            case "$key" in
+              P0_CLASSIFICATION|P0_CEREMONY_EVENTS_TOTAL|P0_UNIQUE_APPLICATIONS|P0_APPROVE_COMMITTED|P0_APPROVE_COMMITTED_DELIVERED|P0_APPROVE_COMMITTED_UNDELIVERED|P0_APPROVE_REPLAYED|P0_REPLAY_EVENTS|P0_REPLAY_SUPPRESSED|P0_REPLAY_MISSING|P0_DELIVERY_EVENTS|P0_DELIVERY_TRUE|P0_DELIVERY_FALSE|P0_DELIVERY_REASON_SENT|P0_DELIVERY_REASON_TIMEOUT|P0_DELIVERY_REASON_AUTH|P0_DELIVERY_REASON_TRANSPORT|P0_DELIVERY_REASON_RECIPIENT|P0_DELIVERY_REASON_TEMPORARY|P0_DELIVERY_REASON_OTHER)
+                echo "$key=$value" >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+          done < "$result"
+
+      - name: Publish bounded diagnostic result
+        shell: bash
+        env:
+          CLASSIFICATION: ${{ steps.inspect.outputs.P0_CLASSIFICATION }}
+          CEREMONY_EVENTS: ${{ steps.inspect.outputs.P0_CEREMONY_EVENTS_TOTAL }}
+          UNIQUE_APPLICATIONS: ${{ steps.inspect.outputs.P0_UNIQUE_APPLICATIONS }}
+          APPROVE_COMMITTED: ${{ steps.inspect.outputs.P0_APPROVE_COMMITTED }}
+          APPROVE_DELIVERED: ${{ steps.inspect.outputs.P0_APPROVE_COMMITTED_DELIVERED }}
+          APPROVE_UNDELIVERED: ${{ steps.inspect.outputs.P0_APPROVE_COMMITTED_UNDELIVERED }}
+          APPROVE_REPLAYED: ${{ steps.inspect.outputs.P0_APPROVE_REPLAYED }}
+          REPLAY_EVENTS: ${{ steps.inspect.outputs.P0_REPLAY_EVENTS }}
+          REPLAY_SUPPRESSED: ${{ steps.inspect.outputs.P0_REPLAY_SUPPRESSED }}
+          REPLAY_MISSING: ${{ steps.inspect.outputs.P0_REPLAY_MISSING }}
+          DELIVERY_EVENTS: ${{ steps.inspect.outputs.P0_DELIVERY_EVENTS }}
+          DELIVERY_TRUE: ${{ steps.inspect.outputs.P0_DELIVERY_TRUE }}
+          DELIVERY_FALSE: ${{ steps.inspect.outputs.P0_DELIVERY_FALSE }}
+          REASON_SENT: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_SENT }}
+          REASON_TIMEOUT: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_TIMEOUT }}
+          REASON_AUTH: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_AUTH }}
+          REASON_TRANSPORT: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_TRANSPORT }}
+          REASON_RECIPIENT: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_RECIPIENT }}
+          REASON_TEMPORARY: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_TEMPORARY }}
+          REASON_OTHER: ${{ steps.inspect.outputs.P0_DELIVERY_REASON_OTHER }}
+        run: |
+          set -Eeuo pipefail
+          for value in "$CEREMONY_EVENTS" "$UNIQUE_APPLICATIONS" "$APPROVE_COMMITTED" "$APPROVE_DELIVERED" "$APPROVE_UNDELIVERED" "$APPROVE_REPLAYED" "$REPLAY_EVENTS" "$REPLAY_SUPPRESSED" "$REPLAY_MISSING" "$DELIVERY_EVENTS" "$DELIVERY_TRUE" "$DELIVERY_FALSE" "$REASON_SENT" "$REASON_TIMEOUT" "$REASON_AUTH" "$REASON_TRANSPORT" "$REASON_RECIPIENT" "$REASON_TEMPORARY" "$REASON_OTHER"; do
+            [[ "$value" =~ ^[0-9]+$ ]]
+          done
+          [[ "$CLASSIFICATION" =~ ^[A-Z0-9_]+$ ]]
+          record="$RUNNER_TEMP/p0-reviewer-decision-notification-diagnostic.md"
+          {
+            echo '## Production P0 reviewer decision notification diagnostic'
+            echo
+            printf -- '- failed run/attempt: `%s-%s`\n' "$FAILED_RUN_ID" "$FAILED_RUN_ATTEMPT"
+            printf -- '- immutable runtime SHA: `%s`\n' "$TARGET_SHA"
+            printf -- '- bounded UTC window: `%s` — `%s`\n' "$DIAGNOSTIC_SINCE" "$DIAGNOSTIC_UNTIL"
+            printf -- '- classification: `%s`\n' "$CLASSIFICATION"
+            printf -- '- ceremony events / unique applications: `%s / %s`\n' "$CEREMONY_EVENTS" "$UNIQUE_APPLICATIONS"
+            printf -- '- committed approvals: `%s`\n' "$APPROVE_COMMITTED"
+            printf -- '- committed approvals with delivered notification: `%s`\n' "$APPROVE_DELIVERED"
+            printf -- '- committed approvals without delivered notification: `%s`\n' "$APPROVE_UNDELIVERED"
+            printf -- '- approval calls already replayed: `%s`\n' "$APPROVE_REPLAYED"
+            printf -- '- replay events / suppressed / missing: `%s / %s / %s`\n' "$REPLAY_EVENTS" "$REPLAY_SUPPRESSED" "$REPLAY_MISSING"
+            printf -- '- delivery events true / false: `%s / %s / %s`\n' "$DELIVERY_EVENTS" "$DELIVERY_TRUE" "$DELIVERY_FALSE"
+            printf -- '- bounded reason classes sent/timeout/auth/transport/recipient/temporary/other: `%s/%s/%s/%s/%s/%s/%s`\n' "$REASON_SENT" "$REASON_TIMEOUT" "$REASON_AUTH" "$REASON_TRANSPORT" "$REASON_RECIPIENT" "$REASON_TEMPORARY" "$REASON_OTHER"
+            echo '- production mutation: `NONE`'
+            echo '- raw logs, application identifiers, PII and credentials published: `0`'
+            echo "- workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$record"
+          ! grep -Eq '@|postgres(?:ql)?://|BEGIN (OPENSSH |RSA |EC )?PRIVATE KEY|pc_(staff_)?(access|refresh)_token|bearer[[:space:]]+[A-Za-z0-9._~-]{20,}' "$record"
+          gh issue comment "$DIAGNOSTIC_ISSUE" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
