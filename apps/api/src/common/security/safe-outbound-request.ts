@@ -37,6 +37,54 @@ import { outboundUrlProblem } from './outbound-url';
 const MAX_REDIRECTS = 3;
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+/**
+ * Size ceilings on what this application will put on the wire.
+ *
+ * A separate property from where the request goes. The address rules above stop
+ * a request reaching somewhere it should not; these stop it being shaped so
+ * that the receiving component refuses it - a URI longer than the server's
+ * request-line limit, or a header field longer than its field limit, comes back
+ * as 414 or 431 every single time, so a stored value nobody bounded turns every
+ * later delivery into a guaranteed error.
+ *
+ * The numbers are the smallest documented limits among the servers a webhook is
+ * likely to land on rather than anything this application prefers: nginx
+ * defaults to an 8 KiB request line and 8 KiB header buffers, and common
+ * gateways sit at or below that. Staying under the smallest limit is what makes
+ * the request acceptable to all of them, so the ceiling is set below it with
+ * room for the path and query the partner chose.
+ *
+ * They are enforced here, at the one place every outbound request passes,
+ * because a limit applied where the value is stored can be bypassed by any
+ * caller that builds a request from something else - and the value is stored by
+ * an endpoint whose body type nothing validates.
+ */
+const MAX_OUTBOUND_URI_LENGTH = 2_048;
+const MAX_OUTBOUND_HEADER_VALUE_LENGTH = 4_096;
+const MAX_OUTBOUND_HEADER_BYTES = 8_192;
+
+/**
+ * Rejects a header set that a receiving component would refuse on size.
+ *
+ * Length is measured in BYTES, not characters. A header value is counted by the
+ * server in octets, and one Cyrillic character is two of them - measuring
+ * `.length` would pass a value twice the size the server actually sees, which
+ * is the whole failure this requirement describes.
+ */
+export function oversizedHeaderProblem(
+  headers: Readonly<Record<string, string>> = {},
+): string | null {
+  let total = 0;
+  for (const [name, value] of Object.entries(headers)) {
+    const bytes = Buffer.byteLength(value, 'utf8');
+    if (bytes > MAX_OUTBOUND_HEADER_VALUE_LENGTH) return 'OUTBOUND_HEADER_TOO_LONG';
+    // The field name, the colon-space and the CRLF are part of what the server
+    // counts against its buffer, so they are counted here too.
+    total += Buffer.byteLength(name, 'utf8') + bytes + 4;
+  }
+  return total > MAX_OUTBOUND_HEADER_BYTES ? 'OUTBOUND_HEADERS_TOO_LARGE' : null;
+}
+
 export type OutboundRefusalReason = string;
 
 export interface SafeOutboundResult {
@@ -97,6 +145,12 @@ export async function vetDestination(
 ): Promise<{ url: URL; addresses: string[] } | { refusedBecause: string }> {
   const schemeProblem = outboundUrlProblem(raw);
   if (schemeProblem) return { refusedBecause: schemeProblem };
+
+  // Checked before parsing, so an enormous string is refused rather than
+  // measured after a URL object has already been built from it.
+  if (Buffer.byteLength(raw, 'utf8') > MAX_OUTBOUND_URI_LENGTH) {
+    return { refusedBecause: 'OUTBOUND_URI_TOO_LONG' };
+  }
 
   const url = new URL(raw);
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/gu, '');
@@ -199,6 +253,12 @@ export async function safeOutboundRequest(
   options: SafeOutboundOptions,
 ): Promise<SafeOutboundResult> {
   let target = raw;
+
+  // Ahead of the loop: the header set does not change between hops, and a
+  // refusal here must happen before any address is contacted rather than after
+  // a first request has already gone out.
+  const headerProblem = oversizedHeaderProblem(options.headers);
+  if (headerProblem) return { delivered: false, refusedBecause: headerProblem, finalUrl: target };
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     const vetted = await vetDestination(target, options);
