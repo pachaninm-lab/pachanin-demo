@@ -4,6 +4,7 @@ import { ExportsService } from './exports.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
+import { attachmentDisposition } from '../../common/security/content-disposition';
 
 @Controller('api/exports')
 @UseGuards(JwtAuthGuard)
@@ -20,7 +21,7 @@ export class ExportsController {
   ) {
     const csv = await this.exports.exportDealsCsv(user, { status, from, to });
     res!.setHeader('Content-Type', 'text/csv');
-    res!.setHeader('Content-Disposition', `attachment; filename="deals-${Date.now()}.csv"`);
+    res!.setHeader('Content-Disposition', attachmentDisposition(`deals-${Date.now()}.csv`));
     res!.send(csv);
   }
 
@@ -37,7 +38,7 @@ export class ExportsController {
   ) {
     const csv = await this.exports.exportLedgerCsv(dealId, user);
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="ledger-${dealId}-${Date.now()}.csv"`);
+    res.setHeader('Content-Disposition', attachmentDisposition(`ledger-${dealId}-${Date.now()}.csv`));
     res.send(csv);
   }
 
@@ -60,7 +61,7 @@ export class ExportsController {
     const result = await this.exports.exportRegulatoryReport(user, body);
     const mime = result.format === 'xml' ? 'application/xml' : 'text/csv';
     res.setHeader('Content-Type', mime);
-    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.setHeader('Content-Disposition', attachmentDisposition(result.filename));
     res.send(result.content);
   }
 }
