@@ -22,7 +22,8 @@
     "The stream is cancelled rather than merely abandoned, so a sender is not left writing into a socket nobody reads.",
     "The bound sits ahead of formData(). Reading first and measuring afterwards is the defect; a limit that runs after the body is buffered bounds nothing.",
     "The reader is proved to be reached from the route, not only to exist. A mutation restoring request.formData() typechecks cleanly and passes every function-level test, which is exactly why the route-level cases exist.",
-    "No production, REG.RU, DNS, database or credential mutation. No migration, no new dependency, no lockfile change. New mandatory cost: 0 RUB."
+    "No production, REG.RU, DNS, database or credential mutation. No migration, no new dependency, no lockfile change. New mandatory cost: 0 RUB.",
+    "A broken request stream is a controlled 400, not a 500. reader.read() rejects when a client disconnects, and moving the read ahead of formData() moved that rejection outside the parsing try - so an ordinary aborted public upload would have become an unhandled server error where it previously gave 400. The response code is deliberately the one it already was: inventing a new code here would widen the surface when the task is to restore prior behaviour."
   ],
   "acceptance": [
     "Both bypasses proven by running them before the fix: with no content-length the guard passes at any size (Number(null || '0') === 0), and with content-length: not-a-number it passes again (Number.isFinite(NaN) === false). The second was not in the original note and was found while measuring the first.",
@@ -30,6 +31,7 @@
     "uploadBodyBound.spec.ts 10 of 10, seven on the reader and three through the route.",
     "Three mutations, each caught: removing the cancel fails 1; an off-by-one at the ceiling fails 1; and reverting the route to request.formData() fails 2 - that last one passes the type check and every reader-level test, which is why it is the one that matters.",
     "A local type check that was reported as passing had not been running at all: ./node_modules/.bin/tsc does not exist at the repository root, and `echo $?` after a pipeline reports the exit status of tail rather than of tsc. The real binary is node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc, and running it immediately rejected the first version of this change (Uint8Array is not BodyInit). The reader now returns an ArrayBuffer, which is, and the real check passes.",
-    "One test expectation was wrong when first written and the expectation was corrected rather than the code: a small multipart body parses as an empty form, so the route answers FILES_REQUIRED rather than a parse error - which demonstrates the point better, since it means the body got past the bound and was parsed."
+    "One test expectation was wrong when first written and the expectation was corrected rather than the code: a small multipart body parses as an empty form, so the route answers FILES_REQUIRED rather than a parse error - which demonstrates the point better, since it means the body got past the bound and was parsed.",
+    "Found by review on the PR and fixed: the pass introduced its own regression in abort handling. The mutation removing the try around the bounded read fails the new case. Suite 11 of 11; the four upload specs together 107 of 107; real web tsc exit 0."
   ]
 }

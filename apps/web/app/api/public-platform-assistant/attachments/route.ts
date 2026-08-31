@@ -325,7 +325,21 @@ export async function POST(request: NextRequest) {
 
   // Настоящая граница: считаем байты по мере чтения и отменяем поток на потолке,
   // не дожидаясь formData(), который буферизует тело целиком.
-  const bounded = await readBoundedBody(request.body, MAX_BODY_BYTES);
+  //
+  // Чтение обёрнуто, потому что оборвавшийся клиент роняет `reader.read()`.
+  // Раньше такой обрыв приходился на `request.formData()` внутри try и давал
+  // контролируемый 400; перенос чтения наружу превратил бы его в 500. Найдено
+  // ревью на #4852 — регрессия этого же прохода.
+  //
+  // Код ответа тот же, что и прежде: тело не удалось получить в пригодном виде.
+  // Заводить для этого новый код значило бы расширить поверхность там, где
+  // задача — вернуть прежнее поведение.
+  let bounded: ArrayBuffer | null;
+  try {
+    bounded = await readBoundedBody(request.body, MAX_BODY_BYTES);
+  } catch {
+    return json({ error: 'INVALID_MULTIPART_BODY' }, 400);
+  }
   if (bounded === null) {
     return json({ error: 'UPLOAD_TOO_LARGE', maxTotalBytes: MAX_TOTAL_BYTES }, 413);
   }

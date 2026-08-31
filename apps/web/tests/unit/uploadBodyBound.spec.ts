@@ -118,6 +118,37 @@ describe('POST /api/.../attachments — граница действительн�
     expect(status).toBe(413);
   });
 
+  it('оборвавшийся клиент даёт 400, а не 500', async () => {
+    // reader.read() отклоняется, когда поток рвётся. Чтение вынесено вперёд
+    // formData(), поэтому без обёртки обычный обрыв публичной загрузки стал бы
+    // необработанной ошибкой сервера. Найдено ревью на #4852 — регрессия этого
+    // же прохода, и раньше такой обрыв давал 400.
+    const failing = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.error(new Error('client went away'));
+      },
+    });
+    const { POST } = await import(
+      '../../app/api/public-platform-assistant/attachments/route'
+    );
+    const request = new Request(
+      'https://example.invalid/api/public-platform-assistant/attachments',
+      {
+        method: 'POST',
+        body: failing,
+        headers: { 'content-type': 'multipart/form-data; boundary=----zzz' },
+        // @ts-expect-error duplex обязателен для потокового тела в undici
+        duplex: 'half',
+      },
+    );
+
+    const response = await POST(request as never);
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as Record<string, unknown>).error).toBe(
+      'INVALID_MULTIPART_BODY',
+    );
+  });
+
   it('тело в пределах потолка доходит до разбора', async () => {
     // Не 413: граница отсекает по размеру, а не всё подряд.
     //
