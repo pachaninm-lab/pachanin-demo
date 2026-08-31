@@ -1,0 +1,208 @@
+name: P0 Registration Decision Durable Outbox Controller
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/p0-registration-decision-durable-outbox-controller.yml'
+      - 'scripts/p0-registration-decision-durable-outbox-patch.py'
+      - 'scripts/p0-registration-decision-durable-outbox-runner.py'
+      - 'docs/platform-v7/autopilot/scopes/p0-registration-decision-outbox-controller-4858.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  IMPLEMENTATION_COMMAND: '/implementation p0-registration-decision-durable-outbox issue-4858'
+  IMPLEMENTATION_BRANCH: 'fix/p0-registration-decision-durable-outbox-4858'
+  AUTHORITY_ISSUE: '4858'
+
+concurrency:
+  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 4858 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) || github.event.comment.performed_via_github_app.id == 1144995) && github.event.comment.body == '/implementation p0-registration-decision-durable-outbox issue-4858' && 'pc-crop-registration-lifecycle' || format('p0-registration-decision-outbox-controller-{0}', github.event.pull_request.number || github.run_id) }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  contract:
+    name: Validate deterministic bounded implementation patch
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 4858 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/implementation p0-registration-decision-durable-outbox issue-4858'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      base_sha: ${{ steps.bind.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate patcher syntax and exact source anchors
+        id: patchcheck
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          log="$RUNNER_TEMP/p0-registration-decision-outbox-patch-check.log"
+          set +e
+          (
+            set -Eeuo pipefail
+            python3 -m py_compile \
+              scripts/p0-registration-decision-durable-outbox-patch.py \
+              scripts/p0-registration-decision-durable-outbox-runner.py
+            python3 scripts/p0-registration-decision-durable-outbox-runner.py check
+            python3 -m json.tool docs/platform-v7/autopilot/scopes/p0-registration-decision-outbox-controller-4858.json >/dev/null
+            git diff --check
+          ) >"$log" 2>&1
+          rc=$?
+          set -e
+          cat "$log"
+          exit "$rc"
+
+      - name: Retain bounded patcher failure evidence
+        if: failure() && steps.patchcheck.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-registration-decision-outbox-patch-failure
+          path: ${{ runner.temp }}/p0-registration-decision-outbox-patch-check.log
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Verify exact owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq .owner.login)"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq .user.login)"
+          association="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq .author_association)"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq .body)"
+          app_id="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$association" == 'OWNER' && "$body" == "$IMPLEMENTATION_COMMAND" ]]
+          [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]] \
+            || [[ "$app_id" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+
+      - name: Bind implementation to exact current main
+        id: bind
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$current" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$current" == "$EVENT_SHA" ]]
+          [[ "$current" == "$(git rev-parse HEAD)" ]]
+          [[ "$current" == "$(git rev-parse origin/main)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$current" >> "$GITHUB_OUTPUT"
+
+  implement:
+    name: Create durable registration-decision implementation PR
+    needs: contract
+    if: github.event_name == 'issue_comment' && needs.contract.result == 'success' && needs.contract.outputs.base_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BASE_SHA: ${{ needs.contract.outputs.base_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.contract.outputs.base_sha }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply bounded root-cause correction
+        id: apply
+        run: |
+          set -Eeuo pipefail
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$current" == "$BASE_SHA" && "$(git rev-parse HEAD)" == "$BASE_SHA" ]]
+          if git ls-remote --exit-code --heads origin "$IMPLEMENTATION_BRANCH" >/dev/null 2>&1; then
+            echo "Implementation branch already exists; refusing to overwrite it." >&2
+            exit 1
+          fi
+          git checkout -b "$IMPLEMENTATION_BRANCH"
+          python3 scripts/p0-registration-decision-durable-outbox-runner.py apply
+          python3 scripts/p0-registration-decision-durable-outbox-runner.py check-applied
+          python3 -m json.tool docs/platform-v7/autopilot/scopes/p0-registration-decision-durable-outbox-4858.json >/dev/null
+          bash -n <(printf '%s\n' '#!/usr/bin/env bash' 'set -Eeuo pipefail')
+          git diff --check
+          mapfile -t changed < <(git diff --name-only | sort)
+          mapfile -t allowed < <(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          scope = json.loads(Path('docs/platform-v7/autopilot/scopes/p0-registration-decision-durable-outbox-4858.json').read_text())
+          for path in sorted(scope['allowedPaths']):
+              print(path)
+          PY
+          )
+          [[ "${#changed[@]}" == "${#allowed[@]}" ]]
+          [[ "$(printf '%s\n' "${changed[@]}")" == "$(printf '%s\n' "${allowed[@]}")" ]]
+          git config user.name 'pachaninm-lab'
+          git config user.email 'pachaninm@gmail.com'
+          git add -- "${changed[@]}"
+          git commit -m 'fix(pc-crop): make registration decision mail durable'
+          head_sha="$(git rev-parse HEAD)"
+          git push --set-upstream origin "$IMPLEMENTATION_BRANCH"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Open bounded implementation PR
+        id: pr
+        run: |
+          set -Eeuo pipefail
+          body="$RUNNER_TEMP/p0-registration-decision-outbox-pr.md"
+          cat > "$body" <<'MD'
+          ## Root cause
+
+          Production evidence in #4858 classified the failure as `COMMIT_SUCCEEDED_NOTIFICATION_FAILED`: the registration decision committed before the Web BFF attempted SMTP, so one failed delivery left an activated application without recoverable first-delivery evidence.
+
+          ## Correction
+
+          - enqueue encrypted `REGISTRATION_DECISION` mail in the same Serializable transaction as the decision, audit and lifecycle receipt;
+          - use the existing PostgreSQL durable auth-mail worker with lease, `SKIP LOCKED`, retry and dead-letter behavior;
+          - expose only bounded `SENT/PENDING/DEAD_LETTER` state through a least-privilege `SECURITY DEFINER` status function;
+          - wait for durable `SENT` before the BFF reports `notificationDelivered=true`;
+          - recover missing mail on an exact decision replay without repeating the state transition;
+          - remove direct SMTP from both reviewer and organization-admin decision BFFs;
+          - make browser idempotency stable across transport retries;
+          - preserve MFA, RLS, CSRF, tenant, role, audit and real-delivery requirements.
+
+          ## Boundaries
+
+          Registration/auth-mail/reviewer only. No production mutation in this PR, no direct production SQL, no credential output, no fake delivery, no security weakening, no new recurring cost.
+          MD
+          url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$IMPLEMENTATION_BRANCH" --title 'fix(pc-crop): make registration decision mail durable' --body-file "$body")"
+          [[ "$url" =~ /pull/[0-9]+$ ]]
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Record implementation handoff
+        run: |
+          set -Eeuo pipefail
+          gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "Durable registration-decision outbox implementation opened: ${{ steps.pr.outputs.url }}. Base: \`$BASE_SHA\`; head: \`${{ steps.apply.outputs.head_sha }}\`. Production mutation: NONE."
