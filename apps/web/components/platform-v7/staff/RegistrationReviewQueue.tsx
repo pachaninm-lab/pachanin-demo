@@ -154,20 +154,32 @@ const COPY = {
   },
 } as const;
 
-function newIdempotencyKey(applicationId: string) {
-  return `registration-review:${applicationId}:${crypto.randomUUID()}`;
+async function decisionMarker(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .slice(0, 16)
+    .map((item) => item.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 async function p0CeremonyHeaders(applicationId: string, phase: 'approve' | 'replay') {
-  const bytes = new TextEncoder().encode(applicationId);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  const marker = Array.from(new Uint8Array(digest))
-    .slice(0, 16)
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('');
+  const marker = await decisionMarker(applicationId);
   return {
     idempotencyKey: `p0-human-review:${marker}`,
     correlationId: `p0-human-${phase}:${marker}`,
+  };
+}
+
+async function ordinaryDecisionHeaders(
+  applicationId: string,
+  version: string,
+  decision: ReviewDecision,
+) {
+  const marker = await decisionMarker(`${applicationId}${version}${decision}`);
+  return {
+    idempotencyKey: `registration-review:${marker}:${decision.toLowerCase()}`,
+    correlationId: `registration-review:${marker}:${crypto.randomUUID()}`,
   };
 }
 
@@ -230,10 +242,9 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
     try {
       const p0Ceremony = decision === 'APPROVE'
         && application.organization.legalName.startsWith(P0_ACCEPTANCE_LEGAL_NAME_PREFIX);
-      const ordinaryKey = newIdempotencyKey(application.applicationId);
       const firstHeaders = p0Ceremony
         ? await p0CeremonyHeaders(application.applicationId, 'approve')
-        : { idempotencyKey: ordinaryKey, correlationId: '' };
+        : await ordinaryDecisionHeaders(application.applicationId, application.version, decision);
       const endpoint = `/api/staff/registration/applications/${encodeURIComponent(application.applicationId)}/decision`;
       const requestBody = JSON.stringify({ decision, reason, locale });
       const response = await fetch(endpoint, {
