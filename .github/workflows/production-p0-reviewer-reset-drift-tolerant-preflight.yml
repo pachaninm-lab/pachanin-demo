@@ -48,7 +48,7 @@ jobs:
     outputs:
       target_sha: ${{ steps.target.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
           fetch-depth: 0
@@ -164,7 +164,7 @@ jobs:
               '[[ "${GITHUB_RUN_ATTEMPT:-0}" == \'1\' ]]',
               'pc.p0-reviewer-reset-preflight-authorization.v1',
               "payload['issue'] != 4637 or payload['runAttempt'] != 1",
-              'actions/upload-artifact@v4',
+              'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
               "github.event.issue.number == 4637",
               'production-p0-reviewer-reset-preflight-$' + '{{ github.run_id }}-$' + '{{ github.run_attempt }}',
               'retention-days: 1',
@@ -259,7 +259,7 @@ jobs:
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: main
           fetch-depth: 0
@@ -360,7 +360,7 @@ jobs:
 
       - name: Upload bounded reset authorization evidence
         if: github.event.issue.number == 4637
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: production-p0-reviewer-reset-preflight-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ steps.authorization.outputs.evidence_path }}
