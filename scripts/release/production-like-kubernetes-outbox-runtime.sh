@@ -100,19 +100,57 @@ const consumerAfter = [
   'test "$consumer_status" = "0" || test "$consumer_status" = "1"',
 ].join('\n');
 
+const finalLogsBefore = [
+  'kubectl logs -n "$NAMESPACE" -l "$WORKER_SELECTOR" --all-containers=true --prefix=true --tail=1000 \\',
+  '  > "$RUNTIME_DIR/final-worker-logs.txt" 2>&1',
+].join('\n');
+
+const finalLogsAfter = [
+  'FAILURE_REASON="final outbox worker log collection was not stable after scale-down"',
+  'terminating_workers=""',
+  'active_workers=""',
+  'for _ in $(seq 1 60); do',
+  '  worker_snapshot="$(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" -o json)"',
+  '  terminating_workers="$(printf \'%s\' "$worker_snapshot" | jq \'[.items[] | select(.metadata.deletionTimestamp != null)] | length\')"',
+  '  active_workers="$(printf \'%s\' "$worker_snapshot" | jq \'[.items[] | select(.metadata.deletionTimestamp == null)] | length\')"',
+  '  if [[ "$terminating_workers" = "0" && "$active_workers" = "2" ]]; then',
+  '    break',
+  '  fi',
+  '  sleep 1',
+  'done',
+  'test "$terminating_workers" = "0"',
+  'test "$active_workers" = "2"',
+  'mapfile -t final_worker_pods < <(',
+  '  kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" \\',
+  '    -o jsonpath=\'{range .items[*]}{.metadata.name}{"\\n"}{end}\' | sort',
+  ')',
+  'test "${#final_worker_pods[@]}" = "2"',
+  ': > "$RUNTIME_DIR/final-worker-logs.txt"',
+  'for pod in "${final_worker_pods[@]}"; do',
+  '  kubectl logs -n "$NAMESPACE" "pod/${pod}" --all-containers=true --prefix=true --tail=1000 \\',
+  '    >> "$RUNTIME_DIR/final-worker-logs.txt" 2>&1',
+  'done',
+  'FAILURE_REASON="final outbox worker logs contain forbidden runtime errors"',
+].join('\n');
+
 if (!source.includes(gracefulBefore)) {
   throw new Error('graceful shutdown assertion boundary not found');
 }
 if (!source.includes(consumerBefore)) {
   throw new Error('Kafka delivery probe boundary not found');
 }
+if (!source.includes(finalLogsBefore)) {
+  throw new Error('final worker log collection boundary not found');
+}
 
 let rendered = source.replace(gracefulBefore, gracefulAfter);
 rendered = rendered.replace(consumerBefore, consumerAfter);
+rendered = rendered.replace(finalLogsBefore, finalLogsAfter);
 if (
   rendered === source ||
   rendered.includes(gracefulBefore) ||
-  rendered.includes(consumerBefore)
+  rendered.includes(consumerBefore) ||
+  rendered.includes(finalLogsBefore)
 ) {
   throw new Error('acceptance boundaries were not replaced exactly once');
 }

@@ -15,6 +15,7 @@
 // Exact-main push activation for DOM-safe public AI identity after workflow-dispatch actor rejection; runtime configuration is unchanged.
 // Exact-main trusted push publishes the approved DOM-safe public AI after finalized PC-CROP lock maintenance; runtime configuration is unchanged.
 // P0 model-first agricultural chat: broad domain questions reach local Qwen without a knowledge-base admission gate.
+// P0 current-turn binding: complete new questions cannot inherit the previous platform or agricultural answer.
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
@@ -95,7 +96,7 @@ const nextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
-        { source: '/api/public-platform-assistant', destination: '/api/agro-chat' },
+        { source: '/api/public-platform-assistant', destination: '/api/agro-chat-turn-safe' },
         { source: '/sw.js', destination: '/pc-public-entry/sw-recovery' },
         { source: '/platform-v7', destination: '/pc-public-entry/platform-v7' },
         { source: '/platform-v7/login', destination: '/pc-public-entry/platform-v7/login' },
