@@ -11,6 +11,29 @@ const EXPORT_ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.COMPLIANCE_OFFICER, Role.
 export class ExportsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Тенант вызывающего — обязателен, а не желателен.
+   *
+   * Замер на живой базе (#4839): под ролью приложения `app_runtime`
+   * (NOSUPERUSER, NOBYPASSRLS) и без выставленного RLS-контекста запрос без
+   * предиката тенанта вернул сделки обоих тенантов. Причина — политика
+   * `deals_app_access USING (true)`, которая по правилам PostgreSQL
+   * объединяется с строгой `deals_select` через OR и обесценивает её. Пока эта
+   * политика жива (#4814), единственная граница на этом пути — вот эта.
+   *
+   * Отсутствующий tenantId не «пропускаем дальше»: это отказ. Иначе
+   * пользователь без тенанта в токене получил бы ровно то чтение, которое здесь
+   * и закрывается. Та же форма проверки стоит в
+   * postgresql-deal-command.service.ts.
+   */
+  private assertTenantScope(user: RequestUser): string {
+    const tenantId = user.tenantId;
+    if (typeof tenantId !== 'string' || tenantId.length === 0) {
+      throw new ForbiddenException('Export tenant scope unavailable');
+    }
+    return tenantId;
+  }
+
   private assertExportRole(user: RequestUser): void {
     if (!EXPORT_ALLOWED_ROLES.includes(user.role as Role)) {
       throw new ForbiddenException('Export access denied');
@@ -19,8 +42,10 @@ export class ExportsService {
 
   async exportDealsCsv(user: RequestUser, filters?: { status?: string; from?: string; to?: string }): Promise<string> {
     this.assertExportRole(user);
+    const tenantId = this.assertTenantScope(user);
     const deals = await this.prisma.deal.findMany({
       where: {
+        tenantId,
         ...(filters?.status && { status: filters.status }),
         ...(filters?.from && { createdAt: { gte: new Date(filters.from) } }),
         ...(filters?.to && { createdAt: { lte: new Date(filters.to) } }),
@@ -40,7 +65,10 @@ export class ExportsService {
     files: Array<{ filename: string; hash: string; prevHash: string | null; type: string; uploadedAt: string }>;
     chainValid: boolean;
   }> {
-    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    const tenantId = this.assertTenantScope(user);
+    // findFirst с предикатом тенанта, а не findUnique по id: чужая сделка
+    // должна быть неотличима от несуществующей.
+    const deal = await this.prisma.deal.findFirst({ where: { id: dealId, tenantId } });
     if (!deal) throw new ForbiddenException(`Deal ${dealId} not found`);
 
     const evidence = await this.prisma.evidenceFile.findMany({
@@ -88,6 +116,16 @@ export class ExportsService {
 
   async exportLedgerCsv(dealId: string, user: RequestUser): Promise<string> {
     this.assertExportRole(user);
+    const tenantId = this.assertTenantScope(user);
+    // ledger_entries своей колонки тенанта не имеет, поэтому принадлежность
+    // проверяется по сделке. Строки RLS всё равно не отдаст, пока контекст не
+    // выставлен, - но полагаться на это как на границу нельзя: контрол,
+    // держащийся на том, что запрос и так ничего не вернёт, не контрол.
+    const deal = await this.prisma.deal.findFirst({
+      where: { id: dealId, tenantId },
+      select: { id: true },
+    });
+    if (!deal) throw new ForbiddenException(`Deal ${dealId} not found`);
     const entries = await this.prisma.ledgerEntry.findMany({
       where: { dealId },
       orderBy: { createdAt: 'asc' },
@@ -119,11 +157,12 @@ export class ExportsService {
     params: { type: 'msh' | 'rosstat' | 'fns' | 'rosfinmonitoring'; from?: string; to?: string },
   ): Promise<{ format: string; filename: string; content: string }> {
     this.assertExportRole(user);
+    const tenantId = this.assertTenantScope(user);
     const from = params.from ? new Date(params.from) : new Date(Date.now() - 30 * 24 * 3600_000);
     const to = params.to ? new Date(params.to) : new Date();
 
     const deals = await this.prisma.deal.findMany({
-      where: { createdAt: { gte: from, lte: to } },
+      where: { tenantId, createdAt: { gte: from, lte: to } },
       select: {
         id: true, dealNumber: true, status: true, culture: true, region: true,
         volumeTons: true, totalRub: true, totalKopecks: true,
@@ -226,8 +265,8 @@ export class ExportsService {
     };
   }> {
     this.assertExportRole(user);
-    const deal = await this.prisma.deal.findUnique({
-      where: { id: dealId },
+    const deal = await this.prisma.deal.findFirst({
+      where: { id: dealId, tenantId: this.assertTenantScope(user) },
       include: { dealEvents: { orderBy: { createdAt: 'asc' } } },
     }).catch(() => null);
 

@@ -13,8 +13,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-p0-reviewer-reset-drift-tolerant-preflight-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number || github.run_id }}
+  group: ${{ github.event_name == 'issue_comment' && (github.event.issue.number == 3072 || github.event.issue.number == 4637) && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) || github.event.comment.performed_via_github_app.id == 1144995) && github.event.comment.body == '/production p0-reviewer-reset-preflight current-runtime' && 'pc-crop-registration-lifecycle' || format('production-p0-reviewer-reset-drift-tolerant-preflight-{0}', github.event.pull_request.number || github.run_id) }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   contract:
@@ -23,7 +24,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (
         github.event_name == 'issue_comment' &&
-        github.event.issue.number == 3072 &&
+        (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
         github.event.comment.user.login == github.repository_owner &&
         github.event.comment.author_association == 'OWNER' &&
         (
@@ -58,6 +59,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           text = Path('scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh').read_text(encoding='utf-8')
+          workflow = Path('.github/workflows/production-p0-reviewer-reset-drift-tolerant-preflight.yml').read_text(encoding='utf-8')
           required = [
               "SAFE_BASELINE_SHA='440e40753e2cac13c93f8e007d9fe17c2b66caba'",
               "REVIEWED_RESET_SHA='a9c16814960520b20e8ae0c722570d9a3b4147f9'",
@@ -80,6 +82,18 @@ jobs:
           missing = [x for x in required if x not in text]
           if missing:
               raise SystemExit('missing invariant: ' + ' | '.join(missing))
+          workflow_required = [
+              'pc-crop-registration-lifecycle',
+              'queue: max',
+              '(github.event.issue.number == 3072 || github.event.issue.number == 4637)',
+              'CONTINUATION_ISSUE_NUMBER: $' + '{{ github.event.issue.number }}',
+              "old = \"RELEASE_ISSUE_NUMBER='3072'\"",
+              "new = \"RELEASE_ISSUE_NUMBER='4637'\"",
+              "grep -Fqx \"RELEASE_ISSUE_NUMBER='4637'\" \"$script\"",
+          ]
+          workflow_missing = [x for x in workflow_required if x not in workflow]
+          if workflow_missing:
+              raise SystemExit('missing continuation workflow invariant: ' + ' | '.join(workflow_missing))
           forbidden = [
               '--request POST', '-X POST', '--data', '--data-binary',
               'send_message(', 'sendmail(', 'MAIL FROM', 'RCPT TO',
@@ -178,4 +192,33 @@ jobs:
 
       - name: Run drift-tolerant read-only production preflight
         shell: bash
-        run: bash scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh
+        env:
+          CONTINUATION_ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -Eeuo pipefail
+          source='scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh'
+          script="$source"
+          case "$CONTINUATION_ISSUE_NUMBER" in
+            3072) ;;
+            4637)
+              script="$RUNNER_TEMP/production-p0-reviewer-reset-preflight-4637.sh"
+              SOURCE="$source" TARGET="$script" python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          source = Path(os.environ['SOURCE'])
+          target = Path(os.environ['TARGET'])
+          text = source.read_text(encoding='utf-8')
+          old = "RELEASE_ISSUE_NUMBER='3072'"
+          new = "RELEASE_ISSUE_NUMBER='4637'"
+          if text.count(old) != 1 or new in text:
+              raise SystemExit('continuation issue substitution contract invalid')
+          target.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+              chmod 0700 "$script"
+              bash -n "$script"
+              grep -Fqx "RELEASE_ISSUE_NUMBER='4637'" "$script"
+              ;;
+            *) exit 64 ;;
+          esac
+          bash "$script"
