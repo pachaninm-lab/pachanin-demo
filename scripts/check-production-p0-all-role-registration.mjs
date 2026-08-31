@@ -46,6 +46,52 @@ requireAll(paths.workflow, workflow, [
   "github.event.issue.number == 4637",
   "github.event.comment.body == '/production p0-all-role-registration current-main'",
   'actions/workflows/production-p0-first-customer-acceptance.yml/runs',
+  'Resolve immutable candidate from latest First Customer intent',
+  'P0_LATEST_FIRST_CUSTOMER_INTENT_NOT_TERMINAL_PASS',
+  'gh api --paginate --slurp',
+  'actor=$GITHUB_REPOSITORY_OWNER',
+  'created=%3E%3D$current_created',
+  'created=%3E%3D$expected_created',
+  '/attempts/$candidate_attempt/jobs?per_page=100',
+  'runs/$DEEP_RUN_ID/attempts/$DEEP_RUN_ATTEMPT/jobs?per_page=100',
+  'runs/$run_id/attempts/$run_attempt/jobs?per_page=100',
+  "job.name === 'Validate production P0 acceptance contract'",
+  "job.name === 'Two public customers · staff MFA · RLS · causal receipt'",
+  'contract.length !== 1 || acceptance.length !== 1',
+  'production-p0-first-customer-([0-9a-f]{40})-${runId}-${attempt}',
+  'mapfile -t results < <(find "$deep_dir" -type f -name result.json -print)',
+  '[[ "${#results[@]}" == 1',
+  'result.runId !== expectedRunId',
+  'result.releaseControllerRunId',
+  'result.releaseControllerRunAttempt',
+  'release_run_attempt=$release_controller_run_attempt',
+  'result.production?.authMailWorkerRevisionExact !== true',
+  'result.production?.authMailWorkerReady !== true',
+  'result.tenantIsolation?.tenantAPostgresqlRlsCount !== 1',
+  'result.tenantIsolation?.tenantBPostgresqlRlsCount !== 0',
+  "result.causalReceiptProducer !== 'auth.emit_registration_lifecycle_receipt(text,text)'",
+  'git merge-base --is-ancestor "$target" "$current"',
+  'git checkout --detach "$target"',
+  'Validate 9-role contract from immutable candidate',
+  'deep_run_attempt=$deep_run_attempt',
+  'assert_first_customer_intent_current()',
+  'node - "$runs" > "$candidates_parser_file"',
+  'mapfile -t candidates < "$candidates_parser_file"',
+  '"$current_attempt" == "$DEEP_RUN_ATTEMPT"',
+  'production-p0-first-customer-acceptance.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER',
+  'P0_NEWER_FIRST_CUSTOMER_INTENT_BLOCKS_ALL_ROLE',
+  'P0_NEWER_RELEASE_INTENT_BLOCKS_ALL_ROLE',
+  'P0_FIRST_CUSTOMER_ATTEMPT_CHANGED_BEFORE_ALL_ROLE',
+  'P0_RELEASE_ATTEMPT_CHANGED_BEFORE_ALL_ROLE',
+  'monitor_source_attempts()',
+  'P0_%s_ATTEMPT_CHANGED_DURING_ALL_ROLE',
+  'P0_FIRST_CUSTOMER_ATTEMPT_CHANGED_BEFORE_ALL_ROLE_ARTIFACT',
+  'P0_RELEASE_ATTEMPT_CHANGED_BEFORE_ALL_ROLE_ARTIFACT',
+  'setsid --wait bash -c',
+  'kill -TERM -- "-$runner_pid"',
+  'group: pc-crop-production-release-candidate',
+  'pc-crop-registration-lifecycle',
+  'queue: max',
   'production.p0.first-customer.acceptance.v1',
   'PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH',
   "require.resolve('@playwright/test')",
@@ -60,9 +106,84 @@ requireAll(paths.workflow, workflow, [
   'name: Scan bounded redacted 9-role evidence',
   'name: Enforce terminal PASS in bounded 9-role evidence',
   'actions/upload-artifact@v4',
+  'production-p0-all-role-${{ steps.target.outputs.sha }}-${{ github.run_id }}-${{ github.run_attempt }}',
   'Remove protected runner credentials',
   'RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}',
 ]);
+const lifecycleGroup = workflow.match(/^concurrency:\n\s+group: ([^\n]+)$/mu)?.[1] || '';
+if (!lifecycleGroup.includes('pc-crop-registration-lifecycle')
+  || lifecycleGroup.includes('github.triggering_actor')) {
+  failures.push(`${paths.workflow}: reruns of the original owner command must remain in the serialized lifecycle group`);
+}
+for (const forbidden of [
+  '[[ "$candidate_status" == completed ]] && continue',
+  'if [[ "$count" == 0 && "$run_status" == completed ]]; then continue; fi',
+  '(contract.length === 0 || contractSkipped)',
+  '("$materialized" == 1 || "$run_status" == completed)',
+]) {
+  if (workflow.includes(forbidden)) failures.push(`${paths.workflow}: zero-job latest-intent bypass remains: ${forbidden}`);
+}
+if (!workflow.includes('for _ in $(seq 1 15); do')) {
+  failures.push(`${paths.workflow}: source-attempt monitor must use the bounded 15-second polling interval`);
+}
+const sshPreparation = workflow.indexOf('- name: Resolve protected key and pinned REG.RU identity');
+const firstCustomerLineage = workflow.indexOf('- name: Require selected First Customer attempt remains current');
+const releaseLineage = workflow.indexOf('- name: Require First Customer release remains latest intent');
+const matrixExecution = workflow.indexOf('- name: Execute immutable-candidate production 9-role matrix');
+const firstCustomerAttemptRecheck = workflow.indexOf('P0_FIRST_CUSTOMER_ATTEMPT_CHANGED_BEFORE_ALL_ROLE', matrixExecution);
+const releaseAttemptRecheck = workflow.indexOf('P0_RELEASE_ATTEMPT_CHANGED_BEFORE_ALL_ROLE', matrixExecution);
+const attemptMonitor = workflow.indexOf('monitor_source_attempts()', matrixExecution);
+const matrixRunnerLaunch = workflow.indexOf('setsid --wait bash -c', matrixExecution);
+const matrixMonitorLaunch = workflow.indexOf('monitor_source_attempts &', matrixExecution);
+const matrixRunnerWait = workflow.indexOf('wait "$runner_pid"', matrixExecution);
+const matrixMutation = workflow.indexOf('bash scripts/production-p0-all-role-registration.sh', matrixExecution);
+if (!(sshPreparation >= 0 && firstCustomerLineage > sshPreparation
+  && releaseLineage > firstCustomerLineage && matrixExecution > releaseLineage)) {
+  failures.push(`${paths.workflow}: both exact acceptance lineage guards must run after SSH preparation and immediately before 9-role execution`);
+}
+if (!(firstCustomerAttemptRecheck > matrixExecution
+  && releaseAttemptRecheck > firstCustomerAttemptRecheck
+  && attemptMonitor > releaseAttemptRecheck && matrixMutation > attemptMonitor)) {
+  failures.push(`${paths.workflow}: selected First Customer and release attempts must be rechecked and continuously supervised inside the matrix step`);
+}
+if (!(matrixRunnerLaunch > attemptMonitor && matrixMonitorLaunch > matrixRunnerLaunch
+  && matrixRunnerWait > matrixMonitorLaunch)) {
+  failures.push(`${paths.workflow}: source-attempt monitor must actually launch and supervise the 9-role process group`);
+}
+const artifactGuard = workflow.indexOf('- name: Guard immutable candidate before artifact publication');
+const artifactReleaseScan = workflow.indexOf('assert_no_newer_release_intent\n', artifactGuard);
+const artifactFinalFetch = workflow.indexOf('git fetch --no-tags origin main >/dev/null', artifactReleaseScan);
+const artifactFinalAncestry = workflow.indexOf('git merge-base --is-ancestor "$TARGET_SHA" "$current"', artifactFinalFetch);
+const artifactFinalDeepEndpoint = workflow.indexOf('actions/runs/$DEEP_RUN_ID', artifactFinalAncestry);
+const artifactDeepFinal = workflow.indexOf('P0_FIRST_CUSTOMER_ATTEMPT_CHANGED_BEFORE_ALL_ROLE_ARTIFACT', artifactGuard);
+const artifactFinalReleaseEndpoint = workflow.indexOf('actions/runs/$RELEASE_RUN_ID', artifactDeepFinal);
+const artifactReleaseFinal = workflow.indexOf('P0_RELEASE_ATTEMPT_CHANGED_BEFORE_ALL_ROLE_ARTIFACT', artifactGuard);
+const artifactUpload = workflow.indexOf('- name: Upload bounded production 9-role evidence', artifactGuard);
+if (!(artifactGuard >= 0 && artifactReleaseScan > artifactGuard
+  && artifactFinalFetch > artifactReleaseScan && artifactFinalAncestry > artifactFinalFetch
+  && artifactFinalDeepEndpoint > artifactFinalAncestry && artifactDeepFinal > artifactFinalDeepEndpoint
+  && artifactFinalReleaseEndpoint > artifactDeepFinal && artifactReleaseFinal > artifactFinalReleaseEndpoint
+  && artifactUpload > artifactReleaseFinal)) {
+  failures.push(`${paths.workflow}: artifact publication must follow the final combined source-attempt and candidate-ancestry recheck`);
+}
+if (/mapfile -t \w+ < <\(node/u.test(workflow)) {
+  failures.push(`${paths.workflow}: latest-intent parser exit status must not be hidden by process substitution`);
+}
+if (workflow.includes('jobs?filter=latest')) {
+  failures.push(`${paths.workflow}: latest jobs endpoint is forbidden; every provenance read must name an exact run attempt`);
+}
+if (/assert_(?:first_customer_intent_current|no_newer_release_intent)\s*(?:\\\n\s*)?\|\|/u.test(workflow)) {
+  failures.push(`${paths.workflow}: latest-intent guards must be called directly so Bash errexit remains active inside the functions`);
+}
+const parserFailureProbe = spawnSync('bash', ['-c',
+  'set -euo pipefail; out="$(mktemp)"; trap \'rm -f "$out"\' EXIT; node -e \'process.stdout.write("partial\\n");process.exit(7)\' > "$out"; mapfile -t rows < "$out"; echo FAIL_OPEN',
+], { encoding: 'utf8' });
+if (parserFailureProbe.status === 0 || parserFailureProbe.stdout.includes('FAIL_OPEN')) {
+  failures.push(`${paths.checker}: status-checked latest-intent parser failure probe did not fail closed`);
+}
+if ((workflow.match(/^\s+queue: max$/gmu) || []).length !== 2) {
+  failures.push(`${paths.workflow}: workflow and 9-role acceptance must both retain every serialized pending invocation`);
+}
 
 requireAll(paths.runner, runner, [
   `BASE_WRAPPER_BLOB='${EXPECTED_BASE_WRAPPER_BLOB}'`,
@@ -91,6 +212,17 @@ requireAll(paths.runner, runner, [
   'P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS',
   'P0_ALL_ROLE_LABEL_BOUND_COOKIE_JARS=PASS',
   'P0_ALL_ROLE_HTTP_TIMEOUT_ENVELOPE=PASS',
+  'RELEASE_CANDIDATE_ANCESTRY_GUARD',
+  'P0_ALL_ROLE_RELEASE_CANDIDATE_GUARD=PASS',
+  'AUTH_MAIL_WORKER_EXACT_READY',
+  'P0_AUTH_MAIL_WORKER_RUNTIME_AUTHORITY_AMBIGUOUS',
+  'P0_AUTH_MAIL_WORKER_REVISION_MISMATCH',
+  'P0_AUTH_MAIL_WORKER_NOT_HEALTHY',
+  'P0_AUTH_MAIL_WORKER_NOT_READY',
+  'authMailWorkerRevisionExact',
+  'authMailWorkerReady',
+  'TERMINAL_PRODUCTION_PREFLIGHT',
+  'P0_ALL_ROLE_AUTH_MAIL_WORKER_GUARD=PASS',
 ]);
 
 requireAll(paths.runbook, runbook, [
@@ -107,6 +239,74 @@ forbid(paths.workflow, workflow, /PC_(?:P0|PROD_P0)_REVIEWER_(?:EMAIL|PASSWORD|T
   'reviewer credential input is forbidden');
 forbid(paths.workflow, workflow, /pull_request_target:/u, 'pull_request_target is forbidden');
 forbid(paths.workflow, workflow, /continue-on-error:\s*true/u, 'continue-on-error is forbidden');
+if (workflow.includes('production-p0-first-customer-acceptance.yml/runs?event=issue_comment&status=success')) {
+  failures.push(`${paths.workflow}: First Customer selector must inspect the latest qualifying intent, including failures and in-progress runs`);
+}
+const acceptanceJobName = 'Two public customers · staff MFA · RLS · causal receipt';
+const contractJobName = 'Validate production P0 acceptance contract';
+const firstCustomerVerdict = (runs) => {
+  for (const run of runs) {
+    const contract = run.jobs.filter((job) => job.name === contractJobName);
+    const acceptance = run.jobs.filter((job) => job.name === acceptanceJobName);
+    const contractSkipped = contract.length === 1 && contract[0].conclusion === 'skipped';
+    const acceptanceSkipped = acceptance.length === 1 && acceptance[0].conclusion === 'skipped';
+    if (contractSkipped && acceptanceSkipped) {
+      if (Number(run.runAttempt || 1) > 1) return 'BLOCK';
+      continue;
+    }
+    if (contract.length !== 1 || acceptance.length !== 1
+      || run.status !== 'completed' || run.conclusion !== 'success'
+      || contract[0].conclusion !== 'success' || acceptance[0].conclusion !== 'success') return 'BLOCK';
+    return 'PASS';
+  }
+  return 'BLOCK';
+};
+const oldFirstCustomerPass = {
+  runAttempt: 1, status: 'completed', conclusion: 'success', jobs: [
+    { name: contractJobName, conclusion: 'success' },
+    { name: acceptanceJobName, conclusion: 'success' },
+  ],
+};
+if (firstCustomerVerdict([
+  { runAttempt: 2, status: 'completed', conclusion: 'failure', jobs: [
+    { name: contractJobName, conclusion: 'skipped' },
+    { name: acceptanceJobName, conclusion: 'skipped' },
+  ] },
+  oldFirstCustomerPass,
+]) !== 'BLOCK') failures.push(`${paths.checker}: newer skipped First Customer rerun must block fallback`);
+if (firstCustomerVerdict([
+  { runAttempt: 1, status: 'completed', conclusion: 'cancelled', jobs: [] },
+  oldFirstCustomerPass,
+]) !== 'BLOCK') failures.push(`${paths.checker}: newer completed First Customer intent without materialized jobs must block fallback`);
+if (firstCustomerVerdict([
+  { status: 'in_progress', conclusion: null, jobs: [
+    { name: contractJobName, conclusion: 'success' },
+    { name: acceptanceJobName, conclusion: null },
+  ] },
+  oldFirstCustomerPass,
+]) !== 'BLOCK') failures.push(`${paths.checker}: newer in-progress First Customer intent must block fallback`);
+if (firstCustomerVerdict([
+  { status: 'completed', conclusion: 'failure', jobs: [
+    { name: contractJobName, conclusion: 'success' },
+    { name: acceptanceJobName, conclusion: 'failure' },
+  ] },
+  oldFirstCustomerPass,
+]) !== 'BLOCK') failures.push(`${paths.checker}: newer failed First Customer intent must block fallback`);
+if (firstCustomerVerdict([
+  { status: 'completed', conclusion: 'failure', jobs: [
+    { name: contractJobName, conclusion: 'failure' },
+    { name: acceptanceJobName, conclusion: 'skipped' },
+  ] },
+  oldFirstCustomerPass,
+]) !== 'BLOCK') failures.push(`${paths.checker}: newer contract-failed First Customer intent must block fallback`);
+if (firstCustomerVerdict([{ ...oldFirstCustomerPass, jobs: [
+  { name: contractJobName, conclusion: 'success' },
+  { name: acceptanceJobName, conclusion: 'success' },
+  { name: acceptanceJobName, conclusion: 'success' },
+] }]) !== 'BLOCK') failures.push(`${paths.checker}: duplicate First Customer job evidence must fail closed`);
+if (firstCustomerVerdict([oldFirstCustomerPass]) !== 'PASS') {
+  failures.push(`${paths.checker}: exact successful First Customer intent must pass the selector model`);
+}
 forbid(paths.workflow, workflow, /StrictHostKeyChecking=(?:no|accept-new)/u, 'unpinned SSH host acceptance is forbidden');
 forbid(paths.workflow, workflow, /\bDEFAULT_HOST\b/u,
   'historical production host fallback is forbidden');
@@ -224,6 +424,8 @@ const wrapperMarkers = [
   'P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS',
   'P0_ALL_ROLE_LABEL_BOUND_COOKIE_JARS=PASS',
   'P0_ALL_ROLE_HTTP_TIMEOUT_ENVELOPE=PASS',
+  'P0_ALL_ROLE_RELEASE_CANDIDATE_GUARD=PASS',
+  'P0_ALL_ROLE_AUTH_MAIL_WORKER_GUARD=PASS',
 ];
 if (wrapperValidation.status !== 0) {
   failures.push(`${paths.runner}: immutable wrapper validation failed: ${wrapperValidation.stderr.trim()}`);
@@ -243,4 +445,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Production P0 all-role registration contract PASS: exact-main deep prerequisite, eight visible reviewer decisions, label-bound cookie jars, exact host-only cookie domain with source-preserved cookie paths, server-authoritative access/cabinet proof, nine roles, protected read and logout/relogin.');
+console.log('Production P0 all-role registration contract PASS: latest-intent immutable-candidate prerequisite, exact auth-mail worker, eight visible reviewer decisions, label-bound cookie jars, exact host-only cookie domain with source-preserved cookie paths, server-authoritative access/cabinet proof, nine roles, protected read and logout/relogin.');

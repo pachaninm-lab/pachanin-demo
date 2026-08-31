@@ -1,6 +1,24 @@
 name: Production P0 Reviewer Inspect
 
 on:
+  workflow_call:
+    inputs:
+      controller_authorized:
+        description: 'Set only by the owner-authorized production release controller.'
+        required: true
+        type: boolean
+      controller_target_sha:
+        description: 'Immutable release candidate after successful auth-mail cutover.'
+        required: true
+        type: string
+      controller_run_id:
+        description: 'Owner release-controller run containing release and mail jobs.'
+        required: true
+        type: string
+      controller_issue_number:
+        description: 'Owner-validated release issue propagated by the controller.'
+        required: true
+        type: number
   pull_request:
     branches: [main]
     paths:
@@ -28,11 +46,21 @@ permissions:
 concurrency:
   group: production-p0-reviewer-inspect
   cancel-in-progress: false
+  queue: max
 
 jobs:
   contract:
     name: Validate production reviewer inspect contract
     if: >-
+      (inputs.controller_authorized == true &&
+       github.event_name == 'issue_comment' &&
+       (inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+       inputs.controller_issue_number == github.event.issue.number &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.event.comment.body == '/production release current-main' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner) ||
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
       (
@@ -48,7 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          ref: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -101,16 +129,28 @@ jobs:
     if: >-
       needs.contract.result == 'success' &&
       github.event_name == 'issue_comment' &&
-      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
       github.event.comment.user.login == github.repository_owner &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
-      github.event.comment.body == '/production p0-reviewer-inspect current-main'
+      (
+        (inputs.controller_authorized == true &&
+         (inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+         inputs.controller_issue_number == github.event.issue.number &&
+         github.event.comment.author_association == 'OWNER' &&
+         github.event.comment.body == '/production release current-main') ||
+        (inputs.controller_authorized != true &&
+         (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+         github.event.comment.body == '/production p0-reviewer-inspect current-main')
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
       issues: write
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
     env:
       GH_TOKEN: ${{ github.token }}
       PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
@@ -120,16 +160,40 @@ jobs:
       PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
-      PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER: ${{ github.event.issue.number }}
+      PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER: ${{ inputs.controller_authorized == true && inputs.controller_issue_number || github.event.issue.number }}
+      PC_P0_TARGET_SHA: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Bind reviewer readiness to immutable release candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTROLLER_AUTHORIZED: ${{ inputs.controller_authorized == true }}
+          CONTROLLER_RUN_ID: ${{ inputs.controller_run_id }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          current_main="$(git rev-parse origin/main)"
+          [[ "$current_main" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          target="${PC_P0_TARGET_SHA:-$current_main}"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          git merge-base --is-ancestor "$target" "$current_main"
+          if [[ "$CONTROLLER_AUTHORIZED" == true ]]; then
+            [[ "$CONTROLLER_RUN_ID" == "$GITHUB_RUN_ID" ]]
+            [[ "$target" == "$GITHUB_SHA" ]]
+          fi
+          git checkout --detach "$target"
+          node scripts/check-production-p0-reviewer-inspect.mjs
+          bash -n scripts/production-p0-reviewer-inspect.sh
       - name: Inspect failed employee join persisted state without mutation
+        if: inputs.controller_authorized != true
         shell: bash
         run: bash scripts/production-p0-employee-join-state-inspect.sh
-      - name: Inspect exact-main reviewer readiness without mutation
+      - name: Inspect immutable-candidate reviewer readiness without mutation
         shell: bash
         run: bash scripts/production-p0-reviewer-inspect.sh
