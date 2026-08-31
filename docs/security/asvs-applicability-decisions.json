@@ -5522,7 +5522,8 @@
       "evidence": [
         "global-guard:apps/api/src/app.module.ts",
         "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts",
-        "policies:infra/sql/production-rls-policies.sql"
+        "policies:infra/sql/production-rls-policies.sql",
+        "apps/api/prisma/migrations/20260830190000_migration_chain_rls_permissive_closure/migration.sql"
       ],
       "conditions": [
         {
@@ -5537,14 +5538,15 @@
           ]
         },
         {
-          "condition": "and again below the service layer, in the database",
+          "condition": "and again below the service layer, in the row policies the forward-only chain actually installs - not in an artifact that no deploy path applies",
           "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "infra/sql/production-rls-policies.sql"
+            "apps/api/prisma/migrations/20260830190000_migration_chain_rls_permissive_closure/migration.sql"
           ],
           "patterns": [
-            "row level security",
-            "create policy"
+            "enable row level security",
+            "create policy audit_events_select",
+            "create policy ledger_entries_select"
           ]
         },
         {
@@ -5558,7 +5560,7 @@
           ]
         }
       ],
-      "note": "Enforcement sits in two places a client cannot reach: a global server-side guard, and row policies inside PostgreSQL. Nothing an untrusted consumer controls participates in the decision, and that holds for this requirement, which asks that the rules be enforced at a trusted service layer rather than that the database cover everything. Wording corrected: the first version said the database layer \"holds even if the service layer forgets\". That is true for the 37 tenant-bearing tables with a policy and false for the 3 without, so the claim is now scoped rather than universal. The trusted-layer requirement is still met - the guard is global and the policies are real - while the coverage gap is recorded where it belongs, under V8.2.2 and V8.4.1."
+      "note": "Enforcement sits in two places a client cannot reach: a global server-side guard, and row policies inside PostgreSQL. Nothing an untrusted consumer controls participates in the decision, and that holds for this requirement, which asks that the rules be enforced at a trusted service layer rather than that the database cover everything. Evidence corrected a second time, and this correction is the point of the record: the condition below the service layer pointed at infra/sql/production-rls-policies.sql, which only CI, docker-compose and the rehearsal and acceptance scripts reference - no deploy path applies it. Measured rather than argued: stripping every CREATE POLICY out of the forward-only chain did NOT revoke this decision, while editing that inert artifact did. The check was revocable by what does not matter and not revocable by what does. It now reads the chain migration that installed the strict audit_events and ledger_entries policies precisely because the artifact was never applied, and the same measurement confirms it revokes on the chain and no longer on the artifact. The status does not move: this requirement asks where enforcement sits, and the global server-side guard satisfies that on its own. Note also that the artifact remains legitimate evidence for V8.1.1, which asks that authorization DOCUMENTATION define the rules - a document need not execute to be a document. Wording corrected earlier: the first version said the database layer \"holds even if the service layer forgets\". That is true for the 37 tenant-bearing tables with a policy and false for the 3 without, so the claim is now scoped rather than universal. The trusted-layer requirement is still met - the guard is global and the policies are real - while the coverage gap is recorded where it belongs, under V8.2.2 and V8.4.1."
     },
     {
       "requirementId": "V8.3.2",
