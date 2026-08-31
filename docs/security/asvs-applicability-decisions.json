@@ -2562,34 +2562,76 @@
     {
       "requirementId": "V5.2.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
+        "apps/web/lib/uploads/decompression-budget.ts",
+        "apps/web/tests/unit/uploadDecompressionBudget.spec.ts",
         "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
       ],
       "conditions": [
         {
-          "condition": "the route decompresses archive and stream content",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the declared uncompressed size and the entry count are checked before any decompressor runs, which is the half of the requirement the word \"before\" names",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/decompression-budget.ts"
+          ],
+          "patterns": [
+            "export function assertdeclaredentry(",
+            "export function assertarchiveentrycount(",
+            "export function assertarchivedeclared(",
+            "max_inflated_entry_bytes",
+            "max_archive_entries",
+            "max_declared_compression_ratio"
+          ]
+        },
+        {
+          "condition": "a ceiling is enforced during decompression as well, because the declared size is written by the sender and lying about it costs two bytes",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/decompression-budget.ts"
+          ],
+          "patterns": [
+            "maxoutputlength: ceiling",
+            "err_buffer_too_large",
+            "max_request_inflated_bytes"
+          ]
+        },
+        {
+          "condition": "the format this module does not decompress itself is not left on the declaration alone: xlsx entries are inflated here under the same budget and discarded, because ExcelJS through JSZip compares the declared size only after producing the data",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/decompression-budget.ts"
+          ],
+          "patterns": [
+            "export function assertarchiveinflateswithinbudget("
+          ]
+        },
+        {
+          "condition": "the route reaches every decompression through the budget - it imports no decompressor of its own, and the format it hands to a library is proved inflatable under the budget first",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "inflaterawsync",
-            "inflatesync"
+            "lib/uploads/decompression-budget",
+            "assertarchivedeclared(ext, bytes, inflatebudget)",
+            "readarchiveentry(bytes",
+            "inflatepdfstream(stream, budget)",
+            "assertarchiveinflateswithinbudget(ext, bytes, inflatebudget)"
           ]
         },
         {
-          "condition": "no ceiling is placed on decompressed output",
+          "condition": "the route holds no decompressor import of its own",
           "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "maxoutputlength"
+            "from 'node:zlib'"
           ]
         }
       ],
-      "note": "inflateRawSync (docx member) and inflateSync (PDF FlateDecode streams) are called without maxOutputLength, and no cap on the number of archive entries exists. A compression bomb inside word/document.xml or a PDF stream inflates without a ceiling inside the request handler."
+      "note": "Closed against the requirement's own text, which asks for a check against maximum uncompressed size AND against maximum number of files BEFORE uncompressing. Both halves are present because neither is sufficient alone: the declared uncompressed size lives in the zip central directory at offset +24 and is written by the sender, so a check of it alone believes a liar; maxOutputLength alone spends memory up to the ceiling on a file that already declared itself unacceptable. The route is unauthenticated - /api/public-platform-assistant/attachments is listed in PUBLIC_API_EXACT - and DEFLATE reaches about 1032:1, so the 8 MiB the route accepts inflated to roughly 8 GiB inside the request handler. Three paths were unbounded: inflateRawSync for the docx member, inflateSync for every PDF FlateDecode stream in a loop, and the archive entry count, which was limited only by the uint16 the EOCD record can hold. The principle was already written down in this codebase for images - image-dimensions.ts, closed for V5.2.6, opens with the observation that the file-size limit bounds the input and not the decoder's output - and the route repeated it in a comment immediately above the two decoders that did not have it. The decompressors now live in the library rather than the route, so the route imports no zlib and has no way to inflate outside the budget; that is a structural guarantee and is recorded as one rather than as a behavioural claim. The PDF path distinguishes a corrupt stream, which is skipped because PDFs in the wild are partly damaged, from a budget refusal, which aborts extraction - without that distinction a sender packs a hundred bombs and each is caught and skipped in turn. The xlsx path is unzipped by ExcelJS, which cannot be stopped at a ceiling. Review on the PR found that leaving that format on the declared sizes alone was not a control at all: JSZip compares the declared size only after producing the decompressed data, so a two-byte lie in the central directory passed the pre-check and then inflated without a ceiling on a public endpoint. Corrected rather than argued with - xlsx entries are now inflated here under the same budget and the output discarded, which proves the directory did not lie and debits the budget by the bytes ExcelJS will then hold, without double-charging. Peak memory of the check itself is one entry. The same review found that the declared total was compared against the remaining budget but never deducted, so four archives each saw the full allowance; the inflate-verify pass is what debits it now. A route-level test proves both are reached rather than merely present. What is deliberately not claimed: V5.2.1 stays FAIL. With Transfer-Encoding: chunked there is no content-length, Number(null || '0') is 0, the pre-check passes, and request.formData() buffers the whole body; that is a different defect in the body-reading path and needs streaming byte accounting, not a decompression ceiling. Mutations, each caught: dropping maxOutputLength fails 2, letting the PDF path swallow a budget refusal fails 1, removing the xlsx pre-check wiring fails the route-level test, and returning a direct zlib import to the route fails the structural test."
     },
     {
       "requirementId": "V5.2.4",
@@ -2630,25 +2672,37 @@
       "applicability": "APPLICABLE",
       "status": "PASS",
       "evidence": [
-        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
+        "apps/web/lib/uploads/decompression-budget.ts"
       ],
       "conditions": [
         {
-          "condition": "archive members are read into memory by exact name, never written out",
+          "condition": "the archive reader selects a member by equality on the whole name and returns its bytes in memory",
           "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/decompression-budget.ts"
+          ],
+          "patterns": [
+            "export function readarchiveentry(",
+            "name === wanted"
+          ]
+        },
+        {
+          "condition": "the only caller names the member it wants literally",
+          "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "function zipentry(",
-            "zipentry(bytes, 'word/document.xml')"
+            "readarchiveentry(bytes, 'word/document.xml'"
           ]
         },
         {
-          "condition": "no archive extraction to disk exists that a symlink member could target",
+          "condition": "no archive extraction to disk exists that a symlink member could target, in the route or in the reader",
           "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+            "apps/web/lib/uploads/decompression-budget.ts"
           ],
           "patterns": [
             "extractall",
@@ -2658,7 +2712,7 @@
           ]
         }
       ],
-      "note": "No archive member is ever written to the filesystem. zipEntry locates one member by exact name and returns its bytes, so an archive cannot introduce a symlink."
+      "note": "No archive member is ever written to the filesystem. zipEntry locates one member by exact name and returns its bytes, so an archive cannot introduce a symlink. Re-pointed in #4831 without changing the verdict: the archive reader moved from the route into apps/web/lib/uploads/decompression-budget.ts so the route imports no decompressor at all. The property this decision rests on is unchanged and was re-verified at the new location - the reader still selects a single member by equality on the whole name and returns its bytes in memory, and nothing writes an archive member out. The conditions were re-bound to where the code now lives rather than relaxed; the self-revoking check caught the move, which is what it is for."
     },
     {
       "requirementId": "V5.2.6",
@@ -2814,7 +2868,8 @@
       "applicability": "APPLICABLE",
       "status": "PASS",
       "evidence": [
-        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
+        "apps/web/lib/uploads/decompression-budget.ts"
       ],
       "conditions": [
         {
@@ -2824,14 +2879,25 @@
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "zipentry(bytes, 'word/document.xml')"
+            "readarchiveentry(bytes, 'word/document.xml'"
           ]
         },
         {
-          "condition": "no archive-supplied path is joined onto a filesystem path",
+          "condition": "the match is equality on the whole name, so no member-supplied path is interpreted",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/decompression-budget.ts"
+          ],
+          "patterns": [
+            "name === wanted"
+          ]
+        },
+        {
+          "condition": "no archive-supplied path is joined onto a filesystem path, in the route or in the reader",
           "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+            "apps/web/lib/uploads/decompression-budget.ts"
           ],
           "patterns": [
             "join(workdir, name",
@@ -2840,7 +2906,7 @@
           ]
         }
       ],
-      "note": "Path information carried inside an archive is never used. The single member is matched by an exact literal name and its bytes are kept in memory, so zip slip has no route to the filesystem."
+      "note": "Path information carried inside an archive is never used. The single member is matched by an exact literal name and its bytes are kept in memory, so zip slip has no route to the filesystem. Re-pointed in #4831 without changing the verdict: the archive reader moved from the route into apps/web/lib/uploads/decompression-budget.ts so the route imports no decompressor at all. The property this decision rests on is unchanged and was re-verified at the new location - the reader still selects a single member by equality on the whole name and returns its bytes in memory, and nothing writes an archive member out. The conditions were re-bound to where the code now lives rather than relaxed; the self-revoking check caught the move, which is what it is for."
     },
     {
       "requirementId": "V5.4.1",

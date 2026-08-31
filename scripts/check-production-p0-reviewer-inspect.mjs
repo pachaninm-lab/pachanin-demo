@@ -18,11 +18,25 @@ const workflowMarkers = [
   "github.actor == github.repository_owner",
   "github.triggering_actor == github.repository_owner",
   "github.event.comment.body == '/production p0-reviewer-inspect current-main'",
+  'workflow_call:',
+  'controller_authorized:',
+  'controller_target_sha:',
+  'controller_run_id:',
+  'controller_issue_number:',
+  "github.event.comment.body == '/production release current-main'",
   'permissions:\n  contents: read',
   'contents: read\n      issues: write',
+  'group: pc-crop-production-release-candidate',
+  'queue: max',
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'bash scripts/production-p0-reviewer-inspect.sh',
-  'PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER: ${{ github.event.issue.number }}',
+  "PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER: ${{ inputs.controller_authorized == true && inputs.controller_issue_number || github.event.issue.number }}",
+  "PC_P0_TARGET_SHA: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || '' }}",
+  'Bind reviewer readiness to immutable release candidate',
+  'git merge-base --is-ancestor "$target" "$current_main"',
+  'git checkout --detach "$target"',
+  'node scripts/check-production-p0-reviewer-inspect.mjs',
+  'if: inputs.controller_authorized != true',
   migrationPath,
   correctionPath,
 ];
@@ -32,6 +46,10 @@ for (const marker of workflowMarkers) {
     console.error(`Missing reviewer inspect workflow marker: ${marker}`);
     process.exit(1);
   }
+}
+if ((workflow.match(/^\s+queue: max$/gmu) || []).length !== 2) {
+  console.error('Reviewer workflow and production job must both retain every serialized pending invocation.');
+  process.exit(1);
 }
 
 const runnerMarkers = [
@@ -43,9 +61,21 @@ const runnerMarkers = [
   ': "${PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER:?PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER is required}"',
   'RELEASE_ISSUE_NUMBER="$PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER"',
   'gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha',
+  'assert_release_candidate()',
+  'git merge-base --is-ancestor "$TARGET_SHA" "$current_main"',
   'StrictHostKeyChecking=yes',
   'ssh-keyscan -T 10',
   'org.opencontainers.image.revision',
+  "label=com.docker.compose.service=auth-mail-worker",
+  'label=com.docker.compose.project=$project',
+  '(( ${#worker_ids[@]} == 1 ))',
+  'worker_revision="$(docker inspect --format \'{{ index .Config.Labels "org.opencontainers.image.revision" }}\' "$worker_id")"',
+  '[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]',
+  '[[ "$worker_health" == healthy ]]',
+  "http://127.0.0.1:3003/ready",
+  'if(!r.ok)process.exit(1)',
+  "x.component!=='auth-mail-worker'",
+  "x.status!=='ready'||x.component!=='auth-mail-worker'||x.checks?.database!==true",
   'STAFF_DATABASE_URL',
   'docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs -',
   'sanitizeErrorCode',
@@ -66,6 +96,7 @@ const runnerMarkers = [
   'CROSS JOIN auth.staff_reviewer_login_readiness() readiness',
   'P0_REVIEWER_READINESS_INVALID_COUNTS',
   'P0_REVIEWER_READINESS_NON_MONOTONIC',
+  'P0_REVIEWER_LOGIN_NOT_READY',
   'P0_REVIEWER_INSPECT_DB_ERROR|',
   'REVIEWER_LOGIN_READINESS|',
   'HUMAN_REVIEWER_LOGIN_CEREMONY_REQUIRED',
@@ -73,6 +104,8 @@ const runnerMarkers = [
   'REVIEWER_MFA_ENROLLMENT_REQUIRED',
   'PRODUCTION_MUTATION=NONE',
   'REVIEWER_INSPECT_FAILED_CLOSED',
+  'P0_REVIEWER_READINESS=PASS',
+  'P0_REVIEWER_AUTH_MAIL_WORKER=EXACT_READY',
   'trap cleanup EXIT',
   'rm -f -- "$key_path" "$known_hosts"',
 ];
@@ -237,4 +270,4 @@ if (!/permissions:\n\s+contents: read\n\s+issues: write/.test(workflow)) {
   process.exit(1);
 }
 
-console.log('PASS: reviewer login-readiness inspect is owner-only, exact-main, pinned-SSH, aggregate-only, identity-RLS-bounded, credential-state-ACL-bounded, Node-24-safe and mutation-free.');
+console.log('PASS: reviewer login-readiness inspect is owner-only, immutable-candidate-bound, exact-worker-ready, pinned-SSH, aggregate-only, identity-RLS-bounded, credential-state-ACL-bounded, Node-24-safe and mutation-free.');
