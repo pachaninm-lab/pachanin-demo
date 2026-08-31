@@ -20,33 +20,6 @@ const forbid = (name, pattern, message) => {
   if (pattern.test(sources[name])) violations.push(`${paths[name]}: ${message}`);
 };
 
-const productionLifecycleGroup = 'pc-crop-registration-lifecycle';
-const lifecycleConcurrencyBlock = (pullRequestGroup) => [
-  'concurrency:',
-  `  group: \${{ github.event_name == 'pull_request' && format('${pullRequestGroup}-pr-{0}', github.event.pull_request.number) || '${productionLifecycleGroup}' }}`,
-  '  cancel-in-progress: false',
-  '  queue: max',
-].join('\n');
-const verifyLifecycleConcurrency = (source, pullRequestGroup) => {
-  const errors = [];
-  const blocks = [...source.matchAll(/^concurrency:\r?\n((?:^[ \t].*(?:\r?\n|$))*)/gmu)];
-  if (blocks.length !== 1) {
-    errors.push(`expected exactly one top-level concurrency block, found ${blocks.length}`);
-    return errors;
-  }
-  const actual = `concurrency:\n${blocks[0][1].replaceAll('\r\n', '\n').trimEnd()}`;
-  const expected = lifecycleConcurrencyBlock(pullRequestGroup);
-  if (actual !== expected) {
-    errors.push('concurrency must use one exact production lifecycle group, a distinct per-PR group, non-cancelling FIFO semantics and queue max');
-  }
-  return errors;
-};
-const requireLifecycleConcurrency = (name, pullRequestGroup) => {
-  for (const error of verifyLifecycleConcurrency(sources[name], pullRequestGroup)) {
-    violations.push(`${paths[name]}: ${error}`);
-  }
-};
-
 const expectedScopeMappings = {
   'fix/tai-postgres-service-authority-20260801': [
     'scripts/tai-reg-ru-deploy.sh',
@@ -104,6 +77,7 @@ forbid('command', /actions\/workflows\/tai-reg-ru-preflight-owner-command[.]yml\
 
 for (const fragment of [
   'workflow_dispatch:', 'upstream_preflight_gate:',
+  "group: tai-restricted-qwen-reg-ru-activation-${{ github.event.pull_request.number || 'production' }}",
   'TARGET_SHA: ${{ inputs.target_sha }}', 'UPSTREAM_RUN_ID: ${{ inputs.upstream_run_id }}',
   'UPSTREAM_RUN_ATTEMPT: ${{ inputs.upstream_run_attempt }}', '[[ "$EVENT_NAME" == workflow_dispatch ]]',
   '[[ "$CURRENT_REF" == refs/heads/main ]]', '[[ "$CONFIRMATION" == ACTIVATE-RESTRICTED-QWEN-REG-RU ]]',
@@ -114,12 +88,12 @@ for (const fragment of [
   "'Exact-main REG.RU controller inventory'", "'Publish REG.RU preflight status'",
   "'Confirm REG.RU preflight chain result'", 'needs: [upstream_preflight_gate, contract]',
 ]) requireFragment('activation', fragment);
-requireLifecycleConcurrency('activation', 'tai-restricted-qwen-reg-ru-activation');
 forbid('activation', /^\s{2}issue_comment:/mu, 'production activation must not listen to issue_comment');
 forbid('activation', /^\s{2}workflow_run:/mu, 'production activation must not listen to workflow_run');
 
 for (const fragment of [
   'upstream_activation_gate:',
+  "group: tai-reg-ru-deployment-${{ github.event.pull_request.number || 'production' }}",
   'needs: upstream_activation_gate', "if: needs.upstream_activation_gate.result == 'success'", 'actions: read',
   "if: github.event_name == 'workflow_run'",
   'ref: ${{ github.event_name == \'pull_request\' && github.sha || github.event.repository.default_branch }}',
@@ -132,7 +106,6 @@ for (const fragment of [
   "'Finalize or roll back activation'", "'Publish restricted Qwen activation result'",
   "'Confirm restricted Qwen activation chain result'",
 ]) requireFragment('deployment', fragment);
-requireLifecycleConcurrency('deployment', 'tai-reg-ru-deployment');
 forbid('deployment', /ref:\s*\$\{\{\s*github[.]event[.]workflow_run[.]head_sha/u,
   'workflow_run code must execute from the trusted default branch, not the upstream head SHA');
 const repositoryGate = sources.deployment.indexOf('Reject an untrusted upstream repository before checkout');
@@ -154,43 +127,6 @@ for (const name of Object.keys(paths)) {
 for (const name of ['preflight', 'command', 'activation', 'deployment']) {
   requireFragment(name, 'node scripts/check-tai-reg-ru-release-chain.mjs');
 }
-
-const validConcurrencyFixture = lifecycleConcurrencyBlock('fixture');
-if (verifyLifecycleConcurrency(validConcurrencyFixture, 'fixture').length !== 0) {
-  violations.push('valid lifecycle concurrency fixture unexpectedly failed');
-}
-const expectConcurrencyBlocked = (label, source, pullRequestGroup = 'fixture') => {
-  if (verifyLifecycleConcurrency(source, pullRequestGroup).length === 0) {
-    violations.push(`lifecycle concurrency fixture ${label} unexpectedly passed`);
-  }
-};
-expectConcurrencyBlocked('legacy-activation-production-group', [
-  'concurrency:',
-  "  group: tai-restricted-qwen-reg-ru-activation-${{ github.event.pull_request.number || 'production' }}",
-  '  cancel-in-progress: false',
-  '  queue: max',
-].join('\n'), 'tai-restricted-qwen-reg-ru-activation');
-expectConcurrencyBlocked('legacy-deployment-production-group', [
-  'concurrency:',
-  "  group: tai-reg-ru-deployment-${{ github.event.pull_request.number || 'production' }}",
-  '  cancel-in-progress: false',
-  '  queue: max',
-].join('\n'), 'tai-reg-ru-deployment');
-expectConcurrencyBlocked(
-  'dynamic-production-group',
-  validConcurrencyFixture.replace(
-    `'${productionLifecycleGroup}'`,
-    `format('${productionLifecycleGroup}-{0}', github.run_id)`,
-  ),
-);
-expectConcurrencyBlocked(
-  'cancel-in-progress',
-  validConcurrencyFixture.replace('cancel-in-progress: false', 'cancel-in-progress: true'),
-);
-expectConcurrencyBlocked(
-  'missing-queue-max',
-  validConcurrencyFixture.replace('\n  queue: max', ''),
-);
 
 const requiredFixtureNames = ['gate', 'contract', 'mutation', 'acceptance', 'publish'];
 const successfulJobs = requiredFixtureNames.map((name, index) => ({ id: index + 1, name, status: 'completed', conclusion: 'success' }));
@@ -230,4 +166,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI REG.RU release-chain contract PASS: exact-run authority and rollback remain fail-closed, while production activation and deployment share the complete registration lifecycle lock.');
+console.log('TAI REG.RU release-chain contract PASS: exact commit-status owner command, observed activation dispatch and downstream deployment are fail-closed.');

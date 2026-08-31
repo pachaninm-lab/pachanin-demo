@@ -2911,68 +2911,122 @@
     {
       "requirementId": "V5.4.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "export-controller:apps/api/src/modules/exports/exports.controller.ts",
-        "compliance-controller:apps/api/src/modules/compliance/compliance.controller.ts"
+        "apps/api/src/common/security/content-disposition.ts",
+        "apps/api/src/common/security/content-disposition.spec.ts",
+        "apps/api/src/modules/exports/exports.controller.ts",
+        "apps/api/src/modules/exports/exports-content-disposition.spec.ts",
+        "apps/api/src/modules/compliance/compliance.controller.ts"
       ],
       "conditions": [
         {
-          "condition": "a user-supplied route parameter is still interpolated into a download filename",
-          "check": "PRESENT_AT_PATH",
+          "condition": "every route that serves a file builds the header through the shared builder rather than by hand",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/exports/exports.controller.ts"
           ],
           "patterns": [
-            "filename=\"ledger-${dealid}-"
+            "attachmentdisposition(`deals-",
+            "attachmentdisposition(`ledger-${dealid}-",
+            "attachmentdisposition(result.filename)"
           ]
         },
         {
-          "condition": "the parameter is still unvalidated at the controller",
-          "check": "ABSENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/exports/exports.controller.ts"
-          ],
-          "patterns": [
-            "parseuuidpipe",
-            "param('dealid', "
-          ]
-        }
-      ],
-      "note": "exportLedger interpolates the raw @Param('dealId') into the Content-Disposition filename. The parameter is a bare string, so neither ParseUUIDPipe nor the global ValidationPipe constrains it, and the application neither validates nor ignores the user-submitted component."
-    },
-    {
-      "requirementId": "V5.4.2",
-      "applicability": "APPLICABLE",
-      "status": "FAIL",
-      "evidence": [
-        "export-controller:apps/api/src/modules/exports/exports.controller.ts"
-      ],
-      "conditions": [
-        {
-          "condition": "download filenames are still emitted as a bare quoted string",
+          "condition": "the compliance export uses it too",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/exports/exports.controller.ts"
+            "apps/api/src/modules/compliance/compliance.controller.ts"
+          ],
+          "patterns": [
+            "attachmentdisposition(`audit-"
+          ]
+        },
+        {
+          "condition": "no route interpolates a filename into the header itself",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.controller.ts",
+            "apps/api/src/modules/compliance/compliance.controller.ts"
           ],
           "patterns": [
             "attachment; filename=\""
           ]
         },
         {
-          "condition": "no RFC 6266 encoding is applied",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the builder emits both parameter forms and neutralises quotes and control characters",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/content-disposition.ts"
+          ],
+          "patterns": [
+            "filename*=utf-8''",
+            "quoted_unsafe",
+            "rfc5987encode"
+          ]
+        }
+      ],
+      "note": "Closed by routing the four file-serving routes through the builder that already existed. attachmentDisposition in common/security was written for V3.2.1 and does exactly what this requirement asks - it strips path separators, removes control characters, escapes quotes in the ASCII form and emits the RFC 5987 filename* alongside - and the export and compliance routes interpolated their own header instead. The control existed, was correct, sat in common/security, and the places that needed it did not call it. Reachability was established rather than assumed: only exports.controller.ts's ledger route takes user input, @Param('dealId'), and exportLedgerCsv does not reject an unknown id - assertExportRole checks the role only, findMany({ where: { dealId } }).catch(() => []) turns any string into an empty result set, and the route answers 200. So any user holding an export role puts an arbitrary string into the header. Proven by running it: a dealId of x\"; filename=\"ledger.csv.exe produced a header carrying two filename parameters, which is a download-name spoof, and a Cyrillic dealId went into the header raw with no filename* - and Cyrillic names are the ordinary case on this platform. Deliberately not claimed: CRLF was not exploitable here, because Node rejects control characters in a header value with ERR_INVALID_CHAR; the builder strips them anyway so the route returns a file rather than a 500. The two routes with no user input were moved as well, because the requirement is about how a served name is encoded rather than where it came from. What is not addressed and is recorded separately: exportLedgerCsv and exportDealsCsv carry no tenant predicate at all, and whether the row-level policy named ledger_select_all closes that path is unestablished - that is a V8 authorization question needing a live-database pass, not something to settle in passing."
+    },
+    {
+      "requirementId": "V5.4.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/common/security/content-disposition.ts",
+        "apps/api/src/common/security/content-disposition.spec.ts",
+        "apps/api/src/modules/exports/exports.controller.ts",
+        "apps/api/src/modules/exports/exports-content-disposition.spec.ts",
+        "apps/api/src/modules/compliance/compliance.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "every route that serves a file builds the header through the shared builder rather than by hand",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/exports/exports.controller.ts"
           ],
           "patterns": [
-            "filename*=",
-            "encodeuricomponent",
-            "content-disposition-parser"
+            "attachmentdisposition(`deals-",
+            "attachmentdisposition(`ledger-${dealid}-",
+            "attachmentdisposition(result.filename)"
+          ]
+        },
+        {
+          "condition": "the compliance export uses it too",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/compliance/compliance.controller.ts"
+          ],
+          "patterns": [
+            "attachmentdisposition(`audit-"
+          ]
+        },
+        {
+          "condition": "no route interpolates a filename into the header itself",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.controller.ts",
+            "apps/api/src/modules/compliance/compliance.controller.ts"
+          ],
+          "patterns": [
+            "attachment; filename=\""
+          ]
+        },
+        {
+          "condition": "the builder emits both parameter forms and neutralises quotes and control characters",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/content-disposition.ts"
+          ],
+          "patterns": [
+            "filename*=utf-8''",
+            "quoted_unsafe",
+            "rfc5987encode"
           ]
         }
       ],
-      "note": "Content-Disposition is built as a bare quoted string with no RFC 6266 encoding and no sanitisation of the interpolated value. A quote in dealId breaks the quoted-string. Node refuses CR and LF in header values, so header injection is blocked by the platform rather than by the application."
+      "note": "Same change as V5.4.1, assessed against this requirement's own text, which is specifically about encoding a served name per RFC 6266 rather than about validating a submitted one. Both parameter forms are emitted: the ASCII filename with quotes and non-printable characters replaced, for clients that read only that, and filename*=UTF-8'' carrying the exact name, which matters because filenames here are routinely Cyrillic and the ASCII fallback cannot represent them. Before this the header was a template literal, so a quote in the value opened a second filename parameter and a Cyrillic name travelled unencoded. The builder itself had no test of any kind despite being correct; it has six now, and the routes have three that prove the builder is actually reached - a test on the builder alone would pass just as well while nothing called it, which is the defect this pass is about."
     },
     {
       "requirementId": "V5.4.3",

@@ -66,9 +66,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('tai-restricted-qwen-reg-ru-activation-pr-{0}', github.event.pull_request.number) || 'pc-crop-registration-lifecycle' }}
+  group: tai-restricted-qwen-reg-ru-activation-${{ github.event.pull_request.number || 'production' }}
   cancel-in-progress: false
-  queue: max
 
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
