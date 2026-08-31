@@ -164,7 +164,7 @@ jobs:
               '[[ "${GITHUB_RUN_ATTEMPT:-0}" == \'1\' ]]',
               'pc.p0-reviewer-reset-preflight-authorization.v1',
               "payload['issue'] != 4637 or payload['runAttempt'] != 1",
-              'actions/upload-artifact@v4',
+              'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
               "github.event.issue.number == 4637",
               'production-p0-reviewer-reset-preflight-$' + '{{ github.run_id }}-$' + '{{ github.run_attempt }}',
               'retention-days: 1',
