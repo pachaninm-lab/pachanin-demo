@@ -184,6 +184,162 @@ REGISTRATION_CODE_PY
     'REGISTRATION_FAILURE_CLASSIFIER',
 )
 
+one(
+    r'''assert_exact_main() {
+  local actual
+  actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null)" \
+    || fail P0_EXACT_MAIN_LOOKUP_FAILED 11
+  [[ "$actual" == "$TARGET_SHA" ]] || fail P0_MAIN_ADVANCED_DURING_ACCEPTANCE 12
+}
+''',
+    r'''assert_release_candidate() {
+  local actual
+  actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null)" \
+    || fail P0_CANDIDATE_ANCESTRY_LOOKUP_FAILED 11
+  [[ "$actual" =~ ^[0-9a-f]{40}$ ]] || fail P0_CANDIDATE_ANCESTRY_LOOKUP_FAILED 11
+  git fetch --no-tags origin main >/dev/null 2>&1 || fail P0_CANDIDATE_ANCESTRY_LOOKUP_FAILED 11
+  [[ "$(git rev-parse origin/main)" == "$actual" ]] || fail P0_CANDIDATE_ANCESTRY_LOOKUP_FAILED 11
+  git cat-file -e "$TARGET_SHA^{commit}" 2>/dev/null || fail P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR 12
+  git merge-base --is-ancestor "$TARGET_SHA" "$actual" || fail P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR 12
+}
+''',
+    'RELEASE_CANDIDATE_ANCESTRY_GUARD',
+)
+one(
+    '''def assert_exact_main():
+    try:
+        result = subprocess.run(
+            ['gh', 'api', f"repos/{os.environ['P0_GITHUB_REPOSITORY']}/commits/main", '--jq', '.sha'],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except Exception:
+        raise SystemExit(43)
+    if result.returncode != 0:
+        raise SystemExit(43)
+    if result.stdout.strip() != os.environ['P0_TARGET_SHA']:
+        raise SystemExit(42)
+''',
+    '''def assert_release_candidate():
+    try:
+        result = subprocess.run(
+            ['gh', 'api', f"repos/{os.environ['P0_GITHUB_REPOSITORY']}/commits/main", '--jq', '.sha'],
+            check=False, capture_output=True, text=True, timeout=20,
+        )
+    except Exception:
+        raise SystemExit(43)
+    if result.returncode != 0:
+        raise SystemExit(43)
+    actual = result.stdout.strip()
+    target = os.environ['P0_TARGET_SHA']
+    if actual == target:
+        return
+    try:
+        compare = subprocess.run(
+            ['gh', 'api', f"repos/{os.environ['P0_GITHUB_REPOSITORY']}/compare/{target}...{actual}", '--jq', '.status'],
+            check=False, capture_output=True, text=True, timeout=20,
+        )
+    except Exception:
+        raise SystemExit(43)
+    if compare.returncode != 0:
+        raise SystemExit(43)
+    if compare.stdout.strip() != 'ahead':
+        raise SystemExit(42)
+''',
+    'MAILBOX_RELEASE_CANDIDATE_ANCESTRY_GUARD',
+)
+one(
+    '  for command in gh curl python3 ssh awk sha256sum; do',
+    '  for command in gh git curl python3 ssh awk sha256sum; do',
+    'RELEASE_CANDIDATE_GIT_PREREQUISITE',
+)
+remaining=s.count('assert_exact_main')
+if remaining != 7:
+    raise SystemExit(f'RELEASE_CANDIDATE_CALL_CARDINALITY_INVALID={remaining}')
+s=s.replace('assert_exact_main','assert_release_candidate')
+one(
+    '    42) fail P0_MAIN_ADVANCED_DURING_ACCEPTANCE 12 ;;\n    43) fail P0_EXACT_MAIN_LOOKUP_FAILED 11 ;;',
+    '    42) fail P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR 12 ;;\n    43) fail P0_CANDIDATE_ANCESTRY_LOOKUP_FAILED 11 ;;',
+    'MAILBOX_RELEASE_CANDIDATE_BLOCKER_MAPPING',
+)
+if 'P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR' not in s or 'git merge-base --is-ancestor' not in s:
+    raise SystemExit('RELEASE_CANDIDATE_GUARD_MISSING')
+
+one(
+    r'''docker exec "$api_id" /nodejs/bin/node -e \
+  "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" \
+  >/dev/null 2>&1 || remote_fail P0_PRODUCTION_API_NOT_READY 11
+
+command -v python3 >/dev/null 2>&1 || remote_fail P0_REMOTE_PYTHON_MISSING 12''',
+    r'''docker exec "$api_id" /nodejs/bin/node -e \
+  "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" \
+  >/dev/null 2>&1 || remote_fail P0_PRODUCTION_API_NOT_READY 11
+mapfile -t worker_ids < <(docker ps -q \
+  --filter "label=com.docker.compose.project=$project" \
+  --filter 'label=com.docker.compose.service=auth-mail-worker')
+(( ${#worker_ids[@]} == 1 )) || remote_fail P0_AUTH_MAIL_WORKER_RUNTIME_AUTHORITY_AMBIGUOUS 12
+worker_id="${worker_ids[0]}"
+worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"
+[[ "$worker_revision" == "$target_sha" ]] || remote_fail P0_AUTH_MAIL_WORKER_REVISION_MISMATCH 13
+worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$worker_id")"
+[[ "$worker_health" == healthy ]] || remote_fail P0_AUTH_MAIL_WORKER_NOT_HEALTHY 14
+docker exec "$worker_id" /nodejs/bin/node -e \
+  "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(async r=>{if(!r.ok)process.exit(1);const x=await r.json();if(x.status!=='ready'||x.component!=='auth-mail-worker'||x.checks?.database!==true)process.exit(1)}).catch(()=>process.exit(1))" \
+  >/dev/null 2>&1 || remote_fail P0_AUTH_MAIL_WORKER_NOT_READY 15
+
+command -v python3 >/dev/null 2>&1 || remote_fail P0_REMOTE_PYTHON_MISSING 16''',
+    'AUTH_MAIL_WORKER_EXACT_READY',
+)
+exact_marker="printf 'P0_REMOTE_EXACT_REVISIONS=PASS\\n'"
+if s.count(exact_marker) != 7:
+    raise SystemExit(f'EXACT_REVISION_MARKER_CARDINALITY_INVALID={s.count(exact_marker)}')
+s=s.replace(exact_marker, exact_marker + "\nprintf 'P0_AUTH_MAIL_WORKER_REVISION=PASS\\n'\nprintf 'P0_AUTH_MAIL_WORKER_READY=PASS\\n'")
+one(
+    "  grep -Fxq P0_REMOTE_EXACT_REVISIONS=PASS <<< \"$output\" || fail P0_PRODUCTION_REVISION_PREFLIGHT_FAILED 81\n  grep -Fxq P0_MIGRATION_IMAGE_REVISION=PASS <<< \"$output\" || fail P0_MIGRATION_IMAGE_REVISION_MISMATCH 82",
+    "  grep -Fxq P0_REMOTE_EXACT_REVISIONS=PASS <<< \"$output\" || fail P0_PRODUCTION_REVISION_PREFLIGHT_FAILED 81\n  grep -Fxq P0_AUTH_MAIL_WORKER_REVISION=PASS <<< \"$output\" || fail P0_AUTH_MAIL_WORKER_REVISION_MISMATCH 82\n  grep -Fxq P0_AUTH_MAIL_WORKER_READY=PASS <<< \"$output\" || fail P0_AUTH_MAIL_WORKER_NOT_READY 82\n  grep -Fxq P0_MIGRATION_IMAGE_REVISION=PASS <<< \"$output\" || fail P0_MIGRATION_IMAGE_REVISION_MISMATCH 82",
+    'AUTH_MAIL_WORKER_PREFLIGHT_CONSUMER',
+)
+one(
+    "  grep -Fxq P0_REMOTE_EXACT_REVISIONS=PASS <<< \"$output\" || fail P0_PRODUCTION_REVISION_CHANGED 86\n  grep -Fxq P0_MIGRATION_IMAGE_REVISION=PASS <<< \"$output\" || fail P0_MIGRATION_IMAGE_REVISION_MISMATCH 87",
+    "  grep -Fxq P0_REMOTE_EXACT_REVISIONS=PASS <<< \"$output\" || fail P0_PRODUCTION_REVISION_CHANGED 86\n  grep -Fxq P0_AUTH_MAIL_WORKER_REVISION=PASS <<< \"$output\" || fail P0_AUTH_MAIL_WORKER_REVISION_MISMATCH 87\n  grep -Fxq P0_AUTH_MAIL_WORKER_READY=PASS <<< \"$output\" || fail P0_AUTH_MAIL_WORKER_NOT_READY 87\n  grep -Fxq P0_MIGRATION_IMAGE_REVISION=PASS <<< \"$output\" || fail P0_MIGRATION_IMAGE_REVISION_MISMATCH 87",
+    'AUTH_MAIL_WORKER_EVIDENCE_CONSUMER',
+)
+one(
+    "        'migrationImageRevisionExact': True,",
+    "        'migrationImageRevisionExact': True,\n        'authMailWorkerRevisionExact': True,\n        'authMailWorkerReady': True,",
+    'AUTH_MAIL_WORKER_RESULT_EVIDENCE',
+)
+if s.count('  P0_RUN_ID="$RUN_ID" \\\n') != 2:
+    raise SystemExit('RELEASE_CONTROLLER_ENV_ANCHOR_CARDINALITY_INVALID')
+s=s.replace(
+    '  P0_RUN_ID="$RUN_ID" \\\n',
+    '  P0_RUN_ID="$RUN_ID" \\\n  P0_RELEASE_CONTROLLER_RUN_ID="${PC_P0_RELEASE_RUN_ID:-unknown}" \\\n  P0_RELEASE_CONTROLLER_RUN_ATTEMPT="${PC_P0_RELEASE_RUN_ATTEMPT:-unknown}" \\\n',
+)
+if s.count("    'runId': os.environ.get('P0_RUN_ID', 'unknown'),") != 1:
+    raise SystemExit('FAILURE_RUN_ID_ANCHOR_INVALID')
+s=s.replace(
+    "    'runId': os.environ.get('P0_RUN_ID', 'unknown'),",
+    "    'runId': os.environ.get('P0_RUN_ID', 'unknown'),\n    'releaseControllerRunId': os.environ.get('P0_RELEASE_CONTROLLER_RUN_ID', 'unknown'),\n    'releaseControllerRunAttempt': os.environ.get('P0_RELEASE_CONTROLLER_RUN_ATTEMPT', 'unknown'),",
+    1,
+)
+one(
+    "    'runId': os.environ['P0_RUN_ID'],",
+    "    'runId': os.environ['P0_RUN_ID'],\n    'releaseControllerRunId': os.environ['P0_RELEASE_CONTROLLER_RUN_ID'],\n    'releaseControllerRunAttempt': os.environ['P0_RELEASE_CONTROLLER_RUN_ATTEMPT'],",
+    'SUCCESS_RELEASE_CONTROLLER_RUN_ID',
+)
+one(
+    "  CURRENT_STAGE=evidence-finalization\n  assert_release_candidate\n  write_success_record",
+    "  CURRENT_STAGE=evidence-finalization\n  production_preflight\n  assert_release_candidate\n  write_success_record",
+    'TERMINAL_PRODUCTION_PREFLIGHT',
+)
+one(
+    "  printf 'P0_EXACT_CURRENT_MAIN=%s\\n' \"$TARGET_SHA\"",
+    "  printf 'P0_IMMUTABLE_RELEASE_CANDIDATE=%s\\n' \"$TARGET_SHA\"\n  printf 'P0_AUTH_MAIL_WORKER_EXACT_READY=PASS\\n'",
+    'TERMINAL_CANDIDATE_MARKER',
+)
+
 required=[
     "principal.rolsuper !== false",
     "principal.rolbypassrls !== false",
@@ -207,6 +363,18 @@ required=[
     "P0_REGISTRATION_PUBLIC_CODE",
     "registrationHttpStatus",
     "registrationPublicCode",
+    "assert_release_candidate()",
+    "P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR",
+    "P0_CANDIDATE_ANCESTRY_LOOKUP_FAILED",
+    "git merge-base --is-ancestor",
+    "P0_AUTH_MAIL_WORKER_RUNTIME_AUTHORITY_AMBIGUOUS",
+    "P0_AUTH_MAIL_WORKER_REVISION_MISMATCH",
+    "P0_AUTH_MAIL_WORKER_NOT_HEALTHY",
+    "P0_AUTH_MAIL_WORKER_NOT_READY",
+    "authMailWorkerRevisionExact",
+    "authMailWorkerReady",
+    "releaseControllerRunId",
+    "releaseControllerRunAttempt",
 ]
 missing=[x for x in required if x not in s and x not in {"REMOTE_BLOCKER_PERSIST", "REGISTRATION_FAILURE_STATE"}]
 if missing:
@@ -242,6 +410,9 @@ if [[ "${PC_P0_FIRST_CUSTOMER_ALIAS_VALIDATE_ONLY:-0}" == 1 ]]; then
   printf 'P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=PASS\n'
   printf 'P0_FIRST_CUSTOMER_REGISTRATION_FAILURE_EVIDENCE_PATCH=PASS\n'
   printf 'P0_FIRST_CUSTOMER_READ_RESOURCE_SET_U_PATCH=PASS\n'
+  printf 'P0_FIRST_CUSTOMER_RELEASE_CANDIDATE_GUARD=PASS\n'
+  printf 'P0_FIRST_CUSTOMER_AUTH_MAIL_WORKER_GUARD=PASS\n'
+  printf 'P0_FIRST_CUSTOMER_RELEASE_PROVENANCE=PASS\n'
   exit 0
 fi
 
