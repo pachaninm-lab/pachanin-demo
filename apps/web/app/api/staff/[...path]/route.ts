@@ -16,7 +16,6 @@ const MAX_BODY_BYTES = 64 * 1024;
 const MAX_STAFF_SESSION_SECONDS = 60 * 60;
 
 const READ_PATHS = [
-const READ_PATHS = [
   /^assignments\/me$/,
   /^access\/requests$/,
   /^access\/requests\/review$/,

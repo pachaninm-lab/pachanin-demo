@@ -14,7 +14,6 @@ export const maxDuration = 100;
 const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 75_000;
 
 function json(body: Record<string, unknown>, status: number) {
-function json(body: Record<string, unknown>, status: number) {
   return NextResponse.json(body, {
     status,
     headers: {
