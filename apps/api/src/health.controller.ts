@@ -7,6 +7,48 @@ const BUILD_DATE = process.env.BUILD_DATE ?? new Date().toISOString().slice(0, 1
 const GIT_COMMIT = process.env.GIT_COMMIT ?? 'local';
 const READINESS_DATABASE_GRACE_MS = 15_000;
 
+/**
+ * Порог ответа базы на пути готовности. Обязан быть строго меньше
+ * `timeoutSeconds` readiness-пробы Kubernetes (`infra/helm/grainflow/values.yaml`),
+ * иначе граница ниже бесполезна: kubelet отсчитает свой таймаут раньше, чем
+ * обработчик успеет вернуть кэш, и под уйдёт из endpoints — ровно то, что
+ * grace-окно выше должно было предотвратить.
+ */
+export const READINESS_DATABASE_DEADLINE_MS = 1_500;
+
+/**
+ * Отказ базы приходит в двух формах, и до этой границы обрабатывалась только
+ * одна. Оборванное соединение отвергает промис, и grace-окно его ловит.
+ * Исчезнувший пул соединение не рвёт — пакеты уходят в никуда, запрос висит,
+ * и обработчик остаётся внутри `try`, до grace-окна не доходя вовсе.
+ *
+ * Дедлайн переводит вторую форму в первую: висящий запрос становится отказом,
+ * который grace-окно уже умеет пережить. Само окно не расширяется — после
+ * 15 секунд без единого успешного чтения готовность по-прежнему падает.
+ */
+class ReadinessDatabaseDeadlineError extends Error {
+  constructor() {
+    super('READINESS_DATABASE_DEADLINE');
+    this.name = 'ReadinessDatabaseDeadlineError';
+  }
+}
+
+function withReadinessDeadline<T>(work: Promise<T>, deadlineMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new ReadinessDatabaseDeadlineError()), deadlineMs);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error as Error);
+      },
+    );
+  });
+}
+
 type CheckStatus = 'ok' | 'degraded' | 'down';
 type ReadinessStatus = 'ready' | 'degraded';
 type QueueStats = Awaited<ReturnType<OutboxService['queueStats']>>;
@@ -168,7 +210,10 @@ export class HealthController {
 
   private async readinessStats(): Promise<ReadinessStats> {
     try {
-      const stats = await this.outbox.queueStats();
+      const stats = await withReadinessDeadline(
+        this.outbox.queueStats(),
+        READINESS_DATABASE_DEADLINE_MS,
+      );
       this.lastSuccessfulQueueStats = { stats, recordedAt: Date.now() };
       return { stats, databaseCheck: 'ok' };
     } catch {
