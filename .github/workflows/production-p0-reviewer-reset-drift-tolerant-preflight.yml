@@ -5,12 +5,19 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-reviewer-reset-drift-tolerant-preflight.yml'
+      - 'docs/platform-v7/autopilot/scopes/p0-reviewer-reset-runtime-manifest-4637.json'
       - 'scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh'
+      - 'scripts/production-p0-reviewer-reset-continuation-patch.py'
   issue_comment:
     types: [created]
 
 permissions:
   contents: read
+
+env:
+  CONTINUATION_REVIEWED_RESET_SHA: 9310d7ae231b4d3b4904fe04712af05fbbea7a9c
+  CONTINUATION_DEPLOYED_RUNTIME_SHA_AT_REVIEW: 8f380b5d2a3dba14d279679ddaf873ee6c522f85
+  CONTINUATION_MANIFEST_SIZE: '23'
 
 concurrency:
   group: ${{ github.event_name == 'issue_comment' && (github.event.issue.number == 3072 || github.event.issue.number == 4637) && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) || github.event.comment.performed_via_github_app.id == 1144995) && github.event.comment.body == '/production p0-reviewer-reset-preflight current-runtime' && 'pc-crop-registration-lifecycle' || format('production-p0-reviewer-reset-drift-tolerant-preflight-{0}', github.event.pull_request.number || github.run_id) }}
@@ -52,10 +59,40 @@ jobs:
         run: |
           set -Eeuo pipefail
           script='scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh'
+          patcher='scripts/production-p0-reviewer-reset-continuation-patch.py'
           bash -n "$script"
           expected_sha256='d1e463df928b4a5cb9ea960b96ba16dad80685d7d964abc9ddba487e7f7ff22d'
           actual_sha256="$(sha256sum "$script" | awk '{print $1}')"
           [[ "$actual_sha256" == "$expected_sha256" ]]
+          expected_patcher_sha256='19af93117854f81638be983816a309fe731bb38c6630df26226c688047da8ed7'
+          actual_patcher_sha256="$(sha256sum "$patcher" | awk '{print $1}')"
+          [[ "$actual_patcher_sha256" == "$expected_patcher_sha256" ]]
+          python3 "$patcher" self-test --source "$script"
+          continuation_fixture="$RUNNER_TEMP/production-p0-reviewer-reset-preflight-4637-contract.sh"
+          python3 "$patcher" patch --source "$script" --target "$continuation_fixture"
+          bash -n "$continuation_fixture"
+          grep -Fqx "RELEASE_ISSUE_NUMBER='4637'" "$continuation_fixture"
+          grep -Fqx "REVIEWED_RESET_SHA='${CONTINUATION_REVIEWED_RESET_SHA}'" "$continuation_fixture"
+          grep -Fqx "  'apps/api/src/modules/auth/password-hashing.ts'" "$continuation_fixture"
+          grep -Fqx "  'apps/api/src/common/validators/strong-password.validator.ts'" "$continuation_fixture"
+          grep -Fqx '(( ${#RESET_CRITICAL_PATHS[@]} == 23 ))' "$continuation_fixture"
+          git cat-file -e "${CONTINUATION_REVIEWED_RESET_SHA}^{commit}"
+          git cat-file -e "${CONTINUATION_DEPLOYED_RUNTIME_SHA_AT_REVIEW}^{commit}"
+          git merge-base --is-ancestor "$CONTINUATION_REVIEWED_RESET_SHA" "$CONTINUATION_DEPLOYED_RUNTIME_SHA_AT_REVIEW"
+          git merge-base --is-ancestor "$CONTINUATION_DEPLOYED_RUNTIME_SHA_AT_REVIEW" HEAD
+          mapfile -t manifest_paths < <(
+            sed -n '/^RESET_CRITICAL_PATHS=($/,/^)$/{
+              s/^  '\''\(apps\/[^'\'']*\)'\''$/\1/p
+            }' "$continuation_fixture"
+          )
+          [[ "${#manifest_paths[@]}" == "$CONTINUATION_MANIFEST_SIZE" ]]
+          for path in "${manifest_paths[@]}"; do
+            reviewed_blob="$(git rev-parse "$CONTINUATION_REVIEWED_RESET_SHA:$path")"
+            deployed_blob="$(git rev-parse "$CONTINUATION_DEPLOYED_RUNTIME_SHA_AT_REVIEW:$path")"
+            head_blob="$(git rev-parse "HEAD:$path")"
+            [[ "$reviewed_blob" == "$deployed_blob" && "$deployed_blob" == "$head_blob" ]]
+          done
+          rm -f -- "$continuation_fixture"
           python3 - <<'PY'
           from pathlib import Path
           text = Path('scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh').read_text(encoding='utf-8')
@@ -87,13 +124,54 @@ jobs:
               'queue: max',
               '(github.event.issue.number == 3072 || github.event.issue.number == 4637)',
               'CONTINUATION_ISSUE_NUMBER: $' + '{{ github.event.issue.number }}',
-              "old = \"RELEASE_ISSUE_NUMBER='3072'\"",
-              "new = \"RELEASE_ISSUE_NUMBER='4637'\"",
-              "grep -Fqx \"RELEASE_ISSUE_NUMBER='4637'\" \"$script\"",
+              'EXPECTED_EVENT_SHA: $' + '{{ github.sha }}',
+              'CONTINUATION_REVIEWED_RESET_SHA: 9310d7ae231b4d3b4904fe04712af05fbbea7a9c',
+              'CONTINUATION_DEPLOYED_RUNTIME_SHA_AT_REVIEW: 8f380b5d2a3dba14d279679ddaf873ee6c522f85',
+              "CONTINUATION_MANIFEST_SIZE: '23'",
           ]
           workflow_missing = [x for x in workflow_required if x not in workflow]
           if workflow_missing:
               raise SystemExit('missing continuation workflow invariant: ' + ' | '.join(workflow_missing))
+          preflight_job_marker = '\n  preflight:\n'
+          runtime_step_marker = '      - name: Run drift-tolerant read-only production preflight'
+          preflight_job_start = workflow.rfind(preflight_job_marker)
+          runtime_step_start = workflow.rfind(runtime_step_marker)
+          if preflight_job_start < 0 or runtime_step_start <= preflight_job_start:
+              raise SystemExit('continuation runtime step boundary invalid')
+          runtime_step = workflow[runtime_step_start:]
+          continuation_start_marker = "          source='scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh'"
+          continuation_end_marker = '            *) exit 64 ;;'
+          if runtime_step.count(continuation_start_marker) != 1 or runtime_step.count(continuation_end_marker) != 1:
+              raise SystemExit('continuation runtime boundary invalid')
+          continuation_start = runtime_step.index(continuation_start_marker)
+          continuation_end = runtime_step.index(continuation_end_marker, continuation_start)
+          continuation_runtime = runtime_step[continuation_start:continuation_end]
+          runtime_required = [
+              "patcher='scripts/production-p0-reviewer-reset-continuation-patch.py'",
+              'python3 "$patcher" patch --source "$source" --target "$script"',
+              'bash -n "$script"',
+              "grep -Fqx \"RELEASE_ISSUE_NUMBER='4637'\" \"$script\"",
+              'grep -Fqx "REVIEWED_RESET_SHA=\'${CONTINUATION_REVIEWED_RESET_SHA}\'" "$script"',
+              'apps/api/src/modules/auth/password-hashing.ts',
+              'apps/api/src/common/validators/strong-password.validator.ts',
+              '(( ${#RESET_CRITICAL_PATHS[@]} == 23 ))',
+          ]
+          runtime_missing = [x for x in runtime_required if x not in continuation_runtime]
+          if runtime_missing:
+              raise SystemExit('missing continuation runtime invariant: ' + ' | '.join(runtime_missing))
+          authorization_required = [
+              'if [[ "$CONTINUATION_ISSUE_NUMBER" == \'3072\' ]]',
+              '[[ "${GITHUB_RUN_ATTEMPT:-0}" == \'1\' ]]',
+              'pc.p0-reviewer-reset-preflight-authorization.v1',
+              "payload['issue'] != 4637 or payload['runAttempt'] != 1",
+              'actions/upload-artifact@v4',
+              "github.event.issue.number == 4637",
+              'production-p0-reviewer-reset-preflight-$' + '{{ github.run_id }}-$' + '{{ github.run_attempt }}',
+              'retention-days: 1',
+          ]
+          authorization_missing = [x for x in authorization_required if x not in runtime_step]
+          if authorization_missing:
+              raise SystemExit('missing authorization evidence invariant: ' + ' | '.join(authorization_missing))
           forbidden = [
               '--request POST', '-X POST', '--data', '--data-binary',
               'send_message(', 'sendmail(', 'MAIL FROM', 'RCPT TO',
@@ -140,6 +218,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          CONTINUATION_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          EXPECTED_EVENT_SHA: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
           git fetch --no-tags origin main
@@ -147,6 +227,11 @@ jobs:
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
           [[ "$target" == "$(git rev-parse HEAD)" ]]
           [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          case "$CONTINUATION_ISSUE_NUMBER" in
+            3072) ;;
+            4637) [[ "$target" == "$EXPECTED_EVENT_SHA" ]] ;;
+            *) exit 64 ;;
+          esac
           [[ -z "$(git status --porcelain=v1)" ]]
           echo "sha=$target" >> "$GITHUB_OUTPUT"
 
@@ -191,34 +276,94 @@ jobs:
           [[ -z "$(git status --porcelain=v1)" ]]
 
       - name: Run drift-tolerant read-only production preflight
+        id: authorization
         shell: bash
         env:
           CONTINUATION_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
         run: |
           set -Eeuo pipefail
           source='scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh'
+          patcher='scripts/production-p0-reviewer-reset-continuation-patch.py'
           script="$source"
           case "$CONTINUATION_ISSUE_NUMBER" in
             3072) ;;
             4637)
               script="$RUNNER_TEMP/production-p0-reviewer-reset-preflight-4637.sh"
-              SOURCE="$source" TARGET="$script" python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          source = Path(os.environ['SOURCE'])
-          target = Path(os.environ['TARGET'])
-          text = source.read_text(encoding='utf-8')
-          old = "RELEASE_ISSUE_NUMBER='3072'"
-          new = "RELEASE_ISSUE_NUMBER='4637'"
-          if text.count(old) != 1 or new in text:
-              raise SystemExit('continuation issue substitution contract invalid')
-          target.write_text(text.replace(old, new), encoding='utf-8')
-          PY
+              python3 "$patcher" patch --source "$source" --target "$script"
               chmod 0700 "$script"
               bash -n "$script"
               grep -Fqx "RELEASE_ISSUE_NUMBER='4637'" "$script"
+              grep -Fqx "REVIEWED_RESET_SHA='${CONTINUATION_REVIEWED_RESET_SHA}'" "$script"
+              grep -Fqx "  'apps/api/src/modules/auth/password-hashing.ts'" "$script"
+              grep -Fqx "  'apps/api/src/common/validators/strong-password.validator.ts'" "$script"
+              grep -Fqx '(( ${#RESET_CRITICAL_PATHS[@]} == 23 ))' "$script"
               ;;
             *) exit 64 ;;
           esac
-          bash "$script"
+          if [[ "$CONTINUATION_ISSUE_NUMBER" == '3072' ]]; then
+            bash "$script"
+            exit 0
+          fi
+          [[ "${GITHUB_RUN_ATTEMPT:-0}" == '1' ]]
+          out="$RUNNER_TEMP/production-p0-reviewer-reset-preflight-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.out"
+          set +e
+          bash "$script" 2>&1 | tee "$out"
+          rc="${PIPESTATUS[0]}"
+          set -e
+          (( rc == 0 ))
+          grep -Fxq 'RESET_AUTHORIZED=YES' "$out"
+          grep -Fxq 'PRODUCTION_MUTATION=NONE' "$out"
+          runtime_sha="$(grep -E '^RUNTIME_DEPLOYED_SHA=[0-9a-f]{40}$' "$out" | tail -n1 | cut -d= -f2-)"
+          [[ "$runtime_sha" =~ ^[0-9a-f]{40}$ ]]
+
+          evidence="$RUNNER_TEMP/production-p0-reviewer-reset-preflight-authorization.json"
+          EVIDENCE_PATH="$evidence" RUNTIME_SHA="$runtime_sha" python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          def decimal(name: str) -> int:
+              value = os.environ[name]
+              if not re.fullmatch(r'[1-9][0-9]{0,23}', value):
+                  raise SystemExit(f'{name}_INVALID')
+              return int(value)
+
+          def sha(name: str) -> str:
+              value = os.environ[name]
+              if not re.fullmatch(r'[0-9a-f]{40}', value):
+                  raise SystemExit(f'{name}_INVALID')
+              return value
+
+          payload = {
+              'schemaVersion': 'pc.p0-reviewer-reset-preflight-authorization.v1',
+              'runId': decimal('GITHUB_RUN_ID'),
+              'runAttempt': decimal('GITHUB_RUN_ATTEMPT'),
+              'issue': decimal('CONTINUATION_ISSUE_NUMBER'),
+              'commentId': decimal('COMMENT_ID'),
+              'sourceSha': sha('TARGET_SHA'),
+              'runtimeSha': sha('RUNTIME_SHA'),
+              'reviewedResetSha': sha('CONTINUATION_REVIEWED_RESET_SHA'),
+              'manifestSize': int(os.environ['CONTINUATION_MANIFEST_SIZE']),
+              'authorized': 'YES',
+              'productionMutation': 'NONE',
+          }
+          if payload['issue'] != 4637 or payload['runAttempt'] != 1 or payload['manifestSize'] != 23:
+              raise SystemExit('AUTHORIZATION_SCOPE_INVALID')
+          Path(os.environ['EVIDENCE_PATH']).write_text(
+              json.dumps(payload, separators=(',', ':'), sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          echo "evidence_path=$evidence" >> "$GITHUB_OUTPUT"
+
+      - name: Upload bounded reset authorization evidence
+        if: github.event.issue.number == 4637
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-reviewer-reset-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.authorization.outputs.evidence_path }}
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
