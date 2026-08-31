@@ -1,0 +1,326 @@
+name: P0 Registration Durable Proof Repair
+
+on:
+  push:
+    branches:
+      - fix/p0-registration-decision-durable-outbox-4858
+    paths:
+      - '.github/workflows/p0-registration-durable-proof-repair.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0-registration-durable-proof-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.actor == github.repository_owner && contains(github.event.head_commit.message, 'trigger bounded delivery-proof repair')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-registration-decision-durable-outbox-4858
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Bind every successful decision response to durable SENT evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'P0_DELIVERY_PROOF_ANCHOR_MISMATCH:{path}:{count}')
+              file.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          service = 'apps/api/src/modules/auth/registration-decision.service.ts'
+          replace_once(
+              service,
+              """    return outcome.response.replayed
+              ? outcome.response
+              : { ...outcome.response, notificationDelivery: { status: 'SENT' } };
+""",
+              """    return { ...outcome.response, notificationDelivery: { status: 'SENT' } };
+""",
+          )
+
+          service_spec = 'apps/api/src/modules/auth/registration-decision.service.spec.ts'
+          replace_once(
+              service_spec,
+              """      readResult: jest.fn(async () => {
+                order.push('read');
+                return {
+                  applicationId: application.id, status: 'ACTIVATED', nextAction: 'LOGIN',
+                  version: '3', correlationId: 'correlation-1', replayed: false,
+                };
+              }),
+""",
+              """      readResult: jest.fn(async () => { order.push('read'); return { status: 'ACTIVATED' }; }),
+""",
+          )
+          replay_test_anchor = """  it('keeps the causal receipt inside a membership-free bounded PostgreSQL authority', () => {
+"""
+          replay_test = """  it('returns bounded SENT evidence after a durable replay recovery', async () => {
+            const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
+            const deliveryKey = 'registration-delivery-key-for-replay-proof';
+            process.env.REGISTRATION_DELIVERY_KEY = deliveryKey;
+            const { service, mailOutbox } = createService();
+            const complete = (service as unknown as {
+              completeDecisionResponse: (
+                outcome: Record<string, unknown>,
+                providedDeliveryKey?: string,
+              ) => Promise<Record<string, unknown>>;
+            }).completeDecisionResponse.bind(service);
+            try {
+              const result = await complete({
+                response: {
+                  applicationId: 'application-1', status: 'ACTIVATED', nextAction: 'LOGIN',
+                  version: '2', correlationId: 'correlation-replay-proof', replayed: true,
+                },
+                mailIdempotencyKey: `auth-mail:registration-decision:${'b'.repeat(64)}`,
+              }, deliveryKey);
+              expect(mailOutbox.waitForRegistrationDecisionDelivery).toHaveBeenCalledTimes(1);
+              expect(result).toMatchObject({
+                replayed: true,
+                notificationDelivery: { status: 'SENT' },
+              });
+              expect(JSON.stringify(result)).not.toContain('@');
+            } finally {
+              if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
+              else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
+            }
+          });
+
+"""
+          replace_once(service_spec, replay_test_anchor, replay_test + replay_test_anchor)
+
+          staff = 'apps/web/app/api/staff/[...path]/route.ts'
+          replace_once(
+              staff,
+              """    delete safePayload.notificationDelivery;
+            if (upstream.ok && registrationDecision && payloadObject.replayed !== true) {
+""",
+              """    delete safePayload.notificationDelivery;
+            if (upstream.ok && registrationDecision && notification?.status !== 'SENT') {
+              return json({
+                ...safePayload,
+                code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+                correlationId,
+              }, 503);
+            }
+            if (upstream.ok && registrationDecision && payloadObject.replayed !== true) {
+""",
+          )
+
+          join = 'apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts'
+          replace_once(
+              join,
+              """// keep explicit transport/query headroom before the synchronous mail fallback.
+""",
+              """// keep explicit transport/query headroom before the bounded durable mail-delivery wait.
+""",
+          )
+          replace_once(
+              join,
+              """  if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);
+              if (payload.replayed === true) return json({ ...payload, correlationId }, 200);
+
+              let notificationDelivered = false;
+              notificationDelivered = notification?.status === 'SENT';
+              console.info('organization_join_decision_notification_result', JSON.stringify({
+                correlationId,
+                delivered: notificationDelivered,
+                provider: 'auth-mail-outbox',
+                reason: String(notification?.status || 'MISSING'),
+              }));
+              if (!notificationDelivered) {
+                return json({
+                  ...payload,
+                  code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+                  correlationId,
+                }, 503);
+              }
+              return json({ ...payload, notificationDelivered, correlationId }, 200);
+""",
+              """  if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);
+
+              const notificationDelivered = notification?.status === 'SENT';
+              console.info('organization_join_decision_notification_result', JSON.stringify({
+                correlationId,
+                delivered: notificationDelivered,
+                provider: 'auth-mail-outbox',
+                reason: String(notification?.status || 'MISSING'),
+              }));
+              if (!notificationDelivered) {
+                return json({
+                  ...payload,
+                  code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+                  correlationId,
+                }, 503);
+              }
+              if (payload.replayed === true) return json({ ...payload, correlationId }, 200);
+              return json({ ...payload, notificationDelivered, correlationId }, 200);
+""",
+          )
+
+          human_test = 'apps/web/tests/unit/p0HumanReviewerCeremony.test.ts'
+          replace_once(
+              human_test,
+              """    const fetchMock = vi.fn().mockResolvedValue(upstreamResponse({
+                status: 'ACTIVATED',
+                replayed: true,
+              }));
+""",
+              """    const fetchMock = vi.fn().mockResolvedValue(upstreamResponse({
+                status: 'ACTIVATED',
+                replayed: true,
+                notificationDelivery: { status: 'SENT' },
+              }));
+""",
+          )
+          human_end = """  });
+});
+"""
+          human_negative = """  });
+
+          it('fails closed when a successful upstream replay lacks durable SENT evidence', async () => {
+            vi.stubGlobal('fetch', vi.fn().mockResolvedValue(upstreamResponse({
+              status: 'ACTIVATED',
+              replayed: true,
+            })));
+            const { POST } = await import('@/app/api/staff/[...path]/route');
+
+            const response = await POST(decisionRequest('p0-human-replay-missing-proof'), context);
+            const payload = await response.json() as Record<string, unknown>;
+
+            expect(response.status).toBe(503);
+            expect(payload).toMatchObject({
+              status: 'ACTIVATED',
+              replayed: true,
+              code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+              correlationId: 'p0-human-replay-missing-proof',
+            });
+            expect(payload).not.toHaveProperty('notificationDelivery');
+            expect(payload).not.toHaveProperty('notificationDelivered');
+          });
+        });
+"""
+          replace_once(human_test, human_end, human_negative)
+
+          completion_test = 'apps/web/tests/unit/p0FirstCustomerCompletion.test.ts'
+          completion_anchor = """  it('preserves an unsuccessful upstream join decision status', async () => {
+"""
+          completion_tests = """  it('accepts an exact join replay only after durable SENT evidence', async () => {
+            vi.stubEnv('API_URL', 'https://api.example.test');
+            vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+            vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+              status: 'ACTIVATED',
+              nextAction: 'LOGIN',
+              replayed: true,
+              notificationDelivery: { status: 'SENT' },
+            }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            })));
+
+            const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+            const response = await POST(employeeJoinDecisionRequest(), {
+              params: Promise.resolve({ applicationId: 'reg_employee' }),
+            });
+            const payload = await response.json() as Record<string, unknown>;
+
+            expect(response.status).toBe(200);
+            expect(payload).toMatchObject({
+              status: 'ACTIVATED',
+              nextAction: 'LOGIN',
+              replayed: true,
+              correlationId: 'p0-employee-join-http-contract',
+            });
+            expect(payload).not.toHaveProperty('notificationDelivery');
+            expect(payload).not.toHaveProperty('notificationDelivered');
+          });
+
+          it('fails closed when an upstream join replay omits durable SENT evidence', async () => {
+            vi.stubEnv('API_URL', 'https://api.example.test');
+            vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
+            vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+              status: 'ACTIVATED',
+              nextAction: 'LOGIN',
+              replayed: true,
+            }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            })));
+
+            const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
+            const response = await POST(employeeJoinDecisionRequest(), {
+              params: Promise.resolve({ applicationId: 'reg_employee' }),
+            });
+            const payload = await response.json() as Record<string, unknown>;
+
+            expect(response.status).toBe(503);
+            expect(payload).toMatchObject({
+              status: 'ACTIVATED',
+              replayed: true,
+              code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+              correlationId: 'p0-employee-join-http-contract',
+            });
+            expect(payload).not.toHaveProperty('notificationDelivery');
+            expect(payload).not.toHaveProperty('notificationDelivered');
+          });
+
+"""
+          replace_once(completion_test, completion_anchor, completion_tests + completion_anchor)
+
+          checks = {
+              service: [
+                  "return { ...outcome.response, notificationDelivery: { status: 'SENT' } };",
+              ],
+              staff: [
+                  "notification?.status !== 'SENT'",
+                  "code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING'",
+              ],
+              join: [
+                  "if (payload.replayed === true) return json({ ...payload, correlationId }, 200);",
+                  "const notificationDelivered = notification?.status === 'SENT';",
+              ],
+              service_spec: ["returns bounded SENT evidence after a durable replay recovery"],
+              human_test: ["lacks durable SENT evidence"],
+              completion_test: ["omits durable SENT evidence"],
+          }
+          paths = {
+              'service': service,
+              'staff': staff,
+              'join': join,
+              'service_spec': service_spec,
+              'human_test': human_test,
+              'completion_test': completion_test,
+          }
+          for key, markers in checks.items():
+              text = Path(paths[key]).read_text(encoding='utf-8')
+              for marker in markers:
+                  if marker not in text:
+                      raise SystemExit(f'P0_DELIVERY_PROOF_POSTCHECK_MISSING:{key}:{marker}')
+          if "return outcome.response.replayed" in Path(service).read_text(encoding='utf-8'):
+              raise SystemExit('P0_API_REPLAY_PROOF_BYPASS_REMAINS')
+          if Path(staff).read_text(encoding='utf-8').count("const READ_PATHS = [") != 1:
+              raise SystemExit('P0_STAFF_DECLARATION_REGRESSION')
+          if Path(join).read_text(encoding='utf-8').count("function json(body: Record<string, unknown>, status: number) {") != 1:
+              raise SystemExit('P0_JOIN_DECLARATION_REGRESSION')
+          PY
+
+          rm -- '.github/workflows/p0-registration-durable-proof-repair.yml'
+          git diff --check
+          git config user.name 'pachaninm-lab'
+          git config user.email 'pachaninm@gmail.com'
+          git add -A
+          git commit -m 'fix(pc-crop): require durable delivery proof on replay'
+          git push origin HEAD:fix/p0-registration-decision-durable-outbox-4858
