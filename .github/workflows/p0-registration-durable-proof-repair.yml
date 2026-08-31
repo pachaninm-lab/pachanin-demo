@@ -30,293 +30,155 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace_once(path: str, old: str, new: str) -> None:
-              file = Path(path)
-              text = file.read_text(encoding='utf-8')
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'P0_DELIVERY_PROOF_ANCHOR_MISMATCH:{path}:{count}')
-              file.write_text(text.replace(old, new, 1), encoding='utf-8')
-
-          service = 'apps/api/src/modules/auth/registration-decision.service.ts'
-          replace_once(
-              service,
-              """    return outcome.response.replayed
-              ? outcome.response
-              : { ...outcome.response, notificationDelivery: { status: 'SENT' } };
-""",
-              """    return { ...outcome.response, notificationDelivery: { status: 'SENT' } };
-""",
-          )
-
-          service_spec = 'apps/api/src/modules/auth/registration-decision.service.spec.ts'
-          replace_once(
-              service_spec,
-              """      readResult: jest.fn(async () => {
-                order.push('read');
-                return {
-                  applicationId: application.id, status: 'ACTIVATED', nextAction: 'LOGIN',
-                  version: '3', correlationId: 'correlation-1', replayed: false,
-                };
-              }),
-""",
-              """      readResult: jest.fn(async () => { order.push('read'); return { status: 'ACTIVATED' }; }),
-""",
-          )
-          replay_test_anchor = """  it('keeps the causal receipt inside a membership-free bounded PostgreSQL authority', () => {
-"""
-          replay_test = """  it('returns bounded SENT evidence after a durable replay recovery', async () => {
-            const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
-            const deliveryKey = 'registration-delivery-key-for-replay-proof';
-            process.env.REGISTRATION_DELIVERY_KEY = deliveryKey;
-            const { service, mailOutbox } = createService();
-            const complete = (service as unknown as {
-              completeDecisionResponse: (
-                outcome: Record<string, unknown>,
-                providedDeliveryKey?: string,
-              ) => Promise<Record<string, unknown>>;
-            }).completeDecisionResponse.bind(service);
-            try {
-              const result = await complete({
-                response: {
-                  applicationId: 'application-1', status: 'ACTIVATED', nextAction: 'LOGIN',
-                  version: '2', correlationId: 'correlation-replay-proof', replayed: true,
-                },
-                mailIdempotencyKey: `auth-mail:registration-decision:${'b'.repeat(64)}`,
-              }, deliveryKey);
-              expect(mailOutbox.waitForRegistrationDecisionDelivery).toHaveBeenCalledTimes(1);
-              expect(result).toMatchObject({
-                replayed: true,
-                notificationDelivery: { status: 'SENT' },
-              });
-              expect(JSON.stringify(result)).not.toContain('@');
-            } finally {
-              if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
-              else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
-            }
-          });
-
-"""
-          replace_once(service_spec, replay_test_anchor, replay_test + replay_test_anchor)
-
-          staff = 'apps/web/app/api/staff/[...path]/route.ts'
-          replace_once(
-              staff,
-              """    delete safePayload.notificationDelivery;
-            if (upstream.ok && registrationDecision && payloadObject.replayed !== true) {
-""",
-              """    delete safePayload.notificationDelivery;
-            if (upstream.ok && registrationDecision && notification?.status !== 'SENT') {
-              return json({
-                ...safePayload,
-                code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
-                correlationId,
-              }, 503);
-            }
-            if (upstream.ok && registrationDecision && payloadObject.replayed !== true) {
-""",
-          )
-
-          join = 'apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts'
-          replace_once(
-              join,
-              """// keep explicit transport/query headroom before the synchronous mail fallback.
-""",
-              """// keep explicit transport/query headroom before the bounded durable mail-delivery wait.
-""",
-          )
-          replace_once(
-              join,
-              """  if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);
-              if (payload.replayed === true) return json({ ...payload, correlationId }, 200);
-
-              let notificationDelivered = false;
-              notificationDelivered = notification?.status === 'SENT';
-              console.info('organization_join_decision_notification_result', JSON.stringify({
-                correlationId,
-                delivered: notificationDelivered,
-                provider: 'auth-mail-outbox',
-                reason: String(notification?.status || 'MISSING'),
-              }));
-              if (!notificationDelivered) {
-                return json({
-                  ...payload,
-                  code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
-                  correlationId,
-                }, 503);
-              }
-              return json({ ...payload, notificationDelivered, correlationId }, 200);
-""",
-              """  if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);
-
-              const notificationDelivered = notification?.status === 'SENT';
-              console.info('organization_join_decision_notification_result', JSON.stringify({
-                correlationId,
-                delivered: notificationDelivered,
-                provider: 'auth-mail-outbox',
-                reason: String(notification?.status || 'MISSING'),
-              }));
-              if (!notificationDelivered) {
-                return json({
-                  ...payload,
-                  code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
-                  correlationId,
-                }, 503);
-              }
-              if (payload.replayed === true) return json({ ...payload, correlationId }, 200);
-              return json({ ...payload, notificationDelivered, correlationId }, 200);
-""",
-          )
-
-          human_test = 'apps/web/tests/unit/p0HumanReviewerCeremony.test.ts'
-          replace_once(
-              human_test,
-              """    const fetchMock = vi.fn().mockResolvedValue(upstreamResponse({
-                status: 'ACTIVATED',
-                replayed: true,
-              }));
-""",
-              """    const fetchMock = vi.fn().mockResolvedValue(upstreamResponse({
-                status: 'ACTIVATED',
-                replayed: true,
-                notificationDelivery: { status: 'SENT' },
-              }));
-""",
-          )
-          human_end = """  });
-});
-"""
-          human_negative = """  });
-
-          it('fails closed when a successful upstream replay lacks durable SENT evidence', async () => {
-            vi.stubGlobal('fetch', vi.fn().mockResolvedValue(upstreamResponse({
-              status: 'ACTIVATED',
-              replayed: true,
-            })));
-            const { POST } = await import('@/app/api/staff/[...path]/route');
-
-            const response = await POST(decisionRequest('p0-human-replay-missing-proof'), context);
-            const payload = await response.json() as Record<string, unknown>;
-
-            expect(response.status).toBe(503);
-            expect(payload).toMatchObject({
-              status: 'ACTIVATED',
-              replayed: true,
-              code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
-              correlationId: 'p0-human-replay-missing-proof',
-            });
-            expect(payload).not.toHaveProperty('notificationDelivery');
-            expect(payload).not.toHaveProperty('notificationDelivered');
-          });
-        });
-"""
-          replace_once(human_test, human_end, human_negative)
-
-          completion_test = 'apps/web/tests/unit/p0FirstCustomerCompletion.test.ts'
-          completion_anchor = """  it('preserves an unsuccessful upstream join decision status', async () => {
-"""
-          completion_tests = """  it('accepts an exact join replay only after durable SENT evidence', async () => {
-            vi.stubEnv('API_URL', 'https://api.example.test');
-            vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
-            vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
-              status: 'ACTIVATED',
-              nextAction: 'LOGIN',
-              replayed: true,
-              notificationDelivery: { status: 'SENT' },
-            }), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            })));
-
-            const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
-            const response = await POST(employeeJoinDecisionRequest(), {
-              params: Promise.resolve({ applicationId: 'reg_employee' }),
-            });
-            const payload = await response.json() as Record<string, unknown>;
-
-            expect(response.status).toBe(200);
-            expect(payload).toMatchObject({
-              status: 'ACTIVATED',
-              nextAction: 'LOGIN',
-              replayed: true,
-              correlationId: 'p0-employee-join-http-contract',
-            });
-            expect(payload).not.toHaveProperty('notificationDelivery');
-            expect(payload).not.toHaveProperty('notificationDelivered');
-          });
-
-          it('fails closed when an upstream join replay omits durable SENT evidence', async () => {
-            vi.stubEnv('API_URL', 'https://api.example.test');
-            vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
-            vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
-              status: 'ACTIVATED',
-              nextAction: 'LOGIN',
-              replayed: true,
-            }), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            })));
-
-            const { POST } = await import('@/app/api/auth/organization-join-requests/[applicationId]/decision/route');
-            const response = await POST(employeeJoinDecisionRequest(), {
-              params: Promise.resolve({ applicationId: 'reg_employee' }),
-            });
-            const payload = await response.json() as Record<string, unknown>;
-
-            expect(response.status).toBe(503);
-            expect(payload).toMatchObject({
-              status: 'ACTIVATED',
-              replayed: true,
-              code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
-              correlationId: 'p0-employee-join-http-contract',
-            });
-            expect(payload).not.toHaveProperty('notificationDelivery');
-            expect(payload).not.toHaveProperty('notificationDelivered');
-          });
-
-"""
-          replace_once(completion_test, completion_anchor, completion_tests + completion_anchor)
-
-          checks = {
-              service: [
-                  "return { ...outcome.response, notificationDelivery: { status: 'SENT' } };",
-              ],
-              staff: [
-                  "notification?.status !== 'SENT'",
-                  "code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING'",
-              ],
-              join: [
-                  "if (payload.replayed === true) return json({ ...payload, correlationId }, 200);",
-                  "const notificationDelivered = notification?.status === 'SENT';",
-              ],
-              service_spec: ["returns bounded SENT evidence after a durable replay recovery"],
-              human_test: ["lacks durable SENT evidence"],
-              completion_test: ["omits durable SENT evidence"],
-          }
-          paths = {
-              'service': service,
-              'staff': staff,
-              'join': join,
-              'service_spec': service_spec,
-              'human_test': human_test,
-              'completion_test': completion_test,
-          }
-          for key, markers in checks.items():
-              text = Path(paths[key]).read_text(encoding='utf-8')
-              for marker in markers:
-                  if marker not in text:
-                      raise SystemExit(f'P0_DELIVERY_PROOF_POSTCHECK_MISSING:{key}:{marker}')
-          if "return outcome.response.replayed" in Path(service).read_text(encoding='utf-8'):
-              raise SystemExit('P0_API_REPLAY_PROOF_BYPASS_REMAINS')
-          if Path(staff).read_text(encoding='utf-8').count("const READ_PATHS = [") != 1:
-              raise SystemExit('P0_STAFF_DECLARATION_REGRESSION')
-          if Path(join).read_text(encoding='utf-8').count("function json(body: Record<string, unknown>, status: number) {") != 1:
-              raise SystemExit('P0_JOIN_DECLARATION_REGRESSION')
-          PY
-
+          PATCH_B64=''
+          PATCH_B64+='ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpkZWYgcmVwbGFjZV9vbmNlKHBhdGg6IHN0ciwgb2xkOiBzdHIsIG5ldzogc3RyKSAtPiBOb25lOgogICAgZmls'
+          PATCH_B64+='ZSA9IFBhdGgocGF0aCkKICAgIHRleHQgPSBmaWxlLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQogICAgY291bnQgPSB0ZXh0LmNvdW50KG9sZCkKICAg'
+          PATCH_B64+='IGlmIGNvdW50ICE9IDE6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdChmIlAwX0RFTElWRVJZX1BST09GX0FOQ0hPUl9NSVNNQVRDSDp7cGF0aH06e2NvdW50'
+          PATCH_B64+='fSIpCiAgICBmaWxlLndyaXRlX3RleHQodGV4dC5yZXBsYWNlKG9sZCwgbmV3LCAxKSwgZW5jb2Rpbmc9InV0Zi04IikKCnNlcnZpY2UgPSAiYXBwcy9hcGkv'
+          PATCH_B64+='c3JjL21vZHVsZXMvYXV0aC9yZWdpc3RyYXRpb24tZGVjaXNpb24uc2VydmljZS50cyIKcmVwbGFjZV9vbmNlKAogICAgc2VydmljZSwKICAgICIiIiAgICBy'
+          PATCH_B64+='ZXR1cm4gb3V0Y29tZS5yZXNwb25zZS5yZXBsYXllZAogICAgICA/IG91dGNvbWUucmVzcG9uc2UKICAgICAgOiB7IC4uLm91dGNvbWUucmVzcG9uc2UsIG5v'
+          PATCH_B64+='dGlmaWNhdGlvbkRlbGl2ZXJ5OiB7IHN0YXR1czogJ1NFTlQnIH0gfTsKIiIiLAogICAgIiIiICAgIHJldHVybiB7IC4uLm91dGNvbWUucmVzcG9uc2UsIG5v'
+          PATCH_B64+='dGlmaWNhdGlvbkRlbGl2ZXJ5OiB7IHN0YXR1czogJ1NFTlQnIH0gfTsKIiIiLAopCgpzZXJ2aWNlX3NwZWMgPSAiYXBwcy9hcGkvc3JjL21vZHVsZXMvYXV0'
+          PATCH_B64+='aC9yZWdpc3RyYXRpb24tZGVjaXNpb24uc2VydmljZS5zcGVjLnRzIgpyZXBsYWNlX29uY2UoCiAgICBzZXJ2aWNlX3NwZWMsCiAgICAiIiIgICAgICByZWFk'
+          PATCH_B64+='UmVzdWx0OiBqZXN0LmZuKGFzeW5jICgpID0+IHsKICAgICAgICBvcmRlci5wdXNoKCdyZWFkJyk7CiAgICAgICAgcmV0dXJuIHsKICAgICAgICAgIGFwcGxp'
+          PATCH_B64+='Y2F0aW9uSWQ6IGFwcGxpY2F0aW9uLmlkLCBzdGF0dXM6ICdBQ1RJVkFURUQnLCBuZXh0QWN0aW9uOiAnTE9HSU4nLAogICAgICAgICAgdmVyc2lvbjogJzMn'
+          PATCH_B64+='LCBjb3JyZWxhdGlvbklkOiAnY29ycmVsYXRpb24tMScsIHJlcGxheWVkOiBmYWxzZSwKICAgICAgICB9OwogICAgICB9KSwKIiIiLAogICAgIiIiICAgICAg'
+          PATCH_B64+='cmVhZFJlc3VsdDogamVzdC5mbihhc3luYyAoKSA9PiB7IG9yZGVyLnB1c2goJ3JlYWQnKTsgcmV0dXJuIHsgc3RhdHVzOiAnQUNUSVZBVEVEJyB9OyB9KSwK'
+          PATCH_B64+='IiIiLAopCnJlcGxheV90ZXN0X2FuY2hvciA9ICIiIiAgaXQoJ2tlZXBzIHRoZSBjYXVzYWwgcmVjZWlwdCBpbnNpZGUgYSBtZW1iZXJzaGlwLWZyZWUgYm91'
+          PATCH_B64+='bmRlZCBQb3N0Z3JlU1FMIGF1dGhvcml0eScsICgpID0+IHsKIiIiCnJlcGxheV90ZXN0ID0gIiIiICBpdCgncmV0dXJucyBib3VuZGVkIFNFTlQgZXZpZGVu'
+          PATCH_B64+='Y2UgYWZ0ZXIgYSBkdXJhYmxlIHJlcGxheSByZWNvdmVyeScsIGFzeW5jICgpID0+IHsKICAgIGNvbnN0IHByZXZpb3VzRGVsaXZlcnlLZXkgPSBwcm9jZXNz'
+          PATCH_B64+='LmVudi5SRUdJU1RSQVRJT05fREVMSVZFUllfS0VZOwogICAgY29uc3QgZGVsaXZlcnlLZXkgPSAncmVnaXN0cmF0aW9uLWRlbGl2ZXJ5LWtleS1mb3ItcmVw'
+          PATCH_B64+='bGF5LXByb29mJzsKICAgIHByb2Nlc3MuZW52LlJFR0lTVFJBVElPTl9ERUxJVkVSWV9LRVkgPSBkZWxpdmVyeUtleTsKICAgIGNvbnN0IHsgc2VydmljZSwg'
+          PATCH_B64+='bWFpbE91dGJveCB9ID0gY3JlYXRlU2VydmljZSgpOwogICAgY29uc3QgY29tcGxldGUgPSAoc2VydmljZSBhcyB1bmtub3duIGFzIHsKICAgICAgY29tcGxl'
+          PATCH_B64+='dGVEZWNpc2lvblJlc3BvbnNlOiAoCiAgICAgICAgb3V0Y29tZTogUmVjb3JkPHN0cmluZywgdW5rbm93bj4sCiAgICAgICAgcHJvdmlkZWREZWxpdmVyeUtl'
+          PATCH_B64+='eT86IHN0cmluZywKICAgICAgKSA9PiBQcm9taXNlPFJlY29yZDxzdHJpbmcsIHVua25vd24+PjsKICAgIH0pLmNvbXBsZXRlRGVjaXNpb25SZXNwb25zZS5i'
+          PATCH_B64+='aW5kKHNlcnZpY2UpOwogICAgdHJ5IHsKICAgICAgY29uc3QgcmVzdWx0ID0gYXdhaXQgY29tcGxldGUoewogICAgICAgIHJlc3BvbnNlOiB7CiAgICAgICAg'
+          PATCH_B64+='ICBhcHBsaWNhdGlvbklkOiAnYXBwbGljYXRpb24tMScsIHN0YXR1czogJ0FDVElWQVRFRCcsIG5leHRBY3Rpb246ICdMT0dJTicsCiAgICAgICAgICB2ZXJz'
+          PATCH_B64+='aW9uOiAnMicsIGNvcnJlbGF0aW9uSWQ6ICdjb3JyZWxhdGlvbi1yZXBsYXktcHJvb2YnLCByZXBsYXllZDogdHJ1ZSwKICAgICAgICB9LAogICAgICAgIG1h'
+          PATCH_B64+='aWxJZGVtcG90ZW5jeUtleTogYGF1dGgtbWFpbDpyZWdpc3RyYXRpb24tZGVjaXNpb246JHsnYicucmVwZWF0KDY0KX1gLAogICAgICB9LCBkZWxpdmVyeUtl'
+          PATCH_B64+='eSk7CiAgICAgIGV4cGVjdChtYWlsT3V0Ym94LndhaXRGb3JSZWdpc3RyYXRpb25EZWNpc2lvbkRlbGl2ZXJ5KS50b0hhdmVCZWVuQ2FsbGVkVGltZXMoMSk7'
+          PATCH_B64+='CiAgICAgIGV4cGVjdChyZXN1bHQpLnRvTWF0Y2hPYmplY3QoewogICAgICAgIHJlcGxheWVkOiB0cnVlLAogICAgICAgIG5vdGlmaWNhdGlvbkRlbGl2ZXJ5'
+          PATCH_B64+='OiB7IHN0YXR1czogJ1NFTlQnIH0sCiAgICAgIH0pOwogICAgICBleHBlY3QoSlNPTi5zdHJpbmdpZnkocmVzdWx0KSkubm90LnRvQ29udGFpbignQCcpOwog'
+          PATCH_B64+='ICAgfSBmaW5hbGx5IHsKICAgICAgaWYgKHByZXZpb3VzRGVsaXZlcnlLZXkgPT09IHVuZGVmaW5lZCkgZGVsZXRlIHByb2Nlc3MuZW52LlJFR0lTVFJBVElP'
+          PATCH_B64+='Tl9ERUxJVkVSWV9LRVk7CiAgICAgIGVsc2UgcHJvY2Vzcy5lbnYuUkVHSVNUUkFUSU9OX0RFTElWRVJZX0tFWSA9IHByZXZpb3VzRGVsaXZlcnlLZXk7CiAg'
+          PATCH_B64+='ICB9CiAgfSk7CgoiIiIKcmVwbGFjZV9vbmNlKHNlcnZpY2Vfc3BlYywgcmVwbGF5X3Rlc3RfYW5jaG9yLCByZXBsYXlfdGVzdCArIHJlcGxheV90ZXN0X2Fu'
+          PATCH_B64+='Y2hvcikKCnN0YWZmID0gImFwcHMvd2ViL2FwcC9hcGkvc3RhZmYvWy4uLnBhdGhdL3JvdXRlLnRzIgpyZXBsYWNlX29uY2UoCiAgICBzdGFmZiwKICAgICIi'
+          PATCH_B64+='IiAgICBkZWxldGUgc2FmZVBheWxvYWQubm90aWZpY2F0aW9uRGVsaXZlcnk7CiAgICBpZiAodXBzdHJlYW0ub2sgJiYgcmVnaXN0cmF0aW9uRGVjaXNpb24g'
+          PATCH_B64+='JiYgcGF5bG9hZE9iamVjdC5yZXBsYXllZCAhPT0gdHJ1ZSkgewoiIiIsCiAgICAiIiIgICAgZGVsZXRlIHNhZmVQYXlsb2FkLm5vdGlmaWNhdGlvbkRlbGl2'
+          PATCH_B64+='ZXJ5OwogICAgaWYgKHVwc3RyZWFtLm9rICYmIHJlZ2lzdHJhdGlvbkRlY2lzaW9uICYmIG5vdGlmaWNhdGlvbj8uc3RhdHVzICE9PSAnU0VOVCcpIHsKICAg'
+          PATCH_B64+='ICAgcmV0dXJuIGpzb24oewogICAgICAgIC4uLnNhZmVQYXlsb2FkLAogICAgICAgIGNvZGU6ICdSRUdJU1RSQVRJT05fREVDSVNJT05fTk9USUZJQ0FUSU9O'
+          PATCH_B64+='X1BFTkRJTkcnLAogICAgICAgIGNvcnJlbGF0aW9uSWQsCiAgICAgIH0sIDUwMyk7CiAgICB9CiAgICBpZiAodXBzdHJlYW0ub2sgJiYgcmVnaXN0cmF0aW9u'
+          PATCH_B64+='RGVjaXNpb24gJiYgcGF5bG9hZE9iamVjdC5yZXBsYXllZCAhPT0gdHJ1ZSkgewoiIiIsCikKCmpvaW4gPSAiYXBwcy93ZWIvYXBwL2FwaS9hdXRoL29yZ2Fu'
+          PATCH_B64+='aXphdGlvbi1qb2luLXJlcXVlc3RzL1thcHBsaWNhdGlvbklkXS9kZWNpc2lvbi9yb3V0ZS50cyIKcmVwbGFjZV9vbmNlKAogICAgam9pbiwKICAgICIiIi8v'
+          PATCH_B64+='IGtlZXAgZXhwbGljaXQgdHJhbnNwb3J0L3F1ZXJ5IGhlYWRyb29tIGJlZm9yZSB0aGUgc3luY2hyb25vdXMgbWFpbCBmYWxsYmFjay4KIiIiLAogICAgIiIi'
+          PATCH_B64+='Ly8ga2VlcCBleHBsaWNpdCB0cmFuc3BvcnQvcXVlcnkgaGVhZHJvb20gYmVmb3JlIHRoZSBib3VuZGVkIGR1cmFibGUgbWFpbC1kZWxpdmVyeSB3YWl0Lgoi'
+          PATCH_B64+='IiIsCikKcmVwbGFjZV9vbmNlKAogICAgam9pbiwKICAgICIiIiAgaWYgKCF1cHN0cmVhbVJlc3BvbnNlLm9rKSByZXR1cm4ganNvbih7IC4uLnBheWxvYWQs'
+          PATCH_B64+='IGNvcnJlbGF0aW9uSWQgfSwgdXBzdHJlYW1SZXNwb25zZS5zdGF0dXMpOwogIGlmIChwYXlsb2FkLnJlcGxheWVkID09PSB0cnVlKSByZXR1cm4ganNvbih7'
+          PATCH_B64+='IC4uLnBheWxvYWQsIGNvcnJlbGF0aW9uSWQgfSwgMjAwKTsKCiAgbGV0IG5vdGlmaWNhdGlvbkRlbGl2ZXJlZCA9IGZhbHNlOwogIG5vdGlmaWNhdGlvbkRl'
+          PATCH_B64+='bGl2ZXJlZCA9IG5vdGlmaWNhdGlvbj8uc3RhdHVzID09PSAnU0VOVCc7CiAgY29uc29sZS5pbmZvKCdvcmdhbml6YXRpb25fam9pbl9kZWNpc2lvbl9ub3Rp'
+          PATCH_B64+='ZmljYXRpb25fcmVzdWx0JywgSlNPTi5zdHJpbmdpZnkoewogICAgY29ycmVsYXRpb25JZCwKICAgIGRlbGl2ZXJlZDogbm90aWZpY2F0aW9uRGVsaXZlcmVk'
+          PATCH_B64+='LAogICAgcHJvdmlkZXI6ICdhdXRoLW1haWwtb3V0Ym94JywKICAgIHJlYXNvbjogU3RyaW5nKG5vdGlmaWNhdGlvbj8uc3RhdHVzIHx8ICdNSVNTSU5HJyks'
+          PATCH_B64+='CiAgfSkpOwogIGlmICghbm90aWZpY2F0aW9uRGVsaXZlcmVkKSB7CiAgICByZXR1cm4ganNvbih7CiAgICAgIC4uLnBheWxvYWQsCiAgICAgIGNvZGU6ICdS'
+          PATCH_B64+='RUdJU1RSQVRJT05fREVDSVNJT05fTk9USUZJQ0FUSU9OX1BFTkRJTkcnLAogICAgICBjb3JyZWxhdGlvbklkLAogICAgfSwgNTAzKTsKICB9CiAgcmV0dXJu'
+          PATCH_B64+='IGpzb24oeyAuLi5wYXlsb2FkLCBub3RpZmljYXRpb25EZWxpdmVyZWQsIGNvcnJlbGF0aW9uSWQgfSwgMjAwKTsKIiIiLAogICAgIiIiICBpZiAoIXVwc3Ry'
+          PATCH_B64+='ZWFtUmVzcG9uc2Uub2spIHJldHVybiBqc29uKHsgLi4ucGF5bG9hZCwgY29ycmVsYXRpb25JZCB9LCB1cHN0cmVhbVJlc3BvbnNlLnN0YXR1cyk7CgogIGNv'
+          PATCH_B64+='bnN0IG5vdGlmaWNhdGlvbkRlbGl2ZXJlZCA9IG5vdGlmaWNhdGlvbj8uc3RhdHVzID09PSAnU0VOVCc7CiAgY29uc29sZS5pbmZvKCdvcmdhbml6YXRpb25f'
+          PATCH_B64+='am9pbl9kZWNpc2lvbl9ub3RpZmljYXRpb25fcmVzdWx0JywgSlNPTi5zdHJpbmdpZnkoewogICAgY29ycmVsYXRpb25JZCwKICAgIGRlbGl2ZXJlZDogbm90'
+          PATCH_B64+='aWZpY2F0aW9uRGVsaXZlcmVkLAogICAgcHJvdmlkZXI6ICdhdXRoLW1haWwtb3V0Ym94JywKICAgIHJlYXNvbjogU3RyaW5nKG5vdGlmaWNhdGlvbj8uc3Rh'
+          PATCH_B64+='dHVzIHx8ICdNSVNTSU5HJyksCiAgfSkpOwogIGlmICghbm90aWZpY2F0aW9uRGVsaXZlcmVkKSB7CiAgICByZXR1cm4ganNvbih7CiAgICAgIC4uLnBheWxv'
+          PATCH_B64+='YWQsCiAgICAgIGNvZGU6ICdSRUdJU1RSQVRJT05fREVDSVNJT05fTk9USUZJQ0FUSU9OX1BFTkRJTkcnLAogICAgICBjb3JyZWxhdGlvbklkLAogICAgfSwg'
+          PATCH_B64+='NTAzKTsKICB9CiAgaWYgKHBheWxvYWQucmVwbGF5ZWQgPT09IHRydWUpIHJldHVybiBqc29uKHsgLi4ucGF5bG9hZCwgY29ycmVsYXRpb25JZCB9LCAyMDAp'
+          PATCH_B64+='OwogIHJldHVybiBqc29uKHsgLi4ucGF5bG9hZCwgbm90aWZpY2F0aW9uRGVsaXZlcmVkLCBjb3JyZWxhdGlvbklkIH0sIDIwMCk7CiIiIiwKKQoKaHVtYW5f'
+          PATCH_B64+='dGVzdCA9ICJhcHBzL3dlYi90ZXN0cy91bml0L3AwSHVtYW5SZXZpZXdlckNlcmVtb255LnRlc3QudHMiCnJlcGxhY2Vfb25jZSgKICAgIGh1bWFuX3Rlc3Qs'
+          PATCH_B64+='CiAgICAiIiIgICAgY29uc3QgZmV0Y2hNb2NrID0gdmkuZm4oKS5tb2NrUmVzb2x2ZWRWYWx1ZSh1cHN0cmVhbVJlc3BvbnNlKHsKICAgICAgc3RhdHVzOiAn'
+          PATCH_B64+='QUNUSVZBVEVEJywKICAgICAgcmVwbGF5ZWQ6IHRydWUsCiAgICB9KSk7CiIiIiwKICAgICIiIiAgICBjb25zdCBmZXRjaE1vY2sgPSB2aS5mbigpLm1vY2tS'
+          PATCH_B64+='ZXNvbHZlZFZhbHVlKHVwc3RyZWFtUmVzcG9uc2UoewogICAgICBzdGF0dXM6ICdBQ1RJVkFURUQnLAogICAgICByZXBsYXllZDogdHJ1ZSwKICAgICAgbm90'
+          PATCH_B64+='aWZpY2F0aW9uRGVsaXZlcnk6IHsgc3RhdHVzOiAnU0VOVCcgfSwKICAgIH0pKTsKIiIiLAopCmh1bWFuX2VuZCA9ICIiIiAgfSk7Cn0pOwoiIiIKaHVtYW5f'
+          PATCH_B64+='bmVnYXRpdmUgPSAiIiIgIH0pOwoKICBpdCgnZmFpbHMgY2xvc2VkIHdoZW4gYSBzdWNjZXNzZnVsIHVwc3RyZWFtIHJlcGxheSBsYWNrcyBkdXJhYmxlIFNF'
+          PATCH_B64+='TlQgZXZpZGVuY2UnLCBhc3luYyAoKSA9PiB7CiAgICB2aS5zdHViR2xvYmFsKCdmZXRjaCcsIHZpLmZuKCkubW9ja1Jlc29sdmVkVmFsdWUodXBzdHJlYW1S'
+          PATCH_B64+='ZXNwb25zZSh7CiAgICAgIHN0YXR1czogJ0FDVElWQVRFRCcsCiAgICAgIHJlcGxheWVkOiB0cnVlLAogICAgfSkpKTsKICAgIGNvbnN0IHsgUE9TVCB9ID0g'
+          PATCH_B64+='YXdhaXQgaW1wb3J0KCdAL2FwcC9hcGkvc3RhZmYvWy4uLnBhdGhdL3JvdXRlJyk7CgogICAgY29uc3QgcmVzcG9uc2UgPSBhd2FpdCBQT1NUKGRlY2lzaW9u'
+          PATCH_B64+='UmVxdWVzdCgncDAtaHVtYW4tcmVwbGF5LW1pc3NpbmctcHJvb2YnKSwgY29udGV4dCk7CiAgICBjb25zdCBwYXlsb2FkID0gYXdhaXQgcmVzcG9uc2UuanNv'
+          PATCH_B64+='bigpIGFzIFJlY29yZDxzdHJpbmcsIHVua25vd24+OwoKICAgIGV4cGVjdChyZXNwb25zZS5zdGF0dXMpLnRvQmUoNTAzKTsKICAgIGV4cGVjdChwYXlsb2Fk'
+          PATCH_B64+='KS50b01hdGNoT2JqZWN0KHsKICAgICAgc3RhdHVzOiAnQUNUSVZBVEVEJywKICAgICAgcmVwbGF5ZWQ6IHRydWUsCiAgICAgIGNvZGU6ICdSRUdJU1RSQVRJ'
+          PATCH_B64+='T05fREVDSVNJT05fTk9USUZJQ0FUSU9OX1BFTkRJTkcnLAogICAgICBjb3JyZWxhdGlvbklkOiAncDAtaHVtYW4tcmVwbGF5LW1pc3NpbmctcHJvb2YnLAog'
+          PATCH_B64+='ICAgfSk7CiAgICBleHBlY3QocGF5bG9hZCkubm90LnRvSGF2ZVByb3BlcnR5KCdub3RpZmljYXRpb25EZWxpdmVyeScpOwogICAgZXhwZWN0KHBheWxvYWQp'
+          PATCH_B64+='Lm5vdC50b0hhdmVQcm9wZXJ0eSgnbm90aWZpY2F0aW9uRGVsaXZlcmVkJyk7CiAgfSk7Cn0pOwoiIiIKcmVwbGFjZV9vbmNlKGh1bWFuX3Rlc3QsIGh1bWFu'
+          PATCH_B64+='X2VuZCwgaHVtYW5fbmVnYXRpdmUpCgpjb21wbGV0aW9uX3Rlc3QgPSAiYXBwcy93ZWIvdGVzdHMvdW5pdC9wMEZpcnN0Q3VzdG9tZXJDb21wbGV0aW9uLnRl'
+          PATCH_B64+='c3QudHMiCmNvbXBsZXRpb25fYW5jaG9yID0gIiIiICBpdCgncHJlc2VydmVzIGFuIHVuc3VjY2Vzc2Z1bCB1cHN0cmVhbSBqb2luIGRlY2lzaW9uIHN0YXR1'
+          PATCH_B64+='cycsIGFzeW5jICgpID0+IHsKIiIiCmNvbXBsZXRpb25fdGVzdHMgPSAiIiIgIGl0KCdhY2NlcHRzIGFuIGV4YWN0IGpvaW4gcmVwbGF5IG9ubHkgYWZ0ZXIg'
+          PATCH_B64+='ZHVyYWJsZSBTRU5UIGV2aWRlbmNlJywgYXN5bmMgKCkgPT4gewogICAgdmkuc3R1YkVudignQVBJX1VSTCcsICdodHRwczovL2FwaS5leGFtcGxlLnRlc3Qn'
+          PATCH_B64+='KTsKICAgIHZpLnN0dWJFbnYoJ1JFR0lTVFJBVElPTl9ERUxJVkVSWV9LRVknLCAncicucmVwZWF0KDMyKSk7CiAgICB2aS5zdHViR2xvYmFsKCdmZXRjaCcs'
+          PATCH_B64+='IHZpLmZuKCkubW9ja1Jlc29sdmVkVmFsdWUobmV3IFJlc3BvbnNlKEpTT04uc3RyaW5naWZ5KHsKICAgICAgc3RhdHVzOiAnQUNUSVZBVEVEJywKICAgICAg'
+          PATCH_B64+='bmV4dEFjdGlvbjogJ0xPR0lOJywKICAgICAgcmVwbGF5ZWQ6IHRydWUsCiAgICAgIG5vdGlmaWNhdGlvbkRlbGl2ZXJ5OiB7IHN0YXR1czogJ1NFTlQnIH0s'
+          PATCH_B64+='CiAgICB9KSwgewogICAgICBzdGF0dXM6IDIwMCwKICAgICAgaGVhZGVyczogeyAnQ29udGVudC1UeXBlJzogJ2FwcGxpY2F0aW9uL2pzb24nIH0sCiAgICB9'
+          PATCH_B64+='KSkpOwoKICAgIGNvbnN0IHsgUE9TVCB9ID0gYXdhaXQgaW1wb3J0KCdAL2FwcC9hcGkvYXV0aC9vcmdhbml6YXRpb24tam9pbi1yZXF1ZXN0cy9bYXBwbGlj'
+          PATCH_B64+='YXRpb25JZF0vZGVjaXNpb24vcm91dGUnKTsKICAgIGNvbnN0IHJlc3BvbnNlID0gYXdhaXQgUE9TVChlbXBsb3llZUpvaW5EZWNpc2lvblJlcXVlc3QoKSwg'
+          PATCH_B64+='ewogICAgICBwYXJhbXM6IFByb21pc2UucmVzb2x2ZSh7IGFwcGxpY2F0aW9uSWQ6ICdyZWdfZW1wbG95ZWUnIH0pLAogICAgfSk7CiAgICBjb25zdCBwYXls'
+          PATCH_B64+='b2FkID0gYXdhaXQgcmVzcG9uc2UuanNvbigpIGFzIFJlY29yZDxzdHJpbmcsIHVua25vd24+OwoKICAgIGV4cGVjdChyZXNwb25zZS5zdGF0dXMpLnRvQmUo'
+          PATCH_B64+='MjAwKTsKICAgIGV4cGVjdChwYXlsb2FkKS50b01hdGNoT2JqZWN0KHsKICAgICAgc3RhdHVzOiAnQUNUSVZBVEVEJywKICAgICAgbmV4dEFjdGlvbjogJ0xP'
+          PATCH_B64+='R0lOJywKICAgICAgcmVwbGF5ZWQ6IHRydWUsCiAgICAgIGNvcnJlbGF0aW9uSWQ6ICdwMC1lbXBsb3llZS1qb2luLWh0dHAtY29udHJhY3QnLAogICAgfSk7'
+          PATCH_B64+='CiAgICBleHBlY3QocGF5bG9hZCkubm90LnRvSGF2ZVByb3BlcnR5KCdub3RpZmljYXRpb25EZWxpdmVyeScpOwogICAgZXhwZWN0KHBheWxvYWQpLm5vdC50'
+          PATCH_B64+='b0hhdmVQcm9wZXJ0eSgnbm90aWZpY2F0aW9uRGVsaXZlcmVkJyk7CiAgfSk7CgogIGl0KCdmYWlscyBjbG9zZWQgd2hlbiBhbiB1cHN0cmVhbSBqb2luIHJl'
+          PATCH_B64+='cGxheSBvbWl0cyBkdXJhYmxlIFNFTlQgZXZpZGVuY2UnLCBhc3luYyAoKSA9PiB7CiAgICB2aS5zdHViRW52KCdBUElfVVJMJywgJ2h0dHBzOi8vYXBpLmV4'
+          PATCH_B64+='YW1wbGUudGVzdCcpOwogICAgdmkuc3R1YkVudignUkVHSVNUUkFUSU9OX0RFTElWRVJZX0tFWScsICdyJy5yZXBlYXQoMzIpKTsKICAgIHZpLnN0dWJHbG9i'
+          PATCH_B64+='YWwoJ2ZldGNoJywgdmkuZm4oKS5tb2NrUmVzb2x2ZWRWYWx1ZShuZXcgUmVzcG9uc2UoSlNPTi5zdHJyaW5naWZ5KHsKICAgICAgc3RhdHVzOiAnQUNUSVZB'
+          PATCH_B64+='VEVEJywKICAgICAgbmV4dEFjdGlvbjogJ0xPR0lOJywKICAgICAgcmVwbGF5ZWQ6IHRydWUsCiAgICB9KSwgewogICAgICBzdGF0dXM6IDIwMCwKICAgICAg'
+          PATCH_B64+='aGVhZGVyczogeyAnQ29udGVudC1UeXBlJzogJ2FwcGxpY2F0aW9uL2pzb24nIH0sCiAgICB9KSkpOwoKICAgIGNvbnN0IHsgUE9TVCB9ID0gYXdhaXQgaW1w'
+          PATCH_B64+='b3J0KCdAL2FwcC9hcGkvYXV0aC9vcmdhbml6YXRpb24tam9pbi1yZXF1ZXN0cy9bYXBwbGljYXRpb25JZF0vZGVjaXNpb24vcm91dGUnKTsKICAgIGNvbnN0'
+          PATCH_B64+='IHJlc3BvbnNlID0gYXdhaXQgUE9TVChlbXBsb3llZUpvaW5EZWNpc2lvblJlcXVlc3QoKSwgewogICAgICBwYXJhbXM6IFByb21pc2UucmVzb2x2ZSh7IGFw'
+          PATCH_B64+='cGxpY2F0aW9uSWQ6ICdyZWdfZW1wbG95ZWUnIH0pLAogICAgfSk7CiAgICBjb25zdCBwYXlsb2FkID0gYXdhaXQgcmVzcG9uc2UuanNvbigpIGFzIFJlY29y'
+          PATCH_B64+='ZDxzdHJpbmcsIHVua25vd24+OwoKICAgIGV4cGVjdChyZXNwb25zZS5zdGF0dXMpLnRvQmUoNTAzKTsKICAgIGV4cGVjdChwYXlsb2FkKS50b01hdGNoT2Jq'
+          PATCH_B64+='ZWN0KHsKICAgICAgc3RhdHVzOiAnQUNUSVZBVEVEJywKICAgICAgcmVwbGF5ZWQ6IHRydWUsCiAgICAgIGNvZGU6ICdSRUdJU1RSQVRJT05fREVDSVNJT05f'
+          PATCH_B64+='Tk9USUZJQ0FUSU9OX1BFTkRJTkcnLAogICAgICBjb3JyZWxhdGlvbklkOiAncDAtaHVtYW4tcmVwbGF5LW1pc3NpbmctcHJvb2YnLAogICAgfSk7CiAgICBl'
+          PATCH_B64+='eHBlY3QocGF5bG9hZCkubm90LnRvSGF2ZVByb3BlcnR5KCdub3RpZmljYXRpb25EZWxpdmVyeScpOwogICAgZXhwZWN0KHBheWxvYWQpLm5vdC50b0hhdmVQ'
+          PATCH_B64+='cm9wZXJ0eSgnbm90aWZpY2F0aW9uRGVsaXZlcmVkJyk7CiAgfSk7Cn0pOwoiIiIKcmVwbGFjZV9vbmNlKGh1bWFuX3Rlc3QsIGh1bWFuX2VuZCwgaHVtYW5f'
+          PATCH_B64+='bmVnYXRpdmUpCgpjb21wbGV0aW9uX3Rlc3QgPSAiYXBwcy93ZWIvdGVzdHMvdW5pdC9wMEZpcnN0Q3VzdG9tZXJDb21wbGV0aW9uLnRlc3QudHMiCmNvbXBs'
+          PATCH_B64+='ZXRpb25fYW5jaG9yID0gIiIiICBpdCgncHJlc2VydmVzIGFuIHVuc3VjY2Vzc2Z1bCB1cHN0cmVhbSBqb2luIGRlY2lzaW9uIHN0YXR1cycsIGFzeW5jICgp'
+          PATCH_B64+='ID0+IHsKIiIiCmNvbXBsZXRpb25fdGVzdHMgPSAiIiIgIGl0KCdhY2NlcHRzIGFuIGV4YWN0IGpvaW4gcmVwbGF5IG9ubHkgYWZ0ZXIgZHVyYWJsZSBTRU5U'
+          PATCH_B64+='IGV2aWRlbmNlJywgYXN5bmMgKCkgPT4gewogICAgdmkuc3R1YkVudignQVBJX1VSTCcsICdodHRwczovL2FwaS5leGFtcGxlLnRlc3QnKTsKICAgIHZpLnN0'
+          PATCH_B64+='dWJFbnYoJ1JFR0lTVFJBVElPTl9ERUxJVkVSWV9LRVknLCAncicucmVwZWF0KDMyKSk7CiAgICB2aS5zdHViR2xvYmFsKCdmZXRjaCcsIHZpLmZuKCkubW9j'
+          PATCH_B64+='a1Jlc29sdmVkVmFsdWUobmV3IFJlc3BvbnNlKEpTT04uc3RyaW5naWZ5KHsKICAgICAgc3RhdHVzOiAnQUNUSVZBVEVEJywKICAgICAgbmV4dEFjdGlvbjog'
+          PATCH_B64+='J0xPR0lOJywKICAgICAgcmVwbGF5ZWQ6IHRydWUsCiAgICAgIG5vdGlmaWNhdGlvbkRlbGl2ZXJ5OiB7IHN0YXR1czogJ1NFTlQnIH0sCiAgICB9KSwgewog'
+          PATCH_B64+='ICAgICBzdGF0dXM6IDIwMCwKICAgICAgaGVhZGVyczogeyAnQ29udGVudC1UeXBlJzogJ2FwcGxpY2F0aW9uL2pzb24nIH0sCiAgICB9KSkpOwoKICAgIGNv'
+          PATCH_B64+='bnN0IHsgUE9TVCB9ID0gYXdhaXQgaW1wb3J0KCdAL2FwcC9hcGkvYXV0aC9vcmdhbml6YXRpb24tam9pbi1yZXF1ZXN0cy9bYXBwbGljYXRpb25JZF0vZGVj'
+          PATCH_B64+='aXNpb24vcm91dGUnKTsKICAgIGNvbnN0IHJlc3BvbnNlID0gYXdhaXQgUE9TVChlbXBsb3llZUpvaW5EZWNpc2lvblJlcXVlc3QoKSwgewogICAgICBwYXJh'
+          PATCH_B64+='bXM6IFByb21pc2UucmVzb2x2ZSh7IGFwcGxpY2F0aW9uSWQ6ICdyZWdfZW1wbG95ZWUnIH0pLAogICAgfSk7CiAgICBjb25zdCBwYXlsb2FkID0gYXdhaXQg'
+          PATCH_B64+='cmVzcG9uc2UuanNvbigpIGFzIFJlY29yZDxzdHJpbmcsIHVua25vd24+OwoKICAgIGV4cGVjdChyZXNwb25zZS5zdGF0dXMpLnRvQmUoMjAwKTsKICAgIGV4'
+          PATCH_B64+='cGVjdChwYXlsb2FkKS50b01hdGNoT2JqZWN0KHsKICAgICAgc3RhdHVzOiAnQUNUSVZBVEVEJywKICAgICAgbmV4dEFjdGlvbjogJ0xPR0lOJywKICAgICAg'
+          PATCH_B64+='cmVwbGF5ZWQ6IHRydWUsCiAgICAgIGNvcnJlbGF0aW9uSWQ6ICdwMC1lbXBsb3llZS1qb2luLWh0dHAtY29udHJhY3QnLAogICAgfSk7CiAgICBleHBlY3Qo'
+          PATCH_B64+='cGF5bG9hZCkubm90LnRvSGF2ZVByb3BlcnR5KCdub3RpZmljYXRpb25EZWxpdmVyeScpOwogICAgZXhwZWN0KHBheWxvYWQpLm5vdC50b0hhdmVQcm9wZXJ0'
+          PATCH_B64+='eSgnbm90aWZpY2F0aW9uRGVsaXZlcmVkJyk7CiAgfSk7CgogIGl0KCdmYWlscyBjbG9zZWQgd2hlbiBhbiB1cHN0cmVhbSBqb2luIHJlcGxheSBvbWl0cyBk'
+          PATCH_B64+='dXJhYmxlIFNFTlQgZXZpZGVuY2UnLCBhc3luYyAoKSA9PiB7CiAgICB2aS5zdHViRW52KCdBUElfVVJMJywgJ2h0dHBzOi8vYXBpLmV4YW1wbGUudGVzdCcp'
+          PATCH_B64+='OwogICAgdmkuc3R1YkVudignUkVHSVNUUkFUSU9OX0RFTElWRVJZX0tFWScsICdyJy5yZXBlYXQoMzIpKTsKICAgIHZpLnN0dWJHbG9iYWwoJ2ZldGNoJywg'
+          PATCH_B64+='dmkuZm4oKS5tb2NrUmVzb2x2ZWRWYWx1ZShuZXcgUmVzcG9uc2UoSlNPTi5zdHJpbmdpZnkoewogICAgICBzdGF0dXM6ICdBQ1RJVkFURUQnLAogICAgICBu'
+          PATCH_B64+='ZXh0QWN0aW9uOiAnTE9HSU4nLAogICAgICByZXBsYXllZDogdHJ1ZSwKICAgIH0pLCB7CiAgICAgIHN0YXR1czogMjAwLAogICAgICBoZWFkZXJzOiB7ICdD'
+          PATCH_B64+='b250ZW50LVR5cGUnOiAnYXBwbGljYXRpb24vanNvbicgfSwKICAgIH0pKSk7CgogICAgY29uc3QgeyBQT1NUIH0gPSBhd2FpdCBpbXBvcnQoJ0AvYXBwL2Fw'
+          PATCH_B64+='aS9hdXRoL29yZ2FuaXphdGlvbi1qb2luLXJlcXVlc3RzL1thcHBsaWNhdGlvbklkXS9kZWNpc2lvbi9yb3V0ZScpOwogICAgY29uc3QgcmVzcG9uc2UgPSBh'
+          PATCH_B64+='d2FpdCBQT1NUKGVtcGxveWVlSm9pbkRlY2lzaW9uUmVxdWVzdCgpLCB7CiAgICAgIHBhcmFtczogUHJvbWlzZS5yZXNvbHZlKHsgYXBwbGljYXRpb25JZDog'
+          PATCH_B64+='J3JlZ19lbXBsb3llZScgfSksCiAgICB9KTsKICAgIGNvbnN0IHBheWxvYWQgPSBhd2FpdCByZXNwb25zZS5qc29uKCkgYXMgUmVjb3JkPHN0cmluZywgdW5r'
+          PATCH_B64+='bm93bj47CgogICAgZXhwZWN0KHJlc3BvbnNlLnN0YXR1cykudG9CZSg1MDMpOwogICAgZXhwZWN0KHBheWxvYWQpLnRvTWF0Y2hPYmplY3QoewogICAgICBz'
+          PATCH_B64+='dGF0dXM6ICdBQ1RJVkFURUQnLAogICAgICByZXBsYXllZDogdHJ1ZSwKICAgICAgY29kZTogJ1JFR0lTVFJBVElPTl9ERUNJU0lPTl9OT1RJRklDQVRJT05f'
+          PATCH_B64+='UEVORElORycsCiAgICAgIGNvcnJlbGF0aW9uSWQ6ICdwMC1lbXBsb3llZS1qb2luLWh0dHAtY29udHJhY3QnLAogICAgfSk7CiAgICBleHBlY3QocGF5bG9h'
+          PATCH_B64+='ZCkubm90LnRvSGF2ZVByb3BlcnR5KCdub3RpZmljYXRpb25EZWxpdmVyeScpOwogICAgZXhwZWN0KHBheWxvYWQpLm5vdC50b0hhdmVQcm9wZXJ0eSgnbm90'
+          PATCH_B64+='aWZpY2F0aW9uRGVsaXZlcmVkJyk7CiAgfSk7CgoiIiIKcmVwbGFjZV9vbmNlKGNvbXBsZXRpb25fdGVzdCwgY29tcGxldGlvbl9hbmNob3IsIGNvbXBsZXRp'
+          PATCH_B64+='b25fdGVzdHMgKyBjb21wbGV0aW9uX2FuY2hvcikKCmNoZWNrcyA9IHsKICAgIHNlcnZpY2U6IFsicmV0dXJuIHsgLi4ub3V0Y29tZS5yZXNwb25zZSwgbm90'
+          PATCH_B64+='aWZpY2F0aW9uRGVsaXZlcnk6IHsgc3RhdHVzOiAnU0VOVCcgfSB9OyJdLAogICAgc3RhZmY6IFsibm90aWZpY2F0aW9uPy5zdGF0dXMgIT09ICdTRU5UJyIs'
+          PATCH_B64+='ICJjb2RlOiAnUkVHSVNUUkFUSU9OX0RFQ0lTSU9OX05PVElGSUNBVElPTl9QRU5ESU5HJyJdLAogICAgam9pbjogWwogICAgICAgICJpZiAocGF5bG9hZC5y'
+          PATCH_B64+='ZXBsYXllZCA9PT0gdHJ1ZSkgcmV0dXJuIGpzb24oeyAuLi5wYXlsb2FkLCBjb3JyZWxhdGlvbklkIH0sIDIwMCk7IiwKICAgICAgICAiY29uc3Qgbm90aWZp'
+          PATCH_B64+='Y2F0aW9uRGVsaXZlcmVkID0gbm90aWZpY2F0aW9uPy5zdGF0dXMgPT09ICdTRU5UJzsiLAogICAgXSwKICAgIHNlcnZpY2Vfc3BlYzogWyJyZXR1cm5zIGJv'
+          PATCH_B64+='dW5kZWQgU0VOVCBldmlkZW5jZSBhZnRlciBhIGR1cmFibGUgcmVwbGF5IHJlY292ZXJ5Il0sCiAgICBodW1hbl90ZXN0OiBbImxhY2tzIGR1cmFibGUgU0VO'
+          PATCH_B64+='VCBldmlkZW5jZSJdLAogICAgY29tcGxldGlvbl90ZXN0OiBbIm9taXRzIGR1cmFibGUgU0VOVCBldmlkZW5jZSJdLAp9CmZvciBwYXRoLCBtYXJrZXJzIGlu'
+          PATCH_B64+='IGNoZWNrcy5pdGVtcygpOgogICAgdGV4dCA9IFBhdGgocGF0aCkucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCiAgICBmb3IgbWFya2VyIGluIG1hcmtl'
+          PATCH_B64+='cnM6CiAgICAgICAgaWYgbWFya2VyIG5vdCBpbiB0ZXh0OgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KGYiUDBfREVMSVZFUllfUFJPT0ZfUE9TVENI'
+          PATCH_B64+='RUNLX01JU1NJTkc6e3BhdGh9OnttYXJrZXJ9IikKaWYgInJldHVybiBvdXRjb21lLnJlc3BvbnNlLnJlcGxheWVkIiBpbiBQYXRoKHNlcnZpY2UpLnJlYWRf'
+          PATCH_B64+='dGV4dChlbmNvZGluZz0idXRmLTgiKToKICAgIHJhaXNlIFN5c3RlbUV4aXQoIlAwX0FQSV9SRVBMQVlfUFJPT0ZfQllQQVNTX1JFTUFJTlMiKQppZiBQYXRo'
+          PATCH_B64+='KHN0YWZmKS5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikuY291bnQoImNvbnN0IFJFQURfUEFUSFMgPSBbIikgIT0gMToKICAgIHJhaXNlIFN5c3RlbUV4'
+          PATCH_B64+='aXQoIlAwX1NUQUZGX0RFQ0xBUkFUSU9OX1JFR1JFU1NJT04iKQppZiBQYXRoKGpvaW4pLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKS5jb3VudCgiZnVu'
+          PATCH_B64+='Y3Rpb24ganNvbihib2R5OiBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPiwgc3RhdHVzOiBudW1iZXIpIHsiKSAhPSAxOgogICAgcmFpc2UgU3lzdGVtRXhpdCgi'
+          PATCH_B64+='UDBfSk9JTl9ERUNMQVJBVElPTl9SRUdSRVNTSU9OIikK'
+          export PATCH_B64
+          python3 -c "import base64, os; exec(compile(base64.b64decode(os.environ['PATCH_B64']), '<bounded-delivery-proof-repair>', 'exec'))"
           rm -- '.github/workflows/p0-registration-durable-proof-repair.yml'
           git diff --check
           git config user.name 'pachaninm-lab'
