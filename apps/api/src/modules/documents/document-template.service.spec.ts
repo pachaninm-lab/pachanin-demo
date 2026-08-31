@@ -102,6 +102,20 @@ describe('DocumentTemplateService — поле подставляется, а н
     expect(content).not.toMatch(/\{\{[^}]+\}\}/u);
   });
 
+  it('переносит пустое тело так же, как переносил спред', () => {
+    // Найдено ревью на #4836: прежняя реализация раскрывала `variables`
+    // спредом, и `{...null}` — это `{}`. Object.entries на null бросает, то
+    // есть переход на один проход превратил бы пустой документ в 500.
+    for (const body of [null, undefined, 'строка', 42]) {
+      const { content, hash } = service.generateDocument(
+        'contract_sale',
+        body as never,
+      );
+      expect(content).toContain(`Хеш документа: ${hash}`);
+      expect(content).not.toMatch(/\{\{[^}]+\}\}/u);
+    }
+  });
+
   it('отказывает на неизвестном шаблоне', () => {
     expect(() => service.generateDocument('нет-такого' as never, {})).toThrow(NotFoundException);
   });

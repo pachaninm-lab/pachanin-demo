@@ -245,8 +245,14 @@ export class DocumentTemplateService {
     // ввода: шаблон сканируется один раз, и каждое найденное поле ищется в
     // карте. Регулярное выражение здесь постоянное, из ввода не строится
     // ничего, и подстановка не пересканируется.
+    // Прежняя реализация раскрывала `variables` спредом, а `{...null}` — это
+    // просто `{}`. Object.entries на null бросает, поэтому без нормализации
+    // тело `null` превратилось бы из пустого документа в 500. Контракт метода
+    // сохраняется: отсутствующие значения дают пустые поля.
+    const submitted =
+      variables !== null && typeof variables === 'object' ? variables : {};
     const values = new Map<string, string>(
-      Object.entries(variables).map(([name, value]) => [name, String(value ?? '')]),
+      Object.entries(submitted).map(([name, value]) => [name, String(value ?? '')]),
     );
     // Эти два поля задаёт платформа и отправитель их перебить не может -
     // записываются после его значений.
