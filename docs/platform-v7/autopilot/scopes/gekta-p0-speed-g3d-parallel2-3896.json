@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "perf/gekta-p0-speed-g3d-parallel2-3896",
+  "status": "active",
+  "issue": 3896,
+  "purpose": "Test one bounded llama.cpp server-capacity invariant for Gekta: increase server slots from one to two while increasing total context from 8192 to 16384 so per-slot context remains exactly 8192; preserve the proven threads16, batch512, ubatch128, model, prompt, quality and application behavior, with deterministic automatic rollback and zero recurring cost.",
+  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-14",
+  "authorityBaseExactMain": "a4cb976a2876455770e186b7c26b85200fe4edb0",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3d-parallel2-3896.json",
+    "scripts/gekta-qwen-g3d-runtime.py",
+    "scripts/gekta-qwen-g3d-bootstrap.sh",
+    ".github/workflows/gekta-p0-speed-g3d-parallel2.yml"
+  ],
+  "requiredBehavior": [
+    "baseline must be active llama.cpp build aedb2a5 with threads16 threads-batch16 parallel1 ctx8192 batch512 ubatch128",
+    "candidate changes one capacity invariant: parallel1 to parallel2 and total ctx8192 to ctx16384 solely to preserve exactly 8192 context tokens per slot",
+    "ubatch remains exactly 128 throughout this experiment",
+    "candidate preserves executable environment authentication model endpoint model file prompts token budgets sampling safety citations and every unrelated argv byte",
+    "candidate admission requires model-process VmSwap zero and at least 5 GiB MemAvailable before restart; candidate readiness requires model-process VmSwap zero and at least 3 GiB MemAvailable after restart",
+    "any restart listener memory swap exact-argv executable or per-slot-context failure automatically restores the exact baseline",
+    "bootstrap is one manual root action that installs only one audited helper plus an exact three-command sudoers allowlist and does not restart or mutate the model service",
+    "GitHub never receives a root model-host SSH credential and continues to use only the dedicated TAI model SSH principal plus pinned host key",
+    "controller issue commands require repository-owner authorship and allow either direct owner execution or the pinned ChatGPT Codex connector app id 1144995 acting on that owner-authored command",
+    "published evidence is bounded to allowlisted state numeric and error markers and never contains raw argv environment paths credentials prompts responses model bytes or customer data",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "root SSH repository secret broad sudo sudo shell sudo systemctl arbitrary helper arguments SETENV or trust-on-first-use model-host identity",
+    "parallel greater than two or per-slot context below 8192",
+    "ubatch threads threads-batch logical batch model quantization model file prompt quality safety citation token-budget or application mutation",
+    "timeout inflation to hide overload",
+    "database REG.RU application deal role money registration or PC-CROP mutation",
+    "second Qwen sidecar new server paid API SaaS or recurring cost"
+  ]
+}

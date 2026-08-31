@@ -59,6 +59,7 @@ describe('RlsTransactionService', () => {
       tenantId: TRUSTED_USER.tenantId,
       role: TRUSTED_USER.role,
       sessionId: TRUSTED_USER.sessionId,
+      staffRoles: [],
     });
   });
 
@@ -100,6 +101,7 @@ describe('RlsTransactionService', () => {
       tenantId: TRUSTED_USER.tenantId,
       role: TRUSTED_USER.role,
       sessionId: TRUSTED_USER.sessionId,
+      staffRoles: [],
     });
 
     const statement = test.queryRaw.mock.calls[0][0] as {
@@ -112,6 +114,12 @@ describe('RlsTransactionService', () => {
     expect(sql).toContain("set_config('app.current_tenant_id'");
     expect(sql).toContain("set_config('app.current_role'");
     expect(sql).toContain("set_config('app.current_session_id'");
+    // Staff authority is deliberately absent from the settings. The runtime
+    // principal can write any setting it likes, so one carrying platform
+    // authority would be forgeable by the very principal it confines.
+    expect(sql).not.toContain('app.current_staff_roles');
+    // Every setting is transaction-local. A session-level one would outlive the
+    // statement and carry another request's authority.
     expect(sql.match(/true/g)).toHaveLength(5);
     expect(statement.values).toEqual([
       TRUSTED_USER.id,
@@ -120,6 +128,25 @@ describe('RlsTransactionService', () => {
       TRUSTED_USER.role,
       TRUSTED_USER.sessionId,
     ]);
+  });
+
+  it('carries only well-formed staff labels into the database setting', () => {
+    // The setting is parsed back with string_to_array, so a label containing a
+    // comma would arrive as two authorities and a blank as none.
+    expect(
+      deriveTrustedRlsContext({
+        ...TRUSTED_USER,
+        staffRoles: ['REGISTRATION_REVIEWER', ' COMPLIANCE_OFFICER ', 'bad,label', '', 'lower'],
+      }).staffRoles,
+    ).toEqual(['REGISTRATION_REVIEWER', 'COMPLIANCE_OFFICER']);
+  });
+
+  it('never derives platform authority from the membership role label', () => {
+    // 'ADMIN' is an organization membership role in this schema. Treating it as
+    // staff would give every organization administrator a cross-tenant read.
+    expect(
+      deriveTrustedRlsContext({ ...TRUSTED_USER, role: Role.ADMIN }).staffRoles,
+    ).toEqual([]);
   });
 
   it('uses bounded transaction defaults and accepts an explicit isolation level', async () => {

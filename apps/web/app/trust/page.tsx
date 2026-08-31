@@ -36,13 +36,13 @@ type Copy = Readonly<{
 
 const COPY: Record<Locale, Copy> = {
   ru: {
-    metadataTitle: 'Trust Center — безопасность, данные и ИИ',
-    metadataDescription: 'Публичные правила полномочий, доказательств, обработки данных, доступности и использования TAI в платформе Прозрачная Цена.',
+    metadataTitle: 'Trust Center — безопасность, данные и Гекта',
+    metadataDescription: 'Публичные правила полномочий, доказательств, обработки данных, доступности и использования Гекты в платформе «Прозрачная Цена».',
     back: 'Вернуться на главную',
-    nav: { controls: 'Контроль', data: 'Данные', ai: 'TAI', evidence: 'Заявления' },
+    nav: { controls: 'Контроль', data: 'Данные', ai: 'Гекта', evidence: 'Заявления' },
     eyebrow: 'Enterprise Trust Center',
     title: 'Безопасность и доверие проверяются по правилам, а не по рекламным обещаниям',
-    lead: 'Здесь собраны публичные границы платформы: кто принимает решения, как сохраняются основания, что видит ИИ и какие заявления не делаются без подтверждающих материалов.',
+    lead: 'Здесь собраны публичные границы платформы: кто принимает решения, как сохраняются основания, что видит искусственный интеллект и какие заявления не делаются без подтверждающих материалов.',
     verifiedLabel: 'Принцип публикации',
     verifiedText: 'Показываются только подтверждаемые свойства платформы. Сертификаты, внешняя доступность и подключение конкретного провайдера не заявляются без отдельного доказательства.',
     domains: [
@@ -68,12 +68,12 @@ const COPY: Record<Locale, Copy> = {
       },
       {
         id: 'ai',
-        title: 'Граница использования TAI',
-        text: 'TAI — интеллектуальный слой анализа, а не самостоятельный владелец решения.',
+        title: 'Граница использования Гекты',
+        text: 'Гекта — интеллектуальный слой анализа, а не самостоятельный владелец решения.',
         points: [
-          'ИИ сопоставляет условия, события, документы и источники.',
-          'ИИ объясняет риск и показывает допустимые варианты действий.',
-          'TAI не получает самостоятельного права менять Сделку, переводить деньги или подтверждать критическое действие.',
+          'Гекта сопоставляет условия, события, документы и источники.',
+          'Гекта объясняет риск и показывает допустимые варианты действий.',
+          'У Гекты нет самостоятельного права менять Сделку, переводить деньги или подтверждать критическое действие.',
         ],
       },
       {
@@ -101,13 +101,13 @@ const COPY: Record<Locale, Copy> = {
     privacy: 'Политика обработки данных',
   },
   en: {
-    metadataTitle: 'Trust Center — security, data and AI',
-    metadataDescription: 'Public authority, evidence, data-processing, availability and TAI boundaries for the Transparent Price platform.',
+    metadataTitle: 'Trust Center — security, data and Gekta',
+    metadataDescription: 'Public authority, evidence, data-processing, availability and Gekta boundaries for the Transparent Price platform.',
     back: 'Back to the homepage',
-    nav: { controls: 'Controls', data: 'Data', ai: 'TAI', evidence: 'Claims' },
+    nav: { controls: 'Controls', data: 'Data', ai: 'Gekta', evidence: 'Claims' },
     eyebrow: 'Enterprise Trust Center',
     title: 'Security and trust are verified through operating rules, not marketing claims',
-    lead: 'This page states the public platform boundaries: who makes decisions, how evidence is retained, what AI can see and which claims require separate proof.',
+    lead: 'This page states the public platform boundaries: who makes decisions, how evidence is retained, what artificial intelligence can see and which claims require separate proof.',
     verifiedLabel: 'Publication principle',
     verifiedText: 'Only verifiable platform properties are displayed. Certifications, external availability and named-provider connections are not claimed without separate evidence.',
     domains: [
@@ -133,12 +133,12 @@ const COPY: Record<Locale, Copy> = {
       },
       {
         id: 'ai',
-        title: 'TAI usage boundary',
-        text: 'TAI is an intelligence layer for analysis, not an independent decision owner.',
+        title: 'Gekta usage boundary',
+        text: 'Gekta is an intelligence layer for analysis, not an independent decision owner.',
         points: [
-          'AI compares terms, events, documents and sources.',
-          'AI explains risk and presents permitted action options.',
-          'TAI has no independent authority to change a Deal, move money or confirm a critical action.',
+          'Gekta compares terms, events, documents and sources.',
+          'Gekta explains risk and presents permitted action options.',
+          'Gekta has no independent authority to change a Deal, move money or confirm a critical action.',
         ],
       },
       {
@@ -166,13 +166,13 @@ const COPY: Record<Locale, Copy> = {
     privacy: 'Data-processing policy',
   },
   zh: {
-    metadataTitle: '信任中心 — 安全、数据与 AI',
-    metadataDescription: '透明价格平台公开的权限、证据、数据处理、可用性与 TAI 边界。',
+    metadataTitle: '信任中心 — 安全、数据与 Gekta',
+    metadataDescription: '透明价格平台公开的权限、证据、数据处理、可用性与 Gekta 边界。',
     back: '返回主页',
-    nav: { controls: '控制', data: '数据', ai: 'TAI', evidence: '声明' },
+    nav: { controls: '控制', data: '数据', ai: 'Gekta', evidence: '声明' },
     eyebrow: '企业信任中心',
     title: '安全与信任通过运行规则验证，而不是通过营销承诺',
-    lead: '本页说明平台的公开边界：谁作出决定、如何保存依据、AI 可以看到什么，以及哪些声明需要单独证明。',
+    lead: '本页说明平台的公开边界：谁作出决定、如何保存依据、人工智能可以看到什么，以及哪些声明需要单独证明。',
     verifiedLabel: '发布原则',
     verifiedText: '仅展示可验证的平台属性。没有单独证据时，不声明认证、外部可用性或特定服务商已连接。',
     domains: [
@@ -198,12 +198,12 @@ const COPY: Record<Locale, Copy> = {
       },
       {
         id: 'ai',
-        title: 'TAI 使用边界',
-        text: 'TAI 是分析智能层，而不是独立决策主体。',
+        title: 'Gekta 使用边界',
+        text: 'Gekta 是分析智能层，而不是独立决策主体。',
         points: [
-          'AI 对照条件、事件、文件与来源。',
-          'AI 解释风险并提供允许的操作选项。',
-          'TAI 无权独立修改交易、转移资金或确认关键操作。',
+          'Gekta 对照条件、事件、文件与来源。',
+          'Gekta 解释风险并提供允许的操作选项。',
+          'Gekta 无权独立修改交易、转移资金或确认关键操作。',
         ],
       },
       {

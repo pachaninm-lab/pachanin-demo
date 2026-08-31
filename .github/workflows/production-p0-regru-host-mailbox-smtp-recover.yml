@@ -1,0 +1,456 @@
+name: Production P0 REG.RU Host Mailbox SMTP Recovery
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-regru-host-mailbox-smtp-recover.yml'
+      - 'scripts/production-p0-regru-mailbox-smtp-proof.py'
+      - 'scripts/provision-production-p0-password-reset-runtime.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-regru-host-mailbox-smtp-recover
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: '3072'
+  EVIDENCE_DIR: artifacts/production-p0-regru-host-mailbox-smtp-recover
+  SMTP_HOST: mail.hosting.reg.ru
+  SMTP_PORT: '465'
+  SMTP_FROM: access@xn----8sbjf4befbjgs9b.xn--p1ai
+  SMTP_USER: access@xn----8sbjf4befbjgs9b.xn--p1ai
+
+jobs:
+  contract:
+    name: Validate bounded host mailbox SMTP recovery contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (
+            github.actor == github.repository_owner &&
+            github.triggering_actor == github.repository_owner
+          ) ||
+          (
+            github.actor == 'chatgpt-codex-connector[bot]' &&
+            github.triggering_actor == 'chatgpt-codex-connector[bot]'
+          )
+        ) &&
+        github.event.comment.body == '/production p0-regru-host-mailbox-smtp-recover current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate fail-closed contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          proof = Path('scripts/production-p0-regru-mailbox-smtp-proof.py')
+          compile(proof.read_text(encoding='utf-8'), str(proof), 'exec')
+          text = Path('.github/workflows/production-p0-regru-host-mailbox-smtp-recover.yml').read_text(encoding='utf-8')
+          required = [
+              'mail.hosting.reg.ru',
+              "SMTP_PORT: '465'",
+              "github.event.issue.number == 3072",
+              "github.event.comment.user.login == github.repository_owner",
+              "github.event.comment.author_association == 'OWNER'",
+              "github.actor == 'chatgpt-codex-connector[bot]'",
+              'TRUSTED_CONNECTOR_APP_ID: 1144995',
+              'StrictHostKeyChecking=yes',
+              'SMTP_AUTHENTICATED_SEND_OK=1',
+              'IMAP_PROBE_RECEIPT_OK=1',
+              'ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES',
+          ]
+          for marker in required:
+              assert marker in text, marker
+          PY
+          bash -n scripts/provision-production-p0-password-reset-runtime.sh
+
+      - name: Verify issue-comment provenance through GitHub REST
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EVENT_ACTOR: ${{ github.actor }}
+          EVENT_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          EXPECTED_BODY: /production p0-regru-host-mailbox-smtp-recover current-main
+          TRUSTED_CONNECTOR_APP_ID: 1144995
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$EVENT_ACTOR" == "$owner" && "$EVENT_TRIGGERING_ACTOR" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$EVENT_ACTOR" == 'chatgpt-codex-connector[bot]' ]]
+            [[ "$EVENT_TRIGGERING_ACTOR" == 'chatgpt-codex-connector[bot]' ]]
+            app_id="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // empty')"
+            [[ "$app_id" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  recover:
+    name: Prove REG.RU host mail path and materialize auth runtime
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      MAILBOX_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      MAILBOX_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE || secrets.PC_PROD_P0_EMAIL_TEMPLATE }}
+      SMTP_PASSWORD: ${{ secrets.PC_SMTP_PASS || secrets.PC_PROD_SMTP_PASS || secrets.SMTP_PASSWORD || secrets.SMTP_PASS || secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact current-main checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+
+      - name: Validate protected mail inputs without disclosure
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          safe_scalar(){ [[ -n "$1" && "$1" != *$'\n'* && "$1" != *$'\r'* ]]; }
+          safe_scalar "$MAILBOX_USER"
+          safe_scalar "$MAILBOX_PASSWORD"
+          safe_scalar "$EMAIL_TEMPLATE"
+          safe_scalar "$SMTP_PASSWORD"
+          [[ "$SMTP_HOST" == 'mail.hosting.reg.ru' ]]
+          [[ "$SMTP_PORT" == '465' ]]
+          [[ "$SMTP_USER" == 'access@xn----8sbjf4befbjgs9b.xn--p1ai' ]]
+          [[ "$SMTP_FROM" == 'access@xn----8sbjf4befbjgs9b.xn--p1ai' ]]
+
+      - name: Resolve protected root key and pinned REG.RU identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${PC_PROD_HOST:-}")"
+          user="$(trim "${PC_PROD_SSH_USER:-}")"
+          port="$(trim "${PC_PROD_SSH_PORT:-22}")"
+          fp="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ -n "$host" && -n "$user" ]]
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$fp" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+
+          mapfile -t dns_ipv4 < <(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u)
+          (( ${#dns_ipv4[@]} >= 1 ))
+          printf '%s\n' "${dns_ipv4[@]}" | grep -Fxq "$host"
+
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && {
+              rm -f "$a" "$b" "$c"; return 0;
+            }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${PC_PROD_SSH_KEY:-}" || try_slot "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_slot "${VPS_SSH_KEY:-}" || exit 40
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            got="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$got" != "$fp" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          rm -f "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"; chmod 600 "$HOME/.ssh/known_hosts"
+
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 \
+            "$user@$host" 'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; command -v python3 >/dev/null; echo ROOT_SSH_PYTHON_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_SSH_PYTHON_OK "$EVIDENCE_DIR/ssh-auth.txt"
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Prove host TLS and SMTP greeting without credentials
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 \
+            "$USER@$HOST" "python3 - <<'PY'
+          import socket, ssl
+          host='mail.hosting.reg.ru'
+          try:
+              raw=socket.create_connection((host,465), timeout=10)
+              ctx=ssl.create_default_context()
+              with ctx.wrap_socket(raw, server_hostname=host) as s:
+                  s.settimeout(10)
+                  line=s.recv(512)
+                  if not line.startswith(b'220'):
+                      raise SystemExit(3)
+          except socket.gaierror:
+              raise SystemExit(11)
+          except (TimeoutError, socket.timeout):
+              raise SystemExit(12)
+          except ssl.SSLError:
+              raise SystemExit(13)
+          except OSError:
+              raise SystemExit(14)
+          print('HOST_REG_RU_SMTP_TLS_GREETING_OK=1')
+          PY" > "$EVIDENCE_DIR/host-transport.txt"
+          grep -Fxq HOST_REG_RU_SMTP_TLS_GREETING_OK=1 "$EVIDENCE_DIR/host-transport.txt"
+
+      - name: Build protected remote proof inputs
+        id: proof
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          config="$RUNNER_TEMP/pc-regru-host-mail-proof-${GITHUB_RUN_ID}.json"
+          login_path="/tmp/pc-regru-host-mail-login-${GITHUB_RUN_ID}.txt"
+          umask 077
+          CONFIG="$config" LOGIN_PATH="$login_path" python3 - <<'PY'
+          import json, os
+          cfg = {
+            'PC_PROBE_SMTP_HOST': 'mail.hosting.reg.ru',
+            'PC_PROBE_SMTP_PORT': '465',
+            'PC_PROBE_SMTP_USER': 'access@xn----8sbjf4befbjgs9b.xn--p1ai',
+            'PC_PROBE_SMTP_PASSWORD': os.environ['SMTP_PASSWORD'],
+            'PC_PROBE_MAILBOX_USER': os.environ['MAILBOX_USER'],
+            'PC_PROBE_MAILBOX_PASSWORD': os.environ['MAILBOX_PASSWORD'],
+            'PC_PROBE_EMAIL_TEMPLATE': os.environ['EMAIL_TEMPLATE'],
+            'PC_PROBE_MAIL_FROM': 'access@xn----8sbjf4befbjgs9b.xn--p1ai',
+            'PC_PROBE_IMAP_HOST': 'mail.hosting.reg.ru',
+            'PC_PROBE_IMAP_PORT': '993',
+            'PC_PROBE_IMAP_FOLDER': 'INBOX',
+            'PC_PROBE_TARGET_SHA': os.environ['TARGET_SHA'],
+            'PC_PROBE_RUN_ID': os.environ['GITHUB_RUN_ID'],
+            'PC_PROBE_LOGIN_OUTPUT': os.environ['LOGIN_PATH'],
+          }
+          with open(os.environ['CONFIG'], 'w', encoding='utf-8') as f:
+              json.dump(cfg, f, ensure_ascii=True)
+          PY
+          chmod 0600 "$config"
+          echo "config=$config" >> "$GITHUB_OUTPUT"
+
+      - name: Prove authenticated send and IMAP receipt from REG.RU host
+        id: mailproof
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          CONFIG: ${{ steps.proof.outputs.config }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          remote_proof="/tmp/pc-regru-host-mail-proof-${GITHUB_RUN_ID}.py"
+          remote_cfg="/tmp/pc-regru-host-mail-proof-${GITHUB_RUN_ID}.json"
+          remote_wrapper="/tmp/pc-regru-host-mail-wrapper-${GITHUB_RUN_ID}.py"
+          remote_login="/tmp/pc-regru-host-mail-login-${GITHUB_RUN_ID}.txt"
+          login_file="$RUNNER_TEMP/pc-regru-host-mail-login-${GITHUB_RUN_ID}.txt"
+          wrapper="$RUNNER_TEMP/pc-regru-host-mail-wrapper-${GITHUB_RUN_ID}.py"
+          cat > "$wrapper" <<'PY'
+          import json, os, runpy, sys
+          with open(sys.argv[1], 'r', encoding='utf-8') as f:
+              cfg = json.load(f)
+          for key, value in cfg.items():
+              os.environ[str(key)] = str(value)
+          runpy.run_path(sys.argv[2], run_name='__main__')
+          PY
+          chmod 0700 "$wrapper"
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          scp "${scp_common[@]}" scripts/production-p0-regru-mailbox-smtp-proof.py "$USER@$HOST:$remote_proof"
+          scp "${scp_common[@]}" "$CONFIG" "$USER@$HOST:$remote_cfg"
+          scp "${scp_common[@]}" "$wrapper" "$USER@$HOST:$remote_wrapper"
+          ssh "${ssh_common[@]}" "$USER@$HOST" \
+            "chmod 0700 '$remote_proof' '$remote_wrapper'; chmod 0600 '$remote_cfg'; python3 '$remote_wrapper' '$remote_cfg' '$remote_proof'" \
+            > "$EVIDENCE_DIR/remote-mail-proof.txt"
+          grep -Fxq SMTP_AUTHENTICATED_SEND_OK=1 "$EVIDENCE_DIR/remote-mail-proof.txt"
+          grep -Fxq IMAP_PROBE_RECEIPT_OK=1 "$EVIDENCE_DIR/remote-mail-proof.txt"
+          scp "${scp_common[@]}" "$USER@$HOST:$remote_login" "$login_file"
+          chmod 0600 "$login_file"
+          [[ -f "$login_file" && ! -L "$login_file" && "$(stat -c '%a' "$login_file")" == 600 ]]
+          proven_login="$(cat "$login_file")"
+          [[ "$proven_login" =~ ^[^[:space:]@]+@xn----8sbjf4befbjgs9b\.xn--p1ai$ ]]
+          echo "login_file=$login_file" >> "$GITHUB_OUTPUT"
+
+      - name: Materialize protected auth-mail runtime
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          LOGIN_FILE: ${{ steps.mailproof.outputs.login_file }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -f "$LOGIN_FILE" && ! -L "$LOGIN_FILE" && "$(stat -c '%a' "$LOGIN_FILE")" == 600 ]]
+          proven_login="$(cat "$LOGIN_FILE")"
+          [[ "$proven_login" =~ ^[^[:space:]@]+@xn----8sbjf4befbjgs9b\.xn--p1ai$ ]]
+          mailenv="$RUNNER_TEMP/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.env"
+          umask 077
+          printf 'PC_SMTP_HOST=%s\nPC_SMTP_USER=%s\nPC_SMTP_PASS=%s\nPC_SMTP_PORT=%s\nPC_MAIL_FROM=%s\n' \
+            "$SMTP_HOST" "$proven_login" "$SMTP_PASSWORD" "$SMTP_PORT" "$SMTP_FROM" > "$mailenv"
+          chmod 0600 "$mailenv"
+          remote_script="/tmp/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.sh"
+          remote_mail="/tmp/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.env"
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          ssh_common=(-i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          scp "${scp_common[@]}" scripts/provision-production-p0-password-reset-runtime.sh "$USER@$HOST:$remote_script"
+          scp "${scp_common[@]}" "$mailenv" "$USER@$HOST:$remote_mail"
+          ssh "${ssh_common[@]}" "$USER@$HOST" \
+            "chmod 0700 '$remote_script'; chmod 0600 '$remote_mail'; PC_RECONCILE_ACTIVE_RUNTIME=1 '$remote_script' provision '$remote_mail'" \
+            > "$EVIDENCE_DIR/provision.txt"
+          grep -Eq '^PASSWORD_RESET_DELIVERY_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/provision.txt"
+          grep -Eq '^REGISTRATION_DELIVERY_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/provision.txt"
+          grep -Eq '^TRANSACTIONAL_MAIL_PROVISION=(CREATED|EXISTING)$' "$EVIDENCE_DIR/provision.txt"
+          grep -Fxq TRANSACTIONAL_MAIL_CHANNEL=SMTP "$EVIDENCE_DIR/provision.txt"
+          grep -Fxq PASSWORD_RESET_RUNTIME_VALID=1 "$EVIDENCE_DIR/provision.txt"
+          grep -Fxq AUTH_MAIL_RUNTIME_VALID=1 "$EVIDENCE_DIR/provision.txt"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+      - name: Publish bounded recovery result
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 REG.RU host mailbox SMTP recovery
+
+          - exact main: \`$TARGET_SHA\`
+          - result: \`PASS\`
+          - network origin: \`EXISTING_REG_RU_PRODUCTION_HOST\`
+          - SMTP authority: \`mail.hosting.reg.ru:465\`
+          - authenticated send: \`PASS\`
+          - IMAP receipt: \`PASS\`
+          - auth-mail runtime: \`READY_SMTP\`
+          - production mutation: \`ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES\`
+          - database/deployment mutation: \`NONE\`
+          - credentials / mailbox identity / raw SMTP / raw IMAP: \`NOT_PUBLISHED\`
+          - new recurring cost: \`0 RUB\`" >/dev/null
+
+      - name: Upload bounded evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-regru-host-mailbox-smtp-recover-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Cleanup remote and local transient secrets
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set +e
+          if [[ -n "${HOST:-}" && -n "${USER:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" \
+              -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+              "$USER@$HOST" "rm -f \
+                '/tmp/pc-regru-host-mail-proof-${GITHUB_RUN_ID}.py' \
+                '/tmp/pc-regru-host-mail-proof-${GITHUB_RUN_ID}.json' \
+                '/tmp/pc-regru-host-mail-wrapper-${GITHUB_RUN_ID}.py' \
+                '/tmp/pc-regru-host-mail-login-${GITHUB_RUN_ID}.txt' \
+                '/tmp/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.sh' \
+                '/tmp/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.env'" >/dev/null 2>&1 || true
+          fi
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+          rm -f "$RUNNER_TEMP/pc-regru-host-mail-proof-${GITHUB_RUN_ID}.json"
+          rm -f "$RUNNER_TEMP/pc-regru-host-mail-runtime-${GITHUB_RUN_ID}.env"
+          rm -f "$RUNNER_TEMP/pc-regru-host-mail-wrapper-${GITHUB_RUN_ID}.py"
+          rm -f "$RUNNER_TEMP/pc-regru-host-mail-login-${GITHUB_RUN_ID}.txt"
+          unset SMTP_PASSWORD MAILBOX_PASSWORD PC_PROD_SSH_KEY PC_PROD_SSH_PRIVATE_KEY VPS_SSH_KEY

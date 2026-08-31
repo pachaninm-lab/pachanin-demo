@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-reset-stack-31901032491-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_SANITIZED_STACK_CLASSIFIER_31901032491",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify the exact reviewer reset transaction stack without raw-log or secret output",
+  "sourceRun": 31901032491,
+  "sourceRevision": "056ed4461dafb5e7dab2efc9ea5a0d5877523169",
+  "attemptSinceUtc": "2026-08-15T18:24:20Z",
+  "attemptUntilUtc": "2026-08-15T18:25:05Z",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-stack-classifier-31901032491.yml",
+    "scripts/production-p0-reviewer-reset-stack-classifier-31901032491.sh",
+    "scripts/check-production-p0-reviewer-reset-stack-classifier-31901032491.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-stack-classifier-31901032491-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "resetReplay": false,
+    "mailSend": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "logReadOnly": true,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "scan only exact-revision API logs in the bounded failed-reset window",
+    "require the known transaction-failure marker and publish no raw log content",
+    "classify only whitelisted error families, source stages, Prisma/SQLSTATE classes and reason families",
+    "do not replay reset, send mail, access reviewer identity, mutate a database, restart a container or deploy",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

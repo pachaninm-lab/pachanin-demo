@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
+import { firstCustomerWorkspaceRequired } from '@/lib/first-customer-workspace-server';
 import { StatusChip, Surface } from '@pc/design-system-v8';
 import {
   MoneyBoundary,
@@ -66,6 +68,10 @@ function gateTone(state: string): 'success' | 'warning' | 'critical' | 'neutral'
 }
 
 export default async function PlatformV7BankPage() {
+  if (firstCustomerWorkspaceRequired()) {
+    return <FirstCustomerWorkspace surface='bank' />;
+  }
+
   const [outbox, disputes] = await Promise.all([getOutboxStatus(), getDisputes()]);
   const apiOnline = outbox.isApiAvailable;
   const heldRub = disputeTotalHeldRub(disputes);

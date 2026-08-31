@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CheckCircle2,
   CircleDollarSign,
+  Download,
   FileCheck2,
   FlaskConical,
   Link2,
@@ -19,9 +20,12 @@ import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperienceAnalytics';
 import { PublicDealRoleScenario } from './PublicDealRoleScenario';
 import { OrganizationConnectForm } from './OrganizationConnectForm';
+import { PlatformV7AccountingClosureValue } from './PlatformV7AccountingClosureValue';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
 import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
 import { getPlatformV7HomeStoryCopy } from '@/i18n/platform-v7-home-story';
+import { GEKTA_PATHS } from '@/lib/gekta/content';
+import { GektaFloatingEntry } from '@/components/gekta/GektaFloatingEntry';
 import '@/styles/platform-v7-public-assistant.css';
 import '@/styles/platform-v7-public-assistant-shortcut.css';
 import '@/styles/platform-v7-public-assistant-mobile-fix.css';
@@ -68,9 +72,17 @@ export async function PlatformV7StrategicHome() {
   const heroMessage = getPlatformV7HeroMessage(locale);
   const story = getPlatformV7HomeStoryCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
+  const presentationDownloadLabel = locale === 'en'
+    ? 'Download presentation (PDF)'
+    : locale === 'zh'
+      ? '下载演示文稿（PDF）'
+      : 'Скачать презентацию (PDF)';
 
   const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
+  // Platform scenario: "See Gekta in action" demonstrates the platform itself and must stay on
+  // the platform surface. The standalone Gekta product lives on its own canonical route below.
   const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
+  const gektaProductHref = GEKTA_PATHS[locale === 'en' ? 'en' : locale === 'zh' ? 'zh' : 'ru'];
 
   const nav = (
     <>
@@ -79,6 +91,7 @@ export async function PlatformV7StrategicHome() {
       <a href='#live'>{story.nav.deal}</a>
       <a href='#participants'>{story.nav.roles}</a>
       <a href='#tai'>{story.nav.tai}</a>
+      <a href={gektaProductHref} data-nav-product='gekta'>{story.gektaProduct.navLabel}</a>
     </>
   );
 
@@ -138,23 +151,23 @@ export async function PlatformV7StrategicHome() {
             </h1>
             <p className='pc-v6-hero-lead'>{heroMessage.lead}</p>
             <div className='pc-v6-actions'>
+              <a
+                href='/downloads/prozrachnaya-tsena-presentation.pdf'
+                download='Прозрачная_Цена_и_ГЕКТА.pdf'
+                type='application/pdf'
+                className='pc-v6-primary'
+                data-testid='platform-v7-presentation-download'
+              >
+                {presentationDownloadLabel}<Download aria-hidden='true' size={19} />
+              </a>
               <PublicExperienceLink
                 href='#live'
-                className='pc-v6-primary'
+                className='pc-v6-secondary'
                 eventName='deal_demo_open'
                 locale={locale}
                 params={{ source: 'home_v4_hero' }}
               >
-                {copy.hero.primary}<ArrowRight aria-hidden='true' size={19} />
-              </PublicExperienceLink>
-              <PublicExperienceLink
-                href='#connect-organization'
-                className='pc-v6-secondary'
-                eventName='connection_start'
-                locale={locale}
-                params={{ source: 'home_v4_hero' }}
-              >
-                {copy.hero.secondary}<ArrowRight aria-hidden='true' size={17} />
+                {copy.hero.primary}<ArrowRight aria-hidden='true' size={17} />
               </PublicExperienceLink>
             </div>
           </div>
@@ -351,6 +364,8 @@ export async function PlatformV7StrategicHome() {
           </div>
         </section>
 
+        <PlatformV7AccountingClosureValue locale={locale} />
+
         <section id='live' className={`pc-v6-section ${styles.section} ${styles.liveSection}`} aria-labelledby='live-title'>
           <SectionHeader id='live-title' eyebrow={story.demo.eyebrow} title={story.demo.title} lead={story.demo.lead} />
           <fieldset className={styles.stateDemo}>
@@ -513,6 +528,23 @@ export async function PlatformV7StrategicHome() {
               </PublicExperienceLink>
             </div>
           </div>
+
+          <div className={styles.gektaProduct} data-gekta-product-entry='true'>
+            <div className={styles.gektaProductBody}>
+              <span className={styles.gektaProductEyebrow}>{story.gektaProduct.eyebrow}</span>
+              <h3 id='gekta-product-title'>{story.gektaProduct.title}</h3>
+              <p>{story.gektaProduct.lead}</p>
+            </div>
+            <PublicExperienceLink
+              href={gektaProductHref}
+              className={styles.gektaProductLink}
+              eventName='gekta_product_open'
+              locale={locale}
+              params={{ source: 'home_tai_product_block' }}
+            >
+              {story.gektaProduct.cta}<ArrowRight aria-hidden='true' size={17} />
+            </PublicExperienceLink>
+          </div>
         </section>
 
         <section id='faq' className={`pc-v6-section ${styles.section} ${styles.faqSection}`} aria-labelledby='faq-title'>
@@ -542,6 +574,8 @@ export async function PlatformV7StrategicHome() {
           </nav>
         </div>
       </footer>
+
+      <GektaFloatingEntry locale={locale === 'en' ? 'en' : locale === 'zh' ? 'zh' : 'ru'} />
     </div>
   );
 }

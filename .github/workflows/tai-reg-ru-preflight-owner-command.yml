@@ -112,6 +112,7 @@ jobs:
           bash -n scripts/resume-pc-prod-actions-runner.sh
           node scripts/check-resume-pc-prod-actions-runner.mjs
           node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-pc-release-authority-boundary.mjs
           node scripts/check-tai-reg-ru-preflight.mjs
           node scripts/check-tai-reg-ru-release-chain.mjs
           node scripts/check-tai-bootstrap-preflight.mjs
@@ -285,16 +286,30 @@ jobs:
             if report.get('passed') is not True: raise SystemExit('strict report did not pass')
             print('STRICT_PASS')
             raise SystemExit(0)
-          bootstrap = sorted({
+          full_stack_bootstrap = sorted({
             'API_WEB_NOT_EXACT_MAIN',
             'TAI_SERVICE_NOT_MATERIALIZED',
             'TAI_DEDICATED_ENV_NOT_MATERIALIZED',
             'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
           })
-          if blockers != bootstrap: raise SystemExit(f'unexpected blockers: {blockers}')
-          if 'API_WEB_EXACT_MAIN' in codes: raise SystemExit('bootstrap evidence also asserted API_WEB_EXACT_MAIN')
+          post_full_stack_bootstrap = sorted({
+            'TAI_SERVICE_NOT_MATERIALIZED',
+            'TAI_DEDICATED_ENV_NOT_MATERIALIZED',
+            'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
+          })
           if report.get('passed') is not False: raise SystemExit('bootstrap raw evidence must retain passed=false')
-          print('FULL_STACK_BOOTSTRAP_ELIGIBLE')
+          if blockers == full_stack_bootstrap:
+            if 'API_WEB_EXACT_MAIN' in codes: raise SystemExit('full-stack bootstrap also asserted API_WEB_EXACT_MAIN')
+            api_mismatch = next((row for row in checks if isinstance(row, dict) and row.get('code') == 'API_WEB_NOT_EXACT_MAIN'), None)
+            if not api_mismatch or api_mismatch.get('status') != 'BLOCKED': raise SystemExit('full-stack API/web mismatch authority missing')
+            print('FULL_STACK_BOOTSTRAP_ELIGIBLE')
+            raise SystemExit(0)
+          elif blockers == post_full_stack_bootstrap:
+            if 'API_WEB_NOT_EXACT_MAIN' in codes: raise SystemExit('post-full-stack evidence contains non-exact API/web authority')
+            if 'API_WEB_EXACT_MAIN' not in passed: raise SystemExit('post-full-stack exact API/web authority missing')
+            print('POST_FULL_STACK_BOOTSTRAP_ELIGIBLE')
+            raise SystemExit(0)
+          raise SystemExit(f'unexpected blockers: {blockers}')
           PY
 
   publish_status:

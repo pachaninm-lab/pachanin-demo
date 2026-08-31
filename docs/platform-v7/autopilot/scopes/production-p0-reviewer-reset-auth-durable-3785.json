@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-reset-auth-datasource-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_AUTH_DATASOURCE_DURABLE_DIAGNOSTIC",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-auth-durable.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-auth-durable-3785.json",
+    "scripts/check-production-p0-reviewer-reset-auth-durable.mjs",
+    "scripts/production-p0-reviewer-reset-auth-durable.sh"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "credentialMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "owner-only read-only workflow binds password-reset inspection to AUTH_DATABASE_URL, not DATABASE_URL",
+    "AUTH_DATABASE_URL must be present and distinct from DATABASE_URL before any auth-side query executes",
+    "the auth principal remains NOINHERIT, NOSUPERUSER and NOBYPASSRLS and must retain only the intended auth schema/table/function capabilities",
+    "the diagnostic inspects the independently proven deployed API/Web revision d2dd7972105cc59002263455b5ae0eb8d8f2d386 and fails closed if exact-main or production parity changes",
+    "SSH discovery accepts only exactly one host key matching the protected SHA-256 fingerprint and keeps StrictHostKeyChecking=yes",
+    "only bounded challenge/audit aggregates and sanitized reason codes may be published; reviewer email, user id, reset token/hash, database URLs and credentials remain unpublished",
+    "no reset request, password change, MFA/session change, DDL, DML, role grant, SET ROLE or RLS bypass is permitted",
+    "production mutation is NONE and new recurring cost is 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

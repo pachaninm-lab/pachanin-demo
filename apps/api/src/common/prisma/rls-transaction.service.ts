@@ -24,6 +24,27 @@ export type TrustedRlsContext = Readonly<{
   tenantId: string;
   role: string;
   sessionId: string;
+  /**
+   * Platform authority, resolved server-side from durable staff assignments.
+   *
+   * Available to application code, and deliberately **not** written into a
+   * PostgreSQL setting. An earlier revision passed it as
+   * `app.current_staff_roles` for the identity policies to read, which measured
+   * as no boundary at all: the runtime principal can execute
+   * `SET LOCAL app.current_staff_roles = 'PLATFORM_ADMIN'` itself, and did —
+   * reading every organization and every user in the isolation harness. A
+   * setting the confined principal can write is not an authority.
+   *
+   * The database now establishes platform authority from its own rows: an
+   * ACTIVE staff assignment inside its validity window whose session is live,
+   * unexpired and MFA-verified. See public.app_identity_is_reviewer().
+   *
+   * Optional only for source compatibility with callers that construct the
+   * context shape directly (primarily legacy tests). The production derivation
+   * below always supplies the normalized array, and PostgreSQL authority never
+   * depends on this field.
+   */
+  staffRoles?: readonly string[];
 }>;
 
 export type RlsTransactionOptions = Readonly<{
@@ -57,12 +78,22 @@ export function deriveTrustedRlsContext(user: RequestUser | undefined): TrustedR
     throw new RlsContextError('guest_role_forbidden');
   }
 
+  // Only well-formed labels travel into the database setting: the value is
+  // joined with commas and parsed back by string_to_array, so an embedded comma
+  // or blank would silently become a different authority than the one granted.
+  const staffRoles = Object.freeze(
+    (user.staffRoles ?? [])
+      .map((label) => label.trim())
+      .filter((label) => /^[A-Z][A-Z0-9_]*$/.test(label)),
+  );
+
   return Object.freeze({
     userId: user.id,
     orgId: user.orgId,
     tenantId: user.tenantId,
     role: user.role,
     sessionId: user.sessionId,
+    staffRoles,
   });
 }
 

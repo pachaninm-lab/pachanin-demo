@@ -1,0 +1,122 @@
+name: Production P0 Reviewer Reset Remote Diagnostic 50990d v2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-remote-diagnostic-50990d-v2.yml'
+      - 'scripts/production-p0-reviewer-reset-remote-diagnostic-50990d.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-remote-diagnostic-50990d-v2-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  diagnostic:
+    name: Preserve and classify remote failure without mutation
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-reset-remote-diagnostic-v2 deployed-50990d'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate diagnostic-only contract and ephemeral trap repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source_script='scripts/production-p0-reviewer-reset-remote-diagnostic-50990d.sh'
+          bash -n "$source_script"
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('scripts/production-p0-reviewer-reset-remote-diagnostic-50990d.sh').read_text(encoding='utf-8')
+          required=[
+              "EXPECTED_DEPLOYED_SHA='50990d616463c3aa7a4888fc182bc6064931b080'",
+              "failure_reason='REMOTE_DIAGNOSTIC_TRANSPORT_FAILED'",
+              "ssh_rc=$?",
+              'ERROR_CODE',
+              'PRODUCTION_MUTATION NONE',
+              'StrictHostKeyChecking=yes',
+          ]
+          missing=[x for x in required if x not in text]
+          if missing: raise SystemExit('missing source invariant: '+' | '.join(missing))
+          forbidden=['/api/auth/forgot-password','--request POST','-X POST','--data','--data-binary','sendmail(','MAIL FROM','RCPT TO','INSERT INTO','UPDATE auth.','DELETE FROM','TRUNCATE ','ALTER ROLE','docker restart','docker compose','docker service']
+          bad=[x for x in forbidden if x in text]
+          if bad: raise SystemExit('mutation surface forbidden: '+' | '.join(bad))
+          needle="failure_reason='REMOTE_DIAGNOSTIC_TRANSPORT_FAILED'\nguard_main\nset +e\nssh"
+          if text.count(needle) != 1: raise SystemExit('ssh trap patch anchor invalid')
+          text=text.replace(needle,"failure_reason='REMOTE_DIAGNOSTIC_TRANSPORT_FAILED'\nguard_main\ntrap - ERR\nset +e\nssh",1)
+          needle2="ssh_rc=$?\nset -e\n\nremote_code="
+          if text.count(needle2) != 1: raise SystemExit('ssh trap restore anchor invalid')
+          text=text.replace(needle2,"ssh_rc=$?\nset -e\ntrap publish_failure ERR\n\nremote_code=",1)
+          Path('/tmp/p0-reviewer-reset-remote-diagnostic-v2.sh').write_text(text,encoding='utf-8')
+          PY
+          bash -n /tmp/p0-reviewer-reset-remote-diagnostic-v2.sh
+          grep -Fq 'trap - ERR' /tmp/p0-reviewer-reset-remote-diagnostic-v2.sh
+          grep -Fq 'trap publish_failure ERR' /tmp/p0-reviewer-reset-remote-diagnostic-v2.sh
+
+      - name: Verify exact owner-issued provenance and current main
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: /production p0-reviewer-reset-remote-diagnostic-v2 deployed-50990d
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          [[ "$main_sha" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+
+      - name: Run repaired safe remote classifier
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+          PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+          PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+          PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+          PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+        run: bash /tmp/p0-reviewer-reset-remote-diagnostic-v2.sh

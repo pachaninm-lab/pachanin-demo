@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/deal-explorer-web-release-trigger-20260808",
+  "status": "active",
+  "purpose": "Publish the already-accepted public Deal Explorer journey through the existing bounded web-only exact-SHA REG.RU release path and fail closed unless the live Deal Explorer route is reachable in RU, EN and ZH.",
+  "approvedBy": "owner-continue-deal-explorer-no-tai-2026-08-08",
+  "authorityBaseExactMain": "b555942a759d01e0ecfc29b9315aac6e66b89175",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/deal-explorer-web-release-trigger-20260808.json",
+    "apps/web/app/api/health/ready/route.ts",
+    "scripts/production-web-live-acceptance.sh",
+    "scripts/check-production-web-hardening.mjs"
+  ],
+  "requiredBehavior": [
+    "release remains web-only and exact-SHA bound",
+    "live acceptance requests /platform-v7/how-it-works in RU EN and ZH before reporting PASS",
+    "the exact deployment manifest must match the requested target SHA",
+    "existing public root, indexation, health, rollback and non-web isolation checks remain intact",
+    "no Deal Explorer release may report LIVE_ACCEPTANCE=PASS when the live Deal Explorer route fails"
+  ],
+  "forbiddenCapabilities": [
+    "TAI model runtime routing latency context knowledge activation deployment or acceptance changes",
+    "API database migration or PostgreSQL changes",
+    "transaction state-machine RBAC authentication tenant or money execution changes",
+    "Caddy environment secret or external integration changes",
+    "acceptance weakening",
+    "fake live claims",
+    "new mandatory paid services"
+  ]
+}

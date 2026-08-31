@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4559,
+  "releaseIssue": 3072,
+  "branch": "fix/p0-staff-api-origin-runtime-4559",
+  "status": "active",
+  "priority": "P0",
+  "purpose": "Repair the proven invalid production Web server API authority for the registration-critical staff control plane without weakening auth, MFA, CSRF, role, tenant or database controls.",
+  "authorityBaseExactMain": "328c89877f3d26e2828816846d1132f7a5cabfd8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-staff-api-origin-runtime-repair.yml",
+    "docs/platform-v7/autopilot/scopes/p0-staff-api-origin-runtime-4559.json",
+    "scripts/check-production-p0-staff-api-origin-runtime-repair.mjs",
+    "scripts/production-p0-staff-api-origin-runtime-repair.sh"
+  ],
+  "boundaries": {
+    "registrationOnly": true,
+    "ownerCommandOnly": true,
+    "webOnlyRuntimeMutation": true,
+    "apiMutation": false,
+    "databaseMutation": false,
+    "migrationMutation": false,
+    "passwordOrRecoveryMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "roleOrMembershipMutation": false,
+    "dnsMutation": false,
+    "caddyMutation": false,
+    "sshPinMutation": false,
+    "imageBuildOrPull": false,
+    "credentialOutput": false,
+    "rawApiOriginOutput": false,
+    "protectedPathOutput": false,
+    "containerIdOutput": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the owner-only command runs only on release issue 3072 and binds exact current main",
+    "the active API and Web revisions are equal, are ancestors of current main, and the deployed Web source contains the hardened canonical server API resolver",
+    "the pre-mutation active Web API_URL is classified without publishing its value and mutation is allowed only for the proven invalid-origin state",
+    "the candidate Compose override changes only web.environment.API_URL to the exact canonical internal authority http://api:3001",
+    "the candidate Web image resolves to the same local image ID as the running Web container before recreation",
+    "only Web is recreated with --no-deps --no-build --pull never and all non-Web container IDs remain unchanged",
+    "the post-repair active Web authority is exact canonical and anonymous internal /auth/me plus /staff/capabilities/me both return 401",
+    "API and Web OCI revisions remain equal to the pre-mutation deployed revision",
+    "any post-mutation failure restores the prior override state and recreates Web from the pre-repair Compose configuration",
+    "no API_URL value, credential, protected path, container ID, Compose project name or raw logs are published",
+    "new recurring cost remains 0 RUB"
+  ]
+}

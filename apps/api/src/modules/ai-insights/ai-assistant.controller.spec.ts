@@ -104,8 +104,27 @@ function answerFixture(overrides: Partial<AssistantChatResponse> = {}): Assistan
   } as AssistantChatResponse;
 }
 
+/**
+ * The controller consumes a stream now, so the double produces one — derived
+ * from the same buffered fixture the existing cases already describe, so what
+ * they assert about frames is unchanged. `chat` is still the mock they inspect,
+ * and it is still only called once the controller actually starts reading.
+ */
 function controllerWith(chat: jest.Mock) {
-  return new AiAssistantController({ chat, catalog: jest.fn() } as unknown as AiAssistantService);
+  async function* chatStream(request: unknown, user: unknown) {
+    const answer = await chat(request, user) as AssistantChatResponse;
+    yield {
+      type: 'context' as const,
+      requestId: answer.requestId,
+      generatedAt: answer.generatedAt,
+      citations: answer.citations,
+      decision: answer.decision,
+    };
+    yield { type: 'delta' as const, text: answer.answer };
+    yield { type: 'done' as const, provider: answer.provider };
+  }
+
+  return new AiAssistantController({ chat, chatStream, catalog: jest.fn() } as unknown as AiAssistantService);
 }
 
 const ADMITTED_MODEL = 'Qwen/Qwen3-8B';

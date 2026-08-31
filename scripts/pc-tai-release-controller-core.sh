@@ -83,7 +83,10 @@ validate_job_input() {
 
 sync_target() {
   local require_current="${1:-true}"
-  install -d -m 0700 -o root -g root "$STATE_ROOT"
+  # Must match the wrapper and `restore_runner_boundary`: 0710 root:pcactions.
+  # Asserting 0700 root:root here made the controller regress its own boundary
+  # mid-run; only the exit trap put it back, so any crash left it broken.
+  install -d -m 0710 -o root -g pcactions "$STATE_ROOT"
   if [[ ! -d "$REPOSITORY_ROOT/.git" ]]; then
     rm -rf "$REPOSITORY_ROOT"
     git clone --filter=blob:none --no-checkout "$REPOSITORY_URL" "$REPOSITORY_ROOT" >/dev/null
@@ -109,7 +112,8 @@ sync_target() {
     scripts/tai-reg-ru-deploy.sh \
     scripts/tai_model_artifact_evidence.py \
     scripts/production-full-stack-exact-sha.sh \
-    scripts/tai-restricted-qwen-reg-ru-activate.sh; do
+    scripts/tai-restricted-qwen-reg-ru-activate.sh \
+    scripts/pc-p0-staff-api-origin-local-repair.sh; do
     [[ -f "$REPOSITORY_ROOT/$path" && ! -L "$REPOSITORY_ROOT/$path" ]] || fail PROTECTED_SCRIPT_INVALID 24
   done
 }
@@ -279,8 +283,7 @@ exec python3 -'
     "$model_user@$MODEL_HOST" "$remote" \
     < "$REPOSITORY_ROOT/scripts/tai_model_artifact_evidence.py" \
     > "$output" 2> "$error_log"; then
-    printf 'ERROR_CODE=MODEL_ARTIFACT_EVIDENCE_UNAVAILABLE
-' >> "$error_log"
+    printf 'ERROR_CODE=MODEL_ARTIFACT_EVIDENCE_UNAVAILABLE\n' >> "$error_log"
     fail MODEL_ARTIFACT_EVIDENCE_UNAVAILABLE 48
   fi
   chmod 0600 "$output"
@@ -296,8 +299,7 @@ assert isinstance(value.get('artifactSizeBytes'), int) and value['artifactSizeBy
 assert isinstance(value.get('maximumContextTokens'), int) and 512 <= value['maximumContextTokens'] <= 262144
 PY_VALIDATE
   then
-    printf 'ERROR_CODE=MODEL_ARTIFACT_EVIDENCE_INVALID
-' >> "$error_log"
+    printf 'ERROR_CODE=MODEL_ARTIFACT_EVIDENCE_INVALID\n' >> "$error_log"
     fail MODEL_ARTIFACT_EVIDENCE_INVALID 49
   fi
 }
@@ -465,6 +467,357 @@ recover_backup_evidence() {
   printf '%s' "$path"
 }
 
+run_docker_headroom_reclaim() {
+  [[ $# -eq 1 && "$1" == '--reclaim-docker-headroom-v1' ]] || fail INVALID_DOCKER_RECLAIM_ARGUMENTS 97
+  local report="$job_state/docker-reclaim.json" rc=0
+  local required_kb=$((5 * 1024 * 1024))
+  local target_kb=$((6 * 1024 * 1024))
+  [[ -d /var/lib/docker && ! -L /var/lib/docker ]] || fail DOCKER_STORAGE_ROOT_INVALID 97
+
+  set +e
+  python3 - "$TARGET_SHA" "$RUN_ID" "$report" "$required_kb" "$target_kb" <<'PY_RECLAIM'
+import json
+import os
+import re
+import subprocess
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+target_sha, run_id, report_path, required_raw, target_raw = sys.argv[1:]
+required_kb = int(required_raw)
+target_kb = int(target_raw)
+canonical = re.compile(r'^ghcr[.]io/pachaninm-lab/grainflow-(api|web|migration|tai):[A-Za-z0-9_.-]+$')
+image_id_re = re.compile(r'^sha256:[0-9a-f]{64}$')
+
+def command(argv, check=True):
+    result = subprocess.run(argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if check and result.returncode != 0:
+        raise RuntimeError(f'command_failed:{argv[0]}:{argv[1] if len(argv) > 1 else ""}')
+    return result
+
+def available_kb():
+    result = command(['df', '-Pk', '--', '/var/lib/docker'])
+    lines = [line.split() for line in result.stdout.splitlines() if line.strip()]
+    if len(lines) != 2 or len(lines[1]) < 4 or not lines[1][3].isdigit():
+        raise RuntimeError('docker_df_invalid')
+    return int(lines[1][3])
+
+def container_image_ids():
+    ids = [line.strip() for line in command(['docker', 'ps', '-aq', '--no-trunc']).stdout.splitlines() if line.strip()]
+    result = set()
+    for container_id in ids:
+        data = json.loads(command(['docker', 'inspect', container_id]).stdout)
+        if len(data) != 1:
+            raise RuntimeError('container_inspect_ambiguous')
+        image_id = str(data[0].get('Image') or '')
+        if not image_id_re.fullmatch(image_id):
+            raise RuntimeError('container_image_id_invalid')
+        result.add(image_id)
+    return result
+
+def inspect_image(image_id):
+    result = command(['docker', 'image', 'inspect', image_id], check=False)
+    if result.returncode != 0:
+        return None
+    data = json.loads(result.stdout)
+    if len(data) != 1 or not isinstance(data[0], dict):
+        raise RuntimeError('image_inspect_ambiguous')
+    return data[0]
+
+def classify_image(item):
+    tags = item.get('RepoTags') or []
+    if not isinstance(tags, list) or not tags:
+        return None
+    components = set()
+    normalized_tags = []
+    for raw in tags:
+        if not isinstance(raw, str):
+            return None
+        match = canonical.fullmatch(raw)
+        if not match:
+            return None
+        components.add(match.group(1))
+        normalized_tags.append(raw)
+    if len(components) != 1:
+        return None
+    return next(iter(components)), tuple(sorted(set(normalized_tags)))
+
+before_kb = available_kb()
+protected = container_image_ids()
+records = []
+image_ids = sorted({line.strip() for line in command(['docker', 'image', 'ls', '-q', '--no-trunc']).stdout.splitlines() if line.strip()})
+for image_id in image_ids:
+    if not image_id_re.fullmatch(image_id):
+        continue
+    item = inspect_image(image_id)
+    if item is None:
+        continue
+    classification = classify_image(item)
+    if classification is None:
+        continue
+    component, tags = classification
+    labels = (item.get('Config') or {}).get('Labels') or {}
+    revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
+    created = str(item.get('Created') or '')
+    if not created:
+        continue
+    records.append({'id': image_id, 'component': component, 'tags': tags, 'created': created, 'revision': revision})
+    if revision == target_sha:
+        protected.add(image_id)
+
+by_component = defaultdict(list)
+for record in records:
+    by_component[record['component']].append(record)
+for component_records in by_component.values():
+    for record in sorted(component_records, key=lambda row: row['created'], reverse=True)[:2]:
+        protected.add(record['id'])
+
+eligible = [record for record in records if record['id'] not in protected]
+eligible.sort(key=lambda row: row['created'])
+deleted = 0
+skipped = 0
+
+for record in eligible:
+    if available_kb() >= target_kb:
+        break
+    current_refs = container_image_ids()
+    if record['id'] in current_refs:
+        protected.add(record['id'])
+        skipped += 1
+        continue
+    item = inspect_image(record['id'])
+    if item is None:
+        skipped += 1
+        continue
+    classification = classify_image(item)
+    if classification is None:
+        skipped += 1
+        continue
+    component, tags = classification
+    if component != record['component']:
+        skipped += 1
+        continue
+    labels = (item.get('Config') or {}).get('Labels') or {}
+    revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
+    if revision == target_sha:
+        protected.add(record['id'])
+        skipped += 1
+        continue
+    result = command(['docker', 'image', 'rm', *tags], check=False)
+    if result.returncode != 0:
+        skipped += 1
+        continue
+    if inspect_image(record['id']) is None:
+        deleted += 1
+    else:
+        skipped += 1
+
+after_kb = available_kb()
+reclaimed_bytes = max(0, after_kb - before_kb) * 1024
+payload = {
+    'schemaVersion': 'pc.reg-ru.docker-reclaim.v1',
+    'targetSha': target_sha,
+    'runId': int(run_id),
+    'mode': 'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM',
+    'requiredAvailableKb': required_kb,
+    'targetAvailableKb': target_kb,
+    'beforeAvailableKb': before_kb,
+    'afterAvailableKb': after_kb,
+    'eligibleImageCount': len(eligible),
+    'protectedImageCount': len(protected),
+    'deletedImageCount': deleted,
+    'skippedImageCount': skipped,
+    'reclaimedBytes': reclaimed_bytes,
+    'targetReached': after_kb >= target_kb,
+    'passed': after_kb >= required_kb,
+}
+path = Path(report_path)
+path.write_text(json.dumps(payload, ensure_ascii=True, separators=(',', ':')) + '\n', encoding='utf-8')
+os.chmod(path, 0o600)
+if not payload['passed']:
+    raise SystemExit(91)
+PY_RECLAIM
+  rc=$?
+  set -e
+
+  [[ -s "$report" && ! -L "$report" ]] || fail DOCKER_RECLAIM_EVIDENCE_MISSING 97
+  python3 - "$report" "$TARGET_SHA" "$required_kb" "$target_kb" <<'PY_VALIDATE_RECLAIM'
+import json, sys
+path, sha, required_raw, target_raw = sys.argv[1:]
+value = json.load(open(path, encoding='utf-8'))
+if value.get('schemaVersion') != 'pc.reg-ru.docker-reclaim.v1': raise SystemExit('schema mismatch')
+if value.get('targetSha') != sha: raise SystemExit('target mismatch')
+if value.get('mode') != 'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM': raise SystemExit('mode mismatch')
+if value.get('requiredAvailableKb') != int(required_raw): raise SystemExit('required threshold mismatch')
+if value.get('targetAvailableKb') != int(target_raw): raise SystemExit('target threshold mismatch')
+for key in ('beforeAvailableKb','afterAvailableKb','eligibleImageCount','protectedImageCount','deletedImageCount','skippedImageCount','reclaimedBytes'):
+    if not isinstance(value.get(key), int) or value[key] < 0: raise SystemExit(f'invalid integer field: {key}')
+if value.get('targetReached') is not (value['afterAvailableKb'] >= value['targetAvailableKb']): raise SystemExit('targetReached mismatch')
+if value.get('passed') is not (value['afterAvailableKb'] >= value['requiredAvailableKb']): raise SystemExit('passed mismatch')
+PY_VALIDATE_RECLAIM
+  publish_file "$report" docker-reclaim.json
+  (( rc == 0 )) || fail DOCKER_RECLAIM_INSUFFICIENT_SAFE_HEADROOM 97
+}
+
+run_pc_crop_staff_api_origin_repair() {
+  [[ $# -eq 1 && "$1" == '--pc-crop-staff-api-origin-repair-v1' ]] || fail INVALID_PC_CROP_STAFF_API_ORIGIN_REPAIR_ARGUMENTS 98
+  local script="$REPOSITORY_ROOT/scripts/pc-p0-staff-api-origin-local-repair.sh"
+  local raw="$job_state/staff-api-origin-repair.raw"
+  local report="$job_state/staff-api-origin-repair.json"
+  local rc=0 evidence_rc=0
+  [[ -f "$script" && ! -L "$script" ]] || fail PC_CROP_STAFF_API_ORIGIN_REPAIR_SCRIPT_INVALID 98
+  [[ "$(git -C "$REPOSITORY_ROOT" rev-parse HEAD)" == "$TARGET_SHA" ]] || fail PROTECTED_CHECKOUT_MISMATCH 98
+  [[ -z "$(git -C "$REPOSITORY_ROOT" status --porcelain=v1)" ]] || fail PROTECTED_CHECKOUT_DIRTY 98
+
+  set +e
+  bash "$script" "$TARGET_SHA" "$RUN_ID" > "$raw" 2>/dev/null
+  rc=$?
+  set -e
+
+  set +e
+  python3 - "$raw" "$report" "$TARGET_SHA" "$RUN_ID" "$rc" <<'PY_PC_CROP_REPAIR_EVIDENCE'
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+raw_path, report_path, target_sha, run_id_raw, rc_raw = sys.argv[1:]
+rc = int(rc_raw)
+parse_error = False
+allowed_keys = {
+    'RESULT','FAIL_STAGE','ROLLBACK','DEPLOYED_SHA','ACTIVE_BEFORE','COMPOSE_BEFORE',
+    'REPAIR_MODE','ACTIVE_AFTER','AUTH_STATUS','CAP_STATUS','IMAGE_UNCHANGED','API_UNCHANGED',
+    'NONWEB_UNCHANGED','REVISION_UNCHANGED','PRODUCTION_MUTATION',
+}
+values = {}
+try:
+    raw = Path(raw_path).read_text(encoding='utf-8')
+except Exception:
+    raw = ''
+    parse_error = True
+if len(raw.encode('utf-8', errors='ignore')) > 32768 or '\x00' in raw or '\r' in raw:
+    parse_error = True
+    raw = ''
+for line in raw.splitlines():
+    if not line:
+        continue
+    key, sep, value = line.partition('=')
+    if not sep or key not in allowed_keys or key in values:
+        parse_error = True
+        continue
+    if len(value) > 128 or any(ord(ch) < 32 or ord(ch) > 126 for ch in value):
+        parse_error = True
+        continue
+    values[key] = value
+
+origin_classes = {
+    'NOT_EVALUATED','UNSET','CANONICAL','ACCEPTED_HTTPS','INVALID_PARSE','INVALID_SCHEME',
+    'INVALID_COMPONENTS','INVALID_HTTP_AUTHORITY','INVALID_HTTP_PATH',
+}
+repair_modes = {'NOT_EVALUATED','NONE_REQUIRED','OVERRIDE_CREATED','OVERRIDE_PRESENT_RECREATE'}
+probe_states = {'NOT_EVALUATED','401','TIMEOUT','FETCH_ERROR'}
+unchanged_states = {'PASS','NOT_ATTESTED'}
+rollback_states = {'NOT_REQUIRED','CONFIRMED','FAILED'}
+mutation_states = {
+    'NONE','WEB_ONLY_API_ORIGIN_OVERRIDE_AND_RECREATE','NONE_OR_ROLLED_BACK',
+    'UNKNOWN_REQUIRES_OPERATOR_REVIEW',
+}
+result_states = {'PASS_ALREADY_CANONICAL','PASS_REPAIRED','FAIL_CLOSED'}
+
+def pick(key, allowed, default):
+    global parse_error
+    value = values.get(key, default)
+    if value not in allowed:
+        parse_error = True
+        return default
+    return value
+
+result = pick('RESULT', result_states, 'FAIL_CLOSED')
+deployed = values.get('DEPLOYED_SHA', 'UNKNOWN')
+if deployed != 'UNKNOWN' and not re.fullmatch(r'[0-9a-f]{40}', deployed):
+    deployed = 'UNKNOWN'
+    parse_error = True
+active_before = pick('ACTIVE_BEFORE', origin_classes, 'NOT_EVALUATED')
+compose_before = pick('COMPOSE_BEFORE', origin_classes, 'NOT_EVALUATED')
+repair_mode = pick('REPAIR_MODE', repair_modes, 'NOT_EVALUATED')
+active_after = pick('ACTIVE_AFTER', origin_classes, 'NOT_EVALUATED')
+auth_status = pick('AUTH_STATUS', probe_states, 'NOT_EVALUATED')
+cap_status = pick('CAP_STATUS', probe_states, 'NOT_EVALUATED')
+image_unchanged = pick('IMAGE_UNCHANGED', unchanged_states, 'NOT_ATTESTED')
+api_unchanged = pick('API_UNCHANGED', unchanged_states, 'NOT_ATTESTED')
+nonweb_unchanged = pick('NONWEB_UNCHANGED', unchanged_states, 'NOT_ATTESTED')
+revision_unchanged = pick('REVISION_UNCHANGED', unchanged_states, 'NOT_ATTESTED')
+rollback = pick('ROLLBACK', rollback_states, 'NOT_REQUIRED')
+mutation = pick('PRODUCTION_MUTATION', mutation_states, 'UNKNOWN_REQUIRES_OPERATOR_REVIEW' if rc else 'NONE')
+fail_stage = values.get('FAIL_STAGE', 'NONE' if rc == 0 else 'UNKNOWN')
+if not re.fullmatch(r'(?:NONE|UNKNOWN|[A-Z][A-Z0-9_]{0,63})', fail_stage):
+    fail_stage = 'UNKNOWN'
+    parse_error = True
+
+success_common = (
+    deployed != 'UNKNOWN' and auth_status == '401' and cap_status == '401' and
+    image_unchanged == api_unchanged == nonweb_unchanged == revision_unchanged == 'PASS' and
+    rollback == 'NOT_REQUIRED' and fail_stage == 'NONE'
+)
+if result == 'PASS_ALREADY_CANONICAL':
+    success_shape = (
+        active_before in {'UNSET','CANONICAL'} and active_after == active_before and
+        repair_mode == 'NONE_REQUIRED' and mutation == 'NONE'
+    )
+elif result == 'PASS_REPAIRED':
+    success_shape = (
+        active_before.startswith('INVALID_') and active_after == 'CANONICAL' and
+        repair_mode in {'OVERRIDE_CREATED','OVERRIDE_PRESENT_RECREATE'} and
+        mutation == 'WEB_ONLY_API_ORIGIN_OVERRIDE_AND_RECREATE'
+    )
+else:
+    success_shape = False
+passed = rc == 0 and not parse_error and success_common and success_shape
+if rc == 0 and not passed:
+    parse_error = True
+    result = 'FAIL_CLOSED'
+    fail_stage = 'EVIDENCE_CONTRACT_INVALID'
+    mutation = 'UNKNOWN_REQUIRES_OPERATOR_REVIEW'
+
+payload = {
+    'schemaVersion':'pc-crop.staff-api-origin-local-repair.v1',
+    'targetSha':target_sha,
+    'deployedRevision':deployed,
+    'result':result,
+    'activeBefore':active_before,
+    'composeBefore':compose_before,
+    'repairMode':repair_mode,
+    'activeAfter':active_after,
+    'authStatus':auth_status,
+    'capStatus':cap_status,
+    'webImageUnchanged':image_unchanged == 'PASS',
+    'apiContainerUnchanged':api_unchanged == 'PASS',
+    'nonWebContainersUnchanged':nonweb_unchanged == 'PASS',
+    'revisionUnchanged':revision_unchanged == 'PASS',
+    'failStage':fail_stage,
+    'rollback':rollback,
+    'productionMutation':mutation,
+    'newRecurringCostRub':0,
+    'passed':passed,
+}
+path = Path(report_path)
+path.write_text(json.dumps(payload, ensure_ascii=True, separators=(',', ':')) + '\n', encoding='utf-8')
+os.chmod(path, 0o600)
+raise SystemExit(2 if parse_error else 0)
+PY_PC_CROP_REPAIR_EVIDENCE
+  evidence_rc=$?
+  set -e
+
+  rm -f "$raw"
+  [[ -s "$report" && ! -L "$report" ]] || fail PC_CROP_STAFF_API_ORIGIN_REPAIR_EVIDENCE_MISSING 98
+  publish_file "$report" staff-api-origin-repair.json
+  if (( rc != 0 || evidence_rc != 0 )); then
+    fail PC_CROP_STAFF_API_ORIGIN_REPAIR_FAILED 98
+  fi
+}
+
 set_deploy_failure_stage() {
   local code="$1" stage_file="$job_state/deploy-stage-error.log"
   [[ "$code" =~ ^[A-Z][A-Z0-9]*_[A-Z0-9_]+$ ]] || fail DEPLOY_STAGE_CODE_INVALID 96
@@ -572,7 +925,15 @@ case "$ACTION" in
   preflight) run_preflight "$@" ;;
   activate) run_activate "$@" ;;
   finalize-activation) finalize_activation "$@" ;;
-  deploy) run_deploy "$@" ;;
+  deploy)
+    if [[ "${1:-}" == '--pc-crop-staff-api-origin-repair-v1' ]]; then
+      run_pc_crop_staff_api_origin_repair "$@"
+    elif [[ "${1:-}" == '--reclaim-docker-headroom-v1' ]]; then
+      run_docker_headroom_reclaim "$@"
+    else
+      run_deploy "$@"
+    fi
+    ;;
 esac
 rm -rf "$job_input"
 printf 'PC_TAI_RELEASE_CONTROLLER=PASS\n'

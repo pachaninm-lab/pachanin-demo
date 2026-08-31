@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 
 const commandPath = '.github/workflows/tai-owner-qwen-activation-command.yml';
 const activationPath = '.github/workflows/tai-restricted-qwen-reg-ru-activation.yml';
+const scopePath = 'docs/platform-v7/autopilot/scopes/tai-owner-activation-command-20260803.json';
 const command = readFileSync(commandPath, 'utf8');
 const activation = readFileSync(activationPath, 'utf8');
+const scope = JSON.parse(readFileSync(scopePath, 'utf8'));
 const violations = [];
 const requireFragment = (source, path, fragment) => {
   if (!source.includes(fragment)) violations.push(`${path}: missing ${JSON.stringify(fragment)}`);
@@ -60,13 +62,20 @@ for (const fragment of [
   "[[ \"$TRIGGERING_ACTOR\" == 'github-actions[bot]' ]]",
   'for attempt in $(seq 1 60)',
   "if [[ \"$status\" == completed ]]",
-  'Automatic preflight did not reach a terminal state.',
-  "'TAI Automatic REG.RU Preflight'",
+  'REG.RU preflight did not reach a terminal state.',
+  "run.name === 'TAI Automatic REG.RU Preflight'",
   "run.event !== 'workflow_run'",
   "run.head_branch !== 'main'",
   "new Set([owner, 'github-actions[bot]'])",
   '!allowedActors.has(actor)',
   '!allowedActors.has(triggeringActor)',
+  "run.name === 'TAI Owner REG.RU Preflight'",
+  "run.event !== 'issue_comment'",
+  "run.actor?.login !== owner",
+  "run.triggering_actor?.login !== owner",
+  "upstream_name='TAI Automatic REG.RU Preflight'",
+  "upstream_name='TAI Owner REG.RU Preflight'",
+  '"$TARGET_SHA" "$UPSTREAM_RUN_ATTEMPT" "$upstream_name" "$GITHUB_REPOSITORY"',
   "'Confirm REG.RU preflight chain result'",
   'needs: [upstream_preflight_gate, contract]',
   'needs.upstream_preflight_gate.outputs.target_sha !=',
@@ -82,9 +91,19 @@ forbid(activation, activationPath, /^\s{2}workflow_run:/mu, 'production activati
 forbid(activation, activationPath, /continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
 forbid(activation, activationPath, /pull_request_target:/u, 'pull_request_target is forbidden');
 
+if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${scopePath}: invalid schemaVersion`);
+if (scope.branch !== 'fix/tai-owner-preflight-activation-authority-20260807') violations.push(`${scopePath}: branch mismatch`);
+if (scope.baselineExactMain !== '682491bd71117b1d7bc1783ceccaf171194569a1') violations.push(`${scopePath}: baseline mismatch`);
+const expectedAllowedPaths = [activationPath, 'scripts/check-tai-owner-activation-command.mjs', scopePath].sort();
+const allowedPaths = Array.isArray(scope.allowedPaths) ? [...scope.allowedPaths].sort() : [];
+if (JSON.stringify(expectedAllowedPaths) !== JSON.stringify(allowedPaths)) violations.push(`${scopePath}: allowedPaths mismatch`);
+if (!Array.isArray(scope.boundaries) || !scope.boundaries.some((entry) => String(entry).includes('two upstream authorities'))) {
+  violations.push(`${scopePath}: dual upstream boundary missing`);
+}
+
 if (violations.length) {
   console.error('TAI owner activation dispatch contract failed:');
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner activation dispatch contract PASS: manual owner fallback remains exact, automatic preflight reaches terminal success before proof verification, and protected activation retains all live acceptance and rollback gates.');
+console.log('TAI owner activation dispatch contract PASS: automatic and owner preflight authorities are exact-run, source-specific, fail-closed, and protected activation retains all live acceptance and rollback gates.');

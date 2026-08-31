@@ -4,6 +4,7 @@ import { RequestUser, Role } from '../../src/common/types/request-user';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
+import { PERSISTENT_ACTOR_USER_IDS } from './persistent-actor-identities';
 
 const TEST_PASSWORD = 'demo1234';
 const ACCESS_ISSUER = 'transparent-price-api';
@@ -14,14 +15,6 @@ const MFA_REQUIRED_FIXTURE_ROLES = new Set<Role>([
   Role.COMPLIANCE_OFFICER,
   Role.ARBITRATOR,
 ]);
-
-type MembershipRow = {
-  id: string;
-  organizationId: string;
-  role: string;
-  organization: { tenantId: string };
-  user: { id: string; email: string; fullName: string };
-};
 
 type OpaqueAccessClaims = jwt.JwtPayload & {
   sub: string;
@@ -86,6 +79,11 @@ function assertOpaqueAccessToken(accessToken: string, expectedUserId: string): O
   return decoded as OpaqueAccessClaims;
 }
 
+function seededEmail(userId: string): string {
+  if (!userId.endsWith('-e2e')) throw new Error(`Unexpected persistent actor id ${userId}`);
+  return `${userId.slice(0, -'-e2e'.length)}@demo.ru`;
+}
+
 export async function createPersistentActorHarness(
   organizationIds: readonly string[],
 ): Promise<PersistentActorHarness> {
@@ -108,34 +106,23 @@ export async function createPersistentActorHarness(
       throw new Error(`Persistent auth harness connected as unexpected principal ${currentUser}`);
     }
 
-    const organizationRows = await primaryPrisma.organization.findMany({
-      where: { id: { in: [...organizationIds] } },
-      select: { tenantId: true },
-    });
-    const tenantIds = [...new Set(organizationRows.map((item) => item.tenantId).filter(Boolean))];
-    if (tenantIds.length === 0) {
-      throw new Error('Persistent auth harness could not resolve a canonical tenant');
-    }
-
-    const memberships = (await primaryPrisma.userOrg.findMany({
-      where: {
-        isDefault: true,
-        organization: { tenantId: { in: tenantIds } },
-        user: { id: { endsWith: '-e2e' } },
-      },
-      include: { user: true, organization: true },
-      orderBy: { role: 'asc' },
-    })) as MembershipRow[];
-
+    // Do not rediscover identities with the retired resolve_login_identity* or
+    // resolve_login_memberships* functions. The harness knows the twelve fixture
+    // email addresses it seeded and enters through AuthService.login exactly as
+    // a real client does: three-field credential lookup, bcrypt proof, then the
+    // bounded membership/context lookup. The authoritative role/tenant/org is
+    // read only from the resulting server-side session projection.
     const actorsByRole = new Map<Role, RequestUser>();
     const accessTokensByRole = new Map<Role, string>();
 
-    for (const membership of memberships) {
-      const role = membership.role as Role;
+    for (const expectedUserId of PERSISTENT_ACTOR_USER_IDS) {
+      const email = seededEmail(expectedUserId);
       const login = await primaryAuth.login({
-        email: membership.user.email,
+        email,
         password: TEST_PASSWORD,
       }) as any;
+      const role = login?.user?.role as Role | undefined;
+      if (!role) throw new Error(`Persistent login did not resolve a role for ${expectedUserId}`);
       const expectedMfa = MFA_REQUIRED_FIXTURE_ROLES.has(role);
       if (Boolean(login.mfaRequired) !== expectedMfa) {
         throw new Error(`Unexpected MFA requirement for ${role}: ${String(login.mfaRequired)}`);
@@ -161,14 +148,14 @@ export async function createPersistentActorHarness(
         }
       }
 
-      const claims = assertOpaqueAccessToken(accessToken, membership.user.id);
+      const claims = assertOpaqueAccessToken(accessToken, expectedUserId);
       const actor = await verifierAuth.verifyAccessToken(accessToken);
       if (
-        actor.id !== membership.user.id
+        actor.id !== expectedUserId
         || actor.role !== role
-        || actor.orgId !== membership.organizationId
-        || actor.tenantId !== membership.organization.tenantId
-        || actor.membershipId !== membership.id
+        || !organizationIds.includes(actor.orgId)
+        || !actor.tenantId
+        || !actor.membershipId
         || !actor.sessionId
       ) {
         throw new Error(`PostgreSQL session projection mismatch for ${role}`);
@@ -189,7 +176,7 @@ export async function createPersistentActorHarness(
         },
         jwtSecret,
         {
-          subject: membership.user.id,
+          subject: expectedUserId,
           issuer: ACCESS_ISSUER,
           audience: ACCESS_AUDIENCE,
           expiresIn: '5m',
@@ -198,9 +185,9 @@ export async function createPersistentActorHarness(
       const reauthorized = await primaryAuth.verifyAccessToken(injectedClaimsToken);
       if (
         reauthorized.role !== role
-        || reauthorized.orgId !== membership.organizationId
-        || reauthorized.tenantId !== membership.organization.tenantId
-        || reauthorized.membershipId !== membership.id
+        || reauthorized.orgId !== actor.orgId
+        || reauthorized.tenantId !== actor.tenantId
+        || reauthorized.membershipId !== actor.membershipId
       ) {
         throw new Error(`Injected JWT authority claims overrode PostgreSQL membership for ${role}`);
       }
@@ -220,13 +207,14 @@ export async function createPersistentActorHarness(
       if (
         !session
         || session.status !== 'ACTIVE'
-        || session.membership_id !== membership.id
-        || session.organization_id !== membership.organizationId
-        || session.tenant_id !== membership.organization.tenantId
+        || session.membership_id !== actor.membershipId
+        || session.organization_id !== actor.orgId
+        || session.tenant_id !== actor.tenantId
       ) {
         throw new Error(`Persistent session row mismatch for ${role}`);
       }
 
+      if (actorsByRole.has(role)) throw new Error(`Duplicate persistent actor role ${role}`);
       actorsByRole.set(role, actor);
       accessTokensByRole.set(role, accessToken);
     }

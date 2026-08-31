@@ -5,7 +5,10 @@ import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { StoragePrismaService } from '../../src/common/prisma/storage-prisma.service';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
 import { PostgresqlDealCommandService } from '../../src/modules/deals/postgresql-deal-command.service';
-import { IndustrialDealCommandGateway } from '../../src/modules/deals/industrial-deal-command.gateway';
+import {
+  IndustrialDealCommandGateway,
+  type VerifiedBankCallbackInput,
+} from '../../src/modules/deals/industrial-deal-command.gateway';
 import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import { Role, type RequestUser } from '../../src/common/types/request-user';
 import { PrismaLabRepository } from '../../src/modules/labs/prisma-lab.repository';
@@ -23,6 +26,10 @@ import type {
   ObjectStorageAdapter,
   PresignedObjectUrl,
 } from '../../src/modules/storage/object-storage.adapter';
+import { SettlementAccessService } from '../../src/modules/settlement-engine/settlement-access.service';
+import { SettlementAwareDealCommandService } from '../../src/modules/settlement-engine/settlement-aware-deal-command.service';
+import { SettlementEngineService } from '../../src/modules/settlement-engine/settlement-engine.service';
+import { SettlementPostgresqlRepository } from '../../src/modules/settlement-engine/settlement-postgresql.repository';
 
 export const INDUSTRIAL_TENANT = 'tenant-industrial-e2e';
 const FACT_AT = '2026-07-12T09:00:00.000Z';
@@ -103,14 +110,87 @@ function rememberInstance(instance: ServiceInstance): ServiceInstance {
   return instance;
 }
 
+function fixtureHash(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+/**
+ * Industrial suites exercise the same Settlement PostgreSQL authority as the
+ * live application. Older suites still pass the historical deterministic
+ * `bank-reserve:<deal>` / `bank-release:<deal>` fixture id only as a test label;
+ * this harness resolves that label to exactly one durable Settlement operation.
+ * It never changes production callback scope, RLS or database privileges.
+ */
+class SettlementBackedIndustrialDealCommandGateway extends IndustrialDealCommandGateway {
+  constructor(
+    private readonly authorityPrisma: PrismaService,
+    rls: RlsTransactionService,
+    commands: SettlementAwareDealCommandService,
+    private readonly settlement: SettlementEngineService,
+  ) {
+    super(authorityPrisma, rls, commands);
+  }
+
+  override async executeBankCallback(input: VerifiedBankCallbackInput) {
+    let operationId = input.operationId ?? '';
+    const legacyFixtureId = `bank-${input.operation.toLowerCase()}:${input.dealId}`;
+    if (operationId === legacyFixtureId) {
+      const operations = await this.authorityPrisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT id
+        FROM settlement.bank_operations
+        WHERE deal_id = ${input.dealId}
+          AND operation_type = ${input.operation}
+        ORDER BY created_at DESC, id DESC
+        LIMIT 2
+      `);
+      if (operations.length !== 1) {
+        throw new Error(
+          `Industrial callback fixture requires exactly one ${input.operation} Settlement operation for ${input.dealId}; found ${operations.length}`,
+        );
+      }
+      operationId = operations[0].id;
+    }
+
+    const partnerId = input.partnerId ?? 'safe-deals';
+    const payload = {
+      dealId: input.dealId,
+      eventId: input.eventId,
+      operation: input.operation,
+      status: input.status,
+      bankRef: input.bankRef,
+      operationId,
+      partnerId,
+      ...(input.errorMessage ? { errorMessage: input.errorMessage } : {}),
+    };
+    const result = await this.settlement.registerBankCallback({
+      ...payload,
+      keyId: 'industrial-harness-key',
+      payloadFingerprint: fixtureHash(JSON.stringify(payload)),
+      payload,
+    });
+    const deal = await this.authorityPrisma.deal.findUnique({
+      where: { id: input.dealId },
+      select: { status: true },
+    });
+    return {
+      ...result,
+      callbackStatus: result.status,
+      status: deal?.status ?? result.status,
+    };
+  }
+}
+
 export async function createInstance(): Promise<ServiceInstance> {
   const prisma = new PrismaService();
   await prisma.$connect();
   const storagePrisma = new StoragePrismaService();
   await storagePrisma.$connect();
   const rls = new RlsTransactionService(prisma);
-  const commands = new PostgresqlDealCommandService(rls);
-  const gateway = new IndustrialDealCommandGateway(prisma, rls, commands);
+  const settlementAccess = new SettlementAccessService(rls);
+  const settlementRepository = new SettlementPostgresqlRepository(prisma, rls);
+  const settlement = new SettlementEngineService(settlementRepository, settlementAccess);
+  const commands = new SettlementAwareDealCommandService(rls, settlement);
+  const gateway = new SettlementBackedIndustrialDealCommandGateway(prisma, rls, commands, settlement);
   const prismaLabs = new PrismaLabRepository(rls);
   const labs = new AuthorizedPrismaLabRepository(prismaLabs, rls);
   const labAuthority = new LabAuthorityService(rls);
@@ -159,10 +239,6 @@ function accessFor(role: Role): 'READ' | 'WORK' | 'APPROVE' {
   if (role === Role.EXECUTIVE) return 'READ';
   if (role === Role.COMPLIANCE_OFFICER || role === Role.SUPPORT_MANAGER) return 'APPROVE';
   return 'WORK';
-}
-
-function fixtureHash(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
 }
 
 async function confirmControlledUpload(
@@ -433,6 +509,8 @@ export async function provisionDeal(
     for (const { role, key } of ROLE_SET) {
       const userId = `user-e2e-${slug}-${key}`;
       const orgId = orgFor(role);
+      const membershipId = `membership-e2e-${slug}-${key}`;
+      const sessionId = `session-e2e-${slug}-${key}`;
       await tx.user.create({
         data: {
           id: userId,
@@ -443,8 +521,25 @@ export async function provisionDeal(
         },
       });
       await tx.userOrg.create({
-        data: { userId, organizationId: orgId, role, isDefault: true },
+        data: {
+          id: membershipId,
+          userId,
+          organizationId: orgId,
+          role,
+          isDefault: true,
+        },
       });
+      await tx.$executeRaw(Prisma.sql`
+        INSERT INTO auth.sessions (
+          id, user_id, membership_id, organization_id, tenant_id,
+          status, refresh_family_id, credential_version, mfa_level,
+          mfa_verified_at, expires_at
+        ) VALUES (
+          ${sessionId}, ${userId}, ${membershipId}, ${orgId}, ${INDUSTRIAL_TENANT},
+          'ACTIVE', ${`refresh-family-e2e-${slug}-${key}`}, 1, 'TOTP',
+          now(), now() + interval '1 day'
+        )
+      `);
       await tx.dealParticipant.create({
         data: {
           id: `participant:${dealId}:${key}`,
@@ -548,6 +643,7 @@ export async function provisionDeal(
       role,
       orgId: orgFor(role),
       tenantId: INDUSTRIAL_TENANT,
+      membershipId: `membership-e2e-${slug}-${key}`,
       sessionId: `session-e2e-${slug}-${key}`,
       mfaVerified: true,
     };

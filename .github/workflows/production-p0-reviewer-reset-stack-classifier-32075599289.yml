@@ -1,0 +1,175 @@
+name: Production P0 Reviewer Reset 32075599289 Read-Only Stack Classifier
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-stack-classifier-32075599289.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-stack-classifier-32075599289
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate bounded read-only reset classifier contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-reset-stack-classify 32075599289 current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate immutable source and bounded patch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source='scripts/production-p0-reviewer-reset-stack-classifier-31974946435.sh'
+          temp="$RUNNER_TEMP/p0-reset-stack-classifier.sh"
+          [[ "$(git hash-object "$source")" == '90a92461b14bbddcab4e1f7502770de78429e7ef' ]]
+          cp -- "$source" "$temp"
+          python3 - "$temp" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              ("COMMAND='/production p0-reviewer-reset-stack-classify 31974946435 current-main'", "COMMAND='/production p0-reviewer-reset-stack-classify 32075599289 current-main'"),
+              ("RESET_RUN_ID='31974946435'", "RESET_RUN_ID='32075599289'"),
+              ("RESET_REVISION='440e40753e2cac13c93f8e007d9fe17c2b66caba'", "RESET_REVISION='eb406008d781fa65973e0c2df78bb0c981dbc65d'"),
+              ("ATTEMPT_SINCE='2026-08-16T21:57:20Z'", "ATTEMPT_SINCE='2026-08-17T22:34:20Z'"),
+              ("ATTEMPT_UNTIL='2026-08-16T21:59:06Z'", "ATTEMPT_UNTIL='2026-08-17T22:36:20Z'"),
+              ("[[ \"$since\" == '2026-08-16T21:57:20Z' && \"$until\" == '2026-08-16T21:59:06Z' ]]", "[[ \"$since\" == '2026-08-17T22:34:20Z' && \"$until\" == '2026-08-17T22:36:20Z' ]]")
+          ]
+          for index, (old, new) in enumerate(replacements, start=1):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'PATCH_CARDINALITY_FAILED:R{index}:{count}')
+              text = text.replace(old, new, 1)
+          forbidden = [
+              'docker restart', 'docker rm', 'docker compose', 'docker service',
+              'curl --request POST', '-X POST', 'INSERT INTO', 'UPDATE auth.',
+              'DELETE FROM', 'TRUNCATE ', 'ALTER ROLE', 'sendmail(', 'MAIL FROM', 'RCPT TO'
+          ]
+          bad = [item for item in forbidden if item in text]
+          if bad:
+              raise SystemExit('MUTATION_SURFACE_FORBIDDEN:' + '|'.join(bad))
+          path.write_text(text, encoding='utf-8')
+          PY
+          bash -n "$temp"
+          grep -Fqx "COMMAND='/production p0-reviewer-reset-stack-classify 32075599289 current-main'" "$temp"
+          grep -Fqx "RESET_REVISION='eb406008d781fa65973e0c2df78bb0c981dbc65d'" "$temp"
+          grep -Fqx "ATTEMPT_SINCE='2026-08-17T22:34:20Z'" "$temp"
+          grep -Fqx "ATTEMPT_UNTIL='2026-08-17T22:36:20Z'" "$temp"
+          grep -Fq 'PRODUCTION_MUTATION=NONE' "$temp"
+          rm -f -- "$temp"
+
+      - name: Verify exact owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: /production p0-reviewer-reset-stack-classify 32075599289 current-main
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "$TRIGGERING_ACTOR" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+  classify:
+    name: Read-only classify reset transaction stack
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_REVIEWER_RESET_STACK_COMMAND: ${{ github.event.comment.body }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Execute bounded sanitized stack classifier
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source='scripts/production-p0-reviewer-reset-stack-classifier-31974946435.sh'
+          temp="$RUNNER_TEMP/p0-reset-stack-classifier-32075599289.sh"
+          [[ "$(git hash-object "$source")" == '90a92461b14bbddcab4e1f7502770de78429e7ef' ]]
+          cp -- "$source" "$temp"
+          chmod 0700 "$temp"
+          python3 - "$temp" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              ("COMMAND='/production p0-reviewer-reset-stack-classify 31974946435 current-main'", "COMMAND='/production p0-reviewer-reset-stack-classify 32075599289 current-main'"),
+              ("RESET_RUN_ID='31974946435'", "RESET_RUN_ID='32075599289'"),
+              ("RESET_REVISION='440e40753e2cac13c93f8e007d9fe17c2b66caba'", "RESET_REVISION='eb406008d781fa65973e0c2df78bb0c981dbc65d'"),
+              ("ATTEMPT_SINCE='2026-08-16T21:57:20Z'", "ATTEMPT_SINCE='2026-08-17T22:34:20Z'"),
+              ("ATTEMPT_UNTIL='2026-08-16T21:59:06Z'", "ATTEMPT_UNTIL='2026-08-17T22:36:20Z'"),
+              ("[[ \"$since\" == '2026-08-16T21:57:20Z' && \"$until\" == '2026-08-16T21:59:06Z' ]]", "[[ \"$since\" == '2026-08-17T22:34:20Z' && \"$until\" == '2026-08-17T22:36:20Z' ]]")
+          ]
+          for index, (old, new) in enumerate(replacements, start=1):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'PATCH_CARDINALITY_FAILED:R{index}:{count}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          bash -n "$temp"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$(git rev-parse HEAD)" ]]
+          bash "$temp"
+          rm -f -- "$temp"

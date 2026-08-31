@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4614,
+  "branch": "sec/asvs-v15-secure-coding-4614",
+  "status": "active",
+  "purpose": "Record applicability and evidence-backed verdicts for OWASP ASVS 5.0.0 chapter V15 (Secure Coding and Architecture) — 21 requirements — in the machine-readable decision register, with no code changes.",
+  "authorityBaseExactMain": "a081617d885c8652e47fd991bcefcfdb0bc872fa",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v15-secure-coding-4614.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "Every V15 requirement is either an explicit decision (APPLICABLE with PASS/FAIL, or NOT_APPLICABLE_WITH_JUSTIFICATION with a real self-revoking condition) or is deliberately left undeclared to fall through to the honest PENDING_APPLICABILITY_REVIEW/NOT_ASSESSED default — never an explicit NOT_ASSESSED decision with no condition, since the evidence gate rejects those.",
+    "Every applicability=NOT_APPLICABLE_WITH_JUSTIFICATION decision has status=NOT_APPLICABLE and vice versa, verified across the whole decisions file before every push.",
+    "A PASS or FAIL is only recorded where the underlying code (main.ts, trusted-proxy.ts, Dockerfile.api, tsconfig.base.json, the outbound fetch call sites, docs/ip/sbom-coverage-scope.json) was read and the cited pattern verified against the live tree in this pass.",
+    "A downstream FAIL that depends on another requirement's documentation gap (V15.2.1/V15.2.2/V15.2.5 on V15.1.1/V15.1.3/V15.1.4/V15.1.5) says so explicitly rather than repeating the underlying finding as if independent.",
+    "No security control is weakened; Semgrep, the pinning ratchet and every other gate stay at full strength.",
+    "No production, REG.RU, DNS or database mutation.",
+    "This scope changes no application code.",
+    "finalPass stays false."
+  ],
+  "acceptance": [
+    "docs/security/asvs-applicability-decisions.json gains exactly 17 new V15.* decisions and no duplicates; the remaining 4 V15 requirements stay undeclared (PENDING_APPLICABILITY_REVIEW/NOT_ASSESSED).",
+    "The evidence gate rejects 0 decisions; decisionsApplied increases by 17; finalPass stays false.",
+    "scripts/security/*.test.mjs stays 60/60 (JSON-only change, no script logic touched).",
+    "A file-wide applicability/status consistency check reports 0 inconsistencies before every push.",
+    "Every FAIL and PASS note cites a real file and pattern checked against the live tree in this pass.",
+    "All four V15.4 (Safe Concurrency) requirements are NOT_APPLICABLE with the same verified worker_threads-absence condition."
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-auth-mail-compose-contract-31905081981-3785",
+  "status": "active",
+  "operationalStatus": "P0_AUTH_MAIL_COMPOSE_CONTRACT_CLASSIFIER_31905081981",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify the failed production auth-mail Compose contract without exposing configuration values",
+  "sourceRun": 31905081981,
+  "sourceRevision": "01e38e835f2fec57603eb31e063e62567396a1c2",
+  "allowedPaths": [
+    ".github/workflows/production-p0-auth-mail-compose-contract-classifier-31905081981.yml",
+    "scripts/production-p0-auth-mail-compose-contract-classifier-31905081981.sh",
+    "scripts/check-production-p0-auth-mail-compose-contract-classifier-31905081981.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-auth-mail-compose-contract-31905081981-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "resetReplay": false,
+    "mailSend": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "composeMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawConfigOutput": false,
+    "ownerOnly": true,
+    "fixedProductionSubject": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "bind the classifier to exact deployed API/Web revision 01e38e835f2fec57603eb31e063e62567396a1c2",
+    "allow only the four diagnostic files to differ between the deployed subject and diagnostic main",
+    "read the current Compose authority and resolve docker compose config into a root-only temporary file",
+    "publish only a whitelisted contract reason code and aggregate cardinalities, never environment values or raw config",
+    "perform no container lifecycle, database, identity, password, MFA, session, reset, mail or deployment mutation",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

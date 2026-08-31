@@ -1,17 +1,35 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
+import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import { assertCsrf } from '@/lib/server-request-security';
+import { sendTransactionalMail } from '@/lib/server/transactional-mail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 12;
 
-const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim().replace(/\/$/, '');
+const API_BASE_URL = resolveServerApiBaseUrl();
 const STAFF_ACCESS_COOKIE = 'pc_staff_access_token';
 const STAFF_ACCESS_META_COOKIE = 'pc_staff_access_meta';
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_STAFF_SESSION_SECONDS = 60 * 60;
+
+const registrationDecisionMailCopy = {
+  ru: {
+    subject: 'Прозрачная Цена — статус заявки изменён',
+    text: (status: string, reason: string) => `Статус регистрационной заявки: ${status}. Основание: ${reason}. Откройте страницу статуса по исходной защищённой ссылке.`,
+  },
+  en: {
+    subject: 'Transparent Price — application status changed',
+    text: (status: string, reason: string) => `Registration application status: ${status}. Basis: ${reason}. Open the status page using the original protected link.`,
+  },
+  zh: {
+    subject: '透明价格 — 申请状态已更新',
+    text: (status: string, reason: string) => `注册申请状态：${status}。依据：${reason}。请使用原始安全链接打开状态页面。`,
+  },
+} as const;
 
 const READ_PATHS = [
   /^assignments\/me$/,
@@ -22,6 +40,7 @@ const READ_PATHS = [
   /^organizations$/,
   /^organizations\/[^/]+\/users$/,
   /^organizations\/[^/]+\/cabinet\/[^/]+$/,
+  /^registration\/applications$/,
   /^audit\/events$/,
   /^break-glass\/active$/,
 ] as const;
@@ -33,6 +52,7 @@ const WRITE_PATHS = [
   /^access\/sessions\/[^/]+\/(?:end|revoke)$/,
   /^break-glass\/activate$/,
   /^break-glass\/[^/]+\/end$/,
+  /^registration\/applications\/[^/]+\/decision$/,
 ] as const;
 
 type StaffSessionMetadata = {
@@ -170,7 +190,7 @@ function parseMetadata(raw: string | undefined): StaffSessionMetadata | null {
 }
 
 async function listOwnSessions(accessToken: string, correlationId: string): Promise<StaffSessionRow[]> {
-  const upstream = await fetch(`${API_URL}/staff/access/sessions`, {
+  const upstream = await fetch(`${API_BASE_URL}/staff/access/sessions`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',
@@ -218,7 +238,7 @@ function persistedMetadata(row: StaffSessionRow): StaffSessionMetadata | null {
 
 async function cleanupActivatedSession(accessToken: string, sessionId: string, correlationId: string) {
   try {
-    await fetch(`${API_URL}/staff/access/sessions/${encodeURIComponent(sessionId)}/end`, {
+    await fetch(`${API_BASE_URL}/staff/access/sessions/${encodeURIComponent(sessionId)}/end`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -280,24 +300,19 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
   const path = normalizePath(pathSegments);
   const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
 
+  if (requiresCanonicalControlHost(request)) {
+    const response = json({ ok: false, code: 'CONTROL_HOST_REQUIRED', correlationId }, 421);
+    clearStaffSession(response);
+    return response;
+  }
+
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   if (!accessToken) {
     const response = json({ ok: false, code: 'UNAUTHENTICATED', message: 'Требуется повторный вход.', correlationId }, 401);
     clearStaffSession(response);
     return response;
   }
-  if (!API_URL) {
-    return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
-  }
-
-  let apiOrigin: string;
-  try {
-    const url = new URL(API_URL);
-    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
-      return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
-    }
-    apiOrigin = url.toString().replace(/\/$/, '');
-  } catch {
+  if (!API_BASE_URL) {
     return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
   }
 
@@ -329,8 +344,22 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
     }
   }
 
+  const registrationDecision = /^registration\/applications\/[^/]+\/decision$/.test(path);
+  const registrationDeliveryKey = registrationDecision
+    ? String(process.env.REGISTRATION_DELIVERY_KEY || '').trim()
+    : '';
+  const idempotencyKey = registrationDecision
+    ? String(request.headers.get('idempotency-key') || '').trim()
+    : '';
+  if (registrationDecision && registrationDeliveryKey.length < 32) {
+    return json({ ok: false, code: 'REGISTRATION_NOTIFICATION_UNAVAILABLE', correlationId }, 503);
+  }
+  if (registrationDecision && (idempotencyKey.length < 16 || idempotencyKey.length > 128)) {
+    return json({ ok: false, code: 'IDEMPOTENCY_KEY_REQUIRED', correlationId }, 400);
+  }
+
   const query = request.nextUrl.searchParams.toString();
-  const targetUrl = `${apiOrigin}/staff/${path}${query ? `?${query}` : ''}`;
+  const targetUrl = `${API_BASE_URL}/staff/${path}${query ? `?${query}` : ''}`;
   const ip = requestIp(request);
   const userAgent = request.headers.get('user-agent');
 
@@ -343,6 +372,10 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
         Accept: 'application/json',
         'x-correlation-id': correlationId,
         ...(staffAccessToken ? { 'x-staff-access-session': staffAccessToken } : {}),
+        ...(registrationDecision ? {
+          'idempotency-key': idempotencyKey,
+          'x-registration-delivery-key': registrationDeliveryKey,
+        } : {}),
         ...(ip ? { 'x-forwarded-for': ip } : {}),
         ...(userAgent ? { 'user-agent': userAgent } : {}),
       },
@@ -362,6 +395,45 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
       : {};
     const safePayload: Record<string, unknown> = { ...payloadObject, correlationId };
     delete safePayload.accessToken;
+    const notification = safePayload.notificationDelivery && typeof safePayload.notificationDelivery === 'object'
+      ? safePayload.notificationDelivery as { email?: unknown; status?: unknown; reason?: unknown }
+      : null;
+    delete safePayload.notificationDelivery;
+    if (upstream.ok && registrationDecision && typeof notification?.email === 'string' && notification.email) {
+      let locale: keyof typeof registrationDecisionMailCopy = 'ru';
+      try {
+        const parsedBody = JSON.parse(body || '{}') as { locale?: unknown };
+        if (parsedBody.locale === 'en' || parsedBody.locale === 'zh') locale = parsedBody.locale;
+      } catch {
+        // The API owns DTO validation; malformed JSON is returned by the upstream boundary.
+      }
+      const copy = registrationDecisionMailCopy[locale];
+      const delivery = await sendTransactionalMail({
+        to: notification.email,
+        subject: copy.subject,
+        text: copy.text(String(notification.status || 'UPDATED'), String(notification.reason || 'RECORDED')),
+      });
+      safePayload.notificationDelivered = delivery.delivered;
+      console.info('registration_decision_notification_result', JSON.stringify({
+        correlationId,
+        delivered: delivery.delivered,
+        provider: delivery.provider,
+        reason: delivery.reason,
+      }));
+    }
+    if (upstream.ok && registrationDecision && correlationId.startsWith('p0-human-')) {
+      const applicationId = path.split('/')[2] || '';
+      const replayed = payloadObject.replayed === true;
+      const notificationDelivered = safePayload.notificationDelivered === true;
+      console.info('p0_human_reviewer_ceremony', JSON.stringify({
+        marker: 'P0_HUMAN_REVIEWER_CEREMONY',
+        applicationId,
+        correlationId,
+        replayed,
+        notificationDelivered,
+        notificationSuppressed: replayed && !Object.hasOwn(safePayload, 'notificationDelivered'),
+      }));
+    }
     let response = json(Array.isArray(payload) ? payload : safePayload, upstream.status);
 
     if (upstream.ok && /^access\/grants\/[^/]+\/activate$/.test(path)) {

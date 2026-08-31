@@ -1,0 +1,271 @@
+name: Production P0 Reviewer One-Shot Reset Authorization 31972920716
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-one-shot-reset-auth-31972920716.yml'
+      - 'scripts/production-p0-reviewer-password-reset-request.sh'
+      - 'scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-one-shot-reset-auth-31972920716
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate authorization-bound one-shot reset contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-reset-request authorized-31972920716'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+      actions: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate immutable reset authorities
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node scripts/check-production-p0-reviewer-password-reset-request.mjs
+          bash -n scripts/production-p0-reviewer-password-reset-request.sh
+          bash -n scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh
+          [[ "$(git hash-object scripts/production-p0-reviewer-password-reset-request.sh)" == '7a586ded1b40ab3812335b351d0e8cc519020aa4' ]]
+          [[ "$(git hash-object scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh)" == '83d9c310c257844ac288fdfc2feb9e6fdddf900f' ]]
+          grep -Fqx "SAFE_BASELINE_SHA='440e40753e2cac13c93f8e007d9fe17c2b66caba'" scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh
+          grep -Fqx "COMMAND='/production p0-reviewer-reset-request current-main'" scripts/production-p0-reviewer-password-reset-request.sh
+
+      - name: Verify exact owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: /production p0-reviewer-reset-request authorized-31972920716
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+      - name: Verify preflight authorization evidence
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHORIZATION_RUN_ID: '31972920716'
+          AUTHORIZATION_HEAD_SHA: '0a81892bbfc473f8555e054a6b150d97c7059ab8'
+          AUTHORIZATION_WORKFLOW_ID: '335371310'
+        run: |
+          set -Eeuo pipefail
+          meta="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$AUTHORIZATION_RUN_ID" --jq '[.conclusion,.event,.head_sha,(.workflow_id|tostring),(.run_attempt|tostring)] | join("|")')"
+          [[ "$meta" == "success|issue_comment|$AUTHORIZATION_HEAD_SHA|$AUTHORIZATION_WORKFLOW_ID|1" ]]
+          jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$AUTHORIZATION_RUN_ID/jobs?per_page=100")"
+          contract_count="$(jq '[.jobs[] | select(.name == "Validate drift-tolerant reset preflight contract" and .conclusion == "success")] | length' <<< "$jobs")"
+          preflight_count="$(jq '[.jobs[] | select(.name == "Inspect live runtime and authorize at most one reset" and .conclusion == "success")] | length' <<< "$jobs")"
+          [[ "$contract_count" == '1' && "$preflight_count" == '1' ]]
+
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHORIZATION_HEAD_SHA: '0a81892bbfc473f8555e054a6b150d97c7059ab8'
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          git merge-base --is-ancestor "$AUTHORIZATION_HEAD_SHA" "$target"
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  request:
+    name: Execute exactly one claimed reviewer password-reset request
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      AUTHORIZATION_RUN_ID: '31972920716'
+      SOURCE_BLOB_SHA: '7a586ded1b40ab3812335b351d0e8cc519020aa4'
+      PREFLIGHT_BLOB_SHA: '83d9c310c257844ac288fdfc2feb9e6fdddf900f'
+      COMMAND: /production p0-reviewer-reset-request authorized-31972920716
+      CLAIM_MARKER: P0_REVIEWER_RESET_AUTHORIZATION_CLAIM=31972920716
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact main and immutable authorities
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${GITHUB_RUN_ATTEMPT:-1}" == '1' ]]
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          [[ "$(git hash-object scripts/production-p0-reviewer-password-reset-request.sh)" == "$SOURCE_BLOB_SHA" ]]
+          [[ "$(git hash-object scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh)" == "$PREFLIGHT_BLOB_SHA" ]]
+
+      - name: Reject replay before any production request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          counts="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/3072/comments?per_page=100" --jq "[.[] | select(.body | contains(\"$CLAIM_MARKER\"))] | length")"
+          claimed="$(awk '{s+=$1} END{print s+0}' <<< "$counts")"
+          [[ "$claimed" == '0' ]]
+
+      - name: Re-run live fail-closed preflight immediately before claim
+        id: preflight
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          out="$RUNNER_TEMP/p0-reviewer-preflight.out"
+          set +e
+          bash scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh >"$out" 2>&1
+          rc=$?
+          set -e
+          (( rc == 0 ))
+          grep -Fxq 'RESET_AUTHORIZED=YES' "$out"
+          grep -Fxq 'PRODUCTION_MUTATION=NONE' "$out"
+          runtime="$(grep -E '^RUNTIME_DEPLOYED_SHA=[0-9a-f]{40}$' "$out" | tail -n1 | cut -d= -f2-)"
+          [[ "$runtime" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          echo "runtime_sha=$runtime" >> "$GITHUB_OUTPUT"
+          rm -f -- "$out"
+
+      - name: Claim authorization irreversibly before handoff
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          counts="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/3072/comments?per_page=100" --jq "[.[] | select(.body | contains(\"$CLAIM_MARKER\"))] | length")"
+          claimed="$(awk '{s+=$1} END{print s+0}' <<< "$counts")"
+          [[ "$claimed" == '0' ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer one-shot authorization claimed
+
+          - marker: \`$CLAIM_MARKER\`
+          - authorization run: \`$AUTHORIZATION_RUN_ID\`
+          - exact main: \`$TARGET_SHA\`
+          - runtime revision revalidated: \`${{ steps.preflight.outputs.runtime_sha }}\`
+          - production reset mutation at claim: \`NONE\`
+          - replay from this authorization: \`FORBIDDEN\`
+          - next: \`EXECUTE_REVIEWED_NORMAL_PASSWORD_RESET_REQUEST_EXACTLY_ONCE\`" >/dev/null
+
+      - name: Execute reviewed reset source exactly once
+        shell: bash
+        env:
+          RUNTIME_DEPLOYED_SHA: ${{ steps.preflight.outputs.runtime_sha }}
+        run: |
+          set -Eeuo pipefail
+          source_script='scripts/production-p0-reviewer-password-reset-request.sh'
+          temp_script="$RUNNER_TEMP/p0-reviewer-reset-authorized.sh"
+          cp -- "$source_script" "$temp_script"
+          chmod 0700 "$temp_script"
+          python3 - "$temp_script" "$COMMAND" "$RUNTIME_DEPLOYED_SHA" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          command = sys.argv[2]
+          expected = sys.argv[3]
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              ("COMMAND='/production p0-reviewer-reset-request current-main'", f"COMMAND='{command}'"),
+              ('[[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" && "$worker_revision" == "$target_sha" ]]', f'''[[ "$api_revision" == '{expected}' && "$web_revision" == '{expected}' && "$worker_revision" == '{expected}' ]]'''),
+              ('[[ "$api_revision" == "$TARGET_SHA" && "$web_revision" == "$TARGET_SHA" && "$worker_revision" == "$TARGET_SHA" ]]', f'''[[ "$api_revision" == '{expected}' && "$web_revision" == '{expected}' && "$worker_revision" == '{expected}' ]]'''),
+          ]
+          for index, (old, new) in enumerate(replacements, start=1):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'PATCH_CARDINALITY_FAILED:R{index}:{count}')
+              text = text.replace(old, new, 1)
+          if text.count(expected) != 6:
+              raise SystemExit(f'EXPECTED_REVISION_BINDING_COUNT:{text.count(expected)}')
+          if text.count(f"COMMAND='{command}'") != 1:
+              raise SystemExit('COMMAND_BINDING_INVALID')
+          path.write_text(text, encoding='utf-8')
+          PY
+          bash -n "$temp_script"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          bash "$temp_script"
+          rm -f -- "$temp_script"
+
+      - name: Publish consumed authorization evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer one-shot reset authorization consumed
+
+          - marker: \`$CLAIM_MARKER\`
+          - authorization run: \`$AUTHORIZATION_RUN_ID\`
+          - exact main: \`$TARGET_SHA\`
+          - runtime revision bound before request: \`${{ steps.preflight.outputs.runtime_sha }}\`
+          - source reset flow: \`PASS\`
+          - production mutation: \`NORMAL_PASSWORD_RESET_REQUEST_ONLY\`
+          - replay: \`FORBIDDEN\`" >/dev/null
+          printf 'P0_REVIEWER_ONE_SHOT_RESET=PASS\n'
+          printf 'AUTHORIZATION_RUN_ID=%s\n' "$AUTHORIZATION_RUN_ID"
+          printf 'RUNTIME_DEPLOYED_SHA=%s\n' '${{ steps.preflight.outputs.runtime_sha }}'

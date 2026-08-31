@@ -51,9 +51,9 @@ const COVERAGE: Record<Locale, Record<string, string>> = {
 };
 
 const LABEL = {
-  ru: 'TAI на этапе',
-  en: 'TAI at this stage',
-  zh: '本阶段的 TAI',
+  ru: 'Гекта на этапе',
+  en: 'Gekta at this stage',
+  zh: '本阶段的 Gekta',
 } as const;
 
 export function PublicStageIntelligenceCoverage({ locale, stages }: { locale: string; stages: readonly Stage[] }) {

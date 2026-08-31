@@ -14,9 +14,9 @@ const PUBLIC_MOBILE_QUERY = '(max-width: 767px)';
 const PUBLIC_HERO_THRESHOLD = 120;
 
 const COPY = {
-  ru: { assistant: 'ИИ', assistantAria: 'Открыть ИИ-помощника по платформе', support: 'Поддержка', supportAria: 'Открыть поддержку', call: 'Позвонить', callAria: `Позвонить по номеру ${SUPPORT_PHONE_DISPLAY}`, group: 'Связь и помощь' },
-  en: { assistant: 'AI', assistantAria: 'Open the platform AI assistant', support: 'Support', supportAria: 'Open support', call: 'Call', callAria: `Call ${SUPPORT_PHONE_DISPLAY}`, group: 'Help and contact' },
-  zh: { assistant: 'AI 助手', assistantAria: '打开平台 AI 助手', support: '支持', supportAria: '打开支持', call: '致电', callAria: `拨打 ${SUPPORT_PHONE_DISPLAY}`, group: '帮助与联系' },
+  ru: { assistant: 'Гекта', assistantAria: 'Открыть Гекту', support: 'Поддержка', supportAria: 'Открыть поддержку', call: 'Позвонить', callAria: `Позвонить по номеру ${SUPPORT_PHONE_DISPLAY}`, group: 'Связь и помощь' },
+  en: { assistant: 'Gekta', assistantAria: 'Open Gekta', support: 'Support', supportAria: 'Open support', call: 'Call', callAria: `Call ${SUPPORT_PHONE_DISPLAY}`, group: 'Help and contact' },
+  zh: { assistant: 'Gekta', assistantAria: '打开 Gekta', support: '支持', supportAria: '打开支持', call: '致电', callAria: `拨打 ${SUPPORT_PHONE_DISPLAY}`, group: '帮助与联系' },
 } as const;
 
 function resolveLocale(): Locale {
@@ -171,7 +171,7 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
     trigger.click();
   };
 
-  // Public landing access is unconditional: scroll behavior must never hide or disable the AI entry point.
+  // Public landing access is unconditional: scroll behavior must never hide or disable the Gekta entry point.
   const scrollHidden = assistantContext === 'public' ? false : hiddenByScroll;
   const hidden = dialogOpen || scrollHidden;
 

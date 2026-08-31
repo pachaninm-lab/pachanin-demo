@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4647,
+  "branch": "security/conjunctive-conditions-batch2-4647",
+  "status": "active",
+  "purpose": "Second and final batch of the #4647 audit: convert the remaining 17 conjunctive PASS conditions in the ASVS register from PRESENT_AT_PATH to PRESENT_ALL_AT_PATH, across V2, V4, V5, V8, V14, V15 and V16. PRESENT_AT_PATH matches with patterns.some(), so a condition listing several facts held as long as any one of them was still present - a PASS could survive the removal of the very fact it named. Only the check type changes; no pattern, path, verdict, evidence or note is touched.",
+  "authorityBaseExactMain": "ee42e6574239f1f6a763afa8084318a8f3e73e49",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/conjunctive-conditions-batch2-4647.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "Only the check field changes. The diff is exactly 17 insertions and 17 deletions, one line per converted condition.",
+    "Every converted condition was first verified to be a genuine conjunction: all 17 name a single path, and every pattern was confirmed present in that path before conversion. No condition where a pattern is absent from any listed path is converted.",
+    "V7.2.1, V11.3.4 and V16.2.5 stay on PRESENT_AT_PATH. The first two are legitimate alternatives - each listed path contains only its own spelling - so converting them would reject two sound PASS decisions. V16.2.5 needs its evidence repaired rather than its check type changed: two of its three patterns appear nowhere in the repository.",
+    "No verdict moves. decisionsApplied stays 332, decisionsRejected stays 0, and the blocker rollup is unchanged at NOT_ASSESSED:25, PENDING_APPLICABILITY_REVIEW:13, FAIL:121.",
+    "No application code, no production, REG.RU, DNS or database mutation.",
+    "Conditions under FAIL and NOT_ASSESSED are left alone: those decisions do not assert that their facts hold, so tightening them now would change nothing and would obscure the audit trail when they are later revisited."
+  ],
+  "acceptance": [
+    "The register-wide integrity test added in #4650 now covers 30 PRESENT_ALL_AT_PATH conditions instead of 13, and all 30 hold against the live tree.",
+    "67 negative checks - every pattern removed from every listed path, one at a time - all revoke their decision.",
+    "node --test scripts/security/*.test.mjs reports 64/64.",
+    "The matrix rebuilds with decisionsApplied 332 and decisionsRejected 0."
+  ]
+}

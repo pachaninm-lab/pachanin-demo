@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "fix-gekta-live-brand-acceptance-3824",
+  "branch": "fix/gekta-live-brand-acceptance-3824",
+  "issue": 3824,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-to-finish-production-release",
+  "authorityBaseExactMain": "4519a24168e1f084d4dbf9c1ae3247ed0d3579f3",
+  "purpose": "Remove the legacy public-assistant DOM branding override, replace retired TAI copy in the production-imported public home story, and enforce one canonical Gekta identity across RU, EN and ZH live acceptance before retrying the protected REG.RU release.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
+    "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
+    "apps/web/i18n/platform-v7-home-story.ts",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
+    "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantBrandingCleanup.test.ts",
+    "apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-gekta-live-brand-acceptance-3824.json",
+    "scripts/tai-live-public-ai-acceptance.mjs",
+    "scripts/tai-potato-mobile-live-acceptance.mjs"
+  ],
+  "canonical": {
+    "ru": {
+      "title": "Гекта",
+      "subtitle": "Аграрный интеллект для земли, урожая и решений.",
+      "composer": "Спроси Гекту о земле, урожае или агробизнесе"
+    },
+    "en": {
+      "title": "Gekta",
+      "subtitle": "Agricultural intelligence for land, crops and decisions.",
+      "composer": "Ask Gekta about land, crops or agribusiness"
+    },
+    "zh": {
+      "title": "Gekta",
+      "subtitle": "服务于土地、作物与决策的农业智能。",
+      "composer": "向 Gekta 咨询土地、作物或农业经营"
+    },
+    "ctaRu": "Посмотреть Гекту в работе"
+  },
+  "requiredInvariants": [
+    "PublicPlatformAssistant remains the sole source of visible Gekta title and subtitle copy.",
+    "The fullscreen controller does not replace canonical Gekta title or subtitle text.",
+    "RU, EN and ZH live browser acceptance uses the same canonical composer labels rendered by the product.",
+    "Existing DOM selectors, runtime routes, analytics events, technical TAI namespace and session migration behavior remain unchanged.",
+    "Exact-main API, web and migration image authority remains mandatory before activation.",
+    "Protected REG.RU activation, mobile Chromium acceptance and rollback-on-failure remain mandatory.",
+    "No production deployment claim is made until exact-SHA live acceptance passes.",
+    "The production-imported public home story contains no visible retired TAI or Transparent Agro Intelligence identity.",
+    "RU, EN and ZH live browser acceptance rejects canonical identity mismatches and any visible retired public identity."
+  ],
+  "forbiddenChanges": [
+    "API behavior, prompts or model routing",
+    "database or tenant authority",
+    "production topology, credentials or secrets",
+    "runtime routes, analytics events or technical TAI namespace",
+    "apps/landing/**",
+    "acceptance-gate weakening"
+  ],
+  "requiredChecks": [
+    "focused web unit tests for branding cleanup, domain copy and live browser matrix contracts",
+    "full Design System v8 browser and accessibility matrix with the canonical Gekta CTA",
+    "JavaScript syntax validation for both live browser acceptance scripts",
+    "web typecheck",
+    "git diff --check",
+    "canonical exact-main build and protected REG.RU live acceptance",
+    "gekta public brand source contract covering the production home story and fullscreen controller"
+  ],
+  "deploymentState": "rolled-back-after-mixed-brand-browser-failure",
+  "evidence": {
+    "failedActivationRun": 31460826944,
+    "failedActivationArtifact": 9089961845,
+    "terminalSafetyCode": "ACTIVATION_ROLLED_BACK",
+    "correctivePr": 3841
+  }
+}

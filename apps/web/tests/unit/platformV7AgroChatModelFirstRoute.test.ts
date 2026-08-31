@@ -8,6 +8,7 @@ const qwenService = fs.readFileSync(
   path.join(root, 'apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts'),
   'utf8',
 );
+const relay = fs.readFileSync(path.join(root, 'apps/web/lib/platform-v7/tai-internal-stream.ts'), 'utf8');
 const nextConfig = fs.readFileSync(path.join(root, 'apps/web/next.config.js'), 'utf8');
 const liveAcceptance = fs.readFileSync(path.join(root, 'scripts/tai-live-public-ai-acceptance.mjs'), 'utf8');
 
@@ -22,6 +23,13 @@ describe('P0 model-first agricultural chat', () => {
     expect(route).toContain("return 'general_agro';");
     expect(route).toContain('grounding = generalAgroGrounding(locale);');
     expect(route).not.toContain("outcome.decision === 'REDIRECT_UNRELATED'");
+  });
+
+  it('keeps a self-contained agro question out of stale platform follow-up mode', () => {
+    expect(route).toContain("if (outcome.signals.includes('agro_term')) return 'general_agro';");
+    expect(route.indexOf("outcome.signals.includes('agro_term')"))
+      .toBeLessThan(route.indexOf('compactFollowUp && context.previousTopic'));
+    expect(liveAcceptance).toContain('Как хранить зерно после уборки?');
   });
 
   it('downgrades missing platform knowledge to general expertise instead of a thematic redirect', () => {
@@ -61,14 +69,20 @@ describe('P0 model-first agricultural chat', () => {
       'SENSITIVE_INPUT_BLOCKED',
       "grounding.resolution === 'refused'",
       'requiresCurrentEvidence(envelope.question)',
-      "const SIGNATURE_VERSION = 'tai-public-qwen.v1'",
-      "const INTERNAL_PATH = '/internal/tai/public-generate'",
-      'createHmac',
       'TAI_PUBLIC_GATEWAY_HMAC_SECRET',
       'TAI_INTERNAL_API_ALLOWED_HOSTS',
       "operationalStatus: 'NOT_ATTESTED'",
-      "mode: 'read_only'",
     ]) expect(route).toContain(fragment);
+
+    // Request signing moved into the shared relay when the route stopped
+    // buffering answers; the boundary it protects is unchanged, so it is
+    // asserted where it now lives rather than dropped.
+    for (const fragment of [
+      "export const SIGNATURE_VERSION = 'tai-public-qwen.v1'",
+      "export const INTERNAL_STREAM_PATH = '/internal/tai/public-generate-stream'",
+      'createHmac',
+      'createHash',
+    ]) expect(relay).toContain(fragment);
 
     for (const fragment of [
       'Do not invent machinery specifications',

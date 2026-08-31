@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-web-owner-command-evidence-20260808",
+  "status": "active",
+  "purpose": "Add non-secret issue-journal evidence to the owner-only exact-SHA web release dispatcher so command success or failure is observable without production access.",
+  "approvedBy": "owner-direct-continue-2026-08-08",
+  "authorityBaseExactMain": "19f79cb380f7836622311d8cabc6fb8b83c808ca",
+  "allowedPaths": [
+    ".github/workflows/production-web-owner-exact-command.yml",
+    "scripts/check-production-web-owner-exact-command.mjs",
+    "docs/platform-v7/autopilot/scopes/production-web-owner-command-evidence-20260808.json"
+  ],
+  "requiredBehavior": [
+    "dispatch outcome is recorded to issue 3048 without secrets",
+    "an evidence comment never matches the owner command prefix and therefore cannot recurse",
+    "the command workflow still performs no direct production mutation",
+    "the only release mutation requested remains dispatch of production-web-exact-sha.yml"
+  ],
+  "forbiddenCapabilities": [
+    "API database migration or TAI changes",
+    "direct SSH SCP or Docker production commands",
+    "production credential handling",
+    "full-stack release dispatch",
+    "application runtime changes",
+    "acceptance weakening"
+  ]
+}

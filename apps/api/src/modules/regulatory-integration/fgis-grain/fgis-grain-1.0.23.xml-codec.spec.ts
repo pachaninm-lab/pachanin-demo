@@ -29,7 +29,7 @@ function businessXml(qName: string, inner = ''): string {
   return `<biz:${name.localName} xmlns:biz="${name.namespaceUri}">${inner}</biz:${name.localName}>`;
 }
 
-function responseEnvelope(): string {
+function responseEnvelope(responseCode = 'success'): string {
   const operation = getFgisGrainBusinessOperation('GET_LIST_SDIZ');
   if (!operation) throw new Error('GET_LIST_SDIZ operation missing');
   const payload = businessXml(operation.responseQName, '<biz:items/>');
@@ -38,7 +38,7 @@ function responseEnvelope(): string {
     `<soap:Envelope xmlns:soap="${FGIS_GRAIN_SOAP_11_NAMESPACE}" xmlns:tns="${FGIS_GRAIN_MESSAGE_NAMESPACE}">`,
     '<soap:Body>',
     '<tns:SendResponseResponse>',
-    '<tns:ResponseCode>success</tns:ResponseCode>',
+    `<tns:ResponseCode>${responseCode}</tns:ResponseCode>`,
     `<tns:MessageData Id="${MESSAGE_DATA_ID}">`,
     `<tns:MessageID>${MESSAGE_ID}</tns:MessageID>`,
     `<tns:ReferenceMessageID>${REFERENCE_MESSAGE_ID}</tns:ReferenceMessageID>`,
@@ -309,5 +309,136 @@ describe('FGIS Grain API 1.0.23 hardened SOAP/XML codec', () => {
     );
     const nested = `${'<x>'.repeat(97)}${'</x>'.repeat(97)}`;
     expectCodecError(() => decodeFgisGrainSoapEnvelope(nested), 'XML_DEPTH_LIMIT_EXCEEDED');
+  });
+  /**
+   * FORBIDDEN_CONTROL_CHARACTER was declared in the error-code union and raised
+   * in two places, and no test named it anywhere in the tree - raised as #4801.
+   * A code that is only ever produced is not the same as a code that is known to
+   * be produced: the check could have been deleted, or narrowed to nothing, and
+   * every existing case here would still have passed.
+   *
+   * These go through decodeFgisGrainSoapEnvelope rather than the private
+   * assertion, because the reachable raiser is the inbound path. The outbound
+   * one guards identifiers that a pattern has already validated, so it is
+   * defence in depth that a test cannot reach without inventing a caller.
+   */
+  it('refuses a character XML 1.0 cannot carry, however it is spelled inbound', () => {
+    // A numeric character reference decodes to U+0001 after the parser has
+    // finished, which is exactly why the assertion runs on the decoded output
+    // and not on the raw bytes.
+    expectCodecError(
+      () => decodeFgisGrainSoapEnvelope(
+        Buffer.from(responseEnvelope('success&#1;'), 'utf8'),
+        { expectedTransportOperation: 'SendResponse' },
+      ),
+      'FORBIDDEN_CONTROL_CHARACTER',
+    );
+
+    // The same character written literally, with no entity to decode.
+    expectCodecError(
+      () => decodeFgisGrainSoapEnvelope(
+        Buffer.from(responseEnvelope(`success${String.fromCharCode(1)}`), 'utf8'),
+        { expectedTransportOperation: 'SendResponse' },
+      ),
+      'FORBIDDEN_CONTROL_CHARACTER',
+    );
+
+    // Not a control character at all: U+FFFE is a permanently unassigned
+    // noncharacter, and XML 1.0 forbids it for a different reason than U+0001.
+    // A check written only against the C0 range would let this through.
+    expectCodecError(
+      () => decodeFgisGrainSoapEnvelope(
+        Buffer.from(responseEnvelope('success&#xFFFE;'), 'utf8'),
+        { expectedTransportOperation: 'SendResponse' },
+      ),
+      'FORBIDDEN_CONTROL_CHARACTER',
+    );
+  });
+
+  it('does not refuse the three control characters XML 1.0 allows', () => {
+    // The counterpart to the case above, and the reason it is here: a check
+    // that rejected every code point below U+0020 would pass all three
+    // assertions above and would reject ordinary whitespace in a regulator's
+    // message. Tab is the one that would be met first in practice.
+    const decoded = decodeFgisGrainSoapEnvelope(
+      Buffer.from(responseEnvelope('success&#9;'), 'utf8'),
+      { expectedTransportOperation: 'SendResponse' },
+    );
+    expect(decoded.responseCode).toBe('success');
+  });
+
+  it('escapes through the shared implementation rather than a private copy', () => {
+    // The point of #4806. Asserting that the output is correctly escaped would
+    // pass just as well against a second private copy, which is the state this
+    // change exists to end - and the state common/security/xml-escape already
+    // described as over. Replacing the shared module and looking for its
+    // sentinel in the built envelope is the only assertion that fails if the
+    // copy comes back.
+    jest.resetModules();
+    jest.doMock('../../../common/security/xml-escape', () => ({
+      escapeXmlText: (value: string) => `TEXT<${value}>`,
+      escapeXmlAttribute: (value: string) => `ATTR<${value}>`,
+      removeForbiddenXmlCharacters: (value: string) => value,
+      xmlText: (value: unknown) => String(value ?? ''),
+      xmlAttribute: (value: unknown) => String(value ?? ''),
+    }));
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+      const codec = require('./fgis-grain-1.0.23.xml-codec') as typeof import('./fgis-grain-1.0.23.xml-codec');
+      const operation = getFgisGrainBusinessOperation('CREATE_SDIZ');
+      if (!operation) throw new Error('CREATE_SDIZ operation missing');
+      const built = codec.buildUnsignedFgisGrainSoapEnvelope({
+        transportOperation: 'SendRequest',
+        businessOperationCode: 'CREATE_SDIZ',
+        businessPayloadXml: businessXml(operation.requestQName, '<biz:payload/>'),
+        messageId: MESSAGE_ID,
+        referenceMessageId: REFERENCE_MESSAGE_ID,
+        messageDataId: MESSAGE_DATA_ID,
+      });
+      const xml = built.unsignedEnvelopeBytes.toString('utf8');
+      expect(xml).toContain(`<tns:MessageID>TEXT<${MESSAGE_ID}></tns:MessageID>`);
+      expect(xml).toContain(`Id="ATTR<${MESSAGE_DATA_ID}>"`);
+    } finally {
+      jest.dontMock('../../../common/security/xml-escape');
+      jest.resetModules();
+    }
+  });
+
+  it('keeps refusing after the escaping moved, because the refusal did not move', () => {
+    // escapeXmlAttribute used to reach its assertion by calling escapeXmlText.
+    // Now each calls assertSafeCharacters itself, so a reader can see that
+    // dropping the delegation cannot silently drop the check with it.
+    jest.resetModules();
+    jest.doMock('../../../common/security/xml-escape', () => ({
+      escapeXmlText: (value: string) => value,
+      escapeXmlAttribute: (value: string) => value,
+      removeForbiddenXmlCharacters: (value: string) => value,
+      xmlText: (value: unknown) => String(value ?? ''),
+      xmlAttribute: (value: unknown) => String(value ?? ''),
+    }));
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+      const codec = require('./fgis-grain-1.0.23.xml-codec') as typeof import('./fgis-grain-1.0.23.xml-codec');
+      // Not expectCodecError: resetModules gives this copy of the module its own
+      // FgisGrainXmlCodecError class, so instanceof against the one imported at
+      // the top of this file compares two different constructors that happen to
+      // share a name. The error class of the module under test is the one to
+      // check against, and the code is what the assertion is actually about.
+      let raised: unknown;
+      try {
+        codec.decodeFgisGrainSoapEnvelope(
+          Buffer.from(responseEnvelope('success&#1;'), 'utf8'),
+          { expectedTransportOperation: 'SendResponse' },
+        );
+      } catch (error) {
+        raised = error;
+      }
+      expect(raised).toBeInstanceOf(codec.FgisGrainXmlCodecError);
+      expect((raised as InstanceType<typeof codec.FgisGrainXmlCodecError>).code)
+        .toBe('FORBIDDEN_CONTROL_CHARACTER');
+    } finally {
+      jest.dontMock('../../../common/security/xml-escape');
+      jest.resetModules();
+    }
   });
 });

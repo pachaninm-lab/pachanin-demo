@@ -1,0 +1,338 @@
+name: Production P0 Reviewer Preflight
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-preflight.yml'
+      - 'scripts/check-production-p0-reviewer-preflight.mjs'
+      - 'apps/api/prisma/migrations/20260810071000_p0_reviewer_preflight_authority/migration.sql'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-preflight.yml'
+      - 'scripts/check-production-p0-reviewer-preflight.mjs'
+      - 'apps/api/prisma/migrations/20260810071000_p0_reviewer_preflight_authority/migration.sql'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-preflight
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: 3072
+
+jobs:
+  contract:
+    name: Validate reviewer preflight contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-reviewer-preflight current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-production-p0-reviewer-preflight.mjs
+
+  preflight:
+    name: Read-only REG.RU staff reviewer authority
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-reviewer-preflight current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$target" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned REG.RU identity
+        id: ssh
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+          guard_main() {
+            [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo P0_CANONICAL_VPS_MISMATCH >&2; exit 20; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 21; }
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 22; }
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 23; }
+
+          key_path="$RUNNER_TEMP/pc-p0-reviewer-preflight-key"
+          known_hosts="$RUNNER_TEMP/pc-p0-reviewer-preflight-known-hosts"
+          validate_key() {
+            local source="$1" public_key
+            tr -d '\r' < "$source" > "$key_path"
+            chmod 0600 "$key_path"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key_path" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$key_path" > "$public_key" 2>/dev/null \
+              || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_slot() {
+            local raw="$1" plain escaped decoded
+            [[ -n "$raw" ]] || return 1
+            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
+            printf '%s\n' "$raw" > "$plain"
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null \
+              && validate_key "$decoded" \
+              && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            rm -f "$plain" "$escaped" "$decoded"
+            return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" \
+            || try_slot "${SSH_KEY_SECONDARY:-}" \
+            || try_slot "${SSH_KEY_FALLBACK:-}" \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 24; }
+
+          guard_main
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips" || { echo P0_CANONICAL_DNS_MISMATCH >&2; exit 25; }
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]] || { echo P0_PINNED_HOST_KEY_MISMATCH >&2; exit 26; }
+          mv "$match" "$known_hosts"
+          rm -f "$scan"
+          chmod 0600 "$known_hosts"
+          guard_main
+          ssh -i "$key_path" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
+            "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null' \
+            >/dev/null
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "key_path=$key_path" >> "$GITHUB_OUTPUT"
+          echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect reviewer authority without mutation
+        id: reviewer
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_KEY_PATH: ${{ steps.ssh.outputs.key_path }}
+          SSH_KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          output="$(ssh -i "$SSH_KEY_PATH" -p "$SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$SSH_KNOWN_HOSTS" -o ConnectTimeout=15 \
+            "$SSH_USER@$SSH_HOST" "bash -s -- '$TARGET_SHA'" <<'REMOTE'
+          set -euo pipefail
+          target_sha="$1"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(id -u)" -eq 0 ]]
+          command -v docker >/dev/null 2>&1
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          [[ -n "$project" ]]
+          mapfile -t api_ids < <(docker ps -q \
+            --filter "label=com.docker.compose.project=$project" \
+            --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 ))
+          api_id="${api_ids[0]}"
+          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          [[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" ]]
+          docker exec -i "$api_id" /nodejs/bin/node - <<'NODE'
+          const { PrismaClient } = require('@prisma/client');
+          const sanitizeErrorCode = (error) => {
+            const raw = String(error && typeof error === 'object' && 'code' in error ? error.code : 'UNKNOWN');
+            return raw.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32) || 'UNKNOWN';
+          };
+          (async () => {
+            const databaseUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
+            if (!databaseUrl) {
+              console.error('P0_STAFF_DATABASE_URL_MISSING');
+              process.exitCode = 31;
+              return;
+            }
+            const db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+            try {
+              const principals = await db.$queryRawUnsafe(`
+                SELECT current_user AS user_name,
+                       rolsuper,
+                       rolbypassrls,
+                       has_table_privilege(current_user, 'public.deals', 'SELECT') AS can_read_deals,
+                       has_table_privilege(current_user, 'auth.staff_assignments', 'SELECT') AS can_read_staff_assignments,
+                       coalesce(has_function_privilege(
+                         current_user,
+                         to_regprocedure('auth.staff_reviewer_preflight()'),
+                         'EXECUTE'
+                       ), false) AS reviewer_preflight_execute
+                FROM pg_roles
+                WHERE rolname = current_user
+              `);
+              const principal = principals[0];
+              if (!principal || principal.user_name !== 'pc_staff_runtime'
+                  || principal.rolsuper || principal.rolbypassrls || principal.can_read_deals
+                  || principal.can_read_staff_assignments || !principal.reviewer_preflight_execute) {
+                console.error('P0_STAFF_PRINCIPAL_BOUNDARY_INVALID');
+                process.exitCode = 32;
+                return;
+              }
+              const rows = await db.$queryRawUnsafe(`
+                SELECT active_owner_count, usable_reviewer_count
+                FROM auth.staff_reviewer_preflight()
+              `);
+              const counts = rows[0] || {};
+              const owners = Number(counts.active_owner_count || 0);
+              const reviewers = Number(counts.usable_reviewer_count || 0);
+              if (!Number.isInteger(owners) || owners < 0 || !Number.isInteger(reviewers) || reviewers < 0) {
+                console.error('P0_REVIEWER_PREFLIGHT_INVALID_COUNTS');
+                process.exitCode = 33;
+                return;
+              }
+              console.log(`REVIEWER_PREFLIGHT|${principal.user_name}|${owners}|${reviewers}`);
+            } finally {
+              await db.$disconnect();
+            }
+          })().catch((error) => {
+            console.error(`P0_REVIEWER_PREFLIGHT_DB_ERROR|${sanitizeErrorCode(error)}`);
+            process.exitCode = 34;
+          });
+          NODE
+          printf 'PRODUCTION_MUTATION=NONE\n'
+          REMOTE
+          )"
+          marker="$(grep '^REVIEWER_PREFLIGHT|' <<< "$output" | tail -n1)"
+          mutation="$(grep '^PRODUCTION_MUTATION=' <<< "$output" | tail -n1)"
+          [[ "$mutation" == 'PRODUCTION_MUTATION=NONE' ]]
+          IFS='|' read -r tag principal owners reviewers <<< "$marker"
+          [[ "$tag" == REVIEWER_PREFLIGHT && "$principal" == pc_staff_runtime ]]
+          [[ "$owners" =~ ^[0-9]+$ && "$reviewers" =~ ^[0-9]+$ ]]
+          echo "active_owner_count=$owners" >> "$GITHUB_OUTPUT"
+          echo "usable_reviewer_count=$reviewers" >> "$GITHUB_OUTPUT"
+          echo "principal=$principal" >> "$GITHUB_OUTPUT"
+
+      - name: Reconfirm exact main after read-only inspection
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+      - name: Publish bounded result
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          ACTIVE_OWNERS: ${{ steps.reviewer.outputs.active_owner_count }}
+          USABLE_REVIEWERS: ${{ steps.reviewer.outputs.usable_reviewer_count }}
+          STAFF_PRINCIPAL: ${{ steps.reviewer.outputs.principal }}
+        run: |
+          set -euo pipefail
+          if (( USABLE_REVIEWERS > 0 )); then
+            next='EXISTING_REVIEWER_ASSIGNMENT_PRESENT'
+          else
+            next='FIRST_REVIEWER_BOOTSTRAP_REQUIRED'
+          fi
+          body="$(cat <<EOF
+          ## Production P0 reviewer preflight
+
+          - exact main: \`$TARGET_SHA\`
+          - result: \`PASS\`
+          - staff principal: \`$STAFF_PRINCIPAL\`
+          - active PLATFORM_OWNER assignments: \`$ACTIVE_OWNERS\`
+          - usable registration-reviewer assignments: \`$USABLE_REVIEWERS\`
+          - production mutation: \`NONE\`
+          - next: \`$next\`
+          EOF
+          )"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$body"
+
+      - name: Remove protected runner credentials
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          key_path='${{ steps.ssh.outputs.key_path }}'
+          known_hosts='${{ steps.ssh.outputs.known_hosts }}'
+          [[ -z "$key_path" ]] || rm -f -- "$key_path"
+          [[ -z "$known_hosts" ]] || rm -f -- "$known_hosts"

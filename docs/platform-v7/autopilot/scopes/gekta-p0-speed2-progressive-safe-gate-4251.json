@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "perf/gekta-speed2-progressive-safe-gate-4251",
+  "status": "active",
+  "issue": 4251,
+  "purpose": "S2-F1: reduce general-agro first meaningful latency by releasing an already-generated safety-checked word-bounded prefix before the first sentence terminator while preserving fail-closed secret/write/internal-trace protections and leaving verified-platform/current-evidence behavior unchanged.",
+  "approvedBy": "repository-owner SPEED-2 authority issue #4251 on 2026-08-16; refreshed against live main on 2026-08-18",
+  "authorityBaseExactMain": "beed71c08783906d4235f3a02ad0b737a4c8be15",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/gekta-p0-speed2-controller.yml",
+    "scripts/gekta-speed2-real-canary.mjs",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed2-progressive-safe-gate-4251.json"
+  ],
+  "requiredBehavior": [
+    "candidate diff must keep the SPEED-2 controller and real-canary files byte-identical to current main; those two allowedPaths exist only because the current controller compatibility contract requires them",
+    "change no model prompt provider request token budget timeout runtime model host or StreamingAnswerGate safety predicate",
+    "progressive release is allowed only for general_agro when currentDataRequired is false",
+    "verified_platform and current-evidence requests retain complete-block release semantics",
+    "never release an unfinished whitespace-delimited token so secret or raw-link token material cannot straddle the release boundary",
+    "carry bounded safety lookbehind across progressive fragments so WRITE_CLAIM and SECRET patterns remain fail-closed across fragment boundaries",
+    "withhold unresolved internal traces tags code fences JSON-like envelopes",
+    "preserve final sanitized answer semantics and refusal behavior",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "modifying the SPEED-2 controller or real-canary implementation in this S2-F1 candidate",
+    "canned response fallback demo answer or deterministic agronomic answer injection",
+    "weakening WRITE_CLAIM SECRET current-evidence platform-grounding internal-trace or raw-link protection",
+    "verified_platform or current-evidence progressive release",
+    "new workflow arbitrary shell sudo root SSH runtime mutation timeout increase paid API new server or GPU",
+    "PC-CROP registration Company OS accounting deals reviewer staff or unrelated scope"
+  ]
+}

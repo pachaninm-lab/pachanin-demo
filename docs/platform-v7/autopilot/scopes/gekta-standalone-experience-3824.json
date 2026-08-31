@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-standalone-experience-3824",
+  "branch": "agent/gekta-standalone-experience-3824",
+  "issue": 3824,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "44f2d4f7e79bdad192958e72a50a884891a3e51e"
+  },
+  "purpose": "Publish Gekta as an independent top-level public AI product at /gekta with its own ChatGPT-like shell, product positioning, RU/EN/ZH copy, anonymous public route authority, SEO authority, exact live release acceptance and session UX while reusing the existing governed public agro-chat streaming boundary and keeping platform workspaces, Deals, tenant authority and registration P0 out of this surface.",
+  "allowedPaths": [
+    "apps/web/app/gekta/page.tsx",
+    "apps/web/components/gekta/GektaChatApp.tsx",
+    "apps/web/components/gekta/GektaChatApp.module.css",
+    "apps/web/lib/platform-v7/public-seo-routes.json",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/gektaStandaloneExperience.test.ts",
+    "scripts/production-web-live-acceptance.sh",
+    "docs/platform-v7/autopilot/scopes/gekta-standalone-experience-3824.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/gekta",
+    "shell": "standalone",
+    "modelBoundary": "/api/agro-chat?stream=1",
+    "mode": "public-read-only",
+    "privateWorkspaceData": "forbidden",
+    "platformNavigation": "not embedded",
+    "sessionStorage": "gekta-standalone-chat-v1:<locale>",
+    "languages": ["ru", "en", "zh"]
+  },
+  "routeAuthority": {
+    "anonymousPage": "/gekta",
+    "anonymousApi": "/api/agro-chat",
+    "indexableRegistry": "/gekta",
+    "privateMode": "unchanged"
+  },
+  "liveAcceptance": {
+    "protectedController": "Production Web Exact-SHA Release",
+    "routes": [
+      "/gekta?lang=ru",
+      "/gekta?lang=en",
+      "/gekta?lang=zh"
+    ],
+    "requiresSitemap": true,
+    "requiresIndexableHeaders": true,
+    "failureBoundary": "existing exact-revision rollback"
+  },
+  "forbiddenChanges": [
+    "PC-CROP registration, reviewer, MFA or password-reset runtime",
+    "Deal, role, tenant, RBAC, RLS or PostgreSQL authority",
+    "model runtime, system prompt, inference routing or Qwen deployment",
+    "agro-chat handler behavior, payload contract or private AI endpoints",
+    "production mutation logic, credentials or protected release authority",
+    "paid external AI, vector database or new server",
+    "claims that unaccepted future Gekta capabilities are already live"
+  ],
+  "requiredChecks": [
+    "web typecheck",
+    "gektaStandaloneExperience.test.ts",
+    "platformV7PublicSeoRouteAuthority.test.ts",
+    "web build",
+    "public AI stream contract tests",
+    "middleware public-route authority tests",
+    "production web live-acceptance contract",
+    "mobile 320/390/430 no-horizontal-overflow and >=44px controls",
+    "git diff --check"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "Standalone public product shell and chat UX only. It reuses current accepted public inference capabilities and does not itself attest future v7.0 phases such as current-source retrieval, private farm memory, connectors, vision, Excel, government-system integration or privileged actions."
+}

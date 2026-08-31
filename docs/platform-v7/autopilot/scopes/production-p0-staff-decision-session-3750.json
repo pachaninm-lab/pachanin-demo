@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-p0-staff-decision-session-3750",
+  "status": "active",
+  "purpose": "Require the existing server-authoritative CONTROL_PLANE staff access session and STAFF_REQUEST_APPROVE grant on production P0 registration decisions.",
+  "authorityBaseExactMain": "b315a2f5752647bb6cf4e66de14d93bd8fc3bd44",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/src/modules/staff-access/staff-access.controller.ts",
+    "apps/api/src/modules/staff-access/registration-decision-session-boundary.spec.ts"
+  ],
+  "baselineSha256": {
+    "controller": "80cdde0f4bc814185f6a71f5cf006f6e718305b4f0c9ab85d96aaa63e237e030"
+  },
+  "acceptedSha256": {
+    "controller": "45c6ca5ac3ab62aed508f522d3ec3b0b6920a9757a1ad8d62985dca8bd828b84",
+    "test": "274a920c3c4b5d7012f93cab4495fdc052b9fc4f8b68f35474b58d65f559e16c"
+  },
+  "requiredInvariants": [
+    "Registration decisions require an active server-resolved staff access session.",
+    "Only CONTROL_PLANE mode with STAFF_REQUEST_APPROVE can authorize the decision endpoint.",
+    "The durable staff assignment permission is rechecked before the decision executes.",
+    "The follow-up branch cannot edit this scope contract, its checker, or the protected guard workflow."
+  ]
+}

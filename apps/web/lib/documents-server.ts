@@ -56,27 +56,7 @@ function mapApi(item: any): DocumentCenterItem {
   };
 }
 
-function mapRuntime(item: RuntimeDocument): DocumentCenterItem {
-  return {
-    id: item.id,
-    title: item.title || item.type,
-    type: item.type,
-    status: item.status,
-    format: item.format || 'PDF',
-    sizeKb: item.sizeKb || 0,
-    issuedAt: item.issuedAt || '',
-    uploadedBy: item.uploadedBy,
-    verifiedBy: item.verifiedBy,
-    linkedTo: item.linkedTo,
-    blocker: item.blocker,
-    hash: item.hash,
-    version: item.version,
-    dealId: item.dealId,
-    isRuntimeFallback: true
-  };
-}
-
-export async function getDocuments(fallbackDocuments: RuntimeDocument[]): Promise<DocumentCenterItem[]> {
+export async function getDocuments(_fallbackDocuments: RuntimeDocument[]): Promise<DocumentCenterItem[]> {
   try {
     const response = await fetch(serverApiUrl('/documents'), { cache: 'no-store', headers: await serverAuthHeaders() });
     if (!response.ok) throw new Error(`documents ${response.status}`);
@@ -84,6 +64,6 @@ export async function getDocuments(fallbackDocuments: RuntimeDocument[]): Promis
     if (!Array.isArray(payload)) throw new Error('documents shape');
     return payload.map(mapApi);
   } catch {
-    return fallbackDocuments.map(mapRuntime);
+    return [];
   }
 }

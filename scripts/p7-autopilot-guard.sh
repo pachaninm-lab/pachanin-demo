@@ -4,14 +4,32 @@ set -euo pipefail
 BASE_REF="${BASE_REF:-origin/main}"
 HEAD_REF="${HEAD_REF:-HEAD}"
 STATE_FILE="docs/platform-v7/autopilot/autopilot-state.json"
+REGISTRATION_ROLLOVER_BRANCH="fix/p0-registration-authority-rollover-4637"
+OWNER_AUDIT_LOCK_BRANCH="fix/p0-owner-control-plane-audit-lock-4698"
+CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
+
+is_immutable_scope_branch() {
+  case "$1" in
+    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH") return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 if git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
   if ! git merge-base "$BASE_REF" "$HEAD_REF" >/dev/null 2>&1; then
     git fetch --unshallow origin main 2>/dev/null || git fetch origin main
   fi
-  DIFF_FILES=$(git diff --name-only "$BASE_REF...$HEAD_REF")
+  if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+    DIFF_FILES=$(git diff --no-renames --name-only "$BASE_REF...$HEAD_REF")
+  else
+    DIFF_FILES=$(git diff --name-only "$BASE_REF...$HEAD_REF")
+  fi
 else
-  DIFF_FILES=$(git diff --name-only "HEAD~1...$HEAD_REF")
+  if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+    DIFF_FILES=$(git diff --no-renames --name-only "HEAD~1...$HEAD_REF")
+  else
+    DIFF_FILES=$(git diff --name-only "HEAD~1...$HEAD_REF")
+  fi
 fi
 
 echo "platform-v7 autopilot guard"
@@ -28,12 +46,19 @@ if [ ! -f "$STATE_FILE" ]; then
   exit 1
 fi
 
-ALLOWED_CURRENT=$(node - <<'JS'
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+  # The scope for these production-capable repairs is resolved exclusively
+  # from the immutable base commit below, never from the
+  # pull request's working tree or the globally active implementation scope.
+  ALLOWED_CURRENT=''
+else
+  ALLOWED_CURRENT=$(node - <<'JS'
 const fs = require('fs');
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
 for (const file of state.allowedCurrentScope || []) console.log(file);
 JS
-)
+  )
+fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/pc-crop-00-governance-foundation" ]; then
   PC_CROP_GOVERNANCE_SCOPE='.github/workflows/pc-crop-governance.yml
@@ -308,7 +333,49 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$EXACT_MAIN_LIVE_EVIDENCE_SCOPE")
 fi
 
-APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" node - <<'JS'
+const { execFileSync } = require('node:child_process');
+
+const baseRef = String(process.env.BASE_REF || '').trim();
+const stateFile = String(process.env.STATE_FILE || '').trim();
+const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
+if (!baseRef || !stateFile || !branch) {
+  throw new Error('P7_IMMUTABLE_SCOPE: immutable scope inputs are required');
+}
+
+let state;
+try {
+  const raw = execFileSync('git', ['show', `${baseRef}:${stateFile}`], { encoding: 'utf8' });
+  state = JSON.parse(raw);
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
+}
+
+const scopes = state.approvedConcurrentScopes?.[branch];
+if (!Array.isArray(scopes) || scopes.length === 0) {
+  throw new Error(`P7_IMMUTABLE_SCOPE: no immutable approved scope for ${branch}`);
+}
+
+const normalized = scopes.map((entry, index) => {
+  if (typeof entry !== 'string') {
+    throw new Error(`P7_IMMUTABLE_SCOPE: scope[${index}] is not a string`);
+  }
+  const value = entry.trim().replace(/\/+$/u, '');
+  if (!value || value.includes('\\') || value === '..' || value.startsWith('../') || value.includes('/../')) {
+    throw new Error(`P7_IMMUTABLE_SCOPE: unsafe path ${JSON.stringify(entry)}`);
+  }
+  return value;
+});
+if (new Set(normalized).size !== normalized.length) {
+  throw new Error('P7_IMMUTABLE_SCOPE: duplicate immutable approved paths');
+}
+process.stdout.write(`${normalized.join('\n')}\n`);
+JS
+  )
+else
+  APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="$CURRENT_BRANCH" node - <<'JS'
 const fs = require('fs');
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
@@ -317,20 +384,42 @@ if (Array.isArray(scopes)) {
   for (const file of scopes) console.log(file);
 }
 JS
-)
+  )
+fi
 
-if [ -n "$APPROVED_BRANCH_SCOPE" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+  # Discard every legacy hardcoded or diff-triggered scope expansion above.
+  # This branch receives exactly the immutable base-approved entries and no
+  # union with global, legacy, or branch-local authorities.
+  ALLOWED_CURRENT="$APPROVED_BRANCH_SCOPE"
+elif [ -n "$APPROVED_BRANCH_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$APPROVED_BRANCH_SCOPE")
 fi
 
-SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node scripts/p7-source-controlled-scope.mjs)
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+  SOURCE_CONTROLLED_SCOPE=''
+else
+  SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node scripts/p7-source-controlled-scope.mjs)
+fi
 
 if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+  MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$)' || true)
+  if [ -n "$MUTABLE_SCOPE_AUTHORITIES" ]; then
+    echo "Mutable scope authority changed on a PC-CROP immutable-scope implementation branch:"
+    printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES"
+    exit 1
+  fi
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ] || [ "${GITHUB_HEAD_REF:-}" = "identity-rls-3670" ]; then
   # Lockfile exemptions are granted per branch by the owner, never self-issued.
+  # identity-rls-3670: owner-directed P0 registration/RLS closure requires the
+  # actual nanoid HIGH-advisory remediation; package.json and pnpm-lock.yaml
+  # remain bounded by the source-controlled branch scope below.
   # fix/security-brace-expansion-5-0-8: owner instruction of 2026-08-03 to raise
   # brace-expansion to 5.0.9 and socket.io-parser to 4.2.7, both HIGH advisories
   # against the production tree. A resolution bump cannot be expressed without
@@ -376,11 +465,16 @@ if [ -n "$FORBIDDEN_FILES" ]; then
   exit 1
 fi
 
-SCOPE_RESULT=$(DIFF_FILES="$DIFF_FILES" ALLOWED_CURRENT="$ALLOWED_CURRENT" node - <<'JS'
-const fs = require('fs');
-const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+  P7_EXACT_APPROVED_SCOPE=1
+else
+  P7_EXACT_APPROVED_SCOPE=0
+fi
+
+SCOPE_RESULT=$(DIFF_FILES="$DIFF_FILES" ALLOWED_CURRENT="$ALLOWED_CURRENT" P7_EXACT_APPROVED_SCOPE="$P7_EXACT_APPROVED_SCOPE" node - <<'JS'
 const files = String(process.env.DIFF_FILES || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
 const allowedCurrent = String(process.env.ALLOWED_CURRENT || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
+const exactApprovedScope = process.env.P7_EXACT_APPROVED_SCOPE === '1';
 const allowedInfra = /^(AGENTS\.md|docs\/platform-v7\/execution-queue\.md|docs\/platform-v7\/autopilot\/.+|scripts\/p7-autopilot-guard\.sh|scripts\/p7-agent-runner\.sh|scripts\/p7-autopilot-dispatcher\.mjs|scripts\/p7-autopilot-scope-cleaner\.mjs|\.github\/workflows\/automerge\.yml|\.github\/workflows\/ci\.yml|\.github\/workflows\/web-unit\.yml|\.github\/workflows\/platform-v7-autopilot-guard\.yml|\.github\/workflows\/platform-v7-autopilot-generated-merge\.yml|\.github\/workflows\/platform-v7-autopilot-loop\.yml|\.github\/workflows\/platform-v7-agent-runner\.yml|\.github\/workflows\/platform-v7-generated-pr-cleanup\.yml|\.github\/workflows\/platform-v7-autopilot-watchdog\.yml|\.github\/workflows\/platform-v7-safe-merge\.yml|\.github\/ISSUE_TEMPLATE\/platform-v7-agent-run\.md)$/;
 
 function normalizePath(input) { return String(input ?? '').trim().replace(/\\/g, '/').replace(/\/+$/g, ''); }
@@ -405,7 +499,19 @@ function scopeMatches(allowedEntry, candidate) {
   if (allowed.includes('*')) return globToRegExp(allowed).test(file);
   return file.startsWith(`${allowed}/`);
 }
-const disallowed = files.filter((file) => !allowedInfra.test(file) && !allowedCurrent.some((scope) => scopeMatches(scope, file)));
+function exactScopeMatches(allowedEntry, candidate) {
+  const allowed = normalizePath(allowedEntry);
+  const file = normalizePath(candidate);
+  if (!allowed || !file) return false;
+  if (allowed.includes('*')) return globToRegExp(allowed).test(file);
+  return allowed === file;
+}
+const disallowed = files.filter((file) => {
+  const approved = allowedCurrent.some((scope) => (
+    exactApprovedScope ? exactScopeMatches(scope, file) : scopeMatches(scope, file)
+  ));
+  return exactApprovedScope ? !approved : !allowedInfra.test(file) && !approved;
+});
 if (disallowed.length > 0) {
   process.stdout.write(disallowed.join('\n'));
   process.exitCode = 1;

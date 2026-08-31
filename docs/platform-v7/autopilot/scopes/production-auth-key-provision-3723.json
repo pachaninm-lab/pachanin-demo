@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/production-auth-key-discovery-3727",
+  "status": "active",
+  "purpose": "Repair the proven PC-CROP AUTH_TOKEN_PEPPER_MISSING production blocker by preserving the existing root-owned opaque-token key, deriving one purpose-separated generic auth hash pepper from it, and accepting only the workflow's bounded evidence subtree while keeping every other worktree change fail-closed.",
+  "approvedBy": "owner-direct-pc-crop-production-registration-continuation-2026-08-13",
+  "authorityBaseExactMain": "1ce8c51c1545024e4df3b5faa603b900891f523a",
+  "impactClassifierRun": 31728508551,
+  "impactEvidenceComment": 5284486928,
+  "impactProductionRevision": "65303fa3c2268a7f9db59e76b76412933174ebd2",
+  "impactCompatibilityClass": "SAFE_EMPTY_PERSISTED_GENERIC_HASH_STATE",
+  "preMutationFailureRuns": [31730301382, 31730387466],
+  "preMutationFailureClass": "LOCAL_EVIDENCE_WORKTREE_GUARD",
+  "preMutationFailureProof": "REMOTE_SCRIPT_NOT_EXECUTED_AND_PRODUCTION_MUTATION_NONE",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-auth-opaque-token-key.yml",
+    "scripts/production-full-stack-exact-sha.sh",
+    "scripts/provision-production-auth-opaque-token-key.sh",
+    "scripts/check-production-auth-opaque-token-provision.mjs",
+    "docs/platform-v7/autopilot/scopes/production-auth-key-provision-3723.json"
+  ],
+  "forbiddenCapabilities": [
+    "secret value disclosure or repository storage",
+    "opaque root or derived pepper rotation when valid key material already exists",
+    "new opaque root creation or fallback when the protected existing opaque root file is missing",
+    "raw opaque root reuse as AUTH_TOKEN_PEPPER or derivation without the fixed pc-auth-generic-hash-pepper:v1 domain label",
+    "production host, SSH identity or protected Compose path disclosure",
+    "password reset, SMTP, IMAP, database write, deployment or container lifecycle mutation inside the provisioning workflow",
+    "release gate weakening",
+    "application product-code change"
+  ],
+  "acceptance": [
+    "a valid legacy one-line root-owned 0600 auth key file is migrated atomically to the exact two-line contract while preserving its opaque-token root byte-for-byte",
+    "the protected opaque root file must already exist and match the active API byte-for-byte; a missing, ambiguous or mismatched authority fails closed without creating replacement key material",
+    "immediately before a legacy-file migration or a current-file pre-deploy validation, the active isolated auth database is queried through an enforced READ ONLY transaction and every persisted generic-hash state aggregate must remain zero",
+    "the active API and Web revisions must remain equal, be an ancestor of exact current main and main must remain unchanged before and after the bounded protected-file operation",
+    "runner worktree checks allow untracked files only below the exact evidence subtree created by this workflow; tracked changes, staged changes or any other untracked path fail closed before and after the remote operation",
+    "AUTH_TOKEN_PEPPER is the deterministic HMAC-SHA-256 child of the retained opaque-token root under pc-auth-generic-hash-pepper:v1 and is never printed, committed, hashed for evidence or passed through GitHub secrets",
+    "a valid current two-line file is verified without rewrite, while malformed or relationship-mismatched files fail closed",
+    "the exact full-stack release independently verifies ownership, permissions, two-line shape and derivation relationship before injection, then verifies the effective API container environment before Web rollout",
+    "only safe provision state and validity markers are published; new recurring cost remains zero"
+  ]
+}

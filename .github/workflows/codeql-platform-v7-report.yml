@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - ".github/workflows/codeql-platform-v7-report.yml"
+      - ".github/codeql/**"
+      - "codeql/**"
+      - "scripts/codeql-replacement-guard.mjs"
       - "apps/api/**"
       - "apps/web/app/platform-v7/**"
       - "apps/web/components/platform-v7/**"
@@ -22,8 +25,9 @@ jobs:
   codeql-report:
     name: codeql report-mode
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    continue-on-error: true
+    timeout-minutes: 30
+    # No continue-on-error. Replacing a security control is only defensible if
+    # the proof that it was replaced — and not removed — can fail the job.
     strategy:
       fail-fast: false
       matrix:
@@ -32,20 +36,215 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Initialize CodeQL
+        id: init
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: none
+          # One-for-one replacement of js/insufficient-password-hash. The guard
+          # steps below prove it is exactly that.
+          config-file: ./.github/codeql/codeql-config.yml
 
+      # Every CodeQL invocation below writes its combined output to a file that
+      # is uploaded whatever happens. The previous three attempts each failed
+      # inside a step whose stderr was unreachable afterwards: the GitHub log
+      # tail is capped, and an artifact populated only on success is empty
+      # exactly when it is needed.
+      - name: Locate the CodeQL CLI and its bundled packs
+        env:
+          CODEQL_BIN: ${{ steps.init.outputs.codeql-path }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/codeql
+          test -n "$CODEQL_BIN"
+          test -x "$CODEQL_BIN"
+          echo "CODEQL_BIN=$CODEQL_BIN" >> "$GITHUB_ENV"
+          "$CODEQL_BIN" version --format=json \
+            > artifacts/codeql/codeql-version.json \
+            2> artifacts/codeql/codeql-version.err
+          cat artifacts/codeql/codeql-version.err
+          node -e 'JSON.parse(require("fs").readFileSync("artifacts/codeql/codeql-version.json", "utf8"))'
+
+      - name: Resolve the bundled qlpack roots
+        run: |
+          # errexit is on by default for this shell, which would abort before
+          # the diagnostics below ever ran. Every CodeQL step here turns it off
+          # and propagates the real exit code by hand.
+          set +e
+          # --format=json writes the document to stdout and progress lines such
+          # as "Recording pack reference ..." to stderr. Merging them produces a
+          # file that is neither parseable JSON nor a readable log, so the two
+          # streams are captured side by side instead.
+          "$CODEQL_BIN" resolve qlpacks --format=json \
+            > artifacts/codeql/resolve-qlpacks.json \
+            2> artifacts/codeql/resolve-qlpacks.err
+          rc=$?
+          tail -n 300 artifacts/codeql/resolve-qlpacks.err
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          # The search path is derived from where the CLI actually resolved its
+          # own packs, never from a guessed directory layout.
+          # Past the CodeQL invocation the ordinary fail-fast rules apply again.
+          set -e
+          SEARCH="$(node -e '
+            const path = require("path");
+            const packs = JSON.parse(require("fs").readFileSync("artifacts/codeql/resolve-qlpacks.json", "utf8"));
+            const roots = new Set();
+            for (const locations of Object.values(packs)) {
+              for (const location of locations) {
+                // Every query pack vendors its own copy of the shared libraries
+                // under .codeql/libraries. Putting those on the search path
+                // makes one pack visible from a dozen roots, and resolution
+                // fails as ambiguous rather than picking one. Only the
+                // top-level bundled root belongs here.
+                if (location.includes(`${path.sep}.codeql${path.sep}libraries${path.sep}`)) continue;
+                roots.add(path.dirname(path.dirname(location)));
+              }
+            }
+            process.stdout.write([...roots].join(":"));
+          ')"
+          test -n "$SEARCH"
+          echo "CODEQL_SEARCH_PATH=$SEARCH" >> "$GITHUB_ENV"
+          echo "$SEARCH" | tr ':' '\n' | tee artifacts/codeql/search-path.txt
+
+      - name: Compile the replacement query
+        run: |
+          set +e
+          set -o pipefail
+          "$CODEQL_BIN" query compile --check-only \
+            --search-path="$CODEQL_SEARCH_PATH" \
+            --additional-packs="$CODEQL_SEARCH_PATH" \
+            codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql \
+            2>&1 | tee artifacts/codeql/query-compile.log
+          rc=${PIPESTATUS[0]}
+          tail -n 300 artifacts/codeql/query-compile.log
+          exit "$rc"
+
+      - name: Run the query regression matrix
+        run: |
+          set +e
+          set -o pipefail
+          # Positive fixtures must alert and negative fixtures must not. The
+          # expectation files are the contract, so a drift in either direction
+          # fails here rather than reaching production.
+          # The test pack depends on the query pack beside it, so the
+          # repository's own codeql/ directory joins the bundled root on the
+          # search path. Without it the sibling is unresolvable and both tests
+          # fail to compile rather than to assert.
+          "$CODEQL_BIN" test run codeql/insufficient-password-hash-corrected/tests \
+            --search-path="$CODEQL_SEARCH_PATH:$PWD/codeql" \
+            --additional-packs="$CODEQL_SEARCH_PATH:$PWD/codeql" \
+            2>&1 | tee artifacts/codeql/query-test.log
+          rc=${PIPESTATUS[0]}
+          tail -n 300 artifacts/codeql/query-test.log
+          exit "$rc"
+
+      # The regression matrix above proves the run matches the pinned .expected
+      # files. This proves those files match the manifest, case by named case.
+      # Together they make the run equal the manifest, and an extra finding
+      # fails as loudly as a missing one — a count would pass a run in which one
+      # case stopped alerting while another started.
+      - name: Prove the findings are exactly the declared set
+        run: |
+          set +e
+          set -o pipefail
+          node scripts/codeql-replacement-guard.mjs expectations \
+            2>&1 | tee artifacts/codeql/expectations-guard.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Prove the selection is a replacement, not a removal
+        run: |
+          set -e
+          SUITE="$(node -e '
+            const packs = JSON.parse(require("fs").readFileSync("artifacts/codeql/resolve-qlpacks.json", "utf8"));
+            process.stdout.write(packs["codeql/javascript-queries"][0]);
+          ')"
+          # Same split as above: the JSON goes to its own file untouched, the
+          # progress chatter to a sibling .err that is echoed and archived.
+          set +e
+          "$CODEQL_BIN" resolve queries --format=json \
+            --search-path="$CODEQL_SEARCH_PATH" \
+            "$SUITE/codeql-suites/javascript-code-scanning.qls" \
+            > artifacts/codeql/resolve-upstream-queries.json \
+            2> artifacts/codeql/resolve-upstream-queries.err
+          rc=$?
+          tail -n 300 artifacts/codeql/resolve-upstream-queries.err
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          "$CODEQL_BIN" resolve queries --format=json \
+            --search-path="$CODEQL_SEARCH_PATH" \
+            codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql \
+            > artifacts/codeql/resolve-replacement-query.json \
+            2> artifacts/codeql/resolve-replacement-query.err
+          rc=$?
+          tail -n 300 artifacts/codeql/resolve-replacement-query.err
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          set -e
+          node -e '
+            const fs = require("fs");
+            const upstream = JSON.parse(fs.readFileSync("artifacts/codeql/resolve-upstream-queries.json", "utf8"));
+            const replacement = JSON.parse(fs.readFileSync("artifacts/codeql/resolve-replacement-query.json", "utf8"));
+            const kept = upstream.filter((q) => !/CWE-916\/InsufficientPasswordHash\.ql$/.test(q));
+            if (kept.length !== upstream.length - 1) {
+              throw new Error(`expected to drop exactly one built-in query, dropped ${upstream.length - kept.length}`);
+            }
+            fs.writeFileSync("artifacts/codeql/resolved-queries.json", JSON.stringify(kept.concat(replacement), null, 2));
+          '
+          set +e
+          set -o pipefail
+          node scripts/codeql-replacement-guard.mjs selection artifacts/codeql/resolved-queries.json \
+            2>&1 | tee artifacts/codeql/selection-guard.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Prove upstream has not drifted from the pinned fork base
+        run: |
+          set +e
+          set -o pipefail
+          node scripts/codeql-replacement-guard.mjs drift artifacts/codeql/resolve-qlpacks.json \
+            2>&1 | tee artifacts/codeql/drift-guard.log
+          exit "${PIPESTATUS[0]}"
+
+      # Only once resolve, compile and the regression matrix have all passed.
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4
-        continue-on-error: true
         with:
           category: "/language:${{ matrix.language }}"
+          output: sarif-results
+          upload: always
 
-      - name: Report-mode notice
+      - name: Prove the corrected control reports no product findings
+        run: |
+          set +e
+          set -o pipefail
+          cp -r sarif-results artifacts/codeql/sarif-results || true
+          node scripts/codeql-replacement-guard.mjs sarif "$(ls sarif-results/*.sarif | head -1)" \
+            2>&1 | tee artifacts/codeql/sarif-guard.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Collect the inputs alongside the outputs
         if: always()
         run: |
-          echo "CodeQL is report-mode only for the first platform-v7 baseline."
-          echo "Do not treat this workflow as a hard gate until findings are triaged."
+          set +e
+          mkdir -p artifacts/codeql/inputs
+          cp codeql/insufficient-password-hash-corrected/qlpack.yml artifacts/codeql/inputs/qlpack.yml
+          cp codeql/insufficient-password-hash-corrected/tests/qlpack.yml artifacts/codeql/inputs/tests-qlpack.yml
+          cp codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql artifacts/codeql/inputs/
+          cp codeql/insufficient-password-hash-corrected/OpaqueCredentialBarrier.qll artifacts/codeql/inputs/
+          cp codeql/insufficient-password-hash-corrected/upstream.lock.json artifacts/codeql/inputs/
+          cp codeql/insufficient-password-hash-corrected/expectations.json artifacts/codeql/inputs/
+          cp .github/codeql/codeql-config.yml artifacts/codeql/inputs/
+          cp -r codeql/insufficient-password-hash-corrected/tests artifacts/codeql/inputs/tests
+          ls -R artifacts/codeql > artifacts/codeql/manifest.txt
+          true
+
+      - name: Upload replacement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-replacement-evidence
+          path: artifacts/codeql
+          if-no-files-found: warn
+          retention-days: 30

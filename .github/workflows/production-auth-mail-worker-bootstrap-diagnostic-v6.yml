@@ -1,0 +1,295 @@
+name: Production Auth-Mail Worker Bootstrap Diagnostic v6
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-auth-mail-worker-bootstrap-diagnostic-v6.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-auth-mail-worker-bootstrap-diagnostic-v6
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  DEPLOYED_PRODUCTION_SHA: f166f50e8526cf43f3193e771be05ebc66888494
+  DIAGNOSTIC_COMMAND: /production p0-auth-mail-worker-bootstrap-v6 deployed
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate ephemeral bootstrap diagnostic contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Enforce no-mail no-outbox diagnostic boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/production-auth-mail-worker-bootstrap-diagnostic-v6.yml').read_text(encoding='utf-8')
+          required=['docker run','--rm','BOOTSTRAP_ARTIFACT','KEYRING_PREFLIGHT','SMTP_CONFIG_PREFLIGHT','DB_CONNECT_PREFLIGHT','PRINCIPAL_PREFLIGHT','HEALTH_PORT_PREFLIGHT','EPHEMERAL_CONTAINER_REMOVED']
+          missing=[x for x in required if x not in text]
+          if missing: raise SystemExit('missing invariant: '+' | '.join(missing))
+          diagnostic=text.split('\n  diagnostic:\n',1)[1]
+          forbidden=['sendAuthMailSmtp','claimBatch','expireStale','redactTerminal','UPDATE auth.','INSERT INTO','DELETE FROM','ALTER ROLE','CREATE ROLE','DROP ROLE','docker compose','docker restart','--privileged','--network host','PASSWORD_RESET_REPLAYED YES']
+          bad=[x for x in forbidden if x in diagnostic]
+          if bad: raise SystemExit('unsafe diagnostic surface: '+' | '.join(bad))
+          if 'PRODUCTION_MUTATION EPHEMERAL_DIAGNOSTIC_CONTAINER_ONLY' not in diagnostic: raise SystemExit('mutation marker missing')
+          PY
+
+  diagnostic:
+    name: Reproduce nonroot worker bootstrap without polling or mail
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-mail-worker-bootstrap-v6 deployed' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bind current main to deployed worker code
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          git cat-file -e "${DEPLOYED_PRODUCTION_SHA}^{commit}"
+          git merge-base --is-ancestor "$DEPLOYED_PRODUCTION_SHA" "$main_sha"
+          git diff --quiet "$DEPLOYED_PRODUCTION_SHA..$main_sha" -- \
+            apps/api/src/auth-mail-worker.ts \
+            apps/api/src/modules/auth-mail/auth-mail-crypto.ts \
+            apps/api/src/modules/auth-mail/auth-mail-smtp.ts \
+            infra/docker/Dockerfile.api \
+            scripts/provision-production-auth-mail-runtime.sh \
+            scripts/production-auth-mail-outbox-cutover-core.sh
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "deployed_sha=$DEPLOYED_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]] || exit 15
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Execute isolated nonroot bootstrap preflight
+        id: diagnostic
+        shell: bash
+        env:
+          DEPLOYED_SHA: ${{ steps.target.outputs.deployed_sha }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "bash -s -- '$DEPLOYED_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          deployed_sha="$1"; run_id="$2"
+          runtime='/var/lib/pc-secret-authority/runtime'
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          fail(){ emit AUTH_MAIL_WORKER_BOOTSTRAP_V6 FAIL; emit ERROR_CODE "$1"; emit PRODUCTION_MUTATION EPHEMERAL_DIAGNOSTIC_CONTAINER_ONLY; exit "${2:-1}"; }
+          [[ "$(id -u)" -eq 0 ]] || fail ROOT_REQUIRED 20
+          [[ "$deployed_sha" =~ ^[0-9a-f]{40}$ && "$run_id" =~ ^[0-9]{1,24}$ ]] || fail INPUT_INVALID 21
+          [[ -d "$runtime/keyring" && -f "$runtime/current-key-version" && -f "$runtime/database-url" && -f "$runtime/transport.env" ]] || fail RUNTIME_PROJECTION_MISSING 22
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 )) || fail WEB_CARDINALITY 23
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "${web_ids[0]}")"
+          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 )) || fail API_CARDINALITY 24
+          api_id="${api_ids[0]}"
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" == "$deployed_sha" ]] || fail API_REVISION_DRIFT 25
+          api_image="$(docker inspect --format '{{.Config.Image}}' "$api_id")"
+          [[ -n "$api_image" ]] || fail API_IMAGE_MISSING 26
+          mapfile -t networks < <(docker inspect --format '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$api_id" | sed '/^$/d')
+          (( ${#networks[@]} == 1 )) || fail API_NETWORK_CARDINALITY 27
+          network="${networks[0]}"
+          name="pc-auth-mail-bootstrap-v6-${run_id}"
+          docker rm -f "$name" >/dev/null 2>&1 || true
+
+          script="$(mktemp /tmp/pc-auth-mail-bootstrap-v6.XXXXXX.js)"
+          trap 'rm -f "$script"; docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
+          chmod 0600 "$script"
+          cat > "$script" <<'NODE'
+          const fs=require('node:fs'); const http=require('node:http'); const {PrismaClient}=require('@prisma/client');
+          const out=(k,v)=>process.stdout.write(`${k}=${v}\n`);
+          const safe=e=>String(e?.code||e?.errorCode||e?.name||'UNKNOWN').toUpperCase().replace(/[^A-Z0-9_]/g,'_').slice(0,80);
+          (async()=>{
+            try{fs.accessSync('/app/dist/apps/api/src/auth-mail-worker.js',fs.constants.R_OK);out('BOOTSTRAP_ARTIFACT','PASS')}catch(e){out('BOOTSTRAP_ARTIFACT',safe(e));return}
+            let crypto,smtp;
+            try{crypto=require('/app/dist/apps/api/src/modules/auth-mail/auth-mail-crypto.js');smtp=require('/app/dist/apps/api/src/modules/auth-mail/auth-mail-smtp.js')}catch(e){out('MODULE_PREFLIGHT',safe(e));return}
+            out('MODULE_PREFLIGHT','PASS');
+            try{const v=crypto.resolveCurrentAuthMailKeyVersion();const k=crypto.resolveAuthMailOutboxKey(v);out('KEYRING_PREFLIGHT',Buffer.isBuffer(k)&&k.length===32?'PASS':'FAIL')}catch(e){out('KEYRING_PREFLIGHT',safe(e));return}
+            try{const c=smtp.resolveAuthMailSmtpConfig();out('SMTP_CONFIG_PREFLIGHT',c&&c.host&&c.port&&c.user&&c.password&&c.from?'PASS':'FAIL')}catch(e){out('SMTP_CONFIG_PREFLIGHT',safe(e));return}
+            let p;
+            try{const url=fs.readFileSync(process.env.AUTH_MAIL_DATABASE_URL_FILE,'utf8').trim();p=new PrismaClient({datasources:{db:{url}}});await p.$connect();out('DB_CONNECT_PREFLIGHT','PASS')}catch(e){out('DB_CONNECT_PREFLIGHT',safe(e));return}
+            try{const r=await p.$queryRawUnsafe('SELECT current_user');out('PRINCIPAL_PREFLIGHT',r?.[0]?.current_user==='pc_auth_mail_runtime'?'PASS':'WRONG_PRINCIPAL')}catch(e){out('PRINCIPAL_PREFLIGHT',safe(e));await p.$disconnect().catch(()=>{});return}
+            await p.$disconnect().catch(()=>{});
+            let server;
+            try{server=http.createServer((q,s)=>{s.statusCode=200;s.end('ok')});await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(3003,'0.0.0.0',resolve)});const r=await fetch('http://127.0.0.1:3003/',{signal:AbortSignal.timeout(3000)});out('HEALTH_PORT_PREFLIGHT',r.ok?'PASS':'FAIL')}catch(e){out('HEALTH_PORT_PREFLIGHT',safe(e));return}finally{if(server)await new Promise(r=>server.close(()=>r())).catch(()=>{})}
+            out('BOOTSTRAP_PREFLIGHT','PASS');
+          })().catch(e=>out('BOOTSTRAP_PREFLIGHT',safe(e)));
+          NODE
+
+          set +e
+          timeout 40s docker run --rm --name "$name" --network "$network" \
+            --entrypoint /nodejs/bin/node \
+            -e NODE_ENV=production \
+            -e RUNTIME_COMPONENT=auth-mail-worker \
+            -e AUTH_MAIL_WORKER_ENABLED=true \
+            -e AUTH_MAIL_WORKER_HEALTH_PORT=3003 \
+            -e AUTH_MAIL_OUTBOX_KEYRING_DIR=/run/pc-auth-mail/keyring \
+            -e AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE=/run/pc-auth-mail/current-key-version \
+            -e AUTH_MAIL_DATABASE_URL_FILE=/run/pc-auth-mail/database-url \
+            -e AUTH_MAIL_TRANSPORT_FILE=/run/pc-auth-mail/transport.env \
+            --mount type=bind,src="$runtime/keyring",dst=/run/pc-auth-mail/keyring,readonly \
+            --mount type=bind,src="$runtime/current-key-version",dst=/run/pc-auth-mail/current-key-version,readonly \
+            --mount type=bind,src="$runtime/database-url",dst=/run/pc-auth-mail/database-url,readonly \
+            --mount type=bind,src="$runtime/transport.env",dst=/run/pc-auth-mail/transport.env,readonly \
+            "$api_image" --input-type=commonjs - < "$script" > /tmp/pc-auth-mail-bootstrap-v6.out 2>/dev/null
+          container_rc=$?
+          set -e
+          sed -nE '/^(BOOTSTRAP_ARTIFACT|MODULE_PREFLIGHT|KEYRING_PREFLIGHT|SMTP_CONFIG_PREFLIGHT|DB_CONNECT_PREFLIGHT|PRINCIPAL_PREFLIGHT|HEALTH_PORT_PREFLIGHT|BOOTSTRAP_PREFLIGHT)=[A-Z0-9_]{1,100}$/p' /tmp/pc-auth-mail-bootstrap-v6.out
+          rm -f /tmp/pc-auth-mail-bootstrap-v6.out
+          emit EPHEMERAL_CONTAINER_RC "$container_rc"
+          if docker ps -aq --filter "name=^/${name}$" | grep -q .; then emit EPHEMERAL_CONTAINER_REMOVED FAIL; docker rm -f "$name" >/dev/null 2>&1 || true; else emit EPHEMERAL_CONTAINER_REMOVED PASS; fi
+          emit AUTH_MAIL_WORKER_BOOTSTRAP_V6 PASS
+          emit ERROR_CODE NONE
+          emit PRODUCTION_MUTATION EPHEMERAL_DIAGNOSTIC_CONTAINER_ONLY
+          REMOTE
+          rc=$?
+          set -e
+          sed -nE '/^(AUTH_MAIL_WORKER_BOOTSTRAP_V6|ERROR_CODE|BOOTSTRAP_ARTIFACT|MODULE_PREFLIGHT|KEYRING_PREFLIGHT|SMTP_CONFIG_PREFLIGHT|DB_CONNECT_PREFLIGHT|PRINCIPAL_PREFLIGHT|HEALTH_PORT_PREFLIGHT|BOOTSTRAP_PREFLIGHT|EPHEMERAL_CONTAINER_RC|EPHEMERAL_CONTAINER_REMOVED|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"
+          rm -f "$raw"; cat "$clean"; echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r k v; do case "$k" in AUTH_MAIL_WORKER_BOOTSTRAP_V6|ERROR_CODE|BOOTSTRAP_ARTIFACT|MODULE_PREFLIGHT|KEYRING_PREFLIGHT|SMTP_CONFIG_PREFLIGHT|DB_CONNECT_PREFLIGHT|PRINCIPAL_PREFLIGHT|HEALTH_PORT_PREFLIGHT|BOOTSTRAP_PREFLIGHT|EPHEMERAL_CONTAINER_RC|EPHEMERAL_CONTAINER_REMOVED|PRODUCTION_MUTATION) echo "${k,,}=$v" >> "$GITHUB_OUTPUT";; esac; done < "$clean"
+          rm -f "$clean"
+
+      - name: Publish sanitized bootstrap evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.diagnostic.outputs.auth_mail_worker_bootstrap_v6 }}
+          ERROR_CODE: ${{ steps.diagnostic.outputs.error_code }}
+          ARTIFACT: ${{ steps.diagnostic.outputs.bootstrap_artifact }}
+          MODULES: ${{ steps.diagnostic.outputs.module_preflight }}
+          KEYRING: ${{ steps.diagnostic.outputs.keyring_preflight }}
+          SMTP_CONFIG: ${{ steps.diagnostic.outputs.smtp_config_preflight }}
+          DB_CONNECT: ${{ steps.diagnostic.outputs.db_connect_preflight }}
+          PRINCIPAL: ${{ steps.diagnostic.outputs.principal_preflight }}
+          HEALTH_PORT: ${{ steps.diagnostic.outputs.health_port_preflight }}
+          PREFLIGHT: ${{ steps.diagnostic.outputs.bootstrap_preflight }}
+          CONTAINER_RC: ${{ steps.diagnostic.outputs.ephemeral_container_rc }}
+          CONTAINER_REMOVED: ${{ steps.diagnostic.outputs.ephemeral_container_removed }}
+          MUTATION: ${{ steps.diagnostic.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"
+          {
+            echo '### PC-CROP auth-mail worker bootstrap diagnostic v6'; echo
+            echo "- result / safe error: \`${RESULT:-unknown} / ${ERROR_CODE:-unknown}\`"
+            echo "- artifact / modules: \`${ARTIFACT:-unknown} / ${MODULES:-unknown}\`"
+            echo "- keyring / SMTP config: \`${KEYRING:-unknown} / ${SMTP_CONFIG:-unknown}\`"
+            echo "- DB connect / principal: \`${DB_CONNECT:-unknown} / ${PRINCIPAL:-unknown}\`"
+            echo "- health port / aggregate bootstrap: \`${HEALTH_PORT:-unknown} / ${PREFLIGHT:-unknown}\`"
+            echo "- ephemeral container rc / removed: \`${CONTAINER_RC:-unknown} / ${CONTAINER_REMOVED:-unknown}\`"
+            echo "- production mutation: \`${MUTATION:-unknown}\`"
+            echo '- no outbox polling, mail transmission, DB write, SMTP authentication, credential value, recipient, token, container ID or raw error is published.'
+          } > "$record"
+          gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce bounded diagnostic result
+        shell: bash
+        env:
+          REMOTE_RC: ${{ steps.diagnostic.outputs.rc }}
+          RESULT: ${{ steps.diagnostic.outputs.auth_mail_worker_bootstrap_v6 }}
+          PREFLIGHT: ${{ steps.diagnostic.outputs.bootstrap_preflight }}
+          REMOVED: ${{ steps.diagnostic.outputs.ephemeral_container_removed }}
+          MUTATION: ${{ steps.diagnostic.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "${REMOTE_RC:-1}" == 0 ]]
+          [[ "$RESULT" == PASS ]]
+          [[ "$PREFLIGHT" == PASS ]]
+          [[ "$REMOVED" == PASS ]]
+          [[ "$MUTATION" == EPHEMERAL_DIAGNOSTIC_CONTAINER_ONLY ]]

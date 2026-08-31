@@ -1,11 +1,12 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { RequestUser, Role } from '../../src/common/types/request-user';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
-import { StaffAccessRepository } from '../../src/modules/staff-access/staff-access.repository';
 import { StaffAccessService } from '../../src/modules/staff-access/staff-access.service';
 import { StaffAuditService } from '../../src/modules/staff-access/staff-audit.service';
+import { StaffAuthorityPrismaService } from '../../src/modules/staff-access/staff-authority-prisma.service';
 import { StaffProjectionService } from '../../src/modules/staff-access/staff-projection.service';
+import { StaffRuntimeAccessRepository } from '../../src/modules/staff-access/staff-runtime-access.repository';
 import {
   StaffAccessMode,
   StaffPermission,
@@ -28,6 +29,7 @@ const ids = {
   developerAssignment: 'sta-developer-e2e',
   sreAssignment: 'sta-sre-e2e',
 };
+const ADMIN_DATABASE_URL = process.env.STAFF_ACCESS_TEST_ADMIN_URL ?? '';
 
 function actor(userId: string, email: string, orgId: string, tenantId: string): RequestUser {
   return {
@@ -46,9 +48,13 @@ function actor(userId: string, email: string, orgId: string, tenantId: string): 
 
 describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
   const prisma = new AuthPrismaService();
-  const repository = new StaffAccessRepository(prisma);
+  const staffPrisma = new StaffAuthorityPrismaService();
+  const adminPrisma = new PrismaClient(
+    ADMIN_DATABASE_URL ? { datasources: { db: { url: ADMIN_DATABASE_URL } } } : undefined,
+  );
+  const repository = new StaffRuntimeAccessRepository(prisma, staffPrisma);
   const access = new StaffAccessService(repository);
-  const projection = new StaffProjectionService(repository, access);
+  const projection = new StaffProjectionService(staffPrisma, access);
   const audit = new StaffAuditService(repository, access);
 
   const owner = actor(ids.owner, 'owner.staff.e2e@example.test', ids.platformOrg, 'tenant-staff-platform-e2e');
@@ -59,9 +65,12 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
   const sre = actor(ids.sre, 'sre.staff.e2e@example.test', ids.platformOrg, 'tenant-staff-platform-e2e');
 
   beforeAll(async () => {
-    await prisma.$connect();
+    if (!ADMIN_DATABASE_URL) {
+      throw new Error('STAFF_ACCESS_TEST_ADMIN_URL is required for isolated fixture bootstrap.');
+    }
+    await Promise.all([prisma.$connect(), staffPrisma.onModuleInit(), adminPrisma.$connect()]);
 
-    await prisma.organization.upsert({
+    await adminPrisma.organization.upsert({
       where: { id: ids.platformOrg },
       create: {
         id: ids.platformOrg,
@@ -74,7 +83,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
       },
       update: {},
     });
-    await prisma.organization.upsert({
+    await adminPrisma.organization.upsert({
       where: { id: ids.otherOrg },
       create: {
         id: ids.otherOrg,
@@ -89,7 +98,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
     });
 
     for (const user of [owner, admin, supervisor, support, developer, sre]) {
-      await prisma.user.upsert({
+      await adminPrisma.user.upsert({
         where: { id: user.id },
         create: {
           id: user.id,
@@ -100,7 +109,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
         },
         update: {},
       });
-      await prisma.userOrg.upsert({
+      await adminPrisma.userOrg.upsert({
         where: { userId_organizationId: { userId: user.id, organizationId: ids.platformOrg } },
         create: {
           id: `membership-${user.id}`,
@@ -123,7 +132,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
     ] as const;
 
     for (const [id, userId, role] of assignments) {
-      await prisma.$executeRaw(Prisma.sql`
+      await adminPrisma.$executeRaw(Prisma.sql`
         INSERT INTO auth.staff_assignments (
           id, user_id, role, status, activated_at, granted_by_user_id, reason
         ) VALUES (
@@ -135,7 +144,11 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
   });
 
   afterAll(async () => {
-    await prisma.$disconnect();
+    await Promise.allSettled([
+      prisma.$disconnect(),
+      staffPrisma.onModuleDestroy(),
+      adminPrisma.$disconnect(),
+    ]);
   });
 
   it('forces MFA enrollment for every active staff assignment', async () => {
@@ -174,7 +187,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
   });
 
   it('creates an owner view-as session and enforces the exact organization and role in PostgreSQL', async () => {
-    const target = await prisma.organization.findUnique({
+    const target = await adminPrisma.organization.findUnique({
       where: { id: 'org-canonical-buyer' },
       select: { id: true, tenantId: true },
     });
@@ -207,15 +220,21 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
     expect(context.effectiveRole).toBe('BUYER');
     expect(context.accessMode).toBe(StaffAccessMode.VIEW_AS);
 
-    const cabinet = await projection.cabinetProjection(owner, context, target!.id, 'BUYER');
+    const cabinet = await projection.cabinetProjection(
+      owner,
+      context,
+      activated.accessToken,
+      target!.id,
+      'BUYER',
+    );
     expect(cabinet.mode).toBe('READ_ONLY_VIEW_AS');
     expect(cabinet.deals.some((deal) => deal.id === 'DEAL-INDUSTRIAL-001')).toBe(true);
 
     await expect(
-      projection.cabinetProjection(owner, context, ids.otherOrg, 'BUYER'),
+      projection.cabinetProjection(owner, context, activated.accessToken, ids.otherOrg, 'BUYER'),
     ).rejects.toBeTruthy();
     await expect(
-      projection.cabinetProjection(owner, context, target!.id, 'BANK'),
+      projection.cabinetProjection(owner, context, activated.accessToken, target!.id, 'BANK'),
     ).rejects.toBeTruthy();
   });
 

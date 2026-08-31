@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-auth-runtime-stage-evidence-20260811",
+  "status": "active",
+  "operationalStatus": "P0_AUTH_RUNTIME_STATE_READ_ONLY_INSPECTION",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Read-only inspection of active REG.RU auth-mail runtime file state without disclosure",
+  "allowedPaths": [
+    ".github/workflows/production-p0-auth-runtime-state-inspect.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-auth-runtime-state-inspect-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "credentialMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "owner-only issue command resolves and rechecks exact current main",
+    "pinned REG.RU SSH identity is required",
+    "active Compose working-directory authority is derived from the single running web service label",
+    "password-reset delivery file is classified only as an allowlisted structural state without value disclosure",
+    "transactional-mail file is classified only as an allowlisted structural/channel state without value disclosure",
+    "no file, container, database, credential, session, MFA or deployment mutation is performed",
+    "no raw path, environment value, credential or log output is published",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

@@ -25,6 +25,20 @@ on:
         description: 'DEPLOY-EXACT-SHA or ROLLBACK-EXACT-SHA'
         required: false
         type: string
+  workflow_call:
+    inputs:
+      action:
+        description: 'audit, deploy or rollback'
+        required: true
+        type: string
+      target_sha:
+        description: 'Full main commit SHA for deploy or rollback'
+        required: false
+        type: string
+      confirmation:
+        description: 'DEPLOY-EXACT-SHA or ROLLBACK-EXACT-SHA'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -92,6 +106,10 @@ jobs:
                   echo 'Rollback confirmation is invalid.' >&2
                   exit 4
                 }
+                ;;
+              *)
+                echo 'Release action is invalid.' >&2
+                exit 11
                 ;;
             esac
           fi
@@ -255,6 +273,9 @@ jobs:
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
             -o BatchMode=yes \
             -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=12 \
+            -o TCPKeepAlive=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$SSH_USER@$SSH_HOST" \
@@ -323,6 +344,9 @@ jobs:
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
             -o BatchMode=yes \
             -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=12 \
+            -o TCPKeepAlive=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$SSH_USER@$SSH_HOST" \

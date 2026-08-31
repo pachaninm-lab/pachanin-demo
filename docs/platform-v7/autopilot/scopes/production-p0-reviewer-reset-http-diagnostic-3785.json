@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-reset-http-current-main-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_HTTP_DIAGNOSTIC_EXACT_CURRENT_MAIN",
+  "issue": 3785,
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-http-diagnostic.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-http-diagnostic-3785.json",
+    "scripts/check-production-p0-reviewer-reset-http-diagnostic.mjs",
+    "scripts/production-p0-reviewer-reset-http-diagnostic.sh"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "identityMutation": false,
+    "staffAssignmentMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "customerOrganizationMutation": false,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the owner-only diagnostic requires its checked-out source SHA to equal current main and fails closed if main advances during the probe",
+    "the diagnostic requires deployed API and Web revisions to equal that exact current-main SHA before probing the public route",
+    "the diagnostic proves the public forgot-password GET, CSRF cookie issuance and public-Origin CSRF-protected route contract without requesting a real password reset",
+    "the POST probe uses a deliberately invalid non-email value and terminal success requires HTTP 400 INVALID_EMAIL with the matching correlation ID for the public Origin request",
+    "SSH host discovery may retry only within a bounded three-attempt window and still accepts only the already-protected pinned SHA-256 host fingerprint with StrictHostKeyChecking=yes",
+    "no reviewer email, identifier, password hash, reset token, TOTP secret, cookie value, bearer token, database URL or raw production log is published",
+    "output is limited to HTTP status codes, bounded booleans and exact deployed revision markers",
+    "production mutation is NONE and new recurring cost is 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

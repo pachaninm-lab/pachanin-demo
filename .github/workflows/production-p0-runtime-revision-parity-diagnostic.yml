@@ -1,0 +1,280 @@
+name: Production P0 Runtime Revision Parity Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-runtime-revision-parity-diagnostic-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate read-only revision diagnostic contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 4637 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-runtime-revision-parity-diagnostic current-runtime'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enforce read-only contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml')
+          text = path.read_text(encoding='utf-8')
+          required = [
+              'PRODUCTION_MUTATION: `NONE`',
+              'StrictHostKeyChecking=yes',
+              'docker inspect',
+              'AUTH_MAIL_WORKER_REVISION',
+              '/production p0-runtime-revision-parity-diagnostic current-runtime',
+          ]
+          missing = [item for item in required if item not in text]
+          if missing:
+              raise SystemExit('missing invariant: ' + ' | '.join(missing))
+          exactly_once = [
+              'github.event.issue.number == ' + '4637',
+              'gh issue comment ' + '4637',
+          ]
+          wrong_count = [item for item in exactly_once if text.count(item) != 1]
+          if wrong_count:
+              raise SystemExit('non-exact continuation invariant: ' + ' | '.join(wrong_count))
+          forbidden = [
+              'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',
+              'docker ' + 'kill', 'docker ' + 'compose', 'docker ' + 'service',
+              'INSERT ' + 'INTO', 'UPDATE ' + 'auth.', 'DELETE ' + 'FROM',
+              'TRUNCATE ' + 'TABLE', 'ALTER ' + 'ROLE', 'MAIL ' + 'FROM',
+              'RCPT ' + 'TO', '/api/auth/' + 'forgot-password',
+              '--request ' + 'POST', '-X ' + 'POST', '--data-' + 'binary',
+              'github.event.issue.number == ' + '3072',
+              'gh issue comment ' + '3072',
+          ]
+          bad = [item for item in forbidden if item in text]
+          if bad:
+              raise SystemExit('forbidden mutation surface: ' + ' | '.join(bad))
+          PY
+
+      - name: Verify exact owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: /production p0-runtime-revision-parity-diagnostic current-runtime
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  diagnostic:
+    name: Inspect API, Web and auth-mail-worker revisions
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Inspect production revisions read-only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          LIVE_DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
+          DEFAULT_HOST='195.19.12.120'
+          key="$RUNNER_TEMP/p0-runtime-parity-key"
+          known="$RUNNER_TEMP/p0-runtime-parity-known-hosts"
+          raw="$RUNNER_TEMP/p0-runtime-parity.raw"
+          scan="$RUNNER_TEMP/p0-runtime-parity.scan"
+          match="$RUNNER_TEMP/p0-runtime-parity.match"
+          trap 'rm -f -- "$key" "$known" "$raw" "$scan" "$match"' EXIT
+
+          git fetch --no-tags origin main >/dev/null
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          validate_key(){
+            local src="$1" pub
+            tr -d '\r' < "$src" > "$key"
+            chmod 0600 "$key"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_key(){
+            local value="$1" plain escaped decoded
+            [[ -n "$value" ]] || return 1
+            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
+            printf '%s\n' "$value" > "$plain"
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "${value//\\n/$'\n'}" > "$escaped"
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "$value" | base64 --decode > "$decoded" 2>/dev/null \
+              && validate_key "$decoded" \
+              && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            rm -f "$plain" "$escaped" "$decoded"
+            return 1
+          }
+
+          host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
+          user="$(trim "${PC_PROD_SSH_USER:-}")"
+          port="$(trim "${PC_PROD_SSH_PORT:-22}")"
+          expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"
+
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          pinned=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            if [[ "$(grep -c . "$match" || true)" == '1' ]]; then pinned=1; break; fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned" == '1' ]]
+          mv "$match" "$known"
+          chmod 0600 "$known"
+
+          ssh -i "$key" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known" -o ConnectTimeout=15 \
+            "$user@$host" 'bash -s' > "$raw" <<'REMOTE'
+          set -Eeuo pipefail
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          command -v docker >/dev/null 2>&1
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          [[ -n "$project" ]]
+          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          mapfile -t worker_ids < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          (( ${#api_ids[@]} == 1 && ${#worker_ids[@]} == 1 ))
+          api_id="${api_ids[0]}"; worker_id="${worker_ids[0]}"
+          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"
+          worker_state="$(docker inspect --format '{{.State.Status}}' "$worker_id")"
+          worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$worker_id")"
+          emit API_REVISION "$api_revision"
+          emit WEB_REVISION "$web_revision"
+          emit AUTH_MAIL_WORKER_REVISION "$worker_revision"
+          emit AUTH_MAIL_WORKER_STATE "$worker_state"
+          emit AUTH_MAIL_WORKER_HEALTH "$worker_health"
+          emit PRODUCTION_MUTATION NONE
+          REMOTE
+
+          api="$(grep -E '^API_REVISION=[0-9a-f]{40}$' "$raw" | tail -n1 | cut -d= -f2-)"
+          web="$(grep -E '^WEB_REVISION=[0-9a-f]{40}$' "$raw" | tail -n1 | cut -d= -f2-)"
+          worker="$(grep -E '^AUTH_MAIL_WORKER_REVISION=[0-9a-f]{40}$' "$raw" | tail -n1 | cut -d= -f2-)"
+          state="$(grep -E '^AUTH_MAIL_WORKER_STATE=[a-z]+$' "$raw" | tail -n1 | cut -d= -f2-)"
+          health="$(grep -E '^AUTH_MAIL_WORKER_HEALTH=[a-z]+$' "$raw" | tail -n1 | cut -d= -f2-)"
+          grep -Fxq 'PRODUCTION_MUTATION=NONE' "$raw"
+          [[ "$api" =~ ^[0-9a-f]{40}$ && "$web" =~ ^[0-9a-f]{40}$ && "$worker" =~ ^[0-9a-f]{40}$ ]]
+          parity='FAIL'
+          [[ "$api" == "$web" && "$api" == "$worker" ]] && parity='PASS'
+
+          git fetch --no-tags origin main >/dev/null
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          for rev in "$api" "$web" "$worker"; do git cat-file -e "${rev}^{commit}"; done
+
+          printf -v comment_body '## Production P0 runtime revision parity diagnostic\n\n- exact main: `%s`\n- API revision: `%s`\n- Web revision: `%s`\n- auth-mail-worker revision: `%s`\n- auth-mail-worker state: `%s`\n- auth-mail-worker health: `%s`\n- revision parity: `%s`\n- reviewer identity exposure: `NONE`\n- PRODUCTION_MUTATION: `NONE`' "$TARGET_SHA" "$api" "$web" "$worker" "$state" "$health" "$parity"
+          gh issue comment 4637 --repo "$GITHUB_REPOSITORY" --body "$comment_body" >/dev/null
+
+          echo "API_REVISION=$api"
+          echo "WEB_REVISION=$web"
+          echo "AUTH_MAIL_WORKER_REVISION=$worker"
+          echo "AUTH_MAIL_WORKER_STATE=$state"
+          echo "AUTH_MAIL_WORKER_HEALTH=$health"
+          echo "REVISION_PARITY=$parity"
+          echo 'PRODUCTION_MUTATION=NONE'

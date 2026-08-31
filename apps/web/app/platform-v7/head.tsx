@@ -8,8 +8,8 @@ const contactUrl = `${siteUrl}/platform-v7/contact`;
 const docsUrl = `${siteUrl}/platform-v7/docs`;
 const aboutUrl = `${siteUrl}/platform-v7/about`;
 const pageTitle = 'Прозрачная Цена — контроль исполнения агросделки от цены до расчёта';
-const pageDescription = 'Товар, логистика, качество, документы, деньги, спор и доказательства связаны в одной Сделке. TAI объясняет блокеры, риски и следующий шаг.';
-const taiDescription = 'TAI — отдельный AI-продукт для агробизнеса, созданный «Прозрачной Ценой» для анализа контекста Сделки, документов, логистики, качества, денег, рисков и доказательств.';
+const pageDescription = 'Товар, логистика, качество, документы, деньги, спор и доказательства связаны в одной Сделке. Гекта объясняет блокеры, риски и следующий шаг.';
+const taiDescription = 'Гекта — отдельный AI-продукт для земли, урожая и агробизнеса, созданный «Прозрачной Ценой» для анализа контекста Сделки, документов, логистики, качества, денег, рисков и доказательств.';
 
 const brandNames = ['Прозрачная Цена', 'Процент Агро', 'Процент-Агро.рф', 'Prozrachnaya Cena', 'Transparent Price', 'Percent Agro'];
 
@@ -26,8 +26,8 @@ const semanticTopics = [
   'документы СДИЗ ЭДО КЭП ГИС ЭПД',
   'основание для расчёта по агросделке',
   'спор и доказательства по качеству',
-  'TAI Transparent Agro Intelligence',
-  'AI-продукт для агробизнеса',
+  'Гекта Gekta аграрный интеллект',
+  'AI-продукт для земли урожая и агробизнеса',
   'операционный интеллект агросделки',
   'agricultural Deal execution platform',
   'OTC agricultural transaction control',
@@ -42,7 +42,7 @@ const serviceAreas = [
   'Документы, СДИЗ, ЭДО, КЭП и транспортный контур',
   'Резервирование, выплата и сверка',
   'Спор, доказательства и закрытие',
-  'TAI — объяснение блокеров, рисков и следующего действия',
+  'Гекта — объяснение блокеров, рисков и следующего действия',
 ];
 
 const taiCapabilities = [
@@ -104,16 +104,16 @@ const structuredData = {
     {
       '@type': 'SoftwareApplication',
       '@id': `${taiUrl}#software`,
-      name: 'TAI — Transparent Agro Intelligence',
-      alternateName: ['TAI', 'Transparent Agro Intelligence', 'Операционный интеллект агросделки'],
+      name: 'Гекта',
+      alternateName: ['Gekta', 'ГЕКТА', 'Аграрный интеллект для земли, урожая и решений'],
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'Web',
       url: taiUrl,
       inLanguage: ['ru-RU', 'en', 'zh-CN'],
       description: taiDescription,
       audience: [
-        { '@type': 'Audience', audienceType: 'участники агросделок' },
-        { '@type': 'Audience', audienceType: 'агрохолдинги и корпоративные заказчики' },
+        { '@type': 'Audience', audienceType: 'фермеры, агрономы, владельцы участков и дачники' },
+        { '@type': 'Audience', audienceType: 'участники агросделок и агрохолдинги' },
         { '@type': 'Audience', audienceType: 'банки, комплаенс, операторы и арбитры' },
       ],
       featureList: taiCapabilities,
@@ -164,7 +164,7 @@ const structuredData = {
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Главная платформы', url: platformUrl },
         { '@type': 'ListItem', position: 2, name: 'Сделка в работе', url: dealFlowUrl },
-        { '@type': 'ListItem', position: 3, name: 'TAI — отдельный AI-продукт для агробизнеса', url: taiUrl },
+        { '@type': 'ListItem', position: 3, name: 'Гекта — аграрный интеллект для земли, урожая и решений', url: taiUrl },
         { '@type': 'ListItem', position: 4, name: 'Документный контур', url: docsUrl },
         { '@type': 'ListItem', position: 5, name: 'Контакты', url: contactUrl },
         { '@type': 'ListItem', position: 6, name: 'О платформе', url: aboutUrl },

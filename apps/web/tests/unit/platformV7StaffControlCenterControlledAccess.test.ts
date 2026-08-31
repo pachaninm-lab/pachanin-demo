@@ -12,6 +12,7 @@ describe('Staff Control Center controlled owner access', () => {
     expect(staffPage).toContain('verifyControlledIdentity(accessToken)');
     expect(staffPage).toContain("claims.testAccess !== true");
     expect(staffPage).toContain('staffOwner: owner');
+    expect(staffPage).toContain("status: 'forbidden'");
     expect(staffPage).toContain('if (controlled) return controlled');
   });
 });

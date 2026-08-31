@@ -2,9 +2,9 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/qwen-broad-agro-semantic-acceptance",
   "status": "active",
-  "purpose": "Close the post-merge P1 by adding exact-main live semantic acceptance for substantive agriculture and agribusiness answers after REG.RU Qwen activation, while preserving the existing read-only privacy boundary.",
-  "approvedBy": "owner-direct-continue-to-ideal-2026-07-30",
-  "authorityBaseExactMain": "0b0c2842ebdfa684cb7bce1e0284c003012e4cd2",
+  "purpose": "Close the post-release semantic gate with a read-only broad-agro probe of actual REG.RU live descendant c391425e9ad5d9afb0b5991079bc90caf1b9f660, while preserving accepted TAI activation authority 10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d and the public privacy boundary.",
+  "approvedBy": "owner-direct-continue-to-ideal-2026-08-11",
+  "authorityBaseExactMain": "7962f0f419de5329f9ccb6850b16855e18b34d73",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/fix-qwen-broad-agro-semantic-acceptance.json",
     ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
@@ -16,5 +16,24 @@
     "write authority",
     "external model calls",
     "Netlify or Vercel deployment"
-  ]
+  ],
+  "boundaries": [
+    "The recovery command is owner-only and fixed to issue 3365, accepted activation run 31481267058, accepted activation target 10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d, full-stack release run 31494796603 and live target c391425e9ad5d9afb0b5991079bc90caf1b9f660",
+    "Only live production events and the fully qualified owner recovery command may enter the exact production activation group tai-restricted-qwen-reg-ru-activation-production; pull-request validation and every unrelated issue or pull-request comment are isolated from that production lock",
+    "Recovery is eligible only when accepted activation target 10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d is an ancestor of live target c391425e9ad5d9afb0b5991079bc90caf1b9f660, the live target is an ancestor of current main, the activation status and canonical acceptance marker pass, issue 3072 records exact API/Web full-stack release 31494796603, the immutable changed-path set is exactly allowlisted, and the live REG.RU manifest equals the live target",
+    "The recovery performs only a public read-only Chromium semantic probe and bounded issue/evidence publication",
+    "Any divergent command, actor, target, ancestry, activation status, acceptance marker, release marker, changed path, live manifest, assistant refusal, insufficient semantic coverage, fake citation, page error or mobile overflow fails closed",
+    "No application deployment, image publication, Docker mutation, database or migration mutation, model mutation, rollback, private-data access, Netlify, Vercel, Railway or paid LLM authority is introduced"
+  ],
+  "activationRecovery": {
+    "issue": 3365,
+    "activationRun": 31481267058,
+    "activationTargetSha": "10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d",
+    "fullStackReleaseRun": 31494796603,
+    "liveTargetSha": "c391425e9ad5d9afb0b5991079bc90caf1b9f660",
+    "acceptedFinalizationStatusContext": "TAI Restricted Qwen REG.RU Activation",
+    "command": "/tai recover-live-semantic 31481267058 c391425e9ad5d9afb0b5991079bc90caf1b9f660",
+    "productionHosting": "REG_RU_VPS_ONLY",
+    "newRecurringCostRub": 0
+  }
 }

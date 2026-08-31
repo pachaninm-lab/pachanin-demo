@@ -16,7 +16,16 @@ BACKUP_EVIDENCE_B64="${PC_PROD_BACKUP_EVIDENCE_FILE_B64:-${PC_BACKUP_EVIDENCE_FI
 STATE_ROOT="/var/lib/pc-release-authority"
 STATE_FILE="$STATE_ROOT/full-stack-${RUN_ID}.state"
 
-fail() { printf 'ERROR_CODE=%s\n' "$1" >&2; exit "${2:-1}"; }
+RELEASE_ROLLBACK_ARMED=0
+RELEASE_ROLLBACK_ACTIVE=0
+fail() {
+  local code="$1" rc="${2:-1}"
+  printf 'ERROR_CODE=%s\n' "$code" >&2
+  if [[ "${RELEASE_ROLLBACK_ARMED:-0}" == 1 && "${RELEASE_ROLLBACK_ACTIVE:-0}" == 0 ]]; then
+    rollback_and_exit "$rc"
+  fi
+  exit "$rc"
+}
 decode() { [[ -z "$1" ]] || printf '%s' "$1" | base64 -d; }
 trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
 
@@ -28,6 +37,12 @@ prod_dir="$(decode "$PROD_DIR_B64")"
 prod_compose="$(decode "$PROD_COMPOSE_B64")"
 prod_project="$(decode "$PROD_PROJECT_B64")"
 backup_evidence="$(decode "$BACKUP_EVIDENCE_B64")"
+auth_opaque_token_env_file=""
+staff_database_env_file=""
+password_reset_delivery_env_file=""
+transactional_mail_env_file=""
+gekta_api_runtime_env_file=""
+gekta_web_runtime_env_file=""
 
 resolve_compose_authority() {
   if [[ -n "$prod_dir" && -n "$prod_compose" ]]; then return; fi
@@ -42,6 +57,209 @@ resolve_compose_authority() {
 
 resolve_compose_authority
 [[ -d "$prod_dir" ]] || fail PRODUCTION_DIRECTORY_INVALID 12
+
+resolve_auth_opaque_token_env_file() {
+  auth_opaque_token_env_file="${PC_AUTH_OPAQUE_TOKEN_ENV_FILE:-$prod_dir/.pc-auth-opaque-token.env}"
+  [[ "$auth_opaque_token_env_file" == "$prod_dir"/* ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 17
+  [[ -f "$auth_opaque_token_env_file" && ! -L "$auth_opaque_token_env_file" ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_MISSING 18
+  [[ "$(stat -c '%a:%u:%g' "$auth_opaque_token_env_file")" == '600:0:0' ]] || fail AUTH_OPAQUE_TOKEN_ENV_FILE_PERMISSIONS_INVALID 19
+  python3 - "$auth_opaque_token_env_file" <<'PY' || fail AUTH_OPAQUE_TOKEN_ENV_FILE_CONTENT_INVALID 22
+import hashlib
+import hmac
+import re
+import sys
+
+raw = open(sys.argv[1], 'rb').read()
+if not raw.endswith(b'\n') or b'\r' in raw or b'\0' in raw:
+    raise SystemExit(1)
+try:
+    lines = raw[:-1].decode('ascii').split('\n')
+except UnicodeDecodeError:
+    raise SystemExit(1)
+if len(lines) != 2:
+    raise SystemExit(1)
+opaque_match = re.fullmatch(r'AUTH_OPAQUE_TOKEN_DIGEST_KEY=([A-Fa-f0-9]{64,})', lines[0])
+pepper_match = re.fullmatch(r'AUTH_TOKEN_PEPPER=([a-f0-9]{64})', lines[1])
+if not opaque_match or not pepper_match:
+    raise SystemExit(1)
+expected = hmac.new(
+    opaque_match.group(1).encode('ascii'),
+    b'pc-auth-generic-hash-pepper:v1',
+    hashlib.sha256,
+).hexdigest()
+if not hmac.compare_digest(pepper_match.group(1), expected):
+    raise SystemExit(1)
+PY
+}
+
+resolve_auth_opaque_token_env_file
+
+resolve_staff_database_env_file() {
+  staff_database_env_file="${PC_STAFF_DATABASE_ENV_FILE:-$prod_dir/.pc-staff-database.env}"
+  [[ "$staff_database_env_file" == "$prod_dir"/* ]] || fail STAFF_DATABASE_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 52
+  [[ -f "$staff_database_env_file" && ! -L "$staff_database_env_file" ]] || fail STAFF_DATABASE_ENV_FILE_MISSING 53
+  [[ "$(stat -c '%a:%u:%g' "$staff_database_env_file")" == '600:0:0' ]] || fail STAFF_DATABASE_ENV_FILE_PERMISSIONS_INVALID 54
+  [[ "$(wc -l < "$staff_database_env_file" | tr -d '[:space:]')" == 1 ]] || fail STAFF_DATABASE_ENV_FILE_CONTENT_INVALID 55
+  python3 - "$staff_database_env_file" <<'PY' || fail STAFF_DATABASE_ENV_FILE_CONTENT_INVALID 56
+import sys
+from urllib.parse import urlsplit
+
+line = open(sys.argv[1], encoding='utf-8').read().rstrip('\n')
+if not line.startswith('STAFF_DATABASE_URL='):
+    raise SystemExit(1)
+url = urlsplit(line.split('=', 1)[1])
+if url.scheme not in ('postgresql', 'postgres') or url.username != 'pc_staff_runtime' or not url.password or not url.hostname or not url.path.strip('/'):
+    raise SystemExit(1)
+PY
+}
+
+resolve_staff_database_env_file
+
+resolve_password_reset_runtime_env_files() {
+  password_reset_delivery_env_file="${PC_PASSWORD_RESET_DELIVERY_ENV_FILE:-$prod_dir/.pc-password-reset-delivery.env}"
+  transactional_mail_env_file="${PC_TRANSACTIONAL_MAIL_ENV_FILE:-$prod_dir/.pc-transactional-mail.env}"
+  [[ "$password_reset_delivery_env_file" == "$prod_dir"/* ]] || fail PASSWORD_RESET_DELIVERY_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 59
+  [[ "$transactional_mail_env_file" == "$prod_dir"/* ]] || fail TRANSACTIONAL_MAIL_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 60
+  [[ -f "$password_reset_delivery_env_file" && ! -L "$password_reset_delivery_env_file" ]] || fail PASSWORD_RESET_DELIVERY_ENV_FILE_MISSING 61
+  [[ -f "$transactional_mail_env_file" && ! -L "$transactional_mail_env_file" ]] || fail TRANSACTIONAL_MAIL_ENV_FILE_MISSING 62
+  [[ "$(stat -c '%a:%u:%g' "$password_reset_delivery_env_file")" == '600:0:0' ]] || fail PASSWORD_RESET_DELIVERY_ENV_FILE_PERMISSIONS_INVALID 63
+  [[ "$(stat -c '%a:%u:%g' "$transactional_mail_env_file")" == '600:0:0' ]] || fail TRANSACTIONAL_MAIL_ENV_FILE_PERMISSIONS_INVALID 64
+  python3 - "$password_reset_delivery_env_file" <<'PY' || fail PASSWORD_RESET_DELIVERY_ENV_FILE_CONTENT_INVALID 65
+import re
+import sys
+
+raw = open(sys.argv[1], encoding='utf-8').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+    raise SystemExit(1)
+lines = raw.rstrip('\n').split('\n')
+if len(lines) != 2:
+    raise SystemExit(1)
+values = {}
+for line in lines:
+    name, separator, value = line.partition('=')
+    if not separator or name in values or not re.fullmatch(r'[A-Fa-f0-9]{96}', value):
+        raise SystemExit(1)
+    values[name] = value
+if set(values) != {'PASSWORD_RESET_DELIVERY_KEY', 'REGISTRATION_DELIVERY_KEY'}:
+    raise SystemExit(1)
+if values['PASSWORD_RESET_DELIVERY_KEY'] == values['REGISTRATION_DELIVERY_KEY']:
+    raise SystemExit(1)
+PY
+  python3 - "$transactional_mail_env_file" <<'PY' || fail TRANSACTIONAL_MAIL_ENV_FILE_CONTENT_INVALID 66
+import re
+import sys
+
+raw = open(sys.argv[1], encoding='utf-8').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+    raise SystemExit(1)
+lines = raw.rstrip('\n').split('\n')
+if not 2 <= len(lines) <= 5:
+    raise SystemExit(1)
+values = {}
+for line in lines:
+    name, separator, value = line.partition('=')
+    if not separator or name in values or not value or value != value.strip():
+        raise SystemExit(1)
+    if not re.fullmatch(r'[A-Z][A-Z0-9_]*', name):
+        raise SystemExit(1)
+    if any(ord(char) < 33 or ord(char) > 126 for char in value) or any(char in value for char in "#'\"\\"):
+        raise SystemExit(1)
+    values[name] = value
+email = re.compile(r'^[^@\s]{1,64}@[^@\s]{1,189}$')
+if set(values) == {'RESEND_API_KEY', 'RESEND_FROM_EMAIL'}:
+    if len(values['RESEND_API_KEY']) < 20 or len(values['RESEND_API_KEY']) > 512 or not email.fullmatch(values['RESEND_FROM_EMAIL']):
+        raise SystemExit(1)
+    raise SystemExit(0)
+required = {'PC_SMTP_HOST', 'PC_SMTP_USER', 'PC_SMTP_PASS'}
+allowed = required | {'PC_SMTP_PORT', 'PC_MAIL_FROM'}
+if not required.issubset(values) or not set(values).issubset(allowed):
+    raise SystemExit(1)
+if not re.fullmatch(r'[A-Za-z0-9.-]{1,253}', values['PC_SMTP_HOST']):
+    raise SystemExit(1)
+if len(values['PC_SMTP_USER']) > 254 or len(values['PC_SMTP_PASS']) > 512:
+    raise SystemExit(1)
+port = values.get('PC_SMTP_PORT', '465')
+sender = values.get('PC_MAIL_FROM', values['PC_SMTP_USER'])
+if not port.isdigit() or not 1 <= int(port) <= 65535 or not email.fullmatch(sender):
+    raise SystemExit(1)
+PY
+}
+
+resolve_gekta_runtime_env_files() {
+  gekta_api_runtime_env_file="${PC_GEKTA_API_RUNTIME_ENV_FILE:-$prod_dir/.pc-gekta-api-runtime.env}"
+  gekta_web_runtime_env_file="${PC_GEKTA_WEB_RUNTIME_ENV_FILE:-$prod_dir/.pc-gekta-web-runtime.env}"
+  [[ "$gekta_api_runtime_env_file" == "$prod_dir"/* ]] || fail GEKTA_API_RUNTIME_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 68
+  [[ "$gekta_web_runtime_env_file" == "$prod_dir"/* ]] || fail GEKTA_WEB_RUNTIME_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 69
+  [[ -f "$gekta_api_runtime_env_file" && ! -L "$gekta_api_runtime_env_file" ]] || fail GEKTA_API_RUNTIME_ENV_FILE_MISSING 70
+  [[ -f "$gekta_web_runtime_env_file" && ! -L "$gekta_web_runtime_env_file" ]] || fail GEKTA_WEB_RUNTIME_ENV_FILE_MISSING 71
+  [[ "$(stat -c '%a:%u:%g' "$gekta_api_runtime_env_file")" == '600:0:0' ]] || fail GEKTA_API_RUNTIME_ENV_FILE_PERMISSIONS_INVALID 72
+  [[ "$(stat -c '%a:%u:%g' "$gekta_web_runtime_env_file")" == '600:0:0' ]] || fail GEKTA_WEB_RUNTIME_ENV_FILE_PERMISSIONS_INVALID 73
+  python3 - "$gekta_api_runtime_env_file" <<'PY' || fail GEKTA_API_RUNTIME_ENV_FILE_CONTENT_INVALID 74
+import re
+import sys
+
+raw = open(sys.argv[1], encoding='utf-8').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+    raise SystemExit(1)
+lines = raw.rstrip('\n').split('\n')
+if len(lines) != 2:
+    raise SystemExit(1)
+values = {}
+for line in lines:
+    name, separator, value = line.partition('=')
+    if not separator or name in values:
+        raise SystemExit(1)
+    values[name] = value
+if set(values) != {'GEKTA_PHONE_ENCRYPTION_KEY', 'GEKTA_PHONE_LOOKUP_PEPPER'}:
+    raise SystemExit(1)
+if not re.fullmatch(r'[A-Fa-f0-9]{64}', values['GEKTA_PHONE_ENCRYPTION_KEY']):
+    raise SystemExit(1)
+if not re.fullmatch(r'[A-Fa-f0-9]{96}', values['GEKTA_PHONE_LOOKUP_PEPPER']):
+    raise SystemExit(1)
+PY
+  python3 - "$gekta_web_runtime_env_file" <<'PY' || fail GEKTA_WEB_RUNTIME_ENV_FILE_CONTENT_INVALID 75
+import re
+import sys
+
+raw = open(sys.argv[1], encoding='utf-8').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+    raise SystemExit(1)
+lines = raw.rstrip('\n').split('\n')
+if len(lines) != 2:
+    raise SystemExit(1)
+values = {}
+for line in lines:
+    name, separator, value = line.partition('=')
+    if not separator or name in values or not re.fullmatch(r'[A-Fa-f0-9]{96}', value):
+        raise SystemExit(1)
+    values[name] = value
+if set(values) != {'MFA_LOGIN_TICKET_SECRET', 'GEKTA_ANONYMOUS_SESSION_SECRET'}:
+    raise SystemExit(1)
+if values['MFA_LOGIN_TICKET_SECRET'] == values['GEKTA_ANONYMOUS_SESSION_SECRET']:
+    raise SystemExit(1)
+PY
+  python3 - "$gekta_api_runtime_env_file" "$gekta_web_runtime_env_file" <<'PY' || fail GEKTA_RUNTIME_PURPOSE_SEPARATION_INVALID 76
+import sys
+
+def values(path):
+    return dict(line.split('=', 1) for line in open(path, encoding='utf-8').read().rstrip('\n').split('\n'))
+
+api = values(sys.argv[1])
+web = values(sys.argv[2])
+purpose_secrets = {
+    api['GEKTA_PHONE_LOOKUP_PEPPER'],
+    web['MFA_LOGIN_TICKET_SECRET'],
+    web['GEKTA_ANONYMOUS_SESSION_SECRET'],
+}
+if len(purpose_secrets) != 3:
+    raise SystemExit(1)
+PY
+}
+
+if [[ "$ACTION" == deploy ]]; then
+  resolve_password_reset_runtime_env_files
+  resolve_gekta_runtime_env_files
+fi
 
 IFS=',' read -r -a raw_files <<< "$prod_compose"
 compose_files=()
@@ -106,13 +324,40 @@ snapshot_unrelated() {
 }
 
 write_override() {
-  local api_image="$1" web_image="$2" migration_image="$3" destination="$4"
+  local api_image="$1" web_image="$2" migration_image="$3" destination="$4" include_password_reset_runtime="${5:-0}"
+  [[ "$include_password_reset_runtime" =~ ^[01]$ ]] || fail PASSWORD_RESET_RUNTIME_OVERRIDE_MODE_INVALID 67
   umask 077
-  cat > "$destination.tmp" <<YAML
+  if [[ "$include_password_reset_runtime" == 1 ]]; then
+    cat > "$destination.tmp" <<YAML
 services:
   api:
     image: ${api_image}
     pull_policy: never
+    env_file:
+      - ${auth_opaque_token_env_file}
+      - ${staff_database_env_file}
+      - ${password_reset_delivery_env_file}
+      - ${gekta_api_runtime_env_file}
+  web:
+    image: ${web_image}
+    pull_policy: never
+    env_file:
+      - ${password_reset_delivery_env_file}
+      - ${transactional_mail_env_file}
+      - ${gekta_web_runtime_env_file}
+  ${migration_service}:
+    image: ${migration_image}
+    pull_policy: never
+YAML
+  else
+    cat > "$destination.tmp" <<YAML
+services:
+  api:
+    image: ${api_image}
+    pull_policy: never
+    env_file:
+      - ${auth_opaque_token_env_file}
+      - ${staff_database_env_file}
   web:
     image: ${web_image}
     pull_policy: never
@@ -120,6 +365,7 @@ services:
     image: ${migration_image}
     pull_policy: never
 YAML
+  fi
   mv "$destination.tmp" "$destination"
   chmod 0600 "$destination"
 }
@@ -142,6 +388,51 @@ wait_api() {
   return 1
 }
 
+verify_api_auth_hash_keys() {
+  local id="$1"
+  [[ -n "$id" ]] || return 1
+  docker exec -i "$id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
+const { createHmac, timingSafeEqual } = require('node:crypto');
+const opaque = String(process.env.AUTH_OPAQUE_TOKEN_DIGEST_KEY ?? '').trim();
+const pepper = String(process.env.AUTH_TOKEN_PEPPER ?? '').trim();
+if (!/^[A-Fa-f0-9]{64,}$/.test(opaque) || !/^[a-f0-9]{64}$/.test(pepper)) process.exit(1);
+const expected = createHmac('sha256', opaque).update('pc-auth-generic-hash-pepper:v1', 'utf8').digest();
+const actual = Buffer.from(pepper, 'hex');
+if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) process.exit(1);
+process.stdout.write('API_AUTH_HASH_KEYS=VALID\n');
+NODE
+}
+
+redact_api_startup_log() {
+  sed -E \
+    -e 's#([A-Za-z][A-Za-z0-9+.-]*://)[^[:space:]@/]+@#\1[REDACTED]@#g' \
+    -e 's#(password|token|secret|authorization|api[_-]?key)([[:space:]]*[:=][[:space:]]*)[^[:space:],;}]+#\1\2[REDACTED]#gI'
+}
+
+emit_api_startup_diagnostics() {
+  local id state restart_count exit_code oom_killed
+  id="$("${dc_target[@]}" ps -q api | head -1)"
+  printf 'API_STARTUP_DIAGNOSTICS_BEGIN\n' >&2
+  if [[ -z "$id" ]]; then
+    printf 'API_STARTUP_CONTAINER=missing\n' >&2
+    printf 'API_STARTUP_DIAGNOSTICS_END\n' >&2
+    return 0
+  fi
+
+  state="$(docker inspect --format '{{.State.Status}}' "$id" 2>/dev/null || true)"
+  restart_count="$(docker inspect --format '{{.RestartCount}}' "$id" 2>/dev/null || true)"
+  exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$id" 2>/dev/null || true)"
+  oom_killed="$(docker inspect --format '{{.State.OOMKilled}}' "$id" 2>/dev/null || true)"
+  printf 'API_STARTUP_CONTAINER_STATE=%s\n' "${state:-unknown}" >&2
+  printf 'API_STARTUP_RESTART_COUNT=%s\n' "${restart_count:-unknown}" >&2
+  printf 'API_STARTUP_EXIT_CODE=%s\n' "${exit_code:-unknown}" >&2
+  printf 'API_STARTUP_OOM_KILLED=%s\n' "${oom_killed:-unknown}" >&2
+  printf 'API_STARTUP_LOG_TAIL_BEGIN\n' >&2
+  docker logs --tail 80 "$id" 2>&1 | redact_api_startup_log >&2 || true
+  printf 'API_STARTUP_LOG_TAIL_END\n' >&2
+  printf 'API_STARTUP_DIAGNOSTICS_END\n' >&2
+}
+
 wait_web() {
   local id state attempt
   for attempt in $(seq 1 30); do
@@ -153,14 +444,68 @@ wait_web() {
   return 1
 }
 
+is_revision() {
+  local revision="$1"
+  [[ "${#revision}" == 40 && "$revision" != *[!0123456789abcdef]* ]]
+}
+
+# One container's build revision, or a non-zero status if it cannot be read.
+container_revision() {
+  docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$1"
+}
+
 rollback_images() {
+  local restored_api_id restored_web_id
   [[ -f "$STATE_FILE" ]] || return 1
   # shellcheck disable=SC1090
   source "$STATE_FILE"
+  is_revision "$BASELINE_API_REVISION" || return 1
+  is_revision "$BASELINE_WEB_REVISION" || return 1
   write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override"
   "${dc_target[@]}" config --quiet
   "${dc_target[@]}" up -d --no-deps --pull never api web
-  wait_api && wait_web
+  wait_api && wait_web || return 1
+  restored_api_id="$("${dc_target[@]}" ps -q api | head -1)"
+  restored_web_id="$("${dc_target[@]}" ps -q web | head -1)"
+  [[ -n "$restored_api_id" && -n "$restored_web_id" ]] || return 1
+  # The label name must reach Docker wrapped in real double quotes. Escaping
+  # them inside a single-quoted shell word does not escape anything — the shell
+  # passes the backslashes through literally and Go rejects the template with
+  # `unexpected "\" in operand`. That made both reads fail, left both variables
+  # empty, and so made the comparisons below unsatisfiable: this rollback path
+  # could never report success, whatever had actually happened to the
+  # containers. Every other template in this file already quotes it correctly.
+  restored_api_revision="$(container_revision "$restored_api_id")" || return 2
+  restored_web_revision="$(container_revision "$restored_web_id")" || return 2
+  # Unreadable and wrong are different failures and must not share an exit code.
+  # Conflating them is what let a broken verifier be reported as a failed
+  # restore, sending the investigation at the containers instead of the check.
+  is_revision "$restored_api_revision" || return 2
+  is_revision "$restored_web_revision" || return 2
+  [[ "$restored_api_revision" == "$BASELINE_API_REVISION" ]] || return 3
+  [[ "$restored_web_revision" == "$BASELINE_WEB_REVISION" ]] || return 3
+}
+
+rollback_and_exit() {
+  local rc="${1:-1}" rollback_status=0
+  if [[ "${RELEASE_ROLLBACK_ACTIVE:-0}" == 1 ]]; then
+    exit "$rc"
+  fi
+  RELEASE_ROLLBACK_ACTIVE=1
+  trap - ERR
+  rollback_images || rollback_status=$?
+  printf 'DEPLOYMENT_COMPLETE=0\n' >&2
+  printf 'ROLLBACK_ATTEMPTED=1\n' >&2
+  if [[ "$rollback_status" == 0 ]]; then
+    printf 'ROLLBACK_COMPLETE=1\n' >&2
+    printf 'ROLLBACK_FAILED=0\n' >&2
+    printf 'RESTORED_API_REVISION=%s\n' "${restored_api_revision:-unknown}" >&2
+    printf 'RESTORED_WEB_REVISION=%s\n' "${restored_web_revision:-unknown}" >&2
+  else
+    printf 'ROLLBACK_COMPLETE=0\n' >&2
+    printf 'ROLLBACK_FAILED=1\n' >&2
+  fi
+  exit "$rc"
 }
 
 verify_durable_intake_local_postgres() {
@@ -308,10 +653,23 @@ if [[ "$ACTION" == verify-intake ]]; then
 fi
 
 if [[ "$ACTION" == rollback ]]; then
-  rollback_images || fail AUTOMATIC_ROLLBACK_FAILED 50
+  # Distinguished on purpose. A rollback that restored the wrong revision and a
+  # rollback whose verification could not run are different incidents with
+  # different responses, and reporting both as AUTOMATIC_ROLLBACK_FAILED cost an
+  # investigation round. None of these is a success and none may be treated as
+  # one — the run still fails, it just says which check failed.
+  rollback_rc=0
+  rollback_images || rollback_rc=$?
+  case "$rollback_rc" in
+    0) : ;;
+    2) fail ROLLBACK_REVISION_UNREADABLE 57 ;;
+    3) fail ROLLBACK_REVISION_MISMATCH 58 ;;
+    *) fail AUTOMATIC_ROLLBACK_FAILED 50 ;;
+  esac
   printf 'ROLLBACK_COMPLETE=1\n'
-  printf 'RESTORED_API_REVISION=%s\n' "$BASELINE_API_REVISION"
-  printf 'RESTORED_WEB_REVISION=%s\n' "$BASELINE_WEB_REVISION"
+  printf 'RESTORED_API_REVISION=%s\n' "$restored_api_revision"
+  printf 'RESTORED_WEB_REVISION=%s\n' "$restored_web_revision"
+  printf 'ROLLBACK_CONTAINER_REVISIONS_VERIFIED=1\n'
   exit 0
 fi
 
@@ -330,8 +688,12 @@ verify_image "$API_IMAGE"
 verify_image "$WEB_IMAGE"
 verify_image "$MIGRATION_IMAGE"
 
-mkdir -p "$STATE_ROOT"
-chmod 0700 "$STATE_ROOT"
+# Shared release-authority root: traverse-only for the runner group. `chmod 0700`
+# here preserved the group and stripped its `--x`, which is exactly the state the
+# host was found in — and it lands after the controller has set 0710, because this
+# release and the preflight both fire on the same image build. The runner then
+# cannot reach runner-input and activation dies before the controller is invoked.
+install -d -m 0710 -o root -g pcactions "$STATE_ROOT"
 umask 077
 cat > "$STATE_FILE" <<STATE
 BASELINE_API_IMAGE='$baseline_api_image'
@@ -347,10 +709,15 @@ after_ids="$(mktemp)"
 snapshot_unrelated "$before_ids"
 mutated=0
 on_error() {
-  rc=$?
-  if (( mutated == 1 )); then rollback_images >/dev/null 2>&1 || true; fi
+  local rc=$?
+  trap - ERR
+  if [[ "${RELEASE_ROLLBACK_ARMED:-0}" == 1 ]]; then
+    rollback_and_exit "$rc"
+  fi
   printf 'DEPLOYMENT_COMPLETE=0\n' >&2
-  printf 'ROLLBACK_ATTEMPTED=%s\n' "$mutated" >&2
+  printf 'ROLLBACK_ATTEMPTED=0\n' >&2
+  printf 'ROLLBACK_COMPLETE=0\n' >&2
+  printf 'ROLLBACK_FAILED=0\n' >&2
   exit "$rc"
 }
 trap on_error ERR
@@ -378,13 +745,19 @@ else
   fail BACKUP_AUTHORITY_UNAVAILABLE 26
 fi
 
-write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override"
-"${dc_target[@]}" config --quiet
+RELEASE_ROLLBACK_ARMED=1
 mutated=1
+write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1
+"${dc_target[@]}" config --quiet
 "${dc_target[@]}" run --rm --no-deps --pull never "$migration_service"
 printf 'MIGRATION_COMPLETE=1\n'
 "${dc_target[@]}" up -d --no-deps --pull never api
-wait_api || fail API_READINESS_FAILED 30
+if ! wait_api; then
+  emit_api_startup_diagnostics
+  fail API_READINESS_FAILED 30
+fi
+new_api_id="$("${dc_target[@]}" ps -q api | head -1)"
+verify_api_auth_hash_keys "$new_api_id" || fail API_AUTH_HASH_KEYS_INVALID 77
 "${dc_target[@]}" up -d --no-deps --pull never web
 wait_web || fail WEB_HEALTH_FAILED 31
 
@@ -402,7 +775,13 @@ new_api_id="$("${dc_target[@]}" ps -q api | head -1)"
 new_web_id="$("${dc_target[@]}" ps -q web | head -1)"
 new_api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$new_api_id")"
 new_web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$new_web_id")"
-[[ "$new_api_revision" == "$TARGET_SHA" && "$new_web_revision" == "$TARGET_SHA" ]] || fail RUNNING_REVISION_MISMATCH 33
+if [[ "$new_api_revision" != "$TARGET_SHA" || "$new_web_revision" != "$TARGET_SHA" ]]; then
+  printf 'RUNNING_API_REVISION=%s\n' "${new_api_revision:-unknown}" >&2
+  printf 'RUNNING_WEB_REVISION=%s\n' "${new_web_revision:-unknown}" >&2
+  fail RUNNING_REVISION_MISMATCH 33
+fi
+RELEASE_ROLLBACK_ARMED=0
+mutated=0
 trap - ERR
 printf 'DEPLOYED_API_REVISION=%s\n' "$new_api_revision"
 printf 'DEPLOYED_WEB_REVISION=%s\n' "$new_web_revision"

@@ -30,13 +30,16 @@ function snapshot(status: GatewayStreamSnapshot['status'], text: string): Gatewa
 }
 
 describe('public assistant production-safe UI', () => {
-  it('uses one fullscreen control and the approved two-line agribusiness identity', () => {
-    expect(controllerSource).toContain("title: 'ИИ для агробизнеса'");
-    expect(controllerSource).toContain("subtitle: 'Разработан Прозрачной ценой для сельского хозяйства.'");
-    expect(controllerSource).toContain("title: 'AI for agribusiness'");
-    expect(controllerSource).toContain("subtitle: 'Developed by Transparent Price for agriculture.'");
-    expect(controllerSource).toContain("title: '农业商业人工智能'");
-    expect(controllerSource).toContain("subtitle: '由“透明价格”为农业打造。'");
+  it('uses one fullscreen control and preserves the canonical Gekta identity', () => {
+    expect(assistantSource).toContain("title: 'Гекта'");
+    expect(assistantSource).toContain("subtitle: 'ИИ для сельского хозяйства и агробизнеса от «Прозрачной Цены»'");
+    expect(assistantSource).toContain("title: 'Gekta'");
+    expect(assistantSource).toContain("subtitle: 'AI for farming and agribusiness by Prozrachnaya Tsena'");
+    expect(assistantSource).toContain("subtitle: '“透明价格”推出的农业与农业经营 AI'");
+    expect(controllerSource).not.toContain('PUBLIC_ASSISTANT_BRANDING');
+    expect(controllerSource).not.toContain('ИИ для агробизнеса');
+    expect(controllerSource).not.toContain('AI for agribusiness');
+    expect(controllerSource).not.toContain('农业商业人工智能');
     expect(controllerSource).toContain("querySelectorAll<HTMLElement>('.pc-modal-sheet-fullscreen-button')");
     expect(controllerSource).toContain('data-pc-public-assistant-fullscreen');
   });
@@ -63,7 +66,8 @@ describe('public assistant production-safe UI', () => {
     expect(scrubStart).toBeGreaterThan(-1);
     expect(scrubEnd).toBeGreaterThan(scrubStart);
     expect(scrubSource).toContain('enforcePublicAssistantIdentity(panel);');
-    expect(scrubSource).toContain("identity?.querySelector<HTMLElement>(\"[data-pc-public-assistant-subtitle='true']\")");
+    expect(scrubSource).not.toContain('title.textContent');
+    expect(scrubSource).not.toContain('subtitle.textContent');
     expect(scrubSource).not.toContain("querySelector<HTMLElement>('div > span')");
     expect(scrubSource).not.toContain('mark.textContent');
   });
@@ -117,14 +121,25 @@ describe('public assistant production-safe UI', () => {
     expect(controllerSource).toMatch(/return \(\) => \{\s+stopActiveRequest\(\);\s+observer\.disconnect\(\);/u);
   });
 
-  it('never projects provisional tokens or operational metadata while thinking', () => {
+  it('projects streamed answer text while hiding reasoning and operational metadata', () => {
+    // Partial text is now rendered as it arrives — that is what makes the answer
+    // appear progressively rather than all at once at the end. What must never
+    // appear is the reasoning block or the operational metadata beside it.
     const result = publicSnapshotForDisplay(snapshot('streaming', '<think>private reasoning</think> partial answer'));
     expect(result).toMatchObject({
       status: 'streaming',
-      text: '',
+      text: 'partial answer',
       assessment: null,
       modelIdentity: null,
     });
+  });
+
+  it('withholds a reasoning block that has not closed yet', () => {
+    // Mid-arrival the closing tag may simply not have been sent, so everything
+    // from the opener onward is dropped rather than guessed at.
+    const result = publicSnapshotForDisplay(snapshot('streaming', 'Видимый ответ. <think>ещё не закрыт'));
+
+    expect(result.text).toBe('Видимый ответ.');
   });
 
   it('removes reasoning blocks and nested tool envelopes from a completed answer', () => {

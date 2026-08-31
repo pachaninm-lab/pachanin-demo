@@ -6,7 +6,7 @@ const ru = {
   hero: {
     primary: 'Посмотреть Сделку в работе',
     secondary: 'Подключить организацию',
-    tertiary: 'Как работает TAI',
+    tertiary: 'Как работает Гекта',
     proofLabel: 'Принципы исполнения Сделки',
     proofs: ['Одна карточка Сделки', 'Переходы по основаниям', 'Деньги связаны с событиями'],
   },
@@ -19,7 +19,7 @@ const ru = {
     ownerLabel: 'Ответственный', owner: 'Лаборатория и покупатель', deadline: 'Следующее действие до 16:30',
     moneyLabel: 'Деньги', money: 'Резерв сохранён', release: 'Выплата ожидает основания',
     nextLabel: 'Следующий шаг', next: 'Подписать акт', nextNote: 'Затем применить правило перерасчёта',
-    taiTitle: 'TAI объяснил остановку', taiText: 'Влажность выше допуска, акт не подписан. Проект следующего действия подготовлен.',
+    taiTitle: 'Гекта объяснила остановку', taiText: 'Влажность выше допуска, акт не подписан. Проект следующего действия подготовлен.',
   },
   trust: {
     label: 'Контур доверия платформы',
@@ -59,13 +59,13 @@ const ru = {
     cta: 'Открыть полный сценарий',
   },
   tai: {
-    eyebrow: 'TAI внутри Сделки',
+    eyebrow: 'Гекта внутри Сделки',
     title: 'Объясняет проблему и готовит действие',
-    text: 'TAI собирает статусы, документы и события в короткий ответ: что произошло, почему остановилось, кто отвечает и что требуется подтвердить.',
-    mode: 'Помощник по Сделке',
+    text: 'Гекта собирает статусы, документы и события в короткий ответ: что произошло, почему остановилось, кто отвечает и что требуется подтвердить.',
+    mode: 'Аграрный интеллект Сделки',
     answer: 'Окончательный расчёт остановлен: влажность выше согласованного допуска, а акт расхождений ещё не подтверждён покупателем.',
     modes: ['На публичной странице работает без доступа к закрытым данным', 'В кабинете учитывает роль и права организации', 'В Сделке анализирует доступные документы и готовит действие'],
-    boundaries: 'TAI не меняет права, не подписывает документы, не выпускает деньги и не решает спор вместо человека.',
+    boundaries: 'Гекта не меняет права, не подписывает документы, не выпускает деньги и не решает спор вместо человека.',
     source: 'Основание сценария: протокол лаборатории № L-204',
     freshness: 'Контекст: приёмка и качество',
     confidence: 'Надёжность вывода: высокая',
@@ -125,7 +125,7 @@ const ru = {
     eyebrow: 'Коротко о главном', title: 'Частые вопросы',
     items: [
       ['Это marketplace?', 'Нет. Поиск условий может быть частью процесса, но основная задача платформы — контролировать исполнение Сделки после выбора цены.'],
-      ['TAI выполняет действия сам?', 'TAI анализирует, объясняет и готовит действие. Критические операции требуют проверки прав и подтверждения человека.'],
+      ['Гекта выполняет действия сама?', 'Гекта анализирует, объясняет и готовит действие. Критические операции требуют проверки прав и подтверждения человека.'],
       ['Как подключаются внешние системы?', 'Через управляемые API-адаптеры. Внешнее событие связывается со Сделкой и получает проверяемый источник.'],
       ['Платформа работает только с зерном?', 'Нет. Единая модель Сделки применяется к категориям растениеводства с учётом их качества, хранения, логистики и документов.'],
       ['Как начать подключение?', 'Оставьте основные данные организации. После проверки сценария будет определён состав ролей, интеграций и следующий шаг.'],
@@ -148,14 +148,14 @@ type HomeCopy = WidenCopy<typeof ru>;
 const en: HomeCopy = {
   a11y: { site: 'Transparent Price', nav: 'Main navigation', menu: 'Menu', controlTower: 'Deal status scenario' },
   nav: { how: 'How it works', participants: 'Deal scenario', money: 'Settlement', integrations: 'Integrations', status: 'Control', login: 'Sign in', connect: 'Connect organisation' },
-  hero: { primary: 'See a Deal in action', secondary: 'Connect organisation', tertiary: 'How TAI works', proofLabel: 'Deal execution principles', proofs: ['One Deal record', 'Evidence-based transitions', 'Money linked to events'] },
+  hero: { primary: 'See a Deal in action', secondary: 'Connect organisation', tertiary: 'How Gekta works', proofLabel: 'Deal execution principles', proofs: ['One Deal record', 'Evidence-based transitions', 'Money linked to events'] },
   tower: {
     sampleLabel: 'Execution scenario', deal: 'Sunflower · 1,200 t', stage: 'Acceptance and quality', progressLabel: 'Deal scenario progress',
     statusLabel: 'Status', status: 'Settlement paused', deviation: 'Quality deviation',
     ownerLabel: 'Owner', owner: 'Laboratory and buyer', deadline: 'Next action due 16:30',
     moneyLabel: 'Money', money: 'Reserve retained', release: 'Payout awaits evidence',
     nextLabel: 'Next action', next: 'Sign the discrepancy act', nextNote: 'Then apply the contractual recalculation rule',
-    taiTitle: 'TAI explained the pause', taiText: 'Moisture exceeds tolerance and the act is unsigned. The next action has been prepared.',
+    taiTitle: 'Gekta explained the pause', taiText: 'Moisture exceeds tolerance and the act is unsigned. The next action has been prepared.',
   },
   trust: { label: 'Platform trust framework', items: [
     ['One Deal', 'Product, participants, trip, quality, documents and money remain connected.'],
@@ -172,10 +172,10 @@ const en: HomeCopy = {
     status: 'Settlement paused', money: 'Funds remain reserved until a revised settlement basis is confirmed.', next: 'Next action: confirm the protocol, sign the act and select the contractual recalculation rule.', evidence: 'Evidence: sample, laboratory protocol, acceptance act and specification version.', cta: 'Open the full scenario',
   },
   tai: {
-    eyebrow: 'TAI inside the Deal', title: 'Explains the issue and prepares an action', text: 'TAI turns statuses, documents and events into a short answer: what happened, why it stopped, who owns it and what must be confirmed.', mode: 'Deal assistant',
+    eyebrow: 'Gekta inside the Deal', title: 'Explains the issue and prepares an action', text: 'Gekta turns statuses, documents and events into a short answer: what happened, why it stopped, who owns it and what must be confirmed.', mode: 'Deal agricultural intelligence',
     answer: 'Final settlement is paused: moisture exceeds the agreed tolerance and the buyer has not yet confirmed the discrepancy act.',
     modes: ['On the public page it has no access to restricted data', 'In the workspace it respects organisation roles and permissions', 'Inside a Deal it analyses permitted documents and prepares an action'],
-    boundaries: 'TAI does not change permissions, sign documents, release money or decide a dispute instead of a person.', source: 'Scenario basis: laboratory protocol L-204', freshness: 'Context: acceptance and quality', confidence: 'Confidence: high', action: 'A draft discrepancy act is prepared and awaiting user confirmation.',
+    boundaries: 'Gekta does not change permissions, sign documents, release money or decide a dispute instead of a person.', source: 'Scenario basis: laboratory protocol L-204', freshness: 'Context: acceptance and quality', confidence: 'Confidence: high', action: 'A draft discrepancy act is prepared and awaiting user confirmation.',
   },
   crops: { eyebrow: 'Crop trade', title: 'One Deal model adapts to the product', lead: 'The execution framework stays consistent while quality, storage, transport and document rules are configured for each category.', groups: [
     ['Grains', 'Lot · quality · traceability'], ['Oilseeds and pulses', 'Tolerances · laboratory · recalculation'], ['Industrial crops', 'Specification · storage · acceptance'], ['Vegetables and potatoes', 'Grade · packaging · temperature'], ['Fruit and berries', 'Quality · timing · cold chain'], ['Seed and planting material', 'Lot · documents · traceability'],
@@ -188,7 +188,7 @@ const en: HomeCopy = {
     ['One Deal record', 'All related objects remain in one context.'], ['Role-based access', 'Permissions come from the system, not a URL or client choice.'], ['Organisation isolation', 'Data and actions are separated by organisation and authority.'], ['Immutable history', 'Key events and evidence remain available for verification.'], ['Replay protection', 'Critical requests are processed idempotently.'], ['API framework', 'Integrations connect through governed adapters.'],
   ], foot: 'The architecture does not require a separate bypass process for mobile use, integrations or scaling.' },
   faq: { eyebrow: 'Key questions', title: 'Frequently asked questions', items: [
-    ['Is this a marketplace?', 'No. Price discovery may be part of the flow, but the platform primarily controls Deal execution after price selection.'], ['Does TAI act autonomously?', 'TAI analyses, explains and prepares an action. Critical operations require permission checks and human confirmation.'], ['How do external systems connect?', 'Through governed API adapters. Each external event is linked to a Deal and a verifiable source.'], ['Is the platform limited to grain?', 'No. The common Deal model supports crop categories while preserving their quality, storage, logistics and document rules.'], ['How do we start?', 'Provide the organisation basics. After scenario review, the required roles, integrations and next step are defined.'],
+    ['Is this a marketplace?', 'No. Price discovery may be part of the flow, but the platform primarily controls Deal execution after price selection.'], ['Does Gekta act autonomously?', 'Gekta analyses, explains and prepares an action. Critical operations require permission checks and human confirmation.'], ['How do external systems connect?', 'Through governed API adapters. Each external event is linked to a Deal and a verifiable source.'], ['Is the platform limited to grain?', 'No. The common Deal model supports crop categories while preserving their quality, storage, logistics and document rules.'], ['How do we start?', 'Provide the organisation basics. After scenario review, the required roles, integrations and next step are defined.'],
   ] },
   final: { title: 'Connect your organisation to one Deal framework', lead: 'Start with an operating scenario. The platform connects participants, execution, documents and settlement without gaps between systems.', primary: 'Start connection', secondary: 'See a Deal in action' },
   footer: { note: 'Unified digital infrastructure for agricultural Deal execution, from terms and trading to settlement, evidence and closure.', privacy: 'Privacy', contacts: 'Contacts' },
@@ -197,12 +197,12 @@ const en: HomeCopy = {
 const zh: HomeCopy = {
   a11y: { site: '透明价格', nav: '主导航', menu: '菜单', controlTower: '交易状态场景' },
   nav: { how: '运行方式', participants: '交易场景', money: '结算', integrations: '集成', status: '控制', login: '登录', connect: '接入机构' },
-  hero: { primary: '查看交易运行', secondary: '接入机构', tertiary: 'TAI 如何工作', proofLabel: '交易执行原则', proofs: ['一笔交易记录', '基于依据的流转', '资金关联事件'] },
+  hero: { primary: '查看交易运行', secondary: '接入机构', tertiary: 'Gekta 如何工作', proofLabel: '交易执行原则', proofs: ['一笔交易记录', '基于依据的流转', '资金关联事件'] },
   tower: {
     sampleLabel: '执行场景', deal: '葵花籽 · 1,200 吨', stage: '验收与质量', progressLabel: '交易场景进度',
     statusLabel: '状态', status: '结算暂停', deviation: '质量偏差', ownerLabel: '责任方', owner: '实验室与买方', deadline: '下一步截止 16:30',
     moneyLabel: '资金', money: '预留保持', release: '付款等待依据', nextLabel: '下一步', next: '签署差异单', nextNote: '随后应用合同重算规则',
-    taiTitle: 'TAI 已解释暂停原因', taiText: '水分超出容差且差异单未签署，下一步行动已准备。',
+    taiTitle: 'Gekta 已解释暂停原因', taiText: '水分超出容差且差异单未签署，下一步行动已准备。',
   },
   trust: { label: '平台信任框架', items: [
     ['同一笔交易', '商品、参与方、运输、质量、文件与资金保持关联。'], ['可核验流转', '下一阶段必须具备角色、事件与依据。'], ['证据历史', '文件版本、操作、偏差与决定共同保存。'], ['按角色控制', '每个参与方只看到自身上下文和允许的操作。'],
@@ -215,8 +215,8 @@ const zh: HomeCopy = {
     status: '结算暂停', money: '在新的结算依据确认前，资金保持预留。', next: '下一步：确认报告、签署差异单并选择合同重算规则。', evidence: '依据：样品、实验室报告、验收单与规格版本。', cta: '打开完整场景',
   },
   tai: {
-    eyebrow: '交易内的 TAI', title: '解释问题并准备行动', text: 'TAI 将状态、文件与事件整理成简短答案：发生了什么、为何停止、谁负责以及需要确认什么。', mode: '交易助手', answer: '最终结算已暂停：水分超出约定容差，买方尚未确认差异单。',
-    modes: ['公开页面不访问受限数据', '工作区内遵守机构角色与权限', '交易内分析允许访问的文件并准备行动'], boundaries: 'TAI 不更改权限、不签署文件、不释放资金，也不会代替人工裁决争议。', source: '场景依据：实验室报告 L-204', freshness: '上下文：验收与质量', confidence: '结论可靠度：高', action: '差异单草稿已准备，等待用户确认。',
+    eyebrow: '交易内的 Gekta', title: '解释问题并准备行动', text: 'Gekta 将状态、文件与事件整理成简短答案：发生了什么、为何停止、谁负责以及需要确认什么。', mode: '交易农业智能', answer: '最终结算已暂停：水分超出约定容差，买方尚未确认差异单。',
+    modes: ['公开页面不访问受限数据', '工作区内遵守机构角色与权限', '交易内分析允许访问的文件并准备行动'], boundaries: 'Gekta 不更改权限、不签署文件、不释放资金，也不会代替人工裁决争议。', source: '场景依据：实验室报告 L-204', freshness: '上下文：验收与质量', confidence: '结论可靠度：高', action: '差异单草稿已准备，等待用户确认。',
   },
   crops: { eyebrow: '种植业', title: '统一交易模型适配具体商品', lead: '执行闭环保持一致，同时为每个品类配置质量、仓储、运输与文件规则。', groups: [
     ['谷物', '批次 · 质量 · 追溯'], ['油料与豆类', '容差 · 实验室 · 重算'], ['经济作物', '规格 · 仓储 · 验收'], ['蔬菜与马铃薯', '等级 · 包装 · 温控'], ['水果与浆果', '质量 · 时效 · 冷链'], ['种子与种植材料', '批次 · 文件 · 追溯'],
@@ -229,7 +229,7 @@ const zh: HomeCopy = {
     ['一笔交易记录', '所有关联对象保持在同一上下文。'], ['按角色访问', '权限由系统确定，而非网址或客户端选择。'], ['机构隔离', '数据与操作按机构和权限分离。'], ['不可变历史', '关键事件与依据可供核验。'], ['防重复处理', '关键请求采用幂等处理。'], ['API 闭环', '集成通过受控适配器接入。'],
   ], foot: '移动端、集成和扩展无需另建绕行流程。' },
   faq: { eyebrow: '核心问题', title: '常见问题', items: [
-    ['这是 marketplace 吗？', '不是。价格发现可以是流程的一部分，但平台的主要任务是管理确定价格后的交易执行。'], ['TAI 会自主执行吗？', 'TAI 分析、解释并准备行动。关键操作必须经过权限检查和人工确认。'], ['外部系统如何接入？', '通过受控 API 适配器接入。每个外部事件都与交易及可核验来源关联。'], ['平台只支持谷物吗？', '不是。统一交易模型支持多类种植业商品，并保留其质量、仓储、物流与文件规则。'], ['如何开始接入？', '先提供机构基本信息。场景审核后确定角色、集成范围与下一步。'],
+    ['这是 marketplace 吗？', '不是。价格发现可以是流程的一部分，但平台的主要任务是管理确定价格后的交易执行。'], ['Gekta 会自主执行吗？', 'Gekta 分析、解释并准备行动。关键操作必须经过权限检查和人工确认。'], ['外部系统如何接入？', '通过受控 API 适配器接入。每个外部事件都与交易及可核验来源关联。'], ['平台只支持谷物吗？', '不是。统一交易模型支持多类种植业商品，并保留其质量、仓储、物流与文件规则。'], ['如何开始接入？', '先提供机构基本信息。场景审核后确定角色、集成范围与下一步。'],
   ] },
   final: { title: '将机构接入统一交易闭环', lead: '从一个运营场景开始。平台在系统之间无断点地连接参与方、执行、文件与结算。', primary: '开始接入', secondary: '查看交易运行' },
   footer: { note: '农业交易执行的统一数字基础设施：从条件与交易到结算、证据与关闭。', privacy: '隐私', contacts: '联系方式' },

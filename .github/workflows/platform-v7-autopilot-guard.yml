@@ -2,11 +2,21 @@ name: platform-v7 autopilot guard
 
 on:
   workflow_dispatch:
+  pull_request_target:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   pull_request:
     branches:
       - main
     paths:
       - 'apps/api/src/modules/auth/**'
+      - 'apps/api/src/modules/staff-access/**'
+      - 'apps/web/app/api/staff/**'
       - 'apps/web/app/platform-v7/**'
       - 'apps/web/components/platform-v7/**'
       - 'apps/web/components/transaction-ux/**'
@@ -29,20 +39,237 @@ on:
       - 'scripts/check-design-system-v8*.mjs'
       - 'scripts/platform-v7-route-inventory.mjs'
       - 'scripts/p7-autopilot-guard.sh'
+      - 'scripts/p7-autopilot-guard.test.mjs'
+      - 'scripts/check-production-like-kubernetes-timeout.mjs'
+      - 'scripts/check-production-p0-staff-decision-idempotency.mjs'
+      - 'scripts/check-production-p0-staff-decision-session.mjs'
+      - 'scripts/check-production-p0-registration-decision-replay-notification.mjs'
       - '.github/workflows/platform-v7-autopilot-guard.yml'
+      - '.github/workflows/production-like-kubernetes-acceptance.yml'
+      - '.github/workflows/platform-v7-safe-merge.yml'
+      - '.github/workflows/production-full-stack-exact-sha.yml'
+      - '.github/workflows/production-auth-mail-outbox-cutover.yml'
+      - '.github/workflows/production-p0-staff-api-origin-local-controller-repair.yml'
+      - '.github/workflows/production-p0-reviewer-inspect.yml'
+      - '.github/workflows/production-p0-first-customer-acceptance.yml'
+      - '.github/workflows/production-p0-all-role-registration.yml'
+      - 'scripts/production-p0-reviewer-inspect.sh'
+      - 'scripts/check-production-full-stack-release.mjs'
+      - 'scripts/check-production-auth-mail-outbox-cutover.mjs'
+      - 'scripts/check-production-p0-reviewer-inspect.mjs'
+      - 'scripts/check-production-p0-first-customer-acceptance.mjs'
+      - 'scripts/check-production-p0-all-role-registration.mjs'
+      - 'docs/ops/production-full-stack-release.md'
+      - 'docs/ops/production-p0-first-customer-acceptance.md'
+      - 'docs/ops/production-p0-all-role-registration.md'
 
 concurrency:
-  group: platform-v7-autopilot-guard-${{ github.ref }}
+  group: platform-v7-autopilot-guard-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  trusted-immutable-scope:
+    name: PC-CROP implementation immutable scope · trusted base
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      (github.event.pull_request.head.ref == 'fix/p0-registration-authority-rollover-4637' ||
+      github.event.pull_request.head.ref == 'fix/p0-owner-control-plane-audit-lock-4698')
+    permissions:
+      checks: write
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted base revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+      - name: Validate untrusted head with trusted base guard
+        id: trusted_validation
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          IMMUTABLE_SCOPE_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set +e
+          (
+            set -Eeuo pipefail
+            if [ "$HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then
+              echo 'PC-CROP immutable-scope authority rejects same-name branches from forks.' >&2
+              exit 1
+            fi
+            case "$IMMUTABLE_SCOPE_BRANCH" in
+              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698) ;;
+              *) echo 'Trusted immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
+            esac
+            if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo 'Trusted immutable-scope guard received an invalid commit SHA.' >&2
+              exit 1
+            fi
+            test "$(git rev-parse HEAD)" = "$BASE_SHA"
+            git fetch --no-tags origin "$HEAD_SHA"
+            test "$(git rev-parse FETCH_HEAD)" = "$HEAD_SHA"
+            BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF="$IMMUTABLE_SCOPE_BRANCH" \
+              bash scripts/p7-autopilot-guard.sh
+          ) > "$RUNNER_TEMP/trusted-immutable-scope.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/trusted-immutable-scope.log"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+      - name: Emit required guard context from trusted base on the PR head
+        id: trusted_context
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          VALIDATION_RC: ${{ steps.trusted_validation.outputs.rc }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          conclusion=failure
+          title='PC-CROP immutable scope rejected'
+          summary='The base-controlled immutable scope check failed closed.'
+          if [[ "$VALIDATION_RC" == 0 ]]; then
+            conclusion=success
+            title='PC-CROP immutable scope accepted'
+            summary='The exact PR head satisfies the immutable scope recorded in the trusted base.'
+          fi
+          gh api --method POST \
+            -H 'Accept: application/vnd.github+json' \
+            "repos/$GITHUB_REPOSITORY/check-runs" \
+            -f name='guard' \
+            -f head_sha="$HEAD_SHA" \
+            -f status='completed' \
+            -f conclusion="$conclusion" \
+            -f "output[title]=$title" \
+            -f "output[summary]=$summary" >/dev/null
+      - name: Enforce trusted immutable-scope result
+        if: always()
+        env:
+          VALIDATION_RC: ${{ steps.trusted_validation.outputs.rc }}
+          CONTEXT_OUTCOME: ${{ steps.trusted_context.outcome }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$VALIDATION_RC" == 0 ]]
+          [[ "$CONTEXT_OUTCOME" == success ]]
+
   guard:
+    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
+    needs: standard_validation
+    if: always() && github.event_name != 'pull_request_target'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Require standard validations in the required guard context
+        if: >-
+          github.event_name != 'pull_request' ||
+          (github.head_ref != 'fix/p0-registration-authority-rollover-4637' &&
+          github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698')
+        env:
+          STANDARD_VALIDATION_RESULT: ${{ needs.standard_validation.result }}
+        run: |
+          if [ "$STANDARD_VALIDATION_RESULT" != 'success' ]; then
+            echo "Standard platform-v7 guard validations did not pass: $STANDARD_VALIDATION_RESULT" >&2
+            exit 1
+          fi
+      - name: Validate immutable scope with trusted base guard on PR head
+        if: >-
+          github.event_name == 'pull_request' &&
+          (github.head_ref == 'fix/p0-registration-authority-rollover-4637' ||
+          github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698')
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          IMMUTABLE_SCOPE_BRANCH: ${{ github.head_ref }}
+        run: |
+          case "$IMMUTABLE_SCOPE_BRANCH" in
+            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698) ;;
+            *) echo 'PR-head immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
+          esac
+          if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo 'PR-head immutable-scope guard received an invalid commit SHA.' >&2
+            exit 1
+          fi
+          git cat-file -e "$BASE_SHA^{commit}"
+          git cat-file -e "$HEAD_SHA^{commit}"
+          TRUSTED_GUARD=$(mktemp)
+          git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"
+          chmod 0700 "$TRUSTED_GUARD"
+          BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF="$IMMUTABLE_SCOPE_BRANCH" \
+            bash "$TRUSTED_GUARD"
+      - name: Validate standard branch scope on PR head
+        if: >-
+          github.event_name != 'pull_request' ||
+          (github.head_ref != 'fix/p0-registration-authority-rollover-4637' &&
+          github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698')
+        run: bash scripts/p7-autopilot-guard.sh
+
+  standard_validation:
+    name: Standard platform-v7 guard validations
+    if: >-
+      github.event_name != 'pull_request_target' &&
+      (github.event_name != 'pull_request' ||
+      (github.head_ref != 'fix/p0-registration-authority-rollover-4637' &&
+      github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
+      - name: Validate PC-CROP immutable-scope guard regression
+        run: node --test scripts/p7-autopilot-guard.test.mjs
+      - name: Validate production-like Kubernetes timeout contract
+        if: >-
+          github.event_name == 'pull_request' &&
+          (github.head_ref == 'governance/production-like-kubernetes-timeout-3750' ||
+          github.head_ref == 'fix/production-like-kubernetes-timeout-3750')
+        run: |
+          if [ "$GITHUB_HEAD_REF" = 'governance/production-like-kubernetes-timeout-3750' ]; then
+            node scripts/check-production-like-kubernetes-timeout.mjs --self-test
+          else
+            node scripts/check-production-like-kubernetes-timeout.mjs
+          fi
+      - name: Validate production P0 staff decision idempotency contract
+        if: >-
+          github.event_name == 'pull_request' &&
+          (github.head_ref == 'governance/production-p0-staff-decision-idempotency-3750' ||
+          github.head_ref == 'fix/production-p0-staff-decision-idempotency-3750')
+        run: |
+          if [ "$GITHUB_HEAD_REF" = 'governance/production-p0-staff-decision-idempotency-3750' ]; then
+            node scripts/check-production-p0-staff-decision-idempotency.mjs --self-test
+          else
+            node scripts/check-production-p0-staff-decision-idempotency.mjs
+          fi
+      - name: Validate production P0 staff decision session contract
+        if: >-
+          github.event_name == 'pull_request' &&
+          (github.head_ref == 'governance/production-p0-staff-decision-session-3750-v2' ||
+          github.head_ref == 'fix/production-p0-staff-decision-session-3750')
+        run: |
+          if [ "$GITHUB_HEAD_REF" = 'governance/production-p0-staff-decision-session-3750-v2' ]; then
+            node scripts/check-production-p0-staff-decision-session.mjs --self-test
+          else
+            node scripts/check-production-p0-staff-decision-session.mjs
+          fi
+      - name: Validate production P0 registration decision replay notification contract
+        if: >-
+          github.event_name == 'pull_request' &&
+          (github.head_ref == 'governance/production-p0-registration-decision-replay-notification-3750' ||
+          github.head_ref == 'fix/production-p0-registration-decision-replay-notification-3750')
+        run: |
+          if [ "$GITHUB_HEAD_REF" = 'governance/production-p0-registration-decision-replay-notification-3750' ]; then
+            node scripts/check-production-p0-registration-decision-replay-notification.mjs --self-test
+          else
+            node scripts/check-production-p0-registration-decision-replay-notification.mjs
+          fi
       - name: Generate Platform V7 route inventory
         run: node scripts/platform-v7-route-inventory.mjs --output=platform-v7-route-inventory.json
       - name: Upload Platform V7 route inventory

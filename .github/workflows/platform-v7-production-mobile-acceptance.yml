@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows:
       - 'Production Web Exact-SHA Release'
+      - 'Production Web Owner Exact-SHA Command'
       - 'Production Full-Stack Exact-SHA Release'
     types: [completed]
   workflow_dispatch:
@@ -15,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   issues: write
 
 concurrency:
@@ -26,9 +28,29 @@ env:
   RELEASE_ISSUE_NUMBER: 3048
 
 jobs:
+  accepted:
+    name: Resolve accepted protected Web release
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/production-release-accepted-sha.yml
+    with:
+      release_run_id: ${{ github.event.workflow_run.id }}
+      manual_sha: ''
+
   mobile-acceptance:
-    name: 390x844 and 430x932 production acceptance
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    name: Chromium + WebKit 320x700, 375x812, 390x844 and 430x932 production acceptance
+    needs: accepted
+    if: >-
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.name == 'Production Full-Stack Exact-SHA Release') ||
+       needs.accepted.outputs.deployment_accepted == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -37,11 +59,15 @@ jobs:
         id: target
         env:
           INPUT_TARGET_SHA: ${{ inputs.target_sha }}
+          ACCEPTED_SHA: ${{ needs.accepted.outputs.accepted_sha }}
           RELEASE_TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+          RELEASE_WORKFLOW: ${{ github.event.workflow_run.name }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run && -n "${ACCEPTED_SHA:-}" ]]; then
+            target_sha="$ACCEPTED_SHA"
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
             target_sha="$RELEASE_TARGET_SHA"
           elif [[ -n "${INPUT_TARGET_SHA:-}" ]]; then
             target_sha="$INPUT_TARGET_SHA"
@@ -132,10 +158,10 @@ jobs:
       - name: Install exact repository dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Chromium runtime
-        run: pnpm --filter @pc/web exec playwright install --with-deps chromium
+      - name: Install Chromium and WebKit runtimes
+        run: pnpm --filter @pc/web exec playwright install --with-deps chromium webkit
 
-      - name: Run exact mobile viewport acceptance
+      - name: Run exact dual-engine mobile viewport acceptance
         id: acceptance
         continue-on-error: true
         env:
@@ -158,20 +184,25 @@ jobs:
           case "$ACCEPTANCE_OUTCOME" in success) result=PASS ;; failure) result=FAIL ;; *) result=NOT_RUN ;; esac
           record=artifacts/platform-v7-production-mobile/issue-comment.md
           {
-            echo "## Platform V7 production mobile acceptance \`$GITHUB_RUN_ID\`"
+            echo "## Platform V7 + Gekta production mobile acceptance \`$GITHUB_RUN_ID\` attempt \`$GITHUB_RUN_ATTEMPT\`"
             echo
             echo "- target SHA: \`$TARGET_SHA\`"
             echo "- exact public revision gate: \`$revision_result\`"
             echo "- manifest revision: \`${MANIFEST_SHA:-missing}\`"
-            echo "- viewport 390×844: \`$result\`"
-            echo "- viewport 430×932: \`$result\`"
-            echo "- sticky header and anchors: \`$result\`"
+            echo "- browser engines: \`Chromium + WebKit\`"
+            echo "- retries: \`0\`"
+            echo "- Gekta viewport 320×700: \`$result\`"
+            echo "- Gekta viewport 375×812: \`$result\`"
+            echo "- Platform V7 + Gekta viewport 390×844: \`$result\`"
+            echo "- Platform V7 + Gekta viewport 430×932: \`$result\`"
+            echo "- Gekta mobile history, chat, composer and sources: \`$result\`"
+            echo "- Gekta EN/ZH canonical mobile smoke: \`$result\`"
             echo "- horizontal overflow: \`$result\`"
-            echo "- 44 px header controls: \`$result\`"
-            echo "- 52–56 px form controls: \`$result\`"
-            echo "- product Deal workspace: \`$result\`"
+            echo "- 44 px Gekta primary touch targets: \`$result\`"
+            echo "- Platform V7 sticky header, anchors and Deal workspace: \`$result\`"
             echo "- screenshots and traces: workflow artifact"
             echo "- workflow run ID: \`$GITHUB_RUN_ID\`"
+            echo "- workflow run attempt: \`$GITHUB_RUN_ATTEMPT\`"
           } > "$record"
           gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
 
@@ -190,12 +221,14 @@ jobs:
           printf '%s\n' '${{ steps.target.outputs.target_sha }}' > "$evidence_dir/target-sha.txt"
           printf '%s\n' '${{ steps.revision.outcome }}' > "$evidence_dir/revision-outcome.txt"
           printf '%s\n' '${{ steps.acceptance.outcome }}' > "$evidence_dir/outcome.txt"
+          printf '%s\n' "$GITHUB_RUN_ATTEMPT" > "$evidence_dir/run-attempt.txt"
+          printf '%s\n' 'chromium' 'webkit' > "$evidence_dir/browser-engines.txt"
 
       - name: Upload production mobile evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: platform-v7-production-mobile-${{ github.run_id }}
+          name: platform-v7-production-mobile-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
             apps/web/test-results/production-mobile
             apps/web/playwright-report-production-mobile

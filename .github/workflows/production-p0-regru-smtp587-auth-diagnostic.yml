@@ -1,0 +1,280 @@
+name: Production P0 REG.RU SMTP587 Auth Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-regru-smtp587-auth-diagnostic.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-regru-smtp587-auth-diagnostic-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  EVIDENCE_DIR: artifacts/production-p0-regru-smtp587-auth-diagnostic
+
+jobs:
+  contract:
+    name: Validate SMTP587 no-send contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          (github.actor == 'chatgpt-codex-connector[bot]' && github.triggering_actor == 'chatgpt-codex-connector[bot]')
+        ) &&
+        github.event.comment.body == '/production p0-regru-smtp587-auth-diagnostic current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate bounded no-send contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('.github/workflows/production-p0-regru-smtp587-auth-diagnostic.yml').read_text(encoding='utf-8')
+          for marker in (
+              'mail.hosting.reg.ru', 'PORT=587', 'starttls',
+              'StrictHostKeyChecking=yes', 'SMTP587_AUTH_RESULT=',
+              'PRODUCTION_MUTATION=NONE', "github.event.issue.number == 3072"):
+              assert marker in text, marker
+          runtime = text.split('\n  diagnose:\n', 1)[1]
+          for forbidden in ('send_message(', 'sendmail(', 'MAIL FROM', 'RCPT TO', "'DATA'", 'docker compose', 'docker service', 'PC_RECONCILE_ACTIVE_RUNTIME'):
+              assert forbidden not in runtime, forbidden
+          PY
+
+      - name: Verify owner or trusted connector provenance
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: /production p0-regru-smtp587-auth-diagnostic current-main
+          TRUSTED_CONNECTOR_APP_ID: 1144995
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          [[ "$user" == "$owner" && "$assoc" == OWNER && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" ]]; then
+            [[ "${{ github.triggering_actor }}" == "$owner" ]]
+          else
+            [[ "$GITHUB_ACTOR" == 'chatgpt-codex-connector[bot]' && "${{ github.triggering_actor }}" == 'chatgpt-codex-connector[bot]' ]]
+            [[ "$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // empty')" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+          fi
+
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  diagnose:
+    name: Verify normalized REG.RU SMTP587 STARTTLS auth from production host
+    needs: contract
+    if: github.event_name == 'issue_comment' && needs.contract.result == 'success' && needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      MAILBOX_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      MAILBOX_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact current main and protected inputs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          safe_scalar(){ [[ -n "$1" && "$1" != *$'\n'* && "$1" != *$'\r'* ]]; }
+          safe_scalar "$MAILBOX_USER"; safe_scalar "$MAILBOX_PASSWORD"
+          safe_scalar "$PC_PROD_HOST"; safe_scalar "$PC_PROD_SSH_USER"; safe_scalar "$PC_PROD_SSH_HOST_FINGERPRINT"
+          [[ -n "$PC_PROD_SSH_KEY" ]]
+
+      - name: Establish pinned root SSH
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR" "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          host="$PC_PROD_HOST"; user="$PC_PROD_SSH_USER"; port="${PC_PROD_SSH_PORT:-22}"; expected="$PC_PROD_SSH_HOST_FINGERPRINT"
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$host"
+          printf '%s\n' "$PC_PROD_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/id_pc_prod"; chmod 600 "$HOME/.ssh/id_pc_prod"
+          ssh-keygen -y -P '' -f "$HOME/.ssh/id_pc_prod" >/dev/null
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do
+            got="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$got" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          rm -f "$scan"; [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 "$user@$host" 'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; command -v python3 >/dev/null; echo ROOT_SSH_PYTHON_OK' > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_SSH_PYTHON_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Build protected SMTP587 AUTH-only proof
+        id: bundle
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          config="$RUNNER_TEMP/smtp587-${GITHUB_RUN_ID}.json"; script="$RUNNER_TEMP/smtp587-${GITHUB_RUN_ID}.py"; umask 077
+          CONFIG="$config" python3 - <<'PY'
+          import json, os
+          payload={'user':os.environ['MAILBOX_USER'],'password':os.environ['MAILBOX_PASSWORD']}
+          if any((not v) or any(c in v for c in ('\n','\r','\x00')) for v in payload.values()): raise SystemExit(20)
+          with open(os.environ['CONFIG'],'w',encoding='utf-8') as f: json.dump(payload,f,ensure_ascii=True,separators=(',',':'))
+          PY
+          cat > "$script" <<'PY'
+          import json,re,smtplib,socket,ssl,sys
+          HOST='mail.hosting.reg.ru'; PORT=587
+          with open(sys.argv[1],encoding='utf-8') as f: cfg=json.load(f)
+          raw=cfg.get('user',''); password=cfg.get('password','')
+          result={'SMTP587_IDENTITY_NORMALIZATION':'INVALID','SMTP587_TRANSPORT_CLASS':'NOT_ATTEMPTED','SMTP587_STARTTLS':'NOT_ATTEMPTED','SMTP587_AUTH_RESULT':'NOT_ATTEMPTED','PRODUCTION_MUTATION':'NONE'}
+          normalized=''
+          try:
+              if raw.count('@')!=1: raise ValueError('email')
+              local,domain=raw.rsplit('@',1); local.encode('ascii')
+              normalized=f"{local}@{domain.encode('idna').decode('ascii').lower()}"
+              if len(normalized)>254 or not re.fullmatch(r'[^\s@]{1,64}@[^\s@]{1,189}',normalized): raise ValueError('email')
+              result['SMTP587_IDENTITY_NORMALIZATION']='PASS'
+          except Exception: pass
+          client=None
+          if normalized:
+              try:
+                  client=smtplib.SMTP(HOST,PORT,timeout=15)
+                  result['SMTP587_TRANSPORT_CLASS']='PASS'
+                  code,_=client.ehlo()
+                  if code!=250: raise smtplib.SMTPHeloError(code,b'')
+                  if not client.has_extn('starttls'):
+                      result['SMTP587_STARTTLS']='NOT_SUPPORTED'
+                  else:
+                      client.starttls(context=ssl.create_default_context())
+                      result['SMTP587_STARTTLS']='PASS'
+                      code,_=client.ehlo()
+                      if code!=250: raise smtplib.SMTPHeloError(code,b'')
+                      try:
+                          client.login(normalized,password)
+                          result['SMTP587_AUTH_RESULT']='PASS'
+                      except smtplib.SMTPAuthenticationError:
+                          result['SMTP587_AUTH_RESULT']='REJECTED'
+                      except smtplib.SMTPNotSupportedError:
+                          result['SMTP587_AUTH_RESULT']='NOT_SUPPORTED'
+              except socket.gaierror:
+                  result['SMTP587_TRANSPORT_CLASS']='DNS'; result['SMTP587_AUTH_RESULT']='TRANSPORT_ERROR'
+              except (TimeoutError,socket.timeout):
+                  result['SMTP587_TRANSPORT_CLASS']='TIMEOUT'; result['SMTP587_AUTH_RESULT']='TRANSPORT_ERROR'
+              except ssl.SSLError:
+                  result['SMTP587_TRANSPORT_CLASS']='TLS'; result['SMTP587_AUTH_RESULT']='TRANSPORT_ERROR'
+              except smtplib.SMTPHeloError:
+                  result['SMTP587_TRANSPORT_CLASS']='SMTP_HELO'; result['SMTP587_AUTH_RESULT']='TRANSPORT_ERROR'
+              except (smtplib.SMTPException,OSError):
+                  result['SMTP587_TRANSPORT_CLASS']='SMTP_OR_NETWORK'; result['SMTP587_AUTH_RESULT']='TRANSPORT_ERROR'
+              finally:
+                  if client is not None:
+                      try: client.quit()
+                      except Exception: pass
+          for key in result: print(f'{key}={result[key]}')
+          PY
+          chmod 600 "$config" "$script"; echo "config=$config" >> "$GITHUB_OUTPUT"; echo "script=$script" >> "$GITHUB_OUTPUT"
+
+      - name: Run normalized SMTP587 STARTTLS AUTH from REG.RU production host
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          CONFIG: ${{ steps.bundle.outputs.config }}
+          SCRIPT: ${{ steps.bundle.outputs.script }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          rcfg="/tmp/smtp587-${GITHUB_RUN_ID}.json"; rscript="/tmp/smtp587-${GITHUB_RUN_ID}.py"
+          common=(-i "$HOME/.ssh/id_pc_prod" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          scp -P "$PORT" "${common[@]}" "$CONFIG" "$USER@$HOST:$rcfg"
+          scp -P "$PORT" "${common[@]}" "$SCRIPT" "$USER@$HOST:$rscript"
+          ssh -p "$PORT" "${common[@]}" "$USER@$HOST" "set -Eeuo pipefail; chmod 0600 '$rcfg' '$rscript'; python3 '$rscript' '$rcfg'" > "$EVIDENCE_DIR/result.txt"
+          grep -Eq '^SMTP587_IDENTITY_NORMALIZATION=(PASS|INVALID)$' "$EVIDENCE_DIR/result.txt"
+          grep -Eq '^SMTP587_TRANSPORT_CLASS=(NOT_ATTEMPTED|PASS|DNS|TIMEOUT|TLS|SMTP_HELO|SMTP_OR_NETWORK)$' "$EVIDENCE_DIR/result.txt"
+          grep -Eq '^SMTP587_STARTTLS=(NOT_ATTEMPTED|PASS|NOT_SUPPORTED)$' "$EVIDENCE_DIR/result.txt"
+          grep -Eq '^SMTP587_AUTH_RESULT=(NOT_ATTEMPTED|PASS|REJECTED|NOT_SUPPORTED|TRANSPORT_ERROR)$' "$EVIDENCE_DIR/result.txt"
+          grep -Fxq PRODUCTION_MUTATION=NONE "$EVIDENCE_DIR/result.txt"
+
+      - name: Upload bounded evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-regru-smtp587-auth-diagnostic-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Cleanup protected assets
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set +e
+          if [[ -n "${HOST:-}" && -n "${USER:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "$USER@$HOST" "rm -f '/tmp/smtp587-${GITHUB_RUN_ID}.json' '/tmp/smtp587-${GITHUB_RUN_ID}.py'" >/dev/null 2>&1 || true
+          fi
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts" "${{ steps.bundle.outputs.config }}" "${{ steps.bundle.outputs.script }}"
+          unset MAILBOX_PASSWORD PC_PROD_SSH_KEY

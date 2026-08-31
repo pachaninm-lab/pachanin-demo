@@ -1,6 +1,8 @@
 name: TAI Public Agro Semantic Live Acceptance
 
 on:
+  issue_comment:
+    types: [created]
   pull_request:
     branches: [main]
     paths:
@@ -30,12 +32,29 @@ permissions:
   actions: read
   contents: read
   issues: write
+  statuses: read
 
 # This group is deliberately identical to the activation workflow group.
 # A later activation therefore queues behind a running semantic probe instead
 # of contending for the single private Qwen runtime.
 concurrency:
-  group: tai-restricted-qwen-reg-ru-activation
+  group: >-
+    ${{
+      github.event_name == 'pull_request' &&
+      format('tai-public-agro-semantic-pr-{0}', github.event.pull_request.number) ||
+      github.event_name == 'issue_comment' &&
+      !(
+        github.event.issue.number == 3365 &&
+        github.event.issue.pull_request == null &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.body == '/tai recover-live-semantic 31481267058 c391425e9ad5d9afb0b5991079bc90caf1b9f660'
+      ) &&
+      format('tai-public-agro-semantic-ignored-{0}', github.run_id) ||
+      'tai-restricted-qwen-reg-ru-activation-production'
+    }}
   cancel-in-progress: false
 
 env:
@@ -57,6 +76,16 @@ jobs:
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
         inputs.confirmation == 'VERIFY-PUBLIC-AGRO-SEMANTICS'
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.issue.pull_request == null &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.body == '/tai recover-live-semantic 31481267058 c391425e9ad5d9afb0b5991079bc90caf1b9f660'
       )
     runs-on: ubuntu-24.04
     timeout-minutes: 55
@@ -93,10 +122,25 @@ jobs:
         run: |
           set -euo pipefail
           workflow='.github/workflows/tai-public-agro-semantic-live-acceptance.yml'
+          activation_workflow='.github/workflows/tai-restricted-qwen-reg-ru-activation.yml'
           grep -Fq "workflow_run:" "$workflow"
           grep -Fq "workflows: ['TAI Restricted Qwen REG.RU Activation']" "$workflow"
           grep -Fq "github.event.workflow_run.conclusion == 'success'" "$workflow"
-          grep -Fq "group: tai-restricted-qwen-reg-ru-activation" "$workflow"
+          grep -Fq "'tai-restricted-qwen-reg-ru-activation-production'" "$workflow"
+          grep -Fq "group: tai-restricted-qwen-reg-ru-activation-" "$activation_workflow"
+          grep -Fq "github.event.pull_request.number || 'production'" "$activation_workflow"
+          grep -Fq "format('tai-public-agro-semantic-pr-{0}', github.event.pull_request.number)" "$workflow"
+          grep -Fq "format('tai-public-agro-semantic-ignored-{0}', github.run_id)" "$workflow"
+          grep -Fq "github.event.comment.body == '/tai recover-live-semantic 31481267058 c391425e9ad5d9afb0b5991079bc90caf1b9f660'" "$workflow"
+          grep -Fq "activation_target='10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d'" "$workflow"
+          grep -Fq "target='c391425e9ad5d9afb0b5991079bc90caf1b9f660'" "$workflow"
+          grep -Fq "release_run='31494796603'" "$workflow"
+          grep -Fq 'jq -r --arg run "$release_run" --arg target "$target"' "$workflow"
+          grep -Fq 'contains("- API revision: `" + $target + "`")' "$workflow"
+          grep -Fq 'diff -u "$expected_changed" "$actual_changed"' "$workflow"
+          grep -Fq 'cp "$manifest" "$RUNNER_TEMP/tai-public-agro-semantic/evidence/manifest.json"' "$workflow"
+          grep -Fq 'TAI Restricted Qwen REG.RU Activation' "$workflow"
+          grep -Fq "git merge-base --is-ancestor" "$workflow"
           grep -Fq "apps/web/components/platform-v7/PublicPlatformAssistant.tsx" "$workflow"
           grep -Fq "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx" "$workflow"
           echo 'SEMANTIC_ACCEPTANCE_SERIALIZATION=PASS'
@@ -104,6 +148,8 @@ jobs:
       - name: Resolve exact production target
         if: steps.mode.outputs.live == '1'
         id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -112,11 +158,93 @@ jobs:
             target='${{ github.event.workflow_run.head_sha }}'
           elif [[ '${{ github.event_name }}' == 'workflow_dispatch' ]]; then
             target='${{ inputs.target_sha }}'
+          elif [[ '${{ github.event_name }}' == 'issue_comment' ]]; then
+            target='c391425e9ad5d9afb0b5991079bc90caf1b9f660'
           else
             target='${{ github.sha }}'
           fi
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$target" == "$(git rev-parse origin/main)" ]]
+          current_main="$(git rev-parse origin/main)"
+          if [[ '${{ github.event_name }}' == 'issue_comment' ]]; then
+            activation_target='10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d'
+            [[ "$target" == 'c391425e9ad5d9afb0b5991079bc90caf1b9f660' ]]
+            git merge-base --is-ancestor "$activation_target" "$target"
+            git merge-base --is-ancestor "$target" "$current_main"
+            activation_state="$(
+              gh api "repos/$GITHUB_REPOSITORY/commits/$activation_target/status" \
+                --jq '[.statuses[] | select(.context == "TAI Restricted Qwen REG.RU Activation")][0].state // ""'
+            )"
+            [[ "$activation_state" == 'success' ]]
+            accepted_marker="$(
+              gh api --paginate "repos/$GITHUB_REPOSITORY/issues/3365/comments" \
+                --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("Restricted Qwen accepted on REG.RU for exact target `10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d` after activation run `31481267058`"))) | .id' \
+                | tail -n 1
+            )"
+            [[ "$accepted_marker" =~ ^[0-9]+$ ]]
+            release_run='31494796603'
+            release_marker="$(
+              gh api --paginate "repos/$GITHUB_REPOSITORY/issues/3072/comments" \
+                | jq -r --arg run "$release_run" --arg target "$target" '
+                    .[]
+                    | select(
+                        .user.login == "github-actions[bot]"
+                        and (.body | contains("## Full-stack release run `" + $run + "`"))
+                        and (.body | contains("- target SHA: `" + $target + "`"))
+                        and (.body | contains("- deployment complete: `1`"))
+                        and (.body | contains("- API revision: `" + $target + "`"))
+                        and (.body | contains("- web revision: `" + $target + "`"))
+                        and (.body | contains("- live acceptance: `PASS`"))
+                      )
+                    | .id
+                  ' \
+                | tail -n 1
+            )"
+            [[ "$release_marker" =~ ^[0-9]+$ ]]
+            actual_changed="$RUNNER_TEMP/semantic-recovery-actual-paths.txt"
+            expected_changed="$RUNNER_TEMP/semantic-recovery-expected-paths.txt"
+            git diff --name-only "$activation_target..$target" | LC_ALL=C sort -u > "$actual_changed"
+            cat > "$expected_changed" <<'PATHS'
+          .github/workflows/production-p0-all-role-registration.yml
+          .github/workflows/production-p0-first-customer-acceptance.yml
+          .github/workflows/tai-owner-finalization-recovery-command.yml
+          apps/web/app/api/staff/[...path]/route.ts
+          apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx
+          apps/web/tests/unit/p0HumanReviewerCeremony.test.ts
+          docs/ops/production-p0-all-role-registration.md
+          docs/ops/production-p0-first-customer-acceptance.md
+          docs/platform-v7/autopilot/autopilot-state.json
+          docs/platform-v7/autopilot/scopes/production-p0-all-role-registration-3785.json
+          docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json
+          docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-2-20260811.json
+          docs/platform-v7/autopilot/scopes/tai-finalization-main-drift-recovery-20260811.json
+          scripts/check-production-p0-all-role-registration.mjs
+          scripts/check-production-p0-first-customer-acceptance.mjs
+          scripts/check-tai-finalization-main-drift-recovery.mjs
+          scripts/production-p0-all-role-registration.sh
+          scripts/production-p0-first-customer-acceptance.sh
+          PATHS
+            LC_ALL=C sort -u -o "$expected_changed" "$expected_changed"
+            diff -u "$expected_changed" "$actual_changed"
+            evidence_dir="$RUNNER_TEMP/tai-public-agro-semantic/evidence"
+            mkdir -p "$evidence_dir"
+            python3 - "$activation_target" "$target" "$current_main" "$actual_changed" "$evidence_dir/recovery-authority.json" <<'PY'
+          import json, pathlib, sys
+          activation, live, current, paths_file, output = sys.argv[1:]
+          paths = pathlib.Path(paths_file).read_text(encoding='utf-8').splitlines()
+          pathlib.Path(output).write_text(json.dumps({
+              'acceptedActivationRun': 31481267058,
+              'acceptedActivationSha': activation,
+              'fullStackReleaseRun': 31494796603,
+              'liveTargetSha': live,
+              'currentMainSha': current,
+              'changedPathsSinceActivation': paths,
+              'status': 'PASS',
+          }, indent=2) + '\n', encoding='utf-8')
+          PY
+            echo 'SEMANTIC_RECOVERY_AUTHORITY=PASS activation_run=31481267058 activation_target=10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d live_target=c391425e9ad5d9afb0b5991079bc90caf1b9f660 release_run=31494796603'
+          else
+            [[ "$target" == "$current_main" ]]
+          fi
           echo "sha=$target" >> "$GITHUB_OUTPUT"
 
       - name: Wait for exact REG.RU deployment manifest
@@ -127,7 +255,7 @@ jobs:
         run: |
           set -euo pipefail
           ready=0
-          mkdir -p "$RUNNER_TEMP/tai-public-agro-semantic"
+          mkdir -p "$RUNNER_TEMP/tai-public-agro-semantic/evidence"
           for attempt in $(seq 1 90); do
             manifest="$RUNNER_TEMP/tai-public-agro-semantic/manifest.json"
             if curl -fsS --connect-timeout 10 --max-time 30 \
@@ -150,6 +278,7 @@ jobs:
             sleep 10
           done
           (( ready == 1 )) || { echo "Exact production manifest did not reach $TARGET_SHA." >&2; exit 2; }
+          cp "$manifest" "$RUNNER_TEMP/tai-public-agro-semantic/evidence/manifest.json"
           echo "LIVE_MANIFEST_EXACT_SHA=$TARGET_SHA"
 
       - name: Verify substantive broad-agro response in live Chromium
@@ -224,19 +353,19 @@ jobs:
               await trigger.evaluate((node) => node.click());
               await dialog.waitFor({ state: 'visible', timeout: 30000 });
 
-              if (((await page.locator('#pc-public-assistant-title').textContent()) || '').trim() !== 'ИИ для агробизнеса') {
+              if (((await page.locator('#pc-public-assistant-title').textContent()) || '').trim() !== 'Гекта') {
                 throw new Error('semantic_title_missing');
               }
               const semanticSubtitle = dialog.locator('[data-pc-public-assistant-subtitle="true"]:visible');
               await semanticSubtitle.waitFor({ state: 'visible', timeout: 30000 });
-              if (((await semanticSubtitle.textContent()) || '').trim() !== 'Разработан Прозрачной ценой для сельского хозяйства.') {
+              if (((await semanticSubtitle.textContent()) || '').trim() !== 'Аграрный интеллект для земли, урожая и решений.') {
                 throw new Error('semantic_subtitle_missing');
               }
               const aiMark = dialog.locator('[data-pc-public-assistant-ai-mark="true"]:visible');
               if (await aiMark.count() !== 1 || await aiMark.locator('svg').count() !== 1) {
                 throw new Error('semantic_ai_mark_missing');
               }
-              const composer = dialog.getByRole('textbox', { name: 'Задай вопрос об агробизнесе или платформе' });
+              const composer = dialog.getByRole('textbox', { name: 'Спроси Гекту о земле, урожае или агробизнесе' });
               await composer.fill('Что влияет на цену зерна?');
               await dialog.getByRole('button', { name: 'Отправить' }).click();
               await dialog.locator('.pc-public-assistant-message[data-role="user"]').last().waitFor({ state: 'visible', timeout: 30000 });
@@ -312,7 +441,11 @@ jobs:
         run: |
           set -euo pipefail
           gh issue reopen 3372 --repo "$GITHUB_REPOSITORY" || true
-          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance failed closed for \`$TARGET_SHA\` in workflow \`$GITHUB_RUN_ID\`. No complete production-success claim is allowed."
+          if [[ '${{ github.event_name }}' == 'issue_comment' ]]; then
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Accepted-activation public agro semantic recovery failed closed for live descendant \`$TARGET_SHA\` after accepted activation \`10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d\` run \`31481267058\` and full-stack release \`31494796603\` in workflow \`$GITHUB_RUN_ID\`. No complete production-success claim is allowed."
+          else
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance failed closed for \`$TARGET_SHA\` in workflow \`$GITHUB_RUN_ID\`. No complete production-success claim is allowed."
+          fi
 
       - name: Record semantic acceptance success
         if: success() && steps.mode.outputs.live == '1'
@@ -322,5 +455,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance passed for \`$TARGET_SHA\` after serialized production verification. Live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
+          if [[ '${{ github.event_name }}' == 'issue_comment' ]]; then
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Accepted-activation public agro semantic acceptance passed for live descendant \`$TARGET_SHA\` after accepted activation \`10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d\` run \`31481267058\` and full-stack release \`31494796603\`. Live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
+            gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body "Public agro semantic live acceptance PASS for live descendant \`$TARGET_SHA\` after accepted activation \`10b6cc03ea7a142e4d6baf5bf87ddc02a6b44a2d\` run \`31481267058\` and full-stack release \`31494796603\`. Read-only live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
+          else
+            gh issue comment 3372 --repo "$GITHUB_REPOSITORY" --body "Exact-main public agro semantic acceptance passed for \`$TARGET_SHA\` after serialized production verification. Live Chromium verified a substantive broad-agro response without fake platform citations. Workflow: \`$GITHUB_RUN_ID\`."
+          fi
           gh issue close 3372 --repo "$GITHUB_REPOSITORY" --reason completed

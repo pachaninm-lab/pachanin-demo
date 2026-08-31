@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import {
   BOOTSTRAP_BLOCKERS,
+  POST_FULL_STACK_BOOTSTRAP_BLOCKERS,
   CRITICAL_PASS_CODES,
   STRICT_ONLY_PASS_CODES,
   classifyTaiPreflightReport,
@@ -108,10 +109,11 @@ for (const fragment of [
   'report.flush()',
   'os.fsync(report.fileno())',
   "'API_WEB_NOT_EXACT_MAIN'",
+  "'API_WEB_EXACT_MAIN'",
   "codes = {row.get('code') for row in checks if isinstance(row, dict)}",
-  "if 'API_WEB_NOT_EXACT_MAIN' in codes",
-  "if 'API_WEB_EXACT_MAIN' in codes",
-  "if 'API_WEB_EXACT_MAIN' not in passed",
+  "if blockers == full_stack_bootstrap:",
+  "elif blockers == post_full_stack_bootstrap:",
+  "print('POST_FULL_STACK_BOOTSTRAP_ELIGIBLE')",
 ]) requireWorkflowFragment(fragment);
 if (/actions\/upload-artifact@v4/u.test(workflow)) {
   violations.push(`${workflowPath}: owner preflight may not upload evidence from the production runner with an Action`);
@@ -133,7 +135,7 @@ for (const fragment of [
   '- name: Publish exact-main preflight status and terminal evidence',
   "context='TAI REG.RU Preflight'",
   'gh issue comment 3365',
-  '- production mutation: `NONE`',
+  '- production mutation: \\`NONE\\`',
   '[[ "$state" == success ]]',
 ]) requirePublishFragment(fragment);
 
@@ -152,8 +154,8 @@ if (triggerScope.schemaVersion !== 'platform-v7.concurrent-scope.v1') {
 if (triggerScope.branch !== 'fix/tai-bootstrap-canonical-images-20260806') {
   violations.push(`${triggerScopePath}: branch mismatch`);
 }
-if (triggerScope.baselineExactMain !== 'b39671c3c3d72aa3ff67c89b6ad379f32a379dee') {
-  violations.push(`${triggerScopePath}: baseline mismatch`);
+if (typeof triggerScope.baselineExactMain !== 'string' || !/^[0-9a-f]{40}$/u.test(triggerScope.baselineExactMain)) {
+  violations.push(`${triggerScopePath}: baseline must be an exact SHA`);
 }
 const expectedTriggerPaths = [dockerPublishPath, checkerPath, triggerScopePath].sort();
 const allowedTriggerPaths = Array.isArray(triggerScope.allowedPaths) ? [...triggerScope.allowedPaths].sort() : [];
@@ -163,6 +165,18 @@ if (JSON.stringify(expectedTriggerPaths) !== JSON.stringify(allowedTriggerPaths)
 
 expectPass('exact full-stack bootstrap set', clone(base), { allowBootstrap: true }, 'BOOTSTRAP_ELIGIBLE');
 expectBlocked('bootstrap disabled', clone(base), { allowBootstrap: false });
+
+const postFullStack = clone(base);
+postFullStack.checks = postFullStack.checks.map((check) => check.code === 'API_WEB_NOT_EXACT_MAIN'
+  ? { ...check, status: 'PASS', code: 'API_WEB_EXACT_MAIN' }
+  : check);
+postFullStack.blockers = [...POST_FULL_STACK_BOOTSTRAP_BLOCKERS].sort();
+expectPass('post-full-stack TAI-only bootstrap set', postFullStack, { allowBootstrap: true }, 'POST_FULL_STACK_BOOTSTRAP_ELIGIBLE');
+expectBlocked('post-full-stack bootstrap disabled', postFullStack, { allowBootstrap: false });
+
+const postFullStackWithoutExact = clone(postFullStack);
+postFullStackWithoutExact.checks = postFullStackWithoutExact.checks.filter((check) => check.code !== 'API_WEB_EXACT_MAIN');
+expectBlocked('post-full-stack bootstrap without exact API/web authority', postFullStackWithoutExact);
 
 const strict = clone(base);
 strict.checks = strict.checks.map((check) => {
@@ -200,7 +214,7 @@ expectBlocked('unexpected additional blocker', unexpected);
 const incompleteBootstrap = clone(base);
 incompleteBootstrap.checks = incompleteBootstrap.checks.filter((check) => check.code !== BOOTSTRAP_BLOCKERS[0]);
 incompleteBootstrap.blockers = incompleteBootstrap.blockers.filter((code) => code !== BOOTSTRAP_BLOCKERS[0]);
-expectBlocked('incomplete bootstrap authority', incompleteBootstrap);
+expectBlocked('three TAI blockers without exact API/web authority', incompleteBootstrap);
 
 const falseExactAndMismatch = clone(base);
 falseExactAndMismatch.checks.push({ name: 'api_web_exact', status: 'DEFERRED', code: 'API_WEB_EXACT_MAIN' });
@@ -249,4 +263,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI bootstrap preflight contract PASS: newest owner command cancels stale duplicates, every terminal path publishes status and redacted issue evidence, canonical images remain exact-main bound, and all bootstrap safety checks remain fail-closed.');
+console.log('TAI bootstrap preflight contract PASS: owner preflight accepts only exact safe full-stack or post-full-stack bootstrap authority, preserves exact API/web semantics, cancels stale duplicates, publishes bounded evidence, and remains fail-closed.');

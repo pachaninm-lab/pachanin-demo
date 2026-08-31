@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-registration-presentation-cookie-3730",
+  "status": "active",
+  "purpose": "Close a public-registration boundary defect: a writable presentation-role cookie must never survive or be emitted at the unauthenticated registration route.",
+  "approvedBy": "owner-direct-registration-security-2026-08-08",
+  "authorityBaseExactMain": "f457ff19e7ea41bcbd390f807c24dbb3a6f5e2b4",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
+    "docs/platform-v7/autopilot/scopes/registration-presentation-cookie-3730.json"
+  ]
+}

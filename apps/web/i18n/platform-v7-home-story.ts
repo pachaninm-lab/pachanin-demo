@@ -13,7 +13,7 @@ const copies = {
       functions: 'Функционал',
       deal: 'Сделка в работе',
       roles: 'Выгоды',
-      tai: 'TAI',
+      tai: 'Гекта',
       trust: 'Доверие',
     },
     heroDeal: {
@@ -47,7 +47,7 @@ const copies = {
         text: 'Решение связано с участником и основанием',
       },
       {
-        label: 'TAI внутри процесса',
+        label: 'Гекта внутри процесса',
         text: 'ИИ находит отклонение, но не подменяет полномочия',
       },
     ],
@@ -80,7 +80,7 @@ const copies = {
         {
           criterion: 'ИИ',
           typical: 'Поиск, рекомендации или общий чат.',
-          platform: 'TAI анализирует конкретную Сделку, источники и ролевые ограничения.',
+          platform: 'Гекта анализирует конкретную Сделку, источники и ролевые ограничения.',
         },
         {
           criterion: 'Доказательства',
@@ -141,7 +141,7 @@ const copies = {
         {
           index: '08',
           title: 'Контроль',
-          text: 'TAI, аналитика, API, ERP/1С, логистика, лаборатория и финансы.',
+          text: 'Гекта, аналитика, API, ERP/1С, логистика, лаборатория и финансы.',
           result: 'Единый контроль без замены существующих систем.',
         },
       ],
@@ -277,7 +277,7 @@ const copies = {
             },
             {
               meta: 'Сегодня, 10:06',
-              title: 'TAI сопоставил условия',
+              title: 'Гекта сопоставила условия',
               text: 'Показано отклонение, источник и уверенность.',
             },
             {
@@ -287,7 +287,7 @@ const copies = {
             },
           ],
           actionTitle: 'Решение остаётся за покупателем',
-          actionText: 'TAI не меняет договор и не разрешает расчёт самостоятельно.',
+          actionText: 'Гекта не меняет договор и не разрешает расчёт самостоятельно.',
           actionCta: 'Посмотреть варианты',
         },
         {
@@ -302,7 +302,7 @@ const copies = {
               value: '2 протокола',
             },
             {
-              label: 'Уверенность TAI',
+              label: 'Уверенность Гекты',
               value: 'Недостаточная',
             },
             {
@@ -318,7 +318,7 @@ const copies = {
             },
             {
               meta: 'Сегодня, 10:08',
-              title: 'TAI воздержался от вывода',
+              title: 'Гекта воздержалась от вывода',
               text: 'Показаны источники конфликта и недостающие данные.',
             },
             {
@@ -395,8 +395,8 @@ const copies = {
       },
     },
     tai: {
-      eyebrow: 'Transparent Agro Intelligence',
-      title: 'TAI — интеллектуальный слой конкретной Сделки',
+      eyebrow: 'Гекта · аграрный интеллект',
+      title: 'Гекта — интеллектуальный слой конкретной Сделки',
       lead: 'Он понимает роли, этапы, документы и правила платформы. Ответ разделяет факт, вывод, риск и недостающие данные.',
       capabilities: [
         {
@@ -421,7 +421,7 @@ const copies = {
         'Работает только в пределах прав текущей роли.',
         'Не меняет Сделку и не действует без подтверждения.',
       ],
-      analysisLabel: 'TAI · анализ Сделки',
+      analysisLabel: 'Гекта · анализ Сделки',
       state: 'Высокая уверенность · демонстрационный сценарий',
       rows: [
         {
@@ -442,8 +442,8 @@ const copies = {
         },
       ],
       sources: ['Договор · версия 4', 'Протокол №318 · версия 2', 'Событие приёмки'],
-      limit: 'Граница: TAI не определяет качество вместо лаборатории, не меняет договор, не разрешает платёж и не выносит юридическое решение.',
-      cta: 'Посмотреть TAI подробнее',
+      limit: 'Граница: Гекта не определяет качество вместо лаборатории, не меняет договор, не разрешает платёж и не выносит юридическое решение.',
+      cta: 'Посмотреть Гекту в работе',
       sourcesLabel: 'Источники',
     },
     trust: {
@@ -465,7 +465,7 @@ const copies = {
         },
         {
           title: 'Границы полномочий',
-          text: 'TAI и внешняя система не действуют вместо участника.',
+          text: 'Гекта и внешняя система не действуют вместо участника.',
         },
       ],
       integrationTitle: 'Статусы интеграций',
@@ -487,7 +487,7 @@ const copies = {
         {
           system: 'Лаборатория',
           scenario: 'Протокол качества',
-          boundary: 'TAI не заменяет измерение и подпись лаборатории',
+          boundary: 'Гекта не заменяет измерение и подпись лаборатории',
           status: 'Требует адаптера',
         },
         {
@@ -531,7 +531,7 @@ const copies = {
         },
         {
           question: 'Кто принимает окончательные решения?',
-          answer: 'Только уполномоченный участник или подключённая система в пределах согласованного сценария. TAI объясняет, но не подменяет полномочия.',
+          answer: 'Только уполномоченный участник или подключённая система в пределах согласованного сценария. Гекта объясняет, но не подменяет полномочия.',
         },
         {
           question: 'Как подключаются участники?',
@@ -546,7 +546,7 @@ const copies = {
       functions: 'Capabilities',
       deal: 'Deal in action',
       roles: 'Value by role',
-      tai: 'TAI',
+      tai: 'Gekta',
       trust: 'Trust',
     },
     heroDeal: {
@@ -580,7 +580,7 @@ const copies = {
         text: 'Each decision is tied to a participant and evidence',
       },
       {
-        label: 'TAI in the process',
+        label: 'Gekta in the process',
         text: 'AI finds deviations without taking over authority',
       },
     ],
@@ -613,7 +613,7 @@ const copies = {
         {
           criterion: 'AI',
           typical: 'Search, recommendations or a general chat.',
-          platform: 'TAI analyses a specific Deal, its sources and role constraints.',
+          platform: 'Gekta analyses a specific Deal, its sources and role constraints.',
         },
         {
           criterion: 'Evidence',
@@ -674,7 +674,7 @@ const copies = {
         {
           index: '08',
           title: 'Control',
-          text: 'TAI, analytics, API, ERP/1C, logistics, laboratories and finance.',
+          text: 'Gekta, analytics, API, ERP/1C, logistics, laboratories and finance.',
           result: 'Unified control without replacing existing systems.',
         },
       ],
@@ -810,7 +810,7 @@ const copies = {
             },
             {
               meta: 'Today, 10:06',
-              title: 'TAI matched the terms',
+              title: 'Gekta matched the terms',
               text: 'The deviation, source and confidence are shown.',
             },
             {
@@ -820,7 +820,7 @@ const copies = {
             },
           ],
           actionTitle: 'The decision remains with the buyer',
-          actionText: 'TAI does not change the contract or authorise settlement by itself.',
+          actionText: 'Gekta does not change the contract or authorise settlement by itself.',
           actionCta: 'Review the options',
         },
         {
@@ -835,7 +835,7 @@ const copies = {
               value: '2 protocols',
             },
             {
-              label: 'TAI confidence',
+              label: 'Gekta confidence',
               value: 'Insufficient',
             },
             {
@@ -851,7 +851,7 @@ const copies = {
             },
             {
               meta: 'Today, 10:08',
-              title: 'TAI abstained',
+              title: 'Gekta abstained',
               text: 'Conflicting sources and missing data are shown.',
             },
             {
@@ -928,8 +928,8 @@ const copies = {
       },
     },
     tai: {
-      eyebrow: 'Transparent Agro Intelligence',
-      title: 'TAI is the intelligence layer of a specific Deal',
+      eyebrow: 'Gekta · agricultural intelligence',
+      title: 'Gekta is the intelligence layer of a specific Deal',
       lead: 'It understands platform roles, stages, documents and rules. Its answer separates facts, conclusions, risks and missing data.',
       capabilities: [
         {
@@ -954,7 +954,7 @@ const copies = {
         'Works only within the current role’s permissions.',
         'Does not change the Deal or act without confirmation.',
       ],
-      analysisLabel: 'TAI · Deal analysis',
+      analysisLabel: 'Gekta · Deal analysis',
       state: 'High confidence · demonstration scenario',
       rows: [
         {
@@ -975,8 +975,8 @@ const copies = {
         },
       ],
       sources: ['Contract · version 4', 'Protocol No. 318 · version 2', 'Acceptance event'],
-      limit: 'Boundary: TAI does not determine quality instead of the laboratory, change the contract, authorise payment or make a legal decision.',
-      cta: 'Explore TAI',
+      limit: 'Boundary: Gekta does not determine quality instead of the laboratory, change the contract, authorise payment or make a legal decision.',
+      cta: 'Explore Gekta',
       sourcesLabel: 'Sources',
     },
     trust: {
@@ -998,7 +998,7 @@ const copies = {
         },
         {
           title: 'Authority boundaries',
-          text: 'TAI and external systems do not act instead of a participant.',
+          text: 'Gekta and external systems do not act instead of a participant.',
         },
       ],
       integrationTitle: 'Integration statuses',
@@ -1020,7 +1020,7 @@ const copies = {
         {
           system: 'Laboratory',
           scenario: 'Quality protocol',
-          boundary: 'TAI does not replace measurement or laboratory signature',
+          boundary: 'Gekta does not replace measurement or laboratory signature',
           status: 'Requires an adapter',
         },
         {
@@ -1064,7 +1064,7 @@ const copies = {
         },
         {
           question: 'Who makes final decisions?',
-          answer: 'Only an authorised participant or connected system acting within the agreed scenario. TAI explains but does not take over authority.',
+          answer: 'Only an authorised participant or connected system acting within the agreed scenario. Gekta explains but does not take over authority.',
         },
         {
           question: 'How are participants connected?',
@@ -1079,7 +1079,7 @@ const copies = {
       functions: '平台能力',
       deal: '交易运行',
       roles: '角色价值',
-      tai: 'TAI',
+      tai: 'Gekta',
       trust: '信任',
     },
     heroDeal: {
@@ -1113,7 +1113,7 @@ const copies = {
         text: '每项决定都关联参与方与依据',
       },
       {
-        label: '流程内的 TAI',
+        label: '流程内的 Gekta',
         text: 'AI 发现偏差，但不取代参与方权限',
       },
     ],
@@ -1146,7 +1146,7 @@ const copies = {
         {
           criterion: 'AI',
           typical: '搜索、推荐或通用聊天。',
-          platform: 'TAI 分析具体交易、来源与角色限制。',
+          platform: 'Gekta 分析具体交易、来源与角色限制。',
         },
         {
           criterion: '证据',
@@ -1207,7 +1207,7 @@ const copies = {
         {
           index: '08',
           title: '控制',
-          text: 'TAI、分析、API、ERP/1C、物流、实验室与财务。',
+          text: 'Gekta、分析、API、ERP/1C、物流、实验室与财务。',
           result: '统一控制而不替代现有系统。',
         },
       ],
@@ -1343,7 +1343,7 @@ const copies = {
             },
             {
               meta: '今天 10:06',
-              title: 'TAI 对照交易条件',
+              title: 'Gekta 对照交易条件',
               text: '偏差、来源与置信度已显示。',
             },
             {
@@ -1353,7 +1353,7 @@ const copies = {
             },
           ],
           actionTitle: '决定仍由买方作出',
-          actionText: 'TAI 不会自行修改合同或批准结算。',
+          actionText: 'Gekta 不会自行修改合同或批准结算。',
           actionCta: '查看选项',
         },
         {
@@ -1368,7 +1368,7 @@ const copies = {
               value: '2 份报告',
             },
             {
-              label: 'TAI 置信度',
+              label: 'Gekta 置信度',
               value: '不足',
             },
             {
@@ -1384,7 +1384,7 @@ const copies = {
             },
             {
               meta: '今天 10:08',
-              title: 'TAI 保留结论',
+              title: 'Gekta 保留结论',
               text: '冲突来源和缺失数据已显示。',
             },
             {
@@ -1461,8 +1461,8 @@ const copies = {
       },
     },
     tai: {
-      eyebrow: 'Transparent Agro Intelligence',
-      title: 'TAI 是具体交易的智能层',
+      eyebrow: 'Gekta · 农业智能',
+      title: 'Gekta 是具体交易的智能层',
       lead: '它理解平台角色、阶段、文件与规则，并在回答中区分事实、结论、风险与缺失数据。',
       capabilities: [
         {
@@ -1487,7 +1487,7 @@ const copies = {
         '只在当前角色权限范围内工作。',
         '未经确认不会修改交易或执行操作。',
       ],
-      analysisLabel: 'TAI · 交易分析',
+      analysisLabel: 'Gekta · 交易分析',
       state: '高置信度 · 演示场景',
       rows: [
         {
@@ -1508,8 +1508,8 @@ const copies = {
         },
       ],
       sources: ['合同 · 第 4 版', '第 318 号报告 · 第 2 版', '验收事件'],
-      limit: '边界：TAI 不代替实验室确定质量，不修改合同，不批准付款，也不作出法律决定。',
-      cta: '进一步了解 TAI',
+      limit: '边界：Gekta 不代替实验室确定质量，不修改合同，不批准付款，也不作出法律决定。',
+      cta: '进一步了解 Gekta',
       sourcesLabel: '来源',
     },
     trust: {
@@ -1531,7 +1531,7 @@ const copies = {
         },
         {
           title: '权限边界',
-          text: 'TAI 和外部系统不会代替参与方操作。',
+          text: 'Gekta 和外部系统不会代替参与方操作。',
         },
       ],
       integrationTitle: '集成状态',
@@ -1553,7 +1553,7 @@ const copies = {
         {
           system: '实验室',
           scenario: '质量报告',
-          boundary: 'TAI 不替代测量和实验室签名',
+          boundary: 'Gekta 不替代测量和实验室签名',
           status: '需要适配器',
         },
         {
@@ -1597,7 +1597,7 @@ const copies = {
         },
         {
           question: '谁作出最终决定？',
-          answer: '只有获授权参与方或已接入系统可在约定场景内作出决定。TAI 负责解释，但不会取代权限。',
+          answer: '只有获授权参与方或已接入系统可在约定场景内作出决定。Gekta 负责解释，但不会取代权限。',
         },
         {
           question: '如何接入参与方？',

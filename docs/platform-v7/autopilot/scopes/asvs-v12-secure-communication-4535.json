@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4535,
+  "branch": "sec/asvs-v12-secure-communication-4535",
+  "status": "active",
+  "purpose": "Assess ASVS V12 Secure Communication, and record the governance finding that the production TLS configuration is not under version control.",
+  "authorityBaseExactMain": "105657eaaf715e27e6fa5298b6c62203fe3c0ed6",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v12-secure-communication-4535.json",
+    "docs/security/THREAT_MODEL.md",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/asvs-decisions.test.mjs"
+  ],
+  "requiredInvariants": [
+    "No PASS is inferred from what Caddy does by default, or from a configuration file that is not the production terminator.",
+    "infra/nginx/nginx.conf must never be cited as evidence about production.",
+    "A requirement whose verification needs the live endpoint is recorded APPLICABLE and NOT_ASSESSED with the blocker named - never PASS, never FAIL.",
+    "The internal-transport FAIL must name the Istio STRICT mTLS policy and explain why it does not apply, or the finding would mislead.",
+    "FAIL is recorded and reported, never resolved by editing product logic or infrastructure.",
+    "finalPass stays false.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "The absence of the production TLS configuration from version control is recorded as an explicit finding in the threat model.",
+    "V12.1.1, V12.1.2, V12.1.4, V12.1.5, V12.2.1 and V12.2.2 are NOT_ASSESSED with the blocker named, not PASS and not FAIL.",
+    "V12.3.2 PASS rests on both an explicit rejectUnauthorized: true and a tree-wide proof that verification is never disabled.",
+    "V12.3.1 and V12.3.3 name Istio and explain why a mesh policy does not wrap Docker Compose on a single virtual server.",
+    "V12.1.3 is justified non-applicable on a machine-checked absence of client-certificate identity handling, and prose mentions of mTLS are not mistaken for code.",
+    "A requirement blocked on unreachable evidence is provably neither PASS nor FAIL, and still blocks finalPass.",
+    "The concurrent-scope guard accepts exactly the four authorized paths."
+  ]
+}

@@ -67,19 +67,13 @@ describe('lab evidence upload abuse boundaries', () => {
 
   it('strips path traversal from the object key and binds it to tenant plus Deal', async () => {
     const create = jest.fn().mockResolvedValue({ id: 'document-security-upload' });
+    const boundedOrganizationProbe = jest.fn().mockResolvedValue([{ valid: true }]);
     const tx = {
+      $queryRaw: boundedOrganizationProbe,
       deal: {
         findUnique: jest.fn().mockResolvedValue({
           id: BASE_REQUEST.dealId,
           tenantId: ADMIN.tenantId,
-        }),
-      },
-      organization: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: BASE_REQUEST.laboratoryOrgId,
-          tenantId: ADMIN.tenantId,
-          status: 'VERIFIED',
-          kycStatus: 'APPROVED',
         }),
       },
       dealDocument: { create },
@@ -110,6 +104,7 @@ describe('lab evidence upload abuse boundaries', () => {
       filename: '../../nested/evil.pdf',
     }, ADMIN);
 
+    expect(boundedOrganizationProbe).toHaveBeenCalledTimes(1);
     expect(result.objectKey).toMatch(/^tenant\/tenant-security\/deal\/deal-security-upload\/file_[^/]+\/evil\.pdf$/);
     expect(result.objectKey).not.toContain('..');
     expect(create).toHaveBeenCalledWith({

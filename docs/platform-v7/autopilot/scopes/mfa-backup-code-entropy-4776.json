@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4776,
+  "branch": "security/backup-code-entropy-4776",
+  "status": "active",
+  "purpose": "Raise MFA backup codes from 48 to 120 bits of entropy, so the keyed digest they are already stored under is the option ASVS 5.0 V6.5.2 actually allows for a lookup secret. Source-only. No schema change, no migration, no forced re-enrolment, and no production deploy. V6.5.2 deliberately stays FAIL: codes issued before this commit are still stored at 48 bits and still verify.",
+  "authorityBaseExactMain": "9b185ed840b53b1af0494309757bb64b9d19c91f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/mfa-backup-code-entropy-4776.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "apps/api/src/modules/auth/auth-crypto.ts",
+    "apps/api/src/modules/auth/opaque-token-authority.ts",
+    "apps/api/src/modules/auth/mfaBackupCodeEntropy.spec.ts"
+  ],
+  "requiredInvariants": [
+    "No database schema change and no migration. Backup codes are stored as digests in an existing array column; changing what is digested changes no shape.",
+    "No new dependency. The 15-byte draw and the base32 encoder are already in auth-crypto.ts, used by TOTP secret generation.",
+    "Entropy is raised rather than the storage salted, and the reason is recorded rather than assumed. A salted password-storage hash cannot be looked up by value, so verification would have to try each of a user's stored codes in turn at password-hash cost - seconds per submitted attempt, none of it paid for by an attacker submitting garbage. The requirement offers both routes and this codebase takes the one that costs nothing at verification time.",
+    "Codes issued before this change keep verifying. No user is locked out, no forced re-enrolment, and no format check is introduced on the verification path - a digest carries no format, so a format check on input would silently remove existing users' recovery path.",
+    "The second backup-code generator is removed rather than left to drift. issueMfaBackupCodeCredential minted its own 48-bit code with no runtime caller, beside the live generator; it now takes the minted code, so the entropy decision is made in exactly one place and the typed issuer for this purpose is the live path rather than a second one.",
+    "V6.5.2 deliberately stays FAIL. The requirement is about what is stored, and the pre-existing population is still 48 bits under a standard hash. Removing it means invalidating outstanding codes and forcing re-enrolment, which is a user-impacting owner decision and is raised as #4777 rather than taken here.",
+    "V6.5.4's self-revoking condition is rewritten because the fact it named - the six-byte draw - no longer exists. Its PASS verdict does not move and is not restated on weaker grounds; the condition is rebound to the entropy constant the generator actually draws from, so it revokes if that constant is lowered.",
+    "The committed cryptographic inventory records the true delta, minus one CSPRNG site. The discovery script matches raw file text, so a doc comment naming a removed call counts as a live site; the comments are worded to avoid call syntax rather than the inflated count being committed. The defect itself is filed as #4778 and not fixed here - editing a security gate inside the pass that gate measures is not one PR.",
+    "apps/landing, the 1C contour, the marketing contour and the presentation contour are not touched. No production, REG.RU, DNS, database or credential mutation."
+  ],
+  "acceptance": [
+    "Every generated code is measured, not the constant: 24 RFC 4648 base32 characters, no padding, at least 112 bits by log2(alphabet) x length, across a 16-code sample.",
+    "Lowering the draw back to six bytes fails 3 of the 8 cases; restoring the authority's own 48-bit generator fails 6 of 8.",
+    "A code in the previous 48-bit format still resolves to the same stored digest through the live verifier, including when retyped in lower case.",
+    "64 codes in one batch are distinct in both raw and digested form, and every alphabet symbol is observed.",
+    "The full apps/api/src/modules/auth suite passes: 41 suites, 622 tests.",
+    "The matrix rebuilds at applied 332 / rejected 0 with no verdict moved: PASS 102, FAIL 117, NOT_ASSESSED 38, NOT_APPLICABLE 88."
+  ]
+}

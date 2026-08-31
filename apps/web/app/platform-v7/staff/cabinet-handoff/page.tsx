@@ -57,6 +57,9 @@ export default async function OwnerCabinetHandoffPage() {
     : null;
 
   if (!context) redirect('/platform-v7/staff?cabinetError=CABINET_SESSION_UNAVAILABLE');
+  if (context.role === 'organization') {
+    redirect('/platform-v7/staff?cabinetError=ORGANIZATION_CABINET_NOT_CONTROLLED');
+  }
 
   const organization = controlledOrganizationById(context.organizationId);
   return (

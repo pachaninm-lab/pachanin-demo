@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-consent-keyboard-race-4332",
+  "status": "active",
+  "operationalStatus": "OWNER_DIRECTED_GEKTA_PRODUCTION_MOBILE_ACCEPTANCE_REPAIR",
+  "ownerDecision": {
+    "date": "2026-08-18",
+    "instruction": "Close Gekta issue #4332 without weakening production acceptance. Prevent the asynchronously loaded legal-consent surface from interrupting an active mobile text-entry/keyboard cycle, while keeping consent fail-closed before submit."
+  },
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaConsentDialog.tsx",
+    "apps/web/components/gekta/GektaComposer.tsx",
+    "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-consent-keyboard-race-4332.json"
+  ],
+  "forbiddenPaths": ["apps/api", "prisma", "packages/domain-core"],
+  "constraints": [
+    "Do not weaken viewport, overlap, draft, caret, localization, touch-target, exact-revision or zero-retry gates.",
+    "A late entitlement response must not steal focus from an active composer or invalidate keyboard ownership.",
+    "If consent becomes required while a draft is active, defer the modal until the next submit intent and intercept that submit before generation.",
+    "Escape must never record legal consent.",
+    "No backend, auth, model, database, registration, role or business-logic changes.",
+    "No new recurring cost."
+  ]
+}

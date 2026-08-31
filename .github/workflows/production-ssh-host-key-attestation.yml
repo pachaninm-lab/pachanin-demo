@@ -1,0 +1,237 @@
+name: Production SSH Host-Key Attestation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-ssh-host-key-attestation.yml'
+      - '.scope/active/production-ssh-host-key-attestation-3072.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-ssh-host-key-attestation
+  cancel-in-progress: false
+
+env:
+  RELEASE_ISSUE_NUMBER: 3072
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  CANONICAL_HOST: 195.19.12.120
+
+jobs:
+  contract:
+    name: Validate read-only host-key attestation contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production ssh-host-key-attest current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve exact current main
+        id: target
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          if [[ '${{ github.event_name }}' == 'issue_comment' ]]; then
+            target="$(git rev-parse HEAD)"
+            [[ "$target" == "$(git rev-parse origin/main)" ]]
+          else
+            target="$(git rev-parse origin/main)"
+          fi
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+      - name: Enforce read-only source boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          workflow='.github/workflows/production-ssh-host-key-attestation.yml'
+          ! grep -Eq 'StrictHostKeyChecking=(no|accept-new)|sshpass|docker (rm|rmi|prune|compose)|systemctl|service |shutdown|reboot|rm -rf|gh secret|gh variable' "$workflow"
+          grep -Fq 'runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]' "$workflow"
+          grep -Fq 'PRODUCTION_MUTATION=NONE' "$workflow"
+
+  local_authority:
+    name: Read local SSH host public-key fingerprints on production
+    needs: contract
+    if: github.event_name == 'issue_comment' && needs.contract.result == 'success'
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    timeout-minutes: 10
+    permissions:
+      contents: none
+    outputs:
+      fingerprints: ${{ steps.keys.outputs.json }}
+    steps:
+      - name: Verify restricted production runner boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          [[ ! -r /etc/pc-release-authority/actions-runner.json ]]
+      - name: Read public host-key fingerprints only
+        id: keys
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$GITHUB_OUTPUT" <<'PY'
+          import glob, json, os, pathlib, subprocess, sys
+          out_path = sys.argv[1]
+          rows = []
+          for path in sorted(glob.glob('/etc/ssh/ssh_host_*_key.pub')):
+              if not os.access(path, os.R_OK):
+                  continue
+              name = pathlib.Path(path).name
+              key_type = name.removeprefix('ssh_host_').removesuffix('_key.pub')
+              line = subprocess.check_output(['ssh-keygen', '-lf', path, '-E', 'sha256'], text=True).strip()
+              parts = line.split()
+              if len(parts) < 2 or not parts[1].startswith('SHA256:'):
+                  raise SystemExit('LOCAL_HOST_KEY_FINGERPRINT_INVALID')
+              rows.append({'type': key_type, 'fingerprint': parts[1]})
+          if not rows:
+              raise SystemExit('NO_READABLE_LOCAL_HOST_PUBLIC_KEYS')
+          canonical = json.dumps(rows, separators=(',', ':'), sort_keys=True)
+          with open(out_path, 'a', encoding='utf-8') as f:
+              f.write(f'json={canonical}\n')
+          print('LOCAL_HOST_KEY_ATTESTATION=PASS')
+          print('PRODUCTION_MUTATION=NONE')
+          PY
+
+  external_observation:
+    name: Observe stable public SSH host-key fingerprints externally
+    needs: contract
+    if: github.event_name == 'issue_comment' && needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: none
+    env:
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+    outputs:
+      fingerprints: ${{ steps.scan.outputs.json }}
+    steps:
+      - name: Verify canonical endpoint and collect three stable scans
+        id: scan
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$CANONICAL_HOST}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          [[ "$host" == "$CANONICAL_HOST" ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$CANONICAL_HOST" <<< "$domain_ips"
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          for n in 1 2 3; do
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$work/scan-$n"
+            [[ -s "$work/scan-$n" ]]
+            (( n == 3 )) || sleep "$n"
+          done
+          cmp -s "$work/scan-1" "$work/scan-2"
+          cmp -s "$work/scan-1" "$work/scan-3"
+          python3 - "$work/scan-1" "$GITHUB_OUTPUT" <<'PY'
+          import json, subprocess, sys
+          scan_path, out_path = sys.argv[1:]
+          rows = []
+          for raw in open(scan_path, encoding='utf-8'):
+              raw = raw.strip()
+              if not raw or raw.startswith('#'):
+                  continue
+              parts = raw.split()
+              if len(parts) < 3:
+                  raise SystemExit('EXTERNAL_HOST_KEY_LINE_INVALID')
+              key_type = parts[1]
+              proc = subprocess.run(['ssh-keygen', '-lf', '-', '-E', 'sha256'], input=raw + '\n', text=True, capture_output=True, check=True)
+              fp_parts = proc.stdout.strip().split()
+              if len(fp_parts) < 2 or not fp_parts[1].startswith('SHA256:'):
+                  raise SystemExit('EXTERNAL_HOST_KEY_FINGERPRINT_INVALID')
+              rows.append({'type': key_type, 'fingerprint': fp_parts[1]})
+          if not rows:
+              raise SystemExit('NO_EXTERNAL_HOST_KEYS')
+          rows.sort(key=lambda row: (row['type'], row['fingerprint']))
+          canonical = json.dumps(rows, separators=(',', ':'), sort_keys=True)
+          with open(out_path, 'a', encoding='utf-8') as f:
+              f.write(f'json={canonical}\n')
+          print('EXTERNAL_HOST_KEY_SCAN=PASS')
+          print('PRODUCTION_MUTATION=NONE')
+          PY
+
+  compare:
+    name: Compare local production authority with external observation
+    needs: [contract, local_authority, external_observation]
+    if: always() && github.event_name == 'issue_comment' && needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      contents: none
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      LOCAL_JSON: ${{ needs.local_authority.outputs.fingerprints }}
+      EXTERNAL_JSON: ${{ needs.external_observation.outputs.fingerprints }}
+      EXPECTED_PIN: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - name: Publish bounded host-key attestation evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY' > /tmp/ssh-host-key-attestation.md
+          import json, os
+          local_raw = os.environ.get('LOCAL_JSON','')
+          external_raw = os.environ.get('EXTERNAL_JSON','')
+          if not local_raw or not external_raw:
+              raise SystemExit('HOST_KEY_ATTESTATION_INPUT_MISSING')
+          local = json.loads(local_raw)
+          external = json.loads(external_raw)
+          local_fps = {row['fingerprint'] for row in local}
+          external_fps = {row['fingerprint'] for row in external}
+          if not external_fps or not external_fps.issubset(local_fps):
+              raise SystemExit('EXTERNAL_HOST_KEY_NOT_ATTESTED_BY_LOCAL_PRODUCTION')
+          expected = os.environ.get('EXPECTED_PIN','').strip()
+          pin_local = bool(expected) and expected in local_fps
+          pin_external = bool(expected) and expected in external_fps
+          print('## Production SSH host-key attestation')
+          print()
+          print(f"- target SHA: `{os.environ.get('TARGET_SHA','unknown')}`")
+          print('- local production runner authority: `PASS`')
+          print('- external three-scan stability: `PASS`')
+          print('- external keys are present in local `/etc/ssh` authority: `PASS`')
+          print(f"- protected stored pin matches local authority: `{'PASS' if pin_local else 'MISMATCH'}`")
+          print(f"- protected stored pin matches external observation: `{'PASS' if pin_external else 'MISMATCH'}`")
+          print('- locally attested public host fingerprints:')
+          for row in sorted(local, key=lambda r: (r['type'], r['fingerprint'])):
+              print(f"  - `{row['type']}` `{row['fingerprint']}`")
+          print('- externally observed public host fingerprints:')
+          for row in sorted(external, key=lambda r: (r['type'], r['fingerprint'])):
+              print(f"  - `{row['type']}` `{row['fingerprint']}`")
+          print('- production mutation: `NONE`')
+          PY
+          cat /tmp/ssh-host-key-attestation.md
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/ssh-host-key-attestation.md
+          echo 'PRODUCTION_MUTATION=NONE'

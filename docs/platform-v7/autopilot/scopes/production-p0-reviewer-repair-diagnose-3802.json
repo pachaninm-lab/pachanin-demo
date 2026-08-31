@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-post-30d-diagnostic-3846",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_REPAIR_ROLLBACK_DIAGNOSTIC_REVISION_GATE",
+  "issue": 3802,
+  "trackingIssue": 3799,
+  "title": "Production P0 reviewer rollback diagnostic on current deployed revision",
+  "diagnosticBaseRevision": "479ecd970bd5e75e81f245dbe8987e08aca08d9f",
+  "deployedRevision": "d87d89694bd32c8dbd90b57fdde15b69b060c0ba",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-repair-diagnose-3802.json",
+    "scripts/check-production-p0-reviewer-repair-diagnose.mjs",
+    "scripts/production-p0-reviewer-repair-diagnose-deployed-sha.sh"
+  ],
+  "boundaries": {
+    "productionMutation": "ROLLBACK_ONLY_NONE_DURABLE",
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawDatabaseMessageOutput": false,
+    "rawRuntimeOutput": false,
+    "rawRevisionOutput": false,
+    "remoteStageOnly": true,
+    "revisionGateOnly": true,
+    "deploymentMutation": false,
+    "securityWeakening": false,
+    "arbitrarySqlSurface": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the governed diagnostic delta is measured from exact current main 479ecd970bd5e75e81f245dbe8987e08aca08d9f and contains exactly these three files",
+    "the deployed API and Web revision remains pinned independently to terminal-PASS REG.RU revision d87d89694bd32c8dbd90b57fdde15b69b060c0ba",
+    "the revision preflight emits only one fixed failure enum from API_INSPECT_FAILED, WEB_INSPECT_FAILED, API_REVISION_INVALID, WEB_REVISION_INVALID, API_REVISION_MISMATCH, WEB_REVISION_MISMATCH",
+    "actual revision values, container IDs, image names, commands, host or user strings, environment, raw ssh output and database messages are never published",
+    "the existing remote stage enum remains bounded to SSH_NOT_CONFIRMED, HOST_READY, CONTAINERS_RESOLVED, REVISIONS_CONFIRMED, NODE_EXECUTION_STARTED",
+    "the command remains owner-only and exact-current-main bound on issue 3072",
+    "the existing no-argument repair function remains reachable only after exact deployed revision confirmation and is still called only inside one SERIALIZABLE transaction that always rolls back",
+    "the fixed SQLSTATE 23514 reason classifier remains unchanged when Node and Prisma execution reaches the function call",
+    "reviewer readiness must remain identical before and after any completed forced-rollback diagnostic",
+    "the diagnostic introduces no durable production mutation, deployment mutation, arbitrary SQL surface, security weakening or recurring cost"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

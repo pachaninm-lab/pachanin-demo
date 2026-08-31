@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-speak-touch-target-4018",
+  "branch": "fix/gekta-speak-touch-target-4018",
+  "issue": 4018,
+  "status": "active",
+  "authorizedBy": "production-mobile-acceptance-31681468469",
+  "baseline": {
+    "branch": "main",
+    "commit": "7b49e81567c33a29342f1049848c9d6e3fad3c50"
+  },
+  "purpose": "Fix the production-proven Gekta mobile touch-target defect where the browser-native speech playback button renders at 36px height while the internal mobile acceptance contract requires primary controls to be at least 44x44 CSS px.",
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaSpeakButton.tsx",
+    "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-speak-touch-target-4018.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/gekta",
+    "mode": "web-ux-and-regression-only",
+    "modelBoundary": "unchanged",
+    "backendBoundary": "unchanged",
+    "languages": ["ru", "en", "zh"],
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "model runtime, prompt, inference routing or latency experiments",
+    "agro-chat API or attachment backend contracts",
+    "authentication, RBAC, RLS, tenant or PC-CROP registration",
+    "production credentials or direct REG.RU mutation",
+    "paid external services or new infrastructure"
+  ],
+  "requiredChecks": [
+    "web typecheck",
+    "gektaVoiceAndLegal.test.ts",
+    "existing gekta production mobile acceptance contract",
+    "exact-head CI and Production-like Kubernetes Acceptance",
+    "git diff --check"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "This scope fixes one production-proven mobile touch target only. Production completion still requires exact-SHA REG.RU release and 320/375/390/430 mobile acceptance PASS."
+}

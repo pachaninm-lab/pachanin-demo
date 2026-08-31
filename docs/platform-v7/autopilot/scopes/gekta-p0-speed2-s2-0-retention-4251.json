@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/gekta-speed2-s2-0-retention-4251",
+  "status": "active",
+  "issue": 4251,
+  "purpose": "Extend the existing SPEED-2 S2-0 read-only model diagnostic with exact OAI cached-token telemetry and an A1-A2-B1-A3 cache-retention probe before any runtime candidate mutation.",
+  "approvedBy": "repository-owner SPEED-2 authority issue #4251 on 2026-08-16",
+  "authorityBaseExactMain": "be51f265d1c16b42a214c822181eeb3781994232",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/gekta-speed2-model-diagnose.py",
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed2-s2-0-retention-4251.json"
+  ],
+  "requiredBehavior": [
+    "reuse the existing owner-only SPEED-2 controller and do not add another workflow",
+    "diagnose only exact current-main accepted SPEED #3896 runtime baseline",
+    "publish effective prompt-cache idle-slot and cache-RAM settings without publishing raw argv or environment",
+    "use exact OpenAI-compatible prompt_tokens_details.cached_tokens when available",
+    "run only bounded synthetic one-token A1 A2 B1 A3 requests with no user data to test retention across an intervening distinct prefix",
+    "publish hashes counts timings and cache ratios only; never publish prompt content user data cookies auth secrets tokens or credentials",
+    "perform no runtime configuration service application database prompt-safety or production release mutation",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "new workflow arbitrary shell sudo root SSH systemctl restart stop start kill pkill docker mutation or runtime config mutation",
+    "prompt system-prompt history grounding response user data cookies auth secrets tokens raw argv or raw environment publication",
+    "threads threads-batch parallel ctx batch ubatch model quantization prompt safety StreamingAnswerGate timeout application database registration PC-CROP or Company OS mutation",
+    "second model process new server paid API SaaS or recurring cost"
+  ]
+}

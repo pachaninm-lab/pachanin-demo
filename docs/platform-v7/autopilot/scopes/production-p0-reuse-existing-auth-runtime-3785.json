@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-auth-runtime-recovery-evidence-3785",
+  "status": "active",
+  "operationalStatus": "P0_REUSE_EXISTING_AUTH_RUNTIME_EVIDENCE",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Reuse the already-created protected production auth runtime and expose bounded recovery-run evidence",
+  "allowedPaths": [
+    ".github/workflows/production-p0-auth-runtime-recovery-status.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-reuse-existing-auth-runtime-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE_FOR_STATUS_WORKFLOW_EXISTING_RECOVERY_REMAINS_BOUNDED",
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "credentialMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the repository owner can request bounded status on release issue 3072 without production mutation",
+    "status output is restricted to recovery workflow run ids, head SHA, run/job/step status and conclusions",
+    "no Actions environment, secret, credential, artifact contents or production logs are printed",
+    "the status path can identify the silent recovery failure before any retry is issued",
+    "production remains the existing REG.RU contour and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

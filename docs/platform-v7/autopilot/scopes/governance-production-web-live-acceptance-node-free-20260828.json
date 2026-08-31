@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/production-web-live-acceptance-node-free-20260828",
+  "status": "active",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/governance-production-web-live-acceptance-node-free-20260828.json",
+    "docs/platform-v7/autopilot/scopes/production-web-live-acceptance-node-free-20260828.json"
+  ]
+}

@@ -84,7 +84,7 @@ for (const fragment of [
 for (const fragment of [
   '- ".github/workflows/tai-automatic-reg-ru-preflight.yml"',
   '- "scripts/check-tai-automatic-release-chain.mjs"',
-  '- "docs/platform-v7/autopilot/scopes/tai-automatic-exact-release-chain-20260806.json"',
+  '- "docs/platform-v7/autopilot/scopes/*automatic-exact-release-chain*.json"',
 ]) requireFragment(docker, paths.docker, fragment);
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${paths.scope}: invalid schemaVersion`);

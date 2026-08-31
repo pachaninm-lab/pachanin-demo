@@ -608,27 +608,30 @@ export class PrismaDealRepository implements DealRepository {
   }
 
   private async assertCreationActors(tx: Prisma.TransactionClient, basis: DealBasis): Promise<void> {
-    const organizations = await tx.organization.findMany({
-      where: { id: { in: [basis.sellerOrgId, basis.buyerOrgId] } },
-    });
-    if (organizations.length !== 2 || organizations.some((org) => org.tenantId !== basis.tenantId || !ACTIVE_ORG_STATUSES.has(org.status) || org.kycStatus !== 'APPROVED')) {
+    const rows = await tx.$queryRaw<Array<{ status: string }>>`
+      SELECT auth.validate_deal_creation_actors(
+        ${basis.tenantId},
+        ${basis.sellerUserId},
+        ${basis.sellerOrgId},
+        ${basis.buyerUserId},
+        ${basis.buyerOrgId}
+      ) AS status
+    `;
+    const status = rows[0]?.status;
+    if (status === 'OK') return;
+    if (status === 'CONTEXT_INVALID') {
+      throw new ForbiddenException({ code: 'DEAL_CREATION_CONTEXT_INVALID' });
+    }
+    if (status === 'ORGANIZATION_INVALID') {
       throw new UnprocessableEntityException({ code: 'DEAL_BASIS_ORGANIZATION_INVALID' });
     }
-    const users = await tx.user.findMany({ where: { id: { in: [basis.sellerUserId, basis.buyerUserId] } } });
-    if (users.length !== 2 || users.some((actor) => actor.status !== 'ACTIVE' || actor.deletedAt)) {
+    if (status === 'USER_INVALID') {
       throw new UnprocessableEntityException({ code: 'DEAL_BASIS_USER_INVALID' });
     }
-    const memberships = await tx.userOrg.findMany({
-      where: {
-        OR: [
-          { userId: basis.sellerUserId, organizationId: basis.sellerOrgId, role: 'FARMER' },
-          { userId: basis.buyerUserId, organizationId: basis.buyerOrgId, role: 'BUYER' },
-        ],
-      },
-    });
-    if (memberships.length !== 2) {
+    if (status === 'MEMBERSHIP_INVALID') {
       throw new UnprocessableEntityException({ code: 'DEAL_BASIS_MEMBERSHIP_INVALID' });
     }
+    throw new UnprocessableEntityException({ code: 'DEAL_BASIS_ACTOR_AUTHORITY_INVALID' });
   }
 
   private replayCreate(payload: Prisma.JsonValue, requestFingerprint: string): unknown {

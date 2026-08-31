@@ -2,10 +2,10 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/tai-bootstrap-canonical-images-20260806",
   "status": "active",
-  "title": "TAI bootstrap canonical image trigger",
+  "title": "Gekta P0 SPEED exact-main canonical image trigger",
   "priority": "P0",
-  "baselineExactMain": "b39671c3c3d72aa3ff67c89b6ad379f32a379dee",
-  "objective": "Ensure every merged change to the owner-authorized TAI bootstrap preflight authority publishes canonical API, Web, Migration and TAI images for the same exact main SHA, so protected preflight and activation cannot deadlock on missing immutable image authority.",
+  "baselineExactMain": "33450889c3eb2ed6c048dfb0beab58058ccdd437",
+  "objective": "Trigger the existing canonical API, Web, Migration and TAI image publication once for the current Gekta P0 SPEED exact-main target so the protected REG.RU full-stack release can establish a measured exact-main production baseline; no release logic, runtime tuning, production authority or application behavior is changed.",
   "allowedPaths": [
     ".github/workflows/docker-publish.yml",
     "scripts/check-tai-bootstrap-preflight.mjs",
@@ -16,6 +16,7 @@
     "Canonical images are published only by the existing main-push image authority after merge",
     "The owner preflight, protected activation controller, exact-main checks, rollback and strict postflight remain unchanged",
     "No inbound SSH, runner Docker authority, sudo capability, credential, tenant, role, model, database, financial or application-data authority is added",
+    "Do not move exact main again while this baseline release chain is executing",
     "REG.RU only and zero new recurring cost"
   ]
 }

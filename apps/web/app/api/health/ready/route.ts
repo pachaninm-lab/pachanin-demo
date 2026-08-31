@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Exact-SHA REG.RU release trigger for the bounded public TAI attachment and local OCR repair.
+// Exact-SHA REG.RU web-only release trigger for the accepted owner real-cabinet access #4431; no runtime behavior change.
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';

@@ -1,0 +1,767 @@
+{
+  "schemaVersion": "pc-crop.cryptographic-inventory.v1",
+  "scannedFiles": 2173,
+  "operations": [
+    {
+      "operation": "encryption",
+      "label": "Symmetric encryption",
+      "sites": 7,
+      "algorithms": [
+        {
+          "algorithm": "aes-256-gcm",
+          "sites": 7,
+          "files": [
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "decryption",
+      "label": "Symmetric decryption",
+      "sites": 7,
+      "algorithms": [
+        {
+          "algorithm": "aes-256-gcm",
+          "sites": 7,
+          "files": [
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "hash",
+      "label": "Hashing",
+      "sites": 78,
+      "algorithms": [
+        {
+          "algorithm": "sha256",
+          "sites": 78,
+          "files": [
+            "apps/api/src/common/outbox/outbox.service.ts",
+            "apps/api/src/common/security/rate-limit.service.ts",
+            "apps/api/src/modules/accounting/reconciliation.policy.ts",
+            "apps/api/src/modules/ai-insights/ai-assistant-admission.manifest.ts",
+            "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
+            "apps/api/src/modules/audit/audit.service.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/api/src/modules/auth/accounting-document-payload.builder.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
+            "apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.ts",
+            "apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts",
+            "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
+            "apps/api/src/modules/deals/deal-command.service.ts",
+            "apps/api/src/modules/deals/deal-event.service.ts",
+            "apps/api/src/modules/deals/deal-registry-query.service.ts",
+            "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
+            "apps/api/src/modules/deals/prisma-deal.repository.ts",
+            "apps/api/src/modules/disputes/postgresql-dispute.repository.ts",
+            "apps/api/src/modules/documents/document-template.service.ts",
+            "apps/api/src/modules/documents/prisma-document.repository.ts",
+            "apps/api/src/modules/evidence-pack/evidence-pack.service.ts",
+            "apps/api/src/modules/exports/exports.service.ts",
+            "apps/api/src/modules/labs/lab-authority.service.ts",
+            "apps/api/src/modules/labs/prisma-lab.repository.ts",
+            "apps/api/src/modules/logistics/prisma-shipment.repository.ts",
+            "apps/api/src/modules/marketing/connectors/vk.publisher.ts",
+            "apps/api/src/modules/marketing/marketing-editorial-core.ts",
+            "apps/api/src/modules/mfa/mfa.module.ts",
+            "apps/api/src/modules/organization-intake/organization-intake.service.ts",
+            "apps/api/src/modules/partner-api/partner-api.service.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.contract.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-dispatch.repository.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-correlation.repository.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange.contract.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.repository.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.contract.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.repository.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.contract.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.ts",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts",
+            "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+            "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+            "apps/api/src/modules/staff-access/staff-audit.service.ts",
+            "apps/api/src/modules/storage/object-storage.adapter.ts",
+            "apps/api/src/modules/tai-tools/tai-tool-assertion.ts",
+            "apps/tai/model-artifacts/expert-review-packet.mjs",
+            "apps/tai/model-artifacts/expert-review-submission-intake.mjs",
+            "apps/web/app/api/auth/forgot-password/route.ts",
+            "apps/web/app/api/auth/organization-invitations/route.ts",
+            "apps/web/app/api/auth/register/route.ts",
+            "apps/web/app/api/auth/registration/resend/route.ts",
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+            "apps/web/app/api/public-platform-assistant/route.ts",
+            "apps/web/app/platform-v7/role-preview/showroom/page.tsx",
+            "apps/web/lib/platform-v7/tai-internal-stream.ts",
+            "apps/web/lib/server/gekta-auth-route.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts",
+            "apps/web/scripts/materialize-presentation-pdf.mjs",
+            "packages/domain-core/src/audit-log.ts",
+            "packages/domain-core/src/deal-event-chain.ts",
+            "packages/domain-core/src/deal-signing-service.ts",
+            "packages/integration-sdk/src/adapters/cryptopro.adapter.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "mac",
+      "label": "Message authentication",
+      "sites": 23,
+      "algorithms": [
+        {
+          "algorithm": "sha256",
+          "sites": 22,
+          "files": [
+            "apps/api/src/common/security/rate-limit.service.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/auth/opaque-token-authority.ts",
+            "apps/api/src/modules/deals/deal-registry-query.service.ts",
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/api/src/modules/integrations/edo-webhook.controller.ts",
+            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+            "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+            "apps/api/src/modules/storage/object-storage.adapter.ts",
+            "apps/api/src/modules/tai-tools/tai-tool-assertion.ts",
+            "apps/api/src/shared/integration-signature.ts",
+            "apps/web/lib/gekta/anonymous-session.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/marketing-attribution.server.ts",
+            "apps/web/lib/platform-v7/tai-internal-stream.ts",
+            "apps/web/lib/server-request-actor.ts",
+            "packages/integration-sdk/src/security/webhook-security.ts"
+          ]
+        },
+        {
+          "algorithm": "sha1",
+          "sites": 1,
+          "files": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "kdf-hkdf",
+      "label": "Key derivation (HKDF)",
+      "sites": 4,
+      "algorithms": [
+        {
+          "algorithm": "sha256",
+          "sites": 4,
+          "files": [
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/api/src/modules/auth/opaque-token-authority.ts",
+            "apps/api/src/modules/deals/deal-registry-query.service.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "kdf-pbkdf2",
+      "label": "Key derivation (PBKDF2)",
+      "sites": 0,
+      "algorithms": []
+    },
+    {
+      "operation": "kdf-scrypt",
+      "label": "Key derivation (scrypt)",
+      "sites": 2,
+      "algorithms": [
+        {
+          "algorithm": "scrypt",
+          "sites": 2,
+          "files": [
+            "apps/api/src/modules/auth/password-hashing.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "password-hash",
+      "label": "Password hashing",
+      "sites": 3,
+      "algorithms": [
+        {
+          "algorithm": "hashsync",
+          "sites": 2,
+          "files": [
+            "apps/api/src/modules/auth/password-hashing.ts",
+            "apps/api/src/modules/deals/canonical-test-deal.seed.ts"
+          ]
+        },
+        {
+          "algorithm": "hash",
+          "sites": 1,
+          "files": [
+            "apps/api/scripts/seed-design-system-v8-identities.mjs"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "signing",
+      "label": "Digital signature generation",
+      "sites": 0,
+      "algorithms": []
+    },
+    {
+      "operation": "verification",
+      "label": "Digital signature verification",
+      "sites": 0,
+      "algorithms": []
+    },
+    {
+      "operation": "keypair",
+      "label": "Key pair generation",
+      "sites": 0,
+      "algorithms": []
+    },
+    {
+      "operation": "key-exchange",
+      "label": "Key exchange",
+      "sites": 0,
+      "algorithms": []
+    },
+    {
+      "operation": "csprng",
+      "label": "Cryptographic randomness",
+      "sites": 30,
+      "algorithms": [
+        {
+          "algorithm": "unspecified",
+          "sites": 30,
+          "files": [
+            "apps/api/src/common/config/secrets.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/auth/opaque-token-authority.ts",
+            "apps/api/src/modules/auth/password-hashing.ts",
+            "apps/api/src/modules/gekta/gekta-phone.service.ts",
+            "apps/api/src/modules/mfa/mfa.module.ts",
+            "apps/api/src/modules/partner-api/partner-api.service.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.ts",
+            "apps/tai/model-artifacts/expert-review-submission-intake.mjs",
+            "apps/web/app/api/lots/route.ts",
+            "apps/web/lib/gekta/anonymous-session.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/govIdentityBridge.ts",
+            "apps/web/lib/server-request-security.ts",
+            "apps/web/lib/server/gekta-mfa-ticket.ts",
+            "apps/web/lib/server/mfa-login-ticket.ts",
+            "packages/integration-sdk/src/adapters/mfa.adapter.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "uuid",
+      "label": "UUID generation",
+      "sites": 224,
+      "algorithms": [
+        {
+          "algorithm": "unspecified",
+          "sites": 224,
+          "files": [
+            "apps/api/src/modules/accounting/connection-attestation.repository.ts",
+            "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+            "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
+            "apps/api/src/modules/auctions/auction-command.service.ts",
+            "apps/api/src/modules/auth-mail/auth-mail-outbox.service.ts",
+            "apps/api/src/modules/auth/access-token.ts",
+            "apps/api/src/modules/auth/auth-audit.ts",
+            "apps/api/src/modules/auth/auth.controller.ts",
+            "apps/api/src/modules/auth/auth.service.ts",
+            "apps/api/src/modules/auth/gekta-registration.service.ts",
+            "apps/api/src/modules/auth/organization-invitation.service.ts",
+            "apps/api/src/modules/auth/password-reset.service.ts",
+            "apps/api/src/modules/auth/product-session.service.ts",
+            "apps/api/src/modules/auth/registration-application.service.ts",
+            "apps/api/src/modules/auth/registration-decision.service.ts",
+            "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
+            "apps/api/src/modules/certificate-monitor/certificate-monitor.service.ts",
+            "apps/api/src/modules/deals/deal-command.service.ts",
+            "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
+            "apps/api/src/modules/deals/prisma-deal.repository.ts",
+            "apps/api/src/modules/disputes/postgresql-dispute.repository.ts",
+            "apps/api/src/modules/documents/prisma-document.repository.ts",
+            "apps/api/src/modules/labs/lab-authority.service.ts",
+            "apps/api/src/modules/labs/lab-evidence-upload.service.ts",
+            "apps/api/src/modules/labs/prisma-lab.repository.ts",
+            "apps/api/src/modules/logistics/prisma-shipment.repository.ts",
+            "apps/api/src/modules/organization-intake/organization-intake.controller.ts",
+            "apps/api/src/modules/organization-intake/organization-intake.service.ts",
+            "apps/api/src/modules/railway/railway.service.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-dispatch.repository.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.repository.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.repository.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.ts",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox.repository.ts",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts",
+            "apps/api/src/modules/settlement-engine/settlement-engine.service.ts",
+            "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+            "apps/api/src/modules/staff-access/staff-access.controller.ts",
+            "apps/api/src/modules/staff-access/staff-access.service.ts",
+            "apps/api/src/modules/staff-access/staff-assignment.service.ts",
+            "apps/api/src/modules/staff-access/staff-audit-writer.service.ts",
+            "apps/api/src/modules/staff-access/staff-emergency.service.ts",
+            "apps/api/src/modules/staff-access/staff-support.service.ts",
+            "apps/api/src/modules/storage/storage.service.ts",
+            "apps/web/app/api/agro-chat/route.ts",
+            "apps/web/app/api/auth/forgot-password/route.ts",
+            "apps/web/app/api/auth/login/route.ts",
+            "apps/web/app/api/auth/logout/route.ts",
+            "apps/web/app/api/auth/me/route.ts",
+            "apps/web/app/api/auth/membership-select/route.ts",
+            "apps/web/app/api/auth/mfa-login/route.ts",
+            "apps/web/app/api/auth/mfa-recovery/confirm/route.ts",
+            "apps/web/app/api/auth/mfa-step-up/start/route.ts",
+            "apps/web/app/api/auth/mfa-step-up/verify/route.ts",
+            "apps/web/app/api/auth/organization-invitations/[invitationId]/resend/route.ts",
+            "apps/web/app/api/auth/organization-invitations/accept/route.ts",
+            "apps/web/app/api/auth/organization-invitations/route.ts",
+            "apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts",
+            "apps/web/app/api/auth/organization-memberships/[membershipId]/mfa-recovery/route.ts",
+            "apps/web/app/api/auth/refresh/route.ts",
+            "apps/web/app/api/auth/register/route.ts",
+            "apps/web/app/api/auth/registration/additional-information/route.ts",
+            "apps/web/app/api/auth/registration/resend/route.ts",
+            "apps/web/app/api/auth/registration/status/route.ts",
+            "apps/web/app/api/auth/registration/verify/route.ts",
+            "apps/web/app/api/auth/reset-password/route.ts",
+            "apps/web/app/api/gekta/auth/email/verify/route.ts",
+            "apps/web/app/api/gekta/auth/login/route.ts",
+            "apps/web/app/api/gekta/auth/logout/route.ts",
+            "apps/web/app/api/gekta/auth/mfa/route.ts",
+            "apps/web/app/api/gekta/auth/refresh/route.ts",
+            "apps/web/app/api/gekta/auth/register/resend/route.ts",
+            "apps/web/app/api/gekta/auth/register/route.ts",
+            "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+            "apps/web/app/api/platform-v7/cabinet-lock-login/route.ts",
+            "apps/web/app/api/platform-v7/commodity-profiles/[[...path]]/route.ts",
+            "apps/web/app/api/platform-v7/integrations/[[...path]]/route.ts",
+            "apps/web/app/api/platform-v7/organization-connect/route.ts",
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+            "apps/web/app/api/public-platform-assistant/route.ts",
+            "apps/web/app/api/restricted-public-platform-assistant/route.ts",
+            "apps/web/app/api/staff/[...path]/route.ts",
+            "apps/web/app/api/staff/capabilities/me/route.ts",
+            "apps/web/app/api/staff/commodity-profile-registry/[[...path]]/route.ts",
+            "apps/web/app/api/staff/commodity-profiles/[profileId]/commands/[actionId]/route.ts",
+            "apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts",
+            "apps/web/app/api/staff/integrations/_command-proxy.ts",
+            "apps/web/app/api/staff/workspaces/[...path]/route.ts",
+            "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
+            "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+            "apps/web/apps/web/middleware.ts",
+            "apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx",
+            "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+            "apps/web/components/gekta/GektaChatWorkspace.tsx",
+            "apps/web/components/platform-v7/OrganizationConnectForm.tsx",
+            "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx",
+            "apps/web/components/platform-v7/staff/StaffSupportCaseWorkspace.tsx",
+            "apps/web/lib/commercial-workspace-repository.ts",
+            "apps/web/lib/offline.ts",
+            "apps/web/lib/server/transactional-mail.ts",
+            "apps/web/middleware.ts",
+            "apps/web/public/mockServiceWorker.js"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "weak-prng",
+      "label": "Non-cryptographic randomness",
+      "sites": 53,
+      "algorithms": [
+        {
+          "algorithm": "unspecified",
+          "sites": 53,
+          "files": [
+            "apps/api/src/auth-mail-worker.ts",
+            "apps/api/src/common/prisma/rls-transaction.service.ts",
+            "apps/api/src/modules/accounting/advance.repository.ts",
+            "apps/api/src/modules/accounting/deal-service.repository.ts",
+            "apps/api/src/modules/accounting/payment.repository.ts",
+            "apps/api/src/modules/accounting/reconciliation.repository.ts",
+            "apps/api/src/modules/accounting/work-task.repository.ts",
+            "apps/api/src/modules/anti-fraud/anti-fraud.service.ts",
+            "apps/api/src/modules/audit/audit.service.ts",
+            "apps/api/src/modules/deals/deal-event.service.ts",
+            "apps/api/src/modules/evidence-pack/evidence-pack.service.ts",
+            "apps/api/src/modules/kyc/kyc.service.ts",
+            "apps/api/src/modules/ledger/ledger.service.ts",
+            "apps/api/src/modules/lots/lots.service.ts",
+            "apps/api/src/modules/notifications/notifications.service.ts",
+            "apps/api/src/modules/organizations/organizations.service.ts",
+            "apps/api/src/modules/partner-api/partner-api.service.ts",
+            "apps/web/app/api/auth/demo/instant/[role]/route.ts",
+            "apps/web/app/api/platform-v7/leads/route.ts",
+            "apps/web/app/api/sim/bank-callback/route.ts",
+            "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+            "apps/web/components/gekta/GektaChatWorkspace.tsx",
+            "apps/web/components/platform-v7/AiAssistantPanel.tsx",
+            "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+            "apps/web/components/platform-v7/ControlTowerCharts.tsx",
+            "apps/web/components/platform-v7/DriverCameraCapture.tsx",
+            "apps/web/components/platform-v7/DriverOfflineQueue.tsx",
+            "apps/web/components/platform-v7/LabPhotoUpload.tsx",
+            "apps/web/components/platform-v7/PriceChart.tsx",
+            "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+            "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+            "apps/web/components/v7r/DemoDealAutoplay.tsx",
+            "apps/web/lib/id-factory.ts",
+            "apps/web/lib/observability.ts",
+            "apps/web/lib/platform-v7/install-public-assistant-fetch-resilience.ts",
+            "apps/web/mocks/handlers.ts",
+            "packages/integration-sdk/src/adapters/aml.adapter.ts",
+            "packages/integration-sdk/src/adapters/diadok.adapter.ts",
+            "packages/integration-sdk/src/adapters/fts.adapter.ts",
+            "packages/integration-sdk/src/adapters/gps.adapter.ts",
+            "packages/integration-sdk/src/live/http-integration-client.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "constant-time",
+      "label": "Constant-time comparison",
+      "sites": 24,
+      "algorithms": [
+        {
+          "algorithm": "unspecified",
+          "sites": 24,
+          "files": [
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
+            "apps/api/src/modules/auth/auth-crypto.ts",
+            "apps/api/src/modules/auth/opaque-token-authority.ts",
+            "apps/api/src/modules/auth/organization-invitation.service.ts",
+            "apps/api/src/modules/auth/password-hashing.ts",
+            "apps/api/src/modules/auth/password-reset.service.ts",
+            "apps/api/src/modules/auth/registration-application.service.ts",
+            "apps/api/src/modules/auth/registration-decision.service.ts",
+            "apps/api/src/modules/deals/deal-registry-query.service.ts",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.ts",
+            "apps/api/src/modules/integrations/edo-webhook.controller.ts",
+            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+            "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+            "apps/api/src/modules/tai-tools/tai-tool-assertion.ts",
+            "apps/api/src/shared/integration-signature.ts",
+            "apps/web/app/api/marketing/telegram/webhook/route.ts",
+            "apps/web/app/platform-v7/role-preview/showroom/page.tsx",
+            "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+            "apps/web/lib/gekta/anonymous-session.ts",
+            "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/marketing-attribution.server.ts",
+            "apps/web/lib/server-request-actor.ts",
+            "apps/web/lib/server-request-security.ts",
+            "packages/integration-sdk/src/security/webhook-security.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "operation": "webcrypto",
+      "label": "WebCrypto operations",
+      "sites": 5,
+      "algorithms": [
+        {
+          "algorithm": "importkey",
+          "sites": 2,
+          "files": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ]
+        },
+        {
+          "algorithm": "digest",
+          "sites": 1,
+          "files": [
+            "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx"
+          ]
+        },
+        {
+          "algorithm": "sign",
+          "sites": 1,
+          "files": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ]
+        },
+        {
+          "algorithm": "verify",
+          "sites": 1,
+          "files": [
+            "apps/web/lib/platform-v7/verified-session.ts"
+          ]
+        }
+      ]
+    }
+  ],
+  "keyMaterial": [
+    {
+      "name": "ACCESS_TOKEN_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/lib/server-request-actor.ts"
+      ]
+    },
+    {
+      "name": "AI_ASSISTANT_API_KEY",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
+      ]
+    },
+    {
+      "name": "AI_ASSISTANT_MAX_TOKENS",
+      "kind": "configuration",
+      "files": [
+        "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
+      ]
+    },
+    {
+      "name": "AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION",
+      "kind": "configuration",
+      "files": [
+        "apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+      ]
+    },
+    {
+      "name": "AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE",
+      "kind": "configuration",
+      "files": [
+        "apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+      ]
+    },
+    {
+      "name": "AUTH_MAIL_OUTBOX_KEY",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+      ]
+    },
+    {
+      "name": "AUTH_MAIL_OUTBOX_KEYRING_DIR",
+      "kind": "configuration",
+      "files": [
+        "apps/api/src/modules/auth-mail/auth-mail-crypto.ts"
+      ]
+    },
+    {
+      "name": "BANK_HMAC_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/settlement-engine/bank-key-registry.service.ts"
+      ]
+    },
+    {
+      "name": "CRM_WEBHOOK_TOKEN",
+      "kind": "secret",
+      "files": [
+        "apps/web/app/api/platform-v7/leads/route.ts"
+      ]
+    },
+    {
+      "name": "DEAL_REGISTRY_CURSOR_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/deals/deal-registry-query.service.ts"
+      ]
+    },
+    {
+      "name": "EDO_WEBHOOK_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/integrations/edo-webhook.controller.ts"
+      ]
+    },
+    {
+      "name": "GEKTA_ANONYMOUS_SESSION_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/lib/gekta/anonymous-session.ts"
+      ]
+    },
+    {
+      "name": "GEKTA_PHONE_ENCRYPTION_KEY",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/gekta/gekta-phone.service.ts"
+      ]
+    },
+    {
+      "name": "GEKTA_PHONE_LOOKUP_PEPPER",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/gekta/gekta-phone.service.ts"
+      ]
+    },
+    {
+      "name": "JWT_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/auth/access-token.ts",
+        "apps/api/src/modules/auth/auth-crypto.ts",
+        "apps/api/src/modules/auth/opaque-token-authority.ts",
+        "apps/api/src/modules/deals/deal-registry-query.service.ts",
+        "apps/web/app/api/platform-v7/cabinet-session/route.ts",
+        "apps/web/app/platform-v7/control-tower/page.tsx",
+        "apps/web/app/platform-v7/driver/layout.tsx",
+        "apps/web/app/platform-v7/layout.tsx",
+        "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx",
+        "apps/web/apps/web/middleware.ts",
+        "apps/web/lib/platform-v7/owner-controlled-cabinet-server.ts",
+        "apps/web/lib/server/auth-session-response.ts",
+        "apps/web/middleware.ts"
+      ]
+    },
+    {
+      "name": "MARKETING_TELEGRAM_WEBHOOK_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/app/api/marketing/telegram/webhook/route.ts"
+      ]
+    },
+    {
+      "name": "MFA_LOGIN_TICKET_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/playwright.acceptance.config.ts"
+      ]
+    },
+    {
+      "name": "ORGANIZATION_INVITATION_DELIVERY_KEY",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/auth/organization-invitation.service.ts",
+        "apps/web/app/api/auth/mfa-recovery/confirm/route.ts",
+        "apps/web/app/api/auth/organization-invitations/[invitationId]/resend/route.ts",
+        "apps/web/app/api/auth/organization-invitations/route.ts",
+        "apps/web/app/api/auth/organization-memberships/[membershipId]/mfa-recovery/route.ts"
+      ]
+    },
+    {
+      "name": "PASSWORD_RESET_DELIVERY_KEY",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/auth/password-reset.service.ts",
+        "apps/api/src/modules/support/support.service.ts",
+        "apps/web/app/api/auth/forgot-password/route.ts",
+        "apps/web/app/api/auth/reset-password/route.ts"
+      ]
+    },
+    {
+      "name": "PC_ACCEPTANCE_JWT_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/playwright.acceptance.config.ts"
+      ]
+    },
+    {
+      "name": "PC_ACCEPTANCE_TLS_KEY",
+      "kind": "secret",
+      "files": [
+        "apps/web/playwright.acceptance.config.ts"
+      ]
+    },
+    {
+      "name": "PC_CABINET_SESSION_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/app/platform-v7/control-tower/page.tsx",
+        "apps/web/app/platform-v7/driver/layout.tsx",
+        "apps/web/app/platform-v7/layout.tsx",
+        "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx",
+        "apps/web/apps/web/middleware.ts",
+        "apps/web/lib/platform-v7/owner-controlled-cabinet-server.ts",
+        "apps/web/lib/server/auth-session-response.ts",
+        "apps/web/middleware.ts"
+      ]
+    },
+    {
+      "name": "PLATFORM_V7_CRM_WEBHOOK_TOKEN",
+      "kind": "secret",
+      "files": [
+        "apps/web/app/api/platform-v7/leads/route.ts"
+      ]
+    },
+    {
+      "name": "REGISTRATION_DELIVERY_KEY",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/auth/gekta-registration.service.ts",
+        "apps/api/src/modules/auth/registration-application.service.ts",
+        "apps/api/src/modules/auth/registration-decision.service.ts",
+        "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.ts",
+        "apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts",
+        "apps/web/app/api/auth/register/route.ts",
+        "apps/web/app/api/auth/registration/resend/route.ts",
+        "apps/web/app/api/auth/registration/verify/route.ts",
+        "apps/web/app/api/staff/[...path]/route.ts",
+        "apps/web/lib/server/gekta-auth-route.ts"
+      ]
+    },
+    {
+      "name": "RESEND_API_KEY",
+      "kind": "secret",
+      "files": [
+        "apps/web/app/api/auth/register/route.ts",
+        "apps/web/app/api/auth/registration/resend/route.ts",
+        "apps/web/app/api/auth/reset-password/route.ts",
+        "apps/web/app/api/platform-v7/inquiries/route.ts",
+        "apps/web/app/api/platform-v7/leads/route.ts",
+        "apps/web/lib/server/mfa-recovery-mail.ts",
+        "apps/web/lib/server/organization-invitation-mail.ts",
+        "apps/web/lib/server/transactional-mail.ts"
+      ]
+    },
+    {
+      "name": "TAI_PLATFORM_TOOL_HMAC_SECRET_B64",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/modules/tai-tools/tai-tool-assertion.ts"
+      ]
+    },
+    {
+      "name": "VAULT_TOKEN",
+      "kind": "secret",
+      "files": [
+        "apps/api/src/common/vault/vault-transit.service.ts"
+      ]
+    }
+  ],
+  "limits": [
+    "Static scan: an algorithm assembled at runtime is not resolved.",
+    "Names key material only. No key value is read, printed or stored.",
+    "Key material is classified by name, so the secret/configuration split is a label rather than a proof.",
+    "Key custody, crypto-periods and who may hold a key are not derivable from source and remain an owner decision.",
+    "Absence of an operation here means absence of a recognised call, not proof that the operation cannot occur."
+  ]
+}

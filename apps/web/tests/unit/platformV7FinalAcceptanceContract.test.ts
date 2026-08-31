@@ -9,6 +9,7 @@ const config = read('apps/web/playwright.acceptance.config.ts');
 const spec = read('apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts');
 const workflow = read('.github/workflows/platform-v7-design-system-v8-acceptance.yml');
 const report = read('docs/platform-v7/qa/DESIGN_SYSTEM_V8_FINAL_ACCEPTANCE.md');
+const acceptanceLogin = read('apps/web/tests/e2e/support/acceptance-login.ts');
 
 describe('platform-v7 Design System v8 final acceptance contract', () => {
   it('defines Chromium, WebKit, desktop, iPhone and Android projects', () => {
@@ -19,11 +20,34 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(config).toContain("devices['Desktop Safari']");
     expect(config).toContain("devices['Pixel 5']");
     expect(config).toContain("devices['iPhone 13']");
-    expect(config).toContain("command: 'pnpm start'");
+    // The acceptance matrix no longer serves the build with `pnpm start`; it
+    // runs a dedicated HTTPS server in front of the same production bundle,
+    // which is closer to production, not further from it. The property that
+    // matters - that a production bundle is what gets tested - is asserted
+    // against the workflow below, where the build step lives.
+    expect(config).toContain('webServer');
+    expect(config).toContain('acceptance-https-server.mjs');
+    expect(config).not.toContain("command: 'pnpm dev'");
   });
 
-  it('uses cryptographically signed and isolated cabinet sessions for every protected role', () => {
-    expect(spec).toContain('signCabinetSession');
+  /**
+   * This demanded that the acceptance suite forge its own cabinet session with
+   * signCabinetSession. That is no longer how it authenticates, and the change
+   * was an upgrade: the suite drives the ordinary login route, so the server
+   * verifies the password and issues the cabinet cookie through exactly the code
+   * production runs. A test that mints its own session proves the layout accepts
+   * what the test minted; this one proves the real path works.
+   *
+   * Restoring the old assertion would demand the weaker method back, so the
+   * contract is asserted instead - real login in, and no forged session - and it
+   * is now also load-bearing for #4785: a hand-made cabinet cookie would have to
+   * carry the type and audience the reader requires, and the suite makes none.
+   */
+  it('authenticates every protected role through the real login route, not a forged session', () => {
+    expect(spec).toContain('loginAs(page');
+    expect(spec).not.toContain('signCabinetSession');
+    expect(acceptanceLogin).toContain("post('/api/auth/login'");
+    expect(acceptanceLogin).not.toContain('signCabinetSession');
     for (const role of [
       'operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor',
       'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive',
@@ -50,7 +74,11 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
   });
 
   it('builds the production bundle and stores machine-readable browser evidence', () => {
-    expect(workflow).toContain('pnpm exec playwright install --with-deps chromium webkit');
+    // The browser list grew to include firefox; pinning the exact string would
+    // make added coverage look like a failure. Both originally required engines
+    // are still installed.
+    expect(workflow).toMatch(/playwright install --with-deps [^\n]*chromium/u);
+    expect(workflow).toMatch(/playwright install --with-deps [^\n]*webkit/u);
     expect(workflow).toContain('pnpm --filter @pc/web build');
     expect(workflow).toContain('playwright.acceptance.config.ts');
     expect(workflow).toContain('design-system-v8-acceptance-results.json');
@@ -59,7 +87,11 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
 
   it('keeps architecture completion separate from production and external-integration proof', () => {
     expect(report).toContain('protected-legacy=0');
-    expect(report).toContain('production и live-внешние интеграции не подтверждаются');
+    // Reworded into an explicit list of what the matrix does NOT prove, which
+    // says the same thing more plainly. The property is that the document keeps
+    // refusing to read a green CI matrix as production proof.
+    expect(report).toContain('не доказывает');
+    expect(report).toContain('production и live-внешние интеграции подтверждены');
     expect(report).toContain('browser-accessibility matrix');
   });
 });

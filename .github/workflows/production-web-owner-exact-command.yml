@@ -1,0 +1,124 @@
+name: Production Web Owner Exact-SHA Command
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  packages: read
+  issues: write
+
+concurrency:
+  group: production-web-owner-exact-command
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate owner exact-SHA web command
+    if: >-
+      github.event.issue.number == 3048 &&
+      github.event.comment.user.login == github.repository_owner &&
+      startsWith(github.event.comment.body, '/production web exact ')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      target_sha: ${{ steps.target.outputs.target_sha }}
+
+    steps:
+      - name: Checkout current main authority
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve and validate exact target
+        id: target
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="${COMMENT_BODY//$'\r'/}"
+          if [[ ! "$body" =~ ^/production\ web\ exact\ ([0-9a-f]{40})$ ]]; then
+            echo 'Owner command must be exactly: /production web exact <40-char-lowercase-sha>' >&2
+            exit 2
+          fi
+
+          target_sha="${BASH_REMATCH[1]}"
+          git fetch --no-tags origin main
+          git cat-file -e "${target_sha}^{commit}"
+          git merge-base --is-ancestor "$target_sha" origin/main
+
+          printf '%s\n' "$target_sha" > target-sha.txt
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Call canonical bounded web-only release
+    needs: validate
+    uses: ./.github/workflows/production-web-exact-sha.yml
+    with:
+      action: deploy
+      target_sha: ${{ needs.validate.outputs.target_sha }}
+      confirmation: DEPLOY-EXACT-SHA
+    secrets: inherit
+
+  record:
+    name: Record owner-call outcome
+    if: always() && needs.validate.result != 'skipped'
+    needs: [validate, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Record call evidence
+        env:
+          TARGET_SHA: ${{ needs.validate.outputs.target_sha }}
+          VALIDATE_OUTCOME: ${{ needs.validate.result }}
+          RELEASE_OUTCOME: ${{ needs.release.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf 'COMMAND_AUTHORITY=OWNER_ONLY\n'
+            printf 'RELEASE_AUTHORITY=production-web-exact-sha.yml\n'
+            printf 'TARGET_SHA=%s\n' "${TARGET_SHA:-unresolved}"
+            printf 'VALIDATE_OUTCOME=%s\n' "${VALIDATE_OUTCOME:-unknown}"
+            printf 'RELEASE_OUTCOME=%s\n' "${RELEASE_OUTCOME:-unknown}"
+            printf 'CALL_MODE=workflow_call\n'
+          } > dispatch-evidence.txt
+          printf '%s\n' "${TARGET_SHA:-unresolved}" > target-sha.txt
+
+      - name: Publish call record
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.validate.outputs.target_sha }}
+          VALIDATE_OUTCOME: ${{ needs.validate.result }}
+          RELEASE_OUTCOME: ${{ needs.release.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"
+          {
+            printf '## Owner exact web call `%s`\n\n' "$GITHUB_RUN_ID"
+            printf -- '- target SHA: `%s`\n' "${TARGET_SHA:-unresolved}"
+            printf -- '- canonical release: `production-web-exact-sha.yml`\n'
+            printf -- '- validation outcome: `%s`\n' "${VALIDATE_OUTCOME:-unknown}"
+            printf -- '- canonical release outcome: `%s`\n' "${RELEASE_OUTCOME:-unknown}"
+            printf -- '- call mode: `workflow_call`\n'
+            printf -- '- production mutation in this command wrapper: `none`\n'
+          } > "$record"
+          gh issue comment 3048 --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Upload call evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-web-owner-command-${{ github.run_id }}
+          path: |
+            target-sha.txt
+            dispatch-evidence.txt
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 0

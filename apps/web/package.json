@@ -1,9 +1,10 @@
 {
   "name": "@pc/web",
   "private": true,
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "node scripts/materialize-presentation-pdf.mjs && next build",
     "start": "next start -p 3000",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
@@ -59,7 +60,7 @@
     "happy-dom": "^20.8.9",
     "jsdom": "^29.0.1",
     "msw": "^2.13.2",
-    "postcss": "^8.4.35",
+    "postcss": "8.5.18",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.6.3",
     "vitest": "^4.1.9"

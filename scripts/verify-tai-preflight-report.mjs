@@ -9,6 +9,12 @@ export const BOOTSTRAP_BLOCKERS = Object.freeze([
   'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
 ]);
 
+export const POST_FULL_STACK_BOOTSTRAP_BLOCKERS = Object.freeze([
+  'TAI_SERVICE_NOT_MATERIALIZED',
+  'TAI_DEDICATED_ENV_NOT_MATERIALIZED',
+  'TAI_DEDICATED_DB_PRINCIPAL_NOT_ATTESTED',
+]);
+
 export const CRITICAL_PASS_CODES = Object.freeze([
   'COMPOSE_AUTHORITY_READY',
   'PROTECTED_COMPOSE_READABLE',
@@ -118,22 +124,39 @@ export function classifyTaiPreflightReport(raw, expectedSha, { allowBootstrap = 
   }
 
   if (!allowBootstrap) throw new Error(`preflight is blocked: ${sortedBlockers.join(',')}`);
-  const expectedBootstrap = [...BOOTSTRAP_BLOCKERS].sort();
-  if (!sameSet(sortedBlockers, expectedBootstrap)) {
+
+  const expectedFullStackBootstrap = [...BOOTSTRAP_BLOCKERS].sort();
+  const expectedPostFullStackBootstrap = [...POST_FULL_STACK_BOOTSTRAP_BLOCKERS].sort();
+  const fullStackBootstrap = sameSet(sortedBlockers, expectedFullStackBootstrap);
+  const postFullStackBootstrap = sameSet(sortedBlockers, expectedPostFullStackBootstrap);
+
+  if (!fullStackBootstrap && !postFullStackBootstrap) {
     throw new Error(`unexpected bootstrap blockers: ${sortedBlockers.join(',')}`);
-  }
-  if (checkCodes.has('API_WEB_EXACT_MAIN')) {
-    throw new Error('bootstrap evidence may not simultaneously assert API_WEB_EXACT_MAIN');
-  }
-  const apiMismatch = checks.find(({ code }) => code === 'API_WEB_NOT_EXACT_MAIN');
-  if (!apiMismatch || apiMismatch.status !== 'BLOCKED') {
-    throw new Error('bootstrap API/web exact-main mismatch authority is missing');
   }
   if (report.passed !== false) throw new Error('bootstrap-eligible preflight must retain raw passed=false evidence');
 
+  if (fullStackBootstrap) {
+    if (checkCodes.has('API_WEB_EXACT_MAIN')) {
+      throw new Error('full-stack bootstrap evidence may not simultaneously assert API_WEB_EXACT_MAIN');
+    }
+    const apiMismatch = checks.find(({ code }) => code === 'API_WEB_NOT_EXACT_MAIN');
+    if (!apiMismatch || apiMismatch.status !== 'BLOCKED') {
+      throw new Error('full-stack bootstrap API/web exact-main mismatch authority is missing');
+    }
+    return Object.freeze({
+      classification: 'BOOTSTRAP_ELIGIBLE',
+      description: 'TAI REG.RU full-stack bootstrap preflight PASS',
+      blockers: Object.freeze([...sortedBlockers]),
+    });
+  }
+
+  if (checkCodes.has('API_WEB_NOT_EXACT_MAIN')) {
+    throw new Error('post-full-stack bootstrap evidence contains non-exact API/web authority');
+  }
+  requirePass(checks, 'API_WEB_EXACT_MAIN');
   return Object.freeze({
-    classification: 'BOOTSTRAP_ELIGIBLE',
-    description: 'TAI REG.RU full-stack bootstrap preflight PASS',
+    classification: 'POST_FULL_STACK_BOOTSTRAP_ELIGIBLE',
+    description: 'TAI REG.RU post-full-stack bootstrap preflight PASS',
     blockers: Object.freeze([...sortedBlockers]),
   });
 }

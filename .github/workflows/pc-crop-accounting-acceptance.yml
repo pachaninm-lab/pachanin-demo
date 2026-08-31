@@ -1,0 +1,198 @@
+name: PC-CROP Accounting Core Acceptance
+
+# Additive acceptance for the accounting contour. This workflow does not
+# modify, disable or relax any workflow that governs the agent, so
+# noSelfModifyingWorkflow is untouched — it forbids altering the workflows that
+# run and constrain the agent, not publishing a new gate for new code.
+#
+# Its reason to exist: the accounting acceptance specs are gated on
+# PC_CROP_ACCOUNTING_POSTGRESQL, following the convention of the other
+# PostgreSQL acceptance suites here. Until something sets that flag they are
+# skipped everywhere, which means the claims they prove — a gapless sequence
+# under concurrency, an atomic nine-source snapshot — were verified only on a
+# developer's machine. A proof that runs nowhere is a proof nobody can check.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-accounting-acceptance.yml'
+      - 'apps/api/prisma/migrations/*_pc_crop_*/**'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/src/modules/accounting/**'
+      - 'apps/api/src/modules/auth/accounting-*.ts'
+      - 'apps/api/src/modules/auth/contract-version.policy.ts'
+      - 'apps/api/src/modules/auth/document-format.policy.ts'
+      - 'apps/api/src/modules/auth/organization-tax-profile.policy.ts'
+      - 'apps/api/src/modules/auth/regulatory-rule-registry.policy.ts'
+      - 'apps/api/src/modules/auth/signing-authority.policy.ts'
+      - 'scripts/sql/pc-crop-accounting-rls-checks.sql'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-accounting-acceptance.yml'
+      - 'apps/api/prisma/migrations/*_pc_crop_*/**'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/src/modules/accounting/**'
+      - 'apps/api/src/modules/auth/accounting-*.ts'
+      - 'apps/api/src/modules/auth/contract-version.policy.ts'
+      - 'apps/api/src/modules/auth/document-format.policy.ts'
+      - 'apps/api/src/modules/auth/organization-tax-profile.policy.ts'
+      - 'apps/api/src/modules/auth/regulatory-rule-registry.policy.ts'
+      - 'apps/api/src/modules/auth/signing-authority.policy.ts'
+      - 'scripts/sql/pc-crop-accounting-rls-checks.sql'
+
+permissions:
+  contents: read
+
+# A superseded run is not evidence about the head that superseded it, and letting
+# it finish only produces a cancellation artifact somebody has to read past.
+concurrency:
+  group: pc-crop-accounting-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  # psql rejects ?schema=, which is a Prisma parameter and not a libpq one. The two
+  # tools do not share a URL dialect, so they do not share a variable: the first run
+  # of this workflow proved it by failing on exactly that.
+  PSQL_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+  RLS_INTEGRATION_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/rlsgate
+  EVIDENCE_DIR: artifacts/pc-crop-accounting
+
+jobs:
+  accounting-acceptance:
+    name: PostgreSQL 16 · snapshot atomicity · gapless numbering · RLS isolation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        # The repository mirror, by digest. Anonymous Docker Hub pulls are rate
+        # limited, and when the pull fails the service container never starts —
+        # the job dies before its first assertion, which is indistinguishable
+        # from a failed acceptance. Debian-based, matching the other blocking
+        # acceptance suites: Alpine and Debian differ in libc and collation, so
+        # sort order and index behaviour are not interchangeable.
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Record exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply the complete migration chain
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma generate 2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+
+      # The gate that has caught real drift on this contour before: a migration
+      # whose DDL differs from what Prisma would generate.
+      - name: Refuse schema drift
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --script --exit-code 2>&1 | tee "$EVIDENCE_DIR/drift.log"
+
+      - name: Run accounting unit contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand \
+            src/modules/accounting src/modules/auth/accounting- \
+            src/modules/auth/contract-version src/modules/auth/document-format \
+            src/modules/auth/organization-tax-profile \
+            src/modules/auth/regulatory-rule-registry \
+            src/modules/auth/signing-authority \
+            2>&1 | tee "$EVIDENCE_DIR/unit.log"
+
+      # The flag these specs are gated on. Without it they skip, which is the
+      # whole reason this workflow exists.
+      - name: Run PostgreSQL acceptance
+        env:
+          PC_CROP_ACCOUNTING_POSTGRESQL: '1'
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/auth/accounting-document-issuing.postgresql.spec.ts \
+            src/modules/accounting/accounting-source-snapshot.postgresql.spec.ts \
+            src/modules/accounting/work-task.postgresql.spec.ts \
+            src/modules/accounting/work-task.repository.postgresql.spec.ts \
+            src/modules/accounting/accounting-period.postgresql.spec.ts \
+            src/modules/accounting/accounting-period.repository.postgresql.spec.ts \
+            src/modules/accounting/document-transmission.postgresql.spec.ts \
+            src/modules/accounting/advance.postgresql.spec.ts \
+            src/modules/accounting/deal-service.postgresql.spec.ts \
+            src/modules/accounting/deal-service.repository.postgresql.spec.ts \
+            src/modules/accounting/payment.postgresql.spec.ts \
+            src/modules/accounting/reconciliation.postgresql.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
+
+      - name: Install the PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # No `|| true` on the create: swallowing its exit code is what let the first
+      # run report a database that was never created, and the gate then failed one
+      # step later with an error about something else.
+      - name: Run the RLS isolation gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$PSQL_ADMIN_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE rlsgate;' \
+            2>&1 | tee "$EVIDENCE_DIR/rlsgate-create.log"
+          bash scripts/platform-v7-rls-integration.sh 2>&1 \
+            | tee "$EVIDENCE_DIR/rls-isolation.log"
+
+      - name: Enforce the forward-only migration contract
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/platform-v7-forward-only-migration-check.mjs 2>&1 \
+            | tee "$EVIDENCE_DIR/forward-only.log"
+
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-accounting-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          retention-days: 14

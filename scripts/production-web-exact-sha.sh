@@ -74,6 +74,7 @@ fi
 [[ -d "$(dirname "$PC_IMAGE_OVERRIDE")" ]] || fail "image override directory does not exist: $(dirname "$PC_IMAGE_OVERRIDE")"
 if [[ "$ACTION" != audit ]]; then
   [[ -x "$LIVE_ACCEPTANCE_SCRIPT" ]] || fail 'PC_LIVE_ACCEPTANCE_SCRIPT must point to an executable acceptance script'
+  command -v python3 >/dev/null 2>&1 || fail 'Python 3 is required for strict live acceptance JSON parsing'
 fi
 
 compose_version="$(docker compose version --short | sed 's/^v//')"
@@ -220,6 +221,8 @@ rollback_on_error() {
     rollback_id="$current_web_id"
     rollback_state="$current_state"
     rollback_revision="$current_revision"
+    rollback_has_health=0
+    rollback_ready=0
 
     if (( container_mutation_started == 1 )); then
       if (( legacy_parked == 1 )); then
@@ -230,14 +233,35 @@ rollback_on_error() {
         rollback_id="$current_web_id"
       else
         "${ROLLBACK_DC[@]}" up -d --no-deps --force-recreate --pull never web
-        rollback_id="$("${ROLLBACK_DC[@]}" ps -q web)"
+        rollback_id="$("${ROLLBACK_DC[@]}" ps -q web 2>/dev/null || true)"
       fi
-      rollback_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$rollback_id")"
-      rollback_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$rollback_id" 2>/dev/null || true)"
+
+      if [[ -n "$rollback_id" ]]; then
+        rollback_has_health="$(docker inspect --format '{{if .State.Health}}1{{else}}0{{end}}' "$rollback_id" 2>/dev/null || echo 0)"
+        for rollback_attempt in $(seq 1 75); do
+          rollback_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$rollback_id" 2>/dev/null || echo missing)"
+          printf 'ROLLBACK_HEALTH_ATTEMPT=%s STATE=%s HEALTHCHECK=%s\n' \
+            "$rollback_attempt" "$rollback_state" "$rollback_has_health"
+          if [[ "$rollback_has_health" == 1 && "$rollback_state" == healthy ]]; then
+            rollback_ready=1
+            break
+          fi
+          if [[ "$rollback_has_health" == 0 && "$rollback_state" == running ]]; then
+            rollback_ready=1
+            break
+          fi
+          [[ "$rollback_state" == unhealthy || "$rollback_state" == exited || "$rollback_state" == dead ]] && break
+          sleep 2
+        done
+        rollback_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$rollback_id" 2>/dev/null || true)"
+      fi
+    else
+      if [[ "$rollback_state" == healthy || "$rollback_state" == running ]]; then rollback_ready=1; fi
     fi
 
+    printf 'ROLLBACK_READY=%s\n' "$rollback_ready"
     if [[ -n "$rollback_id" ]] &&
-      [[ "$rollback_state" == healthy || "$rollback_state" == running ]] &&
+      [[ "$rollback_ready" == 1 ]] &&
       { [[ -z "$current_revision" ]] || [[ "$rollback_revision" == "$current_revision" ]]; }; then
       printf 'AUTOMATIC_ROLLBACK_COMPLETED=1\n'
       printf 'ROLLBACK_WEB_REVISION=%s\n' "${rollback_revision:-unknown}"

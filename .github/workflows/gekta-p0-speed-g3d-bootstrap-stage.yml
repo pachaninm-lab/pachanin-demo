@@ -1,0 +1,219 @@
+name: Gekta P0 SPEED G3D Bootstrap Stage
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-g3d-bootstrap-stage.yml'
+      - 'docs/platform-v7/autopilot/scopes/gekta-g3d-bootstrap-stage-3896.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed-g3d-bootstrap-stage
+  cancel-in-progress: false
+
+env:
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+  SPEED_ISSUE_NUMBER: '3896'
+
+jobs:
+  contract:
+    name: Validate G3D bootstrap staging contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prove staging is non-root and bounded
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const file = '.github/workflows/gekta-p0-speed-g3d-bootstrap-stage.yml';
+          const workflow = fs.readFileSync(file, 'utf8');
+          const scope = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/scopes/gekta-g3d-bootstrap-stage-3896.json', 'utf8'));
+          for (const required of [
+            '/gekta speed-g3d stage-bootstrap current-main',
+            "github.event.comment.author_association == 'OWNER'",
+            'github.event.comment.performed_via_github_app.id == 1144995',
+            'secrets.TAI_MODEL_SSH_KEY', 'secrets.TAI_MODEL_SSH_HOST_KEY',
+            'StrictHostKeyChecking=yes', 'scp',
+            'GEKTA_G3D_BOOTSTRAP_STAGE=READY',
+            'GEKTA_G3D_BOOTSTRAP_RUNTIME_MUTATION=NONE',
+            'root-owned copies are verified before execution'
+          ]) if (!workflow.includes(required)) throw new Error(`missing contract token: ${required}`);
+          const operationalStart = workflow.indexOf('\n  stage:\n');
+          if (operationalStart < 0) throw new Error('stage job missing');
+          const operational = workflow.slice(operationalStart);
+          for (const forbidden of [
+            'TAI_MODEL_ROOT_SSH_KEY', 'PC_PROD_SSH_KEY', 'VPS_SSH_KEY',
+            'sudo -n', 'systemctl restart', 'systemctl stop', 'systemctl start',
+            'docker restart', 'kill -', 'pkill', 'NOPASSWD: ALL', 'SETENV:'
+          ]) if (operational.includes(forbidden)) throw new Error(`forbidden staging capability: ${forbidden}`);
+          if (!scope.allowedPaths.includes(file)) throw new Error('scope does not authorize staging workflow');
+          if (scope.branch !== 'ops/gekta-g3d-bootstrap-stage-3896' || scope.issue !== 3896) throw new Error('staging scope authority mismatch');
+          if (scope.newRecurringCostRub !== 0) throw new Error('cost boundary changed');
+          NODE
+
+  stage:
+    name: Stage exact G3D bootstrap bytes
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/gekta speed-g3d stage-bootstrap current-main' &&
+      (
+        (
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner
+        ) ||
+        (
+          github.actor == 'chatgpt-codex-connector[bot]' &&
+          github.triggering_actor == 'chatgpt-codex-connector[bot]' &&
+          github.event.comment.performed_via_github_app.id == 1144995
+        )
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main and package hashes
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ && "$sha" == "$(git rev-parse HEAD)" ]]
+          [[ "$sha" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          runtime='scripts/gekta-qwen-g3d-runtime.py'
+          bootstrap='scripts/gekta-qwen-g3d-bootstrap.sh'
+          python3 -m py_compile "$runtime"
+          python3 "$runtime" self-test | grep -qx 'GEKTA_G3D_SELF_TEST=PASS'
+          bash -n "$bootstrap"
+          runtime_sha="$(sha256sum "$runtime" | awk '{print $1}')"
+          bootstrap_sha="$(sha256sum "$bootstrap" | awk '{print $1}')"
+          [[ "$runtime_sha" =~ ^[0-9a-f]{64}$ && "$bootstrap_sha" =~ ^[0-9a-f]{64}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "runtime_sha=$runtime_sha" >> "$GITHUB_OUTPUT"
+          echo "bootstrap_sha=$bootstrap_sha" >> "$GITHUB_OUTPUT"
+          echo "stage_dir=/tmp/gekta-g3d-bootstrap-$sha-$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; printf '%s' "${raw//\\n/$'\n'}" > "$b"; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then install -m 0600 "$candidate" "$target"; rm -f "$a" "$b" "$c"; return 0; fi
+            done
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"; user="$(trim "${MODEL_USER_SECRET:-}")"; port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model" || exit 21
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"; [[ -n "$pin" ]] || exit 22
+          pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"; pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}' || exit 22
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"; chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Stage and verify exact merged bytes without root
+        id: stage
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          STAGE_DIR: ${{ steps.target.outputs.stage_dir }}
+          RUNTIME_SHA: ${{ steps.target.outputs.runtime_sha }}
+          BOOTSTRAP_SHA: ${{ steps.target.outputs.bootstrap_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_opts=(-i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
+          scp_opts=(-i "$HOME/.ssh/id_tai_model" -P "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
+          ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "set -euo pipefail; umask 077; test ! -e '$STAGE_DIR'; mkdir '$STAGE_DIR'"
+          scp "${scp_opts[@]}" scripts/gekta-qwen-g3d-runtime.py "$MODEL_USER@$MODEL_HOST:$STAGE_DIR/runtime.py"
+          scp "${scp_opts[@]}" scripts/gekta-qwen-g3d-bootstrap.sh "$MODEL_USER@$MODEL_HOST:$STAGE_DIR/bootstrap.sh"
+          remote="$(ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "set -euo pipefail; chmod 0400 '$STAGE_DIR/runtime.py' '$STAGE_DIR/bootstrap.sh'; sha256sum '$STAGE_DIR/runtime.py' '$STAGE_DIR/bootstrap.sh'")"
+          remote_runtime="$(sed -n '1{s/[[:space:]].*$//;p}' <<<"$remote")"
+          remote_bootstrap="$(sed -n '2{s/[[:space:]].*$//;p}' <<<"$remote")"
+          [[ "$remote_runtime" == "$RUNTIME_SHA" ]]
+          [[ "$remote_bootstrap" == "$BOOTSTRAP_SHA" ]]
+          printf 'GEKTA_G3D_BOOTSTRAP_STAGE=READY\n' > "$RUNNER_TEMP/stage-result"
+          printf 'GEKTA_G3D_BOOTSTRAP_RUNTIME_MUTATION=NONE\n' >> "$RUNNER_TEMP/stage-result"
+          printf 'GEKTA_G3D_BOOTSTRAP_TARGET_SHA=%s\n' "$TARGET_SHA" >> "$RUNNER_TEMP/stage-result"
+          printf 'GEKTA_G3D_BOOTSTRAP_RUNTIME_SHA256=%s\n' "$RUNTIME_SHA" >> "$RUNNER_TEMP/stage-result"
+          printf 'GEKTA_G3D_BOOTSTRAP_SCRIPT_SHA256=%s\n' "$BOOTSTRAP_SHA" >> "$RUNNER_TEMP/stage-result"
+
+      - name: Publish one root-shell action with copy-then-verify semantics
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          STAGE_DIR: ${{ steps.target.outputs.stage_dir }}
+          RUNTIME_SHA: ${{ steps.target.outputs.runtime_sha }}
+          BOOTSTRAP_SHA: ${{ steps.target.outputs.bootstrap_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/stage-result"
+          root_dir="/root/gekta-g3d-bootstrap-$TARGET_SHA-$GITHUB_RUN_ID"
+          body="$RUNNER_TEMP/stage-comment.md"
+          {
+            echo '## Gekta P0 SPEED G3D bootstrap staged'
+            echo
+            echo "- exact repository main: \`$TARGET_SHA\`"
+            echo '- staging transport: `DEDICATED_MODEL_SSH_PINNED_HOST`'
+            echo '- root SSH credential in GitHub: `NONE`'
+            echo '- model/runtime mutation during staging: `NONE`'
+            echo '- root-owned copies are verified before execution'
+            echo
+            echo '```text'
+            cat "$result"
+            echo '```'
+            echo
+            echo 'One human action remains. In an existing **root shell on the model host**, run exactly:'
+            echo
+            echo '```bash'
+            printf '%s\n' "set -Eeuo pipefail; src='$STAGE_DIR'; dst='$root_dir'; test ! -e \"\$dst\"; /usr/bin/install -d -o root -g root -m 0700 \"\$dst\"; /usr/bin/install -o root -g root -m 0400 \"\$src/runtime.py\" \"\$dst/runtime.py\"; /usr/bin/install -o root -g root -m 0400 \"\$src/bootstrap.sh\" \"\$dst/bootstrap.sh\"; printf '%s  %s\\n' '$RUNTIME_SHA' \"\$dst/runtime.py\" | /usr/bin/sha256sum -c -; printf '%s  %s\\n' '$BOOTSTRAP_SHA' \"\$dst/bootstrap.sh\" | /usr/bin/sha256sum -c -; /bin/bash \"\$dst/bootstrap.sh\" \"\$dst/runtime.py\"; /bin/rm -rf -- \"\$dst\" \"\$src\""
+            echo '```'
+            echo
+            echo 'This command first copies both staged files into a root-owned directory, verifies both exact SHA256 digests, and only then runs the audited bootstrap. The bootstrap does not restart or change the model runtime.'
+          } > "$body"
+          gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+
+      - name: Cleanup local transport
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_tai_model" "$HOME/.ssh/model_known_hosts"

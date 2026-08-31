@@ -1,0 +1,190 @@
+name: Company OS F3C Session Authority Merge Controller
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/company-os-f3c-session-merge-controller.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  statuses: read
+  issues: write
+
+concurrency:
+  group: company-os-f3c-session-merge-controller
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - name: Wait for parents, retarget, validate and merge F3C
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headRef = 'company-os/f3c-session-revocation-authority';
+            const expected = [
+              'apps/api/src/staff-access/staff-session-revocation.policy.spec.ts',
+              'apps/api/src/staff-access/staff-session-revocation.policy.ts',
+              'apps/api/src/staff-access/staff-session-revocation.types.ts',
+            ];
+            const terminalSuccess = new Set(['success', 'neutral', 'skipped']);
+            const terminalFailure = new Set(['failure', 'cancelled', 'timed_out', 'action_required', 'startup_failure', 'stale']);
+
+            const findPull = async () => {
+              const pulls = await github.paginate(github.rest.pulls.list, {
+                owner,
+                repo,
+                state: 'open',
+                head: `${owner}:${headRef}`,
+                per_page: 100,
+              });
+              if (pulls.length !== 1) throw new Error(`Expected one open F3C PR, found ${pulls.length}`);
+              return pulls[0];
+            };
+
+            let parentsReady = false;
+            for (let attempt = 1; attempt <= 260; attempt += 1) {
+              const required = [
+                'apps/api/src/staff-access/staff-lifecycle.types.ts',
+                'apps/api/src/staff-access/staff-lifecycle.policy.ts',
+                'apps/api/src/staff-access/staff-lifecycle.repository.ts',
+                'apps/api/src/staff-access/staff-lifecycle.service.ts',
+              ];
+              const files = await Promise.all(required.map((path) =>
+                github.rest.repos.getContent({ owner, repo, path, ref: 'main' }).catch(() => null),
+              ));
+              if (files.every(Boolean)) {
+                parentsReady = true;
+                break;
+              }
+              if (attempt === 260) break;
+              await new Promise((resolve) => setTimeout(resolve, 15000));
+            }
+            if (!parentsReady) throw new Error('F3/F3A parents were not merged into main within 65 minutes');
+
+            let pr = await findPull();
+            let stableHead = '';
+            let stable = 0;
+            for (let attempt = 1; attempt <= 140; attempt += 1) {
+              pr = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data;
+              const tree = await github.rest.git.getTree({ owner, repo, tree_sha: pr.head.sha, recursive: 'true' });
+              const transient = tree.data.tree
+                .map((entry) => entry.path || '')
+                .filter((path) => /^\.github\/workflows\/company-os-f3c-.*sync\.yml$/.test(path));
+              if (transient.length === 0 && pr.head.sha === stableHead) stable += 1;
+              else {
+                stableHead = pr.head.sha;
+                stable = transient.length === 0 ? 1 : 0;
+              }
+              if (stable >= 3) break;
+              if (attempt === 140) throw new Error(`F3C branch did not stabilize: ${transient.join(', ')}`);
+              await new Promise((resolve) => setTimeout(resolve, 15000));
+            }
+
+            if (pr.base.ref !== 'main') {
+              pr = (await github.rest.pulls.update({ owner, repo, pull_number: pr.number, base: 'main' })).data;
+              await new Promise((resolve) => setTimeout(resolve, 15000));
+            }
+
+            const validateFiles = async () => {
+              const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: pr.number, per_page: 100 });
+              const names = files.map((file) => file.filename).sort();
+              if (JSON.stringify(names) !== JSON.stringify(expected)) throw new Error(`F3C allowlist mismatch: ${names.join(', ')}`);
+              for (const file of files) {
+                if (file.status !== 'added') throw new Error(`F3C file is not added: ${file.filename}:${file.status}`);
+                if (file.changes < 20 || file.changes > 900) throw new Error(`Unexpected F3C file size: ${file.filename}:${file.changes}`);
+              }
+            };
+            await validateFiles();
+
+            try {
+              await github.rest.pulls.updateBranch({ owner, repo, pull_number: pr.number });
+              await new Promise((resolve) => setTimeout(resolve, 15000));
+            } catch (error) {
+              if (![202, 422].includes(error.status)) throw error;
+            }
+            pr = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data;
+            stableHead = pr.head.sha;
+            await validateFiles();
+            if (pr.draft) {
+              await github.graphql(
+                `mutation($pullRequestId: ID!) { markPullRequestReadyForReview(input: {pullRequestId: $pullRequestId}) { pullRequest { isDraft } } }`,
+                { pullRequestId: pr.node_id },
+              );
+            }
+
+            let accepted = false;
+            for (let attempt = 1; attempt <= 140; attempt += 1) {
+              pr = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data;
+              if (pr.state !== 'open') throw new Error(`F3C PR left open state: ${pr.state}`);
+              if (pr.head.sha !== stableHead) {
+                stableHead = pr.head.sha;
+                await validateFiles();
+              }
+              const [checksResponse, statusResponse, reviews] = await Promise.all([
+                github.rest.checks.listForRef({ owner, repo, ref: stableHead, per_page: 100 }),
+                github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: stableHead }),
+                github.paginate(github.rest.pulls.listReviews, { owner, repo, pull_number: pr.number, per_page: 100 }),
+              ]);
+              const checks = checksResponse.data.check_runs.filter((run) => run.name !== 'Wait for parents, retarget, validate and merge F3C');
+              const failedChecks = checks.filter((run) => terminalFailure.has(run.conclusion));
+              const pendingChecks = checks.filter((run) => run.status !== 'completed');
+              const successfulChecks = checks.filter((run) => run.status === 'completed' && terminalSuccess.has(run.conclusion));
+              const failedStatuses = statusResponse.data.statuses.filter((status) => ['failure', 'error'].includes(status.state));
+              const pendingStatuses = statusResponse.data.statuses.filter((status) => status.state === 'pending');
+              const latestReviews = new Map();
+              for (const review of reviews) if (review.user?.login) latestReviews.set(review.user.login, review.state);
+              const requestedChanges = [...latestReviews.entries()].filter(([, state]) => state === 'CHANGES_REQUESTED');
+              if (requestedChanges.length) throw new Error(`Changes requested by ${requestedChanges.map(([login]) => login).join(', ')}`);
+              if (failedChecks.length || failedStatuses.length) {
+                throw new Error(`F3C checks failed: ${[
+                  ...failedChecks.map((run) => `${run.name}:${run.conclusion}`),
+                  ...failedStatuses.map((status) => `${status.context}:${status.state}`),
+                ].join(', ')}`);
+              }
+              if (pendingChecks.length === 0 && pendingStatuses.length === 0 && successfulChecks.length >= 5) {
+                accepted = true;
+                break;
+              }
+              if (attempt === 140) break;
+              await new Promise((resolve) => setTimeout(resolve, 15000));
+            }
+            if (!accepted) throw new Error('F3C exact-head checks did not settle within 35 minutes');
+
+            await validateFiles();
+            pr = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data;
+            if (pr.head.sha !== stableHead || pr.mergeable === false || pr.mergeable_state === 'dirty') throw new Error(`F3C PR is not mergeable: ${pr.mergeable_state}`);
+            const merged = await github.rest.pulls.merge({
+              owner,
+              repo,
+              pull_number: pr.number,
+              merge_method: 'squash',
+              sha: stableHead,
+              commit_title: 'Company OS F3C: immediate staff session revocation authority',
+              commit_message: 'Merge exact-head session-state, authVersion, revoke-before, MFA, scope and permission authority after CI/security acceptance. No production mutation.',
+            });
+            if (!merged.data.merged) throw new Error(`F3C merge rejected: ${merged.data.message}`);
+
+            const search = await github.rest.search.issuesAndPullRequests({ q: `repo:${owner}/${repo} is:issue in:title \"Company OS F3\"`, per_page: 20 });
+            const issue = search.data.items.find((item) => item.title.startsWith('Company OS F3 —'));
+            const body = [
+              '## F3C session-revocation authority merged',
+              '',
+              `- PR: #${pr.number}`,
+              `- Accepted head: \`${stableHead}\``,
+              `- Merge commit: \`${merged.data.sha}\``,
+              '- Scope: identity/session binding, authVersion, revoke-before, MFA, permission/scope and revocation-plan authority.',
+              '- Production mutation: **NONE**',
+              '- F3 status: **SESSION AUTHORITY FOUNDATION — NOT PRODUCTION ACCEPTED**',
+            ].join('\n');
+            if (issue) await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body });
+            await github.rest.issues.createComment({ owner, repo, issue_number: 4152, body });

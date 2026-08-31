@@ -8,7 +8,7 @@ import type { RequestUser } from '../../common/types/request-user';
 import {
   GatewayStreamWriter,
   absoluteCitationUri,
-  chunkAnswer,
+  frameText,
   resolveAdmission,
   type GatewayMode,
 } from './ai-assistant-stream.contract';
@@ -18,6 +18,7 @@ import {
   type AssistantChatRequest,
   type AssistantChatResponse,
 } from './ai-assistant.service';
+
 
 /**
  * Minimal shapes of the response and request objects the stream endpoint needs.
@@ -125,9 +126,14 @@ export class AiAssistantController {
     // A client that goes away mid-answer must not leave a stream that merely
     // stopped: the answer is abandoned explicitly so nothing downstream can read
     // the tokens already sent as a conclusion the assistant reached.
+    // A client that goes away mid-answer must not merely stop being read: the
+    // generation it started is cancelled, so no CPU keeps producing an answer
+    // nobody will see.
     let clientGone = false;
+    const aborter = new AbortController();
     httpRequest.on('close', () => {
       clientGone = true;
+      aborter.abort();
       stream.abandon();
     });
 
@@ -148,43 +154,63 @@ export class AiAssistantController {
       return;
     }
 
-    let answer: AssistantChatResponse;
+    const base = (process.env.PUBLIC_APP_BASE_URL || '').trim() || null;
+    let assessment = '';
+
     try {
-      answer = await this.assistant.chat(request, user);
+      for await (const event of this.assistant.chatStream(request, user, aborter.signal)) {
+        if (clientGone || stream.state.sealed) break;
+
+        if (event.type === 'context') {
+          // Citations lead the answer so a reader has the sources while the text
+          // is still arriving, rather than only once it has finished.
+          for (const citation of event.citations) {
+            const uri = absoluteCitationUri(citation.href, base);
+            if (!uri) continue;
+            if (!stream.emit({ event: 'citation', sourceId: citation.source, title: citation.label, uri })) break;
+          }
+          assessment = event.decision.summary;
+          continue;
+        }
+        if (event.type === 'delta') {
+          // Forwarded as the model produces it. A model answer is bounded by the
+          // contract's frame size, so a long delta is split for the wire — that
+          // is framing, and it happens to text that already exists.
+          let stopped = false;
+          for (const piece of frameText(event.text)) {
+            if (!stream.emit({ event: 'token', text: piece })) {
+              stopped = true;
+              break;
+            }
+          }
+          if (stopped) break;
+          continue;
+        }
+        if (event.type === 'cancelled') {
+          stream.fail('CANCELLED', 'The reader cancelled the answer.');
+          break;
+        }
+        if (event.type === 'failed') {
+          stream.fail('UPSTREAM_ERROR', 'The assistant could not complete the answer.');
+          break;
+        }
+
+        if (assessment.trim().length > 0) {
+          stream.emit({ event: 'assessment', summary: assessment, operationalStatus: 'NOT_ATTESTED' });
+        }
+        stream.complete();
+      }
     } catch {
       // The refusal carries no upstream detail: an error string from a model
       // host or a database is not something the browser needs, and it is the
       // usual way internals reach a public contour.
       stream.fail('UPSTREAM_ERROR', 'The assistant could not complete the answer.');
-      response.end();
-      return;
+    } finally {
+      aborter.abort();
     }
 
-    if (clientGone || stream.state.sealed) {
-      response.end();
-      return;
-    }
-
-    const base = (process.env.PUBLIC_APP_BASE_URL || '').trim() || null;
-    for (const citation of answer.citations) {
-      const uri = absoluteCitationUri(citation.href, base);
-      if (!uri) continue;
-      if (!stream.emit({ event: 'citation', sourceId: citation.source, title: citation.label, uri })) break;
-    }
-
-    for (const chunk of chunkAnswer(answer.answer)) {
-      if (!stream.emit({ event: 'token', text: chunk })) break;
-    }
-
-    if (answer.decision.summary.trim().length > 0) {
-      stream.emit({
-        event: 'assessment',
-        summary: answer.decision.summary,
-        operationalStatus: 'NOT_ATTESTED',
-      });
-    }
-
-    stream.complete();
+    // A stream that ended without a terminal frame never reached an answer.
+    if (!stream.state.sealed) stream.fail('UPSTREAM_ERROR', 'The assistant could not complete the answer.');
     response.end();
   }
 }

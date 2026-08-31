@@ -1,0 +1,141 @@
+name: Production P0 REG.RU Live Container Mail Recovery
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-regru-live-container-mail-recover.yml'
+      - 'scripts/production-p0-regru-live-container-mail-recover.sh'
+      - 'scripts/provision-production-p0-password-reset-runtime.sh'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-regru-live-container-mail-recover-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-regru-live-container-mail-recover
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: 3072
+  EVIDENCE_DIR: artifacts/production-p0-regru-live-container-mail-recover
+  SMTP_HOST: mail.hosting.reg.ru
+  SMTP_PORT: '465'
+  SMTP_USER_ASCII: access@xn----8sbjf4befbjgs9b.xn--p1ai
+  SMTP_USER_UNICODE: access@процент-агро.рф
+
+jobs:
+  contract:
+    name: Validate live-container mail recovery contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-regru-live-container-mail-recover current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate bounded contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/production-p0-regru-live-container-mail-recover.sh
+          node scripts/check-production-p0-password-reset-runtime-provision.mjs
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          scope = json.loads(Path('docs/platform-v7/autopilot/scopes/production-p0-regru-live-container-mail-recover-3785.json').read_text())
+          assert scope['schemaVersion'] == 'platform-v7.concurrent-scope.v1'
+          assert scope['issue'] == 3785 and scope['releaseIssue'] == 3072
+          assert scope['productionHosting'] == 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY'
+          assert set(scope['allowedPaths']) == {
+              '.github/workflows/production-p0-regru-live-container-mail-recover.yml',
+              'scripts/production-p0-regru-live-container-mail-recover.sh',
+              'docs/platform-v7/autopilot/scopes/production-p0-regru-live-container-mail-recover-3785.json',
+          }
+          b = scope['boundaries']
+          assert b['newRecurringCostRub'] == 0
+          assert b['ownerOnly'] is True and b['exactMainGuard'] is True
+          assert b['databaseMutation'] is False and b['deploymentMutation'] is False
+          assert b['credentialOutput'] is False and b['rawEnvironmentOutput'] is False and b['rawLogOutput'] is False
+          assert b['liveContainerEnvironmentReadOnlyUntilSmtpAuth'] is True
+          PY
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  recover:
+    name: Recover auth-mail runtime from active REG.RU Web container
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != '' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-regru-live-container-mail-recover current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Recover only an already-running canonical REG.RU SMTP authority
+        shell: bash
+        run: bash scripts/production-p0-regru-live-container-mail-recover.sh '${{ needs.contract.outputs.target_sha }}'
+      - name: Upload bounded recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-regru-live-container-mail-recover-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: ignore
+          retention-days: 90

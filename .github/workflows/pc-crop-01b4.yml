@@ -119,22 +119,22 @@ jobs:
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
 
           # This workflow is triggered by its own slice files and by shared
-          # infrastructure it merely reads: scripts/p7-autopilot-guard.sh,
-          # scripts/verify-pc-crop-01a.mjs and the sibling pc-crop-01* workflows.
-          # A change that touches only the shared files is not a PC-CROP-01B.4
-          # remediation and must not be forced into this slice's bounded scope —
-          # otherwise the shared guard script becomes permanently uneditable by
-          # every other pull request in the repository.
-          grep -E '^(apps/api/src/modules/commodity-profiles/|apps/api/src/modules/staff-access/staff-access\.types\.ts$|apps/web/app/api/platform-v7/commodity-profiles/|apps/web/app/api/staff/commodity-profile-registry/|apps/web/app/api/staff/commodity-profiles/|apps/web/app/platform-v7/commodity-profiles/|apps/web/components/crop-platform/|apps/web/lib/platform-v7/(routes|design-system-v8-route-policy|cabinet-access-policy)\.ts$|apps/web/tests/unit/(platformV7CommodityProfileLiveRegistry|commodityProfileLiveAdapter)\.test\.ts$|apps/web/tsconfig\.pc-crop\.json$|docs/platform-v7/autopilot/scopes/pc-crop-01b4-)' \
+          # dependencies it reads: staff-access.types.ts, the common guard and
+          # verifier scripts, and sibling pc-crop-01* workflows. A shared change
+          # must run acceptance because it can affect the contract, but it must
+          # not claim ownership of every unrelated file in the same pull request.
+          # Bounded remediation scope therefore applies only when an owned slice
+          # file below changed.
+          grep -E '^(apps/api/src/modules/commodity-profiles/|apps/web/app/api/platform-v7/commodity-profiles/|apps/web/app/api/staff/commodity-profile-registry/|apps/web/app/api/staff/commodity-profiles/|apps/web/app/platform-v7/commodity-profiles/|apps/web/components/crop-platform/|apps/web/lib/platform-v7/(routes|design-system-v8-route-policy|cabinet-access-policy)\.ts$|apps/web/tests/unit/(platformV7CommodityProfileLiveRegistry|commodityProfileLiveAdapter)\.test\.ts$|apps/web/tsconfig\.pc-crop\.json$|docs/platform-v7/autopilot/scopes/pc-crop-01b4-)' \
             "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/slice-files.txt" || true
 
           if [ ! -s "$EVIDENCE_DIR/slice-files.txt" ]; then
             printf '%s\n' 'SHARED_INFRASTRUCTURE_ONLY' > "$EVIDENCE_DIR/scope-mode.txt"
-            echo 'slice_touched=false' >> "$GITHUB_OUTPUT"
+            echo 'slice_touched=true' >> "$GITHUB_OUTPUT"
             echo 'scope_mode=SHARED_INFRASTRUCTURE_ONLY' >> "$GITHUB_OUTPUT"
-            echo 'No PC-CROP-01B.4 slice file changed. This run was triggered by shared'
-            echo 'infrastructure only, so the slice is byte-identical to its base and its'
-            echo 'bounded scope does not apply.'
+            echo 'No owned PC-CROP-01B.4 slice file changed. The run was triggered by a'
+            echo 'shared dependency, so full acceptance still runs while bounded remediation'
+            echo 'scope does not apply to unrelated files in this pull request.'
             exit 0
           fi
 
@@ -373,8 +373,8 @@ jobs:
           if [ "$SLICE_TOUCHED" = 'true' ]; then
             test "$CONTRACT_RESULT" = success
           else
-            # Shared infrastructure only. The slice is byte-identical to its
-            # base, so the acceptance suite has nothing new to prove and is
-            # skipped rather than reported as a pass it did not earn.
+            # Defensive fallback for legacy events that did not request
+            # acceptance. Current path-triggered and manual runs always execute
+            # the contract, including shared-dependency changes.
             test "$CONTRACT_RESULT" = skipped
           fi

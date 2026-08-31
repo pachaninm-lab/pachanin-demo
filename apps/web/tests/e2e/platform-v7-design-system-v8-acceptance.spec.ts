@@ -1,23 +1,10 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { signCabinetSession } from '../../lib/platform-v7/verified-session';
+import { loginAs, type CabinetRole } from './support/acceptance-login';
 
-type CabinetRole =
-  | 'operator'
-  | 'buyer'
-  | 'seller'
-  | 'logistics'
-  | 'driver'
-  | 'surveyor'
-  | 'elevator'
-  | 'lab'
-  | 'bank'
-  | 'arbitrator'
-  | 'compliance'
-  | 'executive';
-
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
-const ACCEPTANCE_SECRET = process.env.PC_ACCEPTANCE_JWT_SECRET || 'pc-design-system-v8-acceptance-secret-2026';
+// Must track playwright.acceptance.config.ts: the acceptance server speaks TLS
+// so that WebKit will store the Secure cookies a real login sets.
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'https://localhost:3000';
 const ROLE_ROUTES: ReadonlyArray<readonly [CabinetRole, string]> = [
   ['operator', '/platform-v7/operator'],
   ['buyer', '/platform-v7/buyer'],
@@ -64,25 +51,11 @@ function collectRuntimeFailures(page: Page) {
 }
 
 async function setCabinetRole(page: Page, role: CabinetRole) {
-  const token = await signCabinetSession(role, ACCEPTANCE_SECRET, {
-    nowSeconds: Math.floor(Date.now() / 1000),
-    ttlSeconds: 60 * 60,
-  });
-  expect(token, `signed cabinet token for ${role}`).toBeTruthy();
-
-  // Destroy the previous cabinet document before rotating the signed HttpOnly
-  // session. Otherwise its background RSC prefetch can continue under the next
-  // role and WebKit correctly reports the server's RBAC denial as a page error.
+  // Destroy the previous cabinet document before rotating the session.
+  // Otherwise its background RSC prefetch can continue under the next role and
+  // WebKit correctly reports the server's RBAC denial as a page error.
   await page.goto('about:blank', { waitUntil: 'load' });
-  await page.context().clearCookies();
-  await page.context().addCookies([{
-    name: 'pc_v7_cabinet',
-    value: token as string,
-    url: BASE_URL,
-    httpOnly: true,
-    secure: false,
-    sameSite: 'Lax',
-  }]);
+  await loginAs(page, role, BASE_URL);
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -133,6 +106,101 @@ async function expectLayoutShiftWithinBudget(page: Page) {
   const cls = await page.evaluate(() => (window as Window & { __pcV8LayoutShift?: number }).__pcV8LayoutShift || 0);
   expect(cls).toBeLessThanOrEqual(0.1);
 }
+
+test.describe('Design System v8 cabinet access boundary', () => {
+  const OPERATOR_ROUTE = '/platform-v7/operator';
+
+  test('an anonymous visitor is sent to login and never into the cabinet', async ({ page }) => {
+    await page.context().clearCookies();
+    await page.goto(OPERATOR_ROUTE, { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/platform-v7\/login/);
+    await expect(page.locator('.pc-shell-root-v4')).toHaveCount(0);
+  });
+
+  test('a real operator login opens the operator cabinet', async ({ page }) => {
+    await loginAs(page, 'operator', BASE_URL);
+    const response = await page.goto(OPERATOR_ROUTE, { waitUntil: 'load' });
+    expect(response?.status(), 'operator cabinet status').toBe(200);
+    await expect(page).not.toHaveURL(/\/platform-v7\/login/);
+    await expect(page.locator('.pc-shell-root-v4')).toBeVisible();
+  });
+
+  test('a FARMER session cannot reach the operator cabinet', async ({ page }) => {
+    // seller is the cabinet for the FARMER API role. Its session is completely
+    // valid — it simply has no authority here, and the server decides that.
+    await loginAs(page, 'seller', BASE_URL);
+    await page.goto(OPERATOR_ROUTE, { waitUntil: 'load' });
+    await expect(page).not.toHaveURL(new RegExp(`${OPERATOR_ROUTE}$`));
+  });
+
+  test('a forged cabinet cookie is rejected', async ({ page }) => {
+    await page.context().clearCookies();
+    // Structurally plausible, signed with a key the server does not hold.
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({
+      cab: 'operator',
+      sub: 'forged-user',
+      membership: 'forged-membership',
+      org: 'forged-org',
+      tenant: 'forged-tenant',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })).toString('base64url');
+    await page.context().addCookies([{
+      name: 'pc_v7_cabinet',
+      value: `${header}.${payload}.${Buffer.from('forged-signature').toString('base64url')}`,
+      url: BASE_URL,
+      httpOnly: true,
+      secure: BASE_URL.startsWith('https://'),
+      sameSite: 'Lax',
+    }]);
+
+    await page.goto(OPERATOR_ROUTE, { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/platform-v7\/login/);
+    await expect(page.locator('.pc-shell-root-v4')).toHaveCount(0);
+  });
+
+  test('static assets are served without a cabinet session', async ({ page }) => {
+    // Discover what the public entry actually loads rather than asserting a
+    // hardcoded list, then fetch each asset with no cookies at all.
+    await page.context().clearCookies();
+    await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    const discovered = await page.evaluate(() => {
+      const urls = new Set<string>();
+      for (const link of Array.from(document.querySelectorAll('link[href]'))) {
+        const rel = (link.getAttribute('rel') || '').toLowerCase();
+        if (/stylesheet|icon|manifest|preload/.test(rel)) urls.add((link as HTMLLinkElement).href);
+      }
+      for (const script of Array.from(document.querySelectorAll('script[src]'))) {
+        urls.add((script as HTMLScriptElement).src);
+      }
+      for (const image of Array.from(document.querySelectorAll('img[src]'))) {
+        urls.add((image as HTMLImageElement).src);
+      }
+      return Array.from(urls);
+    });
+
+    const assets = [...new Set([
+      ...discovered,
+      `${BASE_URL}/manifest.json`,
+      `${BASE_URL}/sw.js`,
+      // Static files whose names begin with the route namespace, and artwork
+      // served from public/platform-v7/. Both were redirected to login by a
+      // prefix test that had no segment boundary.
+      `${BASE_URL}/platform-v7-density-fix.css`,
+      `${BASE_URL}/platform-v7/hero-grain-field.svg`,
+      `${BASE_URL}/platform-v7/wheat-exact-background.svg`,
+    ])].filter((url) => url.startsWith(BASE_URL));
+    expect(assets.length, 'discovered static assets').toBeGreaterThan(3);
+
+    await page.context().clearCookies();
+    const failures: string[] = [];
+    for (const asset of assets) {
+      const response = await page.context().request.get(asset, { maxRedirects: 0 });
+      if (response.status() !== 200) failures.push(`${asset} -> ${response.status()}`);
+    }
+    expect(failures, 'static assets must not require a cabinet session').toEqual([]);
+  });
+});
 
 test.describe('Design System v8 final browser acceptance', () => {
   test.beforeEach(async ({ page }) => {
