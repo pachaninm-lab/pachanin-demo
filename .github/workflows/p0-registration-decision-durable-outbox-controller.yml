@@ -54,7 +54,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Validate patcher syntax and exact source anchors
+      - name: Validate patcher syntax, exact source anchors and generated path set
         id: patchcheck
         shell: bash
         run: |
@@ -69,6 +69,33 @@ jobs:
             python3 scripts/p0-registration-decision-durable-outbox-runner.py check
             python3 -m json.tool docs/platform-v7/autopilot/scopes/p0-registration-decision-outbox-controller-4858.json >/dev/null
             git diff --check
+
+            worktree="$RUNNER_TEMP/p0-registration-decision-outbox-dry-run"
+            git worktree add --detach "$worktree" HEAD >/dev/null
+            trap 'git worktree remove --force "$worktree" >/dev/null 2>&1 || true' EXIT
+            (
+              cd "$worktree"
+              python3 scripts/p0-registration-decision-durable-outbox-runner.py apply
+              python3 scripts/p0-registration-decision-durable-outbox-runner.py check-applied
+              mapfile -t changed < <(git ls-files --modified --deleted --others --exclude-standard | sort -u)
+              mapfile -t allowed < <(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          scope = json.loads(Path('docs/platform-v7/autopilot/scopes/p0-registration-decision-durable-outbox-4858.json').read_text())
+          for path in sorted(scope['allowedPaths']):
+              print(path)
+          PY
+              )
+              if [[ "${#changed[@]}" != "${#allowed[@]}" ]] \
+                || [[ "$(printf '%s\n' "${changed[@]}")" != "$(printf '%s\n' "${allowed[@]}")" ]]; then
+                echo 'P0_DURABLE_OUTBOX_GENERATED_SCOPE_MISMATCH' >&2
+                printf 'changed:\n%s\n' "$(printf '%s\n' "${changed[@]}")" >&2
+                printf 'allowed:\n%s\n' "$(printf '%s\n' "${allowed[@]}")" >&2
+                exit 1
+              fi
+            )
+            git worktree remove --force "$worktree"
+            trap - EXIT
           ) >"$log" 2>&1
           rc=$?
           set -e
@@ -154,7 +181,7 @@ jobs:
           python3 -m json.tool docs/platform-v7/autopilot/scopes/p0-registration-decision-durable-outbox-4858.json >/dev/null
           bash -n <(printf '%s\n' '#!/usr/bin/env bash' 'set -Eeuo pipefail')
           git diff --check
-          mapfile -t changed < <(git diff --name-only | sort)
+          mapfile -t changed < <(git ls-files --modified --deleted --others --exclude-standard | sort -u)
           mapfile -t allowed < <(python3 - <<'PY'
           import json
           from pathlib import Path
@@ -163,8 +190,13 @@ jobs:
               print(path)
           PY
           )
-          [[ "${#changed[@]}" == "${#allowed[@]}" ]]
-          [[ "$(printf '%s\n' "${changed[@]}")" == "$(printf '%s\n' "${allowed[@]}")" ]]
+          if [[ "${#changed[@]}" != "${#allowed[@]}" ]] \
+            || [[ "$(printf '%s\n' "${changed[@]}")" != "$(printf '%s\n' "${allowed[@]}")" ]]; then
+            echo 'P0_DURABLE_OUTBOX_GENERATED_SCOPE_MISMATCH' >&2
+            printf 'changed:\n%s\n' "$(printf '%s\n' "${changed[@]}")" >&2
+            printf 'allowed:\n%s\n' "$(printf '%s\n' "${allowed[@]}")" >&2
+            exit 1
+          fi
           git config user.name 'pachaninm-lab'
           git config user.email 'pachaninm@gmail.com'
           git add -- "${changed[@]}"
