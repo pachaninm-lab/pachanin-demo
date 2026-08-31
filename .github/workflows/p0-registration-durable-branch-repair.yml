@@ -1,0 +1,72 @@
+name: P0 Registration Durable Branch Repair
+
+on:
+  push:
+    branches:
+      - fix/p0-registration-decision-durable-outbox-4858
+    paths:
+      - '.github/workflows/p0-registration-durable-branch-repair.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0-registration-durable-branch-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.actor == github.repository_owner && contains(github.event.head_commit.message, 'trigger bounded branch repair')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-registration-decision-durable-outbox-4858
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Remove duplicated generator boundary declarations
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('apps/web/app/api/staff/[...path]/route.ts'): (
+                  "const READ_PATHS = [\nconst READ_PATHS = [\n",
+                  "const READ_PATHS = [\n",
+              ),
+              Path('apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts'): (
+                  "function json(body: Record<string, unknown>, status: number) {\nfunction json(body: Record<string, unknown>, status: number) {\n",
+                  "function json(body: Record<string, unknown>, status: number) {\n",
+              ),
+          }
+
+          for path, (old, new) in replacements.items():
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'P0_BRANCH_REPAIR_ANCHOR_MISMATCH:{path}:{count}')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          staff = Path('apps/web/app/api/staff/[...path]/route.ts').read_text(encoding='utf-8')
+          join = Path('apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts').read_text(encoding='utf-8')
+          if staff.count('const READ_PATHS = [') != 1:
+              raise SystemExit('P0_STAFF_READ_PATHS_DECLARATION_INVALID')
+          if join.count('function json(body: Record<string, unknown>, status: number) {') != 1:
+              raise SystemExit('P0_JOIN_JSON_DECLARATION_INVALID')
+          if 'sendTransactionalMail' in staff or 'sendTransactionalMail' in join:
+              raise SystemExit('P0_DIRECT_SMTP_REMAINS')
+          PY
+
+          rm -- '.github/workflows/p0-registration-durable-branch-repair.yml'
+          git diff --check
+          mapfile -t final_paths < <(git diff --name-only "${{ github.event.before }}" HEAD -- | sort -u)
+          printf 'bounded repair paths:\n%s\n' "$(printf '%s\n' "${final_paths[@]}")"
+          git config user.name 'pachaninm-lab'
+          git config user.email 'pachaninm@gmail.com'
+          git add -A
+          git commit -m 'fix(pc-crop): repair generated BFF declarations'
+          git push origin HEAD:fix/p0-registration-decision-durable-outbox-4858
