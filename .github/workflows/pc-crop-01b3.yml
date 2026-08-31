@@ -15,6 +15,7 @@ on:
       - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.integration.spec.ts'
       - '.github/workflows/pc-crop-01b3.yml'
       - '.github/workflows/pc-crop-01b4.yml'
+      - 'scripts/verify-pc-crop-01b3-scope-boundary.test.mjs'
   push:
     branches: [main]
     paths:
@@ -28,6 +29,7 @@ on:
       - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.integration.spec.ts'
       - '.github/workflows/pc-crop-01b3.yml'
       - '.github/workflows/pc-crop-01b4.yml'
+      - 'scripts/verify-pc-crop-01b3-scope-boundary.test.mjs'
   workflow_dispatch:
 
 permissions:
@@ -81,11 +83,17 @@ jobs:
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
           if grep -qx '.github/workflows/pc-crop-01b4.yml' "$EVIDENCE_DIR/changed-files.txt"; then
             printf '%s\n' 'PC-CROP-01B.4' > "$EVIDENCE_DIR/successor-scope-owner.txt"
-          elif grep -Ev '^(\.github/workflows/pc-crop-01b3\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/commodity-profiles/(commodity-profile-transaction-command\.service(\.spec)?\.ts|commodity-profiles\.module(\.spec)?\.ts|postgresql-commodity-profile-transaction\.port(\.spec)?\.ts|postgresql-commodity-profile-transaction\.integration\.spec\.ts))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+          elif grep -Ev '^(\.github/workflows/pc-crop-01b3\.yml|scripts/verify-pc-crop-01b3-scope-boundary\.test\.mjs|apps/api/src/app\.module\.ts|apps/api/src/modules/commodity-profiles/(commodity-profile-transaction-command\.service(\.spec)?\.ts|commodity-profiles\.module(\.spec)?\.ts|postgresql-commodity-profile-transaction\.port(\.spec)?\.ts|postgresql-commodity-profile-transaction\.integration\.spec\.ts)|docs/platform-v7/autopilot/scopes/[A-Za-z0-9][A-Za-z0-9._-]*\.json)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-01B.3 contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
             exit 1
           fi
+
+      - name: Prove the out-of-scope boundary admits only the scope directory
+        run: |
+          set -o pipefail
+          node --test scripts/verify-pc-crop-01b3-scope-boundary.test.mjs \
+            2>&1 | tee "$EVIDENCE_DIR/scope-boundary.log"
 
       - uses: pnpm/action-setup@v4
         with:
