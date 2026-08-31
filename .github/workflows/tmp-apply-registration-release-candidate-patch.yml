@@ -1,0 +1,86 @@
+name: TEMP Apply PC-CROP Release Candidate Patch
+
+on:
+  push:
+    branches:
+      - fix/p0-registration-authority-rollover-4637
+    paths:
+      - '.github/workflows/tmp-apply-registration-release-candidate-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.repository == 'pachaninm-lab/pachanin-demo' && github.ref == 'refs/heads/fix/p0-registration-authority-rollover-4637'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-registration-authority-rollover-4637
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Apply exact-cardinality patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/tmp-registration-release-candidate-patch.py
+      - name: Upgrade shared production lock to queued serialization
+        shell: python
+        run: |
+          from pathlib import Path
+          files = [
+              '.github/workflows/production-full-stack-exact-sha.yml',
+              '.github/workflows/production-auth-mail-outbox-cutover.yml',
+              '.github/workflows/production-p0-first-customer-acceptance.yml',
+              '.github/workflows/production-p0-all-role-registration.yml',
+          ]
+          old = '      group: pc-crop-production-release-candidate\n      cancel-in-progress: false\n'
+          new = '      group: pc-crop-production-release-candidate\n      queue: max\n'
+          for path in files:
+              p = Path(path)
+              s = p.read_text(encoding='utf-8')
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'LOCK_CARDINALITY_{path}={count}')
+              p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          print('PC_CROP_SHARED_PRODUCTION_QUEUE=PASS')
+      - name: Validate contracts and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-p0-first-customer-acceptance.sh
+          bash -n scripts/production-p0-all-role-registration.sh
+          node scripts/check-production-full-stack-release.mjs
+          node scripts/check-production-p0-first-customer-acceptance.mjs
+          node scripts/check-production-p0-all-role-registration.mjs
+          git diff --check
+          grep -q 'queue: max' .github/workflows/production-full-stack-exact-sha.yml
+          grep -q 'queue: max' .github/workflows/production-auth-mail-outbox-cutover.yml
+          grep -q 'queue: max' .github/workflows/production-p0-first-customer-acceptance.yml
+          grep -q 'queue: max' .github/workflows/production-p0-all-role-registration.yml
+          ! grep -q '^  workflow_run:' .github/workflows/production-full-stack-exact-sha.yml
+      - name: Remove temporary transformation authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f scripts/tmp-registration-release-candidate-patch.py
+          rm -f .github/workflows/tmp-apply-registration-release-candidate-patch.yml
+      - name: Commit canonical bounded fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'pc-crop-release-bot'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          test -n "$(git diff --cached --name-only)"
+          if git diff --cached --name-only | grep -Ev '^(.github/workflows/production-full-stack-exact-sha.yml|.github/workflows/production-auth-mail-outbox-cutover.yml|.github/workflows/production-p0-first-customer-acceptance.yml|.github/workflows/production-p0-all-role-registration.yml|scripts/check-production-full-stack-release.mjs|scripts/production-p0-first-customer-acceptance.sh|scripts/check-production-p0-first-customer-acceptance.mjs|scripts/production-p0-all-role-registration.sh|scripts/check-production-p0-all-role-registration.mjs)$'; then
+            echo 'OUT_OF_SCOPE_FILE' >&2
+            exit 61
+          fi
+          git commit -m 'fix(pc-crop): pin acceptance to immutable release candidate'
+          git push origin HEAD:fix/p0-registration-authority-rollover-4637
