@@ -1,5 +1,5 @@
 name: TEMP Apply PC-CROP Release Candidate Patch
-# Armed bounded registration patch; correct source-version cardinality before applying.
+# Armed bounded registration patch; source-version corrections are exact and fail closed.
 
 on:
   push:
@@ -32,11 +32,34 @@ jobs:
           from pathlib import Path
           p = Path('scripts/tmp-registration-release-candidate-patch.py')
           s = p.read_text(encoding='utf-8')
+
           old = "exact_count(s, exact, 4, 'FIRST_CUSTOMER_TERMINAL_MAIN_GUARDS')"
           new = "exact_count(s, exact, 2, 'FIRST_CUSTOMER_TERMINAL_MAIN_GUARDS')"
           if s.count(old) != 1:
               raise SystemExit(f'CARDINALITY_CORRECTION_TARGET={s.count(old)}')
-          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          s = s.replace(old, new, 1)
+
+          old_cleanup_patch = '''s = one(
+              s,
+              '          rm -rf "$deep_dir" "$runs"\\n',
+              '          rm -rf "$deep_dir"\\n',
+              'ALL_ROLE_DEEP_RUN_CLEANUP',
+          )'''
+          new_cleanup_patch = '''cleanup_old = '          rm -rf "$deep_dir" "$runs"\\n'
+          cleanup_new = '          rm -rf "$deep_dir"\\n'
+          cleanup_old_count = s.count(cleanup_old)
+          cleanup_new_count = s.count(cleanup_new)
+          if cleanup_old_count == 1:
+              s = s.replace(cleanup_old, cleanup_new, 1)
+          elif cleanup_old_count == 0 and cleanup_new_count == 1:
+              pass
+          else:
+              raise SystemExit(f'PATCH_CARDINALITY_ALL_ROLE_DEEP_RUN_CLEANUP=old:{cleanup_old_count};new:{cleanup_new_count}')'''
+          if s.count(old_cleanup_patch) != 1:
+              raise SystemExit(f'DEEP_CLEANUP_PATCHER_CORRECTION_TARGET={s.count(old_cleanup_patch)}')
+          s = s.replace(old_cleanup_patch, new_cleanup_patch, 1)
+
+          p.write_text(s, encoding='utf-8')
           PY
           python3 scripts/tmp-registration-release-candidate-patch.py
       - name: Upgrade shared production lock to queued serialization
