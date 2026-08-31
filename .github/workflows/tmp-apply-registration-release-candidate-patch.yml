@@ -1,5 +1,5 @@
 name: TEMP Apply PC-CROP Release Candidate Patch
-# Armed only on the bounded registration authority branch; self-removes after a validated commit.
+# Armed bounded registration patch; correct source-version cardinality before applying.
 
 on:
   push:
@@ -28,6 +28,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/tmp-registration-release-candidate-patch.py')
+          s = p.read_text(encoding='utf-8')
+          old = "exact_count(s, exact, 4, 'FIRST_CUSTOMER_TERMINAL_MAIN_GUARDS')"
+          new = "exact_count(s, exact, 2, 'FIRST_CUSTOMER_TERMINAL_MAIN_GUARDS')"
+          if s.count(old) != 1:
+              raise SystemExit(f'CARDINALITY_CORRECTION_TARGET={s.count(old)}')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
           python3 scripts/tmp-registration-release-candidate-patch.py
       - name: Upgrade shared production lock to queued serialization
         shell: python
