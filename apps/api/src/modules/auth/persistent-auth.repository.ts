@@ -520,6 +520,39 @@ export class PersistentAuthRepository {
     `);
   }
 
+  /**
+   * Consumes a TOTP time-step counter, or refuses because it is not new.
+   *
+   * The whole control is the predicate. A read-then-write would leave a window
+   * where two processes both see the old value and both accept the same code;
+   * a single conditional UPDATE cannot, because PostgreSQL serialises the row
+   * and the second statement re-evaluates against the value the first wrote.
+   * The API and the workers are separate processes, so that is the race that
+   * matters here rather than a theoretical one.
+   *
+   * Strictly greater, not greater-or-equal: RFC 6238 section 5.2 requires that
+   * a counter already accepted never be accepted again, and the same rule also
+   * refuses an older counter still inside the acceptance window, which is the
+   * shape a replay actually takes.
+   *
+   * Returns false when no row changed - replayed counter, stale counter, or no
+   * such credential row - and every one of those is a refusal.
+   */
+  async consumeTotpCounter(
+    client: AuthSqlClient,
+    userId: string,
+    counter: number,
+  ): Promise<boolean> {
+    const updated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.credential_states
+      SET mfa_last_totp_counter = ${counter},
+          updated_at = NOW()
+      WHERE user_id = ${userId}
+        AND (mfa_last_totp_counter IS NULL OR mfa_last_totp_counter < ${counter})
+    `);
+    return updated === 1;
+  }
+
   async clearLoginThrottle(client: AuthSqlClient, accountHash: string): Promise<void> {
     await client.$executeRaw(Prisma.sql`
       UPDATE auth.login_throttles

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4682,
+  "branch": "security/totp-replay-prevention-4682",
+  "status": "active",
+  "purpose": "Make a TOTP code usable exactly once, as ASVS V6.5.1 requires and RFC 6238 section 5.2 states in the verifier's terms. verifyTotp accepted a code against three time steps and recorded nothing, so the same six digits verified again for as long as the window held. The boolean return was the reason the control could not exist: a verifier that knows a code is valid but not which time step it belongs to has nothing to record.",
+  "authorityBaseExactMain": "8ca457e650c4c7b79154a9b456dda4469b690d1b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/totp-replay-prevention-4682.json",
+    "apps/api/prisma/migrations/20260830210000_totp_replay_prevention/migration.sql",
+    "apps/api/src/modules/auth/auth-crypto.ts",
+    "apps/api/src/modules/auth/persistent-auth.repository.ts",
+    "apps/api/src/modules/auth/auth.service.ts",
+    "apps/api/src/modules/auth/product-session.service.ts",
+    "apps/api/src/modules/auth/totp-replay-prevention.spec.ts",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "The consume is one conditional UPDATE, never a read followed by a write. A read-then-write leaves a window where two processes both see the old value and both accept the same code, and the API and the workers are separate processes, so that is the race that matters rather than a theoretical one.",
+    "Strictly greater, not greater-or-equal. The same rule that refuses a replayed counter also refuses an older counter still inside the acceptance window, which is the shape a replay actually takes.",
+    "The consume lives inside verifyMfaCode, not in its three call sites. A control each caller must remember to invoke is one a caller will eventually not invoke - which is how the backup-code path stayed correct while this one did not. There is no way to obtain a TOTP acceptance without having consumed it.",
+    "In-memory state is not used anywhere in this control, as instructed. The counter is a durable column in the forward-only migration chain, not a deploy artifact and not a process-local map.",
+    "The column is nullable with no default and no backfill. An authenticator that has never completed a TOTP verification has no last counter; inventing one would either lock out a legitimate first use or accept a replay of whatever the backfilled value implied. NULL is handled explicitly by the predicate.",
+    "The acceptance window is not widened to compensate. This is single-use enforcement, not a narrowed window; V6.5.5 asks about the lifetime itself and is not claimed here.",
+    "Backup codes and the opaque-token authority were already single-use and are untouched. The migration is additive: no data is read, rewritten or moved.",
+    "The migration is applied to production only in a separate controlled exact-SHA release, as instructed. Merging it is not deploying it."
+  ],
+  "acceptance": [
+    "totp-replay-prevention.spec.ts passes 16 of 16 and the whole auth module passes 646.",
+    "Verified against PostgreSQL 16 rather than asserted: first use of a counter updates one row, the replay of that counter updates none, a stale counter updates none and does not become the new high-water mark, and a newer counter is accepted.",
+    "The cross-process race is proved with twenty concurrent connections attempting the same counter: exactly one accepted, nineteen refused.",
+    "The <= mutation was proved to be a real vulnerability on the same database - with <= the predicate 100 <= 100 holds and the replay is accepted - and the first version of the unit suite could not see it, because its fake client implemented the comparison itself rather than executing the statement. The assertion is pinned to the exact operator so CI catches the regression.",
+    "Three mutations are caught: dropping the predicate fails 1 of 16, changing < to <= fails 1, and accepting without consuming fails 1.",
+    "V6.5.1 moves FAIL to PASS and revokes when the operator is loosened. V6.5.8 was rejected by the matrix when the call sites changed function and is rebound to the property it is actually about, now asserted in both directions.",
+    "tsc --noEmit exit 0, guard=0, matrix applied 332 / rejected 0."
+  ]
+}

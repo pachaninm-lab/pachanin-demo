@@ -312,7 +312,39 @@ requireAll('executor', [
   'fail ROLLBACK_REVISION_UNREADABLE 57',
   'fail ROLLBACK_REVISION_MISMATCH 58',
   'fail AUTOMATIC_ROLLBACK_FAILED 50',
+  'RELEASE_ROLLBACK_ARMED=0',
+  'RELEASE_ROLLBACK_ACTIVE=0',
+  'rollback_and_exit()',
+  'RELEASE_ROLLBACK_ARMED=1',
+  "printf 'ROLLBACK_COMPLETE=1\\n' >&2",
+  "printf 'ROLLBACK_FAILED=1\\n' >&2",
+  "printf 'RUNNING_API_REVISION=%s\\n'",
+  "printf 'RUNNING_WEB_REVISION=%s\\n'",
+  'fail RUNNING_REVISION_MISMATCH 33',
 ]);
+const executorSource = text.executor ?? '';
+const rollbackHandlerIndex = executorSource.indexOf('rollback_and_exit()');
+const rollbackArmIndex = executorSource.indexOf('RELEASE_ROLLBACK_ARMED=1');
+const targetOverrideIndex = executorSource.indexOf('write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1');
+const revisionMismatchIndex = executorSource.indexOf('fail RUNNING_REVISION_MISMATCH 33');
+const rollbackDisarmIndex = executorSource.lastIndexOf('RELEASE_ROLLBACK_ARMED=0');
+const successIndex = executorSource.indexOf("printf 'DEPLOYMENT_COMPLETE=1\\n'");
+if (!(rollbackHandlerIndex >= 0
+  && rollbackArmIndex > rollbackHandlerIndex
+  && targetOverrideIndex > rollbackArmIndex
+  && revisionMismatchIndex > targetOverrideIndex
+  && rollbackDisarmIndex > revisionMismatchIndex
+  && successIndex > rollbackDisarmIndex)) {
+  failures.push(`${paths.executor}: explicit-exit rollback arm/disarm order is invalid`);
+}
+if (executorSource.split('RELEASE_ROLLBACK_ARMED=1').length - 1 !== 1
+  || executorSource.split('RELEASE_ROLLBACK_ARMED=0').length - 1 !== 2
+  || executorSource.split('RELEASE_ROLLBACK_ACTIVE=0').length - 1 !== 1
+  || executorSource.split('rollback_and_exit').length - 1 !== 3
+  || executorSource.split('RUNNING_API_REVISION=').length - 1 !== 1
+  || executorSource.split('RUNNING_WEB_REVISION=').length - 1 !== 1) {
+  failures.push(`${paths.executor}: explicit-exit rollback safety marker cardinality is invalid`);
+}
 try {
   const scope = JSON.parse(text.scope ?? '{}');
   if (scope.branch !== 'ops/production-full-stack-release-v1') failures.push(`${paths.scope}: branch mismatch`);

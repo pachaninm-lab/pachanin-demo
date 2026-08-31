@@ -1349,24 +1349,79 @@
     {
       "requirementId": "V3.2.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/modules/storage/storage.service.ts"
+        "apps/api/src/common/security/content-disposition.ts",
+        "apps/api/src/modules/storage/storage.service.ts",
+        "apps/api/src/modules/storage/object-storage.adapter.ts",
+        "apps/api/src/modules/storage/download-disposition.spec.ts",
+        "apps/api/src/main.ts"
       ],
       "conditions": [
         {
-          "condition": "getDownloadUrl() still never forces a response-content-disposition on the presigned URLs it returns",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the download path still asks the storage to return an attachment",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/storage/storage.service.ts"
           ],
           "patterns": [
-            "responsecontentdisposition",
-            "content-disposition"
+            "'response-content-disposition': attachmentdisposition(record.name),"
+          ]
+        },
+        {
+          "condition": "the override is still folded into the signed parameter set rather than appended after signing",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/object-storage.adapter.ts"
+          ],
+          "patterns": [
+            "for (const [name, value] of object.entries(responseoverrides)) params.push([name, value]);"
+          ]
+        },
+        {
+          "condition": "the canonical query is still sorted by byte value, without which the signed URL is rejected by the storage",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/object-storage.adapter.ts"
+          ],
+          "patterns": [
+            ".sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))"
+          ]
+        },
+        {
+          "condition": "the canonical query has not gone back to locale ordering",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/object-storage.adapter.ts"
+          ],
+          "patterns": [
+            ".sort(([a], [b]) => a.localecompare(b))"
+          ]
+        },
+        {
+          "condition": "the value is still an attachment and control characters are still removed from the filename",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/content-disposition.ts"
+          ],
+          "patterns": [
+            "return 'attachment';",
+            "const clean = leaf.replace(/[\\u0000-\\u001f\\u007f]/gu, '').trim();",
+            "`attachment; filename=\"${ascii}\"; filename*=utf-8''${rfc5987encode(clean)}`"
+          ]
+        },
+        {
+          "condition": "API responses still declare nosniff, which is the other half of the context guarantee",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "res.setheader('x-content-type-options', 'nosniff');"
           ]
         }
       ],
-      "note": "Uploaded files are downloaded through a presigned object-storage URL that getDownloadUrl() in storage.service.ts generates - the file bytes are never streamed through this application at all. That function never sets a response-content-disposition (or equivalent) parameter on the URL it returns, so whether a downloaded file renders inline in the browser or is forced to download depends entirely on the object-storage bucket's own default configuration, which is not under version control here and could not be checked. There is no application-level guarantee that a user-uploaded file is served in the correct context rather than rendered."
+      "note": "Uploaded bytes never pass through this application: a download is a presigned URL straight to object storage, and getDownloadUrl generated one with no response-content-disposition. Whether an uploaded .html or .svg rendered in the browser was therefore decided entirely by the bucket's own default configuration, which is not in version control and could not be checked from the repository. This requirement names the attachment disposition type as one control that satisfies it, and the presigned URL is the only place the decision can be made, so the override is set there. Three things had to be true rather than one. The parameter is folded into the signed canonical query rather than appended afterwards: an unsigned response override can simply be deleted by whoever holds the link, which would hand the decision straight back to the bucket, and a case asserts the signature differs with and without it. The filename is built rather than interpolated - sanitizeFilename runs at upload time and already removes control characters and quotes, but a record written before it existed has not been through it, and a filename reaching a header is where a stray CR stops being cosmetic. Both parameter forms are emitted because filenames here are routinely Cyrillic and the ASCII fallback cannot represent them; a case decodes the RFC 5987 form back to the exact original. Writing the tests surfaced a real defect in the signing code that had been invisible until now: the canonical query was sorted with localeCompare, and SigV4 requires byte ordering. Every existing parameter starts with X-Amz-, where the two orderings coincide, so nothing had ever exposed it; a lowercase response override sorts before X-Amz-Algorithm under localeCompare and after it by byte value, so the storage would have rebuilt a different canonical string and rejected the signature. The sort is corrected and a condition above forbids the regression. Scope of the claim: after this, every path that serves bytes to a browser sets an attachment disposition - the compliance and exports controllers already did for their generated CSV and XML, where the filename is application-generated - and main.ts sets X-Content-Type-Options nosniff on API responses. Mutations: appending the override after signing fails 3 of 21, restoring localeCompare fails 1, removing the override from the service fails 2, and keeping control characters in the filename fails 1. The service cases exist because the first version of this suite exercised only the primitive and the adapter: a getDownloadUrl that stopped supplying the override left every case green, which is the same hole this programme found in the cursor-key pass."
     },
     {
       "requirementId": "V3.2.2",
@@ -3760,26 +3815,96 @@
     {
       "requirementId": "V6.5.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
+        "apps/api/prisma/migrations/20260830210000_totp_replay_prevention/migration.sql",
+        "apps/api/src/modules/auth/auth-crypto.ts",
+        "apps/api/src/modules/auth/persistent-auth.repository.ts",
         "apps/api/src/modules/auth/auth.service.ts",
-        "apps/api/src/modules/auth/auth-crypto.ts"
+        "apps/api/src/modules/auth/product-session.service.ts",
+        "apps/api/src/modules/auth/totp-replay-prevention.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "auth.service.ts and product-session.service.ts still call verifyTotp(secret, code) with no used-code/replay tracking anywhere in the auth module",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/api/src/modules/auth"
+          "condition": "the consume is a single conditional UPDATE that only advances the counter, never a read followed by a write",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/persistent-auth.repository.ts"
           ],
           "patterns": [
-            "usedtotpcounter",
-            "totpreplay",
-            "lastusedcounter"
+            "update auth.credential_states",
+            "set mfa_last_totp_counter = ${counter}",
+            "and (mfa_last_totp_counter is null or mfa_last_totp_counter < ${counter})",
+            "return updated === 1;"
+          ]
+        },
+        {
+          "condition": "the comparison is strictly greater, so a counter already accepted is never accepted again",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/persistent-auth.repository.ts"
+          ],
+          "patterns": [
+            "mfa_last_totp_counter <= ${counter}"
+          ]
+        },
+        {
+          "condition": "the match reports which time step it proves, without which nothing can be consumed",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "export function matchtotpcounter(secret: string, code: string, unixms = date.now()): number | null {",
+            "return math.floor(at / totp_step_ms);"
+          ]
+        },
+        {
+          "condition": "both authentication pathways consume the counter they matched",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts",
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "const counter = matchtotpcounter(secret, code);",
+            "consumetotpcounter(",
+            "return consumed ? { method: 'totp' } : null;"
+          ]
+        },
+        {
+          "condition": "neither authentication pathway accepts a TOTP on a boolean verify that cannot be consumed",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts",
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "verifytotp(secret, code)"
+          ]
+        },
+        {
+          "condition": "the durable column exists in the forward-only migration chain rather than only in a deploy artifact",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/prisma/migrations/20260830210000_totp_replay_prevention/migration.sql"
+          ],
+          "patterns": [
+            "add column if not exists mfa_last_totp_counter bigint"
+          ]
+        },
+        {
+          "condition": "the acceptance window is not widened to compensate for the stricter rule",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "totp_accepted_step_offsets"
           ]
         }
       ],
-      "note": "Backup/lookup codes and one-time tokens genuinely are single-use, correctly: auth.service.ts and product-session.service.ts remove a matched backup-code hash from mfa_backup_hashes after use (`remainingBackupHashes: hashes.filter((_, index) => index !== matchedIndex)`), and every opaque-token-authority-issued credential (registration, reset, invitation, MFA-recovery) is consumed/expired on use via its own status transition. TOTP is the exception: verifyTotp(secret, code, unixMs = Date.now()) in auth-crypto.ts checks candidate codes against three time steps ([-1, 0, 1] × 30s) but never records that a specific code value has already been accepted, so the same valid 6-digit code can be submitted more than once within its acceptance window and will verify every time. The requirement asks that TOTPs specifically be \"only successfully usable once,\" and this implementation does not enforce that."
+      "note": "verifyTotp accepted a code against three time steps and recorded nothing, so the same six digits verified again for as long as the window held. The boolean return was the reason the control could not exist: a verifier that knows a code is valid but not WHICH time step it belongs to has nothing to record. RFC 6238 section 5.2 states the rule in the verifier's own terms - an implementation MUST NOT accept a second attempt for a time step it has already accepted, and should reject any attempt whose step is not greater than the last one. matchTotpCounter now returns the counter, and a single conditional UPDATE on auth.credential_states consumes it. The predicate is the whole control. A read followed by a write would leave a window where two processes both see the old value and both accept the same code, and the API and the workers are separate processes, so that race is the one that matters rather than a theoretical one. The consume lives inside verifyMfaCode rather than in its three call sites, because a control each caller must remember to invoke is one a caller will eventually not invoke - which is how the matching backup-code path stayed correct while this one did not. There is no way to obtain a TOTP acceptance without having consumed it. Strictly greater, not greater-or-equal: the same rule that refuses a replayed counter also refuses an older counter still inside the acceptance window, which is the shape a replay actually takes. That distinction was verified against PostgreSQL 16 rather than asserted, and it matters: with <= the predicate 100 <= 100 holds and the replay is accepted. The first version of the unit suite could not see the difference, because its fake client implemented the comparison itself instead of executing the statement - it proved the fake correct, not the SQL. The cross-process race was proved the same way: twenty concurrent connections attempting the same counter, one accepted and nineteen refused. The column is nullable with no default and no backfill; an authenticator that has never completed a TOTP verification has no last counter, and inventing one would either lock out a legitimate first use or accept a replay of whatever the backfilled value implied. NULL is handled explicitly by the predicate. The acceptance window is unchanged at three steps, so this is single-use enforcement rather than a narrowed window; V6.5.5, which asks about the lifetime itself, is a separate question and is not claimed here. Backup codes and the opaque-token authority were already single-use and are untouched."
     },
     {
       "requirementId": "V6.5.2",
@@ -3993,17 +4118,39 @@
       ],
       "conditions": [
         {
-          "condition": "both live call sites of verifyTotp still call it with exactly two arguments (secret, code), never supplying a caller-controlled unixMs",
-          "check": "PRESENT_AT_PATH",
+          "condition": "both live call sites take the clock from the verifier, never supplying a caller-controlled time",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/auth.service.ts"
+            "apps/api/src/modules/auth/auth.service.ts",
+            "apps/api/src/modules/auth/product-session.service.ts"
           ],
           "patterns": [
-            "verifytotp(secret, code)"
+            "matchtotpcounter(secret, code)"
+          ]
+        },
+        {
+          "condition": "no live call site passes a third argument to the match",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts",
+            "apps/api/src/modules/auth/product-session.service.ts"
+          ],
+          "patterns": [
+            "matchtotpcounter(secret, code,"
+          ]
+        },
+        {
+          "condition": "the default clock is still the process clock at the definition",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth-crypto.ts"
+          ],
+          "patterns": [
+            "unixms = date.now()"
           ]
         }
       ],
-      "note": "verifyTotp(secret, code, unixMs = Date.now()) in auth-crypto.ts defaults its time source to the server's own clock. Both live call sites (auth.service.ts:1051, product-session.service.ts:454) invoke it as verifyTotp(secret, code) — exactly two arguments — so the default server Date.now() is always used; no request ever supplies a client- or caller-provided timestamp for TOTP verification."
+      "note": "verifyTotp(secret, code, unixMs = Date.now()) in auth-crypto.ts defaults its time source to the server's own clock. Both live call sites (auth.service.ts:1051, product-session.service.ts:454) invoke it as verifyTotp(secret, code) — exactly two arguments — so the default server Date.now() is always used; no request ever supplies a client- or caller-provided timestamp for TOTP verification. Rebound after the TOTP replay pass: the call sites now use matchTotpCounter rather than verifyTotp, because a boolean verify cannot be consumed and single-use enforcement needs the time step. The property this requirement is about is unchanged and is now asserted in both directions - both live call sites pass exactly the secret and the code, and a condition forbids a third argument appearing, so a caller-supplied clock would revoke this decision rather than pass unnoticed."
     },
     {
       "requirementId": "V6.6.1",
