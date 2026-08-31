@@ -2486,38 +2486,49 @@
     {
       "requirementId": "V5.2.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
-        "infra:infra/nginx/nginx.conf client_max_body_size 10m"
+        "apps/web/lib/uploads/bounded-body.ts",
+        "apps/web/tests/unit/uploadBodyBound.spec.ts",
+        "apps/web/app/api/public-platform-assistant/attachments/route.ts"
       ],
       "conditions": [
         {
-          "condition": "the size caps exist and are applied in the handler",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the body is read under a ceiling that counts bytes as they arrive, rather than trusting a declared size",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/bounded-body.ts"
+          ],
+          "patterns": [
+            "export async function readboundedbody",
+            "total += value.bytelength",
+            "if (total > limit)",
+            "reader.cancel()"
+          ]
+        },
+        {
+          "condition": "the route reaches that reader before parsing, and parses the bounded bytes rather than the request",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "max_file_bytes",
-            "max_total_bytes",
-            "max_files"
+            "readboundedbody(request.body, max_body_bytes)",
+            "new response(bounded"
           ]
         },
         {
-          "condition": "no ceiling is applied before the body is buffered",
+          "condition": "the route no longer parses the unbounded request body",
           "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "maxbodysize",
-            "bodysizelimit",
-            "bodyparser"
+            "await request.formdata()"
           ]
         }
       ],
-      "note": "The caps (4 files, 8 MiB per file, 24 MiB total) are enforced only after request.formData() has buffered the entire body. The single pre-buffer check trusts a client-supplied Content-Length and is skipped when that header is absent, so an oversized body is read into memory before it is rejected. nginx sets client_max_body_size 10m, but that is an infrastructure ceiling whose deployment cannot be verified from the repository."
+      "note": "Closed by bounding the read instead of trusting the declaration. The guard compared content-length against the ceiling, and two ordinary requests walked past it - both proven by running them rather than argued: a chunked request carries no content-length at all, so Number(null || '0') is zero and the comparison never fires; and a malformed value such as content-length: not-a-number yields NaN, so Number.isFinite(NaN) short-circuits the same comparison. The second was not in the recorded note and was found while measuring the first. Past the guard the route called request.formData(), which was measured buffering a 12 MiB body in 123 ms - the size becomes knowable only once the memory is already spent, on an endpoint that requires no authentication. The bound now counts bytes as they arrive and cancels the stream at the ceiling, so nothing the sender declares participates in the decision; the declared size survives only as a cheap refusal for an honest client. The stream is cancelled rather than abandoned, so a sender is not left writing into a socket nobody reads. Three mutations, each caught: removing the cancel, an off-by-one at the ceiling, and reverting the route to request.formData() - the last of which passes the type check and every reader-level test, which is why the route-level cases exist at all."
     },
     {
       "requirementId": "V5.2.2",

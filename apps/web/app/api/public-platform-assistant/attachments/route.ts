@@ -24,6 +24,7 @@ import {
   inflatePdfStream,
   readArchiveEntry,
 } from '../../../../lib/uploads/decompression-budget';
+import { readBoundedBody } from '../../../../lib/uploads/bounded-body';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -32,6 +33,8 @@ const execFileAsync = promisify(execFile);
 const MAX_FILES = 4;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 24 * 1024 * 1024;
+/** Потолок самого тела: полезная нагрузка плюс запас на multipart-обвязку. */
+const MAX_BODY_BYTES = MAX_TOTAL_BYTES + 1_000_000;
 const MAX_EXTRACTED_CHARS = 18_000;
 const MAX_OCR_PDF_PAGES = 4;
 const OCR_TIMEOUT_MS = 30_000;
@@ -312,14 +315,40 @@ export async function POST(request: NextRequest) {
     return json({ error: 'CROSS_SITE_REQUEST_BLOCKED' }, 403);
   }
 
+  // Объявленный размер — быстрый отказ честному клиенту, и только. Границей он
+  // быть не может: у chunked-запроса этого заголовка нет, а мусор в нём даёт
+  // NaN, и в обоих случаях условие не срабатывает. Проверено запуском (#4848).
   const declaredLength = Number(request.headers.get('content-length') || '0');
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_TOTAL_BYTES + 1_000_000) {
-    return json({ error: 'UPLOAD_TOO_LARGE' }, 413);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return json({ error: 'UPLOAD_TOO_LARGE', maxTotalBytes: MAX_TOTAL_BYTES }, 413);
+  }
+
+  // Настоящая граница: считаем байты по мере чтения и отменяем поток на потолке,
+  // не дожидаясь formData(), который буферизует тело целиком.
+  //
+  // Чтение обёрнуто, потому что оборвавшийся клиент роняет `reader.read()`.
+  // Раньше такой обрыв приходился на `request.formData()` внутри try и давал
+  // контролируемый 400; перенос чтения наружу превратил бы его в 500. Найдено
+  // ревью на #4852 — регрессия этого же прохода.
+  //
+  // Код ответа тот же, что и прежде: тело не удалось получить в пригодном виде.
+  // Заводить для этого новый код значило бы расширить поверхность там, где
+  // задача — вернуть прежнее поведение.
+  let bounded: ArrayBuffer | null;
+  try {
+    bounded = await readBoundedBody(request.body, MAX_BODY_BYTES);
+  } catch {
+    return json({ error: 'INVALID_MULTIPART_BODY' }, 400);
+  }
+  if (bounded === null) {
+    return json({ error: 'UPLOAD_TOO_LARGE', maxTotalBytes: MAX_TOTAL_BYTES }, 413);
   }
 
   let form: FormData;
   try {
-    form = await request.formData();
+    form = await new Response(bounded, {
+      headers: { 'content-type': request.headers.get('content-type') ?? '' },
+    }).formData();
   } catch {
     return json({ error: 'INVALID_MULTIPART_BODY' }, 400);
   }
