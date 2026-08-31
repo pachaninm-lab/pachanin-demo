@@ -30,6 +30,7 @@ for(const marker of [
   'actor=$GITHUB_REPOSITORY_OWNER',
   'created=%3E%3D$expected_created',
   '/attempts/$candidate_attempt/jobs?per_page=100',
+  'runs/$run_id/attempts/$run_attempt/jobs?per_page=100',
   "const control = jobs.filter((job) => job.name === 'production-release-control-3072')",
   'control.length !== 1',
   'production-reviewer-readiness-3072 / Validate production reviewer inspect contract',
@@ -69,21 +70,36 @@ if(!workflow.includes('for _ in $(seq 1 15); do')) {
 const acceptanceExecution=workflow.indexOf('- name: Execute immutable-candidate P0 first-customer acceptance');
 const acceptanceAttemptRecheck=workflow.indexOf('P0_RELEASE_ATTEMPT_CHANGED_BEFORE_FIRST_CUSTOMER',acceptanceExecution);
 const acceptanceAttemptMonitor=workflow.indexOf('monitor_release_attempt()',acceptanceExecution);
+const acceptanceRunnerLaunch=workflow.indexOf('setsid --wait bash -c',acceptanceExecution);
+const acceptanceMonitorLaunch=workflow.indexOf('monitor_release_attempt &',acceptanceExecution);
+const acceptanceRunnerWait=workflow.indexOf('wait "$runner_pid"',acceptanceExecution);
 const acceptanceMutation=workflow.indexOf('bash scripts/production-p0-first-customer-acceptance.sh',acceptanceExecution);
 if(!(acceptanceExecution>=0 && acceptanceAttemptRecheck>acceptanceExecution
   && acceptanceAttemptMonitor>acceptanceAttemptRecheck && acceptanceMutation>acceptanceAttemptMonitor)) {
   fail('release run attempt must be rechecked and continuously supervised inside the acceptance step');
 }
+if(!(acceptanceRunnerLaunch>acceptanceAttemptMonitor && acceptanceMonitorLaunch>acceptanceRunnerLaunch
+  && acceptanceRunnerWait>acceptanceMonitorLaunch)) {
+  fail('release-attempt monitor must actually launch and supervise the acceptance process group');
+}
 const artifactGuard=workflow.indexOf('- name: Guard immutable release candidate before artifact publication');
 const artifactLatestIntent=workflow.indexOf('assert_no_newer_release_intent\n',artifactGuard);
+const artifactFinalFetch=workflow.indexOf('git fetch --no-tags origin main >/dev/null',artifactLatestIntent);
+const artifactFinalAncestry=workflow.indexOf('git merge-base --is-ancestor "$TARGET_SHA" "$current"',artifactFinalFetch);
+const artifactFinalAttemptEndpoint=workflow.indexOf('actions/runs/$RELEASE_RUN_ID',artifactFinalAncestry);
 const artifactFinalAttempt=workflow.indexOf('P0_RELEASE_ATTEMPT_CHANGED_BEFORE_FIRST_CUSTOMER_ARTIFACT',artifactGuard);
 const artifactUpload=workflow.indexOf('- name: Upload bounded P0 acceptance evidence',artifactGuard);
 if(!(artifactGuard>=0 && artifactLatestIntent>artifactGuard
-  && artifactFinalAttempt>artifactLatestIntent && artifactUpload>artifactFinalAttempt)) {
+  && artifactFinalFetch>artifactLatestIntent && artifactFinalAncestry>artifactFinalFetch
+  && artifactFinalAttemptEndpoint>artifactFinalAncestry
+  && artifactFinalAttempt>artifactFinalAttemptEndpoint && artifactUpload>artifactFinalAttempt)) {
   fail('artifact publication must follow the final release-attempt and candidate-ancestry recheck');
 }
 if(/mapfile -t \w+ < <\(node/u.test(workflow)) {
   fail('latest-intent parser exit status must not be hidden by process substitution');
+}
+if(workflow.includes('jobs?filter=latest')) {
+  fail('latest jobs endpoint is forbidden; every provenance read must name an exact run attempt');
 }
 if(/assert_no_newer_release_intent\s*(?:\\\n\s*)?\|\|/u.test(workflow)) {
   fail('latest-intent guard must be called directly so Bash errexit remains active inside the function');

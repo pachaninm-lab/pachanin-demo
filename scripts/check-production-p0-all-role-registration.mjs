@@ -53,6 +53,8 @@ requireAll(paths.workflow, workflow, [
   'created=%3E%3D$current_created',
   'created=%3E%3D$expected_created',
   '/attempts/$candidate_attempt/jobs?per_page=100',
+  'runs/$DEEP_RUN_ID/attempts/$DEEP_RUN_ATTEMPT/jobs?per_page=100',
+  'runs/$run_id/attempts/$run_attempt/jobs?per_page=100',
   "job.name === 'Validate production P0 acceptance contract'",
   "job.name === 'Two public customers · staff MFA · RLS · causal receipt'",
   'contract.length !== 1 || acceptance.length !== 1',
@@ -131,6 +133,9 @@ const matrixExecution = workflow.indexOf('- name: Execute immutable-candidate pr
 const firstCustomerAttemptRecheck = workflow.indexOf('P0_FIRST_CUSTOMER_ATTEMPT_CHANGED_BEFORE_ALL_ROLE', matrixExecution);
 const releaseAttemptRecheck = workflow.indexOf('P0_RELEASE_ATTEMPT_CHANGED_BEFORE_ALL_ROLE', matrixExecution);
 const attemptMonitor = workflow.indexOf('monitor_source_attempts()', matrixExecution);
+const matrixRunnerLaunch = workflow.indexOf('setsid --wait bash -c', matrixExecution);
+const matrixMonitorLaunch = workflow.indexOf('monitor_source_attempts &', matrixExecution);
+const matrixRunnerWait = workflow.indexOf('wait "$runner_pid"', matrixExecution);
 const matrixMutation = workflow.indexOf('bash scripts/production-p0-all-role-registration.sh', matrixExecution);
 if (!(sshPreparation >= 0 && firstCustomerLineage > sshPreparation
   && releaseLineage > firstCustomerLineage && matrixExecution > releaseLineage)) {
@@ -141,18 +146,31 @@ if (!(firstCustomerAttemptRecheck > matrixExecution
   && attemptMonitor > releaseAttemptRecheck && matrixMutation > attemptMonitor)) {
   failures.push(`${paths.workflow}: selected First Customer and release attempts must be rechecked and continuously supervised inside the matrix step`);
 }
+if (!(matrixRunnerLaunch > attemptMonitor && matrixMonitorLaunch > matrixRunnerLaunch
+  && matrixRunnerWait > matrixMonitorLaunch)) {
+  failures.push(`${paths.workflow}: source-attempt monitor must actually launch and supervise the 9-role process group`);
+}
 const artifactGuard = workflow.indexOf('- name: Guard immutable candidate before artifact publication');
 const artifactReleaseScan = workflow.indexOf('assert_no_newer_release_intent\n', artifactGuard);
+const artifactFinalFetch = workflow.indexOf('git fetch --no-tags origin main >/dev/null', artifactReleaseScan);
+const artifactFinalAncestry = workflow.indexOf('git merge-base --is-ancestor "$TARGET_SHA" "$current"', artifactFinalFetch);
+const artifactFinalDeepEndpoint = workflow.indexOf('actions/runs/$DEEP_RUN_ID', artifactFinalAncestry);
 const artifactDeepFinal = workflow.indexOf('P0_FIRST_CUSTOMER_ATTEMPT_CHANGED_BEFORE_ALL_ROLE_ARTIFACT', artifactGuard);
+const artifactFinalReleaseEndpoint = workflow.indexOf('actions/runs/$RELEASE_RUN_ID', artifactDeepFinal);
 const artifactReleaseFinal = workflow.indexOf('P0_RELEASE_ATTEMPT_CHANGED_BEFORE_ALL_ROLE_ARTIFACT', artifactGuard);
 const artifactUpload = workflow.indexOf('- name: Upload bounded production 9-role evidence', artifactGuard);
 if (!(artifactGuard >= 0 && artifactReleaseScan > artifactGuard
-  && artifactDeepFinal > artifactReleaseScan && artifactReleaseFinal > artifactDeepFinal
+  && artifactFinalFetch > artifactReleaseScan && artifactFinalAncestry > artifactFinalFetch
+  && artifactFinalDeepEndpoint > artifactFinalAncestry && artifactDeepFinal > artifactFinalDeepEndpoint
+  && artifactFinalReleaseEndpoint > artifactDeepFinal && artifactReleaseFinal > artifactFinalReleaseEndpoint
   && artifactUpload > artifactReleaseFinal)) {
   failures.push(`${paths.workflow}: artifact publication must follow the final combined source-attempt and candidate-ancestry recheck`);
 }
 if (/mapfile -t \w+ < <\(node/u.test(workflow)) {
   failures.push(`${paths.workflow}: latest-intent parser exit status must not be hidden by process substitution`);
+}
+if (workflow.includes('jobs?filter=latest')) {
+  failures.push(`${paths.workflow}: latest jobs endpoint is forbidden; every provenance read must name an exact run attempt`);
 }
 if (/assert_(?:first_customer_intent_current|no_newer_release_intent)\s*(?:\\\n\s*)?\|\|/u.test(workflow)) {
   failures.push(`${paths.workflow}: latest-intent guards must be called directly so Bash errexit remains active inside the functions`);
