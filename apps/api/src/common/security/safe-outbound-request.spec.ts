@@ -1,4 +1,9 @@
-import { safeOutboundRequest, vetDestination, configuredAllowedHosts } from './safe-outbound-request';
+import {
+  safeOutboundRequest,
+  vetDestination,
+  configuredAllowedHosts,
+  oversizedHeaderProblem,
+} from './safe-outbound-request';
 
 /**
  * ASVS 5.0 V1.3.6, one case per denial.
@@ -289,5 +294,113 @@ describe('fail closed', () => {
     });
     expect(result.delivered).toBe(false);
     expect(result.status).toBe(500);
+  });
+});
+
+/**
+ * ASVS 5.0 V4.2.5 — a different property from every case above.
+ *
+ * Those cases are about WHERE a request goes. These are about whether the
+ * request this application builds is one the receiving component can accept at
+ * all. A URI longer than the server's request-line limit, or a header field
+ * longer than its field limit, is answered with 414 or 431 every single time,
+ * so an unbounded stored value turns each later delivery into a guaranteed
+ * error rather than an occasional one.
+ *
+ * The refusal codes matter here for the same reason they do above: a size
+ * refusal returns its own reason, so it is distinguishable from a request that
+ * was actually attempted and failed.
+ */
+describe('a request too large for the receiving component is refused before it is sent', () => {
+  const host = 'https://partner.example.com';
+
+  it('refuses a URI past the ceiling, without opening a socket', async () => {
+    const long = `${host}/${'a'.repeat(4_000)}`;
+    const result = await safeOutboundRequest(long, { ...BASE, requestImpl: forbiddenTransport });
+    expect(result.refusedBecause).toBe('OUTBOUND_URI_TOO_LONG');
+    expect(forbiddenTransport).not.toHaveBeenCalled();
+  });
+
+  it('refuses it at vetDestination too, so no caller can reach the transport around it', async () => {
+    const vetted = await vetDestination(`${host}/${'a'.repeat(4_000)}`);
+    expect(vetted).toEqual({ refusedBecause: 'OUTBOUND_URI_TOO_LONG' });
+  });
+
+  it('measures the URI in bytes, not characters', async () => {
+    // 1_200 Cyrillic characters are 2_400 bytes: under the ceiling by length
+    // and over it by size. A server counts octets, so this must be refused.
+    const cyrillic = `${host}/${'я'.repeat(1_200)}`;
+    expect(cyrillic.length).toBeLessThan(2_048);
+    const result = await safeOutboundRequest(cyrillic, { ...BASE, requestImpl: forbiddenTransport });
+    expect(result.refusedBecause).toBe('OUTBOUND_URI_TOO_LONG');
+  });
+
+  it('accepts a URI comfortably inside the ceiling', async () => {
+    const seen: string[] = [];
+    const transport = jest.fn(async (url: URL) => {
+      seen.push(url.toString());
+      return { status: 200 };
+    });
+    const result = await safeOutboundRequest(`${host}/hook`, {
+      ...BASE, requestImpl: transport, resolver: async () => ['93.184.216.34'],
+    });
+    expect(result.refusedBecause).toBeUndefined();
+    expect(seen).toEqual([`${host}/hook`]);
+  });
+
+  it('refuses one oversized header value', async () => {
+    const result = await safeOutboundRequest(`${host}/hook`, {
+      ...BASE,
+      headers: { 'Content-Type': 'application/json', 'X-GrainFlow-Event': 'e'.repeat(5_000) },
+      requestImpl: forbiddenTransport,
+      resolver: async () => ['93.184.216.34'],
+    });
+    expect(result.refusedBecause).toBe('OUTBOUND_HEADER_TOO_LONG');
+    expect(forbiddenTransport).not.toHaveBeenCalled();
+  });
+
+  it('measures a header value in bytes, not characters', async () => {
+    // The counterpart of the URI case, and it was missing: a mutation that
+    // measured header values with .length left every other case green. 2_500
+    // Cyrillic characters are 5_000 bytes - under the ceiling by length and
+    // over it by size, which is what the server counts.
+    const value = 'я'.repeat(2_500);
+    expect(value.length).toBeLessThan(4_096);
+    expect(oversizedHeaderProblem({ 'X-Event': value })).toBe('OUTBOUND_HEADER_TOO_LONG');
+  });
+
+  it('refuses a header set that is oversized only in total', async () => {
+    // Each value is individually acceptable. Together they exceed what the
+    // server buffers, which a per-value check alone would miss.
+    const headers: Record<string, string> = {};
+    for (let index = 0; index < 4; index += 1) headers[`X-Pad-${index}`] = 'p'.repeat(3_000);
+    expect(oversizedHeaderProblem({ 'X-Pad-0': headers['X-Pad-0'] })).toBeNull();
+    const result = await safeOutboundRequest(`${host}/hook`, {
+      ...BASE, headers, requestImpl: forbiddenTransport, resolver: async () => ['93.184.216.34'],
+    });
+    expect(result.refusedBecause).toBe('OUTBOUND_HEADERS_TOO_LARGE');
+    expect(forbiddenTransport).not.toHaveBeenCalled();
+  });
+
+  it('counts the field name and separators against the total, as the server does', () => {
+    // A value exactly at the byte budget still overflows once the name, the
+    // colon-space and the CRLF are counted - which is what the server counts.
+    expect(oversizedHeaderProblem({ 'X-A': 'v'.repeat(8_192 - 3) })).toBe('OUTBOUND_HEADER_TOO_LONG');
+    expect(oversizedHeaderProblem({})).toBeNull();
+  });
+
+  it('checks the headers once, ahead of the redirect loop', async () => {
+    // The header set does not change between hops, so a refusal must happen
+    // before the first address is contacted rather than after a request has
+    // already gone out and come back with a 302.
+    const transport = jest.fn(async () => ({ status: 302, location: `${host}/next` }));
+    const result = await safeOutboundRequest(`${host}/hook`, {
+      ...BASE,
+      headers: { 'X-Too-Long': 'x'.repeat(5_000) },
+      requestImpl: transport,
+      resolver: async () => ['93.184.216.34'],
+    });
+    expect(result.refusedBecause).toBe('OUTBOUND_HEADER_TOO_LONG');
+    expect(transport).not.toHaveBeenCalled();
   });
 });

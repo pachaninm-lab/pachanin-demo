@@ -2209,37 +2209,60 @@
     {
       "requirementId": "V4.2.5",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "registration:apps/api/src/modules/partner-api/partner-api.controller.ts",
-        "dispatch:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+        "apps/api/src/common/security/safe-outbound-request.ts",
+        "apps/api/src/common/security/safe-outbound-request.spec.ts",
+        "dispatch:apps/api/src/modules/partner-api/webhook-dispatcher.service.ts",
+        "registration:apps/api/src/modules/partner-api/partner-api.controller.ts"
       ],
       "conditions": [
         {
-          "condition": "a consumer-supplied url is accepted with an inline body type nothing validates",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the URI this application builds is bounded before it is parsed or sent",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/partner-api/partner-api.controller.ts"
+            "apps/api/src/common/security/safe-outbound-request.ts"
           ],
           "patterns": [
-            "@body() body: { url: string"
+            "if (buffer.bytelength(raw, 'utf8') > max_outbound_uri_length) {",
+            "return { refusedbecause: 'outbound_uri_too_long' };"
           ]
         },
         {
-          "condition": "and fetched server-side with no target validation",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the header set is bounded per value and in total, and the check runs before the first hop",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/partner-api/webhook-dispatcher.service.ts"
+            "apps/api/src/common/security/safe-outbound-request.ts"
           ],
           "patterns": [
-            "isprivate",
-            "allowlist",
-            "assertpublic",
-            "new url("
+            "const headerproblem = oversizedheaderproblem(options.headers);",
+            "if (bytes > max_outbound_header_value_length) return 'outbound_header_too_long';",
+            "total > max_outbound_header_bytes ? 'outbound_headers_too_large' : null"
+          ]
+        },
+        {
+          "condition": "both limits are measured in bytes, which is what the receiving component counts",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/safe-outbound-request.ts"
+          ],
+          "patterns": [
+            "const bytes = buffer.bytelength(value, 'utf8');"
+          ]
+        },
+        {
+          "condition": "the size refusal has not been reduced to a character count",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/safe-outbound-request.ts"
+          ],
+          "patterns": [
+            "const bytes = value.length;",
+            "raw.length > max_outbound_uri_length"
           ]
         }
       ],
-      "note": "The application builds and sends requests to an address a consumer chooses, and validates nothing about it. POST api/partner/webhooks takes { url, events } as an inline TypeScript type - so the global validation pipe has no class to act on, per the correction recorded under V2.2.1 - the service stores the url as given, and the dispatcher fetches it server-side. There is no scheme check, no private-address block, no allowlist and no redirect limit, and the tree contains no SSRF protection of any kind. An authenticated partner can point a webhook at an internal service or a cloud metadata endpoint and have the API fetch it on their behalf. Authenticated, and real."
+      "note": "Corrected: the previous decision assessed a different requirement. Its note described SSRF - \"an authenticated partner can point a webhook at an internal service or a cloud metadata endpoint\" - and V4.2.5 does not ask that. It asks that an application which builds and sends requests avoid creating URIs or header fields too long for the receiving component to accept, because an over-length request line or header field is answered with 414 or 431 every time and becomes a denial of service. The SSRF property is real and was closed separately in #4805 and #4816; borrowing it as this requirement's evidence meant V4.2.5 had never been assessed against its own text at all. Worth recording how that survived: this decision carried a self-revoking FAIL condition, and it did not revoke when the SSRF gap was closed. The condition watched the dispatcher for the words isprivate, allowlist, assertpublic and new url(, and the fix that landed uses none of them - it calls safeOutboundRequest. So the condition went on holding while the thing it described had been fixed. A revocation check written against vocabulary rather than behaviour fails in the direction that keeps a verdict alive after it stopped being true, which is worse than failing loudly. Assessed properly, V4.2.5 was still FAIL: nothing bounded the size of anything. The stored url is unbounded - the endpoint takes an inline { url: string } body type that no validation class acts on, per V2.2.1 - and the dispatcher built headers from stored values with no ceiling. Both are now bounded at the single place every outbound request passes, rather than where the value happens to be stored: a limit applied at registration is bypassed by any caller that builds a request from something else. The ceilings are the smallest documented limits among the servers a webhook is likely to reach rather than a preference of this application: nginx defaults to an 8 KiB request line and 8 KiB header buffers, so 2 KiB of URI and 4 KiB per header value inside an 8 KiB total stays acceptable to all of them. Both are measured in bytes, because a server counts octets and one Cyrillic character is two of them - on this platform that is not a corner case. The header check runs ahead of the redirect loop, since the header set does not change between hops and a refusal must precede the first connection. Five mutations, and one of them found a hole in these very tests: removing the URI ceiling fails 3 of 42, removing the header check fails 3, measuring the URI in characters fails 1, dropping the total-size check fails 1 - and measuring header VALUES in characters originally failed nothing at all. The byte-measurement case existed for the URI and not for headers, so the property the comment claimed was unasserted. It is asserted now, and that mutation fails."
     },
     {
       "requirementId": "V4.3.1",
