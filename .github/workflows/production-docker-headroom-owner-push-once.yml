@@ -1,0 +1,281 @@
+name: Production Docker Headroom Owner Push Once
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-docker-headroom-owner-push-once.yml'
+      - 'scripts/production-docker-headroom-recovery.sh'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-docker-headroom-owner-push-once.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-full-stack-exact-sha
+  cancel-in-progress: false
+
+# One-shot recovery bridge for PC-CROP registration. The production mutation is
+# deliberately limited to the already-governed recovery script: unused old
+# canonical API/Web/migration images only. No containers, volumes, networks,
+# application state, database state, or customer data are mutated.
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/production-docker-headroom-owner-push-once
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate bounded owner-push recovery contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Validate source-controlled recovery boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/production-docker-headroom-recovery.sh
+          python3 - <<'PY'
+          import pathlib
+          import re
+
+          workflow = pathlib.Path('.github/workflows/production-docker-headroom-owner-push-once.yml').read_text(encoding='utf-8')
+          recovery = pathlib.Path('scripts/production-docker-headroom-recovery.sh').read_text(encoding='utf-8')
+          required_workflow = [
+              "github.event_name == 'push'",
+              'github.actor == github.repository_owner',
+              'github.triggering_actor == github.repository_owner',
+              'production-full-stack-exact-sha',
+              'StrictHostKeyChecking=yes',
+              'BatchMode=yes',
+              'scripts/production-docker-headroom-recovery.sh',
+              'RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1',
+              'RUNTIME_REVISIONS_UNCHANGED=1',
+              'DOCKER_OBJECT_COUNTS_UNCHANGED=1',
+              'CURRENT_MAIN_AFTER_RECOVERY=',
+          ]
+          required_recovery = [
+              'REQUIRED_KB=$((5 * 1024 * 1024))',
+              'TARGET_KB=$((6 * 1024 * 1024))',
+              "docker', 'ps', '-aq', '--no-trunc'",
+              "grainflow-(api|web|migration|tai)",
+              "revision == target_sha",
+              "docker', 'image', 'rm'",
+              'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM',
+              'DOCKER_HEADROOM_RECOVERY=',
+          ]
+          for needle in required_workflow:
+              if needle not in workflow:
+                  raise SystemExit(f'missing workflow boundary: {needle}')
+          for needle in required_recovery:
+              if needle not in recovery:
+                  raise SystemExit(f'missing recovery boundary: {needle}')
+          forbidden = [
+              r'docker\s+system\s+prune',
+              r'docker\s+image\s+prune',
+              r'docker\s+builder\s+prune',
+              r'docker\s+(?:container|volume|network)\s+(?:rm|prune)',
+              r'docker[^\n]*\brm\s+-f\b',
+              r'StrictHostKeyChecking=no',
+              r'sshpass',
+              r'SSH_PASSWORD',
+          ]
+          combined = workflow + '\n' + recovery
+          for pattern in forbidden:
+              if re.search(pattern, combined, re.I):
+                  raise SystemExit(f'forbidden recovery capability: {pattern}')
+          print('PASS: owner-push recovery is bounded to unused canonical images and preserves production runtime objects.')
+          PY
+
+  recover:
+    name: Reclaim unused canonical images on exact owner push
+    needs: contract
+    if: >-
+      github.event_name == 'push' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind immutable current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          git fetch --no-tags origin main
+          target_sha="$GITHUB_SHA"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target_sha" == "$(git rev-parse HEAD)" ]]
+          [[ "$target_sha" == "$(git rev-parse origin/main)" ]]
+          [[ "$target_sha" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"
+          printf '%s\n' "$target_sha" > "$EVIDENCE_DIR/target-sha.txt"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo P0_CANONICAL_VPS_MISMATCH >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo P0_PROTECTED_SSH_PRINCIPAL_INVALID >&2; exit 11; }
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo P0_PINNED_HOST_FINGERPRINT_MISSING >&2; exit 13; }
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips" || { echo P0_CANONICAL_DNS_MISMATCH >&2; exit 14; }
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || { echo P0_PROTECTED_SSH_KEY_INVALID >&2; exit 15; }
+
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]] || { rm -f "$scan" "$match"; echo P0_PINNED_HOST_KEY_MISMATCH >&2; exit 16; }
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Execute bounded recovery and prove production immutability
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
+          [[ "$TARGET_SHA" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          remote_script="/tmp/pc-docker-headroom-owner-push-${GITHUB_RUN_ID}.sh"
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            scripts/production-docker-headroom-recovery.sh "$SSH_USER_SECRET@$HOST:$remote_script"
+          raw="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "set -Eeuo pipefail
+            chmod 0700 '$remote_script'
+            mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
+            mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+            (( \${#api_ids[@]} == 1 && \${#web_ids[@]} == 1 ))
+            before_api_id=\"\${api_ids[0]}\"; before_web_id=\"\${web_ids[0]}\"
+            before_api_revision=\"\$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' \"\$before_api_id\")\"
+            before_web_revision=\"\$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' \"\$before_web_id\")\"
+            before_containers=\"\$(docker ps -aq | wc -l | tr -d '[:space:]')\"
+            before_volumes=\"\$(docker volume ls -q | wc -l | tr -d '[:space:]')\"
+            before_networks=\"\$(docker network ls -q | wc -l | tr -d '[:space:]')\"
+            '$remote_script' '$TARGET_SHA' '$GITHUB_RUN_ID'
+            after_api_id=\"\$(docker ps -q --filter 'label=com.docker.compose.service=api')\"
+            after_web_id=\"\$(docker ps -q --filter 'label=com.docker.compose.service=web')\"
+            [[ \"\$after_api_id\" == \"\$before_api_id\" && \"\$after_web_id\" == \"\$before_web_id\" ]]
+            after_api_revision=\"\$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' \"\$after_api_id\")\"
+            after_web_revision=\"\$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' \"\$after_web_id\")\"
+            [[ \"\$after_api_revision\" == \"\$before_api_revision\" && \"\$after_web_revision\" == \"\$before_web_revision\" ]]
+            after_containers=\"\$(docker ps -aq | wc -l | tr -d '[:space:]')\"
+            after_volumes=\"\$(docker volume ls -q | wc -l | tr -d '[:space:]')\"
+            after_networks=\"\$(docker network ls -q | wc -l | tr -d '[:space:]')\"
+            [[ \"\$after_containers\" == \"\$before_containers\" && \"\$after_volumes\" == \"\$before_volumes\" && \"\$after_networks\" == \"\$before_networks\" ]]
+            printf 'RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1\\n'
+            printf 'RUNTIME_REVISIONS_UNCHANGED=1\\n'
+            printf 'DOCKER_OBJECT_COUNTS_UNCHANGED=1\\n'" > "$raw" 2>&1
+          rc=$?
+          set -e
+          sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g' "$raw" > "$EVIDENCE_DIR/recovery.log"
+          rm -f "$raw"
+          cat "$EVIDENCE_DIR/recovery.log"
+          (( rc == 0 )) || exit "$rc"
+          grep -Fxq DOCKER_HEADROOM_RECOVERY=PASS "$EVIDENCE_DIR/recovery.log"
+          grep -Fxq RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1 "$EVIDENCE_DIR/recovery.log"
+          grep -Fxq RUNTIME_REVISIONS_UNCHANGED=1 "$EVIDENCE_DIR/recovery.log"
+          grep -Fxq DOCKER_OBJECT_COUNTS_UNCHANGED=1 "$EVIDENCE_DIR/recovery.log"
+          after="$(sed -n 's/^DOCKER_HEADROOM_AFTER_KB=//p' "$EVIDENCE_DIR/recovery.log" | tail -1)"
+          [[ "$after" =~ ^[0-9]+$ && "$after" -ge $((5 * 1024 * 1024)) ]]
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          printf 'CURRENT_MAIN_AFTER_RECOVERY=%s\n' "$current" | tee "$EVIDENCE_DIR/current-main-after.txt"
+          [[ "$current" == "$TARGET_SHA" ]]
+
+      - name: Cleanup protected transport
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+              "rm -f '/tmp/pc-docker-headroom-owner-push-${GITHUB_RUN_ID}.sh'" || true
+          fi
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-docker-headroom-owner-push-${{ github.run_id }}
+          path: artifacts/production-docker-headroom-owner-push-once
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
