@@ -5522,7 +5522,6 @@
       "evidence": [
         "global-guard:apps/api/src/app.module.ts",
         "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts",
-        "policies:infra/sql/production-rls-policies.sql",
         "apps/api/prisma/migrations/20260830190000_migration_chain_rls_permissive_closure/migration.sql"
       ],
       "conditions": [
