@@ -42,8 +42,13 @@ jobs:
     name: Publish bounded reviewer-preflight failure
     if: >-
       github.event_name == 'workflow_run' &&
-      github.event.workflow_run.event == 'issue_comment' &&
+      (
+        github.event.workflow_run.event == 'issue_comment' ||
+        github.event.workflow_run.event == 'workflow_dispatch' ||
+        github.event.workflow_run.event == 'push'
+      ) &&
       github.event.workflow_run.conclusion != 'success' &&
+      github.event.workflow_run.conclusion != 'skipped' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.head_branch == github.event.repository.default_branch &&
       github.event.workflow_run.actor.login == github.repository_owner &&
