@@ -2,19 +2,21 @@
 set -Eeuo pipefail
 
 PREVIOUS_WRAPPER_BLOB='e4efcad7ee429bb5bcf5badb403ef1f2efe35374'
-OVERLAY='scripts/p0-registration-resilience-overlay.py'
+RESILIENCE_OVERLAY='scripts/p0-registration-resilience-overlay.py'
+REPLAY_OVERLAY='scripts/p0-employee-join-replay-contract-overlay.py'
 
 fail() { printf 'P0_ALL_ROLE_RESILIENCE_WRAPPER_ERROR=%s\n' "$1" >&2; exit "${2:-1}"; }
 command -v git >/dev/null 2>&1 || fail GIT_REQUIRED 2
 command -v python3 >/dev/null 2>&1 || fail PYTHON_REQUIRED 3
-[[ -f "$OVERLAY" ]] || fail OVERLAY_MISSING 4
+[[ -f "$RESILIENCE_OVERLAY" ]] || fail RESILIENCE_OVERLAY_MISSING 4
+[[ -f "$REPLAY_OVERLAY" ]] || fail REPLAY_OVERLAY_MISSING 5
 
 tmp="$(mktemp)"
 cleanup() { rm -f -- "$tmp"; }
 trap cleanup EXIT
 
-git cat-file blob "$PREVIOUS_WRAPPER_BLOB" > "$tmp" 2>/dev/null || fail PREVIOUS_WRAPPER_BLOB_MISSING 5
-[[ "$(git hash-object "$tmp")" == "$PREVIOUS_WRAPPER_BLOB" ]] || fail PREVIOUS_WRAPPER_BLOB_MISMATCH 6
+git cat-file blob "$PREVIOUS_WRAPPER_BLOB" > "$tmp" 2>/dev/null || fail PREVIOUS_WRAPPER_BLOB_MISSING 6
+[[ "$(git hash-object "$tmp")" == "$PREVIOUS_WRAPPER_BLOB" ]] || fail PREVIOUS_WRAPPER_BLOB_MISMATCH 7
 
 python3 - "$tmp" <<'PY'
 from pathlib import Path
@@ -28,6 +30,7 @@ injection = r"""nested_anchor = '''bash -n "$tmp"
 if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then'''
 nested_replacement = '''bash -n "$tmp"
 python3 scripts/p0-registration-resilience-overlay.py all-role "$tmp"
+python3 scripts/p0-employee-join-replay-contract-overlay.py "$tmp"
 bash -n "$tmp"
 
 if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then'''
@@ -84,4 +87,6 @@ authMailWorkerRevisionExact
 authMailWorkerReady
 TERMINAL_PRODUCTION_PREFLIGHT
 P0_ALL_ROLE_AUTH_MAIL_WORKER_GUARD=PASS
+EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT_OVERLAY
+P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT=PASS
 P0_ALL_ROLE_COMPATIBILITY_MARKERS
