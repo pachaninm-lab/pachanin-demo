@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-registration-human-poll-resilience-4880",
+  "status": "active",
+  "issue": 4880,
+  "registrationIssue": 3785,
+  "releaseAuthorityIssue": 4637,
+  "authorityBaseExactMain": "f1288ef64b3ad6cd4674934c981f5d8fa4148543",
+  "purpose": "Bound transient GitHub/main ancestry lookups and preserve sanitized local blocker codes across command-substitution subshells in First Customer and all-role production registration acceptance.",
+  "allowedPaths": [
+    "scripts/p0-registration-resilience-overlay.py",
+    "scripts/production-p0-first-customer-acceptance.sh",
+    "scripts/production-p0-all-role-registration.sh",
+    "scripts/check-production-p0-all-role-registration.mjs",
+    "docs/platform-v7/autopilot/scopes/p0-registration-human-poll-resilience-4880.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "identityMutation": false,
+    "reviewerCredentialInput": false,
+    "mfaWeakening": false,
+    "rlsWeakening": false,
+    "csrfWeakening": false,
+    "secretOutput": false,
+    "semanticAncestryFailureRetried": false,
+    "transientLookupRetryCount": 5,
+    "maxLinearBackoffSeconds": 8
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
