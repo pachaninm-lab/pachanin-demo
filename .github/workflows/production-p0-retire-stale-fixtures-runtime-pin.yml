@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-retire-stale-fixtures-runtime-pin.yml'
-      - 'scripts/production-p0-retire-stale-fixtures-v2.cjs'
+      - 'scripts/production-p0-retire-stale-fixtures-v3.cjs'
   issue_comment:
     types: [created]
   schedule:
@@ -22,15 +22,15 @@ env:
   AUTHORITY_ISSUE: '4637'
   COMMAND: /production p0-retire-stale-fixtures-runtime-pin current-main
   FIRST_CUSTOMER_WORKFLOW: .github/workflows/production-p0-first-customer-acceptance.yml
-  RUNNER_PATH: scripts/production-p0-retire-stale-fixtures-v2.cjs
-  RUNNER_BLOB_SHA: 991d9d503cef34100be33127910539ade4b7da0b
+  RUNNER_PATH: scripts/production-p0-retire-stale-fixtures-v3.cjs
+  RUNNER_BLOB_SHA: 6d83b82b5da9a26bf04fea7ca255077404fdb63f
   WORKFLOW_PATH: .github/workflows/production-p0-retire-stale-fixtures-runtime-pin.yml
   LIVE_HOST: '195.19.12.120'
   STALE_SECONDS: '1800'
 
 jobs:
   contract:
-    name: Validate bounded calendar cleanup v3 contract
+    name: Validate bounded calendar cleanup v4 contract
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -55,15 +55,13 @@ jobs:
           [[ "$(git hash-object "$RUNNER_PATH")" == "$RUNNER_BLOB_SHA" ]]
           node --check "$RUNNER_PATH"
           mapfile -t changed < <(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename' | sort)
-          [[ "${#changed[@]}" == 1 || "${#changed[@]}" == 2 ]]
+          [[ "${#changed[@]}" == 2 ]]
           [[ "${changed[0]}" == "$WORKFLOW_PATH" ]]
-          if [[ "${#changed[@]}" == 2 ]]; then
-            [[ "${changed[1]}" == "$RUNNER_PATH" ]]
-          fi
+          [[ "${changed[1]}" == "$RUNNER_PATH" ]]
           for marker in \
             "cron: '17 2 * * *'" \
             "FIRST_CUSTOMER_WORKFLOW: .github/workflows/production-p0-first-customer-acceptance.yml" \
-            "RUNNER_BLOB_SHA: 991d9d503cef34100be33127910539ade4b7da0b" \
+            "RUNNER_BLOB_SHA: 6d83b82b5da9a26bf04fea7ca255077404fdb63f" \
             "github.event.issue.number == 4637" \
             "github.event.comment.user.login == github.repository_owner" \
             "github.event.comment.author_association == 'OWNER'" \
@@ -73,6 +71,9 @@ jobs:
             "FIRST_CUSTOMER_RUNTIME_PIN_MISSING" \
             "RUNTIME_PIN_NOT_ANCESTOR" \
             "MAIN_DRIFT_BEFORE_MUTATION" \
+            "P0_RETIRE_PREFLIGHT=PASS" \
+            "P0_RETIRE_PREFLIGHT_PRODUCTION_MUTATION=NONE" \
+            "P0_RETIRE_PENDING_EMAIL_CHALLENGES=0" \
             "NODE_PATH=/app/node_modules"; do
             grep -Fq "$marker" "$WORKFLOW_PATH"
           done
@@ -80,9 +81,13 @@ jobs:
             "p0-all-role-register:" \
             "p0-registration:" \
             "githubRunToken" \
+            "SET TRANSACTION READ ONLY" \
             "status = 'CANCELLED'" \
             "P0_ACCEPTANCE_FIXTURE_RETIRED" \
             "CANDIDATE_ACTIVE_SESSION_PRESENT" \
+            "P0_RETIRE_PREFLIGHT=PASS" \
+            "P0_RETIRE_PREFLIGHT_PRODUCTION_MUTATION=NONE" \
+            "P0_RETIRE_PENDING_EMAIL_CHALLENGES" \
             "P0_RETIRE_FIRST_CUSTOMER_RUN_COMPAT=PASS" \
             "P0_RETIRE_NON_MARKER_MUTATIONS=0"; do
             grep -Fq "$marker" "$RUNNER_PATH"
@@ -90,7 +95,7 @@ jobs:
           ! grep -Eiq '\bDELETE[[:space:]]+FROM[[:space:]]+(auth|public)\.' "$RUNNER_PATH"
           ! grep -Fq 'registration_platform_actor_authorized' "$RUNNER_PATH"
           ! grep -Fq 'apply_registration_identity_transition' "$RUNNER_PATH"
-          echo 'PASS: calendar cleanup v3 is path-bounded, dynamically exact-pinned, and fail-closed.'
+          echo 'PASS: calendar cleanup v4 is two-file bounded, read-only-preflighted, atomic and fail-closed.'
 
   retire:
     name: Retire stale marked P0 fixtures on REG.RU runtime
@@ -282,13 +287,23 @@ jobs:
           docker exec "$api_id" /nodejs/bin/node -e "require.resolve('@prisma/client',{paths:['/app']})" >/dev/null 2>&1 || fail API_PRISMA_RUNTIME_MODULE_MISSING 41
           container_runner="/tmp/pc-p0-retire-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.cjs"
           docker cp "$remote_runner" "$api_id:$container_runner" >/dev/null
+
           set +e
-          node_output="$(docker exec -e NODE_PATH=/app/node_modules "$api_id" /nodejs/bin/node "$container_runner" "$stale_seconds" "$correlation" 2>/dev/null)"
+          preflight_output="$(docker exec -e NODE_PATH=/app/node_modules "$api_id" /nodejs/bin/node "$container_runner" "$stale_seconds" "$correlation" preflight 2>/dev/null)"
+          preflight_rc=$?
+          set -e
+          printf '%s\n' "$preflight_output" | grep -E '^P0_RETIRE_[A-Z0-9_]+=([A-Z0-9_]+|[0-9]+)$' || true
+          (( preflight_rc == 0 )) || exit "$preflight_rc"
+          grep -Fxq 'P0_RETIRE_PREFLIGHT=PASS' <<< "$preflight_output" || fail PREFLIGHT_RESULT_NOT_PASS 42
+          grep -Fxq 'P0_RETIRE_PREFLIGHT_PRODUCTION_MUTATION=NONE' <<< "$preflight_output" || fail PREFLIGHT_MUTATION_GUARD_MISSING 43
+
+          set +e
+          node_output="$(docker exec -e NODE_PATH=/app/node_modules "$api_id" /nodejs/bin/node "$container_runner" "$stale_seconds" "$correlation" apply 2>/dev/null)"
           node_rc=$?
           set -e
           printf '%s\n' "$node_output" | grep -E '^P0_RETIRE_[A-Z0-9_]+=([A-Z0-9_]+|[0-9]+)$' || true
           (( node_rc == 0 )) || exit "$node_rc"
-          grep -Fxq 'P0_RETIRE_RESULT=PASS' <<< "$node_output" || fail NODE_RESULT_NOT_PASS 42
+          grep -Fxq 'P0_RETIRE_RESULT=PASS' <<< "$node_output" || fail NODE_RESULT_NOT_PASS 44
           printf 'P0_REMOTE_RUNTIME_SHA=PASS\n'
           REMOTE
           )"
@@ -305,8 +320,11 @@ jobs:
             exit "$remote_rc"
           fi
           for marker in \
+            P0_RETIRE_PREFLIGHT=PASS \
+            P0_RETIRE_PREFLIGHT_PRODUCTION_MUTATION=NONE \
             P0_RETIRE_RESULT=PASS \
             P0_RETIRE_REMAINING=0 \
+            P0_RETIRE_PENDING_EMAIL_CHALLENGES=0 \
             P0_RETIRE_FIRST_CUSTOMER_RUN_COMPAT=PASS \
             P0_RETIRE_RAW_IDENTIFIERS=0 \
             P0_RETIRE_NON_MARKER_MUTATIONS=0 \
@@ -318,11 +336,12 @@ jobs:
           first_customer="$(sed -n 's/^P0_RETIRE_RETIRED_FIRST_CUSTOMER=//p' <<< "$safe_output" | tail -1)"
           events="$(sed -n 's/^P0_RETIRE_EVENT_EVIDENCE=//p' <<< "$safe_output" | tail -1)"
           audits="$(sed -n 's/^P0_RETIRE_AUDIT_EVIDENCE=//p' <<< "$safe_output" | tail -1)"
-          for value in "$retired" "$all_role" "$first_customer" "$events" "$audits"; do [[ "$value" =~ ^[0-9]{1,4}$ ]]; done
+          pending="$(sed -n 's/^P0_RETIRE_PENDING_EMAIL_CHALLENGES=//p' <<< "$safe_output" | tail -1)"
+          for value in "$retired" "$all_role" "$first_customer" "$events" "$audits" "$pending"; do [[ "$value" =~ ^[0-9]{1,4}$ ]]; done
           (( all_role + first_customer == retired ))
-          [[ "$events" == "$retired" && "$audits" == "$retired" ]]
+          [[ "$events" == "$retired" && "$audits" == "$retired" && "$pending" == 0 ]]
           if [[ "$GITHUB_EVENT_NAME" != schedule || "$retired" != 0 ]]; then
-            gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement\n\n- result: \`PASS\`\n- calendar: \`daily 02:17 UTC / 05:17 MSK\`\n- runtime SHA: \`$RUNTIME_SHA\`\n- retired total: \`$retired\`\n- retired all-role: \`$all_role\`\n- retired First Customer: \`$first_customer\`\n- remaining stale marked rows: \`0\`\n- lifecycle event evidence: \`$events\`\n- audit evidence: \`$audits\`\n- non-marker mutations: \`0\`\n- physical deletes: \`0\`\n- raw identifiers: \`0\`" >/dev/null
+            gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement\n\n- result: \`PASS\`\n- calendar: \`daily 02:17 UTC / 05:17 MSK\`\n- runtime SHA: \`$RUNTIME_SHA\`\n- preflight production mutation: \`NONE\`\n- retired total: \`$retired\`\n- retired all-role: \`$all_role\`\n- retired First Customer: \`$first_customer\`\n- remaining stale marked rows: \`0\`\n- pending email challenges: \`$pending\`\n- lifecycle event evidence: \`$events\`\n- audit evidence: \`$audits\`\n- non-marker mutations: \`0\`\n- physical deletes: \`0\`\n- raw identifiers: \`0\`" >/dev/null
           fi
 
       - name: Remove protected SSH material
