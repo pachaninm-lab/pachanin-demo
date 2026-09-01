@@ -21,7 +21,7 @@ concurrency:
 env:
   AUTHORITY_ISSUE: '4637'
   COMMAND: /production p0-retire-stale-fixtures-runtime-pin current-main
-  RUNTIME_SHA: 1c5a0b9865530476b6d8c7d9ed3e4842c9441937
+  FIRST_CUSTOMER_WORKFLOW: .github/workflows/production-p0-first-customer-acceptance.yml
   RUNNER_PATH: scripts/production-p0-retire-stale-fixtures-v2.cjs
   RUNNER_BLOB_SHA: 991d9d503cef34100be33127910539ade4b7da0b
   WORKFLOW_PATH: .github/workflows/production-p0-retire-stale-fixtures-runtime-pin.yml
@@ -55,12 +55,14 @@ jobs:
           [[ "$(git hash-object "$RUNNER_PATH")" == "$RUNNER_BLOB_SHA" ]]
           node --check "$RUNNER_PATH"
           mapfile -t changed < <(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename' | sort)
-          [[ "${#changed[@]}" == 2 ]]
+          [[ "${#changed[@]}" == 1 || "${#changed[@]}" == 2 ]]
           [[ "${changed[0]}" == "$WORKFLOW_PATH" ]]
-          [[ "${changed[1]}" == "$RUNNER_PATH" ]]
+          if [[ "${#changed[@]}" == 2 ]]; then
+            [[ "${changed[1]}" == "$RUNNER_PATH" ]]
+          fi
           for marker in \
             "cron: '17 2 * * *'" \
-            "RUNTIME_SHA: 1c5a0b9865530476b6d8c7d9ed3e4842c9441937" \
+            "FIRST_CUSTOMER_WORKFLOW: .github/workflows/production-p0-first-customer-acceptance.yml" \
             "RUNNER_BLOB_SHA: 991d9d503cef34100be33127910539ade4b7da0b" \
             "github.event.issue.number == 4637" \
             "github.event.comment.user.login == github.repository_owner" \
@@ -68,6 +70,8 @@ jobs:
             "github.actor == github.repository_owner" \
             "github.triggering_actor == github.repository_owner" \
             "ACTIVE_REGISTRATION_ACCEPTANCE" \
+            "FIRST_CUSTOMER_RUNTIME_PIN_MISSING" \
+            "RUNTIME_PIN_NOT_ANCESTOR" \
             "MAIN_DRIFT_BEFORE_MUTATION" \
             "NODE_PATH=/app/node_modules"; do
             grep -Fq "$marker" "$WORKFLOW_PATH"
@@ -86,7 +90,7 @@ jobs:
           ! grep -Eiq '\bDELETE[[:space:]]+FROM[[:space:]]+(auth|public)\.' "$RUNNER_PATH"
           ! grep -Fq 'registration_platform_actor_authorized' "$RUNNER_PATH"
           ! grep -Fq 'apply_registration_identity_transition' "$RUNNER_PATH"
-          echo 'PASS: calendar cleanup v3 is two-file bounded and fail-closed.'
+          echo 'PASS: calendar cleanup v3 is path-bounded, dynamically exact-pinned, and fail-closed.'
 
   retire:
     name: Retire stale marked P0 fixtures on REG.RU runtime
@@ -145,7 +149,17 @@ jobs:
               exit 21
             }
           done
+          runtime_sha="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/production-p0-first-customer-acceptance.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty')"
+          [[ "$runtime_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'P0_RETIRE_BLOCKER=FIRST_CUSTOMER_RUNTIME_PIN_MISSING'
+            exit 23
+          }
+          git merge-base --is-ancestor "$runtime_sha" "$current" || {
+            echo 'P0_RETIRE_BLOCKER=RUNTIME_PIN_NOT_ANCESTOR'
+            exit 24
+          }
           echo "main_sha=$current" >> "$GITHUB_OUTPUT"
+          echo "runtime_sha=$runtime_sha" >> "$GITHUB_OUTPUT"
           echo "runner_sha256=$(sha256sum "$RUNNER_PATH" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - name: Resolve pinned REG.RU SSH identity
@@ -235,6 +249,7 @@ jobs:
           SSH_PORT: ${{ steps.ssh.outputs.port }}
           REMOTE_RUNNER: ${{ steps.stage.outputs.remote_path }}
           MAIN_SHA: ${{ steps.scope.outputs.main_sha }}
+          RUNTIME_SHA: ${{ steps.scope.outputs.runtime_sha }}
           RUNNER_SHA256: ${{ steps.scope.outputs.runner_sha256 }}
         run: |
           set -euo pipefail
