@@ -69,7 +69,9 @@ jobs:
             "cron: '17 2 * * *'" \
             "cut -d ' ' -f1" \
             "ACTIVE_REGISTRATION_ACCEPTANCE" \
-            "MAIN_DRIFT_BEFORE_MUTATION"; do
+            "MAIN_DRIFT_BEFORE_MUTATION" \
+            "NODE_PATH=/app/node_modules" \
+            "API_PRISMA_RUNTIME_MODULE_MISSING"; do
             grep -Fq "$marker" "$WORKFLOW_PATH"
           done
           for marker in \
@@ -294,10 +296,11 @@ jobs:
           [[ "$api_revision" == "$runtime_sha" ]] || fail API_REVISION_MISMATCH 40
           [[ "$web_revision" == "$runtime_sha" ]] || fail WEB_REVISION_MISMATCH 41
           docker exec "$api_id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" >/dev/null 2>&1 || fail API_NOT_READY 42
+          docker exec "$api_id" /nodejs/bin/node -e "require.resolve('@prisma/client')" >/dev/null 2>&1 || fail API_PRISMA_RUNTIME_MODULE_MISSING 44
           container_runner="/tmp/pc-p0-retire-${correlation##*:}.cjs"
           docker cp "$remote_runner" "$api_id:$container_runner" >/dev/null
           set +e
-          node_output="$(docker exec "$api_id" /nodejs/bin/node "$container_runner" "$stale_seconds" "$correlation" 2>/dev/null)"
+          node_output="$(docker exec -e NODE_PATH=/app/node_modules "$api_id" /nodejs/bin/node "$container_runner" "$stale_seconds" "$correlation" 2>/dev/null)"
           node_rc=$?
           set -e
           printf '%s\n' "$node_output" | grep -E '^P0_RETIRE_(RESULT|BLOCKER|RETIRED|REMAINING|EVENT_EVIDENCE|AUDIT_EVIDENCE|RAW_IDENTIFIERS|NON_MARKER_MUTATIONS)=' || true
