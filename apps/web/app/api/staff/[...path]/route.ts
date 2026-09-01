@@ -4,6 +4,7 @@ import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
 import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import { assertCsrf } from '@/lib/server-request-security';
+import { readBoundedBody } from '../../../../lib/uploads/bounded-body';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -322,10 +323,24 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
 
   let body: string | undefined;
   if (method === 'POST') {
-    body = await request.text();
-    if (Buffer.byteLength(body, 'utf8') > MAX_BODY_BYTES) {
+    // Предпроверка выше отказывает на некорректном заголовке - этот случай
+    // здесь продуман, в отличие от соседних маршрутов. Но у chunked-запроса
+    // заголовка нет вовсе, Number(null || 0) это ноль, и она молчит.
+    //
+    // Ниже стояла проверка после чтения, поэтому слишком большое тело всё же
+    // отвергалось - но уже занятой памятью. Счёт байтов на чтении отказывает
+    // до неё, а не после. Обёрнуто: оборвавшийся клиент роняет reader.read(),
+    // и прежде это была необработанная ошибка сервера.
+    let raw: ArrayBuffer | null;
+    try {
+      raw = await readBoundedBody(request.body, MAX_BODY_BYTES);
+    } catch {
+      return json({ ok: false, code: 'REQUEST_BODY_UNREADABLE', message: 'Тело запроса не удалось прочитать.', correlationId }, 400);
+    }
+    if (raw === null) {
       return json({ ok: false, code: 'PAYLOAD_TOO_LARGE', message: 'Запрос превышает допустимый размер.', correlationId }, 413);
     }
+    body = new TextDecoder().decode(raw);
   }
 
   const registrationDecision = /^registration\/applications\/[^/]+\/decision$/.test(path);
