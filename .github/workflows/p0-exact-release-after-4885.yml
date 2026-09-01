@@ -1,0 +1,199 @@
+name: PC-CROP exact-SHA release after 4885
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+    paths:
+      - '.github/workflows/p0-exact-release-after-4885.yml'
+
+permissions:
+  actions: write
+  checks: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: p0-exact-release-after-4885
+  cancel-in-progress: false
+
+jobs:
+  dispatch-and-verify:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'automation/release-after-4885'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_PR: '4885'
+      CANONICAL_RELEASE_RUN: '33471014780'
+    steps:
+      - name: Wait for bounded implementation merge and pin exact main SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          for attempt in $(seq 1 240); do
+            pr="$(gh api "repos/$repo/pulls/$TARGET_PR")"
+            if [[ "$(jq -r '.merged' <<<"$pr")" == 'true' ]]; then
+              merge_sha="$(jq -r '.merge_commit_sha' <<<"$pr")"
+              main_sha="$(gh api "repos/$repo/commits/main" --jq '.sha')"
+              [[ "$merge_sha" != 'null' && -n "$merge_sha" ]]
+              [[ "$main_sha" == "$merge_sha" ]] || {
+                echo "P0_MAIN_DRIFT_AFTER_4885 merge=$merge_sha main=$main_sha" >&2
+                exit 1
+              }
+              printf '%s' "$main_sha" >/tmp/release-sha
+              exit 0
+            fi
+            [[ "$(jq -r '.state' <<<"$pr")" == 'open' ]]
+            echo "waiting for PR $TARGET_PR merge: attempt=$attempt"
+            sleep 20
+          done
+          echo 'P0_IMPLEMENTATION_MERGE_TIMEOUT' >&2
+          exit 1
+
+      - name: Resolve canonical release workflow and dispatch exact SHA once
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          release_sha="$(cat /tmp/release-sha)"
+          canonical="$(gh api "repos/$repo/actions/runs/$CANONICAL_RELEASE_RUN")"
+          [[ "$(jq -r '.event' <<<"$canonical")" == 'workflow_dispatch' ]]
+          workflow_id="$(jq -r '.workflow_id' <<<"$canonical")"
+          workflow_path="$(jq -r '.path' <<<"$canonical")"
+          [[ "$workflow_id" =~ ^[0-9]+$ ]]
+          [[ "$workflow_path" == .github/workflows/* ]]
+
+          existing="$(gh api "repos/$repo/actions/workflows/$workflow_id/runs?event=workflow_dispatch&per_page=100")"
+          existing_id="$(jq -r --arg sha "$release_sha" '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.created_at) | last | .id // empty' <<<"$existing")"
+          if [[ -n "$existing_id" ]]; then
+            printf '%s' "$existing_id" >/tmp/release-run-id
+            printf '%s' "$workflow_id" >/tmp/release-workflow-id
+            echo "reusing exact-SHA release run $existing_id"
+            exit 0
+          fi
+
+          encoded="$(gh api "repos/$repo/contents/$workflow_path?ref=$release_sha" --jq '.content')"
+          printf '%s' "$encoded" | tr -d '\n' | base64 -d >/tmp/release-workflow.yml
+
+          python3 <<'PY'
+          from pathlib import Path
+          import json, re, sys
+          text = Path('/tmp/release-workflow.yml').read_text(encoding='utf-8')
+          lines = text.splitlines()
+
+          def indent(line: str) -> int:
+              return len(line) - len(line.lstrip(' '))
+
+          wd = None
+          wd_indent = None
+          for i, line in enumerate(lines):
+              if re.match(r'^\s*workflow_dispatch\s*:\s*(?:#.*)?$', line):
+                  wd, wd_indent = i, indent(line)
+                  break
+          if wd is None:
+              raise SystemExit('P0_CANONICAL_RELEASE_NOT_DISPATCHABLE')
+
+          inputs_line = None
+          inputs_indent = None
+          for i in range(wd + 1, len(lines)):
+              line = lines[i]
+              stripped = line.strip()
+              if stripped and not stripped.startswith('#') and indent(line) <= wd_indent:
+                  break
+              if re.match(r'^\s*inputs\s*:\s*(?:#.*)?$', line):
+                  inputs_line, inputs_indent = i, indent(line)
+                  break
+          if inputs_line is None:
+              raise SystemExit('P0_CANONICAL_RELEASE_SHA_INPUT_MISSING')
+
+          entries = {}
+          i = inputs_line + 1
+          while i < len(lines):
+              line = lines[i]
+              stripped = line.strip()
+              if stripped and not stripped.startswith('#') and indent(line) <= inputs_indent:
+                  break
+              m = re.match(r'^(\s*)([A-Za-z0-9_-]+)\s*:\s*(?:#.*)?$', line)
+              if m and len(m.group(1)) > inputs_indent:
+                  key = m.group(2)
+                  key_indent = len(m.group(1))
+                  block = []
+                  i += 1
+                  while i < len(lines):
+                      sub = lines[i]
+                      sub_stripped = sub.strip()
+                      if sub_stripped and not sub_stripped.startswith('#') and indent(sub) <= key_indent:
+                          break
+                      block.append(sub)
+                      i += 1
+                  required = any(re.match(r'^\s*required\s*:\s*true\s*(?:#.*)?$', x, re.I) for x in block)
+                  default = None
+                  for x in block:
+                      dm = re.match(r'^\s*default\s*:\s*(.*?)\s*(?:#.*)?$', x)
+                      if dm:
+                          default = dm.group(1).strip().strip('"\'')
+                          break
+                  entries[key] = {'required': required, 'default': default}
+                  continue
+              i += 1
+
+          priority = ['target_sha', 'release_sha', 'exact_sha', 'source_sha', 'commit_sha', 'sha']
+          sha_keys = [key for key in priority if key in entries]
+          if len(sha_keys) != 1:
+              raise SystemExit('P0_CANONICAL_RELEASE_SHA_INPUT_AMBIGUOUS:' + ','.join(sha_keys))
+          sha_key = sha_keys[0]
+          unresolved = [key for key, meta in entries.items()
+                        if key != sha_key and meta['required'] and meta['default'] is None]
+          if unresolved:
+              raise SystemExit('P0_CANONICAL_RELEASE_REQUIRED_INPUTS_UNRESOLVED:' + ','.join(unresolved))
+          Path('/tmp/release-input-key').write_text(sha_key, encoding='utf-8')
+          PY
+
+          sha_key="$(cat /tmp/release-input-key)"
+          jq -n --arg ref 'main' --arg key "$sha_key" --arg sha "$release_sha" \
+            '{ref:$ref,inputs:{($key):$sha}}' >/tmp/dispatch.json
+          gh api --method POST "repos/$repo/actions/workflows/$workflow_id/dispatches" --input /tmp/dispatch.json
+          printf '%s' "$workflow_id" >/tmp/release-workflow-id
+
+          for attempt in $(seq 1 60); do
+            runs="$(gh api "repos/$repo/actions/workflows/$workflow_id/runs?event=workflow_dispatch&per_page=100")"
+            run_id="$(jq -r --arg sha "$release_sha" '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.created_at) | last | .id // empty' <<<"$runs")"
+            if [[ -n "$run_id" ]]; then
+              printf '%s' "$run_id" >/tmp/release-run-id
+              echo "exact-SHA release run=$run_id sha=$release_sha"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'P0_EXACT_RELEASE_RUN_NOT_FOUND' >&2
+          exit 1
+
+      - name: Require terminal successful canonical release
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          release_sha="$(cat /tmp/release-sha)"
+          run_id="$(cat /tmp/release-run-id)"
+          for attempt in $(seq 1 300); do
+            run="$(gh api "repos/$repo/actions/runs/$run_id")"
+            [[ "$(jq -r '.head_sha' <<<"$run")" == "$release_sha" ]]
+            status="$(jq -r '.status' <<<"$run")"
+            conclusion="$(jq -r '.conclusion // empty' <<<"$run")"
+            if [[ "$status" == 'completed' ]]; then
+              [[ "$conclusion" == 'success' ]] || {
+                echo "P0_EXACT_RELEASE_FAILED run=$run_id conclusion=$conclusion" >&2
+                exit 1
+              }
+              echo "exact-SHA release successful run=$run_id sha=$release_sha"
+              exit 0
+            fi
+            echo "waiting for exact-SHA release: run=$run_id status=$status attempt=$attempt"
+            sleep 20
+          done
+          echo 'P0_EXACT_RELEASE_TIMEOUT' >&2
+          exit 1
