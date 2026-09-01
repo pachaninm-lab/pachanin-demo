@@ -16,12 +16,26 @@ const REVIEWER: RequestUser = {
   mfaVerifiedAt: new Date().toISOString(),
 };
 
+function createMailOutboxMock() {
+  return {
+    enqueue: jest.fn().mockResolvedValue({ queued: true, replayed: false, envelopeDigest: 'digest' }),
+    registrationDecisionStatus: jest.fn().mockResolvedValue({
+      status: 'MISSING', attemptCount: 0, maxAttempts: 0, lastErrorCode: null, sentAt: null,
+    }),
+    waitForRegistrationDecisionDelivery: jest.fn().mockResolvedValue({
+      status: 'SENT', attemptCount: 0, maxAttempts: 12, lastErrorCode: null, sentAt: new Date(),
+    }),
+  };
+}
+
 function createService() {
   const prisma = { $queryRaw: jest.fn().mockResolvedValue([]) };
   const repository = {};
+  const mailOutbox = createMailOutboxMock();
   return {
-    service: new RegistrationDecisionService(prisma as never, repository as never),
+    service: new RegistrationDecisionService(prisma as never, repository as never, mailOutbox as never),
     prisma,
+    mailOutbox,
   };
 }
 
@@ -108,7 +122,7 @@ describe('platform registration reviewer boundary', () => {
     const prisma = {
       $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
     };
-    const service = new RegistrationDecisionService(prisma as never, {} as never);
+    const service = new RegistrationDecisionService(prisma as never, {} as never, createMailOutboxMock() as never);
 
     await expect(service.decide(
       'join-application-1', 'APPROVE', 'Verified organization join request',
@@ -118,21 +132,28 @@ describe('platform registration reviewer boundary', () => {
     expect(tx.$queryRaw).toHaveBeenCalledTimes(3);
   });
 
-  it('marks an exact platform decision retry as replayed before reading delivery metadata', async () => {
+  it('recovers the durable notification on an exact platform decision replay', async () => {
     const tx = {
       $queryRaw: jest.fn().mockResolvedValue([{ application_id: 'application-1' }]),
     };
     const prisma = {
       $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
     };
-    const service = new RegistrationDecisionService(prisma as never, {} as never);
+    const service = new RegistrationDecisionService(
+      prisma as never,
+      {} as never,
+      createMailOutboxMock() as never,
+    );
     const replayResult = { applicationId: 'application-1', status: 'ACTIVATED', replayed: true };
     const readResult = jest.fn().mockResolvedValue(replayResult);
+    const queueRegistrationDecisionNotification = jest.fn().mockResolvedValue(
+      `auth-mail:registration-decision:${'a'.repeat(64)}`,
+    );
     Object.assign(service as unknown as Record<string, unknown>, {
       requirePlatformDecisionAuthority: jest.fn().mockResolvedValue(undefined),
       readResult,
+      queueRegistrationDecisionNotification,
     });
-    const deliveryKey = 'registration-delivery-key-for-replay-test';
 
     await expect(service.decide(
       'application-1',
@@ -141,21 +162,18 @@ describe('platform registration reviewer boundary', () => {
       { ...REVIEWER, staffRoles: ['PLATFORM_OWNER'] },
       'idempotency-decision-replay-0001',
       'correlation-replay-1',
-      deliveryKey,
     )).resolves.toEqual(replayResult);
 
-    expect(readResult).toHaveBeenCalledWith(
+    expect(queueRegistrationDecisionNotification).toHaveBeenCalledWith(
       tx,
       'application-1',
-      deliveryKey,
-      true,
+      'decision:idempotency-decision-replay-0001',
+      'correlation-replay-1',
     );
+    expect(readResult).toHaveBeenCalledWith(tx, 'application-1', true);
   });
 
-  it('omits notification delivery metadata when readResult is replayed', async () => {
-    const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
-    const deliveryKey = 'registration-delivery-key-for-read-result-test';
-    process.env.REGISTRATION_DELIVERY_KEY = deliveryKey;
+  it('never returns recipient metadata from the registration decision result', async () => {
     const { service } = createService();
     const client = {
       $queryRaw: jest.fn().mockResolvedValue([{
@@ -163,27 +181,79 @@ describe('platform registration reviewer boundary', () => {
         status: 'ACTIVATED',
         version: 2n,
         correlation_id: 'correlation-1',
-        email: 'applicant@example.test',
-        decision_reason: 'Verified organization details',
       }]),
     };
     const readResult = (service as unknown as {
       readResult: (
         tx: typeof client,
         applicationId: string,
-        providedDeliveryKey?: string,
         replayed?: boolean,
       ) => Promise<Record<string, unknown>>;
     }).readResult.bind(service);
 
+    const initial = await readResult(client, 'application-1');
+    expect(initial).toMatchObject({ replayed: false, status: 'ACTIVATED' });
+    expect(initial).not.toHaveProperty('notificationDelivery');
+    expect(JSON.stringify(initial)).not.toContain('@');
+
+    const replay = await readResult(client, 'application-1', true);
+    expect(replay).toMatchObject({ replayed: true });
+    expect(replay).not.toHaveProperty('notificationDelivery');
+  });
+
+  it('waits for durable SENT evidence before exposing a bounded delivery acknowledgement', async () => {
+    const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
+    const deliveryKey = 'registration-delivery-key-for-durable-status';
+    process.env.REGISTRATION_DELIVERY_KEY = deliveryKey;
+    const { service, mailOutbox } = createService();
+    const complete = (service as unknown as {
+      completeDecisionResponse: (
+        outcome: Record<string, unknown>,
+        providedDeliveryKey?: string,
+      ) => Promise<Record<string, unknown>>;
+    }).completeDecisionResponse.bind(service);
     try {
-      await expect(readResult(client, 'application-1', deliveryKey)).resolves.toMatchObject({
-        replayed: false,
-        notificationDelivery: { email: 'applicant@example.test' },
+      const result = await complete({
+        response: {
+          applicationId: 'application-1', status: 'ACTIVATED', nextAction: 'LOGIN',
+          version: '2', correlationId: 'correlation-1', replayed: false,
+        },
+        mailIdempotencyKey: `auth-mail:registration-decision:${'a'.repeat(64)}`,
+      }, deliveryKey);
+      expect(mailOutbox.waitForRegistrationDecisionDelivery).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({ notificationDelivery: { status: 'SENT' } });
+      expect(JSON.stringify(result)).not.toContain('@');
+    } finally {
+      if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
+      else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
+    }
+  });
+
+  it('returns bounded SENT evidence after a durable replay recovery', async () => {
+    const previousDeliveryKey = process.env.REGISTRATION_DELIVERY_KEY;
+    const deliveryKey = 'registration-delivery-key-for-replay-proof';
+    process.env.REGISTRATION_DELIVERY_KEY = deliveryKey;
+    const { service, mailOutbox } = createService();
+    const complete = (service as unknown as {
+      completeDecisionResponse: (
+        outcome: Record<string, unknown>,
+        providedDeliveryKey?: string,
+      ) => Promise<Record<string, unknown>>;
+    }).completeDecisionResponse.bind(service);
+    try {
+      const result = await complete({
+        response: {
+          applicationId: 'application-1', status: 'ACTIVATED', nextAction: 'LOGIN',
+          version: '2', correlationId: 'correlation-replay-proof', replayed: true,
+        },
+        mailIdempotencyKey: `auth-mail:registration-decision:${'b'.repeat(64)}`,
+      }, deliveryKey);
+      expect(mailOutbox.waitForRegistrationDecisionDelivery).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({
+        replayed: true,
+        notificationDelivery: { status: 'SENT' },
       });
-      const replay = await readResult(client, 'application-1', deliveryKey, true);
-      expect(replay).toMatchObject({ replayed: true });
-      expect(replay).not.toHaveProperty('notificationDelivery');
+      expect(JSON.stringify(result)).not.toContain('@');
     } finally {
       if (previousDeliveryKey === undefined) delete process.env.REGISTRATION_DELIVERY_KEY;
       else process.env.REGISTRATION_DELIVERY_KEY = previousDeliveryKey;
@@ -210,7 +280,7 @@ describe('platform registration reviewer boundary', () => {
     const prisma = {
       $transaction: jest.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
     };
-    const service = new RegistrationDecisionService(prisma as never, {} as never);
+    const service = new RegistrationDecisionService(prisma as never, {} as never, createMailOutboxMock() as never);
     const application = {
       id: 'application-1', kind: 'NEW_ORGANIZATION', user_id: 'applicant-1',
       organization_id: 'organization-1', membership_id: 'membership-1', requested_workspace: 'seller',
@@ -223,6 +293,10 @@ describe('platform registration reviewer boundary', () => {
       approve: jest.fn(async () => { order.push('approve'); }),
       audit: jest.fn(async () => { order.push('audit'); }),
       emitRegistrationLifecycleReceipt: jest.fn(async () => { order.push('receipt'); }),
+      queueRegistrationDecisionNotification: jest.fn(async () => {
+        order.push('queue');
+        return `auth-mail:registration-decision:${'a'.repeat(64)}`;
+      }),
       readResult: jest.fn(async () => { order.push('read'); return { status: 'ACTIVATED' }; }),
     });
 
@@ -235,7 +309,7 @@ describe('platform registration reviewer boundary', () => {
       'correlation-1',
     )).resolves.toEqual({ status: 'ACTIVATED' });
 
-    expect(order).toEqual(['authority', 'approve', 'audit', 'receipt', 'read']);
+    expect(order).toEqual(['authority', 'approve', 'audit', 'receipt', 'queue', 'read']);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 });

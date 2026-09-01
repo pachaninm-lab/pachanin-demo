@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-employee-join-replay-contract-4882",
+  "status": "active",
+  "issue": 4882,
+  "registrationIssue": 3785,
+  "releaseAuthorityIssue": 4637,
+  "authorityBaseExactMain": "d7dde3c1b434ab687d50cf3ad4749c69a9e87ef4",
+  "purpose": "Align the generated all-role employee organization-join replay assertion with the existing public BFF response contract after durable SENT evidence.",
+  "allowedPaths": [
+    "scripts/p0-employee-join-replay-contract-overlay.py",
+    "scripts/production-p0-all-role-registration.sh",
+    "scripts/check-production-p0-all-role-registration.mjs",
+    "docs/platform-v7/autopilot/scopes/p0-employee-join-replay-contract-4882.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "identityMutation": false,
+    "applicationBehaviorChange": false,
+    "bffBehaviorChange": false,
+    "reviewerCredentialInput": false,
+    "mfaWeakening": false,
+    "rlsWeakening": false,
+    "csrfWeakening": false,
+    "secretOutput": false,
+    "durableSentPrerequisitePreserved": true,
+    "freshDecisionNotificationAssertionPreserved": true,
+    "replayPublicNotificationField": "ABSENT"
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
