@@ -91,8 +91,8 @@ jobs:
               r'docker\s+(?:container|volume|network)\s+(?:rm|prune)',
               r'docker[^\n]*\brm\s+-f\b',
               r'StrictHostKeyChecking' + r'=no',
-              r'sshpass',
-              r'SSH_PASSWORD',
+              r'ssh' + r'pass',
+              r'SSH_' + r'PASSWORD',
           ]
           combined = workflow + '\n' + recovery
           for pattern in forbidden:
