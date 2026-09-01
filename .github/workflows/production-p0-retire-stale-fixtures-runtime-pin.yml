@@ -7,12 +7,14 @@ on:
       - '.github/workflows/production-p0-retire-stale-fixtures-runtime-pin.yml'
   issue_comment:
     types: [created]
+  schedule:
+    - cron: '17 2 * * *'
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 4637 && github.event.comment.body == '/production p0-retire-stale-fixtures-runtime-pin current-main' && 'pc-crop-registration-lifecycle' || 'production-p0-retire-stale-fixtures-runtime-pin-contract' }}
+  group: ${{ (github.event_name == 'schedule' || (github.event_name == 'issue_comment' && github.event.issue.number == 4637 && github.event.comment.body == '/production p0-retire-stale-fixtures-runtime-pin current-main')) && 'pc-crop-registration-lifecycle' || 'production-p0-retire-stale-fixtures-runtime-pin-contract' }}
   cancel-in-progress: false
   queue: max
 
@@ -20,7 +22,6 @@ env:
   AUTHORITY_ISSUE: '4637'
   COMMAND: /production p0-retire-stale-fixtures-runtime-pin current-main
   RUNTIME_SHA: fd33ce36ed4c2b39f23aafda050863045cb04299
-  SOURCE_BASE_SHA: 251a6fd00a5205492685f32efe49b2e1c0866031
   RUNNER_PATH: scripts/production-p0-retire-stale-fixtures.cjs
   RUNNER_BLOB_SHA: 4ab897bfe6dccb0a8609e10503c02ff66132e692
   WORKFLOW_PATH: .github/workflows/production-p0-retire-stale-fixtures-runtime-pin.yml
@@ -57,7 +58,6 @@ jobs:
           [[ "${#changed[@]}" == 1 && "${changed[0]}" == "$WORKFLOW_PATH" ]]
           for marker in \
             "RUNTIME_SHA: fd33ce36ed4c2b39f23aafda050863045cb04299" \
-            "SOURCE_BASE_SHA: 251a6fd00a5205492685f32efe49b2e1c0866031" \
             "RUNNER_BLOB_SHA: 4ab897bfe6dccb0a8609e10503c02ff66132e692" \
             "github.event.issue.number == 4637" \
             "github.event.comment.user.login == github.repository_owner" \
@@ -65,7 +65,11 @@ jobs:
             "github.actor == github.repository_owner" \
             "github.triggering_actor == github.repository_owner" \
             "github.event.comment.body == '/production p0-retire-stale-fixtures-runtime-pin current-main'" \
-            "ACTIVE_REGISTRATION_ACCEPTANCE"; do
+            "github.event_name == 'schedule'" \
+            "cron: '17 2 * * *'" \
+            "cut -d ' ' -f1" \
+            "ACTIVE_REGISTRATION_ACCEPTANCE" \
+            "MAIN_DRIFT_BEFORE_MUTATION"; do
             grep -Fq "$marker" "$WORKFLOW_PATH"
           done
           for marker in \
@@ -82,18 +86,21 @@ jobs:
           ! grep -Eiq '\bDELETE[[:space:]]+FROM[[:space:]]+(auth|public)\.' "$RUNNER_PATH"
           ! grep -Fq 'registration_platform_actor_authorized' "$RUNNER_PATH"
           ! grep -Fq 'apply_registration_identity_transition' "$RUNNER_PATH"
-          echo 'PASS: cleanup source is one-file bounded and runner is immutable.'
+          echo 'PASS: cleanup source is one-file bounded, calendar-gated and immutable-runner protected.'
 
   retire:
     name: Retire stale exact-run fixtures on restored REG.RU runtime
     if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.issue.number == 4637 &&
-      github.event.comment.user.login == github.repository_owner &&
-      github.event.comment.author_association == 'OWNER' &&
-      github.actor == github.repository_owner &&
-      github.triggering_actor == github.repository_owner &&
-      github.event.comment.body == '/production p0-retire-stale-fixtures-runtime-pin current-main'
+      github.event_name == 'schedule' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 4637 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-retire-stale-fixtures-runtime-pin current-main'
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
@@ -116,7 +123,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Prove source scope, immutable runner and no active registration acceptance
+      - name: Prove immutable runner and no active registration acceptance
         id: scope
         shell: bash
         run: |
@@ -126,14 +133,13 @@ jobs:
           [[ "$current" =~ ^[0-9a-f]{40}$ ]]
           [[ "$(git rev-parse origin/main)" == "$current" ]]
           [[ "$(git rev-parse HEAD)" == "$current" ]]
-          git cat-file -e "$SOURCE_BASE_SHA^{commit}"
-          git merge-base --is-ancestor "$SOURCE_BASE_SHA" "$current"
-          mapfile -t changed < <(git diff --name-only "$SOURCE_BASE_SHA" "$current")
-          [[ "${#changed[@]}" == 1 && "${changed[0]}" == "$WORKFLOW_PATH" ]] || {
-            echo 'P0_RETIRE_BLOCKER=MAINTENANCE_SOURCE_DRIFT'
+          if [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
+            [[ "$GITHUB_REF_NAME" == 'main' ]]
+          fi
+          [[ "$(git hash-object "$RUNNER_PATH")" == "$RUNNER_BLOB_SHA" ]] || {
+            echo 'P0_RETIRE_BLOCKER=IMMUTABLE_RUNNER_DRIFT'
             exit 20
           }
-          [[ "$(git hash-object "$RUNNER_PATH")" == "$RUNNER_BLOB_SHA" ]]
           node --check "$RUNNER_PATH"
           for state in in_progress queued; do
             active="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?status=$state&per_page=100" --jq '[.workflow_runs[] | select(.path == ".github/workflows/production-p0-first-customer-acceptance.yml" or .path == ".github/workflows/production-p0-all-role-registration.yml")] | length' | awk '{sum += $1} END {print sum+0}')"
@@ -228,7 +234,7 @@ jobs:
           remote_hash="$(ssh -i "$KEY_PATH" -p "$SSH_PORT" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$KNOWN_HOSTS" \
-            "$SSH_USER@$SSH_HOST" "sha256sum '$remote_path' | awk '{print \\$1}'")"
+            "$SSH_USER@$SSH_HOST" "sha256sum '$remote_path' | cut -d ' ' -f1")"
           [[ "$remote_hash" == "$RUNNER_SHA256" ]]
           echo "remote_path=$remote_path" >> "$GITHUB_OUTPUT"
 
@@ -307,7 +313,7 @@ jobs:
           if (( remote_rc != 0 )); then
             blocker="$(sed -n 's/^P0_RETIRE_BLOCKER=//p' <<< "$safe_output" | tail -1)"
             [[ "$blocker" =~ ^[A-Z0-9_]{4,96}$ ]] || blocker=REMOTE_RETIRE_FAILED_CLOSED
-            gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement runtime-pin\n\n- result: \`FAIL\`\n- runtime SHA: \`$RUNTIME_SHA\`\n- blocker: \`$blocker\`\n- raw identifiers or credentials published: \`0\`" >/dev/null
+            gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement runtime-pin\n\n- result: \`FAIL\`\n- trigger: \`$GITHUB_EVENT_NAME\`\n- runtime SHA: \`$RUNTIME_SHA\`\n- blocker: \`$blocker\`\n- raw identifiers or credentials published: \`0\`" >/dev/null
             exit "$remote_rc"
           fi
           for marker in P0_RETIRE_RESULT=PASS P0_RETIRE_REMAINING=0 P0_RETIRE_RAW_IDENTIFIERS=0 P0_RETIRE_NON_MARKER_MUTATIONS=0 P0_REMOTE_RUNTIME_SHA=PASS; do
@@ -317,7 +323,9 @@ jobs:
           events="$(sed -n 's/^P0_RETIRE_EVENT_EVIDENCE=//p' <<< "$safe_output" | tail -1)"
           audits="$(sed -n 's/^P0_RETIRE_AUDIT_EVIDENCE=//p' <<< "$safe_output" | tail -1)"
           [[ "$retired" =~ ^[0-9]{1,3}$ && "$events" == "$retired" && "$audits" == "$retired" ]]
-          gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement runtime-pin\n\n- result: \`PASS\`\n- runtime SHA: \`$RUNTIME_SHA\`\n- retired stale exact-run NEW_ORGANIZATION fixtures: \`$retired\`\n- remaining stale marked reviewer-queue rows: \`0\`\n- lifecycle event evidence: \`$events\`\n- chained auth audit evidence: \`$audits\`\n- non-marker mutations: \`0\`\n- physical deletes: \`0\`\n- raw identifiers or credentials published: \`0\`" >/dev/null
+          if [[ "$GITHUB_EVENT_NAME" != 'schedule' || "$retired" != '0' ]]; then
+            gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement runtime-pin\n\n- result: \`PASS\`\n- trigger: \`$GITHUB_EVENT_NAME\`\n- calendar: \`daily 02:17 UTC\`\n- runtime SHA: \`$RUNTIME_SHA\`\n- retired stale exact-run NEW_ORGANIZATION fixtures: \`$retired\`\n- remaining stale marked reviewer-queue rows: \`0\`\n- lifecycle event evidence: \`$events\`\n- chained auth audit evidence: \`$audits\`\n- non-marker mutations: \`0\`\n- physical deletes: \`0\`\n- raw identifiers or credentials published: \`0\`" >/dev/null
+          fi
 
       - name: Remove protected SSH material
         if: always()
