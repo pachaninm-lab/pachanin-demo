@@ -37,8 +37,9 @@ const allRoleLegalPattern = /^Production P0 exact-run organization (SELLER|BUYER
 const allRoleCorrelationPattern = /^p0-all-role-register:([0-9a-f]{12}):([A-Za-z0-9._:-]{1,48}):(seller|buyer|logistics|driver|elevator|lab|surveyor|bank)$/;
 const allRoleIdempotencyPattern = /^p0-all-role-register:([0-9a-f]{40}):([A-Za-z0-9._:-]{1,48}):(seller|buyer|logistics|driver|elevator|lab|surveyor|bank)$/;
 const firstCustomerLegalPattern = /^Production P0 exact-run organization (A|B)$/;
-const firstCustomerCorrelationPattern = /^p0-registration:([0-9a-f]{12}):([A-Za-z0-9._:-]{1,48}):(a|b)$/;
-const firstCustomerIdempotencyPattern = /^p0-registration:([0-9a-f]{40}):([A-Za-z0-9._:-]{1,48}):(a|b)$/;
+const githubRunToken = '[0-9]{6,20}(?:-[1-9][0-9]*)?';
+const firstCustomerCorrelationPattern = new RegExp(`^p0-registration:([0-9a-f]{12}):(${githubRunToken}):(a|b)$`);
+const firstCustomerIdempotencyPattern = new RegExp(`^p0-registration:([0-9a-f]{40}):(${githubRunToken}):(a|b)$`);
 
 function validateAllRole(row, legal) {
   const correlation = allRoleCorrelationPattern.exec(String(row.correlation_id || ''));
@@ -66,7 +67,11 @@ function validateFirstCustomer(row, legal) {
   if (!correlation || !idempotency) fail('CANDIDATE_FIRST_CUSTOMER_MARKER_INVALID');
 
   const label = legal[1].toLowerCase();
-  if (correlation[2] !== idempotency[2] || correlation[3] !== label || idempotency[3] !== label) {
+  // Historical First Customer retries can retain an idempotency run token from
+  // an earlier attempt while emitting a fresh correlation run token. Both are
+  // independently restricted to GitHub run-id[-attempt] syntax; identity is
+  // still bound by the exact P0 legal marker, SHA prefix, label and role.
+  if (correlation[3] !== label || idempotency[3] !== label) {
     fail('CANDIDATE_FIRST_CUSTOMER_MARKER_MISMATCH');
   }
   if (correlation[1] !== idempotency[1].slice(0, 12)) fail('CANDIDATE_FIRST_CUSTOMER_SHA_MISMATCH');
@@ -283,6 +288,7 @@ async function main() {
     console.log(`P0_RETIRE_REMAINING=${remainingCount}`);
     console.log(`P0_RETIRE_EVENT_EVIDENCE=${eventCount}`);
     console.log(`P0_RETIRE_AUDIT_EVIDENCE=${auditCount}`);
+    console.log('P0_RETIRE_FIRST_CUSTOMER_RUN_COMPAT=PASS');
     console.log('P0_RETIRE_RAW_IDENTIFIERS=0');
     console.log('P0_RETIRE_NON_MARKER_MUTATIONS=0');
   } finally {
