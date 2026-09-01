@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-retire-stale-fixtures-runtime-pin.yml'
+      - 'scripts/production-p0-retire-stale-fixtures-v2.cjs'
   issue_comment:
     types: [created]
   schedule:
@@ -16,21 +17,20 @@ permissions:
 concurrency:
   group: ${{ (github.event_name == 'schedule' || (github.event_name == 'issue_comment' && github.event.issue.number == 4637 && github.event.comment.body == '/production p0-retire-stale-fixtures-runtime-pin current-main')) && 'pc-crop-registration-lifecycle' || 'production-p0-retire-stale-fixtures-runtime-pin-contract' }}
   cancel-in-progress: false
-  queue: max
 
 env:
   AUTHORITY_ISSUE: '4637'
   COMMAND: /production p0-retire-stale-fixtures-runtime-pin current-main
-  RUNTIME_SHA: fd33ce36ed4c2b39f23aafda050863045cb04299
-  RUNNER_PATH: scripts/production-p0-retire-stale-fixtures.cjs
-  RUNNER_BLOB_SHA: 4ab897bfe6dccb0a8609e10503c02ff66132e692
+  RUNTIME_SHA: 1c5a0b9865530476b6d8c7d9ed3e4842c9441937
+  RUNNER_PATH: scripts/production-p0-retire-stale-fixtures-v2.cjs
+  RUNNER_BLOB_SHA: 600036d384caf582cadc842e1b70bf9b742d7021
   WORKFLOW_PATH: .github/workflows/production-p0-retire-stale-fixtures-runtime-pin.yml
   LIVE_HOST: '195.19.12.120'
   STALE_SECONDS: '1800'
 
 jobs:
   contract:
-    name: Validate restored-runtime cleanup contract
+    name: Validate bounded calendar cleanup v2 contract
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -47,18 +47,20 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Prove one-file source scope and immutable runner
+      - name: Prove two-file bounded source scope and immutable runner
         shell: bash
         run: |
           set -euo pipefail
           [[ "$(git rev-parse HEAD)" == "$PR_HEAD_SHA" ]]
           [[ "$(git hash-object "$RUNNER_PATH")" == "$RUNNER_BLOB_SHA" ]]
           node --check "$RUNNER_PATH"
-          mapfile -t changed < <(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename')
-          [[ "${#changed[@]}" == 1 && "${changed[0]}" == "$WORKFLOW_PATH" ]]
+          mapfile -t changed < <(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename' | sort)
+          [[ "${#changed[@]}" == 2 ]]
+          [[ "${changed[0]}" == "$WORKFLOW_PATH" ]]
+          [[ "${changed[1]}" == "$RUNNER_PATH" ]]
           for marker in \
-            "RUNTIME_SHA: fd33ce36ed4c2b39f23aafda050863045cb04299" \
-            "RUNNER_BLOB_SHA: 4ab897bfe6dccb0a8609e10503c02ff66132e692" \
+            "RUNTIME_SHA: 1c5a0b9865530476b6d8c7d9ed3e4842c9441937" \
+            "RUNNER_BLOB_SHA: 600036d384caf582cadc842e1b70bf9b742d7021" \
             "github.event.issue.number == 4637" \
             "github.event.comment.user.login == github.repository_owner" \
             "github.event.comment.author_association == 'OWNER'" \
@@ -67,7 +69,6 @@ jobs:
             "github.event.comment.body == '/production p0-retire-stale-fixtures-runtime-pin current-main'" \
             "github.event_name == 'schedule'" \
             "cron: '17 2 * * *'" \
-            "cut -d ' ' -f1" \
             "ACTIVE_REGISTRATION_ACCEPTANCE" \
             "MAIN_DRIFT_BEFORE_MUTATION" \
             "NODE_PATH=/app/node_modules" \
@@ -75,23 +76,27 @@ jobs:
             grep -Fq "$marker" "$WORKFLOW_PATH"
           done
           for marker in \
-            "Production P0 exact-run organization" \
             "p0-all-role-register:" \
+            "p0-registration:" \
+            "Production P0 exact-run organization A" \
+            "Production P0 exact-run organization B" \
             "status = 'CANCELLED'" \
             "P0_ACCEPTANCE_FIXTURE_RETIRED" \
             "CANDIDATE_ACTIVE_SESSION_PRESENT" \
+            "P0_RETIRE_RETIRED_ALL_ROLE" \
+            "P0_RETIRE_RETIRED_FIRST_CUSTOMER" \
             "auth.registration_application_events" \
             "auth.audit_events" \
-            "LIMIT 257"; do
+            "LIMIT 1025"; do
             grep -Fq "$marker" "$RUNNER_PATH"
           done
           ! grep -Eiq '\bDELETE[[:space:]]+FROM[[:space:]]+(auth|public)\.' "$RUNNER_PATH"
           ! grep -Fq 'registration_platform_actor_authorized' "$RUNNER_PATH"
           ! grep -Fq 'apply_registration_identity_transition' "$RUNNER_PATH"
-          echo 'PASS: cleanup source is one-file bounded, calendar-gated and immutable-runner protected.'
+          echo 'PASS: calendar cleanup v2 is marker-bounded, audit-preserving and fail-closed.'
 
   retire:
-    name: Retire stale exact-run fixtures on restored REG.RU runtime
+    name: Retire stale marked P0 fixtures on REG.RU runtime
     if: >-
       github.event_name == 'schedule' ||
       (
@@ -124,7 +129,6 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-
       - name: Prove immutable runner and no active registration acceptance
         id: scope
         shell: bash
@@ -135,87 +139,32 @@ jobs:
           [[ "$current" =~ ^[0-9a-f]{40}$ ]]
           [[ "$(git rev-parse origin/main)" == "$current" ]]
           [[ "$(git rev-parse HEAD)" == "$current" ]]
-          if [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
-            [[ "$GITHUB_REF_NAME" == 'main' ]]
-          fi
-          [[ "$(git hash-object "$RUNNER_PATH")" == "$RUNNER_BLOB_SHA" ]] || {
-            echo 'P0_RETIRE_BLOCKER=IMMUTABLE_RUNNER_DRIFT'
-            exit 20
-          }
+          if [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then [[ "$GITHUB_REF_NAME" == 'main' ]]; fi
+          [[ "$(git hash-object "$RUNNER_PATH")" == "$RUNNER_BLOB_SHA" ]] || { echo 'P0_RETIRE_BLOCKER=IMMUTABLE_RUNNER_DRIFT'; exit 20; }
           node --check "$RUNNER_PATH"
           for state in in_progress queued; do
             active="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?status=$state&per_page=100" --jq '[.workflow_runs[] | select(.path == ".github/workflows/production-p0-first-customer-acceptance.yml" or .path == ".github/workflows/production-p0-all-role-registration.yml")] | length' | awk '{sum += $1} END {print sum+0}')"
-            [[ "$active" == 0 ]] || {
-              echo 'P0_RETIRE_BLOCKER=ACTIVE_REGISTRATION_ACCEPTANCE'
-              exit 21
-            }
+            [[ "$active" == 0 ]] || { echo 'P0_RETIRE_BLOCKER=ACTIVE_REGISTRATION_ACCEPTANCE'; exit 21; }
           done
           echo "main_sha=$current" >> "$GITHUB_OUTPUT"
           echo "runner_sha256=$(sha256sum "$RUNNER_PATH" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-
       - name: Resolve pinned REG.RU SSH identity
         id: ssh
         shell: bash
         run: |
           set -euo pipefail
-          key_path="$RUNNER_TEMP/p0-retire-runtime-key"
-          known_hosts="$RUNNER_TEMP/p0-retire-runtime-known-hosts"
-          trim() {
-            local value="$1"
-            value="${value#"${value%%[![:space:]]*}"}"
-            value="${value%"${value##*[![:space:]]}"}"
-            printf '%s' "$value"
-          }
-          host="$(trim "${SSH_HOST_SECRET:-}")"
-          user="$(trim "${SSH_USER_SECRET:-}")"
-          port="$(trim "${SSH_PORT_SECRET:-22}")"
-          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
-          [[ "$host" == "$LIVE_HOST" ]]
-          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
-          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
-          validate_key() {
-            local source="$1" public_key
-            tr -d '\r' < "$source" > "$key_path"
-            chmod 0600 "$key_path"
-            public_key="$(mktemp)"
-            ssh-keygen -y -P '' -f "$key_path" > "$public_key" 2>/dev/null || {
-              rm -f "$public_key"
-              return 1
-            }
-            rm -f "$public_key"
-          }
-          try_key() {
-            local raw="$1" plain escaped decoded
-            [[ -n "$raw" ]] || return 1
-            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
-            printf '%s\n' "$raw" > "$plain"
-            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
-            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
-            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
-            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null && validate_key "$decoded" && {
-              rm -f "$plain" "$escaped" "$decoded"
-              return 0
-            }
-            rm -f "$plain" "$escaped" "$decoded"
-            return 1
-          }
+          key_path="$RUNNER_TEMP/p0-retire-runtime-key"; known_hosts="$RUNNER_TEMP/p0-retire-runtime-known-hosts"
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          host="$(trim "${SSH_HOST_SECRET:-}")"; user="$(trim "${SSH_USER_SECRET:-}")"; port="$(trim "${SSH_PORT_SECRET:-22}")"; expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$LIVE_HOST" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ && "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          (( port >= 1 && port <= 65535 ))
+          validate_key(){ local source="$1" public_key; tr -d '\r' < "$source" > "$key_path"; chmod 0600 "$key_path"; public_key="$(mktemp)"; ssh-keygen -y -P '' -f "$key_path" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }; rm -f "$public_key"; }
+          try_key(){ local raw="$1" plain escaped decoded; [[ -n "$raw" ]] || return 1; plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"; printf '%s\n' "$raw" > "$plain"; validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$escaped"; validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }; printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null && validate_key "$decoded" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }; rm -f "$plain" "$escaped" "$decoded"; return 1; }
           try_key "${SSH_KEY_PRIMARY:-}" || try_key "${SSH_KEY_SECONDARY:-}" || try_key "${SSH_KEY_FALLBACK:-}"
-          scan="$(mktemp)"; match="$(mktemp)"
-          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
-          [[ -s "$scan" ]]
-          while IFS= read -r line; do
-            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
-          done < "$scan"
-          [[ "$(grep -c . "$match" || true)" == 1 ]]
-          mv "$match" "$known_hosts"; rm -f "$scan"; chmod 0600 "$known_hosts"
-          echo "key=$key_path" >> "$GITHUB_OUTPUT"
-          echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"
-          echo "host=$host" >> "$GITHUB_OUTPUT"
-          echo "user=$user" >> "$GITHUB_OUTPUT"
-          echo "port=$port" >> "$GITHUB_OUTPUT"
-
+          scan="$(mktemp)"; match="$(mktemp)"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"; [[ -s "$scan" ]]
+          while IFS= read -r line; do fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]; mv "$match" "$known_hosts"; rm -f "$scan"; chmod 0600 "$known_hosts"
+          echo "key=$key_path" >> "$GITHUB_OUTPUT"; echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"; echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
       - name: Stage immutable cleanup runner
         id: stage
         shell: bash
@@ -229,18 +178,10 @@ jobs:
         run: |
           set -euo pipefail
           remote_path="/tmp/pc-p0-retire-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.cjs"
-          scp -q -i "$KEY_PATH" -P "$SSH_PORT" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$KNOWN_HOSTS" \
-            "$RUNNER_PATH" "$SSH_USER@$SSH_HOST:$remote_path"
-          remote_hash="$(ssh -i "$KEY_PATH" -p "$SSH_PORT" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$KNOWN_HOSTS" \
-            "$SSH_USER@$SSH_HOST" "sha256sum '$remote_path' | cut -d ' ' -f1")"
-          [[ "$remote_hash" == "$RUNNER_SHA256" ]]
-          echo "remote_path=$remote_path" >> "$GITHUB_OUTPUT"
-
-      - name: Retire only stale marked fixtures on restored runtime
+          scp -q -i "$KEY_PATH" -P "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS" "$RUNNER_PATH" "$SSH_USER@$SSH_HOST:$remote_path"
+          remote_hash="$(ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS" "$SSH_USER@$SSH_HOST" "sha256sum '$remote_path' | cut -d ' ' -f1")"
+          [[ "$remote_hash" == "$RUNNER_SHA256" ]]; echo "remote_path=$remote_path" >> "$GITHUB_OUTPUT"
+      - name: Retire only stale marked fixtures
         shell: bash
         env:
           KEY_PATH: ${{ steps.ssh.outputs.key }}
@@ -253,83 +194,35 @@ jobs:
           RUNNER_SHA256: ${{ steps.scope.outputs.runner_sha256 }}
         run: |
           set -euo pipefail
-          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
-          [[ "$current" == "$MAIN_SHA" ]] || {
-            echo 'P0_RETIRE_BLOCKER=MAIN_DRIFT_BEFORE_MUTATION'
-            exit 22
-          }
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"; [[ "$current" == "$MAIN_SHA" ]] || { echo 'P0_RETIRE_BLOCKER=MAIN_DRIFT_BEFORE_MUTATION'; exit 22; }
           correlation="p0-fixture-retire:${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           set +e
-          remote_output="$(ssh -i "$KEY_PATH" -p "$SSH_PORT" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$KNOWN_HOSTS" -o ConnectTimeout=15 \
-            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            "$SSH_USER@$SSH_HOST" "bash -s -- '$RUNTIME_SHA' '$STALE_SECONDS' '$correlation' '$REMOTE_RUNNER' '$RUNNER_SHA256'" 2>/dev/null <<'REMOTE'
+          remote_output="$(ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "$SSH_USER@$SSH_HOST" "bash -s -- '$RUNTIME_SHA' '$STALE_SECONDS' '$correlation' '$REMOTE_RUNNER' '$RUNNER_SHA256'" 2>/dev/null <<'REMOTE'
           set -Eeuo pipefail
-          runtime_sha="$1"
-          stale_seconds="$2"
-          correlation="$3"
-          remote_runner="$4"
-          runner_sha256="$5"
-          fail() { printf 'P0_RETIRE_RESULT=FAIL\nP0_RETIRE_BLOCKER=%s\n' "$1"; exit "${2:-1}"; }
-          cleanup() {
-            rm -f -- "$remote_runner" || true
-            if [[ -n "${api_id:-}" && -n "${container_runner:-}" ]]; then
-              docker exec "$api_id" /nodejs/bin/node -e "require('fs').rmSync(process.argv[1],{force:true})" "$container_runner" >/dev/null 2>&1 || true
-            fi
-          }
+          runtime_sha="$1"; stale_seconds="$2"; correlation="$3"; remote_runner="$4"; runner_sha256="$5"
+          fail(){ printf 'P0_RETIRE_RESULT=FAIL\nP0_RETIRE_BLOCKER=%s\n' "$1"; exit "${2:-1}"; }
+          cleanup(){ rm -f -- "$remote_runner" || true; if [[ -n "${api_id:-}" && -n "${container_runner:-}" ]]; then docker exec "$api_id" /nodejs/bin/node -e "require('fs').rmSync(process.argv[1],{force:true})" "$container_runner" >/dev/null 2>&1 || true; fi; }
           trap cleanup EXIT
-          [[ "$(id -u)" -eq 0 ]] || fail ROOT_AUTHORITY_REQUIRED 31
-          command -v docker >/dev/null 2>&1 || fail DOCKER_REQUIRED 32
-          [[ "$runtime_sha" =~ ^[0-9a-f]{40}$ ]] || fail RUNTIME_SHA_INVALID 33
-          [[ "$stale_seconds" == 1800 ]] || fail STALE_WINDOW_INVALID 34
-          [[ "$correlation" =~ ^p0-fixture-retire:[0-9]+-[0-9]+$ ]] || fail CORRELATION_INVALID 35
-          [[ -f "$remote_runner" ]] || fail RUNNER_MISSING 36
+          [[ "$(id -u)" -eq 0 ]] || fail ROOT_AUTHORITY_REQUIRED 31; command -v docker >/dev/null 2>&1 || fail DOCKER_REQUIRED 32
+          [[ "$runtime_sha" =~ ^[0-9a-f]{40}$ && "$stale_seconds" == 1800 && "$correlation" =~ ^p0-fixture-retire:[0-9]+-[0-9]+$ && -f "$remote_runner" ]] || fail REMOTE_INPUT_INVALID 33
           [[ "$(sha256sum "$remote_runner" | awk '{print $1}')" == "$runner_sha256" ]] || fail RUNNER_TRANSFER_MISMATCH 37
-          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
-          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
-          (( ${#api_ids[@]} == 1 )) || fail API_CARDINALITY_NOT_ONE 38
-          (( ${#web_ids[@]} == 1 )) || fail WEB_CARDINALITY_NOT_ONE 39
-          api_id="${api_ids[0]}"; web_id="${web_ids[0]}"
-          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
-          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
-          [[ "$api_revision" == "$runtime_sha" ]] || fail API_REVISION_MISMATCH 40
-          [[ "$web_revision" == "$runtime_sha" ]] || fail WEB_REVISION_MISMATCH 41
+          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api'); mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web'); (( ${#api_ids[@]} == 1 && ${#web_ids[@]} == 1 )) || fail RUNTIME_CARDINALITY_INVALID 38
+          api_id="${api_ids[0]}"; web_id="${web_ids[0]}"; [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" == "$runtime_sha" ]] || fail API_REVISION_MISMATCH 40; [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" == "$runtime_sha" ]] || fail WEB_REVISION_MISMATCH 41
           docker exec "$api_id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" >/dev/null 2>&1 || fail API_NOT_READY 42
-          docker exec "$api_id" /nodejs/bin/node -e "require.resolve('@prisma/client')" >/dev/null 2>&1 || fail API_PRISMA_RUNTIME_MODULE_MISSING 44
-          container_runner="/tmp/pc-p0-retire-${correlation##*:}.cjs"
-          docker cp "$remote_runner" "$api_id:$container_runner" >/dev/null
-          set +e
-          node_output="$(docker exec -e NODE_PATH=/app/node_modules "$api_id" /nodejs/bin/node "$container_runner" "$stale_seconds" "$correlation" 2>/dev/null)"
-          node_rc=$?
-          set -e
-          printf '%s\n' "$node_output" | grep -E '^P0_RETIRE_(RESULT|BLOCKER|RETIRED|REMAINING|EVENT_EVIDENCE|AUDIT_EVIDENCE|RAW_IDENTIFIERS|NON_MARKER_MUTATIONS)=' || true
-          (( node_rc == 0 )) || exit "$node_rc"
-          grep -Fxq 'P0_RETIRE_RESULT=PASS' <<< "$node_output" || fail NODE_RESULT_NOT_PASS 43
-          printf 'P0_REMOTE_RUNTIME_SHA=PASS\n'
+          docker exec "$api_id" /nodejs/bin/node -e "require.resolve('@prisma/client')" >/dev/null 2>&1 || fail API_PRISMA_RUNTIME_MODULE_MISSING 43
+          container_runner="/tmp/pc-p0-retire-${correlation##*:}.cjs"; docker cp "$remote_runner" "$api_id:$container_runner" >/dev/null
+          set +e; node_output="$(docker exec -e NODE_PATH=/app/node_modules "$api_id" /nodejs/bin/node "$container_runner" "$stale_seconds" "$correlation" 2>/dev/null)"; node_rc=$?; set -e
+          printf '%s\n' "$node_output" | grep -E '^P0_RETIRE_(RESULT|BLOCKER|RETIRED|RETIRED_ALL_ROLE|RETIRED_FIRST_CUSTOMER|REMAINING|EVENT_EVIDENCE|AUDIT_EVIDENCE|RAW_IDENTIFIERS|NON_MARKER_MUTATIONS)=' || true
+          (( node_rc == 0 )) || exit "$node_rc"; grep -Fxq 'P0_RETIRE_RESULT=PASS' <<< "$node_output" || fail NODE_RESULT_NOT_PASS 44; printf 'P0_REMOTE_RUNTIME_SHA=PASS\n'
           REMOTE
           )"
-          remote_rc=$?
-          set -e
-          safe_output="$(printf '%s\n' "$remote_output" | grep -E '^P0_(RETIRE_(RESULT|BLOCKER|RETIRED|REMAINING|EVENT_EVIDENCE|AUDIT_EVIDENCE|RAW_IDENTIFIERS|NON_MARKER_MUTATIONS)|REMOTE_RUNTIME_SHA)=' || true)"
-          printf '%s\n' "$safe_output"
-          if (( remote_rc != 0 )); then
-            blocker="$(sed -n 's/^P0_RETIRE_BLOCKER=//p' <<< "$safe_output" | tail -1)"
-            [[ "$blocker" =~ ^[A-Z0-9_]{4,96}$ ]] || blocker=REMOTE_RETIRE_FAILED_CLOSED
-            gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement runtime-pin\n\n- result: \`FAIL\`\n- trigger: \`$GITHUB_EVENT_NAME\`\n- runtime SHA: \`$RUNTIME_SHA\`\n- blocker: \`$blocker\`\n- raw identifiers or credentials published: \`0\`" >/dev/null
-            exit "$remote_rc"
-          fi
-          for marker in P0_RETIRE_RESULT=PASS P0_RETIRE_REMAINING=0 P0_RETIRE_RAW_IDENTIFIERS=0 P0_RETIRE_NON_MARKER_MUTATIONS=0 P0_REMOTE_RUNTIME_SHA=PASS; do
-            grep -Fxq "$marker" <<< "$safe_output"
-          done
-          retired="$(sed -n 's/^P0_RETIRE_RETIRED=//p' <<< "$safe_output" | tail -1)"
-          events="$(sed -n 's/^P0_RETIRE_EVENT_EVIDENCE=//p' <<< "$safe_output" | tail -1)"
-          audits="$(sed -n 's/^P0_RETIRE_AUDIT_EVIDENCE=//p' <<< "$safe_output" | tail -1)"
-          [[ "$retired" =~ ^[0-9]{1,3}$ && "$events" == "$retired" && "$audits" == "$retired" ]]
-          if [[ "$GITHUB_EVENT_NAME" != 'schedule' || "$retired" != '0' ]]; then
-            gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement runtime-pin\n\n- result: \`PASS\`\n- trigger: \`$GITHUB_EVENT_NAME\`\n- calendar: \`daily 02:17 UTC\`\n- runtime SHA: \`$RUNTIME_SHA\`\n- retired stale exact-run NEW_ORGANIZATION fixtures: \`$retired\`\n- remaining stale marked reviewer-queue rows: \`0\`\n- lifecycle event evidence: \`$events\`\n- chained auth audit evidence: \`$audits\`\n- non-marker mutations: \`0\`\n- physical deletes: \`0\`\n- raw identifiers or credentials published: \`0\`" >/dev/null
-          fi
-
+          remote_rc=$?; set -e
+          safe_output="$(printf '%s\n' "$remote_output" | grep -E '^P0_(RETIRE_(RESULT|BLOCKER|RETIRED|RETIRED_ALL_ROLE|RETIRED_FIRST_CUSTOMER|REMAINING|EVENT_EVIDENCE|AUDIT_EVIDENCE|RAW_IDENTIFIERS|NON_MARKER_MUTATIONS)|REMOTE_RUNTIME_SHA)=' || true)"; printf '%s\n' "$safe_output"
+          if (( remote_rc != 0 )); then blocker="$(sed -n 's/^P0_RETIRE_BLOCKER=//p' <<< "$safe_output" | tail -1)"; [[ "$blocker" =~ ^[A-Z0-9_]{4,96}$ ]] || blocker=REMOTE_RETIRE_FAILED_CLOSED; gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement v2\n\n- result: \`FAIL\`\n- trigger: \`$GITHUB_EVENT_NAME\`\n- runtime SHA: \`$RUNTIME_SHA\`\n- blocker: \`$blocker\`\n- raw identifiers or credentials published: \`0\`" >/dev/null; exit "$remote_rc"; fi
+          for marker in P0_RETIRE_RESULT=PASS P0_RETIRE_REMAINING=0 P0_RETIRE_RAW_IDENTIFIERS=0 P0_RETIRE_NON_MARKER_MUTATIONS=0 P0_REMOTE_RUNTIME_SHA=PASS; do grep -Fxq "$marker" <<< "$safe_output"; done
+          retired="$(sed -n 's/^P0_RETIRE_RETIRED=//p' <<< "$safe_output" | tail -1)"; all_role="$(sed -n 's/^P0_RETIRE_RETIRED_ALL_ROLE=//p' <<< "$safe_output" | tail -1)"; first_customer="$(sed -n 's/^P0_RETIRE_RETIRED_FIRST_CUSTOMER=//p' <<< "$safe_output" | tail -1)"; events="$(sed -n 's/^P0_RETIRE_EVENT_EVIDENCE=//p' <<< "$safe_output" | tail -1)"; audits="$(sed -n 's/^P0_RETIRE_AUDIT_EVIDENCE=//p' <<< "$safe_output" | tail -1)"
+          for value in "$retired" "$all_role" "$first_customer" "$events" "$audits"; do [[ "$value" =~ ^[0-9]{1,4}$ ]]; done; (( all_role + first_customer == retired )); [[ "$events" == "$retired" && "$audits" == "$retired" ]]
+          if [[ "$GITHUB_EVENT_NAME" != 'schedule' || "$retired" != '0' ]]; then gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement v2\n\n- result: \`PASS\`\n- trigger: \`$GITHUB_EVENT_NAME\`\n- calendar: \`daily 02:17 UTC / 05:17 MSK\`\n- runtime SHA: \`$RUNTIME_SHA\`\n- retired stale P0 fixtures: \`$retired\`\n- all-role retired: \`$all_role\`\n- First Customer retired: \`$first_customer\`\n- remaining stale marked reviewer-queue rows: \`0\`\n- lifecycle event evidence: \`$events\`\n- chained auth audit evidence: \`$audits\`\n- non-marker mutations: \`0\`\n- physical deletes: \`0\`\n- raw identifiers or credentials published: \`0\`" >/dev/null; fi
       - name: Remove protected SSH material
         if: always()
         shell: bash
@@ -341,7 +234,5 @@ jobs:
           SSH_USER: ${{ steps.ssh.outputs.user }}
           SSH_PORT: ${{ steps.ssh.outputs.port }}
         run: |
+          if [[ -n "${REMOTE_RUNNER:-}" && -n "${SSH_HOST:-}" && -n "${SSH_USER:-}" && -n "${SSH_PORT:-}" && -f "${KEY_PATH:-/nonexistent}" && -f "${KNOWN_HOSTS:-/nonexistent}" ]]; then ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS" "$SSH_USER@$SSH_HOST" "rm -f -- '$REMOTE_RUNNER'" >/dev/null 2>&1 || true; fi
           rm -f -- "${KEY_PATH:-}" "${KNOWN_HOSTS:-}"
-          if [[ -n "${REMOTE_RUNNER:-}" && -n "${SSH_HOST:-}" && -n "${SSH_USER:-}" && -n "${SSH_PORT:-}" ]]; then
-            ssh -i "${KEY_PATH:-/nonexistent}" -p "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="${KNOWN_HOSTS:-/nonexistent}" "$SSH_USER@$SSH_HOST" "rm -f -- '$REMOTE_RUNNER'" >/dev/null 2>&1 || true
-          fi
