@@ -1,0 +1,310 @@
+name: PC-CROP post-release acceptance 4884
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+    paths:
+      - '.github/workflows/p0-post-release-acceptance-4884.yml'
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: p0-post-release-acceptance-4884
+  cancel-in-progress: false
+
+jobs:
+  exact-sha-acceptance:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'automation/pc-crop-post-release-acceptance-4884'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    env:
+      GH_TOKEN: ${{ github.token }}
+      IMPLEMENTATION_PR: '4885'
+      CANONICAL_RELEASE_RUN: '33471014780'
+      CANONICAL_REVIEWER_READINESS_RUN: '33300172713'
+      CANONICAL_FIRST_CUSTOMER_RUN: '33300219900'
+      CANONICAL_ALL_ROLE_RUN: '33472781902'
+      REGISTRATION_ISSUE: '3785'
+      RELEASE_AUTHORITY_ISSUE: '4637'
+    steps:
+      - name: Wait for exact-SHA production release success
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+
+          for attempt in $(seq 1 480); do
+            pr="$(gh api "repos/$repo/pulls/$IMPLEMENTATION_PR")"
+            if [[ "$(jq -r '.merged' <<<"$pr")" != 'true' ]]; then
+              echo "waiting for implementation merge: attempt=$attempt"
+              sleep 15
+              continue
+            fi
+
+            target_sha="$(jq -r '.merge_commit_sha' <<<"$pr")"
+            main_sha="$(gh api "repos/$repo/commits/main" --jq '.sha')"
+            [[ -n "$target_sha" && "$target_sha" != 'null' ]]
+            [[ "$main_sha" == "$target_sha" ]] || {
+              echo "P0_MAIN_DRIFT_BEFORE_ACCEPTANCE expected=$target_sha actual=$main_sha" >&2
+              exit 1
+            }
+
+            canonical="$(gh api "repos/$repo/actions/runs/$CANONICAL_RELEASE_RUN")"
+            release_workflow_id="$(jq -r '.workflow_id' <<<"$canonical")"
+            [[ "$release_workflow_id" =~ ^[0-9]+$ ]]
+            runs="$(gh api "repos/$repo/actions/workflows/$release_workflow_id/runs?per_page=100")"
+            release_run_id="$(jq -r --arg sha "$target_sha" '[.workflow_runs[] | select(.head_sha == $sha and .status == "completed" and .conclusion == "success")] | sort_by(.created_at) | last | .id // empty' <<<"$runs")"
+            if [[ -n "$release_run_id" ]]; then
+              printf '%s' "$target_sha" >/tmp/target-sha
+              printf '%s' "$release_run_id" >/tmp/release-run-id
+              echo "exact-SHA production release confirmed: run=$release_run_id sha=$target_sha"
+              exit 0
+            fi
+
+            active="$(jq -r --arg sha "$target_sha" '[.workflow_runs[] | select(.head_sha == $sha and (.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending"))] | sort_by(.created_at) | last | .id // empty' <<<"$runs")"
+            echo "waiting for exact-SHA release: attempt=$attempt active_run=${active:-none} sha=$target_sha"
+            sleep 15
+          done
+
+          echo 'P0_EXACT_RELEASE_SUCCESS_TIMEOUT' >&2
+          exit 1
+
+      - name: Prepare exact workflow-dispatch contract resolver
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >/tmp/build-dispatch.py <<'PY'
+          from pathlib import Path
+          import json
+          import os
+          import re
+          import sys
+
+          workflow_path = Path(sys.argv[1])
+          stage = sys.argv[2]
+          text = workflow_path.read_text(encoding='utf-8')
+          lines = text.splitlines()
+
+          def indent(line: str) -> int:
+              return len(line) - len(line.lstrip(' '))
+
+          wd = None
+          wd_indent = None
+          for index, line in enumerate(lines):
+              if re.match(r'^\s*workflow_dispatch\s*:\s*(?:#.*)?$', line):
+                  wd = index
+                  wd_indent = indent(line)
+                  break
+          if wd is None or wd_indent is None:
+              raise SystemExit(f'{stage}:P0_WORKFLOW_NOT_DISPATCHABLE')
+
+          inputs_line = None
+          inputs_indent = None
+          for index in range(wd + 1, len(lines)):
+              line = lines[index]
+              stripped = line.strip()
+              if stripped and not stripped.startswith('#') and indent(line) <= wd_indent:
+                  break
+              if re.match(r'^\s*inputs\s*:\s*(?:#.*)?$', line):
+                  inputs_line = index
+                  inputs_indent = indent(line)
+                  break
+          if inputs_line is None or inputs_indent is None:
+              raise SystemExit(f'{stage}:P0_WORKFLOW_INPUTS_MISSING')
+
+          entries = {}
+          index = inputs_line + 1
+          while index < len(lines):
+              line = lines[index]
+              stripped = line.strip()
+              if stripped and not stripped.startswith('#') and indent(line) <= inputs_indent:
+                  break
+              match = re.match(r'^(\s*)([A-Za-z0-9_-]+)\s*:\s*(?:#.*)?$', line)
+              if match and len(match.group(1)) > inputs_indent:
+                  key = match.group(2)
+                  key_indent = len(match.group(1))
+                  block = []
+                  index += 1
+                  while index < len(lines):
+                      sub = lines[index]
+                      sub_stripped = sub.strip()
+                      if sub_stripped and not sub_stripped.startswith('#') and indent(sub) <= key_indent:
+                          break
+                      block.append(sub)
+                      index += 1
+                  required = any(re.match(r'^\s*required\s*:\s*true\s*(?:#.*)?$', item, re.I) for item in block)
+                  has_default = any(re.match(r'^\s*default\s*:', item) for item in block)
+                  entries[key] = {'required': required, 'has_default': has_default}
+                  continue
+              index += 1
+
+          target_sha = os.environ['TARGET_SHA']
+          release_run_id = os.environ.get('RELEASE_RUN_ID', '')
+          reviewer_run_id = os.environ.get('REVIEWER_RUN_ID', '')
+          first_customer_run_id = os.environ.get('FIRST_CUSTOMER_RUN_ID', '')
+          registration_issue = os.environ.get('REGISTRATION_ISSUE', '')
+          release_authority_issue = os.environ.get('RELEASE_AUTHORITY_ISSUE', '')
+
+          categories = [
+              (['target_sha', 'release_sha', 'released_sha', 'exact_sha', 'expected_sha', 'source_sha', 'commit_sha', 'sha'], target_sha, True, 'SHA'),
+              (['release_run_id', 'canonical_release_run_id', 'owner_release_run_id', 'production_release_run_id', 'source_release_run_id', 'release_controller_run_id'], release_run_id, False, 'RELEASE_RUN'),
+              (['reviewer_readiness_run_id', 'readiness_run_id', 'reviewer_run_id'], reviewer_run_id, False, 'REVIEWER_RUN'),
+              (['first_customer_run_id', 'first_customer_acceptance_run_id', 'first_customer_controller_run_id'], first_customer_run_id, False, 'FIRST_CUSTOMER_RUN'),
+              (['registration_issue', 'registration_issue_number'], registration_issue, False, 'REGISTRATION_ISSUE'),
+              (['release_authority_issue', 'release_authority_issue_number'], release_authority_issue, False, 'RELEASE_AUTHORITY_ISSUE'),
+          ]
+
+          values = {}
+          for candidates, value, exactly_one, label in categories:
+              present = [key for key in candidates if key in entries]
+              if exactly_one and len(present) != 1:
+                  raise SystemExit(f'{stage}:P0_{label}_INPUT_AMBIGUOUS:' + ','.join(present))
+              if present and not value:
+                  required_present = [key for key in present if entries[key]['required'] and not entries[key]['has_default']]
+                  if required_present:
+                      raise SystemExit(f'{stage}:P0_{label}_VALUE_MISSING:' + ','.join(required_present))
+                  continue
+              for key in present:
+                  values[key] = value
+
+          unresolved = [
+              key for key, metadata in entries.items()
+              if metadata['required'] and not metadata['has_default'] and key not in values
+          ]
+          if unresolved:
+              raise SystemExit(f'{stage}:P0_REQUIRED_INPUTS_UNRESOLVED:' + ','.join(unresolved))
+
+          payload = {'ref': 'main', 'inputs': values}
+          print(json.dumps(payload, separators=(',', ':')))
+          PY
+
+          cat >/tmp/stage-functions.sh <<'BASH'
+          resolve_stage() {
+            local stage="$1"
+            local canonical_run_id="$2"
+            local target_sha="$3"
+            local release_run_id="$4"
+            local reviewer_run_id="$5"
+            local first_customer_run_id="$6"
+            local repo="$GITHUB_REPOSITORY"
+            local canonical workflow_id workflow_path runs successful active encoded epoch run_id
+
+            canonical="$(gh api "repos/$repo/actions/runs/$canonical_run_id")"
+            [[ "$(jq -r '.event' <<<"$canonical")" == 'workflow_dispatch' ]]
+            workflow_id="$(jq -r '.workflow_id' <<<"$canonical")"
+            workflow_path="$(jq -r '.path' <<<"$canonical")"
+            [[ "$workflow_id" =~ ^[0-9]+$ ]]
+            [[ "$workflow_path" == .github/workflows/* ]]
+
+            runs="$(gh api "repos/$repo/actions/workflows/$workflow_id/runs?per_page=100")"
+            successful="$(jq -r --arg sha "$target_sha" '[.workflow_runs[] | select(.head_sha == $sha and .status == "completed" and .conclusion == "success")] | sort_by(.created_at) | last | .id // empty' <<<"$runs")"
+            active="$(jq -r --arg sha "$target_sha" '[.workflow_runs[] | select(.head_sha == $sha and (.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending"))] | sort_by(.created_at) | last | .id // empty' <<<"$runs")"
+            if [[ -n "$successful" ]]; then
+              printf '%s' "$successful" >"/tmp/${stage}-run-id"
+              echo "$stage: reusing successful run=$successful sha=$target_sha"
+              return 0
+            fi
+            if [[ -n "$active" ]]; then
+              printf '%s' "$active" >"/tmp/${stage}-run-id"
+              echo "$stage: reusing active run=$active sha=$target_sha"
+              return 0
+            fi
+
+            encoded="$(gh api "repos/$repo/contents/$workflow_path?ref=$target_sha" --jq '.content')"
+            printf '%s' "$encoded" | tr -d '\n' | base64 -d >"/tmp/${stage}-workflow.yml"
+            TARGET_SHA="$target_sha" \
+            RELEASE_RUN_ID="$release_run_id" \
+            REVIEWER_RUN_ID="$reviewer_run_id" \
+            FIRST_CUSTOMER_RUN_ID="$first_customer_run_id" \
+            REGISTRATION_ISSUE="$REGISTRATION_ISSUE" \
+            RELEASE_AUTHORITY_ISSUE="$RELEASE_AUTHORITY_ISSUE" \
+              python3 /tmp/build-dispatch.py "/tmp/${stage}-workflow.yml" "$stage" >"/tmp/${stage}-dispatch.json"
+
+            [[ "$(gh api "repos/$repo/commits/main" --jq '.sha')" == "$target_sha" ]] || {
+              echo "$stage:P0_MAIN_DRIFT_BEFORE_DISPATCH" >&2
+              return 1
+            }
+            epoch="$(date -u +%s)"
+            gh api --method POST "repos/$repo/actions/workflows/$workflow_id/dispatches" --input "/tmp/${stage}-dispatch.json"
+
+            for attempt in $(seq 1 90); do
+              runs="$(gh api "repos/$repo/actions/workflows/$workflow_id/runs?per_page=100")"
+              run_id="$(jq -r --arg sha "$target_sha" --argjson epoch "$epoch" '[.workflow_runs[] | select(.head_sha == $sha) | select((.created_at | fromdateiso8601) >= $epoch)] | sort_by(.created_at) | last | .id // empty' <<<"$runs")"
+              if [[ -n "$run_id" ]]; then
+                printf '%s' "$run_id" >"/tmp/${stage}-run-id"
+                echo "$stage: dispatched run=$run_id sha=$target_sha"
+                return 0
+              fi
+              sleep 10
+            done
+            echo "$stage:P0_DISPATCHED_RUN_NOT_FOUND" >&2
+            return 1
+          }
+
+          wait_stage() {
+            local stage="$1"
+            local target_sha="$2"
+            local max_attempts="$3"
+            local run_id repo run status conclusion
+            run_id="$(cat "/tmp/${stage}-run-id")"
+            repo="$GITHUB_REPOSITORY"
+            for attempt in $(seq 1 "$max_attempts"); do
+              run="$(gh api "repos/$repo/actions/runs/$run_id")"
+              [[ "$(jq -r '.head_sha' <<<"$run")" == "$target_sha" ]]
+              status="$(jq -r '.status' <<<"$run")"
+              conclusion="$(jq -r '.conclusion // empty' <<<"$run")"
+              if [[ "$status" == 'completed' ]]; then
+                [[ "$conclusion" == 'success' ]] || {
+                  echo "$stage:P0_STAGE_FAILED run=$run_id conclusion=$conclusion" >&2
+                  return 1
+                }
+                echo "$stage: PASS run=$run_id sha=$target_sha"
+                return 0
+              fi
+              echo "$stage: waiting run=$run_id status=$status attempt=$attempt"
+              sleep 20
+            done
+            echo "$stage:P0_STAGE_TIMEOUT run=$run_id" >&2
+            return 1
+          }
+          BASH
+
+      - name: Run reviewer readiness on the released SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          source /tmp/stage-functions.sh
+          target_sha="$(cat /tmp/target-sha)"
+          release_run_id="$(cat /tmp/release-run-id)"
+          resolve_stage reviewer "$CANONICAL_REVIEWER_READINESS_RUN" "$target_sha" "$release_run_id" '' ''
+          wait_stage reviewer "$target_sha" 180
+
+      - name: Run fresh First Customer acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          source /tmp/stage-functions.sh
+          target_sha="$(cat /tmp/target-sha)"
+          release_run_id="$(cat /tmp/release-run-id)"
+          reviewer_run_id="$(cat /tmp/reviewer-run-id)"
+          resolve_stage first-customer "$CANONICAL_FIRST_CUSTOMER_RUN" "$target_sha" "$release_run_id" "$reviewer_run_id" ''
+          wait_stage first-customer "$target_sha" 270
+
+      - name: Run fresh terminal all-role 9 of 9 acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          source /tmp/stage-functions.sh
+          target_sha="$(cat /tmp/target-sha)"
+          release_run_id="$(cat /tmp/release-run-id)"
+          reviewer_run_id="$(cat /tmp/reviewer-run-id)"
+          first_customer_run_id="$(cat /tmp/first-customer-run-id)"
+          resolve_stage all-role "$CANONICAL_ALL_ROLE_RUN" "$target_sha" "$release_run_id" "$reviewer_run_id" "$first_customer_run_id"
+          wait_stage all-role "$target_sha" 360
+          echo "P0_REGISTRATION_9_OF_9_PASS sha=$target_sha run=$(cat /tmp/all-role-run-id)"
