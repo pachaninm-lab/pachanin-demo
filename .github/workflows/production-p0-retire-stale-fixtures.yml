@@ -1,0 +1,470 @@
+name: Production P0 Retire Stale Acceptance Fixtures
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-retire-stale-fixtures.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 4637 && github.event.comment.body == '/production p0-retire-stale-fixtures current-main' && 'pc-crop-registration-lifecycle' || 'production-p0-retire-stale-fixtures-contract' }}
+  cancel-in-progress: false
+  queue: max
+
+env:
+  COMMAND: /production p0-retire-stale-fixtures current-main
+  AUTHORITY_ISSUE: '4637'
+  EXPECTED_PRODUCTION_SHA: d8e86a668a7b60ad2bf95925f84a994eb166ba3c
+  LIVE_HOST: '195.19.12.120'
+  WORKFLOW_PATH: .github/workflows/production-p0-retire-stale-fixtures.yml
+  STALE_SECONDS: '1800'
+
+jobs:
+  contract:
+    name: Validate bounded stale-fixture retirement contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Validate workflow source from immutable PR head
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_file="$RUNNER_TEMP/workflow.yml"
+          gh api "repos/$GITHUB_REPOSITORY/contents/$WORKFLOW_PATH?ref=$HEAD_SHA" --jq .content \
+            | tr -d '\n' | base64 --decode > "$source_file"
+          required=(
+            "github.event.issue.number == 4637"
+            "github.event.comment.user.login == github.repository_owner"
+            "github.event.comment.author_association == 'OWNER'"
+            "github.actor == github.repository_owner"
+            "github.triggering_actor == github.repository_owner"
+            "github.event.comment.body == '/production p0-retire-stale-fixtures current-main'"
+            "EXPECTED_PRODUCTION_SHA: d8e86a668a7b60ad2bf95925f84a994eb166ba3c"
+            "Production P0 exact-run organization"
+            "p0-all-role-register:"
+            "status = 'CANCELLED'"
+            "P0_ACCEPTANCE_FIXTURE_RETIRED"
+            "auth.registration_application_events"
+            "auth.audit_events"
+            "STALE_SECONDS: '1800'"
+          )
+          for marker in "${required[@]}"; do grep -Fq "$marker" "$source_file"; done
+          ! grep -Eiq '\bDELETE[[:space:]]+FROM[[:space:]]+(auth|public)\.' "$source_file"
+          ! grep -Fq 'registration_platform_actor_authorized' "$source_file"
+          ! grep -Fq 'apply_registration_identity_transition' "$source_file"
+          ! grep -Eq 'FRESH_MFA_REQUIRED|PLATFORM_REVIEWER_REQUIRED' "$source_file"
+          echo 'PASS: owner-only stale P0 fixture retirement is marker-, age- and production-SHA-bounded.'
+
+  retire:
+    name: Retire stale exact-run fixtures on REG.RU
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-retire-stale-fixtures current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - name: Prove immutable maintenance scope and no active registration acceptance
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$current" =~ ^[0-9a-f]{40}$ ]]
+          compare="$RUNNER_TEMP/compare.json"
+          gh api "repos/$GITHUB_REPOSITORY/compare/$EXPECTED_PRODUCTION_SHA...$current" > "$compare"
+          status="$(python3 - "$compare" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          print(report.get('status',''))
+          PY
+          )"
+          [[ "$status" == ahead || "$status" == identical ]]
+          python3 - "$compare" "$WORKFLOW_PATH" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1],encoding='utf-8'))
+          allowed={sys.argv[2]}
+          changed={str(row.get('filename','')) for row in report.get('files',[])}
+          if changed - allowed:
+              raise SystemExit('MAIN_CONTAINS_NON_MAINTENANCE_DRIFT')
+          PY
+          for state in in_progress queued; do
+            active="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?status=$state&per_page=100" --jq \
+              '[.workflow_runs[] | select(.path == ".github/workflows/production-p0-all-role-registration.yml" or .path == ".github/workflows/production-p0-first-customer-acceptance.yml")] | length')"
+            [[ "$active" == 0 ]] || { echo "P0_RETIRE_BLOCKER=ACTIVE_REGISTRATION_ACCEPTANCE"; exit 21; }
+          done
+          echo "main_sha=$current" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned production SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          key_path="$RUNNER_TEMP/p0-retire-key"
+          known_hosts="$RUNNER_TEMP/p0-retire-known-hosts"
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+          host="$(trim "${SSH_HOST_SECRET:-}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$LIVE_HOST" ]]
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+
+          validate_key() {
+            local source="$1" public_key
+            tr -d '\r' < "$source" > "$key_path"
+            chmod 0600 "$key_path"
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$key_path" > "$public_key" 2>/dev/null \
+              || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_key() {
+            local raw="$1" plain escaped decoded
+            [[ -n "$raw" ]] || return 1
+            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
+            printf '%s\n' "$raw" > "$plain"
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null \
+              && validate_key "$decoded" \
+              && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            rm -f "$plain" "$escaped" "$decoded"
+            return 1
+          }
+          try_key "${SSH_KEY_PRIMARY:-}" || try_key "${SSH_KEY_SECONDARY:-}" || try_key "${SSH_KEY_FALLBACK:-}"
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$known_hosts"; rm -f "$scan"; chmod 0600 "$known_hosts"
+          echo "key=$key_path" >> "$GITHUB_OUTPUT"
+          echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Cancel only stale all-role acceptance fixtures through canonical auth audit
+        id: retire
+        shell: bash
+        env:
+          KEY_PATH: ${{ steps.ssh.outputs.key }}
+          KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+          MAIN_SHA: ${{ steps.scope.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          cleanup_correlation="p0-fixture-retire:${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          set +e
+          remote_output="$(ssh -i "$KEY_PATH" -p "$SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$KNOWN_HOSTS" -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            "$SSH_USER@$SSH_HOST" "bash -s -- '$EXPECTED_PRODUCTION_SHA' '$STALE_SECONDS' '$cleanup_correlation'" 2>/dev/null <<'REMOTE'
+          set -Eeuo pipefail
+          expected_sha="$1"
+          stale_seconds="$2"
+          cleanup_correlation="$3"
+          fail() { printf 'P0_RETIRE_RESULT=FAIL\nP0_RETIRE_BLOCKER=%s\n' "$1"; exit "${2:-1}"; }
+          [[ "$(id -u)" -eq 0 ]] || fail ROOT_AUTHORITY_REQUIRED 31
+          command -v docker >/dev/null 2>&1 || fail DOCKER_REQUIRED 32
+          [[ "$expected_sha" =~ ^[0-9a-f]{40}$ ]] || fail EXPECTED_SHA_INVALID 33
+          [[ "$stale_seconds" == 1800 ]] || fail STALE_WINDOW_INVALID 34
+          [[ "$cleanup_correlation" =~ ^p0-fixture-retire:[0-9]+-[0-9]+$ ]] || fail CORRELATION_INVALID 35
+
+          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#api_ids[@]} == 1 )) || fail API_CARDINALITY_NOT_ONE 36
+          (( ${#web_ids[@]} == 1 )) || fail WEB_CARDINALITY_NOT_ONE 37
+          api_id="${api_ids[0]}"; web_id="${web_ids[0]}"
+          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          [[ "$api_revision" == "$expected_sha" ]] || fail API_REVISION_MISMATCH 38
+          [[ "$web_revision" == "$expected_sha" ]] || fail WEB_REVISION_MISMATCH 39
+          docker exec "$api_id" /nodejs/bin/node -e \
+            "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" \
+            >/dev/null 2>&1 || fail API_NOT_READY 40
+
+          set +e
+          node_output="$(docker exec -i "$api_id" /nodejs/bin/node - "$stale_seconds" "$cleanup_correlation" 2>/dev/null <<'NODE'
+          const { Prisma } = require('@prisma/client');
+          const { AuthPrismaService } = require('/app/dist/apps/api/src/modules/auth/auth-prisma.service.js');
+          const { PersistentAuthRepository } = require('/app/dist/apps/api/src/modules/auth/persistent-auth.repository.js');
+          const { RegistrationApplicationService } = require('/app/dist/apps/api/src/modules/auth/registration-application.service.js');
+
+          class BoundedFailure extends Error {
+            constructor(code) { super(code); this.code = code; }
+          }
+          const fail = (code) => { throw new BoundedFailure(code); };
+          const [staleRaw, cleanupCorrelation] = process.argv.slice(2);
+          const staleSeconds = Number(staleRaw);
+          const allowedStatuses = new Set(['ORGANIZATION_VERIFICATION_PENDING', 'ADDITIONAL_INFORMATION_REQUIRED', 'SUSPENDED']);
+          const roles = {
+            seller: 'FARMER', buyer: 'BUYER', logistics: 'LOGISTICIAN', driver: 'DRIVER',
+            elevator: 'ELEVATOR', lab: 'LAB', surveyor: 'SURVEYOR', bank: 'ACCOUNTING',
+          };
+          const legalPattern = /^Production P0 exact-run organization (SELLER|BUYER|LOGISTICS|DRIVER|ELEVATOR|LAB|SURVEYOR|BANK) ([A-Za-z0-9._:-]{1,48})$/;
+          const correlationPattern = /^p0-all-role-register:([0-9a-f]{12}):([A-Za-z0-9._:-]{1,48}):(seller|buyer|logistics|driver|elevator|lab|surveyor|bank)$/;
+          const idempotencyPattern = /^p0-all-role-register:([0-9a-f]{40}):([A-Za-z0-9._:-]{1,48}):(seller|buyer|logistics|driver|elevator|lab|surveyor|bank)$/;
+
+          function validate(row) {
+            if (row.kind !== 'NEW_ORGANIZATION' || !allowedStatuses.has(row.status)) fail('CANDIDATE_STATE_INVALID');
+            const legal = legalPattern.exec(String(row.legal_name || ''));
+            const correlation = correlationPattern.exec(String(row.correlation_id || ''));
+            const idempotency = idempotencyPattern.exec(String(row.idempotency_key || ''));
+            if (!legal || !correlation || !idempotency) fail('CANDIDATE_MARKER_INVALID');
+            const label = legal[1].toLowerCase();
+            const run = legal[2];
+            if (correlation[2] !== run || idempotency[2] !== run || correlation[3] !== label || idempotency[3] !== label) fail('CANDIDATE_MARKER_MISMATCH');
+            if (correlation[1] !== idempotency[1].slice(0, 12)) fail('CANDIDATE_SHA_MISMATCH');
+            if (row.requested_workspace !== label || row.requested_role !== roles[label]) fail('CANDIDATE_ROLE_INVALID');
+            const submitted = new Date(row.submitted_at).getTime();
+            if (!Number.isFinite(submitted) || Date.now() - submitted < staleSeconds * 1000) fail('CANDIDATE_NOT_STALE');
+          }
+
+          async function main() {
+            if (staleSeconds !== 1800 || !/^p0-fixture-retire:[0-9]+-[0-9]+$/.test(cleanupCorrelation || '')) fail('INPUT_INVALID');
+            const prisma = new AuthPrismaService();
+            const repository = new PersistentAuthRepository(prisma);
+            const service = new RegistrationApplicationService(prisma, repository);
+            if (typeof service.insertEvent !== 'function' || typeof service.audit !== 'function') fail('CANONICAL_AUDIT_METHODS_MISSING');
+            try {
+              await prisma.onModuleInit();
+              const candidates = await prisma.$queryRaw(Prisma.sql`
+                SELECT id, kind, user_id, membership_id, organization_id,
+                       requested_workspace, requested_role, status, version,
+                       submitted_at, legal_name, correlation_id, idempotency_key
+                FROM auth.registration_applications
+                WHERE kind = 'NEW_ORGANIZATION'
+                  AND status IN ('ORGANIZATION_VERIFICATION_PENDING', 'ADDITIONAL_INFORMATION_REQUIRED', 'SUSPENDED')
+                  AND legal_name LIKE 'Production P0 exact-run organization %'
+                  AND correlation_id LIKE 'p0-all-role-register:%'
+                  AND idempotency_key LIKE 'p0-all-role-register:%'
+                  AND submitted_at <= NOW() - (${staleSeconds} * INTERVAL '1 second')
+                ORDER BY submitted_at, id
+                LIMIT 257
+              `);
+              if (candidates.length > 256) fail('CANDIDATE_BOUND_EXCEEDED');
+
+              // Validate the entire set before the first write so a malformed marker fails closed without partial cleanup.
+              for (const row of candidates) {
+                validate(row);
+                const sessions = await prisma.$queryRaw(Prisma.sql`
+                  SELECT COUNT(*)::int AS count
+                  FROM auth.sessions
+                  WHERE user_id = ${row.user_id}
+                    AND status = 'ACTIVE'
+                    AND revoked_at IS NULL
+                    AND expires_at > NOW()
+                `);
+                if (Number(sessions[0]?.count || 0) !== 0) fail('CANDIDATE_ACTIVE_SESSION_PRESENT');
+              }
+
+              let retired = 0;
+              for (const candidate of candidates) {
+                await prisma.$transaction(async (tx) => {
+                  const lockedRows = await tx.$queryRaw(Prisma.sql`
+                    SELECT id, kind, user_id, membership_id, organization_id,
+                           requested_workspace, requested_role, status, version,
+                           submitted_at, legal_name, correlation_id, idempotency_key
+                    FROM auth.registration_applications
+                    WHERE id = ${candidate.id}
+                    FOR UPDATE
+                  `);
+                  const row = lockedRows[0];
+                  if (!row) fail('CANDIDATE_DISAPPEARED');
+                  validate(row);
+                  if (row.version !== candidate.version || row.status !== candidate.status) fail('CANDIDATE_CHANGED');
+                  const nextVersion = row.version + 1n;
+                  const updated = await tx.$executeRaw(Prisma.sql`
+                    UPDATE auth.registration_applications
+                    SET status = 'CANCELLED', version = ${nextVersion}, updated_at = NOW()
+                    WHERE id = ${row.id}
+                      AND version = ${row.version}
+                      AND status = ${row.status}
+                      AND kind = 'NEW_ORGANIZATION'
+                      AND legal_name = ${row.legal_name}
+                      AND correlation_id = ${row.correlation_id}
+                      AND idempotency_key = ${row.idempotency_key}
+                      AND submitted_at <= NOW() - (${staleSeconds} * INTERVAL '1 second')
+                  `);
+                  if (updated !== 1) fail('CANDIDATE_UPDATE_CONFLICT');
+                  await tx.$executeRaw(Prisma.sql`
+                    UPDATE auth.registration_email_challenges
+                    SET status = 'REVOKED', updated_at = NOW()
+                    WHERE application_id = ${row.id} AND status = 'PENDING'
+                  `);
+                  await service.insertEvent(tx, {
+                    applicationId: row.id,
+                    actorKind: 'SYSTEM',
+                    previousStatus: row.status,
+                    newStatus: 'CANCELLED',
+                    reason: 'P0_ACCEPTANCE_FIXTURE_RETIRED',
+                    correlationId: cleanupCorrelation,
+                    idempotencyKey: `p0-fixture-retire:${row.id}:${nextVersion}`,
+                    applicationVersion: nextVersion,
+                    metadata: { source: 'PC_CROP_BOUNDED_MAINTENANCE' },
+                  });
+                  await service.audit(tx, {
+                    userId: row.user_id,
+                    membershipId: row.membership_id,
+                    organizationId: row.organization_id,
+                    action: 'auth.registration.fixture_retired',
+                    outcome: 'SUCCESS',
+                    reason: 'P0_ACCEPTANCE_FIXTURE_RETIRED',
+                    metadata: { applicationId: row.id, correlationId: cleanupCorrelation },
+                  });
+                }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15000, maxWait: 5000 });
+                retired += 1;
+              }
+
+              const remaining = await prisma.$queryRaw(Prisma.sql`
+                SELECT COUNT(*)::int AS count
+                FROM auth.registration_applications
+                WHERE kind = 'NEW_ORGANIZATION'
+                  AND status IN ('ORGANIZATION_VERIFICATION_PENDING', 'ADDITIONAL_INFORMATION_REQUIRED', 'SUSPENDED')
+                  AND legal_name LIKE 'Production P0 exact-run organization %'
+                  AND correlation_id LIKE 'p0-all-role-register:%'
+                  AND idempotency_key LIKE 'p0-all-role-register:%'
+                  AND submitted_at <= NOW() - (${staleSeconds} * INTERVAL '1 second')
+              `);
+              const events = await prisma.$queryRaw(Prisma.sql`
+                SELECT COUNT(*)::int AS count
+                FROM auth.registration_application_events event
+                JOIN auth.registration_applications application ON application.id = event.application_id
+                WHERE event.correlation_id = ${cleanupCorrelation}
+                  AND event.actor_kind = 'SYSTEM'
+                  AND event.new_status = 'CANCELLED'
+                  AND event.reason = 'P0_ACCEPTANCE_FIXTURE_RETIRED'
+                  AND application.status = 'CANCELLED'
+                  AND application.kind = 'NEW_ORGANIZATION'
+                  AND application.legal_name LIKE 'Production P0 exact-run organization %'
+                  AND application.correlation_id LIKE 'p0-all-role-register:%'
+              `);
+              const audits = await prisma.$queryRaw(Prisma.sql`
+                SELECT COUNT(*)::int AS count
+                FROM auth.audit_events audit
+                WHERE audit.action = 'auth.registration.fixture_retired'
+                  AND audit.outcome = 'SUCCESS'
+                  AND audit.reason = 'P0_ACCEPTANCE_FIXTURE_RETIRED'
+                  AND audit.metadata ->> 'correlationId' = ${cleanupCorrelation}
+              `);
+              const remainingCount = Number(remaining[0]?.count || 0);
+              const eventCount = Number(events[0]?.count || 0);
+              const auditCount = Number(audits[0]?.count || 0);
+              if (remainingCount !== 0) fail('POSTCONDITION_STALE_ROWS_REMAIN');
+              if (eventCount !== retired || auditCount !== retired) fail('POSTCONDITION_EVIDENCE_MISMATCH');
+              console.log('P0_RETIRE_RESULT=PASS');
+              console.log(`P0_RETIRE_RETIRED=${retired}`);
+              console.log(`P0_RETIRE_REMAINING=${remainingCount}`);
+              console.log(`P0_RETIRE_EVENT_EVIDENCE=${eventCount}`);
+              console.log(`P0_RETIRE_AUDIT_EVIDENCE=${auditCount}`);
+              console.log('P0_RETIRE_RAW_IDENTIFIERS=0');
+              console.log('P0_RETIRE_NON_MARKER_MUTATIONS=0');
+            } finally {
+              await prisma.onModuleDestroy().catch(() => {});
+            }
+          }
+
+          main().catch((error) => {
+            const code = error instanceof BoundedFailure && /^[A-Z0-9_]{4,96}$/.test(error.code)
+              ? error.code : 'BOUNDED_RETIRE_OPERATION_FAILED';
+            console.log('P0_RETIRE_RESULT=FAIL');
+            console.log(`P0_RETIRE_BLOCKER=${code}`);
+            process.exitCode = 1;
+          });
+          NODE
+          )"
+          node_rc=$?
+          set -e
+          printf '%s\n' "$node_output" | grep -E '^P0_RETIRE_(RESULT|BLOCKER|RETIRED|REMAINING|EVENT_EVIDENCE|AUDIT_EVIDENCE|RAW_IDENTIFIERS|NON_MARKER_MUTATIONS)=' || true
+          (( node_rc == 0 )) || exit "$node_rc"
+          grep -Fxq 'P0_RETIRE_RESULT=PASS' <<< "$node_output" || fail NODE_RESULT_NOT_PASS 41
+          printf 'P0_REMOTE_PRODUCTION_SHA=PASS\n'
+          REMOTE
+          )"
+          remote_rc=$?
+          set -e
+          safe_output="$(printf '%s\n' "$remote_output" | grep -E '^P0_(RETIRE_(RESULT|BLOCKER|RETIRED|REMAINING|EVENT_EVIDENCE|AUDIT_EVIDENCE|RAW_IDENTIFIERS|NON_MARKER_MUTATIONS)|REMOTE_PRODUCTION_SHA)=' || true)"
+          printf '%s\n' "$safe_output"
+          if (( remote_rc != 0 )); then
+            blocker="$(sed -n 's/^P0_RETIRE_BLOCKER=//p' <<< "$safe_output" | tail -1)"
+            [[ "$blocker" =~ ^[A-Z0-9_]{4,96}$ ]] || blocker=REMOTE_RETIRE_FAILED_CLOSED
+            gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement
+
+- result: \`FAIL\`
+- expected production SHA: \`$EXPECTED_PRODUCTION_SHA\`
+- blocker: \`$blocker\`
+- production mutation scope: exact stale all-role fixtures only
+- raw identifiers or credentials published: \`0\`" >/dev/null
+            exit "$remote_rc"
+          fi
+          for marker in P0_RETIRE_RESULT=PASS P0_RETIRE_REMAINING=0 P0_RETIRE_RAW_IDENTIFIERS=0 P0_RETIRE_NON_MARKER_MUTATIONS=0 P0_REMOTE_PRODUCTION_SHA=PASS; do
+            grep -Fxq "$marker" <<< "$safe_output"
+          done
+          retired="$(sed -n 's/^P0_RETIRE_RETIRED=//p' <<< "$safe_output" | tail -1)"
+          events="$(sed -n 's/^P0_RETIRE_EVENT_EVIDENCE=//p' <<< "$safe_output" | tail -1)"
+          audits="$(sed -n 's/^P0_RETIRE_AUDIT_EVIDENCE=//p' <<< "$safe_output" | tail -1)"
+          [[ "$retired" =~ ^[0-9]{1,3}$ && "$events" == "$retired" && "$audits" == "$retired" ]]
+          gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body "## Production P0 stale fixture retirement
+
+- result: \`PASS\`
+- production SHA: \`$EXPECTED_PRODUCTION_SHA\`
+- retired stale exact-run NEW_ORGANIZATION fixtures: \`$retired\`
+- remaining stale marked reviewer-queue rows: \`0\`
+- lifecycle event evidence: \`$events\`
+- chained auth audit evidence: \`$audits\`
+- non-marker mutations: \`0\`
+- physical deletes: \`0\`
+- raw identifiers or credentials published: \`0\`" >/dev/null
+
+      - name: Remove protected SSH material
+        if: always()
+        shell: bash
+        env:
+          KEY_PATH: ${{ steps.ssh.outputs.key }}
+          KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
+        run: rm -f -- "${KEY_PATH:-}" "${KNOWN_HOSTS:-}"
