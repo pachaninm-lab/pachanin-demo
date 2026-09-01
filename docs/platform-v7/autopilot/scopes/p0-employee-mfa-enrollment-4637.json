@@ -4,7 +4,7 @@
   "branch": "fix/p0-employee-mfa-enrollment-4637",
   "status": "active",
   "purpose": "Close the production P0 all-role failure P0_EMPLOYEE_MFA_ENROLLMENT_MISSING by binding the server-derived organization employee GUEST role to the central MFA-required role policy and documenting the resulting session policy.",
-  "authorityBaseExactMain": "dc61910f579ed5f2bda0f0379e81f79984456f10",
+  "authorityBaseExactMain": "de998d2e4724c63fccc78f2586ba76839e46f7dc",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
