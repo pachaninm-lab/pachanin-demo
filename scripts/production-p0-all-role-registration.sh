@@ -22,18 +22,24 @@ import sys
 
 path = Path(sys.argv[1])
 source = path.read_text(encoding='utf-8')
-anchor = '''bash -n "$tmp"
+anchor = "p.write_text(s, encoding='utf-8')"
+injection = r"""nested_anchor = '''bash -n "$tmp"
 
 if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then'''
-replacement = '''bash -n "$tmp"
+nested_replacement = '''bash -n "$tmp"
 python3 scripts/p0-registration-resilience-overlay.py all-role "$tmp"
 bash -n "$tmp"
 
 if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then'''
+nested_count = s.count(nested_anchor)
+if nested_count != 1:
+    raise SystemExit(f'P0_ALL_ROLE_RESILIENCE_NESTED_INJECTION_CARDINALITY={nested_count}')
+s = s.replace(nested_anchor, nested_replacement, 1)
+p.write_text(s, encoding='utf-8')"""
 count = source.count(anchor)
 if count != 1:
-    raise SystemExit(f'P0_ALL_ROLE_RESILIENCE_INJECTION_CARDINALITY={count}')
-path.write_text(source.replace(anchor, replacement, 1), encoding='utf-8')
+    raise SystemExit(f'P0_ALL_ROLE_RESILIENCE_WRAPPER_PATCH_CARDINALITY={count}')
+path.write_text(source.replace(anchor, injection, 1), encoding='utf-8')
 PY
 
 chmod 0700 "$tmp"
