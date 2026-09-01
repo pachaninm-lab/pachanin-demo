@@ -1,0 +1,513 @@
+name: PC-CROP employee MFA closure 4884 v2
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+    paths:
+      - '.github/workflows/p0-employee-mfa-closure-4884-v2.yml'
+
+permissions:
+  actions: write
+  checks: read
+  contents: write
+  pull-requests: write
+  statuses: read
+
+concurrency:
+  group: p0-employee-mfa-closure-4884-v2
+  cancel-in-progress: false
+
+jobs:
+  close-bounded-fix:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'automation/pc-crop-employee-mfa-closure-4884-v2'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GOVERNANCE_PR: '4886'
+      GOVERNANCE_HEAD: 'governance/authorize-p0-employee-mfa-4884'
+      IMPLEMENTATION_PR: '4885'
+      IMPLEMENTATION_HEAD: 'fix/p0-employee-guest-mfa-4884'
+      SCOPE_FILE: 'docs/platform-v7/autopilot/scopes/p0-employee-guest-mfa-4884.json'
+      P1: 'apps/api/src/common/types/request-user.ts'
+      P2: 'apps/api/src/modules/auth/employee-mfa-policy.spec.ts'
+      P3: 'docs/security/SESSION_POLICY.md'
+      CANONICAL_RELEASE_RUN: '33471014780'
+    steps:
+      - name: Retire superseded temporary monitors
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          owner="${repo%%/*}"
+          branches=(
+            automation/merge-governance-4886
+            automation/merge-implementation-4885
+            automation/release-after-4885
+          )
+          for branch in "${branches[@]}"; do
+            runs="$(gh api "repos/$repo/actions/runs?branch=$branch&per_page=100" 2>/dev/null || printf '{"workflow_runs":[]}')"
+            jq -r '.workflow_runs[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending") | .id' <<<"$runs" |
+              while read -r run_id; do
+                [[ -n "$run_id" ]] || continue
+                gh api --method POST "repos/$repo/actions/runs/$run_id/cancel" >/dev/null 2>&1 || true
+              done
+
+            prs="$(gh api "repos/$repo/pulls?state=open&head=$owner:$branch&per_page=20" 2>/dev/null || printf '[]')"
+            jq -r '.[].number' <<<"$prs" | while read -r pr_number; do
+              [[ -n "$pr_number" ]] || continue
+              gh api --method PATCH "repos/$repo/pulls/$pr_number" -f state='closed' >/dev/null 2>&1 || true
+            done
+          done
+
+      - name: Validate and merge immutable governance scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+
+          validate_scope() {
+            local ref="$1"
+            local encoded scope
+            encoded="$(gh api "repos/$repo/contents/$SCOPE_FILE?ref=$ref" --jq '.content')" || return 1
+            scope="$(printf '%s' "$encoded" | tr -d '\n' | base64 -d)" || return 1
+            jq -e \
+              --arg branch "$IMPLEMENTATION_HEAD" \
+              --arg p1 "$P1" --arg p2 "$P2" --arg p3 "$P3" \
+              '.branch == $branch
+               and .status == "active"
+               and .issue == 4884
+               and (.allowedPaths | sort) == ([$p1,$p2,$p3] | sort)
+               and .boundaries.productionMutation == false
+               and .boundaries.databaseMutation == false
+               and .boundaries.databaseSchemaChange == false
+               and .boundaries.rlsChange == false
+               and .boundaries.tenantMappingChange == false
+               and .boundaries.roleMappingChange == false
+               and .boundaries.mailChange == false
+               and .boundaries.rateLimitChange == false
+               and .boundaries.tokenContractChange == false
+               and .boundaries.workflowChange == false
+               and .boundaries.acceptanceRunnerChange == false
+               and .boundaries.mfaWeakening == false
+               and .boundaries.guestFirstLoginMfaRequired == true
+               and .boundaries.guestIdleTimeoutTierPreserved == true
+               and .newRecurringCostRub == 0' <<<"$scope" >/dev/null
+          }
+
+          wait_pr_green() {
+            local pr_number="$1"
+            local expected_head="$2"
+            local min_checks="$3"
+            local max_attempts="$4"
+            local attempt pr merge_sha checks total pending bad guard_ok status status_total status_state
+            for attempt in $(seq 1 "$max_attempts"); do
+              pr="$(gh api "repos/$repo/pulls/$pr_number")"
+              if [[ "$(jq -r '.merged' <<<"$pr")" == 'true' ]]; then
+                return 0
+              fi
+              [[ "$(jq -r '.state' <<<"$pr")" == 'open' ]]
+              [[ "$(jq -r '.draft' <<<"$pr")" == 'false' ]]
+              [[ "$(jq -r '.head.ref' <<<"$pr")" == "$expected_head" ]]
+              [[ "$(jq -r '.base.ref' <<<"$pr")" == 'main' ]]
+              merge_sha="$(jq -r '.merge_commit_sha // empty' <<<"$pr")"
+              if [[ -z "$merge_sha" ]]; then
+                echo "waiting for PR merge ref: pr=$pr_number attempt=$attempt"
+                sleep 15
+                continue
+              fi
+
+              checks="$(gh api -H 'Accept: application/vnd.github+json' "repos/$repo/commits/$merge_sha/check-runs?per_page=100&filter=latest")"
+              total="$(jq '.total_count' <<<"$checks")"
+              pending="$(jq '[.check_runs[] | select(.status != "completed")] | length' <<<"$checks")"
+              bad="$(jq '[.check_runs[] | select(.status == "completed" and (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped"))] | length' <<<"$checks")"
+              guard_ok="$(jq '[.check_runs[] | select(.name == "Standard platform-v7 guard validations" and .status == "completed" and .conclusion == "success")] | length' <<<"$checks")"
+
+              status="$(gh api "repos/$repo/commits/$merge_sha/status")"
+              status_total="$(jq '.total_count' <<<"$status")"
+              status_state="$(jq -r '.state' <<<"$status")"
+
+              if (( bad > 0 )); then
+                jq -r '.check_runs[] | select(.status == "completed" and (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped")) | "FAILED_CHECK=" + .name + ":" + (.conclusion // "null")' <<<"$checks"
+                return 2
+              fi
+
+              if (( total >= min_checks && pending == 0 && guard_ok >= 1 )) && \
+                 { (( status_total == 0 )) || [[ "$status_state" == 'success' ]]; }; then
+                printf '%s' "$merge_sha"
+                return 0
+              fi
+
+              echo "waiting for PR checks: pr=$pr_number attempt=$attempt merge=$merge_sha total=$total pending=$pending guard_ok=$guard_ok status=$status_state"
+              sleep 20
+            done
+            return 3
+          }
+
+          main_sha="$(gh api "repos/$repo/commits/main" --jq '.sha')"
+          if validate_scope "$main_sha"; then
+            echo "immutable employee-MFA scope already present on main=$main_sha"
+            exit 0
+          fi
+
+          pr="$(gh api "repos/$repo/pulls/$GOVERNANCE_PR")"
+          [[ "$(jq -r '.state' <<<"$pr")" == 'open' ]]
+          [[ "$(jq -r '.merged' <<<"$pr")" == 'false' ]]
+          [[ "$(jq -r '.draft' <<<"$pr")" == 'false' ]]
+          [[ "$(jq -r '.head.ref' <<<"$pr")" == "$GOVERNANCE_HEAD" ]]
+          [[ "$(jq -r '.base.ref' <<<"$pr")" == 'main' ]]
+          gov_head_sha="$(jq -r '.head.sha' <<<"$pr")"
+
+          mapfile -t files < <(gh api --paginate "repos/$repo/pulls/$GOVERNANCE_PR/files?per_page=100" --jq '.[].filename' | sort)
+          [[ "${#files[@]}" -eq 1 ]]
+          [[ "${files[0]}" == "$SCOPE_FILE" ]]
+          validate_scope "$gov_head_sha"
+
+          wait_pr_green "$GOVERNANCE_PR" "$GOVERNANCE_HEAD" 5 120 >/tmp/governance-merge-ref
+          pr="$(gh api "repos/$repo/pulls/$GOVERNANCE_PR")"
+          if [[ "$(jq -r '.merged' <<<"$pr")" != 'true' ]]; then
+            current_head="$(jq -r '.head.sha' <<<"$pr")"
+            [[ "$current_head" == "$gov_head_sha" ]]
+            result="$(gh api --method PUT "repos/$repo/pulls/$GOVERNANCE_PR/merge" \
+              -f merge_method='squash' \
+              -f commit_title='governance: authorize bounded employee MFA fix (#4886)' \
+              -f sha="$gov_head_sha")"
+            [[ "$(jq -r '.merged' <<<"$result")" == 'true' ]]
+          fi
+
+          for attempt in $(seq 1 30); do
+            main_sha="$(gh api "repos/$repo/commits/main" --jq '.sha')"
+            if validate_scope "$main_sha"; then
+              echo "immutable employee-MFA scope established on main=$main_sha"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'P0_IMMUTABLE_EMPLOYEE_MFA_SCOPE_NOT_ESTABLISHED' >&2
+          exit 1
+
+      - name: Refresh implementation PR against immutable scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          pr="$(gh api "repos/$repo/pulls/$IMPLEMENTATION_PR")"
+          if [[ "$(jq -r '.merged' <<<"$pr")" == 'true' ]]; then
+            echo 'implementation PR already merged'
+            exit 0
+          fi
+
+          [[ "$(jq -r '.state' <<<"$pr")" == 'open' ]]
+          [[ "$(jq -r '.draft' <<<"$pr")" == 'false' ]]
+          [[ "$(jq -r '.head.ref' <<<"$pr")" == "$IMPLEMENTATION_HEAD" ]]
+          [[ "$(jq -r '.base.ref' <<<"$pr")" == 'main' ]]
+
+          mapfile -t files < <(gh api --paginate "repos/$repo/pulls/$IMPLEMENTATION_PR/files?per_page=100" --jq '.[].filename' | sort)
+          mapfile -t expected < <(printf '%s\n' "$P1" "$P2" "$P3" | sort)
+          [[ "${#files[@]}" -eq 3 ]]
+          for i in "${!expected[@]}"; do [[ "${files[$i]}" == "${expected[$i]}" ]]; done
+
+          head_sha="$(jq -r '.head.sha' <<<"$pr")"
+          gh api --method PATCH "repos/$repo/pulls/$IMPLEMENTATION_PR" -f state='closed' >/dev/null
+          sleep 3
+          gh api --method PATCH "repos/$repo/pulls/$IMPLEMENTATION_PR" -f state='open' >/dev/null
+
+          for attempt in $(seq 1 40); do
+            pr="$(gh api "repos/$repo/pulls/$IMPLEMENTATION_PR")"
+            main_sha="$(gh api "repos/$repo/commits/main" --jq '.sha')"
+            [[ "$(jq -r '.head.sha' <<<"$pr")" == "$head_sha" ]]
+            if [[ "$(jq -r '.state' <<<"$pr")" == 'open' && \
+                  "$(jq -r '.base.sha' <<<"$pr")" == "$main_sha" && \
+                  -n "$(jq -r '.merge_commit_sha // empty' <<<"$pr")" ]]; then
+              echo "implementation PR refreshed against main=$main_sha"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'P0_IMPLEMENTATION_PR_REFRESH_TIMEOUT' >&2
+          exit 1
+
+      - name: Verify exact implementation merge candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          pr="$(gh api "repos/$repo/pulls/$IMPLEMENTATION_PR")"
+          if [[ "$(jq -r '.merged' <<<"$pr")" == 'true' ]]; then
+            release_sha="$(jq -r '.merge_commit_sha' <<<"$pr")"
+            main_sha="$(gh api "repos/$repo/commits/main" --jq '.sha')"
+            [[ "$release_sha" == "$main_sha" ]]
+            test_ref="$release_sha"
+            printf '%s' "$release_sha" >/tmp/already-merged-release-sha
+          else
+            [[ "$(jq -r '.state' <<<"$pr")" == 'open' ]]
+            [[ "$(jq -r '.head.ref' <<<"$pr")" == "$IMPLEMENTATION_HEAD" ]]
+            head_sha="$(jq -r '.head.sha' <<<"$pr")"
+            base_sha="$(jq -r '.base.sha' <<<"$pr")"
+            merge_sha="$(jq -r '.merge_commit_sha // empty' <<<"$pr")"
+            main_sha="$(gh api "repos/$repo/commits/main" --jq '.sha')"
+            [[ "$base_sha" == "$main_sha" ]]
+            [[ -n "$merge_sha" ]]
+            printf '%s' "$head_sha" >/tmp/implementation-head-sha
+            printf '%s' "$base_sha" >/tmp/implementation-base-sha
+            printf '%s' "$merge_sha" >/tmp/implementation-merge-sha
+            test_ref="$merge_sha"
+          fi
+
+          gh repo clone "$repo" target -- --filter=blob:none
+          cd target
+          git fetch origin "$test_ref"
+          git checkout --detach "$test_ref"
+          [[ "$(git rev-parse HEAD)" == "$test_ref" ]]
+          git diff --check HEAD^1..HEAD 2>/dev/null || git diff --check
+
+          grep -q 'GUEST' "$P1"
+          grep -q 'GUEST' "$P2"
+          grep -Eiq 'MFA|многофактор' "$P3"
+
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm --filter @pc/api exec prisma generate
+          pnpm --filter @pc/api exec jest \
+            src/modules/auth/employee-mfa-policy.spec.ts \
+            src/modules/auth/session-idle-timeout.spec.ts \
+            --runInBand
+          pnpm --filter @pc/api exec tsc -p tsconfig.json --noEmit
+
+      - name: Require green implementation checks and merge exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          if [[ -s /tmp/already-merged-release-sha ]]; then
+            exit 0
+          fi
+
+          verified_head="$(cat /tmp/implementation-head-sha)"
+          verified_base="$(cat /tmp/implementation-base-sha)"
+          verified_merge="$(cat /tmp/implementation-merge-sha)"
+
+          for attempt in $(seq 1 180); do
+            pr="$(gh api "repos/$repo/pulls/$IMPLEMENTATION_PR")"
+            if [[ "$(jq -r '.merged' <<<"$pr")" == 'true' ]]; then
+              release_sha="$(jq -r '.merge_commit_sha' <<<"$pr")"
+              main_sha="$(gh api "repos/$repo/commits/main" --jq '.sha')"
+              [[ "$release_sha" == "$main_sha" ]]
+              printf '%s' "$release_sha" >/tmp/already-merged-release-sha
+              exit 0
+            fi
+
+            [[ "$(jq -r '.state' <<<"$pr")" == 'open' ]]
+            [[ "$(jq -r '.head.ref' <<<"$pr")" == "$IMPLEMENTATION_HEAD" ]]
+            [[ "$(jq -r '.head.sha' <<<"$pr")" == "$verified_head" ]]
+            [[ "$(jq -r '.base.sha' <<<"$pr")" == "$verified_base" ]]
+            [[ "$(jq -r '.merge_commit_sha // empty' <<<"$pr")" == "$verified_merge" ]]
+
+            checks="$(gh api -H 'Accept: application/vnd.github+json' "repos/$repo/commits/$verified_merge/check-runs?per_page=100&filter=latest")"
+            total="$(jq '.total_count' <<<"$checks")"
+            pending="$(jq '[.check_runs[] | select(.status != "completed")] | length' <<<"$checks")"
+            bad="$(jq '[.check_runs[] | select(.status == "completed" and (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped"))] | length' <<<"$checks")"
+            guard_ok="$(jq '[.check_runs[] | select(.name == "Standard platform-v7 guard validations" and .status == "completed" and .conclusion == "success")] | length' <<<"$checks")"
+            status="$(gh api "repos/$repo/commits/$verified_merge/status")"
+            status_total="$(jq '.total_count' <<<"$status")"
+            status_state="$(jq -r '.state' <<<"$status")"
+
+            if (( bad > 0 )); then
+              jq -r '.check_runs[] | select(.status == "completed" and (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped")) | "FAILED_CHECK=" + .name + ":" + (.conclusion // "null")' <<<"$checks"
+              exit 1
+            fi
+
+            if (( total >= 15 && pending == 0 && guard_ok >= 1 )) && \
+               { (( status_total == 0 )) || [[ "$status_state" == 'success' ]]; }; then
+              [[ "$(jq -r '.mergeable' <<<"$pr")" == 'true' ]]
+              result="$(gh api --method PUT "repos/$repo/pulls/$IMPLEMENTATION_PR/merge" \
+                -f merge_method='squash' \
+                -f commit_title='fix(auth): require first-login MFA for employee GUEST (#4885)' \
+                -f sha="$verified_head")"
+              [[ "$(jq -r '.merged' <<<"$result")" == 'true' ]]
+              release_sha="$(jq -r '.sha' <<<"$result")"
+              main_sha="$(gh api "repos/$repo/commits/main" --jq '.sha')"
+              [[ "$release_sha" == "$main_sha" ]]
+              printf '%s' "$release_sha" >/tmp/merged-release-sha
+              echo "implementation merged at exact main=$release_sha"
+              exit 0
+            fi
+
+            echo "waiting for implementation checks: attempt=$attempt merge=$verified_merge total=$total pending=$pending guard_ok=$guard_ok status=$status_state"
+            sleep 20
+          done
+          echo 'P0_IMPLEMENTATION_GREEN_TIMEOUT' >&2
+          exit 1
+
+      - name: Pin release SHA and reject main drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -s /tmp/merged-release-sha ]]; then
+            release_sha="$(cat /tmp/merged-release-sha)"
+          elif [[ -s /tmp/already-merged-release-sha ]]; then
+            release_sha="$(cat /tmp/already-merged-release-sha)"
+          else
+            echo 'P0_RELEASE_SHA_MISSING' >&2
+            exit 1
+          fi
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          [[ "$main_sha" == "$release_sha" ]] || {
+            echo "P0_MAIN_DRIFT_BEFORE_RELEASE expected=$release_sha actual=$main_sha" >&2
+            exit 1
+          }
+          printf '%s' "$release_sha" >/tmp/release-sha
+
+      - name: Resolve canonical release input and dispatch exact SHA once
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          release_sha="$(cat /tmp/release-sha)"
+          [[ "$(gh api "repos/$repo/commits/main" --jq '.sha')" == "$release_sha" ]]
+
+          canonical="$(gh api "repos/$repo/actions/runs/$CANONICAL_RELEASE_RUN")"
+          [[ "$(jq -r '.event' <<<"$canonical")" == 'workflow_dispatch' ]]
+          workflow_id="$(jq -r '.workflow_id' <<<"$canonical")"
+          workflow_path="$(jq -r '.path' <<<"$canonical")"
+          [[ "$workflow_id" =~ ^[0-9]+$ ]]
+          [[ "$workflow_path" == .github/workflows/* ]]
+          printf '%s' "$workflow_id" >/tmp/release-workflow-id
+
+          runs="$(gh api "repos/$repo/actions/workflows/$workflow_id/runs?event=workflow_dispatch&per_page=100")"
+          successful="$(jq -r --arg sha "$release_sha" '[.workflow_runs[] | select(.head_sha == $sha and .status == "completed" and .conclusion == "success")] | sort_by(.created_at) | last | .id // empty' <<<"$runs")"
+          active="$(jq -r --arg sha "$release_sha" '[.workflow_runs[] | select(.head_sha == $sha and (.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending"))] | sort_by(.created_at) | last | .id // empty' <<<"$runs")"
+          if [[ -n "$successful" ]]; then
+            printf '%s' "$successful" >/tmp/release-run-id
+            echo "reusing successful exact-SHA release run=$successful"
+            exit 0
+          fi
+          if [[ -n "$active" ]]; then
+            printf '%s' "$active" >/tmp/release-run-id
+            echo "reusing active exact-SHA release run=$active"
+            exit 0
+          fi
+
+          encoded="$(gh api "repos/$repo/contents/$workflow_path?ref=$release_sha" --jq '.content')"
+          printf '%s' "$encoded" | tr -d '\n' | base64 -d >/tmp/release-workflow.yml
+
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path('/tmp/release-workflow.yml').read_text(encoding='utf-8')
+          lines = text.splitlines()
+
+          def indent(line: str) -> int:
+              return len(line) - len(line.lstrip(' '))
+
+          wd = None
+          wd_indent = None
+          for index, line in enumerate(lines):
+              if re.match(r'^\s*workflow_dispatch\s*:\s*(?:#.*)?$', line):
+                  wd = index
+                  wd_indent = indent(line)
+                  break
+          if wd is None or wd_indent is None:
+              raise SystemExit('P0_CANONICAL_RELEASE_NOT_DISPATCHABLE')
+
+          inputs_line = None
+          inputs_indent = None
+          for index in range(wd + 1, len(lines)):
+              line = lines[index]
+              stripped = line.strip()
+              if stripped and not stripped.startswith('#') and indent(line) <= wd_indent:
+                  break
+              if re.match(r'^\s*inputs\s*:\s*(?:#.*)?$', line):
+                  inputs_line = index
+                  inputs_indent = indent(line)
+                  break
+          if inputs_line is None or inputs_indent is None:
+              raise SystemExit('P0_CANONICAL_RELEASE_SHA_INPUT_MISSING')
+
+          entries = {}
+          index = inputs_line + 1
+          while index < len(lines):
+              line = lines[index]
+              stripped = line.strip()
+              if stripped and not stripped.startswith('#') and indent(line) <= inputs_indent:
+                  break
+              match = re.match(r'^(\s*)([A-Za-z0-9_-]+)\s*:\s*(?:#.*)?$', line)
+              if match and len(match.group(1)) > inputs_indent:
+                  key = match.group(2)
+                  key_indent = len(match.group(1))
+                  block = []
+                  index += 1
+                  while index < len(lines):
+                      sub = lines[index]
+                      sub_stripped = sub.strip()
+                      if sub_stripped and not sub_stripped.startswith('#') and indent(sub) <= key_indent:
+                          break
+                      block.append(sub)
+                      index += 1
+                  required = any(re.match(r'^\s*required\s*:\s*true\s*(?:#.*)?$', item, re.I) for item in block)
+                  has_default = any(re.match(r'^\s*default\s*:', item) for item in block)
+                  entries[key] = {'required': required, 'has_default': has_default}
+                  continue
+              index += 1
+
+          priority = ['target_sha', 'release_sha', 'exact_sha', 'source_sha', 'commit_sha', 'sha']
+          sha_keys = [key for key in priority if key in entries]
+          if len(sha_keys) != 1:
+              raise SystemExit('P0_CANONICAL_RELEASE_SHA_INPUT_AMBIGUOUS:' + ','.join(sha_keys))
+          sha_key = sha_keys[0]
+          unresolved = [key for key, metadata in entries.items()
+                        if key != sha_key and metadata['required'] and not metadata['has_default']]
+          if unresolved:
+              raise SystemExit('P0_CANONICAL_RELEASE_REQUIRED_INPUTS_UNRESOLVED:' + ','.join(unresolved))
+          Path('/tmp/release-input-key').write_text(sha_key, encoding='utf-8')
+          PY
+
+          sha_key="$(cat /tmp/release-input-key)"
+          [[ "$(gh api "repos/$repo/commits/main" --jq '.sha')" == "$release_sha" ]]
+          jq -n --arg ref 'main' --arg key "$sha_key" --arg sha "$release_sha" \
+            '{ref:$ref,inputs:{($key):$sha}}' >/tmp/release-dispatch.json
+          dispatch_epoch="$(date -u +%s)"
+          gh api --method POST "repos/$repo/actions/workflows/$workflow_id/dispatches" --input /tmp/release-dispatch.json
+
+          for attempt in $(seq 1 90); do
+            runs="$(gh api "repos/$repo/actions/workflows/$workflow_id/runs?event=workflow_dispatch&per_page=100")"
+            run_id="$(jq -r --arg sha "$release_sha" --argjson epoch "$dispatch_epoch" '[.workflow_runs[] | select(.head_sha == $sha) | select((.created_at | fromdateiso8601) >= $epoch)] | sort_by(.created_at) | last | .id // empty' <<<"$runs")"
+            if [[ -n "$run_id" ]]; then
+              printf '%s' "$run_id" >/tmp/release-run-id
+              echo "dispatched exact-SHA release run=$run_id sha=$release_sha"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'P0_EXACT_RELEASE_RUN_NOT_FOUND' >&2
+          exit 1
+
+      - name: Require terminal successful exact-SHA release
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          release_sha="$(cat /tmp/release-sha)"
+          run_id="$(cat /tmp/release-run-id)"
+          for attempt in $(seq 1 360); do
+            run="$(gh api "repos/$repo/actions/runs/$run_id")"
+            [[ "$(jq -r '.head_sha' <<<"$run")" == "$release_sha" ]]
+            status="$(jq -r '.status' <<<"$run")"
+            conclusion="$(jq -r '.conclusion // empty' <<<"$run")"
+            if [[ "$status" == 'completed' ]]; then
+              [[ "$conclusion" == 'success' ]] || {
+                echo "P0_EXACT_RELEASE_FAILED run=$run_id conclusion=$conclusion" >&2
+                exit 1
+              }
+              echo "P0_EMPLOYEE_MFA_EXACT_RELEASE_PASS run=$run_id sha=$release_sha"
+              exit 0
+            fi
+            echo "waiting for exact-SHA release: run=$run_id status=$status attempt=$attempt"
+            sleep 20
+          done
+          echo 'P0_EXACT_RELEASE_TIMEOUT' >&2
+          exit 1
