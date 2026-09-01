@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-employee-guest-mfa-4884",
+  "status": "active",
+  "issue": 4884,
+  "registrationIssue": 3785,
+  "releaseAuthorityIssue": 4637,
+  "authorityBaseExactMain": "dc61910f579ed5f2bda0f0379e81f79984456f10",
+  "purpose": "Require first-login MFA for the server-derived employee GUEST identity while preserving the ordinary GUEST session idle-timeout tier.",
+  "allowedPaths": [
+    "apps/api/src/common/types/request-user.ts",
+    "apps/api/src/modules/auth/employee-mfa-policy.spec.ts",
+    "docs/security/SESSION_POLICY.md"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "databaseSchemaChange": false,
+    "rlsChange": false,
+    "tenantMappingChange": false,
+    "roleMappingChange": false,
+    "mailChange": false,
+    "rateLimitChange": false,
+    "tokenContractChange": false,
+    "workflowChange": false,
+    "acceptanceRunnerChange": false,
+    "mfaWeakening": false,
+    "guestFirstLoginMfaRequired": true,
+    "guestIdleTimeoutTierPreserved": true
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
