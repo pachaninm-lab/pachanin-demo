@@ -13,8 +13,25 @@ if (staleSeconds !== 1800) {
 const legalPattern = /^Production P0 exact-run organization (A|B)$/;
 const correlationPattern = /^p0-registration:([0-9a-f]{12}):([A-Za-z0-9._:-]{1,48}):(a|b)$/;
 const idempotencyPattern = /^p0-registration:([0-9a-f]{40}):([A-Za-z0-9._:-]{1,48}):(a|b)$/;
+const githubRunPattern = /^([0-9]{6,20})(?:-([1-9][0-9]*))?$/;
 const workspace = Object.freeze({ a: 'seller', b: 'buyer' });
 const role = Object.freeze({ a: 'FARMER', b: 'BUYER' });
+
+function classifyRunRelation(correlationRun, idempotencyRun) {
+  if (correlationRun === idempotencyRun) return 'EXACT';
+  const correlation = githubRunPattern.exec(correlationRun);
+  const idempotency = githubRunPattern.exec(idempotencyRun);
+  if (!correlation || !idempotency) return 'NON_GITHUB_SHAPE';
+  if (correlation[1] !== idempotency[1]) return 'DIFFERENT_GITHUB_RUN';
+  const correlationAttempt = correlation[2] || '';
+  const idempotencyAttempt = idempotency[2] || '';
+  if (correlationAttempt && !idempotencyAttempt) return 'CORRELATION_ATTEMPT_ONLY';
+  if (!correlationAttempt && idempotencyAttempt) return 'IDEMPOTENCY_ATTEMPT_ONLY';
+  if (correlationAttempt && idempotencyAttempt && correlationAttempt !== idempotencyAttempt) {
+    return 'SAME_RUN_DIFFERENT_ATTEMPT';
+  }
+  return 'OTHER_SAME_RUN';
+}
 
 async function main() {
   const prisma = new AuthPrismaService();
@@ -53,6 +70,12 @@ async function main() {
         shaPrefixMismatch: 0,
         workspaceRoleMismatch: 0,
         multiMismatch: 0,
+        relationCorrelationAttemptOnly: 0,
+        relationIdempotencyAttemptOnly: 0,
+        relationSameRunDifferentAttempt: 0,
+        relationDifferentGithubRun: 0,
+        relationNonGithubShape: 0,
+        relationOtherSameRun: 0,
       };
 
       for (const row of rows) {
@@ -64,8 +87,15 @@ async function main() {
           continue;
         }
         const label = legal[1].toLowerCase();
+        const relation = classifyRunRelation(correlation[2], idempotency[2]);
+        if (relation === 'CORRELATION_ATTEMPT_ONLY') counts.relationCorrelationAttemptOnly += 1;
+        if (relation === 'IDEMPOTENCY_ATTEMPT_ONLY') counts.relationIdempotencyAttemptOnly += 1;
+        if (relation === 'SAME_RUN_DIFFERENT_ATTEMPT') counts.relationSameRunDifferentAttempt += 1;
+        if (relation === 'DIFFERENT_GITHUB_RUN') counts.relationDifferentGithubRun += 1;
+        if (relation === 'NON_GITHUB_SHAPE') counts.relationNonGithubShape += 1;
+        if (relation === 'OTHER_SAME_RUN') counts.relationOtherSameRun += 1;
         const flags = [
-          correlation[2] !== idempotency[2] && 'run',
+          relation !== 'EXACT' && 'run',
           correlation[3] !== label && 'correlationLabel',
           idempotency[3] !== label && 'idempotencyLabel',
           correlation[1] !== idempotency[1].slice(0, 12) && 'shaPrefix',
@@ -92,6 +122,12 @@ async function main() {
     console.log(`P0_STALE_FC_CLASSIFY_SHA_PREFIX_MISMATCH=${summary.shaPrefixMismatch}`);
     console.log(`P0_STALE_FC_CLASSIFY_WORKSPACE_ROLE_MISMATCH=${summary.workspaceRoleMismatch}`);
     console.log(`P0_STALE_FC_CLASSIFY_MULTI_MISMATCH=${summary.multiMismatch}`);
+    console.log(`P0_STALE_FC_CLASSIFY_REL_CORRELATION_ATTEMPT_ONLY=${summary.relationCorrelationAttemptOnly}`);
+    console.log(`P0_STALE_FC_CLASSIFY_REL_IDEMPOTENCY_ATTEMPT_ONLY=${summary.relationIdempotencyAttemptOnly}`);
+    console.log(`P0_STALE_FC_CLASSIFY_REL_SAME_RUN_DIFFERENT_ATTEMPT=${summary.relationSameRunDifferentAttempt}`);
+    console.log(`P0_STALE_FC_CLASSIFY_REL_DIFFERENT_GITHUB_RUN=${summary.relationDifferentGithubRun}`);
+    console.log(`P0_STALE_FC_CLASSIFY_REL_NON_GITHUB_SHAPE=${summary.relationNonGithubShape}`);
+    console.log(`P0_STALE_FC_CLASSIFY_REL_OTHER_SAME_RUN=${summary.relationOtherSameRun}`);
     console.log('P0_STALE_FC_CLASSIFY_PRODUCTION_MUTATION=NONE');
     console.log('P0_STALE_FC_CLASSIFY_RAW_IDENTIFIERS=0');
   } catch (error) {
