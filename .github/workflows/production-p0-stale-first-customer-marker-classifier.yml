@@ -1,0 +1,196 @@
+name: Production P0 Stale First Customer Marker Classifier
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-stale-first-customer-marker-classifier.yml'
+      - 'scripts/production-p0-stale-first-customer-marker-classifier.cjs'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-stale-first-customer-marker-classifier
+  cancel-in-progress: false
+
+env:
+  AUTHORITY_ISSUE: '4637'
+  COMMAND: /production p0-retire-stale-first-customer-classify current-main
+  CLASSIFIER_PATH: scripts/production-p0-stale-first-customer-marker-classifier.cjs
+  CLASSIFIER_BLOB_SHA: 7f5b74a61b2f554c01a39c03f382e973be8b3bf0
+  WORKFLOW_PATH: .github/workflows/production-p0-stale-first-customer-marker-classifier.yml
+  RUNTIME_SHA: 1c5a0b9865530476b6d8c7d9ed3e4842c9441937
+  LIVE_HOST: '195.19.12.120'
+  STALE_SECONDS: '1800'
+
+jobs:
+  contract:
+    name: Validate read-only stale First Customer classifier
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove bounded read-only source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$PR_HEAD_SHA" ]]
+          [[ "$(git hash-object "$CLASSIFIER_PATH")" == "$CLASSIFIER_BLOB_SHA" ]]
+          node --check "$CLASSIFIER_PATH"
+          mapfile -t changed < <(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename' | sort)
+          [[ "${#changed[@]}" == 2 ]]
+          [[ "${changed[0]}" == "$WORKFLOW_PATH" ]]
+          [[ "${changed[1]}" == "$CLASSIFIER_PATH" ]]
+          grep -Fq 'SET TRANSACTION READ ONLY' "$CLASSIFIER_PATH"
+          grep -Fq 'P0_STALE_FC_CLASSIFY_PRODUCTION_MUTATION=NONE' "$CLASSIFIER_PATH"
+          grep -Fq 'P0_STALE_FC_CLASSIFY_RAW_IDENTIFIERS=0' "$CLASSIFIER_PATH"
+          grep -Fq 'P0_STALE_FC_CLASSIFY_RUN_TOKEN_MISMATCH' "$CLASSIFIER_PATH"
+          grep -Fq 'P0_STALE_FC_CLASSIFY_CORRELATION_LABEL_MISMATCH' "$CLASSIFIER_PATH"
+          grep -Fq 'P0_STALE_FC_CLASSIFY_IDEMPOTENCY_LABEL_MISMATCH' "$CLASSIFIER_PATH"
+          ! grep -Eiq '\b(INSERT|UPDATE|DELETE|TRUNCATE)\b' "$CLASSIFIER_PATH"
+          grep -Fq "github.event.issue.number == 4637" "$WORKFLOW_PATH"
+          grep -Fq "github.event.comment.body == '/production p0-retire-stale-first-customer-classify current-main'" "$WORKFLOW_PATH"
+          echo 'PASS: classifier is two-file bounded, aggregate-only and transaction-read-only.'
+
+  classify:
+    name: Read-only REG.RU stale First Customer marker classifier
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-retire-stale-first-customer-classify current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove immutable classifier source
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse HEAD)" == "$current" ]]
+          [[ "$(git hash-object "$CLASSIFIER_PATH")" == "$CLASSIFIER_BLOB_SHA" ]]
+          node --check "$CLASSIFIER_PATH"
+          echo "classifier_sha256=$(sha256sum "$CLASSIFIER_PATH" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned REG.RU SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          key_path="$RUNNER_TEMP/p0-fc-classify-key"
+          known_hosts="$RUNNER_TEMP/p0-fc-classify-known-hosts"
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          host="$(trim "${SSH_HOST_SECRET:-}")"; user="$(trim "${SSH_USER_SECRET:-}")"; port="$(trim "${SSH_PORT_SECRET:-22}")"; expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$LIVE_HOST" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ && "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          (( port >= 1 && port <= 65535 ))
+          validate_key(){ local source="$1" public_key; tr -d '\r' < "$source" > "$key_path"; chmod 0600 "$key_path"; public_key="$(mktemp)"; ssh-keygen -y -P '' -f "$key_path" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }; rm -f "$public_key"; }
+          try_key(){ local raw="$1" plain escaped decoded; [[ -n "$raw" ]] || return 1; plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"; printf '%s\n' "$raw" > "$plain"; validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$escaped"; validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }; printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null && validate_key "$decoded" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }; rm -f "$plain" "$escaped" "$decoded"; return 1; }
+          try_key "${SSH_KEY_PRIMARY:-}" || try_key "${SSH_KEY_SECONDARY:-}" || try_key "${SSH_KEY_FALLBACK:-}"
+          scan="$(mktemp)"; match="$(mktemp)"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"; [[ -s "$scan" ]]
+          while IFS= read -r line; do fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]; mv "$match" "$known_hosts"; rm -f "$scan"; chmod 0600 "$known_hosts"
+          echo "key=$key_path" >> "$GITHUB_OUTPUT"; echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"; echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Run aggregate-only production classifier
+        id: classify
+        shell: bash
+        env:
+          KEY_PATH: ${{ steps.ssh.outputs.key }}
+          KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+          CLASSIFIER_SHA256: ${{ steps.scope.outputs.classifier_sha256 }}
+        run: |
+          set -euo pipefail
+          remote_path="/tmp/p0-stale-fc-classify-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.cjs"
+          scp -q -i "$KEY_PATH" -P "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS" "$CLASSIFIER_PATH" "$SSH_USER@$SSH_HOST:$remote_path"
+          set +e
+          output="$(ssh -i "$KEY_PATH" -p "$SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS" -o ConnectTimeout=15 "$SSH_USER@$SSH_HOST" "bash -s -- '$RUNTIME_SHA' '$STALE_SECONDS' '$remote_path' '$CLASSIFIER_SHA256'" 2>/dev/null <<'REMOTE'
+          set -Eeuo pipefail
+          runtime_sha="$1"; stale_seconds="$2"; remote_path="$3"; classifier_sha256="$4"
+          cleanup(){ rm -f -- "$remote_path" || true; if [[ -n "${api_id:-}" && -n "${container_path:-}" ]]; then docker exec "$api_id" /nodejs/bin/node -e "require('fs').rmSync(process.argv[1],{force:true})" "$container_path" >/dev/null 2>&1 || true; fi; }
+          trap cleanup EXIT
+          [[ "$(id -u)" -eq 0 && "$runtime_sha" =~ ^[0-9a-f]{40}$ && "$stale_seconds" == 1800 && -f "$remote_path" ]]
+          [[ "$(sha256sum "$remote_path" | awk '{print $1}')" == "$classifier_sha256" ]]
+          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api'); (( ${#api_ids[@]} == 1 )); api_id="${api_ids[0]}"
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" == "$runtime_sha" ]]
+          docker exec "$api_id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" >/dev/null 2>&1
+          docker exec "$api_id" /nodejs/bin/node -e "require.resolve('@prisma/client',{paths:['/app']})" >/dev/null 2>&1
+          container_path="/tmp/p0-stale-fc-classify-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.cjs"
+          docker cp "$remote_path" "$api_id:$container_path" >/dev/null
+          docker exec -e NODE_PATH=/app/node_modules "$api_id" /nodejs/bin/node "$container_path" "$stale_seconds"
+          REMOTE
+          )"
+          rc=$?
+          set -e
+          safe="$(printf '%s\n' "$output" | grep -E '^P0_STALE_FC_CLASSIFY_[A-Z0-9_]+=([A-Z0-9_]+|[0-9]+|NONE)$' || true)"
+          printf '%s\n' "$safe"
+          printf '%s\n' "$safe" > "$RUNNER_TEMP/p0-stale-fc-classify-safe.txt"
+          (( rc == 0 ))
+          grep -Fxq 'P0_STALE_FC_CLASSIFY_RESULT=PASS' <<< "$safe"
+          grep -Fxq 'P0_STALE_FC_CLASSIFY_PRODUCTION_MUTATION=NONE' <<< "$safe"
+          grep -Fxq 'P0_STALE_FC_CLASSIFY_RAW_IDENTIFIERS=0' <<< "$safe"
+
+      - name: Publish safe aggregate result
+        shell: bash
+        run: |
+          set -euo pipefail
+          safe="$RUNNER_TEMP/p0-stale-fc-classify-safe.txt"
+          [[ -s "$safe" ]]
+          {
+            printf '## Production P0 stale First Customer marker classifier\n\n'
+            printf -- '- result: `PASS`\n'
+            printf -- '- production mutation: `NONE`\n'
+            printf -- '- raw identifiers: `0`\n\n'
+            printf '```text\n'
+            cat "$safe"
+            printf '```\n'
+          } > "$RUNNER_TEMP/comment.md"
+          gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md" >/dev/null
+
+      - name: Remove protected SSH material
+        if: always()
+        shell: bash
+        env:
+          KEY_PATH: ${{ steps.ssh.outputs.key }}
+          KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
+        run: rm -f -- "${KEY_PATH:-}" "${KNOWN_HOSTS:-}"
