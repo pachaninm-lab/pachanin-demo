@@ -1,7 +1,6 @@
 'use strict';
 
-const { Prisma } = require('@prisma/client');
-const { AuthPrismaService } = require('/app/dist/apps/api/src/modules/auth/auth-prisma.service.js');
+const { Prisma, PrismaClient } = require('@prisma/client');
 const { PersistentAuthRepository } = require('/app/dist/apps/api/src/modules/auth/persistent-auth.repository.js');
 const { RegistrationApplicationService } = require('/app/dist/apps/api/src/modules/auth/registration-application.service.js');
 
@@ -15,6 +14,7 @@ class BoundedFailure extends Error {
 const fail = (code) => { throw new BoundedFailure(code); };
 const [staleRaw, cleanupCorrelation] = process.argv.slice(2);
 const staleSeconds = Number(staleRaw);
+const maintenanceUrl = String(process.env.P0_RETIRE_DATABASE_URL || '').trim();
 const allowedStatuses = new Set([
   'ORGANIZATION_VERIFICATION_PENDING',
   'ADDITIONAL_INFORMATION_REQUIRED',
@@ -33,6 +33,21 @@ const roles = Object.freeze({
 const legalPattern = /^Production P0 exact-run organization (SELLER|BUYER|LOGISTICS|DRIVER|ELEVATOR|LAB|SURVEYOR|BANK) ([A-Za-z0-9._:-]{1,48})$/;
 const correlationPattern = /^p0-all-role-register:([0-9a-f]{12}):([A-Za-z0-9._:-]{1,48}):(seller|buyer|logistics|driver|elevator|lab|surveyor|bank)$/;
 const idempotencyPattern = /^p0-all-role-register:([0-9a-f]{40}):([A-Za-z0-9._:-]{1,48}):(seller|buyer|logistics|driver|elevator|lab|surveyor|bank)$/;
+
+function validateMaintenanceUrl() {
+  if (process.env.P0_RETIRE_BOUNDED_MAINTENANCE !== '1') fail('MAINTENANCE_AUTHORITY_MARKER_MISSING');
+  if (!maintenanceUrl || maintenanceUrl.length > 4096) fail('MAINTENANCE_DATABASE_URL_INVALID');
+  try {
+    const url = new URL(maintenanceUrl);
+    if (!['postgres:', 'postgresql:'].includes(url.protocol)) fail('MAINTENANCE_DATABASE_URL_INVALID');
+    if (!url.username || !url.password || !url.hostname || !url.pathname.replace(/^\/+/, '')) {
+      fail('MAINTENANCE_DATABASE_URL_INVALID');
+    }
+  } catch (error) {
+    if (error instanceof BoundedFailure) throw error;
+    fail('MAINTENANCE_DATABASE_URL_INVALID');
+  }
+}
 
 function validateCandidate(row) {
   if (row.kind !== 'NEW_ORGANIZATION' || !allowedStatuses.has(row.status)) {
@@ -70,8 +85,9 @@ async function main() {
   ) {
     fail('INPUT_INVALID');
   }
+  validateMaintenanceUrl();
 
-  const prisma = new AuthPrismaService();
+  const prisma = new PrismaClient({ datasources: { db: { url: maintenanceUrl } } });
   const repository = new PersistentAuthRepository(prisma);
   const service = new RegistrationApplicationService(prisma, repository);
   if (typeof service.insertEvent !== 'function' || typeof service.audit !== 'function') {
@@ -79,7 +95,22 @@ async function main() {
   }
 
   try {
-    await prisma.onModuleInit();
+    await prisma.$connect();
+
+    const privilegeRows = await prisma.$queryRaw(Prisma.sql`
+      SELECT
+        has_schema_privilege(current_user, 'auth', 'USAGE') AS auth_schema,
+        has_table_privilege(current_user, 'auth.registration_applications', 'SELECT,UPDATE') AS applications_rw,
+        has_table_privilege(current_user, 'auth.registration_email_challenges', 'UPDATE') AS challenges_update,
+        has_table_privilege(current_user, 'auth.registration_application_events', 'SELECT,INSERT') AS events_ri,
+        has_table_privilege(current_user, 'auth.audit_events', 'SELECT,INSERT') AS audit_ri,
+        has_table_privilege(current_user, 'auth.sessions', 'SELECT') AS sessions_read
+    `);
+    const privileges = privilegeRows[0] || {};
+    if (!Object.values(privileges).every((value) => value === true)) {
+      fail('MAINTENANCE_DATABASE_PRIVILEGES_INSUFFICIENT');
+    }
+
     const candidates = await prisma.$queryRaw(Prisma.sql`
       SELECT id, kind, user_id, membership_id, organization_id,
              requested_workspace, requested_role, status, version,
@@ -100,7 +131,7 @@ async function main() {
     `);
     if (candidates.length > 256) fail('CANDIDATE_BOUND_EXCEEDED');
 
-    // Preflight every row before any write. One malformed marker makes the whole operation fail closed.
+    // Validate the entire candidate set before the first write.
     for (const row of candidates) {
       validateCandidate(row);
       const sessions = await prisma.$queryRaw(Prisma.sql`
@@ -231,7 +262,7 @@ async function main() {
     console.log('P0_RETIRE_RAW_IDENTIFIERS=0');
     console.log('P0_RETIRE_NON_MARKER_MUTATIONS=0');
   } finally {
-    await prisma.onModuleDestroy().catch(() => {});
+    await prisma.$disconnect().catch(() => {});
   }
 }
 
