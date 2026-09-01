@@ -22,7 +22,7 @@ env:
   AUTHORITY_ISSUE: '4637'
   COMMAND: /production p0-retire-stale-fixtures-runtime-pin current-main
   RUNTIME_SHA: fd33ce36ed4c2b39f23aafda050863045cb04299
-  SOURCE_BASE_SHA: 251a6fd00a5205492685f32efe49b2e1c0866031
+  SOURCE_BASE_SHA: 1a0292ee25d91bbaebc17a51ec76ca13efad8e06
   RUNNER_PATH: scripts/production-p0-retire-stale-fixtures.cjs
   RUNNER_BLOB_SHA: 4ab897bfe6dccb0a8609e10503c02ff66132e692
   WORKFLOW_PATH: .github/workflows/production-p0-retire-stale-fixtures-runtime-pin.yml
@@ -59,7 +59,7 @@ jobs:
           [[ "${#changed[@]}" == 1 && "${changed[0]}" == "$WORKFLOW_PATH" ]]
           for marker in \
             "RUNTIME_SHA: fd33ce36ed4c2b39f23aafda050863045cb04299" \
-            "SOURCE_BASE_SHA: 251a6fd00a5205492685f32efe49b2e1c0866031" \
+            "SOURCE_BASE_SHA: 1a0292ee25d91bbaebc17a51ec76ca13efad8e06" \
             "RUNNER_BLOB_SHA: 4ab897bfe6dccb0a8609e10503c02ff66132e692" \
             "github.event.issue.number == 4637" \
             "github.event.comment.user.login == github.repository_owner" \
