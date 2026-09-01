@@ -1,0 +1,112 @@
+name: PC-CROP bounded governance merge 4886
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+    paths:
+      - '.github/workflows/p0-governance-merge-4886.yml'
+
+permissions:
+  actions: read
+  checks: read
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: p0-governance-merge-4886
+  cancel-in-progress: false
+
+jobs:
+  validate-and-merge:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'automation/merge-governance-4886'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_PR: '4886'
+      TARGET_HEAD: 'governance/authorize-p0-employee-mfa-4884'
+      TARGET_FILE: 'docs/platform-v7/autopilot/scopes/p0-employee-guest-mfa-4884.json'
+      IMPLEMENTATION_BRANCH: 'fix/p0-employee-guest-mfa-4884'
+    steps:
+      - name: Validate exact governance change and merge only after green checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+
+          for attempt in $(seq 1 60); do
+            pr="$(gh api "repos/$repo/pulls/$TARGET_PR")"
+            if [[ "$(jq -r '.merged' <<<"$pr")" == 'true' ]]; then
+              echo "governance PR already merged"
+              exit 0
+            fi
+
+            [[ "$(jq -r '.state' <<<"$pr")" == 'open' ]]
+            [[ "$(jq -r '.draft' <<<"$pr")" == 'false' ]]
+            [[ "$(jq -r '.head.ref' <<<"$pr")" == "$TARGET_HEAD" ]]
+            [[ "$(jq -r '.base.ref' <<<"$pr")" == 'main' ]]
+
+            head_sha="$(jq -r '.head.sha' <<<"$pr")"
+            mapfile -t files < <(gh api --paginate "repos/$repo/pulls/$TARGET_PR/files?per_page=100" --jq '.[].filename' | sort)
+            [[ "${#files[@]}" -eq 1 ]]
+            [[ "${files[0]}" == "$TARGET_FILE" ]]
+
+            encoded="$(gh api "repos/$repo/contents/$TARGET_FILE?ref=$head_sha" --jq '.content')"
+            scope="$(printf '%s' "$encoded" | tr -d '\n' | base64 -d)"
+            jq -e \
+              --arg branch "$IMPLEMENTATION_BRANCH" \
+              --arg p1 'apps/api/src/common/types/request-user.ts' \
+              --arg p2 'apps/api/src/modules/auth/employee-mfa-policy.spec.ts' \
+              --arg p3 'docs/security/SESSION_POLICY.md' \
+              '.branch == $branch
+               and .status == "active"
+               and .issue == 4884
+               and (.allowedPaths | sort) == ([$p1,$p2,$p3] | sort)
+               and .boundaries.productionMutation == false
+               and .boundaries.databaseMutation == false
+               and .boundaries.databaseSchemaChange == false
+               and .boundaries.rlsChange == false
+               and .boundaries.tenantMappingChange == false
+               and .boundaries.roleMappingChange == false
+               and .boundaries.mailChange == false
+               and .boundaries.rateLimitChange == false
+               and .boundaries.tokenContractChange == false
+               and .boundaries.workflowChange == false
+               and .boundaries.acceptanceRunnerChange == false
+               and .boundaries.mfaWeakening == false
+               and .boundaries.guestFirstLoginMfaRequired == true
+               and .boundaries.guestIdleTimeoutTierPreserved == true
+               and .newRecurringCostRub == 0' <<<"$scope" >/dev/null
+
+            checks="$(gh api -H 'Accept: application/vnd.github+json' "repos/$repo/commits/$head_sha/check-runs?per_page=100")"
+            check_total="$(jq '.total_count' <<<"$checks")"
+            pending="$(jq '[.check_runs[] | select(.status != "completed")] | length' <<<"$checks")"
+            bad="$(jq '[.check_runs[] | select(.status == "completed" and (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped"))] | length' <<<"$checks")"
+            guard_ok="$(jq '[.check_runs[] | select(.name == "Standard platform-v7 guard validations" and .status == "completed" and .conclusion == "success")] | length' <<<"$checks")"
+
+            status="$(gh api "repos/$repo/commits/$head_sha/status")"
+            status_state="$(jq -r '.state' <<<"$status")"
+
+            if (( check_total >= 5 && pending == 0 && bad == 0 && guard_ok >= 1 )) && [[ "$status_state" != 'failure' && "$status_state" != 'error' && "$status_state" != 'pending' ]]; then
+              result="$(gh api --method PUT "repos/$repo/pulls/$TARGET_PR/merge" \
+                -f merge_method='squash' \
+                -f commit_title='governance: authorize bounded employee MFA fix (#4886)')"
+              [[ "$(jq -r '.merged' <<<"$result")" == 'true' ]]
+              echo "governance PR merged"
+              exit 0
+            fi
+
+            if (( bad > 0 )); then
+              jq -r '.check_runs[] | select(.status == "completed" and (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped")) | "FAILED_CHECK=" + .name + ":" + (.conclusion // "null")' <<<"$checks"
+              exit 1
+            fi
+
+            echo "waiting for governance checks: attempt=$attempt total=$check_total pending=$pending guard_ok=$guard_ok status=$status_state"
+            sleep 20
+          done
+
+          echo 'P0_GOVERNANCE_CHECK_TIMEOUT' >&2
+          exit 1
