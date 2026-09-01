@@ -90,7 +90,7 @@ jobs:
               r'docker\s+builder\s+prune',
               r'docker\s+(?:container|volume|network)\s+(?:rm|prune)',
               r'docker[^\n]*\brm\s+-f\b',
-              r'StrictHostKeyChecking=no',
+              r'StrictHostKeyChecking' + r'=no',
               r'sshpass',
               r'SSH_PASSWORD',
           ]
