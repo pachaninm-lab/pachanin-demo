@@ -21,7 +21,7 @@ concurrency:
 env:
   AUTHORITY_ISSUE: '4637'
   COMMAND: /production p0-retire-stale-fixtures-runtime-pin current-main
-  RUNTIME_SHA: fd33ce36ed4c2b39f23aafda050863045cb04299
+  RUNTIME_SHA: 1c5a0b9865530476b6d8c7d9ed3e4842c9441937
   RUNNER_PATH: scripts/production-p0-retire-stale-fixtures.cjs
   RUNNER_BLOB_SHA: 4ab897bfe6dccb0a8609e10503c02ff66132e692
   WORKFLOW_PATH: .github/workflows/production-p0-retire-stale-fixtures-runtime-pin.yml
@@ -57,7 +57,7 @@ jobs:
           mapfile -t changed < <(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename')
           [[ "${#changed[@]}" == 1 && "${changed[0]}" == "$WORKFLOW_PATH" ]]
           for marker in \
-            "RUNTIME_SHA: fd33ce36ed4c2b39f23aafda050863045cb04299" \
+            "RUNTIME_SHA: 1c5a0b9865530476b6d8c7d9ed3e4842c9441937" \
             "RUNNER_BLOB_SHA: 4ab897bfe6dccb0a8609e10503c02ff66132e692" \
             "github.event.issue.number == 4637" \
             "github.event.comment.user.login == github.repository_owner" \
