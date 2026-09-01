@@ -44,19 +44,13 @@ function validateAllRole(row, legal) {
   const correlation = allRoleCorrelationPattern.exec(String(row.correlation_id || ''));
   const idempotency = allRoleIdempotencyPattern.exec(String(row.idempotency_key || ''));
   if (!correlation || !idempotency) fail('CANDIDATE_ALL_ROLE_MARKER_INVALID');
-
   const label = legal[1].toLowerCase();
   const run = legal[2];
-  if (
-    correlation[2] !== run
-    || idempotency[2] !== run
-    || correlation[3] !== label
-    || idempotency[3] !== label
-  ) fail('CANDIDATE_ALL_ROLE_MARKER_MISMATCH');
-  if (correlation[1] !== idempotency[1].slice(0, 12)) fail('CANDIDATE_ALL_ROLE_SHA_MISMATCH');
-  if (row.requested_workspace !== label || row.requested_role !== allRoleRoles[label]) {
-    fail('CANDIDATE_ALL_ROLE_ROLE_INVALID');
+  if (correlation[2] !== run || idempotency[2] !== run || correlation[3] !== label || idempotency[3] !== label) {
+    fail('CANDIDATE_ALL_ROLE_MARKER_MISMATCH');
   }
+  if (correlation[1] !== idempotency[1].slice(0, 12)) fail('CANDIDATE_ALL_ROLE_SHA_MISMATCH');
+  if (row.requested_workspace !== label || row.requested_role !== allRoleRoles[label]) fail('CANDIDATE_ALL_ROLE_ROLE_INVALID');
   return 'ALL_ROLE';
 }
 
@@ -64,24 +58,15 @@ function validateFirstCustomer(row, legal) {
   const correlation = firstCustomerCorrelationPattern.exec(String(row.correlation_id || ''));
   const idempotency = firstCustomerIdempotencyPattern.exec(String(row.idempotency_key || ''));
   if (!correlation || !idempotency) fail('CANDIDATE_FIRST_CUSTOMER_MARKER_INVALID');
-
   const label = legal[1].toLowerCase();
-  if (correlation[2] !== idempotency[2] || correlation[3] !== label || idempotency[3] !== label) {
-    fail('CANDIDATE_FIRST_CUSTOMER_MARKER_MISMATCH');
-  }
+  if (correlation[2] !== idempotency[2] || correlation[3] !== label || idempotency[3] !== label) fail('CANDIDATE_FIRST_CUSTOMER_MARKER_MISMATCH');
   if (correlation[1] !== idempotency[1].slice(0, 12)) fail('CANDIDATE_FIRST_CUSTOMER_SHA_MISMATCH');
-  if (
-    row.requested_workspace !== firstCustomerWorkspaces[label]
-    || row.requested_role !== firstCustomerRoles[label]
-  ) fail('CANDIDATE_FIRST_CUSTOMER_ROLE_INVALID');
+  if (row.requested_workspace !== firstCustomerWorkspaces[label] || row.requested_role !== firstCustomerRoles[label]) fail('CANDIDATE_FIRST_CUSTOMER_ROLE_INVALID');
   return 'FIRST_CUSTOMER';
 }
 
 function validateCandidate(row) {
-  if (row.kind !== 'NEW_ORGANIZATION' || !allowedStatuses.has(row.status)) {
-    fail('CANDIDATE_STATE_INVALID');
-  }
-
+  if (row.kind !== 'NEW_ORGANIZATION' || !allowedStatuses.has(row.status)) fail('CANDIDATE_STATE_INVALID');
   const legalName = String(row.legal_name || '');
   const allRoleLegal = allRoleLegalPattern.exec(legalName);
   const firstCustomerLegal = firstCustomerLegalPattern.exec(legalName);
@@ -89,21 +74,14 @@ function validateCandidate(row) {
   if (allRoleLegal) source = validateAllRole(row, allRoleLegal);
   else if (firstCustomerLegal) source = validateFirstCustomer(row, firstCustomerLegal);
   else fail('CANDIDATE_LEGAL_MARKER_INVALID');
-
   const submitted = new Date(row.submitted_at).getTime();
-  if (!Number.isFinite(submitted) || Date.now() - submitted < staleSeconds * 1000) {
-    fail('CANDIDATE_NOT_STALE');
-  }
+  if (!Number.isFinite(submitted) || Date.now() - submitted < staleSeconds * 1000) fail('CANDIDATE_NOT_STALE');
   return source;
 }
 
 const candidatePredicate = Prisma.sql`
   kind = 'NEW_ORGANIZATION'
-  AND status IN (
-    'ORGANIZATION_VERIFICATION_PENDING',
-    'ADDITIONAL_INFORMATION_REQUIRED',
-    'SUSPENDED'
-  )
+  AND status IN ('ORGANIZATION_VERIFICATION_PENDING','ADDITIONAL_INFORMATION_REQUIRED','SUSPENDED')
   AND submitted_at <= NOW() - (${staleSeconds} * INTERVAL '1 second')
   AND (
     (
@@ -113,10 +91,7 @@ const candidatePredicate = Prisma.sql`
     )
     OR
     (
-      legal_name IN (
-        'Production P0 exact-run organization A',
-        'Production P0 exact-run organization B'
-      )
+      legal_name IN ('Production P0 exact-run organization A','Production P0 exact-run organization B')
       AND correlation_id LIKE 'p0-registration:%'
       AND idempotency_key LIKE 'p0-registration:%'
     )
@@ -124,24 +99,17 @@ const candidatePredicate = Prisma.sql`
 `;
 
 async function main() {
-  if (
-    staleSeconds !== 1800
-    || !/^p0-fixture-retire:[0-9]+-[0-9]+$/.test(cleanupCorrelation || '')
-  ) fail('INPUT_INVALID');
-
+  if (staleSeconds !== 1800 || !/^p0-fixture-retire:[0-9]+-[0-9]+$/.test(cleanupCorrelation || '')) fail('INPUT_INVALID');
   const prisma = new AuthPrismaService();
   const repository = new PersistentAuthRepository(prisma);
   const service = new RegistrationApplicationService(prisma, repository);
-  if (typeof service.insertEvent !== 'function' || typeof service.audit !== 'function') {
-    fail('CANONICAL_AUDIT_METHODS_MISSING');
-  }
+  if (typeof service.insertEvent !== 'function' || typeof service.audit !== 'function') fail('CANONICAL_AUDIT_METHODS_MISSING');
 
   try {
     await prisma.onModuleInit();
     const candidates = await prisma.$queryRaw(Prisma.sql`
-      SELECT id, kind, user_id, membership_id, organization_id,
-             requested_workspace, requested_role, status, version,
-             submitted_at, legal_name, correlation_id, idempotency_key
+      SELECT id, kind, user_id, membership_id, organization_id, requested_workspace, requested_role,
+             status, version, submitted_at, legal_name, correlation_id, idempotency_key
       FROM auth.registration_applications
       WHERE ${candidatePredicate}
       ORDER BY submitted_at, id
@@ -153,12 +121,8 @@ async function main() {
     for (const row of candidates) {
       sources.set(row.id, validateCandidate(row));
       const sessions = await prisma.$queryRaw(Prisma.sql`
-        SELECT COUNT(*)::int AS count
-        FROM auth.sessions
-        WHERE user_id = ${row.user_id}
-          AND status = 'ACTIVE'
-          AND revoked_at IS NULL
-          AND expires_at > NOW()
+        SELECT COUNT(*)::int AS count FROM auth.sessions
+        WHERE user_id = ${row.user_id} AND status = 'ACTIVE' AND revoked_at IS NULL AND expires_at > NOW()
       `);
       if (Number(sessions[0]?.count || 0) !== 0) fail('CANDIDATE_ACTIVE_SESSION_PRESENT');
     }
@@ -169,106 +133,68 @@ async function main() {
     for (const candidate of candidates) {
       await prisma.$transaction(async (tx) => {
         const lockedRows = await tx.$queryRaw(Prisma.sql`
-          SELECT id, kind, user_id, membership_id, organization_id,
-                 requested_workspace, requested_role, status, version,
-                 submitted_at, legal_name, correlation_id, idempotency_key
-          FROM auth.registration_applications
-          WHERE id = ${candidate.id}
-          FOR UPDATE
+          SELECT id, kind, user_id, membership_id, organization_id, requested_workspace, requested_role,
+                 status, version, submitted_at, legal_name, correlation_id, idempotency_key
+          FROM auth.registration_applications WHERE id = ${candidate.id} FOR UPDATE
         `);
         const row = lockedRows[0];
         if (!row) fail('CANDIDATE_DISAPPEARED');
         const source = validateCandidate(row);
         if (source !== sources.get(row.id)) fail('CANDIDATE_SOURCE_CHANGED');
-        if (row.version !== candidate.version || row.status !== candidate.status) {
-          fail('CANDIDATE_CHANGED');
-        }
+        if (row.version !== candidate.version || row.status !== candidate.status) fail('CANDIDATE_CHANGED');
+
+        const activeSessions = await tx.$queryRaw(Prisma.sql`
+          SELECT COUNT(*)::int AS count FROM auth.sessions
+          WHERE user_id = ${row.user_id} AND status = 'ACTIVE' AND revoked_at IS NULL AND expires_at > NOW()
+        `);
+        if (Number(activeSessions[0]?.count || 0) !== 0) fail('CANDIDATE_ACTIVE_SESSION_PRESENT');
 
         const nextVersion = row.version + 1n;
         const updated = await tx.$executeRaw(Prisma.sql`
           UPDATE auth.registration_applications
           SET status = 'CANCELLED', version = ${nextVersion}, updated_at = NOW()
-          WHERE id = ${row.id}
-            AND version = ${row.version}
-            AND status = ${row.status}
-            AND kind = 'NEW_ORGANIZATION'
-            AND legal_name = ${row.legal_name}
-            AND correlation_id = ${row.correlation_id}
-            AND idempotency_key = ${row.idempotency_key}
+          WHERE id = ${row.id} AND version = ${row.version} AND status = ${row.status}
+            AND kind = 'NEW_ORGANIZATION' AND legal_name = ${row.legal_name}
+            AND correlation_id = ${row.correlation_id} AND idempotency_key = ${row.idempotency_key}
             AND submitted_at <= NOW() - (${staleSeconds} * INTERVAL '1 second')
         `);
         if (updated !== 1) fail('CANDIDATE_UPDATE_CONFLICT');
-
         await tx.$executeRaw(Prisma.sql`
-          UPDATE auth.registration_email_challenges
-          SET status = 'REVOKED', updated_at = NOW()
+          UPDATE auth.registration_email_challenges SET status = 'REVOKED', updated_at = NOW()
           WHERE application_id = ${row.id} AND status = 'PENDING'
         `);
         await service.insertEvent(tx, {
-          applicationId: row.id,
-          actorKind: 'SYSTEM',
-          previousStatus: row.status,
-          newStatus: 'CANCELLED',
-          reason: 'P0_ACCEPTANCE_FIXTURE_RETIRED',
-          correlationId: cleanupCorrelation,
-          idempotencyKey: `p0-fixture-retire:${row.id}:${nextVersion}`,
-          applicationVersion: nextVersion,
+          applicationId: row.id, actorKind: 'SYSTEM', previousStatus: row.status, newStatus: 'CANCELLED',
+          reason: 'P0_ACCEPTANCE_FIXTURE_RETIRED', correlationId: cleanupCorrelation,
+          idempotencyKey: `p0-fixture-retire:${row.id}:${nextVersion}`, applicationVersion: nextVersion,
           metadata: { source: 'PC_CROP_BOUNDED_MAINTENANCE', fixtureFamily: source },
         });
         await service.audit(tx, {
-          userId: row.user_id,
-          membershipId: row.membership_id,
-          organizationId: row.organization_id,
-          action: 'auth.registration.fixture_retired',
-          outcome: 'SUCCESS',
-          reason: 'P0_ACCEPTANCE_FIXTURE_RETIRED',
-          metadata: {
-            applicationId: row.id,
-            correlationId: cleanupCorrelation,
-            fixtureFamily: source,
-          },
+          userId: row.user_id, membershipId: row.membership_id, organizationId: row.organization_id,
+          action: 'auth.registration.fixture_retired', outcome: 'SUCCESS', reason: 'P0_ACCEPTANCE_FIXTURE_RETIRED',
+          metadata: { applicationId: row.id, correlationId: cleanupCorrelation, fixtureFamily: source },
         });
-      }, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-        timeout: 15000,
-        maxWait: 5000,
-      });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15000, maxWait: 5000 });
       retired += 1;
       if (sources.get(candidate.id) === 'ALL_ROLE') allRoleRetired += 1;
       else firstCustomerRetired += 1;
     }
 
-    const remaining = await prisma.$queryRaw(Prisma.sql`
-      SELECT COUNT(*)::int AS count
-      FROM auth.registration_applications
-      WHERE ${candidatePredicate}
-    `);
+    const remaining = await prisma.$queryRaw(Prisma.sql`SELECT COUNT(*)::int AS count FROM auth.registration_applications WHERE ${candidatePredicate}`);
     const events = await prisma.$queryRaw(Prisma.sql`
-      SELECT COUNT(*)::int AS count
-      FROM auth.registration_application_events event
-      JOIN auth.registration_applications application
-        ON application.id = event.application_id
-      WHERE event.correlation_id = ${cleanupCorrelation}
-        AND event.actor_kind = 'SYSTEM'
-        AND event.new_status = 'CANCELLED'
-        AND event.reason = 'P0_ACCEPTANCE_FIXTURE_RETIRED'
-        AND application.status = 'CANCELLED'
-        AND application.kind = 'NEW_ORGANIZATION'
+      SELECT COUNT(*)::int AS count FROM auth.registration_application_events event
+      JOIN auth.registration_applications application ON application.id = event.application_id
+      WHERE event.correlation_id = ${cleanupCorrelation} AND event.actor_kind = 'SYSTEM'
+        AND event.new_status = 'CANCELLED' AND event.reason = 'P0_ACCEPTANCE_FIXTURE_RETIRED'
+        AND application.status = 'CANCELLED' AND application.kind = 'NEW_ORGANIZATION'
         AND application.legal_name LIKE 'Production P0 exact-run organization %'
-        AND (
-          application.correlation_id LIKE 'p0-all-role-register:%'
-          OR application.correlation_id LIKE 'p0-registration:%'
-        )
+        AND (application.correlation_id LIKE 'p0-all-role-register:%' OR application.correlation_id LIKE 'p0-registration:%')
     `);
     const audits = await prisma.$queryRaw(Prisma.sql`
-      SELECT COUNT(*)::int AS count
-      FROM auth.audit_events audit
-      WHERE audit.action = 'auth.registration.fixture_retired'
-        AND audit.outcome = 'SUCCESS'
-        AND audit.reason = 'P0_ACCEPTANCE_FIXTURE_RETIRED'
-        AND audit.metadata ->> 'correlationId' = ${cleanupCorrelation}
+      SELECT COUNT(*)::int AS count FROM auth.audit_events audit
+      WHERE audit.action = 'auth.registration.fixture_retired' AND audit.outcome = 'SUCCESS'
+        AND audit.reason = 'P0_ACCEPTANCE_FIXTURE_RETIRED' AND audit.metadata ->> 'correlationId' = ${cleanupCorrelation}
     `);
-
     const remainingCount = Number(remaining[0]?.count || 0);
     const eventCount = Number(events[0]?.count || 0);
     const auditCount = Number(audits[0]?.count || 0);
@@ -291,9 +217,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  const code = error instanceof BoundedFailure && /^[A-Z0-9_]{4,96}$/.test(error.code)
-    ? error.code
-    : 'BOUNDED_RETIRE_OPERATION_FAILED';
+  const code = error instanceof BoundedFailure && /^[A-Z0-9_]{4,96}$/.test(error.code) ? error.code : 'BOUNDED_RETIRE_OPERATION_FAILED';
   console.log('P0_RETIRE_RESULT=FAIL');
   console.log(`P0_RETIRE_BLOCKER=${code}`);
   process.exitCode = 1;
