@@ -1,7 +1,7 @@
 -- Role Eligibility runtime boundary for the production API principal observed by
 -- read-only production evidence. This is additive to Role Eligibility only.
--- Registration tables/state are not mutated and no direct registration-table
--- privilege is granted.
+-- Registration tables/state and pre-existing registration privileges are not
+-- mutated. Candidate access remains through the bounded SECURITY DEFINER API.
 
 DO $role_eligibility_app_deal_api$
 DECLARE
@@ -45,8 +45,5 @@ BEGIN
   GRANT EXECUTE ON FUNCTION eligibility.publish_verdict(
     TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB, CHAR(64), CHAR(64), JSONB, TEXT
   ) TO app_deal_api;
-
-  -- Preserve the registration boundary explicitly.
-  REVOKE ALL ON TABLE auth.registration_applications FROM app_deal_api;
 END
 $role_eligibility_app_deal_api$;
