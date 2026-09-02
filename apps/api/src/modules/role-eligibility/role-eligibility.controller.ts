@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, Headers, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import type { RequestUser } from '../../common/types/request-user';
@@ -6,6 +6,7 @@ import { StaffAccessGuard } from '../staff-access/staff-access.guard';
 import { StaffAccessModes } from '../staff-access/staff-access-modes.decorator';
 import { StaffPermissions } from '../staff-access/staff-permissions.decorator';
 import { StaffAccessMode, StaffPermission, type StaffAccessContext } from '../staff-access/staff-access.types';
+import { RoleEligibilityMetricsService } from './role-eligibility-metrics.service';
 import { RoleEligibilityService } from './role-eligibility.service';
 import { RoleEligibilitySourceHealthService } from './role-eligibility-source-health.service';
 
@@ -21,6 +22,7 @@ export class RoleEligibilityController {
   constructor(
     private readonly eligibility: RoleEligibilityService,
     private readonly sourceHealth: RoleEligibilitySourceHealthService,
+    private readonly metrics: RoleEligibilityMetricsService,
   ) {}
 
   @Get('application/:id')
@@ -53,6 +55,14 @@ export class RoleEligibilityController {
   @RateLimit({ name: 'role_eligibility_source_health', scope: 'user', limit: 120, windowSeconds: 60 })
   sourceHealthSnapshot() {
     return this.sourceHealth.list();
+  }
+
+  @Get('metrics')
+  @StaffPermissions(StaffPermission.DIAGNOSTIC_READ)
+  @RateLimit({ name: 'role_eligibility_metrics', scope: 'user', limit: 60, windowSeconds: 60 })
+  @Header('content-type', 'text/plain; version=0.0.4; charset=utf-8')
+  metricsSnapshot() {
+    return this.metrics.prometheus();
   }
 
   private requireAccess(request: ReviewerRequest): StaffAccessContext {
