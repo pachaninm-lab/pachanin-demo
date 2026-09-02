@@ -27,14 +27,15 @@ export function parseJsonBounded(
 }
 
 function validateXmlEntities(text: string, source: EligibilitySource): void {
-  const entity = /&([^;\s]{1,80});/g;
-  for (const match of text.matchAll(entity)) {
-    const name = match[1];
-    if (/^(?:amp|lt|gt|apos|quot|#\d+|#x[0-9a-f]+)$/i.test(name)) continue;
-    throw sourceError(source, 'XML_ENTITY_FORBIDDEN');
-  }
-  if (text.includes('&') && !/&(?:amp|lt|gt|apos|quot|#\d+|#x[0-9a-f]+);/i.test(text)) {
-    throw sourceError(source, 'XML_ENTITY_MALFORMED');
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] !== '&') continue;
+    const end = text.indexOf(';', index + 1);
+    if (end < 0 || end - index > 81) throw sourceError(source, 'XML_ENTITY_MALFORMED');
+    const name = text.slice(index + 1, end);
+    if (!/^(?:amp|lt|gt|apos|quot|#\d+|#x[0-9a-f]+)$/i.test(name)) {
+      throw sourceError(source, 'XML_ENTITY_FORBIDDEN');
+    }
+    index = end;
   }
 }
 
