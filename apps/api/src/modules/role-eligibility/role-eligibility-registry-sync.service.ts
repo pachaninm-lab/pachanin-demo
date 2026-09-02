@@ -11,10 +11,10 @@ import { EligibilitySourceError, type EligibilitySource, type RegistryAdapterFet
 // claims about official publication cadence. A source adapter may only shorten
 // the usable window when its official metadata expires earlier.
 const FRESHNESS_MS: Readonly<Record<EligibilitySource, number>> = Object.freeze({
-  // The official CBR FullCoList is a dated registry snapshot rather than a
-  // per-request live API. A 45-day ceiling keeps the current monthly-scale
-  // snapshot usable while still forcing fail-closed STALE if publication stops.
-  CBR: 45 * 24 * 60 * 60 * 1000,
+  // CBR FullCoList is currently published as a dated, frequently refreshed
+  // registry snapshot. Do not keep BANK eligibility positive for weeks if that
+  // publication stops or the adapter cannot activate a fresh generation.
+  CBR: 72 * 60 * 60 * 1000,
   FNS: 35 * 24 * 60 * 60 * 1000,
   FGIS_GRAIN: 14 * 24 * 60 * 60 * 1000,
   ROSACCREDITATION: 48 * 60 * 60 * 1000,
@@ -46,6 +46,9 @@ export class RoleEligibilityRegistrySyncService {
       if (!/^[0-9a-f]{64}$/.test(fetched.contentSha256)) throw new EligibilitySourceError(source, `${source}_CONTENT_HASH_INVALID`, 'SCHEMA_CHANGED');
       if (!fetched.records.length) throw new EligibilitySourceError(source, `${source}_EMPTY_REGISTRY`, 'SCHEMA_CHANGED');
       const freshUntil = new Date(fetched.publishedAt.getTime() + FRESHNESS_MS[source]);
+      if (freshUntil.getTime() <= Date.now()) {
+        throw new EligibilitySourceError(source, `${source}_PUBLISHED_SNAPSHOT_STALE`, 'DEGRADED');
+      }
       const staged = await this.registry.stage(fetched, freshUntil);
       const active = await this.registry.validateAndActivate(staged.id);
       await this.health.success(source, {
