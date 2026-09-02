@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { createServer, type Server } from 'node:http';
 import { RoleEligibilityRegistrySyncService } from './modules/role-eligibility/role-eligibility-registry-sync.service';
 import { RoleEligibilityWorkerModule } from './modules/role-eligibility/role-eligibility-worker.module';
+import { RoleEligibilityWorkerRepository } from './modules/role-eligibility/role-eligibility-worker.repository';
 import { RoleEligibilityWorkerService } from './modules/role-eligibility/role-eligibility-worker.service';
 
 const POLL_MS = 2_000;
@@ -30,7 +31,7 @@ function sanitize(error: unknown): string {
   return (error instanceof Error ? error.message : String(error || 'UNKNOWN')).toUpperCase().replace(/[^A-Z0-9_:-]/g, '_').slice(0, 120);
 }
 
-async function healthServer(state: State, worker: RoleEligibilityWorkerService, port: number): Promise<Server> {
+async function healthServer(state: State, port: number): Promise<Server> {
   const server = createServer(async (request, response) => {
     const route = request.url?.split('?', 1)[0] || '/';
     response.setHeader('cache-control', 'no-store'); response.setHeader('content-type', 'application/json');
@@ -65,13 +66,14 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.createApplicationContext(RoleEligibilityWorkerModule, { logger: ['error', 'warn', 'log'] });
   const worker = app.get(RoleEligibilityWorkerService);
+  const workerRepository = app.get(RoleEligibilityWorkerRepository);
   const registry = app.get(RoleEligibilityRegistrySyncService);
   const state: State = {
     startedAt: new Date().toISOString(), lastPollAt: null, lastSuccessAt: null, lastRegistrySyncAt: null,
     lastErrorCode: null, processed: 0, discovered: 0, registrySyncFailures: 0, queueDepth: 0, shuttingDown: false,
   };
   const port = positiveInt(process.env.ROLE_ELIGIBILITY_WORKER_HEALTH_PORT, 3004, 65_535);
-  const server = await healthServer(state, worker, port);
+  const server = await healthServer(state, port);
   await worker.recover();
 
   let lastDiscovery = 0;
@@ -86,11 +88,12 @@ async function bootstrap(): Promise<void> {
         state.registrySyncFailures += results.filter((item) => !item.ok).length;
         state.lastRegistrySyncAt = new Date().toISOString(); lastRegistrySync = now;
       }
-      state.queueDepth = await app.get('RoleEligibilityWorkerRepository' as never).queueDepth?.().catch?.(() => state.queueDepth) ?? state.queueDepth;
+      state.queueDepth = await workerRepository.queueDepth();
       if (now - lastDiscovery >= DISCOVERY_MS && state.queueDepth < MAX_QUEUE_DEPTH) {
         state.discovered += await worker.discover(250); lastDiscovery = now;
       }
       state.processed += await worker.drain(50);
+      state.queueDepth = await workerRepository.queueDepth();
       state.lastSuccessAt = new Date().toISOString(); state.lastErrorCode = null;
     })().catch((error) => { state.lastErrorCode = sanitize(error); }).finally(() => { running = undefined; });
   };
