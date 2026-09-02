@@ -56,6 +56,21 @@ function scanXmlTagEnd(xml: string, start: number, source: EligibilitySource): n
   throw sourceError(source, 'XML_MALFORMED');
 }
 
+function validateXmlAttributes(body: string, elementName: string, source: EligibilitySource): void {
+  let rest = body.slice(elementName.length);
+  const names = new Set<string>();
+  while (rest.trim()) {
+    if (!/^\s/.test(rest)) throw sourceError(source, 'XML_ATTRIBUTE_SEPARATOR_REQUIRED');
+    rest = rest.trimStart();
+    const match = rest.match(/^([A-Za-z_][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/);
+    if (!match) throw sourceError(source, 'XML_ATTRIBUTE_MALFORMED');
+    const attributeName = match[1];
+    if (names.has(attributeName)) throw sourceError(source, 'XML_DUPLICATE_ATTRIBUTE');
+    names.add(attributeName);
+    rest = rest.slice(match[0].length);
+  }
+}
+
 /**
  * Dependency-free fail-closed structural validator used before any source-
  * specific XML normalization. It deliberately accepts only ordinary XML 1.x
@@ -113,6 +128,7 @@ export function assertXmlWellFormed(xml: string, source: EligibilitySource): voi
       const nameMatch = body.match(/^([A-Za-z_][\w:.-]*)(?:\s|$)/);
       if (!nameMatch) throw sourceError(source, 'XML_MALFORMED_OPEN_TAG');
       const name = nameMatch[1];
+      validateXmlAttributes(body, name, source);
       if (stack.length === 0) {
         if (rootClosed || roots > 0) throw sourceError(source, 'XML_MULTIPLE_ROOTS');
         roots += 1;
