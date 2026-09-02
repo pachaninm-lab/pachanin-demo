@@ -45,9 +45,15 @@ export class RoleEligibilityController {
   recheck(
     @Req() request: ReviewerRequest,
     @Param('id') id: string,
+    @Headers('idempotency-key') idempotencyKey?: string,
     @Headers('x-correlation-id') correlationId?: string,
   ) {
-    return this.eligibility.recheck(id, this.requireAccess(request), correlationId || randomUUID());
+    return this.eligibility.recheck(
+      id,
+      this.requireAccess(request),
+      String(idempotencyKey || ''),
+      correlationId || randomUUID(),
+    );
   }
 
   @Get('sources/health')
