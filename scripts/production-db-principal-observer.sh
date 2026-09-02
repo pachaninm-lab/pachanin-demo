@@ -26,7 +26,8 @@ printf 'PRODUCTION_DATABASE_MUTATION=0\n' >&2
 
 # Read the role that the API is actually using. The query runs through the
 # API's own Prisma connection inside a REPEATABLE READ / READ ONLY transaction.
-# It never reads DATABASE_URL, application data, tenant data, or credentials.
+# It never reads connection-string environment variables, application data,
+# tenant data, or credentials.
 docker exec -i "$api_id" /nodejs/bin/node - "$api_revision" <<'NODE'
 'use strict';
 
