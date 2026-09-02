@@ -3,7 +3,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { EligibilityCheck, RoleEligibilityCandidate } from './role-eligibility.types';
 
-type SqlClient = Pick<PrismaClient, '$queryRaw' | '$executeRaw' | '$executeRawUnsafe'>;
+type SqlClient = Pick<PrismaClient, '$queryRaw' | '$executeRaw'>;
 type CandidateRow = {
   application_id: string; application_version: bigint; application_status: string;
   organization_id: string; tenant_id: string; requested_workspace: string; requested_role: string;
@@ -39,7 +39,6 @@ export class RoleEligibilityWorkerRepository {
   async listCandidates(limit = 250): Promise<RoleEligibilityCandidate[]> {
     const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 1000);
     return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE pc_role_eligibility_observer');
       const rows = await tx.$queryRaw<CandidateRow[]>(Prisma.sql`
         SELECT * FROM auth.read_role_eligibility_candidates(NULL)
         WHERE application_status NOT IN ('REJECTED','CANCELLED','EXPIRED')
@@ -52,7 +51,6 @@ export class RoleEligibilityWorkerRepository {
 
   async claimPending(): Promise<EligibilityCheck | null> {
     return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE pc_role_eligibility_runtime');
       const rows = await tx.$queryRaw<CheckRow[]>(Prisma.sql`
         WITH next_check AS (
           SELECT id FROM eligibility.organization_checks
@@ -73,21 +71,17 @@ export class RoleEligibilityWorkerRepository {
 
   async recoverAbandonedChecking(maxAgeSeconds = 900): Promise<number> {
     const bounded = Math.min(Math.max(Math.trunc(maxAgeSeconds), 60), 3600);
-    return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE pc_role_eligibility_runtime');
-      return tx.$executeRaw(Prisma.sql`
-        UPDATE eligibility.organization_checks
-        SET status='PENDING',updated_at=clock_timestamp()
-        WHERE status='CHECKING'
-          AND started_at < clock_timestamp() - (${bounded} * interval '1 second')
-          AND completed_at IS NULL
-      `);
-    });
+    return this.prisma.$transaction(async (tx) => tx.$executeRaw(Prisma.sql`
+      UPDATE eligibility.organization_checks
+      SET status='PENDING',updated_at=clock_timestamp()
+      WHERE status='CHECKING'
+        AND started_at < clock_timestamp() - (${bounded} * interval '1 second')
+        AND completed_at IS NULL
+    `));
   }
 
   async queueDepth(): Promise<number> {
     return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE pc_role_eligibility_runtime');
       const rows = await tx.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
         SELECT COUNT(*)::bigint AS count FROM eligibility.organization_checks WHERE status IN ('PENDING','CHECKING')
       `);
