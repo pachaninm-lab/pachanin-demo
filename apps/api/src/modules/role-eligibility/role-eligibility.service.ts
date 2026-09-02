@@ -1,8 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { StaffAccessContext } from '../staff-access/staff-access.types';
 import { RoleEligibilityPolicy } from './role-eligibility-policy';
 import { RoleEligibilityRepository } from './role-eligibility.repository';
+import { sha256 } from './role-eligibility-security';
 
 export type RoleEligibilityFlags = {
   enabled: boolean;
@@ -57,6 +58,7 @@ export class RoleEligibilityService {
         sourceManifestHash: current.sourceManifestHash,
         startedAt: current.startedAt,
         completedAt: current.completedAt,
+        nextRecheckAt: current.nextRecheckAt,
       } : null,
       legalText: current?.verdict === 'ELIGIBLE'
         ? 'По сведениям официальных источников организация соответствует критериям платформы для выбранной роли.'
@@ -92,11 +94,20 @@ export class RoleEligibilityService {
     };
   }
 
-  async recheck(applicationId: string, access: StaffAccessContext, correlationId: string = randomUUID()) {
+  async recheck(
+    applicationId: string,
+    access: StaffAccessContext,
+    idempotencyKey: string,
+    correlationId: string = randomUUID(),
+  ) {
     const flags = this.flags();
     if (!flags.enabled) throw new ServiceUnavailableException({ code: 'ROLE_ELIGIBILITY_DISABLED' });
     if (flags.configurationError) {
       throw new ServiceUnavailableException({ code: flags.configurationError });
+    }
+    const normalizedKey = String(idempotencyKey || '').trim();
+    if (!/^[A-Za-z0-9._:-]{16,200}$/.test(normalizedKey)) {
+      throw new BadRequestException({ code: 'ROLE_ELIGIBILITY_IDEMPOTENCY_KEY_REQUIRED' });
     }
     const candidate = await this.requireCandidate(applicationId, access);
     const semanticRole = this.policy.resolveSemanticRole(candidate);
@@ -107,6 +118,7 @@ export class RoleEligibilityService {
       this.policy.hash,
       fingerprint,
       correlationId,
+      `manual:${sha256(normalizedKey)}`,
     );
     return {
       accepted: true,
