@@ -22,7 +22,33 @@ const FRESHNESS_MS: Readonly<Record<EligibilitySource, number>> = Object.freeze(
   ROSACCREDITATION: 48 * 60 * 60 * 1000,
 });
 
+const MAX_FETCH_ATTEMPTS = 3;
+const RETRY_BASE_MS = 300;
+const RETRY_MAX_MS = 2_500;
+
 type Adapter = { source: EligibilitySource; fetchGeneration(): Promise<RegistryAdapterFetchResult> };
+
+function retryableFetchFailure(error: unknown): boolean {
+  const code = error instanceof EligibilitySourceError
+    ? error.code
+    : error instanceof Error ? error.message : String(error || 'UNKNOWN');
+  if (error instanceof EligibilitySourceError && error.health === 'SCHEMA_CHANGED') return false;
+  // Permanent contract/schema/data-integrity failures must not be hammered.
+  if (/NOT_PROVEN|MACHINE_CONTRACT|TRANSPORT_NOT_PROVEN|SCHEMA|COLUMN|HEADER|CARDINALITY|DUPLICATE|EMPTY_REGISTRY|PUBLISHED_SNAPSHOT_STALE|CONTENT_HASH_INVALID/i.test(code)) {
+    return false;
+  }
+  return true;
+}
+
+function retryDelayMs(attempt: number): number {
+  const exponential = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.max(0, attempt - 1));
+  const jitter = 0.75 + Math.random() * 0.5;
+  return Math.max(RETRY_BASE_MS, Math.floor(exponential * jitter));
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
 
 @Injectable()
 export class RoleEligibilityRegistrySyncService {
@@ -44,9 +70,24 @@ export class RoleEligibilityRegistrySyncService {
     const adapter = this.adapters[source];
     const correlationId = `registry-sync:${source}:${randomUUID()}`;
     let stagedId: string | null = null;
+    let fetchAttempts = 0;
     await this.registry.auditSourceEvent('ROLE_ELIGIBILITY_SOURCE_FETCH_STARTED', source, correlationId);
     try {
-      const fetched = await adapter.fetchGeneration();
+      let fetched: RegistryAdapterFetchResult | null = null;
+      let lastFetchError: unknown = null;
+      for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt += 1) {
+        fetchAttempts = attempt;
+        try {
+          fetched = await adapter.fetchGeneration();
+          break;
+        } catch (error) {
+          lastFetchError = error;
+          if (attempt >= MAX_FETCH_ATTEMPTS || !retryableFetchFailure(error)) throw error;
+          await sleep(retryDelayMs(attempt));
+        }
+      }
+      if (!fetched) throw lastFetchError ?? new Error(`${source}_FETCH_EXHAUSTED`);
+
       if (fetched.source !== source) throw new EligibilitySourceError(source, `${source}_ADAPTER_SOURCE_MISMATCH`, 'SCHEMA_CHANGED');
       if (!/^[0-9a-f]{64}$/.test(fetched.contentSha256)) throw new EligibilitySourceError(source, `${source}_CONTENT_HASH_INVALID`, 'SCHEMA_CHANGED');
       if (!fetched.records.length) throw new EligibilitySourceError(source, `${source}_EMPTY_REGISTRY`, 'SCHEMA_CHANGED');
@@ -71,6 +112,7 @@ export class RoleEligibilityRegistrySyncService {
         schemaVersion: active.schemaVersion,
         publishedAt: active.publishedAt.toISOString(),
         freshUntil: active.freshUntil.toISOString(),
+        fetchAttempts,
       });
       return {
         source,
@@ -79,6 +121,7 @@ export class RoleEligibilityRegistrySyncService {
         records: active.recordCount.toString(),
         contentSha256: active.contentSha256,
         freshUntil: active.freshUntil,
+        fetchAttempts,
       };
     } catch (error) {
       const typed = error instanceof EligibilitySourceError
@@ -90,6 +133,7 @@ export class RoleEligibilityRegistrySyncService {
         errorCode: typed.code,
         health: typed.health,
         stagedGenerationId: stagedId,
+        fetchAttempts,
       });
       throw typed;
     }
