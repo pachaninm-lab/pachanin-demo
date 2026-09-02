@@ -57,6 +57,16 @@ BEGIN
     RAISE EXCEPTION 'eligibility check not found' USING ERRCODE = 'P0002';
   END IF;
 
+  -- Serialize every publication that can compete for the same logical current
+  -- input, even when workers are processing distinct recheck rows. This is a
+  -- transaction-scoped lock and therefore has no global mutex blast radius.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended(
+      v_check.application_id || E'\x1f' || v_check.application_version::text || E'\x1f' || v_check.requested_role,
+      0
+    )
+  );
+
   SELECT id INTO v_existing_id
   FROM eligibility.verdicts
   WHERE idempotency_key = p_idempotency_key;
