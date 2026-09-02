@@ -10,7 +10,7 @@ import type { RegistryAdapterFetchResult } from '../role-eligibility.types';
 import { EligibilitySourceError } from '../role-eligibility.types';
 
 const CBR_FULL_LIST_URL = 'https://www.cbr.ru/banking_sector/credit/FullCoList/';
-const PARSER_VERSION = 'cbr-fullcolist-html-v1';
+const PARSER_VERSION = 'cbr-fullcolist-html-v2';
 const EXPECTED_HEADERS = [
   '№ п/п',
   'Вид',
@@ -48,19 +48,32 @@ function parsePublishedAt(text: string): Date {
   return date;
 }
 
-function extractHeaders(html: string): string[] {
-  const headerCells = [...html.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((match) => visibleText(match[1]));
-  return headerCells.filter(Boolean).slice(0, EXPECTED_HEADERS.length);
+function authorityTable(html: string): string {
+  const tables = [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map((match) => match[0]);
+  const table = tables.find((candidate) => {
+    const text = visibleText(candidate);
+    return EXPECTED_HEADERS.every((header) => text.includes(header));
+  });
+  if (!table) throw new Error('CBR_EXPECTED_AUTHORITY_TABLE_MISSING');
+  return table;
 }
 
-function parseRows(html: string) {
+function extractHeaders(table: string): string[] {
+  const headerCells = [...table.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map((match) => visibleText(match[1])).filter(Boolean);
+  if (headerCells.length >= EXPECTED_HEADERS.length) return headerCells.slice(0, EXPECTED_HEADERS.length);
+  const firstRow = table.match(/<tr\b[^>]*>([\s\S]*?)<\/tr>/i)?.[1] || '';
+  return [...firstRow.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((match) => visibleText(match[1])).filter(Boolean);
+}
+
+function parseRows(table: string) {
   const records: RegistryAdapterFetchResult['records'] = [];
-  for (const rowMatch of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+  for (const rowMatch of table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const cells = [...rowMatch[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((match) => visibleText(match[1]));
     if (cells.length === 0) continue;
-    if (cells.length !== EXPECTED_HEADERS.length) throw new Error('CBR_TABLE_COLUMN_COUNT_CHANGED');
+    if (cells.length !== EXPECTED_HEADERS.length) continue;
     const [number, kind, registrationNumber, ogrn, legalName, legalForm, registeredAt, licenseStatus] = cells;
-    if (!/^\d+$/.test(number) || !/^\d{1,6}$/.test(registrationNumber) || !/^\d{13}$/.test(ogrn)) {
+    if (!/^\d+$/.test(number)) continue;
+    if (!/^\d{1,6}$/.test(registrationNumber) || !/^\d{13}$/.test(ogrn)) {
       throw new Error('CBR_ROW_IDENTITY_SCHEMA_CHANGED');
     }
     const status = licenseStatus.trim();
@@ -84,7 +97,7 @@ function parseRows(html: string) {
       recordType: 'CREDIT_ORGANIZATION',
       normalizedPayload,
       validFrom: null,
-      validUntil: active ? null : new Date(0),
+      validUntil: null,
     });
   }
   if (records.length < 100) throw new Error('CBR_CARDINALITY_BELOW_SAFETY_FLOOR');
@@ -110,13 +123,13 @@ export class CbrRegistryAdapter {
       });
       const html = decodeUtf8Strict(response.body, 'CBR');
       return await withParserTimeout('CBR', 8_000, () => {
-        const text = visibleText(html);
-        const publishedAt = parsePublishedAt(text);
-        const headers = extractHeaders(html);
+        const publishedAt = parsePublishedAt(visibleText(html));
+        const table = authorityTable(html);
+        const headers = extractHeaders(table);
         if (headers.length !== EXPECTED_HEADERS.length || headers.some((header, index) => header !== EXPECTED_HEADERS[index])) {
           throw new Error('CBR_EXPECTED_SCHEMA_HEADERS_CHANGED');
         }
-        const records = parseRows(html);
+        const records = parseRows(table);
         const schemaVersion = sha256(stableJson(EXPECTED_HEADERS));
         return {
           source: 'CBR' as const,
@@ -132,7 +145,7 @@ export class CbrRegistryAdapter {
       });
     } catch (error) {
       const code = error instanceof Error ? error.message : 'CBR_UNKNOWN_FAILURE';
-      const schema = /SCHEMA|COLUMN|HEADER|CARDINALITY|DUPLICATE/i.test(code);
+      const schema = /SCHEMA|COLUMN|HEADER|TABLE|CARDINALITY|DUPLICATE/i.test(code);
       throw new EligibilitySourceError('CBR', code, schema ? 'SCHEMA_CHANGED' : 'UNAVAILABLE');
     }
   }
