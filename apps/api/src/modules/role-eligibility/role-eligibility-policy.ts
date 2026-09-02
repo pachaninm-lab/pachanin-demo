@@ -25,8 +25,8 @@ const POLICY_RULESET = Object.freeze({
   farmer: 'active FNS identity + agricultural evidence + no strong contradiction',
   buyer: 'active matching FNS identity',
   logistics: 'active identity + transport profile + profile government evidence',
-  elevator: 'active matching FGIS Grain elevator record',
-  laboratory: 'active matching Rosaccreditation record with relevant scope',
+  elevator: 'active matching FGIS Grain elevator record; FNS is not a mandatory specialized authority dependency',
+  laboratory: 'active matching Rosaccreditation record with relevant scope; FNS is not a mandatory specialized authority dependency',
   surveyor: 'manual review until strong official specialized authority is configured',
   bank: 'active matching CBR credit organization with valid license/status; healthy CBR absence is apparent mismatch',
   driver: 'organization eligibility not applicable',
@@ -172,18 +172,19 @@ export class RoleEligibilityPolicy {
     if (input.semanticRole === 'SURVEYOR') {
       return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['SURVEYOR_SPECIALIZED_AUTHORITY_NOT_CONFIGURED'] };
     }
+
+    // Specialized authorities stand on their own. Their active records are
+    // already selected by candidate INN/OGRN in the evidence repository.
     if (input.semanticRole === 'LABORATORY') {
-      const sourceFailureDecision = sourceFailure(input, 'ROSACCREDITATION');
-      if (sourceFailureDecision && !input.evidenceSources.includes('ROSACCREDITATION')) {
+      const unavailable = sourceFailure(input, 'ROSACCREDITATION');
+      if (unavailable && !input.evidenceSources.includes('ROSACCREDITATION')) {
         return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['LAB_SAFE_OFFICIAL_ADAPTER_NOT_PROVEN'] };
       }
       const source = requireSourceEvidence(input, 'ROSACCREDITATION');
       if (source) return source;
-      const mismatch = identityMismatch(input);
-      if (mismatch) return mismatch;
       const accreditation = input.facts.accreditation;
-      if (input.facts.identity.exists && input.facts.identity.active && accreditation?.present && accreditation.active && accreditation.scopeRelevant) {
-        return { verdict: 'ELIGIBLE', reasonCodes: ['ACCREDITATION_ACTIVE_SCOPE_RELEVANT'] };
+      if (accreditation?.present && accreditation.active && accreditation.scopeRelevant) {
+        return { verdict: 'ELIGIBLE', reasonCodes: ['ACCREDITATION_ACTIVE_IDENTITY_MATCH_SCOPE_RELEVANT'] };
       }
       return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['ACCREDITATION_RECORD_INSUFFICIENT'] };
     }
@@ -196,7 +197,17 @@ export class RoleEligibilityPolicy {
       }
       return { verdict: 'APPARENT_MISMATCH', reasonCodes: ['CBR_BANK_AUTHORITY_NOT_CONFIRMED'] };
     }
+    if (input.semanticRole === 'ELEVATOR') {
+      const source = requireSourceEvidence(input, 'FGIS_GRAIN');
+      if (source) return source;
+      const elevator = input.facts.fgisGrain;
+      if (elevator?.present && elevator.active && elevator.elevatorRecord) {
+        return { verdict: 'ELIGIBLE', reasonCodes: ['FGIS_GRAIN_ACTIVE_IDENTITY_MATCH_ELEVATOR_RECORD'] };
+      }
+      return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['FGIS_GRAIN_SPECIALIZED_RECORD_NOT_CONFIRMED'] };
+    }
 
+    // General organization roles use FNS identity/activity evidence.
     const fns = requireSourceEvidence(input, 'FNS');
     if (fns) return fns;
     const mismatch = identityMismatch(input);
@@ -224,15 +235,6 @@ export class RoleEligibilityPolicy {
         return { verdict: 'ELIGIBLE', reasonCodes: ['ACTIVE_ENTITY_LOGISTICS_PROFILE_GOVERNMENT_EVIDENCE'] };
       }
       return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['TRANSPORT_OKVED_ALONE_NOT_ABSOLUTE_PROOF'] };
-    }
-    if (input.semanticRole === 'ELEVATOR') {
-      const source = requireSourceEvidence(input, 'FGIS_GRAIN');
-      if (source) return source;
-      const elevator = input.facts.fgisGrain;
-      if (elevator?.present && elevator.active && elevator.elevatorRecord) {
-        return { verdict: 'ELIGIBLE', reasonCodes: ['FGIS_GRAIN_ACTIVE_ELEVATOR_RECORD'] };
-      }
-      return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['FGIS_GRAIN_SPECIALIZED_RECORD_NOT_CONFIRMED'] };
     }
     return { verdict: 'ERROR', reasonCodes: ['POLICY_ROLE_UNREACHABLE'] };
   }
