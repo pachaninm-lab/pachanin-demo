@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 : "${DATABASE_URL:?DATABASE_URL is required}"
-MIGRATION='apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/migration.sql'
+MIGRATION_BASE='apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/migration.sql'
+MIGRATION_SUPERSEDED='apps/api/prisma/migrations/20260902143000_role_eligibility_superseded_current_guard/migration.sql'
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 CREATE SCHEMA IF NOT EXISTS auth;
@@ -31,7 +32,8 @@ INSERT INTO auth.registration_applications(
 );
 SQL
 
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_BASE"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_SUPERSEDED"
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 DO $proof$
@@ -42,6 +44,11 @@ BEGIN
   INTO r FROM pg_roles WHERE rolname='pc_role_eligibility_observer';
   IF NOT FOUND OR r.rolcanlogin OR r.rolinherit OR r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole THEN
     RAISE EXCEPTION 'OBSERVER_ROLE_ATTRIBUTES_INVALID';
+  END IF;
+  SELECT rolcanlogin,rolinherit,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole
+  INTO r FROM pg_roles WHERE rolname='pc_role_eligibility_runtime';
+  IF NOT FOUND OR r.rolcanlogin OR r.rolinherit OR r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole THEN
+    RAISE EXCEPTION 'RUNTIME_ROLE_ATTRIBUTES_INVALID';
   END IF;
   IF has_table_privilege('pc_role_eligibility_observer','auth.registration_applications','SELECT') THEN
     RAISE EXCEPTION 'OBSERVER_DIRECT_REGISTRATION_SELECT_PRESENT';
@@ -184,6 +191,43 @@ BEGIN
   END;
 END
 $append_only$;
+
+-- Race proof: a stale application result is durable historical evidence but it
+-- must never become the current verdict or displace the current decision.
+INSERT INTO eligibility.organization_checks(
+  id,application_id,application_version,application_status_at_start,organization_id,tenant_id,
+  inn,requested_workspace,requested_role,status,policy_version,policy_hash,request_key,correlation_id
+) VALUES
+  ('check_race_current','app_race',9,'ORGANIZATION_VERIFICATION_PENDING','org_smoke','tenant_smoke',
+   '7707083893','buyer','BUYER','CHECKING','p1',repeat('e',64),repeat('f',64),'corr-race-current'),
+  ('check_race_stale','app_race',9,'ORGANIZATION_VERIFICATION_PENDING','org_smoke','tenant_smoke',
+   '7707083893','buyer','BUYER','CHECKING','p1',repeat('0',64),repeat('1',64),'corr-race-stale');
+
+SELECT eligibility.publish_verdict(
+  'verdict_race_current','history_race_current','audit_race_current','outbox_race_current',
+  'check_race_current','REVIEW_REQUIRED','["CURRENT_DECISION"]'::jsonb,repeat('2',64),repeat('3',64),'[]'::jsonb,'corr-race-current'
+);
+SELECT eligibility.publish_verdict(
+  'verdict_race_stale','history_race_stale','audit_race_stale','outbox_race_stale',
+  'check_race_stale','SUPERSEDED','["APPLICATION_CHANGED_DURING_EVALUATION"]'::jsonb,repeat('4',64),repeat('5',64),'[]'::jsonb,'corr-race-stale'
+);
+
+DO $superseded$
+BEGIN
+  IF (SELECT is_current FROM eligibility.verdicts WHERE id='verdict_race_stale') IS DISTINCT FROM FALSE THEN
+    RAISE EXCEPTION 'SUPERSEDED_BECAME_CURRENT';
+  END IF;
+  IF (SELECT is_current FROM eligibility.verdicts WHERE id='verdict_race_current') IS DISTINCT FROM TRUE THEN
+    RAISE EXCEPTION 'SUPERSEDED_DISPLACED_CURRENT';
+  END IF;
+  IF (SELECT count(*) FROM eligibility.verdicts WHERE application_id='app_race' AND application_version=9 AND requested_role='BUYER' AND is_current) <> 1 THEN
+    RAISE EXCEPTION 'CURRENT_VERDICT_CARDINALITY_INVALID';
+  END IF;
+  IF (SELECT count(*) FROM eligibility.verdict_history WHERE check_id='check_race_stale' AND new_verdict='SUPERSEDED') <> 1 THEN
+    RAISE EXCEPTION 'SUPERSEDED_HISTORY_MISSING';
+  END IF;
+END
+$superseded$;
 SQL
 
 printf '%s\n' \
@@ -194,4 +238,5 @@ printf '%s\n' \
   'OUTBOX=PASS' \
   'ATOMIC_VERDICT_TRANSACTION=PASS' \
   'EVIDENCE_PROVENANCE=PASS' \
-  'SOURCE_MANIFEST=PASS'
+  'SOURCE_MANIFEST=PASS' \
+  'SUPERSEDED_GUARD=PASS'
