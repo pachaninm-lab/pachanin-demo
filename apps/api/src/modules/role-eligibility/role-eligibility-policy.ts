@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import {
   type EligibilityPolicyDecision,
   type EligibilityPolicyInput,
@@ -44,10 +44,19 @@ const EMPTY_DICTIONARY: FarmerOkvedDictionary = Object.freeze({
   notes: Object.freeze(['Fail-closed runtime placeholder.']) as unknown as string[],
 });
 
+function dictionaryPath(): string {
+  const candidates = [
+    join(process.cwd(), 'config', 'eligibility', 'farmer-okved-v1.json'),
+    resolve(process.cwd(), '..', '..', 'config', 'eligibility', 'farmer-okved-v1.json'),
+  ];
+  const found = candidates.find((path) => existsSync(path));
+  if (!found) throw new Error('ROLE_ELIGIBILITY_FARMER_OKVED_DICTIONARY_UNAVAILABLE');
+  return found;
+}
+
 function tryLoadFarmerDictionary(): { dictionary: FarmerOkvedDictionary; error: string | null } {
   try {
-    const path = join(process.cwd(), 'config', 'eligibility', 'farmer-okved-v1.json');
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as FarmerOkvedDictionary;
+    const parsed = JSON.parse(readFileSync(dictionaryPath(), 'utf8')) as FarmerOkvedDictionary;
     if (
       parsed?.version !== 'farmer-okved-v1'
       || parsed.matching !== 'prefix-hierarchy'
