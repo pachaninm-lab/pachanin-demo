@@ -9,6 +9,14 @@ function metric(name: string, value: number, labels?: Record<string, string>): s
   return `${name}${suffix} ${Number.isFinite(value) ? value : 0}`;
 }
 
+const SOURCE_HEALTH_VALUE: Readonly<Record<string, number>> = Object.freeze({
+  HEALTHY: 1,
+  DEGRADED: 0.5,
+  UNAVAILABLE: 0,
+  STALE: -1,
+  SCHEMA_CHANGED: -2,
+});
+
 @Injectable()
 export class RoleEligibilityMetricsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -55,8 +63,17 @@ export class RoleEligibilityMetricsService {
         WHERE status='ACTIVE'
         ORDER BY source
       `);
-      const health = await tx.$queryRaw<Array<{ source: string; status: string; consecutive_failures: number }>>(Prisma.sql`
-        SELECT source,status,consecutive_failures FROM eligibility.source_health ORDER BY source
+      const health = await tx.$queryRaw<Array<{ source: string; status: string; failure_total: bigint }>>(Prisma.sql`
+        SELECT h.source,h.status,COALESCE(f.failure_total,0)::bigint AS failure_total
+        FROM eligibility.source_health h
+        LEFT JOIN (
+          SELECT payload->>'source' AS source,COUNT(*)::bigint AS failure_total
+          FROM eligibility.audit_events
+          WHERE event_type='ROLE_ELIGIBILITY_SOURCE_FETCH_FAILED'
+            AND payload ? 'source'
+          GROUP BY payload->>'source'
+        ) f ON f.source=h.source
+        ORDER BY h.source
       `);
       const roleCounts = await tx.$queryRaw<Array<{ requested_role: string; status: string; policy_version: string; count: bigint }>>(Prisma.sql`
         SELECT requested_role,status,policy_version,COUNT(*)::bigint AS count
@@ -92,8 +109,8 @@ export class RoleEligibilityMetricsService {
         lines.push(metric('registry_records_total', Number(generation.record_count), { source: generation.source }));
       }
       for (const item of health) {
-        lines.push(metric('source_health', 1, { source: item.source }));
-        lines.push(metric('registry_sync_failure_total', item.consecutive_failures, { source: item.source }));
+        lines.push(metric('source_health', SOURCE_HEALTH_VALUE[item.status] ?? -3, { source: item.source }));
+        lines.push(metric('registry_sync_failure_total', Number(item.failure_total), { source: item.source }));
       }
       for (const item of roleCounts) {
         lines.push(metric('eligibility_checks_by_role_verdict_total', Number(item.count), {
