@@ -10,6 +10,7 @@ import type {
   EligibilitySource,
   EligibilityVerdict,
   SemanticEligibilityRole,
+  SourceHealthSnapshot,
   SourceHealthStatus,
   SourceManifestEntry,
 } from './role-eligibility.types';
@@ -33,6 +34,23 @@ function terminal(status: EligibilityCheck['status']): boolean {
 function safeErrorCode(error: unknown): string {
   return (error instanceof Error ? error.message : String(error || 'ROLE_ELIGIBILITY_INTERNAL_ERROR'))
     .toUpperCase().replace(/[^A-Z0-9_:-]/g, '_').slice(0, 120) || 'ROLE_ELIGIBILITY_INTERNAL_ERROR';
+}
+
+/**
+ * A failed refresh must not discard a previously validated ACTIVE generation
+ * while that generation is still inside its source-specific freshness window.
+ * The health endpoint still reports the real external failure; only policy
+ * evaluation is allowed to use the fresh cached authority in DEGRADED mode.
+ */
+export function eligibilityEvaluationSourceState(
+  row: Pick<SourceHealthSnapshot, 'status' | 'activeGeneration' | 'freshUntil'>,
+  nowMs = Date.now(),
+): SourceHealthStatus {
+  if (row.freshUntil && row.freshUntil.getTime() <= nowMs) return 'STALE';
+  const freshActive = Boolean(row.activeGeneration && row.freshUntil && row.freshUntil.getTime() > nowMs);
+  if (freshActive && ['DEGRADED', 'UNAVAILABLE', 'SCHEMA_CHANGED'].includes(row.status)) return 'DEGRADED';
+  if (!row.activeGeneration && row.status === 'DEGRADED') return 'UNAVAILABLE';
+  return row.status;
 }
 
 @Injectable()
@@ -101,7 +119,7 @@ export class RoleEligibilityWorkerService {
       const sourceStates: Partial<Record<EligibilitySource, SourceHealthStatus>> = {};
       const now = Date.now();
       for (const row of healthRows) {
-        sourceStates[row.source] = row.freshUntil && row.freshUntil.getTime() <= now ? 'STALE' : row.status;
+        sourceStates[row.source] = eligibilityEvaluationSourceState(row, now);
       }
 
       try {
