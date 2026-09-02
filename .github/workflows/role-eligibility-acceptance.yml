@@ -9,6 +9,7 @@ on:
       - 'apps/api/package.json'
       - 'apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/**'
       - 'apps/api/prisma/migrations/20260902143000_role_eligibility_superseded_current_guard/**'
+      - 'apps/api/prisma/migrations/20260902150000_role_eligibility_runtime_principal_boundary/**'
       - 'config/eligibility/**'
       - 'infra/docker/Dockerfile.api'
       - 'scripts/check-role-eligibility-*.mjs'
@@ -56,6 +57,7 @@ jobs:
           role-eligibility.service.spec.ts
           role-eligibility-registry-sync.spec.ts
           role-eligibility-source-freshness.spec.ts
+          role-eligibility-security.spec.ts
           --runInBand
       - name: Upload bounded evidence
         if: always()
@@ -89,3 +91,38 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility
         run: bash scripts/role-eligibility-postgres-smoke.sh
+      - name: Existing runtime principal remains bounded
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility
+        run: bash scripts/role-eligibility-runtime-principal-smoke.sh
+
+  load-fault:
+    name: Role Eligibility load and fault acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: role_eligibility_load
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d role_eligibility_load"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Establish atomic authority and fault rollback baseline
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility_load
+        run: bash scripts/role-eligibility-postgres-smoke.sh
+      - name: Concurrent publication load and single-current race proof
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility_load
+          ROLE_ELIGIBILITY_LOAD_CASES: '200'
+          ROLE_ELIGIBILITY_RACE_CASES: '24'
+          ROLE_ELIGIBILITY_LOAD_PARALLELISM: '24'
+        run: bash scripts/role-eligibility-load-fault.sh
