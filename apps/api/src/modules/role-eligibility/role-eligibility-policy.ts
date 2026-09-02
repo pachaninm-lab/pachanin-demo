@@ -28,7 +28,7 @@ const POLICY_RULESET = Object.freeze({
   elevator: 'active matching FGIS Grain elevator record',
   laboratory: 'active matching Rosaccreditation record with relevant scope',
   surveyor: 'manual review until strong official specialized authority is configured',
-  bank: 'active matching CBR credit organization with valid license/status',
+  bank: 'active matching CBR credit organization with valid license/status; healthy CBR absence is apparent mismatch',
   driver: 'organization eligibility not applicable',
   employee: 'organization eligibility not applicable',
   legalSafety: 'APPARENT_MISMATCH is advisory and never a registration rejection',
@@ -188,10 +188,10 @@ export class RoleEligibilityPolicy {
       return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['ACCREDITATION_RECORD_INSUFFICIENT'] };
     }
     if (input.semanticRole === 'BANK') {
-      const source = requireSourceEvidence(input, 'CBR');
-      if (source) return source;
+      const failure = sourceFailure(input, 'CBR');
+      if (failure) return failure;
       const bank = input.facts.cbr;
-      if (bank?.present && bank.active && bank.creditOrganization && bank.licenseValid) {
+      if (input.evidenceSources.includes('CBR') && bank?.present && bank.active && bank.creditOrganization && bank.licenseValid) {
         return { verdict: 'ELIGIBLE', reasonCodes: ['CBR_ACTIVE_CREDIT_ORGANIZATION_LICENSE_VALID'] };
       }
       return { verdict: 'APPARENT_MISMATCH', reasonCodes: ['CBR_BANK_AUTHORITY_NOT_CONFIRMED'] };
