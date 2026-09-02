@@ -38,10 +38,10 @@ test.describe('Platform V7 public registration official UX', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: 'Регистрация организации и пользователя' })).toBeVisible();
     await expect(page.getByText('Поля со знаком * обязательны для заполнения.')).toBeVisible();
-    await expect(page.getByLabel('Формат участия *')).toBeVisible();
-    await expect(page.getByLabel('Адрес электронной почты *')).toBeVisible();
-    await expect(page.getByLabel('Пароль *')).toBeVisible();
-    await expect(page.getByLabel('Повторите пароль *')).toBeVisible();
+    await expect(page.getByLabel('Формат участия *', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Адрес электронной почты *', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Пароль *', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Повторите пароль *', { exact: true })).toBeVisible();
     await expect(page.getByText(/12–128 символов.*как минимум три группы/)).toBeVisible();
 
     const visibleText = await page.locator('body').innerText();
@@ -50,7 +50,7 @@ test.describe('Platform V7 public registration official UX', () => {
     }
     expect(visibleText).not.toMatch(/\b(?:Заполни|Ожидай|Повтори позже|Открой письмо|Используй)\b/u);
 
-    await page.getByLabel('Формат участия *').selectOption('employee');
+    await page.getByLabel('Формат участия *', { exact: true }).selectOption('employee');
     await expect(page.getByText('Новая организация при этом не создаётся.')).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
@@ -62,7 +62,7 @@ test.describe('Platform V7 public registration official UX', () => {
       await page.setViewportSize({ width, height: width < 768 ? 900 : 1000 });
       const response = await page.goto('/platform-v7/register?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
-      await expect(page.getByRole('button', { name: 'Отправить заявку на регистрацию' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Отправить заявку на регистрацию', exact: true })).toBeVisible();
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '.p0-register-form input:not([type="checkbox"]):visible');
       await expectMinimumTargets(page, '.p0-register-form select:visible');
@@ -76,9 +76,9 @@ test.describe('Platform V7 public registration official UX', () => {
       if (request.method() !== 'GET') mutations.push(`${request.method()} ${request.url()}`);
     });
     await page.goto('/platform-v7/register?lang=ru', { waitUntil: 'load' });
-    const legalName = page.getByLabel('Наименование организации / ФИО предпринимателя *');
+    const legalName = page.getByLabel('Наименование организации / ФИО предпринимателя *', { exact: true });
     expect(await legalName.evaluate((node) => (node as HTMLInputElement).checkValidity())).toBe(false);
-    await page.getByRole('button', { name: 'Отправить заявку на регистрацию' }).click();
+    await page.getByRole('button', { name: 'Отправить заявку на регистрацию', exact: true }).click();
     await expect(legalName).toBeFocused();
     expect(mutations.filter((item) => item.includes('/api/auth/register'))).toEqual([]);
   });
