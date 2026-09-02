@@ -209,7 +209,7 @@ SELECT eligibility.publish_verdict(
 );
 SELECT eligibility.publish_verdict(
   'verdict_race_stale','history_race_stale','audit_race_stale','outbox_race_stale',
-  'check_race_stale','SUPERSEDED','["APPLICATION_CHANGED_DURING_EVALUATION"]'::jsonb,repeat('4',64),repeat('5',64),'[]'::jsonb,'corr-race-stale'
+  'check_race_stale','SUPERSEDED','["APPLICATION_CHANGED_DURING_EVALUATION"]'::jsonb,repeat('4',64),repeat('6',64),'[]'::jsonb,'corr-race-stale'
 );
 
 DO $superseded$
