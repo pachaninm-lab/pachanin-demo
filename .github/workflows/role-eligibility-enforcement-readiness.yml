@@ -171,6 +171,7 @@ jobs:
 
       - name: Run read-only production shadow corpus report
         id: corpus
+        continue-on-error: true
         env:
           HOST: ${{ steps.ssh.outputs.host }}
           PORT: ${{ steps.ssh.outputs.port }}
@@ -186,8 +187,36 @@ jobs:
             2> "$EVIDENCE_DIR/runtime.log"
           remote_status=$?
           set -e
+          echo "remote_status=$remote_status" >> "$GITHUB_OUTPUT"
+          if (( remote_status != 0 )); then
+            safe="$EVIDENCE_DIR/blocker-summary.txt"
+            grep -E '^(REGISTRATION_RUNTIME_UNCHANGED=PASS|ROLE_ELIGIBILITY_READINESS_DB_MUTATION=0|ROLE_ELIGIBILITY_READINESS_API_SHA=[0-9a-f]{40}|ROLE_ELIGIBILITY_READINESS_WORKER_SHA=[0-9a-f]{40}|ROLE_ELIGIBILITY_READINESS_API_COUNT=[0-9]+|ROLE_ELIGIBILITY_READINESS_WORKER_COUNT=[0-9]+|ROLE_ELIGIBILITY_READINESS_BLOCKER=[A-Z0-9_]+|ROLE_ELIGIBILITY_READINESS_OBSERVER_STATUS=[A-Z0-9_]+|ROLE_ELIGIBILITY_SHADOW_MODE=true|ROLE_ELIGIBILITY_ENFORCEMENT=false|PRODUCTION_DATABASE_MUTATION=0)$' "$EVIDENCE_DIR/runtime.log" > "$safe" || true
+            blocker="$(sed -n 's/^ROLE_ELIGIBILITY_READINESS_BLOCKER=//p' "$safe" | tail -n1)"
+            api_sha="$(sed -n 's/^ROLE_ELIGIBILITY_READINESS_API_SHA=//p' "$safe" | tail -n1)"
+            worker_sha="$(sed -n 's/^ROLE_ELIGIBILITY_READINESS_WORKER_SHA=//p' "$safe" | tail -n1)"
+            observer_status="$(sed -n 's/^ROLE_ELIGIBILITY_READINESS_OBSERVER_STATUS=//p' "$safe" | tail -n1)"
+            [[ "$blocker" =~ ^[A-Z0-9_]+$ ]] || blocker=ROLE_ELIGIBILITY_READINESS_REMOTE_FAILURE
+            [[ "$api_sha" =~ ^[0-9a-f]{40}$ ]] || api_sha=UNKNOWN
+            [[ "$worker_sha" =~ ^[0-9a-f]{40}$ ]] || worker_sha=UNKNOWN
+            [[ "$observer_status" =~ ^[A-Z0-9_]+$ ]] || observer_status=BLOCKED
+            registration_runtime_unchanged=UNKNOWN
+            db_mutation=UNKNOWN
+            runtime_enforcement=UNKNOWN
+            grep -Fxq REGISTRATION_RUNTIME_UNCHANGED=PASS "$safe" && registration_runtime_unchanged=PASS || true
+            grep -Eq '^(ROLE_ELIGIBILITY_READINESS_DB_MUTATION|PRODUCTION_DATABASE_MUTATION)=0$' "$safe" && db_mutation=0 || true
+            grep -Fxq ROLE_ELIGIBILITY_ENFORCEMENT=false "$safe" && runtime_enforcement=false || true
+            echo "blocker=$blocker" >> "$GITHUB_OUTPUT"
+            echo "api_sha=$api_sha" >> "$GITHUB_OUTPUT"
+            echo "worker_sha=$worker_sha" >> "$GITHUB_OUTPUT"
+            echo "observer_status=$observer_status" >> "$GITHUB_OUTPUT"
+            echo "registration_runtime_unchanged=$registration_runtime_unchanged" >> "$GITHUB_OUTPUT"
+            echo "db_mutation=$db_mutation" >> "$GITHUB_OUTPUT"
+            echo "runtime_enforcement=$runtime_enforcement" >> "$GITHUB_OUTPUT"
+            cat "$safe"
+            rm -f "$EVIDENCE_DIR/runtime.log" "$EVIDENCE_DIR/shadow-corpus.json"
+            exit "$remote_status"
+          fi
           cat "$EVIDENCE_DIR/runtime.log"
-          (( remote_status == 0 )) || exit "$remote_status"
           grep -Fxq ROLE_ELIGIBILITY_READINESS_REPORT=PASS "$EVIDENCE_DIR/runtime.log"
           grep -Fxq ROLE_ELIGIBILITY_SHADOW_MODE=true "$EVIDENCE_DIR/runtime.log"
           grep -Fxq ROLE_ELIGIBILITY_ENFORCEMENT=false "$EVIDENCE_DIR/runtime.log"
@@ -223,8 +252,17 @@ jobs:
           NODE
 
       - name: Publish bounded readiness evidence
-        if: always() && steps.corpus.outcome == 'success'
+        if: always() && (steps.corpus.outcome == 'success' || steps.corpus.outcome == 'failure')
         env:
+          CORPUS_OUTCOME: ${{ steps.corpus.outcome }}
+          REMOTE_STATUS: ${{ steps.corpus.outputs.remote_status }}
+          BLOCKER: ${{ steps.corpus.outputs.blocker }}
+          API_SHA: ${{ steps.corpus.outputs.api_sha }}
+          WORKER_SHA: ${{ steps.corpus.outputs.worker_sha }}
+          OBSERVER_STATUS: ${{ steps.corpus.outputs.observer_status }}
+          REGISTRATION_RUNTIME_UNCHANGED: ${{ steps.corpus.outputs.registration_runtime_unchanged }}
+          DB_MUTATION: ${{ steps.corpus.outputs.db_mutation }}
+          RUNTIME_ENFORCEMENT: ${{ steps.corpus.outputs.runtime_enforcement }}
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
           DECISION: ${{ steps.corpus.outputs.decision }}
@@ -235,6 +273,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "${CORPUS_OUTCOME:-}" == failure ]]; then
+            cat > "$EVIDENCE_DIR/result.md" <<EOF
+          ## Role Eligibility enforcement-readiness observation \`$GITHUB_RUN_ID\` — BLOCKED
+
+          - target SHA: \`$TARGET_SHA\`
+          - observer status: \`${OBSERVER_STATUS:-BLOCKED}\`
+          - blocker: \`${BLOCKER:-ROLE_ELIGIBILITY_READINESS_REMOTE_FAILURE}\`
+          - production API revision: \`${API_SHA:-UNKNOWN}\`
+          - production Role Eligibility worker revision: \`${WORKER_SHA:-UNKNOWN}\`
+          - remote report exit: \`${REMOTE_STATUS:-UNKNOWN}\`
+          - production DB mutation: \`${DB_MUTATION:-UNKNOWN}\`
+          - registration runtime unchanged: \`${REGISTRATION_RUNTIME_UNCHANGED:-UNKNOWN}\`
+          - runtime enforcement: \`${RUNTIME_ENFORCEMENT:-UNKNOWN}\`
+
+          \`ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=BLOCKED\`
+          \`REGISTRATION_CODE_CHANGED=0\`
+          \`REGISTRATION_BEHAVIOR_CHANGED=0\`
+          \`ROLE_ELIGIBILITY_ENFORCEMENT=false\`
+          EOF
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/result.md"
+            exit 0
+          fi
           cat > "$EVIDENCE_DIR/result.md" <<EOF
           ## Role Eligibility enforcement-readiness observation \`$GITHUB_RUN_ID\`
 
@@ -268,13 +328,27 @@ jobs:
           retention-days: 90
           compression-level: 0
 
-      - name: Fail closed on integrity contradiction
-        if: always() && steps.corpus.outcome == 'success'
+      - name: Enforce fail-closed readiness result
+        if: always()
         env:
+          CORPUS_OUTCOME: ${{ steps.corpus.outcome }}
+          REMOTE_STATUS: ${{ steps.corpus.outputs.remote_status }}
           DECISION: ${{ steps.corpus.outputs.decision }}
+          BLOCKER: ${{ steps.corpus.outputs.blocker }}
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "${CORPUS_OUTCOME:-}" == failure ]]; then
+            echo "ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=BLOCKED:${BLOCKER:-ROLE_ELIGIBILITY_READINESS_REMOTE_FAILURE}" >&2
+            if [[ "${REMOTE_STATUS:-}" =~ ^[1-9][0-9]{0,2}$ ]] && (( REMOTE_STATUS <= 255 )); then
+              exit "$REMOTE_STATUS"
+            fi
+            exit 41
+          fi
+          [[ "${CORPUS_OUTCOME:-}" == success ]] || {
+            echo ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=OBSERVATION_NOT_EXECUTED >&2
+            exit 42
+          }
           [[ "$DECISION" != BLOCKED_INTEGRITY ]] || {
             echo ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=BLOCKED_INTEGRITY >&2
             exit 40
