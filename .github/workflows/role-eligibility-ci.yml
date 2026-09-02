@@ -1,0 +1,64 @@
+name: Role Eligibility CI
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/modules/role-eligibility/**'
+      - 'apps/api/src/role-eligibility-worker.ts'
+      - 'apps/api/prisma/migrations/*role_eligibility*/migration.sql'
+      - 'config/eligibility/**'
+      - 'scripts/check-role-eligibility-*.mjs'
+      - 'scripts/role-eligibility-*.sh'
+      - 'scripts/production-role-eligibility-worker.sh'
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/package.json'
+      - 'infra/docker/Dockerfile.api'
+      - '.github/workflows/role-eligibility-ci.yml'
+      - '.github/workflows/role-eligibility-production-worker.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Registration protected manifest
+        run: node scripts/check-role-eligibility-registration-guard.mjs
+      - name: Static eligibility acceptance
+        run: node scripts/check-role-eligibility-static-acceptance.mjs
+      - name: Worker deployment syntax and blast-radius contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-role-eligibility-worker.sh
+          node <<'NODE'
+          const fs = require('node:fs');
+          const s = fs.readFileSync('scripts/production-role-eligibility-worker.sh','utf8');
+          for (const marker of [
+            'ROLE_ELIGIBILITY_ENFORCEMENT=false',
+            'ROLE_ELIGIBILITY_SHADOW_MODE=true',
+            'WORKER_MUST_NOT_IMPERSONATE_API_SERVICE',
+            'REGISTRATION_RUNTIME_UNCHANGED',
+            'org.opencontainers.image.revision',
+          ]) if (!s.includes(marker)) throw new Error(`missing worker deploy marker ${marker}`);
+          if (/docker\s+(?:stop|rm|restart)[^\n]*\$api_id/.test(s)) throw new Error('worker deploy must never mutate API container');
+          NODE
+      - name: API typecheck
+        run: pnpm --filter @pc/api typecheck
+      - name: Eligibility unit and contract tests
+        run: pnpm --filter @pc/api test -- --runInBand --testPathPattern=role-eligibility
+      - name: API build including worker entrypoint
+        run: pnpm --filter @pc/api build
