@@ -7,6 +7,8 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 const page = read('app/platform-v7/register/page.tsx');
 const client = read('app/platform-v7/register/RegisterFormClientPublic.tsx');
 const baseClient = read('app/platform-v7/register/RegisterFormClient.tsx');
+const registerRoute = read('app/api/auth/register/route.ts');
+const resendRoute = read('app/api/auth/registration/resend/route.ts');
 const passwordPolicy = read('../api/src/common/validators/strong-password.validator.ts');
 
 describe('Platform V7 registration official UX', () => {
@@ -19,6 +21,14 @@ describe('Platform V7 registration official UX', () => {
     expect(client).not.toContain('Рабочий email');
     expect(client).toContain('Идентификатор обращения:');
     expect(client).toContain('Адрес электронной почты *');
+  });
+
+  it('uses official Russian wording in initial and repeated verification email', () => {
+    for (const route of [registerRoute, resendRoute]) {
+      expect(route).toContain('подтвердите адрес электронной почты');
+      expect(route).not.toContain('подтвердите email');
+      expect(route).not.toContain('Открой одноразовую ссылку');
+    }
   });
 
   it('states the actual server password policy and confirms the password before submission', () => {
