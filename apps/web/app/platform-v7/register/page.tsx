@@ -1,4 +1,5 @@
 import '@/styles/platform-v7-public-register.css';
+import '@/styles/platform-v7-public-register-official.css';
 import Link from 'next/link';
 import { Home, Languages, LogIn } from 'lucide-react';
 import { BrandMark } from '@/components/v7r/BrandMark';
