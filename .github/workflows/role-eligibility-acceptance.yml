@@ -8,6 +8,7 @@ on:
       - 'apps/api/src/app.module.ts'
       - 'apps/api/package.json'
       - 'apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/**'
+      - 'apps/api/prisma/migrations/20260902143000_role_eligibility_superseded_current_guard/**'
       - 'config/eligibility/**'
       - 'infra/docker/Dockerfile.api'
       - 'scripts/check-role-eligibility-*.mjs'
@@ -76,7 +77,7 @@ jobs:
           --health-retries 12
     steps:
       - uses: actions/checkout@v4
-      - name: PostgreSQL privilege, idempotency and atomicity proof
+      - name: PostgreSQL privilege, idempotency, race and atomicity proof
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility
         run: bash scripts/role-eligibility-postgres-smoke.sh
