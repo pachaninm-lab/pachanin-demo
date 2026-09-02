@@ -11,7 +11,10 @@ import { EligibilitySourceError, type EligibilitySource, type RegistryAdapterFet
 // claims about official publication cadence. A source adapter may only shorten
 // the usable window when its official metadata expires earlier.
 const FRESHNESS_MS: Readonly<Record<EligibilitySource, number>> = Object.freeze({
-  CBR: 36 * 60 * 60 * 1000,
+  // The official CBR FullCoList is a dated registry snapshot rather than a
+  // per-request live API. A 45-day ceiling keeps the current monthly-scale
+  // snapshot usable while still forcing fail-closed STALE if publication stops.
+  CBR: 45 * 24 * 60 * 60 * 1000,
   FNS: 35 * 24 * 60 * 60 * 1000,
   FGIS_GRAIN: 14 * 24 * 60 * 60 * 1000,
   ROSACCREDITATION: 48 * 60 * 60 * 1000,
