@@ -17,6 +17,7 @@ describe('Role Eligibility fail-closed structured input validation', () => {
     expect(() => assertXmlWellFormed('<root><item></root>', 'FGIS_GRAIN')).toThrow('FGIS_GRAIN_XML_TAG_MISMATCH');
     expect(() => assertXmlWellFormed('<root></root><other/>', 'FGIS_GRAIN')).toThrow('FGIS_GRAIN_XML_MULTIPLE_ROOTS');
     expect(() => assertXmlWellFormed('<root>&unknown;</root>', 'FGIS_GRAIN')).toThrow('FGIS_GRAIN_XML_ENTITY_FORBIDDEN');
+    expect(() => assertXmlWellFormed('<root>ok &amp; safe & broken</root>', 'FGIS_GRAIN')).toThrow('FGIS_GRAIN_XML_ENTITY_MALFORMED');
     expect(() => assertXmlWellFormed('<!DOCTYPE root [<!ENTITY x SYSTEM "file:///etc/passwd">]><root>&x;</root>', 'FGIS_GRAIN'))
       .toThrow('FGIS_GRAIN_XML_EXTERNAL_ENTITY_FORBIDDEN');
     expect(() => assertXmlWellFormed('<root><!-- broken -- comment --></root>', 'FGIS_GRAIN')).toThrow('FGIS_GRAIN_XML_MALFORMED_COMMENT');
