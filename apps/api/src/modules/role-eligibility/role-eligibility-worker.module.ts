@@ -5,6 +5,7 @@ import { CbrRegistryAdapter } from './adapters/cbr-registry.adapter';
 import { FgisGrainAdapter } from './adapters/fgis-grain.adapter';
 import { FnsEvidenceAdapter } from './adapters/fns-evidence.adapter';
 import { RoleEligibilityEvidenceService } from './role-eligibility-evidence.service';
+import { RoleEligibilityMetricsService } from './role-eligibility-metrics.service';
 import { RoleEligibilityRegistryRepository } from './role-eligibility-registry.repository';
 import { RoleEligibilityRegistrySyncService } from './role-eligibility-registry-sync.service';
 import { RoleEligibilityRepository } from './role-eligibility.repository';
@@ -19,6 +20,7 @@ import { RoleEligibilityWorkerService } from './role-eligibility-worker.service'
     RoleEligibilityRegistryRepository,
     RoleEligibilityWorkerRepository,
     RoleEligibilityEvidenceService,
+    RoleEligibilityMetricsService,
     RoleEligibilitySourceHealthService,
     RoleEligibilityRegistrySyncService,
     RoleEligibilityWorkerService,
@@ -27,6 +29,6 @@ import { RoleEligibilityWorkerService } from './role-eligibility-worker.service'
     FnsEvidenceAdapter,
     AccreditationAdapter,
   ],
-  exports: [RoleEligibilityRegistrySyncService, RoleEligibilityWorkerService],
+  exports: [RoleEligibilityRegistrySyncService, RoleEligibilityWorkerService, RoleEligibilityMetricsService],
 })
 export class RoleEligibilityWorkerModule {}
