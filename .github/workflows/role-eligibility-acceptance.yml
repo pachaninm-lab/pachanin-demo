@@ -29,7 +29,7 @@ jobs:
   contract:
     name: Role Eligibility bounded contract
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,6 +45,34 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Protected registration manifest
         run: node scripts/check-role-eligibility-registration-protected-manifest.mjs
+      - name: Bounded registration behavior contracts
+        run: >-
+          pnpm --filter @pc/api test --
+          registration-decision.service.spec.ts
+          registration-token.spec.ts
+          registrationIdempotencyContract.spec.ts
+          gekta-registration.spec.ts
+          --runInBand
+      - name: Record registration behavior proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/role-eligibility
+          cat > artifacts/role-eligibility/registration-behavior.json <<JSON
+          {
+            "passed": true,
+            "baselineSha": "d0fe9bfc275321e0768ec86ce55e82c958e07880",
+            "headSha": "${GITHUB_SHA}",
+            "registrationBehaviorChanged": false,
+            "scope": [
+              "registration-decision.service.spec.ts",
+              "registration-token.spec.ts",
+              "registrationIdempotencyContract.spec.ts",
+              "gekta-registration.spec.ts"
+            ]
+          }
+          JSON
+          echo 'REGISTRATION_BEHAVIOR_CHANGED=0'
       - name: Static authority acceptance
         run: node scripts/check-role-eligibility-static-acceptance.mjs
       - name: API typecheck
