@@ -5,7 +5,35 @@ import { RoleEligibilityPolicy } from './role-eligibility-policy';
 import { RoleEligibilityRepository } from './role-eligibility.repository';
 import { RoleEligibilityWorkerRepository } from './role-eligibility-worker.repository';
 import { sourceManifestHash } from './role-eligibility-security';
-import type { EligibilitySource, SourceHealthStatus } from './role-eligibility.types';
+import type {
+  EligibilityCheck,
+  EligibilitySource,
+  EligibilityVerdict,
+  SemanticEligibilityRole,
+  SourceHealthStatus,
+  SourceManifestEntry,
+} from './role-eligibility.types';
+
+const RECHECK_MS: Readonly<Record<SemanticEligibilityRole, number | null>> = Object.freeze({
+  FARMER: 7 * 24 * 60 * 60 * 1000,
+  BUYER: 7 * 24 * 60 * 60 * 1000,
+  LOGISTICS: 7 * 24 * 60 * 60 * 1000,
+  ELEVATOR: 7 * 24 * 60 * 60 * 1000,
+  LABORATORY: 24 * 60 * 60 * 1000,
+  SURVEYOR: 7 * 24 * 60 * 60 * 1000,
+  BANK: 24 * 60 * 60 * 1000,
+  DRIVER: null,
+  EMPLOYEE: null,
+});
+
+function terminal(status: EligibilityCheck['status']): boolean {
+  return !['PENDING', 'CHECKING'].includes(status);
+}
+
+function safeErrorCode(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error || 'ROLE_ELIGIBILITY_INTERNAL_ERROR'))
+    .toUpperCase().replace(/[^A-Z0-9_:-]/g, '_').slice(0, 120) || 'ROLE_ELIGIBILITY_INTERNAL_ERROR';
+}
 
 @Injectable()
 export class RoleEligibilityWorkerService {
@@ -21,13 +49,25 @@ export class RoleEligibilityWorkerService {
     const fingerprint = await this.repository.activeGenerationFingerprint();
     const candidates = await this.workerRepository.listCandidates(limit);
     let createdOrExisting = 0;
+    const now = Date.now();
     for (const candidate of candidates) {
+      const latest = await this.repository.latestCheck(candidate.applicationId);
+      const scheduledDue = Boolean(
+        latest
+        && terminal(latest.status)
+        && latest.nextRecheckAt
+        && latest.nextRecheckAt.getTime() <= now,
+      );
+      const discriminator = scheduledDue
+        ? `scheduled:${latest!.id}:${latest!.nextRecheckAt!.toISOString()}`
+        : '';
       await this.repository.createOrGetCheck(
         candidate,
         this.policy.version,
         this.policy.hash,
         fingerprint,
         randomUUID(),
+        discriminator,
       );
       createdOrExisting += 1;
     }
@@ -44,55 +84,78 @@ export class RoleEligibilityWorkerService {
     const correlationId = check.correlationId || randomUUID();
     await this.repository.startCheck(check.id, correlationId);
 
-    const startCandidate = await this.repository.readCandidate(check.applicationId);
-    if (!startCandidate
-      || startCandidate.applicationVersion !== check.applicationVersion
-      || startCandidate.requestedRole !== check.requestedRole
-      || startCandidate.requestedWorkspace !== check.requestedWorkspace) {
-      const manifestHash = sourceManifestHash([]);
-      await this.repository.publishVerdict(check, 'SUPERSEDED', ['APPLICATION_CHANGED_BEFORE_EVALUATION'], [], manifestHash, correlationId);
-      return 'DONE';
-    }
-
-    const healthRows = await this.repository.sourceHealth();
-    const sourceStates: Partial<Record<EligibilitySource, SourceHealthStatus>> = {};
-    const now = Date.now();
-    for (const row of healthRows) {
-      sourceStates[row.source] = row.freshUntil && row.freshUntil.getTime() <= now ? 'STALE' : row.status;
-    }
-
-    let semanticRole;
+    let collectedManifest: SourceManifestEntry[] = [];
+    let semanticRole: SemanticEligibilityRole | null = null;
     try {
-      semanticRole = this.policy.resolveSemanticRole(startCandidate);
-    } catch {
-      const manifestHash = sourceManifestHash([]);
-      await this.repository.publishVerdict(check, 'ERROR', ['REGISTRATION_ROLE_CONTRACT_MISMATCH'], [], manifestHash, correlationId);
+      const startCandidate = await this.repository.readCandidate(check.applicationId);
+      if (!startCandidate
+        || startCandidate.applicationVersion !== check.applicationVersion
+        || startCandidate.requestedRole !== check.requestedRole
+        || startCandidate.requestedWorkspace !== check.requestedWorkspace
+        || startCandidate.applicationStatus !== check.applicationStatusAtStart) {
+        await this.publish(check, 'SUPERSEDED', ['APPLICATION_CHANGED_BEFORE_EVALUATION'], [], correlationId, null);
+        return 'DONE';
+      }
+
+      const healthRows = await this.repository.sourceHealth();
+      const sourceStates: Partial<Record<EligibilitySource, SourceHealthStatus>> = {};
+      const now = Date.now();
+      for (const row of healthRows) {
+        sourceStates[row.source] = row.freshUntil && row.freshUntil.getTime() <= now ? 'STALE' : row.status;
+      }
+
+      try {
+        semanticRole = this.policy.resolveSemanticRole(startCandidate);
+      } catch {
+        await this.publish(check, 'ERROR', ['REGISTRATION_ROLE_CONTRACT_MISMATCH'], [], correlationId, null);
+        return 'DONE';
+      }
+
+      const collected = await this.evidenceService.collect(check, startCandidate, sourceStates);
+      collectedManifest = collected.manifest;
+      const decision = this.policy.evaluate({
+        candidate: startCandidate,
+        semanticRole,
+        facts: collected.facts,
+        sourceStates,
+        evidenceSources: collected.evidenceSources,
+      });
+
+      // Mandatory race protection immediately before terminal publication.
+      const beforePublish = await this.repository.readCandidate(check.applicationId);
+      const superseded = !beforePublish
+        || beforePublish.applicationVersion !== check.applicationVersion
+        || beforePublish.requestedRole !== check.requestedRole
+        || beforePublish.requestedWorkspace !== check.requestedWorkspace
+        || beforePublish.applicationStatus !== startCandidate.applicationStatus;
+      if (superseded) {
+        await this.publish(check, 'SUPERSEDED', ['APPLICATION_CHANGED_DURING_EVALUATION'], collected.manifest, correlationId, null);
+        return 'DONE';
+      }
+
+      await this.publish(check, decision.verdict, decision.reasonCodes, collected.manifest, correlationId, semanticRole);
+      return 'DONE';
+    } catch (error) {
+      // Technical errors are terminal and deterministic when the bounded
+      // registration authority is still the same. If it moved, history is
+      // SUPERSEDED instead. A failure of this terminal transaction itself is
+      // deliberately left CHECKING for bounded recovery.
+      const current = await this.repository.readCandidate(check.applicationId).catch(() => null);
+      const superseded = !current
+        || current.applicationVersion !== check.applicationVersion
+        || current.requestedRole !== check.requestedRole
+        || current.requestedWorkspace !== check.requestedWorkspace
+        || current.applicationStatus !== check.applicationStatusAtStart;
+      await this.publish(
+        check,
+        superseded ? 'SUPERSEDED' : 'ERROR',
+        [superseded ? 'APPLICATION_CHANGED_DURING_TECHNICAL_FAILURE' : safeErrorCode(error)],
+        collectedManifest,
+        correlationId,
+        null,
+      );
       return 'DONE';
     }
-
-    const collected = await this.evidenceService.collect(check, startCandidate, sourceStates);
-    const decision = this.policy.evaluate({
-      candidate: startCandidate,
-      semanticRole,
-      facts: collected.facts,
-      sourceStates,
-      evidenceSources: collected.evidenceSources,
-    });
-
-    const beforePublish = await this.repository.readCandidate(check.applicationId);
-    const superseded = !beforePublish
-      || beforePublish.applicationVersion !== check.applicationVersion
-      || beforePublish.requestedRole !== check.requestedRole
-      || beforePublish.requestedWorkspace !== check.requestedWorkspace
-      || beforePublish.applicationStatus !== startCandidate.applicationStatus;
-    const manifestHash = sourceManifestHash(collected.manifest);
-    if (superseded) {
-      await this.repository.publishVerdict(check, 'SUPERSEDED', ['APPLICATION_CHANGED_DURING_EVALUATION'], collected.manifest, manifestHash, correlationId);
-      return 'DONE';
-    }
-
-    await this.repository.publishVerdict(check, decision.verdict, decision.reasonCodes, collected.manifest, manifestHash, correlationId);
-    return 'DONE';
   }
 
   async drain(limit = 100): Promise<number> {
@@ -103,5 +166,21 @@ export class RoleEligibilityWorkerService {
       processed += 1;
     }
     return processed;
+  }
+
+  private async publish(
+    check: EligibilityCheck,
+    verdict: EligibilityVerdict,
+    reasonCodes: string[],
+    manifest: SourceManifestEntry[],
+    correlationId: string,
+    semanticRole: SemanticEligibilityRole | null,
+  ): Promise<void> {
+    const manifestHash = sourceManifestHash(manifest);
+    await this.repository.publishVerdict(check, verdict, reasonCodes, manifest, manifestHash, correlationId);
+    const interval = semanticRole ? RECHECK_MS[semanticRole] : null;
+    if (interval && !['SUPERSEDED', 'NOT_APPLICABLE'].includes(verdict)) {
+      await this.repository.setNextRecheckAt(check.id, new Date(Date.now() + interval));
+    }
   }
 }
