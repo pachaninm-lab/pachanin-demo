@@ -47,8 +47,16 @@ jobs:
         run: node scripts/check-role-eligibility-static-acceptance.mjs
       - name: API typecheck
         run: pnpm --filter @pc/api typecheck
-      - name: Deterministic role policy and tenant-isolation tests
-        run: pnpm --filter @pc/api test -- role-eligibility-policy.spec.ts role-eligibility.service.spec.ts --runInBand
+      - name: Complete deterministic Role Eligibility suite
+        run: >-
+          pnpm --filter @pc/api test --
+          role-eligibility-contract.spec.ts
+          role-eligibility-policy.spec.ts
+          role-eligibility-specialized-policy.spec.ts
+          role-eligibility.service.spec.ts
+          role-eligibility-registry-sync.spec.ts
+          role-eligibility-source-freshness.spec.ts
+          --runInBand
       - name: Upload bounded evidence
         if: always()
         uses: actions/upload-artifact@v4
