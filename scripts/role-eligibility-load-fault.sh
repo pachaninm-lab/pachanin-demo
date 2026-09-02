@@ -14,10 +14,8 @@ PARALLELISM="${ROLE_ELIGIBILITY_LOAD_PARALLELISM:-24}"
 
 # The base smoke establishes the bounded roles/functions and separately proves
 # rollback on invalid provenance. This script adds concurrent publication load.
-if ! psql "$DATABASE_URL" -Atqc "SELECT to_regprocedure('eligibility.publish_verdict(text,text,text,text,text,text,jsonb,character,jsonb,text)')" >/dev/null 2>&1; then
-  echo 'ROLE_ELIGIBILITY_LOAD_ERROR=BASE_AUTHORITY_NOT_INSTALLED' >&2
-  exit 10
-fi
+function_present="$(psql "$DATABASE_URL" -Atqc "SELECT to_regprocedure('eligibility.publish_verdict(text,text,text,text,text,text,jsonb,character,character,jsonb,text)') IS NOT NULL")"
+[[ "$function_present" == t ]] || { echo 'ROLE_ELIGIBILITY_LOAD_ERROR=BASE_AUTHORITY_NOT_INSTALLED' >&2; exit 10; }
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v distinct_load="$DISTINCT_LOAD" -v race_load="$RACE_LOAD" <<'SQL'
 INSERT INTO eligibility.organization_checks(
@@ -110,44 +108,24 @@ seq 1 "$DISTINCT_LOAD" | xargs -P "$PARALLELISM" -n 1 bash -c 'publish_distinct 
 seq 1 "$RACE_LOAD" | xargs -P "$PARALLELISM" -n 1 bash -c 'publish_race "$1"' _
 elapsed_ms="$(( $(date +%s%3N) - start_epoch_ms ))"
 
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v distinct_load="$DISTINCT_LOAD" -v race_load="$RACE_LOAD" <<'SQL'
-DO $verify$
-DECLARE
-  expected_distinct INTEGER := :'distinct_load'::int;
-  expected_race INTEGER := :'race_load'::int;
-BEGIN
-  IF (SELECT count(*) FROM eligibility.verdicts WHERE id LIKE 'verdict_load_%') <> expected_distinct THEN
-    RAISE EXCEPTION 'LOAD_VERDICT_COUNT_INVALID';
-  END IF;
-  IF (SELECT count(*) FROM eligibility.verdict_history WHERE id LIKE 'history_load_%') <> expected_distinct THEN
-    RAISE EXCEPTION 'LOAD_HISTORY_COUNT_INVALID';
-  END IF;
-  IF (SELECT count(*) FROM eligibility.audit_events WHERE id LIKE 'audit_load_%') <> expected_distinct THEN
-    RAISE EXCEPTION 'LOAD_AUDIT_COUNT_INVALID';
-  END IF;
-  IF (SELECT count(*) FROM eligibility.outbox WHERE id LIKE 'outbox_load_%') <> expected_distinct THEN
-    RAISE EXCEPTION 'LOAD_OUTBOX_COUNT_INVALID';
-  END IF;
-  IF (SELECT count(*) FROM eligibility.verdicts WHERE id LIKE 'verdict_load_%' AND is_current) <> expected_distinct THEN
-    RAISE EXCEPTION 'LOAD_CURRENT_CARDINALITY_INVALID';
-  END IF;
+assert_count() {
+  local name="$1" expected="$2" sql="$3" actual
+  actual="$(psql "$DATABASE_URL" -Atqc "$sql")"
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'ROLE_ELIGIBILITY_LOAD_ERROR=%s expected=%s actual=%s\n' "$name" "$expected" "$actual" >&2
+    exit 20
+  fi
+}
 
-  IF (SELECT count(*) FROM eligibility.verdicts WHERE id LIKE 'verdict_race_load_%') <> expected_race THEN
-    RAISE EXCEPTION 'RACE_VERDICT_COUNT_INVALID';
-  END IF;
-  IF (SELECT count(*) FROM eligibility.verdict_history WHERE id LIKE 'history_race_load_%') <> expected_race THEN
-    RAISE EXCEPTION 'RACE_HISTORY_COUNT_INVALID';
-  END IF;
-  IF (SELECT count(*) FROM eligibility.outbox WHERE id LIKE 'outbox_race_load_%') <> expected_race THEN
-    RAISE EXCEPTION 'RACE_OUTBOX_COUNT_INVALID';
-  END IF;
-  IF (SELECT count(*) FROM eligibility.verdicts
-      WHERE application_id='app_race_load' AND application_version=1 AND requested_role='BUYER' AND is_current) <> 1 THEN
-    RAISE EXCEPTION 'RACE_CURRENT_CARDINALITY_INVALID';
-  END IF;
-END
-$verify$;
-SQL
+assert_count LOAD_VERDICT_COUNT "$DISTINCT_LOAD" "SELECT count(*) FROM eligibility.verdicts WHERE id LIKE 'verdict_load_%'"
+assert_count LOAD_HISTORY_COUNT "$DISTINCT_LOAD" "SELECT count(*) FROM eligibility.verdict_history WHERE id LIKE 'history_load_%'"
+assert_count LOAD_AUDIT_COUNT "$DISTINCT_LOAD" "SELECT count(*) FROM eligibility.audit_events WHERE id LIKE 'audit_load_%'"
+assert_count LOAD_OUTBOX_COUNT "$DISTINCT_LOAD" "SELECT count(*) FROM eligibility.outbox WHERE id LIKE 'outbox_load_%'"
+assert_count LOAD_CURRENT_COUNT "$DISTINCT_LOAD" "SELECT count(*) FROM eligibility.verdicts WHERE id LIKE 'verdict_load_%' AND is_current"
+assert_count RACE_VERDICT_COUNT "$RACE_LOAD" "SELECT count(*) FROM eligibility.verdicts WHERE id LIKE 'verdict_race_load_%'"
+assert_count RACE_HISTORY_COUNT "$RACE_LOAD" "SELECT count(*) FROM eligibility.verdict_history WHERE id LIKE 'history_race_load_%'"
+assert_count RACE_OUTBOX_COUNT "$RACE_LOAD" "SELECT count(*) FROM eligibility.outbox WHERE id LIKE 'outbox_race_load_%'"
+assert_count RACE_CURRENT_CARDINALITY 1 "SELECT count(*) FROM eligibility.verdicts WHERE application_id='app_race_load' AND application_version=1 AND requested_role='BUYER' AND is_current"
 
 printf '%s\n' \
   'LOAD_ACCEPTANCE=PASS' \
