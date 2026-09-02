@@ -10,6 +10,7 @@ if (!databaseUrl) throw new Error('DATABASE_URL_REQUIRED');
 const REQUEST_COUNT = 1_000;
 const LOOKUP_P95_LIMIT_MS = 300;
 const LOOKUP_DISTRACTOR_ROWS = 20_000;
+const LOOKUP_POOL_WARMUP = 50;
 const IMPORT_RECORDS = 50_001;
 const IMPORT_BATCH_SIZE = 1_000;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -73,7 +74,7 @@ async function localLookup(client = prisma) {
     SELECT r.source_record_id,r.payload_sha256,g.generation
     FROM eligibility.registry_records r
     JOIN eligibility.registry_generations g ON g.id=r.generation_id
-    WHERE g.source='FNS' AND g.status='ACTIVE' AND r.subject_inn=$1
+    WHERE g.source='FNS' AND g.status='ACTIVE' AND r.source='FNS' AND r.subject_inn=$1
     ORDER BY r.source_record_id
   `, syntheticInn);
   if (rows.length !== 1 || rows[0].generation !== 'load-fns-active') {
@@ -84,7 +85,11 @@ async function localLookup(client = prisma) {
 
 async function runOnlineLoad() {
   await seedWarmRegistry();
-  for (let i = 0; i < 25; i += 1) await localLookup();
+  // The acceptance URL fixes connection_limit=50. Warm the full bounded pool
+  // concurrently before timing so "warm" lookup latency does not include lazy
+  // TCP/PostgreSQL connection establishment and remains comparable across
+  // hosted runners. The measured burst is still 1000 simultaneous requests.
+  await Promise.all(Array.from({ length: LOOKUP_POOL_WARMUP }, () => localLookup()));
 
   const latencies = await Promise.all(Array.from({ length: REQUEST_COUNT }, async () => {
     const started = performance.now();
