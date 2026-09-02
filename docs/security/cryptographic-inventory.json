@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2174,
+  "scannedFiles": 2197,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 78,
+      "sites": 79,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 78,
+          "sites": 79,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -96,6 +96,7 @@
             "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-security.ts",
             "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
             "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
             "apps/api/src/modules/staff-access/staff-audit.service.ts",
@@ -279,11 +280,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 224,
+      "sites": 236,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 224,
+          "sites": 236,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
@@ -324,6 +325,12 @@
             "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-registry.repository.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-worker.service.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility.controller.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility.repository.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility.service.ts",
             "apps/api/src/modules/settlement-engine/settlement-engine.service.ts",
             "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
             "apps/api/src/modules/staff-access/staff-access.controller.ts",
@@ -398,11 +405,11 @@
     {
       "operation": "weak-prng",
       "label": "Non-cryptographic randomness",
-      "sites": 53,
+      "sites": 54,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 53,
+          "sites": 54,
           "files": [
             "apps/api/src/auth-mail-worker.ts",
             "apps/api/src/common/prisma/rls-transaction.service.ts",
@@ -421,6 +428,7 @@
             "apps/api/src/modules/notifications/notifications.service.ts",
             "apps/api/src/modules/organizations/organizations.service.ts",
             "apps/api/src/modules/partner-api/partner-api.service.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts",
             "apps/web/app/api/auth/demo/instant/[role]/route.ts",
             "apps/web/app/api/platform-v7/leads/route.ts",
             "apps/web/app/api/sim/bank-callback/route.ts",
