@@ -27,14 +27,31 @@ jobs:
           python scripts/tmp-role-eligibility-readiness-evidence-patch-4922.py
           bash -n scripts/production-role-eligibility-readiness.sh
           node scripts/check-role-eligibility-readiness-contract.mjs
-      - name: Commit materialized files
+      - name: Materialize only validated target files
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/role-eligibility-enforcement-readiness.yml scripts/check-role-eligibility-readiness-contract.mjs
-          git diff --cached --check
-          git diff --cached --quiet && { echo ROLE_ELIGIBILITY_READINESS_MATERIALIZER_NO_DIFF >&2; exit 2; }
-          git commit -m 'fix(role-eligibility): preserve fail-closed blocker evidence'
-          git push origin HEAD:${{ github.ref_name }}
+          branch="$GITHUB_REF_NAME"
+          repo="$GITHUB_REPOSITORY"
+          put_target() {
+            local path="$1" message="$2" meta payload current_sha encoded
+            meta="$(mktemp)"
+            payload="$(mktemp)"
+            gh api --method GET "repos/$repo/contents/$path" -f ref="$branch" > "$meta"
+            current_sha="$(jq -r .sha < "$meta")"
+            [[ "$current_sha" =~ ^[0-9a-f]{40}$ ]]
+            encoded="$(base64 -w0 < "$path")"
+            jq -n \
+              --arg message "$message" \
+              --arg content "$encoded" \
+              --arg sha "$current_sha" \
+              --arg branch "$branch" \
+              '{message:$message,content:$content,sha:$sha,branch:$branch}' > "$payload"
+            gh api --method PUT "repos/$repo/contents/$path" --input "$payload" >/dev/null
+            rm -f "$meta" "$payload"
+          }
+          put_target '.github/workflows/role-eligibility-enforcement-readiness.yml' 'fix(role-eligibility): preserve fail-closed blocker evidence'
+          put_target 'scripts/check-role-eligibility-readiness-contract.mjs' 'test(role-eligibility): require fail-closed blocker evidence'
+          echo ROLE_ELIGIBILITY_READINESS_MATERIALIZED=PASS
