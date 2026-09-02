@@ -5,6 +5,7 @@ on:
     paths:
       - 'apps/api/src/modules/role-eligibility/**'
       - 'apps/api/src/role-eligibility-worker.ts'
+      - 'apps/api/scripts/role-eligibility-*.mjs'
       - 'apps/api/src/app.module.ts'
       - 'apps/api/package.json'
       - 'apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/**'
@@ -87,6 +88,8 @@ jobs:
           --health-retries 12
     steps:
       - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
       - name: PostgreSQL privilege, idempotency, race and atomicity proof
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility
@@ -97,9 +100,9 @@ jobs:
         run: bash scripts/role-eligibility-runtime-principal-smoke.sh
 
   load-fault:
-    name: Role Eligibility load and fault acceptance
+    name: Role Eligibility load, registry import and fault acceptance
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:16
@@ -115,6 +118,18 @@ jobs:
           --health-retries 12
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pc/api prisma generate
       - name: Establish atomic authority and fault rollback baseline
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility_load
@@ -126,3 +141,16 @@ jobs:
           ROLE_ELIGIBILITY_RACE_CASES: '24'
           ROLE_ELIGIBILITY_LOAD_PARALLELISM: '24'
         run: bash scripts/role-eligibility-load-fault.sh
+      - name: 1000 concurrent warm local lookups and 50001-record atomic registry import
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility_load?connection_limit=50&pool_timeout=10
+        run: node scripts/role-eligibility-load-acceptance.mjs
+      - name: Upload load and registry-import evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: role-eligibility-load-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/role-eligibility
+          if-no-files-found: error
+          retention-days: 90
