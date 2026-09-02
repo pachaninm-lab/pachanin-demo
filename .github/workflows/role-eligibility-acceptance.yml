@@ -43,6 +43,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma clients
+        run: pnpm --filter @pc/api prisma generate
       - name: Protected registration manifest
         run: node scripts/check-role-eligibility-registration-protected-manifest.mjs
       - name: Bounded registration behavior contracts
