@@ -148,7 +148,10 @@ export class RoleEligibilityRepository {
     recordType: string; normalizedPayload: Record<string, unknown>; sourcePublishedAt: Date; validFrom: Date | null;
     validUntil: Date | null; payloadSha256: string; parserVersion: string; freshUntil: Date;
   }>> {
-    return this.db((client) => client.$queryRaw(Prisma.sql`
+    // This is one MVCC statement: it observes either the old ACTIVE generation
+    // or the new ACTIVE generation atomically. A wrapping transaction adds pool
+    // queue/BEGIN-COMMIT overhead without strengthening the snapshot guarantee.
+    return this.prisma.$queryRaw(Prisma.sql`
       SELECT g.generation, r.source_record_id AS "sourceRecordId", r.subject_inn AS "subjectInn",
              r.subject_ogrn AS "subjectOgrn", r.record_type AS "recordType", r.normalized_payload AS "normalizedPayload",
              r.source_published_at AS "sourcePublishedAt", r.valid_from AS "validFrom", r.valid_until AS "validUntil",
@@ -157,7 +160,7 @@ export class RoleEligibilityRepository {
       WHERE g.status='ACTIVE' AND r.source=${source}
         AND (r.subject_inn=${inn} OR (${ogrn}::text IS NOT NULL AND r.subject_ogrn=${ogrn}))
       ORDER BY r.source_record_id,r.id
-    `));
+    `);
   }
 
   async createEvidence(input: Omit<EligibilityEvidence, 'id'>): Promise<EligibilityEvidence> {
