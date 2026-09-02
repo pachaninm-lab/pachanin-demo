@@ -243,6 +243,26 @@ describe('work factor configuration', () => {
     expect(Number(declared![1]) * 1024 * 1024).toBeGreaterThanOrEqual(required);
   });
 
+  it('documents the storage format it actually writes', async () => {
+    // This one went wrong in exactly the way a comment can: the example stayed
+    // on n=65536 when the profile moved to n=131072, so the format the module
+    // documented could not parse a single hash the module produced. Asserting
+    // the comment against the constant is what keeps the two together; reading
+    // the source is the same technique the maxmem check above uses.
+    const source = readFileSync(join(__dirname, 'password-hashing.ts'), 'utf8');
+    const documented = /^ \*   (\$scrypt\$v=1\$n=\d+,r=\d+,p=\d+)\$/mu.exec(source);
+    expect(documented).not.toBeNull();
+
+    const { N, r, p } = PASSWORD_SCRYPT_PARAMS;
+    expect(documented![1]).toBe(`$scrypt$v=1$n=${N},r=${r},p=${p}`);
+
+    // And the documented prefix must be the prefix a real hash carries, so the
+    // comment is checked against production output and not only against a
+    // constant that could itself drift from the encoder.
+    const stored = await hashPassword('Correct-Horse-9!-длинный-пароль');
+    expect(stored.startsWith(`${documented![1]}$`)).toBe(true);
+  });
+
   it('keeps N a power of two, which scrypt requires', () => {
     const { N } = PASSWORD_SCRYPT_PARAMS;
     expect(N & (N - 1)).toBe(0);
