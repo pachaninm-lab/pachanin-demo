@@ -7,6 +7,7 @@ import { FgisGrainAdapter } from './adapters/fgis-grain.adapter';
 import { FnsEvidenceAdapter } from './adapters/fns-evidence.adapter';
 import { RoleEligibilityController } from './role-eligibility.controller';
 import { RoleEligibilityEvidenceService } from './role-eligibility-evidence.service';
+import { RoleEligibilityMetricsService } from './role-eligibility-metrics.service';
 import { RoleEligibilityRegistryRepository } from './role-eligibility-registry.repository';
 import { RoleEligibilityRegistrySyncService } from './role-eligibility-registry-sync.service';
 import { RoleEligibilityRepository } from './role-eligibility.repository';
@@ -23,6 +24,7 @@ import { RoleEligibilityWorkerService } from './role-eligibility-worker.service'
     RoleEligibilityRegistryRepository,
     RoleEligibilityWorkerRepository,
     RoleEligibilityEvidenceService,
+    RoleEligibilityMetricsService,
     RoleEligibilityService,
     RoleEligibilitySourceHealthService,
     RoleEligibilityRegistrySyncService,
@@ -38,6 +40,7 @@ import { RoleEligibilityWorkerService } from './role-eligibility-worker.service'
     RoleEligibilityRegistryRepository,
     RoleEligibilityWorkerRepository,
     RoleEligibilityEvidenceService,
+    RoleEligibilityMetricsService,
     RoleEligibilityService,
     RoleEligibilitySourceHealthService,
     RoleEligibilityRegistrySyncService,
