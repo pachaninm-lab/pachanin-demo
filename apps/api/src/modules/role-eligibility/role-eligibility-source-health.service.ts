@@ -11,16 +11,13 @@ export class RoleEligibilitySourceHealthService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(): Promise<SourceHealthSnapshot[]> {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE pc_role_eligibility_runtime');
-      return tx.$queryRaw<SourceHealthSnapshot[]>(Prisma.sql`
-        SELECT source,status,circuit_state AS "circuitState",active_generation AS "activeGeneration",
-               parser_version AS "parserVersion",schema_version AS "schemaVersion",last_success_at AS "lastSuccessAt",
-               last_failure_at AS "lastFailureAt",checked_at AS "checkedAt",fresh_until AS "freshUntil",
-               consecutive_failures AS "consecutiveFailures",last_error_code AS "lastErrorCode"
-        FROM eligibility.source_health ORDER BY source
-      `);
-    });
+    return this.prisma.$transaction(async (tx) => tx.$queryRaw<SourceHealthSnapshot[]>(Prisma.sql`
+      SELECT source,status,circuit_state AS "circuitState",active_generation AS "activeGeneration",
+             parser_version AS "parserVersion",schema_version AS "schemaVersion",last_success_at AS "lastSuccessAt",
+             last_failure_at AS "lastFailureAt",checked_at AS "checkedAt",fresh_until AS "freshUntil",
+             consecutive_failures AS "consecutiveFailures",last_error_code AS "lastErrorCode"
+      FROM eligibility.source_health ORDER BY source
+    `));
   }
 
   async get(source: EligibilitySource): Promise<SourceHealthSnapshot | null> {
@@ -57,7 +54,6 @@ export class RoleEligibilitySourceHealthService {
 
   private async write(source: EligibilitySource, status: SourceHealthStatus, circuit: CircuitState, failures: number, errorCode: string | null, freshUntil: Date | null, generation: string | null, parserVersion: string | null, schemaVersion: string | null, success: boolean): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE pc_role_eligibility_runtime');
       await tx.$executeRaw(Prisma.sql`
         INSERT INTO eligibility.source_health (
           source,status,circuit_state,active_generation,parser_version,schema_version,
