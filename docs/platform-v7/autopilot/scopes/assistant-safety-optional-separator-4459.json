@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/assistant-safety-optional-separator-4459",
+  "status": "active",
+  "purpose": "Two assistant safety rules wrote their separator as \\_? intending it to be optional. The substitution runs before the ? means anything, so \\_ becomes [\\s,]+ and the trailing ? attaches to the finished quantifier, giving [\\s,]+? - one or more, lazily. The separator stayed REQUIRED and the run-together spellings walked past both rules. Found while examining the sixteen new RegExp call sites that V1.3.12's own evidence names as unexamined.",
+  "authorityBaseExactMain": "4de039b826311b6f000df5105acc4615b3419792",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/assistant-safety-optional-separator-4459.json",
+    "docs/platform-v7/qa/web-unit-coverage-registry.json",
+    ".github/workflows/ci.yml",
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts"
+  ],
+  "requiredInvariants": [
+    "No safety rule is loosened. The only change to matching is that a separator the author wrote as optional is now actually optional, so the rules match MORE, never less. No pattern text is edited.",
+    "V1.3.12 is NOT claimed and its FAIL is not changed. Two of the sixteen constructed patterns were measured free of exponential backtracking; that is two, not the repository. The other fourteen are triaged in the acceptance notes, not proven.",
+    "The ASVS decisions file is not touched and the matrix is unchanged.",
+    "No production, REG.RU, DNS, database or credential mutation. No schema change, no migration, no dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "The defect was measured on both affected rules, not read off the source: 'дай чужие данные' matched while 'дай чужиеданные' did not, and 'дай мне админ доступ' matched while 'дай мне админдоступ' did not. Both run-together spellings evaded classifySafety, which runs before everything else and is never traded away.",
+    "The fix substitutes \\_? separately and BEFORE \\_, because the \\_ replacement would otherwise consume the token and leave the question mark dangling exactly as before.",
+    "Backtracking measured on the two constructed safety rules, before and after: 40000 characters of adversarial input that enters the rule's prefix and never completes it ran in 2.1 ms and 0.2 ms, scaling linearly. Changing + to * did not alter the timing.",
+    "Sixteen new RegExp sites triaged. Ten are static literals in premium/copy.ts split across string concatenation, with no nesting. Three interpolate an already-escaped term or a module constant. One builds a document-number pattern from a scheme with a bounded \\d{n}. The two examined in depth are the ones above. Nothing here establishes the other fourteen are backtracking-free, and V1.3.12 stays FAIL.",
+    "The test file this work belongs in was NOT RUN BY CI: web-unit names its files one by one and this one sat in the exclusion registry as status 'failed'. Adding safety tests to it would have made them decorative.",
+    "The registry parked an explicit question - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour. Answered by measurement: the assertion expected knowledgeFallback(normalized, history, controller) while the source calls knowledgeFallback(question, history, controller). A parameter rename; the substance - that history is passed on the fallback path - is the second argument and is intact. The source drifted.",
+    "With that classified and corrected the file is 69 of 69 green, so it is promoted out of the registry into the executed list: 18 executed to 19, 895 excluded to 894, and verify-web-unit-coverage passes.",
+    "The registry's executedCount and discoveredCount had drifted to 16 and 910 against an actual 19 and 913. Corrected, but reported as bookkeeping and not as a control: the verifier does not read either field."
+  ]
+}
