@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { StaffAccessContext } from '../staff-access/staff-access.types';
 import { RoleEligibilityService } from './role-eligibility.service';
 import type { RoleEligibilityCandidate } from './role-eligibility.types';
@@ -34,7 +34,9 @@ const access = (tenantId: string | null, organizationId: string | null): StaffAc
   expiresAt: new Date('2030-01-01T00:00:00Z'),
 } as StaffAccessContext);
 
-describe('RoleEligibilityService tenant boundary', () => {
+const IDEMPOTENCY_KEY = 'manual-recheck-00000001';
+
+describe('RoleEligibilityService tenant and recheck boundary', () => {
   const repository = {
     readCandidate: jest.fn(),
     latestCheck: jest.fn(),
@@ -75,21 +77,30 @@ describe('RoleEligibilityService tenant boundary', () => {
   });
 
   it('denies cross-tenant manual recheck before a check is created', async () => {
-    await expect(service.recheck(candidate.applicationId, access('tenant-b', null), 'corr-cross-tenant'))
+    await expect(service.recheck(candidate.applicationId, access('tenant-b', null), IDEMPOTENCY_KEY, 'corr-cross-tenant'))
       .rejects.toBeInstanceOf(ForbiddenException);
     expect(repository.createOrGetCheck).not.toHaveBeenCalled();
   });
 
-  it('allows the matching bounded staff scope and remains enforcement=false', async () => {
-    const result = await service.recheck(candidate.applicationId, access('tenant-a', 'org-a'), 'corr-ok');
+  it('requires an explicit manual recheck idempotency key', async () => {
+    await expect(service.recheck(candidate.applicationId, access('tenant-a', 'org-a'), '', 'corr-missing-key'))
+      .rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.createOrGetCheck).not.toHaveBeenCalled();
+  });
+
+  it('creates a manual history-producing request discriminator without storing the raw key', async () => {
+    const result = await service.recheck(candidate.applicationId, access('tenant-a', 'org-a'), IDEMPOTENCY_KEY, 'corr-ok');
     expect(result.accepted).toBe(true);
     expect(result.enforcement).toBe(false);
     expect(repository.createOrGetCheck).toHaveBeenCalledTimes(1);
+    const args = repository.createOrGetCheck.mock.calls[0];
+    expect(args[5]).toMatch(/^manual:[0-9a-f]{64}$/);
+    expect(args[5]).not.toContain(IDEMPOTENCY_KEY);
   });
 
   it('fails closed if enforcement is accidentally requested', async () => {
     process.env.ROLE_ELIGIBILITY_ENFORCEMENT = 'true';
-    await expect(service.recheck(candidate.applicationId, access('tenant-a', 'org-a'), 'corr-enforcement'))
+    await expect(service.recheck(candidate.applicationId, access('tenant-a', 'org-a'), IDEMPOTENCY_KEY, 'corr-enforcement'))
       .rejects.toMatchObject({ response: { code: 'ROLE_ELIGIBILITY_ENFORCEMENT_UNSUPPORTED_IN_SHADOW_RELEASE' } });
     expect(repository.createOrGetCheck).not.toHaveBeenCalled();
   });
