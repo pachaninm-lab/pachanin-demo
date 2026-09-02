@@ -66,7 +66,7 @@ export class RoleEligibilityWorkerService {
   async discover(limit = 250): Promise<number> {
     const fingerprint = await this.repository.activeGenerationFingerprint();
     const candidates = await this.workerRepository.listCandidates(limit);
-    let createdOrExisting = 0;
+    let newlyCreated = 0;
     const now = Date.now();
     for (const candidate of candidates) {
       const latest = await this.repository.latestCheck(candidate.applicationId);
@@ -76,20 +76,33 @@ export class RoleEligibilityWorkerService {
         && latest.nextRecheckAt
         && latest.nextRecheckAt.getTime() <= now,
       );
-      const discriminator = scheduledDue
-        ? `scheduled:${latest!.id}:${latest!.nextRecheckAt!.toISOString()}`
-        : '';
-      await this.repository.createOrGetCheck(
+      const check = await this.repository.createOrGetCheck(
         candidate,
         this.policy.version,
         this.policy.hash,
         fingerprint,
         randomUUID(),
-        discriminator,
       );
-      createdOrExisting += 1;
+      if (!latest || check.id !== latest.id) {
+        newlyCreated += 1;
+        continue;
+      }
+
+      // Same application version, role, policy and ACTIVE source generations
+      // are the same authoritative input. A time-based recheck is therefore an
+      // idempotent no-op until one of those inputs changes.
+      if (scheduledDue) {
+        try {
+          const role = this.policy.resolveSemanticRole(candidate);
+          const interval = RECHECK_MS[role];
+          if (interval) await this.repository.setNextRecheckAt(check.id, new Date(now + interval));
+        } catch {
+          // Existing check remains authoritative; role mismatch is not turned
+          // into a new logical result merely because the schedule elapsed.
+        }
+      }
     }
-    return createdOrExisting;
+    return newlyCreated;
   }
 
   async recover(): Promise<number> {
