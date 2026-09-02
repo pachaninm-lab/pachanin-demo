@@ -7,12 +7,15 @@ import { RoleEligibilityRegistryRepository } from './role-eligibility-registry.r
 import { RoleEligibilitySourceHealthService } from './role-eligibility-source-health.service';
 import { EligibilitySourceError, type EligibilitySource, type RegistryAdapterFetchResult } from './role-eligibility.types';
 
-const FRESHNESS_MS: Record<EligibilitySource, number> = {
-  CBR: 48 * 60 * 60 * 1000,
-  FNS: 48 * 60 * 60 * 1000,
-  FGIS_GRAIN: 400 * 24 * 60 * 60 * 1000,
-  ROSACCREDITATION: 7 * 24 * 60 * 60 * 1000,
-};
+// Platform freshness policy is source-specific. These are safety ceilings, not
+// claims about official publication cadence. A source adapter may only shorten
+// the usable window when its official metadata expires earlier.
+const FRESHNESS_MS: Readonly<Record<EligibilitySource, number>> = Object.freeze({
+  CBR: 36 * 60 * 60 * 1000,
+  FNS: 35 * 24 * 60 * 60 * 1000,
+  FGIS_GRAIN: 14 * 24 * 60 * 60 * 1000,
+  ROSACCREDITATION: 48 * 60 * 60 * 1000,
+});
 
 type Adapter = { source: EligibilitySource; fetchGeneration(): Promise<RegistryAdapterFetchResult> };
 
@@ -48,7 +51,14 @@ export class RoleEligibilityRegistrySyncService {
         schemaVersion: active.schemaVersion,
         freshUntil: active.freshUntil,
       });
-      return { source, status: 'ACTIVE' as const, generation: active.generation, records: active.recordCount.toString(), contentSha256: active.contentSha256, freshUntil: active.freshUntil };
+      return {
+        source,
+        status: 'ACTIVE' as const,
+        generation: active.generation,
+        records: active.recordCount.toString(),
+        contentSha256: active.contentSha256,
+        freshUntil: active.freshUntil,
+      };
     } catch (error) {
       const typed = error instanceof EligibilitySourceError
         ? error
