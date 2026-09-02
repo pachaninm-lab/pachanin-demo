@@ -92,7 +92,7 @@ export class RoleEligibilityService {
     };
   }
 
-  async recheck(applicationId: string, access: StaffAccessContext, correlationId = randomUUID()) {
+  async recheck(applicationId: string, access: StaffAccessContext, correlationId: string = randomUUID()) {
     const flags = this.flags();
     if (!flags.enabled) throw new ServiceUnavailableException({ code: 'ROLE_ELIGIBILITY_DISABLED' });
     if (flags.configurationError) {
