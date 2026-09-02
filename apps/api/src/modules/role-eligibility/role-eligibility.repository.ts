@@ -13,7 +13,7 @@ import type {
   SourceManifestEntry,
 } from './role-eligibility.types';
 
-type SqlClient = Pick<PrismaClient, '$queryRaw' | '$executeRaw' | '$executeRawUnsafe'>;
+type SqlClient = Pick<PrismaClient, '$queryRaw' | '$executeRaw'>;
 type CandidateRow = {
   application_id: string; application_version: bigint; application_status: string;
   organization_id: string; tenant_id: string; requested_workspace: string; requested_role: string;
@@ -61,29 +61,22 @@ const mapEvidence = (row: EvidenceRow): EligibilityEvidence => ({
 export class RoleEligibilityRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  private observer<T>(task: (client: SqlClient) => Promise<T>): Promise<T> {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE pc_role_eligibility_observer');
-      return task(tx as unknown as SqlClient);
-    });
-  }
-
-  private runtime<T>(task: (client: SqlClient) => Promise<T>): Promise<T> {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE pc_role_eligibility_runtime');
-      return task(tx as unknown as SqlClient);
-    });
+  private db<T>(task: (client: SqlClient) => Promise<T>, serializable = false): Promise<T> {
+    return this.prisma.$transaction(
+      async (tx) => task(tx as unknown as SqlClient),
+      serializable ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : undefined,
+    );
   }
 
   async readCandidate(applicationId: string): Promise<RoleEligibilityCandidate | null> {
-    const rows = await this.observer((client) => client.$queryRaw<CandidateRow[]>(Prisma.sql`
+    const rows = await this.db((client) => client.$queryRaw<CandidateRow[]>(Prisma.sql`
       SELECT * FROM auth.read_role_eligibility_candidates(${applicationId})
     `));
     return rows[0] ? mapCandidate(rows[0]) : null;
   }
 
   async activeGenerationFingerprint(): Promise<string> {
-    const rows = await this.runtime((client) => client.$queryRaw<Array<Record<string, unknown>>>(Prisma.sql`
+    const rows = await this.db((client) => client.$queryRaw<Array<Record<string, unknown>>>(Prisma.sql`
       SELECT source, generation, content_sha256, parser_version, schema_version
       FROM eligibility.registry_generations WHERE status = 'ACTIVE' ORDER BY source
     `));
@@ -96,7 +89,6 @@ export class RoleEligibilityRepository {
     policyHash: string,
     generationFingerprint: string,
     correlationId: string,
-    requestDiscriminator = '',
   ): Promise<EligibilityCheck> {
     const requestKey = sha256(stableJson({
       applicationId: candidate.applicationId,
@@ -105,10 +97,9 @@ export class RoleEligibilityRepository {
       policyVersion,
       policyHash,
       generationFingerprint,
-      requestDiscriminator,
     }));
     const id = `elc_${randomUUID()}`;
-    const rows = await this.runtime(async (client) => {
+    const rows = await this.db(async (client) => {
       await client.$executeRaw(Prisma.sql`
         INSERT INTO eligibility.organization_checks (
           id, application_id, application_version, application_status_at_start, organization_id, tenant_id,
@@ -130,7 +121,7 @@ export class RoleEligibilityRepository {
   async startCheck(checkId: string, correlationId: string, recheck = false): Promise<void> {
     const eventType = recheck ? 'ROLE_ELIGIBILITY_RECHECK_STARTED' : 'ROLE_ELIGIBILITY_STARTED';
     const auditId = `ela_${sha256(`${checkId}\u001f${eventType}`).slice(0, 36)}`;
-    await this.runtime(async (client) => {
+    await this.db(async (client) => {
       await client.$executeRaw(Prisma.sql`
         UPDATE eligibility.organization_checks
         SET status='CHECKING', started_at=COALESCE(started_at, clock_timestamp()), updated_at=clock_timestamp()
@@ -145,7 +136,7 @@ export class RoleEligibilityRepository {
   }
 
   async setNextRecheckAt(checkId: string, nextRecheckAt: Date): Promise<void> {
-    await this.runtime((client) => client.$executeRaw(Prisma.sql`
+    await this.db((client) => client.$executeRaw(Prisma.sql`
       UPDATE eligibility.organization_checks
       SET next_recheck_at=${nextRecheckAt},updated_at=clock_timestamp()
       WHERE id=${checkId}
@@ -157,7 +148,7 @@ export class RoleEligibilityRepository {
     recordType: string; normalizedPayload: Record<string, unknown>; sourcePublishedAt: Date; validFrom: Date | null;
     validUntil: Date | null; payloadSha256: string; parserVersion: string; freshUntil: Date;
   }>> {
-    return this.runtime((client) => client.$queryRaw(Prisma.sql`
+    return this.db((client) => client.$queryRaw(Prisma.sql`
       SELECT g.generation, r.source_record_id AS "sourceRecordId", r.subject_inn AS "subjectInn",
              r.subject_ogrn AS "subjectOgrn", r.record_type AS "recordType", r.normalized_payload AS "normalizedPayload",
              r.source_published_at AS "sourcePublishedAt", r.valid_from AS "validFrom", r.valid_until AS "validUntil",
@@ -172,7 +163,7 @@ export class RoleEligibilityRepository {
   async createEvidence(input: Omit<EligibilityEvidence, 'id'>): Promise<EligibilityEvidence> {
     const id = `ele_${randomUUID()}`;
     const payload = JSON.stringify(input.normalizedPayload);
-    const rows = await this.runtime(async (client) => {
+    const rows = await this.db(async (client) => {
       await client.$executeRaw(Prisma.sql`
         INSERT INTO eligibility.evidence (
           id,check_id,source_type,source_name,source_record_id,registry_generation,subject_inn,subject_ogrn,
@@ -196,17 +187,19 @@ export class RoleEligibilityRepository {
   }
 
   async evidenceForCheck(checkId: string): Promise<EligibilityEvidence[]> {
-    const rows = await this.runtime((client) => client.$queryRaw<EvidenceRow[]>(Prisma.sql`
+    const rows = await this.db((client) => client.$queryRaw<EvidenceRow[]>(Prisma.sql`
       SELECT * FROM eligibility.evidence WHERE check_id=${checkId} ORDER BY source_type,source_record_id,id
     `));
     return rows.map(mapEvidence);
   }
 
   async latestCheck(applicationId: string): Promise<(EligibilityCheck & { verdict: EligibilityVerdict | null; reasonCodes: unknown }) | null> {
-    const rows = await this.runtime((client) => client.$queryRaw<Array<CheckRow & { verdict: EligibilityVerdict | null; reason_codes: unknown }>>(Prisma.sql`
+    const rows = await this.db((client) => client.$queryRaw<Array<CheckRow & { verdict: EligibilityVerdict | null; reason_codes: unknown }>>(Prisma.sql`
       SELECT c.*,v.verdict,v.reason_codes FROM eligibility.organization_checks c
       LEFT JOIN eligibility.verdicts v ON v.check_id=c.id AND v.is_current
-      WHERE c.application_id=${applicationId} ORDER BY c.created_at DESC,c.id DESC LIMIT 1
+      WHERE c.application_id=${applicationId}
+      ORDER BY (c.status IN ('PENDING','CHECKING')) DESC, (v.is_current IS TRUE) DESC, c.created_at DESC,c.id DESC
+      LIMIT 1
     `));
     return rows[0] ? { ...mapCheck(rows[0]), verdict: rows[0].verdict, reasonCodes: rows[0].reason_codes } : null;
   }
@@ -223,18 +216,18 @@ export class RoleEligibilityRepository {
     const sources = JSON.stringify(manifest);
     const reasons = JSON.stringify([...new Set(reasonCodes)].sort());
     const verdictId = `elv_${randomUUID()}`;
-    const rows = await this.runtime((client) => client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    const rows = await this.db((client) => client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
       SELECT eligibility.publish_verdict(
         ${verdictId}, ${`elh_${randomUUID()}`}, ${`ela_${randomUUID()}`}, ${`elo_${randomUUID()}`},
         ${check.id}, ${verdict}, ${reasons}::jsonb, ${sourceManifestHash}, ${idempotencyKey},
         ${sources}::jsonb, ${correlationId}
       ) AS id
-    `));
+    `), true);
     return rows[0]?.id || verdictId;
   }
 
   async sourceHealth(): Promise<SourceHealthSnapshot[]> {
-    return this.runtime((client) => client.$queryRaw<SourceHealthSnapshot[]>(Prisma.sql`
+    return this.db((client) => client.$queryRaw<SourceHealthSnapshot[]>(Prisma.sql`
       SELECT source,status,circuit_state AS "circuitState",active_generation AS "activeGeneration",
              parser_version AS "parserVersion",schema_version AS "schemaVersion",last_success_at AS "lastSuccessAt",
              last_failure_at AS "lastFailureAt",checked_at AS "checkedAt",fresh_until AS "freshUntil",
