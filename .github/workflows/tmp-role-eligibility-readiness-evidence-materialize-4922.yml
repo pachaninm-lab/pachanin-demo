@@ -16,214 +16,25 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Materialize bounded readiness evidence fix
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - name: Apply bounded readiness evidence patch
         shell: bash
         run: |
           set -euo pipefail
-          branch="$GITHUB_REF_NAME"
-          repo="$GITHUB_REPOSITORY"
-          work="$(mktemp -d)"
-          trap 'rm -rf "$work"' EXIT
-
-          fetch_file() {
-            local path="$1" out="$2" meta="$3"
-            gh api --method GET "repos/$repo/contents/$path" -f ref="$branch" > "$meta"
-            jq -r .content < "$meta" | tr -d '\n' | base64 --decode > "$out"
-          }
-
-          put_file() {
-            local path="$1" file="$2" meta="$3" message="$4"
-            local sha payload encoded
-            sha="$(jq -r .sha < "$meta")"
-            encoded="$(base64 -w0 < "$file")"
-            payload="$(mktemp)"
-            jq -n --arg message "$message" --arg content "$encoded" --arg sha "$sha" --arg branch "$branch" \
-              '{message:$message,content:$content,sha:$sha,branch:$branch}' > "$payload"
-            gh api --method PUT "repos/$repo/contents/$path" --input "$payload" >/dev/null
-            rm -f "$payload"
-          }
-
-          workflow_path='.github/workflows/role-eligibility-enforcement-readiness.yml'
-          workflow="$work/readiness.yml"
-          workflow_meta="$work/readiness.meta.json"
-          fetch_file "$workflow_path" "$workflow" "$workflow_meta"
-
-          python - "$workflow" <<'PY'
-          from pathlib import Path
-          import sys
-
-          p = Path(sys.argv[1])
-          text = p.read_text()
-
-          def replace_once(old: str, new: str, label: str):
-              global text
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{label}: expected exactly one match, got {count}')
-              text = text.replace(old, new, 1)
-
-          replace_once(
-              "        id: corpus\n        env:\n",
-              "        id: corpus\n        continue-on-error: true\n        env:\n",
-              'corpus continue-on-error',
-          )
-
-          replace_once(
-              '''          set -e
-          cat "$EVIDENCE_DIR/runtime.log"
-          (( remote_status == 0 )) || exit "$remote_status"
-          grep -Fxq ROLE_ELIGIBILITY_READINESS_REPORT=PASS "$EVIDENCE_DIR/runtime.log"
-''',
-              '''          set -e
-          echo "remote_status=$remote_status" >> "$GITHUB_OUTPUT"
-          if (( remote_status != 0 )); then
-            safe="$EVIDENCE_DIR/blocker-summary.txt"
-            grep -E '^(REGISTRATION_RUNTIME_UNCHANGED=PASS|ROLE_ELIGIBILITY_READINESS_DB_MUTATION=0|ROLE_ELIGIBILITY_READINESS_API_SHA=[0-9a-f]{40}|ROLE_ELIGIBILITY_READINESS_WORKER_SHA=[0-9a-f]{40}|ROLE_ELIGIBILITY_READINESS_API_COUNT=[0-9]+|ROLE_ELIGIBILITY_READINESS_WORKER_COUNT=[0-9]+|ROLE_ELIGIBILITY_READINESS_BLOCKER=[A-Z0-9_]+|ROLE_ELIGIBILITY_READINESS_OBSERVER_STATUS=[A-Z0-9_]+|ROLE_ELIGIBILITY_SHADOW_MODE=true|ROLE_ELIGIBILITY_ENFORCEMENT=false|PRODUCTION_DATABASE_MUTATION=0)$' "$EVIDENCE_DIR/runtime.log" > "$safe" || true
-            blocker="$(sed -n 's/^ROLE_ELIGIBILITY_READINESS_BLOCKER=//p' "$safe" | tail -n1)"
-            api_sha="$(sed -n 's/^ROLE_ELIGIBILITY_READINESS_API_SHA=//p' "$safe" | tail -n1)"
-            worker_sha="$(sed -n 's/^ROLE_ELIGIBILITY_READINESS_WORKER_SHA=//p' "$safe" | tail -n1)"
-            observer_status="$(sed -n 's/^ROLE_ELIGIBILITY_READINESS_OBSERVER_STATUS=//p' "$safe" | tail -n1)"
-            [[ "$blocker" =~ ^[A-Z0-9_]+$ ]] || blocker=ROLE_ELIGIBILITY_READINESS_REMOTE_FAILURE
-            [[ "$api_sha" =~ ^[0-9a-f]{40}$ ]] || api_sha=UNKNOWN
-            [[ "$worker_sha" =~ ^[0-9a-f]{40}$ ]] || worker_sha=UNKNOWN
-            [[ "$observer_status" =~ ^[A-Z0-9_]+$ ]] || observer_status=BLOCKED
-            registration_runtime_unchanged=UNKNOWN
-            db_mutation=UNKNOWN
-            runtime_enforcement=UNKNOWN
-            grep -Fxq REGISTRATION_RUNTIME_UNCHANGED=PASS "$safe" && registration_runtime_unchanged=PASS || true
-            grep -Eq '^(ROLE_ELIGIBILITY_READINESS_DB_MUTATION|PRODUCTION_DATABASE_MUTATION)=0$' "$safe" && db_mutation=0 || true
-            grep -Fxq ROLE_ELIGIBILITY_ENFORCEMENT=false "$safe" && runtime_enforcement=false || true
-            echo "blocker=$blocker" >> "$GITHUB_OUTPUT"
-            echo "api_sha=$api_sha" >> "$GITHUB_OUTPUT"
-            echo "worker_sha=$worker_sha" >> "$GITHUB_OUTPUT"
-            echo "observer_status=$observer_status" >> "$GITHUB_OUTPUT"
-            echo "registration_runtime_unchanged=$registration_runtime_unchanged" >> "$GITHUB_OUTPUT"
-            echo "db_mutation=$db_mutation" >> "$GITHUB_OUTPUT"
-            echo "runtime_enforcement=$runtime_enforcement" >> "$GITHUB_OUTPUT"
-            cat "$safe"
-            rm -f "$EVIDENCE_DIR/runtime.log" "$EVIDENCE_DIR/shadow-corpus.json"
-            exit "$remote_status"
-          fi
-          cat "$EVIDENCE_DIR/runtime.log"
-          grep -Fxq ROLE_ELIGIBILITY_READINESS_REPORT=PASS "$EVIDENCE_DIR/runtime.log"
-''',
-              'remote failure evidence capture',
-          )
-
-          replace_once(
-              "      - name: Publish bounded readiness evidence\n        if: always() && steps.corpus.outcome == 'success'\n        env:\n",
-              "      - name: Publish bounded readiness evidence\n        if: always() && (steps.corpus.outcome == 'success' || steps.corpus.outcome == 'failure')\n        env:\n          CORPUS_OUTCOME: ${{ steps.corpus.outcome }}\n          REMOTE_STATUS: ${{ steps.corpus.outputs.remote_status }}\n          BLOCKER: ${{ steps.corpus.outputs.blocker }}\n          API_SHA: ${{ steps.corpus.outputs.api_sha }}\n          WORKER_SHA: ${{ steps.corpus.outputs.worker_sha }}\n          OBSERVER_STATUS: ${{ steps.corpus.outputs.observer_status }}\n          REGISTRATION_RUNTIME_UNCHANGED: ${{ steps.corpus.outputs.registration_runtime_unchanged }}\n          DB_MUTATION: ${{ steps.corpus.outputs.db_mutation }}\n          RUNTIME_ENFORCEMENT: ${{ steps.corpus.outputs.runtime_enforcement }}\n",
-              'publish failure condition',
-          )
-
-          replace_once(
-              '''          set -euo pipefail
-          cat > "$EVIDENCE_DIR/result.md" <<EOF
-''',
-              '''          set -euo pipefail
-          if [[ "${CORPUS_OUTCOME:-}" == failure ]]; then
-            cat > "$EVIDENCE_DIR/result.md" <<EOF
-          ## Role Eligibility enforcement-readiness observation \`$GITHUB_RUN_ID\` — BLOCKED
-
-          - target SHA: \`$TARGET_SHA\`
-          - observer status: \`${OBSERVER_STATUS:-BLOCKED}\`
-          - blocker: \`${BLOCKER:-ROLE_ELIGIBILITY_READINESS_REMOTE_FAILURE}\`
-          - production API revision: \`${API_SHA:-UNKNOWN}\`
-          - production Role Eligibility worker revision: \`${WORKER_SHA:-UNKNOWN}\`
-          - remote report exit: \`${REMOTE_STATUS:-UNKNOWN}\`
-          - production DB mutation: \`${DB_MUTATION:-UNKNOWN}\`
-          - registration runtime unchanged: \`${REGISTRATION_RUNTIME_UNCHANGED:-UNKNOWN}\`
-          - runtime enforcement: \`${RUNTIME_ENFORCEMENT:-UNKNOWN}\`
-
-          \`ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=BLOCKED\`
-          \`REGISTRATION_CODE_CHANGED=0\`
-          \`REGISTRATION_BEHAVIOR_CHANGED=0\`
-          \`ROLE_ELIGIBILITY_ENFORCEMENT=false\`
-          EOF
-            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/result.md"
-            exit 0
-          fi
-          cat > "$EVIDENCE_DIR/result.md" <<EOF
-''',
-              'publish blocker result',
-          )
-
-          replace_once(
-              '''      - name: Fail closed on integrity contradiction
-        if: always() && steps.corpus.outcome == 'success'
-        env:
-          DECISION: ${{ steps.corpus.outputs.decision }}
+          python scripts/tmp-role-eligibility-readiness-evidence-patch-4922.py
+          bash -n scripts/production-role-eligibility-readiness.sh
+          node scripts/check-role-eligibility-readiness-contract.mjs
+      - name: Commit materialized files
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$DECISION" != BLOCKED_INTEGRITY ]] || {
-            echo ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=BLOCKED_INTEGRITY >&2
-            exit 40
-          }
-          echo ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=PENDING
-          echo ROLE_ELIGIBILITY_ENFORCEMENT=false
-''',
-              '''      - name: Enforce fail-closed readiness result
-        if: always()
-        env:
-          CORPUS_OUTCOME: ${{ steps.corpus.outcome }}
-          REMOTE_STATUS: ${{ steps.corpus.outputs.remote_status }}
-          DECISION: ${{ steps.corpus.outputs.decision }}
-          BLOCKER: ${{ steps.corpus.outputs.blocker }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ "${CORPUS_OUTCOME:-}" == failure ]]; then
-            echo "ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=BLOCKED:${BLOCKER:-ROLE_ELIGIBILITY_READINESS_REMOTE_FAILURE}" >&2
-            if [[ "${REMOTE_STATUS:-}" =~ ^[1-9][0-9]{0,2}$ ]] && (( REMOTE_STATUS <= 255 )); then
-              exit "$REMOTE_STATUS"
-            fi
-            exit 41
-          fi
-          [[ "${CORPUS_OUTCOME:-}" == success ]] || {
-            echo ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=OBSERVATION_NOT_EXECUTED >&2
-            exit 42
-          }
-          [[ "$DECISION" != BLOCKED_INTEGRITY ]] || {
-            echo ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=BLOCKED_INTEGRITY >&2
-            exit 40
-          }
-          echo ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=PENDING
-          echo ROLE_ELIGIBILITY_ENFORCEMENT=false
-''',
-              'final fail closed enforcement',
-          )
-
-          p.write_text(text)
-          PY
-
-          put_file "$workflow_path" "$workflow" "$workflow_meta" 'fix(role-eligibility): preserve blocker evidence before fail-closed exit'
-
-          # Refetch after the first commit so the next contents update is based on the
-          # branch's current state, then harden the static contract checker.
-          checker_path='scripts/check-role-eligibility-readiness-contract.mjs'
-          checker="$work/checker.mjs"
-          checker_meta="$work/checker.meta.json"
-          fetch_file "$checker_path" "$checker" "$checker_meta"
-
-          python - "$checker" <<'PY'
-          from pathlib import Path
-          import sys
-          p = Path(sys.argv[1])
-          text = p.read_text()
-          anchor = "  'PRODUCTION_DATABASE_MUTATION=0',\n]) need(workflow, token, 'workflow');"
-          replacement = "  'PRODUCTION_DATABASE_MUTATION=0',\n  'continue-on-error: true',\n  'blocker-summary.txt',\n  'remote_status=$remote_status',\n  \"steps.corpus.outcome == 'failure'\",\n  'Enforce fail-closed readiness result',\n  'ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=BLOCKED',\n]) need(workflow, token, 'workflow');"
-          if text.count(anchor) != 1:
-              raise SystemExit(f'checker workflow token anchor count={text.count(anchor)}')
-          text = text.replace(anchor, replacement, 1)
-          forbid_anchor = "forbid(workflow, /\\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\\b/iu, 'workflow');\n"
-          forbid_replacement = forbid_anchor + "forbid(workflow, /always\\(\\) && steps[.]corpus[.]outcome == 'success'/u, 'workflow legacy success-only evidence path');\n"
-          if text.count(forbid_anchor) != 1:
-              raise SystemExit(f'checker forbid anchor count={text.count(forbid_anchor)}')
-          text = text.replace(forbid_anchor, forbid_replacement, 1)
-          p.write_text(text)
-          PY
-
-          put_file "$checker_path" "$checker" "$checker_meta" 'test(role-eligibility): require blocker evidence before fail-closed exit'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/role-eligibility-enforcement-readiness.yml scripts/check-role-eligibility-readiness-contract.mjs
+          git diff --cached --check
+          git diff --cached --quiet && { echo ROLE_ELIGIBILITY_READINESS_MATERIALIZER_NO_DIFF >&2; exit 2; }
+          git commit -m 'fix(role-eligibility): preserve fail-closed blocker evidence'
+          git push origin HEAD:${{ github.ref_name }}
