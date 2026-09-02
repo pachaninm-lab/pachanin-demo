@@ -70,14 +70,16 @@ test.describe('Platform V7 public registration official UX', () => {
     });
   }
 
-  test('empty form remains client-side and explains required fields', async ({ page }) => {
+  test('native required-field validation prevents an empty registration request', async ({ page }) => {
     const mutations: string[] = [];
     page.on('request', (request) => {
       if (request.method() !== 'GET') mutations.push(`${request.method()} ${request.url()}`);
     });
     await page.goto('/platform-v7/register?lang=ru', { waitUntil: 'load' });
+    const legalName = page.getByLabel('Наименование организации / ФИО предпринимателя *');
+    expect(await legalName.evaluate((node) => (node as HTMLInputElement).checkValidity())).toBe(false);
     await page.getByRole('button', { name: 'Отправить заявку на регистрацию' }).click();
-    await expect(page.getByRole('alert')).toContainText('Проверьте обязательные поля');
+    await expect(legalName).toBeFocused();
     expect(mutations.filter((item) => item.includes('/api/auth/register'))).toEqual([]);
   });
 
