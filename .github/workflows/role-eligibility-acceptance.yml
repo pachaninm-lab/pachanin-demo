@@ -1,0 +1,57 @@
+name: Role Eligibility Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/modules/role-eligibility/**'
+      - 'apps/api/src/role-eligibility-worker.ts'
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/package.json'
+      - 'apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/**'
+      - 'config/eligibility/**'
+      - 'infra/docker/Dockerfile.api'
+      - 'scripts/check-role-eligibility-*.mjs'
+      - '.github/workflows/role-eligibility-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: role-eligibility-acceptance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Role Eligibility bounded contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Protected registration manifest
+        run: node scripts/check-role-eligibility-registration-protected-manifest.mjs
+      - name: Static authority acceptance
+        run: node scripts/check-role-eligibility-static-acceptance.mjs
+      - name: API typecheck
+        run: pnpm --filter @pc/api typecheck
+      - name: Deterministic role policy tests
+        run: pnpm --filter @pc/api test -- role-eligibility-policy.spec.ts --runInBand
+      - name: Upload bounded evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: role-eligibility-contract-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/role-eligibility
+          if-no-files-found: warn
+          retention-days: 90
