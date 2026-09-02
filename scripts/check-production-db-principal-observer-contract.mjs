@@ -27,8 +27,21 @@ requireText(observer, "isolationLevel: 'RepeatableRead'", 'repeatable-read isola
 requireText(observer, "pg_catalog.pg_has_role(current_user, granted.oid, 'MEMBER')", 'latent privileged membership check');
 requireText(observer, 'relation.relrowsecurity', 'RLS ownership check');
 requireText(observer, 'NOT relation.relforcerowsecurity', 'FORCE RLS ownership check');
-requireText(observer, "role.principal === 'pc_app'", 'issue #4890 expected runtime role');
+requireText(observer, 'const issue4890AcceptanceReady =', 'issue #4890 acceptance expression');
+requireText(observer, 'deployGateConfined &&', 'issue #4890 semantic confinement');
+requireText(observer, 'role.rolcreatedb === false', 'CREATEDB denial');
+requireText(observer, 'role.rolcreaterole === false', 'CREATEROLE denial');
+requireText(observer, 'role.rolreplication === false', 'REPLICATION denial');
 requireText(observer, 'PRODUCTION_DATABASE_MUTATION=0', 'observer no-mutation marker');
+
+const acceptanceStart = observer.indexOf('const issue4890AcceptanceReady =');
+const acceptanceEnd = acceptanceStart >= 0 ? observer.indexOf(';', acceptanceStart) : -1;
+if (acceptanceStart >= 0 && acceptanceEnd > acceptanceStart) {
+  const acceptanceExpression = observer.slice(acceptanceStart, acceptanceEnd + 1);
+  if (/role\.principal\s*===/.test(acceptanceExpression)) {
+    violations.push('issue #4890 acceptance must be capability-based, not principal-name based');
+  }
+}
 
 for (const forbidden of [
   '@v1', '@v2', '@v3', '@v4', '@main', '@master',
