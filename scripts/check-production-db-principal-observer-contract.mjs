@@ -32,14 +32,15 @@ requireText(observer, 'deployGateConfined &&', 'issue #4890 semantic confinement
 requireText(observer, 'role.rolcreatedb === false', 'CREATEDB denial');
 requireText(observer, 'role.rolcreaterole === false', 'CREATEROLE denial');
 requireText(observer, 'role.rolreplication === false', 'REPLICATION denial');
+requireText(observer, 'principal: String(role.principal)', 'principal retained as evidence');
 requireText(observer, 'PRODUCTION_DATABASE_MUTATION=0', 'observer no-mutation marker');
 
 const acceptanceStart = observer.indexOf('const issue4890AcceptanceReady =');
 const acceptanceEnd = acceptanceStart >= 0 ? observer.indexOf(';', acceptanceStart) : -1;
 if (acceptanceStart >= 0 && acceptanceEnd > acceptanceStart) {
   const acceptanceExpression = observer.slice(acceptanceStart, acceptanceEnd + 1);
-  if (/role\.principal\s*===/.test(acceptanceExpression)) {
-    violations.push('issue #4890 acceptance must be capability-based, not principal-name based');
+  if (/role\.principal\b/.test(acceptanceExpression)) {
+    violations.push('issue #4890 acceptance must not use principal name as authority');
   }
 }
 
