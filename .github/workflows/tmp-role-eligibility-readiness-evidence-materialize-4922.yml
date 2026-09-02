@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
       - name: Apply bounded readiness evidence patch
         shell: bash
@@ -34,12 +34,14 @@ jobs:
         run: |
           set -euo pipefail
           branch="$GITHUB_REF_NAME"
+          source_sha="$GITHUB_SHA"
           repo="$GITHUB_REPOSITORY"
+          [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
           put_target() {
             local path="$1" message="$2" meta payload current_sha encoded
             meta="$(mktemp)"
             payload="$(mktemp)"
-            gh api --method GET "repos/$repo/contents/$path" -f ref="$branch" > "$meta"
+            gh api "repos/$repo/contents/$path?ref=$source_sha" > "$meta"
             current_sha="$(jq -r .sha < "$meta")"
             [[ "$current_sha" =~ ^[0-9a-f]{40}$ ]]
             encoded="$(base64 -w0 < "$path")"
