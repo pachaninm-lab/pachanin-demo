@@ -26,17 +26,17 @@ describe('Role Eligibility fail-closed structured input validation', () => {
   });
 
   it('parses quoted semicolon CSV and rejects malformed or oversized CSV', () => {
-    expect(parseSemicolonCsvBounded('inn;name\r\n7701;"AO ""Test"""', 'ACCREDITATION', {
+    expect(parseSemicolonCsvBounded('inn;name\r\n7701;"AO ""Test"""', 'ROSACCREDITATION', {
       maxRows: 10, maxColumns: 4, maxCellChars: 64,
     })).toEqual([['inn', 'name'], ['7701', 'AO "Test"']]);
-    expect(() => parseSemicolonCsvBounded('a;"unterminated', 'ACCREDITATION', {
+    expect(() => parseSemicolonCsvBounded('a;"unterminated', 'ROSACCREDITATION', {
       maxRows: 10, maxColumns: 4, maxCellChars: 64,
-    })).toThrow('ACCREDITATION_CSV_MALFORMED');
-    expect(() => parseSemicolonCsvBounded('a;b;c', 'ACCREDITATION', {
+    })).toThrow('ROSACCREDITATION_CSV_MALFORMED');
+    expect(() => parseSemicolonCsvBounded('a;b;c', 'ROSACCREDITATION', {
       maxRows: 10, maxColumns: 2, maxCellChars: 64,
-    })).toThrow('ACCREDITATION_CSV_COLUMN_LIMIT');
-    expect(() => parseSemicolonCsvBounded('a\nb\nc', 'ACCREDITATION', {
+    })).toThrow('ROSACCREDITATION_CSV_COLUMN_LIMIT');
+    expect(() => parseSemicolonCsvBounded('a\nb\nc', 'ROSACCREDITATION', {
       maxRows: 2, maxColumns: 2, maxCellChars: 64,
-    })).toThrow('ACCREDITATION_CSV_ROW_LIMIT');
+    })).toThrow('ROSACCREDITATION_CSV_ROW_LIMIT');
   });
 });
