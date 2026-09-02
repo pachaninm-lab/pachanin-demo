@@ -11,6 +11,7 @@ on:
       - 'config/eligibility/**'
       - 'infra/docker/Dockerfile.api'
       - 'scripts/check-role-eligibility-*.mjs'
+      - 'scripts/role-eligibility-*.sh'
       - '.github/workflows/role-eligibility-acceptance.yml'
   workflow_dispatch:
 
@@ -55,3 +56,27 @@ jobs:
           path: artifacts/role-eligibility
           if-no-files-found: warn
           retention-days: 90
+
+  postgres-authority:
+    name: Role Eligibility PostgreSQL authority
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: role_eligibility
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d role_eligibility"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL privilege, idempotency and atomicity proof
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility
+        run: bash scripts/role-eligibility-postgres-smoke.sh
