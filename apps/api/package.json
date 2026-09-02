@@ -50,7 +50,7 @@
     "@opentelemetry/resources": "2.9.0",
     "@opentelemetry/semantic-conventions": "1.43.0",
     "@opentelemetry/sdk-trace-node": "2.9.0",
-    "@opentelemetry/instrumentation-http": "0.72.0",
+    "@opentelemetry/instrumentation-http": "0.220.0",
     "@opentelemetry/instrumentation-express": "0.68.0",
     "@opentelemetry/instrumentation-nestjs-core": "0.66.0",
     "@opentelemetry/instrumentation-pg": "0.72.0"
