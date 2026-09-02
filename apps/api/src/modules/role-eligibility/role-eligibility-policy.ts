@@ -34,24 +34,44 @@ const POLICY_RULESET = Object.freeze({
   legalSafety: 'APPARENT_MISMATCH is advisory and never a registration rejection',
 });
 
-function loadFarmerDictionary(): FarmerOkvedDictionary {
-  const path = join(process.cwd(), 'config', 'eligibility', 'farmer-okved-v1.json');
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as FarmerOkvedDictionary;
-  if (
-    parsed?.version !== 'farmer-okved-v1'
-    || parsed.matching !== 'prefix-hierarchy'
-    || !Array.isArray(parsed.prefixes)
-    || parsed.prefixes.length === 0
-    || parsed.prefixes.some((value) => !/^\d{2}(?:\.\d+)?$/.test(value))
-  ) {
-    throw new Error('ROLE_ELIGIBILITY_FARMER_OKVED_DICTIONARY_INVALID');
+const EMPTY_DICTIONARY: FarmerOkvedDictionary = Object.freeze({
+  version: 'farmer-okved-v1',
+  dictionary: 'UNAVAILABLE',
+  semantics: 'Unavailable dictionary is fail-closed and cannot produce FARMER ELIGIBLE.',
+  matching: 'prefix-hierarchy',
+  prefixes: Object.freeze([]) as unknown as string[],
+  deprecatedOrReplaced: Object.freeze({}),
+  notes: Object.freeze(['Fail-closed runtime placeholder.']) as unknown as string[],
+});
+
+function tryLoadFarmerDictionary(): { dictionary: FarmerOkvedDictionary; error: string | null } {
+  try {
+    const path = join(process.cwd(), 'config', 'eligibility', 'farmer-okved-v1.json');
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as FarmerOkvedDictionary;
+    if (
+      parsed?.version !== 'farmer-okved-v1'
+      || parsed.matching !== 'prefix-hierarchy'
+      || !Array.isArray(parsed.prefixes)
+      || parsed.prefixes.length === 0
+      || parsed.prefixes.some((value) => !/^\d{2}(?:\.\d+)?$/.test(value))
+    ) {
+      throw new Error('ROLE_ELIGIBILITY_FARMER_OKVED_DICTIONARY_INVALID');
+    }
+    return {
+      dictionary: Object.freeze({
+        ...parsed,
+        prefixes: Object.freeze([...parsed.prefixes]) as unknown as string[],
+        deprecatedOrReplaced: Object.freeze({ ...parsed.deprecatedOrReplaced }),
+        notes: Object.freeze([...(parsed.notes || [])]) as unknown as string[],
+      }),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      dictionary: EMPTY_DICTIONARY,
+      error: error instanceof Error ? error.message : 'ROLE_ELIGIBILITY_FARMER_OKVED_DICTIONARY_UNAVAILABLE',
+    };
   }
-  return Object.freeze({
-    ...parsed,
-    prefixes: Object.freeze([...parsed.prefixes]) as unknown as string[],
-    deprecatedOrReplaced: Object.freeze({ ...parsed.deprecatedOrReplaced }),
-    notes: Object.freeze([...(parsed.notes || [])]) as unknown as string[],
-  });
 }
 
 function normalizeOkved(code: string | null | undefined): string | null {
@@ -70,10 +90,7 @@ function agriculturalOkvedEvidence(input: EligibilityPolicyInput, dictionary: Fa
   return [primary, ...additional].filter(Boolean).some((code) => dictionaryMatch(code as string, dictionary));
 }
 
-function sourceFailure(
-  input: EligibilityPolicyInput,
-  source: EligibilitySource,
-): EligibilityPolicyDecision | null {
+function sourceFailure(input: EligibilityPolicyInput, source: EligibilitySource): EligibilityPolicyDecision | null {
   const state = input.sourceStates[source];
   if (state === 'STALE') return { verdict: 'STALE', reasonCodes: [`${source}_EVIDENCE_STALE`] };
   if (state === 'UNAVAILABLE') return { verdict: 'SOURCE_UNAVAILABLE', reasonCodes: [`${source}_UNAVAILABLE`] };
@@ -81,10 +98,7 @@ function sourceFailure(
   return null;
 }
 
-function requireSourceEvidence(
-  input: EligibilityPolicyInput,
-  source: EligibilitySource,
-): EligibilityPolicyDecision | null {
+function requireSourceEvidence(input: EligibilityPolicyInput, source: EligibilitySource): EligibilityPolicyDecision | null {
   const failure = sourceFailure(input, source);
   if (failure) return failure;
   if (!input.evidenceSources.includes(source)) {
@@ -108,15 +122,20 @@ export class RoleEligibilityPolicy {
   readonly version: string;
   readonly hash: string;
   readonly farmerDictionary: FarmerOkvedDictionary;
+  readonly initializationError: string | null;
 
   constructor(version = String(process.env.ROLE_ELIGIBILITY_POLICY_VERSION || '2026-09-02.v1').trim()) {
-    if (!/^[A-Za-z0-9._-]{1,64}$/.test(version)) throw new Error('ROLE_ELIGIBILITY_POLICY_VERSION_INVALID');
-    this.version = version;
-    this.farmerDictionary = loadFarmerDictionary();
+    this.version = /^[A-Za-z0-9._-]{1,64}$/.test(version) ? version : 'INVALID_POLICY_VERSION';
+    const loaded = tryLoadFarmerDictionary();
+    this.farmerDictionary = loaded.dictionary;
+    this.initializationError = !/^[A-Za-z0-9._-]{1,64}$/.test(version)
+      ? 'ROLE_ELIGIBILITY_POLICY_VERSION_INVALID'
+      : loaded.error;
     this.hash = sha256(stableJson({
       version: this.version,
       ruleset: POLICY_RULESET,
       farmerDictionary: this.farmerDictionary,
+      initializationError: this.initializationError,
     }));
   }
 
@@ -132,17 +151,18 @@ export class RoleEligibilityPolicy {
   }
 
   evaluate(input: EligibilityPolicyInput): EligibilityPolicyDecision {
+    if (this.version === 'INVALID_POLICY_VERSION') {
+      return { verdict: 'ERROR', reasonCodes: ['ROLE_ELIGIBILITY_POLICY_VERSION_INVALID'] };
+    }
     if (input.semanticRole === 'DRIVER') {
       return { verdict: 'NOT_APPLICABLE', reasonCodes: ['DRIVER_ORGANIZATION_ELIGIBILITY_NOT_APPLICABLE'] };
     }
     if (input.semanticRole === 'EMPLOYEE') {
       return { verdict: 'NOT_APPLICABLE', reasonCodes: ['EMPLOYEE_ORGANIZATION_ELIGIBILITY_NOT_APPLICABLE'] };
     }
-
     if (input.semanticRole === 'SURVEYOR') {
       return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['SURVEYOR_SPECIALIZED_AUTHORITY_NOT_CONFIGURED'] };
     }
-
     if (input.semanticRole === 'LABORATORY') {
       const sourceFailureDecision = sourceFailure(input, 'ROSACCREDITATION');
       if (sourceFailureDecision && !input.evidenceSources.includes('ROSACCREDITATION')) {
@@ -153,18 +173,11 @@ export class RoleEligibilityPolicy {
       const mismatch = identityMismatch(input);
       if (mismatch) return mismatch;
       const accreditation = input.facts.accreditation;
-      if (
-        input.facts.identity.exists
-        && input.facts.identity.active
-        && accreditation?.present
-        && accreditation.active
-        && accreditation.scopeRelevant
-      ) {
+      if (input.facts.identity.exists && input.facts.identity.active && accreditation?.present && accreditation.active && accreditation.scopeRelevant) {
         return { verdict: 'ELIGIBLE', reasonCodes: ['ACCREDITATION_ACTIVE_SCOPE_RELEVANT'] };
       }
       return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['ACCREDITATION_RECORD_INSUFFICIENT'] };
     }
-
     if (input.semanticRole === 'BANK') {
       const source = requireSourceEvidence(input, 'CBR');
       if (source) return source;
@@ -185,25 +198,24 @@ export class RoleEligibilityPolicy {
     if (!input.facts.identity.active || !input.facts.identity.innMatch || input.facts.identity.ogrnMatch === false) {
       return { verdict: 'APPARENT_MISMATCH', reasonCodes: ['FNS_ENTITY_NOT_ACTIVE_OR_IDENTITY_MISMATCH'] };
     }
-
     if (input.semanticRole === 'BUYER') {
       return { verdict: 'ELIGIBLE', reasonCodes: ['ACTIVE_ENTITY_IDENTITY_MATCH'] };
     }
-
     if (input.semanticRole === 'FARMER') {
+      if (this.initializationError) {
+        return { verdict: 'ERROR', reasonCodes: ['FARMER_OKVED_DICTIONARY_UNAVAILABLE'] };
+      }
       if (agriculturalOkvedEvidence(input, this.farmerDictionary)) {
         return { verdict: 'ELIGIBLE', reasonCodes: ['ACTIVE_ENTITY_AGRICULTURAL_ACTIVITY_EVIDENCE'] };
       }
       return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['AGRICULTURAL_ACTIVITY_EVIDENCE_AMBIGUOUS'] };
     }
-
     if (input.semanticRole === 'LOGISTICS') {
       if (input.facts.logistics?.transportProfile && input.facts.logistics.governmentEvidence) {
         return { verdict: 'ELIGIBLE', reasonCodes: ['ACTIVE_ENTITY_LOGISTICS_PROFILE_GOVERNMENT_EVIDENCE'] };
       }
       return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['TRANSPORT_OKVED_ALONE_NOT_ABSOLUTE_PROOF'] };
     }
-
     if (input.semanticRole === 'ELEVATOR') {
       const source = requireSourceEvidence(input, 'FGIS_GRAIN');
       if (source) return source;
@@ -213,7 +225,6 @@ export class RoleEligibilityPolicy {
       }
       return { verdict: 'REVIEW_REQUIRED', reasonCodes: ['FGIS_GRAIN_SPECIALIZED_RECORD_NOT_CONFIRMED'] };
     }
-
     return { verdict: 'ERROR', reasonCodes: ['POLICY_ROLE_UNREACHABLE'] };
   }
 }
