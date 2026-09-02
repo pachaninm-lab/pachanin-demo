@@ -197,7 +197,7 @@ jobs:
             > "$raw" 2>&1
           remote_status=$?
           set -e
-          sed -E 's#(postgres(?:ql)?://)[^/@ ]+@#\1[REDACTED]@#g' "$raw" | tee "$EVIDENCE_DIR/worker.log"
+          sed -E 's#(postgres(ql)?://)[^/@ ]+@#\1[REDACTED]@#g' "$raw" | tee "$EVIDENCE_DIR/worker.log"
           rm -f "$raw"
           if (( remote_status != 0 )); then
             printf 'ROLE_ELIGIBILITY_REMOTE_DEPLOY_EXIT=%s\n' "$remote_status" | tee -a "$EVIDENCE_DIR/worker.log" >&2
