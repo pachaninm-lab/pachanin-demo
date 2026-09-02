@@ -57,6 +57,33 @@ RUN cd /migration-runtime \
      DATABASE_URL='postgresql://invalid:invalid@127.0.0.1:5432/grainflow?schema=public' \
      node node_modules/prisma/build/index.js validate --schema prisma/schema.prisma
 
+# Production Docker Compose predates the immutable migration image and may still
+# carry a legacy command or a bind mount under /app. The image is the migration
+# authority: place the complete runtime outside /app and use an ENTRYPOINT that
+# intentionally ignores inherited command arguments. Only the schema and
+# migration set baked from the exact checkout can therefore execute.
+RUN cat > /migration-runtime/canonical-migrate.mjs <<'NODE'
+import { spawnSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = dirname(fileURLToPath(import.meta.url));
+const prismaCli = resolve(root, 'node_modules/prisma/build/index.js');
+const schema = resolve(root, 'prisma/schema.prisma');
+console.log('MIGRATION_IMAGE_AUTHORITY=image-entrypoint-v1');
+console.log(`MIGRATION_SCHEMA=${schema}`);
+const result = spawnSync(process.execPath, [prismaCli, 'migrate', 'deploy', '--schema', schema], {
+  env: process.env,
+  stdio: 'inherit',
+});
+if (result.error) {
+  console.error(`MIGRATION_EXECUTOR_SPAWN_FAILED=${result.error.code || 'UNKNOWN'}`);
+  process.exit(127);
+}
+process.exit(result.status ?? 1);
+NODE
+RUN node --check /migration-runtime/canonical-migrate.mjs
+
 # Distroless Debian 13 still ships OpenSSL 3.5.6 at the current upstream tag.
 # Overlay the exact Debian security build while retaining the distroless/nonroot
 # runtime. Package control records are copied with the payload so Trivy/SBOM
@@ -90,12 +117,13 @@ LABEL org.opencontainers.image.title="Prozrachnaya Cena database migrations" \
       org.opencontainers.image.description="Single-authority forward-only Prisma migration executor" \
       org.opencontainers.image.revision=$GIT_COMMIT \
       org.opencontainers.image.created=$BUILD_DATE \
-      org.opencontainers.image.version=$APP_VERSION
+      org.opencontainers.image.version=$APP_VERSION \
+      platform.prozrachnaya-cena.migration-authority="image-entrypoint-v1"
 ENV NODE_ENV=production
 ENV RUNTIME_COMPONENT=migration-job
-ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/node_modules/.pnpm/@prisma+engines@5.22.0/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x
-WORKDIR /app
+ENV PRISMA_SCHEMA_ENGINE_BINARY=/canonical/node_modules/.pnpm/@prisma+engines@5.22.0/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x
+WORKDIR /canonical
 COPY --from=openssl-security-patch /openssl-root/ /
 COPY --from=build --chown=nonroot:nonroot /migration-runtime/ ./
 USER nonroot
-CMD ["node_modules/prisma/build/index.js", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
+ENTRYPOINT ["/nodejs/bin/node", "/canonical/canonical-migrate.mjs"]
