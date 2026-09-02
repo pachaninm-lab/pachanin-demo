@@ -68,6 +68,14 @@ for (const token of [
   'REGISTRATION_CODE_CHANGED=0',
   'REGISTRATION_BEHAVIOR_CHANGED=0',
   'PRODUCTION_DATABASE_MUTATION=0',
+  'continue-on-error: true',
+  'blocker-summary.txt',
+  'remote_status=$remote_status',
+  "steps.corpus.outcome == 'failure'",
+  'ERROR_CODE=[A-Z0-9_]+',
+  's/^ERROR_CODE=//p',
+  'Enforce fail-closed readiness result',
+  'ROLE_ELIGIBILITY_ENFORCEMENT_READINESS=BLOCKED',
 ]) need(workflow, token, 'workflow');
 
 forbid(workflow, /StrictHostKeyChecking=no/u, 'workflow');
@@ -75,6 +83,7 @@ forbid(workflow, /UserKnownHostsFile=\/dev\/null/u, 'workflow');
 forbid(workflow, /ROLE_ELIGIBILITY_ENFORCEMENT=true/u, 'workflow');
 forbid(workflow, /docker\s+(?:rm|rmi|stop|start|restart|kill|update|create|run)\b/iu, 'workflow');
 forbid(workflow, /\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\b/iu, 'workflow');
+forbid(workflow, /always\(\) && steps[.]corpus[.]outcome == 'success'/u, 'workflow legacy success-only evidence path');
 
 console.log('ROLE_ELIGIBILITY_READINESS_CONTRACT=PASS');
 console.log('REGISTRATION_CODE_CHANGED=0');
