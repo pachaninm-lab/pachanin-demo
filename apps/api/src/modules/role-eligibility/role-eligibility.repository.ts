@@ -90,7 +90,14 @@ export class RoleEligibilityRepository {
     return sha256(stableJson(rows));
   }
 
-  async createOrGetCheck(candidate: RoleEligibilityCandidate, policyVersion: string, policyHash: string, generationFingerprint: string, correlationId: string): Promise<EligibilityCheck> {
+  async createOrGetCheck(
+    candidate: RoleEligibilityCandidate,
+    policyVersion: string,
+    policyHash: string,
+    generationFingerprint: string,
+    correlationId: string,
+    requestDiscriminator = '',
+  ): Promise<EligibilityCheck> {
     const requestKey = sha256(stableJson({
       applicationId: candidate.applicationId,
       applicationVersion: candidate.applicationVersion.toString(),
@@ -98,6 +105,7 @@ export class RoleEligibilityRepository {
       policyVersion,
       policyHash,
       generationFingerprint,
+      requestDiscriminator,
     }));
     const id = `elc_${randomUUID()}`;
     const rows = await this.runtime(async (client) => {
@@ -120,6 +128,8 @@ export class RoleEligibilityRepository {
   }
 
   async startCheck(checkId: string, correlationId: string, recheck = false): Promise<void> {
+    const eventType = recheck ? 'ROLE_ELIGIBILITY_RECHECK_STARTED' : 'ROLE_ELIGIBILITY_STARTED';
+    const auditId = `ela_${sha256(`${checkId}\u001f${eventType}`).slice(0, 36)}`;
     await this.runtime(async (client) => {
       await client.$executeRaw(Prisma.sql`
         UPDATE eligibility.organization_checks
@@ -128,9 +138,18 @@ export class RoleEligibilityRepository {
       `);
       await client.$executeRaw(Prisma.sql`
         INSERT INTO eligibility.audit_events (id,event_type,check_id,correlation_id,payload,created_at)
-        VALUES (${`ela_${randomUUID()}`}, ${recheck ? 'ROLE_ELIGIBILITY_RECHECK_STARTED' : 'ROLE_ELIGIBILITY_STARTED'}, ${checkId}, ${correlationId}, '{}'::jsonb, clock_timestamp())
+        VALUES (${auditId}, ${eventType}, ${checkId}, ${correlationId}, '{}'::jsonb, clock_timestamp())
+        ON CONFLICT (id) DO NOTHING
       `);
     });
+  }
+
+  async setNextRecheckAt(checkId: string, nextRecheckAt: Date): Promise<void> {
+    await this.runtime((client) => client.$executeRaw(Prisma.sql`
+      UPDATE eligibility.organization_checks
+      SET next_recheck_at=${nextRecheckAt},updated_at=clock_timestamp()
+      WHERE id=${checkId}
+    `));
   }
 
   async activeRecords(source: EligibilitySource, inn: string, ogrn: string | null): Promise<Array<{
