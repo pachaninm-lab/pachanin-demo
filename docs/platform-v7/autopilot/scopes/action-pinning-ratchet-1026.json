@@ -10,7 +10,8 @@
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/action-pinning-ratchet-1026.json",
     "docs/security/supply-chain-action-baseline.json",
-    "scripts/security/verify-action-pinning.mjs"
+    "scripts/security/verify-action-pinning.mjs",
+    "scripts/security/verify-action-pinning.test.mjs"
   ],
   "requiredInvariants": [
     "No workflow file changes. Not a single action is pinned or unpinned in this pass: the ratchet records and enforces the state that already exists.",
@@ -25,6 +26,9 @@
     "The gap the floor closes is narrow and was proven rather than argued. Unpinning a single action raises floating and lowers pinned, so the ceiling alone catches it. Unpinning one action WHILE deleting another floating reference leaves floating at exactly 1026 - on the ceiling - and lowers pinned to 63.",
     "Both versions of the checker were run against that identical mutated tree: the old ceiling-only code printed WITHIN_BASELINE and exited 0; the new code failed closed naming the fall from 64 to 63.",
     "Three further mutations, all caught: pinned floor raised by one; pinnedReferences set to a non-integer; pinnedReferences deleted outright. The last two fail closed rather than skipping the check.",
-    "Clean tree afterwards: the workflow edits used to construct the proof were reverted, leaving only the baseline and the checker modified."
+    "Clean tree afterwards: the workflow edits used to construct the proof were reverted, leaving only the baseline and the checker modified.",
+    "I broke this myself and the repository's own test caught it, not review. Adding the pinned slack to the existing floating note reworded a line verify-action-pinning.test.mjs asserts on (/floating references fell to 0/), and CI failed. I had run the script but not its test suite. Fixed by restoring that line verbatim and giving the pinned slack its own line: rewording a message a test matches on is a break, not a tidy-up.",
+    "The floor is now bound by the suite CI runs, not only by ad-hoc mutation runs. Six cases added: pinned at the floor passes; below it fails; above it reports slack; a missing pinnedReferences fails closed; a non-integer one fails closed; and the collateral case - floating left exactly at the ceiling while pinned falls - fails on the floor and explicitly NOT on the ceiling. verify-action-pinning.test.mjs 9 of 9 to 15 of 15.",
+    "Two mutations against that suite: removing the floor enforcement fails the below-the-floor case and the collateral case; removing the fail-closed validation fails both malformed-baseline cases."
   ]
 }
