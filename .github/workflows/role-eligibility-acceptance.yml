@@ -103,7 +103,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:16
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: role_eligibility
@@ -133,7 +133,7 @@ jobs:
     timeout-minutes: 35
     services:
       postgres:
-        image: postgres:16
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: role_eligibility_load
