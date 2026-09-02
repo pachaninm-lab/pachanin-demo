@@ -37,14 +37,6 @@ $role$;
 -- This is the pre-existing registration authority from the proven contour.
 GRANT USAGE ON SCHEMA auth TO app_service;
 GRANT SELECT, INSERT, UPDATE ON auth.registration_applications TO app_service;
-
-CREATE TEMP TABLE registration_privilege_baseline AS
-SELECT privilege_type
-FROM information_schema.role_table_grants
-WHERE grantee='app_service'
-  AND table_schema='auth'
-  AND table_name='registration_applications'
-ORDER BY privilege_type;
 SQL
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_BASE"
@@ -85,7 +77,9 @@ BEGIN
   IF NOT has_function_privilege('app_service','auth.read_role_eligibility_candidates(text)','EXECUTE') THEN
     RAISE EXCEPTION 'APP_SERVICE_BOUNDED_CANDIDATE_EXECUTE_MISSING';
   END IF;
-  IF NOT has_table_privilege('app_service','eligibility.organization_checks','SELECT,INSERT,UPDATE') THEN
+  IF NOT has_table_privilege('app_service','eligibility.organization_checks','SELECT')
+     OR NOT has_table_privilege('app_service','eligibility.organization_checks','INSERT')
+     OR NOT has_table_privilege('app_service','eligibility.organization_checks','UPDATE') THEN
     RAISE EXCEPTION 'APP_SERVICE_ELIGIBILITY_AUTHORITY_MISSING';
   END IF;
 END
