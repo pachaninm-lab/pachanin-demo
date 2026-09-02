@@ -89,6 +89,7 @@ export class RoleEligibilityRepository {
     policyHash: string,
     generationFingerprint: string,
     correlationId: string,
+    requestDiscriminator = 'automatic',
   ): Promise<EligibilityCheck> {
     const requestKey = sha256(stableJson({
       applicationId: candidate.applicationId,
@@ -97,6 +98,7 @@ export class RoleEligibilityRepository {
       policyVersion,
       policyHash,
       generationFingerprint,
+      requestDiscriminator,
     }));
     const id = `elc_${randomUUID()}`;
     const rows = await this.db(async (client) => {

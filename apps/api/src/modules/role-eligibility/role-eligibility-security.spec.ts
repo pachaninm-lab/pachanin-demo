@@ -73,8 +73,9 @@ describe('Role Eligibility source security', () => {
       source: 'CBR', allowedHosts: ['www.cbr.ru'], maxResponseBytes: 1024,
       connectTimeoutMs: 100, readTimeoutMs: 100, acceptedContentTypes: ['text/plain'],
     });
+    const rejection = expect(promise).rejects.toThrow('CBR_CONNECT_TIMEOUT');
     await jest.advanceTimersByTimeAsync(101);
-    await expect(promise).rejects.toThrow('CBR_CONNECT_TIMEOUT');
+    await rejection;
   });
 
   it('enforces an idle body read timeout', async () => {
@@ -88,8 +89,9 @@ describe('Role Eligibility source security', () => {
       source: 'CBR', allowedHosts: ['www.cbr.ru'], maxResponseBytes: 1024,
       connectTimeoutMs: 100, readTimeoutMs: 100, acceptedContentTypes: ['text/plain'],
     });
+    const rejection = expect(promise).rejects.toThrow('CBR_READ_TIMEOUT');
     await jest.advanceTimersByTimeAsync(101);
-    await expect(promise).rejects.toThrow('CBR_READ_TIMEOUT');
+    await rejection;
   });
 
   it('rejects XML external entities, excessive JSON depth and oversized CSV', () => {

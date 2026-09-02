@@ -127,8 +127,9 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
     const { instance, health } = service(fetchGeneration);
 
     const pending = instance.sync('CBR');
+    const rejection = expect(pending).rejects.toMatchObject({ code: 'CBR_TIMEOUT' });
     await jest.runAllTimersAsync();
-    await expect(pending).rejects.toMatchObject({ code: 'CBR_TIMEOUT' });
+    await rejection;
     expect(fetchGeneration).toHaveBeenCalledTimes(3);
     expect(health.failure).toHaveBeenCalledTimes(1);
   });
