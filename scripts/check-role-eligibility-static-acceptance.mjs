@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const migration = read('apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/migration.sql');
+const supersededMigration = read('apps/api/prisma/migrations/20260902143000_role_eligibility_superseded_current_guard/migration.sql');
 const service = read('apps/api/src/modules/role-eligibility/role-eligibility.service.ts');
 const worker = read('apps/api/src/modules/role-eligibility/role-eligibility-worker.service.ts');
 const security = read('apps/api/src/modules/role-eligibility/role-eligibility-security.ts');
@@ -19,13 +20,20 @@ requireText('migration', migration, [
   'eligibility.verdict_sources', 'eligibility.verdict_history', 'eligibility.audit_events', 'eligibility.outbox',
   'eligibility.publish_verdict', 'ELIGIBLE requires authoritative source provenance',
 ]);
-forbid('migration', migration, [
-  /ALTER\s+TABLE\s+auth\.registration_applications/i,
-  /(?:UPDATE|DELETE\s+FROM|INSERT\s+INTO)\s+auth\.registration_applications/i,
-  /GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE)[^;]*auth\.registration_applications[^;]*pc_role_eligibility_observer/i,
+requireText('superseded migration', supersededMigration, [
+  "v_is_current BOOLEAN := p_new_verdict <> 'SUPERSEDED'",
+  'IF v_is_current AND v_previous_id IS NOT NULL THEN',
+  'p_idempotency_key, v_is_current, v_now',
 ]);
+for (const [name, source] of [['migration', migration], ['superseded migration', supersededMigration]]) {
+  forbid(name, source, [
+    /ALTER\s+TABLE\s+auth\.registration_applications/i,
+    /(?:UPDATE|DELETE\s+FROM|INSERT\s+INTO)\s+auth\.registration_applications/i,
+    /GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE)[^;]*auth\.registration_applications[^;]*pc_role_eligibility_observer/i,
+  ]);
+}
 requireText('service', service, ['enforcement: false', 'ROLE_ELIGIBILITY_ENFORCEMENT_UNSUPPORTED_IN_SHADOW_RELEASE']);
-requireText('worker', worker, ['beforePublish = await this.repository.readCandidate', "publishVerdict(check, 'SUPERSEDED'", 'applicationVersion !== check.applicationVersion']);
+requireText('worker', worker, ['beforePublish = await this.repository.readCandidate', "this.publish(check, 'SUPERSEDED'", 'applicationVersion !== check.applicationVersion']);
 requireText('security', security, ['https:', 'HOST_NOT_ALLOWLISTED', "redirect: 'error'", 'RESPONSE_TOO_LARGE', 'XML_EXTERNAL_ENTITY_FORBIDDEN', 'JSON_DEPTH_LIMIT', 'PARSER_TIMEOUT']);
 requireText('CBR adapter', cbr, ['www.cbr.ru', 'EXPECTED_HEADERS', 'CBR_CARDINALITY_BELOW_SAFETY_FLOOR']);
 requireText('FNS adapter', fns, ['FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN']);
