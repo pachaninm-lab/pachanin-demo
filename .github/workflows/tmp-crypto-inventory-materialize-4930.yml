@@ -1,0 +1,37 @@
+name: Temporary crypto inventory materializer
+
+on:
+  push:
+    branches:
+      - 'chore/security-crypto-inventory-refresh-4930'
+    paths-ignore:
+      - 'docs/security/cryptographic-inventory.json'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Deterministically refresh committed crypto inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/security/discover-cryptography.mjs
+          if git diff --quiet -- docs/security/cryptographic-inventory.json; then
+            echo 'CRYPTO_INVENTORY_REFRESH=NO_CHANGE'
+            exit 0
+          fi
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/security/cryptographic-inventory.json
+          git commit -m 'chore(security): refresh deterministic cryptographic inventory'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo 'CRYPTO_INVENTORY_REFRESH=COMMITTED'
