@@ -10,6 +10,8 @@ const cbr = read('apps/api/src/modules/role-eligibility/adapters/cbr-registry.ad
 const fns = read('apps/api/src/modules/role-eligibility/adapters/fns-evidence.adapter.ts');
 const fgis = read('apps/api/src/modules/role-eligibility/adapters/fgis-grain.adapter.ts');
 const lab = read('apps/api/src/modules/role-eligibility/adapters/accreditation.adapter.ts');
+const workerDeploy = read('scripts/production-role-eligibility-worker.sh');
+const workerRelease = read('.github/workflows/role-eligibility-production-worker.yml');
 const failures = [];
 const requireText = (name, text, needles) => needles.forEach((needle) => { if (!text.includes(needle)) failures.push(`${name}: missing ${needle}`); });
 const forbid = (name, text, patterns) => patterns.forEach((pattern) => { if (pattern.test(text)) failures.push(`${name}: forbidden ${pattern}`); });
@@ -41,6 +43,34 @@ requireText('FGIS adapter', fgis, ['FGIS_GRAIN_OFFICIAL_DATASET_TRANSPORT_NOT_PR
 requireText('LAB adapter', lab, ['ROSACCREDITATION_MACHINE_CONTRACT_NOT_PROVEN']);
 for (const text of [cbr, fns, fgis, lab]) forbid('adapter', text, [/MockFnsAdapter|MockSmevAdapter|dadata|spark-interfax|kontur\.focus/i]);
 
+requireText('production worker deploy', workerDeploy, [
+  'org.opencontainers.image.revision',
+  'ROLE_ELIGIBILITY_ENABLED=true',
+  'ROLE_ELIGIBILITY_SHADOW_MODE=true',
+  'ROLE_ELIGIBILITY_ENFORCEMENT=false',
+  'WORKER_MUST_NOT_IMPERSONATE_API_SERVICE',
+  'REGISTRATION_RUNTIME_UNCHANGED',
+]);
+forbid('production worker deploy', workerDeploy, [
+  /docker\s+(?:stop|rm|restart)[^\n]*\$api_id/,
+]);
+requireText('production worker release', workerRelease, [
+  '/role-eligibility worker deploy current-main',
+  "github.event.comment.user.login == github.repository_owner",
+  "github.event.comment.author_association == 'OWNER'",
+  'github.actor == github.repository_owner',
+  'github.triggering_actor == github.repository_owner',
+  'ROLE_ELIGIBILITY_RELEASE_MAIN_DRIFT',
+  'ROLE_ELIGIBILITY_TARGET_SHA=$TARGET_SHA',
+  'ROLE_ELIGIBILITY_SHADOW_MODE=true',
+  'ROLE_ELIGIBILITY_ENFORCEMENT=false',
+  'REGISTRATION_RUNTIME_UNCHANGED=PASS',
+]);
+forbid('production worker release', workerRelease, [
+  /ROLE_ELIGIBILITY_ENFORCEMENT=true/,
+  /docker\s+(?:stop|rm|restart)[^\n]*(?:api|\$api_id)/i,
+]);
+
 if (failures.length) {
   failures.forEach((failure) => console.error(`ROLE_ELIGIBILITY_STATIC_ERROR=${failure}`));
   process.exit(1);
@@ -56,6 +86,8 @@ console.log('ATOMIC_VERDICT_TRANSACTION=PASS');
 console.log('PII_MINIMIZATION=PASS');
 console.log('SOURCE_FAILURE_FAIL_CLOSED=PASS');
 console.log('SCHEMA_DRIFT_FAIL_CLOSED=PASS');
+console.log('PRODUCTION_WORKER_EXACT_SHA_AUTHORITY=PASS');
+console.log('REGISTRATION_RUNTIME_MUTATION_FORBIDDEN=PASS');
 console.log('PAID_EXTERNAL_DEPENDENCIES=0');
 console.log('NEW_MANDATORY_RECURRING_COST_RUB=0');
 console.log('MOCK_PRODUCTION_EVIDENCE=0');
