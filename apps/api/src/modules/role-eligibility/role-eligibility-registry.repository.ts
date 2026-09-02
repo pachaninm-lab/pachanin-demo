@@ -10,7 +10,7 @@ import type {
   SourceHealthSnapshot,
 } from './role-eligibility.types';
 
-type SqlClient = Pick<PrismaClient, '$queryRaw' | '$executeRaw' | '$executeRawUnsafe'>;
+type SqlClient = Pick<PrismaClient, '$queryRaw' | '$executeRaw'>;
 type GenerationRow = {
   id: string; source: EligibilitySource; generation: string; published_at: Date; downloaded_at: Date;
   content_sha256: string; record_count: bigint; parser_version: string; schema_version: string;
@@ -38,10 +38,10 @@ export class RoleEligibilityRegistryRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   private runtime<T>(task: (client: SqlClient) => Promise<T>, serializable = false): Promise<T> {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE pc_role_eligibility_runtime');
-      return task(tx as unknown as SqlClient);
-    }, serializable ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : undefined);
+    return this.prisma.$transaction(
+      async (tx) => task(tx as unknown as SqlClient),
+      serializable ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : undefined,
+    );
   }
 
   async stage(payload: RegistryAdapterFetchResult, freshUntil: Date): Promise<RegistryGeneration> {
