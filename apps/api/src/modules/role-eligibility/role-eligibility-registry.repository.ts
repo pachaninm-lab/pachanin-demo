@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { sha256, stableJson } from './role-eligibility-security';
 import type {
@@ -15,6 +16,8 @@ type GenerationRow = {
   content_sha256: string; record_count: bigint; parser_version: string; schema_version: string;
   status: RegistryGeneration['status']; fresh_until: Date;
 };
+
+const BULK_INSERT_ROWS = 500;
 
 const mapGeneration = (row: GenerationRow): RegistryGeneration => ({
   id: row.id,
@@ -62,18 +65,25 @@ export class RoleEligibilityRegistryRepository {
         )
       `);
 
-      for (const record of payload.records) {
-        const payloadSha256 = sha256(stableJson(record.normalizedPayload));
-        const id = `elr_${sha256(`${generationId}\u001f${record.sourceRecordId}\u001f${record.recordType}\u001f${payloadSha256}`).slice(0, 36)}`;
-        await client.$executeRaw(Prisma.sql`
-          INSERT INTO eligibility.registry_records (
-            id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,normalized_payload,
-            source_published_at,valid_from,valid_until,payload_sha256,created_at
-          ) VALUES (
-            ${id},${generationId},${payload.source},${record.sourceRecordId},${record.subjectInn},${record.subjectOgrn},${record.recordType},
-            ${JSON.stringify(record.normalizedPayload)}::jsonb,${payload.publishedAt},${record.validFrom},${record.validUntil},${payloadSha256},clock_timestamp()
-          )
-        `);
+      for (let offset = 0; offset < payload.records.length; offset += BULK_INSERT_ROWS) {
+        const chunk = payload.records.slice(offset, offset + BULK_INSERT_ROWS);
+        const values = chunk.map((record) => {
+          const payloadSha256 = sha256(stableJson(record.normalizedPayload));
+          const id = `elr_${sha256(`${generationId}\u001f${record.sourceRecordId}\u001f${record.recordType}\u001f${payloadSha256}`).slice(0, 36)}`;
+          return Prisma.sql`(
+            ${id},${generationId},${payload.source},${record.sourceRecordId},${record.subjectInn},${record.subjectOgrn},
+            ${record.recordType},${JSON.stringify(record.normalizedPayload)}::jsonb,${payload.publishedAt},
+            ${record.validFrom},${record.validUntil},${payloadSha256},clock_timestamp()
+          )`;
+        });
+        if (values.length) {
+          await client.$executeRaw(Prisma.sql`
+            INSERT INTO eligibility.registry_records (
+              id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,normalized_payload,
+              source_published_at,valid_from,valid_until,payload_sha256,created_at
+            ) VALUES ${Prisma.join(values)}
+          `);
+        }
       }
 
       const rows = await client.$queryRaw<GenerationRow[]>(Prisma.sql`
@@ -119,6 +129,33 @@ export class RoleEligibilityRegistryRepository {
       `);
       return mapGeneration(activated[0]);
     }, true);
+  }
+
+  async reject(generationId: string): Promise<void> {
+    await this.runtime(async (client) => {
+      await client.$executeRaw(Prisma.sql`
+        UPDATE eligibility.registry_generations
+        SET status='REJECTED'
+        WHERE id=${generationId} AND status IN ('STAGING','VALIDATED')
+      `);
+    }, true);
+  }
+
+  async auditSourceEvent(
+    eventType: 'ROLE_ELIGIBILITY_SOURCE_FETCH_STARTED' | 'ROLE_ELIGIBILITY_SOURCE_FETCH_SUCCEEDED' | 'ROLE_ELIGIBILITY_SOURCE_FETCH_FAILED',
+    source: EligibilitySource,
+    correlationId: string,
+    payload: Record<string, unknown> = {},
+  ): Promise<void> {
+    await this.runtime(async (client) => {
+      await client.$executeRaw(Prisma.sql`
+        INSERT INTO eligibility.audit_events(id,event_type,correlation_id,payload,created_at)
+        VALUES (
+          ${`ela_${randomUUID()}`},${eventType},${correlationId},
+          ${JSON.stringify({ source, ...payload })}::jsonb,clock_timestamp()
+        )
+      `);
+    });
   }
 
   async active(source: EligibilitySource): Promise<RegistryGeneration | null> {
