@@ -23,7 +23,6 @@ export class RoleEligibilityMetricsService {
 
   async prometheus(): Promise<string> {
     return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE pc_role_eligibility_runtime');
       const counts = await tx.$queryRaw<Array<{
         total: bigint;
         eligible: bigint;
