@@ -1,7 +1,8 @@
 -- Preserve the existing API PostgreSQL principal boundary: production runtime
 -- principals are NOINHERIT and must not become members of auxiliary roles.
--- Role Eligibility still reads registration only through the bounded SECURITY
--- DEFINER function; no direct auth.registration_applications privilege is added.
+-- Role Eligibility reads registration only through the bounded SECURITY DEFINER
+-- function. This migration MUST NOT revoke, narrow, or otherwise alter any
+-- registration privilege that existed before the Role Eligibility contour.
 
 DO $revoke_membership$
 DECLARE
@@ -29,10 +30,11 @@ BEGIN
   ]
   LOOP
     IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = role_name) THEN
-      -- Registration authority: bounded EXECUTE only. No direct table SELECT.
+      -- Role Eligibility candidate access is additive and bounded. Do not touch
+      -- any pre-existing auth.registration_applications grants owned by the
+      -- registration contour itself.
       EXECUTE format('GRANT USAGE ON SCHEMA auth TO %I', role_name);
       EXECUTE format('GRANT EXECUTE ON FUNCTION auth.read_role_eligibility_candidates(TEXT) TO %I', role_name);
-      EXECUTE format('REVOKE ALL ON TABLE auth.registration_applications FROM %I', role_name);
 
       -- Independent eligibility authority. These grants do not cross into auth
       -- registration state and do not grant role membership or BYPASSRLS.
@@ -57,8 +59,8 @@ BEGIN
 END
 $bounded_direct_grants$;
 
--- The observer itself remains a proofable NOLOGIN bounded authority with no
--- direct registration table access.
+-- The observer itself remains the proofable NOLOGIN bounded authority and has
+-- no direct registration table access.
 REVOKE ALL ON TABLE auth.registration_applications FROM pc_role_eligibility_observer;
 GRANT USAGE ON SCHEMA auth TO pc_role_eligibility_observer;
 GRANT EXECUTE ON FUNCTION auth.read_role_eligibility_candidates(TEXT) TO pc_role_eligibility_observer;
