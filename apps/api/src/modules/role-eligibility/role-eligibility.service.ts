@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import type { StaffAccessContext } from '../staff-access/staff-access.types';
 import { RoleEligibilityPolicy } from './role-eligibility-policy';
 import { RoleEligibilityRepository } from './role-eligibility.repository';
-import { sha256 } from './role-eligibility-security';
 
 export type RoleEligibilityFlags = {
   enabled: boolean;
@@ -112,16 +111,19 @@ export class RoleEligibilityService {
     const candidate = await this.requireCandidate(applicationId, access);
     const semanticRole = this.policy.resolveSemanticRole(candidate);
     const fingerprint = await this.repository.activeGenerationFingerprint();
+    const previous = await this.repository.latestCheck(applicationId);
     const check = await this.repository.createOrGetCheck(
       candidate,
       this.policy.version,
       this.policy.hash,
       fingerprint,
       correlationId,
-      `manual:${sha256(normalizedKey)}`,
     );
+    const reusedExisting = Boolean(previous && previous.id === check.id);
     return {
       accepted: true,
+      reusedExisting,
+      authoritativeInputChanged: !reusedExisting,
       shadowMode: flags.shadowMode,
       enforcement: false,
       applicationId: candidate.applicationId,
