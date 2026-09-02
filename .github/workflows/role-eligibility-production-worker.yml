@@ -191,11 +191,18 @@ jobs:
         run: |
           set -euo pipefail
           raw="$(mktemp)"
+          set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
-            "chmod 0700 '/tmp/pc-role-eligibility-worker-${GITHUB_RUN_ID}.sh'; '/tmp/pc-role-eligibility-worker-${GITHUB_RUN_ID}.sh' deploy '$TARGET_SHA'; '/tmp/pc-role-eligibility-worker-${GITHUB_RUN_ID}.sh' audit '$TARGET_SHA'" \
+            "set -euo pipefail; chmod 0700 '/tmp/pc-role-eligibility-worker-${GITHUB_RUN_ID}.sh'; '/tmp/pc-role-eligibility-worker-${GITHUB_RUN_ID}.sh' deploy '$TARGET_SHA'; '/tmp/pc-role-eligibility-worker-${GITHUB_RUN_ID}.sh' audit '$TARGET_SHA'" \
             > "$raw" 2>&1
+          remote_status=$?
+          set -e
           sed -E 's#(postgres(?:ql)?://)[^/@ ]+@#\1[REDACTED]@#g' "$raw" | tee "$EVIDENCE_DIR/worker.log"
           rm -f "$raw"
+          if (( remote_status != 0 )); then
+            printf 'ROLE_ELIGIBILITY_REMOTE_DEPLOY_EXIT=%s\n' "$remote_status" | tee -a "$EVIDENCE_DIR/worker.log" >&2
+            exit "$remote_status"
+          fi
           grep -Fxq ROLE_ELIGIBILITY_WORKER=PASS "$EVIDENCE_DIR/worker.log"
           grep -Fxq "ROLE_ELIGIBILITY_TARGET_SHA=$TARGET_SHA" "$EVIDENCE_DIR/worker.log"
           grep -Fxq ROLE_ELIGIBILITY_SHADOW_MODE=true "$EVIDENCE_DIR/worker.log"
