@@ -12,7 +12,9 @@
     "docs/platform-v7/qa/web-unit-coverage-registry.json",
     ".github/workflows/ci.yml",
     "apps/web/lib/platform-v7/assistant-relevance-router.ts",
-    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts"
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
   ],
   "requiredInvariants": [
     "No safety rule is loosened. The only change to matching is that a separator the author wrote as optional is now actually optional, so the rules match MORE, never less. No pattern text is edited.",
@@ -28,6 +30,7 @@
     "The test file this work belongs in was NOT RUN BY CI: web-unit names its files one by one and this one sat in the exclusion registry as status 'failed'. Adding safety tests to it would have made them decorative.",
     "The registry parked an explicit question - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour. Answered by measurement: the assertion expected knowledgeFallback(normalized, history, controller) while the source calls knowledgeFallback(question, history, controller). A parameter rename; the substance - that history is passed on the fallback path - is the second argument and is intact. The source drifted.",
     "With that classified and corrected the file is 69 of 69 green, so it is promoted out of the registry into the executed list: 18 executed to 19, 895 excluded to 894, and verify-web-unit-coverage passes.",
-    "The registry's executedCount and discoveredCount had drifted to 16 and 910 against an actual 19 and 913. Corrected, but reported as bookkeeping and not as a control: the verifier does not read either field."
+    "The registry's executedCount and discoveredCount had drifted to 16 and 910 against an actual 19 and 913. Corrected, but reported as bookkeeping and not as a control: the verifier does not read either field.",
+    "Carries a ported copy of the cryptographic inventory regeneration from #4943. main is red on that gate independently of this branch - measured on 4de039b82 with nothing applied, discovered 2198 against a committed 2197 - and this branch is based on that main, so it inherits the failure. Ported rather than waited on, per the rule that a fix which exists belongs in the PR now; it no-ops once main carries it. The two generated files are listed here for that reason."
   ]
 }
