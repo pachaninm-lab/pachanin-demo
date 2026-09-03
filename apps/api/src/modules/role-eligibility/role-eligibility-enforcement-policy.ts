@@ -31,6 +31,12 @@ const VERSION = /^[A-Za-z0-9._-]{1,64}$/;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value && typeof value === 'object' && !Array.isArray(value));
 
+function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
 function uniqueStrings(value: unknown): string[] | null {
   if (!Array.isArray(value) || !value.length || value.some((item) => typeof item !== 'string')) return null;
   const normalized = [...new Set(value as string[])];
@@ -40,11 +46,13 @@ function uniqueStrings(value: unknown): string[] | null {
 function parseRule(value: unknown): EnforcementRoleRule | null {
   if (!isRecord(value)) return null;
   if (value.mode === 'ADVISORY_ONLY') {
+    if (!hasExactKeys(value, ['mode', 'reason'])) return null;
     return typeof value.reason === 'string' && CODE.test(value.reason)
       ? { mode: 'ADVISORY_ONLY', reason: value.reason }
       : null;
   }
   if (value.mode !== 'ENFORCE') return null;
+  if (!hasExactKeys(value, ['acceptedVerdicts', 'mode', 'requiredSources', 'requireFreshEvidence', 'requireHealthySource'])) return null;
   const accepted = uniqueStrings(value.acceptedVerdicts);
   const sources = uniqueStrings(value.requiredSources);
   if (!accepted || !sources) return null;
@@ -65,6 +73,7 @@ function parseRule(value: unknown): EnforcementRoleRule | null {
 
 export function parseRoleEligibilityEnforcementPolicy(value: unknown): RoleEligibilityEnforcementPolicyDocument | null {
   if (!isRecord(value)) return null;
+  if (!hasExactKeys(value, ['defaultDecision', 'roles', 'schemaVersion', 'version'])) return null;
   if (value.schemaVersion !== ROLE_ELIGIBILITY_ENFORCEMENT_POLICY_SCHEMA) return null;
   if (typeof value.version !== 'string' || !VERSION.test(value.version)) return null;
   if (value.defaultDecision !== 'ADVISORY_ONLY' || !isRecord(value.roles)) return null;
