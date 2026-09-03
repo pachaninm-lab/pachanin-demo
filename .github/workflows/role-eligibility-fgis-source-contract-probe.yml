@@ -1,0 +1,95 @@
+name: Role Eligibility FGIS Source Contract Probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/role-eligibility-fgis-source-contract-probe.yml'
+      - 'scripts/role-eligibility-fgis-contract-probe.mjs'
+      - 'apps/api/src/modules/role-eligibility/adapters/fgis-grain.adapter.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe official FGIS Grain open-data contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Capture bounded IPv4 HTTP and HTTPS transport matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/role-eligibility-fgis-contract-probe
+          : > artifacts/role-eligibility-fgis-contract-probe/transport-matrix.txt
+          for url in \
+            https://opendata.mcx.ru/opendata/7708075454-zerno \
+            http://opendata.mcx.ru/opendata/7708075454-zerno \
+            https://opendata.mcx.ru/opendata/7708075454-zerno/meta.xml \
+            http://opendata.mcx.ru/opendata/7708075454-zerno/meta.xml
+          do
+            printf 'URL=%s\n' "$url" >> artifacts/role-eligibility-fgis-contract-probe/transport-matrix.txt
+            set +e
+            curl -4 --silent --show-error --max-time 20 --connect-timeout 10 \
+              --output /dev/null --dump-header /tmp/fgis-headers \
+              --write-out 'HTTP_CODE=%{http_code}\nREMOTE_IP=%{remote_ip}\nSSL_VERIFY_RESULT=%{ssl_verify_result}\nREDIRECT_URL=%{redirect_url}\n' \
+              "$url" >> artifacts/role-eligibility-fgis-contract-probe/transport-matrix.txt 2>> artifacts/role-eligibility-fgis-contract-probe/transport-matrix.txt
+            rc=$?
+            set -e
+            printf 'CURL_EXIT=%s\n' "$rc" >> artifacts/role-eligibility-fgis-contract-probe/transport-matrix.txt
+            if [[ -s /tmp/fgis-headers ]]; then
+              awk 'BEGIN{IGNORECASE=1} /^HTTP\// || /^location:/ || /^content-type:/ {print}' /tmp/fgis-headers \
+                >> artifacts/role-eligibility-fgis-contract-probe/transport-matrix.txt
+            fi
+            printf '%s\n' '---' >> artifacts/role-eligibility-fgis-contract-probe/transport-matrix.txt
+            rm -f /tmp/fgis-headers
+          done
+
+      - name: Run bounded read-only official-source probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/role-eligibility-fgis-contract-probe.mjs \
+            | tee artifacts/role-eligibility-fgis-contract-probe/probe.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const p = JSON.parse(fs.readFileSync('artifacts/role-eligibility-fgis-contract-probe/probe.json', 'utf8'));
+          if (p.schemaVersion !== 'role-eligibility-fgis-source-contract-probe.v2') throw new Error('FGIS_PROBE_SCHEMA_INVALID');
+          if (p.mode !== 'READ_ONLY_EXTERNAL_OBSERVATION' || p.productionDatabaseMutation !== 0 || p.registrationTouched !== false) throw new Error('FGIS_PROBE_BOUNDARY_INVALID');
+          if (!Array.isArray(p.probes) || p.probes.length !== 4) throw new Error('FGIS_PROBE_TRANSPORT_MATRIX_INCOMPLETE');
+          const protocols = new Set(p.probes.map((probe) => new URL(probe.requestedUrl).protocol));
+          if (!protocols.has('https:') || !protocols.has('http:')) throw new Error('FGIS_PROBE_PROTOCOL_MATRIX_INCOMPLETE');
+          for (const probe of p.probes) {
+            if (new URL(probe.requestedUrl).hostname !== 'opendata.mcx.ru') throw new Error('FGIS_PROBE_NON_OFFICIAL_HOST');
+            if (!probe.status && !probe.errorCode) throw new Error('FGIS_PROBE_FAILURE_CAUSE_MISSING');
+          }
+          if (p.productionTransportEligible === true && p.contractStatus !== 'PROVEN_HTTPS_TRANSPORT_SHAPE_OBSERVED') throw new Error('FGIS_PROBE_PRODUCTION_ELIGIBILITY_INVALID');
+          if (p.productionTransportEligible === true && (p.data?.transport !== 'HTTPS' || p.structure?.transport !== 'HTTPS')) throw new Error('FGIS_PROBE_INSECURE_PRODUCTION_ELIGIBILITY');
+          console.log(`FGIS_CONTRACT_STATUS=${p.contractStatus}`);
+          console.log(`FGIS_PRODUCTION_TRANSPORT_ELIGIBLE=${p.productionTransportEligible}`);
+          NODE
+
+      - name: Inspect binary envelope without entity values
+        if: hashFiles('fgis-dataset-sample.bin') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          file fgis-dataset-sample.bin | sed 's#fgis-dataset-sample.bin: ##' \
+            > artifacts/role-eligibility-fgis-contract-probe/file-type.txt
+          sha256sum fgis-dataset-sample.bin \
+            | awk '{print $1}' \
+            > artifacts/role-eligibility-fgis-contract-probe/data-sha256.txt
+          rm -f fgis-dataset-sample.bin
+
+      - name: Upload immutable probe evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: role-eligibility-fgis-source-contract-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/role-eligibility-fgis-contract-probe
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
