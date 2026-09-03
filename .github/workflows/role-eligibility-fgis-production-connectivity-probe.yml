@@ -135,7 +135,9 @@ jobs:
              docker exec -i "$api_id" /nodejs/bin/node -' \
             > "$EVIDENCE_DIR/production-api-network.json" <<'NODE'
           'use strict';
+          const publicVerificationUrl = 'https://zerno.mcx.gov.ru/opendata/organization/search';
           const targets = [
+            publicVerificationUrl,
             'https://opendata.mcx.ru/opendata/7708075454-zerno',
             'http://opendata.mcx.ru/opendata/7708075454-zerno',
             'https://opendata.mcx.ru/opendata/7708075454-zerno/meta.xml',
@@ -149,7 +151,7 @@ jobs:
               const response = await fetch(url, {
                 redirect: 'manual',
                 signal: controller.signal,
-                headers: { 'user-agent': 'pc-crop-role-eligibility-prod-connectivity/1.0', accept: 'text/html,application/xml,text/xml,*/*;q=0.1' },
+                headers: { 'user-agent': 'pc-crop-role-eligibility-prod-connectivity/1.1', accept: 'text/html,application/xml,text/xml,application/json,*/*;q=0.1' },
               });
               results.push({
                 url,
@@ -172,12 +174,16 @@ jobs:
             }
           }
           const httpsReachable = results.filter((r) => r.url.startsWith('https:')).some((r) => Number.isInteger(r.status));
+          const publicVerification = results.find((r) => r.url === publicVerificationUrl) || null;
+          const publicVerificationReachable = Boolean(publicVerification && Number.isInteger(publicVerification.status));
           process.stdout.write(`${JSON.stringify({
-            schemaVersion: 'role-eligibility-fgis-production-connectivity.v1',
+            schemaVersion: 'role-eligibility-fgis-production-connectivity.v2',
             mode: 'READ_ONLY_EXTERNAL_OBSERVATION',
             productionDatabaseMutation: 0,
             registrationTouched: false,
             enforcementChanged: false,
+            publicVerificationUrl,
+            publicVerificationReachable,
             httpsReachable,
             results,
           }, null, 2)}\n`);
@@ -186,9 +192,11 @@ jobs:
           node - "$EVIDENCE_DIR/production-api-network.json" <<'NODE'
           const fs = require('node:fs');
           const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-          if (report.schemaVersion !== 'role-eligibility-fgis-production-connectivity.v1') throw new Error('FGIS_PROD_PROBE_SCHEMA_INVALID');
+          if (report.schemaVersion !== 'role-eligibility-fgis-production-connectivity.v2') throw new Error('FGIS_PROD_PROBE_SCHEMA_INVALID');
           if (report.mode !== 'READ_ONLY_EXTERNAL_OBSERVATION' || report.productionDatabaseMutation !== 0 || report.registrationTouched !== false || report.enforcementChanged !== false) throw new Error('FGIS_PROD_PROBE_BOUNDARY_INVALID');
-          if (!Array.isArray(report.results) || report.results.length !== 4) throw new Error('FGIS_PROD_PROBE_MATRIX_INVALID');
+          if (!Array.isArray(report.results) || report.results.length !== 5) throw new Error('FGIS_PROD_PROBE_MATRIX_INVALID');
+          if (report.publicVerificationUrl !== 'https://zerno.mcx.gov.ru/opendata/organization/search' || typeof report.publicVerificationReachable !== 'boolean') throw new Error('FGIS_PROD_PROBE_PUBLIC_VERIFICATION_INVALID');
+          console.log(`FGIS_PUBLIC_VERIFICATION_REACHABLE=${report.publicVerificationReachable}`);
           console.log(`FGIS_PRODUCTION_HTTPS_REACHABLE=${report.httpsReachable}`);
           NODE
 
