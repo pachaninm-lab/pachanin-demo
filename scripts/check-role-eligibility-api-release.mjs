@@ -27,6 +27,7 @@ requireAll('executor', [
   'PROTECTED_SNAPSHOT_INVALID',
   'label=com.docker.compose.project=$prod_project',
   'runtime_fingerprint "$id"',
+  "excluded=\"$(docker inspect --format '{{.Id}}' \"$excluded\" 2>/dev/null || true)\"",
   'WATCHTOWER_RUNNING',
   'ROLE_ELIGIBILITY_ENFORCEMENT_UNCHANGED',
   'REGISTRATION_CONFIGURATION_UNCHANGED',
@@ -81,6 +82,9 @@ if (!/docker ps -q --no-trunc --filter \"label=com\.docker\.compose\.project=\$p
 }
 if (!/printf '%s\\t%s\\t%s\\t%s\\t%s\\n' \"\$service\" \"\$name\" \"\$image_ref\" \"\$image_id\" \"\$fingerprint\"/.test(source.executor)) {
   failures.push('protected snapshot must use stable semantic identity instead of container IDs');
+}
+if (!/excluded=\"\$\(docker inspect --format '\{\{\.Id\}\}' \"\$excluded\" 2>\/dev\/null \|\| true\)\"/.test(source.executor)) {
+  failures.push('protected snapshot must normalize the excluded API container to full Docker identity');
 }
 
 if (failures.length) {
