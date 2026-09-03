@@ -16,7 +16,7 @@ const PAGE_COPY = {
     language: 'Сменить язык',
     kicker: 'Регистрация на платформе',
     title: 'Регистрация организации и пользователя',
-    lead: 'Укажите достоверные сведения об организации и заявителе. После отправки заявки потребуется подтвердить адрес электронной почты и дождаться результата проверки. Выбранный формат участия не предоставляет полномочий автоматически — доступ назначается сервером после проверки.',
+    lead: 'Укажите достоверные сведения об организации и заявителе. После отправки заявки подтвердите адрес электронной почты и дождитесь результата проверки. Выберите предполагаемый формат участия — права доступа предоставляются только после проверки и одобрения заявки.',
   },
   en: {
     nav: 'Registration page navigation',
@@ -25,7 +25,7 @@ const PAGE_COPY = {
     language: 'Change language',
     kicker: 'Platform registration',
     title: 'Organization and user registration',
-    lead: 'Provide accurate organization and applicant details. After submission, confirm the email address and wait for the review result. The selected participation format does not grant permissions automatically; access is assigned by the server after review.',
+    lead: 'Provide accurate organization and applicant details. After submitting the application, confirm the email address and wait for the review result. Select the intended participation type; access rights are granted only after the application has been reviewed and approved.',
   },
   zh: {
     nav: '注册页面导航',
@@ -34,7 +34,7 @@ const PAGE_COPY = {
     language: '切换语言',
     kicker: '平台注册',
     title: '组织和用户注册',
-    lead: '请填写真实的组织和申请人信息。提交申请后，需要确认电子邮箱并等待审核结果。所选参与方式不会自动授予权限；审核完成后由服务器分配访问权限。',
+    lead: '请填写真实、准确的组织和申请人信息。提交申请后，请确认电子邮箱并等待审核结果。请选择计划参与的平台身份；访问权限仅在申请审核并获批准后授予。',
   },
 } satisfies Record<Locale, Record<string, string>>;
 
