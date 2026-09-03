@@ -81,9 +81,6 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
   });
 
   it('builds the production bundle and stores machine-readable browser evidence', () => {
-    // The browser list grew to include firefox; pinning the exact string would
-    // make added coverage look like a failure. Both originally required engines
-    // are still installed.
     expect(workflow).toMatch(/playwright install --with-deps [^\n]*chromium/u);
     expect(workflow).toMatch(/playwright install --with-deps [^\n]*webkit/u);
     expect(workflow).toContain('pnpm --filter @pc/web build');
@@ -94,28 +91,40 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
 
   it('keeps architecture completion separate from production and external-integration proof', () => {
     expect(report).toContain('protected-legacy=0');
-    // Reworded into an explicit list of what the matrix does NOT prove, which
-    // says the same thing more plainly. The property is that the document keeps
-    // refusing to read a green CI matrix as production proof.
     expect(report).toContain('не доказывает');
     expect(report).toContain('production и live-внешние интеграции подтверждены');
     expect(report).toContain('browser-accessibility matrix');
   });
 
-  it('binds public registration to official Russian wording and the real visual acceptance matrix', () => {
+  it('binds public registration to official human wording and the real visual acceptance matrix', () => {
     expect(config).toContain('registration-official');
     expect(registrationUxSpec).toContain('320, 375, 390, 430, 768, 1280');
     expect(registrationUxSpec).toContain('AxeBuilder');
     expect(registrationUxSpec).toContain('box.width >= 44 && box.height >= 44');
     expect(registrationPage).toContain('Регистрация организации и пользователя');
     expect(registrationPage).not.toContain('P0 · Первый клиентский доступ');
+    expect(registrationPage).not.toContain('доступ назначается сервером');
     expect(registrationClient).not.toContain("'Рабочее пространство'");
     expect(registrationClient).not.toContain('correlation ID');
     expect(registrationClient).not.toContain('Рабочий email');
-    expect(registrationClient).toContain('Идентификатор обращения:');
+    expect(registrationClient).toContain('Номер обращения:');
     expect(registrationClient).toContain('Адрес электронной почты *');
     expect(registrationClient).toContain("['employee', 'Сотрудник существующей организации']");
     expect(registrationClient).toContain('Новая организация при этом не создаётся.');
+  });
+
+  it('keeps RU EN ZH registration copy human-facing and hides internal status vocabulary', () => {
+    for (const forbidden of ["workspace: 'Workspace'", "workspace: '工作空间'", 'correlation ID']) {
+      expect(registrationBaseClient).not.toContain(forbidden);
+    }
+    expect(registrationBaseClient).toContain("reference: 'Request reference'");
+    expect(registrationBaseClient).toContain("reference: '申请查询编号'");
+    expect(registrationBaseClient).toContain('copy.statusLabels[statusCode] || copy.statusUpdating');
+    expect(registrationBaseClient).toContain('copy.nextLabels[nextCode] || copy.waitForUpdate');
+    expect(registrationBaseClient).not.toContain('copy.statusLabels[statusCode] || statusCode');
+    expect(registrationBaseClient).not.toContain('copy.nextLabels[nextCode] || nextCode');
+    expect(registrationBaseClient).toContain("name='confirmPassword'");
+    expect(registrationBaseClient).toContain("password !== field(form, 'confirmPassword')");
   });
 
   it('keeps registration authority unchanged while making password and mail instructions truthful', () => {
