@@ -1,11 +1,16 @@
-import type { EligibilitySource, EligibilityVerdict, SemanticEligibilityRole } from './role-eligibility.types';
+import type {
+  EligibilitySource,
+  EligibilityVerdict,
+  EnforcementAuthoritySource,
+  SemanticEligibilityRole,
+} from './role-eligibility.types';
 
 export const ROLE_ELIGIBILITY_ENFORCEMENT_POLICY_SCHEMA = 'role-eligibility-enforcement-policy.v1' as const;
 
 export type EnforcedRoleRule = {
   mode: 'ENFORCE';
   acceptedVerdicts: EligibilityVerdict[];
-  requiredSources: EligibilitySource[];
+  requiredSources: EnforcementAuthoritySource[];
   requireFreshEvidence: boolean;
   requireHealthySource: boolean;
 };
