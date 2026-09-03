@@ -134,3 +134,29 @@ describe('platform-v7 final master public entry', () => {
     expect(home).not.toMatch(/<article[^>]+role='row'/);
   });
 });
+
+describe('owner registration cancellation acceptance', () => {
+  const queue = read('components/platform-v7/staff/RegistrationReviewQueue.tsx');
+  const bff = read('app/api/staff/registration/applications/[applicationId]/cancel/route.ts');
+
+  it('keeps the destructive action owner-only and removes the successful card in-place', () => {
+    expect(queue).toContain("sessionPayload.session?.staffRole === 'PLATFORM_OWNER'");
+    expect(queue).toContain("cancel: 'Удалить заявку'");
+    expect(queue).toContain('Заявка удалена из очереди.');
+    expect(queue).toContain('setApplications((current) => current.filter((item) => item.applicationId !== application.applicationId))');
+    expect(queue).toContain('/cancel`');
+    expect(queue).toContain("'Idempotency-Key': headers.idempotencyKey");
+    expect(queue).toContain("'X-Correlation-Id': headers.correlationId");
+    expect(queue).toContain("'X-CSRF-Token': csrfToken");
+  });
+
+  it('keeps the bounded BFF server-authoritative and forwards the required security context', () => {
+    expect(bff).toContain('assertCsrf(request)');
+    expect(bff).toContain("const STAFF_ACCESS_COOKIE = 'pc_staff_access_token'");
+    expect(bff).toContain("'x-staff-access-session': staffAccessToken");
+    expect(bff).toContain("'x-correlation-id': correlationId");
+    expect(bff).toContain("'idempotency-key': idempotencyKey");
+    expect(bff).toContain('/staff/registration/applications/${encodeURIComponent(applicationKey)}/cancel');
+    expect(bff).not.toMatch(/\bDELETE\b/);
+  });
+});
