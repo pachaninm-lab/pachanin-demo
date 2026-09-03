@@ -1,0 +1,315 @@
+name: Role Eligibility Enforcement Migration Exact-SHA
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/role-eligibility-enforcement-migration.yml'
+      - 'scripts/production-role-eligibility-enforcement-migration.sh'
+      - 'scripts/check-role-eligibility-enforcement-migration-contract.mjs'
+      - 'apps/api/prisma/migrations/*role_eligibility*/migration.sql'
+      - 'config/eligibility/registration-protected-manifest.json'
+
+permissions:
+  contents: read
+  packages: read
+  issues: write
+
+concurrency:
+  group: role-eligibility-enforcement-migration
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  ISSUE_NUMBER: 4922
+  COMMAND: /role-eligibility enforcement migrate current-main
+  EVIDENCE_DIR: artifacts/role-eligibility-enforcement-migration
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
+  BACKUP_EVIDENCE_FILE_SECRET: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}
+
+jobs:
+  contract:
+    name: Validate enforcement migration authority
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event.issue.number == 4922 &&
+       github.event.comment.body == '/role-eligibility enforcement migrate current-main' &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate bounded migration contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-role-eligibility-enforcement-migration.sh
+          node scripts/check-role-eligibility-enforcement-migration-contract.mjs
+          node scripts/check-role-eligibility-registration-protected-manifest.mjs
+
+  migrate:
+    name: Apply exact Role Eligibility state migration only
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4922 &&
+      github.event.comment.body == '/role-eligibility enforcement migrate current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve immutable current-main target
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          api_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$api_main" ]]
+          [[ "$target" == "$GITHUB_SHA" ]] || { echo ROLE_ELIGIBILITY_MIGRATION_MAIN_DRIFT >&2; exit 14; }
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$target" > "$EVIDENCE_DIR/target-sha.txt"
+
+      - name: Wait for exact migration image
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SHORT_SHA: ${{ steps.target.outputs.short }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="ghcr.io/pachaninm-lab/grainflow-migration:sha-${SHORT_SHA}"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          ready=0
+          for attempt in $(seq 1 90); do
+            if docker pull "$image" >/dev/null 2>&1; then
+              revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image" 2>/dev/null || true)"
+              if [[ "$revision" == "$TARGET_SHA" ]]; then ready=1; break; fi
+            fi
+            sleep 10
+          done
+          (( ready == 1 )) || { echo ROLE_ELIGIBILITY_EXACT_MIGRATION_IMAGE_UNAVAILABLE >&2; exit 15; }
+          docker image inspect "$image" > "$EVIDENCE_DIR/migration-image.json"
+          echo "ref=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo ROLE_ELIGIBILITY_CANONICAL_VPS_MISMATCH >&2; exit 20; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo ROLE_ELIGIBILITY_PRODUCTION_PRINCIPAL_INVALID >&2; exit 21; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 22
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo ROLE_ELIGIBILITY_PINNED_HOST_FINGERPRINT_REQUIRED >&2; exit 23; }
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo ROLE_ELIGIBILITY_NO_VALID_PROTECTED_PRIVATE_KEY >&2
+            exit 24
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo ROLE_ELIGIBILITY_PINNED_HOST_KEY_MISMATCH >&2; exit 25; }
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; python3 --version >/dev/null; echo ROLE_ELIGIBILITY_MIGRATION_SSH_AUTH=PASS' \
+            | tee "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROLE_ELIGIBILITY_MIGRATION_SSH_AUTH=PASS "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Recheck current-main immediately before production mutation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$current_main" == "$TARGET_SHA" ]] || { echo ROLE_ELIGIBILITY_MIGRATION_MAIN_DRIFT >&2; exit 30; }
+
+      - name: Copy bounded migration authority
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            scripts/production-role-eligibility-enforcement-migration.sh \
+            "$SSH_USER_SECRET@$HOST:/tmp/pc-role-eligibility-enforcement-migration-${GITHUB_RUN_ID}.sh"
+
+      - name: Apply migration only and prove enforcement remains disabled
+        id: migrate
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          MIGRATION_IMAGE: ${{ steps.image.outputs.ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          enc(){ [[ -z "$1" ]] || printf '%s' "$1" | base64 -w0; }
+          prod_dir_b64="$(enc "${PROD_DIR_SECRET:-}")"
+          prod_compose_b64="$(enc "${PROD_COMPOSE_SECRET:-}")"
+          prod_project_b64="$(enc "${PROD_PROJECT_SECRET:-}")"
+          backup_b64="$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")"
+          for value in "$prod_dir_b64" "$prod_compose_b64" "$prod_project_b64" "$backup_b64"; do
+            [[ -z "$value" ]] || echo "::add-mask::$value"
+          done
+          remote="/tmp/pc-role-eligibility-enforcement-migration-${GITHUB_RUN_ID}.sh"
+          raw="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "set -euo pipefail; chmod 0700 '$remote'; PC_ROLE_ELIGIBILITY_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$prod_dir_b64' PC_PROD_COMPOSE_B64='$prod_compose_b64' PC_PROD_PROJECT_B64='$prod_project_b64' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$backup_b64' '$remote' migrate '$TARGET_SHA' '$GITHUB_RUN_ID'; '$remote' audit '$TARGET_SHA' '$GITHUB_RUN_ID'" \
+            > "$raw" 2>&1
+          remote_status=$?
+          set -e
+          sed -E \
+            -e 's#(postgres(ql)?://)[^/@ ]+@#\1[REDACTED]@#g' \
+            -e 's#(password|token|secret|authorization|api[_-]?key)([[:space:]]*[:=][[:space:]]*)[^[:space:],;}]+#\1\2[REDACTED]#gI' \
+            "$raw" | tee "$EVIDENCE_DIR/migration.log"
+          rm -f "$raw"
+          (( remote_status == 0 )) || exit "$remote_status"
+          grep -Fxq ROLE_ELIGIBILITY_ENFORCEMENT_MIGRATION=PASS "$EVIDENCE_DIR/migration.log"
+          grep -Fxq "ROLE_ELIGIBILITY_TARGET_SHA=$TARGET_SHA" "$EVIDENCE_DIR/migration.log"
+          grep -Fxq ROLE_ELIGIBILITY_ENFORCEMENT=false "$EVIDENCE_DIR/migration.log"
+          grep -Fxq ROLE_ELIGIBILITY_STATE_GENERATION=0 "$EVIDENCE_DIR/migration.log"
+          grep -Fxq ROLE_ELIGIBILITY_CONTROL_ROLE_BOUNDARY=PASS "$EVIDENCE_DIR/migration.log"
+          grep -Fxq ROLE_ELIGIBILITY_RUNTIME_WRITE_AUTHORITY=DENIED "$EVIDENCE_DIR/migration.log"
+          grep -Fxq REGISTRATION_RUNTIME_UNCHANGED=PASS "$EVIDENCE_DIR/migration.log"
+          grep -Fxq API_WEB_RUNTIME_UNCHANGED=PASS "$EVIDENCE_DIR/migration.log"
+          grep -Eq '^ROLE_ELIGIBILITY_BACKUP_MODE=(LOGICAL_COMPOSE_POSTGRES|PROTECTED_EXTERNAL_EVIDENCE)$' "$EVIDENCE_DIR/migration.log"
+          echo "status=PASS" >> "$GITHUB_OUTPUT"
+
+      - name: Publish immutable migration evidence
+        if: always() && steps.migrate.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$EVIDENCE_DIR/result.md" <<EOF2
+          ## Role Eligibility enforcement-state production migration \`$GITHUB_RUN_ID\`
+
+          - target SHA: \`$TARGET_SHA\`
+          - migration-only authority: \`PASS\`
+          - database backup: \`PASS\`
+          - enforcement: \`false\`
+          - enforcement generation: \`0\`
+          - runtime write authority: \`DENIED\`
+          - API/web runtime unchanged: \`PASS\`
+          - registration runtime unchanged: \`PASS\`
+
+          \`ROLE_ELIGIBILITY_ENFORCEMENT_MIGRATION=PASS\`
+          \`ROLE_ELIGIBILITY_ENFORCEMENT=false\`
+          \`REGISTRATION_BEHAVIOR_CHANGED=0\`
+          EOF2
+          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/result.md"
+
+      - name: Cleanup bounded credentials and remote asset
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+              "rm -f '/tmp/pc-role-eligibility-enforcement-migration-${GITHUB_RUN_ID}.sh'" || true
+          fi
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+
+      - name: Enforce migration result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ '${{ steps.migrate.outputs.status }}' == PASS ]]
+
+      - name: Upload migration evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: role-eligibility-enforcement-migration-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
