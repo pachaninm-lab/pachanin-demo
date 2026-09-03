@@ -9526,47 +9526,53 @@
     {
       "requirementId": "V14.3.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "logout-path:apps/web/app/api/auth/logout/route.ts",
-        "persisting-storage:apps/web/components/gekta/GektaChatWorkspace.tsx",
-        "persisting-storage:apps/web/components/v7r/DocumentsDropzone.tsx"
+        "server-clears:apps/web/app/api/auth/logout/route.ts",
+        "client-clears:apps/web/lib/client-session-cleanup.ts",
+        "invoked-at:apps/web/components/session-controls.tsx",
+        "invoked-at:apps/web/components/demo-banner.tsx",
+        "invoked-at:apps/web/components/platform-v7/HeaderUtilityMenu.tsx",
+        "invoked-at:apps/web/components/platform-v7/OrganizationAccessShell.tsx"
       ],
       "conditions": [
         {
-          "condition": "no response anywhere asks the browser to clear site data",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/web"
-          ],
-          "patterns": [
-            "clear-site-data"
-          ]
-        },
-        {
-          "condition": "logout still clears cookies without clearing client storage",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the logout response still asks the browser to clear stored site data",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/auth/logout/route.ts"
           ],
           "patterns": [
-            "localstorage",
             "clear-site-data",
-            "sessionstorage"
+            "\"storage\""
           ]
         },
         {
-          "condition": "authenticated data is still written to client storage that outlives the session",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the client-side path still actually clears both web storages",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/web/components/gekta/GektaChatWorkspace.tsx"
+            "apps/web/lib/client-session-cleanup.ts"
           ],
           "patterns": [
-            "history_storage"
+            "localstorage.clear",
+            "sessionstorage.clear"
+          ]
+        },
+        {
+          "condition": "every logout caller in the frontend still runs that cleanup",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/components/session-controls.tsx",
+            "apps/web/components/demo-banner.tsx",
+            "apps/web/components/platform-v7/HeaderUtilityMenu.tsx",
+            "apps/web/components/platform-v7/OrganizationAccessShell.tsx"
+          ],
+          "patterns": [
+            "clearclientsessionstate"
           ]
         }
       ],
-      "note": "Logging out ends the session but does not clear what the session left behind. The logout route is otherwise careful - it checks CSRF, revokes upstream, clears the authentication cookies and sets no-store - and that is exactly why the gap is worth stating precisely: cookies are handled, client storage is not. No response in 2576 web source files sends Clear-Site-Data, and the logout handler contains no reference to local or session storage. Meanwhile conversation history and project lists from the Gekta assistant, per-deal document lists and checklists from the documents dropzone, and the support profile all persist in localStorage across logout, on a shared or borrowed device as much as a personal one. The requirement also asks for a client-side path that cleans up when the server is unreachable at logout, and none exists."
+      "note": "Closed. Logout previously ended the session without clearing what it left behind: the route checked CSRF, revoked upstream, cleared the authentication cookies and set no-store, and no response anywhere in the web application sent Clear-Site-Data, so conversation history and project lists from the Gekta assistant, per-deal document lists and checklists from the documents dropzone, and the support profile all survived logout on a shared or borrowed device. Two independent mechanisms now close it, and the second exists because the first has a boundary. Server side: every logout response that goes through the shared response() helper carries Clear-Site-Data with \"cache\" and \"storage\". \"storage\" is the requirement itself. \"cache\" is deliberate rather than incidental, because 27 route handlers still set no Cache-Control at all (that is the open V14.3.2), so authenticated responses can sit in the browser's disk cache after logout. \"cookies\" is deliberately NOT requested: a browser would clear cookies across the whole registrable domain, and this platform runs a separate control host whose session this logout must not touch - cookies stay with clearAuthenticatedSession, which clears exactly its own. The CSRF-rejected path deliberately carries no such header: a request that failed the check is not a logout, and a test asserts that direction so the header cannot be sprayed onto every response. Client side: clearClientSessionState() clears localStorage and sessionStorage synchronously, and it is called from the finally block of all four logout callers, so it runs when the request never reached the server - the exact gap the previous version of this note named. It clears everything rather than a curated list of sensitive keys, because a list has to be maintained by hand and any new component that starts writing to storage would silently fall outside it; deny-by-default is cheaper and safer here. The cost is stated rather than hidden: the interface theme and density preferences reset to default at logout. Two boundaries remain, and neither is claimed as covered: Clear-Site-Data is honoured only in a secure context, which is why the client path is not optional, and this control covers explicit logout, not idle session expiry. What the data should not have been in browser storage at all is a different requirement and stays FAIL under V14.3.3. Four mutations, each caught by exactly the intended case: removing the header fails 3 of 7; adding \"cookies\" to it fails the case that forbids it; removing the cleanup from one caller fails the completeness test, which enumerates logout callers by search rather than by hand so a fifth added later cannot slip past; making the helper a no-op fails 2."
     },
     {
       "requirementId": "V14.3.2",

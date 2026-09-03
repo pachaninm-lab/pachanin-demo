@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { clearClientSessionState } from '@/lib/client-session-cleanup';
 
 const ROLES = [
   { label: 'Фермер',     email: 'farmer@demo.ru',     icon: '🌾' },
@@ -44,7 +45,11 @@ export function DemoBanner() {
   }
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      clearClientSessionState();
+    }
     window.location.href = '/demo';
   }
 

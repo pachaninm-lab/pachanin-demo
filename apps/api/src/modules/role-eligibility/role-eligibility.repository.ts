@@ -57,6 +57,28 @@ const mapEvidence = (row: EvidenceRow): EligibilityEvidence => ({
   payloadSha256: row.payload_sha256, confidenceClass: row.confidence_class,
 });
 
+/**
+ * Verdict publication is idempotent per immutable logical check, not merely per
+ * source manifest. Different checks may legitimately produce different
+ * decisions from the same empty manifest when an authoritative source recovers
+ * or becomes stale. Binding the key to requestKey preserves exact replay while
+ * allowing the newer check to become current atomically.
+ */
+export function verdictPublicationIdempotencyKey(
+  check: Pick<EligibilityCheck, 'applicationId' | 'applicationVersion' | 'requestedRole' | 'policyVersion' | 'policyHash' | 'requestKey'>,
+  sourceManifestHash: string,
+): string {
+  return sha256(stableJson({
+    applicationId: check.applicationId,
+    applicationVersion: check.applicationVersion.toString(),
+    requestedRole: check.requestedRole,
+    policyVersion: check.policyVersion,
+    policyHash: check.policyHash,
+    checkRequestKey: check.requestKey,
+    sourceManifestHash,
+  }));
+}
+
 @Injectable()
 export class RoleEligibilityRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -210,14 +232,7 @@ export class RoleEligibilityRepository {
   }
 
   async publishVerdict(check: EligibilityCheck, verdict: EligibilityVerdict, reasonCodes: string[], manifest: SourceManifestEntry[], sourceManifestHash: string, correlationId: string): Promise<string> {
-    const idempotencyKey = sha256(stableJson({
-      applicationId: check.applicationId,
-      applicationVersion: check.applicationVersion.toString(),
-      requestedRole: check.requestedRole,
-      policyVersion: check.policyVersion,
-      policyHash: check.policyHash,
-      sourceManifestHash,
-    }));
+    const idempotencyKey = verdictPublicationIdempotencyKey(check, sourceManifestHash);
     const sources = JSON.stringify(manifest);
     const reasons = JSON.stringify([...new Set(reasonCodes)].sort());
     const verdictId = `elv_${randomUUID()}`;
