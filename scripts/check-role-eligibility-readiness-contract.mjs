@@ -24,6 +24,8 @@ for (const token of [
   'eligibility.verdict_sources',
   'eligibility.evidence',
   'eligibility.source_health',
+  'last_error_code',
+  'errorCode: row.last_error_code',
   "readinessDecision:",
   "'BLOCKED_INTEGRITY'",
   "'INSUFFICIENT_CORPUS'",
