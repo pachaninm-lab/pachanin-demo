@@ -3,7 +3,7 @@
   "issue": 4916,
   "branch": "fix/public-registration-final-copy-4916",
   "status": "active",
-  "purpose": "Bounded post-registration public UX and copy cleanup. Remove legacy pilot, check-contour and pre-integration wording from registration-linked public surfaces; replace technical, internal and informal registration/recovery language with official human-facing wording in RU/EN/ZH; ensure the registration route layout renders the declared public registration page rather than a legacy substitute; advance versioned consent evidence plus client consent-version metadata required by the changed policy sources; and admit that exact version/hash pair in the existing PostgreSQL consent-evidence CHECK authority without changing registration lifecycle, authorization, MFA policy, RLS, identity schema or production topology.",
+  "purpose": "Bounded post-registration public UX and copy cleanup. Remove legacy pilot, check-contour and pre-integration wording from registration-linked public surfaces; replace technical, internal and informal registration/recovery language with official human-facing wording in RU/EN/ZH; ensure the registration route layout renders the declared public registration page rather than a legacy substitute; enforce mobile registration reflow without hiding horizontal overflow; advance versioned consent evidence plus client consent-version metadata required by the changed policy sources; and admit that exact version/hash pair in the existing PostgreSQL consent-evidence CHECK authority without changing registration lifecycle, authorization, MFA policy, RLS, identity schema or production topology.",
   "authorityBaseExactMain": "f9fa259929a20f1a60fc1bdd6899abfdcdffc42d",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -23,6 +23,7 @@
     "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
     "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
     "apps/web/app/platform-v7/terms/page.tsx",
+    "apps/web/styles/platform-v7-public-register-official.css",
     "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
     "docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json",
     "scripts/p7-autopilot-guard.sh"
@@ -30,6 +31,7 @@
   "requiredInvariants": [
     "Registration lifecycle, role and tenant derivation, reviewer authority, idempotency and activation behavior are unchanged.",
     "The registration route layout renders its page children and does not substitute the legacy RegisterCleanClient surface.",
+    "Registration mobile reflow eliminates horizontal overflow through intrinsic sizing and flex/grid shrink rules; overflow is not hidden or clipped to satisfy acceptance.",
     "Consent policy source changes advance CURRENT_CONSENT_VERSION and exact source hashes; registration and invitation clients submit that same version and PostgreSQL admits only the corresponding exact known-version hashes without changing authorization decisions.",
     "MFA policy and recovery endpoint behavior are unchanged; only public wording is changed.",
     "Registration-facing copy does not expose internal implementation vocabulary, raw status/action codes, workspace terminology or correlation-ID terminology to end users.",
@@ -44,6 +46,7 @@
     "Public registration, legal and recovery copy regression tests pass in RU/EN/ZH.",
     "Registration route layout renders the official registration page rather than the legacy registration substitute.",
     "Registration UI exposes only human-readable status and next-action fallbacks and a human request-reference label.",
+    "Registration has no horizontal overflow at the accepted 320, 375, 390, 430, 768 and 1280 CSS-pixel widths without overflow clipping.",
     "Web and API unit tests pass.",
     "Platform V7 browser/accessibility acceptance passes.",
     "Autopilot scope guard accepts exactly the declared bounded files.",
