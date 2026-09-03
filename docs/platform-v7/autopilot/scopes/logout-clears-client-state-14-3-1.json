@@ -9,6 +9,7 @@
   "newRecurringCostRub": 0,
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/logout-clears-client-state-14-3-1.json",
+    "docs/platform-v7/qa/web-unit-coverage-registry.json",
     "docs/security/asvs-applicability-decisions.json",
     "docs/security/cryptographic-inventory.json",
     "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
@@ -37,6 +38,7 @@
     "Four mutations against the tests, each caught by exactly the intended case: removing the header fails 3 of 7; adding \"cookies\" fails the case that forbids it; removing the cleanup from one caller fails the completeness test; making the helper a no-op fails 2.",
     "The PASS is machine-revocable, and that was run rather than asserted. Three mutations were applied to the tree and the matrix rebuilt each time: removing the header, removing the cleanup from one of four callers, and making the helper a no-op. All three drove V14.3.1 from PASS to NOT_ASSESSED and the totals from 127/92 back to 126/92 with NOT_ASSESSED 38 -> 39. The decision carries three PRESENT_ALL_AT_PATH conditions, which require every named path to carry every named pattern.",
     "web tsc --noEmit exit 0. node --test scripts/security/*.test.mjs 117/117. verify-decision-evidence exit 0 - it caught the new helper first as a cited file that was not yet tracked by git, which is the gate doing its job. verify-web-unit-coverage exit 0 with the new spec in the executed list. Cryptographic inventory regenerated with the tool because the new helper is tracked source (2202 -> 2203).",
-    "Matrix moves for the first time in this run: PASS 126 -> 127, FAIL 93 -> 92, NOT_APPLICABLE 88, NOT_ASSESSED 38. One control closed, honestly, with its two remaining boundaries named: Clear-Site-Data is honoured only in a secure context, and this covers explicit logout rather than idle session expiry."
+    "Matrix moves for the first time in this run: PASS 126 -> 127, FAIL 93 -> 92, NOT_APPLICABLE 88, NOT_ASSESSED 38. One control closed, honestly, with its two remaining boundaries named: Clear-Site-Data is honoured only in a secure context, and this covers explicit logout rather than idle session expiry.",
+    "The coverage registry is in scope because this pass adds a spec to the executed list, so its executedCount/discoveredCount describe this change: 21/915. The autopilot guard caught the omission before merge - the file had been edited without being declared - which is the scope gate doing exactly its job."
   ]
 }
