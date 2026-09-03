@@ -83,11 +83,11 @@ export default async function RegisterPage({
               <Languages size={17} aria-hidden='true' />
               <span>{locale.toUpperCase()}</span>
             </a>
-            <Link href='/platform-v7/login'>
+            <Link href='/platform-v7/login' aria-label={copy.login} title={copy.login}>
               <LogIn size={17} aria-hidden='true' />
               <span>{copy.login}</span>
             </Link>
-            <Link href='/platform-v7'>
+            <Link href='/platform-v7' aria-label={copy.home} title={copy.home}>
               <Home size={17} aria-hidden='true' />
               <span>{copy.home}</span>
             </Link>
