@@ -14,7 +14,7 @@ const tlsKey = process.env.PC_ACCEPTANCE_TLS_KEY || '.acceptance-tls/tls.key';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: /platform-v7-(design-system-v8-acceptance|public-product-experience-v3|public-intelligence-layer|strategic-home-v3|home-brand-visibility|hero-card-min14)\.spec\.ts/,
+  testMatch: /platform-v7-(design-system-v8-acceptance|public-product-experience-v3|public-intelligence-layer|strategic-home-v3|home-brand-visibility|hero-card-min14|registration-official)\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,

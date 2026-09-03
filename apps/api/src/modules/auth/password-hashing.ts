@@ -96,7 +96,12 @@ export const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
  * параметров не требует ни миграции, ни угадывания: старые записи проверяются
  * своими параметрами, новые пишутся текущими.
  *
- *   $scrypt$v=1$n=65536,r=8,p=1$<salt base64url>$<key base64url>
+ *   $scrypt$v=1$n=131072,r=8,p=1$<salt base64url>$<key base64url>
+ *
+ * Числа в этом примере — действующие параметры из PASSWORD_SCRYPT_PARAMS.
+ * Пример однажды уже разошёлся с кодом: он остался на n=65536 после перехода
+ * на профиль OWASP n=131072, и разобрать по нему настоящий хеш было нельзя.
+ * Поэтому соответствие примера константе проверяется тестом, а не вниманием.
  */
 function encodeScryptHash(salt: Buffer, key: Buffer): string {
   const { N, r, p } = PASSWORD_SCRYPT_PARAMS;
