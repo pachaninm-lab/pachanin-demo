@@ -11,6 +11,7 @@ import { createTrustedProxyPolicy } from './common/security/trusted-proxy';
 import { configureRequestBodyLimits } from './common/security/request-body-limit';
 import { assertIndustrialProductionStartup, INDUSTRIAL_CORE_MIGRATION } from './common/config/industrial-mode';
 import { PrismaService } from './common/prisma/prisma.service';
+import { installLastResortHandlers } from './common/process/last-resort-handlers';
 
 // Prometheus metrics setup
 collectDefaultMetrics({ prefix: 'grainflow_' });
@@ -153,7 +154,17 @@ async function bootstrap() {
     });
   });
 
+  // Сигналы забирает Nest: SIGTERM и SIGINT здесь не перехватываются.
   app.enableShutdownHooks();
+
+  // А вот последний рубеж Nest не ставит (V16.5.4). Оба воркера ставят его сами,
+  // API не ставил ни его, ни глобальный фильтр исключений. Замерено на Node 22:
+  // и uncaughtException, и unhandledRejection завершают процесс немедленно с
+  // кодом 1 — то есть пул Prisma не закрывался, сервер не сливал соединения,
+  // телеметрия не отправлялась, а запросы в полёте оставались без ответа.
+  // Меняется форма остановки, а не факт остановки: процесс по-прежнему выходит
+  // ненулевым кодом.
+  installLastResortHandlers({ app });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen(port);
