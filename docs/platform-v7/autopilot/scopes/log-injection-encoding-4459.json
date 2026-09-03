@@ -14,14 +14,16 @@
     "apps/api/src/common/middleware/log-masking.middleware.ts",
     "apps/api/src/common/middleware/log-masking.middleware.spec.ts",
     "docs/security/asvs-applicability-decisions.json",
-    "docs/security/cryptographic-inventory.json"
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
   ],
   "requiredInvariants": [
     "Masking is not touched and not claimed. sensitive-data.ts decides WHAT may be written and is a different control, credited under V16.2.5; this pass decides only what SHAPE the line may take. maskText still runs, and the encoder runs after it.",
     "Encoding is applied to EVERY substitution in the access line, not only the User-Agent the record named. A control covering five fields of six is an absent control on the sixth.",
     "Ordinary text stays readable. An encoder that mangles every User-Agent produces a log nobody reads, which is its own failure; the reverse direction is asserted.",
     "Escaping is visible, never silent deletion - the same principle csv-cell.ts states. A forged value must remain in the log to be investigated, just unable to shape it.",
-    "No dependency, no schema change, no migration, no RLS or policy edit. Nothing outside apps/api/src/common. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+    "No dependency, no schema change, no migration, no RLS or policy edit. Nothing outside apps/api/src/common. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB.",
+    "The two cryptographic-inventory files are regenerated, never hand-edited. discover-cryptography.mjs writes the .json and the .md together and its staleness test reads the pair; adding source files moves scannedFiles, so both are regenerated in this pass and neither is touched by hand."
   ],
   "acceptance": [
     "The record's exploit is disproved on Node's own parser, not argued: raw LF, raw CR, NUL, ESC 0x1b, DEL 0x7f and an obs-fold continuation all answer 400 Bad Request and never reach a handler.",
