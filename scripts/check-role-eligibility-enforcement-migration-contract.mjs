@@ -65,7 +65,10 @@ forbid('executor', executor, /ROLE_ELIGIBILITY_ENFORCEMENT\s+true/iu, 'executor 
 forbid('executor', executor, /\b(?:docker\s+restart|docker\s+stop|docker\s+compose[^\n]*(?:\sup\b|\srestart\b|\sdown\b))/iu, 'executor must not mutate API/web runtime');
 
 const sqlWithoutComments = migration.replace(/--[^\n]*/gu, ' ');
-const tableMutation = /\b(CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE|TRUNCATE(?:\s+TABLE)?|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+([A-Za-z_][A-Za-z0-9_."]*)/giu;
+// PostgreSQL trigger grammar uses `BEFORE UPDATE OR DELETE` and `UPDATE OF column`.
+// Those are event declarations, not DML table targets. Keep real `UPDATE <table>`
+// detection fail-closed while excluding only those two trigger forms.
+const tableMutation = /\b(CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE|TRUNCATE(?:\s+TABLE)?|INSERT\s+INTO|UPDATE(?!\s+(?:OR|OF)\b)|DELETE\s+FROM)\s+([A-Za-z_][A-Za-z0-9_."]*)/giu;
 for (const match of sqlWithoutComments.matchAll(tableMutation)) {
   const target = String(match[2]).replaceAll('"', '').toLowerCase();
   if (!target.startsWith('eligibility.')) failures.push(`migration: non-eligibility table mutation target ${target}`);
