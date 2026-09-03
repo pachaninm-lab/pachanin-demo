@@ -54,9 +54,13 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ applicationId: string }> },
 ) {
-  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+  const providedCorrelationId = String(request.headers.get('x-correlation-id') || '').trim();
+  const correlationId = providedCorrelationId.slice(0, 128) || randomUUID();
   if (requiresCanonicalControlHost(request)) {
     return json({ ok: false, code: 'CONTROL_HOST_REQUIRED', correlationId }, 421);
+  }
+  if (!providedCorrelationId || providedCorrelationId.length > 128) {
+    return json({ ok: false, code: 'CORRELATION_ID_REQUIRED', correlationId }, 400);
   }
 
   const csrf = assertCsrf(request);
@@ -113,7 +117,7 @@ export async function POST(
         body,
         cache: 'no-store',
         redirect: 'manual',
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(20_000),
       },
     );
     if (upstream.status >= 300 && upstream.status < 400) {
