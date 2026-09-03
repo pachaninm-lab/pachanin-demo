@@ -122,11 +122,14 @@ print(hashlib.sha256(raw).hexdigest(),end="")
 }
 
 # Protect only sibling services in the canonical production Compose project.
-# Container IDs are intentionally excluded: a semantically identical external
-# recreate must not be misclassified as a mutation by this API-only executor.
+# Normalize the excluded API ID because `docker ps -q` may be abbreviated while
+# `docker ps --no-trunc` is full length. Comparing different representations of
+# the same API container must not create a false protected-sibling drift signal.
 # Image identity + runtime fingerprint still fail closed on real sibling drift.
 protected_snapshot(){
   local excluded="$1" id service name image_ref image_id fingerprint
+  excluded="$(docker inspect --format '{{.Id}}' "$excluded" 2>/dev/null || true)"
+  [[ "$excluded" =~ ^[0-9a-f]{64}$ ]] || return 1
   while IFS= read -r id; do
     [[ -n "$id" && "$id" != "$excluded" ]] || continue
     service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$id" 2>/dev/null || true)"
