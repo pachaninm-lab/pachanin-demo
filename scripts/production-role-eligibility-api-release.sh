@@ -121,9 +121,22 @@ print(hashlib.sha256(raw).hexdigest(),end="")
 '
 }
 
+# Protect only sibling services in the canonical production Compose project.
+# Container IDs are intentionally excluded: a semantically identical external
+# recreate must not be misclassified as a mutation by this API-only executor.
+# Image identity + runtime fingerprint still fail closed on real sibling drift.
 protected_snapshot(){
-  local excluded="$1"
-  docker ps -q --no-trunc | awk -v excluded="$excluded" '$0 != excluded' | sort | sha256sum | awk '{print $1}'
+  local excluded="$1" id service name image_ref image_id fingerprint
+  while IFS= read -r id; do
+    [[ -n "$id" && "$id" != "$excluded" ]] || continue
+    service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$id" 2>/dev/null || true)"
+    name="$(docker inspect --format '{{.Name}}' "$id" 2>/dev/null | sed 's#^/##')"
+    image_ref="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
+    image_id="$(docker inspect --format '{{.Image}}' "$id" 2>/dev/null || true)"
+    fingerprint="$(runtime_fingerprint "$id" 2>/dev/null || true)"
+    [[ -n "$service" && -n "$name" && "$image_id" =~ ^sha256:[0-9a-f]{64}$ && "$fingerprint" =~ ^[0-9a-f]{64}$ ]] || return 1
+    printf '%s\t%s\t%s\t%s\t%s\n' "$service" "$name" "$image_ref" "$image_id" "$fingerprint"
+  done < <(docker ps -q --no-trunc --filter "label=com.docker.compose.project=$prod_project") | sort | sha256sum | awk '{print $1}'
 }
 
 write_override(){
@@ -157,6 +170,7 @@ api_ready "$baseline_api_id" || fail BASELINE_API_NOT_READY 23
 baseline_runtime_fingerprint="$(runtime_fingerprint "$baseline_api_id")"
 [[ "$baseline_runtime_fingerprint" =~ ^[0-9a-f]{64}$ ]] || fail BASELINE_RUNTIME_FINGERPRINT_INVALID 24
 baseline_protected_snapshot="$(protected_snapshot "$baseline_api_id")"
+[[ "$baseline_protected_snapshot" =~ ^[0-9a-f]{64}$ ]] || fail BASELINE_PROTECTED_SNAPSHOT_INVALID 25
 
 # A running Watchtower can overwrite exact-image authority after this bounded
 # release. Do not mutate it here; fail closed if another contour left it live.
@@ -165,12 +179,12 @@ while IFS= read -r id; do
   service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' "$id" 2>/dev/null || true)"
   image="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
   if [[ "$service" == watchtower || "$image" == *containrrr/watchtower* ]]; then
-    fail WATCHTOWER_RUNNING 25
+    fail WATCHTOWER_RUNNING 26
   fi
 done < <(docker ps -q --no-trunc)
 
 if [[ "$ACTION" == audit ]]; then
-  [[ "$baseline_revision" == "$TARGET_SHA" ]] || fail API_IMAGE_REVISION_MISMATCH 26
+  [[ "$baseline_revision" == "$TARGET_SHA" ]] || fail API_IMAGE_REVISION_MISMATCH 27
   emit ROLE_ELIGIBILITY_API_RELEASE PASS
   emit ROLE_ELIGIBILITY_TARGET_SHA "$TARGET_SHA"
   emit ROLE_ELIGIBILITY_API_REVISION "$baseline_revision"
@@ -181,12 +195,12 @@ if [[ "$ACTION" == audit ]]; then
   exit 0
 fi
 
-docker pull "$API_IMAGE" >/dev/null || fail API_IMAGE_PULL_FAILED 27
+docker pull "$API_IMAGE" >/dev/null || fail API_IMAGE_PULL_FAILED 28
 pulled_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$API_IMAGE" 2>/dev/null || true)"
-[[ "$pulled_revision" == "$TARGET_SHA" ]] || fail API_IMAGE_REVISION_MISMATCH 28
+[[ "$pulled_revision" == "$TARGET_SHA" ]] || fail API_IMAGE_REVISION_MISMATCH 29
 
 cleanup_on_exit(){
-  local rc="$1"
+  local rc="$1" rollback_ok restored_id restored_revision restored_fingerprint restored_protected
   trap - EXIT
   if [[ "$rc" -ne 0 && "$MUTATION_STARTED" == 1 && "$ROLLBACK_ACTIVE" == 0 ]]; then
     ROLLBACK_ACTIVE=1
@@ -234,7 +248,8 @@ new_revision="$(docker image inspect --format '{{index .Config.Labels "org.openc
 new_runtime_fingerprint="$(runtime_fingerprint "$new_api_id")"
 [[ "$new_runtime_fingerprint" == "$baseline_runtime_fingerprint" ]] || fail API_RUNTIME_CONFIGURATION_CHANGED 37
 new_protected_snapshot="$(protected_snapshot "$new_api_id")"
-[[ "$new_protected_snapshot" == "$baseline_protected_snapshot" ]] || fail PROTECTED_CONTAINER_SET_CHANGED 38
+[[ "$new_protected_snapshot" =~ ^[0-9a-f]{64}$ ]] || fail PROTECTED_SNAPSHOT_INVALID 38
+[[ "$new_protected_snapshot" == "$baseline_protected_snapshot" ]] || fail PROTECTED_CONTAINER_SET_CHANGED 39
 
 emit ROLE_ELIGIBILITY_API_RELEASE PASS
 emit ROLE_ELIGIBILITY_TARGET_SHA "$TARGET_SHA"

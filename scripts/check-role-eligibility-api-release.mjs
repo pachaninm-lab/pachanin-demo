@@ -23,6 +23,10 @@ requireAll('executor', [
   'ROLE_ELIGIBILITY_API_ROLLBACK_COMPLETED',
   'API_RUNTIME_CONFIGURATION_CHANGED',
   'PROTECTED_CONTAINER_SET_CHANGED',
+  'BASELINE_PROTECTED_SNAPSHOT_INVALID',
+  'PROTECTED_SNAPSHOT_INVALID',
+  'label=com.docker.compose.project=$prod_project',
+  'runtime_fingerprint "$id"',
   'WATCHTOWER_RUNNING',
   'ROLE_ELIGIBILITY_ENFORCEMENT_UNCHANGED',
   'REGISTRATION_CONFIGURATION_UNCHANGED',
@@ -52,6 +56,7 @@ const forbiddenExecutor = [
   /docker\s+compose[^\n]*(?:\bweb\b|\bmigration\b)/,
   /\bprisma\b/i,
   /ROLE_ELIGIBILITY_ENFORCEMENT=true/,
+  /docker ps -q --no-trunc \| awk -v excluded=/,
 ];
 for (const pattern of forbiddenExecutor) {
   if (pattern.test(source.executor)) failures.push(`${files.executor} violates blast-radius rule: ${pattern}`);
@@ -71,6 +76,12 @@ if (!/docker pull \"\$API_IMAGE\"/.test(source.executor)) failures.push('executo
 if (!/services:\n  api:\n    image: \$image\n    pull_policy: never/.test(source.executor)) failures.push('executor override must contain only api image authority');
 if (!/trap 'cleanup_on_exit/.test(source.executor)) failures.push('executor must arm exit rollback');
 if (!/MUTATION_STARTED=1\nwrite_override/.test(source.executor)) failures.push('rollback must be armed before persistent override mutation');
+if (!/docker ps -q --no-trunc --filter \"label=com\.docker\.compose\.project=\$prod_project\"/.test(source.executor)) {
+  failures.push('protected snapshot must be scoped to the canonical production Compose project');
+}
+if (!/printf '%s\\t%s\\t%s\\t%s\\t%s\\n' \"\$service\" \"\$name\" \"\$image_ref\" \"\$image_id\" \"\$fingerprint\"/.test(source.executor)) {
+  failures.push('protected snapshot must use stable semantic identity instead of container IDs');
+}
 
 if (failures.length) {
   failures.forEach((failure) => console.error(`ROLE_ELIGIBILITY_API_RELEASE_CONTRACT_ERROR=${failure}`));
