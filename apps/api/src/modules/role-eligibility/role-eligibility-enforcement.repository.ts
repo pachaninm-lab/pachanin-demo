@@ -4,9 +4,9 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { parseRoleEligibilityEnforcementPolicy } from './role-eligibility-enforcement-policy';
 import type {
   RoleEligibilityEnforcementState,
+  RoleEligibilityVerdictSnapshot,
   RoleEligibilityVerdictSourceSnapshot,
 } from './role-eligibility-enforcement.types';
-import type { EligibilityVerdict } from './role-eligibility.types';
 
 type StateRow = {
   enabled: boolean;
@@ -18,15 +18,13 @@ type StateRow = {
   policyDocument: unknown;
 };
 
-type VerdictRow = {
-  id: string;
-  verdict: EligibilityVerdict;
-  policyVersion: string;
-  sourceManifestHash: string;
-};
-
 type SourceRow = {
   source: RoleEligibilityVerdictSourceSnapshot['source'];
+  generation: string;
+  evidenceId: string;
+  evidenceHash: string;
+  sourcePublishedAt: Date;
+  parserVersion: string;
   evidenceFreshUntil: Date;
   healthStatus: string | null;
   sourceFreshUntil: Date | null;
@@ -78,12 +76,13 @@ export class RoleEligibilityEnforcementRepository {
     applicationId: string,
     applicationVersion: bigint,
     requestedRole: string,
-  ): Promise<VerdictRow | null> {
-    const rows = await this.prisma.$queryRaw<VerdictRow[]>(Prisma.sql`
+  ): Promise<RoleEligibilityVerdictSnapshot | null> {
+    const rows = await this.prisma.$queryRaw<RoleEligibilityVerdictSnapshot[]>(Prisma.sql`
       SELECT
         id,
         verdict,
         policy_version AS "policyVersion",
+        policy_hash AS "policyHash",
         source_manifest_hash AS "sourceManifestHash"
       FROM eligibility.verdicts
       WHERE application_id = ${applicationId}
@@ -100,6 +99,11 @@ export class RoleEligibilityEnforcementRepository {
     return this.prisma.$queryRaw<SourceRow[]>(Prisma.sql`
       SELECT
         vs.source,
+        vs.generation,
+        vs.evidence_id AS "evidenceId",
+        vs.evidence_hash AS "evidenceHash",
+        vs.source_published_at AS "sourcePublishedAt",
+        vs.parser_version AS "parserVersion",
         e.fresh_until AS "evidenceFreshUntil",
         sh.status AS "healthStatus",
         sh.fresh_until AS "sourceFreshUntil"
