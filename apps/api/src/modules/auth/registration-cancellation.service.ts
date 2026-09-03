@@ -50,17 +50,21 @@ export class RegistrationCancellationService {
     reasonInput: string,
     owner: RequestUser,
     idempotencyKeyInput: string,
-    correlationId: string,
+    correlationIdInput: string,
   ): Promise<CancellationResponse> {
     const applicationKey = String(applicationId || '').trim();
     const reason = String(reasonInput || '').trim();
     const idempotencyKey = String(idempotencyKeyInput || '').trim();
+    const correlationId = String(correlationIdInput || '').trim();
     if (!applicationKey) throw new BadRequestException({ code: 'REGISTRATION_APPLICATION_ID_REQUIRED' });
     if (reason.length < 8 || reason.length > 1000) {
       throw new BadRequestException({ code: 'DECISION_REASON_REQUIRED' });
     }
     if (idempotencyKey.length < 16 || idempotencyKey.length > 128) {
       throw new BadRequestException({ code: 'IDEMPOTENCY_KEY_REQUIRED' });
+    }
+    if (!correlationId || correlationId.length > 128) {
+      throw new BadRequestException({ code: 'CORRELATION_ID_REQUIRED' });
     }
     this.requireFreshMfa(owner);
     this.requirePlatformOwner(owner);
