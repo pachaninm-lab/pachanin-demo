@@ -2,8 +2,8 @@
   "schemaVersion": "platform-v7.web-unit-coverage.v1",
   "issue": 4786,
   "purpose": "Every unit test file under apps/web/tests/unit must either run in CI or appear here with a reason. A file in neither state is what #4786 found: present in the repository, reading as a guarantee, checked by nothing. This registry is a work queue, not a permanent exemption list - the count is meant to reach zero.",
-  "executedCount": 21,
-  "discoveredCount": 915,
+  "executedCount": 22,
+  "discoveredCount": 916,
   "exclusionCounts": {
     "passed": 662,
     "failed": 232

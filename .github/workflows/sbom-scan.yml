@@ -8,6 +8,9 @@ on:
       - 'scripts/ip/**'
       - '.github/workflows/**'
       - 'scripts/security/verify-action-pinning.mjs'
+      - 'scripts/security/verify-request-validation-coverage.mjs'
+      - 'scripts/security/verify-request-validation-coverage.test.mjs'
+      - 'docs/security/request-validation-baseline.json'
       - 'scripts/security/build-asvs-matrix.mjs'
       - 'scripts/security/build-asvs-matrix.test.mjs'
       - 'scripts/security/asvs-decisions.mjs'
@@ -50,6 +53,9 @@ on:
       - 'scripts/ip/**'
       - '.github/workflows/**'
       - 'scripts/security/verify-action-pinning.mjs'
+      - 'scripts/security/verify-request-validation-coverage.mjs'
+      - 'scripts/security/verify-request-validation-coverage.test.mjs'
+      - 'docs/security/request-validation-baseline.json'
       - 'scripts/security/build-asvs-matrix.mjs'
       - 'scripts/security/build-asvs-matrix.test.mjs'
       - 'scripts/security/asvs-decisions.mjs'
@@ -209,6 +215,9 @@ jobs:
 
       - name: Verify GitHub Actions pinning ratchet
         run: node scripts/security/verify-action-pinning.mjs
+
+      - name: Verify request validation coverage ratchet
+        run: node scripts/security/verify-request-validation-coverage.mjs
 
       - name: Verify every key records where it may be used
         run: node scripts/security/verify-key-usage.mjs
