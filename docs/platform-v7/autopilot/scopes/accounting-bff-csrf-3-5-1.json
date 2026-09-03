@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/accounting-bff-csrf-3-5-1",
+  "status": "active",
+  "purpose": "V3.5.1 (level 1) is FAIL and its evidence names one route by hand: apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts authenticates by COOKIE and forwards it upstream as a Bearer on the WRITE_PATHS mutating operations, and never calls assertCsrf. The browser attaches that cookie itself, so another site could initiate a change as the logged-in user. This closes that one route, on both sides.",
+  "authorityBaseExactMain": "7f7b1d9a0",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/accounting-bff-csrf-3-5-1.json",
+    "docs/platform-v7/qa/web-unit-coverage-registry.json",
+    ".github/workflows/ci.yml",
+    "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+    "apps/web/app/platform-v7/accounting/AccountingTaskBoardClient.tsx",
+    "apps/web/tests/unit/accountingBffCsrf.spec.ts"
+  ],
+  "requiredInvariants": [
+    "V3.5.1 is NOT claimed and stays FAIL. One route of the twenty-two is closed; twenty-one remain, and several of those must NOT get a CSRF token at all because they are server-to-server callbacks. Claiming the requirement on one route would be the substitution this programme forbids.",
+    "The guard sits in POST, not in forward(), so reads are untouched. The test asserts that placement rather than trusting it.",
+    "The existing double-submit mechanism is reused as-is: assertCsrf from server-request-security, the same pc_csrf_token cookie and x-csrf-token header that the other thirty-seven guarded routes already use. No new anti-forgery scheme is invented.",
+    "SameSite=Lax on the access cookie is left exactly as it is. It does block a classic cross-site form POST and is a real mitigation; it is neither removed nor presented as sufficient.",
+    "No production, REG.RU, DNS, database or credential mutation. No schema change, no migration, no dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Coverage recounted rather than taken from the record: 59 route files export POST/PUT/PATCH/DELETE, 37 guard CSRF, 22 do not. The ASVS note said 36 and 23; the measured split is reported instead.",
+    "The route was confirmed cookie-authenticated before being changed: it reads ACCESS_COOKIE and forwards it as an Authorization Bearer on WRITE_PATHS.",
+    "The change is two-sided ON PURPOSE. assertCsrf demands a matching cookie and x-csrf-token header, so adding the server guard alone would have started returning 403 to the accounting task board. The single POST caller in the whole frontend was found and now sends the token; every other call to this BFF is a GET.",
+    "Six cases: no header at all; cookie without header; header not matching the cookie (asserting reason csrf_mismatch, so absence and mismatch stay distinguishable); a matching pair passing the gate; the guard living in POST and not in GET; and the client actually sending the token.",
+    "Two mutations, both caught: removing the server guard fails 4 of the 6; removing the header from the client fails the 6th - which is the case that would otherwise have broken the dashboard silently.",
+    "The test is added to the web-unit list in ci.yml, not just to the tree. verify-web-unit-coverage caught it first as EXECUTED_BUT_MISSING because the file was untracked, which is the gate doing its job.",
+    "web tsc --noEmit exit 0. The first attempt failed TS2339: `ok` does not narrow this union, so the reason is read through an `in` check rather than a cast."
+  ]
+}

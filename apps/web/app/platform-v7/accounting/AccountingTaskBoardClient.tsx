@@ -85,6 +85,21 @@ function formatDeadline(value: string | null): string | null {
   return at.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long' });
 }
 
+
+/**
+ * Double-submit токен для изменяющих вызовов BFF бухгалтерии.
+ *
+ * Тот же приём и то же имя куки, что уже используют staff-компоненты: сервер
+ * сверяет `pc_csrf_token` из куки с заголовком `x-csrf-token`. Без заголовка
+ * маршрут теперь отвечает 403 CSRF_REQUIRED, поэтому клиент обязан его слать —
+ * иначе доска задач сломалась бы этой же правкой.
+ */
+function csrfToken(): string {
+  if (typeof document === 'undefined') return '';
+  const row = document.cookie.split('; ').find((entry) => entry.startsWith('pc_csrf_token='));
+  return row ? decodeURIComponent(row.slice(row.indexOf('=') + 1)) : '';
+}
+
 export function AccountingTaskBoardClient() {
   const [state, setState] = useState<LoadState>({ kind: 'LOADING' });
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
@@ -137,7 +152,7 @@ export function AccountingTaskBoardClient() {
           `/api/platform-v7/accounting/tasks/${encodeURIComponent(task.id)}/transition`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken() },
             body: JSON.stringify({ to: 'IN_PROGRESS', expectedVersion: task.version }),
           },
         );
