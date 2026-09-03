@@ -7,7 +7,6 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import type { RequestUser } from '../../common/types/request-user';
 import { RegistrationCancellationService } from '../auth/registration-cancellation.service';
@@ -51,7 +50,7 @@ export class RegistrationCancellationController {
       body.reason,
       request.user,
       String(idempotencyKey || ''),
-      correlationId || randomUUID(),
+      String(correlationId || ''),
     );
   }
 }
