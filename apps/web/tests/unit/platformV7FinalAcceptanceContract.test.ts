@@ -11,6 +11,7 @@ const workflow = read('.github/workflows/platform-v7-design-system-v8-acceptance
 const report = read('docs/platform-v7/qa/DESIGN_SYSTEM_V8_FINAL_ACCEPTANCE.md');
 const acceptanceLogin = read('apps/web/tests/e2e/support/acceptance-login.ts');
 const registrationPage = read('apps/web/app/platform-v7/register/page.tsx');
+const registrationLayout = read('apps/web/app/platform-v7/register/layout.tsx');
 const registrationClient = read('apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx');
 const registrationBaseClient = read('apps/web/app/platform-v7/register/RegisterFormClient.tsx');
 const registrationRoute = read('apps/web/app/api/auth/register/route.ts');
@@ -104,6 +105,8 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationPage).toContain('Регистрация организации и пользователя');
     expect(registrationPage).not.toContain('P0 · Первый клиентский доступ');
     expect(registrationPage).not.toContain('доступ назначается сервером');
+    expect(registrationLayout).toContain('return children;');
+    expect(registrationLayout).not.toContain('RegisterCleanClient');
     expect(registrationClient).not.toContain("'Рабочее пространство'");
     expect(registrationClient).not.toContain('correlation ID');
     expect(registrationClient).not.toContain('Рабочий email');
