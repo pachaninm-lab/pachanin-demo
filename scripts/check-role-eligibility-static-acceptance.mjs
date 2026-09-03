@@ -6,6 +6,10 @@ const supersededMigration = read('apps/api/prisma/migrations/20260902143000_role
 const service = read('apps/api/src/modules/role-eligibility/role-eligibility.service.ts');
 const worker = read('apps/api/src/modules/role-eligibility/role-eligibility-worker.service.ts');
 const security = read('apps/api/src/modules/role-eligibility/role-eligibility-security.ts');
+const admission = read('apps/api/src/modules/role-eligibility/role-eligibility-admission.service.ts');
+const enforcementPolicy = read('apps/api/src/modules/role-eligibility/role-eligibility-enforcement-policy.ts');
+const enforcementRepository = read('apps/api/src/modules/role-eligibility/role-eligibility-enforcement.repository.ts');
+const enforcementTypes = read('apps/api/src/modules/role-eligibility/role-eligibility-enforcement.types.ts');
 const cbr = read('apps/api/src/modules/role-eligibility/adapters/cbr-registry.adapter.ts');
 const fns = read('apps/api/src/modules/role-eligibility/adapters/fns-evidence.adapter.ts');
 const fgis = read('apps/api/src/modules/role-eligibility/adapters/fgis-grain.adapter.ts');
@@ -37,6 +41,47 @@ for (const [name, source] of [['migration', migration], ['superseded migration',
 requireText('service', service, ['enforcement: false', 'ROLE_ELIGIBILITY_ENFORCEMENT_UNSUPPORTED_IN_SHADOW_RELEASE']);
 requireText('worker', worker, ['beforePublish = await this.repository.readCandidate', "this.publish(check, 'SUPERSEDED'", 'applicationVersion !== check.applicationVersion']);
 requireText('security', security, ['https:', 'HOST_NOT_ALLOWLISTED', "redirect: 'error'", 'RESPONSE_TOO_LARGE', 'XML_EXTERNAL_ENTITY_FORBIDDEN', 'JSON_DEPTH_LIMIT', 'PARSER_TIMEOUT']);
+
+requireText('enforcement types', enforcementTypes, [
+  "decision: 'ALLOW' | 'REVIEW_REQUIRED' | 'ADVISORY_ONLY'",
+  'policyHash: string',
+  'sourceManifestHash: string',
+  'evidenceFreshUntil: Date',
+]);
+requireText('enforcement policy', enforcementPolicy, [
+  "accepted.length !== 1 || accepted[0] !== 'ELIGIBLE'",
+  "hasExactKeys(value, ['defaultDecision', 'roles', 'schemaVersion', 'version'])",
+  "requiredSources: ['CBR']",
+  'FNS_MACHINE_CONTRACT_UNPROVEN',
+  'FGIS_GRAIN_MACHINE_CONTRACT_UNAVAILABLE',
+  'ROSACCREDITATION_MACHINE_CONTRACT_UNPROVEN',
+]);
+requireText('enforcement repository', enforcementRepository, [
+  'eligibility.enforcement_state',
+  'eligibility.enforcement_policies',
+  'policy_hash AS "policyHash"',
+  'eligibility.verdict_sources',
+  'e.fresh_until AS "evidenceFreshUntil"',
+  'eligibility.source_health',
+]);
+requireText('admission', admission, [
+  'ROLE_ELIGIBILITY_ENFORCEMENT_DISABLED',
+  'ROLE_ELIGIBILITY_POSTGRES_ENFORCEMENT_DISABLED',
+  'ROLE_ELIGIBILITY_ENFORCEMENT_STATE_UNAVAILABLE',
+  'ROLE_ELIGIBILITY_EXACT_SHA_MISMATCH',
+  'ROLE_ELIGIBILITY_VERDICT_POLICY_MISMATCH',
+  'ROLE_ELIGIBILITY_SOURCE_MANIFEST_MISMATCH',
+  'ROLE_ELIGIBILITY_EVIDENCE_STALE:',
+  'ROLE_ELIGIBILITY_SOURCE_NOT_HEALTHY:',
+  "decision: 'ALLOW'",
+  "decision: 'REVIEW_REQUIRED'",
+  'sourceManifestHash(sources.map',
+]);
+forbid('admission', admission, [
+  /decision:\s*['"](?:DENY|REJECT|REJECTED)['"]/i,
+  /(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\s+(?:INTO\s+|TABLE\s+)?auth\.registration_/i,
+]);
+
 requireText('CBR adapter', cbr, ['www.cbr.ru', 'EXPECTED_HEADERS', 'CBR_CARDINALITY_BELOW_SAFETY_FLOOR']);
 requireText('FNS adapter', fns, ['FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN']);
 requireText('FGIS adapter', fgis, ['FGIS_GRAIN_OFFICIAL_DATASET_TRANSPORT_NOT_PROVEN']);
@@ -86,6 +131,8 @@ console.log('ATOMIC_VERDICT_TRANSACTION=PASS');
 console.log('PII_MINIMIZATION=PASS');
 console.log('SOURCE_FAILURE_FAIL_CLOSED=PASS');
 console.log('SCHEMA_DRIFT_FAIL_CLOSED=PASS');
+console.log('ENFORCEMENT_FOUNDATION_FAIL_CLOSED=PASS');
+console.log('AUTO_FINAL_REJECTION=0');
 console.log('PRODUCTION_WORKER_EXACT_SHA_AUTHORITY=PASS');
 console.log('REGISTRATION_RUNTIME_MUTATION_FORBIDDEN=PASS');
 console.log('PAID_EXTERNAL_DEPENDENCIES=0');
