@@ -140,10 +140,13 @@ export class ExportsService {
       select: { id: true },
     });
     if (!deal) throw new ForbiddenException(`Deal ${dealId} not found`);
+    // Без .catch(() => []): отказ запроса давал заголовок без строк, то есть
+    // CSV, утверждающий «проводок по сделке нет», когда база их просто не
+    // отдала. Пустая выгрузка и неудавшаяся выгрузка обязаны различаться.
     const entries = await this.prisma.ledgerEntry.findMany({
       where: { dealId },
       orderBy: { createdAt: 'asc' },
-    }).catch(() => []);
+    });
     const header = 'id,entryType,debitAccount,creditAccount,amountKopecks,currency,reference,idempotencyKey,createdAt\n';
     const rows = entries.map(e =>
       csvRow([e.id, e.entryType, e.debitAccount, e.creditAccount, e.amountKopecks, e.currency, e.reference ?? '', e.idempotencyKey, e.createdAt.toISOString()])
@@ -153,10 +156,50 @@ export class ExportsService {
 
   async exportOutboxStatus(user: RequestUser): Promise<{ pending: number; sent: number; dead: number; failed: number; entries: unknown[] }> {
     this.assertExportRole(user);
+    const tenantId = this.assertTenantScope(user);
+    // Пятая из шести выгрузок жила без границы вовсе: ни assertTenantScope, ни
+    // предиката в запросе - чтение шло по всей таблице outbox_entries, и наружу
+    // уходила строка целиком, вместе с payload события и leaseToken воркера
+    // доставки.
+    //
+    // У outbox_entries своей колонки тенанта нет: принадлежность записи
+    // определяется её сделкой. Запись без сделки не принадлежит ни одному
+    // тенанту и в tenant-scoped выгрузку не попадает - ровно это уже делает
+    // строгая политика outbox_entries_select, требующая "dealId" IS NOT NULL.
+    //
+    // На RLS здесь опереться нельзя: соседняя outbox_entries_worker_select -
+    // USING (current_user IN ('app_service', 'app_outbox')) без тенанта вовсе, -
+    // permissive, а permissive-политики PostgreSQL объединяет через OR. Под
+    // сервисным принципалом база отдаёт таблицу целиком. Скоуп по сделкам
+    // тенанта - та же форма, что уже стоит в staff-workspace.service.ts.
+    const scopedDealIds = (await this.prisma.deal.findMany({
+      where: { tenantId },
+      select: { id: true },
+    })).map((deal) => deal.id);
+
     const entries = await this.prisma.outboxEntry.findMany({
+      where: { dealId: { in: scopedDealIds } },
+      // Явный список полей, а не строка целиком. payload несёт содержимое
+      // события, leaseToken - уникальный маркер аренды воркера доставки; в
+      // статусной выгрузке не нужно ни то, ни другое.
+      select: {
+        id: true,
+        type: true,
+        dealId: true,
+        status: true,
+        retryCount: true,
+        maxRetries: true,
+        nextRetryAt: true,
+        lastError: true,
+        correlationId: true,
+        createdAt: true,
+        sentAt: true,
+        confirmedAt: true,
+        failedAt: true,
+      },
       orderBy: { createdAt: 'desc' },
       take: 500,
-    }).catch(() => []);
+    });
     return {
       pending: entries.filter(e => e.status === 'PENDING').length,
       sent: entries.filter(e => e.status === 'SENT').length,
@@ -175,6 +218,10 @@ export class ExportsService {
     const from = params.from ? new Date(params.from) : new Date(Date.now() - 30 * 24 * 3600_000);
     const to = params.to ? new Date(params.to) : new Date();
 
+    // Это единственная выгрузка, уходящая наружу - в МСХ, Росстат, ФНС и
+    // Росфинмониторинг. С .catch(() => []) отказ запроса превращался в
+    // отчётность за период с нулём операций и нулевой суммой: не пустой отчёт,
+    // а ложное донесение регулятору. Отказ обязан быть отказом.
     const deals = await this.prisma.deal.findMany({
       where: { tenantId, createdAt: { gte: from, lte: to } },
       select: {
@@ -182,7 +229,7 @@ export class ExportsService {
         volumeTons: true, totalRub: true, totalKopecks: true,
         sellerOrgId: true, buyerOrgId: true, createdAt: true, closedAt: true,
       },
-    }).catch(() => []);
+    });
 
     switch (params.type) {
       case 'msh':
@@ -279,10 +326,15 @@ export class ExportsService {
     };
   }> {
     this.assertExportRole(user);
+    // Здесь .catch(() => null) был хуже пустого результата: он уводил в ветку
+    // ниже, а та возвращает отчёт с chainIntegrity: { valid: true }. То есть
+    // при недоступной базе метод выдавал утверждение о целостности цепочки
+    // событий, которую не читал. Ветка «сделки нет» остаётся - но только для
+    // случая, когда база ответила и сделки действительно нет.
     const deal = await this.prisma.deal.findFirst({
       where: { id: dealId, tenantId: this.assertTenantScope(user) },
       include: { dealEvents: { orderBy: { createdAt: 'asc' } } },
-    }).catch(() => null);
+    });
 
     if (!deal) {
       return {

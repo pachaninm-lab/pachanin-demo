@@ -99,6 +99,7 @@ describe('ExportsService — тенант в предикате, а не в ко
     ['exportEvidenceBundle', (s: ExportsService, u: RequestUser) => s.exportEvidenceBundle('deal-A', u)],
     ['exportLedgerCsv', (s: ExportsService, u: RequestUser) => s.exportLedgerCsv('deal-A', u)],
     ['exportDealReport', (s: ExportsService, u: RequestUser) => s.exportDealReport('deal-A', u)],
+    ['exportOutboxStatus', (s: ExportsService, u: RequestUser) => s.exportOutboxStatus(u)],
   ])('%s отказывает, когда тенанта у вызывающего нет', async (_name, call) => {
     // Не «читаем без границы, раз тенанта нет»: это и есть закрываемое чтение.
     const prisma = makePrisma();
@@ -109,6 +110,77 @@ describe('ExportsService — тенант в предикате, а не в ко
     );
     expect(prisma.deal.findMany).not.toHaveBeenCalled();
     expect(prisma.deal.findFirst).not.toHaveBeenCalled();
+    expect(prisma.outboxEntry.findMany).not.toHaveBeenCalled();
+  });
+
+  describe('exportOutboxStatus — граница по сделкам тенанта', () => {
+    /**
+     * outbox_entries своей колонки тенанта не имеет, поэтому границу здесь
+     * задаёт список сделок тенанта. На RLS опереться нельзя: соседняя
+     * permissive-политика outbox_entries_worker_select не содержит тенанта
+     * вовсе, а permissive-политики PostgreSQL объединяет через OR.
+     */
+    it('читает outbox только по сделкам своего тенанта', async () => {
+      const prisma = makePrisma();
+      prisma.deal.findMany.mockResolvedValue([{ id: 'deal-A1' }, { id: 'deal-A2' }]);
+      const service = new ExportsService(prisma as never);
+
+      await service.exportOutboxStatus(userWith());
+
+      expect(prisma.deal.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ tenantId: TENANT }) }),
+      );
+      expect(prisma.outboxEntry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { dealId: { in: ['deal-A1', 'deal-A2'] } } }),
+      );
+    });
+
+    it('у тенанта без сделок предикат остаётся, а не исчезает', async () => {
+      // Пустой список сделок не должен вырождаться в чтение без границы:
+      // это ровно та форма, которой здесь и не было.
+      const prisma = makePrisma();
+      prisma.deal.findMany.mockResolvedValue([]);
+      const service = new ExportsService(prisma as never);
+
+      await service.exportOutboxStatus(userWith());
+
+      const call = prisma.outboxEntry.findMany.mock.calls[0][0];
+      expect(call.where).toEqual({ dealId: { in: [] } });
+    });
+
+    it('не выбирает payload и leaseToken', async () => {
+      // Раньше строка уходила целиком: payload — содержимое события,
+      // leaseToken — уникальный маркер аренды воркера доставки.
+      const prisma = makePrisma();
+      const service = new ExportsService(prisma as never);
+
+      await service.exportOutboxStatus(userWith());
+
+      const select = prisma.outboxEntry.findMany.mock.calls[0][0].select;
+      expect(select).toBeDefined();
+      expect(select.payload).toBeUndefined();
+      expect(select.leaseToken).toBeUndefined();
+      expect(select.status).toBe(true);
+    });
+
+    it('считает статусы по тому, что вернул скоупленный запрос', async () => {
+      // Обратная сторона: граница не должна обнулять выгрузку целиком, иначе
+      // «ничего не отдаём» прошло бы как успех.
+      const prisma = makePrisma();
+      prisma.deal.findMany.mockResolvedValue([{ id: 'deal-A1' }]);
+      prisma.outboxEntry.findMany.mockResolvedValue([
+        { id: 'o-1', dealId: 'deal-A1', status: 'PENDING' },
+        { id: 'o-2', dealId: 'deal-A1', status: 'SENT' },
+        { id: 'o-3', dealId: 'deal-A1', status: 'DEAD' },
+        { id: 'o-4', dealId: 'deal-A1', status: 'FAILED' },
+      ]);
+      const service = new ExportsService(prisma as never);
+
+      const result = await service.exportOutboxStatus(userWith());
+
+      expect(result).toMatchObject({ pending: 1, sent: 1, dead: 1, failed: 1 });
+      expect(result.entries).toHaveLength(4);
+    });
   });
 
   it('роль по-прежнему проверяется первой', async () => {
