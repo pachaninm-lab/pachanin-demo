@@ -39,6 +39,45 @@ def replace_python_function(source: str, name: str, new_body: str, label: str) -
     return source[:start] + new_body.rstrip() + "\n" + source[next_def + 1 :]
 
 
+CONSENT_POLICY_PATH = Path("apps/api/src/modules/auth/consent-policy.ts")
+CONSENT_POLICY_VERSION_RE = re.compile(
+    r"(?m)^export const CURRENT_CONSENT_VERSION = '([0-9]{4}-[0-9]{2}-[0-9]{2})';$"
+)
+REGISTRATION_CONSENT_RE = re.compile(
+    r"(?m)^    'termsVersion': '([0-9]{4}-[0-9]{2}-[0-9]{2})',\n"
+    r"    'privacyVersion': '([0-9]{4}-[0-9]{2}-[0-9]{2})',$"
+)
+
+
+def sync_registration_consent_version(source: str) -> tuple[str, str]:
+    if not CONSENT_POLICY_PATH.is_file():
+        raise PatchError("CONSENT_POLICY_SOURCE_MISSING")
+    policy_source = CONSENT_POLICY_PATH.read_text(encoding="utf-8")
+    policy_matches = CONSENT_POLICY_VERSION_RE.findall(policy_source)
+    if len(policy_matches) != 1:
+        raise PatchError(f"CONSENT_POLICY_VERSION_CARDINALITY={len(policy_matches)}")
+    current_version = policy_matches[0]
+
+    payload_matches = list(REGISTRATION_CONSENT_RE.finditer(source))
+    if len(payload_matches) != 1:
+        raise PatchError(f"REGISTRATION_CONSENT_CARDINALITY={len(payload_matches)}")
+    payload_match = payload_matches[0]
+    terms_version, privacy_version = payload_match.groups()
+    if terms_version != privacy_version:
+        raise PatchError("REGISTRATION_CONSENT_VERSION_SPLIT")
+
+    replacement = (
+        f"    'termsVersion': '{current_version}',\n"
+        f"    'privacyVersion': '{current_version}',"
+    )
+    updated = source[: payload_match.start()] + replacement + source[payload_match.end() :]
+    if updated.count(f"'termsVersion': '{current_version}'") != 1:
+        raise PatchError("REGISTRATION_TERMS_VERSION_SYNC_INVALID")
+    if updated.count(f"'privacyVersion': '{current_version}'") != 1:
+        raise PatchError("REGISTRATION_PRIVACY_VERSION_SYNC_INVALID")
+    return updated, current_version
+
+
 FAIL_OLD = '''fail() {
   BLOCKER_CODE="$1"
   exit "${2:-1}"
@@ -137,7 +176,7 @@ PYTHON_ANCESTRY = '''def assert_release_candidate():
 '''
 
 
-def patch(mode: str, executor_path: Path) -> None:
+def patch(mode: str, executor_path: Path) -> str:
     source = executor_path.read_text(encoding="utf-8")
 
     source = replace_exact(source, FAIL_OLD, FAIL_NEW, "LOCAL_BLOCKER_FAIL")
@@ -159,6 +198,7 @@ def patch(mode: str, executor_path: Path) -> None:
         PYTHON_ANCESTRY,
         "PYTHON_ANCESTRY_RETRY",
     )
+    source, consent_version = sync_registration_consent_version(source)
 
     if mode == "first-customer":
         source = replace_exact(
@@ -207,6 +247,12 @@ def patch(mode: str, executor_path: Path) -> None:
         "TRANSIENT_LOOKUP_FAIL": source.count(
             "P0_CANDIDATE_ANCESTRY_LOOKUP_FAILED"
         ) >= 1,
+        "CONSENT_TERMS_SYNC": source.count(
+            f"'termsVersion': '{consent_version}'"
+        ) == 1,
+        "CONSENT_PRIVACY_SYNC": source.count(
+            f"'privacyVersion': '{consent_version}'"
+        ) == 1,
         "VALIDATION_MARKER_ABSENT": validation_marker not in source,
     }
     failed = [name for name, passed in invariants.items() if not passed]
@@ -214,6 +260,7 @@ def patch(mode: str, executor_path: Path) -> None:
         raise PatchError("RESILIENCE_INVARIANT_FAILED=" + "|".join(failed))
 
     executor_path.write_text(source, encoding="utf-8")
+    return consent_version
 
 
 def main() -> int:
@@ -232,7 +279,7 @@ def main() -> int:
         )
         return 3
     try:
-        patch(mode, path)
+        consent_version = patch(mode, path)
     except Exception as error:
         safe = re.sub(r"[^A-Z0-9_=|:-]", "_", str(error).upper())[:300]
         print(
@@ -245,6 +292,8 @@ def main() -> int:
     print(f"{prefix}_LOCAL_BLOCKER_PROPAGATION=PASS")
     print(f"{prefix}_ANCESTRY_LOOKUP_RETRY=PASS")
     print(f"{prefix}_TRANSIENT_GITHUB_BACKOFF=PASS")
+    print(f"{prefix}_CONSENT_VERSION_SYNC=PASS")
+    print(f"{prefix}_CONSENT_VERSION={consent_version}")
     return 0
 
 
