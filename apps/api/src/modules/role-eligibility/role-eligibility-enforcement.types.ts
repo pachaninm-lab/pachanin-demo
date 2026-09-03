@@ -34,8 +34,21 @@ export type RoleEligibilityEnforcementState = {
   policyDocument: RoleEligibilityEnforcementPolicyDocument | null;
 };
 
+export type RoleEligibilityVerdictSnapshot = {
+  id: string;
+  verdict: EligibilityVerdict;
+  policyVersion: string;
+  policyHash: string;
+  sourceManifestHash: string;
+};
+
 export type RoleEligibilityVerdictSourceSnapshot = {
   source: EligibilitySource;
+  generation: string;
+  evidenceId: string;
+  evidenceHash: string;
+  sourcePublishedAt: Date;
+  parserVersion: string;
   evidenceFreshUntil: Date;
   healthStatus: string | null;
   sourceFreshUntil: Date | null;
