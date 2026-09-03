@@ -131,8 +131,8 @@ describe('Регистрация в Гекте не спрашивает орг�
     expect(repo.insertAudit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       metadata: expect.objectContaining({
         consent: expect.objectContaining({
-          terms: expect.objectContaining({ version: '2026-07-31', contentHash: expect.stringMatching(/^sha256:/u) }),
-          privacy: expect.objectContaining({ version: '2026-07-31', contentHash: expect.stringMatching(/^sha256:/u) }),
+          terms: expect.objectContaining({ version: '2026-09-03', contentHash: expect.stringMatching(/^sha256:/u) }),
+          privacy: expect.objectContaining({ version: '2026-09-03', contentHash: expect.stringMatching(/^sha256:/u) }),
         }),
         acceptedServiceTerms: true,
         acceptedPersonalData: true,

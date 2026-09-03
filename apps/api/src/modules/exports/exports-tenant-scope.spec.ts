@@ -121,3 +121,71 @@ describe('ExportsService — тенант в предикате, а не в ко
     expect(prisma.deal.findMany).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Проверка роли — на КАЖДОЙ выгрузке, а не на одной.
+ *
+ * Прежний набор проверял роль только у exportDealsCsv, и тест назывался «роль
+ * по-прежнему проверяется первой». При этом exportEvidenceBundle роль не
+ * проверял вовсе, и именно он в этом наборе отсутствовал: тест с таким именем
+ * ничего не утверждал про метод, где дыра и была.
+ *
+ * Контроллер закрыт только JwtAuthGuard, поэтому роль целиком держится на
+ * сервисе. Замерено на реальном вызове: под DRIVER и под FARMER
+ * exportEvidenceBundle возвращал файл вместе с его s3Key, а соседний
+ * exportLedgerCsv тому же вызывающему отвечал Export access denied.
+ *
+ * Таблица ниже перечисляет все шесть выгрузок. Новый метод, забывший
+ * assertExportRole, обязан упасть здесь, а не быть замеченным на ревью.
+ */
+describe('ExportsService — роль проверяется на каждой выгрузке', () => {
+  const EVERY_EXPORT: ReadonlyArray<readonly [string, (s: ExportsService, u: RequestUser) => Promise<unknown>]> = [
+    ['exportDealsCsv', (s, u) => s.exportDealsCsv(u)],
+    ['exportEvidenceBundle', (s, u) => s.exportEvidenceBundle('deal-A', u)],
+    ['exportLedgerCsv', (s, u) => s.exportLedgerCsv('deal-A', u)],
+    ['exportOutboxStatus', (s, u) => s.exportOutboxStatus(u)],
+    ['exportRegulatoryReport', (s, u) => s.exportRegulatoryReport(u, { type: 'msh' })],
+    ['exportDealReport', (s, u) => s.exportDealReport('deal-A', u)],
+  ];
+
+  it('перечислены все публичные выгрузки сервиса', () => {
+    // Иначе таблица тихо отстанет от кода: метод, которого в ней нет, не
+    // проверяется вовсе, и это ровно та форма пропуска, что была здесь.
+    const declared = EVERY_EXPORT.map(([name]) => name).sort();
+    const actual = Object.getOwnPropertyNames(ExportsService.prototype)
+      .filter((name) => name.startsWith('export'))
+      .sort();
+    expect(declared).toEqual(actual);
+  });
+
+  // Тенант у пользователя валиден: отказ должен приходить от роли, а не от
+  // отсутствующего тенанта, иначе тест снова доказывал бы не то.
+  for (const [name, call] of EVERY_EXPORT) {
+    it(`${name} отказывает роли вне списка выгрузки`, async () => {
+      const prisma = makePrisma();
+      const service = new ExportsService(prisma as never);
+
+      await expect(call(service, userWith({ role: Role.DRIVER }))).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.deal.findMany).not.toHaveBeenCalled();
+      expect(prisma.deal.findFirst).not.toHaveBeenCalled();
+      expect(prisma.evidenceFile.findMany).not.toHaveBeenCalled();
+      expect(prisma.outboxEntry.findMany).not.toHaveBeenCalled();
+    });
+  }
+
+  for (const [name, call] of EVERY_EXPORT) {
+    it(`${name} пропускает роль из списка выгрузки`, async () => {
+      // Обратная сторона: проверка не должна отказывать всем подряд, иначе
+      // «всё закрыто» прошло бы как успех.
+      const prisma = makePrisma();
+      const service = new ExportsService(prisma as never);
+      await call(service, userWith({ role: Role.COMPLIANCE_OFFICER })).catch((error: unknown) => {
+        // Данных в моках нет, поэтому ForbiddenException «сделка не найдена»
+        // здесь законен; недопустимо только «Export access denied».
+        expect((error as Error).message).not.toContain('Export access denied');
+      });
+    });
+  }
+});

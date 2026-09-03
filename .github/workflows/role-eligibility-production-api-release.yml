@@ -78,7 +78,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
-      target_sha: ${{ steps.target.outputs.sha }}
       api_image: ${{ steps.target.outputs.image }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -169,16 +168,18 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ needs.build.outputs.target_sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Recheck current-main immediately before production mutation
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ needs.build.outputs.target_sha }}
+          TARGET_SHA: ${{ github.sha }}
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo ROLE_ELIGIBILITY_API_TARGET_SHA_INVALID >&2; exit 29; }
           git fetch --no-tags origin main
           current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
@@ -282,7 +283,7 @@ jobs:
         env:
           HOST: ${{ steps.ssh.outputs.host }}
           PORT: ${{ steps.ssh.outputs.port }}
-          TARGET_SHA: ${{ needs.build.outputs.target_sha }}
+          TARGET_SHA: ${{ github.sha }}
           API_IMAGE: ${{ needs.build.outputs.api_image }}
         shell: bash
         run: |
@@ -316,7 +317,7 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ needs.build.outputs.target_sha }}
+          TARGET_SHA: ${{ github.sha }}
           RELEASE_STATUS: ${{ steps.release.outputs.status }}
         shell: bash
         run: |

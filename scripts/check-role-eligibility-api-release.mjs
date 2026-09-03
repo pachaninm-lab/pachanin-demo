@@ -43,9 +43,12 @@ requireAll('workflow', [
   'github.actor == github.repository_owner',
   'github.triggering_actor == github.repository_owner',
   'ROLE_ELIGIBILITY_API_RELEASE_MAIN_DRIFT',
+  'ROLE_ELIGIBILITY_API_TARGET_SHA_INVALID',
   'scripts/check-role-eligibility-registration-guard.mjs',
   'infra/docker/Dockerfile.api',
   'GIT_COMMIT=${{ steps.target.outputs.sha }}',
+  'ref: ${{ github.sha }}',
+  'TARGET_SHA: ${{ github.sha }}',
   'PC_ROLE_ELIGIBILITY_API_IMAGE=',
   'ROLE_ELIGIBILITY_API_RELEASE=PASS',
   'REGISTRATION_CONFIGURATION_UNCHANGED=PASS',
@@ -68,11 +71,18 @@ const forbiddenWorkflow = [
   /production-full-stack-exact-sha/i,
   /ROLE_ELIGIBILITY_ENFORCEMENT=true/,
   /issue\.number == (?:3072|4637)/,
+  /needs\.build\.outputs\.target_sha/,
 ];
 for (const pattern of forbiddenWorkflow) {
   if (pattern.test(source.workflow)) failures.push(`${files.workflow} violates authority boundary: ${pattern}`);
 }
 
+if ((source.workflow.match(/TARGET_SHA: \$\{\{ github\.sha \}\}/g) || []).length < 3) {
+  failures.push('workflow must bind every deploy-stage target SHA directly to the immutable issue-comment github.sha');
+}
+if (!/\[\[ \"\$TARGET_SHA\" =~ \^\[0-9a-f\]\{40\}\$ \]\] \|\| \{ echo ROLE_ELIGIBILITY_API_TARGET_SHA_INVALID >&2; exit 29; \}/.test(source.workflow)) {
+  failures.push('deploy must reject an invalid or empty TARGET_SHA before current-main comparison');
+}
 if (!/docker pull \"\$API_IMAGE\"/.test(source.executor)) failures.push('executor must pull only the exact API image');
 if (!/services:\n  api:\n    image: \$image\n    pull_policy: never/.test(source.executor)) failures.push('executor override must contain only api image authority');
 if (!/trap 'cleanup_on_exit/.test(source.executor)) failures.push('executor must arm exit rollback');
