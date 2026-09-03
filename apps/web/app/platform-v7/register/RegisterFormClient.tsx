@@ -16,6 +16,7 @@ type RegistrationStatus = {
   version?: string;
   correlationId?: string;
   statusToken?: string;
+  ok?: boolean;
 };
 
 type Copy = {
