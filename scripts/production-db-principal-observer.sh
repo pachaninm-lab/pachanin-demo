@@ -94,8 +94,13 @@ const asCount = (value) => {
       role.rolbypassrls === false &&
       dangerousMembershipCount === 0 &&
       unforcedRlsOwnedTableCount === 0;
+
+    // #4890 is a capability boundary, not a role-name convention. A production
+    // principal is acceptance-ready when it cannot bypass RLS (directly,
+    // through membership, or through unforced table ownership) and it also
+    // lacks cluster-administration capabilities. The principal name remains
+    // evidence, but is not itself authority.
     const issue4890AcceptanceReady =
-      role.principal === 'pc_app' &&
       deployGateConfined &&
       role.rolcreatedb === false &&
       role.rolcreaterole === false &&

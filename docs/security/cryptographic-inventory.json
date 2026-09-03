@@ -280,11 +280,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 236,
+      "sites": 237,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 236,
+          "sites": 237,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
@@ -385,6 +385,7 @@
             "apps/web/app/api/staff/integrations/_command-proxy.ts",
             "apps/web/app/api/staff/workspaces/[...path]/route.ts",
             "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
+            "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
             "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
             "apps/web/apps/web/middleware.ts",
             "apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx",

@@ -10,7 +10,7 @@ import type { RegistryAdapterFetchResult } from '../role-eligibility.types';
 import { EligibilitySourceError } from '../role-eligibility.types';
 
 const CBR_FULL_LIST_URL = 'https://www.cbr.ru/banking_sector/credit/FullCoList/';
-const PARSER_VERSION = 'cbr-fullcolist-html-v2';
+const PARSER_VERSION = 'cbr-fullcolist-html-v3';
 const EXPECTED_HEADERS = [
   '№ п/п',
   'Вид',
@@ -65,40 +65,57 @@ function extractHeaders(table: string): string[] {
   return [...firstRow.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((match) => visibleText(match[1])).filter(Boolean);
 }
 
+export function parseCbrAuthorityRow(cells: string[]): RegistryAdapterFetchResult['records'][number] | null {
+  if (cells.length !== EXPECTED_HEADERS.length) return null;
+  const [number, kind, registrationNumber, ogrn, legalName, legalForm, registeredAt, licenseStatus] = cells;
+  if (!/^\d+$/.test(number)) return null;
+  if (!/^\d{1,6}$/.test(registrationNumber)) {
+    throw new Error('CBR_ROW_IDENTITY_SCHEMA_CHANGED');
+  }
+
+  // The official CBR full list contains historical liquidated organizations
+  // registered before OGRN existed; those rows legitimately have an empty OGRN.
+  // They cannot match a modern OGRN-backed applicant, so exclude them from the
+  // machine authority instead of treating the documented legacy row as schema
+  // drift. A non-empty malformed OGRN still fails closed.
+  const normalizedOgrn = ogrn.trim();
+  if (normalizedOgrn === '') return null;
+  if (!/^\d{13}$/.test(normalizedOgrn)) {
+    throw new Error('CBR_ROW_IDENTITY_SCHEMA_CHANGED');
+  }
+
+  const status = licenseStatus.trim();
+  const active = status === '' || /действующ/i.test(status);
+  const normalizedPayload = {
+    registrationNumber,
+    ogrn: normalizedOgrn,
+    legalName,
+    organizationKind: kind || 'BANK',
+    legalForm,
+    registeredAt,
+    licenseStatus: status || 'Действующая',
+    creditOrganization: true,
+    active,
+    licenseValid: active,
+  };
+  return {
+    sourceRecordId: `${registrationNumber}:${normalizedOgrn}`,
+    subjectInn: null,
+    subjectOgrn: normalizedOgrn,
+    recordType: 'CREDIT_ORGANIZATION',
+    normalizedPayload,
+    validFrom: null,
+    validUntil: null,
+  };
+}
+
 function parseRows(table: string) {
   const records: RegistryAdapterFetchResult['records'] = [];
   for (const rowMatch of table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const cells = [...rowMatch[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((match) => visibleText(match[1]));
     if (cells.length === 0) continue;
-    if (cells.length !== EXPECTED_HEADERS.length) continue;
-    const [number, kind, registrationNumber, ogrn, legalName, legalForm, registeredAt, licenseStatus] = cells;
-    if (!/^\d+$/.test(number)) continue;
-    if (!/^\d{1,6}$/.test(registrationNumber) || !/^\d{13}$/.test(ogrn)) {
-      throw new Error('CBR_ROW_IDENTITY_SCHEMA_CHANGED');
-    }
-    const status = licenseStatus.trim();
-    const active = status === '' || /действующ/i.test(status);
-    const normalizedPayload = {
-      registrationNumber,
-      ogrn,
-      legalName,
-      organizationKind: kind || 'BANK',
-      legalForm,
-      registeredAt,
-      licenseStatus: status || 'Действующая',
-      creditOrganization: true,
-      active,
-      licenseValid: active,
-    };
-    records.push({
-      sourceRecordId: `${registrationNumber}:${ogrn}`,
-      subjectInn: null,
-      subjectOgrn: ogrn,
-      recordType: 'CREDIT_ORGANIZATION',
-      normalizedPayload,
-      validFrom: null,
-      validUntil: null,
-    });
+    const record = parseCbrAuthorityRow(cells);
+    if (record) records.push(record);
   }
   if (records.length < 100) throw new Error('CBR_CARDINALITY_BELOW_SAFETY_FLOOR');
   const unique = new Set(records.map((record) => record.sourceRecordId));

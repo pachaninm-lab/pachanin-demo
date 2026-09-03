@@ -64,7 +64,7 @@ function Reference({ value }: { value: string }) {
 }
 
 function RussianRegistration({ verifyToken, initialStatusToken }: { verifyToken?: string; initialStatusToken?: string }) {
-  const idempotencyKey = React.useRef<string>(globalThis.crypto?.randomUUID?.() || `reg-${Date.now()}-${Math.random()}`);
+  const idempotencyKey = React.useRef<string>(globalThis.crypto.randomUUID());
   const [workspace, setWorkspace] = React.useState('seller');
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');

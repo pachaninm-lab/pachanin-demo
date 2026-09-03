@@ -17,8 +17,7 @@ permissions:
 
 env:
   DEFAULT_HOST: 195.19.12.120
-  RELEASE_ISSUE_NUMBER: 3072
-  CONTINUATION_ISSUE_NUMBER: 4637
+  READINESS_ISSUE_NUMBER: 4922
   COMMAND: /role-eligibility worker deploy current-main
   EVIDENCE_DIR: artifacts/role-eligibility-production-worker
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
@@ -38,7 +37,7 @@ jobs:
     name: Validate production worker authority
     if: >-
       github.event_name == 'pull_request' ||
-      ((github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+      (github.event.issue.number == 4922 &&
        github.event.comment.body == '/role-eligibility worker deploy current-main' &&
        github.event.comment.user.login == github.repository_owner &&
        github.event.comment.author_association == 'OWNER' &&
@@ -54,13 +53,21 @@ jobs:
           set -euo pipefail
           bash -n scripts/production-role-eligibility-worker.sh
           node scripts/check-role-eligibility-static-acceptance.mjs
+          grep -Fq 'READINESS_ISSUE_NUMBER: 4922' .github/workflows/role-eligibility-production-worker.yml
+          legacy_release_issue="$(printf '%s%s' 30 72)"
+          legacy_continuation_issue="$(printf '%s%s' 46 37)"
+          legacy_regex="(^|[^0-9])(${legacy_release_issue}|${legacy_continuation_issue})([^0-9]|$)"
+          if grep -Eq "$legacy_regex" .github/workflows/role-eligibility-production-worker.yml; then
+            echo ROLE_ELIGIBILITY_WORKER_LEGACY_AUTHORITY_PRESENT >&2
+            exit 41
+          fi
 
   deploy:
     name: Deploy and audit exact Role Eligibility shadow worker
     needs: contract
     if: >-
       github.event_name == 'issue_comment' &&
-      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+      github.event.issue.number == 4922 &&
       github.event.comment.body == '/role-eligibility worker deploy current-main' &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
@@ -219,8 +226,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          issue="$CONTINUATION_ISSUE_NUMBER"
-          [[ "${{ github.event.issue.number }}" == "$RELEASE_ISSUE_NUMBER" || "${{ github.event.issue.number }}" == "$CONTINUATION_ISSUE_NUMBER" ]]
+          [[ "${{ github.event.issue.number }}" == "$READINESS_ISSUE_NUMBER" ]]
           [[ "${WORKER_STATUS:-}" == PASS ]] || exit 1
           cat > "$EVIDENCE_DIR/result.md" <<EOF
           ## Role Eligibility production worker run \`$GITHUB_RUN_ID\`
@@ -231,7 +237,7 @@ jobs:
           - enforcement: \`false\`
           - registration runtime unchanged: \`PASS\`
           EOF
-          gh issue comment "$issue" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/result.md"
+          gh issue comment "$READINESS_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/result.md"
 
       - name: Cleanup bounded credentials and remote asset
         if: always()
