@@ -1,0 +1,40 @@
+name: Temporary Cryptographic Inventory Materialization
+
+on:
+  push:
+    branches:
+      - chore/security-crypto-inventory-refresh-4973-exec2
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Generate repository-owned cryptographic inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/security/discover-cryptography.mjs
+          node --test scripts/security/discover-cryptography.test.mjs
+
+      - name: Commit generated inventory only
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/security/cryptographic-inventory.json docs/security/CRYPTOGRAPHIC_INVENTORY.md; then
+            echo 'CRYPTO_INVENTORY_ALREADY_CURRENT=1'
+            exit 0
+          fi
+          git config user.name 'pachaninm-lab'
+          git config user.email 'pachaninm@gmail.com'
+          git add docs/security/cryptographic-inventory.json docs/security/CRYPTOGRAPHIC_INVENTORY.md
+          git commit -m 'chore(security): regenerate cryptographic inventory'
+          git push origin HEAD:${{ github.ref_name }}
