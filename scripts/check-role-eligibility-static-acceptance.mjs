@@ -14,6 +14,8 @@ const cbr = read('apps/api/src/modules/role-eligibility/adapters/cbr-registry.ad
 const fns = read('apps/api/src/modules/role-eligibility/adapters/fns-evidence.adapter.ts');
 const fgis = read('apps/api/src/modules/role-eligibility/adapters/fgis-grain.adapter.ts');
 const lab = read('apps/api/src/modules/role-eligibility/adapters/accreditation.adapter.ts');
+const sourceProbe = read('scripts/role-eligibility-fgis-contract-probe.mjs');
+const sourceProbeWorkflow = read('.github/workflows/role-eligibility-fgis-source-contract-probe.yml');
 const workerDeploy = read('scripts/production-role-eligibility-worker.sh');
 const workerRelease = read('.github/workflows/role-eligibility-production-worker.yml');
 const failures = [];
@@ -88,6 +90,30 @@ requireText('FGIS adapter', fgis, ['FGIS_GRAIN_OFFICIAL_DATASET_TRANSPORT_NOT_PR
 requireText('LAB adapter', lab, ['ROSACCREDITATION_MACHINE_CONTRACT_NOT_PROVEN']);
 for (const text of [cbr, fns, fgis, lab]) forbid('adapter', text, [/MockFnsAdapter|MockSmevAdapter|dadata|spark-interfax|kontur\.focus/i]);
 
+requireText('official source probe', sourceProbe, [
+  'https://www.nalog.gov.ru/opendata/7707329152-rsmp/',
+  'https://tech.eaeunion.org/tech/ru/registers/36',
+  'OFFICIAL_OPEN_DATA_POSITIVE_MEMBERSHIP_ONLY',
+  'ABSENCE_IS_NOT_NEGATIVE_LEGAL_ENTITY_EVIDENCE',
+  'OFFICIAL_EAEU_CONFORMITY_REGISTER_POSITIVE_MEMBERSHIP_AND_STATUS',
+  'LABORATORY_ONLY_WITH_SCOPE_AND_STATUS_VALIDATION',
+  'automaticNegativeAuthority: false',
+  "kind === 'FNS'",
+  "kind === 'EAEU'",
+]);
+requireText('official source probe workflow', sourceProbeWorkflow, [
+  'Probe official FGIS, FNS and EAEU contracts read-only',
+  'FNS_RSMP_NEGATIVE_AUTHORITY_FORBIDDEN',
+  'EAEU_SCOPE_OR_NEGATIVE_AUTHORITY_INVALID',
+  'productionDatabaseMutation !== 0',
+  'registrationTouched !== false',
+]);
+forbid('official source probe', sourceProbe, [
+  /puppeteer|playwright|selenium|captcha|dadata|spark-interfax|kontur\.focus/i,
+  /http:\/\/(?:www\.)?nalog\.gov\.ru/i,
+  /http:\/\/[^'"\s]*eaeunion\.org/i,
+]);
+
 requireText('production worker deploy', workerDeploy, [
   'org.opencontainers.image.revision',
   'ROLE_ELIGIBILITY_ENABLED=true',
@@ -132,6 +158,9 @@ console.log('PII_MINIMIZATION=PASS');
 console.log('SOURCE_FAILURE_FAIL_CLOSED=PASS');
 console.log('SCHEMA_DRIFT_FAIL_CLOSED=PASS');
 console.log('ENFORCEMENT_FOUNDATION_FAIL_CLOSED=PASS');
+console.log('OFFICIAL_SOURCE_CONTRACT_PROBES=PASS');
+console.log('FNS_RSMP_NEGATIVE_AUTHORITY=0');
+console.log('EAEU_LAB_SCOPE_REQUIRED=PASS');
 console.log('AUTO_FINAL_REJECTION=0');
 console.log('PRODUCTION_WORKER_EXACT_SHA_AUTHORITY=PASS');
 console.log('REGISTRATION_RUNTIME_MUTATION_FORBIDDEN=PASS');
