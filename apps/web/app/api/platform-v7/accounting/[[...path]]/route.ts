@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { assertCsrf } from '@/lib/server-request-security';
 
 /**
  * The accounting BFF.
@@ -147,5 +148,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
+  // Проверка подделки запроса — до пересылки, а не после.
+  //
+  // Этот BFF аутентифицируется КУКОЙ (ACCESS_COOKIE) и пересылает её вверх как
+  // Bearer на изменяющие операции из WRITE_PATHS. Браузер прикладывает куку сам,
+  // поэтому без anti-forgery проверки чужая страница могла бы инициировать
+  // изменение от имени вошедшего пользователя.
+  //
+  // `SameSite=Lax` на этой куке классический межсайтовый POST-формы уже
+  // блокирует, и это настоящее смягчение — но неявное, незадокументированное и
+  // не то, о чём просит V3.5.1. Здесь ставится тот же double-submit, что уже
+  // применяют 37 других маршрутов с небезопасными методами.
+  const csrf = assertCsrf(request);
+  if (!csrf.ok) {
+    const correlationId = randomUUID();
+    // `ok` не сужает объединение до ветки с причиной, поэтому доступ через
+    // проверку свойства, а не через приведение типа.
+    const reason = 'reason' in csrf ? csrf.reason : 'csrf_invalid';
+    return secure({ code: 'CSRF_REQUIRED', reason, correlationId }, 403, correlationId);
+  }
   return forward(request, context, 'POST', WRITE_PATHS);
 }
