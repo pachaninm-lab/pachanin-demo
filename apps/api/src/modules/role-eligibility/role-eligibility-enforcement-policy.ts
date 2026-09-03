@@ -105,8 +105,8 @@ export const ROLE_ELIGIBILITY_READINESS_POLICY_V1: Readonly<RoleEligibilityEnfor
   roles: Object.freeze({
     BANK: Object.freeze({
       mode: 'ENFORCE',
-      acceptedVerdicts: ['ELIGIBLE'],
-      requiredSources: ['CBR'],
+      acceptedVerdicts: ['ELIGIBLE'] as EligibilityVerdict[],
+      requiredSources: ['CBR'] as EligibilitySource[],
       requireFreshEvidence: true,
       requireHealthySource: true,
     }),
