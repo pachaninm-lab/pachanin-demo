@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/log-injection-encoding-16-4-1",
+  "status": "active",
+  "purpose": "ASVS V16.4.1 asks that untrusted data in logs be encoded, and nothing encoded anything. The access line was assembled from six fields with three of them attacker-influenced. The record's stated exploit was wrong and so was the first correction to it; both are kept in the note rather than replaced, because the second reverses the first. What the parser actually admits was measured byte by byte and the measurement is now executable.",
+  "authorityBaseExactMain": "b515d5c5e85250dcea68b41f659279e4e226c271",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/log-injection-encoding-4459.json",
+    "apps/api/src/common/security/log-encode.ts",
+    "apps/api/src/common/security/log-encode.spec.ts",
+    "apps/api/src/common/middleware/log-masking.middleware.ts",
+    "apps/api/src/common/middleware/log-masking.middleware.spec.ts",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "requiredInvariants": [
+    "Masking is not touched and not claimed. sensitive-data.ts decides WHAT may be written and is a different control, credited under V16.2.5; this pass decides only what SHAPE the line may take. maskText still runs, and the encoder runs after it.",
+    "Encoding is applied to EVERY substitution in the access line, not only the User-Agent the record named. A control covering five fields of six is an absent control on the sixth.",
+    "Ordinary text stays readable. An encoder that mangles every User-Agent produces a log nobody reads, which is its own failure; the reverse direction is asserted.",
+    "Escaping is visible, never silent deletion - the same principle csv-cell.ts states. A forged value must remain in the log to be investigated, just unable to shape it.",
+    "No dependency, no schema change, no migration, no RLS or policy edit. Nothing outside apps/api/src/common. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "The record's exploit is disproved on Node's own parser, not argued: raw LF, raw CR, NUL, ESC 0x1b, DEL 0x7f and an obs-fold continuation all answer 400 Bad Request and never reach a handler.",
+    "The first correction is disproved too and the disproof is kept: Node decodes header values as latin1, so the UTF-8 bytes of U+2028 arrive as three code points (U+00E2, U+0080, U+00A8), not one line separator.",
+    "The true vector is measured: the whole C1 block U+0080..U+009F passes, confirmed individually at 0x80, 0x85, 0x9b and 0x9f, plus TAB. U+009B is CSI, the 8-bit ANSI escape introducer that a UTF-8 terminal tailing the log decodes and obeys while ESC itself is refused.",
+    "Two fields, not one: the same bytes were measured passing through X-Forwarded-For, from which req.ip derives under trust proxy.",
+    "maskIp is measured rather than credited: it truncates an IPv4 payload to two octets by accident of its own purpose, and returns ::1 unchanged - so the boundary is the encoder, not the mask.",
+    "Ten mutations applied, each verified to have actually applied before the run, all ten caught. One of them exposed a test in this pass that asserted nothing (it overrode statusCode on the request instead of the response); it was fixed and recorded, not kept.",
+    "A coercion that no mutation could revoke was REMOVED rather than kept as decoration: Number(duration) wrapped a locally computed number. Number(res.statusCode) stays because a handler can assign a string there and the test proves it.",
+    "V16.4.1 PASS is machine-revocable: three mutations applied to the tree with the matrix rebuilt each time - dropping the User-Agent encoding, narrowing the class off the C1 block, removing the executable measurement - and all three drove it to NOT_ASSESSED and the totals back to 127/92/88/39.",
+    "Matrix on this head: PASS 127 -> 128, FAIL 92 -> 91, NOT_APPLICABLE 88, NOT_ASSESSED 38. api typecheck exit 0, full @pc/api suite green, scripts/security 130/130."
+  ]
+}
