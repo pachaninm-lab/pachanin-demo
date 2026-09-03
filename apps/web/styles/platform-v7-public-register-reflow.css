@@ -1,0 +1,153 @@
+.p0-register-page,
+.p0-register-page *,
+.p0-register-page *::before,
+.p0-register-page *::after {
+  box-sizing: border-box;
+}
+
+.p0-register-shell {
+  width: 100%;
+  max-width: 980px;
+}
+
+.p0-register-page,
+.p0-register-shell,
+.p0-register-header,
+.p0-register-hero,
+.p0-register-form,
+.p0-register-card,
+.p0-register-grid,
+.p0-register-grid label,
+.p0-register-password-control,
+.p0-register-actions,
+.p0-register-additional-form {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.p0-register-grid label {
+  width: 100%;
+}
+
+.p0-register-grid input,
+.p0-register-grid select,
+.p0-register-additional-form textarea,
+.p0-register-password-control input {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.p0-register-grid small {
+  color: #65776b;
+}
+
+body:has(.p0-register-page) .pc-public-contact-dock {
+  right: 12px;
+  width: 334px;
+  max-width: calc(100vw - 24px);
+}
+
+.p0-register-consents label {
+  position: relative;
+  min-height: 44px;
+  padding-left: 54px;
+  align-items: center;
+}
+
+.p0-register-consents input[type='checkbox'] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.p0-register-consents label::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #a9bdb4;
+  border-radius: 5px;
+  background: #fff;
+  pointer-events: none;
+}
+
+.p0-register-consents label:has(input[type='checkbox']:checked)::before {
+  border-color: #087a3b;
+  background: #087a3b;
+}
+
+.p0-register-consents label:has(input[type='checkbox']:checked)::after {
+  content: '';
+  position: absolute;
+  top: 16px;
+  left: 19px;
+  width: 6px;
+  height: 11px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.p0-register-consents label:has(input[type='checkbox']:focus-visible)::before {
+  outline: 3px solid rgba(8, 122, 59, .22);
+  outline-offset: 2px;
+}
+
+@media (max-width: 680px) {
+  .p0-register-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .p0-register-brand span {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .p0-register-header-actions {
+    flex: 0 0 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+
+  .p0-register-header-actions a {
+    min-width: 0;
+  }
+
+  .p0-register-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .p0-register-grid select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding-right: 36px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, #315343 50%),
+      linear-gradient(135deg, #315343 50%, transparent 50%);
+    background-position:
+      calc(100% - 16px) 50%,
+      calc(100% - 11px) 50%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+}
