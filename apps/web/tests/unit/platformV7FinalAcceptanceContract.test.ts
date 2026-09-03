@@ -17,6 +17,8 @@ const registrationBaseClient = read('apps/web/app/platform-v7/register/RegisterF
 const registrationRoute = read('apps/web/app/api/auth/register/route.ts');
 const registrationResendRoute = read('apps/web/app/api/auth/registration/resend/route.ts');
 const registrationUxSpec = read('apps/web/tests/e2e/platform-v7-registration-official.spec.ts');
+const registrationReviewQueue = read('apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx');
+const registrationCancelRoute = read('apps/web/app/api/staff/registration/applications/[applicationId]/cancel/route.ts');
 const passwordPolicy = read('apps/api/src/common/validators/strong-password.validator.ts');
 
 describe('platform-v7 Design System v8 final acceptance contract', () => {
@@ -158,5 +160,30 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
       expect(route).not.toContain('подтвердите email');
       expect(route).not.toContain('Открой одноразовую ссылку');
     }
+  });
+
+  it('keeps owner manual registration cancellation bounded and removes a successful card locally', () => {
+    expect(registrationReviewQueue).toContain("deleteApplication: 'Удалить заявку'");
+    expect(registrationReviewQueue).toContain('Удалить заявку «${organization}»?');
+    expect(registrationReviewQueue).toContain('Заявка исчезнет из рабочей очереди. Действие будет записано в журнале аудита.');
+    expect(registrationReviewQueue).toContain("sessionPayload.session?.staffRole === 'PLATFORM_OWNER'");
+    expect(registrationReviewQueue).toContain('/cancel`');
+    expect(registrationReviewQueue).toContain("'X-CSRF-Token': csrfToken");
+    expect(registrationReviewQueue).toContain("'Idempotency-Key': headers.idempotencyKey");
+    expect(registrationReviewQueue).toContain("'X-Correlation-Id': headers.correlationId");
+    expect(registrationReviewQueue).toContain("payload.status !== 'CANCELLED'");
+    expect(registrationReviewQueue).toContain('setApplications((current) => current.filter((item) => item.applicationId !== application.applicationId));');
+    expect(registrationReviewQueue).toContain('setNotice(copy.deleteSuccess);');
+    expect(registrationReviewQueue).toContain("payload.code === 'FRESH_MFA_REQUIRED'");
+    expect(registrationReviewQueue).toContain("payload.code === 'APPLICATION_ALREADY_ACTIVATED'");
+    expect(registrationReviewQueue).toContain("payload.code === 'REGISTRATION_VERSION_CONFLICT'");
+    expect(registrationCancelRoute).toContain('assertCsrf(request)');
+    expect(registrationCancelRoute).toContain("request.headers.get('idempotency-key')");
+    expect(registrationCancelRoute).toContain("request.headers.get('x-correlation-id')");
+    expect(registrationCancelRoute).toContain("'X-Staff-Access-Session': staffAccessToken");
+    expect(registrationCancelRoute).toContain("'Idempotency-Key': idempotencyKey");
+    expect(registrationCancelRoute).toContain("'X-Correlation-Id': correlationId");
+    expect(registrationReviewQueue).not.toMatch(/\bDELETE\s+FROM\b/u);
+    expect(registrationCancelRoute).not.toMatch(/\bDELETE\s+FROM\b/u);
   });
 });
