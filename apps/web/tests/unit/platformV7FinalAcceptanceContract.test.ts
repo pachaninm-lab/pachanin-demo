@@ -10,6 +10,13 @@ const spec = read('apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.sp
 const workflow = read('.github/workflows/platform-v7-design-system-v8-acceptance.yml');
 const report = read('docs/platform-v7/qa/DESIGN_SYSTEM_V8_FINAL_ACCEPTANCE.md');
 const acceptanceLogin = read('apps/web/tests/e2e/support/acceptance-login.ts');
+const registrationPage = read('apps/web/app/platform-v7/register/page.tsx');
+const registrationClient = read('apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx');
+const registrationBaseClient = read('apps/web/app/platform-v7/register/RegisterFormClient.tsx');
+const registrationRoute = read('apps/web/app/api/auth/register/route.ts');
+const registrationResendRoute = read('apps/web/app/api/auth/registration/resend/route.ts');
+const registrationUxSpec = read('apps/web/tests/e2e/platform-v7-registration-official.spec.ts');
+const passwordPolicy = read('apps/api/src/common/validators/strong-password.validator.ts');
 
 describe('platform-v7 Design System v8 final acceptance contract', () => {
   it('defines Chromium, WebKit, desktop, iPhone and Android projects', () => {
@@ -93,5 +100,51 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(report).toContain('не доказывает');
     expect(report).toContain('production и live-внешние интеграции подтверждены');
     expect(report).toContain('browser-accessibility matrix');
+  });
+
+  it('binds public registration to official Russian wording and the real visual acceptance matrix', () => {
+    expect(config).toContain('registration-official');
+    expect(registrationUxSpec).toContain('320, 375, 390, 430, 768, 1280');
+    expect(registrationUxSpec).toContain('AxeBuilder');
+    expect(registrationUxSpec).toContain('box.width >= 44 && box.height >= 44');
+    expect(registrationPage).toContain('Регистрация организации и пользователя');
+    expect(registrationPage).not.toContain('P0 · Первый клиентский доступ');
+    expect(registrationClient).not.toContain("'Рабочее пространство'");
+    expect(registrationClient).not.toContain('correlation ID');
+    expect(registrationClient).not.toContain('Рабочий email');
+    expect(registrationClient).toContain('Идентификатор обращения:');
+    expect(registrationClient).toContain('Адрес электронной почты *');
+    expect(registrationClient).toContain("['employee', 'Сотрудник существующей организации']");
+    expect(registrationClient).toContain('Новая организация при этом не создаётся.');
+  });
+
+  it('keeps registration authority unchanged while making password and mail instructions truthful', () => {
+    expect(passwordPolicy).toContain('MIN_PASSWORD_LENGTH = 12');
+    expect(passwordPolicy).toContain('MAX_PASSWORD_LENGTH = 128');
+    expect(passwordPolicy).toContain('classes < 3');
+    expect(registrationClient).toContain('12–128 символов');
+    expect(registrationClient).toContain('как минимум три группы');
+    expect(registrationClient).toContain("name='confirmPassword'");
+    expect(registrationClient).toContain("password !== field(form, 'confirmPassword')");
+    for (const marker of [
+      "fetch('/api/auth/register'",
+      "fetch('/api/auth/registration/resend'",
+      "fetch('/api/auth/registration/verify'",
+      "fetch('/api/auth/registration/additional-information'",
+      '/api/auth/registration/status?token=',
+      'idempotency-key',
+      'applyCsrfHeader',
+      "termsVersion: '2026-07-31'",
+      "privacyVersion: '2026-07-31'",
+    ]) expect(registrationClient).toContain(marker);
+    expect(registrationClient).not.toContain('role:');
+    expect(registrationClient).not.toContain('requestedRole');
+    expect(registrationClient).not.toContain('/platform-v7/onboarding');
+    expect(registrationBaseClient).toContain("fetch('/api/auth/register'");
+    for (const route of [registrationRoute, registrationResendRoute]) {
+      expect(route).toContain('подтвердите адрес электронной почты');
+      expect(route).not.toContain('подтвердите email');
+      expect(route).not.toContain('Открой одноразовую ссылку');
+    }
   });
 });
