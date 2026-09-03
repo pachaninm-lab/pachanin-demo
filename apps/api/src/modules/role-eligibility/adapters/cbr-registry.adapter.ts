@@ -10,7 +10,7 @@ import type { RegistryAdapterFetchResult } from '../role-eligibility.types';
 import { EligibilitySourceError } from '../role-eligibility.types';
 
 const CBR_FULL_LIST_URL = 'https://www.cbr.ru/banking_sector/credit/FullCoList/';
-const PARSER_VERSION = 'cbr-fullcolist-html-v3';
+const PARSER_VERSION = 'cbr-fullcolist-html-v4';
 const EXPECTED_HEADERS = [
   '№ п/п',
   'Вид',
@@ -22,6 +22,8 @@ const EXPECTED_HEADERS = [
   'Статус лицензии',
   'Местонахождение',
 ] as const;
+
+type CbrAuthorityRecord = RegistryAdapterFetchResult['records'][number];
 
 function decodeEntities(value: string): string {
   return value
@@ -65,7 +67,7 @@ function extractHeaders(table: string): string[] {
   return [...firstRow.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((match) => visibleText(match[1])).filter(Boolean);
 }
 
-export function parseCbrAuthorityRow(cells: string[]): RegistryAdapterFetchResult['records'][number] | null {
+export function parseCbrAuthorityRow(cells: string[]): CbrAuthorityRecord | null {
   if (cells.length !== EXPECTED_HEADERS.length) return null;
   const [number, kind, registrationNumber, ogrn, legalName, legalForm, registeredAt, licenseStatus] = cells;
   if (!/^\d+$/.test(number)) return null;
@@ -109,6 +111,22 @@ export function parseCbrAuthorityRow(cells: string[]): RegistryAdapterFetchResul
   };
 }
 
+export function deduplicateCbrAuthorityRecords(records: CbrAuthorityRecord[]): CbrAuthorityRecord[] {
+  const unique = new Map<string, { record: CbrAuthorityRecord; fingerprint: string }>();
+  for (const record of records) {
+    const fingerprint = stableJson(record);
+    const existing = unique.get(record.sourceRecordId);
+    if (!existing) {
+      unique.set(record.sourceRecordId, { record, fingerprint });
+      continue;
+    }
+    if (existing.fingerprint !== fingerprint) {
+      throw new Error('CBR_DUPLICATE_SOURCE_RECORD_CONFLICT');
+    }
+  }
+  return [...unique.values()].map(({ record }) => record);
+}
+
 function parseRows(table: string) {
   const records: RegistryAdapterFetchResult['records'] = [];
   for (const rowMatch of table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
@@ -117,10 +135,9 @@ function parseRows(table: string) {
     const record = parseCbrAuthorityRow(cells);
     if (record) records.push(record);
   }
-  if (records.length < 100) throw new Error('CBR_CARDINALITY_BELOW_SAFETY_FLOOR');
-  const unique = new Set(records.map((record) => record.sourceRecordId));
-  if (unique.size !== records.length) throw new Error('CBR_DUPLICATE_SOURCE_RECORD');
-  return records;
+  const uniqueRecords = deduplicateCbrAuthorityRecords(records);
+  if (uniqueRecords.length < 100) throw new Error('CBR_CARDINALITY_BELOW_SAFETY_FLOOR');
+  return uniqueRecords;
 }
 
 @Injectable()
