@@ -23,7 +23,7 @@
     "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
     "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
     "apps/web/app/platform-v7/terms/page.tsx",
-    "apps/web/styles/platform-v7-public-register-official.css",
+    "apps/web/styles/platform-v7-public-register-reflow.css",
     "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
     "docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json",
     "scripts/p7-autopilot-guard.sh"
