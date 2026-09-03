@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Role, type RequestUser } from '../../src/common/types/request-user';
@@ -117,6 +117,19 @@ describe('owner registration application cancellation', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it('requires the correlation header before opening a transaction', async () => {
+    const prisma = { $transaction: jest.fn() };
+    const service = new RegistrationCancellationService(prisma as never, repositoryMock() as never);
+    await expect(service.cancel(
+      'application-1',
+      'Удалено владельцем из очереди',
+      OWNER,
+      'owner-cancel-idempotency-0006',
+      '',
+    )).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('fails closed for ACTIVATED applications', async () => {
     const tx = {
       $queryRaw: jest.fn()
@@ -164,5 +177,7 @@ describe('owner registration application cancellation', () => {
     expect(source).toContain('WHERE application_id = ${application.id}');
     expect(source).toContain('SELECT id, status, version');
     expect(source).toContain('FOR UPDATE');
+    expect(source).toContain('auth.registration_platform_actor_authorized');
+    expect(source).toContain("assignment.role = 'PLATFORM_OWNER'");
   });
 });
