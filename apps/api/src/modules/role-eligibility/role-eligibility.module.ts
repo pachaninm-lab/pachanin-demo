@@ -25,6 +25,7 @@ import { RoleEligibilityWorkerService } from './role-eligibility-worker.service'
     RoleEligibilityRepository,
     RoleEligibilityRegistryRepository,
     RoleEligibilityWorkerRepository,
+    // Admission/enforcement providers remain dormant while ROLE_ELIGIBILITY_ENFORCEMENT=false.
     RoleEligibilityEnforcementRepository,
     RoleEligibilityEvidenceService,
     RoleEligibilityMetricsService,
