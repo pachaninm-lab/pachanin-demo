@@ -217,7 +217,7 @@ async function ordinaryDecisionHeaders(
   version: string,
   decision: ReviewDecision,
 ) {
-  const marker = await decisionMarker(`${applicationId}\u001f${version}\u001f${decision}`);
+  const marker = await decisionMarker(`${applicationId}${version}${decision}`);
   return {
     idempotencyKey: `registration-review:${marker}:${decision.toLowerCase()}`,
     correlationId: `registration-review:${marker}:${crypto.randomUUID()}`,
@@ -225,7 +225,7 @@ async function ordinaryDecisionHeaders(
 }
 
 async function cancellationHeaders(application: ReviewApplication) {
-  const marker = await decisionMarker(`${application.applicationId}\u001f${application.version}\u001fOWNER_CANCEL`);
+  const marker = await decisionMarker(`${application.applicationId}${application.version}OWNER_CANCEL`);
   return {
     idempotencyKey: `owner-registration-cancel:${marker}`,
     correlationId: `owner-registration-cancel:${marker}:${crypto.randomUUID()}`,
