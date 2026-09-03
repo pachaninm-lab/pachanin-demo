@@ -17,7 +17,9 @@
     "apps/api/src/modules/saga/saga.controller.ts",
     "apps/api/src/modules/saga/dto/saga-reason.dto.ts",
     "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
-    "apps/api/src/modules/settlement-engine/dto/revoke-bank-key.dto.ts"
+    "apps/api/src/modules/settlement-engine/dto/revoke-bank-key.dto.ts",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
   ],
   "requiredInvariants": [
     "V2.2.1 and V2.2.2 are NOT claimed and stay FAIL. A gate that stops the debt growing is not a fix for the debt, and three converted endpoints out of ninety-five are not a closed requirement. Recording a ratchet as a PASS would be exactly the substitution this programme forbids.",
@@ -33,6 +35,7 @@
     "Thirteen cases in scripts/security/verify-request-validation-coverage.test.mjs, run against a real temporary git repository rather than a faked file list, because the scanner reads tracked files and a fake would test a path production never takes. They cover: at baseline passes; one more in a file fails; a brand new file fails at its implicit zero; moving a parameter between files fails though the total is unchanged; downgrading a DTO fails on the floor; Record and any count as unvalidated; shrinking passes and asks to tighten; converting passes and asks to raise the floor; a missing floor, a missing per-file map, a non-integer count and an unreadable baseline all FAIL_CLOSED; and an untracked file is not scanned.",
     "Three endpoints converted, chosen for being the lowest risk rather than the largest number: saga pause, saga skip and settlement bank-key revoke, all free-text reason fields. Debt moves 95 -> 92 and DTO coverage 96 -> 99, and the ratchet's own tighten notes fired before the baseline was updated, which is the gate proving itself.",
     "The V2.2.1 and V2.2.2 decisions survive this change, checked rather than assumed: both carry PRESENT_AT_PATH conditions on saga.controller.ts and partner-api.controller.ts requiring an inline body type to still be there, and three inline literals remain in each. verify-decision-evidence exit 0, matrix unchanged at PASS 126 / FAIL 93 / NOT_APPLICABLE 88 / NOT_ASSESSED 38. HAZARD for the next pass, recorded here because it already bit V3.5.1 once: converting the LAST inline literal out of either of those two files makes the condition false and revokes the decision, dropping the requirement to NOT_ASSESSED, which is worse than FAIL. Re-point the decision in the same pass that removes the last one.",
-    "api tsc --noEmit exit 0 with the repository toolchain (npx pulls a newer TypeScript that fails on the tsconfig's own deprecated baseUrl, which is unrelated to this change). Saga, settlement-engine and the new validation suite: 41 tests, all passing. guard 0. verify-decision-evidence 0."
+    "api tsc --noEmit exit 0 with the repository toolchain (npx pulls a newer TypeScript that fails on the tsconfig's own deprecated baseUrl, which is unrelated to this change). Saga, settlement-engine and the new validation suite: 41 tests, all passing. guard 0. verify-decision-evidence 0.",
+    "The two new DTO files are tracked source, so the cryptographic inventory's scanned-file count moved and its own staleness test failed before this was pushed - 2202 vs 2204. Regenerated with scripts/security/discover-cryptography.mjs, never hand-edited. The same regeneration also picks up drift that main already carried and that #4944 and #4957 fix; whichever lands first, the others re-run the tool on merge."
   ]
 }
