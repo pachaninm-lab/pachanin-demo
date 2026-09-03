@@ -90,7 +90,8 @@ export class RoleEligibilityAdmissionService {
     if (current.policyVersion !== this.eligibilityPolicy.version || current.policyHash !== this.eligibilityPolicy.hash) {
       return this.review(semanticRole, state.policyVersion, current.verdict, 'ROLE_ELIGIBILITY_VERDICT_POLICY_MISMATCH');
     }
-    if (!rule.acceptedVerdicts.includes(current.verdict)) {
+    const acceptedVerdicts = new Set<string>(rule.acceptedVerdicts);
+    if (!acceptedVerdicts.has(current.verdict)) {
       return this.review(semanticRole, state.policyVersion, current.verdict, 'ROLE_ELIGIBILITY_VERDICT_NOT_ACCEPTED');
     }
 
