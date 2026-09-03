@@ -1753,14 +1753,14 @@
       "status": "FAIL",
       "evidence": [
         "apps/web/lib/server-request-security.ts",
-        "unallowlisted:apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts"
+        "unallowlisted:apps/web/app/api/platform-v7/cabinet-session/route.ts"
       ],
       "conditions": [
         {
-          "condition": "the accounting proxy route still forwards a cookie-derived bearer token on POST with no assertCsrf() call and no Fetch Metadata check",
+          "condition": "a cookie-authenticated route with an unsafe method still has no assertCsrf() call and no Fetch Metadata check",
           "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts"
+            "apps/web/app/api/platform-v7/cabinet-session/route.ts"
           ],
           "patterns": [
             "assertcsrf",
@@ -1768,7 +1768,7 @@
           ]
         }
       ],
-      "note": "Corrected on review: the original version of this decision credited assertCsrf() (server-request-security.ts) as this application's CSRF defence and cited its use in a large number of route files as evidence of broad coverage. That mechanism is real and, where it is used, correctly implemented (same-origin check, double-submit cookie, constant-time comparison) - but coverage is the actual question this requirement asks, and it is not comprehensive. Counted directly: 59 route.ts files export a POST/PUT/PATCH/DELETE handler; 36 of them call assertCsrf() or import server-request-security, and 23 do not. The concrete counterexample a reviewer named checks out: apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts reads the pc_access_token cookie, forwards it as an Authorization: Bearer header to the upstream accounting API on POST for a WRITE_PATHS allowlist of mutating operations, and never calls assertCsrf(), assertSameOriginIfPresent(), or checks any Sec-Fetch-* header anywhere in the file. That route's cookie is set with SameSite=Lax rather than Strict for its non-control-plane path (auth-session-response.ts), which does block a classic cross-site form POST from carrying it - a real, if implicit and undocumented, partial mitigation - but SameSite=Lax alone is not the anti-forgery-token or extra-header defence this requirement asks for, and 22 other unsafe-method routes share the same gap without even that backstop confirmed."
+      "note": "Updated after the accounting proxy was closed. The counterexample this decision previously named - apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts - now calls assertCsrf() on POST, and its single frontend caller sends the matching x-csrf-token header, so the condition that revoked this decision no longer holds against that path. The decision is re-pointed rather than dropped, because the requirement still fails. Recounted after that fix: 59 route.ts files export a POST/PUT/PATCH/DELETE handler, 38 call assertCsrf() or import server-request-security, and 21 do not. The named counterexample is now apps/web/app/api/platform-v7/cabinet-session/route.ts, which exports POST, reads the pc_access_token cookie through cookies(), and calls neither assertCsrf() nor assertSameOriginIfPresent() nor any Sec-Fetch-* check. Not every one of the 21 should get a token: several are server-to-server callbacks (a Telegram webhook, a bank callback) where an anti-forgery token is meaningless and would break the caller, and several are unauthenticated public endpoints carrying no ambient credential. The requirement is about routes that act on an ambient cookie credential, and those are the ones still open. Retained from the previous version of this note: assertCsrf() is real and correctly implemented where it is used - same-origin check, double-submit cookie, constant-time comparison - and the access cookie is SameSite=Lax, which does block a classic cross-site form POST. That is a real if implicit mitigation, and it is not the anti-forgery-token or extra-header defence this requirement asks for."
     },
     {
       "requirementId": "V3.5.2",
