@@ -37,6 +37,16 @@
   max-width: 100%;
 }
 
+.p0-register-grid small {
+  color: #65776b;
+}
+
+body:has(.p0-register-page) .pc-public-contact-dock {
+  right: 12px;
+  width: 334px;
+  max-width: calc(100vw - 24px);
+}
+
 .p0-register-consents label {
   position: relative;
   min-height: 44px;
