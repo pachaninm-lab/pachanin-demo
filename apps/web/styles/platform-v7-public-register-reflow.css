@@ -126,4 +126,8 @@ body:has(.p0-register-page) .pc-public-contact-dock {
   .p0-register-header-actions a {
     min-width: 0;
   }
+
+  .p0-register-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
