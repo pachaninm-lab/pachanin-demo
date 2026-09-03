@@ -261,8 +261,29 @@ scripts/security/capture-base-security-jobs.mjs
 scripts/write-deploy-evidence.mjs
 scripts/p7-autopilot-guard.sh'
 
+PUBLIC_REGISTRATION_FINAL_COPY_SCOPE='apps/api/src/modules/auth/consent-policy.spec.ts
+apps/api/src/modules/auth/consent-policy.ts
+apps/api/src/modules/auth/gekta-registration.spec.ts
+apps/api/src/modules/auth/organization-invitation.service.spec.ts
+apps/web/app/platform-v7/invitation/InvitationAcceptClient.tsx
+apps/web/app/platform-v7/mfa-recovery/MfaRecoveryClient.tsx
+apps/web/app/platform-v7/mfa-recovery/page.tsx
+apps/web/app/platform-v7/oferta/page.tsx
+apps/web/app/platform-v7/privacy/page.tsx
+apps/web/app/platform-v7/register/RegisterFormClient.tsx
+apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx
+apps/web/app/platform-v7/terms/page.tsx
+apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts
+apps/web/tests/unit/platformV7PublicLegalRecoveryCopy.test.ts
+docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/exact-approved-header-logo" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "fix/public-registration-final-copy-4916" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_REGISTRATION_FINAL_COPY_SCOPE")
 fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/public-home-typography" ]; then

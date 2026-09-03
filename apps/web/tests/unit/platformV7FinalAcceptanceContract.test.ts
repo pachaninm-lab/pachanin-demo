@@ -134,8 +134,8 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
       '/api/auth/registration/status?token=',
       'idempotency-key',
       'applyCsrfHeader',
-      "termsVersion: '2026-07-31'",
-      "privacyVersion: '2026-07-31'",
+      "termsVersion: '2026-09-03'",
+      "privacyVersion: '2026-09-03'",
     ]) expect(registrationClient).toContain(marker);
     expect(registrationClient).not.toContain('role:');
     expect(registrationClient).not.toContain('requestedRole');
