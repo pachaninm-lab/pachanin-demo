@@ -2,7 +2,9 @@
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 
-const DATASET_ROOT = 'https://opendata.mcx.ru/opendata/7708075454-zerno';
+const DATASET_PATH = '/opendata/7708075454-zerno';
+const HTTPS_ROOT = `https://opendata.mcx.ru${DATASET_PATH}`;
+const HTTP_ROOT = `http://opendata.mcx.ru${DATASET_PATH}`;
 const ALLOWED_HOSTS = new Set(['opendata.mcx.ru']);
 const MAX_DISCOVERY_BYTES = 4 * 1024 * 1024;
 const MAX_SCHEMA_BYTES = 8 * 1024 * 1024;
@@ -17,9 +19,22 @@ function decode(buffer) {
   return text.replace(/^\uFEFF/, '');
 }
 
+function errorInfo(error, fallback = 'FGIS_PROBE_UNKNOWN') {
+  const cause = error && typeof error === 'object' ? error.cause : null;
+  return {
+    errorCode: error instanceof Error ? error.message : fallback,
+    errorName: error instanceof Error ? error.name : null,
+    causeCode: cause && typeof cause === 'object' ? String(cause.code || '') || null : null,
+    causeMessage: cause && typeof cause === 'object' ? String(cause.message || '') || null : null,
+    causeErrno: cause && typeof cause === 'object' && cause.errno != null ? String(cause.errno) : null,
+    causeSyscall: cause && typeof cause === 'object' ? String(cause.syscall || '') || null : null,
+    causeHostname: cause && typeof cause === 'object' ? String(cause.hostname || '') || null : null,
+  };
+}
+
 function normalizeOfficialUrl(raw) {
   const decoded = String(raw || '').replace(/&amp;/g, '&').trim();
-  const url = new URL(decoded, `${DATASET_ROOT}/`);
+  const url = new URL(decoded, `${HTTPS_ROOT}/`);
   if (!ALLOWED_HOSTS.has(url.hostname)) throw new Error('FGIS_PROBE_HOST_NOT_ALLOWLISTED');
   if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('FGIS_PROBE_SCHEME_UNSUPPORTED');
   url.hash = '';
@@ -43,7 +58,7 @@ async function fetchBounded(initialUrl, maxBytes) {
         redirect: 'manual',
         signal: controller.signal,
         headers: {
-          'user-agent': 'pc-crop-role-eligibility-source-contract-probe/1.0',
+          'user-agent': 'pc-crop-role-eligibility-source-contract-probe/2.0',
           accept: 'text/html,application/xml,text/xml,text/csv,application/zip,application/octet-stream;q=0.8,*/*;q=0.1',
         },
       });
@@ -74,6 +89,7 @@ async function fetchBounded(initialUrl, maxBytes) {
     return {
       requestedUrl: String(initialUrl),
       finalUrl: current.toString(),
+      transport: current.protocol === 'https:' ? 'HTTPS' : 'HTTP',
       status: response.status,
       contentType: String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase(),
       contentLength: body.length,
@@ -97,7 +113,7 @@ function extractOfficialLinks(text) {
       const raw = match[1] || match[0];
       try {
         const url = normalizeOfficialUrl(raw);
-        if (!url.pathname.startsWith('/opendata/7708075454-zerno/')) continue;
+        if (!url.pathname.startsWith(`${DATASET_PATH}/`)) continue;
         if (!/(?:\/data-|\/structure-)/.test(url.pathname)) continue;
         found.add(url.toString());
       } catch {
@@ -131,10 +147,24 @@ function inspectCsvHeader(text) {
   return first.split(delimiter).map((value) => value.replace(/^"|"$/g, '').trim()).filter(Boolean).slice(0, 100);
 }
 
+async function firstSuccessful(candidates, maxBytes) {
+  const attempts = [];
+  for (const candidate of candidates) {
+    try {
+      const probe = await fetchBounded(candidate, maxBytes);
+      attempts.push({ url: candidate, status: probe.status, transport: probe.transport, finalUrl: probe.finalUrl });
+      return { probe, attempts };
+    } catch (error) {
+      attempts.push({ url: candidate, ...errorInfo(error) });
+    }
+  }
+  return { probe: null, attempts };
+}
+
 const output = {
-  schemaVersion: 'role-eligibility-fgis-source-contract-probe.v1',
+  schemaVersion: 'role-eligibility-fgis-source-contract-probe.v2',
   source: 'FGIS_GRAIN',
-  authorityRoot: DATASET_ROOT,
+  authorityRoot: HTTPS_ROOT,
   mode: 'READ_ONLY_EXTERNAL_OBSERVATION',
   productionDatabaseMutation: 0,
   registrationTouched: false,
@@ -142,10 +172,12 @@ const output = {
   discoveredLinks: [],
   data: null,
   structure: null,
+  contractStatus: 'UNRESOLVED',
+  productionTransportEligible: false,
 };
 
 try {
-  const discoveryUrls = [DATASET_ROOT, `${DATASET_ROOT}/meta.xml`];
+  const discoveryUrls = [HTTPS_ROOT, HTTP_ROOT, `${HTTPS_ROOT}/meta.xml`, `${HTTP_ROOT}/meta.xml`];
   const discovered = new Set();
   for (const url of discoveryUrls) {
     try {
@@ -155,13 +187,14 @@ try {
       output.probes.push({
         requestedUrl: probe.requestedUrl,
         finalUrl: probe.finalUrl,
+        transport: probe.transport,
         status: probe.status,
         contentType: probe.contentType,
         contentLength: probe.contentLength,
         sha256: probe.sha256,
       });
     } catch (error) {
-      output.probes.push({ requestedUrl: url, errorCode: error instanceof Error ? error.message : 'FGIS_PROBE_UNKNOWN' });
+      output.probes.push({ requestedUrl: url, ...errorInfo(error) });
     }
   }
 
@@ -178,45 +211,72 @@ try {
   const structureCandidate = output.discoveredLinks.find((entry) => entry.kind === 'STRUCTURE');
 
   if (structureCandidate) {
-    try {
-      const probe = await fetchBounded(structureCandidate.secureUrl, MAX_SCHEMA_BYTES);
+    const { probe, attempts } = await firstSuccessful(
+      [...new Set([structureCandidate.secureUrl, structureCandidate.publishedUrl])],
+      MAX_SCHEMA_BYTES,
+    );
+    if (probe) {
       const text = decode(probe.body);
       output.structure = {
         finalUrl: probe.finalUrl,
+        transport: probe.transport,
         contentType: probe.contentType,
         contentLength: probe.contentLength,
         sha256: probe.sha256,
         xmlSchema: inspectXmlSchema(text),
+        attempts,
       };
-    } catch (error) {
-      output.structure = { errorCode: error instanceof Error ? error.message : 'FGIS_PROBE_STRUCTURE_UNKNOWN' };
+    } else {
+      output.structure = { errorCode: 'FGIS_PROBE_STRUCTURE_FETCH_FAILED', attempts };
     }
+  } else {
+    output.structure = { errorCode: 'FGIS_PROBE_STRUCTURE_LINK_NOT_DISCOVERED' };
   }
 
   if (dataCandidate) {
-    try {
-      const probe = await fetchBounded(dataCandidate.secureUrl, MAX_DATA_BYTES);
+    const { probe, attempts } = await firstSuccessful(
+      [...new Set([dataCandidate.secureUrl, dataCandidate.publishedUrl])],
+      MAX_DATA_BYTES,
+    );
+    if (probe) {
       const magic = probe.body.subarray(0, 8).toString('hex');
       const text = /xml|csv|text/.test(probe.contentType) ? decode(probe.body) : '';
       output.data = {
         finalUrl: probe.finalUrl,
+        transport: probe.transport,
         contentType: probe.contentType,
         contentLength: probe.contentLength,
         sha256: probe.sha256,
         magic,
         xmlShape: text && (probe.contentType.includes('xml') || /^\s*<\?xml|^\s*</.test(text)) ? inspectXmlSchema(text) : null,
         csvHeader: text && (probe.contentType.includes('csv') || /[,;]/.test(text.split(/\r?\n/, 1)[0] || '')) ? inspectCsvHeader(text) : [],
+        attempts,
       };
       writeFileSync('fgis-dataset-sample.bin', probe.body);
-    } catch (error) {
-      output.data = { errorCode: error instanceof Error ? error.message : 'FGIS_PROBE_DATA_UNKNOWN' };
+    } else {
+      output.data = { errorCode: 'FGIS_PROBE_DATA_FETCH_FAILED', attempts };
     }
+  } else {
+    output.data = { errorCode: 'FGIS_PROBE_DATA_LINK_NOT_DISCOVERED' };
   }
 
-  if (!dataCandidate) output.data = { errorCode: 'FGIS_PROBE_DATA_LINK_NOT_DISCOVERED' };
-  if (!structureCandidate) output.structure = { errorCode: 'FGIS_PROBE_STRUCTURE_LINK_NOT_DISCOVERED' };
+  const dataHttps = output.data?.transport === 'HTTPS';
+  const structureHttps = output.structure?.transport === 'HTTPS';
+  const dataObserved = Boolean(output.data?.transport);
+  const structureObserved = Boolean(output.structure?.transport);
+  if (dataHttps && structureHttps) {
+    output.contractStatus = 'PROVEN_HTTPS_TRANSPORT_SHAPE_OBSERVED';
+    output.productionTransportEligible = true;
+  } else if (dataObserved && structureObserved) {
+    output.contractStatus = 'OBSERVED_BUT_INSECURE_TRANSPORT';
+  } else if (output.probes.some((probe) => probe.status)) {
+    output.contractStatus = 'PASSPORT_REACHABLE_DATA_CONTRACT_UNRESOLVED';
+  } else {
+    output.contractStatus = 'OFFICIAL_HOST_UNREACHABLE_FROM_RUNNER';
+  }
 } catch (error) {
-  output.fatalErrorCode = error instanceof Error ? error.message : 'FGIS_PROBE_FATAL_UNKNOWN';
+  output.fatalError = errorInfo(error, 'FGIS_PROBE_FATAL_UNKNOWN');
+  output.contractStatus = 'PROBE_FATAL';
 }
 
 process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
