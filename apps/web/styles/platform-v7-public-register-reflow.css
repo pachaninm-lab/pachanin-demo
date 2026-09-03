@@ -1,0 +1,54 @@
+.p0-register-page,
+.p0-register-page *,
+.p0-register-page *::before,
+.p0-register-page *::after {
+  box-sizing: border-box;
+}
+
+.p0-register-page,
+.p0-register-shell,
+.p0-register-header,
+.p0-register-hero,
+.p0-register-form,
+.p0-register-card,
+.p0-register-grid,
+.p0-register-grid label,
+.p0-register-password-control,
+.p0-register-actions,
+.p0-register-additional-form {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.p0-register-grid input,
+.p0-register-grid select,
+.p0-register-additional-form textarea,
+.p0-register-password-control input {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 680px) {
+  .p0-register-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .p0-register-brand span {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .p0-register-header-actions {
+    flex: 0 0 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+
+  .p0-register-header-actions a {
+    min-width: 0;
+  }
+}
