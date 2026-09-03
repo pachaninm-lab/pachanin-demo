@@ -171,27 +171,19 @@ export class RegistrationCancellationService {
     const sessionId = String(owner.sessionId || '').trim();
     if (!sessionId) throw new ForbiddenException({ code: 'FORBIDDEN' });
     const rows = await client.$queryRaw<Array<{ authorized: boolean }>>(Prisma.sql`
-      SELECT EXISTS (
-        SELECT 1
-        FROM auth.sessions session
-        JOIN auth.staff_assignments assignment ON assignment.user_id = session.user_id
-        JOIN public."users" actor ON actor."id" = session.user_id
-        WHERE session.id = ${sessionId}
-          AND session.user_id = ${owner.id}
-          AND session.status = 'ACTIVE'
-          AND session.revoked_at IS NULL
-          AND session.expires_at > NOW()
-          AND session.mfa_verified_at IS NOT NULL
-          AND session.mfa_verified_at >= NOW() - INTERVAL '15 minutes'
-          AND session.mfa_verified_at <= NOW() + INTERVAL '30 seconds'
-          AND assignment.status = 'ACTIVE'
-          AND assignment.role = 'PLATFORM_OWNER'
-          AND assignment.revoked_at IS NULL
-          AND assignment.suspended_at IS NULL
-          AND assignment.valid_from <= NOW()
-          AND (assignment.valid_until IS NULL OR assignment.valid_until > NOW())
-          AND actor."status" = 'ACTIVE'
-          AND actor."deletedAt" IS NULL
+      SELECT (
+        auth.registration_platform_actor_authorized(${owner.id}, ${sessionId})
+        AND EXISTS (
+          SELECT 1
+          FROM auth.staff_assignments assignment
+          WHERE assignment.user_id = ${owner.id}
+            AND assignment.status = 'ACTIVE'
+            AND assignment.role = 'PLATFORM_OWNER'
+            AND assignment.revoked_at IS NULL
+            AND assignment.suspended_at IS NULL
+            AND assignment.valid_from <= NOW()
+            AND (assignment.valid_until IS NULL OR assignment.valid_until > NOW())
+        )
       ) AS authorized
     `);
     if (!rows[0]?.authorized) throw new ForbiddenException({ code: 'FORBIDDEN' });
