@@ -137,7 +137,7 @@ const assertSafeShape = (value) => {
     `);
 
     const sourceHealthRows = await tx.$queryRawUnsafe(`
-      SELECT source, status, circuit_state,
+      SELECT source, status, circuit_state, last_error_code,
              CASE
                WHEN fresh_until IS NULL THEN 'UNKNOWN'
                WHEN fresh_until > clock_timestamp() THEN 'FRESH'
@@ -211,6 +211,7 @@ const assertSafeShape = (value) => {
         circuitState: row.circuit_state,
         freshness: row.freshness,
         consecutiveFailures: asCount(row.consecutive_failures),
+        errorCode: row.last_error_code,
       })),
       policyVersions: mapCounts(policyRows, ['policy_version']),
       integrity: {
