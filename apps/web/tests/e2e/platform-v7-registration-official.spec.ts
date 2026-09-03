@@ -2,11 +2,36 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 async function expectNoHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => Math.max(
-    document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    document.body.scrollWidth - document.body.clientWidth,
-  ));
-  expect(overflow).toBeLessThanOrEqual(1);
+  const metrics = await page.evaluate(() => {
+    const viewportWidth = document.documentElement.clientWidth;
+    const overflow = Math.max(
+      document.documentElement.scrollWidth - viewportWidth,
+      document.body.scrollWidth - document.body.clientWidth,
+    );
+    const offenders = Array.from(document.querySelectorAll<HTMLElement>('body *'))
+      .map((node) => {
+        const box = node.getBoundingClientRect();
+        const style = window.getComputedStyle(node);
+        return {
+          tag: node.tagName.toLowerCase(),
+          className: typeof node.className === 'string' ? node.className : '',
+          name: node.getAttribute('name') || '',
+          display: style.display,
+          visibility: style.visibility,
+          left: Math.round(box.left * 100) / 100,
+          right: Math.round(box.right * 100) / 100,
+          width: Math.round(box.width * 100) / 100,
+          scrollWidth: node.scrollWidth,
+          clientWidth: node.clientWidth,
+        };
+      })
+      .filter((item) => item.display !== 'none' && item.visibility !== 'hidden')
+      .filter((item) => item.left < -1 || item.right > viewportWidth + 1 || item.scrollWidth > item.clientWidth + 1)
+      .sort((a, b) => Math.max(b.right - viewportWidth, b.scrollWidth - b.clientWidth) - Math.max(a.right - viewportWidth, a.scrollWidth - a.clientWidth))
+      .slice(0, 12);
+    return { overflow, viewportWidth, bodyScrollWidth: document.body.scrollWidth, documentScrollWidth: document.documentElement.scrollWidth, offenders };
+  });
+  expect(metrics.overflow, `horizontal overflow diagnostics: ${JSON.stringify(metrics, null, 2)}`).toBeLessThanOrEqual(1);
 }
 
 async function expectMinimumTargets(page: Page, selector: string) {
