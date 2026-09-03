@@ -298,7 +298,9 @@ async function postBulkAdvisories(payload) {
           'user-agent': `prozrachnaya-cena-security-gate/1 node/${process.version}`,
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUTS_MS[attempt - 1]),
+        signal: attempt === 1
+          ? AbortSignal.timeout(30_000)
+          : AbortSignal.timeout(REQUEST_TIMEOUTS_MS[attempt - 1]),
       });
       const bytes = await readBoundedBody(response, MAX_COMPRESSED_BYTES);
       if (!response.ok) {
