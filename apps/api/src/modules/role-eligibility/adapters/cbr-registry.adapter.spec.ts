@@ -1,4 +1,4 @@
-import { parseCbrAuthorityRow } from './cbr-registry.adapter';
+import { deduplicateCbrAuthorityRecords, parseCbrAuthorityRow } from './cbr-registry.adapter';
 
 describe('CBR Role Eligibility authority row parsing', () => {
   it('skips official legacy liquidated rows that have no OGRN', () => {
@@ -51,5 +51,63 @@ describe('CBR Role Eligibility authority row parsing', () => {
         licenseValid: true,
       },
     });
+  });
+
+  it('collapses repeated official rows only when normalized authority evidence is identical', () => {
+    const first = parseCbrAuthorityRow([
+      '1',
+      '',
+      '2659',
+      '1022200531484',
+      'ООО КБ "Алтайкапиталбанк"',
+      'ООО (Паевое)',
+      '21.01.1994',
+      'Действующая',
+      '656043, Алтайский край',
+    ]);
+    const repeated = parseCbrAuthorityRow([
+      '2',
+      '',
+      '2659',
+      '1022200531484',
+      'ООО КБ "Алтайкапиталбанк"',
+      'ООО (Паевое)',
+      '21.01.1994',
+      'Действующая',
+      '656043, Алтайский край',
+    ]);
+
+    expect(first).not.toBeNull();
+    expect(repeated).not.toBeNull();
+    expect(deduplicateCbrAuthorityRecords([first!, repeated!])).toEqual([first]);
+  });
+
+  it('fails closed when the same CBR source identity carries conflicting authority evidence', () => {
+    const active = parseCbrAuthorityRow([
+      '1',
+      '',
+      '2659',
+      '1022200531484',
+      'ООО КБ "Алтайкапиталбанк"',
+      'ООО (Паевое)',
+      '21.01.1994',
+      'Действующая',
+      '656043, Алтайский край',
+    ]);
+    const revoked = parseCbrAuthorityRow([
+      '2',
+      '',
+      '2659',
+      '1022200531484',
+      'ООО КБ "Алтайкапиталбанк"',
+      'ООО (Паевое)',
+      '21.01.1994',
+      'Отозванная',
+      '656043, Алтайский край',
+    ]);
+
+    expect(active).not.toBeNull();
+    expect(revoked).not.toBeNull();
+    expect(() => deduplicateCbrAuthorityRecords([active!, revoked!])).toThrow('CBR_DUPLICATE_SOURCE_RECORD_CONFLICT');
   });
 });

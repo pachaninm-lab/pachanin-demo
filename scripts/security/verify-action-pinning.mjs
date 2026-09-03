@@ -94,6 +94,21 @@ function main() {
   console.log(`  local actions          ${scan.local.length}`);
   console.log(`  baseline ceiling       ${allowed}`);
 
+  // The pinned count is a floor, the mirror of the floating ceiling.
+  //
+  // It was written by --update-baseline and never read, so it asserted nothing.
+  // The ceiling alone does not cover unpinning: turning one SHA back into a tag
+  // raises floating by one AND lowers pinned by one, so the ceiling catches it -
+  // but unpinning one action while deleting another floating reference in the
+  // same change leaves floating exactly at the ceiling and passes, with the
+  // pinned count quietly one lower. That is the case this floor catches.
+  const requiredPinned = Number(baseline.pinnedReferences);
+  if (!Number.isInteger(requiredPinned) || requiredPinned < 0) {
+    console.error('ACTION_PINNING: FAIL_CLOSED - baseline pinnedReferences is not a non-negative integer');
+    return 1;
+  }
+  console.log(`  baseline pinned floor  ${requiredPinned}`);
+
   const failures = [];
 
   for (const item of scan.floatingBranch) {
@@ -104,14 +119,25 @@ function main() {
     failures.push(`floating references rose from ${allowed} to ${floatingTotal}; new actions must be pinned to a commit SHA`);
   }
 
+  if (scan.pinned.length < requiredPinned) {
+    failures.push(`pinned references fell from ${requiredPinned} to ${scan.pinned.length}; an action already pinned to a commit SHA must not be unpinned`);
+  }
+
   if (failures.length > 0) {
     console.error('\nACTION_PINNING: FAIL_CLOSED');
     for (const failure of failures) console.error(`  - ${failure}`);
     return 1;
   }
 
+  // The floating note keeps its exact wording: verify-action-pinning.test.mjs
+  // asserts on it, and rewording a line a test matches on is a break, not a
+  // tidy-up. The pinned slack gets its own line instead.
   if (floatingTotal < allowed) {
     console.log(`\n  note: floating references fell to ${floatingTotal}; run --update-baseline to tighten the ratchet.`);
+  }
+
+  if (scan.pinned.length > requiredPinned) {
+    console.log(`  note: pinned references rose to ${scan.pinned.length}; run --update-baseline to tighten the ratchet.`);
   }
 
   console.log('\nACTION_PINNING: WITHIN_BASELINE');
