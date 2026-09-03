@@ -42,6 +42,18 @@
 .form button,
 .state button { min-height: 48px; padding: 11px 16px; border: 0; border-radius: 12px; background: #155b41; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
 .form button:disabled { cursor: wait; opacity: .55; }
+.destructiveZone { display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 14px; border-top: 1px solid #f0d2d0; }
+.destructiveButton,
+.confirmDeleteButton { min-height: 46px; padding: 11px 16px; border: 0; border-radius: 12px; background: #b42318; color: #fff; font: inherit; font-weight: 850; cursor: pointer; }
+.destructiveButton:disabled,
+.confirmDeleteButton:disabled,
+.cancelButton:disabled { cursor: wait; opacity: .55; }
+.confirmOverlay { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: rgba(16, 35, 29, .58); }
+.confirmDialog { width: min(100%, 560px); padding: clamp(20px, 4vw, 28px); border: 1px solid #e5c0bd; border-radius: 20px; background: #fff; box-shadow: 0 24px 80px rgba(13, 31, 25, .28); }
+.confirmDialog h3 { margin: 0; font-size: clamp(21px, 3vw, 28px); line-height: 1.25; }
+.confirmDialog p { margin: 12px 0 0; color: #5f4a48; line-height: 1.55; }
+.confirmActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.cancelButton { min-height: 46px; padding: 11px 16px; border: 1px solid #a9bdb4; border-radius: 12px; background: #fff; color: #10231d; font: inherit; font-weight: 800; cursor: pointer; }
 .state,
 .success,
 .error { margin: 18px 0 0; padding: 14px 16px; border-radius: 14px; line-height: 1.5; }
@@ -60,11 +72,20 @@
   .summary { display: grid; }
   .summary > span { text-align: left; }
   .form button { width: 100%; min-height: 54px; }
+  .destructiveZone { justify-content: stretch; }
+  .destructiveButton { width: 100%; min-height: 54px; }
+  .confirmActions { display: grid; grid-template-columns: 1fr; }
+  .cancelButton,
+  .confirmDeleteButton { width: 100%; min-height: 52px; }
 }
 
 @media (forced-colors: active) {
   .surface,
   .card,
   .form select,
-  .form textarea { border: 1px solid CanvasText; }
+  .form textarea,
+  .confirmDialog,
+  .destructiveButton,
+  .cancelButton,
+  .confirmDeleteButton { border: 1px solid CanvasText; }
 }

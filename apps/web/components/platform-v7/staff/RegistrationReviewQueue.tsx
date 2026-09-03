@@ -56,7 +56,21 @@ type DecisionResponse = QueueResponse & {
   notificationDelivered?: boolean;
 };
 
+type CancelResponse = {
+  applicationId?: string;
+  status?: string;
+  replayed?: boolean;
+  code?: string;
+  message?: string;
+};
+
+type StaffSessionContextResponse = {
+  active?: boolean;
+  session?: { staffRole?: string } | null;
+};
+
 const P0_ACCEPTANCE_LEGAL_NAME_PREFIX = 'Production P0 exact-run organization ';
+const OWNER_CANCEL_REASON = 'Удалено владельцем из очереди';
 
 const COPY = {
   ru: {
@@ -83,6 +97,16 @@ const COPY = {
     decide: 'Зафиксировать решение',
     deciding: 'Фиксируем…',
     success: 'Решение записано. Заявка обновлена.',
+    deleteApplication: 'Удалить заявку',
+    deletingApplication: 'Удаляем…',
+    deleteConfirm: (organization: string) => `Удалить заявку «${organization}»?`,
+    deleteWarning: 'Заявка исчезнет из рабочей очереди. Действие будет записано в журнале аудита.',
+    cancel: 'Отмена',
+    deleteSuccess: 'Заявка удалена из очереди.',
+    freshMfa: 'Подтвердите действие через MFA.',
+    activatedDeleteDenied: 'Активированную заявку удалить нельзя.',
+    versionConflict: 'Заявка изменилась. Очередь обновлена.',
+    deleteForbidden: 'Операция недоступна.',
     decisions: {
       APPROVE: 'Одобрить и активировать',
       REQUEST_INFORMATION: 'Запросить уточнение',
@@ -114,6 +138,16 @@ const COPY = {
     decide: 'Record decision',
     deciding: 'Recording…',
     success: 'The decision was recorded and the queue was refreshed.',
+    deleteApplication: 'Delete application',
+    deletingApplication: 'Deleting…',
+    deleteConfirm: (organization: string) => `Delete application “${organization}”?`,
+    deleteWarning: 'The application will disappear from the working queue. The action will remain in the audit log.',
+    cancel: 'Cancel',
+    deleteSuccess: 'Application removed from the queue.',
+    freshMfa: 'Confirm this action with MFA.',
+    activatedDeleteDenied: 'An activated application cannot be deleted.',
+    versionConflict: 'The application changed. The queue was refreshed.',
+    deleteForbidden: 'This operation is unavailable.',
     decisions: {
       APPROVE: 'Approve and activate',
       REQUEST_INFORMATION: 'Request information',
@@ -145,6 +179,16 @@ const COPY = {
     decide: '记录决定',
     deciding: '正在记录…',
     success: '决定已记录，队列已更新。',
+    deleteApplication: '删除申请',
+    deletingApplication: '正在删除…',
+    deleteConfirm: (organization: string) => `删除申请“${organization}”？`,
+    deleteWarning: '该申请将从工作队列中消失，此操作会记录在审计日志中。',
+    cancel: '取消',
+    deleteSuccess: '申请已从队列中删除。',
+    freshMfa: '请通过 MFA 确认此操作。',
+    activatedDeleteDenied: '已激活的申请不能删除。',
+    versionConflict: '申请已发生变化，队列已刷新。',
+    deleteForbidden: '此操作不可用。',
     decisions: {
       APPROVE: '批准并激活',
       REQUEST_INFORMATION: '请求补充信息',
@@ -176,10 +220,18 @@ async function ordinaryDecisionHeaders(
   version: string,
   decision: ReviewDecision,
 ) {
-  const marker = await decisionMarker(`${applicationId}${version}${decision}`);
+  const marker = await decisionMarker(`${applicationId}\u001f${version}\u001f${decision}`);
   return {
     idempotencyKey: `registration-review:${marker}:${decision.toLowerCase()}`,
     correlationId: `registration-review:${marker}:${crypto.randomUUID()}`,
+  };
+}
+
+async function cancellationHeaders(applicationId: string, version: string) {
+  const marker = await decisionMarker(`${applicationId}\u001f${version}\u001fOWNER_CANCEL`);
+  return {
+    idempotencyKey: `registration-cancel:${marker}`,
+    correlationId: `registration-cancel:${marker}:${crypto.randomUUID()}`,
   };
 }
 
@@ -190,6 +242,8 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ownerCanCancel, setOwnerCanCancel] = useState(false);
+  const [pendingCancel, setPendingCancel] = useState<ReviewApplication | null>(null);
 
   async function load(signal?: AbortSignal) {
     setState('loading');
@@ -203,6 +257,7 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
       });
       const payload = await response.json().catch(() => ({})) as QueueResponse;
       if (response.status === 403) {
+        setOwnerCanCancel(false);
         setState('forbidden');
         return;
       }
@@ -211,8 +266,27 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
       }
       setApplications(payload.applications);
       setState('ready');
+
+      try {
+        const sessionResponse = await fetch('/api/staff/session-context', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal,
+        });
+        const sessionPayload = await sessionResponse.json().catch(() => ({})) as StaffSessionContextResponse;
+        setOwnerCanCancel(
+          sessionResponse.ok
+          && sessionPayload.active === true
+          && sessionPayload.session?.staffRole === 'PLATFORM_OWNER',
+        );
+      } catch (sessionError) {
+        if (sessionError instanceof DOMException && sessionError.name === 'AbortError') return;
+        setOwnerCanCancel(false);
+      }
     } catch (loadError) {
       if (loadError instanceof DOMException && loadError.name === 'AbortError') return;
+      setOwnerCanCancel(false);
       setError(loadError instanceof Error ? loadError.message : copy.unavailable);
       setState('unavailable');
     }
@@ -295,6 +369,71 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
       formElement.reset();
     } catch (decisionError) {
       setError(decisionError instanceof Error ? decisionError.message : copy.unavailable);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function cancelApplication(application: ReviewApplication) {
+    if (busyId || !ownerCanCancel) return;
+    setBusyId(application.applicationId);
+    setError(null);
+    setNotice(null);
+    try {
+      const headers = await cancellationHeaders(application.applicationId, application.version);
+      const response = await fetch(
+        `/api/staff/registration/applications/${encodeURIComponent(application.applicationId)}/cancel`,
+        {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+            'Idempotency-Key': headers.idempotencyKey,
+            'X-Correlation-Id': headers.correlationId,
+          },
+          body: JSON.stringify({ reason: OWNER_CANCEL_REASON }),
+        },
+      );
+      const payload = await response.json().catch(() => ({})) as CancelResponse;
+      if (!response.ok) {
+        if (payload.code === 'FRESH_MFA_REQUIRED') {
+          setError(copy.freshMfa);
+          return;
+        }
+        if (payload.code === 'APPLICATION_ALREADY_ACTIVATED') {
+          setPendingCancel(null);
+          setError(copy.activatedDeleteDenied);
+          return;
+        }
+        if (payload.code === 'REGISTRATION_VERSION_CONFLICT') {
+          setPendingCancel(null);
+          await load();
+          setError(copy.versionConflict);
+          return;
+        }
+        if (response.status === 403) {
+          setPendingCancel(null);
+          setOwnerCanCancel(false);
+          setError(copy.deleteForbidden);
+          return;
+        }
+        throw new Error(payload.message || payload.code || copy.unavailable);
+      }
+      if (
+        payload.applicationId !== application.applicationId
+        || payload.status !== 'CANCELLED'
+        || typeof payload.replayed !== 'boolean'
+      ) {
+        throw new Error(copy.unavailable);
+      }
+      setApplications((current) => current.filter((item) => item.applicationId !== application.applicationId));
+      setPendingCancel(null);
+      setNotice(copy.deleteSuccess);
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : copy.unavailable);
     } finally {
       setBusyId(null);
     }
@@ -383,8 +522,54 @@ export function RegistrationReviewQueue({ locale, csrfToken }: { locale: AppLoca
                   {busyId === application.applicationId ? copy.deciding : copy.decide}
                 </button>
               </form>
+              {ownerCanCancel ? (
+                <div className={styles.destructiveZone}>
+                  <button
+                    type="button"
+                    className={styles.destructiveButton}
+                    disabled={!csrfToken || busyId !== null}
+                    onClick={() => setPendingCancel(application)}
+                  >
+                    {copy.deleteApplication}
+                  </button>
+                </div>
+              ) : null}
             </article>
           ))}
+        </div>
+      ) : null}
+
+      {pendingCancel ? (
+        <div className={styles.confirmOverlay}>
+          <div
+            className={styles.confirmDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`cancel-registration-title-${pendingCancel.applicationId}`}
+          >
+            <h3 id={`cancel-registration-title-${pendingCancel.applicationId}`}>
+              {copy.deleteConfirm(pendingCancel.organization.legalName || pendingCancel.organization.name)}
+            </h3>
+            <p>{copy.deleteWarning}</p>
+            <div className={styles.confirmActions}>
+              <button
+                type="button"
+                className={styles.cancelButton}
+                disabled={busyId !== null}
+                onClick={() => setPendingCancel(null)}
+              >
+                {copy.cancel}
+              </button>
+              <button
+                type="button"
+                className={styles.confirmDeleteButton}
+                disabled={!csrfToken || busyId !== null}
+                onClick={() => void cancelApplication(pendingCancel)}
+              >
+                {busyId === pendingCancel.applicationId ? copy.deletingApplication : copy.deleteApplication}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </section>

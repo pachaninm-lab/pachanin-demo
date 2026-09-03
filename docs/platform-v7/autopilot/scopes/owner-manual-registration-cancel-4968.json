@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/owner-manual-registration-cancel",
+  "status": "active",
+  "title": "Owner-only manual registration application cancellation",
+  "allowedPaths": [
+    "apps/api/src/modules/staff-access/registration-application-cancellation.controller.ts",
+    "apps/api/src/modules/staff-access/registration-application-cancellation.service.spec.ts",
+    "apps/api/src/modules/staff-access/registration-application-cancellation.service.ts",
+    "apps/api/src/modules/staff-access/staff-access.module.ts",
+    "apps/web/app/api/staff/registration/applications/[applicationId]/cancel/route.ts",
+    "apps/web/components/platform-v7/staff/RegistrationReviewQueue.module.css",
+    "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx",
+    "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+    "docs/platform-v7/autopilot/scopes/owner-manual-registration-cancel-4968.json"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "directProductionSqlMutation": false,
+    "physicalDelete": false,
+    "identityBypass": false,
+    "mfaWeakening": false,
+    "rlsWeakening": false,
+    "csrfWeakening": false,
+    "roleAssignmentChange": false,
+    "roleEligibilityChange": false,
+    "newRecurringCostRub": 0
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
