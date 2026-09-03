@@ -70,14 +70,24 @@ export class RoleEligibilityAdmissionService {
     }
 
     const rule = state.policyDocument.roles[semanticRole];
-    if (!rule || rule.mode === 'ADVISORY_ONLY') {
+    if (!rule) {
       return {
         decision: 'ADVISORY_ONLY',
         enforcementApplied: false,
         semanticRole,
         policyVersion: state.policyVersion,
         verdict: null,
-        reasonCodes: [rule?.reason || 'ROLE_ELIGIBILITY_ROLE_NOT_ENFORCED'],
+        reasonCodes: ['ROLE_ELIGIBILITY_ROLE_NOT_ENFORCED'],
+      };
+    }
+    if (rule.mode === 'ADVISORY_ONLY') {
+      return {
+        decision: 'ADVISORY_ONLY',
+        enforcementApplied: false,
+        semanticRole,
+        policyVersion: state.policyVersion,
+        verdict: null,
+        reasonCodes: [rule.reason],
       };
     }
 
