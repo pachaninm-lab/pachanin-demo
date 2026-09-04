@@ -14,9 +14,9 @@ const MAX_ENTRY_BYTES = 16 * 1024 * 1024;
 const MAX_ENTRIES = 20_000;
 const MAX_RATIO = 250;
 const TAIL_BYTES = 66_000;
-const IMPORT_CONCURRENCY = 8;
+const IMPORT_CONCURRENCY = 2;
 const METADATA_TIMEOUTS_MS = Object.freeze([30_000, 90_000, 300_000]);
-const RANGE_TIMEOUTS_MS = Object.freeze([30_000, 90_000]);
+const RANGE_TIMEOUTS_MS = Object.freeze([60_000, 180_000, 300_000]);
 const RETRIABLE_HTTP_STATUS = new Set([429, 500, 502, 503, 504]);
 const PARSER_VERSION = 'fns-rsmp-positive-membership-v1';
 const ABSENCE_SEMANTICS = 'ABSENCE_IS_NOT_NEGATIVE_LEGAL_ENTITY_EVIDENCE';
@@ -198,7 +198,7 @@ function crc32(buf) {
   if (!CRC_TABLE) {
     CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
       let c = n;
-      for (let k = 0; k < 8; k += 1) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      for (let k = 0; k < 8; k += 1) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : c >>> 1;
       return c >>> 0;
     });
   }
