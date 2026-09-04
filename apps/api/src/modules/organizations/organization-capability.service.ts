@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { RequestUser } from '../../common/types/request-user';
 import {
   requireOrganizationCapabilityCode,
+  type OrganizationCapabilityCode,
 } from './organization-capability.registry';
 import { OrganizationCapabilityRepository } from './organization-capability.repository';
 import type {
@@ -25,7 +26,7 @@ export class OrganizationCapabilityService {
     body: OrganizationCapabilityMutationBody,
     user: RequestUser,
   ): Promise<OrganizationCapabilityMutationResult> {
-    let capabilityCode;
+    let capabilityCode: OrganizationCapabilityCode;
     try {
       capabilityCode = requireOrganizationCapabilityCode(rawCapabilityCode);
     } catch {
