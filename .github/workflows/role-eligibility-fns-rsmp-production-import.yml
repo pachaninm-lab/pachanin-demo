@@ -10,8 +10,6 @@ permissions:
 
 env:
   DEFAULT_HOST: 195.19.12.120
-  ISSUE_NUMBER: 4922
-  COMMAND: /role-eligibility fns-rsmp import current-main
   EVIDENCE_DIR: artifacts/role-eligibility-fns-rsmp-production-import
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
@@ -57,8 +55,7 @@ jobs:
           [[ "$target" == "$api_main" ]]
           [[ "$target" == "$GITHUB_SHA" ]] || { echo FNS_RSMP_IMPORT_MAIN_DRIFT >&2; exit 14; }
           printf '%s\n' "$target" > "$EVIDENCE_DIR/target-sha.txt"
-          node scripts/production-role-eligibility-fns-rsmp-import.cjs --self-test \
-            | tee "$EVIDENCE_DIR/self-test.txt"
+          node scripts/production-role-eligibility-fns-rsmp-import.cjs --self-test | tee "$EVIDENCE_DIR/self-test.txt"
 
       - name: Resolve protected key and pinned VPS identity
         id: ssh
@@ -116,29 +113,25 @@ jobs:
         run: |
           set -euo pipefail
           target="$(cat "$EVIDENCE_DIR/target-sha.txt")"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$HOST" \
-            "TARGET_SHA='$target' bash -s" > "$EVIDENCE_DIR/import.json" <<'REMOTE'
-          set -euo pipefail
-          test "$(id -u)" -eq 0
-          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
-          (( ${#api_ids[@]} == 1 )) || { echo FNS_RSMP_API_AUTHORITY_AMBIGUOUS >&2; exit 30; }
-          api_id="${api_ids[0]}"
-          api_image="$(docker inspect --format '{{.Image}}' "$api_id")"
-          api_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$api_image")"
-          [[ "$api_revision" == "$TARGET_SHA" ]] || { echo FNS_RSMP_API_REVISION_MISMATCH >&2; exit 31; }
-          worker_id="$(docker inspect --format '{{.Id}}' pc-role-eligibility-worker 2>/dev/null || true)"
-          [[ "$worker_id" =~ ^[0-9a-f]{64}$ ]] || { echo FNS_RSMP_WORKER_NOT_FOUND >&2; exit 32; }
-          worker_image="$(docker inspect --format '{{.Image}}' "$worker_id")"
-          worker_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$worker_image")"
-          [[ "$worker_revision" == "$TARGET_SHA" ]] || { echo FNS_RSMP_WORKER_REVISION_MISMATCH >&2; exit 33; }
-          readarray -t flags < <(docker inspect "$worker_id" | python3 -c 'import json,sys; e=dict(x.split("=",1) for x in json.load(sys.stdin)[0].get("Config",{}).get("Env",[]) if "=" in x); print(e.get("ROLE_ELIGIBILITY_SHADOW_MODE","")); print(e.get("ROLE_ELIGIBILITY_ENFORCEMENT",""))')
-          [[ "${flags[0]:-}" == true && "${flags[1]:-}" == false ]] || { echo FNS_RSMP_WORKER_MODE_INVALID >&2; exit 34; }
-          docker exec -i "$api_id" /nodejs/bin/node -
-          REMOTE
-          # Re-run the exact source-controlled importer as stdin to the API container.
-          # The previous SSH block intentionally stops at docker exec; append script in one second bounded call.
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$HOST" \
-            "set -euo pipefail; api_id=\$(docker ps -q --filter 'label=com.docker.compose.service=api'); docker exec -i \"\$api_id\" /nodejs/bin/node -" \
+          remote='set -euo pipefail;
+            test "$(id -u)" -eq 0;
+            mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.service=api");
+            (( ${#api_ids[@]} == 1 )) || { echo FNS_RSMP_API_AUTHORITY_AMBIGUOUS >&2; exit 30; };
+            api_id="${api_ids[0]}";
+            api_image="$(docker inspect --format "{{.Image}}" "$api_id")";
+            api_revision="$(docker image inspect --format "{{index .Config.Labels \"org.opencontainers.image.revision\"}}" "$api_image")";
+            [[ "$api_revision" == "$TARGET_SHA" ]] || { echo FNS_RSMP_API_REVISION_MISMATCH >&2; exit 31; };
+            worker_id="$(docker inspect --format "{{.Id}}" pc-role-eligibility-worker 2>/dev/null || true)";
+            [[ "$worker_id" =~ ^[0-9a-f]{64}$ ]] || { echo FNS_RSMP_WORKER_NOT_FOUND >&2; exit 32; };
+            worker_image="$(docker inspect --format "{{.Image}}" "$worker_id")";
+            worker_revision="$(docker image inspect --format "{{index .Config.Labels \"org.opencontainers.image.revision\"}}" "$worker_image")";
+            [[ "$worker_revision" == "$TARGET_SHA" ]] || { echo FNS_RSMP_WORKER_REVISION_MISMATCH >&2; exit 33; };
+            shadow="$(docker inspect "$worker_id" | python3 -c "import json,sys; e=dict(x.split(\"=\",1) for x in json.load(sys.stdin)[0].get(\"Config\",{}).get(\"Env\",[]) if \"=\" in x); print(e.get(\"ROLE_ELIGIBILITY_SHADOW_MODE\",\"\"))")";
+            enforcement="$(docker inspect "$worker_id" | python3 -c "import json,sys; e=dict(x.split(\"=\",1) for x in json.load(sys.stdin)[0].get(\"Config\",{}).get(\"Env\",[]) if \"=\" in x); print(e.get(\"ROLE_ELIGIBILITY_ENFORCEMENT\",\"\"))")";
+            [[ "$shadow" == true && "$enforcement" == false ]] || { echo FNS_RSMP_WORKER_MODE_INVALID >&2; exit 34; };
+            docker exec -i "$api_id" /nodejs/bin/node -'
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$SSH_USER_SECRET@$HOST" "TARGET_SHA='$target' bash -c '$remote'" \
             < scripts/production-role-eligibility-fns-rsmp-import.cjs \
             > "$EVIDENCE_DIR/import.json"
 
