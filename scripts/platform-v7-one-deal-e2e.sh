@@ -1105,7 +1105,6 @@ NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
 ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
 ONE_DEAL_APP_URL="$APP_URL" \
-PC_CROP_ORGANIZATION_CAPABILITY_POLICY_DIAGNOSTICS=1 \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 pnpm --filter @pc/api exec jest --runInBand \
   --config test/industrial/jest.config.json \
