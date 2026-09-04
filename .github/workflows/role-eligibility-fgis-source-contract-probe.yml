@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/workflows/role-eligibility-fgis-source-contract-probe.yml'
       - 'scripts/role-eligibility-fgis-contract-probe.mjs'
+      - 'scripts/role-eligibility-fns-rsmp-import-contract.mjs'
+      - 'scripts/role-eligibility-fns-rsmp-archive-topology.mjs'
+      - 'scripts/role-eligibility-fns-rsmp-archive-topology.test.mjs'
       - 'apps/api/src/modules/role-eligibility/adapters/fgis-grain.adapter.ts'
       - 'apps/api/src/modules/role-eligibility/adapters/fns-evidence.adapter.ts'
       - 'apps/api/src/modules/role-eligibility/adapters/accreditation.adapter.ts'
@@ -95,6 +98,28 @@ jobs:
           if (p.productionTransportEligible === true && p.structure?.identityShapeObserved !== true) throw new Error('FNS_RSMP_IDENTITY_SCHEMA_NOT_PROVEN');
           console.log(`FNS_RSMP_CONTRACT_STATUS=${p.contractStatus}`);
           console.log(`FNS_RSMP_PRODUCTION_TRANSPORT_ELIGIBLE=${p.productionTransportEligible}`);
+          NODE
+
+      - name: Prove FNS RSMP bounded range archive topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test scripts/role-eligibility-fns-rsmp-archive-topology.test.mjs
+          node scripts/role-eligibility-fns-rsmp-archive-topology.mjs \
+            artifacts/role-eligibility-official-source-contracts/fns-rsmp.json \
+            artifacts/role-eligibility-official-source-contracts/fns-rsmp-archive-topology.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const p = JSON.parse(fs.readFileSync('artifacts/role-eligibility-official-source-contracts/fns-rsmp-archive-topology.json', 'utf8'));
+          if (p.schemaVersion !== 'role-eligibility-fns-rsmp-archive-topology.v1') throw new Error('FNS_RSMP_TOPOLOGY_SCHEMA_INVALID');
+          if (p.mode !== 'READ_ONLY_EXTERNAL_OBSERVATION' || p.productionDatabaseMutation !== 0 || p.registrationTouched !== false || p.enforcementChanged !== false) throw new Error('FNS_RSMP_TOPOLOGY_BOUNDARY_INVALID');
+          if (p.rangeSupported !== true || p.rangeTransport !== 'HTTP_206_EXACT_RANGE') throw new Error('FNS_RSMP_RANGE_TRANSPORT_NOT_PROVEN');
+          if (p.zip64 !== false || p.multiDisk !== false || p.encryptedEntries !== 0) throw new Error('FNS_RSMP_ZIP_TOPOLOGY_UNSUPPORTED');
+          if (!Number.isInteger(p.entryCount) || p.entryCount <= 0 || p.xmlEntryCount !== p.entryCount) throw new Error('FNS_RSMP_XML_ENTRY_TOPOLOGY_INVALID');
+          if (!Array.isArray(p.compressionMethods) || p.compressionMethods.some((method) => ![0,8].includes(method))) throw new Error('FNS_RSMP_COMPRESSION_METHOD_INVALID');
+          if (p.localHeaderSamplesVerified < 1 || p.streamingStrategy !== 'HTTP_RANGE_PER_ENTRY_BOUNDED_INFLATE_XML' || p.boundedMemoryImportFeasible !== true) throw new Error('FNS_RSMP_BOUNDED_IMPORT_NOT_PROVEN');
+          if (p.admissionAuthority !== false || p.automaticNegativeAuthority !== false || p.absenceSemantics !== 'ABSENCE_IS_NOT_NEGATIVE_LEGAL_ENTITY_EVIDENCE') throw new Error('FNS_RSMP_AUTHORITY_BOUNDARY_INVALID');
+          console.log(`FNS_RSMP_RANGE_TOPOLOGY=PASS entries=${p.entryCount} max_uncompressed=${p.maxEntryDecompressedBytes}`);
           NODE
 
       - name: Run bounded EAEU conformity-register probe
