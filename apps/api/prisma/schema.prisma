@@ -62,6 +62,8 @@ model Organization {
   connectionAttestationSubjects     ConnectionAttestationSubject[]
   capabilityAssignments             OrganizationCapabilityAssignment[]
   capabilityEvents                  OrganizationCapabilityEvent[]
+  providers                         Provider[]
+  providerRegistryEvents            ProviderRegistryEvent[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -148,6 +150,13 @@ model UserOrg {
   capabilityAssignmentsCreated OrganizationCapabilityAssignment[] @relation("OrganizationCapabilityCreatedBy")
   capabilityAssignmentsUpdated OrganizationCapabilityAssignment[] @relation("OrganizationCapabilityUpdatedBy")
   capabilityEventsAuthored      OrganizationCapabilityEvent[]      @relation("OrganizationCapabilityEventActor")
+  providersCreated              Provider[]                          @relation("ProviderCreatedBy")
+  providersUpdated              Provider[]                          @relation("ProviderUpdatedBy")
+  providerCapabilitiesCreated   ProviderCapability[]                @relation("ProviderCapabilityCreatedBy")
+  providerCapabilitiesUpdated   ProviderCapability[]                @relation("ProviderCapabilityUpdatedBy")
+  serviceOfferingsCreated       ServiceOffering[]                   @relation("ServiceOfferingCreatedBy")
+  serviceOfferingsUpdated       ServiceOffering[]                   @relation("ServiceOfferingUpdatedBy")
+  providerRegistryEventsAuthored ProviderRegistryEvent[]            @relation("ProviderRegistryEventActor")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -223,6 +232,162 @@ model OrganizationCapabilityEvent {
   @@index([assignmentId, createdAt, id], map: "organization_capability_event_chain_idx")
   @@index([tenantId, organizationId, createdAt], map: "organization_capability_event_scope_idx")
   @@map("organization_capability_events")
+}
+
+/// Durable provider identity owned by one organization. Application users can
+/// create only PENDING_VERIFICATION profiles; activation belongs to a separate
+/// staff-verification authority and is intentionally absent from W1-B.
+model Provider {
+  id                    String   @id
+  tenantId              String
+  organizationId        String
+  status                String   @default("PENDING_VERIFICATION")
+  version               BigInt   @default(1)
+  createdByMembershipId String
+  updatedByMembershipId String
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "provider_organization_fkey")
+  createdBy    UserOrg      @relation("ProviderCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "provider_created_by_fkey")
+  updatedBy    UserOrg      @relation("ProviderUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "provider_updated_by_fkey")
+  capabilities ProviderCapability[]
+  events       ProviderRegistryEvent[]
+
+  @@unique([organizationId], map: "provider_organization_key")
+  @@unique([id, tenantId, organizationId], map: "provider_scope_identity_key")
+  @@index([tenantId, status], map: "provider_tenant_status_idx")
+  @@map("providers")
+}
+
+/// A server-controlled declaration that a provider can offer one category.
+/// Self-declarations remain PENDING_VERIFICATION and are never catalog-visible.
+model ProviderCapability {
+  id                    String    @id
+  tenantId              String
+  organizationId        String
+  providerId            String
+  category              String
+  legalRole             String
+  status                String    @default("PENDING_VERIFICATION")
+  version               BigInt    @default(1)
+  effectiveFrom         DateTime? @db.Timestamptz(6)
+  effectiveTo           DateTime? @db.Timestamptz(6)
+  createdByMembershipId String
+  updatedByMembershipId String
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  provider   Provider @relation(fields: [providerId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "provider_capability_provider_fkey")
+  createdBy  UserOrg  @relation("ProviderCapabilityCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "provider_capability_created_by_fkey")
+  updatedBy  UserOrg  @relation("ProviderCapabilityUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "provider_capability_updated_by_fkey")
+  offerings  ServiceOffering[]
+  evidence   ProviderRegistryEvidence[]
+
+  @@unique([providerId, category], map: "provider_capability_category_key")
+  @@unique([id, tenantId, organizationId], map: "provider_capability_scope_identity_key")
+  @@unique([id, providerId, tenantId, organizationId], map: "provider_capability_evidence_identity_key")
+  @@unique([id, tenantId, organizationId, category], map: "provider_capability_service_identity_key")
+  @@unique([id, providerId, tenantId, organizationId, category], map: "provider_capability_full_identity_key")
+  @@unique([providerId, tenantId, organizationId, category], map: "provider_capability_offering_identity_key")
+  @@index([tenantId, category, status], map: "provider_capability_catalog_idx")
+  @@map("provider_capabilities")
+}
+
+/// Searchable service definition. Only separately verified ACTIVE rows enter
+/// catalog and recommendation reads; W1-B organization commands write pending.
+model ServiceOffering {
+  id                    String   @id
+  tenantId              String
+  organizationId        String
+  providerId            String
+  capabilityId          String
+  offeringKey           String
+  category              String
+  title                 String
+  description           String
+  regions               String[]
+  cultures              String[]
+  stages                String[]
+  status                String   @default("PENDING_VERIFICATION")
+  version               BigInt   @default(1)
+  createdByMembershipId String
+  updatedByMembershipId String
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  capability ProviderCapability @relation(fields: [capabilityId, providerId, tenantId, organizationId, category], references: [id, providerId, tenantId, organizationId, category], onDelete: Restrict, map: "service_offering_capability_fkey")
+  createdBy  UserOrg            @relation("ServiceOfferingCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "service_offering_created_by_fkey")
+  updatedBy  UserOrg            @relation("ServiceOfferingUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "service_offering_updated_by_fkey")
+
+  @@unique([providerId, offeringKey], map: "service_offering_provider_key")
+  @@unique([id, tenantId, organizationId], map: "service_offering_scope_identity_key")
+  @@index([tenantId, category, status], map: "service_offering_catalog_idx")
+  @@map("service_offerings")
+}
+
+/// Server-held provider verification facts. W1-B grants application runtimes
+/// SELECT only; no public or organization route can manufacture evidence.
+model ProviderRegistryEvidence {
+  id                   String   @id
+  tenantId             String
+  organizationId       String
+  providerId           String
+  providerCapabilityId String
+  checkCode             String
+  status                String
+  source                String
+  evidenceReference     String
+  checkedAt             DateTime @db.Timestamptz(6)
+  expiresAt             DateTime? @db.Timestamptz(6)
+  version               BigInt   @default(1)
+  recordedByAuthority   String
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+
+  capability ProviderCapability @relation(fields: [providerCapabilityId, providerId, tenantId, organizationId], references: [id, providerId, tenantId, organizationId], onDelete: Restrict, map: "provider_registry_evidence_capability_fkey")
+
+  @@unique([providerCapabilityId, checkCode, version], map: "provider_registry_evidence_version_key")
+  @@index([tenantId, providerId, checkCode, checkedAt(sort: Desc)], map: "provider_registry_evidence_lookup_idx")
+  @@map("provider_registry_evidence")
+}
+
+/// Append-only idempotent command receipt and hash chain for the Provider
+/// aggregate. The referenced audit and outbox rows commit in the same tx.
+model ProviderRegistryEvent {
+  id                 String   @id
+  tenantId           String
+  organizationId     String
+  providerId         String
+  entityType         String
+  entityId           String
+  category           String
+  action             String
+  resultStatus       String
+  commandId          String
+  idempotencyKey     String
+  requestFingerprint String
+  reason             String
+  actorUserId        String
+  actorRole          String
+  actorMembershipId  String
+  correlationId      String
+  beforeState        Json?
+  afterState         Json
+  prevHash           String?
+  hash               String
+  auditEventId       String   @unique(map: "provider_registry_event_audit_key")
+  outboxEntryId      String   @unique(map: "provider_registry_event_outbox_key")
+  aggregateVersion   BigInt
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  provider     Provider     @relation(fields: [providerId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "provider_registry_event_provider_fkey")
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "provider_registry_event_organization_fkey")
+  actor        UserOrg      @relation("ProviderRegistryEventActor", fields: [actorMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "provider_registry_event_actor_fkey")
+
+  @@unique([tenantId, organizationId, commandId], map: "provider_registry_event_command_key")
+  @@unique([tenantId, organizationId, idempotencyKey], map: "provider_registry_event_idempotency_key")
+  @@index([providerId, createdAt, id], map: "provider_registry_event_chain_idx")
+  @@map("provider_registry_events")
 }
 
 /// Time-bounded delegation of a capability subset between two memberships of
