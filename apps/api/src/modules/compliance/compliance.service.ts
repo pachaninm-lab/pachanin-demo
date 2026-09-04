@@ -22,6 +22,25 @@ export class ComplianceService {
     }
   }
 
+  /**
+   * Тенант вызывающего — обязателен, а не желателен.
+   *
+   * Область применения названа узко и намеренно: этим ограничивается чтение
+   * СДЕЛОК. Остальные чтения этого сервиса (очередь KYC, журнал аудита,
+   * санкционные флаги) идут по другим таблицам, и их границы здесь не
+   * заявляются и не закрываются — измеренный остаток записан в #4839.
+   *
+   * Отсутствующий tenantId — отказ, а не чтение без границы. Та же форма стоит
+   * в exports.service.ts и analytics.service.ts.
+   */
+  private assertTenantScope(user: RequestUser): string {
+    const tenantId = user.tenantId;
+    if (typeof tenantId !== 'string' || tenantId.length === 0) {
+      throw new ForbiddenException('Compliance tenant scope unavailable');
+    }
+    return tenantId;
+  }
+
   async getKycQueue(user: RequestUser, status?: string) {
     this.assertComplianceRole(user);
     return this.prisma.kycTask.findMany({
@@ -205,14 +224,23 @@ export class ComplianceService {
     user: RequestUser,
   ): Promise<{ reportId: string; type: string; generatedAt: string; rowCount: number; format: string; downloadUrl: string | null }> {
     this.assertComplianceRole(user);
+    const tenantId = this.assertTenantScope(user);
 
     const from = params.from ? new Date(params.from) : new Date(Date.now() - 30 * 86_400_000);
     const to = params.to ? new Date(params.to) : new Date();
 
+    // Предиката тенанта не было: отчёт регулятору собирался по сделкам ВСЕЙ
+    // платформы. Соседний exportRegulatoryReport в exports.service.ts делает
+    // ровно то же самое и тенантом ограничен — для тех же COMPLIANCE_OFFICER и
+    // ADMIN. Две функции, один класс артефакта, разные границы; расхождение и
+    // есть доказательство, а не довод.
+    //
+    // Без .catch(() => []) отказ базы давал rowCount: 0 - отчёт регулятору за
+    // период «без операций», не помеченный как недостоверный.
     const deals = await this.prisma.deal.findMany({
-      where: { createdAt: { gte: from, lte: to } },
+      where: { tenantId, createdAt: { gte: from, lte: to } },
       select: { id: true, status: true, culture: true, region: true, volumeTons: true, totalKopecks: true, totalRub: true, createdAt: true },
-    }).catch(() => []);
+    });
 
     const reportId = `rpt-${reportType.toLowerCase()}-${Date.now()}`;
     const generatedAt = new Date().toISOString();
