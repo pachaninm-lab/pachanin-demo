@@ -42,6 +42,12 @@ jobs:
         run: node scripts/check-role-eligibility-registration-guard.mjs
       - name: Static eligibility acceptance
         run: node scripts/check-role-eligibility-static-acceptance.mjs
+      - name: Authoritative corpus readiness contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-role-eligibility-authoritative-readiness.sh
+          node scripts/check-role-eligibility-authoritative-corpus-contract.mjs
       - name: FNS RSMP import authority fail-closed tests
         run: node --test scripts/role-eligibility-fns-rsmp-import-contract.test.mjs
       - name: FNS RSMP production-import shell syntax
