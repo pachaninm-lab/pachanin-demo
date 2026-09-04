@@ -299,6 +299,27 @@ FOR INSERT WITH CHECK (
   AND "actorMembershipId" = public.app_pc_crop_membership_id()
 );
 
+-- The outbox policy below binds every emitted envelope to the audit row that
+-- was inserted earlier in the same transaction. audit_events is FORCE-RLS, so
+-- the restricted runtime needs a narrowly-scoped SELECT contour for that
+-- integrity check; table ACLs still limit this to the explicit runtime roles.
+CREATE POLICY audit_events_organization_capability_select
+ON public."audit_events"
+FOR SELECT TO PUBLIC
+USING (
+  current_user IN (
+    'pc_deal_runtime', 'one_deal_app', 'app_deal', 'app_runtime', 'app_deal_api'
+  )
+  AND public.app_rls_context_ready()
+  AND "tenantId" = public.app_identity_tenant_id()
+  AND "orgId" = public.app_identity_org_id()
+  AND "actorUserId" = public.app_identity_user_id()
+  AND "objectType" = 'ORGANIZATION_CAPABILITY'
+  AND "action" IN (
+    'ORGANIZATION_CAPABILITY_DECLARE', 'ORGANIZATION_CAPABILITY_REVOKE'
+  )
+);
+
 -- Canonical transactional outbox, narrowed to this exact organization-scoped
 -- event envelope. The Deal-scoped producer policy deliberately rejects rows
 -- without dealId, so this is a separate additive contour rather than a
