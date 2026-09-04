@@ -180,12 +180,12 @@ async function readEntry(contract, entry) {
 function extractMembership(xml, wanted) {
   if (/<!DOCTYPE|<!ENTITY|SYSTEM\s+["']|PUBLIC\s+["']/i.test(xml)) throw new Error('FNS_RSMP_XML_EXTERNAL_ENTITY_FORBIDDEN');
   const found = new Map();
-  const re = /<[^>]*\b(ИННЮЛ|ИННФЛ)=["'](\d{10}|\d{12})["'][^>]*>/giu;
+  const re = /<[^>]*\s+(ИННЮЛ|ИННФЛ)=["'](\d{10}|\d{12})["'][^>]*>/giu;
   for (const m of xml.matchAll(re)) {
     const inn = m[2];
     if (!wanted.has(inn)) continue;
     const tag = m[0];
-    const ogrn = tag.match(/\b(?:ОГРН|ОГРНИП)=["'](\d{13}|\d{15})["']/u)?.[1] || null;
+    const ogrn = tag.match(/\s+(?:ОГРН|ОГРНИП)=["'](\d{13}|\d{15})["']/u)?.[1] || null;
     found.set(inn, { inn, ogrn, subjectType: m[1] === 'ИННЮЛ' ? 'LEGAL_ENTITY' : 'INDIVIDUAL_ENTREPRENEUR' });
   }
   return found;
@@ -199,7 +199,7 @@ function stableJson(value) {
 async function selfTest() {
   const sample = '<Файл><Документ><ОргВклМСП ИННЮЛ="1234567890" ОГРН="1234567890123"/></Документ></Файл>';
   const got = extractMembership(sample, new Set(['1234567890']));
-  if (!got.has('1234567890') || got.get('1234567890').subjectType !== 'LEGAL_ENTITY') throw new Error('SELFTEST_MEMBERSHIP');
+  if (!got.has('1234567890') || got.get('1234567890').subjectType !== 'LEGAL_ENTITY' || got.get('1234567890').ogrn !== '1234567890123') throw new Error('SELFTEST_MEMBERSHIP');
   if (extractMembership(sample, new Set(['0000000000'])).size !== 0) throw new Error('SELFTEST_ABSENCE');
   const payload = { membership: true, source: SOURCE, supplementaryOnly: true, admissionAuthority: false, automaticNegativeAuthority: false };
   if (sha256(stableJson(payload)).length !== 64) throw new Error('SELFTEST_HASH');
