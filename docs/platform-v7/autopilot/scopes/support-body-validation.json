@@ -17,20 +17,25 @@
     "docs/security/request-validation-baseline.json",
     "docs/security/asvs-applicability-decisions.json",
     "docs/security/cryptographic-inventory.json",
-    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "apps/web/lib/driver-actions.ts",
+    "apps/api/src/modules/support/queue-priority-order.spec.ts"
   ],
   "requiredInvariants": [
     "The module's existing authorisation controls are NOT touched and NOT duplicated in the DTO. assignTicket, resolveTicket and escalateTicket stay behind assertSupport; addComment still requires the support role or ticket authorship; isInternal is still multiplied by a role check in the service. Those are working controls, and a DTO does not replace them.",
     "The priority list has exactly one home: support.priorities.ts. The type in the service is derived FROM the array rather than restated beside it - the lesson from #4991, where a second copy of a list was declared under a comment claiming nothing was duplicated.",
     "isInternal is @IsBoolean() with no coercion. The string \"true\" must not become a flag: the decision belongs to the service's role check, and the boundary has no business handing it a value of another type. This also avoids the coercion defect review found in #4993.",
     "V2.2.1 and V2.2.2 stay FAIL and are re-pointed in the same pass at gekta.controller.ts and export-trade.controller.ts. admin.controller.ts is deliberately not cited: part of it is the inert legacy boundary that throws ServiceUnavailable, so it validates nothing and also does nothing.",
-    "No schema change, no migration, no RLS policy edit, no dependency. Nothing outside apps/api/src/modules/support plus the four governance files. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+    "No schema change, no migration, no RLS policy edit, no dependency. Nothing outside apps/api/src/modules/support plus the four governance files. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB.",
+    "The queue rank is derived from TICKET_PRIORITIES, not from a second hard-coded map. Review found that a single list plus a separate ordering object still recreates the silent lowest-rank behaviour the moment a priority is added, because the new value falls through `?? 3`.",
+    "apps/web/lib/driver-actions.ts is corrected rather than accommodated. It posted `title` and `linkedDealId`, which the API never read - measured: the ticket was created with subject, category and dealId all undefined and only priority surviving. A compatibility mapping in the DTO would have enshrined field names the service does not use."
   ],
   "acceptance": [
     "Measured before the fix, not argued: priority 'СРОЧНО!!!' was accepted and stored verbatim despite the TicketPriority union, and listQueue returned [CRITICAL, 'СРОЧНО!!!'] because priorityOrder[p] ?? 3 gives an unknown value the lowest rank. A 50 000-character subject was also accepted and stored whole.",
     "Six mutations applied, each verified present on disk first; all six caught.",
     "Reverse direction tested: every real priority still passes, priority stays optional because the service defaults to MEDIUM, an ordinary ticket passes whole, and an unknown property is stripped before reaching the service.",
     "Case sensitivity asserted: 'critical' is rejected, so the check cannot be mistaken for a case-insensitive one later.",
-    "api typecheck exit 0, full @pc/api suite green, scripts/security 130/130 re-run AFTER the commit, ratchet 84 -> 79 unvalidated and 108 -> 113 DTO-typed with the baseline tightened, matrix unchanged at 129 PASS / 90 FAIL."
+    "api typecheck exit 0, full @pc/api suite green, scripts/security 130/130 re-run AFTER the commit, ratchet 84 -> 79 unvalidated and 108 -> 113 DTO-typed with the baseline tightened, matrix unchanged at 129 PASS / 90 FAIL.",
+    "Review found two real defects and both are fixed. The queue-ordering one is recorded honestly: at the current four priorities the revert is NOT observable behaviourally - both lists give the same order, measured - so a source-level assertion makes the 'one list' invariant observable now, while the array-parameterised tests become load-bearing by themselves as soon as the list grows. The first version of that source assertion fired on its own explanatory comment, which quotes the old map; comments are stripped before matching."
   ]
 }
