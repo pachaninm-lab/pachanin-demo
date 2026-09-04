@@ -81,7 +81,18 @@ jobs:
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -qx '.github/workflows/pc-crop-01b4.yml' "$EVIDENCE_DIR/changed-files.txt"; then
+
+          # app.module.ts and the workflow definitions are shared dependencies:
+          # touching one must rerun this acceptance, but must not make 01B.3
+          # claim ownership of every unrelated file in the same pull request.
+          # Enforce the historical bounded contour only when its commodity
+          # command implementation itself changed.
+          grep -E '^apps/api/src/modules/commodity-profiles/(commodity-profile-transaction-command\.service(\.spec)?\.ts|commodity-profiles\.module(\.spec)?\.ts|postgresql-commodity-profile-transaction\.port(\.spec)?\.ts|postgresql-commodity-profile-transaction\.integration\.spec\.ts)$' \
+            "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/slice-files.txt" || true
+
+          if [ ! -s "$EVIDENCE_DIR/slice-files.txt" ]; then
+            printf '%s\n' 'SHARED_INFRASTRUCTURE_ONLY' > "$EVIDENCE_DIR/scope-mode.txt"
+          elif grep -qx '.github/workflows/pc-crop-01b4.yml' "$EVIDENCE_DIR/changed-files.txt"; then
             printf '%s\n' 'PC-CROP-01B.4' > "$EVIDENCE_DIR/successor-scope-owner.txt"
           elif grep -Ev '^(\.github/workflows/pc-crop-01b3\.yml|scripts/verify-pc-crop-01b3-scope-boundary\.test\.mjs|apps/api/src/app\.module\.ts|apps/api/src/modules/commodity-profiles/(commodity-profile-transaction-command\.service(\.spec)?\.ts|commodity-profiles\.module(\.spec)?\.ts|postgresql-commodity-profile-transaction\.port(\.spec)?\.ts|postgresql-commodity-profile-transaction\.integration\.spec\.ts)|docs/platform-v7/autopilot/scopes/[A-Za-z0-9][A-Za-z0-9._-]*\.json)$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-01B.3 contains out-of-scope files:' >&2

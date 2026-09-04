@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2213,
+  "scannedFiles": 2219,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 79,
+      "sites": 80,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 79,
+          "sites": 80,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -80,6 +80,7 @@
             "apps/api/src/modules/marketing/connectors/vk.publisher.ts",
             "apps/api/src/modules/marketing/marketing-editorial-core.ts",
             "apps/api/src/modules/mfa/mfa.module.ts",
+            "apps/api/src/modules/organization-capabilities/organization-capability-command.contract.ts",
             "apps/api/src/modules/organization-intake/organization-intake.service.ts",
             "apps/api/src/modules/partner-api/partner-api.service.ts",
             "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",

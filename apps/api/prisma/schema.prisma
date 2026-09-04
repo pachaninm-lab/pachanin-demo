@@ -176,9 +176,9 @@ model OrganizationCapabilityAssignment {
   createdAt             DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
-  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict)
-  createdBy    UserOrg      @relation("OrganizationCapabilityCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  updatedBy    UserOrg      @relation("OrganizationCapabilityUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "organization_capability_organization_fkey")
+  createdBy    UserOrg      @relation("OrganizationCapabilityCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "organization_capability_created_by_fkey")
+  updatedBy    UserOrg      @relation("OrganizationCapabilityUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "organization_capability_updated_by_fkey")
   events       OrganizationCapabilityEvent[]
 
   @@unique([organizationId, capabilityCode], map: "organization_capability_org_code_key")
@@ -214,9 +214,9 @@ model OrganizationCapabilityEvent {
   aggregateVersion   BigInt
   createdAt          DateTime @default(now()) @db.Timestamptz(6)
 
-  assignment   OrganizationCapabilityAssignment @relation(fields: [assignmentId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict)
-  organization Organization                     @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict)
-  actor        UserOrg                          @relation("OrganizationCapabilityEventActor", fields: [actorMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  assignment   OrganizationCapabilityAssignment @relation(fields: [assignmentId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "organization_capability_event_assignment_fkey")
+  organization Organization                     @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "organization_capability_event_organization_fkey")
+  actor        UserOrg                          @relation("OrganizationCapabilityEventActor", fields: [actorMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "organization_capability_event_actor_fkey")
 
   @@unique([tenantId, organizationId, idempotencyKey], map: "organization_capability_event_idempotency_key")
   @@unique([tenantId, organizationId, commandId], map: "organization_capability_event_command_key")
