@@ -10430,35 +10430,55 @@
     {
       "requirementId": "V16.4.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "log-line:apps/api/src/common/middleware/log-masking.middleware.ts"
+        "encoder:apps/api/src/common/security/log-encode.ts",
+        "applied:apps/api/src/common/middleware/log-masking.middleware.ts",
+        "measurement:apps/api/src/common/security/log-encode.spec.ts",
+        "every-field:apps/api/src/common/middleware/log-masking.middleware.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "an attacker-controlled header is interpolated into a log line",
-          "check": "PRESENT_AT_PATH",
+          "condition": "an encoder for log fields exists and covers the control block the parser actually admits",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/common/middleware/log-masking.middleware.ts"
+            "apps/api/src/common/security/log-encode.ts"
           ],
           "patterns": [
-            "ua=\""
+            "export function encodelogfield",
+            "u007f-\\u009f",
+            "u2028",
+            "must_escape"
           ]
         },
         {
-          "condition": "and nothing encodes or strips control characters",
-          "check": "ABSENT_AT_PATH",
+          "condition": "every attacker-influenced substitution in the access line is encoded, not only the User-Agent",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/common/middleware/log-masking.middleware.ts"
           ],
           "patterns": [
-            "encodeuri",
-            "replace(/[\\u0000-\\u001f]",
-            "json.stringify(useragent"
+            "encodelogfield(method)",
+            "encodelogfield(reqpath)",
+            "encodelogfield(maskedip)",
+            "encodelogfield(userid)",
+            "encodelogfield(this.masktext(useragent))"
+          ]
+        },
+        {
+          "condition": "the measurement that corrects the record is executable, so it cannot drift back",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/log-encode.spec.ts"
+          ],
+          "patterns": [
+            "парсер отвергает",
+            "парсер пропускает",
+            "0x9b csi"
           ]
         }
       ],
-      "note": "Masking is not encoding, and this requirement asks for encoding. The middleware interpolates the User-Agent - a request header the caller controls - directly into a logged template string, and nothing anywhere strips or encodes newlines or control characters. A newline in that header produces a forged additional log line. Credited so this is not read as an absence of log hygiene: the PII masking assessed under V16.2.5 is real and thorough. These are two different controls and only one is present."
+      "note": "Closed, and the record it replaces was wrong about the mechanism twice over - both corrections are kept here rather than quietly replaced, because the second one reverses the first. The note on file said \"a newline in that header produces a forged additional log line\". Measured against Node's own HTTP parser on a live server: it does not. llhttp answers 400 Bad Request to a raw LF, a raw CR, a NUL, an ESC (0x1b), a DEL (0x7f) and an obs-fold continuation line, so none of them reaches a handler at all. The first replacement claimed U+2028 passes through intact. Also wrong: Node decodes header values as latin1, so the three UTF-8 bytes of U+2028 arrive as three separate code points (U+00E2, U+0080, U+00A8) rather than one line separator. What is true, measured byte by byte, each case answered 200 OK with the code point intact in req.headers: the parser refuses the C0 block and DEL and passes the WHOLE C1 block, U+0080 to U+009F - confirmed individually at 0x80, 0x85, 0x9b and 0x9f - plus TAB. That block is not decorative. U+009B is CSI, the 8-bit form of the ANSI escape introducer: ESC itself is refused, this equivalent is not, and written to a UTF-8 stream it is encoded as c2 9b, which a terminal tailing the log decodes back to CSI and obeys. U+0085 is NEL, a line terminator to a range of log processors. The verdict FAIL was therefore right and its stated exploit was not. Two fields carry this, not one: the record named only User-Agent, and with trust proxy on req.ip derives from X-Forwarded-For, measured passing the same bytes. encodeLogField escapes C0, DEL, the C1 block and the two Unicode line terminators (kept for non-header callers, where they are LineTerminators under ECMA-262 11.3), escapes backslash FIRST so the output is unambiguous, escapes the quote that delimits the ua field, and bounds length. It is applied to every substitution in the access line - method, path, ip, user id and User-Agent - not only the one the record named, because a control covering five fields of six is an absent control on the sixth. Masking is credited and not confused with this: the PII masking assessed under V16.2.5 is real, and it is a different control. Measured rather than assumed: maskIp incidentally truncates an IPv4 payload to two octets, but for ::1 it returns the value unchanged, so the boundary here is the encoder and not the mask. Ten mutations applied, all ten caught, each verified to have actually applied; one of them found a test of this pass that asserted nothing, and it was fixed rather than kept."
     },
     {
       "requirementId": "V16.4.2",
