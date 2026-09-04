@@ -34,6 +34,31 @@ const POLICY_RULESET = Object.freeze({
   legalSafety: 'APPARENT_MISMATCH is advisory and never a registration rejection',
 });
 
+const INN_10 = /^\d{10}$/;
+const INN_12 = /^\d{12}$/;
+
+const innChecksum = (digits: readonly number[], weights: readonly number[]): number => (
+  weights.reduce((sum, weight, index) => sum + weight * digits[index], 0) % 11 % 10
+);
+
+/**
+ * Validates Russian INN control digits only. A valid checksum is an identifier
+ * integrity signal, not proof that an organization exists, is active, or is
+ * eligible for any platform role.
+ */
+export function isValidRussianInn(value: string): boolean {
+  const normalized = String(value || '').trim();
+  if (!INN_10.test(normalized) && !INN_12.test(normalized)) return false;
+
+  const digits = [...normalized].map((digit) => Number(digit));
+  if (digits.length === 10) {
+    return innChecksum(digits, [2, 4, 10, 3, 5, 9, 4, 6, 8]) === digits[9];
+  }
+
+  return innChecksum(digits, [7, 2, 4, 10, 3, 5, 9, 4, 6, 8]) === digits[10]
+    && innChecksum(digits, [3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8]) === digits[11];
+}
+
 const EMPTY_DICTIONARY: FarmerOkvedDictionary = Object.freeze({
   version: 'farmer-okved-v1',
   dictionary: 'UNAVAILABLE',
