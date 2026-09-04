@@ -1,0 +1,184 @@
+name: Role Eligibility Corpus Lineage Diagnostic
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/role-eligibility-corpus-lineage-diagnostic.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  ISSUE_NUMBER: 4922
+  COMMAND: /role-eligibility corpus diagnose current-production
+  DEFAULT_HOST: 195.19.12.120
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+concurrency:
+  group: role-eligibility-corpus-lineage-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event.issue.number == 4922 &&
+       github.event.comment.body == '/role-eligibility corpus diagnose current-production' &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - shell: bash
+        run: |
+          set -euo pipefail
+          f='.github/workflows/role-eligibility-corpus-lineage-diagnostic.yml'
+          grep -Fq 'SET TRANSACTION READ ONLY' "$f"
+          grep -Fq 'ROLE_ELIGIBILITY_ENFORCEMENT=false' "$f"
+          grep -Fq 'PRODUCTION_DATABASE_MUTATION=0' "$f"
+          ! grep -Eq 'ROLE_ELIGIBILITY_ENFORCEMENT=true|DELETE FROM|TRUNCATE |DROP TABLE|ALTER TABLE' "$f"
+
+  diagnose:
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4922 &&
+      github.event.comment.body == '/role-eligibility corpus diagnose current-production' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Resolve protected production SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 20
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 21
+          [[ "$port" =~ ^[0-9]+$ ]] || exit 22
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 23
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate(){ local p="$1"; tr -d '\r' < "$p" > "$HOME/.ssh/id_pc_prod"; chmod 600 "$HOME/.ssh/id_pc_prod"; ssh-keygen -y -P '' -f "$HOME/.ssh/id_pc_prod" >/dev/null 2>&1; }
+          try(){ local raw="$1" a; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate "$a" && { rm -f "$a"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$a"; validate "$a" && { rm -f "$a"; return 0; }; printf '%s' "$raw" | base64 --decode > "$a" 2>/dev/null && validate "$a" && { rm -f "$a"; return 0; }; rm -f "$a"; return 1; }
+          try "${SSH_KEY_PRIMARY:-}" || try "${SSH_KEY_SECONDARY:-}" || try "${SSH_KEY_FALLBACK:-}" || exit 24
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}')"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]] || exit 25
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$user@$host" 'test "$(id -u)" -eq 0 && docker version >/dev/null'
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Aggregate production corpus lineage read-only
+        id: diag
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" 'bash -s' <<'REMOTE' > diagnostic.json
+          set -Eeuo pipefail
+          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 ))
+          api_id="${api_ids[0]}"
+          api_image="$(docker inspect --format '{{.Image}}' "$api_id")"
+          api_rev="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$api_image")"
+          worker_id="$(docker inspect --format '{{.Id}}' pc-role-eligibility-worker)"
+          worker_image="$(docker inspect --format '{{.Image}}' "$worker_id")"
+          worker_rev="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$worker_image")"
+          [[ "$api_rev" == "$worker_rev" ]]
+          docker inspect "$worker_id" | python3 -c 'import json,sys; e=dict(x.split("=",1) for x in json.load(sys.stdin)[0].get("Config",{}).get("Env",[]) if "=" in x); assert e.get("ROLE_ELIGIBILITY_SHADOW_MODE")=="true" and e.get("ROLE_ELIGIBILITY_ENFORCEMENT")=="false"'
+          docker exec -i "$api_id" /nodejs/bin/node - "$api_rev" <<'NODE'
+          'use strict';
+          const { PrismaClient } = require('@prisma/client');
+          const prisma = new PrismaClient({log:[]});
+          const runtimeRevision = process.argv[2];
+          const innOk = (v) => { const s=String(v||''); if(!/^\d{10}$|^\d{12}$/.test(s)) return false; const d=[...s].map(Number); const c=w=>w.reduce((a,x,i)=>a+x*d[i],0)%11%10; return d.length===10 ? c([2,4,10,3,5,9,4,6,8])===d[9] : c([7,2,4,10,3,5,9,4,6,8])===d[10] && c([3,7,2,4,10,3,5,9,4,6,8])===d[11]; };
+          const ogrnOk = (v) => { const s=String(v||''); if(!/^\d{13}$|^\d{15}$/.test(s)) return false; return s.length===13 ? (BigInt(s.slice(0,12))%11n%10n)===BigInt(s[12]) : (BigInt(s.slice(0,14))%13n%10n)===BigInt(s[14]); };
+          const klass = (r) => { const a=[r.id,r.application_id,r.organization_id,r.tenant_id,r.correlation_id,r.policy_version].map(x=>String(x||'').toLowerCase()); if(a.some(x=>x.includes('load_')||x.includes('load-'))) return 'LOAD_ACCEPTANCE'; if(a.some(x=>x.includes('smoke'))) return 'SMOKE_ACCEPTANCE'; if(a.some(x=>/(^|[_-])(test|fixture|synthetic|e2e|probe|acceptance)([_-]|$)/.test(x))) return 'OTHER_TEST_NAMING'; return 'UNCLASSIFIED'; };
+          (async()=>{ const report=await prisma.$transaction(async tx=>{ await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY'); await tx.$executeRawUnsafe("SET LOCAL statement_timeout='8000ms'"); const rows=await tx.$queryRawUnsafe(`SELECT DISTINCT ON (application_id,application_version,requested_role) id,application_id,organization_id,tenant_id,inn,ogrn,requested_role,policy_version,correlation_id FROM eligibility.organization_checks ORDER BY application_id,application_version,requested_role,created_at DESC,id DESC`); const byClass={}, byRole={}, inns=new Map(); let validInn=0, invalidInn=0, validOgrn=0, invalidOgrn=0, missingOgrn=0; for(const r of rows){ const k=klass(r); byClass[k]=(byClass[k]||0)+1; byRole[r.requested_role]??={}; byRole[r.requested_role][k]=(byRole[r.requested_role][k]||0)+1; innOk(r.inn)?validInn++:invalidInn++; if(!r.ogrn) missingOgrn++; else ogrnOk(r.ogrn)?validOgrn++:invalidOgrn++; const s=String(r.inn||''); inns.set(s,(inns.get(s)||0)+1); } const evidence=await tx.$queryRawUnsafe(`SELECT source_type AS source,count(*)::int AS count FROM eligibility.evidence GROUP BY source_type ORDER BY source_type`); return {schemaVersion:'role-eligibility-corpus-lineage-diagnostic.v1',runtimeRevision,transactionMode:'READ_ONLY',shadowMode:true,enforcement:false,productionDatabaseMutation:0,candidateChecks:rows.length,uniqueSubjects:inns.size,repeatedSubjectChecks:[...inns.values()].filter(n=>n>1).reduce((a,n)=>a+n,0),identifierIntegrity:{validInn,invalidInn,validOgrn,invalidOgrn,missingOgrn},lineageByClass:byClass,lineageByRole:byRole,evidenceBySource:evidence}; },{isolationLevel:'RepeatableRead',timeout:20000}); process.stdout.write(JSON.stringify(report)+'\n'); })().catch(()=>{process.stderr.write('ROLE_ELIGIBILITY_CORPUS_DIAGNOSTIC_QUERY_FAILED\n');process.exitCode=1}).finally(()=>prisma.$disconnect());
+          NODE
+          REMOTE
+          node - <<'NODE'
+          const fs=require('node:fs'); const p=JSON.parse(fs.readFileSync('diagnostic.json','utf8'));
+          if(p.transactionMode!=='READ_ONLY'||p.shadowMode!==true||p.enforcement!==false||p.productionDatabaseMutation!==0) throw new Error('DIAGNOSTIC_BOUNDARY_INVALID');
+          for(const k of ['candidateChecks','uniqueSubjects','repeatedSubjectChecks']) if(!Number.isInteger(p[k])||p[k]<0) throw new Error('DIAGNOSTIC_COUNT_INVALID');
+          const test=(p.lineageByClass.LOAD_ACCEPTANCE||0)+(p.lineageByClass.SMOKE_ACCEPTANCE||0)+(p.lineageByClass.OTHER_TEST_NAMING||0);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,`runtime_revision=${p.runtimeRevision}\ncandidates=${p.candidateChecks}\nunique_subjects=${p.uniqueSubjects}\ntest_named=${test}\nunclassified=${p.lineageByClass.UNCLASSIFIED||0}\nvalid_inn=${p.identifierIntegrity.validInn}\ninvalid_inn=${p.identifierIntegrity.invalidInn}\nevidence_total=${p.evidenceBySource.reduce((a,x)=>a+Number(x.count||0),0)}\n`);
+          NODE
+
+      - name: Publish aggregate result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REV: ${{ steps.diag.outputs.runtime_revision }}
+          CANDIDATES: ${{ steps.diag.outputs.candidates }}
+          UNIQUE: ${{ steps.diag.outputs.unique_subjects }}
+          TEST_NAMED: ${{ steps.diag.outputs.test_named }}
+          UNCLASSIFIED: ${{ steps.diag.outputs.unclassified }}
+          VALID_INN: ${{ steps.diag.outputs.valid_inn }}
+          INVALID_INN: ${{ steps.diag.outputs.invalid_inn }}
+          EVIDENCE_TOTAL: ${{ steps.diag.outputs.evidence_total }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf -v body '%s\n' \
+            "## Role Eligibility production corpus lineage diagnostic $GITHUB_RUN_ID" \
+            "" \
+            "- production runtime SHA: \`$REV\`" \
+            "- candidate checks: \`$CANDIDATES\`" \
+            "- unique subjects: \`$UNIQUE\`" \
+            "- obvious test/load/smoke lineage: \`$TEST_NAMED\`" \
+            "- unclassified lineage: \`$UNCLASSIFIED\`" \
+            "- INN checksum valid: \`$VALID_INN\`" \
+            "- INN checksum invalid: \`$INVALID_INN\`" \
+            "- current evidence rows: \`$EVIDENCE_TOTAL\`" \
+            "- transaction: \`READ ONLY\`" \
+            "- production DB mutation: \`0\`" \
+            "- enforcement: \`false\`" \
+            "" \
+            "No identifiers or registration data were published."
+          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$body"
+
+      - name: Upload immutable aggregate diagnostic
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: role-eligibility-corpus-lineage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: diagnostic.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Enforce immutable boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo ROLE_ELIGIBILITY_CORPUS_DIAGNOSTIC=PASS
+          echo ROLE_ELIGIBILITY_ENFORCEMENT=false
+          echo PRODUCTION_DATABASE_MUTATION=0
+
+      - name: Cleanup credentials
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
