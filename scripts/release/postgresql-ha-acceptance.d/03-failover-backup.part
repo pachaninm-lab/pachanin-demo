@@ -1,0 +1,117 @@
+PRE_FAILOVER_COUNT="$(runtime_sql "SELECT count(*) FROM ha_evidence;")"
+
+kubectl exec -n "$NAMESPACE" ha-client -- /bin/sh -ec '
+  i=0
+  while [ "$i" -lt 900 ]; do
+    if PGPASSWORD="$APP_PASSWORD" psql -h grainflow-pooler-rw -U app_runtime -d grainflow -v ON_ERROR_STOP=1 -qAtc \
+      "INSERT INTO ha_load(payload) VALUES (md5(random()::text || clock_timestamp()::text));" >/dev/null 2>&1; then
+      printf "OK\n"
+    else
+      printf "FAIL\n"
+    fi
+    i=$((i + 1))
+    sleep 0.1
+  done
+' > "$RAW_DIR/failover-writer.log" 2>&1 &
+WRITER_PID=$!
+sleep 2
+
+FAILOVER_STARTED_MS="$(date +%s%3N)"
+kubectl delete pod "$OLD_PRIMARY" -n "$NAMESPACE" --wait=false > "$RAW_DIR/primary-delete.log"
+NEW_PRIMARY=""
+for _ in $(seq 1 240); do
+  candidate="$(kubectl get cluster grainflow-postgresql -n "$NAMESPACE" -o jsonpath='{.status.currentPrimary}' 2>/dev/null || true)"
+  if [[ -n "$candidate" && "$candidate" != "$OLD_PRIMARY" ]]; then
+    if runtime_sql "SELECT 1;" >/dev/null 2>&1; then
+      NEW_PRIMARY="$candidate"
+      break
+    fi
+  fi
+  sleep 1
+done
+[[ -n "$NEW_PRIMARY" ]]
+FAILOVER_COMPLETED_MS="$(date +%s%3N)"
+FAILOVER_DURATION_MS=$((FAILOVER_COMPLETED_MS - FAILOVER_STARTED_MS))
+(( FAILOVER_DURATION_MS <= 120000 ))
+wait "$WRITER_PID" || true
+WRITER_FAILURES="$(grep -c '^FAIL$' "$RAW_DIR/failover-writer.log" || true)"
+WRITER_SUCCESSES="$(grep -c '^OK$' "$RAW_DIR/failover-writer.log" || true)"
+
+wait_cluster_ready grainflow-postgresql 3 900
+for _ in $(seq 1 180); do
+  NEW_OLD_PRIMARY_UID="$(kubectl get pod "$OLD_PRIMARY" -n "$NAMESPACE" -o jsonpath='{.metadata.uid}' 2>/dev/null || true)"
+  [[ -n "$NEW_OLD_PRIMARY_UID" && "$NEW_OLD_PRIMARY_UID" != "$OLD_PRIMARY_UID" ]] && break
+  sleep 2
+done
+[[ -n "${NEW_OLD_PRIMARY_UID:-}" ]]
+[[ "$NEW_OLD_PRIMARY_UID" != "$OLD_PRIMARY_UID" ]]
+FAILOVER_MARKER_COUNT="$(runtime_sql "SELECT count(*) FROM ha_evidence WHERE marker='FAILOVER_COMMITTED';")"
+POST_FAILOVER_COUNT="$(runtime_sql "SELECT count(*) FROM ha_evidence;")"
+[[ "$FAILOVER_MARKER_COUNT" = "1" ]]
+(( POST_FAILOVER_COUNT >= PRE_FAILOVER_COUNT ))
+COMMITTED_ROWS_LOST=$((PRE_FAILOVER_COUNT - POST_FAILOVER_COUNT))
+(( COMMITTED_ROWS_LOST == 0 ))
+
+FAILURE_REASON="continuous WAL archiving or plugin base backup failed"
+runtime_sql "INSERT INTO ha_evidence(marker) VALUES ('BACKUP_BASE');" >/dev/null
+ARCHIVED_WAL_BEFORE="$(admin_sql "SELECT archived_count FROM pg_stat_archiver;")"
+admin_sql "SELECT pg_switch_wal();" >/dev/null
+ARCHIVED_WAL_AFTER="$ARCHIVED_WAL_BEFORE"
+for _ in $(seq 1 180); do
+  ARCHIVED_WAL_AFTER="$(admin_sql "SELECT archived_count FROM pg_stat_archiver;")"
+  (( ARCHIVED_WAL_AFTER > ARCHIVED_WAL_BEFORE )) && break
+  sleep 2
+done
+ARCHIVED_WAL_DELTA=$((ARCHIVED_WAL_AFTER - ARCHIVED_WAL_BEFORE))
+(( ARCHIVED_WAL_DELTA >= 1 ))
+
+cat > "$RAW_DIR/backup.yaml" <<'YAML'
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: grainflow-ha-base
+  namespace: grainflow-ha
+spec:
+  cluster:
+    name: grainflow-postgresql
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+YAML
+kubectl apply -f "$RAW_DIR/backup.yaml" > "$RAW_DIR/backup-apply.log"
+BACKUP_PHASE=""
+for _ in $(seq 1 360); do
+  BACKUP_PHASE="$(kubectl get backup grainflow-ha-base -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+  [[ "${BACKUP_PHASE,,}" = "completed" ]] && break
+  [[ "${BACKUP_PHASE,,}" = "failed" ]] && { kubectl get backup grainflow-ha-base -n "$NAMESPACE" -o yaml; false; }
+  sleep 3
+done
+[[ "${BACKUP_PHASE,,}" = "completed" ]]
+BACKUP_PHASE="completed"
+kubectl get backup grainflow-ha-base -n "$NAMESPACE" -o json > "$RAW_DIR/backup.json"
+
+FAILURE_REASON="PITR boundary WAL production failed"
+runtime_sql "INSERT INTO ha_evidence(marker) VALUES ('PITR_INCLUDE');" >/dev/null
+sleep 2
+PITR_TARGET_TIME="$(admin_sql "SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"');")"
+admin_sql "SELECT pg_switch_wal();" >/dev/null
+PITR_ARCHIVED_BEFORE="$ARCHIVED_WAL_AFTER"
+for _ in $(seq 1 180); do
+  PITR_ARCHIVED_AFTER="$(admin_sql "SELECT archived_count FROM pg_stat_archiver;")"
+  (( PITR_ARCHIVED_AFTER > PITR_ARCHIVED_BEFORE )) && break
+  sleep 2
+done
+(( PITR_ARCHIVED_AFTER > PITR_ARCHIVED_BEFORE ))
+sleep 2
+runtime_sql "INSERT INTO ha_evidence(marker) VALUES ('PITR_EXCLUDE');" >/dev/null
+admin_sql "SELECT pg_switch_wal();" >/dev/null
+FINAL_ARCHIVED_BEFORE="$PITR_ARCHIVED_AFTER"
+for _ in $(seq 1 180); do
+  FINAL_ARCHIVED_AFTER="$(admin_sql "SELECT archived_count FROM pg_stat_archiver;")"
+  (( FINAL_ARCHIVED_AFTER > FINAL_ARCHIVED_BEFORE )) && break
+  sleep 2
+done
+(( FINAL_ARCHIVED_AFTER > FINAL_ARCHIVED_BEFORE ))
+sleep 5
+
+SOURCE_COUNT="$(runtime_sql "SELECT count(*) FROM ha_evidence;")"

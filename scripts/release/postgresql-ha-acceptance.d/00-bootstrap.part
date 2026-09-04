@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT_DIR"
+
+EXACT_HEAD="${EXACT_HEAD:-${GITHUB_SHA:-unknown}}"
+EVIDENCE_DIR="${EVIDENCE_DIR:-artifacts/industrial-readiness/postgresql-ha}"
+RAW_DIR="$EVIDENCE_DIR/raw"
+EXTERNAL_DIR="$RAW_DIR/external-manifests"
+CLUSTER_NAME="grainflow-ha"
+NAMESPACE="grainflow-ha"
+EVIDENCE_PATH="$EVIDENCE_DIR/postgresql-ha-acceptance.json"
+FAILURE_REASON="acceptance did not start"
+SUCCESS=0
+
+mkdir -p "$RAW_DIR" "$EXTERNAL_DIR"
+rm -f "$EVIDENCE_PATH" "$EVIDENCE_DIR/failure-reason.txt"
+
+mask() {
+  printf '::add-mask::%s\n' "$1"
+}
+
+collect_diagnostics() {
+  set +e
+  kubectl get nodes -o wide > "$RAW_DIR/nodes.txt" 2>&1
+  kubectl get all,pvc,cluster,pooler,backup,objectstore,failoverquorum -A -o wide \
+    > "$RAW_DIR/kubernetes-inventory.txt" 2>&1
+  kubectl get events -A --sort-by=.lastTimestamp > "$RAW_DIR/events.txt" 2>&1
+  kubectl describe cluster grainflow-postgresql -n "$NAMESPACE" \
+    > "$RAW_DIR/source-cluster-describe.txt" 2>&1
+  kubectl logs -n cnpg-system deployment/cnpg-controller-manager --all-containers=true \
+    > "$RAW_DIR/cnpg-operator.log" 2>&1
+  kubectl logs -n cnpg-system deployment/barman-cloud --all-containers=true \
+    > "$RAW_DIR/barman-plugin.log" 2>&1
+  for pod in $(kubectl get pods -n "$NAMESPACE" -o name 2>/dev/null); do
+    safe="${pod#pod/}"
+    kubectl logs -n "$NAMESPACE" "$pod" --all-containers=true \
+      > "$RAW_DIR/pod-${safe}.log" 2>&1 || true
+    kubectl logs -n "$NAMESPACE" "$pod" --all-containers=true --previous \
+      > "$RAW_DIR/pod-${safe}-previous.log" 2>&1 || true
+  done
+}
+
+on_error() {
+  local rc=$?
+  set +e
+  printf '%s\n' "$FAILURE_REASON" > "$EVIDENCE_DIR/failure-reason.txt"
+  collect_diagnostics
+  exit "$rc"
+}
+trap on_error ERR
+
+on_exit() {
+  local rc=$?
+  if [[ "$SUCCESS" != "1" && ! -s "$EVIDENCE_DIR/failure-reason.txt" ]]; then
+    printf '%s\n' "$FAILURE_REASON" > "$EVIDENCE_DIR/failure-reason.txt"
+  fi
+  exit "$rc"
+}
+trap on_exit EXIT
+
+for command in curl docker jq kind kubectl node openssl sed sha256sum; do
+  command -v "$command" >/dev/null
+done
+
+FAILURE_REASON="kind cluster creation failed"
+kind create cluster \
+  --name "$CLUSTER_NAME" \
+  --config infra/kind/postgresql-ha/kind-config.yaml \
+  --image kindest/node:v1.33.1@sha256:050072256b9a903bd914c0b2866828150cb229cea0efe5892e2b644d5dd3b34f \
+  2>&1 | tee "$RAW_DIR/kind-create.log"
+kubectl cluster-info --context "kind-${CLUSTER_NAME}" > "$RAW_DIR/cluster-info.txt"
+kubectl wait --for=condition=Ready nodes --all --timeout=360s
+
+POSTGRES_IMAGE_TAG="ghcr.io/cloudnative-pg/postgresql:16-standard-trixie"
+MINIO_IMAGE_TAG="minio/minio:RELEASE.2025-09-07T16-13-09Z"
+MINIO_MC_IMAGE_TAG="minio/mc:RELEASE.2024-05-09T17-04-24Z"
+
+FAILURE_REASON="required container images could not be resolved to immutable digests"
+docker pull "$POSTGRES_IMAGE_TAG" > "$RAW_DIR/postgres-image-pull.log"
+docker pull "$MINIO_IMAGE_TAG" > "$RAW_DIR/minio-image-pull.log"
+docker pull "$MINIO_MC_IMAGE_TAG" > "$RAW_DIR/minio-mc-image-pull.log"
+POSTGRES_REPO_DIGEST="$(docker image inspect "$POSTGRES_IMAGE_TAG" --format '{{index .RepoDigests 0}}')"
+MINIO_REPO_DIGEST="$(docker image inspect "$MINIO_IMAGE_TAG" --format '{{index .RepoDigests 0}}')"
+MINIO_MC_REPO_DIGEST="$(docker image inspect "$MINIO_MC_IMAGE_TAG" --format '{{index .RepoDigests 0}}')"
+POSTGRES_IMAGE="${POSTGRES_IMAGE_TAG}@${POSTGRES_REPO_DIGEST#*@}"
+MINIO_IMAGE="${MINIO_IMAGE_TAG}@${MINIO_REPO_DIGEST#*@}"
+MINIO_MC_IMAGE="${MINIO_MC_IMAGE_TAG}@${MINIO_MC_REPO_DIGEST#*@}"
+[[ "$POSTGRES_IMAGE" == *:*@sha256:* ]]
+[[ "$MINIO_IMAGE" == *:*@sha256:* ]]
+[[ "$MINIO_MC_IMAGE" == *:*@sha256:* ]]
+printf '%s\n' "$POSTGRES_IMAGE" > "$RAW_DIR/postgres-image.txt"
+printf '%s\n' "$MINIO_IMAGE" > "$RAW_DIR/minio-image.txt"
+printf '%s\n' "$MINIO_MC_IMAGE" > "$RAW_DIR/minio-mc-image.txt"
+kind load docker-image --name "$CLUSTER_NAME" "$POSTGRES_IMAGE_TAG"
+kind load docker-image --name "$CLUSTER_NAME" "$MINIO_IMAGE_TAG"
+kind load docker-image --name "$CLUSTER_NAME" "$MINIO_MC_IMAGE_TAG"
+
+CERT_MANAGER_VERSION="v1.20.3"
+CNPG_VERSION="1.29.1"
+BARMAN_PLUGIN_VERSION="v0.13.0"
+CERT_MANAGER_URL="https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml"
+CNPG_URL="https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v${CNPG_VERSION}/cnpg-${CNPG_VERSION}.yaml"
+BARMAN_PLUGIN_URL="https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/${BARMAN_PLUGIN_VERSION}/manifest.yaml"
+
+FAILURE_REASON="pinned operator manifests could not be downloaded"
+curl --fail --location --retry 5 "$CERT_MANAGER_URL" -o "$EXTERNAL_DIR/cert-manager.yaml"
+curl --fail --location --retry 5 "$CNPG_URL" -o "$EXTERNAL_DIR/cloudnative-pg.yaml"
+curl --fail --location --retry 5 "$BARMAN_PLUGIN_URL" -o "$EXTERNAL_DIR/barman-cloud-plugin.yaml"
+sha256sum "$EXTERNAL_DIR/cert-manager.yaml" | tee "$EXTERNAL_DIR/cert-manager.sha256"

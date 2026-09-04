@@ -1,0 +1,154 @@
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: grainflow-backup
+  namespace: grainflow-ha
+  labels:
+    app.kubernetes.io/name: grainflow-postgresql
+    app.kubernetes.io/component: backup
+spec:
+  retentionPolicy: "7d"
+  configuration:
+    destinationPath: s3://grainflow-postgresql-ha/
+    endpointURL: http://minio.grainflow-ha.svc.cluster.local:9000
+    s3Credentials:
+      accessKeyId:
+        name: minio-credentials
+        key: MINIO_ACCESS_KEY
+      secretAccessKey:
+        name: minio-credentials
+        key: MINIO_SECRET_KEY
+    wal:
+      compression: gzip
+      maxParallel: 4
+    data:
+      compression: gzip
+    tags:
+      evidence-class: postgresql-ha-pitr
+      retention: acceptance
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: grainflow-postgresql
+  namespace: grainflow-ha
+  labels:
+    app.kubernetes.io/name: grainflow-postgresql
+    app.kubernetes.io/component: database
+spec:
+  description: GrainFlow PostgreSQL 16 production-like HA/PITR acceptance authority
+  instances: 3
+  imageName: __POSTGRES_IMAGE__
+  imagePullPolicy: IfNotPresent
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: grainflow-superuser
+  bootstrap:
+    initdb:
+      database: grainflow
+      owner: migration_runner
+      secret:
+        name: grainflow-migration-user
+      dataChecksums: true
+      encoding: UTF8
+      localeCType: C
+      localeCollate: C
+  storage:
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 150m
+      memory: 384Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: required
+  failoverDelay: 0
+  switchoverDelay: 30
+  startDelay: 300
+  stopDelay: 60
+  primaryUpdateStrategy: unsupervised
+  postgresql:
+    synchronous:
+      method: any
+      number: 1
+      dataDurability: required
+      failoverQuorum: true
+    parameters:
+      max_connections: "300"
+      shared_buffers: 128MB
+      effective_cache_size: 384MB
+      archive_timeout: 5s
+      wal_compression: "on"
+      log_checkpoints: "on"
+      log_connections: "on"
+      log_disconnections: "on"
+      log_lock_waits: "on"
+      deadlock_timeout: 1s
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: grainflow-backup
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: grainflow-pooler-rw
+  namespace: grainflow-ha
+  labels:
+    app.kubernetes.io/name: grainflow-pooler
+    app.kubernetes.io/component: database-pooler
+spec:
+  cluster:
+    name: grainflow-postgresql
+  instances: 2
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      max_client_conn: "1000"
+      default_pool_size: "40"
+      min_pool_size: "5"
+      reserve_pool_size: "10"
+      reserve_pool_timeout: "3"
+      server_connect_timeout: "5"
+      server_login_retry: "2"
+      query_wait_timeout: "30"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: grainflow-pooler
+        app.kubernetes.io/component: database-pooler
+    spec:
+      # The CloudNativePG PgBouncer instance manager reconciles generated
+      # configuration through the Kubernetes API. Its dedicated service account
+      # is operator-managed and least-privilege, so this workload must receive
+      # that projected token; unrelated application workloads remain tokenless.
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 60
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: grainflow-pooler
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: pgbouncer
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault

@@ -1,0 +1,133 @@
+    local ready phase
+    ready="$(kubectl get cluster "$cluster" -n "$NAMESPACE" -o jsonpath='{.status.readyInstances}' 2>/dev/null || true)"
+    phase="$(kubectl get cluster "$cluster" -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+    if [[ "$ready" = "$expected" && "$phase" = "Cluster in healthy state" ]]; then
+      return 0
+    fi
+    sleep 5
+  done
+  kubectl get cluster "$cluster" -n "$NAMESPACE" -o yaml
+  return 1
+}
+
+wait_cluster_ready grainflow-postgresql 3 1200
+FAILURE_REASON="PgBouncer pooler did not become ready"
+kubectl apply -f "$RAW_DIR/rendered-postgresql-pooler.yaml" > "$RAW_DIR/postgresql-pooler-apply.log" 2>&1
+for _ in $(seq 1 180); do
+  if kubectl get deployment grainflow-pooler-rw -n "$NAMESPACE" -o json > "$RAW_DIR/pooler-deployment-before-rollout.json" 2>/dev/null; then
+    break
+  fi
+  sleep 2
+done
+kubectl get deployment grainflow-pooler-rw -n "$NAMESPACE" -o json > "$RAW_DIR/pooler-deployment-before-rollout.json"
+kubectl rollout status deployment/grainflow-pooler-rw -n "$NAMESPACE" --timeout=600s
+[[ "$(kubectl get deployment grainflow-pooler-rw -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}')" = "2" ]]
+
+kubectl run ha-client -n "$NAMESPACE" --restart=Never \
+  --image="$POSTGRES_IMAGE" \
+  --env="APP_PASSWORD=${APP_PASSWORD}" \
+  --env="SUPERUSER_PASSWORD=${SUPERUSER_PASSWORD}" \
+  --env="MIGRATION_PASSWORD=${MIGRATION_PASSWORD}" \
+  --env="RESTORE_PASSWORD=${RESTORE_PASSWORD}" \
+  --command -- /bin/sh -ec 'trap : TERM INT; sleep 7200 & wait'
+kubectl wait --for=condition=Ready pod/ha-client -n "$NAMESPACE" --timeout=300s
+
+psql_query() {
+  local host="$1"
+  local user="$2"
+  local password="$3"
+  local database="$4"
+  local sql="$5"
+  kubectl exec -n "$NAMESPACE" ha-client -- \
+    env PGPASSWORD="$password" \
+    psql -v ON_ERROR_STOP=1 -h "$host" -U "$user" -d "$database" -Atc "$sql"
+}
+admin_sql() {
+  psql_query grainflow-postgresql-rw postgres "$SUPERUSER_PASSWORD" grainflow "$1"
+}
+migration_sql() {
+  psql_query grainflow-postgresql-rw migration_runner "$MIGRATION_PASSWORD" grainflow "$1"
+}
+runtime_sql() {
+  psql_query grainflow-pooler-rw app_runtime "$APP_PASSWORD" grainflow "$1"
+}
+restore_sql() {
+  local cluster="$1"
+  local sql="$2"
+  psql_query "${cluster}-rw" restore_verifier "$RESTORE_PASSWORD" grainflow "$sql"
+}
+
+FAILURE_REASON="least-privilege database principals or canonical evidence schema bootstrap failed"
+admin_sql "REVOKE CREATE ON DATABASE grainflow FROM PUBLIC;"
+admin_sql "REVOKE CREATE ON SCHEMA public FROM PUBLIC;"
+admin_sql "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+admin_sql "CREATE ROLE app_runtime LOGIN PASSWORD '${APP_PASSWORD}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;"
+admin_sql "CREATE ROLE restore_verifier LOGIN PASSWORD '${RESTORE_PASSWORD}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;"
+migration_sql "
+  CREATE TABLE ha_evidence (
+    id BIGSERIAL PRIMARY KEY,
+    marker TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+  );
+  CREATE TABLE ha_load (
+    id BIGSERIAL PRIMARY KEY,
+    payload TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+  );
+  GRANT USAGE ON SCHEMA public TO app_runtime, restore_verifier;
+  GRANT SELECT, INSERT, UPDATE ON ha_evidence, ha_load TO app_runtime;
+  GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_runtime;
+  GRANT SELECT ON ha_evidence TO restore_verifier;
+  REVOKE CREATE ON SCHEMA public FROM app_runtime, restore_verifier;
+"
+RUNTIME_SUPERUSER="$(admin_sql "SELECT rolsuper FROM pg_roles WHERE rolname='app_runtime';")"
+RUNTIME_CREATEDB="$(admin_sql "SELECT rolcreatedb FROM pg_roles WHERE rolname='app_runtime';")"
+RUNTIME_DDL="$(admin_sql "SELECT has_schema_privilege('app_runtime','public','CREATE');")"
+printf 'superuser=%s createdb=%s schemaCreate=%s\n' \
+  "$RUNTIME_SUPERUSER" "$RUNTIME_CREATEDB" "$RUNTIME_DDL" > "$RAW_DIR/runtime-principal-proof.txt"
+[[ "$RUNTIME_SUPERUSER" = "f" ]]
+[[ "$RUNTIME_CREATEDB" = "f" ]]
+[[ "$RUNTIME_DDL" = "f" ]]
+runtime_sql "INSERT INTO ha_evidence(marker) VALUES ('INITIAL_COMMIT');" >/dev/null
+
+FAILURE_REASON="synchronous replication or failover quorum did not converge"
+READY_INSTANCES=0
+DISTINCT_DB_NODES=0
+STREAMING_REPLICAS=0
+SYNCHRONOUS_STANDBYS=0
+FAILOVER_QUORUM_STANDBY_NUMBER=0
+for _ in $(seq 1 180); do
+  READY_INSTANCES="$(kubectl get cluster grainflow-postgresql -n "$NAMESPACE" -o jsonpath='{.status.readyInstances}' 2>/dev/null || echo 0)"
+  DISTINCT_DB_NODES="$(
+    kubectl get pods -n "$NAMESPACE" -l cnpg.io/cluster=grainflow-postgresql -o json 2>/dev/null |
+      jq '[.items[].spec.nodeName] | unique | length' 2>/dev/null || echo 0
+  )"
+  STREAMING_REPLICAS="$(admin_sql "SELECT count(*) FROM pg_stat_replication WHERE state='streaming';" 2>/dev/null || echo 0)"
+  SYNCHRONOUS_STANDBYS="$(admin_sql "SELECT count(*) FROM pg_stat_replication WHERE state='streaming' AND sync_state IN ('sync','quorum');" 2>/dev/null || echo 0)"
+  FAILOVER_QUORUM_STANDBY_NUMBER="$(
+    kubectl get failoverquorum grainflow-postgresql -n "$NAMESPACE" \
+      -o jsonpath='{.status.standbyNumber}' 2>/dev/null || echo 0
+  )"
+  printf 'ready=%s distinctNodes=%s streaming=%s synchronous=%s failoverQuorum=%s\n' \
+    "${READY_INSTANCES:-0}" "${DISTINCT_DB_NODES:-0}" "${STREAMING_REPLICAS:-0}" \
+    "${SYNCHRONOUS_STANDBYS:-0}" "${FAILOVER_QUORUM_STANDBY_NUMBER:-0}" \
+    > "$RAW_DIR/replication-convergence.txt"
+  if [[ "${READY_INSTANCES:-0}" = "3" && "${DISTINCT_DB_NODES:-0}" = "3" ]] && \
+     (( ${STREAMING_REPLICAS:-0} >= 2 )) && \
+     (( ${SYNCHRONOUS_STANDBYS:-0} >= 1 )) && \
+     [[ "${FAILOVER_QUORUM_STANDBY_NUMBER:-0}" = "1" ]]; then
+    break
+  fi
+  sleep 2
+done
+[[ "${READY_INSTANCES:-0}" = "3" ]]
+[[ "${DISTINCT_DB_NODES:-0}" = "3" ]]
+(( ${STREAMING_REPLICAS:-0} >= 2 ))
+(( ${SYNCHRONOUS_STANDBYS:-0} >= 1 ))
+[[ "${FAILOVER_QUORUM_STANDBY_NUMBER:-0}" = "1" ]]
+
+FAILURE_REASON="automatic primary failover or pooler continuity acceptance failed"
+POOLER_ENDPOINT="grainflow-pooler-rw"
+OLD_PRIMARY="$(kubectl get cluster grainflow-postgresql -n "$NAMESPACE" -o jsonpath='{.status.currentPrimary}')"
+OLD_PRIMARY_UID="$(kubectl get pod "$OLD_PRIMARY" -n "$NAMESPACE" -o jsonpath='{.metadata.uid}')"
+runtime_sql "INSERT INTO ha_evidence(marker) VALUES ('FAILOVER_COMMITTED');" >/dev/null
