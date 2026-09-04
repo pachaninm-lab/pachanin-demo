@@ -10,11 +10,12 @@ import { AuditService } from '../audit/audit.service';
 import { PasswordResetService } from '../auth/password-reset.service';
 import { assertRecentSettlementFinancialMfa } from '../settlement-engine/settlement-financial-mfa.guard';
 import { RequestUser, Role } from '../../common/types/request-user';
+import type { TicketPriority } from './support.priorities';
 
 const SUPPORT_ROLES: Role[] = [Role.SUPPORT_MANAGER, Role.ADMIN];
 
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'ESCALATED';
-export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export { TICKET_PRIORITIES, type TicketPriority } from './support.priorities';
 
 export interface SupportTicket {
   id: string;
