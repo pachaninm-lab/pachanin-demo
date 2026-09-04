@@ -6,6 +6,7 @@ const supersededMigration = read('apps/api/prisma/migrations/20260902143000_role
 const service = read('apps/api/src/modules/role-eligibility/role-eligibility.service.ts');
 const worker = read('apps/api/src/modules/role-eligibility/role-eligibility-worker.service.ts');
 const security = read('apps/api/src/modules/role-eligibility/role-eligibility-security.ts');
+const eligibilityTypes = read('apps/api/src/modules/role-eligibility/role-eligibility.types.ts');
 const admission = read('apps/api/src/modules/role-eligibility/role-eligibility-admission.service.ts');
 const enforcementPolicy = read('apps/api/src/modules/role-eligibility/role-eligibility-enforcement-policy.ts');
 const enforcementRepository = read('apps/api/src/modules/role-eligibility/role-eligibility-enforcement.repository.ts');
@@ -44,13 +45,20 @@ requireText('service', service, ['enforcement: false', 'ROLE_ELIGIBILITY_ENFORCE
 requireText('worker', worker, ['beforePublish = await this.repository.readCandidate', "this.publish(check, 'SUPERSEDED'", 'applicationVersion !== check.applicationVersion']);
 requireText('security', security, ['https:', 'HOST_NOT_ALLOWLISTED', "redirect: 'error'", 'RESPONSE_TOO_LARGE', 'XML_EXTERNAL_ENTITY_FORBIDDEN', 'JSON_DEPTH_LIMIT', 'PARSER_TIMEOUT']);
 
+requireText('eligibility types', eligibilityTypes, [
+  "ENFORCEMENT_AUTHORITY_SOURCES = ['FNS', 'FGIS_GRAIN', 'CBR', 'ROSACCREDITATION']",
+  "SUPPLEMENTARY_ELIGIBILITY_SOURCE_CODES = ['FNS_RSMP']",
+  'future supplementary evidence sources must not silently',
+]);
 requireText('enforcement types', enforcementTypes, [
   "decision: 'ALLOW' | 'REVIEW_REQUIRED' | 'ADVISORY_ONLY'",
+  'requiredSources: EnforcementAuthoritySource[]',
   'policyHash: string',
   'sourceManifestHash: string',
   'evidenceFreshUntil: Date',
 ]);
 requireText('enforcement policy', enforcementPolicy, [
+  'AUTHORITY_SOURCE_SET',
   "accepted.length !== 1 || accepted[0] !== 'ELIGIBLE'",
   "hasExactKeys(value, ['defaultDecision', 'roles', 'schemaVersion', 'version'])",
   "requiredSources: ['CBR']",
@@ -58,6 +66,17 @@ requireText('enforcement policy', enforcementPolicy, [
   'FGIS_GRAIN_MACHINE_CONTRACT_UNAVAILABLE',
   'ROSACCREDITATION_MACHINE_CONTRACT_UNPROVEN',
 ]);
+const hasDirectAuthoritySourceGuard = enforcementPolicy.includes(
+  "sources.some((item) => !AUTHORITY_SOURCE_SET.has(item))",
+);
+const hasTypedAuthoritySourceGuard = [
+  'function isEnforcementAuthoritySource(value: string): value is EnforcementAuthoritySource',
+  'return AUTHORITY_SOURCE_SET.has(value);',
+  'if (!isEnforcementAuthoritySource(source)) return null;',
+].every((needle) => enforcementPolicy.includes(needle));
+if (!hasDirectAuthoritySourceGuard && !hasTypedAuthoritySourceGuard) {
+  failures.push('enforcement policy: missing mandatory enforcement-authority source guard');
+}
 requireText('enforcement repository', enforcementRepository, [
   'eligibility.enforcement_state',
   'eligibility.enforcement_policies',
@@ -158,6 +177,7 @@ console.log('PII_MINIMIZATION=PASS');
 console.log('SOURCE_FAILURE_FAIL_CLOSED=PASS');
 console.log('SCHEMA_DRIFT_FAIL_CLOSED=PASS');
 console.log('ENFORCEMENT_FOUNDATION_FAIL_CLOSED=PASS');
+console.log('SUPPLEMENTARY_SOURCE_ENFORCEMENT_AUTHORITY=0');
 console.log('OFFICIAL_SOURCE_CONTRACT_PROBES=PASS');
 console.log('FNS_RSMP_NEGATIVE_AUTHORITY=0');
 console.log('EAEU_LAB_SCOPE_REQUIRED=PASS');
