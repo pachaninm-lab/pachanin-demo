@@ -43,6 +43,10 @@ function uniqueStrings(value: unknown): string[] | null {
   return normalized.length === value.length ? normalized : null;
 }
 
+function isEnforcementAuthoritySource(value: string): value is EnforcementAuthoritySource {
+  return AUTHORITY_SOURCE_SET.has(value);
+}
+
 function parseRule(value: unknown): EnforcementRoleRule | null {
   if (!isRecord(value)) return null;
   if (value.mode === 'ADVISORY_ONLY') {
@@ -54,9 +58,14 @@ function parseRule(value: unknown): EnforcementRoleRule | null {
   if (value.mode !== 'ENFORCE') return null;
   if (!hasExactKeys(value, ['acceptedVerdicts', 'mode', 'requiredSources', 'requireFreshEvidence', 'requireHealthySource'])) return null;
   const accepted = uniqueStrings(value.acceptedVerdicts);
-  const sources = uniqueStrings(value.requiredSources);
-  if (!accepted || !sources) return null;
-  if (accepted.some((item) => !VERDICT_SET.has(item)) || sources.some((item) => !AUTHORITY_SOURCE_SET.has(item))) return null;
+  const sourceStrings = uniqueStrings(value.requiredSources);
+  if (!accepted || !sourceStrings) return null;
+  if (accepted.some((item) => !VERDICT_SET.has(item))) return null;
+  const sources: EnforcementAuthoritySource[] = [];
+  for (const source of sourceStrings) {
+    if (!isEnforcementAuthoritySource(source)) return null;
+    sources.push(source);
+  }
   // Enforcement may depend only on explicitly approved authority sources.
   // Supplementary evidence can enrich shadow/review context but can never become
   // a mandatory admission authority merely by being added to the evidence model.
@@ -65,7 +74,7 @@ function parseRule(value: unknown): EnforcementRoleRule | null {
   return {
     mode: 'ENFORCE',
     acceptedVerdicts: accepted as EligibilityVerdict[],
-    requiredSources: sources as EnforcementAuthoritySource[],
+    requiredSources: sources,
     requireFreshEvidence: true,
     requireHealthySource: true,
   };
