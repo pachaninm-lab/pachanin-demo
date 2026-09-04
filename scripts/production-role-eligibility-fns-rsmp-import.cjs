@@ -15,6 +15,9 @@ const MAX_ENTRIES = 20_000;
 const MAX_RATIO = 250;
 const TAIL_BYTES = 66_000;
 const IMPORT_CONCURRENCY = 8;
+const METADATA_TIMEOUTS_MS = Object.freeze([30_000, 90_000, 300_000]);
+const RANGE_TIMEOUTS_MS = Object.freeze([30_000, 90_000]);
+const RETRIABLE_HTTP_STATUS = new Set([429, 500, 502, 503, 504]);
 const PARSER_VERSION = 'fns-rsmp-positive-membership-v1';
 const ABSENCE_SEMANTICS = 'ABSENCE_IS_NOT_NEGATIVE_LEGAL_ENTITY_EVIDENCE';
 
@@ -39,11 +42,24 @@ function validateOfficialUrl(raw, host, pattern, code) {
   if (u.protocol !== 'https:' || u.hostname !== host || u.username || u.password || u.port || u.search || u.hash || !pattern.test(u.pathname)) throw new Error(code);
   return u;
 }
-async function bounded(url, opts = {}) {
+function retryReason(error) {
+  if (error && error.code === 'FNS_RSMP_TRANSPORT_TIMEOUT') return 'TIMEOUT';
+  const message = error instanceof Error ? error.message : String(error || '');
+  const status = message.match(/^FNS_RSMP_HTTP_(\d{3})$/)?.[1];
+  if (status && RETRIABLE_HTTP_STATUS.has(Number(status))) return `HTTP_${status}`;
+  if (error instanceof TypeError) return 'NETWORK';
+  return null;
+}
+function exhaustedTransportError(stage, reason, attempts) {
+  const error = new Error(`FNS_RSMP_TRANSPORT_${stage}_${reason}_EXHAUSTED_AFTER_${attempts}_ATTEMPTS`);
+  error.code = 'FNS_RSMP_TRANSPORT_RETRY_EXHAUSTED';
+  return error;
+}
+async function boundedAttempt(url, opts, timeoutMs, fetchImpl) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), opts.timeoutMs || 30_000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
+    const res = await fetchImpl(url, {
       method: opts.method || 'GET',
       redirect: 'error',
       signal: controller.signal,
@@ -59,12 +75,40 @@ async function bounded(url, opts = {}) {
     const body = Buffer.from(ab);
     if (body.length > (opts.maxBytes || MAX_ENTRY_BYTES)) throw new Error('FNS_RSMP_RESPONSE_TOO_LARGE');
     return { res, body };
+  } catch (error) {
+    if (controller.signal.aborted) {
+      const timeout = new Error('FNS_RSMP_TRANSPORT_TIMEOUT');
+      timeout.code = 'FNS_RSMP_TRANSPORT_TIMEOUT';
+      throw timeout;
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }
 }
+async function bounded(url, opts = {}) {
+  const stage = String(opts.stage || 'UNSPECIFIED').replace(/[^A-Z0-9_]/g, '_');
+  const timeouts = Array.isArray(opts.timeoutsMs) && opts.timeoutsMs.length
+    ? opts.timeoutsMs
+    : opts.timeoutMs
+      ? [opts.timeoutMs]
+      : METADATA_TIMEOUTS_MS;
+  if (timeouts.some((value) => !Number.isSafeInteger(value) || value <= 0 || value > 300_000)) throw new Error('FNS_RSMP_TIMEOUT_BUDGET_INVALID');
+  const fetchImpl = opts.fetchImpl || fetch;
+  for (let attempt = 0; attempt < timeouts.length; attempt += 1) {
+    try {
+      return await boundedAttempt(url, opts, timeouts[attempt], fetchImpl);
+    } catch (error) {
+      const reason = retryReason(error);
+      if (!reason) throw error;
+      if (attempt === timeouts.length - 1) throw exhaustedTransportError(stage, reason, timeouts.length);
+      process.stderr.write(`FNS_RSMP_TRANSPORT_RETRY stage=${stage} reason=${reason} attempt=${attempt + 1}/${timeouts.length} timeout_ms=${timeouts[attempt]}\n`);
+    }
+  }
+  throw new Error('FNS_RSMP_TRANSPORT_UNREACHABLE');
+}
 async function discoverContract() {
-  const { res, body } = await bounded(PASSPORT, { maxBytes: 2 * 1024 * 1024 });
+  const { res, body } = await bounded(PASSPORT, { stage: 'PASSPORT', maxBytes: 2 * 1024 * 1024, timeoutsMs: METADATA_TIMEOUTS_MS });
   if (res.status !== 200) throw new Error('FNS_RSMP_PASSPORT_UNAVAILABLE');
   const html = new TextDecoder('utf-8', { fatal: false }).decode(body);
   const urls = [...html.matchAll(/href=["']([^"']+)["']/gi)].map((m) => {
@@ -78,9 +122,9 @@ async function discoverContract() {
   const dataMatch = data.pathname.match(DATA_PATH);
   const xsdMatch = xsd.pathname.match(STRUCTURE_PATH);
   if (!dataMatch || !xsdMatch || dataMatch[2] !== xsdMatch[1]) throw new Error('FNS_RSMP_STRUCTURE_VERSION_MISMATCH');
-  const xsdFetch = await bounded(xsd.toString(), { maxBytes: 1024 * 1024 });
+  const xsdFetch = await bounded(xsd.toString(), { stage: 'XSD', maxBytes: 1024 * 1024, timeoutsMs: METADATA_TIMEOUTS_MS });
   if (sha256(xsdFetch.body) !== EXPECTED_XSD_SHA256) throw new Error('FNS_RSMP_XSD_FINGERPRINT_UNAUTHORIZED');
-  const head = await bounded(data.toString(), { method: 'HEAD' });
+  const head = await bounded(data.toString(), { stage: 'ARCHIVE_HEAD', method: 'HEAD', timeoutsMs: METADATA_TIMEOUTS_MS });
   const bytes = Number(head.res.headers.get('content-length') || 0);
   const etag = head.res.headers.get('etag');
   if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes > MAX_ARCHIVE_BYTES || !etag) throw new Error('FNS_RSMP_ARCHIVE_METADATA_INVALID');
@@ -92,6 +136,8 @@ async function discoverContract() {
 async function range(url, start, end, etag) {
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start) throw new Error('FNS_RSMP_RANGE_INVALID');
   const { res, body } = await bounded(url, {
+    stage: 'ARCHIVE_RANGE',
+    timeoutsMs: RANGE_TIMEOUTS_MS,
     maxBytes: Math.max(MAX_ENTRY_BYTES + 4096, end - start + 1),
     headers: { Range: `bytes=${start}-${end}`, 'If-Match': etag },
   });
@@ -204,6 +250,52 @@ async function selfTest() {
   const payload = { membership: true, source: SOURCE, supplementaryOnly: true, admissionAuthority: false, automaticNegativeAuthority: false };
   if (sha256(stableJson(payload)).length !== 64) throw new Error('SELFTEST_HASH');
   if (!/^(?:\d{10}|\d{12})$/.test('1234567890') || /^(?:\d{10}|\d{12})$/.test('1234567890123')) throw new Error('SELFTEST_INN_FORMAT');
+
+  let transientCalls = 0;
+  const transient = await bounded(PASSPORT, {
+    stage: 'SELFTEST_NETWORK',
+    maxBytes: 16,
+    timeoutsMs: [25, 25],
+    fetchImpl: async () => {
+      transientCalls += 1;
+      if (transientCalls === 1) throw new TypeError('fetch failed');
+      return new Response('ok', { status: 200 });
+    },
+  });
+  if (transientCalls !== 2 || transient.body.toString('utf8') !== 'ok') throw new Error('SELFTEST_TRANSPORT_RETRY');
+
+  let timeoutCalls = 0;
+  try {
+    await bounded(PASSPORT, {
+      stage: 'SELFTEST_TIMEOUT',
+      timeoutsMs: [25, 25],
+      fetchImpl: async () => {
+        timeoutCalls += 1;
+        const error = new Error('synthetic timeout');
+        error.code = 'FNS_RSMP_TRANSPORT_TIMEOUT';
+        throw error;
+      },
+    });
+    throw new Error('SELFTEST_TIMEOUT_EXPECTED_FAILURE');
+  } catch (error) {
+    if (timeoutCalls !== 2 || !/FNS_RSMP_TRANSPORT_SELFTEST_TIMEOUT_TIMEOUT_EXHAUSTED_AFTER_2_ATTEMPTS/.test(error.message)) throw new Error('SELFTEST_TIMEOUT_FAIL_CLOSED');
+  }
+
+  let policyCalls = 0;
+  try {
+    await bounded(PASSPORT, {
+      stage: 'SELFTEST_POLICY',
+      timeoutsMs: [25, 25],
+      fetchImpl: async () => {
+        policyCalls += 1;
+        return new Response('', { status: 404 });
+      },
+    });
+    throw new Error('SELFTEST_POLICY_EXPECTED_FAILURE');
+  } catch (error) {
+    if (policyCalls !== 1 || error.message !== 'FNS_RSMP_HTTP_404') throw new Error('SELFTEST_NON_RETRIABLE_POLICY');
+  }
+
   process.stdout.write('FNS_RSMP_IMPORT_SELFTEST=PASS\n');
 }
 
