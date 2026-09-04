@@ -4,7 +4,7 @@
   "branch": "feat/pc-crop-provider-registry-authority-4997",
   "status": "active",
   "purpose": "Replace the fictional service-provider catalog and client-supplied compliance facts with a tenant-scoped PostgreSQL Provider, ProviderCapability, ServiceOffering and server-held evidence authority.",
-  "authorityBaseExactMain": "9869d829afece09742211ca1498bb0ac3847cf49",
+  "authorityBaseExactMain": "8cc730c76476c2b2458200ed370bcc16008ec6e0",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
@@ -15,6 +15,8 @@
     "apps/api/src/modules/service-providers/**",
     "apps/api/test/industrial/provider-registry-authority.e2e-spec.ts",
     "scripts/platform-v7-one-deal-e2e.sh",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json",
     ".github/workflows/pc-crop-provider-registry.yml",
     "scripts/verify-pc-crop-provider-registry-scope.test.mjs"
   ],
