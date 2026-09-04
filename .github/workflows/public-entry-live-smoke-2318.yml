@@ -1,0 +1,121 @@
+name: public entry live smoke 2318
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  browser-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PLAYWRIGHT_BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      ARTIFACT_DIR: ../../artifacts/public-entry-live-smoke-2318
+    steps:
+      - name: Checkout production source plus one-shot smoke
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Capture development hydration diagnostics
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm dev > /tmp/platform-v7-development.log 2>&1 &
+          DEV_PID=$!
+          cleanup() { kill "$DEV_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --show-error --fail --max-time 5 'http://127.0.0.1:3000/platform-v7?lang=ru' >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/platform-v7-development.log
+            exit 1
+          fi
+          DEV_DIAGNOSTIC_URL=http://127.0.0.1:3000 node scripts/public-entry-hydration-dev-2318.mjs
+          cp /tmp/platform-v7-development.log ../../artifacts/public-entry-live-smoke-2318/development-server.log
+
+      - name: Run RU EN ZH browser matrix, axe and runtime smoke
+        working-directory: apps/web
+        run: node scripts/public-entry-live-smoke-2318-v2.mjs
+
+      - name: Collect Lighthouse reports
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/public-entry-live-smoke-2318/lighthouse
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            printf '{"status":"skipped","reason":"Chrome executable not found"}\n' > artifacts/public-entry-live-smoke-2318/lighthouse/summary.json
+            exit 0
+          fi
+          export CHROME_PATH="$CHROME_BIN"
+          for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+            safe_name="${route//\//-}"
+            npx -y lighthouse@12.8.2 "https://xn----8sbjf4befbjgs9b.xn--p1ai/${route}?lang=ru" \
+              --quiet \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json \
+              --output-path="artifacts/public-entry-live-smoke-2318/lighthouse/${safe_name}.json"
+          done
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = 'artifacts/public-entry-live-smoke-2318/lighthouse';
+          const reports = fs.readdirSync(dir)
+            .filter((name) => name.endsWith('.json') && name !== 'summary.json')
+            .map((name) => {
+              const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+              return {
+                file: name,
+                finalUrl: report.finalUrl,
+                scores: Object.fromEntries(Object.entries(report.categories).map(([key, value]) => [key, Math.round((value.score || 0) * 100)])),
+                metrics: {
+                  firstContentfulPaintMs: report.audits['first-contentful-paint']?.numericValue,
+                  largestContentfulPaintMs: report.audits['largest-contentful-paint']?.numericValue,
+                  totalBlockingTimeMs: report.audits['total-blocking-time']?.numericValue,
+                  cumulativeLayoutShift: report.audits['cumulative-layout-shift']?.numericValue,
+                  speedIndexMs: report.audits['speed-index']?.numericValue,
+                },
+              };
+            });
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', reports }, null, 2));
+          console.log(JSON.stringify(reports, null, 2));
+          NODE
+
+      - name: Upload production evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-live-smoke-2318
+          path: artifacts/public-entry-live-smoke-2318
+          if-no-files-found: error
+          retention-days: 7
