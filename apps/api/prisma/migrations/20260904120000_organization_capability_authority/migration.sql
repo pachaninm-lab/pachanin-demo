@@ -347,17 +347,20 @@ WITH CHECK (
   AND "payload" #>> '{event,correlationId}' = "correlationId"
   AND EXISTS (
     SELECT 1
-    FROM public."audit_events" audit
-    WHERE audit."id" = "outbox_entries"."auditId"
-      AND audit."tenantId" = public.app_identity_tenant_id()
-      AND audit."orgId" = public.app_identity_org_id()
-      AND audit."actorUserId" = public.app_identity_user_id()
-      AND audit."actorRole" = current_setting('app.current_role', true)
-      AND audit."correlationId" = "outbox_entries"."correlationId"
-      AND audit."objectType" = 'ORGANIZATION_CAPABILITY'
-      AND audit."action" IN (
-        'ORGANIZATION_CAPABILITY_DECLARE', 'ORGANIZATION_CAPABILITY_REVOKE'
-      )
+    FROM public."organization_capability_events" event
+    WHERE event."outboxEntryId" = "outbox_entries"."id"
+      AND event."auditEventId" = "outbox_entries"."auditId"
+      AND event."tenantId" = public.app_identity_tenant_id()
+      AND event."organizationId" = public.app_identity_org_id()
+      AND event."actorUserId" = public.app_identity_user_id()
+      AND event."actorRole" = current_setting('app.current_role', true)
+      AND event."correlationId" = "outbox_entries"."correlationId"
+      AND event."commandId" = "payload" #>> '{event,commandId}'
+      AND event."assignmentId" = "payload" #>> '{event,aggregateId}'
+      AND event."requestFingerprint" = "payload" ->> 'requestFingerprint'
+      AND event."action" = "payload" #>> '{event,action}'
+      AND event."toStatus" = "payload" #>> '{event,status}'
+      AND event."aggregateVersion"::text = "payload" #>> '{event,aggregateVersion}'
   )
 );
 

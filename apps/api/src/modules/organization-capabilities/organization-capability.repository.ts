@@ -386,43 +386,6 @@ export class OrganizationCapabilityRepository {
       },
     });
 
-    const integrationEvent = {
-      type: 'organization.capability.changed.v1',
-      aggregateType: 'OrganizationCapability',
-      aggregateId: after.id,
-      organizationId: context.orgId,
-      tenantId: context.tenantId,
-      capabilityCode: command.capabilityCode,
-      status: after.status,
-      aggregateVersion: after.version.toString(),
-      action: command.action,
-      correlationId: command.correlationId,
-      auditId,
-      occurredAt: committedAt.toISOString(),
-      enforcementMode: 'SHADOW',
-    };
-    await tx.outboxEntry.create({
-      data: {
-        id: outboxEntryId,
-        type: integrationEvent.type,
-        payload: {
-          schema: 'organization-capability.command.v1',
-          requestFingerprint,
-          receipt,
-          event: integrationEvent,
-        } as unknown as Prisma.InputJsonValue,
-        status: 'PENDING',
-        triggeredByUserId: context.userId,
-        idempotencyKey: outboxIdempotencyKey(context, command),
-        correlationId: command.correlationId,
-        auditId,
-        runtimeIdempotencyKey: outboxIdempotencyKey(context, command),
-        maxRetries: 5,
-        nextRetryAt: committedAt,
-        createdAt: committedAt,
-      },
-    });
-
     const previousEvents = await tx.$queryRaw<Array<{ hash: string }>>(Prisma.sql`
       SELECT "hash"
       FROM public."organization_capability_events"
@@ -468,6 +431,44 @@ export class OrganizationCapabilityRepository {
         ${after.version}, ${committedAt}
       )
     `);
+
+    const integrationEvent = {
+      type: 'organization.capability.changed.v1',
+      aggregateType: 'OrganizationCapability',
+      aggregateId: after.id,
+      commandId: command.commandId,
+      organizationId: context.orgId,
+      tenantId: context.tenantId,
+      capabilityCode: command.capabilityCode,
+      status: after.status,
+      aggregateVersion: after.version.toString(),
+      action: command.action,
+      correlationId: command.correlationId,
+      auditId,
+      occurredAt: committedAt.toISOString(),
+      enforcementMode: 'SHADOW',
+    };
+    await tx.outboxEntry.create({
+      data: {
+        id: outboxEntryId,
+        type: integrationEvent.type,
+        payload: {
+          schema: 'organization-capability.command.v1',
+          requestFingerprint,
+          receipt,
+          event: integrationEvent,
+        } as unknown as Prisma.InputJsonValue,
+        status: 'PENDING',
+        triggeredByUserId: context.userId,
+        idempotencyKey: outboxIdempotencyKey(context, command),
+        correlationId: command.correlationId,
+        auditId,
+        runtimeIdempotencyKey: outboxIdempotencyKey(context, command),
+        maxRetries: 5,
+        nextRetryAt: committedAt,
+        createdAt: committedAt,
+      },
+    });
     return receipt;
   }
 
