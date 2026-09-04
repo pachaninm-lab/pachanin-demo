@@ -1,0 +1,345 @@
+name: PC-CROP W1-A Production Preflight
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-w1a-production-preflight.yml'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-w1a-production-preflight-4997.json'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: pc-crop-w1a-production-preflight
+  cancel-in-progress: false
+
+env:
+  ISSUE_NUMBER: 4997
+  COMMAND: /pc-crop w1-a preflight current-main
+  TARGET_MIGRATION: 20260904120000_organization_capability_authority
+  DEFAULT_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/pc-crop-w1a-production-preflight
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate bounded W1-A preflight contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event.issue.number == 4997 &&
+       github.event.comment.body == '/pc-crop w1-a preflight current-main' &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Prove non-mutating contract markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          f='.github/workflows/pc-crop-w1a-production-preflight.yml'
+          grep -Fq 'SET TRANSACTION READ ONLY' "$f"
+          grep -Fq 'PRODUCTION_DATABASE_MUTATION=0' "$f"
+          grep -Fq 'REGISTRATION_CODE_CHANGED=0' "$f"
+          grep -Fq 'REGISTRATION_BEHAVIOR_CHANGED=0' "$f"
+          grep -Fq 'ROLE_ELIGIBILITY_ENFORCEMENT=false' "$f"
+          ! grep -Eq 'prisma migrate deploy|DELETE[[:space:]]+FROM|TRUNCATE[[:space:]]|DROP[[:space:]]+TABLE|ALTER[[:space:]]+TABLE|ROLE_ELIGIBILITY_ENFORCEMENT[=]true' "$f"
+
+  observe:
+    name: Read-only REG.RU migration state
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4997 &&
+      github.event.comment.body == '/pc-crop w1-a preflight current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve exact current main and repository migration set
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          git fetch --no-tags origin main
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$main_sha" == "$(git rev-parse origin/main)" ]]
+          git checkout --detach "$main_sha"
+          find apps/api/prisma/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort > "$EVIDENCE_DIR/repository-migrations.txt"
+          grep -Fxq "$TARGET_MIGRATION" "$EVIDENCE_DIR/repository-migrations.txt"
+          expected_b64="$(base64 -w0 < "$EVIDENCE_DIR/repository-migrations.txt")"
+          echo "sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "expected_b64=$expected_b64" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$main_sha" > "$EVIDENCE_DIR/current-main-sha.txt"
+
+      - name: Resolve protected key and pinned REG.RU identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo PC_CROP_W1A_CANONICAL_VPS_MISMATCH >&2; exit 20; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo PC_CROP_W1A_PRODUCTION_PRINCIPAL_INVALID >&2; exit 21; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 22
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo PC_CROP_W1A_PINNED_HOST_FINGERPRINT_REQUIRED >&2; exit 23; }
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"; ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || { echo PC_CROP_W1A_NO_VALID_PROTECTED_PRIVATE_KEY >&2; exit 24; }
+          scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo PC_CROP_W1A_PINNED_HOST_KEY_MISMATCH >&2; exit 25; }
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo PC_CROP_W1A_SSH_AUTH=PASS' \
+            | tee "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq PC_CROP_W1A_SSH_AUTH=PASS "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Measure Prisma ledger and W1-A schema in READ ONLY mode
+        id: preflight
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          MAIN_SHA: ${{ steps.target.outputs.sha }}
+          EXPECTED_MIGRATIONS_B64: ${{ steps.target.outputs.expected_b64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "bash -s -- '$MAIN_SHA' '$EXPECTED_MIGRATIONS_B64' '$TARGET_MIGRATION'" \
+            > "$EVIDENCE_DIR/preflight.json" 2> "$EVIDENCE_DIR/runtime.log" <<'REMOTE'
+          set -Eeuo pipefail
+          set +x
+          target_sha="$1"
+          expected_b64="$2"
+          target_migration="$3"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || exit 31
+          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 )) || exit 32
+          api_id="${api_ids[0]}"
+          api_image="$(docker inspect --format '{{.Image}}' "$api_id")"
+          api_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$api_image")"
+          [[ "$api_revision" =~ ^[0-9a-f]{40}$ ]] || exit 33
+          printf 'PC_CROP_W1A_MAIN_SHA=%s\n' "$target_sha" >&2
+          printf 'PC_CROP_W1A_DEPLOYED_API_SHA=%s\n' "$api_revision" >&2
+          printf 'PRODUCTION_DATABASE_MUTATION=0\n' >&2
+          printf 'REGISTRATION_CODE_CHANGED=0\n' >&2
+          printf 'REGISTRATION_BEHAVIOR_CHANGED=0\n' >&2
+          printf 'ROLE_ELIGIBILITY_ENFORCEMENT=false\n' >&2
+          docker exec -e EXPECTED_MIGRATIONS_B64="$expected_b64" -e TARGET_MIGRATION="$target_migration" -e DEPLOYED_API_SHA="$api_revision" -e CURRENT_MAIN_SHA="$target_sha" -i "$api_id" /nodejs/bin/node - <<'NODE'
+          'use strict';
+          const { PrismaClient } = require('@prisma/client');
+          const prisma = new PrismaClient({ log: [] });
+          const expected = Buffer.from(process.env.EXPECTED_MIGRATIONS_B64 || '', 'base64').toString('utf8').split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+          const target = process.env.TARGET_MIGRATION || '';
+          if (!target || !expected.includes(target) || new Set(expected).size !== expected.length) throw new Error('EXPECTED_MIGRATION_SET_INVALID');
+          const asCount = (v) => { const n = Number.parseInt(String(v), 10); if (!Number.isSafeInteger(n) || n < 0) throw new Error('COUNT_INVALID'); return n; };
+          (async () => {
+            const report = await prisma.$transaction(async (tx) => {
+              await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+              await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '10000ms'");
+              const mode = await tx.$queryRawUnsafe("SELECT current_setting('transaction_read_only') AS mode");
+              if (mode?.[0]?.mode !== 'on') throw new Error('READ_ONLY_NOT_ACTIVE');
+              const ledger = await tx.$queryRawUnsafe('SELECT migration_name, finished_at, rolled_back_at FROM public."_prisma_migrations" ORDER BY started_at, migration_name');
+              const successful = new Set(ledger.filter(r => r.finished_at != null && r.rolled_back_at == null).map(r => String(r.migration_name)));
+              const unfinished = new Set(ledger.filter(r => r.finished_at == null && r.rolled_back_at == null).map(r => String(r.migration_name)));
+              const pending = expected.filter(name => !successful.has(name));
+              const unfinishedExpected = expected.filter(name => unfinished.has(name));
+              const relations = await tx.$queryRawUnsafe(`
+                SELECT c.relname AS name, c.relrowsecurity AS rls_enabled, c.relforcerowsecurity AS rls_forced
+                FROM pg_catalog.pg_class c
+                JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public'
+                  AND c.relname IN ('organization_capability_assignments','organization_capability_events')
+                ORDER BY c.relname
+              `);
+              const relationMap = new Map(relations.map(r => [String(r.name), { rlsEnabled: Boolean(r.rls_enabled), rlsForced: Boolean(r.rls_forced) }]));
+              const assignmentPresent = relationMap.has('organization_capability_assignments');
+              const eventsPresent = relationMap.has('organization_capability_events');
+              let assignmentRows = 0;
+              let eventRows = 0;
+              if (assignmentPresent) assignmentRows = asCount((await tx.$queryRawUnsafe('SELECT count(*)::text AS count FROM public."organization_capability_assignments"'))[0]?.count ?? '0');
+              if (eventsPresent) eventRows = asCount((await tx.$queryRawUnsafe('SELECT count(*)::text AS count FROM public."organization_capability_events"'))[0]?.count ?? '0');
+              const targetApplied = successful.has(target);
+              const targetRelationsComplete = assignmentPresent && eventsPresent;
+              const targetForceRls = targetRelationsComplete && [...relationMap.values()].every(v => v.rlsEnabled && v.rlsForced);
+              let decision;
+              if (unfinishedExpected.length > 0) decision = 'BLOCKED_UNFINISHED_MIGRATION';
+              else if (targetApplied && targetRelationsComplete && targetForceRls) decision = 'TARGET_ALREADY_APPLIED_SCHEMA_INTACT';
+              else if (targetApplied) decision = 'BLOCKED_TARGET_SCHEMA_DRIFT';
+              else if (pending.length === 1 && pending[0] === target && !assignmentPresent && !eventsPresent) decision = 'SAFE_SINGLE_PENDING_TARGET';
+              else decision = 'BLOCKED_OTHER_PENDING_OR_SCHEMA_STATE';
+              return {
+                schemaVersion: 'pc-crop.w1a-production-preflight.v1',
+                transactionMode: 'READ_ONLY',
+                productionDatabaseMutation: 0,
+                currentMainSha: process.env.CURRENT_MAIN_SHA,
+                deployedApiSha: process.env.DEPLOYED_API_SHA,
+                runtimeMatchesCurrentMain: process.env.CURRENT_MAIN_SHA === process.env.DEPLOYED_API_SHA,
+                repositoryMigrationCount: expected.length,
+                successfulRepositoryMigrationCount: expected.filter(name => successful.has(name)).length,
+                pendingRepositoryMigrations: pending,
+                unfinishedRepositoryMigrations: unfinishedExpected,
+                targetMigration: target,
+                targetMigrationApplied: targetApplied,
+                targetSchema: {
+                  assignmentsTablePresent: assignmentPresent,
+                  eventsTablePresent: eventsPresent,
+                  assignmentsForceRls: relationMap.get('organization_capability_assignments')?.rlsForced ?? false,
+                  eventsForceRls: relationMap.get('organization_capability_events')?.rlsForced ?? false,
+                  assignmentRows,
+                  eventRows
+                },
+                decision
+              };
+            }, { isolationLevel: 'RepeatableRead' });
+            process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+          })().catch(err => { console.error(`PC_CROP_W1A_PREFLIGHT_FAIL=${err?.message || String(err)}`); process.exitCode = 1; }).finally(async () => prisma.$disconnect());
+          NODE
+          printf 'PC_CROP_W1A_PREFLIGHT=PASS\n' >&2
+          REMOTE
+          cat "$EVIDENCE_DIR/runtime.log"
+          grep -Fxq PRODUCTION_DATABASE_MUTATION=0 "$EVIDENCE_DIR/runtime.log"
+          grep -Fxq REGISTRATION_CODE_CHANGED=0 "$EVIDENCE_DIR/runtime.log"
+          grep -Fxq REGISTRATION_BEHAVIOR_CHANGED=0 "$EVIDENCE_DIR/runtime.log"
+          grep -Fxq ROLE_ELIGIBILITY_ENFORCEMENT=false "$EVIDENCE_DIR/runtime.log"
+          grep -Fxq PC_CROP_W1A_PREFLIGHT=PASS "$EVIDENCE_DIR/runtime.log"
+          node - "$EVIDENCE_DIR/preflight.json" "$GITHUB_OUTPUT" <<'NODE'
+          const fs = require('node:fs');
+          const [path, output] = process.argv.slice(2);
+          const r = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (r.schemaVersion !== 'pc-crop.w1a-production-preflight.v1' || r.transactionMode !== 'READ_ONLY' || r.productionDatabaseMutation !== 0) throw new Error('PREFLIGHT_CONTRACT_INVALID');
+          fs.appendFileSync(output, [
+            `decision=${r.decision}`,
+            `runtime_matches_main=${r.runtimeMatchesCurrentMain}`,
+            `pending_count=${r.pendingRepositoryMigrations.length}`,
+            `pending=${r.pendingRepositoryMigrations.join(',') || 'NONE'}`,
+            `unfinished_count=${r.unfinishedRepositoryMigrations.length}`,
+            `target_applied=${r.targetMigrationApplied}`,
+            `assignments_table=${r.targetSchema.assignmentsTablePresent}`,
+            `events_table=${r.targetSchema.eventsTablePresent}`,
+            `assignments_force_rls=${r.targetSchema.assignmentsForceRls}`,
+            `events_force_rls=${r.targetSchema.eventsForceRls}`,
+            `assignment_rows=${r.targetSchema.assignmentRows}`,
+            `event_rows=${r.targetSchema.eventRows}`,
+            `main_sha=${r.currentMainSha}`,
+            `api_sha=${r.deployedApiSha}`
+          ].join('\n') + '\n');
+          NODE
+
+      - name: Publish W1-A preflight result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DECISION: ${{ steps.preflight.outputs.decision }}
+          RUNTIME_MATCHES_MAIN: ${{ steps.preflight.outputs.runtime_matches_main }}
+          PENDING_COUNT: ${{ steps.preflight.outputs.pending_count }}
+          PENDING: ${{ steps.preflight.outputs.pending }}
+          UNFINISHED_COUNT: ${{ steps.preflight.outputs.unfinished_count }}
+          TARGET_APPLIED: ${{ steps.preflight.outputs.target_applied }}
+          ASSIGNMENTS_TABLE: ${{ steps.preflight.outputs.assignments_table }}
+          EVENTS_TABLE: ${{ steps.preflight.outputs.events_table }}
+          ASSIGNMENTS_FORCE_RLS: ${{ steps.preflight.outputs.assignments_force_rls }}
+          EVENTS_FORCE_RLS: ${{ steps.preflight.outputs.events_force_rls }}
+          ASSIGNMENT_ROWS: ${{ steps.preflight.outputs.assignment_rows }}
+          EVENT_ROWS: ${{ steps.preflight.outputs.event_rows }}
+          MAIN_SHA: ${{ steps.preflight.outputs.main_sha }}
+          API_SHA: ${{ steps.preflight.outputs.api_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$EVIDENCE_DIR/result.md" <<EOF
+          ## PC-CROP W1-A production preflight \`$GITHUB_RUN_ID\`
+
+          - exact current main: \`$MAIN_SHA\`
+          - deployed API SHA: \`$API_SHA\`
+          - runtime matches current main: \`$RUNTIME_MATCHES_MAIN\`
+          - production DB transaction: \`READ ONLY\`
+          - production DB mutation: \`0\`
+          - pending repository migrations: \`$PENDING_COUNT\` (\`$PENDING\`)
+          - unfinished repository migrations: \`$UNFINISHED_COUNT\`
+          - target migration applied: \`$TARGET_APPLIED\`
+          - assignment/event tables present: \`$ASSIGNMENTS_TABLE/$EVENTS_TABLE\`
+          - assignment/event FORCE RLS: \`$ASSIGNMENTS_FORCE_RLS/$EVENTS_FORCE_RLS\`
+          - assignment/event rows: \`$ASSIGNMENT_ROWS/$EVENT_ROWS\`
+          - decision: \`$DECISION\`
+
+          \`REGISTRATION_CODE_CHANGED=0\`
+          \`REGISTRATION_BEHAVIOR_CHANGED=0\`
+          \`ROLE_ELIGIBILITY_ENFORCEMENT=false\`
+          \`PRODUCTION_DATABASE_MUTATION=0\`
+          EOF
+          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/result.md"
+
+      - name: Upload immutable W1-A preflight evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pc-crop-w1a-production-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Cleanup bounded credentials
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+          chmod 700 "$HOME/.ssh" 2>/dev/null || true
