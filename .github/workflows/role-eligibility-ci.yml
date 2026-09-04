@@ -10,12 +10,14 @@ on:
       - 'scripts/check-role-eligibility-*.mjs'
       - 'scripts/role-eligibility-*.mjs'
       - 'scripts/role-eligibility-*.sh'
+      - 'scripts/production-role-eligibility-*.cjs'
       - 'scripts/production-role-eligibility-worker.sh'
       - 'apps/api/src/app.module.ts'
       - 'apps/api/package.json'
       - 'infra/docker/Dockerfile.api'
       - '.github/workflows/role-eligibility-ci.yml'
       - '.github/workflows/role-eligibility-production-worker.yml'
+      - '.github/workflows/role-eligibility-fns-rsmp-production-import.yml'
 
 permissions:
   contents: read
@@ -42,6 +44,8 @@ jobs:
         run: node scripts/check-role-eligibility-static-acceptance.mjs
       - name: FNS RSMP import authority fail-closed tests
         run: node --test scripts/role-eligibility-fns-rsmp-import-contract.test.mjs
+      - name: FNS RSMP bounded production-import self-test
+        run: node scripts/production-role-eligibility-fns-rsmp-import.cjs --self-test
       - name: Worker deployment syntax and blast-radius contract
         shell: bash
         run: |
