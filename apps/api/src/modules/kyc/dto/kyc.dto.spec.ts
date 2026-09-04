@@ -82,9 +82,20 @@ describe('Сумма в проверке ПОД/ФТ', () => {
     ).rejects.toThrow();
   });
 
-  it('нечисловая сумма отклоняется, а не подставляется как NaN', async () => {
+  it.each([
+    ['строка', 'много'],
+    ['пустая строка', ''],
+    ['строка из пробелов', '   '],
+    ['false', false],
+    ['строка с числом', '100'],
+    ['null', null],
+  ])('%s отклоняется, а не приводится к нулю', async (_name, amountKopecks) => {
+    // Найдено ревью и подтверждено замером: с `@Type(() => Number)` пайп
+    // превращал '', '   ' и false в НОЛЬ ещё до `@IsInt` и границ, и они
+    // проходили как законная нулевая сумма. Приведение убрано; тело приходит
+    // как JSON, поэтому число обязано прийти числом.
     await expect(
-      через(TransactionAmlCheckDto)({ transactionId: 'tx-1', amountKopecks: 'много' }),
+      через(TransactionAmlCheckDto)({ transactionId: 'tx-1', amountKopecks }),
     ).rejects.toThrow();
   });
 
@@ -141,6 +152,33 @@ describe('Уведомление РКН: форма отсекается до с
   it('дата обнаружения обязана быть датой', async () => {
     await expect(через(RknIncidentDto)({ ...VALID, detectedAt: 'не дата' })).rejects.toThrow();
   });
+
+  it.each([
+    ['31 февраля', '2026-02-31'],
+    ['30 февраля с временем', '2026-02-30T00:00:00.000Z'],
+  ])('%s отклоняется, а не сдвигается молча', async (_name, detectedAt) => {
+    // Найдено ревью и подтверждено замером: нестрогий `@IsDateString()`
+    // принимал такую дату, а `new Date('2026-02-31')` давал `2026-03-03`.
+    // Документ регулятору и срок 72 часа считались бы от даты на три дня
+    // позже присланной, и ни одна проверка по пути этого бы не заметила.
+    await expect(через(RknIncidentDto)({ ...VALID, detectedAt })).rejects.toThrow();
+  });
+
+  it('смещение часового пояса остаётся допустимым', async () => {
+    // Обратная сторона строгого режима: он не должен отвергать законные формы.
+    await expect(
+      через(RknIncidentDto)({ ...VALID, detectedAt: '2026-09-01T01:00:00+03:00' }),
+    ).resolves.toBeDefined();
+  });
+
+  it.each([['пустая строка', ''], ['false', false]])(
+    'количество субъектов %s отклоняется, а не становится нулём',
+    async (_name, affectedSubjectsCount) => {
+      await expect(
+        через(RknIncidentDto)({ ...VALID, affectedSubjectsCount }),
+      ).rejects.toThrow();
+    },
+  );
 
   it('пустое описание отклоняется', async () => {
     await expect(через(RknIncidentDto)({ ...VALID, description: '' })).rejects.toThrow();
