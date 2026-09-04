@@ -1,0 +1,111 @@
+name: deploy exact main c520
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NETLIFY_SITE_ID: 7e5e0e35-418e-4a82-bb4f-e608dd4aa5c4
+      DEPLOY_BRANCH: ops/export-main-c520
+      DEPLOY_COMMIT: c520c59b32df290b8ce1a72f6601e3a4ee326584
+      CIPHERTEXT_PATH: ops/netlify-proxy-c520-v3.b64
+    steps:
+      - name: Checkout deploy handoff branch
+        uses: actions/checkout@v4
+        with:
+          ref: ops/export-main-c520
+          fetch-depth: 0
+
+      - name: Select receiver run
+        id: phase
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f "$CIPHERTEXT_PATH" ]; then
+            echo 'mode=skip' >> "$GITHUB_OUTPUT"
+            echo 'Encrypted handoff already exists; the original receiver run owns deployment.'
+          else
+            echo 'mode=receive' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate one-time deployment keypair
+        if: steps.phase.outputs.mode == 'receive'
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:8192 -out /tmp/netlify-private.pem
+          openssl pkey -in /tmp/netlify-private.pem -pubout -out /tmp/netlify-public.pem
+          chmod 600 /tmp/netlify-private.pem
+
+      - name: Publish one-time public key
+        if: steps.phase.outputs.mode == 'receive'
+        uses: actions/upload-artifact@v4
+        with:
+          name: netlify-proxy-public-key-c520-v3
+          path: /tmp/netlify-public.pem
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Wait for encrypted Netlify proxy
+        if: steps.phase.outputs.mode == 'receive'
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+          for attempt in $(seq 1 90); do
+            git fetch --quiet origin "$DEPLOY_BRANCH"
+            if git show "origin/$DEPLOY_BRANCH:$CIPHERTEXT_PATH" > /tmp/netlify-proxy.enc.b64 2>/dev/null; then
+              base64 --decode /tmp/netlify-proxy.enc.b64 > /tmp/netlify-proxy.enc
+              found=1
+              break
+            fi
+            sleep 10
+          done
+          if [ "$found" -ne 1 ]; then
+            echo 'Encrypted Netlify handoff was not received within 15 minutes.' >&2
+            exit 1
+          fi
+
+      - name: Prepare exact merged source
+        if: steps.phase.outputs.mode == 'receive'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin "$DEPLOY_COMMIT"
+          git worktree add --detach /tmp/deploy-source "$DEPLOY_COMMIT"
+          test -f /tmp/deploy-source/netlify.toml
+          grep -q 'PlatformV7ProtectedShell' /tmp/deploy-source/apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx
+          grep -q 'index, follow' /tmp/deploy-source/apps/web/middleware.ts
+
+      - name: Decrypt proxy and deploy exact merge commit
+        if: steps.phase.outputs.mode == 'receive'
+        shell: bash
+        working-directory: /tmp/deploy-source
+        run: |
+          set -euo pipefail
+          PROXY_PATH="$(openssl pkeyutl -decrypt \
+            -inkey /tmp/netlify-private.pem \
+            -in /tmp/netlify-proxy.enc \
+            -pkeyopt rsa_padding_mode:oaep \
+            -pkeyopt rsa_oaep_md:sha256)"
+          if [ -z "$PROXY_PATH" ]; then
+            echo 'Decrypted Netlify proxy is empty.' >&2
+            exit 1
+          fi
+          echo "::add-mask::$PROXY_PATH"
+          npx -y @netlify/mcp@latest \
+            --site-id "$NETLIFY_SITE_ID" \
+            --proxy-path "$PROXY_PATH"
+
+      - name: Remove one-time private material
+        if: always()
+        shell: bash
+        run: rm -f /tmp/netlify-private.pem /tmp/netlify-public.pem /tmp/netlify-proxy.enc /tmp/netlify-proxy.enc.b64
