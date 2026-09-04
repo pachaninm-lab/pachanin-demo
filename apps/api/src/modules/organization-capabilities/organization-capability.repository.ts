@@ -448,22 +448,59 @@ export class OrganizationCapabilityRepository {
       occurredAt: committedAt.toISOString(),
       enforcementMode: 'SHADOW',
     };
+    const outboxKey = outboxIdempotencyKey(context, command);
+    const outboxPayload = {
+      schema: 'organization-capability.command.v1',
+      requestFingerprint,
+      receipt,
+      event: integrationEvent,
+    };
+    if (process.env.PC_CROP_ORGANIZATION_CAPABILITY_POLICY_DIAGNOSTICS === '1') {
+      const diagnostics = await tx.$queryRaw<Array<Record<string, unknown>>>(Prisma.sql`
+        SELECT
+          current_user AS "currentUser",
+          (current_user IN (
+            'pc_deal_runtime', 'one_deal_app', 'app_deal', 'app_runtime', 'app_deal_api'
+          )) AS "principalAllowed",
+          public.app_rls_context_ready() AS "contextReady",
+          (${integrationEvent.type} = 'organization.capability.changed.v1') AS "typeMatches",
+          (${context.userId} = public.app_identity_user_id()) AS "actorMatches",
+          (${outboxKey} ~ '^org-cap:[0-9a-f]{64}$') AS "idempotencyMatches",
+          ((${JSON.stringify(outboxPayload)}::jsonb) ->> 'schema'
+            = 'organization-capability.command.v1') AS "schemaMatches",
+          ((${JSON.stringify(outboxPayload)}::jsonb) #>> '{event,auditId}'
+            = ${auditId}) AS "auditMatches",
+          EXISTS (
+            SELECT 1
+            FROM public."organization_capability_events" event
+            WHERE event."outboxEntryId" = ${outboxEntryId}
+              AND event."auditEventId" = ${auditId}
+              AND event."tenantId" = ${context.tenantId}
+              AND event."organizationId" = ${context.orgId}
+              AND event."actorUserId" = ${context.userId}
+              AND event."actorRole" = ${context.role}
+              AND event."correlationId" = ${command.correlationId}
+              AND event."commandId" = ${command.commandId}
+              AND event."assignmentId" = ${after.id}
+              AND event."requestFingerprint" = ${requestFingerprint}
+              AND event."action" = ${command.action}
+              AND event."toStatus" = ${after.status}
+              AND event."aggregateVersion"::text = ${after.version.toString()}
+          ) AS "eventMatches"
+      `);
+      console.log(`[organization-capability-outbox-policy] ${JSON.stringify(diagnostics[0])}`);
+    }
     await tx.outboxEntry.create({
       data: {
         id: outboxEntryId,
         type: integrationEvent.type,
-        payload: {
-          schema: 'organization-capability.command.v1',
-          requestFingerprint,
-          receipt,
-          event: integrationEvent,
-        } as unknown as Prisma.InputJsonValue,
+        payload: outboxPayload as unknown as Prisma.InputJsonValue,
         status: 'PENDING',
         triggeredByUserId: context.userId,
-        idempotencyKey: outboxIdempotencyKey(context, command),
+        idempotencyKey: outboxKey,
         correlationId: command.correlationId,
         auditId,
-        runtimeIdempotencyKey: outboxIdempotencyKey(context, command),
+        runtimeIdempotencyKey: outboxKey,
         maxRetries: 5,
         nextRetryAt: committedAt,
         createdAt: committedAt,
