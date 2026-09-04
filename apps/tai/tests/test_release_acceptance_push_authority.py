@@ -51,12 +51,9 @@ def _run(
     }
 
 
-def test_release_acceptance_queries_push_runs_only() -> None:
+def test_release_acceptance_filters_push_runs_before_selection() -> None:
     source = WORKFLOW.read_text(encoding="utf-8")
-    assert (
-        "actions/runs?head_sha=${EXACT_HEAD}&event=push&per_page=100"
-        in source
-    )
+    assert "actions/runs?head_sha=${EXACT_HEAD}&per_page=100" in source
     assert 'run.get("event") != "push"' in source
 
 
