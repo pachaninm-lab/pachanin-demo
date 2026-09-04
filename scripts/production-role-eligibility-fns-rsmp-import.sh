@@ -79,7 +79,7 @@ before_worker_image="$worker_image_id"
   };
 })();
 NODE
-  cat "$IMPORTER"
+  sed '1{/^#!/d;}' "$IMPORTER"
 } | docker exec -i "$api_id" /nodejs/bin/node -
 
 [[ "$(docker inspect --format '{{.State.Running}}' "$api_id")" == true ]] || fail API_CHANGED_DURING_IMPORT 30
