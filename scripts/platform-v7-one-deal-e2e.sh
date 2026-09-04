@@ -114,6 +114,17 @@ $one_deal_role$;
 GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_app;
 GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement, auth TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
+-- Provider registry is deliberately narrower than the generic disposable
+-- harness grant: organization commands cannot delete authority rows, and the
+-- application principal can only read server-held verification evidence.
+REVOKE DELETE, TRUNCATE ON
+  public.providers,
+  public.provider_capabilities,
+  public.service_offerings,
+  public.provider_registry_events
+FROM one_deal_app;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.provider_registry_evidence
+FROM one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
 GRANT SELECT ON
@@ -1109,5 +1120,15 @@ DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 pnpm --filter @pc/api exec jest --runInBand \
   --config test/industrial/jest.config.json \
   --runTestsByPath test/industrial/organization-capability-authority.e2e-spec.ts
+
+echo "[one-deal] running provider-registry PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/provider-registry-authority.e2e-spec.ts
 
 echo "[one-deal] exploitation gate passed"
