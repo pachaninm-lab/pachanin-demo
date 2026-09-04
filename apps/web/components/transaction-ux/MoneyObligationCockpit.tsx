@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { StatusChip } from '@pc/design-system-v8';
+import { StatusChip, TextStack } from '@pc/design-system-v8';
 import styles from './MoneyObligationCockpit.module.css';
 
 export type MoneyStatusTone = 'neutral' | 'success' | 'warning' | 'critical' | 'information';
@@ -88,18 +88,20 @@ export function MoneyObligationCockpit({
     <main className={styles.root} data-testid={testId} data-money-obligation-cockpit='v8'>
       {liveStatus}
       <header className={styles.header}>
-        <div className={styles.heading}>
+        <TextStack className={styles.heading} spacing='title'>
           <span className={styles.eyebrow}>{eyebrow}</span>
           <h1 className={styles.title}>{title}</h1>
           <p className={styles.description}>{description}</p>
-        </div>
+        </TextStack>
         <div className={styles.status}><StatusChip tone={statusTone}>{statusLabel}</StatusChip></div>
       </header>
 
       <section className={`${styles.priority} ${priorityClass}`} aria-label={copy.prioritySection}>
-        <span className={styles.priorityEyebrow}>{priority.eyebrow ?? copy.nextAction}</span>
-        <h2 className={styles.priorityTitle}>{priority.title}</h2>
-        <p className={styles.priorityDescription}>{priority.description}</p>
+        <TextStack spacing='title'>
+          <span className={styles.priorityEyebrow}>{priority.eyebrow ?? copy.nextAction}</span>
+          <h2 className={styles.priorityTitle}>{priority.title}</h2>
+          <p className={styles.priorityDescription}>{priority.description}</p>
+        </TextStack>
         {meta.length > 0 ? (
           <dl className={styles.priorityMeta}>
             {meta.map((item) => (

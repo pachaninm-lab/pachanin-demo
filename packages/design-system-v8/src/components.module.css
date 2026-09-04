@@ -11,6 +11,54 @@
 .surfaceSubtle { background: var(--ds-color-surface-subtle); box-shadow: none; }
 .surfacePadded { padding: var(--ds-space-4); }
 
+.textStack {
+  min-width: 0;
+  display: grid;
+}
+
+.textStack > * {
+  min-width: 0;
+  margin-block: 0;
+}
+
+.textStackLabel { gap: var(--ds-text-gap-label); }
+.textStackTitle { gap: var(--ds-text-gap-title); }
+.textStackParagraph { gap: var(--ds-text-gap-paragraph); }
+.textStackAction { gap: var(--ds-text-gap-action); }
+.textStackStart { justify-items: start; }
+.textStackCenter { justify-items: center; text-align: center; }
+.textStackStretch { justify-items: stretch; }
+
+.prose {
+  min-width: 0;
+  color: inherit;
+  line-height: 1.55;
+}
+
+.prose > :where(*) {
+  margin-block: 0;
+}
+
+.prose > :where(ul, ol) {
+  padding-inline-start: var(--ds-layout-gap-group);
+}
+
+.prose > :where(h1, h2, h3, h4, h5, h6) + :where(p, ul, ol, blockquote) {
+  margin-block-start: var(--ds-text-gap-title);
+}
+
+.prose > :where(p, ul, ol, blockquote) + :where(p, ul, ol, blockquote) {
+  margin-block-start: var(--ds-text-gap-paragraph);
+}
+
+.prose > :where(p, ul, ol, blockquote) + :where(h2, h3, h4, h5, h6) {
+  margin-block-start: var(--ds-layout-gap-section);
+}
+
+.prose :where(li + li) {
+  margin-block-start: var(--ds-text-gap-title);
+}
+
 .button {
   min-height: var(--ds-control-height);
   border: 1px solid transparent;
@@ -72,7 +120,7 @@
   line-height: 1.5;
 }
 .notice strong, .notice p { margin: 0; }
-.noticeCopy { min-width: 0; display: grid; gap: var(--ds-space-1); }
+.noticeCopy { min-width: 0; display: grid; gap: var(--ds-text-gap-label); }
 .noticeNeutral { color: var(--ds-color-text-secondary); background: var(--ds-color-surface-subtle); }
 .noticeSuccess { color: var(--ds-color-success); background: var(--ds-color-success-bg); }
 .noticeWarning { color: var(--ds-color-warning); background: var(--ds-color-warning-bg); }
@@ -87,19 +135,19 @@
   color: var(--ds-color-text-primary);
   padding: var(--ds-space-5);
   display: grid;
-  gap: var(--ds-space-4);
+  gap: var(--ds-text-gap-action);
 }
 
 .nextActionBlocked { border-color: var(--ds-color-critical); background: var(--ds-color-critical-bg); }
 .nextActionHeader { display: grid; grid-template-columns: var(--ds-control-height) minmax(0, 1fr); gap: var(--ds-space-3); align-items: start; }
 .nextActionIcon { width: var(--ds-control-height); height: var(--ds-control-height); border-radius: var(--ds-radius-lg); background: var(--ds-color-surface); display: grid; place-items: center; color: var(--ds-color-action-primary); }
 .nextActionBlocked .nextActionIcon { color: var(--ds-color-critical); }
-.nextActionCopy { min-width: 0; display: grid; gap: var(--ds-space-1); }
+.nextActionCopy { min-width: 0; display: grid; gap: var(--ds-text-gap-label); }
 .nextActionLabel { color: var(--ds-color-text-muted); font-size: var(--ds-font-caption); font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; }
 .nextActionTitle { margin: 0; font-size: clamp(var(--ds-font-title), 4vw, var(--ds-font-display)); line-height: 1.15; overflow-wrap: anywhere; }
 .nextActionReason { margin: 0; max-width: 68ch; color: var(--ds-color-text-secondary); font-size: var(--ds-font-body); line-height: 1.55; }
 .nextActionMeta { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ds-space-2); }
-.nextActionMetaItem { min-width: 0; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-surface); padding: var(--ds-space-3); display: grid; gap: var(--ds-space-1); }
+.nextActionMetaItem { min-width: 0; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-surface); padding: var(--ds-space-3); display: grid; gap: var(--ds-text-gap-label); }
 .nextActionMetaItem dt { color: var(--ds-color-text-muted); font-size: var(--ds-font-caption); }
 .nextActionMetaItem dd { margin: 0; color: var(--ds-color-text-primary); font-weight: 800; overflow-wrap: anywhere; }
 .nextActionActions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: center; }
