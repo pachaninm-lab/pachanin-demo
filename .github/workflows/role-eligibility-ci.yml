@@ -8,13 +8,16 @@ on:
       - 'apps/api/prisma/migrations/*role_eligibility*/migration.sql'
       - 'config/eligibility/**'
       - 'scripts/check-role-eligibility-*.mjs'
+      - 'scripts/role-eligibility-*.mjs'
       - 'scripts/role-eligibility-*.sh'
-      - 'scripts/production-role-eligibility-worker.sh'
+      - 'scripts/production-role-eligibility-*.cjs'
+      - 'scripts/production-role-eligibility-*.sh'
       - 'apps/api/src/app.module.ts'
       - 'apps/api/package.json'
       - 'infra/docker/Dockerfile.api'
       - '.github/workflows/role-eligibility-ci.yml'
       - '.github/workflows/role-eligibility-production-worker.yml'
+      - '.github/workflows/role-eligibility-fns-rsmp-production-import.yml'
 
 permissions:
   contents: read
@@ -39,6 +42,32 @@ jobs:
         run: node scripts/check-role-eligibility-registration-guard.mjs
       - name: Static eligibility acceptance
         run: node scripts/check-role-eligibility-static-acceptance.mjs
+      - name: FNS RSMP import authority fail-closed tests
+        run: node --test scripts/role-eligibility-fns-rsmp-import-contract.test.mjs
+      - name: FNS RSMP production-import shell syntax
+        shell: bash
+        run: bash -n scripts/production-role-eligibility-fns-rsmp-import.sh
+      - name: FNS RSMP bounded importer self-test
+        run: node scripts/production-role-eligibility-fns-rsmp-import.cjs --self-test
+      - name: FNS RSMP production-import authority contract
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const guard = fs.readFileSync('scripts/production-role-eligibility-fns-rsmp-import.sh','utf8');
+          const workflow = fs.readFileSync('.github/workflows/role-eligibility-fns-rsmp-production-import.yml','utf8');
+          const importer = fs.readFileSync('scripts/production-role-eligibility-fns-rsmp-import.cjs','utf8');
+          for (const marker of [
+            'ROLE_ELIGIBILITY_ENFORCEMENT',
+            'ROLE_ELIGIBILITY_SHADOW_MODE',
+            'org.opencontainers.image.revision',
+            'REGISTRATION_RUNTIME_UNCHANGED=PASS',
+          ]) if (!guard.includes(marker)) throw new Error(`missing RSMP production guard marker ${marker}`);
+          if (!workflow.includes('/role-eligibility fns-rsmp import current-main')) throw new Error('RSMP owner command missing');
+          for (const marker of ['supplementaryOnly: true','admissionAuthority: false','automaticNegativeAuthority: false','ABSENCE_IS_NOT_NEGATIVE_LEGAL_ENTITY_EVIDENCE']) {
+            if (!importer.includes(marker)) throw new Error(`missing RSMP importer authority marker ${marker}`);
+          }
+          if (/publishVerdict|eligibility\.publish_verdict/.test(importer)) throw new Error('RSMP importer must not publish verdicts');
+          NODE
       - name: Worker deployment syntax and blast-radius contract
         shell: bash
         run: |

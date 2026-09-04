@@ -20,6 +20,23 @@ export type EligibilityCheckStatus = typeof ELIGIBILITY_CHECK_STATUSES[number];
 export const ELIGIBILITY_SOURCES = ['FNS', 'FGIS_GRAIN', 'CBR', 'ROSACCREDITATION'] as const;
 export type EligibilitySource = typeof ELIGIBILITY_SOURCES[number];
 
+/**
+ * Sources that are legally/semantically allowed to become mandatory admission
+ * provenance. Keep this allowlist explicit instead of deriving it from
+ * ELIGIBILITY_SOURCES: future supplementary evidence sources must not silently
+ * become enforceable merely because they are added to the evidence contour.
+ */
+export const ENFORCEMENT_AUTHORITY_SOURCES = ['FNS', 'FGIS_GRAIN', 'CBR', 'ROSACCREDITATION'] as const satisfies readonly EligibilitySource[];
+export type EnforcementAuthoritySource = typeof ENFORCEMENT_AUTHORITY_SOURCES[number];
+
+/**
+ * Reserved supplementary source codes. They may enrich shadow evidence after a
+ * separate bounded implementation proves the runtime transport/parser, but they
+ * are categorically not enforcement authorities by source code alone.
+ */
+export const SUPPLEMENTARY_ELIGIBILITY_SOURCE_CODES = ['FNS_RSMP'] as const;
+export type SupplementaryEligibilitySourceCode = typeof SUPPLEMENTARY_ELIGIBILITY_SOURCE_CODES[number];
+
 export const SOURCE_HEALTH_STATUSES = [
   'HEALTHY',
   'DEGRADED',

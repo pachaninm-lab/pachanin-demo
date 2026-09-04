@@ -52,6 +52,12 @@ describe('RoleEligibilityEnforcementPolicy', () => {
     expect(parseRoleEligibilityEnforcementPolicy(unhealthyAllowed)).toBeNull();
   });
 
+  it('never accepts supplementary FNS RSMP evidence as a mandatory enforcement authority', () => {
+    const document = clone();
+    document.roles.BANK.requiredSources = ['FNS_RSMP'];
+    expect(parseRoleEligibilityEnforcementPolicy(document)).toBeNull();
+  });
+
   it('requires an explicit rule for all nine semantic roles', () => {
     const document = clone();
     delete document.roles.ELEVATOR;
