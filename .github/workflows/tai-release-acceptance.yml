@@ -71,10 +71,15 @@ jobs:
                   raise SystemExit("workflow-runs page is malformed")
               runs.extend(page["workflow_runs"])
           exact_head = os.environ["EXACT_HEAD"]
+          release_event = "push"
           latest = {}
           for run in runs:
               name = run.get("name")
-              if name not in required or run.get("head_sha") != exact_head:
+              if (
+                  name not in required
+                  or run.get("head_sha") != exact_head
+                  or run.get("event") != release_event
+              ):
                   continue
               current = latest.get(name)
               key = (run.get("run_number", 0), run.get("id", 0))
