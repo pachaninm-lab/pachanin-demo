@@ -52,7 +52,7 @@ jobs:
             gh api --paginate --slurp \
               -H 'Accept: application/vnd.github+json' \
               -H 'X-GitHub-Api-Version: 2022-11-28' \
-              "/repos/${REPOSITORY}/actions/runs?head_sha=${EXACT_HEAD}&event=push&per_page=100" \
+              "/repos/${REPOSITORY}/actions/runs?head_sha=${EXACT_HEAD}&per_page=100" \
               > workflow-runs-pages.json
 
             set +e
