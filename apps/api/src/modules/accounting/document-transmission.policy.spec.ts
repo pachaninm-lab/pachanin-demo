@@ -3,9 +3,11 @@ import {
   type FreshnessAssessment,
 } from '../auth/accounting-document-staleness.policy';
 import { FormatDenyReason } from '../auth/document-format.policy';
-import { IntegrationCapabilityMaturity } from '../../../../../packages/domain-core/src';
 import {
+  AdapterMaturity,
+  MaturityRefusal,
   TransmissionRefusal,
+  evaluateMaturityClaim,
   evaluateTransmission,
 } from './document-transmission.policy';
 
@@ -23,7 +25,7 @@ function send(overrides: Record<string, unknown> = {}) {
     freshness: freshness(),
     formatAllowed: true,
     formatReasons: [],
-    integrationMaturity: IntegrationCapabilityMaturity.LIVE_ACCEPTED,
+    adapterMaturity: AdapterMaturity.CONFIRMED_LIVE,
     acceptedExternalId: null,
     ...overrides,
   } as Parameters<typeof evaluateTransmission>[0]);
@@ -63,18 +65,11 @@ describe('handing a document over', () => {
 
   it('refuses every adapter maturity short of confirmed live', () => {
     for (const maturity of [
-      IntegrationCapabilityMaturity.DISCOVERED,
-      IntegrationCapabilityMaturity.PUBLIC_SPEC_VERIFIED,
-      IntegrationCapabilityMaturity.CONTRACT_MAPPED,
-      IntegrationCapabilityMaturity.ADAPTER_IMPLEMENTED,
-      IntegrationCapabilityMaturity.CONTRACT_TESTED,
-      IntegrationCapabilityMaturity.EXTERNAL_ACCESS_PENDING,
-      IntegrationCapabilityMaturity.CONTRACT_PENDING,
-      IntegrationCapabilityMaturity.LIVE_TESTING,
-      IntegrationCapabilityMaturity.DEGRADED,
-      IntegrationCapabilityMaturity.SUSPENDED,
+      AdapterMaturity.NOT_ATTESTED,
+      AdapterMaturity.ADAPTER_READY,
+      AdapterMaturity.TEST,
     ]) {
-      expect(send({ integrationMaturity: maturity }).refusals).toContain(
+      expect(send({ adapterMaturity: maturity }).refusals).toContain(
         TransmissionRefusal.ADAPTER_NOT_LIVE,
       );
     }
@@ -96,7 +91,7 @@ describe('handing a document over', () => {
       freshness: freshness(DocumentFreshness.STALE),
       formatAllowed: false,
       formatReasons: [FormatDenyReason.NO_FORMAT_IN_FORCE],
-      integrationMaturity: IntegrationCapabilityMaturity.LIVE_TESTING,
+      adapterMaturity: AdapterMaturity.TEST,
     });
 
     expect(decision.refusals).toEqual(
@@ -107,5 +102,98 @@ describe('handing a document over', () => {
         TransmissionRefusal.ADAPTER_NOT_LIVE,
       ]),
     );
+  });
+});
+
+function claim(overrides: Record<string, unknown> = {}) {
+  return evaluateMaturityClaim({
+    from: AdapterMaturity.NOT_ATTESTED,
+    to: AdapterMaturity.ADAPTER_READY,
+    contractSuiteRunId: 'run-1',
+    vendorTestCorrelationId: null,
+    externalReceiptId: null,
+    externalReceiptIssuer: null,
+    ...overrides,
+  } as Parameters<typeof evaluateMaturityClaim>[0]);
+}
+
+describe('claiming an adapter is further along', () => {
+  it('accepts adapter-ready on a contract suite run', () => {
+    expect(claim()).toEqual({ permitted: true, refusals: [] });
+  });
+
+  it('refuses adapter-ready with nothing behind it', () => {
+    expect(claim({ contractSuiteRunId: '   ' }).refusals).toContain(
+      MaturityRefusal.NO_CONTRACT_EVIDENCE,
+    );
+  });
+
+  it('accepts test only on an answer from the vendor’s own environment', () => {
+    expect(
+      claim({
+        from: AdapterMaturity.ADAPTER_READY,
+        to: AdapterMaturity.TEST,
+        vendorTestCorrelationId: 'corr-9',
+      }),
+    ).toEqual({ permitted: true, refusals: [] });
+
+    expect(
+      claim({ from: AdapterMaturity.ADAPTER_READY, to: AdapterMaturity.TEST })
+        .refusals,
+    ).toContain(MaturityRefusal.NO_VENDOR_TEST_EVIDENCE);
+  });
+
+  it('refuses confirmed live without a receipt from the far side', () => {
+    expect(
+      claim({ from: AdapterMaturity.TEST, to: AdapterMaturity.CONFIRMED_LIVE })
+        .refusals,
+    ).toContain(MaturityRefusal.NO_EXTERNAL_RECEIPT);
+  });
+
+  it('refuses a receipt this platform wrote about its own request', () => {
+    // The failure this whole enum exists for: a 200 from our own client,
+    // recorded as if the counterparty had confirmed anything.
+    for (const issuer of ['PC_CROP', 'platform', 'Internal', 'self', '']) {
+      expect(
+        claim({
+          from: AdapterMaturity.TEST,
+          to: AdapterMaturity.CONFIRMED_LIVE,
+          externalReceiptId: 'x-1',
+          externalReceiptIssuer: issuer,
+        }).refusals,
+      ).toContain(MaturityRefusal.RECEIPT_IS_OUR_OWN);
+    }
+  });
+
+  it('accepts confirmed live on a receipt the operator issued', () => {
+    expect(
+      claim({
+        from: AdapterMaturity.TEST,
+        to: AdapterMaturity.CONFIRMED_LIVE,
+        externalReceiptId: 'DIADOC-2026-000114',
+        externalReceiptIssuer: 'DIADOC',
+      }),
+    ).toEqual({ permitted: true, refusals: [] });
+  });
+
+  it('refuses a jump from nothing to live', () => {
+    expect(
+      claim({
+        from: AdapterMaturity.NOT_ATTESTED,
+        to: AdapterMaturity.CONFIRMED_LIVE,
+        externalReceiptId: 'DIADOC-1',
+        externalReceiptIssuer: 'DIADOC',
+      }).refusals,
+    ).toContain(MaturityRefusal.SKIPS_A_STAGE);
+  });
+
+  it('refuses going backwards, because a broken adapter is an incident', () => {
+    expect(
+      claim({ from: AdapterMaturity.TEST, to: AdapterMaturity.ADAPTER_READY }),
+    ).toEqual({ permitted: false, refusals: [MaturityRefusal.BACKWARDS] });
+
+    expect(
+      claim({ from: AdapterMaturity.TEST, to: AdapterMaturity.TEST }).refusals,
+    ).toEqual([MaturityRefusal.BACKWARDS]);
   });
 });

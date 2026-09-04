@@ -11,7 +11,6 @@ on:
       - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260904230000_integration_binding_authority/**'
       - 'apps/api/src/modules/service-providers/**'
-      - 'apps/api/src/modules/accounting/**'
       - 'apps/api/test/industrial/integration-binding-authority.e2e-spec.ts'
       - 'scripts/platform-v7-one-deal-e2e.sh'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json'
@@ -28,7 +27,6 @@ on:
       - 'apps/api/prisma/schema.prisma'
       - 'apps/api/prisma/migrations/20260904230000_integration_binding_authority/**'
       - 'apps/api/src/modules/service-providers/**'
-      - 'apps/api/src/modules/accounting/**'
       - 'apps/api/test/industrial/integration-binding-authority.e2e-spec.ts'
       - 'scripts/platform-v7-one-deal-e2e.sh'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json'
@@ -130,10 +128,7 @@ jobs:
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec jest --runInBand \
-            --runTestsByPath \
-            src/modules/service-providers/integration-binding.contract.spec.ts \
-            src/modules/accounting/document-transmission.policy.spec.ts \
-            src/modules/accounting/connection-center.policy.spec.ts \
+            --runTestsByPath src/modules/service-providers/integration-binding.contract.spec.ts \
             2>&1 | tee "$EVIDENCE_DIR/api-contracts.log"
 
       - name: Run fail-closed adapter contracts

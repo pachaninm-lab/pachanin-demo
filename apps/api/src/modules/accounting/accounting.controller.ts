@@ -27,7 +27,7 @@ import { WorkTaskDeriver } from './work-task.deriver';
 import { AudienceView, projectFor } from './work-task-projection.policy';
 import { PeriodStatus } from './accounting-period.policy';
 import { AccountingPeriodRepository } from './accounting-period.repository';
-import { IntegrationCapabilityMaturity } from '../../../../../packages/domain-core/src';
+import { AdapterMaturity } from './document-transmission.policy';
 import {
   DocumentTransmissionRepository,
   currentFreshness,
@@ -278,7 +278,7 @@ export class AccountingController {
       freshness: currentFreshness(),
       formatAllowed: true,
       formatReasons: [],
-      integrationMaturity: IntegrationCapabilityMaturity.DISCOVERED,
+      adapterMaturity: AdapterMaturity.NOT_ATTESTED,
     });
   }
 

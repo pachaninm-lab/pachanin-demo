@@ -1,7 +1,7 @@
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { Role, type RequestUser } from '../../common/types/request-user';
-import { IntegrationCapabilityMaturity } from '../../../../../packages/domain-core/src';
+import { AdapterMaturity } from './document-transmission.policy';
 import {
   AttestationDecision,
   AttestationGate,
@@ -207,7 +207,7 @@ describePostgres('attesting a connection', () => {
     // And it lifts the connection exactly one rung: an attested contract is not
     // a configured endpoint, issued credentials or a test exchange, and the
     // centre still says so.
-    expect(edo?.maturity).toBe(IntegrationCapabilityMaturity.ADAPTER_IMPLEMENTED);
+    expect(edo?.maturity).toBe(AdapterMaturity.ADAPTER_READY);
     expect(edo?.mayCarryRealTraffic).toBe(false);
     expect(edo?.missing).not.toContain(MissingPrerequisite.CONTRACT_NOT_ATTESTED);
     expect(edo?.missing).toEqual(
@@ -244,6 +244,6 @@ describePostgres('attesting a connection', () => {
     );
     // And the centre follows it back down. An approval that survived the thing
     // it approved being changed would be the most expensive kind of stale.
-    expect(edo?.maturity).toBe(IntegrationCapabilityMaturity.DISCOVERED);
+    expect(edo?.maturity).toBe(AdapterMaturity.NOT_ATTESTED);
   });
 });

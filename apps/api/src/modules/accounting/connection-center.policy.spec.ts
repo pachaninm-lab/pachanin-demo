@@ -3,7 +3,7 @@ import {
   MissingPrerequisite,
   describeConnection,
 } from './connection-center.policy';
-import { IntegrationCapabilityMaturity } from '../../../../../packages/domain-core/src';
+import { AdapterMaturity } from './document-transmission.policy';
 
 /**
  * What the platform may claim about a connection.
@@ -36,7 +36,7 @@ const everything = {
 describe('what a connection may be called', () => {
   it('starts at NOT_ATTESTED and says so rather than staying silent', () => {
     const state = describeConnection(nothing);
-    expect(state.maturity).toBe(IntegrationCapabilityMaturity.DISCOVERED);
+    expect(state.maturity).toBe(AdapterMaturity.NOT_ATTESTED);
     expect(state.mayCarryRealTraffic).toBe(false);
     expect(state.missing).toContain(MissingPrerequisite.ADAPTER_NOT_IMPLEMENTED);
   });
@@ -50,18 +50,18 @@ describe('what a connection may be called', () => {
         adapterImplemented: true,
         contractAttested: true,
       }).maturity,
-    ).toBe(IntegrationCapabilityMaturity.ADAPTER_IMPLEMENTED);
+    ).toBe(AdapterMaturity.ADAPTER_READY);
   });
 
   it('reaches TEST only once the vendor answered', () => {
     expect(
       describeConnection({ ...everything, liveReceiptExternalId: null }).maturity,
-    ).toBe(IntegrationCapabilityMaturity.LIVE_TESTING);
+    ).toBe(AdapterMaturity.TEST);
   });
 
-  it('reaches LIVE_ACCEPTED only with a receipt carrying the far side’s id', () => {
+  it('reaches CONFIRMED_LIVE only with a receipt carrying the far side’s id', () => {
     expect(describeConnection(everything).maturity).toBe(
-      IntegrationCapabilityMaturity.LIVE_ACCEPTED,
+      AdapterMaturity.CONFIRMED_LIVE,
     );
     expect(describeConnection(everything).mayCarryRealTraffic).toBe(true);
   });
@@ -70,14 +70,14 @@ describe('what a connection may be called', () => {
     // A receipt without an attested contract means real traffic went through an
     // adapter nobody checked. That is a finding, not a level.
     const state = describeConnection({ ...everything, contractAttested: false });
-    expect(state.maturity).not.toBe(IntegrationCapabilityMaturity.LIVE_ACCEPTED);
+    expect(state.maturity).not.toBe(AdapterMaturity.CONFIRMED_LIVE);
     expect(state.missing).toContain(MissingPrerequisite.CONTRACT_NOT_ATTESTED);
   });
 
   it('refuses to call it live on credentials nobody issued', () => {
     expect(
       describeConnection({ ...everything, credentialIssued: false }).maturity,
-    ).not.toBe(IntegrationCapabilityMaturity.LIVE_ACCEPTED);
+    ).not.toBe(AdapterMaturity.CONFIRMED_LIVE);
   });
 
   it('names every prerequisite still outstanding, not only the first', () => {

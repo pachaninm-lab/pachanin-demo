@@ -91,14 +91,3 @@ test('commands are durable, serialized, idempotent and atomic', () => {
   assert.match(repository, /INSERT INTO public\."outbox_entries"/u);
   assert.match(repository, /TransactionIsolationLevel\.Serializable/u);
 });
-
-test('accounting transmission consumes the same canonical maturity vocabulary', () => {
-  const transmission = source('apps/api/src/modules/accounting/document-transmission.policy.ts');
-  const center = source('apps/api/src/modules/accounting/connection-center.policy.ts');
-  assert.match(transmission, /IntegrationCapabilityMaturity\.LIVE_ACCEPTED/u);
-  assert.match(center, /IntegrationCapabilityMaturity\.LIVE_ACCEPTED/u);
-  assert.doesNotMatch(
-    `${transmission}\n${center}`,
-    /\bAdapterMaturity\b|\bCONFIRMED_LIVE\b|\bADAPTER_READY\b|\bNOT_ATTESTED\b/u,
-  );
-});

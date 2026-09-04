@@ -88,7 +88,7 @@ describe('what a receipt has to hold together', () => {
 describe('the fake is only ever a fake', () => {
   it('issues receipts under an operator name that is not this platform', async () => {
     const receipt = await new FakeAccountingDocumentTransport().send(envelope());
-    // Nothing may reach LIVE_ACCEPTED on its say-so, but the issuer still must
+    // Nothing may reach CONFIRMED_LIVE on its say-so, but the issuer still must
     // not be one of ours, or the contract check above would pass vacuously.
     expect(receipt.externalReceiptIssuer).toBe('FAKE_EDO_OPERATOR');
   });
