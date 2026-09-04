@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-production-consent-sync-4332",
+  "branch": "fix/gekta-production-consent-sync-4332",
+  "issue": 4332,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "aa282bf70a4f655a240e5cb24c1f71743231f123"
+  },
+  "purpose": "Remove the production keyboard-soak consent race without weakening any keyboard, viewport, focus, caret, localization or mobile acceptance assertion.",
+  "allowedPaths": [
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-production-consent-sync-4332.json"
+  ],
+  "productBoundary": {
+    "mode": "acceptance-synchronization-only",
+    "publicRoute": "/gekta",
+    "runtimeCode": "unchanged",
+    "backendApi": "unchanged",
+    "authentication": "unchanged",
+    "postgresql": "unchanged",
+    "businessLogic": "unchanged",
+    "newRecurringCostRub": 0
+  },
+  "rootCause": "The active-chat soak used an immediate optional DOM count after starter activation. The required consent dialog can commit on the next render, so the helper sometimes returned before the mandatory modal appeared. The modal then stole focus during cycle two and the keyboard authority correctly remained closed because the textarea was no longer active.",
+  "requiredChecks": [
+    "required consent dialog becomes visible after starter activation",
+    "consent is accepted and absent before the keyboard soak begins",
+    "20 active-chat keyboard cycles retain draft, caret, focus and composer geometry",
+    "20 empty-start keyboard cycles remain unchanged",
+    "320/375/390/430 RU/EN/ZH mobile acceptance remains unchanged",
+    "exact-head Chromium and WebKit Gekta mobile acceptance",
+    "production-like Kubernetes acceptance",
+    "git diff --check"
+  ],
+  "forbiddenChanges": [
+    "skipping or pre-seeding consent",
+    "reducing keyboard cycle count",
+    "weakening viewport, focus, caret or geometry assertions",
+    "adding retries or sleeps to mask a product failure",
+    "changing Gekta runtime components, API, auth, PostgreSQL or business logic"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "Code and CI do not prove production. Exact-SHA REG.RU release, three clean production browser runs and real iPhone/Android soak remain required."
+}
