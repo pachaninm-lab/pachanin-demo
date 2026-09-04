@@ -10602,15 +10602,41 @@
     {
       "requirementId": "V16.5.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
+        "handlers:apps/api/src/common/process/last-resort-handlers.ts",
+        "api-entry:apps/api/src/main.ts",
         "worker:apps/api/src/outbox-worker.ts",
-        "api-entry:apps/api/src/main.ts"
+        "measurement:apps/api/src/common/process/last-resort-handlers.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the worker process installs last-resort handlers",
+          "condition": "the API process installs the last-resort handlers it lacked",
           "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "installlastresorthandlers({ app })"
+          ]
+        },
+        {
+          "condition": "both events are covered, the cause is reported, and the process still exits non-zero",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/process/last-resort-handlers.ts"
+          ],
+          "patterns": [
+            "processref.once('uncaughtexception'",
+            "processref.once('unhandledrejection'",
+            "writestderr(`api ${event}",
+            "exitcode = 1",
+            "forceexit(fatal_exit_code)"
+          ]
+        },
+        {
+          "condition": "the worker still has its own, so this is not one process covered at the cost of another",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/outbox-worker.ts"
           ],
@@ -10620,19 +10646,17 @@
           ]
         },
         {
-          "condition": "the API process installs neither those nor a global exception filter",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the swallow direction is refused by an executable test, not by review",
+          "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/main.ts"
+            "apps/api/src/common/process/last-resort-handlers.spec.ts"
           ],
           "patterns": [
-            "uncaughtexception",
-            "unhandledrejection",
-            "useglobalfilters"
+            "процесс всё равно выходит ненулевым кодом"
           ]
         }
       ],
-      "note": "The two processes are not held to the same standard, and the requirement asks about the last resort. The outbox worker installs process-level uncaughtException and unhandledRejection handlers that log and shut down deliberately. The API installs neither, and registers no global exception filter, so it relies on the framework default - which does catch exceptions thrown inside a route handler, and that is credited under V16.5.3. It does not catch an exception thrown outside a request context, which is precisely what a last-resort handler is for. The worker being covered does not answer for the API."
+      "note": "Closed by holding the API to the standard the workers were already held to. outbox-worker.ts and marketing-outbox-worker.ts each installed uncaughtException and unhandledRejection handlers that log and shut down deliberately; main.ts installed neither and registered no global exception filter. The framework default credited under V16.5.3 is a different control and stays credited: it catches an exception thrown INSIDE a request. This is for the one thrown outside any request - a timer, an event listener, a background promise - where nothing is watching. Measured on the Node this repository runs (v22.22.2) rather than taken from documentation: with a live setInterval keeping the loop busy, an uncaught exception and an unhandled rejection each terminate the process immediately with exit code 1. So the prior behaviour was never 'Node carries on'; it was a hard stop that skipped every shutdown path - the Prisma pool never closed, the HTTP server never drained, OpenTelemetry never flushed, and in-flight requests were dropped without a response. What changed is therefore the SHAPE of the stop, not whether it stops, and that is stated rather than dressed up as more. The cause is written to stderr with its stack and the write is AWAITED, because console.error to a pipe is asynchronous and a process exiting in the same tick loses the very message explaining why - the failure this requirement exists to prevent. The application is then closed so shutdown hooks run, and the process still exits non-zero. The last part is the load-bearing one and is asserted by test in the reverse direction: a handler that logs and then keeps serving is worse than the crash it replaced, because it leaves an application whose invariants have already failed accepting traffic. Close is bounded by a timeout that forces the exit, since a supervisor restarting a dead process beats waiting on one that will never finish; the exit code is set BEFORE close() so a close() that throws or hangs cannot turn a fatal error into a successful-looking exit. Signals are deliberately not handled here: app.enableShutdownHooks() already owns SIGTERM and SIGINT for the API, and the workers install their own only because they run an application context with no HTTP server to own them. A second handler for the same signal would run two shutdowns, and a mutation adding one is caught. Eight mutations applied, all eight caught: swallowing the fatal, dropping the non-zero exit code, dropping the stderr report, removing the re-entrancy guard, unbounding the close timeout, covering only one of the two events, using on() instead of once(), and duplicating SIGTERM. One further mutation was applied and NOT caught by the matrix on the first attempt: removing the post-shutdown forceExit left V16.5.4 at PASS, because the condition matched the literal forceExit(1) that the timeout branch also contains. The condition was wrong, not the mutation, so the exit that follows a completed shutdown now uses a named FATAL_EXIT_CODE and the condition pins that. Re-run after the fix: the same mutation drives the requirement to NOT_ASSESSED. Recorded rather than quietly corrected - a condition a mutation can walk past is not a condition."
     },
     {
       "requirementId": "V17.1.1",
