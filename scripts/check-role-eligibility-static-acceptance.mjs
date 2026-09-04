@@ -59,7 +59,6 @@ requireText('enforcement types', enforcementTypes, [
 ]);
 requireText('enforcement policy', enforcementPolicy, [
   'AUTHORITY_SOURCE_SET',
-  "sources.some((item) => !AUTHORITY_SOURCE_SET.has(item))",
   "accepted.length !== 1 || accepted[0] !== 'ELIGIBLE'",
   "hasExactKeys(value, ['defaultDecision', 'roles', 'schemaVersion', 'version'])",
   "requiredSources: ['CBR']",
@@ -67,6 +66,17 @@ requireText('enforcement policy', enforcementPolicy, [
   'FGIS_GRAIN_MACHINE_CONTRACT_UNAVAILABLE',
   'ROSACCREDITATION_MACHINE_CONTRACT_UNPROVEN',
 ]);
+const hasDirectAuthoritySourceGuard = enforcementPolicy.includes(
+  "sources.some((item) => !AUTHORITY_SOURCE_SET.has(item))",
+);
+const hasTypedAuthoritySourceGuard = [
+  'function isEnforcementAuthoritySource(value: string): value is EnforcementAuthoritySource',
+  'return AUTHORITY_SOURCE_SET.has(value);',
+  'if (!isEnforcementAuthoritySource(source)) return null;',
+].every((needle) => enforcementPolicy.includes(needle));
+if (!hasDirectAuthoritySourceGuard && !hasTypedAuthoritySourceGuard) {
+  failures.push('enforcement policy: missing mandatory enforcement-authority source guard');
+}
 requireText('enforcement repository', enforcementRepository, [
   'eligibility.enforcement_state',
   'eligibility.enforcement_policies',
