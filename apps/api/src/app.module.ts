@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { LotsModule } from './modules/lots/lots.module';
 import { DealsModule } from './modules/deals/deals.module';
 import { CommodityProfilesModule } from './modules/commodity-profiles/commodity-profiles.module';
+import { OrganizationCapabilitiesModule } from './modules/organization-capabilities/organization-capabilities.module';
 import { RegulatoryIntegrationModule } from './modules/regulatory-integration/regulatory-integration.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { DocumentsModule } from './modules/documents/documents.module';
@@ -75,6 +76,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
     LotsModule,
     DealsModule,
     CommodityProfilesModule,
+    OrganizationCapabilitiesModule,
     RegulatoryIntegrationModule,
     DisputesModule,
     DocumentsModule,
