@@ -1100,4 +1100,14 @@ MFA_ENCRYPTION_KEY="$MFA_ENCRYPTION_KEY" \
 BANK_HMAC_SECRET="$BANK_HMAC_SECRET" \
 pnpm --filter @pc/api exec jest --runInBand --config test/staff-access/jest.e2e.config.json
 
+echo "[one-deal] running organization-capability PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/organization-capability-authority.e2e-spec.ts
+
 echo "[one-deal] exploitation gate passed"

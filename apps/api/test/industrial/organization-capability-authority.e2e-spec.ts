@@ -8,6 +8,7 @@ import { OrganizationCapabilityCommandValidationError } from '../../src/modules/
 import { OrganizationCapabilityRepository } from '../../src/modules/organization-capabilities/organization-capability.repository';
 
 const ADMIN_URL = String(process.env.ONE_DEAL_ADMIN_URL ?? '');
+const APP_URL = String(process.env.ONE_DEAL_APP_URL ?? '');
 const RUN_ID = `org-capability-${randomUUID()}`;
 const TENANT_A = `${RUN_ID}-tenant-a`;
 const TENANT_B = `${RUN_ID}-tenant-b`;
@@ -81,13 +82,17 @@ function deterministicId(prefix: string, material: string): string {
   return `${prefix}-${digest.slice(0, 32)}`;
 }
 
-describe('Organization Capability PostgreSQL authority', () => {
+const describeOrganizationCapabilityAuthority = ADMIN_URL && APP_URL ? describe : describe.skip;
+
+describeOrganizationCapabilityAuthority('Organization Capability PostgreSQL authority', () => {
   const admin = new PrismaService({ datasources: { db: { url: ADMIN_URL } } });
-  const app = new PrismaService();
+  const app = new PrismaService({ datasources: { db: { url: APP_URL } } });
   const repository = new OrganizationCapabilityRepository(new RlsTransactionService(app));
 
   beforeAll(async () => {
-    if (!ADMIN_URL) throw new Error('ONE_DEAL_ADMIN_URL is required.');
+    if (!ADMIN_URL || !APP_URL) {
+      throw new Error('ONE_DEAL_ADMIN_URL and ONE_DEAL_APP_URL are required.');
+    }
     await Promise.all([admin.$connect(), app.$connect()]);
     await admin.organization.createMany({
       data: [

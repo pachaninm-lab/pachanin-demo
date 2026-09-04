@@ -14,6 +14,7 @@
     "apps/api/src/app.module.ts",
     "apps/api/src/modules/organization-capabilities/**",
     "apps/api/test/industrial/organization-capability-authority.e2e-spec.ts",
+    "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/pc-crop-01b3.yml",
     "scripts/verify-pc-crop-01b3-scope-boundary.test.mjs",
     "docs/security/cryptographic-inventory.json",
