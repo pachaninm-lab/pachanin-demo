@@ -56,7 +56,7 @@ jobs:
           grep -Fq 'REGISTRATION_CODE_CHANGED=0' "$f"
           grep -Fq 'REGISTRATION_BEHAVIOR_CHANGED=0' "$f"
           grep -Fq 'ROLE_ELIGIBILITY_ENFORCEMENT=false' "$f"
-          ! grep -Eq 'prisma migrate deploy|DELETE[[:space:]]+FROM|TRUNCATE[[:space:]]|DROP[[:space:]]+TABLE|ALTER[[:space:]]+TABLE|ROLE_ELIGIBILITY_ENFORCEMENT[=]true' "$f"
+          ! grep -Eq 'prisma[[:space:]]+migrate[[:space:]]+deploy|DELETE[[:space:]]+FROM|TRUNCATE[[:space:]]|DROP[[:space:]]+TABLE|ALTER[[:space:]]+TABLE|ROLE_ELIGIBILITY_ENFORCEMENT[=]true' "$f"
 
   observe:
     name: Read-only REG.RU migration state
