@@ -6,10 +6,10 @@ import {
   type FreshnessAssessment,
 } from '../auth/accounting-document-staleness.policy';
 import {
-  AdapterMaturity,
   TransmissionRefusal,
   evaluateTransmission,
 } from './document-transmission.policy';
+import type { IntegrationCapabilityMaturity } from '../../../../../packages/domain-core/src';
 import {
   type AccountingDocumentTransport,
   TransportOutcome,
@@ -95,7 +95,7 @@ export class DocumentTransmissionRepository {
       freshness: FreshnessAssessment;
       formatAllowed: boolean;
       formatReasons: readonly string[];
-      adapterMaturity: AdapterMaturity;
+      integrationMaturity: IntegrationCapabilityMaturity;
     },
   ): Promise<{
     found: boolean;
@@ -135,7 +135,7 @@ export class DocumentTransmissionRepository {
       freshness: input.freshness,
       formatAllowed: input.formatAllowed,
       formatReasons: input.formatReasons as never,
-      adapterMaturity: input.adapterMaturity,
+      integrationMaturity: input.integrationMaturity,
       acceptedExternalId: version.externalReceiptId,
     });
 
@@ -166,7 +166,7 @@ export class DocumentTransmissionRepository {
       freshness: FreshnessAssessment;
       formatAllowed: boolean;
       formatReasons: readonly string[];
-      adapterMaturity: AdapterMaturity;
+      integrationMaturity: IntegrationCapabilityMaturity;
       counterpartyInn: string;
       formatRevision: string;
     },
@@ -194,7 +194,7 @@ export class DocumentTransmissionRepository {
       freshness: input.freshness,
       formatAllowed: input.formatAllowed,
       formatReasons: input.formatReasons as never,
-      adapterMaturity: input.adapterMaturity,
+      integrationMaturity: input.integrationMaturity,
       acceptedExternalId: version.externalReceiptId,
     });
 

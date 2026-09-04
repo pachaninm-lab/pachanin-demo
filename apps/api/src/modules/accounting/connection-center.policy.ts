@@ -1,4 +1,7 @@
-import { AdapterMaturity } from './document-transmission.policy';
+import {
+  IntegrationCapabilityMaturity,
+  type IntegrationCapabilityMaturity as IntegrationCapabilityMaturityValue,
+} from '../../../../../packages/domain-core/src';
 
 /**
  * What the platform can honestly say about its connections to somebody else's
@@ -11,9 +14,9 @@ import { AdapterMaturity } from './document-transmission.policy';
  * evidence that already exists elsewhere in the contour, and every level above
  * the lowest has to be earned by a row somebody else wrote.
  *
- * The vocabulary is the transmission contour's own `AdapterMaturity`, unchanged.
- * A second ladder with different rungs would be two answers to "is this live",
- * and the whole point is that there is one.
+ * The vocabulary is the post-registration specification's canonical 11-state
+ * ladder. A second ladder with different rungs would be two answers to "is this
+ * live", so accounting transmission consumes this same vocabulary.
  */
 
 export const ConnectionKind = {
@@ -71,7 +74,7 @@ export interface ConnectionEvidence {
   readonly testExchangeRecorded: boolean;
   /**
    * A receipt from a real counterparty carrying the far side's own identifier.
-   * Nothing else reaches CONFIRMED_LIVE — not a 200, not a green CI run, not a
+   * Nothing else reaches LIVE_ACCEPTED — not a 200, not a green CI run, not a
    * successful send with no receipt.
    */
   readonly liveReceiptExternalId: string | null;
@@ -79,10 +82,10 @@ export interface ConnectionEvidence {
 
 export interface ConnectionState {
   readonly kind: ConnectionKind;
-  readonly maturity: AdapterMaturity;
+  readonly maturity: IntegrationCapabilityMaturityValue;
   /** In order: the next thing to obtain comes first. */
   readonly missing: readonly MissingPrerequisite[];
-  /** True only at CONFIRMED_LIVE. Never inferred from anything else. */
+  /** True only at LIVE_ACCEPTED. Never inferred from anything else. */
   readonly mayCarryRealTraffic: boolean;
 }
 
@@ -121,11 +124,11 @@ export function describeConnection(evidence: ConnectionEvidence): ConnectionStat
     kind: evidence.kind,
     maturity,
     missing,
-    mayCarryRealTraffic: maturity === AdapterMaturity.CONFIRMED_LIVE,
+    mayCarryRealTraffic: maturity === IntegrationCapabilityMaturity.LIVE_ACCEPTED,
   };
 }
 
-function deriveMaturity(evidence: ConnectionEvidence): AdapterMaturity {
+function deriveMaturity(evidence: ConnectionEvidence): IntegrationCapabilityMaturityValue {
   // A receipt is the only thing that makes it live, and it only counts on top of
   // everything below it: a receipt without an attested contract means somebody
   // sent real traffic through an unattested adapter, which is a finding rather
@@ -138,7 +141,7 @@ function deriveMaturity(evidence: ConnectionEvidence): AdapterMaturity {
     && evidence.endpointConfigured
     && evidence.adapterImplemented
   ) {
-    return AdapterMaturity.CONFIRMED_LIVE;
+    return IntegrationCapabilityMaturity.LIVE_ACCEPTED;
   }
   if (
     evidence.testExchangeRecorded
@@ -147,19 +150,19 @@ function deriveMaturity(evidence: ConnectionEvidence): AdapterMaturity {
     && evidence.endpointConfigured
     && evidence.adapterImplemented
   ) {
-    return AdapterMaturity.TEST;
+    return IntegrationCapabilityMaturity.LIVE_TESTING;
   }
   if (evidence.contractAttested && evidence.adapterImplemented) {
-    return AdapterMaturity.ADAPTER_READY;
+    return IntegrationCapabilityMaturity.ADAPTER_IMPLEMENTED;
   }
-  return AdapterMaturity.NOT_ATTESTED;
+  return IntegrationCapabilityMaturity.DISCOVERED;
 }
 
 /**
  * Everything the platform knows about, whether or not it has been started.
  *
  * A connection absent from the answer would read as one that does not apply. A
- * connection reported as NOT_ATTESTED with its missing prerequisites listed is
+ * connection reported as DISCOVERED with its missing prerequisites listed is
  * the honest version of "not done yet".
  */
 export const KNOWN_CONNECTION_KINDS: readonly ConnectionKind[] = Object.freeze([

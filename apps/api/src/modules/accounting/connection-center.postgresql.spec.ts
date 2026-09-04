@@ -1,7 +1,7 @@
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { Role, type RequestUser } from '../../common/types/request-user';
-import { AdapterMaturity } from './document-transmission.policy';
+import { IntegrationCapabilityMaturity } from '../../../../../packages/domain-core/src';
 import {
   ConnectionKind,
   MissingPrerequisite,
@@ -223,7 +223,7 @@ describePostgres('what the connection centre reports', () => {
 
     // The distinction matters to whoever reads it: "configure me" invites
     // somebody to go and look for a setting that does not exist.
-    expect(oneC.maturity).toBe(AdapterMaturity.NOT_ATTESTED);
+    expect(oneC.maturity).toBe(IntegrationCapabilityMaturity.DISCOVERED);
     expect(oneC.missing).toContain(MissingPrerequisite.ADAPTER_NOT_IMPLEMENTED);
   });
 
@@ -235,7 +235,7 @@ describePostgres('what the connection centre reports', () => {
     // would be a claim about work nobody did.
     expect(bank.missing).not.toContain(MissingPrerequisite.ADAPTER_NOT_IMPLEMENTED);
     expect(bank.missing).toContain(MissingPrerequisite.CONTRACT_NOT_ATTESTED);
-    expect(bank.maturity).toBe(AdapterMaturity.NOT_ATTESTED);
+    expect(bank.maturity).toBe(IntegrationCapabilityMaturity.DISCOVERED);
   });
 
   it('does not call EDO attested when nobody has attested it', async () => {
@@ -245,7 +245,7 @@ describePostgres('what the connection centre reports', () => {
     // constant in the repository saying the contract was attested. A contour
     // asserting its own attestation is not an attestation, so the constant is
     // gone and the answer now comes from the four gates.
-    expect(edo.maturity).toBe(AdapterMaturity.NOT_ATTESTED);
+    expect(edo.maturity).toBe(IntegrationCapabilityMaturity.DISCOVERED);
     expect(edo.mayCarryRealTraffic).toBe(false);
     expect(edo.missing).toEqual(
       expect.arrayContaining([
@@ -280,7 +280,7 @@ describePostgres('what the connection centre reports', () => {
     // connection: nothing points at an operator, nobody issued credentials, and
     // no test exchange was ever recorded. Promoting on the receipt alone would
     // report a capability the organization does not have.
-    expect(edo.maturity).not.toBe(AdapterMaturity.CONFIRMED_LIVE);
+    expect(edo.maturity).not.toBe(IntegrationCapabilityMaturity.LIVE_ACCEPTED);
     expect(edo.mayCarryRealTraffic).toBe(false);
     expect(edo.missing).toEqual(
       expect.arrayContaining([
@@ -315,6 +315,6 @@ describePostgres('what the connection centre reports', () => {
     // would hand this organization a neighbour's evidence and report a
     // connection it has never had. The read is scoped by organization.
     expect(edo.missing).toContain(MissingPrerequisite.LIVE_RECEIPT_NOT_OBTAINED);
-    expect(edo.maturity).toBe(AdapterMaturity.NOT_ATTESTED);
+    expect(edo.maturity).toBe(IntegrationCapabilityMaturity.DISCOVERED);
   });
 });

@@ -125,6 +125,15 @@ REVOKE DELETE, TRUNCATE ON
 FROM one_deal_app;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.provider_registry_evidence
 FROM one_deal_app;
+-- Integration bindings use the same command boundary. The application may
+-- declare/update bindings and append command events, while acceptance evidence
+-- stays under the separate server authority.
+REVOKE DELETE, TRUNCATE ON public.integration_bindings
+FROM one_deal_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON public.integration_binding_events
+FROM one_deal_app;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.integration_capability_evidence
+FROM one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
 GRANT SELECT ON
@@ -1130,5 +1139,15 @@ DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 pnpm --filter @pc/api exec jest --runInBand \
   --config test/industrial/jest.config.json \
   --runTestsByPath test/industrial/provider-registry-authority.e2e-spec.ts
+
+echo "[one-deal] running integration-binding PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/integration-binding-authority.e2e-spec.ts
 
 echo "[one-deal] exploitation gate passed"

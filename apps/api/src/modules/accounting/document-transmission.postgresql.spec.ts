@@ -1,7 +1,8 @@
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { Role, type RequestUser } from '../../common/types/request-user';
-import { AdapterMaturity, TransmissionRefusal } from './document-transmission.policy';
+import { IntegrationCapabilityMaturity } from '../../../../../packages/domain-core/src';
+import { TransmissionRefusal } from './document-transmission.policy';
 import {
   DocumentTransmissionRepository,
   SendOutcome,
@@ -51,7 +52,7 @@ function input() {
     freshness: currentFreshness(),
     formatAllowed: true,
     formatReasons: [],
-    adapterMaturity: AdapterMaturity.CONFIRMED_LIVE,
+    integrationMaturity: IntegrationCapabilityMaturity.LIVE_ACCEPTED,
     counterpartyInn: '7701234567',
     formatRevision: 'UPD_FORMAT@2026-01-01',
   };
@@ -117,7 +118,7 @@ describePostgres('handing a signed version to an adapter', () => {
       freshness: currentFreshness(),
       formatAllowed: true,
       formatReasons: [],
-      adapterMaturity: AdapterMaturity.NOT_ATTESTED,
+      integrationMaturity: IntegrationCapabilityMaturity.DISCOVERED,
     });
 
     expect(readiness.found).toBe(true);
@@ -137,7 +138,7 @@ describePostgres('handing a signed version to an adapter', () => {
       freshness: currentFreshness(),
       formatAllowed: true,
       formatReasons: [],
-      adapterMaturity: AdapterMaturity.NOT_ATTESTED,
+      integrationMaturity: IntegrationCapabilityMaturity.DISCOVERED,
     });
     expect(readiness.found).toBe(false);
     expect(readiness.sendable).toBe(false);
@@ -170,7 +171,7 @@ describePostgres('handing a signed version to an adapter', () => {
 
     const sent = await repo.send(actor(), new FakeAccountingDocumentTransport(), {
       ...input(),
-      adapterMaturity: AdapterMaturity.TEST,
+      integrationMaturity: IntegrationCapabilityMaturity.LIVE_TESTING,
     });
     expect(sent.outcome).toBe(SendOutcome.REFUSED_BY_POLICY);
     expect(sent.refusals).toContain(TransmissionRefusal.ADAPTER_NOT_LIVE);

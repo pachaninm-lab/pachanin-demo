@@ -15,7 +15,7 @@ import {
  * further.
  *
  * It issues receipts under a made-up operator name on purpose. Nothing may be
- * promoted to CONFIRMED_LIVE on its say-so, and the maturity policy would
+ * promoted to LIVE_ACCEPTED on its say-so, and the maturity policy would
  * refuse a receipt issued by this platform anyway.
  */
 export class FakeAccountingDocumentTransport implements AccountingDocumentTransport {

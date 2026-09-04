@@ -10,7 +10,7 @@
  * The second is the one that gets fudged. An HTTP 200 from an operator's
  * sandbox is not a delivered document, and neither is a green CI run. So the
  * maturity vocabulary here is deliberately blunt, the transitions are one-way
- * on evidence rather than on optimism, and CONFIRMED_LIVE cannot be reached by
+ * on evidence rather than on optimism, and LIVE_ACCEPTED cannot be reached by
  * any argument that does not include a receipt from the far side.
  */
 
@@ -19,26 +19,14 @@ import {
   type FreshnessAssessment,
 } from '../auth/accounting-document-staleness.policy';
 import type { FormatDenyReason } from '../auth/document-format.policy';
-
-export const AdapterMaturity = {
-  /** Nobody has attested anything. The default, and not a failure state. */
-  NOT_ATTESTED: 'NOT_ATTESTED',
-  /** The code exists and satisfies its contract against a fake. */
-  ADAPTER_READY: 'ADAPTER_READY',
-  /** It has spoken to the vendor's test environment and been answered. */
-  TEST: 'TEST',
-  /**
-   * A real document reached a real counterparty and the far side said so.
-   * Reachable only with a receipt carrying the external system's own
-   * identifier — never by inference, and never by a successful request.
-   */
-  CONFIRMED_LIVE: 'CONFIRMED_LIVE',
-} as const;
-export type AdapterMaturity = (typeof AdapterMaturity)[keyof typeof AdapterMaturity];
+import {
+  IntegrationCapabilityMaturity,
+  type IntegrationCapabilityMaturity as IntegrationCapabilityMaturityValue,
+} from '../../../../../packages/domain-core/src';
 
 /** Maturities that may carry a real document belonging to a real deal. */
-const MAY_CARRY_REAL_TRAFFIC: readonly AdapterMaturity[] = [
-  AdapterMaturity.CONFIRMED_LIVE,
+const MAY_CARRY_REAL_TRAFFIC: readonly IntegrationCapabilityMaturityValue[] = [
+  IntegrationCapabilityMaturity.LIVE_ACCEPTED,
 ];
 
 export const TransmissionRefusal = {
@@ -57,7 +45,7 @@ export interface TransmissionRequest {
   readonly freshness: FreshnessAssessment;
   readonly formatAllowed: boolean;
   readonly formatReasons: readonly FormatDenyReason[];
-  readonly adapterMaturity: AdapterMaturity;
+  readonly integrationMaturity: IntegrationCapabilityMaturityValue;
   /** A receipt already recorded for this version from the far side. */
   readonly acceptedExternalId: string | null;
 }
@@ -106,7 +94,7 @@ export function evaluateTransmission(
 
   if (request.formatAllowed === false) refusals.push(TransmissionRefusal.FORMAT_REFUSED);
 
-  if (!MAY_CARRY_REAL_TRAFFIC.includes(request.adapterMaturity)) {
+  if (!MAY_CARRY_REAL_TRAFFIC.includes(request.integrationMaturity)) {
     refusals.push(TransmissionRefusal.ADAPTER_NOT_LIVE);
   }
 
@@ -115,104 +103,4 @@ export function evaluateTransmission(
     refusals,
     formatReasons: request.formatAllowed === false ? request.formatReasons : [],
   };
-}
-
-export const MaturityRefusal = {
-  BACKWARDS: 'BACKWARDS',
-  SKIPS_A_STAGE: 'SKIPS_A_STAGE',
-  NO_CONTRACT_EVIDENCE: 'NO_CONTRACT_EVIDENCE',
-  NO_VENDOR_TEST_EVIDENCE: 'NO_VENDOR_TEST_EVIDENCE',
-  NO_EXTERNAL_RECEIPT: 'NO_EXTERNAL_RECEIPT',
-  RECEIPT_IS_OUR_OWN: 'RECEIPT_IS_OUR_OWN',
-} as const;
-export type MaturityRefusal = (typeof MaturityRefusal)[keyof typeof MaturityRefusal];
-
-const ORDER: readonly AdapterMaturity[] = [
-  AdapterMaturity.NOT_ATTESTED,
-  AdapterMaturity.ADAPTER_READY,
-  AdapterMaturity.TEST,
-  AdapterMaturity.CONFIRMED_LIVE,
-];
-
-export interface MaturityClaim {
-  readonly from: AdapterMaturity;
-  readonly to: AdapterMaturity;
-  /** A passing run of the adapter's contract suite against a fake. */
-  readonly contractSuiteRunId: string | null;
-  /** A response from the vendor's own test environment. */
-  readonly vendorTestCorrelationId: string | null;
-  /**
-   * The identifier the external system assigned to a real document. Ours do
-   * not count: a receipt we generated is a record of our own intention.
-   */
-  readonly externalReceiptId: string | null;
-  /** Which system issued that receipt. */
-  readonly externalReceiptIssuer: string | null;
-}
-
-export interface MaturityDecision {
-  readonly permitted: boolean;
-  readonly refusals: readonly MaturityRefusal[];
-}
-
-/**
- * Whether an adapter may be recorded at a higher maturity.
- *
- * One stage at a time, forwards only, each stage paid for with the evidence
- * that stage is about. The owner's instruction was to take integrations as far
- * as they honestly go without vendor credentials — which is exactly TEST, and
- * saying so is the point of having a stage that is not CONFIRMED_LIVE.
- */
-export function evaluateMaturityClaim(claim: MaturityClaim): MaturityDecision {
-  const refusals: MaturityRefusal[] = [];
-  const from = ORDER.indexOf(claim.from);
-  const to = ORDER.indexOf(claim.to);
-
-  if (to <= from) {
-    // Demotion is a different act with different evidence — an adapter that
-    // stopped working is an incident, not a claim — and it is not this.
-    return { permitted: false, refusals: [MaturityRefusal.BACKWARDS] };
-  }
-  if (to - from > 1) refusals.push(MaturityRefusal.SKIPS_A_STAGE);
-
-  if (claim.to === AdapterMaturity.ADAPTER_READY) {
-    if (isBlank(claim.contractSuiteRunId)) {
-      refusals.push(MaturityRefusal.NO_CONTRACT_EVIDENCE);
-    }
-  }
-
-  if (claim.to === AdapterMaturity.TEST) {
-    if (isBlank(claim.vendorTestCorrelationId)) {
-      refusals.push(MaturityRefusal.NO_VENDOR_TEST_EVIDENCE);
-    }
-  }
-
-  if (claim.to === AdapterMaturity.CONFIRMED_LIVE) {
-    if (isBlank(claim.externalReceiptId)) {
-      refusals.push(MaturityRefusal.NO_EXTERNAL_RECEIPT);
-    } else if (isOurOwn(claim.externalReceiptIssuer)) {
-      // The failure mode this exists for: a receipt the platform wrote about
-      // its own request, presented as confirmation from the far side.
-      refusals.push(MaturityRefusal.RECEIPT_IS_OUR_OWN);
-    }
-  }
-
-  return { permitted: refusals.length === 0, refusals };
-}
-
-function isBlank(value: string | null): boolean {
-  return value === null || value.trim() === '';
-}
-
-/** Issuers that are this platform under one name or another. */
-const OUR_OWN_ISSUERS: readonly string[] = [
-  'PC_CROP',
-  'PLATFORM',
-  'SELF',
-  'INTERNAL',
-];
-
-function isOurOwn(issuer: string | null): boolean {
-  if (issuer === null || issuer.trim() === '') return true;
-  return OUR_OWN_ISSUERS.includes(issuer.trim().toUpperCase());
 }
