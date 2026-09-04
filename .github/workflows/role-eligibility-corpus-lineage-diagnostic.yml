@@ -47,7 +47,7 @@ jobs:
           grep -Fq 'SET TRANSACTION READ ONLY' "$f"
           grep -Fq 'ROLE_ELIGIBILITY_ENFORCEMENT=false' "$f"
           grep -Fq 'PRODUCTION_DATABASE_MUTATION=0' "$f"
-          ! grep -Eq 'ROLE_ELIGIBILITY_ENFORCEMENT=true|DELETE FROM|TRUNCATE |DROP TABLE|ALTER TABLE' "$f"
+          ! grep -Eq 'ROLE_ELIGIBILITY_ENFORCEMENT[=]true|DELETE[[:space:]]+FROM|TRUNCATE[[:space:]]|DROP[[:space:]]+TABLE|ALTER[[:space:]]+TABLE' "$f"
 
   diagnose:
     needs: contract
