@@ -202,7 +202,7 @@ $roles$;
 
 GRANT USAGE ON SCHEMA eligibility TO pc_org_capability_authority;
 GRANT SELECT ON eligibility.verdicts TO pc_org_capability_authority;
-GRANT USAGE ON SCHEMA capability TO pc_org_capability_authority;
+GRANT USAGE, CREATE ON SCHEMA capability TO pc_org_capability_authority;
 
 CREATE OR REPLACE FUNCTION capability.resolve_server_evidence(
   p_capability_code TEXT
@@ -260,6 +260,7 @@ $function$;
 
 REVOKE ALL ON FUNCTION capability.resolve_server_evidence(TEXT) FROM PUBLIC;
 ALTER FUNCTION capability.resolve_server_evidence(TEXT) OWNER TO pc_org_capability_authority;
+REVOKE CREATE ON SCHEMA capability FROM pc_org_capability_authority;
 
 -- Runtime receives only RLS-confined business-table access and the bounded
 -- evidence function. No principal gets DELETE on the capability authority.
