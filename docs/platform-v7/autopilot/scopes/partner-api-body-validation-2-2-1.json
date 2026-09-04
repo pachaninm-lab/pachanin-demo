@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/partner-api-body-validation",
+  "status": "active",
+  "purpose": "V2.2.1/V2.2.2: three partner API handlers declared their body as an inline TypeScript type. An inline type erases to Object at runtime, so the global ValidationPipe validated nothing on them. These are the endpoints that mint partner API keys and register outbound webhooks - the surface a partner can reach directly.",
+  "authorityBaseExactMain": "5f44991763900b7d9b832b9a8f3f9036f9ef9af6",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/partner-api-body-validation-2-2-1.json",
+    "apps/api/src/modules/partner-api/partner-api.controller.ts",
+    "apps/api/src/modules/partner-api/partner-api.service.ts",
+    "apps/api/src/modules/partner-api/dto/partner-api.dto.ts",
+    "apps/api/src/modules/partner-api/dto/partner-api.dto.spec.ts",
+    "docs/security/request-validation-baseline.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The service-layer checks stay. AVAILABLE_SCOPES and outboundUrlProblem are not moved into the DTO: which hosts may be reached is deployment policy read at call time, and duplicating it would create two sources of truth that drift.",
+    "V2.2.1 and V2.2.2 remain FAIL. Closing three endpoints out of ninety-two does not close the requirement, and no requirement is claimed to move.",
+    "Both decisions are re-pointed in the same pass. Closing the file a decision cites revokes that decision - measured, not assumed: the rebuild showed V2.2.1 and V2.2.2 fall to NOT_ASSESSED - so the conditions now name surfaces that still carry the defect.",
+    "The ratchet baseline is tightened in the same pass so the gain cannot be given back silently.",
+    "No schema change, no migration, no RLS policy edit, no dependency. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB.",
+    "Nothing outside apps/api/src/modules/partner-api plus the two governance files named above. The accounting controller (15 unvalidated bodies) is NOT touched - it is under the PC-CROP-FEDERAL-ACCOUNTING project lock. The FGIS handlers in saga.controller.ts are NOT touched - that contour is live on another branch."
+  ],
+  "acceptance": [
+    "Every claim about the old behaviour was measured on the service before the change, not argued from the type: rateLimit 999999999 accepted; expiresInDays -30 accepted and issued an already-expired key; expiresInDays 1e12 raised RangeError and reached the client as 500; scopes as a string raised TypeError and reached the client as 500; a 100000-character name accepted; events as a string accepted AND matched w.events.includes('*') by substring, subscribing the webhook to every platform event.",
+    "Nine mutations applied, each verified present on disk before the run; seven caught by assertions.",
+    "The two that were not caught are recorded rather than papered over. Removing @IsArray() from either array field leaves @ArrayMaxSize doing that work. Measured separately: @ArrayMaxSize alone rejects a string, while @IsIn({each:true}) and @IsString({each:true}) alone both ACCEPT one - `each` on a non-array does not run. The decorator stays and the shadowing is documented in the DTO, so nobody removes it later on the grounds that the tests stay green.",
+    "Reverse direction tested throughout: legitimate key generation, an optional-fields-omitted request, an explicit ['*'] subscription and an empty test-webhook body all still pass; an unknown property is stripped rather than reaching the service.",
+    "api typecheck exit 0, full @pc/api suite green, scripts/security 130/130, matrix unchanged at 129 PASS / 90 FAIL."
+  ]
+}

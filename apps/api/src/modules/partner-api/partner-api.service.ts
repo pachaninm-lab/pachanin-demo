@@ -96,8 +96,13 @@ export class PartnerApiService {
     params: { url: string; events: string[] },
     user: RequestUser,
   ): { subscriptionId: string; secret: string } {
-    // The endpoint declares its body as an inline type, which erases at runtime,
-    // so ValidationPipe never sees this field. The check has to be here.
+    // Stays here, and the reason has changed rather than gone away. The endpoint
+    // now declares SubscribeWebhookDto, so ValidationPipe does see the field -
+    // but it checks the SHAPE. Which hosts may be reached is deployment policy
+    // read at call time from configuredAllowedHosts(), not a property of the
+    // type, and duplicating it in the DTO would create two sources of truth
+    // that drift. Form is rejected earlier now; destination is still decided
+    // here.
     const problem = outboundUrlProblem(params.url);
     if (problem) throw new BadRequestException({ code: problem });
 
