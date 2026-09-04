@@ -1,6 +1,7 @@
 import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { maskDeep, maskText } from '../security/sensitive-data';
+import { encodeLogField } from '../security/log-encode';
 
 /**
  * Log masking middleware per ТЗ 11.3 (152-ФЗ).
@@ -11,6 +12,13 @@ import { maskDeep, maskText } from '../security/sensitive-data';
  * защищали одни и те же данные по-разному.
  *
  * Applied at the application level — intercepts outgoing response logging.
+ *
+ * Маскирование и кодирование — разные контроли, и здесь есть оба (V16.4.1).
+ * Маскирование решает, ЧТО попадёт в строку; кодирование — какую ФОРМУ строке
+ * позволено принять. Строка ниже собирается из шести полей, и три из них
+ * вызывающий влияет: User-Agent, req.ip (при trust proxy он выводится из
+ * X-Forwarded-For) и путь. Без кодирования их содержимое задаёт разметку
+ * журнала, а не только его данные.
  */
 
 const LOG_EXCLUDED_PATHS = ['/health', '/ready', '/metrics', '/version'];
@@ -34,8 +42,19 @@ export class LogMaskingMiddleware implements NestMiddleware {
       const userId = (req as any).user?.id ?? 'anon';
       const maskedIp = this.maskIp(ip ?? 'unknown');
 
+      // Кодируется КАЖДОЕ поле, а не одно названное в записи ASVS. Иначе
+      // контроль держался бы на том, что остальные пять «вроде бы
+      // безопасные», — а userId приходит из сессии, путь из URL, ip из
+      // заголовка.
+      //
+      // res.statusCode приводится к числу: его присваивает обработчик, и
+      // строку туда положить можно. duration не приводится — это
+      // Date.now() - startMs, число по построению; приведение там нечем
+      // отозвать мутацией, а контроль, который нельзя отозвать, — украшение.
       this.logger.log(
-        `${method} ${reqPath} ${res.statusCode} ${duration}ms | ip=${maskedIp} user=${userId} ua="${this.maskText(userAgent)}"`,
+        `${encodeLogField(method)} ${encodeLogField(reqPath)} ${Number(res.statusCode)} ${duration}ms`
+        + ` | ip=${encodeLogField(maskedIp)} user=${encodeLogField(userId)}`
+        + ` ua="${encodeLogField(this.maskText(userAgent))}"`,
       );
     });
 
