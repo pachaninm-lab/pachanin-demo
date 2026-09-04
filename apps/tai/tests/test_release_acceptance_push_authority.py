@@ -97,7 +97,7 @@ def test_scheduled_failure_cannot_override_exact_sha_push_authority(
 
     environment = os.environ.copy()
     environment["EXACT_HEAD"] = EXACT_SHA
-    completed = subprocess.run(
+    completed = subprocess.run(  # noqa: S603 - fixed interpreter, isolated fixture input
         [sys.executable, "-c", block],
         cwd=tmp_path,
         env=environment,
