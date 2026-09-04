@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "docs/pc-crop-post-registration-w0-20260904",
+  "status": "active",
+  "purpose": "Bind the final PC-CROP post-registration specification to exact-main evidence, classify every required contour, and establish a strict 126-criterion DoD baseline before implementation.",
+  "authorityBaseExactMain": "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-post-registration-w0-4997.json",
+    "docs/platform-v7/crop-platform/post-registration/**"
+  ],
+  "requiredInvariants": [
+    "Registration, registration behavior and role eligibility are unchanged.",
+    "No product runtime, schema, dependency, deployment or production configuration changes are permitted in W0.",
+    "Every finding is classified as KEEP, EXTEND_EXISTING, NEW_REQUIRED, REMOVE_OR_SUPERSEDE, EXTERNAL_BLOCKER or NOT_REQUIRED.",
+    "DoD progress credits only strict PASS; PARTIAL, FAIL, EXTERNAL_BLOCKER and NOT_EVIDENCED receive zero terminal credit.",
+    "Canonical Deal, Settlement, integration, audit and outbox foundations are extended rather than duplicated.",
+    "External readiness is never inferred from mocks, skeleton adapters, UI copy or configured provider names.",
+    "Production acceptance remains REG.RU exact-revision evidence only."
+  ],
+  "acceptance": [
+    "The specification hash, byte size, section range and all 126 DoD criteria are recorded.",
+    "The gap map covers schema, API, domain, UI/UX, integrations, operations and security on the exact baseline SHA.",
+    "Every DoD criterion has one strict status and a gap-map evidence reference.",
+    "The reported percentage is mechanically derived from strict PASS count without rounding up.",
+    "W1-A is bounded to Organization Capability Authority in shadow mode and explicitly excludes registration enforcement.",
+    "The concurrent-scope guard accepts only this manifest and the post-registration W0 artifacts."
+  ]
+}
