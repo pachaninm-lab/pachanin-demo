@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser } from '../../common/types/request-user';
 import { outboundUrlProblem } from '../../common/security/outbound-url';
+import { PARTNER_API_SCOPES } from './partner-api.scopes';
 
 export interface ApiKey {
   id: string;
@@ -28,7 +29,7 @@ export interface WebhookSubscription {
   createdAt: string;
 }
 
-const AVAILABLE_SCOPES = ['deals:read', 'deals:write', 'shipments:read', 'documents:read', 'payments:read'];
+
 
 @Injectable()
 export class PartnerApiService {
@@ -42,7 +43,7 @@ export class PartnerApiService {
     params: { name: string; scopes: string[]; rateLimit?: number; expiresInDays?: number },
     user: RequestUser,
   ): { apiKey: string; keyId: string; prefix: string; expiresAt: string } {
-    const invalidScopes = params.scopes.filter((s) => !AVAILABLE_SCOPES.includes(s));
+    const invalidScopes = params.scopes.filter((s) => !(PARTNER_API_SCOPES as readonly string[]).includes(s));
     if (invalidScopes.length > 0) throw new ForbiddenException(`Unknown scopes: ${invalidScopes.join(', ')}`);
 
     const rawKey = `gf_${randomBytes(32).toString('hex')}`;

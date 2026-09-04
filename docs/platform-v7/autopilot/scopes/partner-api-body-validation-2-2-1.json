@@ -16,7 +16,9 @@
     "docs/security/request-validation-baseline.json",
     "docs/security/asvs-applicability-decisions.json",
     "docs/security/cryptographic-inventory.json",
-    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "apps/api/src/modules/partner-api/partner-api.scopes.ts",
+    "apps/api/src/modules/partner-api/partner-api-scope-agreement.spec.ts"
   ],
   "requiredInvariants": [
     "The service-layer checks stay. AVAILABLE_SCOPES and outboundUrlProblem are not moved into the DTO: which hosts may be reached is deployment policy read at call time, and duplicating it would create two sources of truth that drift.",
@@ -25,7 +27,8 @@
     "The ratchet baseline is tightened in the same pass so the gain cannot be given back silently.",
     "No schema change, no migration, no RLS policy edit, no dependency. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB.",
     "Nothing outside apps/api/src/modules/partner-api plus the two governance files named above. The accounting controller (15 unvalidated bodies) is NOT touched - it is under the PC-CROP-FEDERAL-ACCOUNTING project lock. The FGIS handlers in saga.controller.ts are NOT touched - that contour is live on another branch.",
-    "The cryptographic inventory is regenerated because it records a count of TRACKED files and this pass adds two. Both the .json and the .md are in scope because discover-cryptography.mjs writes them together and regenerating one without the other fails the staleness test either way. The regenerated diff is the file count alone - no operation class and no key name changes, so this pass introduces no cryptography."
+    "The cryptographic inventory is regenerated because it records a count of TRACKED files and this pass adds two. Both the .json and the .md are in scope because discover-cryptography.mjs writes them together and regenerating one without the other fails the staleness test either way. The regenerated diff is the file count alone - no operation class and no key name changes, so this pass introduces no cryptography.",
+    "The scope list has exactly one home: partner-api.scopes.ts. The first version of this pass declared a second copy in the DTO, directly under a comment saying the service policy is not duplicated there. Two copies of one list drift silently - adding a scope in the service without editing the DTO would make the pipe reject what the service accepts. The service stays authoritative; only the list is shared."
   ],
   "acceptance": [
     "Every claim about the old behaviour was measured on the service before the change, not argued from the type: rateLimit 999999999 accepted; expiresInDays -30 accepted and issued an already-expired key; expiresInDays 1e12 raised RangeError and reached the client as 500; scopes as a string raised TypeError and reached the client as 500; a 100000-character name accepted; events as a string accepted AND matched w.events.includes('*') by substring, subscribing the webhook to every platform event.",
@@ -33,6 +36,7 @@
     "The two that were not caught are recorded rather than papered over. Removing @IsArray() from either array field leaves @ArrayMaxSize doing that work. Measured separately: @ArrayMaxSize alone rejects a string, while @IsIn({each:true}) and @IsString({each:true}) alone both ACCEPT one - `each` on a non-array does not run. The decorator stays and the shadowing is documented in the DTO, so nobody removes it later on the grounds that the tests stay green.",
     "Reverse direction tested throughout: legitimate key generation, an optional-fields-omitted request, an explicit ['*'] subscription and an empty test-webhook body all still pass; an unknown property is stripped rather than reaching the service.",
     "api typecheck exit 0, full @pc/api suite green, scripts/security 130/130, matrix unchanged at 129 PASS / 90 FAIL.",
-    "Lesson recorded rather than worked around: scripts/security gates scan git-tracked files, so running them before git add gives a false green for any pass that adds a file. They are re-run here AFTER the commit."
+    "Lesson recorded rather than worked around: scripts/security gates scan git-tracked files, so running them before git add gives a false green for any pass that adds a file. They are re-run here AFTER the commit.",
+    "Found by review, not by reading, and fixed rather than argued away. partner-api-scope-agreement.spec.ts now proves the boundary and the service accept exactly the same set, and that ArrayMaxSize does not cut off a request carrying every scope. Verified it catches the defect it exists for: restoring a private list in the DTO fails it with three failures naming documents:read and payments:read."
   ]
 }
