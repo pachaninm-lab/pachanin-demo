@@ -60,6 +60,8 @@ model Organization {
   accountingPaymentAllocations      AccountingPaymentAllocation[]
   accountingReconciliations         AccountingReconciliation[]
   connectionAttestationSubjects     ConnectionAttestationSubject[]
+  capabilityAssignments             OrganizationCapabilityAssignment[]
+  capabilityEvents                  OrganizationCapabilityEvent[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -143,12 +145,84 @@ model UserOrg {
   reconciliationsPrepared     AccountingReconciliation[]  @relation("AccountingReconciliationPreparer")
   reconciliationsAnswered     AccountingReconciliation[]  @relation("AccountingReconciliationResponder")
   connectionSubjectsCreated   ConnectionAttestationSubject[] @relation("ConnectionAttestationSubjectAuthor")
+  capabilityAssignmentsCreated OrganizationCapabilityAssignment[] @relation("OrganizationCapabilityCreatedBy")
+  capabilityAssignmentsUpdated OrganizationCapabilityAssignment[] @relation("OrganizationCapabilityUpdatedBy")
+  capabilityEventsAuthored      OrganizationCapabilityEvent[]      @relation("OrganizationCapabilityEventActor")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
   @@index([organizationId])
   @@index([organizationId, jobProfile])
   @@map("user_orgs")
+}
+
+/// Server-authoritative declaration of what one organization can do. W1-A is
+/// deliberately shadow-only: downstream Auction, Deal and Settlement policy
+/// does not consume these rows until a later, separately accepted slice.
+model OrganizationCapabilityAssignment {
+  id                    String    @id
+  tenantId              String
+  organizationId        String
+  capabilityCode        String
+  status                String
+  requiresVerification  Boolean
+  provenance            String    @default("SELF_DECLARED")
+  evidenceReference     String?
+  effectiveFrom         DateTime? @db.Timestamptz(6)
+  effectiveTo           DateTime? @db.Timestamptz(6)
+  version               BigInt    @default(1)
+  createdByMembershipId String
+  updatedByMembershipId String
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  createdBy    UserOrg      @relation("OrganizationCapabilityCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  updatedBy    UserOrg      @relation("OrganizationCapabilityUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  events       OrganizationCapabilityEvent[]
+
+  @@unique([organizationId, capabilityCode], map: "organization_capability_org_code_key")
+  @@unique([id, tenantId, organizationId], map: "organization_capability_identity_key")
+  @@index([tenantId, organizationId, status], map: "organization_capability_scope_status_idx")
+  @@map("organization_capability_assignments")
+}
+
+/// Append-only command receipt and hash chain for capability declarations.
+/// auditEventId and outboxEntryId identify records committed in the same SQL
+/// transaction; they intentionally remain scalar to avoid coupling generic
+/// audit/outbox retention to this bounded aggregate.
+model OrganizationCapabilityEvent {
+  id                 String   @id
+  tenantId           String
+  organizationId     String
+  assignmentId       String
+  commandId          String
+  idempotencyKey     String
+  requestFingerprint String
+  action             String
+  fromStatus         String?
+  toStatus           String
+  reason             String
+  actorUserId        String
+  actorRole          String
+  actorMembershipId  String
+  correlationId      String
+  prevHash           String?
+  hash               String
+  auditEventId       String   @unique(map: "organization_capability_event_audit_key")
+  outboxEntryId      String   @unique(map: "organization_capability_event_outbox_key")
+  aggregateVersion   BigInt
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  assignment   OrganizationCapabilityAssignment @relation(fields: [assignmentId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict)
+  organization Organization                     @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  actor        UserOrg                          @relation("OrganizationCapabilityEventActor", fields: [actorMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict)
+
+  @@unique([tenantId, organizationId, idempotencyKey], map: "organization_capability_event_idempotency_key")
+  @@unique([tenantId, organizationId, commandId], map: "organization_capability_event_command_key")
+  @@index([assignmentId, createdAt, id], map: "organization_capability_event_chain_idx")
+  @@index([tenantId, organizationId, createdAt], map: "organization_capability_event_scope_idx")
+  @@map("organization_capability_events")
 }
 
 /// Time-bounded delegation of a capability subset between two memberships of
@@ -2723,4 +2797,3 @@ model GektaMerchantProfile {
   @@index([effectiveFrom(sort: Desc)], map: "gekta_merchant_profiles_effective_idx")
   @@map("gekta_merchant_profiles")
 }
-

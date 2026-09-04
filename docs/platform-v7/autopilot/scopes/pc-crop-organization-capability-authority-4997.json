@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-organization-capability-authority-4997",
+  "status": "active",
+  "purpose": "Add the canonical 13-code Organization Capability Authority as a tenant-scoped PostgreSQL aggregate in shadow mode, with bounded organization-admin mutation and no registration or downstream enforcement change.",
+  "authorityBaseExactMain": "7de3dcf6a7c90d76b7e5aff5c57a8df4b30c4d2a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-organization-capability-authority-4997.json",
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260904120000_organization_capability_authority/**",
+    "apps/api/src/app.module.ts",
+    "apps/api/src/modules/organization-capabilities/**",
+    "apps/api/test/industrial/organization-capability-authority.e2e-spec.ts"
+  ],
+  "requiredInvariants": [
+    "REGISTRATION_CODE_CHANGED=0, REGISTRATION_BEHAVIOR_CHANGED=0 and ROLE_ELIGIBILITY_REGRESSION=0.",
+    "The vocabulary contains exactly 13 canonical OrganizationCapability codes.",
+    "Organization, tenant, membership, role, status and verification class are server-derived; client-supplied authority fields are rejected.",
+    "Provider, regulated and integration capabilities declared by an organization remain PENDING_VERIFICATION.",
+    "PostgreSQL FORCE RLS denies cross-tenant and cross-organization access.",
+    "CAS versioning, advisory serialization and payload-bound idempotency protect every mutation.",
+    "Assignment, append-only event, chained audit and outbox rows commit in one transaction.",
+    "Auction, Deal, Settlement and role eligibility do not consume this authority in W1-A; enforcementMode is SHADOW.",
+    "No capability backfill or default grant is created.",
+    "No new mandatory paid dependency or external partner access is introduced."
+  ],
+  "acceptance": [
+    "GET returns only the current organization registry, assignments and effective ACTIVE codes.",
+    "An organization administrator may DECLARE or REVOKE with If-Match and a human reason.",
+    "Four non-regulated codes may self-activate; all other declarations remain PENDING_VERIFICATION.",
+    "Exact replay returns the original receipt and a changed payload under the same key is rejected.",
+    "Concurrent commands using the same expected version produce one commit and one stale-version result.",
+    "A forced audit/outbox failure rolls back the assignment and event.",
+    "The concurrent-scope guard confirms no registration or role-eligibility path changed."
+  ]
+}
