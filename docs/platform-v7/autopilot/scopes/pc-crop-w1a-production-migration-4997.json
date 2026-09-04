@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "ops/pc-crop-w1a-production-migration-4997",
+  "status": "active",
+  "purpose": "Apply only the already-merged W1-A Organization Capability Authority Prisma migration after a read-only preflight has proven it is the sole pending repository migration in production.",
+  "authorityBaseExactMain": "d68a2b189713c97a391778d63ec06071a0414baf",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-w1a-production-migration-4997.json",
+    ".github/workflows/pc-crop-w1a-production-migration.yml",
+    "scripts/production-pc-crop-w1a-migration.sh"
+  ],
+  "requiredInvariants": [
+    "Only migration 20260904120000_organization_capability_authority may be pending immediately before mutation; any other pending or unfinished repository migration fails closed.",
+    "The exact current-main migration image is immutable and its org.opencontainers.image.revision equals the target SHA.",
+    "A database backup or protected external backup evidence is mandatory before mutation.",
+    "The existing production API, web and Role Eligibility worker containers are not recreated or restarted.",
+    "Registration code and behavior are unchanged; the W1-A migration is additive and does not reference registration or Role Eligibility tables.",
+    "ROLE_ELIGIBILITY_ENFORCEMENT remains false before and after migration.",
+    "No capability assignment is backfilled or default-granted; both W1-A tables must contain zero rows immediately after migration.",
+    "The two W1-A tables must exist with ENABLE RLS and FORCE RLS after migration.",
+    "No tenant, organization, membership, user, registration or capability-assignment identifiers are emitted in evidence."
+  ],
+  "acceptance": [
+    "Pre-mutation READ ONLY probe proves exactly one pending repository migration and it is the W1-A target.",
+    "Migration image command is exactly Prisma migrate deploy against prisma/schema.prisma and contains the target migration.",
+    "Backup evidence is persisted before mutation.",
+    "Prisma migrate deploy completes successfully exactly once.",
+    "Post-migration READ ONLY probe proves zero pending/unfinished repository migrations, target migration applied, both W1-A tables present with FORCE RLS and zero rows.",
+    "API/web runtime snapshot is identical before and after; Role Eligibility enforcement remains false.",
+    "Immutable evidence is uploaded and the result is written to issue #4997."
+  ]
+}
