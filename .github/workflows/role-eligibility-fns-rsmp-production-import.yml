@@ -10,6 +10,8 @@ permissions:
 
 env:
   DEFAULT_HOST: 195.19.12.120
+  READINESS_ISSUE_NUMBER: 4922
+  COMMAND: /role-eligibility fns-rsmp import current-main
   EVIDENCE_DIR: artifacts/role-eligibility-fns-rsmp-production-import
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
@@ -41,7 +43,8 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Bind importer to exact current main
+      - name: Resolve immutable current-main target
+        id: target
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -54,7 +57,9 @@ jobs:
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
           [[ "$target" == "$api_main" ]]
           [[ "$target" == "$GITHUB_SHA" ]] || { echo FNS_RSMP_IMPORT_MAIN_DRIFT >&2; exit 14; }
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
           printf '%s\n' "$target" > "$EVIDENCE_DIR/target-sha.txt"
+          bash -n scripts/production-role-eligibility-fns-rsmp-import.sh
           node scripts/production-role-eligibility-fns-rsmp-import.cjs --self-test | tee "$EVIDENCE_DIR/self-test.txt"
 
       - name: Resolve protected key and pinned VPS identity
@@ -71,23 +76,36 @@ jobs:
           [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo FNS_RSMP_PRODUCTION_PRINCIPAL_INVALID >&2; exit 21; }
           [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 22
           [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo FNS_RSMP_PINNED_HOST_FINGERPRINT_REQUIRED >&2; exit 23; }
-          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
           validate_key(){
             local source="$1" target="$HOME/.ssh/id_pc_prod" pub
-            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
             grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
-            pub="$(mktemp)"; ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            ssh-keygen -lf "$pub" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$pub"
           }
           try_slot(){
-            local raw="$1" a b c; [[ -n "$raw" ]] || return 1
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
             a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
-            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
-            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
             printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
             rm -f "$a" "$b" "$c"; return 1
           }
-          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || { echo FNS_RSMP_NO_VALID_PRIVATE_KEY >&2; exit 24; }
-          scan="$(mktemp)"; match="$(mktemp)"; pinned=0
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo FNS_RSMP_NO_VALID_PRIVATE_KEY >&2
+            exit 24
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
           for attempt in 1 2 3; do
             : > "$scan"; : > "$match"
             ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
@@ -97,43 +115,70 @@ jobs:
                 [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
               done < "$scan"
               sort -u -o "$match" "$match"
-              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned=1; break; fi
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
             fi
             (( attempt == 3 )) || sleep "$attempt"
           done
-          [[ "$pinned" == 1 ]] || { rm -f "$scan" "$match"; echo FNS_RSMP_PINNED_HOST_KEY_MISMATCH >&2; exit 25; }
-          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
-          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo FNS_RSMP_PINNED_HOST_KEY_MISMATCH >&2; exit 25; }
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo FNS_RSMP_SSH_AUTH=PASS' \
+            | tee "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq FNS_RSMP_SSH_AUTH=PASS "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
 
-      - name: Import positive-only FNS RSMP evidence inside exact-SHA API namespace
+      - name: Recheck current-main immediately before production mutation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$current_main" == "$TARGET_SHA" ]] || { echo FNS_RSMP_IMPORT_MAIN_DRIFT >&2; exit 30; }
+
+      - name: Copy bounded importer authority
         env:
           HOST: ${{ steps.ssh.outputs.host }}
           PORT: ${{ steps.ssh.outputs.port }}
         shell: bash
         run: |
           set -euo pipefail
-          target="$(cat "$EVIDENCE_DIR/target-sha.txt")"
-          remote='set -euo pipefail;
-            test "$(id -u)" -eq 0;
-            mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.service=api");
-            (( ${#api_ids[@]} == 1 )) || { echo FNS_RSMP_API_AUTHORITY_AMBIGUOUS >&2; exit 30; };
-            api_id="${api_ids[0]}";
-            api_image="$(docker inspect --format "{{.Image}}" "$api_id")";
-            api_revision="$(docker image inspect --format "{{index .Config.Labels \"org.opencontainers.image.revision\"}}" "$api_image")";
-            [[ "$api_revision" == "$TARGET_SHA" ]] || { echo FNS_RSMP_API_REVISION_MISMATCH >&2; exit 31; };
-            worker_id="$(docker inspect --format "{{.Id}}" pc-role-eligibility-worker 2>/dev/null || true)";
-            [[ "$worker_id" =~ ^[0-9a-f]{64}$ ]] || { echo FNS_RSMP_WORKER_NOT_FOUND >&2; exit 32; };
-            worker_image="$(docker inspect --format "{{.Image}}" "$worker_id")";
-            worker_revision="$(docker image inspect --format "{{index .Config.Labels \"org.opencontainers.image.revision\"}}" "$worker_image")";
-            [[ "$worker_revision" == "$TARGET_SHA" ]] || { echo FNS_RSMP_WORKER_REVISION_MISMATCH >&2; exit 33; };
-            shadow="$(docker inspect "$worker_id" | python3 -c "import json,sys; e=dict(x.split(\"=\",1) for x in json.load(sys.stdin)[0].get(\"Config\",{}).get(\"Env\",[]) if \"=\" in x); print(e.get(\"ROLE_ELIGIBILITY_SHADOW_MODE\",\"\"))")";
-            enforcement="$(docker inspect "$worker_id" | python3 -c "import json,sys; e=dict(x.split(\"=\",1) for x in json.load(sys.stdin)[0].get(\"Config\",{}).get(\"Env\",[]) if \"=\" in x); print(e.get(\"ROLE_ELIGIBILITY_ENFORCEMENT\",\"\"))")";
-            [[ "$shadow" == true && "$enforcement" == false ]] || { echo FNS_RSMP_WORKER_MODE_INVALID >&2; exit 34; };
-            docker exec -i "$api_id" /nodejs/bin/node -'
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
-            "$SSH_USER_SECRET@$HOST" "TARGET_SHA='$target' bash -c '$remote'" \
-            < scripts/production-role-eligibility-fns-rsmp-import.cjs \
-            > "$EVIDENCE_DIR/import.json"
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            scripts/production-role-eligibility-fns-rsmp-import.sh \
+            "$SSH_USER_SECRET@$HOST:/tmp/pc-fns-rsmp-import-${GITHUB_RUN_ID}.sh"
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            scripts/production-role-eligibility-fns-rsmp-import.cjs \
+            "$SSH_USER_SECRET@$HOST:/tmp/pc-fns-rsmp-import-${GITHUB_RUN_ID}.cjs"
+
+      - name: Import positive-only FNS RSMP evidence
+        id: import
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw_err="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "set -euo pipefail; chmod 0700 '/tmp/pc-fns-rsmp-import-${GITHUB_RUN_ID}.sh'; '/tmp/pc-fns-rsmp-import-${GITHUB_RUN_ID}.sh' '$TARGET_SHA' '/tmp/pc-fns-rsmp-import-${GITHUB_RUN_ID}.cjs'" \
+            > "$EVIDENCE_DIR/import.json" 2> "$raw_err"
+          remote_status=$?
+          set -e
+          sed -E 's#(postgres(ql)?://)[^/@ ]+@#\1[REDACTED]@#g' "$raw_err" | tee "$EVIDENCE_DIR/import.stderr.txt" >&2
+          rm -f "$raw_err"
+          (( remote_status == 0 )) || exit "$remote_status"
+          grep -Fxq FNS_RSMP_PRODUCTION_IMPORT=PASS "$EVIDENCE_DIR/import.stderr.txt"
+          grep -Fxq ROLE_ELIGIBILITY_SHADOW_MODE=true "$EVIDENCE_DIR/import.stderr.txt"
+          grep -Fxq ROLE_ELIGIBILITY_ENFORCEMENT=false "$EVIDENCE_DIR/import.stderr.txt"
+          grep -Fxq REGISTRATION_RUNTIME_UNCHANGED=PASS "$EVIDENCE_DIR/import.stderr.txt"
+          echo "status=PASS" >> "$GITHUB_OUTPUT"
 
       - name: Validate aggregate import evidence
         shell: bash
@@ -145,9 +190,17 @@ jobs:
           if (p.schemaVersion !== 'role-eligibility-fns-rsmp-shadow-import.v1' || p.source !== 'FNS_RSMP') throw new Error('FNS_RSMP_IMPORT_REPORT_INVALID');
           if (p.shadowMode !== true || p.enforcement !== false || p.admissionAuthority !== false || p.automaticNegativeAuthority !== false) throw new Error('FNS_RSMP_IMPORT_AUTHORITY_BOUNDARY_INVALID');
           if (p.registrationTouched !== false || p.absenceSemantics !== 'ABSENCE_IS_NOT_NEGATIVE_LEGAL_ENTITY_EVIDENCE') throw new Error('FNS_RSMP_IMPORT_SEMANTICS_INVALID');
-          for (const k of ['candidates','uniqueSubjects','entriesScanned','matchedSubjects','evidenceInserted']) if (!Number.isInteger(p[k]) || p[k] < 0) throw new Error(`FNS_RSMP_IMPORT_COUNT_INVALID:${k}`);
+          for (const k of ['candidates','uniqueSubjects','entriesScanned','matchedSubjects','evidenceInserted']) {
+            if (!Number.isInteger(p[k]) || p[k] < 0) throw new Error(`FNS_RSMP_IMPORT_COUNT_INVALID:${k}`);
+          }
           const forbidden = /(?:^|_)(?:inn|ogrn|kpp|legal_name|tenant_id|organization_id|application_id|email|phone|password|secret|token)(?:$|_)/i;
-          const walk = (v) => { if (!v || typeof v !== 'object') return; for (const [k,c] of Object.entries(v)) { if (forbidden.test(k)) throw new Error('FNS_RSMP_REPORT_PII_KEY_FORBIDDEN'); walk(c); } };
+          const walk = (v) => {
+            if (!v || typeof v !== 'object') return;
+            for (const [k,c] of Object.entries(v)) {
+              if (forbidden.test(k)) throw new Error('FNS_RSMP_REPORT_PII_KEY_FORBIDDEN');
+              walk(c);
+            }
+          };
           walk(p);
           console.log(`FNS_RSMP_SHADOW_IMPORT=PASS candidates=${p.candidates} matched=${p.matchedSubjects} evidence_inserted=${p.evidenceInserted}`);
           NODE
@@ -155,25 +208,48 @@ jobs:
       - name: Publish aggregate checkpoint to authority issue
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          target="$(cat "$EVIDENCE_DIR/target-sha.txt")"
           read -r candidates matched inserted < <(node -e "const p=require('./$EVIDENCE_DIR/import.json'); console.log(p.candidates,p.matchedSubjects,p.evidenceInserted)")
-          gh issue comment 4922 --repo "$GITHUB_REPOSITORY" --body "## FNS RSMP production shadow import $GITHUB_RUN_ID
+          printf -v body '%s\n' \
+            "## FNS RSMP production shadow import $GITHUB_RUN_ID" \
+            "" \
+            "- target SHA: \`$TARGET_SHA\`" \
+            "- candidate checks: \`$candidates\`" \
+            "- matched subjects: \`$matched\`" \
+            "- new evidence rows: \`$inserted\`" \
+            "- source: official FNS RSMP snapshot" \
+            "- semantics: supplementary positive-only" \
+            "- absence is not negative evidence" \
+            "- registration touched: \`0\`" \
+            "- enforcement: \`false\`" \
+            "- automatic final rejection: \`0\`" \
+            "" \
+            "This import does not authorize cutover."
+          gh issue comment "$READINESS_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$body"
 
-- target SHA: \`$target\`
-- candidate checks: \`$candidates\`
-- matched subjects: \`$matched\`
-- new evidence rows: \`$inserted\`
-- source: official FNS RSMP snapshot
-- semantics: supplementary positive-only
-- absence is not negative evidence
-- registration touched: \`0\`
-- enforcement: \`false\`
-- automatic final rejection: \`0\`
+      - name: Cleanup bounded credentials and remote assets
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+              "rm -f '/tmp/pc-fns-rsmp-import-${GITHUB_RUN_ID}.sh' '/tmp/pc-fns-rsmp-import-${GITHUB_RUN_ID}.cjs'" || true
+          fi
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
 
-This import does not authorize cutover."
+      - name: Enforce production import result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ '${{ steps.import.outputs.status }}' == PASS ]]
 
       - name: Upload immutable aggregate evidence
         if: always()
@@ -182,10 +258,5 @@ This import does not authorize cutover."
           name: role-eligibility-fns-rsmp-production-import-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
           compression-level: 0
-
-      - name: Cleanup bounded credentials
-        if: always()
-        shell: bash
-        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
