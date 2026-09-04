@@ -48,7 +48,39 @@ before_worker_image="$worker_image_id"
 # The importer is executed inside the exact-SHA API runtime namespace so it uses
 # the already-governed production DB principal and outbound network boundary.
 # It is source-controlled and positive-only; it never publishes a verdict.
-docker exec -i "$api_id" /nodejs/bin/node - < "$IMPORTER"
+# The prefixed wrapper is diagnostic-only: it logs a bounded stage label when
+# the official FNS endpoint returns HTTP 403 and returns the same Response
+# object unchanged. It does not alter retries, headers, status handling or data.
+{
+  cat <<'NODE'
+(() => {
+  const pcFNSOriginalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const response = await pcFNSOriginalFetch(input, init);
+    if (response.status === 403) {
+      let stage = 'UNKNOWN';
+      try {
+        const raw = typeof input === 'string' || input instanceof URL ? String(input) : String(input?.url || '');
+        const url = new URL(raw);
+        const method = String(init?.method || 'GET').toUpperCase();
+        const headers = init?.headers || {};
+        const range = typeof headers.get === 'function'
+          ? headers.get('range')
+          : (headers.Range || headers.range || null);
+        if (url.hostname === 'www.nalog.gov.ru') stage = 'PASSPORT';
+        else if (/\/structure-\d{8}\.xsd$/i.test(url.pathname)) stage = 'XSD';
+        else if (/\/data-\d{8}-structure-\d{8}\.zip$/i.test(url.pathname) && method === 'HEAD') stage = 'ARCHIVE_HEAD';
+        else if (/\/data-\d{8}-structure-\d{8}\.zip$/i.test(url.pathname) && range) stage = 'ARCHIVE_RANGE';
+        else if (url.hostname === 'file.nalog.ru') stage = 'FILE_NALOG_OTHER';
+      } catch {}
+      process.stderr.write(`FNS_RSMP_HTTP_403_STAGE=${stage}\n`);
+    }
+    return response;
+  };
+})();
+NODE
+  cat "$IMPORTER"
+} | docker exec -i "$api_id" /nodejs/bin/node -
 
 [[ "$(docker inspect --format '{{.State.Running}}' "$api_id")" == true ]] || fail API_CHANGED_DURING_IMPORT 30
 [[ "$(docker inspect --format '{{.State.Running}}' "$worker_id")" == true ]] || fail WORKER_CHANGED_DURING_IMPORT 31
