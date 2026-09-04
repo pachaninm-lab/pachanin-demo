@@ -44,12 +44,13 @@ jobs:
         run: node scripts/check-role-eligibility-static-acceptance.mjs
       - name: FNS RSMP import authority fail-closed tests
         run: node --test scripts/role-eligibility-fns-rsmp-import-contract.test.mjs
-      - name: FNS RSMP bounded production-import self-test
+      - name: FNS RSMP production-import shell syntax
         shell: bash
+        run: bash -n scripts/production-role-eligibility-fns-rsmp-import.sh
+      - name: FNS RSMP bounded importer self-test
+        run: node scripts/production-role-eligibility-fns-rsmp-import.cjs --self-test
+      - name: FNS RSMP production-import authority contract
         run: |
-          set -euo pipefail
-          bash -n scripts/production-role-eligibility-fns-rsmp-import.sh
-          node scripts/production-role-eligibility-fns-rsmp-import.cjs --self-test
           node <<'NODE'
           const fs = require('node:fs');
           const guard = fs.readFileSync('scripts/production-role-eligibility-fns-rsmp-import.sh','utf8');
