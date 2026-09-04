@@ -35,6 +35,7 @@
     "scripts/platform-v7-one-deal-e2e.sh",
     "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
     "docs/security/cryptographic-inventory.json",
+    ".github/workflows/pc-crop-provider-registry.yml",
     ".github/workflows/pc-crop-integration-binding.yml",
     "scripts/verify-pc-crop-integration-binding-scope.test.mjs"
   ],
