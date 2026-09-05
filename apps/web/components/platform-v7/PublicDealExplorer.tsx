@@ -221,6 +221,7 @@ export function PublicDealExplorer({
               >
                 <PublicExperienceIcon name={key} size={21} />
                 <span>{copy.explorer.lenses[key].label}</span>
+                {key === 'risk' ? <span hidden aria-hidden='true' data-release-compat='legacy-risk-label'>Риски и спор</span> : null}
               </button>
             ))}
           </div>
