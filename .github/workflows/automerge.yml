@@ -223,16 +223,31 @@ jobs:
               continue
             fi
 
-            if PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
-              gh pr edit "$pr_number" --repo "$REPO" --add-label review-gate-passed >/dev/null
-            else
+            if ! PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
               gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
               echo "#$pr_number deferred: exact-head review gate not satisfied"
               continue
             fi
 
+            current_head=$(gh pr view "$pr_number" --repo "$REPO" --json headRefOid --jq .headRefOid)
+            if [ "$current_head" != "$head_sha" ]; then
+              gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+              echo "#$pr_number deferred: head moved before review label publication expected=$head_sha current=$current_head"
+              continue
+            fi
+
+            gh pr edit "$pr_number" --repo "$REPO" --add-label review-gate-passed >/dev/null
+
             if ! PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" REQUIRE_GREEN_CI=1 node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
+              gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
               echo "#$pr_number deferred: exact-head CI not terminal green"
+              continue
+            fi
+
+            current_head=$(gh pr view "$pr_number" --repo "$REPO" --json headRefOid --jq .headRefOid)
+            if [ "$current_head" != "$head_sha" ]; then
+              gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+              echo "#$pr_number deferred: head moved after CI verification expected=$head_sha current=$current_head"
               continue
             fi
 
@@ -251,6 +266,7 @@ jobs:
             if [ "$merged" = true ]; then
               echo "#$pr_number merged after exact-head review + terminal green CI"
             else
+              gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
               echo "#$pr_number merge refused: $(printf '%s' "$result" | jq -r '.message // "unknown"')"
             fi
           done
