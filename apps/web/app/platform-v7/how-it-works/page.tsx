@@ -112,9 +112,10 @@ export default async function PublicDealFromInsidePage({
     stage: 'terms',
     perspective: 'buyer',
   });
-  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(normalizedLocale)}`;
-  const loginHref = `/platform-v7/login?lang=${encodeURIComponent(normalizedLocale)}`;
-  const homeHref = `/platform-v7?lang=${encodeURIComponent(normalizedLocale)}`;
+  const localizedHref = (path: string) => `${path}?lang=${encodeURIComponent(normalizedLocale)}`;
+  const registerHref = localizedHref('/platform-v7/register');
+  const loginHref = localizedHref('/platform-v7/login');
+  const homeHref = localizedHref('/platform-v7');
   const nav = (
     <>
       <a href={`${homeHref}#deal-path`}>{ui.header.howItWorks}</a>
@@ -178,11 +179,11 @@ export default async function PublicDealFromInsidePage({
             <p>{ui.footer.note}</p>
           </div>
           <nav aria-label={copy.header.aria}>
-            <a href='/platform-v7/about'>{ui.footer.about}</a>
-            <a href='/platform-v7/status'>{ui.footer.status}</a>
-            <a href='/platform-v7/privacy'>{ui.footer.privacy}</a>
-            <a href='/platform-v7/terms'>{ui.footer.terms}</a>
-            <a href='/platform-v7/contact'>{ui.footer.contact}</a>
+            <a href={localizedHref('/platform-v7/about')}>{ui.footer.about}</a>
+            <a href={localizedHref('/platform-v7/status')}>{ui.footer.status}</a>
+            <a href={localizedHref('/platform-v7/privacy')}>{ui.footer.privacy}</a>
+            <a href={localizedHref('/platform-v7/terms')}>{ui.footer.terms}</a>
+            <a href={localizedHref('/platform-v7/contact')}>{ui.footer.contact}</a>
           </nav>
           <small>{ui.footer.disclaimer}</small>
           <span>© {new Date().getUTCFullYear()} Прозрачная Цена</span>
