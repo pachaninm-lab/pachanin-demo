@@ -212,7 +212,7 @@ GRANT INSERT ON public.outbox_entries TO pc_inventory_authority;
 
 -- PostgreSQL plans all applicable TO PUBLIC outbox policies before their
 -- principal predicates can reject this owner. Grant only the event columns
--- referenced by the four existing W1 policies. Their FORCE RLS remains active;
+-- referenced by the existing W1 policies. Their FORCE RLS remains active;
 -- the memberless owner gains no event mutation or application-facing read API.
 GRANT SELECT ("action", "actorRole", "actorUserId", "aggregateVersion", "assignmentId", "auditEventId", "commandId", "correlationId", "organizationId", "outboxEntryId", "requestFingerprint", "tenantId", "toStatus")
   ON public.organization_capability_events TO pc_inventory_authority;
@@ -222,6 +222,13 @@ GRANT SELECT ("action", "actorRole", "actorUserId", "aggregateVersion", "auditEv
   ON public.integration_binding_events TO pc_inventory_authority;
 GRANT SELECT ("action", "actorRole", "actorUserId", "aggregateId", "aggregateType", "aggregateVersion", "auditEventId", "commandId", "correlationId", "organizationId", "outboxEntryId", "requestFingerprint", "resultStatus", "tenantId")
   ON public.commercial_rule_events TO pc_inventory_authority;
+GRANT SELECT ("action", "actorOrganizationId", "actorUserId", "aggregateVersion", "auditEventId", "commandId", "correlationId", "outboxEntryId", "requestFingerprint", "requestId", "tenantId", "toStatus")
+  ON public.service_marketplace_events TO pc_inventory_authority;
+-- The marketplace event read policy evaluates the participant predicate on a
+-- complete request row. This memberless owner needs only SELECT and that read
+-- predicate; it receives no marketplace mutation or provider-admission grant.
+GRANT SELECT ON public.service_marketplace_requests TO pc_inventory_authority;
+GRANT EXECUTE ON FUNCTION public.app_service_marketplace_participant(public.service_marketplace_requests) TO pc_inventory_authority;
 
 -- The existing outbox producer policies admit named Deal/application roles,
 -- not this memberless command owner. Bind its one event shape to the snapshot

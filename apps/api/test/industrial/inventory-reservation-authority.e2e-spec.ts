@@ -128,6 +128,23 @@ describeAuthority('Inventory PostgreSQL authority at READ COMMITTED', () => {
     expect((await stored(position))[0]?.state_version).toBe(1n);
   });
 
+  it('produces inventory evidence alongside the marketplace policy without marketplace write authority', async () => {
+    const grants = await app.$queryRaw<Array<{ request_write: boolean; event_write: boolean; provider_admission: boolean; force_rls: boolean }>>(Prisma.sql`
+      SELECT has_table_privilege('pc_inventory_authority', 'public.service_marketplace_requests', 'INSERT,UPDATE,DELETE,TRUNCATE') AS request_write,
+        has_table_privilege('pc_inventory_authority', 'public.service_marketplace_events', 'INSERT,UPDATE,DELETE,TRUNCATE') AS event_write,
+        has_function_privilege('pc_inventory_authority', 'public.app_service_marketplace_lock_provider(text,text)', 'EXECUTE') AS provider_admission,
+        bool_and(c.relrowsecurity AND c.relforcerowsecurity) AS force_rls
+      FROM pg_catalog.pg_class c WHERE c.oid IN ('public.service_marketplace_requests'::regclass, 'public.service_marketplace_events'::regclass)`);
+    expect(grants[0]).toEqual({ request_write: false, event_write: false, provider_admission: false, force_rls: true });
+    const command = declaration('marketplace-policy');
+    const receipt = await inventory.execute(actor, command);
+    const evidence = await admin.$queryRaw<Array<{ type: string; command_id: string }>>(Prisma.sql`
+      SELECT o.type, e.command_id FROM inventory.command_events e
+      JOIN public.outbox_entries o ON o.id=e.outbox_id
+      WHERE e.position_id=${receipt.position.positionId}`);
+    expect(evidence).toEqual([{ type: 'inventory.position.changed.v1', command_id: command.commandId }]);
+  });
+
   it('permits superuser reset while denying runtime truncation even with accidental table grants', async () => {
     const position = (await inventory.execute(actor, declaration('maintenance'))).position.positionId;
     const roles = await app.$queryRaw<Array<{ name: string; superuser: boolean }>>(Prisma.sql`

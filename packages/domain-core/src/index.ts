@@ -20,6 +20,7 @@ export * from './commodity-profile';
 export * from './service-provider-registry';
 export * from './integration-capability';
 export * from './commercial-rules';
+export * from './service-marketplace';
 
 export * from './deadline-protection';
 export * from './operator-case-center';
