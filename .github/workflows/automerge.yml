@@ -454,11 +454,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh pr list \
-            --repo "$REPO" \
-            --state open \
-            --limit 100 \
-            --json number,headRefOid,isDraft \
+          gh api --paginate --slurp \
+            "repos/$REPO/pulls?state=open&per_page=100" \
+            | jq '[.[][] | {number, headRefOid: .head.sha, isDraft: .draft}]' \
             > /tmp/review-gate-prs.json
 
           jq -c '.[] | select(.isDraft == false)' /tmp/review-gate-prs.json | while IFS= read -r pr; do
@@ -480,12 +478,9 @@ jobs:
           set -euo pipefail
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
 
-          gh pr list \
-            --repo "$REPO" \
-            --state open \
-            --label automerge \
-            --limit 100 \
-            --json number,headRefOid,isDraft,labels \
+          gh api --paginate --slurp \
+            "repos/$REPO/pulls?state=open&per_page=100" \
+            | jq '[.[][] | select((.labels | map(.name) | index("automerge")) != null) | {number, headRefOid: .head.sha, isDraft: .draft, labels}]' \
             > /tmp/automerge-prs.json
 
           jq -c '.[]' /tmp/automerge-prs.json | while IFS= read -r pr; do
