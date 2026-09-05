@@ -840,32 +840,32 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "apps/api/src/modules/route-planner/route-planner.controller.ts",
-        "apps/api/src/modules/route-planner/route-planner.service.ts"
+        "apps/api/src/modules/export-trade/export-trade.controller.ts",
+        "apps/api/src/modules/export-trade/export-trade.service.ts"
       ],
       "conditions": [
         {
-          "condition": "the tariff endpoint still takes distanceKm/weightTons as a plain, undecorated type literal rather than a class-validator DTO, so no range check runs before the multiplication",
+          "condition": "the export pricing endpoint still takes priceRub/distanceKm/volumeTons as a plain, undecorated type literal, so no range or sign check runs before the money arithmetic",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/route-planner/route-planner.controller.ts"
+            "apps/api/src/modules/export-trade/export-trade.controller.ts"
           ],
           "patterns": [
-            "body: { distancekm: number; weighttons: number"
+            "pricerub: number"
           ]
         },
         {
-          "condition": "the service still multiplies those two values directly into a kopeck amount with no prior range or sign check",
+          "condition": "the service multiplies an unvalidated request number straight into a rouble amount with no prior range or sign check",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/route-planner/route-planner.service.ts"
+            "apps/api/src/modules/export-trade/export-trade.service.ts"
           ],
           "patterns": [
-            "math.round(distancekm * weighttons * ratepertonkmkopecks)"
+            "math.round(params.pricerub * rate)"
           ]
         }
       ],
-      "note": "Corrected on review: the original version of this decision reasoned that JavaScript numbers do not wrap around the way fixed-width C integers do, and concluded the requirement does not apply to this runtime at all. That is too broad - the requirement is about sign, range and input validation preventing unsafe arithmetic results, and this codebase has a concrete, live instance of exactly that being skipped. POST tariff in route-planner.controller.ts declares its body as a plain type literal, { distanceKm: number; weightTons: number; vehicleType?: ... }, not a class-validator DTO class - the application does have a global ValidationPipe (main.ts), but class-validator only enforces decorators on an actual class, and there is none here, so nothing validates these two numbers before they reach the service. estimateLogisticsTariff() in route-planner.service.ts multiplies them directly - Math.round(distanceKm * weightTons * ratePerTonKmKopecks) - with no sign or range check first. A caller can submit a negative, non-numeric-after-coercion, or extremely large distanceKm/weightTons and get a nonsensical, negative, NaN or Infinity tariff back with no rejection. The BigInt usage this decision originally cited (deal version numbers, money in kopecks in the settlement path) is real and still a good pattern, but it does not cover this endpoint, so it cannot support a blanket NOT_APPLICABLE for the requirement as a whole."
+      "note": "Corrected on review: the original version of this decision reasoned that JavaScript numbers do not wrap around the way fixed-width C integers do, and concluded the requirement does not apply to this runtime at all. That is too broad - the requirement is about sign, range and input validation preventing unsafe arithmetic results, and this codebase has a concrete, live instance of exactly that being skipped. POST tariff in route-planner.controller.ts declares its body as a plain type literal, { distanceKm: number; weightTons: number; vehicleType?: ... }, not a class-validator DTO class - the application does have a global ValidationPipe (main.ts), but class-validator only enforces decorators on an actual class, and there is none here, so nothing validates these two numbers before they reach the service. estimateLogisticsTariff() in route-planner.service.ts multiplies them directly - Math.round(distanceKm * weightTons * ratePerTonKmKopecks) - with no sign or range check first. A caller can submit a negative, non-numeric-after-coercion, or extremely large distanceKm/weightTons and get a nonsensical, negative, NaN or Infinity tariff back with no rejection. The BigInt usage this decision originally cited (deal version numbers, money in kopecks in the settlement path) is real and still a good pattern, but it does not cover this endpoint, so it cannot support a blanket NOT_APPLICABLE for the requirement as a whole. Update in this pass: the instance this decision cited is closed. POST tariff now declares EstimateTariffDto with @IsNumber plus @Min/@Max on distanceKm and weightTons and @IsIn on vehicleType, and estimateLogisticsTariff refuses a non-finite or negative measure and an unrecognised vehicle type before it multiplies anything. Measured on the service before the fix, which is worse than the original note recorded: an unrecognised vehicleType indexed a plain object literal, yielded undefined, and carried NaN through the whole calculation - JSON serialises that as null, so the endpoint returned a tariff with no figure at all; distanceKm -500 at 20 t returned -4 200 000 kopecks, an invoice in the payer's favour; and the string '500' multiplied through silently because JavaScript coerces it. The requirement stays FAIL and the conditions are re-pointed at export-trade.controller.ts and export-trade.service.ts, where the same shape is still live and unmeasured-against: the export pricing body declares priceRub, distanceKm, volumeTons and includeInsurancePct as a plain type literal, and the service computes Math.round(params.priceRub * rate) and sums priceRub with freight and insurance with no prior sign or range check. Closing one endpoint does not make the property hold across the codebase, and claiming PASS from a single fixed instance would repeat exactly the wrong-denominator mistake this decision was already corrected for once."
     },
     {
       "requirementId": "V1.4.3",
@@ -9913,22 +9913,21 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "apps/api/src/modules/route-planner/route-planner.controller.ts",
-        "unallowlisted:apps/api/src/modules/route-planner/route-planner.service.ts"
+        "apps/api/src/modules/anti-fraud/anti-fraud.controller.ts"
       ],
       "conditions": [
         {
-          "condition": "the vehicle-position endpoint still spreads the entire, unvalidated request body into the object persisted as a GeoPoint",
+          "condition": "a body-accepting endpoint still spreads an entire, undecorated request body into a service call",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/route-planner/route-planner.controller.ts"
+            "apps/api/src/modules/anti-fraud/anti-fraud.controller.ts"
           ],
           "patterns": [
-            "{ ...body, timestamp: new date().toisostring() }"
+            "{ ...body, actorid: user.id }"
           ]
         }
       ],
-      "note": "Corrected on review: the global ValidationPipe's whitelist: true is real, but it only strips fields on an actual class-validator class - a decorated class like CreateDealDto (confirmed: @IsString(), @Length(...) and similar decorators on its fields). It cannot strip anything from a plain TypeScript type literal, because there is no decorator metadata for it to consult; Nest treats that parameter's runtime metatype as a bare Object and the pipe passes it through unexamined. Counted directly across apps/api/src: 192 @Body() parameter declarations, of which 81 (about 42%) use a plain object-literal type rather than a named DTO class - not a single isolated case (the tariff endpoint originally flagged under V1.4.2), but a widespread pattern. The concrete, traced instance the reviewer named: route-planner.controller.ts's POST vehicles/:vehicleId/position handler declares its body as a plain literal and does return this.routePlanner.updateVehiclePosition(vehicleId, { ...body, timestamp: ... }) - the entire, unstripped request body is spread into the object typed as GeoPoint and persisted through the GPS adapter. Any field beyond lat/lng/speed/heading that a caller includes rides along unstripped. The mechanism itself (whitelist: true on decorated DTOs) is real and correctly configured for the ~58% of body parameters that use one; the defect is coverage, the same shape of correction already made to V3.5.1 for CSRF coverage in this same session."
+      "note": "Corrected on review: the global ValidationPipe's whitelist: true is real, but it only strips fields on an actual class-validator class - a decorated class like CreateDealDto (confirmed: @IsString(), @Length(...) and similar decorators on its fields). It cannot strip anything from a plain TypeScript type literal, because there is no decorator metadata for it to consult; Nest treats that parameter's runtime metatype as a bare Object and the pipe passes it through unexamined. Counted directly across apps/api/src: 192 @Body() parameter declarations, of which 81 (about 42%) use a plain object-literal type rather than a named DTO class - not a single isolated case (the tariff endpoint originally flagged under V1.4.2), but a widespread pattern. The concrete, traced instance the reviewer named: route-planner.controller.ts's POST vehicles/:vehicleId/position handler declares its body as a plain literal and does return this.routePlanner.updateVehiclePosition(vehicleId, { ...body, timestamp: ... }) - the entire, unstripped request body is spread into the object typed as GeoPoint and persisted through the GPS adapter. Any field beyond lat/lng/speed/heading that a caller includes rides along unstripped. The mechanism itself (whitelist: true on decorated DTOs) is real and correctly configured for the ~58% of body parameters that use one; the defect is coverage, the same shape of correction already made to V3.5.1 for CSRF coverage in this same session. Update in this pass: the traced instance is closed. POST vehicles/:vehicleId/position now declares UpdateVehiclePositionDto and the controller passes lat, lng, speed and heading by name instead of spreading the body, so nothing beyond the declared fields can ride into the persisted GeoPoint. Recorded honestly, because the mutation run says so: with whitelist: true already stripping undecorated properties from a real DTO class, restoring the spread does not fail any test here - the DTO is what closes it, and the explicit field list only removes a latent risk for the day a DTO field is added that has no business in a GPS point. That is different from the railway module, where the service placed id AFTER the spread and a client-supplied id therefore won and overwrote another organisation's wagon. The requirement stays FAIL because the defect was always coverage rather than this one handler: the count is now 62 of 200 body parameters still declared as plain literals rather than 81 of 192, which is progress and not closure. The condition is re-pointed at anti-fraud.controller.ts, where POST off-platform still declares its body as a plain type literal and the controller spreads it whole into the fraud-scoring call."
     },
     {
       "requirementId": "V15.3.4",
