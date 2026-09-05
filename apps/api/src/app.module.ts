@@ -62,6 +62,7 @@ import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
 import { GektaModule } from './modules/gekta/gekta.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { CommercialRulesModule } from './modules/commercial-rules/commercial-rules.module';
+import { ServiceMarketplaceModule } from './modules/service-marketplace/service-marketplace.module';
 
 @Module({
   imports: [
@@ -122,6 +123,7 @@ import { CommercialRulesModule } from './modules/commercial-rules/commercial-rul
     GektaModule,
     AccountingModule,
     CommercialRulesModule,
+    ServiceMarketplaceModule,
   ],
   controllers: [HealthController],
   providers: [

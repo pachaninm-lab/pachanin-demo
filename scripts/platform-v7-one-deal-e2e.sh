@@ -144,6 +144,15 @@ REVOKE UPDATE, DELETE, TRUNCATE ON
   public.commercial_decisions,
   public.commercial_rule_events
 FROM one_deal_app;
+-- Service-marketplace aggregate updates are command-authorized, while quotes
+-- and event receipts stay append-only and every aggregate remains undeletable.
+REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON
+  public.service_marketplace_requests
+FROM one_deal_app;
+REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON
+  public.service_marketplace_quotes,
+  public.service_marketplace_events
+FROM one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
 GRANT SELECT ON
@@ -1169,5 +1178,15 @@ DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 pnpm --filter @pc/api exec jest --runInBand \
   --config test/industrial/jest.config.json \
   --runTestsByPath test/industrial/commercial-rules-authority.e2e-spec.ts
+
+echo "[one-deal] running service-marketplace PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/service-marketplace-authority.e2e-spec.ts
 
 echo "[one-deal] exploitation gate passed"
