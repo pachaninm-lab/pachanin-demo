@@ -14,12 +14,17 @@ type RoleKey =
   | 'laboratory'
   | 'surveyor'
   | 'bank'
-  | 'operator'
-  | 'compliance'
-  | 'arbitrator'
-  | 'executive';
+  | 'employee';
 
-type RoleScenario = { label: string; risk: string; owner: string; next: string; evidence: string; money: string };
+type RoleScenario = {
+  label: string;
+  risk: string;
+  owner: string;
+  next: string;
+  evidence: string;
+  money: string;
+};
+
 type UiCopy = {
   label: string;
   rolesLabel: string;
@@ -46,76 +51,135 @@ type UiCopy = {
 
 const scenarios: Record<Locale, Record<RoleKey, RoleScenario>> = {
   ru: {
-    seller: { label: 'Продавец', risk: 'Оплата остановлена из-за расхождения качества и неподписанного акта.', owner: 'Покупатель и лаборатория', next: 'Проверить проект акта и запросить подтверждение покупателя.', evidence: 'Протокол лаборатории, спецификация и акт расхождений.', money: 'Средства остаются зарезервированными; окончательная выплата остановлена.' },
-    buyer: { label: 'Покупатель', risk: 'Фактическая влажность выше договорного допуска на 0,8 п.п.', owner: 'Лаборатория', next: 'Выбрать договорное правило перерасчёта и подписать акт.', evidence: 'Проба, лабораторный протокол и версия спецификации.', money: 'Резерв сохраняется до подтверждения нового основания расчёта.' },
-    logistics: { label: 'Логистика', risk: 'Рейс завершён физически, но приёмка ещё не закрыта документально.', owner: 'Хранение и покупатель', next: 'Передать подтверждение рейса и дождаться закрытия приёмки.', evidence: 'ЭПД, отметки прибытия и весовые данные.', money: 'Расчёт за перевозку отделён от окончательного расчёта за товар.' },
-    driver: { label: 'Водитель', risk: 'Прибытие подтверждено, но разгрузка и вес ещё не стали основанием приёмки.', owner: 'Площадка приёмки и оператор', next: 'Подтвердить ЭПД, геозону и передачу груза на весовую.', evidence: 'ЭПД, геозона, время прибытия и весовые события.', money: 'Оплата рейса зависит от подтверждённого завершения перевозки, а не от расчёта за товар.' },
-    storage: { label: 'Элеватор', risk: 'Партия принята условно до решения по показателю качества.', owner: 'Лаборатория и покупатель', next: 'Зафиксировать размещение партии и режим условного хранения.', evidence: 'Акт приёмки, вес, место хранения и статус партии.', money: 'Основание передачи товара есть, основания окончательного расчёта пока нет.' },
-    laboratory: { label: 'Лаборатория', risk: 'Результат вышел за допуск и должен быть связан с конкретной пробой.', owner: 'Лаборатория', next: 'Подтвердить протокол, методику и идентификатор пробы.', evidence: 'Проба → измерение → протокол → партия.', money: 'Результат влияет на формулу цены, но сам по себе не запускает выплату.' },
-    surveyor: { label: 'Сюрвейер', risk: 'Стороны расходятся в трактовке качества; требуется независимое подтверждение.', owner: 'Сюрвейер', next: 'Проверить цепочку проба → методика → измерение → акт.', evidence: 'Идентификатор пробы, методика, фотофиксация и протокол.', money: 'Независимое заключение влияет на перерасчёт и границы возможного спора.' },
-    bank: { label: 'Банк', risk: 'Основание для выплаты не подтверждено: правило перерасчёта не подписано.', owner: 'Покупатель и продавец', next: 'Сохранить резерв и ожидать подтверждённое событие Сделки.', evidence: 'Статусы приёмки, качества, подписей и версии расчёта.', money: 'Резервирование действует; выплата остановлена правилами Сделки.' },
-    operator: { label: 'Оператор', risk: 'Сделка остановлена между лабораторией, покупателем и документным контуром.', owner: 'Оператор исполнения', next: 'Назначить владельца действия, срок и контрольную точку.', evidence: 'Лента событий, статусы ролей, документов и SLA.', money: 'Видит сумму под риском и не допускает выплату без основания.' },
-    compliance: { label: 'Комплаенс', risk: 'Критический переход нельзя выполнять без полномочий, актуальной версии и полного основания.', owner: 'Комплаенс', next: 'Проверить роль, организацию, подписи и источник события.', evidence: 'Ролевой доступ, версия документа, КЭП и журнал действий.', money: 'Снижает риск несанкционированной выплаты и непрослеживаемого решения.' },
-    arbitrator: { label: 'Арбитр', risk: 'Есть спор о качестве и перерасчёте; факты нельзя собирать вручную из разных систем.', owner: 'Арбитр', next: 'Сопоставить хронологию, версии документов и позиции сторон.', evidence: 'Неизменяемая лента событий, протоколы, акты и расчётные версии.', money: 'Показывает спорную сумму, применённое правило и последствия решения.' },
-    executive: { label: 'Руководитель', risk: 'Локальное отклонение может стать системным узким местом по срокам и оборотному капиталу.', owner: 'Руководитель', next: 'Оценить повторяемость блокера и назначить процессное решение.', evidence: 'SLA, суммы под риском, частота отклонений и ответственные.', money: 'Показывает капитал в резерве, просрочку и влияние на маржу портфеля.' },
+    seller: {
+      label: 'Продавец',
+      risk: 'Поставка принята, но окончательный расчёт зависит от подтверждённого качества и документов.',
+      owner: 'Продавец и покупатель',
+      next: 'Проверить комплект документов и основание расчёта.',
+      evidence: 'Условия Сделки, вес, приёмка, протокол качества и документы.',
+      money: 'Видно, что уже подтверждено и что ещё удерживает окончательный расчёт.',
+    },
+    buyer: {
+      label: 'Покупатель',
+      risk: 'Нужно убедиться, что фактическая поставка соответствует условиям до подтверждения расчёта.',
+      owner: 'Покупатель',
+      next: 'Проверить приёмку, качество и комплектность документов.',
+      evidence: 'Вес, качество, версия спецификации, акты и подтверждения.',
+      money: 'Расчёт опирается на подтверждённое исполнение, а не на отдельную переписку.',
+    },
+    logistics: {
+      label: 'Логистика',
+      risk: 'Рейс должен быть связан с конкретной партией, маршрутом и приёмкой.',
+      owner: 'Логистика',
+      next: 'Подтвердить рейс и передать фактические события доставки.',
+      evidence: 'Маршрут, транспорт, отметки прибытия, ЭПД и весовые события.',
+      money: 'Стоимость перевозки и её основание отделены от расчёта за товар.',
+    },
+    driver: {
+      label: 'Водитель',
+      risk: 'Нужно подтвердить доставку без лишних действий и доступа к чужим данным.',
+      owner: 'Водитель',
+      next: 'Подтвердить прибытие и передачу груза в точке приёмки.',
+      evidence: 'Рейс, время, геозона и перевозочные документы.',
+      money: 'Основание выполнения рейса фиксируется отдельно от коммерческих условий товара.',
+    },
+    storage: {
+      label: 'Элеватор / хранение',
+      risk: 'Партия должна быть принята, взвешена и размещена с понятным статусом.',
+      owner: 'Элеватор / площадка хранения',
+      next: 'Зафиксировать приёмку, вес, размещение и состояние партии.',
+      evidence: 'Вес, акт приёмки, место хранения и статус партии.',
+      money: 'Подтверждённая приёмка становится частью основания дальнейшего расчёта.',
+    },
+    laboratory: {
+      label: 'Лаборатория',
+      risk: 'Результат качества должен быть прослеживаемо связан с конкретной пробой и партией.',
+      owner: 'Лаборатория',
+      next: 'Подтвердить методику, результат и протокол.',
+      evidence: 'Проба → измерение → протокол → партия.',
+      money: 'Показатель качества может влиять на цену, но сам по себе не запускает выплату.',
+    },
+    surveyor: {
+      label: 'Сюрвейер',
+      risk: 'Независимая проверка должна опираться на ту же версию фактов, что и стороны Сделки.',
+      owner: 'Сюрвейер',
+      next: 'Проверить цепочку доказательств и зафиксировать независимое заключение.',
+      evidence: 'Проба, методика, фотофиксация, акты и протоколы.',
+      money: 'Заключение становится доказательством для перерасчёта или спора, но не заменяет решение сторон.',
+    },
+    bank: {
+      label: 'Банк / финансы',
+      risk: 'Финансовое действие нельзя считать готовым без подтверждённого основания Сделки.',
+      owner: 'Уполномоченный финансовый участник',
+      next: 'Проверить подтверждённое основание и статус финансового сценария.',
+      evidence: 'Статусы приёмки, качества, документов, решений и расчётной версии.',
+      money: 'Платформа показывает основание и статус; движение денег подтверждает финансовый контур.',
+    },
+    employee: {
+      label: 'Сотрудник платформы',
+      risk: 'Если Сделка остановилась, нужно быстро понять причину, ответственного, полномочия и срок.',
+      owner: 'Оператор / контроль платформы',
+      next: 'Назначить ответственного, проверить основание и довести исключение до разрешённого следующего шага.',
+      evidence: 'Лента событий, роли, версии документов, SLA и журнал решений.',
+      money: 'Сотрудник видит денежное последствие, но не получает права участника Сделки автоматически.',
+    },
   },
   en: {
-    seller: { label: 'Seller', risk: 'Payment is paused because quality differs from terms and the discrepancy act is unsigned.', owner: 'Buyer and laboratory', next: 'Review the prepared act and request buyer confirmation.', evidence: 'Laboratory protocol, specification and discrepancy act.', money: 'Funds remain reserved; final payout is paused.' },
-    buyer: { label: 'Buyer', risk: 'Measured moisture is 0.8 percentage points above contractual tolerance.', owner: 'Laboratory', next: 'Select the recalculation rule and sign the act.', evidence: 'Sample, laboratory protocol and specification version.', money: 'The reserve remains until a revised settlement basis is confirmed.' },
-    logistics: { label: 'Logistics', risk: 'The trip is physically complete, but acceptance is not closed in the documents.', owner: 'Storage and buyer', next: 'Submit trip evidence and wait for acceptance closure.', evidence: 'Electronic transport document, arrival marks and weight data.', money: 'Freight settlement is separated from final product settlement.' },
-    driver: { label: 'Driver', risk: 'Arrival is confirmed, but unloading and weight are not yet acceptance evidence.', owner: 'Acceptance site and operator', next: 'Confirm the transport document, geofence and handover to weighing.', evidence: 'Transport document, geofence, arrival time and weight events.', money: 'Trip payment follows confirmed transport completion, not product settlement.' },
-    storage: { label: 'Storage', risk: 'The lot is accepted conditionally pending a quality decision.', owner: 'Laboratory and buyer', next: 'Record lot placement and the conditional storage regime.', evidence: 'Acceptance act, weight, storage location and lot status.', money: 'Transfer evidence exists; the final settlement basis does not yet.' },
-    laboratory: { label: 'Laboratory', risk: 'The result is outside tolerance and must be traceably linked to the sample.', owner: 'Laboratory', next: 'Confirm the protocol, method and sample identifier.', evidence: 'Sample → measurement → protocol → lot.', money: 'The result affects pricing but does not trigger payout by itself.' },
-    surveyor: { label: 'Surveyor', risk: 'The parties interpret quality differently and need independent verification.', owner: 'Surveyor', next: 'Verify the sample → method → measurement → act chain.', evidence: 'Sample ID, method, photo evidence and protocol.', money: 'The independent conclusion affects recalculation and dispute boundaries.' },
-    bank: { label: 'Bank', risk: 'The payout basis is not confirmed because the recalculation rule is unsigned.', owner: 'Buyer and seller', next: 'Keep funds reserved and wait for a confirmed Deal event.', evidence: 'Acceptance, quality, signature and calculation-version statuses.', money: 'The reservation remains active; Deal rules keep payout paused.' },
-    operator: { label: 'Operator', risk: 'The Deal is stuck between the laboratory, buyer and document workflow.', owner: 'Execution operator', next: 'Assign the action owner, deadline and control point.', evidence: 'Event timeline, role, document and SLA statuses.', money: 'Shows the amount at risk and prevents payout without evidence.' },
-    compliance: { label: 'Compliance', risk: 'A critical transition cannot proceed without authority, current version and full evidence.', owner: 'Compliance', next: 'Verify role, organisation, signatures and event source.', evidence: 'Role access, document version, digital signature and audit log.', money: 'Reduces unauthorised payout and untraceable-decision risk.' },
-    arbitrator: { label: 'Arbitrator', risk: 'A quality and recalculation dispute cannot rely on facts gathered manually across systems.', owner: 'Arbitrator', next: 'Compare chronology, document versions and party positions.', evidence: 'Immutable event timeline, protocols, acts and calculation versions.', money: 'Shows the disputed amount, applied rule and decision consequences.' },
-    executive: { label: 'Executive', risk: 'A local deviation may become a systemic bottleneck for time and working capital.', owner: 'Executive', next: 'Assess recurrence and assign a process-level correction.', evidence: 'SLA, amounts at risk, deviation frequency and owners.', money: 'Shows reserved capital, delay and portfolio-margin impact.' },
+    seller: { label: 'Seller', risk: 'Delivery is accepted, while final settlement still depends on verified quality and documents.', owner: 'Seller and buyer', next: 'Check the document set and settlement basis.', evidence: 'Deal terms, weight, acceptance, quality protocol and documents.', money: 'Shows what is confirmed and what still blocks final settlement.' },
+    buyer: { label: 'Buyer', risk: 'The actual delivery must match the agreed terms before settlement is confirmed.', owner: 'Buyer', next: 'Check acceptance, quality and document completeness.', evidence: 'Weight, quality, specification version, acts and confirmations.', money: 'Settlement relies on verified execution rather than separate correspondence.' },
+    logistics: { label: 'Logistics', risk: 'The trip must stay linked to the exact lot, route and acceptance event.', owner: 'Logistics', next: 'Confirm the trip and submit actual delivery events.', evidence: 'Route, vehicle, arrival marks, transport documents and weight events.', money: 'Freight basis remains separate from product settlement.' },
+    driver: { label: 'Driver', risk: 'Delivery must be confirmed with minimal actions and without access to unrelated data.', owner: 'Driver', next: 'Confirm arrival and handover at the acceptance point.', evidence: 'Trip, time, geofence and transport documents.', money: 'Trip completion evidence is recorded separately from product commercial terms.' },
+    storage: { label: 'Elevator / storage', risk: 'The lot must be received, weighed and placed with an explicit status.', owner: 'Elevator / storage site', next: 'Record acceptance, weight, placement and lot state.', evidence: 'Weight, acceptance act, storage location and lot status.', money: 'Verified acceptance becomes part of the basis for later settlement.' },
+    laboratory: { label: 'Laboratory', risk: 'A quality result must be traceably linked to the exact sample and lot.', owner: 'Laboratory', next: 'Confirm the method, result and protocol.', evidence: 'Sample → measurement → protocol → lot.', money: 'Quality may affect price but does not trigger payout by itself.' },
+    surveyor: { label: 'Surveyor', risk: 'Independent verification must use the same version of facts as the Deal parties.', owner: 'Surveyor', next: 'Verify the evidence chain and record the independent conclusion.', evidence: 'Sample, method, photo evidence, acts and protocols.', money: 'The conclusion becomes evidence for recalculation or dispute without replacing party authority.' },
+    bank: { label: 'Bank / finance', risk: 'A financial action is not ready without a confirmed Deal basis.', owner: 'Authorised financial participant', next: 'Verify the confirmed basis and financial-scenario status.', evidence: 'Acceptance, quality, document, decision and calculation-version statuses.', money: 'The platform shows the basis and status; the financial circuit confirms money movement.' },
+    employee: { label: 'Platform employee', risk: 'When a Deal stops, staff need the cause, owner, authority and deadline immediately.', owner: 'Platform operations / control', next: 'Assign the owner, verify the basis and move the exception to the next permitted step.', evidence: 'Event timeline, roles, document versions, SLA and decision log.', money: 'Staff see the monetary consequence without inheriting a Deal participant’s authority.' },
   },
   zh: {
-    seller: { label: '卖方', risk: '因质量与约定不符且差异单未签署，付款已暂停。', owner: '买方与实验室', next: '检查已准备的差异单并请求买方确认。', evidence: '实验室报告、规格版本和差异单。', money: '资金保持预留，最终付款暂停。' },
-    buyer: { label: '买方', risk: '实测水分比合同容差高 0.8 个百分点。', owner: '实验室', next: '选择合同重算规则并签署差异单。', evidence: '样品、实验室报告和规格版本。', money: '在新结算依据确认前保持资金预留。' },
-    logistics: { label: '物流', risk: '运输已实际完成，但验收文件尚未关闭。', owner: '仓储与买方', next: '提交运输证明并等待验收关闭。', evidence: '电子运输文件、到达记录和称重数据。', money: '运费结算与商品最终结算分开处理。' },
-    driver: { label: '司机', risk: '到达已确认，但卸货和重量尚未形成验收依据。', owner: '验收场地与运营方', next: '确认运输文件、地理围栏和交接称重。', evidence: '运输文件、地理围栏、到达时间和称重事件。', money: '运费取决于运输完成确认，而非商品结算。' },
-    storage: { label: '仓储', risk: '该批次在质量决定前处于有条件接收状态。', owner: '实验室与买方', next: '记录批次位置和有条件仓储制度。', evidence: '验收单、重量、存放位置和批次状态。', money: '已有交接依据，但最终结算依据尚未形成。' },
-    laboratory: { label: '实验室', risk: '结果超出容差，必须可追溯地关联到样品。', owner: '实验室', next: '确认报告、检测方法和样品标识。', evidence: '样品 → 测量 → 报告 → 批次。', money: '结果影响定价，但不会自行触发付款。' },
-    surveyor: { label: '检验机构', risk: '双方对质量解释不一致，需要独立核验。', owner: '检验机构', next: '核验样品 → 方法 → 测量 → 记录链。', evidence: '样品标识、方法、照片和报告。', money: '独立结论影响重算与争议边界。' },
-    bank: { label: '银行', risk: '重算规则未签署，因此付款依据尚未确认。', owner: '买方与卖方', next: '保持资金预留并等待已确认的交易事件。', evidence: '验收、质量、签名和计算版本状态。', money: '预留保持有效；交易规则使付款继续暂停。' },
-    operator: { label: '运营方', risk: '交易停在实验室、买方与文件流程之间。', owner: '执行运营方', next: '指定行动负责人、截止时间和控制点。', evidence: '事件时间线、角色、文件和 SLA 状态。', money: '显示风险金额，并阻止无依据付款。' },
-    compliance: { label: '合规', risk: '缺少权限、最新版本或完整依据时，关键流转不得执行。', owner: '合规', next: '核验角色、机构、签名与事件来源。', evidence: '角色访问、文件版本、电子签名和审计日志。', money: '降低未经授权付款和不可追溯决策风险。' },
-    arbitrator: { label: '仲裁方', risk: '质量与重算争议不能依赖从不同系统手工收集的事实。', owner: '仲裁方', next: '比对时间线、文件版本与双方立场。', evidence: '不可变事件时间线、报告、记录与计算版本。', money: '显示争议金额、适用规则和决定后果。' },
-    executive: { label: '管理者', risk: '局部偏差可能演变为时效与营运资金的系统瓶颈。', owner: '管理者', next: '评估重复性并制定流程级修正。', evidence: 'SLA、风险金额、偏差频率和责任方。', money: '显示预留资金、延误和组合利润影响。' },
+    seller: { label: '卖方', risk: '交付已验收，但最终结算仍取决于已确认的质量和文件。', owner: '卖方与买方', next: '检查文件完整性和结算依据。', evidence: '交易条件、重量、验收、质量报告和文件。', money: '清楚显示哪些已确认、哪些仍阻止最终结算。' },
+    buyer: { label: '买方', risk: '确认结算前，需要核对实际交付是否符合约定条件。', owner: '买方', next: '检查验收、质量和文件完整性。', evidence: '重量、质量、规格版本、记录和确认。', money: '结算依据来自已确认履约，而不是分散沟通。' },
+    logistics: { label: '物流', risk: '运输任务必须与具体批次、路线和验收事件保持关联。', owner: '物流', next: '确认运输并提交实际交付事件。', evidence: '路线、车辆、到达记录、运输文件和称重事件。', money: '运费依据与商品结算保持分离。' },
+    driver: { label: '司机', risk: '司机应以最少操作确认交付，且不能访问无关数据。', owner: '司机', next: '确认到达并在验收点完成货物交接。', evidence: '运输任务、时间、地理围栏和运输文件。', money: '运输完成依据与商品商业条件分开记录。' },
+    storage: { label: '筒仓 / 仓储', risk: '批次需要完成验收、称重和入库，并具有明确状态。', owner: '筒仓 / 仓储点', next: '记录验收、重量、存放位置和批次状态。', evidence: '重量、验收记录、存放位置和批次状态。', money: '已确认验收成为后续结算依据的一部分。' },
+    laboratory: { label: '实验室', risk: '质量结果必须可追溯地关联到具体样品和批次。', owner: '实验室', next: '确认检测方法、结果和报告。', evidence: '样品 → 测量 → 报告 → 批次。', money: '质量指标可以影响价格，但不会自行触发付款。' },
+    surveyor: { label: '检验机构', risk: '独立核验必须使用与交易双方一致的事实版本。', owner: '检验机构', next: '核验证据链并记录独立结论。', evidence: '样品、方法、照片、记录和报告。', money: '结论可作为重算或争议证据，但不替代双方权限。' },
+    bank: { label: '银行 / 金融', risk: '没有已确认的交易依据，金融动作不能视为就绪。', owner: '获授权的金融参与方', next: '核对已确认依据和金融场景状态。', evidence: '验收、质量、文件、决定和计算版本状态。', money: '平台显示依据和状态；资金实际流动由金融系统确认。' },
+    employee: { label: '平台员工', risk: '交易停滞时，需要立即明确原因、责任方、权限和期限。', owner: '平台运营 / 控制', next: '指定责任方、核对依据，并把异常推进到允许的下一步。', evidence: '事件时间线、角色、文件版本、SLA 和决定日志。', money: '员工可查看资金影响，但不会自动获得交易参与方权限。' },
   },
 };
 
 const ui: Record<Locale, UiCopy> = {
   ru: {
-    label: 'Сделка глазами каждой роли', rolesLabel: 'Что видит каждый участник',
-    note: 'Одна Сделка показывает данные, ответственность, действие, основание и денежное последствие каждой роли.',
-    preview: 'Рабочее пространство Сделки', deal: 'Подсолнечник · 1 200 т', status: 'Отклонение качества',
-    stageLabel: 'Этапы исполнения Сделки', stages: ['Рейс', 'Прибытие', 'Вес', 'Лаборатория', 'Расчёт'],
-    route: 'Логистика', routeValue: 'Рейс завершён · геозона подтверждена', quality: 'Лаборатория', qualityValue: 'Влажность · +0,8 п.п. к допуску',
-    documents: 'Документы', documentsValue: '5 из 6 подтверждены', reserve: 'Деньги', reserveValue: 'Средства зарезервированы',
-    risk: 'Причина остановки', owner: 'Ответственный', next: 'Следующее действие', evidence: 'Основание', money: 'Денежное последствие',
+    label: 'Сделка глазами вашей роли',
+    rolesLabel: 'Выберите роль для просмотра',
+    note: 'Это публичное объяснение пользы. Выбор роли здесь не открывает данные и не назначает права — реальные полномочия определяются системой после регистрации и проверки организации.',
+    preview: 'Пример рабочей Сделки',
+    deal: 'Подсолнечник · 1 200 т',
+    status: 'Исполнение сделки',
+    stageLabel: 'Этапы исполнения', stages: ['Рейс', 'Прибытие', 'Вес', 'Качество', 'Расчёт'],
+    route: 'Поставка', routeValue: 'Рейс завершён · прибытие подтверждено',
+    quality: 'Качество', qualityValue: 'Протокол получен · проверяется по условиям',
+    documents: 'Документы', documentsValue: 'Комплект собирается по Сделке',
+    reserve: 'Расчёт', reserveValue: 'Готовность зависит от подтверждённых оснований',
+    risk: 'Что важно этой роли', owner: 'Ответственный', next: 'Следующее действие', evidence: 'Основание', money: 'Результат для денег',
   },
   en: {
-    label: 'The Deal from every role', rolesLabel: 'What each participant sees',
-    note: 'One Deal shows each role’s data, responsibility, action, evidence and monetary consequence.',
-    preview: 'Deal workspace', deal: 'Sunflower lot · 1,200 t', status: 'Quality deviation',
-    stageLabel: 'Deal execution stages', stages: ['Trip', 'Arrival', 'Weight', 'Laboratory', 'Settlement'],
-    route: 'Logistics', routeValue: 'Trip complete · geofence confirmed', quality: 'Laboratory', qualityValue: 'Moisture · +0.8 pp above tolerance',
-    documents: 'Documents', documentsValue: '5 of 6 confirmed', reserve: 'Money', reserveValue: 'Funds reserved',
-    risk: 'Reason for pause', owner: 'Owner', next: 'Next action', evidence: 'Evidence', money: 'Monetary consequence',
+    label: 'The Deal from your role', rolesLabel: 'Choose a role to preview',
+    note: 'This is a public value explanation. Choosing a role here does not expose data or grant authority; actual permissions are assigned by the system after registration and organisation verification.',
+    preview: 'Example Deal workspace', deal: 'Sunflower · 1,200 t', status: 'Deal execution',
+    stageLabel: 'Execution stages', stages: ['Trip', 'Arrival', 'Weight', 'Quality', 'Settlement'],
+    route: 'Delivery', routeValue: 'Trip complete · arrival confirmed', quality: 'Quality', qualityValue: 'Protocol received · being checked against terms',
+    documents: 'Documents', documentsValue: 'Deal document set is being assembled', reserve: 'Settlement', reserveValue: 'Readiness depends on verified evidence',
+    risk: 'What matters to this role', owner: 'Owner', next: 'Next action', evidence: 'Evidence', money: 'Money outcome',
   },
   zh: {
-    label: '从每个角色查看交易', rolesLabel: '各参与方看到的内容',
-    note: '同一笔交易显示每个角色的数据、责任、操作、依据与资金后果。',
-    preview: '交易工作空间', deal: '葵花籽批次 · 1,200 吨', status: '质量偏差',
-    stageLabel: '交易执行阶段', stages: ['运输', '到达', '称重', '实验室', '结算'],
-    route: '物流', routeValue: '运输完成 · 地理围栏已确认', quality: '实验室', qualityValue: '水分 · 超出容差 0.8 个百分点',
-    documents: '文件', documentsValue: '6 份中 5 份已确认', reserve: '资金', reserveValue: '资金已预留',
-    risk: '暂停原因', owner: '责任方', next: '下一步', evidence: '依据', money: '资金后果',
+    label: '从你的角色查看交易', rolesLabel: '选择角色查看',
+    note: '这是公开价值说明。此处选择角色不会开放数据或授予权限；真实权限在注册并完成机构核验后由系统确定。',
+    preview: '交易工作示例', deal: '葵花籽 · 1,200 吨', status: '交易履约',
+    stageLabel: '履约阶段', stages: ['运输', '到达', '称重', '质量', '结算'],
+    route: '交付', routeValue: '运输完成 · 到达已确认', quality: '质量', qualityValue: '报告已收到 · 正按条件核对',
+    documents: '文件', documentsValue: '正在按交易整理文件', reserve: '结算', reserveValue: '就绪状态取决于已确认依据',
+    risk: '该角色关注什么', owner: '责任方', next: '下一步', evidence: '依据', money: '资金结果',
   },
 };
 
