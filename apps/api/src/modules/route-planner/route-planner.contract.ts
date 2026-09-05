@@ -9,12 +9,30 @@ export type GeofenceType = (typeof GEOFENCE_TYPES)[number];
 export const VEHICLE_TYPES = ['truck', 'rail', 'vessel'] as const;
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-/** Тарифы за тонно-километр в копейках. Единственный источник для расчёта. */
-export const TARIFF_RATE_KOPECKS_PER_TON_KM: Readonly<Record<VehicleType, number>> = Object.freeze({
-  truck: 350,
-  rail: 180,
-  vessel: 90,
-});
+/**
+ * Тарифы за тонно-километр в копейках. Единственный источник для расчёта.
+ *
+ * Прототип у таблицы намеренно отсутствует. Обычный объектный литерал наследует
+ * Object.prototype, поэтому поиск по ключу «toString», «constructor»,
+ * «valueOf», «hasOwnProperty» или «__proto__» возвращает унаследованный член, а
+ * не undefined. Замерено: сторож «ставка не найдена» такой ключ пропускал, и
+ * умножение снова давало NaN, то есть сумму null в ответе — ровно ту дыру,
+ * которую сторож и должен был закрыть.
+ */
+export const TARIFF_RATE_KOPECKS_PER_TON_KM: Readonly<Record<VehicleType, number>> = Object.freeze(
+  Object.assign(Object.create(null) as Record<VehicleType, number>, {
+    truck: 350,
+    rail: 180,
+    vessel: 90,
+  }),
+);
+
+/** Ставка берётся только по собственному ключу таблицы. */
+export function tariffRateFor(vehicleType: string): number | undefined {
+  if (!Object.hasOwn(TARIFF_RATE_KOPECKS_PER_TON_KM, vehicleType)) return undefined;
+  const rate = (TARIFF_RATE_KOPECKS_PER_TON_KM as Record<string, unknown>)[vehicleType];
+  return typeof rate === 'number' && Number.isFinite(rate) ? rate : undefined;
+}
 
 export const VAT_RATE = 0.2;
 

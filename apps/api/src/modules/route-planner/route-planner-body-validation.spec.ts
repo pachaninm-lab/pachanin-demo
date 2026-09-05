@@ -10,6 +10,7 @@ import {
 } from './dto/route-planner.dto';
 import { RoutePlannerController } from './route-planner.controller';
 import { RoutePlannerService } from './route-planner.service';
+import { TARIFF_RATE_KOPECKS_PER_TON_KM } from './route-planner.contract';
 
 /**
  * V2.2.1 / V2.2.2 — граница запроса планировщика маршрутов.
@@ -149,6 +150,34 @@ describe('оценка тарифа — это деньги', () => {
     expect(() => service.estimateLogisticsTariff(500, 20, 'вертолёт' as never)).toThrow(BadRequestException);
     expect(() => service.estimateLogisticsTariff(-500, 20, 'truck')).toThrow(BadRequestException);
     expect(() => service.estimateLogisticsTariff(Number.NaN, 20, 'truck')).toThrow(BadRequestException);
+  });
+
+  /**
+   * Найдено ревью, и находка настоящая: первая версия сторожа проверяла лишь
+   * `=== undefined`, а обычный объектный литерал наследует Object.prototype,
+   * поэтому ключ «toString» возвращал функцию, а не undefined. Замерено — все
+   * пять ключей проходили насквозь и снова давали сумму null. Сторож,
+   * который должен был закрыть NaN, его не закрывал.
+   */
+  it.each(['toString', 'constructor', '__proto__', 'valueOf', 'hasOwnProperty'])(
+    'унаследованный ключ %s не считается ставкой',
+    (vehicleType) => {
+      expect(() => new RoutePlannerService().estimateLogisticsTariff(500, 20, vehicleType as never))
+        .toThrow(BadRequestException);
+    },
+  );
+
+  /**
+   * Защита здесь тройная и взаимно покрывающая, и это измерено, а не заявлено:
+   * нулевой прототип таблицы, проверка собственного ключа через Object.hasOwn и
+   * проверка типа найденного значения. Снятие ЛЮБОГО ОДНОГО слоя не роняет ни
+   * одной проверки — два оставшихся его закрывают; снятие всех трёх роняет все
+   * пять проверок унаследованных ключей и структурную. Так и должна выглядеть
+   * защита в глубину, и выдавать какой-то один слой за несущий нельзя.
+   */
+  it('таблица ставок не имеет прототипа, поэтому наследованных ключей у неё нет', () => {
+    expect(Object.getPrototypeOf(TARIFF_RATE_KOPECKS_PER_TON_KM)).toBeNull();
+    expect((TARIFF_RATE_KOPECKS_PER_TON_KM as Record<string, unknown>)['toString']).toBeUndefined();
   });
 });
 

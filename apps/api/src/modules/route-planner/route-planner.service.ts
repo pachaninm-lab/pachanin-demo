@@ -3,8 +3,8 @@ import { integrationRegistry } from '../../../../../packages/integration-sdk/src
 import { MockGpsAdapter, GeoPoint, Geofence, GeofenceEvent } from '../../../../../packages/integration-sdk/src/adapters/gps.adapter';
 import {
   AVG_SPEED_MIN_KMH,
-  TARIFF_RATE_KOPECKS_PER_TON_KM,
   VAT_RATE,
+  tariffRateFor,
   type VehicleType,
 } from './route-planner.contract';
 
@@ -121,7 +121,9 @@ export class RoutePlannerService {
     // давал undefined и NaN на всю сумму — в JSON это уезжало как null, то
     // есть тариф без цифры. Отрицательное расстояние давало отрицательный
     // тариф, то есть счёт в пользу плательщика.
-    const ratePerTonKmKopecks = TARIFF_RATE_KOPECKS_PER_TON_KM[vehicleType];
+    // Только собственный ключ таблицы: наследованный член прототипа проходил
+    // прежнюю проверку насквозь и снова давал NaN.
+    const ratePerTonKmKopecks = tariffRateFor(vehicleType);
     if (ratePerTonKmKopecks === undefined) {
       throw new BadRequestException('TARIFF_VEHICLE_TYPE_UNKNOWN');
     }
