@@ -139,8 +139,12 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
       expect(headerHeight).toBeGreaterThanOrEqual(44);
       expect(headerHeight).toBeLessThanOrEqual(80);
 
+      const headerRegistration = page.locator('.pc-v6-header-cta');
+      await expect(headerRegistration).toBeVisible();
+      await expect(headerRegistration).toHaveAttribute('href', '/platform-v7/register?lang=ru');
+
       if (viewport.width < 768) {
-        await expectVisibleTargetsAtLeast(page, '.pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login', 44);
+        await expectVisibleTargetsAtLeast(page, '.pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta', 44);
       } else {
         await expectVisibleTargetsAtLeast(page, '.pc-site-locale-switch, .entry-login, .pc-v6-header-cta', 44);
       }
