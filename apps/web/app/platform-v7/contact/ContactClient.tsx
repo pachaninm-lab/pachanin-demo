@@ -137,7 +137,7 @@ export function ContactClient({ sent, failed, locale }: { sent: boolean; failed:
   const suffix = `?lang=${locale}`;
 
   return (
-    <main className='p7-contact-page' data-testid='platform-v7-question-form-page'>
+    <main id='main-content' tabIndex={-1} className='p7-contact-page' data-testid='platform-v7-question-form-page'>
       <style>{css}</style>
       <section className='p7-contact-layout'>
         <div className='p7-contact-copy'>
