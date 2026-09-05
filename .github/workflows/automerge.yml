@@ -156,7 +156,13 @@ jobs:
             exit 0
           fi
 
-          mergeable=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json mergeable --jq '.mergeable')
+          pr_state=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,mergeable)
+          current_head=$(printf '%s' "$pr_state" | jq -r '.headRefOid')
+          mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
+          if [ "$current_head" != "$HEAD_SHA" ]; then
+            echo "Automerge deferred: head moved expected=$HEAD_SHA current=$current_head"
+            exit 0
+          fi
           if [ "$mergeable" != MERGEABLE ]; then
             echo "Automerge deferred: mergeability=$mergeable"
             exit 0
@@ -190,7 +196,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Reconcile ordinary automerge PRs through review and green-CI gates
+      - name: Reconcile ordinary automerge PRs through exact-head review and green CI
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -198,12 +204,6 @@ jobs:
         run: |
           set -euo pipefail
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
-
-          gh label create review-gate-passed \
-            --repo "$REPO" \
-            --color 0E8A16 \
-            --description 'Exact-head Codex review complete; no active unresolved review findings' \
-            >/dev/null 2>&1 || true
 
           gh pr list \
             --repo "$REPO" \
@@ -223,35 +223,21 @@ jobs:
               continue
             fi
 
-            if ! PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
-              gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-              echo "#$pr_number deferred: exact-head review gate not satisfied"
-              continue
-            fi
-
-            current_head=$(gh pr view "$pr_number" --repo "$REPO" --json headRefOid --jq .headRefOid)
-            if [ "$current_head" != "$head_sha" ]; then
-              gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-              echo "#$pr_number deferred: head moved before review label publication expected=$head_sha current=$current_head"
-              continue
-            fi
-
-            gh pr edit "$pr_number" --repo "$REPO" --add-label review-gate-passed >/dev/null
-
+            # Scheduled reconciliation never publishes or removes review-gate-passed.
+            # The per-PR event gate owns that visible label/status. The scheduler is
+            # merge authority only after the central exact-head verifier passes.
             if ! PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" REQUIRE_GREEN_CI=1 node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
-              gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-              echo "#$pr_number deferred: exact-head CI not terminal green"
+              echo "#$pr_number deferred: exact-head review/CI gate not terminal green"
               continue
             fi
 
-            current_head=$(gh pr view "$pr_number" --repo "$REPO" --json headRefOid --jq .headRefOid)
+            pr_state=$(gh pr view "$pr_number" --repo "$REPO" --json headRefOid,mergeable)
+            current_head=$(printf '%s' "$pr_state" | jq -r '.headRefOid')
+            mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
             if [ "$current_head" != "$head_sha" ]; then
-              gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-              echo "#$pr_number deferred: head moved after CI verification expected=$head_sha current=$current_head"
+              echo "#$pr_number deferred: head moved after verification expected=$head_sha current=$current_head"
               continue
             fi
-
-            mergeable=$(gh pr view "$pr_number" --repo "$REPO" --json mergeable --jq '.mergeable')
             if [ "$mergeable" != MERGEABLE ]; then
               echo "#$pr_number deferred: mergeability=$mergeable"
               continue
@@ -266,7 +252,6 @@ jobs:
             if [ "$merged" = true ]; then
               echo "#$pr_number merged after exact-head review + terminal green CI"
             else
-              gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
               echo "#$pr_number merge refused: $(printf '%s' "$result" | jq -r '.message // "unknown"')"
             fi
           done
