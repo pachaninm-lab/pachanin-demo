@@ -78,6 +78,7 @@ jobs:
     needs: exact-head-review-gate
     runs-on: ubuntu-latest
     if: >-
+      github.event_name == 'pull_request_target' &&
       needs.exact-head-review-gate.result == 'success' &&
       github.event.pull_request.state == 'open' &&
       !github.event.pull_request.draft &&
@@ -96,9 +97,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MERGE_METHOD: squash
-          MERGE_LABELS: automerge,review-gate-passed
+          MERGE_LABELS: automerge
           UPDATE_LABELS: automerge
-          MERGE_REMOVE_LABELS: automerge,review-gate-passed
+          MERGE_REMOVE_LABELS: automerge
 
 # Production deployment is independent of this repository-merge workflow.
 # REG.RU remains the only production contour and requires its separate exact-SHA release authority.
