@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.execution-state.v1",
   "programme": "pc-crop-post-registration-operating-system",
   "issue": 4997,
-  "updatedAt": "2026-09-04T18:38:00.000Z",
+  "updatedAt": "2026-09-05T02:25:00.000Z",
   "specification": {
     "sha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
     "dodListSha256": "091acfafbde256b0028e7dbfb2afe7c97a05c6b899ba1fc9b0ccbfc4b40a93a2",
@@ -10,67 +10,128 @@
     "sections": 111,
     "dodCriteria": 126
   },
-  "observedMainSha": "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff",
+  "observedMainSha": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
   "auditLineage": {
     "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
     "deltaReviewedToObservedMain": true,
-    "deltaCommits": [
-      "db2b0d61ac6206e3b1fc25d54692a7747dbf7365",
-      "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff"
+    "postRegistrationFindingsChanged": true,
+    "previousObservedMainSha": "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff",
+    "reviewKind": "Bounded W1 delta and evidence reconciliation; historical W0 findings outside this delta are retained.",
+    "w0Delta": {
+      "deltaCommits": [
+        "db2b0d61ac6206e3b1fc25d54692a7747dbf7365",
+        "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff"
+      ],
+      "deltaPaths": [
+        "scripts/production-role-eligibility-fns-rsmp-import.sh"
+      ]
+    },
+    "reviewedW1PullRequests": [
+      5001,
+      5010,
+      5015
     ],
-    "deltaPaths": ["scripts/production-role-eligibility-fns-rsmp-import.sh"],
-    "postRegistrationFindingsChanged": false
+    "inProgressPullRequest": 5019
   },
   "observedProductionSha": null,
-  "observedProductionShaReason": "W0 is a repository audit. No REG.RU exact-revision deployment or live acceptance was requested or performed.",
-  "status": "W0_EXACT_GAP_MAP_ON_BRANCH",
+  "observedProductionShaReason": "No REG.RU update performed for these W1 slices. Historical read-only preflight 33924967425 observed API d401f2678070eae3362d22d09b60aadf3a8e042d with W1-A migration absent; this is not a fresh production observation.",
+  "status": "W1_FOUNDATIONS_MERGED_COMMERCIAL_REVIEW_IN_PROGRESS",
   "overallProgressPercent": 3.1,
   "overallProgressBasis": "Strict terminal DoD: floor(4 PASS / 126 total * 1000) / 10. PARTIAL, FAIL, EXTERNAL_BLOCKER and NOT_EVIDENCED receive zero credit.",
   "dodStatusCounts": {
     "PASS": 4,
-    "PARTIAL": 50,
-    "FAIL": 70,
+    "PARTIAL": 52,
+    "FAIL": 68,
     "EXTERNAL_BLOCKER": 0,
     "NOT_EVIDENCED": 2
   },
   "w0AuditCompletionPercent": 100,
   "waves": [
-    {"id": "W0", "name": "Exact Gap Map", "status": "ON_BRANCH", "externalAccessRequired": false},
-    {"id": "W1", "name": "Config Foundation", "status": "NEXT", "externalAccessRequired": false},
-    {"id": "W2", "name": "Market + Inventory + Trust", "status": "PENDING", "externalAccessRequired": false},
-    {"id": "W3", "name": "Deal / Legal", "status": "PENDING", "externalAccessRequired": false},
-    {"id": "W4", "name": "Service / Physical", "status": "PENDING", "externalAccessRequired": false},
-    {"id": "W5", "name": "External Truth", "status": "PENDING", "externalAccessRequired": true},
-    {"id": "W6", "name": "Financial", "status": "PENDING", "externalAccessRequired": true},
-    {"id": "W7", "name": "Risk / Exception", "status": "PENDING", "externalAccessRequired": false},
-    {"id": "W8", "name": "World-Class UX", "status": "PENDING", "externalAccessRequired": false},
-    {"id": "W9", "name": "Production Proof", "status": "PENDING", "externalAccessRequired": true}
+    {
+      "id": "W0",
+      "name": "Exact Gap Map",
+      "status": "MERGED",
+      "externalAccessRequired": false
+    },
+    {
+      "id": "W1",
+      "name": "Config Foundation",
+      "status": "IN_PROGRESS",
+      "externalAccessRequired": false
+    },
+    {
+      "id": "W2",
+      "name": "Market + Inventory + Trust",
+      "status": "PENDING",
+      "externalAccessRequired": false
+    },
+    {
+      "id": "W3",
+      "name": "Deal / Legal",
+      "status": "PENDING",
+      "externalAccessRequired": false
+    },
+    {
+      "id": "W4",
+      "name": "Service / Physical",
+      "status": "PENDING",
+      "externalAccessRequired": false
+    },
+    {
+      "id": "W5",
+      "name": "External Truth",
+      "status": "PENDING",
+      "externalAccessRequired": true
+    },
+    {
+      "id": "W6",
+      "name": "Financial",
+      "status": "PENDING",
+      "externalAccessRequired": true
+    },
+    {
+      "id": "W7",
+      "name": "Risk / Exception",
+      "status": "PENDING",
+      "externalAccessRequired": false
+    },
+    {
+      "id": "W8",
+      "name": "World-Class UX",
+      "status": "PENDING",
+      "externalAccessRequired": false
+    },
+    {
+      "id": "W9",
+      "name": "Production Proof",
+      "status": "PENDING",
+      "externalAccessRequired": true
+    }
   ],
   "nextSlice": {
-    "id": "W1-A",
-    "name": "Organization Capability Authority — shadow mode",
+    "id": "W1-D",
+    "name": "Finish commercial-rule authority review and exact-head CI",
     "registrationCodeChanged": false,
     "registrationBehaviorChanged": false,
     "roleEligibilityEnforcementChanged": false,
     "productEnforcementChanged": false,
     "newRecurringCostRub": 0,
     "acceptance": [
-      "Exactly 13 canonical capability codes are declared in a closed registry.",
-      "Assignments are PostgreSQL-authoritative, tenant-scoped and FORCE RLS protected.",
-      "Mutations use expected version, payload-bound idempotency and one transaction for business row, chained audit and outbox.",
-      "Cross-tenant access, replay mismatch and concurrent version conflict fail closed.",
-      "Regulated capabilities remain pending until server-held evidence exists.",
-      "No implicit or backfilled grants are created.",
-      "Registration and all current Deal, Auction and Settlement decisions are behaviorally unchanged."
-    ]
+      "All mandatory workflows succeed on the current PR head.",
+      "PostgreSQL denies unaudited lifecycle transitions and forged decisions under restricted principals.",
+      "API never acknowledges a command rejected by deferred PostgreSQL evidence constraints.",
+      "No unresolved review finding remains; main/head drift is checked before merge."
+    ],
+    "nextAfterMerge": "W2-A bounded audit: canonical inventory, independent evidence and concurrent quantity reservation."
   },
   "p0Risks": [
     "No canonical inventory reservation or cross-lot double-sell protection.",
     "Client-supplied MANUAL_VERIFIED, ERP and OTHER sources can become admitted verified auction supply.",
     "Production-mounted elevator mutations are process-local and not tenant-authoritative.",
-    "Static provider ranking and query-supplied compliance evidence can overstate partner readiness.",
     "Production web surfaces expose static/sandbox Deal360 and unsupported privacy claims.",
-    "Integration configuration is mock-by-default and contains an unsigned EDO webhook bypass."
+    "Provider and binding authority are merged but not accepted on the REG.RU runtime; external provider access and receipts remain absent.",
+    "W1-A capability authority remains SHADOW; downstream product enforcement and role UX remain unaccepted.",
+    "Federal-accounting maturity consumer remains under separate active project lock #4321."
   ],
   "externalBlockers": [
     "FGIS, FNS and Rosaccreditation machine contracts, credentials, signing/mTLS material and live receipts.",
@@ -86,5 +147,70 @@
     "productionMockEvidenceAccepted": false,
     "newMandatoryPaidDependencies": 0,
     "externalPartnerMessagesSent": 0
-  }
+  },
+  "progressReconciliation": {
+    "lastReportedPercent": 4.0,
+    "confirmedTerminalPercent": 3.1,
+    "reason": "The inherited 4.0% report has no fifth fully accepted terminal criterion. W1 foundations are recorded as PARTIAL until their remaining end-to-end and deployment boundaries are evidenced. No component-test or merged-PR credit is added.",
+    "policyUnchanged": true
+  },
+  "slices": [
+    {
+      "id": "W1-A",
+      "name": "Organization capability authority",
+      "status": "MERGED",
+      "pr": 5001,
+      "mergeSha": "9869d829afece09742211ca1498bb0ac3847cf49",
+      "mode": "SHADOW",
+      "productionAccepted": false
+    },
+    {
+      "id": "W1-B",
+      "name": "Provider registry and service offerings",
+      "status": "MERGED",
+      "pr": 5010,
+      "mergeSha": "bc6da8e4d8f284ed93bf7ebc4c3defd01214ee54",
+      "productionAccepted": false
+    },
+    {
+      "id": "W1-C",
+      "name": "Integration binding authority",
+      "status": "MERGED",
+      "pr": 5015,
+      "mergeSha": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
+      "verifiedHead": "838074bc37c38298dc2d3c8ca71392838ad54d61",
+      "postgresqlTests": {
+        "passed": 7,
+        "total": 7
+      },
+      "workflowRun": 33935154680,
+      "productionAccepted": false
+    },
+    {
+      "id": "W1-D",
+      "name": "Commercial rules and rule packs",
+      "status": "CI_AND_REVIEW_PENDING",
+      "pr": 5019,
+      "headSha": "a6cfb2cdb21afaac36ac2cbd2ab107d517c1cc57",
+      "productionAccepted": false,
+      "previousHeadEvidence": {
+        "headSha": "02a9f5eb7950fd908ac26ca9020ad2b2d40739fb",
+        "postgresqlTests": {
+          "passed": 11,
+          "total": 11
+        },
+        "domainTests": {
+          "passed": 29,
+          "total": 29
+        },
+        "contractTests": {
+          "passed": 11,
+          "total": 11
+        },
+        "oneDealAndDrRun": 33938293629,
+        "commercialAuthorityRun": 33938293608,
+        "schemaDrift": false
+      }
+    }
+  ]
 }
