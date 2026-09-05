@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-runtime-security-authority-4997",
+  "status": "staged",
+  "purpose": "W7-A: unify fail-closed integration mode/startup/readiness authority and close public webhook replay/transport/egress contradictions without weakening existing FGIS/bank/RLS controls or claiming external availability.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [20, 35, 100, 102],
+  "terminalCriteria": ["PROVIDER_NEUTRAL=PASS", "FAIL_CLOSED=PASS", "RUNTIME_CONFIG=PASS", "PROVIDER_HEALTH=PASS", "OUTBOX_HEALTH=PASS", "WEBHOOK_SECURITY=PASS", "REPLAY_PROTECTION=PASS", "EGRESS_POLICY=PASS"],
+  "allowedPaths": [
+    "packages/integration-sdk/src/live/integration-config.ts",
+    "packages/integration-sdk/src/live/build-client.ts",
+    "apps/api/src/common/config/env.validation.ts",
+    "apps/api/src/main.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/shared/provider-health.shared.ts",
+    "apps/api/src/modules/integrations/edo-webhook.controller.ts",
+    "apps/api/src/modules/integrations/integrations.controller.ts",
+    "apps/api/prisma/migrations/20260906050000_integration_webhook_replay_authority/migration.sql",
+    "apps/api/src/modules/integrations/integration-webhook-replay.repository.ts",
+    "apps/api/src/modules/integrations/integration-webhook-replay.repository.spec.ts",
+    "apps/api/test/industrial/runtime-integration-security.e2e-spec.ts",
+    "infra/helm/grainflow/templates/networkpolicy.yaml",
+    "infra/prometheus/runtime-alert-rules.yml",
+    "scripts/verify-pc-crop-runtime-security-scope.test.mjs",
+    ".github/workflows/pc-crop-runtime-security.yml",
+    "docs/security/THREAT_MODEL.md",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "dependencies": {
+    "existingFgisFailClosedInboxReused": true,
+    "existingBankCallbackKeyAuthorityReused": true,
+    "existingDurableOutboxReused": true,
+    "w6ProviderAdaptersMayConsumeLater": true
+  },
+  "requiredInvariants": [
+    "There is one canonical integration runtime mode vocabulary across API and integration SDK. Production startup never defaults to stub/mock and fails before listening when required live-safe configuration is internally inconsistent.",
+    "Mock/stub adapters may exist only in explicit test/non-production modes and can never satisfy machine-readable production readiness or provider-health acceptance.",
+    "Startup executes the canonical environment/config validator. Declared live/provider capability cannot become READY when required endpoint, binding, credential reference, key/certificate or provider health evidence is absent.",
+    "Readiness publishes database/migrations, durable outbox backlog/worker ownership, integration inbox/replay authority, provider capability health and degraded/fail-closed reason codes without exposing secrets.",
+    "Public EDO webhook requires a mandatory timestamp/freshness window, event id and verified raw-body signature. JSON reserialization is not signature authority and missing timestamp/event id never degrades to accepted mode.",
+    "Webhook replay/idempotency is PostgreSQL-durable and provider/integration-binding scoped; restart, horizontal scale or another instance cannot replay an accepted event.",
+    "Inbound accepted receipt/event remains distinct from canonical document/regulatory/business success. W7-A may persist verified integration evidence but cannot directly fabricate DealDocument SIGNED/DELIVERED/ACCEPTED or government finality.",
+    "Retired FGIS JSON webhook remains retired and the stronger signed SOAP/inbox path is never weakened by generalized webhook work.",
+    "TLS/secure-transport requirements are explicit and fail closed. Plain HTTP external endpoints are rejected in production except explicitly local/internal health dependencies covered by a separately pinned policy.",
+    "NetworkPolicy egress is generated/verified from the approved provider/runtime dependency set and cannot silently allow unrestricted Internet egress while documentation claims provider-restricted traffic.",
+    "Provider outage/degradation is surfaced in readiness and does not switch to mocks, cached fabricated success or client-side fallback authority.",
+    "Alert rules touched by this slice must bind exact emitted metric/label names and include firing/recovery acceptance; a nonexistent metric cannot be counted as operational protection.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, canonical Deal/Settlement/Document authorities, credentials/secrets and REG.RU-only production remain unchanged."
+  ],
+  "acceptance": [
+    "Production-mode startup tests reject missing/contradictory integration mode, mock-enabled live config, insecure external transport and missing mandatory provider/binding evidence before server listen.",
+    "API and SDK resolve the same canonical mode and provider maturity for identical configuration; no divergent env-name/default path remains.",
+    "Readiness tests fail when durable outbox owner/backlog/provider health/replay authority is unhealthy and recover when exact underlying evidence returns green.",
+    "EDO webhook tests cover raw-body HMAC, mandatory timestamp, mandatory event id, stale timestamp, body mutation, wrong binding/key and durable replay across simulated restart/second instance.",
+    "Verified webhook receipt cannot directly promote canonical document success without the separate W6-C/W5-B receipt/conformance authority.",
+    "NetworkPolicy acceptance proves only approved DNS/database/internal/provider egress needed by configured production capabilities and rejects an unapproved external destination.",
+    "Alert tests prove each modified critical alert fires on an actually emitted exact metric and recovers after the condition clears.",
+    "FGIS signed inbox, bank callback/key rotation, RLS, security scan, CodeQL, exact-head runtime/Kubernetes acceptance and threat-negative tests remain green."
+  ],
+  "remainingTerminalBoundary": [
+    "Provider-specific live credentials/endpoints and real external receipts remain W6/external acceptance, not W7-A success.",
+    "REG.RU exact-release runtime must prove startup/readiness/egress/webhook behavior under real topology before terminal runtime/security credit.",
+    "Full OPS-02 metric/alert inventory beyond integration/runtime-critical rules may require a later observability cleanup slice.",
+    "Production external penetration/security acceptance remains part of final release evidence."
+  ],
+  "terminalCredit": 0
+}
