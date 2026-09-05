@@ -66,7 +66,9 @@ for (const item of baseline.criteria) {
 assert.deepEqual(counts, state.dodStatusCounts);
 const strictPercent = Math.floor((counts.PASS / baseline.criteria.length) * 1000) / 10;
 assert.equal(strictPercent, state.overallProgressPercent);
-assert.equal(state.overallProgressPercent, 3.1);
+if (state.progressReconciliation) {
+  assert.equal(state.progressReconciliation.confirmedTerminalPercent, strictPercent);
+}
 assert.equal(state.invariants.registrationCodeChanged, false);
 assert.equal(state.invariants.registrationBehaviorChanged, false);
 assert.equal(state.invariants.roleEligibilityRegression, false);
@@ -75,5 +77,5 @@ assert.equal(state.invariants.newMandatoryPaidDependencies, 0);
 assert.equal(state.invariants.externalPartnerMessagesSent, 0);
 
 process.stdout.write(
-  `PC-CROP W0 verified: ${baseline.criteria.length} criteria, ${counts.PASS} PASS, ${strictPercent.toFixed(1)}% strict progress, ${gapMap.findings.length} gap findings.\n`,
+  `PC-CROP DoD verified: ${baseline.criteria.length} criteria, ${counts.PASS} PASS, ${strictPercent.toFixed(1)}% strict progress, ${gapMap.findings.length} gap findings.\n`,
 );

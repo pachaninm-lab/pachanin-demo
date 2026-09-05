@@ -1,17 +1,27 @@
 {
   "schemaVersion": "pc-crop.post-registration.gap-map.v1",
   "issue": 4997,
-  "observedAt": "2026-09-04",
-  "exactMainBaseline": "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff",
+  "observedAt": "2026-09-05",
+  "exactMainBaseline": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
   "auditLineage": {
     "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
-    "deltaReviewedToExactMain": "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff",
-    "deltaCommits": [
-      "db2b0d61ac6206e3b1fc25d54692a7747dbf7365",
-      "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff"
+    "deltaReviewedToExactMain": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
+    "postRegistrationFindingsChanged": true,
+    "previousObservedMainSha": "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff",
+    "w0Delta": {
+      "deltaCommits": [
+        "db2b0d61ac6206e3b1fc25d54692a7747dbf7365",
+        "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff"
+      ],
+      "deltaPaths": ["scripts/production-role-eligibility-fns-rsmp-import.sh"]
+    },
+    "reviewedW1PullRequests": [
+      5001,
+      5010,
+      5015,
+      5019
     ],
-    "deltaPaths": ["scripts/production-role-eligibility-fns-rsmp-import.sh"],
-    "postRegistrationFindingsChanged": false
+    "governancePullRequest": 5021
   },
   "specification": {
     "sha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
@@ -21,14 +31,7 @@
     "sectionLast": 110,
     "dodCriteria": 126
   },
-  "classification": [
-    "KEEP",
-    "EXTEND_EXISTING",
-    "NEW_REQUIRED",
-    "REMOVE_OR_SUPERSEDE",
-    "EXTERNAL_BLOCKER",
-    "NOT_REQUIRED"
-  ],
+  "classification": ["KEEP", "EXTEND_EXISTING", "NEW_REQUIRED", "REMOVE_OR_SUPERSEDE", "EXTERNAL_BLOCKER", "NOT_REQUIRED"],
   "findings": [
     {
       "id": "CORE-01",
@@ -77,57 +80,66 @@
       "id": "CFG-01",
       "sections": [5, 105],
       "area": "Organization capability authority",
-      "classification": ["NEW_REQUIRED"],
+      "classification": ["KEEP", "EXTEND_EXISTING"],
       "severity": "P0",
       "evidence": [
-        "apps/api/prisma/schema.prisma",
-        "apps/api/src/modules/auth/membership-capability.resolver.ts"
+        "apps/api/src/modules/organization-capabilities/organization-capability.registry.ts",
+        "apps/api/src/modules/organization-capabilities/organization-capability.repository.ts",
+        "apps/api/test/industrial/organization-capability-authority.e2e-spec.ts"
       ],
-      "finding": "The existing capability resolver describes a person's accounting permissions. There is no durable organization capability registry for the 13 post-registration capabilities.",
-      "requiredDelta": "Implement W1-A as an additive, tenant-scoped, versioned shadow authority without registration or enforcement changes."
+      "finding": "The 13-code organization capability registry and PostgreSQL assignment/event authority were merged in #5001 and verified under restricted principals. The effective mode is SHADOW.",
+      "requiredDelta": "Retain W1-A evidence; prove REG.RU deployment and downstream product consumption without changing registration.",
+      "w0Finding": "The existing capability resolver describes a person's accounting permissions. There is no durable organization capability registry for the 13 post-registration capabilities.",
+      "updatedBy": "W1 bounded delta reconciliation"
     },
     {
       "id": "CFG-02",
       "sections": [20, 21, 41],
       "area": "Provider registry and ranking",
-      "classification": ["EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE"],
+      "classification": ["KEEP", "EXTEND_EXISTING"],
       "severity": "P0",
       "evidence": [
-        "packages/domain-core/src/service-provider-registry.ts",
+        "apps/api/src/modules/service-providers/provider-registry.repository.ts",
         "apps/api/src/modules/service-providers/service-providers.service.ts",
-        "apps/api/src/modules/service-providers/service-providers.controller.ts",
-        "packages/domain-core/src/provider-compliance-gates.ts"
+        "apps/api/test/industrial/provider-registry-authority.e2e-spec.ts"
       ],
-      "finding": "The API exposes a fictional static pilot catalog, a default Sber entry and an opaque hand-scored ranking. Compliance facts can be supplied by query parameters. The pure fail-closed compliance policy is reusable.",
-      "requiredDelta": "Replace catalog and ranking authority with PostgreSQL Provider, ProviderCapability, ServiceOffering and server-held evidence. Preserve only provider-neutral types and policies."
+      "finding": "PostgreSQL Provider, ProviderCapability and ServiceOffering authority replaced the fictional catalog and caller-supplied compliance facts in #5010. Only server-held evidence can admit a provider.",
+      "requiredDelta": "Prove partner substitution across full service workflows, ranking explanations and REG.RU runtime; no external access or real receipt is inferred.",
+      "w0Finding": "The API exposes a fictional static pilot catalog, a default Sber entry and an opaque hand-scored ranking. Compliance facts can be supplied by query parameters. The pure fail-closed compliance policy is reusable.",
+      "updatedBy": "W1 bounded delta reconciliation"
     },
     {
       "id": "CFG-03",
       "sections": [23, 105],
       "area": "Commercial rules and rule packs",
-      "classification": ["NEW_REQUIRED"],
+      "classification": ["KEEP", "EXTEND_EXISTING"],
       "severity": "P0",
       "evidence": [
-        "apps/api/src/modules/settlement-engine/settlement-calculation.ts",
-        "apps/api/prisma/schema.prisma"
+        "packages/domain-core/src/commercial-rules.ts",
+        "apps/api/src/modules/commercial-rules/commercial-rules.repository.ts",
+        "apps/api/prisma/migrations/20260905010000_commercial_rules_authority/migration.sql",
+        "apps/api/test/industrial/commercial-rules-authority.e2e-spec.ts"
       ],
-      "finding": "There is no versioned CommercialRuleSet or RulePack authority. Existing fee and logistics defaults are ad hoc inputs or environment values and the calculator is not wired to live money.",
-      "requiredDelta": "Persist versioned pricing, payer, trust, availability and eligibility policies with immutable references from decisions."
+      "finding": "Versioned CommercialRuleSet, RulePack and immutable decisions were merged in #5019. PostgreSQL 11/11, domain 29/29 and API contracts 11/11 passed; database recalculation, complete null-safe references, lifecycle evidence and acknowledgement safety were verified. All 39 workflows succeeded and review threads were resolved.",
+      "requiredDelta": "Bind server-derived contract/Deal facts and accepted commercial decisions to financial/service workflows and demonstrate the REG.RU runtime. CONTRACT_RULE remains non-financial MISSING_FACTS until authoritative contract facts are available.",
+      "w0Finding": "There is no versioned CommercialRuleSet or RulePack authority. Existing fee and logistics defaults are ad hoc inputs or environment values and the calculator is not wired to live money.",
+      "updatedBy": "W1 bounded delta reconciliation"
     },
     {
       "id": "CFG-04",
       "sections": [49, 50, 90, 105],
       "area": "Integration bindings and capability maturity",
-      "classification": ["EXTEND_EXISTING", "NEW_REQUIRED", "REMOVE_OR_SUPERSEDE"],
+      "classification": ["KEEP", "EXTEND_EXISTING"],
       "severity": "P0",
       "evidence": [
-        "packages/integration-sdk/src/adapter.interface.ts",
-        "packages/integration-sdk/src/live/live-registry.ts",
-        "packages/integration-sdk/src/registry.ts",
-        "apps/api/src/modules/accounting/connection-center.repository.ts"
+        "apps/api/src/modules/service-providers/integration-binding.repository.ts",
+        "apps/api/src/modules/service-providers/integration-binding.contract.ts",
+        "apps/api/test/industrial/integration-binding-authority.e2e-spec.ts"
       ],
-      "finding": "Provider-neutral adapter interfaces and honest connection diagnostics exist, but binding state is an in-memory singleton, mocks register by default and there is no per-organization secret/evidence/version/maturity authority.",
-      "requiredDelta": "Add durable IntegrationBinding and a single evidence-backed capability maturity ladder."
+      "finding": "IntegrationBinding and evidence-backed maturity authority were merged in #5015; unset adapters fail closed. Restricted-principal CI verifies provider suspension and capability revocation. Federal-accounting maturity consumption remains deferred under lock #4321.",
+      "requiredDelta": "Complete the separately governed consumer handoff and demonstrate provider onboarding, conformance and REG.RU runtime acceptance with authentic external receipts.",
+      "w0Finding": "Provider-neutral adapter interfaces and honest connection diagnostics exist, but binding state is an in-memory singleton, mocks register by default and there is no per-organization secret/evidence/version/maturity authority.",
+      "updatedBy": "W1 bounded delta reconciliation"
     },
     {
       "id": "CFG-05",
@@ -420,7 +432,9 @@
       "area": "Platform treasury",
       "classification": ["NEW_REQUIRED"],
       "severity": "P1",
-      "evidence": ["apps/api/prisma/schema.prisma"],
+      "evidence": [
+        "apps/api/prisma/schema.prisma"
+      ],
       "finding": "Bank account registry, platform receivable/payable, revenue recognition, partner accrual, payment authority matrix and 13-week forecast are absent.",
       "requiredDelta": "Build treasury as a separate accounting projection over canonical obligations and receipts, not as another wallet ledger."
     },

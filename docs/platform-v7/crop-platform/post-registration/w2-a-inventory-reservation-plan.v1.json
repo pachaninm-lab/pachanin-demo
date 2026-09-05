@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "pc-crop.post-registration.bounded-slice-plan.v1",
+  "issue": 4997,
+  "slice": "W2-A",
+  "status": "BOUNDED_SOURCE_AUDIT_COMPLETE_IMPLEMENTATION_PENDING",
+  "specificationSections": [
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "criteria": [
+    "INVENTORY=PASS",
+    "DOUBLE_SELL_PROTECTION=PASS",
+    "PROGRESSIVE_TRUST=PASS",
+    "UNVERIFIED_TRADING=PASS"
+  ],
+  "terminalCredit": 0,
+  "observedMainSha": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
+  "confirmedFindings": [
+    {
+      "evidence": "apps/api/prisma/migrations/20260713210000_auction_postgresql_authority/migration.sql",
+      "finding": "Auction quantity belongs to each lot; bid volume cannot exceed that lot's volume. There is no shared physical inventory identity or reservation across different lots. Reuse the auction and canonical Deal authorities."
+    },
+    {
+      "evidence": "apps/api/prisma/migrations/20260715013000_auction_atomic_execution/migration.sql",
+      "finding": "auction.register_verified_lot stamps source_verified_at and ADMITTED from the supplied source label/reference. Per-lot atomic award is reusable but does not prove physical stock or protect the same stock offered in multiple lots."
+    },
+    {
+      "evidence": "apps/api/src/modules/auctions/auction-fgis-self-verification.spec.ts",
+      "finding": "FGIS self-verification is quarantined. ERP, MANUAL_VERIFIED and OTHER still reach the existing SQL command. The replacement must support DECLARED plus PUBLIC_ALLOWED while reserving independent verification for authoritative evidence."
+    },
+    {
+      "evidence": "packages/domain-core/src/commodity-profile.ts",
+      "finding": "Versioned commodity profiles already provide unit dimensions, decimal precision and exact conversion ratios. Inventory must pin and reuse these profiles; it must not invent float quantities or a second commodity authority."
+    }
+  ],
+  "implementationOrder": [
+    {
+      "step": "Canonical quantity and physical stock authority",
+      "result": "Add tenant/organization-scoped Batch and InventoryPosition identities with pinned commodity-profile versions and exact quantities. Model custody, title/disposal evidence and restrictions as separate facts. A declaration never creates independent evidence."
+    },
+    {
+      "step": "Versioned availability policy",
+      "result": "Persist separate declared, confirmed, available, reserved, committed, shipped, accepted, blocked, disputed and sold quantities. Specify exclusive stock buckets versus cumulative lifecycle counters so the formula does not subtract the same volume twice. Persist the policy version and source-state version in every availability snapshot."
+    },
+    {
+      "step": "PostgreSQL reservation commands",
+      "result": "Reserve and release against the canonical physical inventory identity under database locks and server-resolved authority. Link real lot/Deal references where required. Require CAS, payload-bound replay and atomic event/audit/outbox. Restricted application roles must not bypass quantity checks through direct DML."
+    },
+    {
+      "step": "Progressive trust and auction consumption",
+      "result": "Replace the legacy verified-source assumption with independent verification, trade permission and regulatory/settlement eligibility. Permit declared public offers unless an actual mandatory blocker applies; legal/financial progression requires its own facts and immutable risk acknowledgements. Reuse the existing Auction and Deal engine."
+    }
+  ],
+  "firstAcceptanceBoundary": [
+    "Two transactions on different lots sharing one inventory position cannot reserve more than policy permits; the database must enforce this at READ COMMITTED as well as through the API transaction wrapper.",
+    "Cross-tenant and same-tenant cross-organization reads and commands are denied under restricted principals.",
+    "Repeated reserve/release commands replay once; altered payloads and stale versions are rejected.",
+    "An event, audit or outbox failure rolls back the reservation and all quantity changes; no acknowledged command may be absent after commit.",
+    "Manual or imported declarations do not manufacture confirmed quantity, ownership, custody or verified source evidence.",
+    "Pinned quantity units and policy versions survive replay, backup/restore and concurrent changes without float arithmetic.",
+    "The known-identity reservation proof must not be described as detecting every duplicate manual declaration of unknown physical stock."
+  ],
+  "remainingTerminalBoundary": [
+    "Batch genealogy, custody/title restrictions, all quantity lifecycle transitions and evidence freshness/conflict handling.",
+    "Canonical inventory consumption by every relevant Lot/Offer/Deal writer; per-lot protection alone receives no terminal credit.",
+    "User-facing declaration, warning and acknowledgement flows and REG.RU runtime acceptance."
+  ],
+  "invariants": {
+    "registrationChanges": 0,
+    "newDealEngine": false,
+    "accountingLock4321Touched": false,
+    "productionMutation": 0,
+    "productionHosting": "REG_RU_VPS_ONLY",
+    "newMandatoryRecurringCostRub": 0
+  },
+  "sourceAuditSha": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
+  "sourceAnchorDelta": "The four audited source files are unchanged through the merged W1-D and scope-governance commits."
+}
