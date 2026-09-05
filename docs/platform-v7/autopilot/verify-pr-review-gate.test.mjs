@@ -10,6 +10,7 @@ import {
   exactHeadCodexReviews,
   isIgnoredMergeGateCheck,
   latestBlockingChangeRequests,
+  reviewGatePrState,
   substantiveChecks,
 } from './verify-pr-review-gate.mjs';
 
@@ -210,6 +211,12 @@ test('CI snapshot must be bound to the exact verified head', () => {
   assert.equal(ciSnapshotMatchesHead(oldHead, head), false);
   assert.equal(ciSnapshotMatchesHead('not-a-sha', head), false);
   assert.equal(ciSnapshotMatchesHead('', head), false);
+});
+
+test('draft PR state is never reviewable authority', () => {
+  assert.equal(reviewGatePrState({ state: 'open', draft: false }), 'REVIEWABLE');
+  assert.equal(reviewGatePrState({ state: 'open', draft: true }), 'DRAFT');
+  assert.equal(reviewGatePrState({ state: 'closed', draft: false }), 'CLOSED');
 });
 
 test('review reconciliation workflow uses supported dispatch wiring and complete pagination', () => {
