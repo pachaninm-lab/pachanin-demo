@@ -7,6 +7,9 @@ on:
     types: [submitted, dismissed]
   pull_request_review_comment:
     types: [created, edited, deleted]
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,10 +18,17 @@ permissions:
   checks: read
   statuses: read
 
+concurrency:
+  group: repo-automerge-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   exact-head-review-gate:
     name: Exact-head Codex review gate
     if: >-
+      (github.event_name == 'pull_request_target' ||
+       github.event_name == 'pull_request_review' ||
+       github.event_name == 'pull_request_review_comment') &&
       github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -76,16 +86,16 @@ jobs:
           echo 'Exact-head review gate is not satisfied.' >&2
           exit 1
 
-  automerge:
+  automerge-event:
+    name: Guarded automerge on PR event
     needs: exact-head-review-gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: >-
-      github.event_name == 'pull_request_target' &&
       needs.exact-head-review-gate.result == 'success' &&
       github.event.pull_request.state == 'open' &&
       !github.event.pull_request.draft &&
       contains(github.event.pull_request.labels.*.name, 'automerge') &&
-      contains(github.event.pull_request.labels.*.name, 'review-gate-passed') &&
       !(contains(github.event.pull_request.labels.*.name, 'platform-v7') &&
         contains(github.event.pull_request.labels.*.name, 'agent-generated'))
     steps:
@@ -95,13 +105,124 @@ jobs:
           ref: main
           fetch-depth: 1
 
-      - uses: pascalgn/automerge-action@7961b8b5eec56cc088c140b56d864285eabd3f67
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20
+
+      - name: Merge only after exact-head CI is terminal green
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MERGE_METHOD: squash
-          MERGE_LABELS: automerge
-          UPDATE_LABELS: automerge
-          MERGE_REMOVE_LABELS: automerge
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REQUIRE_GREEN_CI: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
+            echo 'Automerge deferred: exact-head review/CI gate is not fully green yet.'
+            exit 0
+          fi
+
+          mergeable=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json mergeable --jq '.mergeable')
+          if [ "$mergeable" != MERGEABLE ]; then
+            echo "Automerge deferred: mergeability=$mergeable"
+            exit 0
+          fi
+
+          result=$(gh api \
+            --method PUT \
+            "repos/$REPO/pulls/$PR_NUMBER/merge" \
+            -f merge_method=squash \
+            -f "sha=$HEAD_SHA")
+          merged=$(printf '%s' "$result" | jq -r '.merged // false')
+          [ "$merged" = true ] || {
+            printf '%s\n' "$result" | jq -r '.message // "merge refused"' >&2
+            exit 1
+          }
+
+  automerge-scheduled:
+    name: Guarded automerge reconciliation
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20
+
+      - name: Reconcile ordinary automerge PRs through review and green-CI gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
+
+          gh label create review-gate-passed \
+            --repo "$REPO" \
+            --color 0E8A16 \
+            --description 'Exact-head Codex review complete; no active unresolved review findings' \
+            >/dev/null 2>&1 || true
+
+          gh pr list \
+            --repo "$REPO" \
+            --state open \
+            --label automerge \
+            --limit 100 \
+            --json number,headRefOid,isDraft,labels \
+            > /tmp/automerge-prs.json
+
+          jq -c '.[]' /tmp/automerge-prs.json | while IFS= read -r pr; do
+            pr_number=$(printf '%s' "$pr" | jq -r '.number')
+            head_sha=$(printf '%s' "$pr" | jq -r '.headRefOid')
+            draft=$(printf '%s' "$pr" | jq -r '.isDraft')
+            generated=$(printf '%s' "$pr" | jq -r '[.labels[].name] | (index("platform-v7") != null and index("agent-generated") != null)')
+
+            if [ "$draft" = true ] || [ "$generated" = true ]; then
+              continue
+            fi
+
+            if PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
+              gh pr edit "$pr_number" --repo "$REPO" --add-label review-gate-passed >/dev/null
+            else
+              gh pr edit "$pr_number" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+              echo "#$pr_number deferred: exact-head review gate not satisfied"
+              continue
+            fi
+
+            if ! PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" REQUIRE_GREEN_CI=1 node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
+              echo "#$pr_number deferred: exact-head CI not terminal green"
+              continue
+            fi
+
+            mergeable=$(gh pr view "$pr_number" --repo "$REPO" --json mergeable --jq '.mergeable')
+            if [ "$mergeable" != MERGEABLE ]; then
+              echo "#$pr_number deferred: mergeability=$mergeable"
+              continue
+            fi
+
+            result=$(gh api \
+              --method PUT \
+              "repos/$REPO/pulls/$pr_number/merge" \
+              -f merge_method=squash \
+              -f "sha=$head_sha")
+            merged=$(printf '%s' "$result" | jq -r '.merged // false')
+            if [ "$merged" = true ]; then
+              echo "#$pr_number merged after exact-head review + terminal green CI"
+            else
+              echo "#$pr_number merge refused: $(printf '%s' "$result" | jq -r '.message // "unknown"')"
+            fi
+          done
 
 # Production deployment is independent of this repository-merge workflow.
 # REG.RU remains the only production contour and requires its separate exact-SHA release authority.
