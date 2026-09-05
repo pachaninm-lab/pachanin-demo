@@ -443,7 +443,7 @@ export async function PlatformV7StrategicHome() {
             </fieldset>
             <div className={styles.liveFooter}>
               <span>{story.demo.lead}</span>
-              <PublicExperienceLink href={dealHref} className='pc-v6-primary' eventName='open_deal_scenario' locale={locale} params={{ source: 'home_v5_live_deal' }}>
+              <PublicExperienceLink href={dealHref} className='pc-v6-secondary' eventName='open_deal_scenario' locale={locale} params={{ source: 'home_v5_live_deal' }}>
                 {story.demo.openDeal}<ArrowRight aria-hidden='true' size={18} />
               </PublicExperienceLink>
             </div>
@@ -455,7 +455,7 @@ export async function PlatformV7StrategicHome() {
               {trustCopy.cards.map(([title, text]) => <article key={title}><strong>{title}</strong><span>{text}</span></article>)}
             </div>
             <div className={styles.liveFooter}>
-              <a href={trustHref} className='pc-v6-primary'>{trustCopy.trust}<ArrowRight aria-hidden='true' size={17} /></a>
+              <a href={trustHref} className='pc-v6-secondary'>{trustCopy.trust}<ArrowRight aria-hidden='true' size={17} /></a>
               <a href={contactHref} className='pc-v6-secondary'>{trustCopy.contact}</a>
             </div>
           </section>
