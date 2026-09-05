@@ -3,7 +3,7 @@
   "issue": 4997,
   "status": "active",
   "authorizedBy": "explicit-user-instruction",
-  "authorityBaseExactMain": "d17cc96d1665c85c7bc2256b5247d06c9c18aef8",
+  "authorityBaseExactMain": "ad68300994068ae292d5da1bf62213d238e3aacf",
   "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP specification without stopping; existing push, PR and merge authorization. No implementation change is admitted until this independent finite approval is merged.",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -21,6 +21,7 @@
     "apps/api/src/modules/auctions/auction-inventory.contract.ts",
     "apps/api/src/modules/auctions/auction-inventory.contract.spec.ts",
     "apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts",
+    "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
     "apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts",
     "scripts/verify-pc-crop-auction-inventory-scope.test.mjs",
     ".github/workflows/auction-atomic-acceptance.yml",
@@ -30,6 +31,14 @@
     "docs/security/cryptographic-inventory.json"
   ],
   "sourcePlan": "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+  "regressionApproval": {
+    "sourcePr": 5040,
+    "observedHead": "604375d3d9ca6e1725b52eba5f14cf4ad151871a",
+    "reason": "The real Inventory PostgreSQL gate passes 14/15 cases. The new mandatory foreign keys add Auction tables to TRUNCATE CASCADE, so the existing accidental-grant fixture no longer reaches its intended BEFORE TRUNCATE guard; PostgreSQL denies missing transitive table privileges first.",
+    "addedPath": "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+    "boundary": "Adapt only the existing disposable destructive-denial fixture to the actual foreign-key dependency set, retaining native privilege denial, immutable trigger denial after temporary accidental grants, zero mutation and exact grant restoration. Do not delete mandatory foreign keys, weaken production privileges, skip assertions or alter inventory implementation.",
+    "effectiveAfter": "This independent regression-scope approval is merged to main; implementation loads the amended manifest from that immutable accepted base."
+  },
   "requiredInvariants": [
     "Reuse the existing Auction lot, command receipt, audit/outbox and canonical Deal; reuse inventory position, quantity conversion, reserve/release and pinned CommodityProfile. No parallel engine.",
     "All new application lot registration requires a tenant/organization-consistent inventory binding with exact quantity and pinned commodity/profile identity; browser culture/source/verified claims are not authority.",

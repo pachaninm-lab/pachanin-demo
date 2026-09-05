@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const branch = 'feat/pc-crop-auction-inventory-authority-4997';
-const acceptedScopeSha = 'ad68300994068ae292d5da1bf62213d238e3aacf';
+const acceptedScopeSha = '3f7eacf1a2a9cba7a9b7019a04d7b9b418f610be';
 const manifestPath = 'docs/platform-v7/autopilot/scopes/pc-crop-auction-inventory-authority-4997.json';
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 const approved = JSON.parse(git('show', `${acceptedScopeSha}:${manifestPath}`));
@@ -15,8 +15,8 @@ test('Auction inventory scope comes from its independently merged finite approva
   assert.equal(approved.productionHosting, 'REG_RU_VPS_ONLY');
   assert.equal(approved.newRecurringCostRub, 0);
   assert.equal(approved.terminalCredit, 0);
-  assert.equal(approved.allowedPaths.length, 18);
-  assert.equal(new Set(approved.allowedPaths).size, 18);
+  assert.equal(approved.allowedPaths.length, 19);
+  assert.equal(new Set(approved.allowedPaths).size, 19);
   for (const path of approved.allowedPaths) {
     assert.doesNotMatch(path, /\*|(?:^|\/)\.\.(?:\/|$)|\\/u);
     assert.doesNotMatch(path, /registration|role-eligibility|accounting|lockfile|pnpm-lock|apps\/web/u);
