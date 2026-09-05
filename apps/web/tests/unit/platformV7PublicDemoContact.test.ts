@@ -35,6 +35,13 @@ describe('platform-v7 public production deal flow and question flow', () => {
     expect(contactSurface).not.toContain('демонстрационном доступе');
   });
 
+  it('preserves the active locale when the durable form redirect omits the lang query', () => {
+    expect(contactPage).toContain("import { getLocale } from 'next-intl/server'");
+    expect(contactPage).toContain('function localeOf(params: ContactSearchParams, fallbackLocale: string)');
+    expect(contactPage.match(/localeOf\(params, await getLocale\(\)\)/g)?.length).toBe(2);
+    expect(contactPage).toContain("if (lang === 'en' || lang === 'zh' || lang === 'ru') return lang;");
+  });
+
   it('validates inquiry input server-side and supports email delivery when configured', () => {
     expect(inquiryRoute).toContain('QUESTION_TYPES');
     expect(inquiryRoute).toContain('validate(inquiry)');
