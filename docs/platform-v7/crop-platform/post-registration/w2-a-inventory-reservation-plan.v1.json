@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.bounded-slice-plan.v1",
   "issue": 4997,
   "slice": "W2-A",
-  "status": "BOUNDED_SOURCE_AUDIT_COMPLETE_IMPLEMENTATION_PENDING",
+  "status": "FOUNDATION_MERGED_CONTINUATION_REQUIRED",
   "specificationSections": [
     7,
     8,
@@ -17,7 +17,7 @@
     "UNVERIFIED_TRADING=PASS"
   ],
   "terminalCredit": 0,
-  "observedMainSha": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
+  "observedMainSha": "824a073cad569532c2be21603a143e679508a301",
   "confirmedFindings": [
     {
       "evidence": "apps/api/prisma/migrations/20260713210000_auction_postgresql_authority/migration.sql",
@@ -77,5 +77,46 @@
     "newMandatoryRecurringCostRub": 0
   },
   "sourceAuditSha": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
-  "sourceAnchorDelta": "The four audited source files are unchanged through the merged W1-D and scope-governance commits."
+  "sourceAnchorDelta": "W2-A inventory authority and W1-E service integration are merged and accepted in isolated CI. Existing Auction registration still calls auction.register_verified_lot without an inventory binding; FGIS quarantine remains. Historical source findings outside this bounded delta are retained.",
+  "foundationAcceptance": {
+    "pr": 5029,
+    "mergeSha": "824a073cad569532c2be21603a143e679508a301",
+    "verifiedHead": "77eea15dfe3c227d4202b7fdff60ec79faae5c84",
+    "postgresql": {
+      "passed": 15,
+      "total": 15
+    },
+    "api": {
+      "passed": 22,
+      "total": 22
+    },
+    "restoreAuthority": "INVENTORY_RESTORE_AUTHORITY_PASS",
+    "fullExactHeadCi": "PASS",
+    "terminalCredit": 0
+  },
+  "nextContinuation": {
+    "id": "W2-B",
+    "name": "Inventory-bound declared auction lots through the existing Auction authority",
+    "sourceAudit": "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+    "status": "BOUNDED_SOURCE_REVIEW_COMPLETE_IMPLEMENTATION_SCOPE_PENDING",
+    "registrationCodeChanged": false,
+    "registrationBehaviorChanged": false,
+    "roleEligibilityEnforcementChanged": false,
+    "newRecurringCostRub": 0,
+    "acceptance": [
+      "One existing Auction registration command creates a lot and binds a canonical inventory reservation atomically; no independent Lot/Deal engine.",
+      "Browser source labels never create independent verification. DECLARED supply can be PUBLIC_ALLOWED while FGIS self-verification stays quarantined.",
+      "Lot quantity is derived exactly from the pinned inventory commodity profile; no inconsistent culture/profile or quantity binding is accepted.",
+      "Cross-lot contention, same-tenant outsiders, revoked membership, stale versions, replay and missing audit/outbox roll back under restricted PostgreSQL principals.",
+      "Legacy registration SQL cannot bypass the inventory binding once the new command is active; existing lots require an explicit compatibility rule, not a fabricated backfill.",
+      "Bid/award/Deal consumption, complete trust/risk-acknowledgement UI and REG.RU runtime remain separately accepted continuation boundaries."
+    ],
+    "existingAuthorities": [
+      "apps/api/src/modules/auctions/auction-command.service.ts",
+      "apps/api/src/modules/auctions/auction-authority.service.ts",
+      "apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql",
+      "apps/api/src/modules/inventory/inventory.repository.ts"
+    ],
+    "scopeRule": "This plan grants no implementation paths. Merge a finite independent source-controlled approval before new migration or Auction API changes."
+  }
 }

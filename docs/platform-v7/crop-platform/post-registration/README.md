@@ -49,12 +49,14 @@ commercial rules are recorded as PARTIAL with their remaining boundaries.
 | W1-B | #5010 merged | Durable provider, capability and service-offering registry | Complete service workflows and live provider evidence |
 | W1-C | #5015 merged | Binding/maturity authority; PostgreSQL 7/7; Kubernetes/outbox passed | REG.RU, authentic external receipts, accounting consumer under #4321 |
 | W1-D | #5019 merged | Domain 29/29, contracts 11/11, PostgreSQL 11/11, DR, Kubernetes/outbox; 39 successful workflows | Contract/Deal/service/financial integration and REG.RU acceptance |
+| W1-E | #5026 merged | Marketplace API 25/25, PostgreSQL 12/12, provider revocation, payer consent, DR and Kubernetes/outbox | Physical/financial service consumers, user flows and REG.RU acceptance |
+| W2-A | #5029 merged | Inventory API 22/22, PostgreSQL 15/15, shared Marketplace 12/12, exact quantities, contention, atomic evidence, restore and all 37 CI workflows | Mandatory Lot/Offer/Deal consumption, full lifecycle, independent evidence, UX and REG.RU acceptance |
 
 Register maintenance is limited to six files by the immutable base approval
 merged in #5021; branch-local state, manifest and workflow expansion is denied.
 
 The exact current main, PR head, workflow evidence and next step are recorded
-in `execution-state.v1.json`. No W1 production update has been verified. The
+in `execution-state.v1.json`. No W1/W2 production update has been verified. The
 last known W1-A read-only preflight is historical evidence, not a current
 runtime claim.
 
@@ -92,10 +94,16 @@ W1-A delivered `Organization Capability Authority — shadow mode`:
 
 W1-B replaced the static provider catalog with durable provider, capability
 and service-offering authority. W1-C added integration bindings. W1-D
-is merged after exact-head checks and review. The next bounded
-product slice is W2-A: canonical physical inventory, independent evidence
-and concurrent quantity reservation. Its bounded source audit, reuse decisions
-and required acceptance are in `w2-a-inventory-reservation-plan.v1.json`.
+and W1-E are merged after exact-head checks and review. W2-A adds canonical
+physical inventory and concurrent reservations for known shared positions.
+INVENTORY, DOUBLE_SELL_PROTECTION and SERVICE_MARKETPLACE move from FAIL to
+PARTIAL, with no additional terminal credit.
+
+The next bounded slice is W2-B: connect the existing Auction registration path
+to inventory and separate declared public supply from independent verification.
+Its source findings and required acceptance are in
+`w2-a-inventory-reservation-plan.v1.json`. That plan grants no implementation
+scope: new migration/Auction changes require a separately merged finite approval.
 External provider activation remains separately attested.
 
 ## Registration boundary
