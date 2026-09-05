@@ -10,7 +10,7 @@ import {
 const head = 'a'.repeat(40);
 const oldHead = 'b'.repeat(40);
 
-test('accepts only a non-dismissed Codex review on the exact head', () => {
+test('accepts only a completed Codex review on the exact head', () => {
   const reviews = [
     {
       user: { login: 'chatgpt-codex-connector[bot]' },
@@ -21,6 +21,11 @@ test('accepts only a non-dismissed Codex review on the exact head', () => {
       user: { login: 'chatgpt-codex-connector[bot]' },
       commit_id: head,
       state: 'DISMISSED',
+    },
+    {
+      user: { login: 'chatgpt-codex-connector[bot]' },
+      commit_id: head,
+      state: 'PENDING',
     },
     {
       user: { login: 'chatgpt-codex-connector[bot]' },
@@ -54,7 +59,7 @@ test('blocks only unresolved non-outdated review threads', () => {
   assert.deepEqual(activeUnresolvedThreads(threads), [threads[0]]);
 });
 
-test('latest review from a reviewer controls CHANGES_REQUESTED state', () => {
+test('approval clears an earlier CHANGES_REQUESTED from the same reviewer', () => {
   const reviews = [
     {
       user: { login: 'reviewer-a' },
@@ -79,7 +84,27 @@ test('latest review from a reviewer controls CHANGES_REQUESTED state', () => {
   );
 });
 
-test('dismissed latest review clears a previous change request', () => {
+test('a later COMMENTED review does not clear CHANGES_REQUESTED', () => {
+  const reviews = [
+    {
+      user: { login: 'reviewer-a' },
+      state: 'CHANGES_REQUESTED',
+      submitted_at: '2026-09-05T01:00:00Z',
+    },
+    {
+      user: { login: 'reviewer-a' },
+      state: 'COMMENTED',
+      submitted_at: '2026-09-05T02:00:00Z',
+    },
+  ];
+
+  assert.deepEqual(
+    latestBlockingChangeRequests(reviews).map(({ login }) => login),
+    ['reviewer-a'],
+  );
+});
+
+test('dismissal clears a previous change request', () => {
   const reviews = [
     {
       user: { login: 'reviewer-a' },
