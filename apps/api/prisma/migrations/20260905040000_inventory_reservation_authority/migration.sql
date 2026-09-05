@@ -147,6 +147,14 @@ CREATE TABLE inventory.command_events (
 CREATE FUNCTION inventory.private_write_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog, inventory AS $function$
 BEGIN
+  -- Database-superuser maintenance (including isolated database reset) remains
+  -- possible. A runtime grant or caller-controlled setting cannot confer this
+  -- catalog role attribute; row writes still require the command owner below.
+  IF TG_OP = 'TRUNCATE' AND EXISTS (
+    SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = current_user AND rolsuper
+  ) THEN
+    RETURN NULL;
+  END IF;
   IF current_user <> 'pc_inventory_authority' OR TG_OP = 'TRUNCATE'
      OR (TG_OP <> 'INSERT' AND TG_TABLE_NAME NOT IN ('positions','reservations'))
      OR TG_OP = 'DELETE' THEN

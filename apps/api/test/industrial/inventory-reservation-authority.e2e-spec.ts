@@ -128,6 +128,34 @@ describeAuthority('Inventory PostgreSQL authority at READ COMMITTED', () => {
     expect((await stored(position))[0]?.state_version).toBe(1n);
   });
 
+  it('permits superuser reset while denying runtime truncation even with accidental table grants', async () => {
+    const position = (await inventory.execute(actor, declaration('maintenance'))).position.positionId;
+    const roles = await app.$queryRaw<Array<{ name: string; superuser: boolean }>>(Prisma.sql`
+      SELECT current_user AS name, rolsuper AS superuser FROM pg_catalog.pg_roles WHERE rolname=current_user`);
+    expect(roles[0]?.superuser).toBe(false);
+    const appRole = roles[0]!.name;
+    const missing = await admin.$queryRaw<Array<{ table_name: string }>>(Prisma.sql`
+      SELECT c.relname AS table_name FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='inventory' AND c.relkind='r'
+        AND NOT has_table_privilege(${appRole}, c.oid, 'TRUNCATE')`);
+    const quoteIdentifier = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    try {
+      for (const row of missing) await admin.$executeRawUnsafe(`GRANT TRUNCATE ON inventory.${quoteIdentifier(row.table_name)} TO ${quoteIdentifier(appRole)}`);
+      await expect(app.$executeRawUnsafe('TRUNCATE inventory.positions CASCADE')).rejects.toThrow('INVENTORY_DIRECT_MUTATION_DENIED');
+    } finally {
+      for (const row of missing) await admin.$executeRawUnsafe(`REVOKE TRUNCATE ON inventory.${quoteIdentifier(row.table_name)} FROM ${quoteIdentifier(appRole)}`);
+    }
+    const rollback = new Error('inventory maintenance proof rollback');
+    await expect(admin.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('TRUNCATE inventory.positions CASCADE');
+      const rows = await tx.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`SELECT count(*) FROM inventory.positions`);
+      expect(rows[0]?.count).toBe(0n);
+      throw rollback;
+    })).rejects.toBe(rollback);
+    expect((await stored(position))[0]?.state_version).toBe(1n);
+  });
+
   it.each(['audit', 'outbox', 'event'] as const)('rolls back all quantities and evidence on %s insertion failure', async (kind) => {
     const position = (await inventory.execute(actor, declaration(`rollback-${kind}`))).position.positionId;
     const table = { audit: 'public.audit_events', outbox: 'public.outbox_entries', event: 'inventory.command_events' }[kind]!;
