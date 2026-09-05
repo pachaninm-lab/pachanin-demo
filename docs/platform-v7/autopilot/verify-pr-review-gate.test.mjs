@@ -272,10 +272,14 @@ test('review reconciliation workflow uses supported dispatch wiring and complete
   assert.match(workflow, /^\s*cancel-in-progress:\s*false\s*$/mu);
   assert.doesNotMatch(workflow, /^\s*cancel-in-progress:\s*true\s*$/mu);
   assert.match(workflow, /^\s*queue:\s*max\s*$/mu);
+  const strictDraftEligibilityChecks = workflow.match(/\[ "\$draft" = false \]/gu) || [];
+  assert.ok(strictDraftEligibilityChecks.length >= 2);
   const finalLiveStateChecks = workflow.match(/--json headRefOid,isDraft,state/gu) || [];
   assert.ok(finalLiveStateChecks.length >= 3);
-  const draftInvalidations = workflow.match(/\[ "\$current_state" != OPEN \] \|\| \[ "\$current_draft" = true \]/gu) || [];
+  const draftInvalidations = workflow.match(/\[ "\$current_state" != OPEN \] \|\| \[ "\$current_draft" != false \]/gu) || [];
   assert.ok(draftInvalidations.length >= 3);
+  const incompleteStateInvalidations = workflow.match(/Exact-head review authority invalidated by incomplete live PR state/gu) || [];
+  assert.ok(incompleteStateInvalidations.length >= 3);
   const publisherAuthorityFailures = workflow.match(/if \[ "\$state" != success \]; then\s+exit 1\s+fi/gu) || [];
   assert.ok(publisherAuthorityFailures.length >= 3);
   assert.match(workflow, /^\s*exact-head-dispatched-gate:\s*$/mu);
