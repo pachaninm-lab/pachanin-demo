@@ -72,8 +72,6 @@ test('homepage presents one seven-step ordinary Deal journey and keeps exception
   await expect(path.locator('article')).toHaveCount(7);
   await expect(path.getByRole('heading', { level: 3, name: 'Товар и условия' })).toBeVisible();
   await expect(path.getByRole('heading', { level: 3, name: 'Сделка и договор' })).toBeVisible();
-
-  await path.getByText('Показать шаги 4–7', { exact: true }).click();
   await expect(path.getByRole('heading', { level: 3, name: 'Расчёт и закрытие' })).toBeVisible();
   await expect(path.getByText(/Товар и условия → торги и контрагент → Сделка и договор/)).toBeVisible();
 
