@@ -1,8 +1,17 @@
 import { getPlatformV7HomeStoryCopy as getOperatingStoryCopy } from './platform-v7-home-story-operating';
 
 type Locale = 'ru' | 'en' | 'zh';
-
 type Step = Readonly<{ index: string; title: string; text: string; result: string }>;
+type DemoNormal = Readonly<{
+  status: string;
+  title: string;
+  summary: string;
+  kpis: readonly Readonly<{ label: string; value: string }>[];
+  events: readonly Readonly<{ meta: string; title: string; text: string }>[];
+  actionTitle: string;
+  actionText: string;
+  actionCta: string;
+}>;
 
 const PRODUCT_COPY: Record<Locale, {
   navFunctions: string;
@@ -25,6 +34,7 @@ const PRODUCT_COPY: Record<Locale, {
   stagesLabel: string;
   demoTitle: string;
   demoLead: string;
+  demoNormal: DemoNormal;
   rolesTitle: string;
   rolesLead: string;
   rolesScenarioTitle: string;
@@ -77,6 +87,24 @@ const PRODUCT_COPY: Record<Locale, {
     stagesLabel: 'Показать 7 шагов',
     demoTitle: 'Обычное исполнение — основной сценарий',
     demoLead: 'Ниже показан вымышленный пример Сделки: норма идёт первой, а отклонение и спор показаны как отдельные исключения, а не обязательные этапы.',
+    demoNormal: {
+      status: 'Приёмка и качество подтверждены',
+      title: 'Поставка принята по условиям Сделки',
+      summary: 'Вес и качество подтверждены. Следующий шаг — проверить комплект документов и готовность расчёта.',
+      kpis: [
+        { label: 'Вес', value: '1 200,4 т · подтверждён' },
+        { label: 'Качество', value: '12,1% · в допуске' },
+        { label: 'Следующий шаг', value: 'Документы и готовность расчёта' },
+      ],
+      events: [
+        { meta: 'Сегодня, 09:42', title: 'Приёмка завершена', text: 'Вес и партия связаны с подтверждённым событием приёмки.' },
+        { meta: 'Сегодня, 09:51', title: 'Качество подтверждено', text: 'Лабораторный результат соответствует условиям Сделки.' },
+        { meta: 'Далее', title: 'Проверка документов', text: 'Следующий этап проверяет комплектность, версии, подписи и расчётные основания.' },
+      ],
+      actionTitle: 'Следующий шаг — документы',
+      actionText: 'Проверьте комплектность, версии и подписи. Только после этого определяется готовность расчёта.',
+      actionCta: 'Перейти к документам',
+    },
     rolesTitle: 'Покажите платформу глазами моей роли',
     rolesLead: 'Девять публичных ролей объясняют пользу без изменения реальных прав доступа. Полномочия назначаются системой после регистрации и проверки организации.',
     rolesScenarioTitle: 'Что видит и делает каждая роль',
@@ -129,6 +157,24 @@ const PRODUCT_COPY: Record<Locale, {
     stagesLabel: 'Show the 7 steps',
     demoTitle: 'Ordinary execution is the primary scenario',
     demoLead: 'The section below is a fictional Deal example: normal execution comes first, while deviation and dispute are separate exceptions rather than mandatory stages.',
+    demoNormal: {
+      status: 'Acceptance and quality confirmed',
+      title: 'Delivery accepted against Deal terms',
+      summary: 'Weight and quality are confirmed. The next step is to verify documents and settlement readiness.',
+      kpis: [
+        { label: 'Weight', value: '1,200.4 t · confirmed' },
+        { label: 'Quality', value: '12.1% · within tolerance' },
+        { label: 'Next step', value: 'Documents and settlement readiness' },
+      ],
+      events: [
+        { meta: 'Today, 09:42', title: 'Acceptance completed', text: 'Weight and lot are linked to the confirmed acceptance event.' },
+        { meta: 'Today, 09:51', title: 'Quality confirmed', text: 'The laboratory result matches the Deal terms.' },
+        { meta: 'Next', title: 'Document verification', text: 'The next step checks completeness, versions, signatures and settlement grounds.' },
+      ],
+      actionTitle: 'Next step — documents',
+      actionText: 'Verify completeness, versions and signatures. Settlement readiness is determined only after that check.',
+      actionCta: 'Go to documents',
+    },
     rolesTitle: 'Show me the platform from my role',
     rolesLead: 'Nine public roles explain value without changing real access rights. Authority is assigned by the system after registration and organisation verification.',
     rolesScenarioTitle: 'What each role sees and does',
@@ -181,6 +227,24 @@ const PRODUCT_COPY: Record<Locale, {
     stagesLabel: '显示 7 个步骤',
     demoTitle: '普通履约是主要场景',
     demoLead: '下面展示的是虚构交易示例：先显示正常履约，偏差和争议仅作为独立异常情况，不是每笔交易的必经阶段。',
+    demoNormal: {
+      status: '验收与质量已确认',
+      title: '交付符合交易条件并完成验收',
+      summary: '重量和质量已经确认。下一步是核验文件与结算准备状态。',
+      kpis: [
+        { label: '重量', value: '1,200.4 吨 · 已确认' },
+        { label: '质量', value: '12.1% · 符合容差' },
+        { label: '下一步', value: '文件与结算准备' },
+      ],
+      events: [
+        { meta: '今天 09:42', title: '验收完成', text: '重量和批次已关联到已确认的验收事件。' },
+        { meta: '今天 09:51', title: '质量已确认', text: '实验室结果符合交易条件。' },
+        { meta: '下一步', title: '核验文件', text: '下一阶段检查文件完整性、版本、签名和结算依据。' },
+      ],
+      actionTitle: '下一步 — 文件',
+      actionText: '核验完整性、版本和签名；完成后再判断是否具备结算准备条件。',
+      actionCta: '进入文件核验',
+    },
     rolesTitle: '从我的角色理解平台',
     rolesLead: '九个公开角色用于解释价值，不会改变真实访问权限。实际权限在注册并完成机构核验后由系统确定。',
     rolesScenarioTitle: '每个角色看到什么、做什么',
@@ -237,6 +301,7 @@ export function getPlatformV7HomeStoryCopy(locale: string) {
       title: local.demoTitle,
       lead: local.demoLead,
       stages: local.processPhases.map((phase) => phase.title),
+      states: copy.demo.states.map((state, index) => index === 0 ? { ...state, ...local.demoNormal } : state),
     },
     roles: {
       ...copy.roles,
