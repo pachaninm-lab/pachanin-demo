@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 
-for (const width of [320, 360, 375, 390, 430]) {
+for (const width of [320, 375, 390, 430, 768, 1280, 1440]) {
   test(`canonical public homepage reflows at ${width}px`, async ({ page }) => {
     const runtimeErrors: string[] = [];
     page.on('pageerror', (error) => runtimeErrors.push(error.message));
 
-    await page.setViewportSize({ width, height: 860 });
+    await page.setViewportSize({ width, height: width < 768 ? 860 : 960 });
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
 
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Управляйте агросделкой');
