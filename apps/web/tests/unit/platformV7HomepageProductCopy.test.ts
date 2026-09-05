@@ -71,7 +71,9 @@ describe('platform-v7 homepage product copy', () => {
     expect(story).toContain("heroSampleLabel: 'Fictional Deal example'");
     expect(story).toContain("heroSampleLabel: '虚构交易示例'");
     expect(story).toContain('Обычное исполнение — основной сценарий');
-    expect(story).toContain('Отклонение и спор — отдельные примеры исключений');
+    expect(story).toContain('Ниже показан вымышленный пример Сделки');
+    expect(story).toContain('The section below is a fictional Deal example');
+    expect(story).toContain('下面展示的是虚构交易示例');
   });
 
   it('makes registration the clear next step and keeps organization help distinct', () => {
