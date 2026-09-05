@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "ops/pc-crop-reg-ru-dr-acceptance-4997",
+  "status": "staged",
+  "purpose": "W11-A: define and prove exact-release REG.RU backup/PITR/restore/disaster-recovery acceptance with owner-approved RPO/RTO targets and immutable evidence, without using CI-only restore as production proof or mutating production during governance.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP and keep production only on REG.RU. This staged governance branch performs no production mutation. Exact runtime drills require the later accepted operations procedure and safe isolated restore target.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [101, 104, 110],
+  "terminalCriteria": ["BACKUP=PASS", "PITR=PASS", "RESTORE=PASS", "DR=PASS", "RPO_RTO=PASS"],
+  "allowedPaths": [
+    "docs/platform-v7/ops/pc-crop-reg-ru-rpo-rto-policy.md",
+    "docs/platform-v7/ops/pc-crop-reg-ru-backup-runbook.md",
+    "docs/platform-v7/ops/pc-crop-reg-ru-dr-acceptance.md",
+    "scripts/ops/pc-crop-reg-ru-backup-evidence.sh",
+    "scripts/ops/pc-crop-reg-ru-restore-rehearsal.sh",
+    "scripts/ops/pc-crop-reg-ru-dr-evidence-verify.mjs",
+    ".github/workflows/pc-crop-reg-ru-dr-evidence.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "dependencies": {
+    "ownerApprovedRpoRtoTargetsRequired": true,
+    "regRuBackupCapabilityRequired": true,
+    "isolatedRestoreTargetRequired": true,
+    "exactReleaseShaRequired": true
+  },
+  "requiredInvariants": [
+    "CI/local restore rehearsals are engineering evidence only and never counted as production backup/PITR/DR proof.",
+    "RPO and RTO targets are explicit approved policy values before terminal acceptance. The staged scope does not invent or silently select business recovery objectives.",
+    "Every production backup evidence record binds REG.RU environment identity, PostgreSQL instance/database identity, exact release SHA/schema migration head, backup method/type, start/end time, size/checksum/encryption metadata, retention class and result.",
+    "PITR evidence proves the required WAL/log/archive chain exists and that an isolated restore can target a timestamp between full/base backups according to the accepted RPO policy.",
+    "Restore rehearsal always uses an isolated non-production restore target or explicitly safe replacement procedure; it never overwrites the live production database during an acceptance test.",
+    "Restored database acceptance verifies schema/migration head, critical row counts/checksums, RLS/roles/policies, audit/outbox chains, representative Deal/Inventory/Settlement/Document authorities and application read-only smoke against the exact release.",
+    "Restore credentials/secrets are never committed to the repository or evidence artifact; evidence stores references/fingerprints and redacted command metadata only.",
+    "DR procedure defines loss/corruption/unavailable-host scenarios, detection/decision authority, backup selection, restore, application cutover, DNS/network implications, verification, rollback and incident evidence.",
+    "A successful backup command without a proven restore is not BACKUP/DR terminal PASS. A successful restore without exact data/security/application verification is not DR PASS.",
+    "Recovery timing is measured from declared incident/start markers to validated service/readiness completion, not from a synthetic script subsection.",
+    "Failure, timeout, checksum mismatch, missing WAL, schema mismatch, RLS drift or application-readiness failure causes acceptance FAIL_CLOSED and preserves all evidence.",
+    "No Netlify/Vercel/alternate production topology is introduced. Production acceptance is REG.RU only.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, business data/authority schemas and mandatory recurring cost remain unchanged by the governance/runbook slice."
+  ],
+  "acceptance": [
+    "Policy verification fails until explicit RPO/RTO targets are approved and recorded; no placeholder target can produce PASS.",
+    "A real REG.RU backup produces immutable evidence with exact release/schema/checksum and passes independent artifact verification.",
+    "An isolated full/base restore and a PITR restore each pass schema/RLS/authority/data/readiness verification against their expected recovery points.",
+    "A deliberately corrupted/wrong backup, missing archive segment or wrong migration head is detected and rejected.",
+    "Measured recovery-point loss and recovery time satisfy the approved RPO/RTO targets for the accepted drill; otherwise the criterion remains FAIL.",
+    "DR drill evidence includes exact operator actions/timestamps, incident scenario, selected backup/recovery point, verification results and rollback/cutover outcome.",
+    "No production data is destroyed/overwritten by the rehearsal and no credential/secret is persisted in GitHub artifacts.",
+    "Exact-head review plus production REG.RU evidence are required before any DR criterion receives terminal PASS."
+  ],
+  "remainingTerminalBoundary": [
+    "Actual RPO/RTO target values require explicit owner/business approval; this governance scope deliberately does not fabricate them.",
+    "Real REG.RU backup/PITR features and access must exist and be exercised; repository scripts cannot substitute for provider/runtime evidence.",
+    "Periodic recurring DR drill cadence and alerting remain operations policy after first terminal acceptance.",
+    "Any destructive production recovery action outside an isolated rehearsal requires incident/change authorization appropriate to production operations."
+  ],
+  "terminalCredit": 0
+}
