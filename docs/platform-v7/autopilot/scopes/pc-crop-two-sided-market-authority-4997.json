@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-two-sided-market-authority-4997",
+  "status": "active",
+  "purpose": "W2-E foundation: add durable DemandRequest/RFQ/OfferVersion/CounterOffer/Negotiation/MatchCandidate authority without mounting a second Deal engine or browser-owned market state.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [13, 14, 15],
+  "terminalCriteria": [
+    "MARKET_ENGINE=PASS",
+    "MULTI_ORIGIN=PASS",
+    "RFQ=PASS",
+    "OFFER_NEGOTIATION=PASS"
+  ],
+  "allowedPaths": [
+    "packages/domain-core/src/two-sided-market.ts",
+    "packages/domain-core/src/two-sided-market.test.ts",
+    "apps/api/prisma/migrations/20260905220000_two_sided_market_authority/migration.sql",
+    "apps/api/src/modules/market-negotiation/market-negotiation.contract.ts",
+    "apps/api/src/modules/market-negotiation/market-negotiation.contract.spec.ts",
+    "apps/api/src/modules/market-negotiation/market-negotiation.repository.ts",
+    "apps/api/src/modules/market-negotiation/market-negotiation.repository.spec.ts",
+    "apps/api/src/modules/market-negotiation/market-negotiation.policy.ts",
+    "apps/api/src/modules/market-negotiation/market-negotiation.policy.spec.ts",
+    "apps/api/test/industrial/market-negotiation-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-two-sided-market-scope.test.mjs",
+    ".github/workflows/pc-crop-two-sided-market.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {
+      "path": "apps/api/src/app.module.ts",
+      "reason": "The first W2-E slice is a durable authority foundation only, deliberately unmounted so it can be implemented in parallel without overlapping W2-D. HTTP exposure is a later accepted consumer slice."
+    },
+    {
+      "path": "apps/api/src/modules/deals/prisma-deal.repository.ts",
+      "reason": "Canonical Deal creation remains unchanged until W2-C is accepted. W2-E stores immutable accepted market basis facts but does not create or mutate Deal in this first slice."
+    },
+    {
+      "path": "apps/api/src/modules/auctions/auction-command.service.ts",
+      "reason": "Existing Auction authority is retained as one origin; W2-E must not weaken or duplicate it."
+    },
+    {
+      "path": "apps/api/src/modules/search/search.service.ts",
+      "reason": "Search/discovery projection is a later consumer after the market authority exists; it must not become authority in this foundation."
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "reason": "Global CI remains an independent gate and must not be widened or weakened for one bounded market slice."
+    },
+    {
+      "path": "scripts/platform-v7-forward-only-migration-check.mjs",
+      "reason": "The generic forward-only checker discovers additive migrations dynamically and remains unchanged."
+    }
+  ],
+  "sourceEvidence": [
+    "apps/api/src/modules/auctions/auction-authority.service.ts",
+    "apps/api/src/modules/lots/lots.service.ts",
+    "apps/api/src/modules/search/search.service.ts",
+    "apps/api/src/modules/deals/dto/create-deal.dto.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Reuse the existing Auction path and canonical Deal; W2-E adds additional pre-Deal origins only. Do not create DealV2, AuctionV2, LotV2 or a browser-owned parallel marketplace.",
+    "DemandRequest, RFQ, OfferVersion, CounterOffer, Negotiation and MatchCandidate are PostgreSQL-authoritative aggregates with tenant isolation, immutable version lineage, optimistic concurrency and payload-bound idempotency.",
+    "Commercial terms use exact Money/measure primitives and immutable normalized snapshots; caller Float money, caller-calculated totals or mutable accepted terms are forbidden.",
+    "Buyer demand and seller offers are distinct authorities. A seller cannot forge buyer demand, a buyer cannot forge seller inventory, and same-tenant outsiders cannot read private negotiation state.",
+    "Each OfferVersion and CounterOffer is append-only. Negotiation acceptance pins exactly one immutable accepted basis version; later edits create new versions and cannot rewrite accepted history.",
+    "A MatchCandidate is an explainable projection, never an acceptance or Deal authority. Matching/ranking inputs and policy version are persisted so a decision can be reproduced.",
+    "Supply-side offers that represent physical stock reference canonical Inventory identity when known. Lack of independent verification does not manufacture verification and remains compatible with the separately governed Progressive Trust policy.",
+    "Demand and offer lifecycle commands revalidate current user, membership, organization and tenant authority before mutation and replay; revocation cannot replay an old receipt as current authority.",
+    "Every business mutation commits aggregate state, immutable event, audit and outbox atomically under restricted PostgreSQL principals. Missing audit/outbox/evidence rolls the transaction back.",
+    "Accepted market basis is stored as an immutable origin-neutral snapshot suitable for a later canonical DealBasis adapter, but this foundation does not create a Deal or mark a transaction legally committed.",
+    "Registration, Role Eligibility, W2-B Auction/Inventory guards, W2-C Deal allocation, W2-D trust authority, Federal Accounting lock #4321, package/lockfiles, external provider claims and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Restricted PostgreSQL tests prove buyer DemandRequest/RFQ creation, seller OfferVersion response, counteroffer/version chains, acceptance of one exact version and rejection of stale or changed-payload replay.",
+    "Cross-tenant callers and same-tenant outsiders cannot read or mutate private RFQ/negotiation rows; revoked membership/user/organization authority fails before mutation and replay.",
+    "Concurrent competing accept/counter commands serialize deterministically and cannot accept two different terms for one negotiation version.",
+    "Exact Money/quantity invariants reject Float-like or inconsistent totals and retain integer minor units / pinned unit rules.",
+    "MatchCandidate stores explainable factors and policy version but cannot by itself create an Offer, acceptance or Deal.",
+    "Missing audit/outbox/event evidence rolls back all domain rows and command receipts.",
+    "Legacy browser RFQ/offers remain fail-closed boundaries; this first slice does not claim mounted API or user-facing completion.",
+    "Forward migrations, zero public-schema drift, backup/restore, cryptographic freshness and exact-head CI/review pass while global independent gates remain unchanged."
+  ],
+  "remainingTerminalBoundary": [
+    "Mounted buyer/seller RFQ APIs and role UX remain a later consumer slice after this authority is accepted.",
+    "Origin-neutral canonical DealBasis adapter and atomic accepted-offer-to-Deal handoff remain blocked on W2-C Deal inventory allocation.",
+    "Search, saved discovery, notifications and market analytics are separate projections and cannot be counted as authority here.",
+    "Verified REG.RU runtime and real-user buyer/seller acceptance remain required before terminal MARKET_ENGINE/MULTI_ORIGIN/RFQ/OFFER_NEGOTIATION credit."
+  ],
+  "terminalCredit": 0
+}
