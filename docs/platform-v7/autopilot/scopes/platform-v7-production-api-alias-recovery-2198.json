@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-production-api-alias-recovery-2198",
+  "branch": "fix/production-full-stack-api-alias-collision-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "a2b347940264f95adbef18eac25c783618389758"
+  },
+  "purpose": "Repair only the proven production Docker DNS collision where a foreign stale compose api endpoint shares the authoritative api network alias and causes exact-SHA rollout health checks to resolve the rollback API.",
+  "allowedPaths": [
+    ".github/workflows/production-full-stack-network-alias-recovery.yml",
+    "apps/web/tests/unit/platformV7ReleaseNetworkAliasRecovery.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-production-api-alias-recovery-2198.json"
+  ],
+  "requiredBehavior": [
+    "identify the authoritative compose project from the single running web service",
+    "detach only a foreign compose service=api endpoint with the api alias and a provable Compose-generated stale container name",
+    "never stop delete restart recreate or mutate the authoritative api or web container",
+    "verify api alias uniqueness, authoritative API readiness and unchanged revision after detachment",
+    "keep exact-SHA release and production i18n acceptance fail-closed"
+  ],
+  "forbiddenCapabilities": [
+    "docker container deletion stopping restart or broad prune",
+    "database auth RBAC RLS tenant money deal or Gekta model mutation",
+    "release health bypass or acceptance allowlist weakening",
+    "paid service or recurring cost"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "Network cleanup is not completion. Completion still requires exact current-main REG.RU deployment and Platform V7 Production i18n Acceptance PASS."
+}
