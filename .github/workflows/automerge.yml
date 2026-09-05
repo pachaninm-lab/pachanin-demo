@@ -7,6 +7,8 @@ on:
     types: [submitted, dismissed]
   pull_request_review_comment:
     types: [created, edited, deleted]
+  pull_request_review_thread:
+    types: [resolved, unresolved]
   issue_comment:
     types: [created, edited, deleted]
   schedule:
@@ -30,7 +32,8 @@ jobs:
     if: >-
       (github.event_name == 'pull_request_target' ||
        github.event_name == 'pull_request_review' ||
-       github.event_name == 'pull_request_review_comment') &&
+       github.event_name == 'pull_request_review_comment' ||
+       github.event_name == 'pull_request_review_thread') &&
       github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
     timeout-minutes: 10
