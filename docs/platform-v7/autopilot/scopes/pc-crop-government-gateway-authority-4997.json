@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-government-gateway-authority-4997",
+  "status": "staged",
+  "purpose": "W6-D: generalize the existing fail-closed regulatory control tower/FGIS Grain corridor into a provider-neutral GovernmentGateway with versioned applicability, receipts, reporting and degraded-state authority for FGIS Grain, EFGIS ZSN, Seed, Saturn and phytosanitary corridors without claiming unavailable government access.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "terminalCriteria": ["GOVERNMENT_GATEWAY=PASS", "FGIS_GRAIN_CORRIDOR=PASS", "EFGIS_ZSN_CORRIDOR=PASS", "SEED_CORRIDOR=PASS", "SATURN_CORRIDOR=PASS", "PHYTOSANITARY_CORRIDOR=PASS", "REGULATORY_APPLICABILITY=PASS", "REGULATORY_REPORTING=PASS", "NO_FALSE_EXTERNAL_SUCCESS=PASS", "DEGRADED_EXTERNAL_MODE=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/regulatory-applicability.ts",
+    "packages/domain-core/src/regulatory-applicability.test.ts",
+    "apps/api/src/modules/government-gateway/government-gateway.port.ts",
+    "apps/api/src/modules/government-gateway/government-gateway.contract.ts",
+    "apps/api/src/modules/government-gateway/government-gateway.contract.spec.ts",
+    "apps/api/src/modules/government-gateway/regulatory-applicability.policy.ts",
+    "apps/api/src/modules/government-gateway/regulatory-applicability.policy.spec.ts",
+    "apps/api/src/modules/government-gateway/government-receipt.contract.ts",
+    "apps/api/src/modules/government-gateway/government-receipt.contract.spec.ts",
+    "apps/api/src/modules/government-gateway/government-corridor.router.ts",
+    "apps/api/src/modules/government-gateway/government-corridor.router.spec.ts",
+    "apps/api/test/industrial/government-gateway-conformance.e2e-spec.ts",
+    "scripts/verify-pc-crop-government-gateway-scope.test.mjs",
+    ".github/workflows/pc-crop-government-gateway.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "dependencies": {
+    "existingRegulatoryControlTowerReused": true,
+    "existingFgisGrainFailClosedInboxReused": true,
+    "liveContractsCredentialsExternalPerCorridor": true
+  },
+  "requiredInvariants": [
+    "Reuse the existing regulatory control-tower durability/redrive/evidence and FGIS Grain fail-closed inbox patterns; do not create a second integration inbox/outbox or duplicate Deal/Inventory authority.",
+    "GovernmentGateway core is corridor/provider-neutral. Each corridor declares capabilities, schema/profile versions, authentication mode, direction, freshness/SLA and receipt semantics; external system-specific payloads stay behind mappers.",
+    "RegulatoryApplicability is versioned and server-derived from canonical commodity profile, operation, geography, party/facility facts, dates and authoritative rule sources. The browser cannot select which regulations apply.",
+    "Applicability distinguishes REQUIRED, NOT_APPLICABLE, UNKNOWN_REVIEW_REQUIRED and BLOCKED_BY_MISSING_FACTS. Unknown/degraded external availability cannot silently become NOT_APPLICABLE.",
+    "Outbound REQUEST_ACCEPTED/QUEUED and inbound payload arrival are not regulatory success. Only validated immutable government/provider receipts bound to exact request/object/version/identity may create an accepted external fact.",
+    "A corridor without live contract, credentials, endpoints, certificates/keys or accepted conformance evidence remains NOT_ACTIVATED/EXTERNAL_BLOCKER and must never emit successful government status.",
+    "FGIS Grain preserves its existing stronger fail-closed behavior; generalization cannot weaken its inbox, provenance, idempotency, tenant isolation, source health or evidence freshness controls.",
+    "EFGIS ZSN, Seed, Saturn and phytosanitary corridors begin as explicit NOT_ACTIVATED reference adapters until official access contracts and mappings exist.",
+    "Regulatory reporting is an immutable versioned obligation/report/receipt chain. Generating or sending a report does not prove authority acceptance until a validated receipt is attached.",
+    "Degraded external mode preserves local deal/evidence work only where the pinned regulatory policy permits it; legally blocked actions remain fail-closed and show exact missing corridor/evidence reason.",
+    "No manual upload or operator override can manufacture official external success; manual evidence has explicit provenance/status and can only satisfy policy if that policy explicitly permits it.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, Inventory/Progressive Trust/Document authorities, packages/lockfiles and REG.RU-only production remain unchanged."
+  ],
+  "acceptance": [
+    "Contract tests prove one common gateway/applicability/receipt vocabulary supports all five named corridors without system-specific core fields.",
+    "Applicability tests cover REQUIRED/NOT_APPLICABLE/UNKNOWN/BLOCKED outcomes and prove missing/unknown facts never downgrade a mandatory obligation.",
+    "Reference corridors are NOT_ACTIVATED without live credentials/config and cannot fabricate government receipts or statuses.",
+    "Receipt tests reject wrong object/version/tenant/provider/request, duplicate/replayed event, stale certificate/key and payload fingerprint mismatch.",
+    "Existing FGIS Grain fail-closed/inbox/redrive tests remain green and are not weakened by the generalized router.",
+    "Degraded-mode tests prove permitted local actions stay available while legally significant blocked actions remain fail closed with reason codes.",
+    "No credentials, secrets or paid dependency are committed by the foundation; mandatory recurring cost remains 0 RUB.",
+    "Exact-head review plus corridor-specific official/credentialed REG.RU acceptance is required before each terminal corridor receives PASS."
+  ],
+  "remainingTerminalBoundary": [
+    "Official contracts, credentials, endpoint/schema documentation and certificates for each government corridor are external dependencies.",
+    "Each corridor requires its own production mapping/conformance/receipt and revocation/freshness evidence before terminal credit.",
+    "Progressive Trust/Inventory/Documents must consume accepted corridor facts through explicit adapters before end-to-end regulatory PASS.",
+    "REG.RU production operations, outage and recovery evidence remain mandatory."
+  ],
+  "terminalCredit": 0
+}
