@@ -291,8 +291,7 @@ const ABOUT_HEADER_CSS = `
   .pc-site-header:has(.p7-about-register){gap:6px;padding-inline:10px}
   .pc-site-header:has(.p7-about-register) .pc-site-brand-text{display:none}
   .pc-site-header:has(.p7-about-register) .pc-site-actions{gap:4px}
-  .pc-site-header:has(.p7-about-register) .p7-about-login{width:44px;min-width:44px;padding:0;font-size:0}
-  .pc-site-header:has(.p7-about-register) .p7-about-login::before{content:'↪';font-size:18px;line-height:1}
+  .pc-site-header:has(.p7-about-register) .p7-about-login{display:none!important}
   .pc-site-header:has(.p7-about-register) .p7-about-register{min-height:44px;padding:0 10px;font-size:13px}
 }
 @media(max-width:340px){
