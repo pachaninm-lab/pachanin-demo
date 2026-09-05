@@ -50,6 +50,22 @@ describe('platform-v7 visible public operating copy', () => {
     }
   });
 
+  it('keeps the public role selector keyboard complete without granting authority', () => {
+    expect(roleWorkspace).toContain("role='tablist'");
+    expect(roleWorkspace).toContain("aria-orientation='horizontal'");
+    expect(roleWorkspace).toContain("aria-controls='public-role-panel'");
+    expect(roleWorkspace).toContain("id='public-role-panel'");
+    expect(roleWorkspace).toContain('tabIndex={role === key ? 0 : -1}');
+    expect(roleWorkspace).toContain('aria-labelledby={`public-role-tab-${role}`}');
+    for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End']) {
+      expect(roleWorkspace).toContain(`case '${key}':`);
+    }
+    expect(roleWorkspace).toContain("querySelectorAll<HTMLButtonElement>('[role=\"tab\"]')");
+    expect(roleWorkspace).toContain('event.preventDefault()');
+    expect(roleWorkspace).toContain('tabs?.[nextIndex]?.focus()');
+    expect(roleWorkspace).toContain('реальные полномочия определяются системой после регистрации и проверки организации');
+  });
+
   it('keeps crop positioning and registration-first conversion on the first screen', () => {
     expect(hero).toContain('Платформа управления агросделками в растениеводстве');
     expect(hero).toContain("title: 'Управляйте агросделкой'");
