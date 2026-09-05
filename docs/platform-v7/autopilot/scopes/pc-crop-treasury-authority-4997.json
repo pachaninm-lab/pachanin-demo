@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-treasury-authority-4997",
+  "status": "staged",
+  "purpose": "W9-A: build platform treasury as a separate accounting/read projection over canonical FinancialObligation, settlement receipts and bank facts, adding bank-account registry, platform receivable/payable, revenue recognition, partner accrual, payment authority matrix and 13-week cash forecast without creating another wallet/ledger.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [38],
+  "terminalCriteria": ["TREASURY=PASS", "REVENUE_RECOGNITION=PASS", "PARTNER_ACCRUAL=PASS", "CASH_FORECAST=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/treasury.ts",
+    "packages/domain-core/src/treasury.test.ts",
+    "apps/api/prisma/migrations/20260906080000_treasury_projection_authority/migration.sql",
+    "apps/api/src/modules/treasury/treasury.contract.ts",
+    "apps/api/src/modules/treasury/treasury.contract.spec.ts",
+    "apps/api/src/modules/treasury/treasury.repository.ts",
+    "apps/api/src/modules/treasury/treasury.repository.spec.ts",
+    "apps/api/src/modules/treasury/treasury-policy.ts",
+    "apps/api/src/modules/treasury/treasury-policy.spec.ts",
+    "apps/api/test/industrial/treasury-projection-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-treasury-scope.test.mjs",
+    ".github/workflows/pc-crop-treasury.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "dependencies": {
+    "w5aFinancialObligationRequired": true,
+    "settlementReceiptsReused": true,
+    "federalAccountingLock4321ReadOnly": true
+  },
+  "requiredInvariants": [
+    "Treasury is a projection/accounting control over canonical obligations and settlement/bank receipts; it never becomes another payment wallet, Deal balance or ledger mutation authority.",
+    "BankAccountRegistry stores platform/organization-owned settlement account references, purpose, currency, legal owner, provider/bank binding, validity and authority metadata without storing online-banking credentials in business rows.",
+    "PlatformReceivable/Payable entries are derived from exact accepted FinancialObligation and rule/contract bases; manual treasury rows require an explicit separately authorized accounting basis and cannot invent Deal/provider debts.",
+    "Revenue recognition is versioned by policy and source event/basis. Cash receipt and accounting revenue are separate facts; receipt alone cannot silently recognize revenue when performance conditions are unmet.",
+    "Partner accrual is derived from accepted service/partner obligations and immutable completion/acceptance evidence. Provider selection alone does not accrue a payable.",
+    "PaymentAuthorityMatrix is versioned and specifies roles/job profiles, amount thresholds, dual approval, allowed bank-account purpose and action types. It cannot broaden existing settlement/signature/accounting authority.",
+    "13-week forecast is a projection over dated obligations, expected receipts/payments and scenario assumptions. Forecast assumptions are versioned and visibly distinct from confirmed cash/obligation facts.",
+    "All money uses exact minor units/currency. No Float, spreadsheet/manual total or environment default becomes authoritative treasury fact.",
+    "Historical treasury snapshots/revenue/accrual decisions are immutable/versioned and preserve exact source obligation/receipt/policy revisions.",
+    "Current actor/organization/staff authority is server-validated; organization users cannot inspect platform-wide treasury unless explicitly entitled and cross-tenant access is denied.",
+    "Mutation/policy publication commits immutable event, audit and outbox atomically with idempotency/CAS; a failed evidence write cannot leave an accepted treasury decision.",
+    "Federal Accounting lock #4321 is read-only. Any later accounting-document consumer change requires separately authorized lock-scoped work.",
+    "Registration, Role Eligibility, Settlement ledger, bank adapters, packages/lockfiles and REG.RU production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Restricted PostgreSQL tests prove bank-account registry, exact receivable/payable projections, revenue recognition and partner accrual are pinned to canonical source ids/revisions.",
+    "Receipt timing vs revenue timing cases prove cash receipt cannot automatically recognize revenue and accrued payable cannot exist without accepted basis evidence.",
+    "PaymentAuthorityMatrix tests cover threshold/dual-approval/role/job-profile restrictions without widening existing financial command authority.",
+    "13-week forecast reproduces from persisted assumptions and source obligation revisions and labels forecast vs confirmed facts distinctly.",
+    "Cross-tenant and unauthorized organization/staff access, stale policy, changed-payload replay and revoked authority fail closed.",
+    "Audit/outbox/event failure rolls back policy/treasury decision state.",
+    "No treasury command creates/changes a settlement payment, bank operation or Federal Accounting record in foundation tests.",
+    "Exact-head CI/review plus later REG.RU treasury/finance-user acceptance are required before terminal treasury credit."
+  ],
+  "remainingTerminalBoundary": [
+    "W5-A canonical obligations/SettlementPlan must be accepted and consumer-wired before treasury can be terminally complete.",
+    "Real bank account/provider balances require separately governed bank integrations/receipts if displayed.",
+    "Accounting reports/documents that consume treasury need Federal Accounting lock #4321 authorization.",
+    "REG.RU production and finance/operator unaided acceptance remain mandatory."
+  ],
+  "terminalCredit": 0
+}
