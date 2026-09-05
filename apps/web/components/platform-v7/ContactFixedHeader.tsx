@@ -41,6 +41,7 @@ export function ContactFixedHeader() {
 
 const css = `
 .pc-shell-root-v4:has(.p7-contact-page){--pc-header-offset:0px!important}
+.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-header,
 .pc-shell-root-v4:has(.p7-contact-page) .pc-v4-header,
 .pc-shell-root-v4:has(.p7-contact-page) .pc-v4-bottomnav,
 .pc-shell-root-v4:has(.p7-contact-page) .pc-v4-drawer,
