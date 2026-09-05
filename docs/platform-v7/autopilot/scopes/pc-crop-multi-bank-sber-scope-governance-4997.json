@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "staged",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP specification. This staged branch changes no product behavior and grants no implementation authority before separate governance review and immutable scope promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-multi-bank-sber-scope-4997",
+  "purpose": "W6-A staged governance: provider-neutral bank adapter/capability/receipt boundary with Sber as one reference adapter and zero live-success claim.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-multi-bank-sber-scope-governance-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-multi-bank-sber-authority-4997.json"
+  ],
+  "dependencies": {
+    "w5aSettlementPlanRequiredForLiveConsumer": true,
+    "realProviderCredentialsExternal": true,
+    "regRuProductionAcceptanceRequired": true
+  },
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "externalSuccessClaim": false,
+    "credentialOrSecretChange": false
+  }
+}
