@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-one-c-authority-4997",
+  "status": "staged",
+  "purpose": "W6-E: implement provider-neutral canonical 1C mapping, synchronization, conflict/reconciliation and immutable receipt authority around the existing transport contract without touching Federal Accounting lock #4321 or claiming a credentialed 1C connection.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable scope promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [36],
+  "terminalCriteria": ["ONE_C=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/one-c-integration.ts",
+    "packages/domain-core/src/one-c-integration.test.ts",
+    "apps/api/src/modules/one-c-integration/one-c-mapping.contract.ts",
+    "apps/api/src/modules/one-c-integration/one-c-mapping.contract.spec.ts",
+    "apps/api/src/modules/one-c-integration/one-c-sync.repository.ts",
+    "apps/api/src/modules/one-c-integration/one-c-sync.repository.spec.ts",
+    "apps/api/src/modules/one-c-integration/one-c-conflict.policy.ts",
+    "apps/api/src/modules/one-c-integration/one-c-conflict.policy.spec.ts",
+    "apps/api/src/modules/one-c-integration/one-c-transport.adapter.ts",
+    "apps/api/src/modules/one-c-integration/one-c-transport.adapter.spec.ts",
+    "apps/api/test/industrial/one-c-integration-conformance.e2e-spec.ts",
+    "scripts/verify-pc-crop-one-c-scope.test.mjs",
+    ".github/workflows/pc-crop-one-c.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "dependencies": {
+    "existingAccountingDocumentTransportPortReused": true,
+    "accountingLock4321ReadOnly": true,
+    "credentialedOneCAccessExternal": true
+  },
+  "requiredInvariants": [
+    "Federal Accounting lock #4321 remains untouched. Existing AccountingDocument/AccountingDocumentVersion/ledger/payment authorities are source/read targets only; W6-E cannot mutate their schema or business rules.",
+    "1C is an external accounting/ERP adapter, never a canonical Deal, Inventory, Document, money or regulatory authority. Core ids/versions/hashes remain platform-owned and provider-neutral.",
+    "Mapping profiles are versioned, effective-dated and content-hashed. Canonical entities/fields map explicitly to 1C object/field semantics; unknown/unmapped values fail to a review/conflict state rather than being dropped or guessed.",
+    "Synchronization uses immutable source revisions and direction policy (EXPORT, IMPORT_ALLOWED, BIDIRECTIONAL_FIELD_SET). Browser/provider payload cannot decide which canonical field is writable.",
+    "Inbound changes are staged as proposed external facts until conflict policy and canonical authority permit application. 1C cannot overwrite signed documents, accepted Deal terms, settled money, verified inventory facts or regulated receipts.",
+    "Conflict/reconciliation records pin canonical version, external version/reference, field-level differences, policy version, actor/resolution and resulting canonical/external actions. Resolution never rewrites history.",
+    "Outbound REQUESTED/QUEUED/SENT is not accepted by 1C until a validated immutable provider receipt binds exact mapping version, canonical object/version/hash, external reference and provider timestamp.",
+    "Adapter remains NOT_ACTIVATED while Connection Center reports adapterImplemented false or live endpoint/credentials/mapping conformance are absent. Test fake success cannot become product readiness.",
+    "Exact idempotency and external event/object keys prevent duplicate exports/imports. Changed-payload replay, stale canonical/external versions and cross-tenant references fail closed.",
+    "Tenant/organization/integration binding and current actor authority are server-resolved before any sync/reconciliation action; caller organization/tenant cannot select another integration account.",
+    "Provider outage or partial sync produces durable degraded/conflict state and retry evidence rather than silent data loss or local memory fallback.",
+    "No credentials, secret, mandatory paid dependency or live external success is introduced by the staged/reference implementation. REG.RU remains sole production runtime."
+  ],
+  "acceptance": [
+    "Contract tests prove versioned canonical mappings for representative Deal/document/service/payment/accounting snapshots and reject unmapped/unknown mandatory fields.",
+    "Export/import round-trip fixtures preserve exact ids/revisions/money and expose intentional lossy/non-writable fields as explicit mapping decisions.",
+    "Concurrent canonical/external edits create deterministic conflict records; no last-write-wins overwrite of immutable or authoritative platform facts is possible.",
+    "Wrong tenant/integration binding, changed payload, duplicate external event, stale mapping/canonical/external version and revoked actor authority fail closed.",
+    "NOT_ACTIVATED configuration cannot fabricate 1C receipts or change Connection Center readiness to live.",
+    "Provider receipt validation distinguishes queued/sent from externally accepted and binds exact object/version/hash.",
+    "All W6-E tests prove zero mutation to files/tables governed by Federal Accounting lock #4321.",
+    "Exact-head review and later credentialed REG.RU 1C acceptance are mandatory before ONE_C terminal PASS."
+  ],
+  "remainingTerminalBoundary": [
+    "Real 1C configuration/version, endpoint/extension contract, credentials and environment are external dependencies.",
+    "Canonical mapping must be validated against the exact 1C product/configuration used by initial customers; one generic fixture is insufficient for production PASS.",
+    "Accounting consumer changes, if required, need a separately authorized lock-#4321 change and are not included in W6-E.",
+    "Production sync/conflict/retry/rollback evidence on REG.RU remains required."
+  ],
+  "terminalCredit": 0
+}
