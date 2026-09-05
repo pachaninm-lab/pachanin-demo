@@ -134,6 +134,16 @@ REVOKE UPDATE, DELETE, TRUNCATE ON public.integration_binding_events
 FROM one_deal_app;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.integration_capability_evidence
 FROM one_deal_app;
+-- Commercial versions may transition through the governed command boundary,
+-- but published definitions, decisions and event evidence are never deletable.
+REVOKE DELETE, TRUNCATE ON
+  public.commercial_rule_sets,
+  public.commercial_rule_packs
+FROM one_deal_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON
+  public.commercial_decisions,
+  public.commercial_rule_events
+FROM one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
 GRANT SELECT ON
@@ -1149,5 +1159,15 @@ DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 pnpm --filter @pc/api exec jest --runInBand \
   --config test/industrial/jest.config.json \
   --runTestsByPath test/industrial/integration-binding-authority.e2e-spec.ts
+
+echo "[one-deal] running commercial-rules PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/commercial-rules-authority.e2e-spec.ts
 
 echo "[one-deal] exploitation gate passed"

@@ -61,6 +61,7 @@ import { RoleEligibilityModule } from './modules/role-eligibility/role-eligibili
 import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
 import { GektaModule } from './modules/gekta/gekta.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
+import { CommercialRulesModule } from './modules/commercial-rules/commercial-rules.module';
 
 @Module({
   imports: [
@@ -120,6 +121,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
     TaiToolsModule,
     GektaModule,
     AccountingModule,
+    CommercialRulesModule,
   ],
   controllers: [HealthController],
   providers: [
