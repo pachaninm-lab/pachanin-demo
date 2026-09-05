@@ -51,12 +51,183 @@ function trackedSources(root) {
     .sort();
 }
 
+/**
+ * Комментарии снимаются до подсчёта: иначе файл, который ОПИСЫВАЕТ дефект,
+ * считается носителем дефекта. Именно так и вышло — DTO-файл кабинета Гекты
+ * объясняет в комментарии, что `@Body() body: { … }` стирается до Object, и
+ * гейт засчитал это объяснение как непроверенное тело.
+ *
+ * Регулярным выражением это делать нельзя, и первая версия этого гейта
+ * ошибалась именно так. Ревью нашло дыру, и она воспроизводится: в файле с
+ * `const start = "/*";` и позже `const end = "*\/";` выражение
+ * /\/\*[\s\S]*?\*\// съедало всё между литералами вместе с настоящими
+ * обработчиками, и счёт непроверенных тел падал до нуля. Это молчаливый обход
+ * гейта, а не косметика.
+ *
+ * Поэтому здесь посимвольный разбор, и он устроен так, чтобы ошибаться в
+ * безопасную сторону. Правило одно: СОМНЕВАЕШЬСЯ — НЕ СНИМАЙ. Лишний
+ * закомментированный @Body() будет посчитан как непроверенное тело — это
+ * ложное срабатывание, гейт закрывается. Пропущенный настоящий @Body() — это
+ * обход. Направления неравноценны.
+ *
+ * Строчный комментарий снимается только тогда, когда занимает строку целиком:
+ * `//` в середине строки может оказаться внутри литерала или регулярного
+ * выражения, а в начале строки неоднозначности нет.
+ */
+const KEYWORDS_BEFORE_REGEX = new Set([
+  'return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void',
+  'case', 'do', 'else', 'yield', 'await', 'throw',
+]);
+
+// После этих символов `/` начинает регулярное выражение, а не делит.
+const PUNCTUATION_BEFORE_REGEX = new Set([
+  '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '+', '-', '*', '/', '%', '~', '^', '<', '>',
+]);
+
+function regexCanStartAfter(out) {
+  const trimmed = out.replace(/\s+$/u, '');
+  if (trimmed === '') return true;
+  const last = trimmed[trimmed.length - 1];
+  if (PUNCTUATION_BEFORE_REGEX.has(last)) return true;
+  const word = /([A-Za-z_$][\w$]*)$/u.exec(trimmed);
+  return word !== null && KEYWORDS_BEFORE_REGEX.has(word[1]);
+}
+
+export function stripComments(text) {
+  let out = '';
+  let index = 0;
+  let atLineStart = true;
+
+  const copy = (count) => {
+    out += text.slice(index, index + count);
+    index += count;
+  };
+
+  while (index < text.length) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === '\n') {
+      atLineStart = true;
+      copy(1);
+      continue;
+    }
+
+    // Строчный комментарий — только когда он занимает строку целиком.
+    if (char === '/' && next === '/' && atLineStart) {
+      const lineEnd = text.indexOf('\n', index);
+      index = lineEnd === -1 ? text.length : lineEnd;
+      continue;
+    }
+
+    if (char === '/' && next === '*') {
+      const close = text.indexOf('*/', index + 2);
+      // Незакрытый блок не снимается: иначе один `/*` съел бы остаток файла.
+      if (close === -1) {
+        copy(2);
+        continue;
+      }
+      index = close + 2;
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      const closed = consumeQuoted(text, index, char);
+      copy(closed - index);
+      atLineStart = false;
+      continue;
+    }
+
+    if (char === '`') {
+      const closed = consumeTemplate(text, index);
+      copy(closed - index);
+      atLineStart = false;
+      continue;
+    }
+
+    if (char === '/' && regexCanStartAfter(out)) {
+      const closed = consumeRegex(text, index);
+      // Незакрытое на строке — значит это было деление, а не литерал.
+      if (closed !== -1) {
+        copy(closed - index);
+        atLineStart = false;
+        continue;
+      }
+    }
+
+    if (!/\s/u.test(char)) atLineStart = false;
+    copy(1);
+  }
+
+  return out;
+}
+
+/** Возвращает индекс сразу за закрывающей кавычкой. */
+function consumeQuoted(text, start, quote) {
+  let index = start + 1;
+  while (index < text.length) {
+    const char = text[index];
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+    if (char === quote || char === '\n') return index + 1;
+    index += 1;
+  }
+  return text.length;
+}
+
+/** Шаблонная строка вместе с вложенными `${ … }`, где снова идёт код. */
+function consumeTemplate(text, start) {
+  let index = start + 1;
+  while (index < text.length) {
+    const char = text[index];
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+    if (char === '`') return index + 1;
+    if (char === '$' && text[index + 1] === '{') {
+      let depth = 1;
+      index += 2;
+      while (index < text.length && depth > 0) {
+        if (text[index] === '{') depth += 1;
+        else if (text[index] === '}') depth -= 1;
+        else if (text[index] === '`') index = consumeTemplate(text, index) - 1;
+        index += 1;
+      }
+      continue;
+    }
+    index += 1;
+  }
+  return text.length;
+}
+
+/** Индекс за закрывающим слэшем, либо -1 если на строке литерал не закрылся. */
+function consumeRegex(text, start) {
+  let index = start + 1;
+  let inClass = false;
+  while (index < text.length) {
+    const char = text[index];
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+    if (char === '\n') return -1;
+    if (char === '[') inClass = true;
+    else if (char === ']') inClass = false;
+    else if (char === '/' && !inClass) return index + 1;
+    index += 1;
+  }
+  return -1;
+}
+
 export function scanSources(files, read = (file) => readFileSync(file, 'utf8')) {
   const unvalidatedByFile = new Map();
   let validated = 0;
 
   for (const file of files) {
-    const text = read(file);
+    const text = stripComments(read(file));
     for (const match of text.matchAll(BODY_PARAMETER)) {
       const remainder = text.slice(match.index + match[0].length);
       const inlineLiteral = remainder.startsWith('{');
