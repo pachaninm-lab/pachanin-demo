@@ -8,6 +8,12 @@ export const CODEX_REVIEW_LOGINS = new Set([
   'chatgpt-codex-connector[bot]',
 ]);
 
+const COMPLETED_REVIEW_STATES = new Set([
+  'APPROVED',
+  'CHANGES_REQUESTED',
+  'COMMENTED',
+]);
+
 function normalizeLogin(review) {
   return String(review?.user?.login || review?.author?.login || '').trim();
 }
@@ -18,7 +24,7 @@ export function exactHeadCodexReviews(reviews, headSha) {
     const login = normalizeLogin(review);
     const commitId = String(review?.commit_id || review?.commitId || '').trim();
     const state = String(review?.state || '').toUpperCase();
-    return CODEX_REVIEW_LOGINS.has(login) && commitId === expected && state !== 'DISMISSED';
+    return CODEX_REVIEW_LOGINS.has(login) && commitId === expected && COMPLETED_REVIEW_STATES.has(state);
   });
 }
 
@@ -27,7 +33,7 @@ export function activeUnresolvedThreads(threads) {
 }
 
 export function latestBlockingChangeRequests(reviews) {
-  const latestByReviewer = new Map();
+  const blockedByReviewer = new Map();
   const ordered = [...(reviews || [])].sort((left, right) => {
     const leftTime = Date.parse(left?.submitted_at || left?.submittedAt || 0) || 0;
     const rightTime = Date.parse(right?.submitted_at || right?.submittedAt || 0) || 0;
@@ -38,15 +44,20 @@ export function latestBlockingChangeRequests(reviews) {
     const login = normalizeLogin(review);
     if (!login) continue;
     const state = String(review?.state || '').toUpperCase();
-    if (state === 'DISMISSED') {
-      latestByReviewer.delete(login);
+
+    if (state === 'CHANGES_REQUESTED') {
+      blockedByReviewer.set(login, review);
       continue;
     }
-    latestByReviewer.set(login, review);
+
+    if (state === 'APPROVED' || state === 'DISMISSED') {
+      blockedByReviewer.delete(login);
+    }
+
+    // COMMENTED does not clear an earlier CHANGES_REQUESTED review.
   }
 
-  return [...latestByReviewer.entries()]
-    .filter(([, review]) => String(review?.state || '').toUpperCase() === 'CHANGES_REQUESTED')
+  return [...blockedByReviewer.entries()]
     .map(([login, review]) => ({ login, review }));
 }
 
