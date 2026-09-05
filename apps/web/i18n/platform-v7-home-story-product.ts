@@ -6,6 +6,7 @@ type Step = Readonly<{ index: string; title: string; text: string; result: strin
 
 const PRODUCT_COPY: Record<Locale, {
   navFunctions: string;
+  heroSampleLabel: string;
   proof: readonly Readonly<{ label: string; text: string }>[];
   differenceLead: string;
   differenceBoundary: string;
@@ -28,6 +29,8 @@ const PRODUCT_COPY: Record<Locale, {
   rolesLead: string;
   rolesScenarioTitle: string;
   rolesScenarioLead: string;
+  taiState: string;
+  taiLimit: string;
   faqStartQ: string;
   faqStartA: string;
   accountingQ: string;
@@ -35,6 +38,7 @@ const PRODUCT_COPY: Record<Locale, {
 }> = {
   ru: {
     navFunctions: 'Возможности',
+    heroSampleLabel: 'Вымышленный пример Сделки',
     proof: [
       { label: '9 ролей', text: 'Продавец, покупатель, логистика, водитель, элеватор/хранение, лаборатория, сюрвейер, банк/финансы и сотрудник платформы' },
       { label: '7 шагов', text: 'Один понятный путь от товара и условий до расчёта и закрытия' },
@@ -77,6 +81,8 @@ const PRODUCT_COPY: Record<Locale, {
     rolesLead: 'Девять публичных ролей объясняют пользу без изменения реальных прав доступа. Полномочия назначаются системой после регистрации и проверки организации.',
     rolesScenarioTitle: 'Что видит и делает каждая роль',
     rolesScenarioLead: 'Выберите роль, чтобы увидеть её задачу, основание, следующий шаг и влияние на расчёт.',
+    taiState: 'Пример анализа · по данным сценария',
+    taiLimit: 'Гекта объясняет доступные факты, риски и варианты действий. Она не назначает роли, не меняет права, не подписывает документы и не запускает движение денег.',
     faqStartQ: 'Как начать работу?',
     faqStartA: 'Зарегистрируйтесь в платформе. После регистрации и проверки организации система определит доступный рабочий контур для вашей роли. Если потребуется помощь с подключением, используйте отдельную форму обращения.',
     accountingQ: 'Как бухгалтер работает с 1С и ЭДО?',
@@ -84,6 +90,7 @@ const PRODUCT_COPY: Record<Locale, {
   },
   en: {
     navFunctions: 'Capabilities',
+    heroSampleLabel: 'Fictional Deal example',
     proof: [
       { label: '9 roles', text: 'Seller, buyer, logistics, driver, elevator/storage, laboratory, surveyor, bank/finance and platform employee' },
       { label: '7 steps', text: 'One clear path from product and terms to settlement and closure' },
@@ -126,6 +133,8 @@ const PRODUCT_COPY: Record<Locale, {
     rolesLead: 'Nine public roles explain value without changing real access rights. Authority is assigned by the system after registration and organisation verification.',
     rolesScenarioTitle: 'What each role sees and does',
     rolesScenarioLead: 'Choose a role to see its task, evidence, next action and settlement impact.',
+    taiState: 'Illustrative analysis · scenario data',
+    taiLimit: 'Gekta explains available facts, risks and action options. It does not assign roles, change access rights, sign documents or initiate money movement.',
     faqStartQ: 'How do I start?',
     faqStartA: 'Register on the platform. After registration and organisation verification, the system determines the workspace available to your role. If connection help is needed, use the separate assistance form.',
     accountingQ: 'How does an accountant work with 1C and EDI?',
@@ -133,6 +142,7 @@ const PRODUCT_COPY: Record<Locale, {
   },
   zh: {
     navFunctions: '平台能力',
+    heroSampleLabel: '虚构交易示例',
     proof: [
       { label: '9 个角色', text: '卖方、买方、物流、司机、筒仓/仓储、实验室、检验机构、银行/金融和平台员工' },
       { label: '7 个步骤', text: '从商品与条件到结算与关闭的一条清晰路径' },
@@ -175,6 +185,8 @@ const PRODUCT_COPY: Record<Locale, {
     rolesLead: '九个公开角色用于解释价值，不会改变真实访问权限。实际权限在注册并完成机构核验后由系统确定。',
     rolesScenarioTitle: '每个角色看到什么、做什么',
     rolesScenarioLead: '选择角色即可查看其任务、依据、下一步以及对结算的影响。',
+    taiState: '分析示例 · 使用场景数据',
+    taiLimit: 'Gekta 用于解释可用事实、风险和操作选项。它不会分配角色、改变访问权限、签署文件或发起资金流转。',
     faqStartQ: '如何开始使用？',
     faqStartA: '先在平台注册。完成注册和机构核验后，系统会根据角色确定可用工作空间。如需接入协助，请使用独立的帮助表单。',
     accountingQ: '会计人员如何使用 1C 和电子单据系统？',
@@ -198,6 +210,7 @@ export function getPlatformV7HomeStoryCopy(locale: string) {
   return {
     ...copy,
     nav: { ...copy.nav, functions: local.navFunctions },
+    heroDeal: { ...copy.heroDeal, sampleLabel: local.heroSampleLabel },
     proof: local.proof,
     difference: { ...copy.difference, lead: local.differenceLead, boundary: local.differenceBoundary },
     functions: {
@@ -231,6 +244,11 @@ export function getPlatformV7HomeStoryCopy(locale: string) {
       lead: local.rolesLead,
       scenarioTitle: local.rolesScenarioTitle,
       scenarioLead: local.rolesScenarioLead,
+    },
+    tai: {
+      ...copy.tai,
+      state: local.taiState,
+      limit: local.taiLimit,
     },
     faq: {
       ...copy.faq,
