@@ -19,7 +19,7 @@ function allowed(pathname) {
 
 test('scope is exact-head bound and excludes registration and accounting ownership', () => {
   assert.equal(manifest.branch, 'feat/pc-crop-commercial-rules-authority-4997');
-  assert.equal(manifest.authorityBaseExactMain, '21894df096216be0b18fe61856b94f5089e92e0b');
+  assert.equal(manifest.authorityBaseExactMain, 'c0cf342bd5e06d8f4828e2afa5b67955a839fd9b');
   assert.equal(manifest.productionHosting, 'REG_RU_VPS_ONLY');
   assert.equal(manifest.newRecurringCostRub, 0);
   for (const entry of manifest.allowedPaths) {
