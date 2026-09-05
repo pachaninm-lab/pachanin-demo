@@ -74,8 +74,15 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           P7_GENERATED_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
+          set -euo pipefail
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
           node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
+
+          if ! REQUIRE_GREEN_CI=1 node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
+            echo 'Generated merge deferred: exact-head CI is not terminal green yet.'
+            exit 0
+          fi
+
           node scripts/p7-autopilot-generated-inline-checks.mjs
           node scripts/p7-autopilot-generated-merge-and-advance.mjs
           node scripts/p7-autopilot-generated-merge-reconcile.mjs
