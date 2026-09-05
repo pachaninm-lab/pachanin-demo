@@ -10,19 +10,19 @@ const messages: Record<'ru' | 'en' | 'zh', PlatformV7HeroMessage> = {
     kicker: 'Платформа управления агросделками в растениеводстве\nс собственным искусственным интеллектом',
     title: 'Управляйте агросделкой',
     accent: 'от цены до расчёта',
-    lead: 'Одна платформа управляет торгами и исполнением: производитель, покупатель, логистика, элеватор, лаборатория, финансы и контроль работают по одной версии Сделки — от лота до расчёта и спора. Гекта сопоставляет факты, объясняет отклонения и показывает следующий шаг с источниками.',
+    lead: 'Одна платформа связывает товар и условия, торги, договор, поставку, приёмку и качество, документы и расчёт. Каждый участник видит свою ответственность и следующий шаг; отклонение или спор подключаются только при необходимости. Гекта сопоставляет доступные факты, объясняет риск и помогает понять следующий разрешённый шаг.',
   },
   en: {
     kicker: 'Crop Deal management platform\nwith proprietary artificial intelligence',
     title: 'Manage an agricultural Deal',
     accent: 'from price to settlement',
-    lead: 'One platform manages bidding and execution: producer, buyer, logistics, storage, laboratory, finance and control use one Deal version from lot to settlement and dispute. Gekta matches facts, explains deviations and shows the next step with sources.',
+    lead: 'One platform links product and terms, bidding, contract, delivery, acceptance and quality, documents and settlement. Every participant sees their responsibility and next step; deviation or dispute appears only when needed. Gekta compares available facts, explains risk and helps identify the next permitted action.',
   },
   zh: {
     kicker: '种植业农业交易管理平台\n配备自主人工智能',
     title: '管理农业交易',
     accent: '从价格到结算',
-    lead: '一个平台统一管理竞价与履约：生产商、买方、物流、仓储、实验室、金融与控制角色使用同一版本的交易，从批次一直到结算与争议。Gekta 对照事实、解释偏差，并附带来源给出下一步。',
+    lead: '一个平台连接商品与条件、竞价、合同、交付、验收与质量、文件和结算。每个参与方都能看到自己的责任和下一步；只有在确有需要时才进入偏差或争议。Gekta 对照可用事实、解释风险，并帮助理解允许的下一步。',
   },
 };
 
