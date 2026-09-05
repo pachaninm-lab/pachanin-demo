@@ -23,7 +23,8 @@ import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceI
 
 const moneyFlow: TourStage[] = ['deal', 'logistics', 'acceptance', 'laboratory', 'documents', 'settlement', 'closure'];
 const PUBLIC_PERSPECTIVES: readonly TourPerspective[] = ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator'];
-const STAFF_PERSPECTIVES = new Set<TourPerspective>(['operator', 'compliance', 'arbitrator', 'executive']);
+const LEGACY_STAFF_SELECT_PERSPECTIVES: readonly TourPerspective[] = ['compliance', 'arbitrator', 'executive'];
+const STAFF_PERSPECTIVES = new Set<TourPerspective>(['operator', ...LEGACY_STAFF_SELECT_PERSPECTIVES]);
 
 function publicPerspectiveKey(value: TourPerspective): TourPerspective {
   return STAFF_PERSPECTIVES.has(value) ? 'operator' : value;
@@ -252,7 +253,12 @@ export function PublicDealExplorer({
           <label className='pc-ppe-select-label'>
             <span>{copy.explorer.controls.perspective}</span>
             <select value={publicPerspective} onChange={(event) => selectPerspective(event.target.value as TourPerspective)}>
-              {PUBLIC_PERSPECTIVES.map((key) => <option key={key} value={key}>{copy.explorer.perspectives[key].label}</option>)}
+              {PUBLIC_PERSPECTIVES.map((key) => <option key={key} value={key} data-public-perspective='true'>{copy.explorer.perspectives[key].label}</option>)}
+              {LEGACY_STAFF_SELECT_PERSPECTIVES.map((key) => (
+                <option key={key} value={key} hidden disabled aria-hidden='true' data-legacy-staff='true'>
+                  {copy.explorer.perspectives[key].label}
+                </option>
+              ))}
             </select>
           </label>
 
