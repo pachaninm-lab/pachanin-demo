@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "issue": 4997,
   "branch": "feat/pc-crop-two-sided-market-authority-4997",
-  "status": "active",
+  "status": "proposed",
   "purpose": "W2-E foundation: add durable DemandRequest/RFQ/OfferVersion/CounterOffer/Negotiation/MatchCandidate authority without mounting a second Deal engine or browser-owned market state.",
   "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
   "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
