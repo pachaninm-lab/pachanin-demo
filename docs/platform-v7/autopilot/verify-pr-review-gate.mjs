@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export const CODEX_REVIEW_LOGINS = new Set([
   'chatgpt-codex-connector',
@@ -178,6 +180,6 @@ function main() {
 }
 
 const invokedPath = process.argv[1] || '';
-if (invokedPath && import.meta.url === new URL(`file://${invokedPath}`).href) {
+if (invokedPath && import.meta.url === pathToFileURL(resolve(invokedPath)).href) {
   main();
 }
