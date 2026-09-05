@@ -4,10 +4,11 @@
   "branch": "feat/pc-crop-service-marketplace-authority-4997",
   "status": "active",
   "purpose": "Establish the tenant-scoped Service Marketplace lifecycle from request and quote through explicit payer confirmation, evidence, acceptance and non-financial settlement reference.",
-  "authorityBaseExactMain": "1088af896c07eafe96cce69753988fc05ac4c8aa",
+  "authorityBaseExactMain": "2f162c4f20b95cea4849c9c428c82ff9f952c122",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
+    ".gitleaksignore",
     "docs/platform-v7/autopilot/scopes/pc-crop-service-marketplace-authority-4997.json",
     "packages/domain-core/src/index.ts",
     "packages/domain-core/src/service-marketplace.ts",

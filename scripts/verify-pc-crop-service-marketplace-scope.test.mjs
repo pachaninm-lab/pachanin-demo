@@ -19,9 +19,10 @@ function allowed(pathname) {
 
 test('scope is exact-head bound and excludes registration and accounting ownership', () => {
   assert.equal(manifest.branch, 'feat/pc-crop-service-marketplace-authority-4997');
-  assert.equal(manifest.authorityBaseExactMain, '1088af896c07eafe96cce69753988fc05ac4c8aa');
+  assert.equal(manifest.authorityBaseExactMain, '2f162c4f20b95cea4849c9c428c82ff9f952c122');
   assert.equal(manifest.productionHosting, 'REG_RU_VPS_ONLY');
   assert.equal(manifest.newRecurringCostRub, 0);
+  assert.equal(manifest.allowedPaths.includes('.gitleaksignore'), true);
   for (const entry of manifest.allowedPaths) {
     assert.doesNotMatch(entry, /(?:^|\/)(?:registration|role-eligibility|accounting)(?:\/|$)/u);
   }
@@ -110,4 +111,10 @@ test('requesters can discover unexpired quotes and workflow commands fail fast',
   const oneDeal = source('scripts/platform-v7-one-deal-e2e.sh');
   assert.match(oneDeal, /REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON[\s\S]+public\.service_marketplace_requests[\s\S]+FROM one_deal_app/u);
   assert.match(oneDeal, /REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON[\s\S]+public\.service_marketplace_quotes,[\s\S]+public\.service_marketplace_events[\s\S]+FROM one_deal_app/u);
+});
+
+test('Gitleaks exception is exact and limited to the deterministic unit-test fixture', () => {
+  const ignore = source('.gitleaksignore');
+  const fingerprint = '8c08a3d3764b616f919a1e73828643dff95db5d4:apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:generic-api-key:11';
+  assert.equal(ignore.split('\n').filter((line) => line === fingerprint).length, 1);
 });

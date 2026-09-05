@@ -1305,6 +1305,13 @@
     "fgis/xml-escape-convergence-4806": [
       "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
       "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts"
+    ],
+    "governance/pc-crop-inventory-reservation-scope-4997": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/scopes/pc-crop-inventory-reservation-authority-4997.json"
     ]
   },
   "currentAcceptance": [
