@@ -219,12 +219,12 @@ describe('FnsEgrulFileImportService', () => {
     await writeFile(join(root, 'archive-b', 'b.xml'), entityXml('7812345675', '1047796045770', 'OOO BETA'));
     await writeFile(join(root, 'archive-a', 'a.xml'), entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
 
+    const manifest = await serviceWith().service.inspectFullSnapshot(root, '4.08');
     const ingest = ingestMock();
-    const prisma = prismaMock(2n);
+    const prisma = prismaMock(2n, 2n, { contentSha256: manifest.contentSha256 });
     const registry = registryMock();
     const health = healthMock();
     const service = new FnsEgrulFileImportService(ingest as any, prisma as any, registry as any, health as any);
-    const manifest = await service.inspectFullSnapshot(root, '4.08');
 
     expect(manifest.fileCount).toBe(2);
     expect(manifest.recordCount).toBe(2);
@@ -471,7 +471,8 @@ describe('FnsEgrulFileImportService', () => {
 
   it('rechecks stored freshness transactionally immediately before activation', async () => {
     await writeFile(join(root, 'a.xml'), entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
-    const prisma = prismaMock(1n, 1n, { freshAtActivation: false });
+    const manifest = await serviceWith().service.inspectFullSnapshot(root, '4.08');
+    const prisma = prismaMock(1n, 1n, { freshAtActivation: false, contentSha256: manifest.contentSha256 });
     const registry = registryMock();
     const health = healthMock();
     const { service } = serviceWith(ingestMock(), prisma, registry, health);
@@ -499,7 +500,11 @@ describe('FnsEgrulFileImportService', () => {
 
   it('refuses to replace a newer active FNS generation without degrading its healthy source state', async () => {
     await writeFile(join(root, 'a.xml'), entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
-    const prisma = prismaMock(1n, 1n, { activePublishedAt: new Date('2026-09-06T00:00:00.000Z') });
+    const manifest = await serviceWith().service.inspectFullSnapshot(root, '4.08');
+    const prisma = prismaMock(1n, 1n, {
+      activePublishedAt: new Date('2026-09-06T00:00:00.000Z'),
+      contentSha256: manifest.contentSha256,
+    });
     const registry = registryMock();
     const health = healthMock();
     const { service } = serviceWith(ingestMock(), prisma, registry, health);
