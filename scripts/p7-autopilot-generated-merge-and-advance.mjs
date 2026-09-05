@@ -20,6 +20,18 @@ function json(command, args) {
   return raw ? JSON.parse(raw) : {};
 }
 
+function assertExactHeadMergeGate() {
+  run('node', ['docs/platform-v7/autopilot/verify-pr-review-gate.mjs'], {
+    env: {
+      ...env,
+      REPO: repo,
+      PR_NUMBER: String(prNumber),
+      HEAD_SHA: String(headSha),
+      REQUIRE_GREEN_CI: '1',
+    },
+  });
+}
+
 function mergeGeneratedPr() {
   const before = json('gh', ['pr', 'view', prNumber, '--repo', repo, '--json', 'mergedAt,mergeCommit']);
   if (before.mergedAt) {
@@ -27,6 +39,10 @@ function mergeGeneratedPr() {
     if (!existing) throw new Error(`generated PR #${prNumber} is merged but merge commit is unavailable`);
     return existing;
   }
+
+  // Re-read review threads, review state, CI rollup and live PR head immediately
+  // before the SHA-bound merge. Workflow-level preflights are not merge authority.
+  assertExactHeadMergeGate();
 
   const mergeResult = json('gh', [
     'api',
@@ -81,7 +97,7 @@ function openStateAdvancePr(mergeSha) {
       '--title',
       'p7 advance after generated PR',
       '--body',
-      `Automated SOT advance after generated PR #${prNumber}. Merge remains owned by the platform-v7 generated merge gate.`,
+      `Automated SOT advance after generated PR #${prNumber}. Merge remains owned by the platform-v7 generated merge gate and requires exact-head review plus terminal green CI.`,
       '--head',
       branch,
       '--base',
