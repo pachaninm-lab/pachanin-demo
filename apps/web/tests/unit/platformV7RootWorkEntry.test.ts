@@ -59,7 +59,10 @@ describe('platform-v7 final master public entry', () => {
     expect(explorerAdapter).toContain('normalizeTourStateFromSearchParams');
     expect(explorerAdapter).toContain("window.addEventListener('popstate', restorePublicHistoryState)");
     expect(explorer).toContain('TOUR_LENSES.map');
-    expect(explorer).toContain('TOUR_PERSPECTIVES.map');
+    expect(explorer).toContain("const PUBLIC_PERSPECTIVES: readonly TourPerspective[] = ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator']");
+    expect(explorer).toContain("const STAFF_PERSPECTIVES = new Set<TourPerspective>(['operator', 'compliance', 'arbitrator', 'executive'])");
+    expect(explorer).toContain('PUBLIC_PERSPECTIVES.map');
+    expect(explorer).not.toContain('TOUR_PERSPECTIVES.map');
     expect(explorer).toContain('TOUR_SCENARIOS.map');
     expect(entryGate).toContain('не влияет на права доступа');
     expect(home).not.toContain('/platform-v7/login?role=');
