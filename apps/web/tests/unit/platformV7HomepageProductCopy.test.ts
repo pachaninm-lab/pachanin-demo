@@ -107,9 +107,10 @@ describe('platform-v7 linked public-page trust', () => {
     expect(about.toLowerCase()).not.toContain('controlled pilot');
     expect(about.toLowerCase()).not.toContain('pre-integration');
     expect(about.toLowerCase()).not.toContain('зерновой сделки');
+    expect(about).not.toContain('исторические адреса страниц');
   });
 
-  it('keeps Contact a real inquiry channel and preserves registration-first public chrome', () => {
+  it('keeps Contact a real inquiry channel and preserves one server-owned locale across content and chrome', () => {
     expect(contact).toContain("action='/api/platform-v7/inquiries'");
     expect(contact).toContain("name='consent'");
     expect(contact).toContain('Обращение в поддержку не создаёт аккаунт и не назначает роль.');
@@ -117,10 +118,15 @@ describe('platform-v7 linked public-page trust', () => {
     expect(contactPage).toContain("type Locale = 'ru' | 'en' | 'zh'");
     expect(contactPage).toContain("import { getLocale } from 'next-intl/server'");
     expect(contactPage.match(/localeOf\(params, await getLocale\(\)\)/g)?.length).toBe(2);
+    expect(contactLayout).toContain("import { getLocale } from 'next-intl/server'");
+    expect(contactLayout).toContain('const locale = await getLocale();');
+    expect(contactLayout).toContain('<ContactFixedHeader locale={locale} />');
+    expect(contactHeader).toContain('export function ContactFixedHeader({ locale }: { locale: string })');
+    expect(contactHeader).not.toContain('useSearchParams');
     expect(contactHeader).toContain('/platform-v7/register?lang=');
     expect(contactHeader).toContain('p7-contact-register');
     expect(contactHeader).toContain('/platform-v7/login?lang=');
-    const headerIndex = contactLayout.indexOf('<ContactFixedHeader />');
+    const headerIndex = contactLayout.indexOf('<ContactFixedHeader locale={locale} />');
     const contentIndex = contactLayout.indexOf('{children}');
     expect(headerIndex).toBeGreaterThan(-1);
     expect(contentIndex).toBeGreaterThan(headerIndex);
