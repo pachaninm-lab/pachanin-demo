@@ -1,0 +1,40 @@
+name: export exact source 581459
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact production source
+        uses: actions/checkout@v4
+        with:
+          ref: 581459059ce3a744ce91172b312c6a2577c8b769
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Prove exact source and create sanitized archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '581459059ce3a744ce91172b312c6a2577c8b769'
+          rm -f .git/credentials
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          printf '%s\n' '581459059ce3a744ce91172b312c6a2577c8b769' > EXACT_SOURCE_SHA
+          tar -czf /tmp/pachanin-demo-581459.tar.gz .
+          sha256sum /tmp/pachanin-demo-581459.tar.gz > /tmp/pachanin-demo-581459.tar.gz.sha256
+      - name: Upload exact source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: pachanin-demo-source-581459
+          path: |
+            /tmp/pachanin-demo-581459.tar.gz
+            /tmp/pachanin-demo-581459.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 1
