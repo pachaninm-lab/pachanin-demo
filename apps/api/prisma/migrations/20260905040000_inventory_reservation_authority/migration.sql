@@ -196,6 +196,38 @@ GRANT UPDATE (updated_at) ON auction.lots TO pc_inventory_authority;
 GRANT SELECT, INSERT ON public.audit_events TO pc_inventory_authority;
 GRANT INSERT ON public.outbox_entries TO pc_inventory_authority;
 
+-- The existing outbox producer policies admit named Deal/application roles,
+-- not this memberless command owner. Bind its one event shape to the snapshot
+-- and audit already inserted by the same transaction; no runtime DML is added.
+CREATE POLICY outbox_entries_inventory_insert ON public.outbox_entries
+FOR INSERT TO pc_inventory_authority WITH CHECK (
+  public.app_rls_context_ready() AND public.app_pc_crop_membership_id() IS NOT NULL
+  AND type = 'inventory.position.changed.v1' AND "dealId" IS NULL
+  AND "triggeredByUserId" = public.app_identity_user_id()
+  AND "idempotencyKey" ~ '^inventory:[0-9a-f]{64}$' AND "runtimeIdempotencyKey" = "idempotencyKey"
+  AND payload->>'schema' = 'inventory.command.v1'
+  AND payload#>>'{event,type}' = type
+  AND payload#>>'{event,tenantId}' = public.app_identity_tenant_id()
+  AND payload#>>'{event,organizationId}' = public.app_identity_org_id()
+  AND payload#>>'{event,auditId}' = "auditId"
+  AND payload#>>'{event,correlationId}' = "correlationId"
+  AND payload#>>'{receipt,correlationId}' = "correlationId"
+  AND EXISTS (
+    SELECT 1 FROM inventory.availability_snapshots s JOIN public.audit_events a ON a.id = outbox_entries."auditId"
+    WHERE s.id = outbox_entries.payload#>>'{receipt,snapshotId}'
+      AND s.tenant_id = public.app_identity_tenant_id() AND s.organization_id = public.app_identity_org_id()
+      AND s.position_id = outbox_entries.payload#>>'{event,aggregateId}'
+      AND s.source_state_version::text = outbox_entries.payload#>>'{event,aggregateVersion}'
+      AND s.snapshot = outbox_entries.payload#>'{receipt,position}'
+      AND s.content_hash = outbox_entries.payload#>>'{receipt,snapshotHash}'
+      AND a."tenantId" = s.tenant_id AND a."orgId" = s.organization_id
+      AND a."objectType" = 'INVENTORY_POSITION' AND a."objectId" = s.position_id
+      AND a."actorUserId" = public.app_identity_user_id() AND a."actorRole" = public.app_identity_role()
+      AND a."afterState" = s.snapshot AND a."correlationId" = outbox_entries."correlationId"
+      AND a."runtimeIdempotencyKey" = outbox_entries."idempotencyKey"
+  )
+);
+
 CREATE FUNCTION inventory.require_actor() RETURNS text
 LANGUAGE plpgsql VOLATILE SET search_path = pg_catalog, public, inventory AS $function$
 DECLARE membership public.user_orgs%ROWTYPE;
