@@ -40,7 +40,9 @@ describe('platform-v7 homepage product copy', () => {
   });
 
   it('presents one crop Deal product with nine roles and seven public steps in RU EN ZH', () => {
-    expect(hero).toContain('Одна платформа управляет торгами');
+    expect(hero).toContain('ведёт одну агросделку от товара и торгов до поставки, качества, документов и расчёта');
+    expect(hero).toContain('что уже подтверждено и что делать дальше');
+    expect(hero).toContain('но не принимает решение вместо человека');
     expect(story).toContain('Полный контур агросделки собран в одной рабочей системе');
     expect(story).toContain('The complete agricultural Deal workflow in one operating system');
     expect(story).toContain('完整农业交易流程集中在同一工作系统');
@@ -113,6 +115,8 @@ describe('platform-v7 linked public-page trust', () => {
     expect(contact).toContain('Обращение в поддержку не создаёт аккаунт и не назначает роль.');
     expect(contact).toContain('Регистрация пользователя находится в отдельном разделе.');
     expect(contactPage).toContain("type Locale = 'ru' | 'en' | 'zh'");
+    expect(contactPage).toContain("import { getLocale } from 'next-intl/server'");
+    expect(contactPage.match(/localeOf\(params, await getLocale\(\)\)/g)?.length).toBe(2);
     expect(contactHeader).toContain('/platform-v7/register?lang=');
     expect(contactHeader).toContain('p7-contact-register');
     expect(contactHeader).toContain('/platform-v7/login?lang=');
