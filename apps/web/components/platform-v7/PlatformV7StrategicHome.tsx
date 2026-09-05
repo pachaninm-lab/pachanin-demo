@@ -126,6 +126,7 @@ export async function PlatformV7StrategicHome() {
   const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(normalizedLocale)}`;
   const gektaProductHref = GEKTA_PATHS[normalizedLocale];
   const normalState = story.demo.states[0]!;
+  const heroCurrentStepIndex = Math.min(4, story.demo.stages.length - 1);
 
   const nav = (
     <>
@@ -244,10 +245,13 @@ export async function PlatformV7StrategicHome() {
                 aria-label={story.demo.stageLabel}
                 aria-valuemin={1}
                 aria-valuemax={story.demo.stages.length}
-                aria-valuenow={story.demo.stages.length}
+                aria-valuenow={heroCurrentStepIndex + 1}
               >
-                {story.demo.stages.map((stage) => (
-                  <span key={stage} className={styles.progressDone}>
+                {story.demo.stages.map((stage, stageIndex) => (
+                  <span
+                    key={stage}
+                    className={stageIndex < heroCurrentStepIndex ? styles.progressDone : stageIndex === heroCurrentStepIndex ? styles.progressActive : undefined}
+                  >
                     <i aria-hidden='true' />
                     <small>{stage}</small>
                   </span>
