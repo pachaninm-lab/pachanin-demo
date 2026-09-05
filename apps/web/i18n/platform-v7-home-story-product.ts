@@ -2,54 +2,126 @@ import { getPlatformV7HomeStoryCopy as getOperatingStoryCopy } from './platform-
 
 type Locale = 'ru' | 'en' | 'zh';
 
-const PRODUCT_COPY = {
+type Step = Readonly<{ index: string; title: string; text: string; result: string }>;
+
+const PRODUCT_COPY: Record<Locale, {
+  navFunctions: string;
+  proof: readonly Readonly<{ label: string; text: string }>[];
+  differenceLead: string;
+  differenceBoundary: string;
+  functionsTitle: string;
+  functionsLead: string;
+  functionsSummaryTitle: string;
+  functionsSummaryText: string;
+  functionsMore: string;
+  functionItems: readonly Step[];
+  processTitle: string;
+  processLead: string;
+  processPhases: readonly Step[];
+  processMore: string;
+  fullPathLabel: string;
+  fullPathText: string;
+  stagesLabel: string;
+  demoTitle: string;
+  demoLead: string;
+  rolesTitle: string;
+  rolesLead: string;
+  rolesScenarioTitle: string;
+  rolesScenarioLead: string;
+  faqStartQ: string;
+  faqStartA: string;
+  accountingQ: string;
+  accountingA: string;
+}> = {
   ru: {
-    navFunctions: '8 шагов Сделки',
+    navFunctions: 'Возможности',
     proof: [
-      { label: '9 ролей', text: 'Публичное объяснение для продавца, покупателя, логистики, водителя, элеватора, лаборатории, сюрвейера, банка и сотрудника платформы' },
-      { label: 'Одна Сделка', text: 'Условия, исполнение, документы, качество и расчёт остаются в одном контексте' },
+      { label: '9 ролей', text: 'Продавец, покупатель, логистика, водитель, элеватор/хранение, лаборатория, сюрвейер, банк/финансы и сотрудник платформы' },
+      { label: '7 шагов', text: 'Один понятный путь от товара и условий до расчёта и закрытия' },
       { label: 'RU · EN · ZH', text: 'Публичные сценарии доступны на русском, английском и китайском' },
-      { label: 'Гекта', text: 'Аграрный интеллект сопоставляет доступные факты, источники, риск и следующий шаг' },
+      { label: 'Гекта', text: 'Аграрный интеллект помогает понять факты, риск и следующий разрешённый шаг' },
     ],
-    differenceLead: 'Платформа ведёт агросделку как единый процесс: от условий и торгов до поставки, качества, документов, расчёта и закрытия. Каждая роль видит свой контекст, ответственность и следующий шаг.',
-    differenceBoundary: 'Внешние системы подключаются через отдельные управляемые интеграции. Наличие интеграции, права доступа и фактический обмен подтверждаются для конкретного подключения организации.',
-    functionsTitle: 'Восемь связанных шагов одной Сделки',
-    functionsLead: 'Обычный успешный путь остаётся основным сценарием; отклонение или спор подключаются только когда для них появляется основание.',
-    functionsSummaryTitle: 'Восемь шагов — один управляемый контекст',
-    functionsSummaryText: 'Состояние каждого шага связано с участником, основанием, документами и последующим действием.',
-    functionsMore: 'Показать шаги 5–8',
-    processTitle: 'Понятный путь от условий до закрытия',
-    processLead: 'Пользователь видит, где находится Сделка сейчас, что уже подтверждено и какое действие требуется дальше.',
-    demoTitle: 'Сначала — обычное исполнение. При необходимости — отклонение или спор',
-    demoLead: 'Пример показывает три состояния одной Сделки. Отклонение и спор — исключения, а не обязательный путь каждого пользователя.',
-    rolesTitle: 'Покажите мне платформу глазами моей роли',
+    differenceLead: 'Платформа ведёт агросделку как один процесс: товар и условия → торги → Сделка и договор → поставка → приёмка и качество → документы и готовность расчёта → расчёт и закрытие.',
+    differenceBoundary: 'Отклонение или спор не являются обязательным этапом. Они подключаются как исключение, когда подтверждённые факты требуют отдельного решения.',
+    functionsTitle: 'Что платформа контролирует на всём пути Сделки',
+    functionsLead: 'Это не дополнительные этапы. Возможности работают поперёк семи шагов и помогают каждой роли видеть свои данные, основания и следующий шаг.',
+    functionsSummaryTitle: 'Одна Сделка — один источник контекста',
+    functionsSummaryText: 'Условия, исполнение, качество, документы, расчётные основания, исключения и аналитика остаются связанными между собой.',
+    functionsMore: 'Показать все возможности',
+    functionItems: [
+      { index: '01', title: 'Условия и торги', text: 'Товар, объём, качество, базис, допуски, предложения и ставки.', result: 'Понятно, на каких условиях стороны переходят к Сделке.' },
+      { index: '02', title: 'Исполнение поставки', text: 'Перевозчик, водитель, маршрут, рейс, контрольные точки и фактическая доставка.', result: 'Поставка связана с конкретной Сделкой и ответственными.' },
+      { index: '03', title: 'Приёмка и качество', text: 'Вес, размещение, проба, методика, протокол и подтверждённые расхождения.', result: 'Фактическое исполнение сопоставлено с согласованными условиями.' },
+      { index: '04', title: 'Документы и доказательства', text: 'Версии, подписи, комплектность и связь документа с событием и партией.', result: 'Основание не теряется в переписке и остаётся проверяемым.' },
+      { index: '05', title: 'Расчётные основания', text: 'Платформа показывает, какие события и документы уже подтверждены и чего ещё не хватает.', result: 'Финансовое действие не выглядит готовым без основания.' },
+      { index: '06', title: 'Контроль и Гекта', text: 'Гекта объясняет доступные факты и риски, а система сохраняет роли, сроки, исключения и историю решений.', result: 'Пользователь получает понятный следующий шаг без передачи ИИ самостоятельных полномочий.' },
+    ],
+    processTitle: 'Семь шагов обычной агросделки',
+    processLead: 'Сначала показан нормальный успешный путь. Отклонение, перерасчёт или спор появляются отдельной веткой только при необходимости.',
+    processPhases: [
+      { index: '01', title: 'Товар и условия', text: 'Продукция, объём, качество, базис, допуски, документы и правила расчёта.', result: 'Зафиксировано, что именно и на каких условиях предлагается.' },
+      { index: '02', title: 'Торги и контрагент', text: 'Допуск участников, предложения, ставки, сравнение условий и выбор второй стороны.', result: 'Выбран контрагент и согласованы коммерческие условия.' },
+      { index: '03', title: 'Сделка и договор', text: 'Обязательства сторон, договорные условия, роли, сроки и основания исполнения.', result: 'Сделка готова к физическому исполнению.' },
+      { index: '04', title: 'Логистика и поставка', text: 'Перевозчик, водитель, транспорт, маршрут, рейс и события доставки.', result: 'Партия доставлена и связана с подтверждёнными событиями.' },
+      { index: '05', title: 'Приёмка и качество', text: 'Вес, размещение, проба, лабораторный результат и проверка соответствия условиям.', result: 'Подтверждено фактическое количество и качество.' },
+      { index: '06', title: 'Документы и готовность расчёта', text: 'Комплект документов, версии, подписи и проверка наступления расчётных оснований.', result: 'Понятно, можно ли переходить к финансовому действию.' },
+      { index: '07', title: 'Расчёт и закрытие', text: 'Подтверждение финансового результата, сверка исполнения и закрытие обязательств.', result: 'Сделка завершена с сохранённой историей оснований.' },
+    ],
+    processMore: 'Показать шаги 4–7',
+    fullPathLabel: 'Обычный путь',
+    fullPathText: 'Товар и условия → торги и контрагент → Сделка и договор → логистика и поставка → приёмка и качество → документы и готовность расчёта → расчёт и закрытие.',
+    stagesLabel: 'Показать 7 шагов',
+    demoTitle: 'Обычное исполнение — основной сценарий',
+    demoLead: 'Норма показана первой. Отклонение и спор — отдельные примеры исключений, а не обязательные этапы каждой Сделки.',
+    rolesTitle: 'Покажите платформу глазами моей роли',
     rolesLead: 'Девять публичных ролей объясняют пользу без изменения реальных прав доступа. Полномочия назначаются системой после регистрации и проверки организации.',
     rolesScenarioTitle: 'Что видит и делает каждая роль',
-    rolesScenarioLead: 'Выберите роль, чтобы увидеть её задачу, основание, следующую операцию и влияние на расчёт.',
+    rolesScenarioLead: 'Выберите роль, чтобы увидеть её задачу, основание, следующий шаг и влияние на расчёт.',
     faqStartQ: 'Как начать работу?',
     faqStartA: 'Зарегистрируйтесь в платформе. После регистрации и проверки организации система определит доступный рабочий контур для вашей роли. Если потребуется помощь с подключением, используйте отдельную форму обращения.',
     accountingQ: 'Как бухгалтер работает с 1С и ЭДО?',
     accountingA: 'Платформа может связывать подтверждённые данные и статусы Сделки с внешним учётным и документным контуром через отдельное подключение. Конкретная схема, доступность интеграции и права подтверждаются для организации до обмена данными.',
   },
   en: {
-    navFunctions: '8 Deal steps',
+    navFunctions: 'Capabilities',
     proof: [
-      { label: '9 roles', text: 'Public value explanation for seller, buyer, logistics, driver, elevator/storage, laboratory, surveyor, bank and platform employee' },
-      { label: 'One Deal', text: 'Terms, execution, documents, quality and settlement stay in one context' },
+      { label: '9 roles', text: 'Seller, buyer, logistics, driver, elevator/storage, laboratory, surveyor, bank/finance and platform employee' },
+      { label: '7 steps', text: 'One clear path from product and terms to settlement and closure' },
       { label: 'RU · EN · ZH', text: 'Public scenarios are available in Russian, English and Chinese' },
-      { label: 'Gekta', text: 'Agricultural intelligence matches available facts, sources, risk and the next step' },
+      { label: 'Gekta', text: 'Agricultural intelligence helps explain facts, risk and the next permitted step' },
     ],
-    differenceLead: 'The platform runs an agricultural Deal as one process from terms and bidding through delivery, quality, documents, settlement and closure. Every role sees its own context, responsibility and next step.',
-    differenceBoundary: 'External systems connect through separate managed integrations. Availability, access rights and actual data exchange are confirmed for each organisation connection.',
-    functionsTitle: 'Eight connected steps of one Deal',
-    functionsLead: 'The ordinary successful path is the primary scenario; deviation or dispute appears only when evidence requires it.',
-    functionsSummaryTitle: 'Eight steps, one controlled context',
-    functionsSummaryText: 'Each step is linked to a participant, evidence, documents and the next permitted action.',
-    functionsMore: 'Show steps 5–8',
-    processTitle: 'A clear path from terms to closure',
-    processLead: 'The user sees where the Deal is now, what is already verified and what action is required next.',
-    demoTitle: 'Ordinary execution first; deviation or dispute only when needed',
-    demoLead: 'The example shows three states of one Deal. Deviation and dispute are exceptions, not a mandatory path for every user.',
+    differenceLead: 'The platform runs an agricultural Deal as one process: product and terms → bidding → Deal and contract → delivery → acceptance and quality → documents and settlement readiness → settlement and closure.',
+    differenceBoundary: 'A deviation or dispute is not a mandatory stage. It becomes an exception branch only when verified facts require a separate decision.',
+    functionsTitle: 'What the platform controls across the Deal journey',
+    functionsLead: 'These are not extra stages. The capabilities work across the seven steps and help each role see its data, evidence and next action.',
+    functionsSummaryTitle: 'One Deal, one source of context',
+    functionsSummaryText: 'Terms, execution, quality, documents, settlement grounds, exceptions and analytics stay connected.',
+    functionsMore: 'Show all capabilities',
+    functionItems: [
+      { index: '01', title: 'Terms and bidding', text: 'Product, volume, quality, basis, tolerances, offers and bids.', result: 'The basis for moving into a Deal is explicit.' },
+      { index: '02', title: 'Delivery execution', text: 'Carrier, driver, route, trip, checkpoints and actual delivery.', result: 'Delivery remains tied to the exact Deal and responsible parties.' },
+      { index: '03', title: 'Acceptance and quality', text: 'Weight, placement, sample, method, protocol and verified discrepancies.', result: 'Actual execution is compared with the agreed terms.' },
+      { index: '04', title: 'Documents and evidence', text: 'Versions, signatures, completeness and relationship to events and lots.', result: 'Evidence remains verifiable instead of being lost in correspondence.' },
+      { index: '05', title: 'Settlement grounds', text: 'The platform shows what is already confirmed and what is still missing.', result: 'A financial action is never presented as ready without a basis.' },
+      { index: '06', title: 'Control and Gekta', text: 'Gekta explains available facts and risk while the system retains roles, deadlines, exceptions and decision history.', result: 'The user gets a clear next step without granting AI independent authority.' },
+    ],
+    processTitle: 'Seven steps of an ordinary agricultural Deal',
+    processLead: 'The normal successful journey comes first. Deviation, recalculation or dispute appears as a separate branch only when needed.',
+    processPhases: [
+      { index: '01', title: 'Product and terms', text: 'Product, volume, quality, basis, tolerances, documents and settlement rules.', result: 'What is offered and on which terms is fixed.' },
+      { index: '02', title: 'Bidding and counterparty', text: 'Admission, offers, bids, term comparison and counterparty selection.', result: 'The counterparty and commercial terms are agreed.' },
+      { index: '03', title: 'Deal and contract', text: 'Party obligations, contract terms, roles, deadlines and execution grounds.', result: 'The Deal is ready for physical execution.' },
+      { index: '04', title: 'Logistics and delivery', text: 'Carrier, driver, vehicle, route, trip and delivery events.', result: 'The lot is delivered with linked execution evidence.' },
+      { index: '05', title: 'Acceptance and quality', text: 'Weight, placement, sample, laboratory result and conformity check.', result: 'Actual quantity and quality are confirmed.' },
+      { index: '06', title: 'Documents and settlement readiness', text: 'Document set, versions, signatures and verification of settlement grounds.', result: 'It is clear whether a financial action may proceed.' },
+      { index: '07', title: 'Settlement and closure', text: 'Confirmation of the financial result, execution reconciliation and obligation closure.', result: 'The Deal closes with a retained evidence history.' },
+    ],
+    processMore: 'Show steps 4–7',
+    fullPathLabel: 'Ordinary journey',
+    fullPathText: 'Product and terms → bidding and counterparty → Deal and contract → logistics and delivery → acceptance and quality → documents and settlement readiness → settlement and closure.',
+    stagesLabel: 'Show the 7 steps',
+    demoTitle: 'Ordinary execution is the primary scenario',
+    demoLead: 'Normal execution is shown first. Deviation and dispute are separate exception examples, not mandatory stages of every Deal.',
     rolesTitle: 'Show me the platform from my role',
     rolesLead: 'Nine public roles explain value without changing real access rights. Authority is assigned by the system after registration and organisation verification.',
     rolesScenarioTitle: 'What each role sees and does',
@@ -60,24 +132,45 @@ const PRODUCT_COPY = {
     accountingA: 'The platform can link verified Deal data and statuses to an external accounting or document workflow through a separate connection. The exact scheme, integration availability and access rights are confirmed for the organisation before data exchange.',
   },
   zh: {
-    navFunctions: '交易 8 个步骤',
+    navFunctions: '平台能力',
     proof: [
-      { label: '9 个角色', text: '面向卖方、买方、物流、司机、筒仓/仓储、实验室、检验机构、银行和平台员工的公开价值说明' },
-      { label: '同一笔交易', text: '条件、履约、文件、质量和结算保持在同一上下文中' },
+      { label: '9 个角色', text: '卖方、买方、物流、司机、筒仓/仓储、实验室、检验机构、银行/金融和平台员工' },
+      { label: '7 个步骤', text: '从商品与条件到结算与关闭的一条清晰路径' },
       { label: 'RU · EN · ZH', text: '公开场景支持俄语、英语和中文' },
-      { label: 'Gekta', text: '农业智能对照可用事实、来源、风险和下一步' },
+      { label: 'Gekta', text: '农业智能帮助解释事实、风险和允许的下一步' },
     ],
-    differenceLead: '平台把农业交易作为一个完整流程管理：从条件和竞价，到交付、质量、文件、结算和关闭。每个角色都能看到自己的上下文、责任和下一步。',
-    differenceBoundary: '外部系统通过独立的受控集成接入。实际可用性、访问权限和数据交换需要针对具体机构接入进行确认。',
-    functionsTitle: '同一笔交易的八个关联步骤',
-    functionsLead: '普通成功履约是主要场景；只有在存在依据时，才进入偏差或争议。',
-    functionsSummaryTitle: '八个步骤，一个受控上下文',
-    functionsSummaryText: '每一步都与参与方、依据、文件和允许的下一步关联。',
-    functionsMore: '显示第 5–8 步',
-    processTitle: '从条件到关闭的清晰路径',
-    processLead: '用户可以看到交易当前所处位置、已确认内容以及下一步需要完成的操作。',
-    demoTitle: '先展示普通履约；必要时再处理偏差或争议',
-    demoLead: '示例展示同一笔交易的三种状态。偏差和争议属于例外，而不是每个用户的必经路径。',
+    differenceLead: '平台把农业交易作为一个流程管理：商品与条件 → 竞价 → 交易与合同 → 物流交付 → 验收与质量 → 文件与结算准备 → 结算与关闭。',
+    differenceBoundary: '偏差或争议不是必经阶段。只有在已确认事实需要单独决定时，才进入异常分支。',
+    functionsTitle: '平台在整条交易路径中控制什么',
+    functionsLead: '这些不是额外阶段。相关能力贯穿七个步骤，帮助每个角色查看自己的数据、依据和下一步。',
+    functionsSummaryTitle: '同一笔交易，同一上下文来源',
+    functionsSummaryText: '条件、履约、质量、文件、结算依据、异常和分析始终保持关联。',
+    functionsMore: '显示全部能力',
+    functionItems: [
+      { index: '01', title: '条件与竞价', text: '商品、数量、质量、基准、容差、报价和竞价。', result: '进入交易的商业依据清晰可见。' },
+      { index: '02', title: '交付履约', text: '承运方、司机、路线、运输任务、检查点和实际交付。', result: '交付始终关联到具体交易和责任方。' },
+      { index: '03', title: '验收与质量', text: '重量、入库、样品、方法、报告和已确认差异。', result: '实际履约与约定条件完成对照。' },
+      { index: '04', title: '文件与证据', text: '版本、签名、完整性以及文件与事件、批次的关系。', result: '依据保持可核验，不会丢失在分散沟通中。' },
+      { index: '05', title: '结算依据', text: '平台显示哪些事项已确认、哪些仍然缺失。', result: '没有依据时，不会把金融操作显示为已就绪。' },
+      { index: '06', title: '控制与 Gekta', text: 'Gekta 解释可用事实和风险，系统保存角色、期限、异常和决定历史。', result: '用户得到清晰下一步，同时不会把独立权限交给 AI。' },
+    ],
+    processTitle: '普通农业交易的七个步骤',
+    processLead: '先展示正常成功路径。只有确有需要时，偏差、重算或争议才作为单独分支出现。',
+    processPhases: [
+      { index: '01', title: '商品与条件', text: '商品、数量、质量、基准、容差、文件和结算规则。', result: '明确提供什么以及采用哪些条件。' },
+      { index: '02', title: '竞价与交易方', text: '准入、报价、竞价、条件比较和交易方选择。', result: '确定交易方并确认商业条件。' },
+      { index: '03', title: '交易与合同', text: '双方义务、合同条件、角色、期限和履约依据。', result: '交易可以进入实际履约。' },
+      { index: '04', title: '物流与交付', text: '承运方、司机、车辆、路线、运输任务和交付事件。', result: '批次完成交付并关联履约依据。' },
+      { index: '05', title: '验收与质量', text: '重量、入库、样品、实验室结果和符合性检查。', result: '实际数量与质量得到确认。' },
+      { index: '06', title: '文件与结算准备', text: '文件完整性、版本、签名以及结算依据核验。', result: '清楚知道是否可以进入金融操作。' },
+      { index: '07', title: '结算与关闭', text: '确认金融结果、核对履约并关闭义务。', result: '交易关闭，同时保留完整依据历史。' },
+    ],
+    processMore: '显示第 4–7 步',
+    fullPathLabel: '普通路径',
+    fullPathText: '商品与条件 → 竞价与交易方 → 交易与合同 → 物流与交付 → 验收与质量 → 文件与结算准备 → 结算与关闭。',
+    stagesLabel: '显示 7 个步骤',
+    demoTitle: '普通履约是主要场景',
+    demoLead: '首先展示正常履约。偏差和争议是单独的异常示例，不是每笔交易的必经阶段。',
     rolesTitle: '从我的角色理解平台',
     rolesLead: '九个公开角色用于解释价值，不会改变真实访问权限。实际权限在注册并完成机构核验后由系统确定。',
     rolesScenarioTitle: '每个角色看到什么、做什么',
@@ -87,7 +180,7 @@ const PRODUCT_COPY = {
     accountingQ: '会计人员如何使用 1C 和电子单据系统？',
     accountingA: '平台可以通过独立接入，把已确认的交易数据和状态关联到外部会计或电子文件流程。具体方案、集成可用性和访问权限必须在数据交换前针对机构确认。',
   },
-} as const;
+};
 
 function localeOf(locale: string): Locale {
   return locale === 'en' || locale === 'zh' ? locale : 'ru';
@@ -106,15 +199,12 @@ export function getPlatformV7HomeStoryCopy(locale: string) {
     ...copy,
     nav: { ...copy.nav, functions: local.navFunctions },
     proof: local.proof,
-    difference: {
-      ...copy.difference,
-      lead: local.differenceLead,
-      boundary: local.differenceBoundary,
-    },
+    difference: { ...copy.difference, lead: local.differenceLead, boundary: local.differenceBoundary },
     functions: {
       ...copy.functions,
       title: local.functionsTitle,
       lead: local.functionsLead,
+      items: local.functionItems,
       summaryTitle: local.functionsSummaryTitle,
       summaryText: local.functionsSummaryText,
       moreLabel: local.functionsMore,
@@ -123,12 +213,13 @@ export function getPlatformV7HomeStoryCopy(locale: string) {
       ...copy.process,
       title: local.processTitle,
       lead: local.processLead,
+      phases: local.processPhases,
+      moreLabel: local.processMore,
+      fullPathLabel: local.fullPathLabel,
+      fullPathText: local.fullPathText,
+      stagesLabel: local.stagesLabel,
     },
-    demo: {
-      ...copy.demo,
-      title: local.demoTitle,
-      lead: local.demoLead,
-    },
+    demo: { ...copy.demo, title: local.demoTitle, lead: local.demoLead },
     roles: {
       ...copy.roles,
       title: local.rolesTitle,
@@ -147,27 +238,9 @@ export function getPlatformV7HomeStoryCopy(locale: string) {
   };
 }
 
-/** Stable acceptance vocabulary for the operating public presentation. */
+/** Stable acceptance vocabulary for the public presentation. */
 export const platformV7HomepageProductCopyAcceptance = {
-  ru: {
-    system: 'Полный контур агросделки собран в одной рабочей системе',
-    unity: 'Все функции работают как единая Сделка',
-    authority: 'Критические решения подтверждает уполномоченный участник.',
-    roles: '9 ролей',
-    primaryAction: 'Зарегистрироваться',
-  },
-  en: {
-    system: 'The complete agricultural Deal workflow in one operating system',
-    unity: 'Every capability works as one Deal',
-    authority: 'Critical decisions are confirmed by an authorised participant.',
-    roles: '9 roles',
-    primaryAction: 'Register',
-  },
-  zh: {
-    system: '完整农业交易流程集中在同一工作系统',
-    unity: '所有能力共同构成同一笔交易',
-    authority: '关键决定由获授权的参与方确认。',
-    roles: '9 个角色',
-    primaryAction: '注册',
-  },
+  ru: { system: 'Полный контур агросделки собран в одной рабочей системе', unity: 'Все функции работают как единая Сделка', authority: 'Критические решения подтверждает уполномоченный участник.', roles: '9 ролей', journey: '7 шагов', primaryAction: 'Зарегистрироваться' },
+  en: { system: 'The complete agricultural Deal workflow in one operating system', unity: 'Every capability works as one Deal', authority: 'Critical decisions are confirmed by an authorised participant.', roles: '9 roles', journey: '7 steps', primaryAction: 'Register' },
+  zh: { system: '完整农业交易流程集中在同一工作系统', unity: '所有能力共同构成同一笔交易', authority: '关键决定由获授权的参与方确认。', roles: '9 个角色', journey: '7 个步骤', primaryAction: '注册' },
 } as const;
