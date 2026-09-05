@@ -2,7 +2,7 @@ name: Repo automations
 
 on:
   pull_request_target:
-    types: [labeled, unlabeled, synchronize, opened, reopened, ready_for_review]
+    types: [labeled, unlabeled, synchronize, opened, reopened, ready_for_review, converted_to_draft]
   pull_request_review:
     types: [submitted, dismissed]
   pull_request_review_comment:
@@ -24,7 +24,7 @@ permissions:
 
 concurrency:
   group: repo-automerge-${{ github.event.pull_request.number || github.event.issue.number || github.event.client_payload.pr_number || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   exact-head-review-gate:
