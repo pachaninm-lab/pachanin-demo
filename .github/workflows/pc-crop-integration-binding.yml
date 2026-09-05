@@ -1,46 +1,54 @@
-name: PC-CROP Provider Registry Authority
+name: PC-CROP Integration Binding Authority
 
 on:
   pull_request:
     paths:
-      - 'packages/domain-core/src/service-provider-registry.ts'
+      - 'packages/domain-core/src/integration-capability.ts'
+      - 'packages/domain-core/src/index.ts'
+      - 'packages/integration-sdk/src/adapter.interface.ts'
+      - 'packages/integration-sdk/src/registry.ts'
+      - 'packages/integration-sdk/src/live/**'
       - 'apps/api/prisma/schema.prisma'
-      - 'apps/api/prisma/migrations/20260904210000_provider_registry_authority/**'
+      - 'apps/api/prisma/migrations/20260904230000_integration_binding_authority/**'
       - 'apps/api/src/modules/service-providers/**'
-      - 'apps/api/test/industrial/provider-registry-authority.e2e-spec.ts'
+      - 'apps/api/test/industrial/integration-binding-authority.e2e-spec.ts'
       - 'scripts/platform-v7-one-deal-e2e.sh'
-      - 'docs/platform-v7/autopilot/scopes/pc-crop-provider-registry-authority-4997.json'
-      - 'scripts/verify-pc-crop-provider-registry-scope.test.mjs'
-      - '.github/workflows/pc-crop-provider-registry.yml'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json'
+      - 'scripts/verify-pc-crop-integration-binding-scope.test.mjs'
+      - '.github/workflows/pc-crop-integration-binding.yml'
   push:
     branches: [main]
     paths:
-      - 'packages/domain-core/src/service-provider-registry.ts'
+      - 'packages/domain-core/src/integration-capability.ts'
+      - 'packages/domain-core/src/index.ts'
+      - 'packages/integration-sdk/src/adapter.interface.ts'
+      - 'packages/integration-sdk/src/registry.ts'
+      - 'packages/integration-sdk/src/live/**'
       - 'apps/api/prisma/schema.prisma'
-      - 'apps/api/prisma/migrations/20260904210000_provider_registry_authority/**'
+      - 'apps/api/prisma/migrations/20260904230000_integration_binding_authority/**'
       - 'apps/api/src/modules/service-providers/**'
-      - 'apps/api/test/industrial/provider-registry-authority.e2e-spec.ts'
+      - 'apps/api/test/industrial/integration-binding-authority.e2e-spec.ts'
       - 'scripts/platform-v7-one-deal-e2e.sh'
-      - 'docs/platform-v7/autopilot/scopes/pc-crop-provider-registry-authority-4997.json'
-      - 'scripts/verify-pc-crop-provider-registry-scope.test.mjs'
-      - '.github/workflows/pc-crop-provider-registry.yml'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json'
+      - 'scripts/verify-pc-crop-integration-binding-scope.test.mjs'
+      - '.github/workflows/pc-crop-integration-binding.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: pc-crop-provider-registry-${{ github.event.pull_request.number || github.ref }}
+  group: pc-crop-integration-binding-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/grainflow
-  EVIDENCE_DIR: artifacts/pc-crop-provider-registry
+  EVIDENCE_DIR: artifacts/pc-crop-integration-binding
 
 jobs:
-  provider-registry-authority:
-    name: PostgreSQL schema, bounded authority and contract
+  integration-binding-authority:
+    name: PostgreSQL binding, maturity and fail-closed adapters
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
@@ -75,15 +83,14 @@ jobs:
             base_ref="HEAD^"
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
-          if [[ "${GITHUB_HEAD_REF:-}" == "feat/pc-crop-provider-registry-authority-4997" ]]; then
+          if [[ "${GITHUB_HEAD_REF:-}" == "feat/pc-crop-integration-binding-authority-4997" ]]; then
             PC_CROP_BASE_REF="$base_ref" \
-              node --test scripts/verify-pc-crop-provider-registry-scope.test.mjs \
+              node --test scripts/verify-pc-crop-integration-binding-scope.test.mjs \
               2>&1 | tee "$EVIDENCE_DIR/scope.log"
           else
-            # This workflow remains a regression gate for later provider work,
-            # but its historical W1-B diff boundary must not reject a new,
-            # separately approved scope.
-            node --test scripts/verify-pc-crop-provider-registry-scope.test.mjs \
+            # Later waves retain all static and runtime regression checks.
+            # Their changed-file boundary belongs to their own approved scope.
+            node --test scripts/verify-pc-crop-integration-binding-scope.test.mjs \
               2>&1 | tee "$EVIDENCE_DIR/scope.log"
           fi
 
@@ -116,25 +123,32 @@ jobs:
           pnpm --filter @pc/api exec prisma generate \
             2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
 
-      - name: Typecheck provider registry authority
+      - name: Typecheck binding authority
         shell: bash
         run: |
           set -o pipefail
           pnpm --filter @pc/api typecheck \
             2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
 
-      - name: Run provider registry contract tests
+      - name: Run binding and maturity contracts
         shell: bash
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec jest --runInBand \
-            --runTestsByPath src/modules/service-providers/provider-registry.contract.spec.ts \
-            2>&1 | tee "$EVIDENCE_DIR/contract-tests.log"
+            --runTestsByPath src/modules/service-providers/integration-binding.contract.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/api-contracts.log"
 
-      - name: Record runtime acceptance owner
+      - name: Run fail-closed adapter contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm exec vitest run packages/integration-sdk/src \
+            2>&1 | tee "$EVIDENCE_DIR/integration-sdk.log"
+
+      - name: Record restricted-principal acceptance owner
         run: |
           printf '%s\n' \
-            'Restricted-principal PostgreSQL runtime acceptance is blocking in CI one-deal exploitation.' \
+            'Restricted-principal PostgreSQL acceptance runs in the blocking one-deal exploitation job.' \
             > "$EVIDENCE_DIR/runtime-acceptance-owner.txt"
 
       - name: Build exact evidence inventory
@@ -145,22 +159,22 @@ jobs:
             | xargs -0 sha256sum \
             > "$EVIDENCE_DIR/exact-evidence-sha256.txt"
 
-      - name: Upload provider registry evidence
+      - name: Upload binding evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: pc-crop-provider-registry-${{ env.EXACT_HEAD }}
+          name: pc-crop-integration-binding-${{ env.EXACT_HEAD }}
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 90
           compression-level: 0
           overwrite: false
 
-  provider-registry-gate:
-    name: PC-CROP Provider Registry Gate · blocking
+  integration-binding-gate:
+    name: PC-CROP Integration Binding Gate · blocking
     if: always()
     runs-on: ubuntu-24.04
-    needs: provider-registry-authority
+    needs: integration-binding-authority
     steps:
-      - name: Enforce provider registry authority result
-        run: test "${{ needs.provider-registry-authority.result }}" = success
+      - name: Enforce integration binding authority result
+        run: test "${{ needs.integration-binding-authority.result }}" = success
