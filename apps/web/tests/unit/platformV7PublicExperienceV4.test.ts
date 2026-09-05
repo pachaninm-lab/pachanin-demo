@@ -37,6 +37,15 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
     expect(header).toContain('pc-site-mobile-nav');
   });
 
+  it('preserves the active locale through linked public pages and registration', () => {
+    expect(explorerPage).toContain('const localizedHref = (path: string) => `${path}?lang=${encodeURIComponent(normalizedLocale)}`');
+    expect(explorerPage).toContain("href={localizedHref('/platform-v7/about')}");
+    expect(explorerPage).toContain("href={localizedHref('/platform-v7/contact')}");
+    expect(explorerPage).toContain("const registerHref = localizedHref('/platform-v7/register')");
+    expect(explorer).toContain('const registerHref = `/platform-v7/register?lang=${encodeURIComponent(localizedLocale)}`');
+    expect(explorer).toContain('href={registerHref}');
+  });
+
   it('keeps illustrative data explicit and removes internal maturity shorthand', () => {
     expect(copy).toContain("demoLabel: 'Вымышленный пример Сделки'");
     expect(copy).toContain('не содержит реальных сделок, организаций или денежных операций');
