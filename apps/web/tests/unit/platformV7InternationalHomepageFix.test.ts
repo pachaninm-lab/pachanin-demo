@@ -6,55 +6,45 @@ const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 const wrapper = read('apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx');
+const home = read('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
+const story = read('apps/web/i18n/platform-v7-home-story-product.ts');
 const css = read('apps/web/styles/platform-v7-international-home-fix.css');
 const tsconfig = read('apps/web/tsconfig.json');
 const trustContent = read('apps/web/app/trust/page.tsx');
 const trustRoute = read('apps/web/app/platform-v7/trust/page.tsx');
 const platformLayout = read('apps/web/app/platform-v7/layout.tsx');
 const publicSeoRegistry = read('apps/web/lib/platform-v7/public-seo-routes.json');
-const browserAcceptance = read('apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts');
-const strategicAcceptance = read('apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts');
 
 describe('platform-v7 international homepage completion', () => {
-  it('routes the canonical homepage through the additive completion layer', () => {
+  it('keeps the existing alias but makes the wrapper a transparent delegator', () => {
     expect(tsconfig).toContain('"@/components/platform-v7/PlatformV7StrategicHome"');
     expect(tsconfig).toContain('PlatformV7StrategicHomeInternational.tsx');
     expect(wrapper).toContain("from './PlatformV7StrategicHome'");
-    expect(wrapper).toContain('BasePlatformV7StrategicHome');
+    expect(wrapper).toContain('return BasePlatformV7StrategicHome();');
+    expect(wrapper).not.toContain('cloneElement');
+    expect(wrapper).not.toContain('Children.toArray');
+    expect(wrapper).not.toContain("props.id === 'deal-path'");
+    expect(wrapper).not.toContain("normalizedKey(element.key) === '08'");
   });
 
-  it('renders exactly seven numbered Deal steps and removes the duplicate path section', () => {
-    expect(wrapper).toContain("props.id === 'deal-path'");
-    expect(wrapper).toContain("normalizedKey(element.key) === '08'");
-    expect(wrapper).toContain("stepsMore: 'Показать шаги 5–7'");
-    expect(browserAcceptance).toContain("page.locator('#functions article')).toHaveCount(7)");
-    expect(browserAcceptance).toContain("page.locator('#deal-path')).toHaveCount(0)");
-    expect(strategicAcceptance).toContain("page.locator('#functions article')).toHaveCount(7)");
-    expect(strategicAcceptance).toContain("page.locator('#deal-path')).toHaveCount(0)");
+  it('keeps the canonical seven-step path in the canonical homepage source', () => {
+    expect(home).toContain("id='deal-path'");
+    expect(story).toContain("processTitle: 'Семь шагов обычной агросделки'");
+    expect(story).toContain("journey: '7 шагов'");
+    expect(story).toContain("fullPathLabel: 'Обычный путь'");
+    expect(story).not.toContain("navFunctions: '8 шагов Сделки'");
   });
 
-  it('uses business-first copy and a concrete next action without internal integration commentary', () => {
-    expect(wrapper).toContain("id='trust'");
-    expect(wrapper).toContain("id='connection-process'");
-    expect(wrapper).toContain('element.type === OrganizationConnectForm');
-    expect(wrapper).toContain('ConnectionProcess');
-    expect(wrapper).toContain('TrustSection');
-    expect(wrapper).toContain('Сделка управляется по одной версии фактов');
-    expect(wrapper).toContain('Начните работу с платформой');
-    expect(wrapper).toContain('Получите зафиксированный следующий шаг');
-    expect(wrapper).toContain("title: 'Гекта в процессе'");
-    expect(wrapper).toContain("title: 'Gekta in the workflow'");
-    expect(wrapper).toContain("title: '流程内的 Gekta'");
-    expect(wrapper).not.toMatch(/\bTAI\b/u);
-    expect(wrapper).toContain("<a href='#live'>{copy.deal}</a>");
-    expect(wrapper).toContain("<a href='#connect-organization'>{copy.connect}</a>");
-    expect(wrapper).not.toContain('Честный статус контуров');
-    expect(wrapper).not.toContain('Неподтверждённый обмен');
-    expect(wrapper).not.toContain('Internal availability and external connections');
-    expect(wrapper).not.toContain('未经确认的数据交换');
+  it('does not recreate visitor copy or sections through compatibility CSS', () => {
+    expect(css).not.toContain('.pc-home-trust');
+    expect(css).not.toContain('.pc-home-connection-process');
+    expect(css).not.toContain('content:');
+    expect(css).not.toContain('font-size: 0');
+    expect(css).toContain('.pc-v7-public-entry .pc-v6-footer');
+    expect(css).toContain(".pc-public-contact-dock[data-assistant-context='public']");
   });
 
-  it('publishes a canonical public RU EN ZH Trust Center without unsupported certification claims', () => {
+  it('publishes the canonical public RU EN ZH Trust Center without unsupported certification claims', () => {
     expect(trustContent).toContain("type Locale = 'ru' | 'en' | 'zh'");
     expect(trustRoute).toContain("import BaseTrustCenterPage from '../../trust/page'");
     expect(trustRoute).toContain('rebrandTrustCopy(await BaseTrustCenterPage(), locale)');
@@ -69,21 +59,11 @@ describe('platform-v7 international homepage completion', () => {
     expect(trustContent).toContain('Что платформа не заявляет без доказательств');
     expect(trustContent).toContain('ISO, SOC 2 или иная сертификация — без опубликованного подтверждения');
     expect(trustContent).toContain('У Гекты нет самостоятельного права менять Сделку');
-    expect(browserAcceptance).toContain("page.goto('/platform-v7/trust?lang=ru'");
   });
 
-  it('keeps support and phone in the mobile menu while reducing the mobile dock to AI only', () => {
-    expect(wrapper).toContain('pc-home-mobile-contact-link');
-    expect(wrapper).toContain('href={SUPPORT_PHONE_HREF}');
-    expect(css).toContain('.pc-site-mobile-nav .pc-home-mobile-contact-link');
-    expect(css).toContain('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)');
-    expect(css).toContain('display: none !important');
+  it('retains mobile dock sizing, reduced-motion and forced-colors resilience', () => {
     expect(css).toContain('width: 56px !important');
-    expect(css).toContain('left: auto !important');
-    expect(css).toContain('padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px))');
-  });
-
-  it('retains accessibility, reduced-motion and forced-colors contracts', () => {
+    expect(css).toContain('min-height: 48px !important');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('@media (forced-colors: active)');
     expect(trustContent).toContain("aria-labelledby='pc-trust-title'");
