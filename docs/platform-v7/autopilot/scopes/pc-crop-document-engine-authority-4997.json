@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-document-engine-authority-4997",
+  "status": "staged",
+  "purpose": "W3-B foundation: establish the complete versioned document requirement/type/status matrix around the existing canonical DealDocument authority, without creating DocumentV2 or mutating signed documents.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification. This file only stages a future finite scope; no implementation authority exists until a separate governance PR is reviewed, merged and promoted into immutable base-state authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [18],
+  "terminalCriteria": [
+    "DOCUMENT_ENGINE=PASS"
+  ],
+  "requiredDocumentTypes": [
+    "FRAMEWORK_CONTRACT",
+    "SUPPLY_CONTRACT",
+    "SPECIFICATION",
+    "INVOICE",
+    "UPD",
+    "UKD",
+    "ACT",
+    "SERVICE_CONTRACT",
+    "TRANSPORT_REQUEST",
+    "ETRN",
+    "EPD",
+    "LAB_PROTOCOL",
+    "SURVEY_REPORT",
+    "WAREHOUSE_DOCUMENT",
+    "AGENT_REPORT",
+    "RECONCILIATION_ACT",
+    "CLAIM",
+    "AMENDMENT",
+    "CANCELLATION"
+  ],
+  "requiredStatuses": [
+    "DRAFT",
+    "GENERATED",
+    "REVIEW",
+    "SIGNING",
+    "SIGNED",
+    "SENT",
+    "DELIVERED",
+    "ACCEPTED",
+    "CORRECTED",
+    "CANCELLED",
+    "ARCHIVED"
+  ],
+  "allowedPaths": [
+    "packages/domain-core/src/document-engine.ts",
+    "packages/domain-core/src/document-engine.test.ts",
+    "apps/api/prisma/migrations/20260905260000_document_engine_registry/migration.sql",
+    "apps/api/src/modules/document-engine/document-engine.contract.ts",
+    "apps/api/src/modules/document-engine/document-engine.contract.spec.ts",
+    "apps/api/src/modules/document-engine/document-engine.repository.ts",
+    "apps/api/src/modules/document-engine/document-engine.repository.spec.ts",
+    "apps/api/src/modules/document-engine/document-engine.policy.ts",
+    "apps/api/src/modules/document-engine/document-engine.policy.spec.ts",
+    "apps/api/test/industrial/document-engine-registry.e2e-spec.ts",
+    "scripts/verify-pc-crop-document-engine-scope.test.mjs",
+    ".github/workflows/pc-crop-document-engine.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {
+      "path": "apps/api/prisma/schema.prisma",
+      "reason": "Existing DealDocument remains canonical. The first slice stores document registry/lifecycle policy in a dedicated document_engine schema and introduces no second public document model."
+    },
+    {
+      "path": "packages/domain-core/src/index.ts",
+      "reason": "Barrel publication is deferred to consumer wiring to avoid shared-file collisions with concurrent work."
+    },
+    {
+      "path": "apps/api/src/modules/documents/document-matrix.service.ts",
+      "reason": "The current hard-coded 9-type matrix is source evidence, not modified by the foundation. Replacement wiring is a separately accepted consumer slice."
+    },
+    {
+      "path": "apps/api/src/modules/documents/prisma-document.repository.ts",
+      "reason": "Existing canonical document writer/immutability remains unchanged in the registry foundation."
+    },
+    {
+      "path": "apps/api/src/app.module.ts",
+      "reason": "The first registry foundation is unmounted; API/user flow is later work."
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "reason": "Global CI remains an independent gate."
+    }
+  ],
+  "sourceEvidence": [
+    "apps/api/src/modules/documents/document-matrix.service.ts",
+    "apps/api/src/modules/documents/prisma-document.repository.ts",
+    "apps/api/prisma/schema.prisma#DealDocument",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Reuse the existing canonical DealDocument immutable-version writer; do not create DocumentV2 or an alternative signed-document authority.",
+    "The registry covers every required document type from section 18 and every required lifecycle status; aliases may exist only as explicit versioned mappings, never as silently divergent types.",
+    "DocumentRequirement is versioned by role, Deal stage, service/regulatory applicability and blocking action. A requirement change creates a new policy version and does not rewrite historical Deal obligations.",
+    "Lifecycle transitions are a closed state machine. SIGNED content is immutable; correction produces a new version/status path and cancellation/archive preserve the signed/history chain.",
+    "A document type/status registry entry does not manufacture document existence, signature, delivery, acceptance, EDO receipt or regulatory finality.",
+    "Requirements derive from authoritative Deal/service/regulatory facts; browser-selected document type/status or client-side gate results never become authority.",
+    "Every published registry/policy version is approved, effective-dated, content-hashed and immutable after publication.",
+    "All registry/policy tables/functions live in a dedicated document_engine schema with FORCE RLS/memberless command ownership and atomic event/audit/outbox receipts.",
+    "Existing signed DealDocument versions, storage hashes and signature evidence are never edited by this foundation.",
+    "Registration, Role Eligibility, Contract foundation, Signature/MChD, Settlement, Federal Accounting lock #4321, packages/lockfiles and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Contract tests prove all required document types and statuses are present exactly once in the canonical registry vocabulary.",
+    "Restricted PostgreSQL tests prove registry publication/versioning, immutable effective versions, tenant isolation and current-authority replay checks.",
+    "The lifecycle policy rejects forbidden transitions, especially mutation of SIGNED bytes/history and direct jumps that fabricate SENT/DELIVERED/ACCEPTED finality.",
+    "Historical Deal requirement snapshots remain pinned when a newer registry/policy version is published.",
+    "Direct UPDATE/DELETE/TRUNCATE and outsider/cross-tenant access are denied.",
+    "Exact replay returns the original receipt; changed payload conflicts; audit/outbox/hash failure rolls back the publication command.",
+    "No existing DealDocument row or hard-coded matrix consumer is mutated in the foundation and no public Prisma schema drift is introduced.",
+    "Forward migration, restore, cryptographic freshness and exact-head CI/review pass before implementation merge."
+  ],
+  "remainingTerminalBoundary": [
+    "Consumer wiring must replace the current hard-coded document matrix without weakening canonical DealDocument immutability.",
+    "Generation/rendering for each required type, EDO delivery receipts and signature authority remain separate slices.",
+    "Role-specific document UI/search/states and REG.RU real-user acceptance remain required before terminal DOCUMENT_ENGINE credit."
+  ],
+  "terminalCredit": 0
+}
