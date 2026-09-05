@@ -80,7 +80,7 @@ const PRODUCT_COPY: Record<Locale, {
     faqStartQ: 'Как начать работу?',
     faqStartA: 'Зарегистрируйтесь в платформе. После регистрации и проверки организации система определит доступный рабочий контур для вашей роли. Если потребуется помощь с подключением, используйте отдельную форму обращения.',
     accountingQ: 'Как бухгалтер работает с 1С и ЭДО?',
-    accountingA: 'Платформа может связывать подтверждённые данные и статусы Сделки с внешним учётным и документным контуром через отдельное подключение. Конкретная схема, доступность интеграции и права подтверждаются для организации до обмена данными.',
+    accountingA: 'Внешние системы подключаются через отдельные управляемые интеграции. Платформа может связывать подтверждённые данные и статусы Сделки с внешним учётным и документным контуром только после отдельного подключения. Конкретная схема, доступность интеграции и права подтверждаются для организации до обмена данными.',
   },
   en: {
     navFunctions: 'Capabilities',
@@ -129,7 +129,7 @@ const PRODUCT_COPY: Record<Locale, {
     faqStartQ: 'How do I start?',
     faqStartA: 'Register on the platform. After registration and organisation verification, the system determines the workspace available to your role. If connection help is needed, use the separate assistance form.',
     accountingQ: 'How does an accountant work with 1C and EDI?',
-    accountingA: 'The platform can link verified Deal data and statuses to an external accounting or document workflow through a separate connection. The exact scheme, integration availability and access rights are confirmed for the organisation before data exchange.',
+    accountingA: 'External systems connect through separate managed integrations. The platform can link verified Deal data and statuses to an external accounting or document workflow only after a separate connection. The exact scheme, integration availability and access rights are confirmed for the organisation before data exchange.',
   },
   zh: {
     navFunctions: '平台能力',
@@ -178,7 +178,7 @@ const PRODUCT_COPY: Record<Locale, {
     faqStartQ: '如何开始使用？',
     faqStartA: '先在平台注册。完成注册和机构核验后，系统会根据角色确定可用工作空间。如需接入协助，请使用独立的帮助表单。',
     accountingQ: '会计人员如何使用 1C 和电子单据系统？',
-    accountingA: '平台可以通过独立接入，把已确认的交易数据和状态关联到外部会计或电子文件流程。具体方案、集成可用性和访问权限必须在数据交换前针对机构确认。',
+    accountingA: '外部系统通过独立、受管理的集成接入。平台只有在单独接入完成后，才能把已确认的交易数据和状态关联到外部会计或电子文件流程。具体方案、集成可用性和访问权限必须在数据交换前针对机构确认。',
   },
 };
 
