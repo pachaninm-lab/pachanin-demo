@@ -14,6 +14,12 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
+/* The first-view Deal card is explanatory product UI, not metadata. Keep every
+ * visible text node at the trusted 14px legibility floor on all viewports. */
+.pc-v7-public-entry [data-testid='platform-v7-deal-card'] :where(span, small, b) {
+  font-size: 14px !important;
+}
+
 @media (max-width: 767px) {
   .pc-v7-public-entry .pc-v6-footer {
     padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
