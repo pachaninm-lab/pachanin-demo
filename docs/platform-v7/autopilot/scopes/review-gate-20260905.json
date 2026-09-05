@@ -8,6 +8,13 @@
   "allowedPaths": [
     ".github/workflows/automerge.yml",
     ".github/workflows/platform-v7-autopilot-generated-merge.yml",
+    ".github/workflows/company-os-f2c-merge-controller.yml",
+    ".github/workflows/company-os-f3-foundation-merge-controller.yml",
+    ".github/workflows/company-os-f3a-application-merge-controller.yml",
+    ".github/workflows/company-os-f3b-authority-merge-controller.yml",
+    ".github/workflows/company-os-f3c-session-merge-controller.yml",
+    ".github/workflows/company-os-f3d-postgres-merge-controller.yml",
+    ".github/workflows/company-os-f3e-services-merge-controller.yml",
     "AGENTS.md",
     "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
     "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs",
@@ -20,6 +27,7 @@
     "CHANGES_REQUESTED remains blocking until approval or dismissal by that reviewer.",
     "Pending or red substantive exact-head CI/status checks block automated merge.",
     "Every generated or state-advance merge rechecks review and CI immediately before its SHA-bound merge mutation.",
+    "Every Company OS merge controller requires the same exact-head Codex review and current-thread clearance before its SHA-bound merge mutation.",
     "A head change invalidates previous review evidence and stale gate labels cannot become final authority."
   ],
   "boundaries": {
