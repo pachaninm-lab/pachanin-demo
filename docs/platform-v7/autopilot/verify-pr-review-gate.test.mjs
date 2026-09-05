@@ -3,8 +3,11 @@ import test from 'node:test';
 
 import {
   activeUnresolvedThreads,
+  checkRollupBlockers,
   exactHeadCodexReviews,
+  isIgnoredMergeGateCheck,
   latestBlockingChangeRequests,
+  substantiveChecks,
 } from './verify-pr-review-gate.mjs';
 
 const head = 'a'.repeat(40);
@@ -119,4 +122,46 @@ test('dismissal clears a previous change request', () => {
   ];
 
   assert.equal(latestBlockingChangeRequests(reviews).length, 0);
+});
+
+test('ignores only review-gate automation checks to avoid self-deadlock', () => {
+  const checks = [
+    { workflowName: 'Repo automations', name: 'Exact-head Codex review gate', status: 'IN_PROGRESS' },
+    { workflowName: 'CI', name: 'web-unit', status: 'COMPLETED', conclusion: 'SUCCESS' },
+  ];
+
+  assert.equal(isIgnoredMergeGateCheck(checks[0]), true);
+  assert.equal(isIgnoredMergeGateCheck(checks[1]), false);
+  assert.deepEqual(substantiveChecks(checks), [checks[1]]);
+});
+
+test('green, skipped and neutral exact-head checks are accepted', () => {
+  const checks = [
+    { workflowName: 'CI', name: 'unit', status: 'COMPLETED', conclusion: 'SUCCESS' },
+    { workflowName: 'CI', name: 'optional', status: 'COMPLETED', conclusion: 'SKIPPED' },
+    { workflowName: 'Security', name: 'advisory', status: 'COMPLETED', conclusion: 'NEUTRAL' },
+  ];
+
+  assert.deepEqual(checkRollupBlockers(checks), []);
+});
+
+test('pending and red exact-head checks both block automated merge', () => {
+  const checks = [
+    { workflowName: 'CI', name: 'pending', status: 'IN_PROGRESS', conclusion: null },
+    { workflowName: 'Security', name: 'failed', status: 'COMPLETED', conclusion: 'FAILURE' },
+  ];
+
+  assert.deepEqual(checkRollupBlockers(checks), [
+    'CI / pending:IN_PROGRESS',
+    'Security / failed:FAILURE',
+  ]);
+});
+
+test('legacy status contexts are evaluated by state', () => {
+  const checks = [
+    { context: 'legacy-green', state: 'SUCCESS' },
+    { context: 'legacy-pending', state: 'PENDING' },
+  ];
+
+  assert.deepEqual(checkRollupBlockers(checks), ['legacy-pending:PENDING']);
 });
