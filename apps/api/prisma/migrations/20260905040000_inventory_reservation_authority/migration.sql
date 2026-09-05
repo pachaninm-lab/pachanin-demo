@@ -318,6 +318,7 @@ $function$;
 CREATE FUNCTION inventory.execute_command(command jsonb) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, public, inventory SET row_security = on AS $function$
+<<command_state>>
 DECLARE
   action text := command->>'action';
   allowed text[] := ARRAY['action','commandId','idempotencyKey','correlationId','expectedVersion','reason'];
@@ -366,7 +367,7 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('inventory-idempotency',tenant_id,organization_id,command->>'idempotencyKey')::text,0));
   PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('inventory-command',tenant_id,organization_id,command->>'commandId')::text,0));
   SELECT e.* INTO replay FROM inventory.command_events e
-    WHERE e.tenant_id = execute_command.tenant_id AND e.organization_id = execute_command.organization_id
+    WHERE e.tenant_id = command_state.tenant_id AND e.organization_id = command_state.organization_id
       AND (e.idempotency_key = command->>'idempotencyKey' OR e.command_id = command->>'commandId');
   IF replay.id IS NOT NULL THEN
     IF replay.request_hash IS DISTINCT FROM fingerprint THEN RAISE EXCEPTION USING ERRCODE = '23505', MESSAGE = 'INVENTORY_IDEMPOTENCY_CONFLICT'; END IF;
@@ -394,7 +395,7 @@ BEGIN
     RETURNING * INTO position;
   ELSE
     SELECT p.* INTO position FROM inventory.positions p WHERE p.id = command->>'positionId'
-      AND p.tenant_id = execute_command.tenant_id AND p.organization_id = execute_command.organization_id FOR UPDATE;
+      AND p.tenant_id = command_state.tenant_id AND p.organization_id = command_state.organization_id FOR UPDATE;
     IF position.id IS NULL THEN RAISE EXCEPTION USING ERRCODE = 'P0002', MESSAGE = 'INVENTORY_POSITION_NOT_FOUND'; END IF;
     IF position.state_version::text <> command->>'expectedVersion' THEN
       RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'INVENTORY_STALE_VERSION';
@@ -405,8 +406,8 @@ BEGIN
       -- Legacy lots have no pinned commodity profile. This is an owner-scoped
       -- stock reservation reference; it does not certify lot/profile compatibility
       -- or replace the later mandatory Auction/Deal consumption boundary.
-      PERFORM 1 FROM auction.lots l WHERE l.id = command->>'lotId' AND l.tenant_id = execute_command.tenant_id
-        AND l.seller_org_id = execute_command.organization_id AND l.status NOT IN ('CANCELLED','CLOSED') FOR SHARE;
+      PERFORM 1 FROM auction.lots l WHERE l.id = command->>'lotId' AND l.tenant_id = command_state.tenant_id
+        AND l.seller_org_id = command_state.organization_id AND l.status NOT IN ('CANCELLED','CLOSED') FOR SHARE;
       IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = 'P0002', MESSAGE = 'INVENTORY_LOT_NOT_FOUND'; END IF;
       PERFORM 1 FROM public.commodity_profile_versions v WHERE v.id = batch.profile_version_id
         AND v.status = 'EFFECTIVE' AND v."contentHash" = batch.profile_content_hash
@@ -445,8 +446,8 @@ BEGIN
     'reservation',CASE WHEN reservation.id IS NULL THEN NULL ELSE jsonb_build_object('id',reservation.id,'lotId',reservation.lot_id,'quantity',reservation.quantity::text,'status',reservation.status) END,
     'replayed',false,'committedAt',occurred_at,'createsFinancialObligation',false);
   SELECT e.hash INTO previous_hash FROM inventory.command_events e WHERE e.position_id = position.id ORDER BY e.state_version DESC LIMIT 1;
-  SELECT a.hash INTO previous_audit_hash FROM public.audit_events a WHERE a."tenantId" = execute_command.tenant_id
-    AND a."orgId" = execute_command.organization_id AND a."objectType" = 'INVENTORY_POSITION' AND a."objectId" = position.id
+  SELECT a.hash INTO previous_audit_hash FROM public.audit_events a WHERE a."tenantId" = command_state.tenant_id
+    AND a."orgId" = command_state.organization_id AND a."objectType" = 'INVENTORY_POSITION' AND a."objectId" = position.id
     ORDER BY a."createdAt" DESC,a.id DESC LIMIT 1;
   outbox_key := 'inventory:'||encode(digest(convert_to(jsonb_build_array(tenant_id,organization_id,command->>'idempotencyKey')::text,'UTF8'),'sha256'),'hex');
   audit_material := jsonb_build_object('id',audit_id,'action','INVENTORY_'||action,'actorUserId',actor_id,'actorRole',actor_role,
