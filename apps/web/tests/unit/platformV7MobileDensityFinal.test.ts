@@ -8,6 +8,7 @@ describe('platform-v7 final mobile density contract', () => {
   const page = read('app/platform-v7/page.tsx');
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const densityCss = read('components/platform-v7/PlatformV7HomeMobileDensity.css');
+  const strategicCss = read('styles/platform-v7-strategic-home-v3.css');
   const responsiveAcceptance = read('tests/e2e/platform-v7-production-mobile-acceptance.spec.ts');
 
   it('resolves the server homepage before returning the document stream', () => {
@@ -29,6 +30,9 @@ describe('platform-v7 final mobile density contract', () => {
     expect(densityCss).toContain('min-height: 44px !important');
     expect(densityCss).toContain('width: 44px !important');
     expect(densityCss).toContain('scroll-margin-top: calc(var(--pc-public-header-total-height, 56px) + 12px) !important');
+    expect(strategicCss).toContain('.pc-v6-page .pc-site-mobile-menu > summary { width: 44px; }');
+    expect(strategicCss).toContain('.pc-v6-page .entry-login { width: 44px; padding: 0; }');
+    expect(strategicCss).toContain('max-width: 72px !important');
   });
 
   it('limits mobile heading scale and removes excessive vertical rhythm', () => {
