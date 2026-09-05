@@ -50,7 +50,7 @@ const ru = {
       lead: 'Публичный выбор роли меняет только объяснение и не назначает права.',
       all: 'Роли Сделки',
       primary: ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator'],
-      secondary: [],
+      secondary: [] as readonly string[],
     },
     proof: {
       title: 'Доказательства связаны с исполнением',
