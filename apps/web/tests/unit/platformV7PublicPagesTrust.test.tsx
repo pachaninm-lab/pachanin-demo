@@ -17,7 +17,7 @@ const accounting = read('i18n/platform-v7-accounting-value.ts');
 describe('platform-v7 linked public-page trust', () => {
   it('keeps About crop-oriented and free of internal maturity shorthand', () => {
     expect(about).toContain("type Locale = 'ru' | 'en' | 'zh'");
-    expect(about).toContain('сделок в растениеводстве');
+    expect(about).toContain('агросделки в растениеводстве');
     expect(about).toContain('/platform-v7/register');
     expect(about.toLowerCase()).not.toContain('controlled pilot');
     expect(about.toLowerCase()).not.toContain('pre-integration');
@@ -27,7 +27,8 @@ describe('platform-v7 linked public-page trust', () => {
   it('keeps Contact a real inquiry channel and never presents it as account registration', () => {
     expect(contact).toContain("action='/api/platform-v7/inquiries'");
     expect(contact).toContain("name='consent'");
-    expect(contact).toContain('Отправка обращения не открывает сделки, документы и закрытые разделы платформы.');
+    expect(contact).toContain('Обращение в поддержку не создаёт аккаунт и не назначает роль.');
+    expect(contact).toContain('Регистрация пользователя находится в отдельном разделе.');
     expect(contact).toContain('/platform-v7/register');
     expect(contactPage).toContain("type Locale = 'ru' | 'en' | 'zh'");
     expect(contact.toLowerCase()).not.toContain('controlled pilot');
@@ -60,7 +61,7 @@ describe('platform-v7 linked public-page trust', () => {
       'Selectel',
       'Сбер',
       'SPARK',
-      'Diadok',
+      'Diadoc',
       'SBIS',
       'Wialon',
     ]) expect(privacyPanel).not.toContain(invented);
@@ -69,7 +70,7 @@ describe('platform-v7 linked public-page trust', () => {
     expect(privacyPanel).toContain("href='/platform-v7/contact'");
     expect(privacyPanel).not.toContain('setActionStatus');
     expect(privacyPanel).not.toContain('setConsents');
-    expect(privacyPolicy).toContain('Юридически значимые сведения');
+    expect(privacyPolicy).toContain('Юридически значимые реквизиты оператора персональных данных публикуются только после их подтверждения официальными документами.');
   });
 
   it('keeps named accounting/EDI systems conditional instead of claiming active connections', () => {
