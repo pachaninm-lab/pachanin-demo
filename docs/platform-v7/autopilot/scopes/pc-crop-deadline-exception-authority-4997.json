@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-deadline-exception-authority-4997",
+  "status": "staged",
+  "purpose": "W9-D: implement server-authoritative business calendars, deadline/pause/resume/escalation instances and governed ExceptionCase/two-person manual resolution without fabricating external finality or bypassing domain command authority.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [43, 44],
+  "terminalCriteria": ["DEADLINE_ENGINE=PASS", "SLA_ESCALATION=PASS", "EXCEPTION_ENGINE=PASS", "TWO_PERSON_RESOLUTION=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/deadline-engine.ts",
+    "packages/domain-core/src/deadline-engine.test.ts",
+    "apps/api/prisma/migrations/20260906110000_deadline_exception_authority/migration.sql",
+    "apps/api/src/modules/deadline-engine/deadline-engine.contract.ts",
+    "apps/api/src/modules/deadline-engine/deadline-engine.contract.spec.ts",
+    "apps/api/src/modules/deadline-engine/deadline-engine.repository.ts",
+    "apps/api/src/modules/deadline-engine/deadline-engine.repository.spec.ts",
+    "apps/api/src/modules/deadline-engine/deadline-policy.ts",
+    "apps/api/src/modules/deadline-engine/deadline-policy.spec.ts",
+    "apps/api/src/modules/deadline-engine/exception-resolution.policy.ts",
+    "apps/api/src/modules/deadline-engine/exception-resolution.policy.spec.ts",
+    "apps/api/test/industrial/deadline-exception-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-deadline-exception-scope.test.mjs",
+    ".github/workflows/pc-crop-deadline-exception.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "sourceEvidence": [
+    "packages/domain-core/src/deadline-protection.ts",
+    "apps/api/prisma/schema.prisma",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "BusinessCalendar, DeadlineRule and DeadlineInstance are server-authoritative, versioned and source-bound. Client clocks/timers cannot create expiry, breach or extension authority.",
+    "Calendar supports working/non-working days, timezone, cutoffs and exceptional calendar versions. Historical deadlines pin the calendar/rule version used at creation.",
+    "Pause/resume is explicit, reasoned and source-linked. Paused duration and recalculated dueAt are deterministic; a hidden status change cannot silently stop or reset SLA time.",
+    "EscalationRule versions declare breach thresholds, recipients/roles, required notification/event and optional higher-level deadline. Escalation is evidence, not an automatic domain approval/rejection unless that domain separately declares the transition.",
+    "ExceptionCase records the blocked object/action, reason, requested exception, evidence, requester, policy version and allowed resolution actions. It cannot bypass a hard legal/regulatory/security invariant that the pinned policy marks non-overridable.",
+    "Two-person resolution requires distinct current authorized memberships for proposer/approver when policy requires it. One user, one membership or one compromised session cannot satisfy both roles.",
+    "Manual override/resolution appends an immutable decision with exact scope/expiry/reason/evidence. It never rewrites the original blocker, source facts or prior decision history.",
+    "External-system outage may pause/extend only those deadlines whose policy explicitly permits that outage reason and source-health evidence. It cannot fabricate external receipt/finality.",
+    "Deadline/exception actions revalidate current tenant/organization/membership/role/job-profile authority before mutation and before replay.",
+    "Same-tenant outsiders and cross-tenant actors cannot inspect private exceptions/evidence/deadlines outside source-object or staff authority.",
+    "Every mutation commits aggregate version, immutable event, audit and outbox atomically with payload-bound idempotency/CAS; evidence failure rolls back acceptance.",
+    "Notification center receives escalation/reminder events but cannot determine deadline state itself. Domain commands consume deadline/exception decisions through explicit source ids/versions.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, domain state machines, external provider claims and REG.RU topology remain unchanged."
+  ],
+  "acceptance": [
+    "Domain/PostgreSQL tests prove calendar/timezone/working-day/cutoff computation, version pinning, pause/resume and deterministic breach/escalation.",
+    "Changing a calendar/rule creates new future behavior without rewriting historical DeadlineInstance dueAt/breach evidence unless an explicit versioned adjustment command is accepted.",
+    "Exception tests prove hard non-overridable blockers remain blocked and policy-allowed exceptions require exact evidence/scope/expiry.",
+    "Two-person tests reject same membership/user, revoked approver, stale authority and concurrent double-approval races.",
+    "External outage tests require current source-health evidence and only affect explicitly permitted deadlines; no fake external success appears.",
+    "Cross-tenant/same-tenant outsider access, stale version and changed-payload replay fail closed.",
+    "Audit/outbox/event failure leaves no accepted pause/exception/approval/breach transition.",
+    "Exact-head CI/review plus REG.RU clock/calendar/worker/restart and real operator exception acceptance remain required before terminal credit."
+  ],
+  "remainingTerminalBoundary": [
+    "Each business domain must explicitly bind relevant deadlines/exceptions rather than a generic engine mutating domain state.",
+    "W9-C notification delivery consumes reminders/escalations after both scopes are accepted.",
+    "Real external source-health/outage evidence depends on W7/W6 provider readiness.",
+    "Human two-person operational acceptance on REG.RU remains mandatory."
+  ],
+  "terminalCredit": 0
+}
