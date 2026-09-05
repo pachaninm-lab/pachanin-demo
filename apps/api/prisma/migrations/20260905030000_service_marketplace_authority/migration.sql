@@ -649,6 +649,9 @@ BEGIN
     WHERE rolname IN ('pc_deal_runtime', 'one_deal_app', 'app_deal', 'app_runtime', 'app_deal_api')
   LOOP
     EXECUTE format('GRANT USAGE ON SCHEMA public TO %I', runtime_role);
+    EXECUTE format('REVOKE ALL ON public."service_marketplace_requests" FROM %I', runtime_role);
+    EXECUTE format('REVOKE ALL ON public."service_marketplace_quotes" FROM %I', runtime_role);
+    EXECUTE format('REVOKE ALL ON public."service_marketplace_events" FROM %I', runtime_role);
     EXECUTE format('GRANT SELECT, INSERT, UPDATE ON public."service_marketplace_requests" TO %I', runtime_role);
     EXECUTE format('GRANT SELECT, INSERT ON public."service_marketplace_quotes" TO %I', runtime_role);
     EXECUTE format('GRANT SELECT, INSERT ON public."service_marketplace_events" TO %I', runtime_role);

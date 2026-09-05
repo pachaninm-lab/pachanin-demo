@@ -67,6 +67,7 @@ test('PostgreSQL owns participant authority, immutable quotes and lifecycle evid
   assert.match(migration, /event\."commandId" = "outbox_entries"\."payload" #>> '\{event,commandId\}'/u);
   assert.doesNotMatch(migration, /event\."(?:commandId|requestId|action|toStatus|aggregateVersion|requestFingerprint)"[^\n]+ = "payload"/u);
   assert.match(migration, /SECURITY DEFINER SET search_path = pg_catalog, public/u);
+  assert.equal((migration.match(/REVOKE ALL ON public\."service_marketplace_(?:requests|quotes|events)" FROM %I/gu) ?? []).length, 6);
   assert.match(migration, /GRANT SELECT, INSERT ON public\."service_marketplace_events" TO %I/u);
   assert.doesNotMatch(migration, /GRANT [^;]*(?:UPDATE|DELETE)[^;]*service_marketplace_events/u);
 });
@@ -106,4 +107,7 @@ test('requesters can discover unexpired quotes and workflow commands fail fast',
   assert.match(repository, /"expiresAt" > clock_timestamp\(\)/u);
   assert.doesNotMatch(workflow, /set -o pipefail/u);
   assert.equal((workflow.match(/set -euo pipefail/gu) ?? []).length, 3);
+  const oneDeal = source('scripts/platform-v7-one-deal-e2e.sh');
+  assert.match(oneDeal, /REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON[\s\S]+public\.service_marketplace_requests[\s\S]+FROM one_deal_app/u);
+  assert.match(oneDeal, /REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON[\s\S]+public\.service_marketplace_quotes,[\s\S]+public\.service_marketplace_events[\s\S]+FROM one_deal_app/u);
 });
