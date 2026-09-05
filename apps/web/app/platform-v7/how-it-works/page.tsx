@@ -60,11 +60,13 @@ export default async function PublicDealFromInsidePage({
     stage: 'terms',
     perspective: 'buyer',
   });
+  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(locale)}`;
+  const loginHref = `/platform-v7/login?lang=${encodeURIComponent(locale)}`;
   const nav = (
     <>
-      <a href={`/platform-v7?lang=${encodeURIComponent(locale)}#deal-example`}>{ui.header.howItWorks}</a>
+      <a href={`/platform-v7?lang=${encodeURIComponent(locale)}#deal-path`}>{ui.header.howItWorks}</a>
       <a href={`/platform-v7?lang=${encodeURIComponent(locale)}#participants`}>{ui.header.participants}</a>
-      <a href={`/platform-v7?lang=${encodeURIComponent(locale)}#reliability`}>{ui.header.reliability}</a>
+      <a href={`/platform-v7?lang=${encodeURIComponent(locale)}#trust`}>{ui.header.reliability}</a>
     </>
   );
 
@@ -80,7 +82,12 @@ export default async function PublicDealFromInsidePage({
         nav={nav}
         showMobileMenu
         localeControl={<PublicLocaleLink />}
-        actions={<a href='/platform-v7/login' className='entry-login'>{copy.header.signIn}</a>}
+        actions={
+          <div className='pc-v6-header-actions'>
+            <a href={loginHref} className='entry-login'>{copy.header.signIn}</a>
+            <a href={registerHref} className='pc-ppe-primary-button'>{journeyUi.intro.connect}</a>
+          </div>
+        }
       />
 
       <div className='pc-ppe-shell'>
@@ -107,7 +114,7 @@ export default async function PublicDealFromInsidePage({
           initialState={initialState}
         />
         <noscript>
-          <a href='/platform-v7/register' className='pc-ppe-primary-button'>{journeyUi.intro.connect}</a>
+          <a href={registerHref} className='pc-ppe-primary-button'>{journeyUi.intro.connect}</a>
         </noscript>
       </div>
 
