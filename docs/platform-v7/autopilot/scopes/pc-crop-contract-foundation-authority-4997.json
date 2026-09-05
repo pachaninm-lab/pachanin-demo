@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-contract-foundation-authority-4997",
+  "status": "active",
+  "purpose": "W3-A foundation: add approved legal template, clause, DealConstitution and SpecificationVersion authority around the existing canonical ContractVersion chain, without generating legal text from an LLM or creating ContractV2.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [17],
+  "terminalCriteria": [
+    "CONTRACT_ENGINE=PASS",
+    "AMENDMENT_FLOW=PASS"
+  ],
+  "allowedPaths": [
+    "packages/domain-core/src/contract-foundation.ts",
+    "packages/domain-core/src/contract-foundation.test.ts",
+    "apps/api/prisma/migrations/20260905250000_contract_foundation_authority/migration.sql",
+    "apps/api/src/modules/contract-foundation/contract-foundation.contract.ts",
+    "apps/api/src/modules/contract-foundation/contract-foundation.contract.spec.ts",
+    "apps/api/src/modules/contract-foundation/contract-foundation.repository.ts",
+    "apps/api/src/modules/contract-foundation/contract-foundation.repository.spec.ts",
+    "apps/api/src/modules/contract-foundation/contract-foundation.policy.ts",
+    "apps/api/src/modules/contract-foundation/contract-foundation.policy.spec.ts",
+    "apps/api/test/industrial/contract-foundation-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-contract-foundation-scope.test.mjs",
+    ".github/workflows/pc-crop-contract-foundation.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {"path":"apps/api/prisma/schema.prisma","reason":"The existing public ContractVersion remains canonical. W3-A supporting template/clause/constitution/specification authority uses a dedicated contract_engine schema and does not create a parallel Contract model."},
+    {"path":"packages/domain-core/src/index.ts","reason":"Barrel publication is deferred to the mounted consumer slice so this foundation does not collide with concurrent domain-core work."},
+    {"path":"apps/api/src/app.module.ts","reason":"The first foundation is unmounted; API/user flow is a later accepted slice."},
+    {"path":"apps/api/src/modules/deals/prisma-deal.repository.ts","reason":"Deal-derived contract creation remains a later consumer after accepted Deal basis/terms are complete."},
+    {"path":"apps/api/src/modules/documents/document-template.service.ts","reason":"Existing hard-coded/caller-rendered template behavior is not mutated in the foundation; replacement wiring is a separate consumer slice."},
+    {"path":".github/workflows/ci.yml","reason":"Global CI remains an independent gate."}
+  ],
+  "sourceEvidence": [
+    "apps/api/prisma/schema.prisma#ContractVersion",
+    "apps/api/prisma/migrations/20260816040000_pc_crop_contract_versions/migration.sql",
+    "apps/api/src/modules/documents/document-template.service.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Reuse the existing canonical ContractVersion and signed-document immutability chain; do not create ContractV2 or another agreement authority.",
+    "ApprovedTemplate and ClauseLibrary are versioned, approved, effective-dated and immutable after publication. Draft legal text cannot be used to produce a signable contract.",
+    "DealConstitution is an immutable snapshot of agreed commercial facts and source revisions; it is derived only from server-authoritative accepted Deal terms, never caller-supplied legal/commercial state.",
+    "SpecificationVersion is immutable, references one DealConstitution and one approved template/clause set, and records a deterministic DocumentHash over the exact render inputs/bytes.",
+    "LLM output may assist explanation or drafting outside authority but cannot become an ApprovedTemplate, ClauseLibrary entry, DealConstitution, ContractVersion or SpecificationVersion without the explicit governed approval path.",
+    "Amendment never mutates a signed ContractVersion. A change creates a new constitution/specification/contract version and a supersession/amendment link preserving the complete prior chain.",
+    "Every publication/constitution/specification command revalidates current tenant, organization, membership and required authority before mutation and replay.",
+    "All supporting authority tables/functions live in a dedicated contract_engine schema with FORCE RLS/memberless command ownership; runtime roles cannot direct-DML legal authority.",
+    "Command state, immutable event, audit, outbox and receipt commit atomically with payload-bound idempotency and optimistic versioning.",
+    "No signature, EDO send, financial obligation, provider receipt or external legal finality is manufactured by this foundation.",
+    "Registration, Role Eligibility, W2 market/inventory/trust work, Federal Accounting lock #4321, package/lockfiles and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Restricted PostgreSQL tests prove versioned ApprovedTemplate/ClauseLibrary publication, effective-date selection, DealConstitution and SpecificationVersion immutability.",
+    "Unsigned drafts cannot be selected for a signable specification; retired/superseded template versions cannot silently replace a pinned historical version.",
+    "Changed source Deal facts or clause/template versions create a new immutable constitution/specification version and preserve the prior DocumentHash.",
+    "Direct UPDATE/DELETE/TRUNCATE and same-tenant/cross-tenant outsider access are denied; revoked authority fails before mutation and replay.",
+    "Exact replay returns the original receipt; changed payload under the same idempotency key conflicts.",
+    "Audit/outbox/hash/evidence failure rolls the entire command back.",
+    "No existing signed ContractVersion is modified and no public Prisma schema drift is introduced by the foundation.",
+    "Forward migration, restore, cryptographic freshness and exact-head CI/review pass before any implementation merge."
+  ],
+  "remainingTerminalBoundary": [
+    "Mounted contract API and automatic Deal→ContractVersion creation remain later consumer work.",
+    "Full document type matrix remains section 18 work.",
+    "Signer/MChD/certificate/provider receipt validation remains section 19 work.",
+    "REG.RU runtime and real-user legal-flow acceptance remain required before terminal CONTRACT_ENGINE/AMENDMENT_FLOW credit."
+  ],
+  "terminalCredit": 0
+}
