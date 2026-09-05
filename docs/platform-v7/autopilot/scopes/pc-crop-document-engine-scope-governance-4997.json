@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP specification without stopping; existing push, PR and merge authorization. This governance slice changes no product behavior and grants no implementation authority until independently accepted and promoted into immutable base-state scope.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-document-engine-scope-4997",
+  "purpose": "W3-B governance only: finite source boundary for the complete document type/status requirement registry around existing DealDocument authority. Exactly two scope manifests.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-document-engine-scope-governance-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-document-engine-authority-4997.json"
+  ],
+  "dependencies": {
+    "existingDealDocumentReused": true,
+    "w3aContractFoundationRequiredForContractConsumerWiringOnly": true,
+    "signatureAndEdoRemainSeparate": true,
+    "foundationMayProceedOnlyAfterSeparateGovernanceReviewAndImmutableScopeApproval": true
+  },
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "dealDocumentMutation": false,
+    "signatureOrExternalDelivery": false,
+    "mountedApi": false
+  }
+}
