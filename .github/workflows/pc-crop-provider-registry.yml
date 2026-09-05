@@ -75,9 +75,17 @@ jobs:
             base_ref="HEAD^"
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
-          PC_CROP_BASE_REF="$base_ref" \
+          if [[ "${GITHUB_HEAD_REF:-}" == "feat/pc-crop-provider-registry-authority-4997" ]]; then
+            PC_CROP_BASE_REF="$base_ref" \
+              node --test scripts/verify-pc-crop-provider-registry-scope.test.mjs \
+              2>&1 | tee "$EVIDENCE_DIR/scope.log"
+          else
+            # This workflow remains a regression gate for later provider work,
+            # but its historical W1-B diff boundary must not reject a new,
+            # separately approved scope.
             node --test scripts/verify-pc-crop-provider-registry-scope.test.mjs \
-            2>&1 | tee "$EVIDENCE_DIR/scope.log"
+              2>&1 | tee "$EVIDENCE_DIR/scope.log"
+          fi
 
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:

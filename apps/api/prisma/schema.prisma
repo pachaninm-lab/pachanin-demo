@@ -64,6 +64,16 @@ model Organization {
   capabilityEvents                  OrganizationCapabilityEvent[]
   providers                         Provider[]
   providerRegistryEvents            ProviderRegistryEvent[]
+  integrationBindings               IntegrationBinding[]
+  integrationBindingEvents          IntegrationBindingEvent[]
+  commercialRuleSets                CommercialRuleSet[]
+  commercialRulePacks               CommercialRulePack[]
+  commercialDecisions               CommercialDecision[]
+  commercialRuleEvents              CommercialRuleEvent[]
+  serviceRequestsRequested          ServiceMarketplaceRequest[] @relation("ServiceRequestRequesterOrganization")
+  serviceRequestsAsPayer            ServiceMarketplaceRequest[] @relation("ServiceRequestPayerOrganization")
+  serviceQuotesProvided             ServiceMarketplaceQuote[]   @relation("ServiceQuoteProviderOrganization")
+  serviceMarketplaceEventsAuthored  ServiceMarketplaceEvent[]   @relation("ServiceMarketplaceEventActorOrganization")
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -157,6 +167,21 @@ model UserOrg {
   serviceOfferingsCreated       ServiceOffering[]                   @relation("ServiceOfferingCreatedBy")
   serviceOfferingsUpdated       ServiceOffering[]                   @relation("ServiceOfferingUpdatedBy")
   providerRegistryEventsAuthored ProviderRegistryEvent[]            @relation("ProviderRegistryEventActor")
+  integrationBindingsCreated     IntegrationBinding[]                @relation("IntegrationBindingCreatedBy")
+  integrationBindingsUpdated     IntegrationBinding[]                @relation("IntegrationBindingUpdatedBy")
+  integrationBindingEventsAuthored IntegrationBindingEvent[]         @relation("IntegrationBindingEventActor")
+  commercialRuleSetsCreated      CommercialRuleSet[]                  @relation("CommercialRuleSetCreatedBy")
+  commercialRuleSetsUpdated      CommercialRuleSet[]                  @relation("CommercialRuleSetUpdatedBy")
+  commercialRulePacksCreated     CommercialRulePack[]                 @relation("CommercialRulePackCreatedBy")
+  commercialRulePacksUpdated     CommercialRulePack[]                 @relation("CommercialRulePackUpdatedBy")
+  commercialDecisionsAuthored    CommercialDecision[]                 @relation("CommercialDecisionActor")
+  commercialRuleEventsAuthored   CommercialRuleEvent[]                @relation("CommercialRuleEventActor")
+  serviceRequestsCreated         ServiceMarketplaceRequest[]           @relation("ServiceRequestCreatedBy")
+  serviceRequestsUpdated         ServiceMarketplaceRequest[]           @relation("ServiceRequestUpdatedBy")
+  serviceRequestsAssignedToPayer ServiceMarketplaceRequest[]           @relation("ServiceRequestPayerMembership")
+  serviceRequestsPayerConfirmed  ServiceMarketplaceRequest[]           @relation("ServiceRequestPayerConfirmedBy")
+  serviceQuotesAuthored          ServiceMarketplaceQuote[]             @relation("ServiceQuoteCreatedBy")
+  serviceMarketplaceEventsAuthored ServiceMarketplaceEvent[]           @relation("ServiceMarketplaceEventActor")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -253,6 +278,7 @@ model Provider {
   updatedBy    UserOrg      @relation("ProviderUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "provider_updated_by_fkey")
   capabilities ProviderCapability[]
   events       ProviderRegistryEvent[]
+  integrationBindings IntegrationBinding[]
 
   @@unique([organizationId], map: "provider_organization_key")
   @@unique([id, tenantId, organizationId], map: "provider_scope_identity_key")
@@ -283,6 +309,7 @@ model ProviderCapability {
   updatedBy  UserOrg  @relation("ProviderCapabilityUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "provider_capability_updated_by_fkey")
   offerings  ServiceOffering[]
   evidence   ProviderRegistryEvidence[]
+  integrationBindings IntegrationBinding[]
 
   @@unique([providerId, category], map: "provider_capability_category_key")
   @@unique([id, tenantId, organizationId], map: "provider_capability_scope_identity_key")
@@ -319,11 +346,377 @@ model ServiceOffering {
   capability ProviderCapability @relation(fields: [capabilityId, providerId, tenantId, organizationId, category], references: [id, providerId, tenantId, organizationId, category], onDelete: Restrict, map: "service_offering_capability_fkey")
   createdBy  UserOrg            @relation("ServiceOfferingCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "service_offering_created_by_fkey")
   updatedBy  UserOrg            @relation("ServiceOfferingUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "service_offering_updated_by_fkey")
+  serviceMarketplaceQuotes ServiceMarketplaceQuote[]
 
   @@unique([providerId, offeringKey], map: "service_offering_provider_key")
   @@unique([id, tenantId, organizationId], map: "service_offering_scope_identity_key")
   @@index([tenantId, category, status], map: "service_offering_catalog_idx")
   @@map("service_offerings")
+}
+
+/// Provider-neutral transport configuration for one provider capability.
+/// Organization commands may declare references, never secrets, and may not
+/// activate the binding or manufacture maturity evidence.
+model IntegrationBinding {
+  id                    String   @id
+  tenantId              String
+  organizationId        String
+  providerId            String
+  providerCapabilityId  String
+  bindingKey            String
+  capabilityCode        String
+  transportType         String
+  environment           String
+  endpointReference     String?
+  credentialReference   String?
+  status                String   @default("PENDING_VERIFICATION")
+  version               BigInt   @default(1)
+  createdByMembershipId String
+  updatedByMembershipId String
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  provider     Provider           @relation(fields: [providerId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "integration_binding_provider_fkey")
+  capability   ProviderCapability @relation(fields: [providerCapabilityId, providerId, tenantId, organizationId], references: [id, providerId, tenantId, organizationId], onDelete: Restrict, map: "integration_binding_provider_capability_fkey")
+  organization Organization       @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "integration_binding_organization_fkey")
+  createdBy    UserOrg            @relation("IntegrationBindingCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "integration_binding_created_by_fkey")
+  updatedBy    UserOrg            @relation("IntegrationBindingUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "integration_binding_updated_by_fkey")
+  evidence     IntegrationCapabilityEvidence[]
+  events       IntegrationBindingEvent[]
+
+  @@unique([providerId, bindingKey], map: "integration_binding_provider_key")
+  @@unique([id, tenantId, organizationId], map: "integration_binding_scope_identity_key")
+  @@unique([id, providerId, tenantId, organizationId], map: "integration_binding_evidence_identity_key")
+  @@index([tenantId, organizationId, status], map: "integration_binding_org_status_idx")
+  @@index([providerCapabilityId, status], map: "integration_binding_capability_status_idx")
+  @@map("integration_bindings")
+}
+
+/// Append-only, server-held facts used to derive the canonical 11-state
+/// integration capability maturity. Application runtimes receive SELECT only.
+model IntegrationCapabilityEvidence {
+  id                   String   @id
+  tenantId             String
+  organizationId       String
+  providerId           String
+  integrationBindingId String
+  maturity             String
+  evidenceReference    String
+  evidenceIssuer       String
+  externalReceiptId    String?
+  checkedAt             DateTime @db.Timestamptz(6)
+  expiresAt             DateTime? @db.Timestamptz(6)
+  version               BigInt   @default(1)
+  recordedByAuthority  String
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+
+  binding IntegrationBinding @relation(fields: [integrationBindingId, providerId, tenantId, organizationId], references: [id, providerId, tenantId, organizationId], onDelete: Restrict, map: "integration_capability_evidence_binding_fkey")
+
+  @@unique([integrationBindingId, maturity, version], map: "integration_capability_evidence_version_key")
+  @@index([tenantId, organizationId, integrationBindingId, checkedAt(sort: Desc)], map: "integration_capability_evidence_lookup_idx")
+  @@map("integration_capability_evidence")
+}
+
+/// Idempotent command receipt and tamper-evident chain for binding mutations.
+model IntegrationBindingEvent {
+  id                 String   @id
+  tenantId           String
+  organizationId     String
+  providerId         String
+  integrationBindingId String
+  action             String
+  resultStatus       String
+  commandId          String
+  idempotencyKey     String
+  requestFingerprint String
+  reason             String
+  actorUserId        String
+  actorRole          String
+  actorMembershipId  String
+  correlationId      String
+  beforeState        Json?
+  afterState         Json
+  prevHash           String?
+  hash               String
+  auditEventId       String   @unique(map: "integration_binding_event_audit_key")
+  outboxEntryId      String   @unique(map: "integration_binding_event_outbox_key")
+  aggregateVersion   BigInt
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  binding      IntegrationBinding @relation(fields: [integrationBindingId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "integration_binding_event_binding_fkey")
+  organization Organization       @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "integration_binding_event_organization_fkey")
+  actor        UserOrg            @relation("IntegrationBindingEventActor", fields: [actorMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "integration_binding_event_actor_fkey")
+
+  @@unique([tenantId, organizationId, commandId], map: "integration_binding_event_command_key")
+  @@unique([tenantId, organizationId, idempotencyKey], map: "integration_binding_event_idempotency_key")
+  @@index([integrationBindingId, createdAt, id], map: "integration_binding_event_chain_idx")
+  @@map("integration_binding_events")
+}
+
+/// Immutable version of one organization-owned commercial policy set. A row
+/// may move DRAFT -> PUBLISHED -> RETIRED, but its definition and content hash
+/// become database-protected as soon as it is published.
+model CommercialRuleSet {
+  id                    String    @id
+  tenantId              String
+  organizationId        String
+  ruleSetKey            String
+  version               BigInt
+  stateVersion          BigInt    @default(1)
+  status                String    @default("DRAFT")
+  name                  String
+  currency              String
+  rules                 Json
+  contentHash           String
+  effectiveFrom         DateTime? @db.Timestamptz(6)
+  effectiveTo           DateTime? @db.Timestamptz(6)
+  publishedAt           DateTime? @db.Timestamptz(6)
+  retiredAt             DateTime? @db.Timestamptz(6)
+  createdByMembershipId String
+  updatedByMembershipId String
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "commercial_rule_set_organization_fkey")
+  createdBy    UserOrg             @relation("CommercialRuleSetCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_rule_set_created_by_fkey")
+  updatedBy    UserOrg             @relation("CommercialRuleSetUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_rule_set_updated_by_fkey")
+  decisions   CommercialDecision[]
+
+  @@unique([tenantId, organizationId, ruleSetKey, version], map: "commercial_rule_set_version_key")
+  @@unique([id, tenantId, organizationId], map: "commercial_rule_set_scope_identity_key")
+  @@index([tenantId, organizationId, ruleSetKey, status], map: "commercial_rule_set_lookup_idx")
+  @@map("commercial_rule_sets")
+}
+
+/// Immutable versioned bundle of exact CommercialRuleSet versions. Entries
+/// contain ruleSet id, key, version and content hash, never a moving alias.
+model CommercialRulePack {
+  id                    String    @id
+  tenantId              String
+  organizationId        String
+  rulePackKey           String
+  version               BigInt
+  stateVersion          BigInt    @default(1)
+  status                String    @default("DRAFT")
+  name                  String
+  entries               Json
+  contentHash           String
+  effectiveFrom         DateTime? @db.Timestamptz(6)
+  effectiveTo           DateTime? @db.Timestamptz(6)
+  publishedAt           DateTime? @db.Timestamptz(6)
+  retiredAt             DateTime? @db.Timestamptz(6)
+  createdByMembershipId String
+  updatedByMembershipId String
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "commercial_rule_pack_organization_fkey")
+  createdBy    UserOrg             @relation("CommercialRulePackCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_rule_pack_created_by_fkey")
+  updatedBy    UserOrg             @relation("CommercialRulePackUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_rule_pack_updated_by_fkey")
+  decisions   CommercialDecision[]
+
+  @@unique([tenantId, organizationId, rulePackKey, version], map: "commercial_rule_pack_version_key")
+  @@unique([id, tenantId, organizationId], map: "commercial_rule_pack_scope_identity_key")
+  @@index([tenantId, organizationId, rulePackKey, status], map: "commercial_rule_pack_lookup_idx")
+  @@map("commercial_rule_packs")
+}
+
+/// Append-only evaluation evidence. It records the exact versioned authority,
+/// canonical input/output and hashes without creating a financial obligation.
+model CommercialDecision {
+  id                  String   @id
+  tenantId            String
+  organizationId      String
+  decisionKey         String
+  ruleSetId           String
+  ruleSetKey          String
+  ruleSetVersion      BigInt
+  ruleSetContentHash  String
+  rulePackId          String?
+  rulePackKey         String?
+  rulePackVersion     BigInt?
+  rulePackContentHash String?
+  input               Json
+  inputHash           String
+  output              Json
+  outputHash          String
+  decisionStatus      String
+  amountKopecks       BigInt?
+  currency            String
+  actorUserId         String
+  actorMembershipId   String
+  correlationId       String
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+
+  ruleSet      CommercialRuleSet  @relation(fields: [ruleSetId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "commercial_decision_rule_set_fkey")
+  rulePack     CommercialRulePack? @relation(fields: [rulePackId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "commercial_decision_rule_pack_fkey")
+  organization Organization        @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "commercial_decision_organization_fkey")
+  actor        UserOrg             @relation("CommercialDecisionActor", fields: [actorMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_decision_actor_fkey")
+  serviceMarketplaceQuotes ServiceMarketplaceQuote[]
+
+  @@unique([tenantId, organizationId, decisionKey], map: "commercial_decision_key")
+  @@index([tenantId, organizationId, ruleSetId, createdAt], map: "commercial_decision_rule_set_idx")
+  @@map("commercial_decisions")
+}
+
+/// Idempotent command receipt and tamper-evident audit/outbox chain for rule
+/// set and rule-pack lifecycle transitions.
+model CommercialRuleEvent {
+  id                 String   @id
+  tenantId           String
+  organizationId     String
+  aggregateType      String
+  aggregateId        String
+  action             String
+  resultStatus       String
+  commandId          String
+  idempotencyKey     String
+  requestFingerprint String
+  reason             String
+  actorUserId        String
+  actorRole          String
+  actorMembershipId  String
+  correlationId      String
+  beforeState        Json?
+  afterState         Json
+  prevHash           String?
+  hash               String
+  auditEventId       String   @unique(map: "commercial_rule_event_audit_key")
+  outboxEntryId      String   @unique(map: "commercial_rule_event_outbox_key")
+  aggregateVersion   BigInt
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "commercial_rule_event_organization_fkey")
+  actor        UserOrg      @relation("CommercialRuleEventActor", fields: [actorMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_rule_event_actor_fkey")
+
+  @@unique([tenantId, organizationId, commandId], map: "commercial_rule_event_command_key")
+  @@unique([tenantId, organizationId, idempotencyKey], map: "commercial_rule_event_idempotency_key")
+  @@index([tenantId, organizationId, aggregateType, aggregateId, createdAt, id], map: "commercial_rule_event_chain_idx")
+  @@map("commercial_rule_events")
+}
+
+/// Current state of one provider-neutral service purchase. Financial authority
+/// is deliberately absent: even the terminal state stores only a reference.
+model ServiceMarketplaceRequest {
+  id                           String   @id
+  tenantId                     String
+  requesterOrganizationId      String
+  category                     String
+  serviceStage                 String
+  subjectType                  String
+  subjectId                    String
+  description                  String
+  targetRegion                 String?
+  status                       String   @default("REQUESTED")
+  stateVersion                 BigInt   @default(1)
+  selectedQuoteId              String?  @unique(map: "service_request_selected_quote_key")
+  selectedProviderOrganizationId String?
+  payerAssignmentId            String?
+  payerOrganizationId          String?
+  payerMembershipId            String?
+  payerConfirmedByMembershipId String?
+  payerConfirmedAt             DateTime? @db.Timestamptz(6)
+  executionReference           String?
+  evidenceReference            String?
+  evidenceHash                 String?
+  acceptanceNote               String?
+  settlementReferenceType      String?
+  settlementReference          String?
+  createsFinancialObligation   Boolean  @default(false)
+  createdByMembershipId        String
+  updatedByMembershipId        String
+  updatedByOrganizationId      String
+  createdAt                    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt                    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  requesterOrganization Organization @relation("ServiceRequestRequesterOrganization", fields: [requesterOrganizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_request_requester_organization_fkey")
+  payerOrganization     Organization? @relation("ServiceRequestPayerOrganization", fields: [payerOrganizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_request_payer_organization_fkey")
+  createdBy             UserOrg      @relation("ServiceRequestCreatedBy", fields: [createdByMembershipId, requesterOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_request_created_by_fkey")
+  updatedBy             UserOrg      @relation("ServiceRequestUpdatedBy", fields: [updatedByMembershipId, updatedByOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_request_updated_by_fkey")
+  payerMembership       UserOrg?     @relation("ServiceRequestPayerMembership", fields: [payerMembershipId, payerOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_request_payer_membership_fkey")
+  payerConfirmedBy      UserOrg?     @relation("ServiceRequestPayerConfirmedBy", fields: [payerConfirmedByMembershipId, payerOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_request_payer_confirmed_by_fkey")
+  selectedQuote         ServiceMarketplaceQuote? @relation("SelectedServiceQuote", fields: [selectedQuoteId], references: [id], onDelete: Restrict)
+  quotes                ServiceMarketplaceQuote[] @relation("ServiceRequestQuotes")
+  events                ServiceMarketplaceEvent[]
+
+  @@unique([id, tenantId], map: "service_request_scope_identity_key")
+  @@unique([tenantId, requesterOrganizationId, payerAssignmentId], map: "service_request_payer_assignment_key")
+  @@index([tenantId, requesterOrganizationId, status, updatedAt], map: "service_request_requester_status_idx")
+  @@index([tenantId, selectedProviderOrganizationId, status, updatedAt], map: "service_request_provider_status_idx")
+  @@index([tenantId, payerOrganizationId, status, updatedAt], map: "service_request_payer_status_idx")
+  @@map("service_marketplace_requests")
+}
+
+/// Immutable provider quote pinned to the exact ServiceOffering version and,
+/// when rule-priced, to one immutable CommercialDecision.
+model ServiceMarketplaceQuote {
+  id                     String   @id
+  tenantId               String
+  requestId              String
+  providerOrganizationId String
+  providerId             String
+  capabilityId           String
+  serviceOfferingId      String
+  serviceOfferingVersion BigInt
+  commercialDecisionId   String?
+  quoteType              String
+  amountKopecks          BigInt
+  currency               String
+  payerMode              String
+  termsHash              String
+  expiresAt              DateTime @db.Timestamptz(6)
+  createdByMembershipId  String
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+
+  request        ServiceMarketplaceRequest @relation("ServiceRequestQuotes", fields: [requestId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_quote_request_fkey")
+  offering       ServiceOffering            @relation(fields: [serviceOfferingId, tenantId, providerOrganizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "service_quote_offering_fkey")
+  decision       CommercialDecision?         @relation(fields: [commercialDecisionId], references: [id], onDelete: Restrict, map: "service_quote_commercial_decision_fkey")
+  providerOrganization Organization          @relation("ServiceQuoteProviderOrganization", fields: [providerOrganizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_quote_provider_organization_fkey")
+  createdBy      UserOrg                     @relation("ServiceQuoteCreatedBy", fields: [createdByMembershipId, providerOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_quote_created_by_fkey")
+  selectedFor    ServiceMarketplaceRequest?  @relation("SelectedServiceQuote")
+
+  @@unique([requestId, providerOrganizationId, serviceOfferingId], map: "service_quote_provider_offering_key")
+  @@unique([id, requestId, tenantId], map: "service_quote_request_identity_key")
+  @@index([tenantId, requestId, createdAt], map: "service_quote_request_idx")
+  @@map("service_marketplace_quotes")
+}
+
+/// Append-only receipt, audit pointer and outbox pointer for every lifecycle
+/// command. The request row may advance only if a matching receipt commits.
+model ServiceMarketplaceEvent {
+  id                  String   @id
+  tenantId            String
+  requestId           String
+  actorOrganizationId String
+  commandId           String
+  idempotencyKey      String
+  requestFingerprint  String
+  action               String
+  fromStatus           String?
+  toStatus             String
+  actorUserId          String
+  actorRole            String
+  actorMembershipId    String
+  correlationId        String
+  reason                String
+  payload               Json
+  receipt               Json
+  prevHash              String?
+  hash                  String
+  auditEventId          String   @unique(map: "service_marketplace_event_audit_key")
+  outboxEntryId         String   @unique(map: "service_marketplace_event_outbox_key")
+  aggregateVersion      BigInt
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+
+  request           ServiceMarketplaceRequest @relation(fields: [requestId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_marketplace_event_request_fkey")
+  actorOrganization Organization              @relation("ServiceMarketplaceEventActorOrganization", fields: [actorOrganizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_marketplace_event_actor_organization_fkey")
+  actor             UserOrg                   @relation("ServiceMarketplaceEventActor", fields: [actorMembershipId, actorOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_marketplace_event_actor_fkey")
+
+  @@unique([tenantId, actorOrganizationId, commandId], map: "service_marketplace_event_command_key")
+  @@unique([tenantId, actorOrganizationId, idempotencyKey], map: "service_marketplace_event_idempotency_key")
+  @@unique([requestId, aggregateVersion], map: "service_marketplace_event_version_key")
+  @@index([requestId, createdAt, id], map: "service_marketplace_event_chain_idx")
+  @@map("service_marketplace_events")
 }
 
 /// Server-held provider verification facts. W1-B grants application runtimes

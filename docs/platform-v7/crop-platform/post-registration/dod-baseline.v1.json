@@ -1,30 +1,42 @@
 {
   "schemaVersion": "pc-crop.post-registration.dod-baseline.v1",
   "issue": 4997,
-  "observedAt": "2026-09-04",
-  "exactMainBaseline": "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff",
+  "observedAt": "2026-09-05",
+  "exactMainBaseline": "824a073cad569532c2be21603a143e679508a301",
   "specificationSha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
-  "statusVocabulary": ["PASS", "PARTIAL", "FAIL", "EXTERNAL_BLOCKER", "NOT_EVIDENCED"],
+  "statusVocabulary": [
+    "PASS",
+    "PARTIAL",
+    "FAIL",
+    "EXTERNAL_BLOCKER",
+    "NOT_EVIDENCED"
+  ],
   "progressPolicy": {
-    "terminalCredit": {"PASS": 1, "PARTIAL": 0, "FAIL": 0, "EXTERNAL_BLOCKER": 0, "NOT_EVIDENCED": 0},
+    "terminalCredit": {
+      "PASS": 1,
+      "PARTIAL": 0,
+      "FAIL": 0,
+      "EXTERNAL_BLOCKER": 0,
+      "NOT_EVIDENCED": 0
+    },
     "formula": "floor(PASS / total * 1000) / 10",
     "rounding": "DOWN_TO_ONE_DECIMAL"
   },
   "criteria": [
-    {"criterion": "REGISTRATION_REGRESSION=0", "status": "PASS", "gapRefs": ["CORE-01"], "evidence": ["docs/platform-v7/autopilot/scopes/pc-crop-post-registration-w0-4997.json"], "note": "W0 is docs-only; this status must be re-proven for every later implementation slice."},
+    {"criterion": "REGISTRATION_REGRESSION=0", "status": "PASS", "gapRefs": ["CORE-01"], "evidence": ["config/eligibility/registration-protected-manifest.json", "docs/platform-v7/autopilot/scopes/pc-crop-organization-capability-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json"], "note": "W1 implementations preserve the registration boundary. Profile CI and protected-manifest checks re-prove this invariant per head; unrelated Role Eligibility changes are not attributed to this programme."},
     {"criterion": "SERVER_AUTHORITATIVE=PASS", "status": "PARTIAL", "gapRefs": ["CORE-02", "CFG-02", "PHY-03", "RISK-03"]},
     {"criterion": "POSTGRESQL_AUTHORITY=PASS", "status": "PARTIAL", "gapRefs": ["CORE-02", "MKT-05", "PHY-03", "FIN-01", "RISK-03"]},
     {"criterion": "TENANT_ISOLATION=PASS", "status": "PARTIAL", "gapRefs": ["CORE-02", "PHY-03", "SEC-01"]},
     {"criterion": "MFA=PASS", "status": "PARTIAL", "gapRefs": ["CORE-01", "LEGAL-03"], "note": "MFA exists, but the signer authority policy is not enforced by every legally significant writer."},
-    {"criterion": "ORGANIZATION_CAPABILITIES=PASS", "status": "FAIL", "gapRefs": ["CFG-01"]},
+    {"criterion": "ORGANIZATION_CAPABILITIES=PASS", "status": "PARTIAL", "gapRefs": ["CFG-01"], "evidence": ["apps/api/src/modules/organization-capabilities/organization-capability.registry.ts", "apps/api/src/modules/organization-capabilities/organization-capability.repository.ts", "apps/api/test/industrial/organization-capability-authority.e2e-spec.ts"], "note": "W1-A merged in #5001: 13-code registry, durable membership, FORCE RLS, CAS, replay and atomicity verified. SHADOW remains; REG.RU and downstream product acceptance are not evidenced. Zero terminal credit."},
     {"criterion": "MARKET_ENGINE=PASS", "status": "PARTIAL", "gapRefs": ["MKT-03"]},
     {"criterion": "MULTI_ORIGIN=PASS", "status": "FAIL", "gapRefs": ["MKT-03", "DEAL-01"]},
     {"criterion": "RFQ=PASS", "status": "FAIL", "gapRefs": ["MKT-03"]},
     {"criterion": "OFFER_NEGOTIATION=PASS", "status": "FAIL", "gapRefs": ["MKT-03"]},
     {"criterion": "NETBACK=PASS", "status": "FAIL", "gapRefs": ["MKT-04"]},
     {"criterion": "LANDED_COST=PASS", "status": "FAIL", "gapRefs": ["MKT-04"]},
-    {"criterion": "INVENTORY=PASS", "status": "FAIL", "gapRefs": ["MKT-01"]},
-    {"criterion": "DOUBLE_SELL_PROTECTION=PASS", "status": "FAIL", "gapRefs": ["MKT-01"]},
+    {"criterion":"INVENTORY=PASS","status":"PARTIAL","gapRefs":["MKT-01"],"evidence":["apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql","apps/api/src/modules/inventory/inventory.repository.ts","apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts"],"note":"W2-A merged in #5029. Pinned exact quantities, batch/position identities, snapshots, command evidence and reserve/release passed 15/15 PostgreSQL plus restore. Genealogy, custody/title restrictions, all lifecycle commands, product consumers and REG.RU acceptance remain outstanding. Zero terminal credit."},
+    {"criterion":"DOUBLE_SELL_PROTECTION=PASS","status":"PARTIAL","gapRefs":["MKT-01"],"evidence":["apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql","apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts"],"note":"W2-A proves contention at READ COMMITTED across two known lots sharing one inventory position. Existing Lot/Offer/Deal writers still do not require inventory consumption. Unknown duplicate manual descriptions are not detected. Zero terminal credit."},
     {"criterion": "PROGRESSIVE_TRUST=PASS", "status": "FAIL", "gapRefs": ["MKT-02"]},
     {"criterion": "UNVERIFIED_TRADING=PASS", "status": "FAIL", "gapRefs": ["MKT-02"]},
     {"criterion": "RISK_ACKNOWLEDGEMENT=PASS", "status": "FAIL", "gapRefs": ["MKT-02"]},
@@ -40,11 +52,11 @@
     {"criterion": "KEP_SUPPORT=PASS", "status": "PARTIAL", "gapRefs": ["LEGAL-03"]},
     {"criterion": "MCHD_VALIDATION=PASS", "status": "FAIL", "gapRefs": ["LEGAL-03"]},
     {"criterion": "SIGNER_AUTHORITY=PASS", "status": "PARTIAL", "gapRefs": ["LEGAL-03"]},
-    {"criterion": "MULTI_PROVIDER_CORE=PASS", "status": "PARTIAL", "gapRefs": ["CFG-02", "CFG-04"]},
+    {"criterion": "MULTI_PROVIDER_CORE=PASS", "status": "PARTIAL", "gapRefs": ["CFG-02", "CFG-04"], "evidence": ["apps/api/src/modules/service-providers/service-providers.service.ts", "docs/platform-v7/autopilot/scopes/pc-crop-provider-registry-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json"], "note": "W1-B/C are merged and CI accepted. Provider substitution across complete service/Deal processes and REG.RU execution are not evidenced."},
     {"criterion": "SINGLE_PROVIDER_LOCK_IN=0", "status": "FAIL", "gapRefs": ["CFG-02"]},
     {"criterion": "NEW_PROVIDER_WITHOUT_CORE_CHANGE=PASS", "status": "FAIL", "gapRefs": ["CFG-02", "CFG-04"]},
-    {"criterion": "COMMERCIAL_RULE_ENGINE=PASS", "status": "FAIL", "gapRefs": ["CFG-03"]},
-    {"criterion": "SERVICE_MARKETPLACE=PASS", "status": "FAIL", "gapRefs": ["CFG-05"]},
+    {"criterion": "COMMERCIAL_RULE_ENGINE=PASS", "status": "PARTIAL", "gapRefs": ["CFG-03"], "evidence": ["packages/domain-core/src/commercial-rules.ts", "apps/api/src/modules/commercial-rules/commercial-rules.repository.ts", "apps/api/prisma/migrations/20260905010000_commercial_rules_authority/migration.sql", "apps/api/test/industrial/commercial-rules-authority.e2e-spec.ts"], "note": "W1-D merged in #5019 at 3b85c746e765e5f6d55c4878a6f24973f0e41f4e. Verified head a6cfb2cdb21afaac36ac2cbd2ab107d517c1cc57: domain 29/29, API contracts 11/11, PostgreSQL 11/11, all 196 migrations, zero drift, DR and Kubernetes/outbox accepted; all four review findings resolved. Contract payer stays pending until server contract authority is wired. Deal/obligation/service integration and REG.RU acceptance remain unproven; zero terminal credit."},
+    {"criterion":"SERVICE_MARKETPLACE=PASS","status":"PARTIAL","gapRefs":["CFG-05"],"evidence":["apps/api/src/modules/service-marketplace/service-marketplace.repository.ts","apps/api/prisma/migrations/20260905030000_service_marketplace_authority/migration.sql","apps/api/test/industrial/service-marketplace-authority.e2e-spec.ts"],"note":"W1-E merged in #5026: request, immutable quote, provider selection, separate payer confirmation, execution, evidence, acceptance and non-financial settlement reference. PostgreSQL 12/12; API 25/25; combined W2-A and complete exact-head CI passed. Physical/financial service consumers, user flows and REG.RU acceptance remain. Zero terminal credit."},
     {"criterion": "FINANCIAL_LEDGER=PASS", "status": "PARTIAL", "gapRefs": ["FIN-01"]},
     {"criterion": "SETTLEMENT_PLAN=PASS", "status": "PARTIAL", "gapRefs": ["FIN-01"]},
     {"criterion": "MULTI_BANK=PASS", "status": "PARTIAL", "gapRefs": ["EXT-01"]},
@@ -136,6 +148,6 @@
     {"criterion": "USER_REALITY_PASS=PASS", "status": "FAIL", "gapRefs": ["ACCEPT-01"]},
     {"criterion": "PRIMARY_TASK_WITHOUT_SUPPORT=PASS", "status": "FAIL", "gapRefs": ["UX-01", "ACCEPT-01"]},
     {"criterion": "PRODUCTION_MOCK_EVIDENCE=0", "status": "FAIL", "gapRefs": ["CFG-02", "UX-02", "GOV-01", "OPS-01"]},
-    {"criterion": "MANDATORY_NEW_PAID_DEPENDENCIES=0", "status": "PASS", "gapRefs": [], "evidence": ["docs/platform-v7/autopilot/scopes/pc-crop-post-registration-w0-4997.json"], "note": "W0 adds documentation only and declares zero new recurring cost; re-check every later slice."}
+    {"criterion": "MANDATORY_NEW_PAID_DEPENDENCIES=0", "status": "PASS", "gapRefs": [], "evidence": ["docs/platform-v7/autopilot/scopes/pc-crop-organization-capability-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-provider-registry-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json"], "note": "W1-A/B/C and the current W1-D diff introduce no mandatory paid dependency or package/lockfile change."}
   ]
 }

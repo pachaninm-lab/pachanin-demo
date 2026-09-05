@@ -200,6 +200,20 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "governance/pc-crop-post-registration-progress-scope-4997": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
+    ],
+    "docs/pc-crop-post-registration-progress-4997": [
+      "docs/platform-v7/crop-platform/post-registration/README.md",
+      "docs/platform-v7/crop-platform/post-registration/dod-baseline.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.mjs",
+      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json"
+    ],
     "fix/static-presentation-download-buildtime-20260830": [
       "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
       "apps/web/package.json",
@@ -1291,6 +1305,33 @@
     "fgis/xml-escape-convergence-4806": [
       "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
       "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts"
+    ],
+    "feat/pc-crop-inventory-reservation-authority-4997": [
+      "packages/domain-core/src/inventory.ts",
+      "packages/domain-core/src/inventory.test.ts",
+      "packages/domain-core/src/index.ts",
+      "apps/api/prisma/schema.prisma",
+      "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+      "apps/api/src/modules/inventory/inventory.contract.ts",
+      "apps/api/src/modules/inventory/inventory.contract.spec.ts",
+      "apps/api/src/modules/inventory/inventory.repository.ts",
+      "apps/api/src/modules/inventory/inventory.controller.ts",
+      "apps/api/src/modules/inventory/inventory.module.ts",
+      "apps/api/src/modules/inventory/dto/inventory-api.dto.ts",
+      "apps/api/src/app.module.ts",
+      "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "scripts/verify-pc-crop-inventory-scope.test.mjs",
+      ".github/workflows/pc-crop-inventory.yml",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "governance/pc-crop-inventory-reservation-scope-4997": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/scopes/pc-crop-inventory-reservation-authority-4997.json"
     ]
   },
   "currentAcceptance": [

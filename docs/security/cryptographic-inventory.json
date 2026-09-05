@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2227,
+  "scannedFiles": 2252,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 81,
+      "sites": 84,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 81,
+          "sites": 84,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -60,6 +60,7 @@
             "apps/api/src/modules/auth/accounting-document-payload.builder.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
             "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
+            "apps/api/src/modules/commercial-rules/commercial-rules.contract.ts",
             "apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.ts",
             "apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts",
             "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
@@ -98,6 +99,8 @@
             "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts",
             "apps/api/src/modules/role-eligibility/role-eligibility-security.ts",
+            "apps/api/src/modules/service-marketplace/service-marketplace.contract.ts",
+            "apps/api/src/modules/service-providers/integration-binding.contract.ts",
             "apps/api/src/modules/service-providers/provider-registry.contract.ts",
             "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
             "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
