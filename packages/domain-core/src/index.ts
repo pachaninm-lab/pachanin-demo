@@ -39,3 +39,5 @@ export * from './saga-orchestrator';
 export * from './double-entry-ledger';
 export * from './audit-log';
 export * from './deal-signing-service';
+
+export * from './inventory';
