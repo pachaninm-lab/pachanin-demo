@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "8d9f2766dfaf3bc8489979d06c1cc2e01256cc0a",
+  "authorization": "Owner instruction to continue the PC-CROP specification without stopping, with existing push, PR and merge authorization; reconcile the already accepted W2-B finite scope in the explicit state registry before implementation acceptance.",
+  "branch": "governance/pc-crop-auction-inventory-state-scope-4997",
+  "purpose": "Address the state-registration review on #5040 by copying exactly the 19 paths independently accepted in #5039/#5041 into approvedConcurrentScopes. No new implementation path is authorized.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-auction-inventory-state-scope-4997.json"
+  ],
+  "acceptedImplementationScope": {
+    "branch": "feat/pc-crop-auction-inventory-authority-4997",
+    "manifest": "docs/platform-v7/autopilot/scopes/pc-crop-auction-inventory-authority-4997.json",
+    "immutableApprovalSha": "3f7eacf1a2a9cba7a9b7019a04d7b9b418f610be",
+    "governancePrs": [5039, 5041],
+    "exactPaths": 19
+  },
+  "requiredInvariants": [
+    "Only the named concurrent branch entry is added to state; allowedCurrentScope, serialized IR-10.4 state and every other concurrent entry remain unchanged.",
+    "The new state entry equals the accepted immutable manifest allowedPaths in order and content; the implementation manifest is unchanged.",
+    "No implementation, migration, workflow, scope resolver, guard, registration, production or lockfile change."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "terminalCredit": 0
+}
