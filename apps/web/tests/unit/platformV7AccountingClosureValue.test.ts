@@ -52,8 +52,8 @@ describe('platform-v7 accounting closure homepage value', () => {
       'without duplicate entry',
       'active connection',
     ]) expect(copy.toLowerCase()).not.toContain(claim.toLowerCase());
-    expect(copy).toContain('if a specific accounting or EDI connection is confirmed for the organisation');
-    expect(copy).toContain('具体接入路径和实际数据交换需要针对机构单独确认');
+    expect(copy).toContain('If a specific accounting or EDI connection is confirmed for the organisation');
+    expect(copy).toContain('具体可用性和实际交换需要针对机构单独确认');
   });
 
   it('is responsive and accessible on the public homepage', () => {
