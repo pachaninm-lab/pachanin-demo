@@ -1,7 +1,4 @@
-'use client';
-
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { LogIn, UserPlus } from 'lucide-react';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 
@@ -13,11 +10,15 @@ const COPY: Record<Locale, { aria: string; login: string; register: string }> = 
   zh: { aria: '联系页面页眉', login: '登录', register: '注册' },
 };
 
-export function ContactFixedHeader() {
-  const searchParams = useSearchParams();
-  const raw = searchParams.get('lang');
-  const locale: Locale = raw === 'en' || raw === 'zh' ? raw : 'ru';
-  const copy = COPY[locale];
+function localeOf(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
+}
+
+export function ContactFixedHeader({ locale }: { locale: string }) {
+  const normalizedLocale = localeOf(locale);
+  const copy = COPY[normalizedLocale];
 
   return (
     <>
@@ -25,10 +26,10 @@ export function ContactFixedHeader() {
         ariaLabel={copy.aria}
         actions={(
           <>
-            <Link href={`/platform-v7/login?lang=${locale}`} className='pc-site-action p7-contact-login' aria-label={copy.login}>
+            <Link href={`/platform-v7/login?lang=${normalizedLocale}`} className='pc-site-action p7-contact-login' aria-label={copy.login}>
               <LogIn size={18} aria-hidden='true' /><span>{copy.login}</span>
             </Link>
-            <Link href={`/platform-v7/register?lang=${locale}`} className='pc-site-action p7-contact-register' aria-label={copy.register}>
+            <Link href={`/platform-v7/register?lang=${normalizedLocale}`} className='pc-site-action p7-contact-register' aria-label={copy.register}>
               <UserPlus size={18} aria-hidden='true' /><span>{copy.register}</span>
             </Link>
           </>
