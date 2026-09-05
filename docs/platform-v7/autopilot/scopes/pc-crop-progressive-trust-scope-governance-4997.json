@@ -15,7 +15,8 @@
   ],
   "dependencies": {
     "w2bAuctionInventoryMerged": true,
-    "w2cDealInventoryAllocationMustMergeBeforeOverlappingDealImplementation": true
+    "w2cDealInventoryAllocationRequiredForDealConsumerWiringOnly": true,
+    "foundationImplementationCanProceedInParallelAfterImmutableScopeApproval": true
   },
   "boundaries": {
     "productBehaviorChange": false,
