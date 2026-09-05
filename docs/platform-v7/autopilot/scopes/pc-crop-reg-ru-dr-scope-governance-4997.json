@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "staged",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP with production on REG.RU only. Staged governance only; no production mutation or implementation authority before separate review/merge and immutable scope promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-reg-ru-dr-scope-4997",
+  "purpose": "W11-A staged governance: owner-approved RPO/RTO plus real REG.RU backup/PITR/isolated restore/DR evidence bound to exact release.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-reg-ru-dr-scope-governance-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-reg-ru-dr-authority-4997.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "roleEligibilityChange": false,
+    "databaseSchemaChange": false,
+    "productionMutation": false,
+    "alternateProductionHosting": false,
+    "credentialOrSecretChange": false,
+    "fakeCiOnlyDrPass": false
+  }
+}
