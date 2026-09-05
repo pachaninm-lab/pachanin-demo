@@ -55,7 +55,7 @@ const COPY: Record<Locale, Copy> = {
     trustLinks: [
       { title: 'Как проходит Сделка', note: 'Обычный путь сделки и отдельно отмеченные примеры отклонений — без доступа к реальным данным.', href: '/platform-v7/how-it-works' },
       { title: 'Центр доверия', note: 'Полномочия, доказательства, данные, внешние подключения и границы Гекты.', href: '/platform-v7/trust' },
-      { title: 'Состояние системы', note: 'Проверяемые внутренние сигналы и честная граница внешних систем.', href: '/platform-v7/status' },
+      { title: 'Гекта в работе', note: 'Как Гекта объясняет факты, риски и следующий разрешённый шаг — без самостоятельных полномочий.', href: '/platform-v7/ai-in-action' },
       { title: 'Задать вопрос', note: 'Отдельный канал помощи. Обращение не является регистрацией и не открывает кабинет.', href: '/platform-v7/contact' },
     ],
     exploreTitle: 'Что можно посмотреть подробнее',
@@ -73,7 +73,7 @@ const COPY: Record<Locale, Copy> = {
     contactCta: 'Задать вопрос',
     legalTitle: 'Правила и документы',
     legalText: 'Юридические и информационные страницы публикуются отдельно. Неподтверждённые реквизиты, статусы подключений и договорные обещания не подставляются автоматически.',
-    home: 'На главную', status: 'Состояние системы', register: 'Зарегистрироваться', login: 'Войти',
+    home: 'На главную', status: 'Центр доверия', register: 'Зарегистрироваться', login: 'Войти',
     navDeal: 'Как работает', navTrust: 'Доверие', navContact: 'Контакты', open: 'Открыть',
   },
   en: {
@@ -94,7 +94,7 @@ const COPY: Record<Locale, Copy> = {
     trustLinks: [
       { title: 'How a Deal works', note: 'The ordinary journey plus clearly labelled deviation examples, without access to real Deal data.', href: '/platform-v7/how-it-works' },
       { title: 'Trust Center', note: 'Authority, evidence, data, external-connection and Gekta boundaries.', href: '/platform-v7/trust' },
-      { title: 'System status', note: 'Verifiable internal signals and an explicit external-system boundary.', href: '/platform-v7/status' },
+      { title: 'Gekta in action', note: 'How Gekta explains facts, risks and the next permitted step without gaining independent authority.', href: '/platform-v7/ai-in-action' },
       { title: 'Ask a question', note: 'A separate help channel. Contact does not register a user or open a workspace.', href: '/platform-v7/contact' },
     ],
     exploreTitle: 'Explore the main parts of a Deal',
@@ -112,7 +112,7 @@ const COPY: Record<Locale, Copy> = {
     contactCta: 'Ask a question',
     legalTitle: 'Rules and documents',
     legalText: 'Legal and information pages remain separate. Unverified legal details, connection status or contractual promises are never filled in automatically.',
-    home: 'Home', status: 'System status', register: 'Register', login: 'Sign in',
+    home: 'Home', status: 'Trust Center', register: 'Register', login: 'Sign in',
     navDeal: 'How it works', navTrust: 'Trust', navContact: 'Contact', open: 'Open',
   },
   zh: {
@@ -133,7 +133,7 @@ const COPY: Record<Locale, Copy> = {
     trustLinks: [
       { title: '交易如何运行', note: '普通交易路径以及明确标记的偏差示例，不访问真实交易数据。', href: '/platform-v7/how-it-works' },
       { title: '信任中心', note: '权限、证据、数据、外部连接和 Gekta 的边界。', href: '/platform-v7/trust' },
-      { title: '系统状态', note: '可验证的内部信号以及明确的外部系统边界。', href: '/platform-v7/status' },
+      { title: 'Gekta 实际运行', note: '了解 Gekta 如何解释事实、风险和允许的下一步，同时不获得独立权限。', href: '/platform-v7/ai-in-action' },
       { title: '提出问题', note: '独立帮助渠道。提交问题不会完成注册，也不会打开工作空间。', href: '/platform-v7/contact' },
     ],
     exploreTitle: '进一步了解交易的主要部分',
@@ -151,7 +151,7 @@ const COPY: Record<Locale, Copy> = {
     contactCta: '提出问题',
     legalTitle: '规则与文件',
     legalText: '法律与信息页面保持独立。未经确认的法律信息、接入状态或合同承诺不会自动展示。',
-    home: '返回首页', status: '系统状态', register: '注册', login: '登录',
+    home: '返回首页', status: '信任中心', register: '注册', login: '登录',
     navDeal: '如何运行', navTrust: '信任', navContact: '联系', open: '打开',
   },
 };
@@ -260,7 +260,7 @@ export default async function AboutPage() {
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link href={`/platform-v7${lang}`} style={secondaryLinkStyle}>{copy.home}</Link>
-          <Link href={`/platform-v7/status${lang}`} style={secondaryLinkStyle}>{copy.status}</Link>
+          <Link href={`/platform-v7/trust${lang}`} style={secondaryLinkStyle}>{copy.status}</Link>
         </div>
       </main>
     </>
