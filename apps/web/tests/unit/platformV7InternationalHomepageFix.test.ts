@@ -34,8 +34,11 @@ describe('platform-v7 international homepage completion', () => {
     expect(story).toContain("journey: '7 шагов'");
     expect(story).toContain("fullPathLabel: 'Обычный путь'");
     expect(story).not.toContain("navFunctions: '8 шагов Сделки'");
+    expect(home).toContain('const heroCurrentStepIndex = Math.min(4, story.demo.stages.length - 1);');
     expect(home).toContain('aria-valuemax={story.demo.stages.length}');
-    expect(home).toContain('aria-valuenow={story.demo.stages.length}');
+    expect(home).toContain('aria-valuenow={heroCurrentStepIndex + 1}');
+    expect(home).toContain('stageIndex < heroCurrentStepIndex ? styles.progressDone');
+    expect(home).toContain('stageIndex === heroCurrentStepIndex ? styles.progressActive');
     expect(home).toContain('pc-public-deal-stage-rail--hero');
     expect(home).toContain('pc-public-deal-stage-rail--demo');
     expect(css).toContain('.pc-v7-public-entry .pc-public-deal-stage-rail');
