@@ -229,12 +229,18 @@ test('review reconciliation workflow uses supported dispatch wiring and complete
   // the semantic reconciliation contract so an unsupported trigger or broken payload
   // cannot silently replace the supported repository_dispatch path again.
   assert.doesNotMatch(workflow, /^\s*pull_request_review_thread:/mu);
+  assert.match(
+    workflow,
+    /^\s*types:\s*\[[^\]]*ready_for_review[^\]]*converted_to_draft[^\]]*\]\s*$/mu,
+  );
   assert.match(workflow, /^\s*repository_dispatch:\s*$/mu);
   assert.match(workflow, /^\s*types:\s*\[review-gate-reconcile\]\s*$/mu);
   assert.match(
     workflow,
     /group:\s*repo-automerge-\$\{\{[^\n]*github\.event\.client_payload\.pr_number[^\n]*\}\}/u,
   );
+  assert.match(workflow, /^\s*cancel-in-progress:\s*false\s*$/mu);
+  assert.doesNotMatch(workflow, /^\s*cancel-in-progress:\s*true\s*$/mu);
   assert.match(workflow, /^\s*exact-head-dispatched-gate:\s*$/mu);
   assert.match(
     workflow,
