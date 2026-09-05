@@ -1306,6 +1306,26 @@
       "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
       "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts"
     ],
+    "feat/pc-crop-inventory-reservation-authority-4997": [
+      "packages/domain-core/src/inventory.ts",
+      "packages/domain-core/src/inventory.test.ts",
+      "packages/domain-core/src/index.ts",
+      "apps/api/prisma/schema.prisma",
+      "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+      "apps/api/src/modules/inventory/inventory.contract.ts",
+      "apps/api/src/modules/inventory/inventory.contract.spec.ts",
+      "apps/api/src/modules/inventory/inventory.repository.ts",
+      "apps/api/src/modules/inventory/inventory.controller.ts",
+      "apps/api/src/modules/inventory/inventory.module.ts",
+      "apps/api/src/modules/inventory/dto/inventory-api.dto.ts",
+      "apps/api/src/app.module.ts",
+      "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "scripts/verify-pc-crop-inventory-scope.test.mjs",
+      ".github/workflows/pc-crop-inventory.yml",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
     "governance/pc-crop-inventory-reservation-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",

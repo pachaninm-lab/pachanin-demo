@@ -9,6 +9,7 @@ const implementationBranches = [
   'fix/p0-registration-authority-rollover-4637',
   'fix/p0-owner-control-plane-audit-lock-4698',
   'docs/pc-crop-post-registration-progress-4997',
+  'feat/pc-crop-inventory-reservation-authority-4997',
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
 ];
