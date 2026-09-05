@@ -10,6 +10,7 @@ const support = readFileSync('components/platform-v7/ChatSupportWidget.tsx', 'ut
 const header = readFileSync('components/platform-v7/PublicSiteHeader.tsx', 'utf8');
 const css = readFileSync('styles/platform-v7-public-product-experience-v5.css', 'utf8');
 const copy = readFileSync('i18n/public-product-experience-v4.ts', 'utf8');
+const detailedCopy = readFileSync('i18n/public-product-experience-v3.ts', 'utf8');
 const journey = readFileSync('i18n/public-deal-journey-v5.ts', 'utf8');
 const acceptanceE2e = readFileSync('tests/e2e/platform-v7-public-experience-v4.spec.ts', 'utf8');
 
@@ -44,6 +45,25 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
     expect(copy.toLowerCase()).not.toContain('controlled pilot');
     expect(copy.toLowerCase()).not.toContain('pre-integration');
     expect(copy).not.toContain('OTC grain');
+  });
+
+  it('keeps the detailed explorer inside the same crop Deal model instead of reviving grain-only or twelve-role copy', () => {
+    expect(detailedCopy).toContain("metaDescription: 'Публичный разбор вымышленной агросделки в растениеводстве");
+    expect(detailedCopy).toContain('Обычный путь из 7 шагов здесь раскрыт в 10 операционных этапов');
+    expect(detailedCopy).toContain("stage: 'Операционный этап'");
+    expect(detailedCopy).toContain("operator: { label: 'Сотрудник платформы'");
+    expect(detailedCopy).toContain("bank: { label: 'Банк / финансы'");
+    expect(detailedCopy).toContain("elevator: { label: 'Элеватор / хранение'");
+    expect(detailedCopy).toContain("id: 'Вымышленная Сделка'");
+    expect(detailedCopy).not.toContain('зерновой сделки');
+    expect(detailedCopy).not.toContain('grain deal');
+    expect(detailedCopy).not.toContain('粮食交易');
+    expect(detailedCopy).not.toContain('двенадцать перспектив');
+    expect(detailedCopy).not.toContain('twelve perspectives');
+    expect(detailedCopy).not.toContain('十二种角色');
+    expect(detailedCopy).not.toContain('DEAL-2408');
+    expect(detailedCopy).not.toContain('B-2408');
+    expect(detailedCopy).not.toContain('R-318');
   });
 
   it('keeps nine public participant choices while preserving internal URL compatibility', () => {
