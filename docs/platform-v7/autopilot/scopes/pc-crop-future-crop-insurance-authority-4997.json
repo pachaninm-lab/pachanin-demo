@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-future-crop-insurance-authority-4997",
+  "status": "staged",
+  "purpose": "W10-A: separate forecast/future-crop availability from physical Inventory and build provider-neutral insurance quote/policy/coverage/claim/payout lifecycle without fictional provider data or automatic physical stock authority.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [45, 47],
+  "terminalCriteria": ["FUTURE_CROP=PASS", "FORECAST_SEPARATION=PASS", "INSURANCE=PASS", "INSURANCE_MULTI_PROVIDER=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/future-crop.ts",
+    "packages/domain-core/src/future-crop.test.ts",
+    "packages/domain-core/src/insurance.ts",
+    "packages/domain-core/src/insurance.test.ts",
+    "apps/api/prisma/migrations/20260906120000_future_crop_insurance_authority/migration.sql",
+    "apps/api/src/modules/future-crop/future-crop.contract.ts",
+    "apps/api/src/modules/future-crop/future-crop.repository.ts",
+    "apps/api/src/modules/future-crop/future-crop.repository.spec.ts",
+    "apps/api/src/modules/insurance/insurance.contract.ts",
+    "apps/api/src/modules/insurance/insurance.contract.spec.ts",
+    "apps/api/src/modules/insurance/insurance.repository.ts",
+    "apps/api/src/modules/insurance/insurance.repository.spec.ts",
+    "apps/api/src/modules/insurance/insurance-provider.port.ts",
+    "apps/api/test/industrial/future-crop-insurance-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-future-crop-insurance-scope.test.mjs",
+    ".github/workflows/pc-crop-future-crop-insurance.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "sourceEvidence": [
+    "packages/domain-core/src/commercial-expansion.ts",
+    "packages/domain-core/src/service-provider-registry.ts",
+    "apps/api/src/modules/inventory/inventory.repository.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Forecast/future crop is never physical Inventory. A ForecastPosition cannot be RESERVED/COMMITTED/SHIPPED/SOLD and cannot satisfy physical-stock verification, custody or title requirements.",
+    "ForecastPosition pins organization, commodity/profile version, crop year/period, geography/field reference if available, forecast quantity/range, confidence/evidence source and version/freshness. Manual forecast remains DECLARED/FORECAST, not verified physical availability.",
+    "Forward/future Deal basis explicitly identifies FUTURE_CROP origin and its forecast evidence/risk disclosures. Before physical performance stages it must transition through an accepted conversion/availability event that binds actual Inventory, or remain blocked according to policy.",
+    "Insurance uses the existing Provider/ProviderCapability/ServiceOffering/IntegrationBinding model. Provider names or static partner copy cannot create an offering or live capability.",
+    "InsuranceRequest, Quote, SelectedQuote, Policy, Coverage, Claim, ClaimEvidence, ClaimDecision and PayoutReceipt are separate immutable/versioned facts. A quote/selection is not coverage; policy issuance receipt is required before insured status.",
+    "Coverage is pinned to exact insured object/basis, period, risks, limits/deductibles, currency/minor units, provider policy version/reference and accepted terms. No Float money or unversioned text terms become authority.",
+    "Claim filing is not claim approval. Provider decision and payout are distinct external receipts; REQUESTED/QUEUED/SENT states never become APPROVED/PAID.",
+    "Insurance payout does not directly mutate Deal/Settlement/Inventory. Canonical FinancialObligation/Settlement consumes validated payout/refund facts through a later explicit adapter if applicable.",
+    "At least two provider-neutral reference adapters can satisfy the same insurance port without changing core lifecycle, proving multi-provider substitution.",
+    "External insurance adapters remain NOT_ACTIVATED without contract, credentials, product mapping and accepted production receipts; fixtures cannot advertise fictional live insurers.",
+    "Current tenant/org/member authority is revalidated before request/selection/claim mutation and replay; cross-tenant/same-tenant outsider access to policy/claim data is denied.",
+    "Every business mutation commits immutable event, audit, outbox and receipt atomically with payload-bound idempotency and CAS.",
+    "Registration, Role Eligibility, physical Inventory, Deal, Settlement, Provider Registry, Federal Accounting lock #4321 and REG.RU topology remain unchanged."
+  ],
+  "acceptance": [
+    "Tests prove ForecastPosition cannot be used by physical Inventory reservation or represented as verified/custodied/title-cleared stock.",
+    "Future Deal basis remains blocked from physical shipment/acceptance until an explicit accepted conversion binds actual canonical Inventory according to policy.",
+    "Insurance lifecycle tests distinguish request/quote/selection/policy/claim/decision/payout and reject skipped/fabricated finality.",
+    "Two reference provider adapters satisfy the same insurance contract and unsupported capability/provider-not-activated fails closed.",
+    "Exact money/coverage limits and immutable term/provider versions are reproduced from receipts and never overwritten by new products/rules.",
+    "Cross-tenant/outsider/revoked actor, stale version, duplicate/conflicting replay and audit/outbox failure cases fail closed.",
+    "No static fictional provider/catalog or live-success claim appears in accepted runtime paths.",
+    "Exact-head CI/review plus real provider/REG.RU acceptance are required before insurance terminal PASS; forecast separation can be accepted internally first."
+  ],
+  "remainingTerminalBoundary": [
+    "Actual crop forecast data/provider and field/season evidence may require external sources; internal declared forecast alone is not objective forecast verification.",
+    "Real insurance provider contracts/products/credentials and policy/claim/payout receipts remain external blockers.",
+    "Future Deal consumer integration depends on W2-E multi-origin DealBasis and W2-D risk acknowledgement.",
+    "REG.RU production and real-user future-crop/insurance acceptance remain mandatory."
+  ],
+  "terminalCredit": 0
+}
