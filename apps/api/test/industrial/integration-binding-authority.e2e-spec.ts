@@ -290,7 +290,7 @@ describeAuthority('IntegrationBinding PostgreSQL authority', () => {
         SELECT ${`${RUN_ID}-evidence-${index}`}, "tenantId", "organizationId", "providerId", "id",
           ${maturity}, ${`evidence:${maturity}`}, 'EXTERNAL_OPERATOR',
           ${maturity === 'LIVE_ACCEPTED' ? 'operator-receipt-2026-1' : null},
-          clock_timestamp() + ${index} * interval '1 millisecond', 'acceptance-authority'
+          clock_timestamp() - ${stages.length - index} * interval '1 second', 'acceptance-authority'
         FROM public."integration_bindings" WHERE "id" = ${bindingId}
       `);
     }
@@ -303,6 +303,19 @@ describeAuthority('IntegrationBinding PostgreSQL authority', () => {
       UPDATE public."integration_bindings"
       SET "status" = 'ACTIVE', "version" = "version" + 1, "updatedAt" = clock_timestamp()
       WHERE "id" = ${bindingId}
+    `);
+    expect((await bindings.listOwn(actorA)).items[0]?.assessment.mayCarryRealTraffic).toBe(false);
+    await admin.$executeRaw(Prisma.sql`
+      UPDATE public."providers"
+      SET "status" = 'ACTIVE', "version" = "version" + 1, "updatedAt" = clock_timestamp()
+      WHERE "organizationId" = ${ORG_A} AND "tenantId" = ${TENANT_A}
+    `);
+    expect((await bindings.listOwn(actorA)).items[0]?.assessment.mayCarryRealTraffic).toBe(false);
+    await admin.$executeRaw(Prisma.sql`
+      UPDATE public."provider_capabilities"
+      SET "status" = 'ACTIVE', "effectiveFrom" = clock_timestamp(),
+          "version" = "version" + 1, "updatedAt" = clock_timestamp()
+      WHERE "id" = ${providerCapabilityId}
     `);
     const active = await bindings.listOwn(actorA);
     expect(active.items[0]?.assessment).toMatchObject({
@@ -334,5 +347,42 @@ describeAuthority('IntegrationBinding PostgreSQL authority', () => {
     `);
     expect(counts[0]).toEqual({ bindings: 0n, events: 0n });
     expect(await admin.auditEvent.count({ where: { correlationId: failing.correlationId } })).toBe(0);
+  });
+
+  it('denies real traffic immediately after provider suspension or capability revocation', async () => {
+    await admin.$executeRaw(Prisma.sql`
+      UPDATE public."providers"
+      SET "status" = 'SUSPENDED', "version" = "version" + 1, "updatedAt" = clock_timestamp()
+      WHERE "organizationId" = ${ORG_A} AND "tenantId" = ${TENANT_A}
+    `);
+    expect((await bindings.listOwn(actorA)).items[0]).toMatchObject({
+      providerStatus: 'SUSPENDED',
+      assessment: { mayCarryRealTraffic: false },
+    });
+    await admin.$executeRaw(Prisma.sql`
+      UPDATE public."providers"
+      SET "status" = 'ACTIVE', "version" = "version" + 1, "updatedAt" = clock_timestamp()
+      WHERE "organizationId" = ${ORG_A} AND "tenantId" = ${TENANT_A}
+    `);
+    expect((await bindings.listOwn(actorA)).items[0]?.assessment.mayCarryRealTraffic).toBe(true);
+    const rows = await admin.$queryRaw<Array<{ version: bigint }>>(Prisma.sql`
+      SELECT "version" FROM public."providers"
+      WHERE "organizationId" = ${ORG_A} AND "tenantId" = ${TENANT_A}
+    `);
+    await providers.execute(actorA, {
+      ...providerCapabilityCommand(),
+      action: 'REVOKE',
+      commandId: `${RUN_ID}-revoke-command`,
+      idempotencyKey: `${RUN_ID}-revoke-idempotency`,
+      correlationId: `${RUN_ID}-revoke-correlation`,
+      expectedVersion: rows[0]!.version.toString(),
+      reason: 'Revoke provider capability while its accepted binding still exists.',
+    });
+    expect((await bindings.listOwn(actorA)).items[0]).toMatchObject({
+      status: 'ACTIVE',
+      providerStatus: 'ACTIVE',
+      providerCapabilityStatus: 'REVOKED',
+      assessment: { mayCarryRealTraffic: false },
+    });
   });
 });

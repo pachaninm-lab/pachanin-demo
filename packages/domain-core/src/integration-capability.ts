@@ -72,6 +72,8 @@ function timestamp(value: string): number {
 }
 
 function isCurrent(fact: IntegrationCapabilityEvidenceFact, at: Date): boolean {
+  const checkedAt = timestamp(fact.checkedAt);
+  if (!Number.isFinite(checkedAt) || checkedAt > at.getTime()) return false;
   return fact.expiresAt === null || timestamp(fact.expiresAt) > at.getTime();
 }
 
@@ -87,15 +89,17 @@ function isExternalLiveReceipt(fact: IntegrationCapabilityEvidenceFact): boolean
  *
  * Progressive stages must be contiguous. A higher fact with a missing lower
  * stage cannot promote the capability. DEGRADED and SUSPENDED are operational
- * observations and override the progression only while they are the newest
- * current fact. WITHDRAWN bindings are always suspended.
+ * observations. A current incident requires a strictly newer, valid external
+ * LIVE_ACCEPTED receipt before recovery; intermediate facts cannot clear it.
+ * Simultaneous incidents resolve to SUSPENDED. WITHDRAWN bindings are always
+ * suspended, and an invalid assessment clock never admits traffic.
  */
 export function assessIntegrationCapability(
   bindingStatus: IntegrationBindingStatus,
   evidence: readonly IntegrationCapabilityEvidenceFact[],
   at: Date = new Date(),
 ): IntegrationCapabilityAssessment {
-  if (bindingStatus === 'WITHDRAWN' || bindingStatus === 'SUSPENDED') {
+  if (bindingStatus === 'WITHDRAWN' || bindingStatus === 'SUSPENDED' || !Number.isFinite(at.getTime())) {
     return {
       maturity: 'SUSPENDED',
       nextRequired: null,
@@ -107,11 +111,17 @@ export function assessIntegrationCapability(
   const current = evidence
     .filter((fact) => isCurrent(fact, at))
     .sort((left, right) => timestamp(left.checkedAt) - timestamp(right.checkedAt));
-  const newest = current.at(-1);
-  if (newest?.maturity === 'SUSPENDED' || newest?.maturity === 'DEGRADED') {
+  const incident = current
+    .filter((fact) => fact.maturity === 'SUSPENDED' || fact.maturity === 'DEGRADED')
+    .sort((left, right) => timestamp(left.checkedAt) - timestamp(right.checkedAt)
+      || Number(left.maturity === 'SUSPENDED') - Number(right.maturity === 'SUSPENDED'))
+    .at(-1);
+  const recovered = incident && current.some((fact) =>
+    isExternalLiveReceipt(fact) && timestamp(fact.checkedAt) > timestamp(incident.checkedAt));
+  if (incident && !recovered) {
     return {
-      maturity: newest.maturity,
-      nextRequired: newest.maturity === 'DEGRADED' ? 'LIVE_ACCEPTED' : null,
+      maturity: incident.maturity,
+      nextRequired: incident.maturity === 'DEGRADED' ? 'LIVE_ACCEPTED' : null,
       mayCarryRealTraffic: false,
       evidenceMode: 'SERVER_HELD',
     };

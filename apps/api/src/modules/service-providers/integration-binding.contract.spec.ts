@@ -123,4 +123,60 @@ describe('integration binding contract', () => {
       credentialReference: 'raw-secret-token',
     }))).toThrow(expect.objectContaining({ code: 'REFERENCE_INVALID' }));
   });
+
+  it.each([
+    { checkedAt: '2026-09-04T23:30:00.001Z' },
+    { checkedAt: 'not-a-timestamp' },
+    { expiresAt: '2026-09-04T23:30:00.000Z' },
+    { expiresAt: 'not-a-timestamp' },
+  ])('rejects a live receipt outside its valid observation window: %j', (overrides) => {
+    const chain = INTEGRATION_CAPABILITY_MATURITIES.slice(1, 8).map((maturity) => fact(maturity));
+    expect(assessIntegrationCapability('ACTIVE', [...chain, fact('LIVE_ACCEPTED', overrides)], NOW))
+      .toMatchObject({ maturity: 'LIVE_TESTING', mayCarryRealTraffic: false });
+  });
+
+  it('fails closed when the assessment clock is invalid', () => {
+    const chain = INTEGRATION_CAPABILITY_MATURITIES.slice(1, 9).map((maturity) => fact(maturity));
+    expect(assessIntegrationCapability('ACTIVE', chain, new Date('invalid')))
+      .toMatchObject({ mayCarryRealTraffic: false });
+  });
+
+  it.each(['DEGRADED', 'SUSPENDED'] as const)(
+    'does not clear %s with a newer intermediate fact or an unqualified receipt',
+    (maturity) => {
+      const chain = INTEGRATION_CAPABILITY_MATURITIES.slice(1, 9).map((stage) => fact(stage));
+      const incident = fact(maturity, { checkedAt: '2026-09-04T23:00:00.000Z' });
+      for (const later of [
+        fact('CONTRACT_TESTED', { checkedAt: '2026-09-04T23:10:00.000Z' }),
+        fact('LIVE_ACCEPTED', { checkedAt: '2026-09-04T23:10:00.000Z', evidenceIssuer: 'PLATFORM' }),
+        fact('LIVE_ACCEPTED', { checkedAt: '2026-09-04T23:10:00.000Z', externalReceiptId: null }),
+        fact('LIVE_ACCEPTED', { checkedAt: '2026-09-05T00:00:00.000Z' }),
+      ]) {
+        expect(assessIntegrationCapability('ACTIVE', [...chain, incident, later], NOW))
+          .toMatchObject({ maturity, mayCarryRealTraffic: false });
+      }
+    },
+  );
+
+  it('requires a strictly newer external receipt to recover from an incident', () => {
+    const chain = INTEGRATION_CAPABILITY_MATURITIES.slice(1, 9).map((stage) => fact(stage));
+    const incident = fact('DEGRADED', { checkedAt: '2026-09-04T23:00:00.000Z' });
+    const tiedReceipt = fact('LIVE_ACCEPTED', { checkedAt: incident.checkedAt });
+    for (const simultaneous of [[incident, tiedReceipt], [tiedReceipt, incident]]) {
+      expect(assessIntegrationCapability('ACTIVE', [...chain, ...simultaneous], NOW))
+        .toMatchObject({ maturity: 'DEGRADED', mayCarryRealTraffic: false });
+    }
+    expect(assessIntegrationCapability('ACTIVE', [
+      ...chain, incident, fact('LIVE_ACCEPTED', { checkedAt: '2026-09-04T23:10:00.000Z' }),
+    ], NOW)).toMatchObject({ maturity: 'LIVE_ACCEPTED', mayCarryRealTraffic: true });
+  });
+
+  it('resolves simultaneous operational facts conservatively regardless of input order', () => {
+    const degraded = fact('DEGRADED');
+    const suspended = fact('SUSPENDED');
+    for (const evidence of [[degraded, suspended], [suspended, degraded]]) {
+      expect(assessIntegrationCapability('ACTIVE', evidence, NOW))
+        .toMatchObject({ maturity: 'SUSPENDED', mayCarryRealTraffic: false });
+    }
+  });
 });

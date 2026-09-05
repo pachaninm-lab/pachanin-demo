@@ -62,6 +62,11 @@ type EvidenceRow = {
   recordedByAuthority: string;
 };
 
+type BindingAuthorityRow = BindingRow & {
+  providerStatus: string;
+  providerCapabilityStatus: string;
+};
+
 type ReplayRow = {
   commandId: string;
   idempotencyKey: string;
@@ -110,11 +115,22 @@ export class IntegrationBindingRepository {
   async listOwn(user: RequestUser) {
     return this.rls.withTrustedContext(user, async (tx, context) => {
       const [bindings, evidence] = await Promise.all([
-        tx.$queryRaw<BindingRow[]>(Prisma.sql`
-          SELECT * FROM public."integration_bindings"
-          WHERE "tenantId" = ${context.tenantId}
-            AND "organizationId" = ${context.orgId}
-          ORDER BY "bindingKey" ASC
+        tx.$queryRaw<BindingAuthorityRow[]>(Prisma.sql`
+          SELECT binding.*, provider."status" AS "providerStatus",
+            capability."status" AS "providerCapabilityStatus"
+          FROM public."integration_bindings" binding
+          JOIN public."providers" provider
+            ON provider."id" = binding."providerId"
+           AND provider."tenantId" = binding."tenantId"
+           AND provider."organizationId" = binding."organizationId"
+          JOIN public."provider_capabilities" capability
+            ON capability."id" = binding."providerCapabilityId"
+           AND capability."providerId" = binding."providerId"
+           AND capability."tenantId" = binding."tenantId"
+           AND capability."organizationId" = binding."organizationId"
+          WHERE binding."tenantId" = ${context.tenantId}
+            AND binding."organizationId" = ${context.orgId}
+          ORDER BY binding."bindingKey" ASC
         `),
         tx.$queryRaw<EvidenceRow[]>(Prisma.sql`
           SELECT
@@ -142,12 +158,20 @@ export class IntegrationBindingRepository {
           const facts = (evidenceByBinding.get(binding.id) ?? [])
             .filter((fact): fact is EvidenceRow & { maturity: IntegrationCapabilityMaturity } =>
               isIntegrationCapabilityMaturity(fact.maturity));
+          const assessment = assessIntegrationCapability(
+            binding.status,
+            facts.map((fact) => this.evidenceFact(fact)),
+          );
           return {
             ...this.bindingView(binding),
-            assessment: assessIntegrationCapability(
-              binding.status,
-              facts.map((fact) => this.evidenceFact(fact)),
-            ),
+            providerStatus: binding.providerStatus,
+            providerCapabilityStatus: binding.providerCapabilityStatus,
+            assessment: {
+              ...assessment,
+              mayCarryRealTraffic: assessment.mayCarryRealTraffic
+                && binding.providerStatus === 'ACTIVE'
+                && binding.providerCapabilityStatus === 'ACTIVE',
+            },
             evidence: facts.map((fact) => this.evidenceView(fact)),
           };
         }),
