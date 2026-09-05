@@ -292,4 +292,43 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
       await expectMinimumTargets(page, '.pc-public-contact-dock-action');
     }
   });
+
+  test('About, Contact and How it works keep registration-first chrome on mobile and desktop', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'Linked-page responsive matrix runs once on Chromium.');
+    const cases = [
+      { width: 320, locale: 'ru' },
+      { width: 390, locale: 'zh' },
+      { width: 1440, locale: 'en' },
+    ] as const;
+
+    for (const item of cases) {
+      await page.setViewportSize({ width: item.width, height: 1000 });
+
+      const about = await page.goto(`/platform-v7/about?lang=${item.locale}`, { waitUntil: 'load' });
+      expect(about?.ok(), `about ${item.width}px ${item.locale}`).toBe(true);
+      await expect(page.locator('h1')).toBeVisible();
+      await expect(page.locator('.p7-about-register')).toBeVisible();
+      await expect(page.locator('.p7-about-register')).toHaveAttribute('href', `/platform-v7/register?lang=${item.locale}`);
+      await expectMinimumTargets(page, '.p7-about-register');
+      await expectNoHorizontalOverflow(page);
+
+      const contact = await page.goto(`/platform-v7/contact?lang=${item.locale}`, { waitUntil: 'load' });
+      expect(contact?.ok(), `contact ${item.width}px ${item.locale}`).toBe(true);
+      await expect(page.locator('[data-testid="platform-v7-question-form-page"]')).toBeVisible();
+      await expect(page.locator('.p7-contact-register')).toBeVisible();
+      await expect(page.locator('.p7-contact-register')).toHaveAttribute('href', `/platform-v7/register?lang=${item.locale}`);
+      await expect(page.locator("form[action='/api/platform-v7/inquiries']")).toBeVisible();
+      await expectMinimumTargets(page, '.p7-contact-register');
+      await expectNoHorizontalOverflow(page);
+
+      const how = await page.goto(`/platform-v7/how-it-works?lang=${item.locale}`, { waitUntil: 'load' });
+      expect(how?.ok(), `how-it-works ${item.width}px ${item.locale}`).toBe(true);
+      await expect(page.locator('[data-testid="platform-v7-deal-from-inside"]')).toBeVisible();
+      const howRegister = page.locator('.pc-site-header .pc-ppe-primary-button');
+      await expect(howRegister).toBeVisible();
+      await expect(howRegister).toHaveAttribute('href', `/platform-v7/register?lang=${item.locale}`);
+      await expectMinimumTargets(page, '.pc-site-header .pc-ppe-primary-button');
+      await expectNoHorizontalOverflow(page);
+    }
+  });
 });
