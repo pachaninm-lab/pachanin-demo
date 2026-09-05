@@ -29,6 +29,7 @@ const changedPublicFiles = [
   'apps/web/i18n/platform-v7-home-story-product.ts',
   'apps/web/i18n/platform-v7-home-v3-operating.ts',
   'apps/web/i18n/platform-v7-organization-connect-operating.ts',
+  'apps/web/i18n/public-product-experience-v3.ts',
 ].map((file) => [file, read(file)] as const);
 
 const aiExperience = read('apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx');
