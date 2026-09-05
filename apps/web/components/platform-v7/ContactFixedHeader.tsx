@@ -40,34 +40,28 @@ export function ContactFixedHeader() {
 }
 
 const css = `
-.pc-shell-root-v4:has(.p7-contact-page){--pc-header-offset:0px!important}
-.pc-shell-root-v4:has(.p7-contact-page) .pc-v4-header,
-.pc-shell-root-v4:has(.p7-contact-page) .pc-v4-bottomnav,
-.pc-shell-root-v4:has(.p7-contact-page) .pc-v4-drawer,
-.pc-shell-root-v4:has(.p7-contact-page) .pc-v4-pilot-note{display:none!important}
-.pc-shell-root-v4:has(.p7-contact-page) .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:transparent!important;min-height:100svh!important}
-html body .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-page{padding-top:78px!important}
-html body .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-layout{padding-top:0!important;margin-top:0!important}
-.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-login,
-.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register{width:auto!important;padding:0 12px!important;gap:7px!important;white-space:nowrap!important}
-.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register{background:#087a3b!important;border-color:#087a3b!important;color:#fff!important;font-weight:800!important}
-.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register:hover,
-.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register:focus-visible{background:#07572e!important;color:#fff!important}
+html body .p7-contact-page{padding-top:78px!important}
+html body .p7-contact-page .p7-contact-layout{padding-top:0!important;margin-top:0!important}
+.pc-site-header:has(.p7-contact-register) .p7-contact-login,
+.pc-site-header:has(.p7-contact-register) .p7-contact-register{width:auto!important;padding:0 12px!important;gap:7px!important;white-space:nowrap!important}
+.pc-site-header:has(.p7-contact-register) .p7-contact-register{background:#087a3b!important;border-color:#087a3b!important;color:#fff!important;font-weight:800!important}
+.pc-site-header:has(.p7-contact-register) .p7-contact-register:hover,
+.pc-site-header:has(.p7-contact-register) .p7-contact-register:focus-visible{background:#07572e!important;color:#fff!important}
 @media(max-width:760px){
-  html body .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-page{padding-top:72px!important}
+  html body .p7-contact-page{padding-top:72px!important}
 }
 @media(max-width:560px){
-  .pc-shell-root-v4:has(.p7-contact-page) .pc-site-brand-text{display:none!important}
-  .pc-shell-root-v4:has(.p7-contact-page) .pc-site-header{gap:6px!important;padding-inline:10px!important}
-  .pc-shell-root-v4:has(.p7-contact-page) .pc-site-actions{gap:4px!important}
-  .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-login{width:44px!important;min-width:44px!important;padding:0!important}
-  .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-login span{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important}
-  .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register{min-height:44px!important;padding:0 10px!important;font-size:13px!important}
+  .pc-site-header:has(.p7-contact-register){gap:6px!important;padding-inline:10px!important}
+  .pc-site-header:has(.p7-contact-register) .pc-site-brand-text{display:none!important}
+  .pc-site-header:has(.p7-contact-register) .pc-site-actions{gap:4px!important}
+  .pc-site-header:has(.p7-contact-register) .p7-contact-login{width:44px!important;min-width:44px!important;padding:0!important}
+  .pc-site-header:has(.p7-contact-register) .p7-contact-login span{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important}
+  .pc-site-header:has(.p7-contact-register) .p7-contact-register{min-height:44px!important;padding:0 10px!important;font-size:13px!important}
 }
 @media(max-width:340px){
-  .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register{padding:0 8px!important;font-size:12px!important}
+  .pc-site-header:has(.p7-contact-register) .p7-contact-register{padding:0 8px!important;font-size:12px!important}
 }
 @media(forced-colors:active){
-  .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register{border:2px solid ButtonText!important}
+  .pc-site-header:has(.p7-contact-register) .p7-contact-register{border:2px solid ButtonText!important}
 }
 `;
