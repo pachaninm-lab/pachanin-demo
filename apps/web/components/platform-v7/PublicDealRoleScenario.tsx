@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 import { CircleDollarSign, FileCheck2, FlaskConical, MapPinned, ShieldAlert, UserRoundCheck } from 'lucide-react';
 import styles from './PublicDealRoleScenario.module.css';
 
@@ -188,6 +188,35 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
   const [role, setRole] = useState<RoleKey>('buyer');
   const copy = ui[normalized];
   const selected = useMemo(() => scenarios[normalized][role], [normalized, role]);
+  const roleKeys = Object.keys(scenarios[normalized]) as RoleKey[];
+
+  const handleRoleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, key: RoleKey) => {
+    const currentIndex = roleKeys.indexOf(key);
+    let nextIndex = currentIndex;
+
+    switch (event.key) {
+      case 'ArrowRight':
+        nextIndex = (currentIndex + 1) % roleKeys.length;
+        break;
+      case 'ArrowLeft':
+        nextIndex = (currentIndex - 1 + roleKeys.length) % roleKeys.length;
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = roleKeys.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    const nextRole = roleKeys[nextIndex]!;
+    setRole(nextRole);
+    const tabs = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    tabs?.[nextIndex]?.focus();
+  };
 
   return (
     <div className={styles.root}>
@@ -207,14 +236,31 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
           <article><FileCheck2 aria-hidden='true' /><div><span>{copy.documents}</span><strong>{copy.documentsValue}</strong></div></article>
           <article><CircleDollarSign aria-hidden='true' /><div><span>{copy.reserve}</span><strong>{copy.reserveValue}</strong></div></article>
         </div>
-        <div className={styles.tabs} role='tablist' aria-label={copy.rolesLabel}>
-          {(Object.keys(scenarios[normalized]) as RoleKey[]).map((key) => (
-            <button key={key} type='button' role='tab' aria-selected={role === key} className={role === key ? styles.active : undefined} onClick={() => setRole(key)}>
+        <div className={styles.tabs} role='tablist' aria-label={copy.rolesLabel} aria-orientation='horizontal'>
+          {roleKeys.map((key) => (
+            <button
+              key={key}
+              id={`public-role-tab-${key}`}
+              type='button'
+              role='tab'
+              aria-selected={role === key}
+              aria-controls='public-role-panel'
+              tabIndex={role === key ? 0 : -1}
+              className={role === key ? styles.active : undefined}
+              onClick={() => setRole(key)}
+              onKeyDown={(event) => handleRoleTabKeyDown(event, key)}
+            >
               {scenarios[normalized][key].label}
             </button>
           ))}
         </div>
-        <div className={styles.rolePanel} role='tabpanel' aria-live='polite'>
+        <div
+          id='public-role-panel'
+          className={styles.rolePanel}
+          role='tabpanel'
+          aria-labelledby={`public-role-tab-${role}`}
+          aria-live='polite'
+        >
           <article className={styles.alert}><ShieldAlert aria-hidden='true' /><div><span>{copy.risk}</span><strong>{selected.risk}</strong></div></article>
           <div className={styles.actionGrid}>
             <article><UserRoundCheck aria-hidden='true' /><div><span>{copy.owner}</span><strong>{selected.owner}</strong></div></article>
