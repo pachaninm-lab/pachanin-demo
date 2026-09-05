@@ -123,6 +123,10 @@ jobs:
             -f "description=$description" \
             >/dev/null
 
+          if [ "$state" != success ]; then
+            exit 1
+          fi
+
       - name: Enforce review gate result
         if: steps.gate.outcome != 'success'
         run: |
@@ -247,6 +251,10 @@ jobs:
             -f context=review-gate/exact-head \
             -f "description=$description" \
             >/dev/null
+
+          if [ "$state" != success ]; then
+            exit 1
+          fi
 
       - name: Enforce clean-comment gate result
         if: steps.live.outputs.active == 'true' && steps.clean_gate.outcome != 'success'
@@ -376,6 +384,10 @@ jobs:
             -f context=review-gate/exact-head \
             -f "description=$description" \
             >/dev/null
+
+          if [ "$state" != success ]; then
+            exit 1
+          fi
 
       - name: Enforce dispatched gate result
         if: steps.live.outputs.active == 'true' && steps.dispatched_gate.outcome != 'success'
