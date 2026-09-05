@@ -90,6 +90,8 @@ export function PublicDealExplorer({
   const blocker = state.scenario === 'standard'
     ? copy.explorer.deal.noBlocker
     : scenario.blocker;
+  const localizedLocale = locale === 'en' || locale === 'zh' ? locale : 'ru';
+  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(localizedLocale)}`;
 
   const commit = (
     event: TourEvent,
@@ -156,7 +158,7 @@ export function PublicDealExplorer({
   const selectPerspective = (value: TourPerspective) => commit({ type: 'select-perspective', perspective: value }, 'perspective_selected');
   const selectScenario = (value: TourScenario) => commit({ type: 'select-scenario', scenario: value }, 'scenario_selected');
   const selectStage = (value: TourStage) => commit({ type: 'select-stage', stage: value }, 'stage_selected');
-  const selectRisk = (value: TourRisk) => commit({ type: 'select-risk', risk: value }, 'risk_selected');
+  const selectRisk = (value: TourRisk) => commit({ type: 'select-risk', risk }, 'risk_selected');
 
   return (
     <div className='pc-ppe-explorer' data-lens={state.lens} data-scenario={state.scenario}>
@@ -314,7 +316,7 @@ export function PublicDealExplorer({
       </div>
 
       <div className='pc-ppe-explorer-cta'>
-        <a href='/platform-v7/register' className='pc-ppe-primary-button' onClick={() => emit('connect_cta_click', locale, state, { source: 'how_it_works' })}>
+        <a href={registerHref} className='pc-ppe-primary-button' onClick={() => emit('connect_cta_click', locale, state, { source: 'how_it_works' })}>
           <span>{copy.explorer.connect}</span>
           <PublicExperienceIcon name='arrow' size={19} />
         </a>
