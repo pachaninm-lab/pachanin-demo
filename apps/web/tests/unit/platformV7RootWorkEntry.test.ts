@@ -71,6 +71,15 @@ describe('platform-v7 final public entry', () => {
     expect(home).not.toContain('/platform-v7/login?role=');
   });
 
+  it('preserves RU EN ZH across the detailed Deal route and its registration CTA', () => {
+    expect(explorerPage).toContain('const localizedHref = (path: string) => `${path}?lang=${encodeURIComponent(normalizedLocale)}`');
+    expect(explorerPage).toContain("href={localizedHref('/platform-v7/about')}");
+    expect(explorerPage).toContain("href={localizedHref('/platform-v7/contact')}");
+    expect(explorerPage).toContain("const registerHref = localizedHref('/platform-v7/register')");
+    expect(explorer).toContain('const registerHref = `/platform-v7/register?lang=${encodeURIComponent(localizedLocale)}`');
+    expect(explorer).toContain('href={registerHref}');
+  });
+
   it('states integration maturity without false-live language or internal jargon', () => {
     const combined = `${page}\n${home}\n${homeCopy}\n${storyCopy}`.toLowerCase();
     for (const token of [
