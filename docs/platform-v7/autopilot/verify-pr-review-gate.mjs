@@ -28,6 +28,7 @@ const IGNORED_CHECK_WORKFLOWS = new Set([
 
 const IGNORED_CHECK_NAMES = new Set([
   'Exact-head Codex review gate',
+  'review-gate/exact-head',
   'automerge',
   'merge-generated',
   'reconcile-generated',
