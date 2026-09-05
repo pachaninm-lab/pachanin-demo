@@ -349,10 +349,15 @@ test.describe('Gekta exact production mobile acceptance', () => {
     const composer = page.locator('#gekta-composer-input');
     const draft = 'Строка 1\nСтрока 2\nСтрока 3\nСтрока 4\nСтрока 5';
     await composer.fill(draft);
-    await composer.evaluate((node) => (node as HTMLTextAreaElement).setSelectionRange(17, 17));
-    await composer.focus();
 
     for (let cycle = 0; cycle < 20; cycle += 1) {
+      // Opening the software keyboard requires a focused text-entry control on a real device.
+      // Model that precondition for every cycle, then require the application to retain focus,
+      // draft and caret while the visual viewport contracts.
+      await composer.focus();
+      await composer.evaluate((node) => (node as HTMLTextAreaElement).setSelectionRange(17, 17));
+      await expect(composer).toBeFocused();
+
       await page.setViewportSize({ width: 390, height: 520 });
       await page.waitForFunction(() => {
         const cssHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gekta-visual-viewport-height'));
@@ -360,22 +365,28 @@ test.describe('Gekta exact production mobile acceptance', () => {
         return Math.abs(cssHeight - actualHeight) <= 2;
       });
       await expect(page.locator('html')).toHaveAttribute('data-gekta-keyboard-open', 'true');
+      await expect(composer).toBeFocused();
 
       const geometry = await page.evaluate(() => {
         const shell = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']")?.getBoundingClientRect();
         const surface = document.querySelector<HTMLElement>("[data-gekta-drop-target='true']")?.getBoundingClientRect();
         const viewport = window.visualViewport;
+        const textarea = document.querySelector<HTMLTextAreaElement>('#gekta-composer-input');
         const visibleBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
         return {
           shellHeight: shell?.height ?? 0,
           surfaceBottom: surface?.bottom ?? Number.POSITIVE_INFINITY,
           gap: surface ? visibleBottom - surface.bottom : Number.NEGATIVE_INFINITY,
+          selectionStart: textarea?.selectionStart ?? -1,
+          selectionEnd: textarea?.selectionEnd ?? -1,
         };
       });
       expect(geometry.shellHeight).toBeGreaterThan(64);
       expect(geometry.surfaceBottom).toBeLessThanOrEqual(522);
       expect(geometry.gap).toBeGreaterThanOrEqual(7);
       expect(geometry.gap).toBeLessThanOrEqual(20);
+      expect(geometry.selectionStart).toBe(17);
+      expect(geometry.selectionEnd).toBe(17);
       await expect(page.locator('#gekta-composer-boundary')).toBeHidden();
       await expect(composer).toHaveValue(draft);
 
@@ -386,6 +397,7 @@ test.describe('Gekta exact production mobile acceptance', () => {
         return Math.abs(cssHeight - actualHeight) <= 2;
       });
       await expect(page.locator('html')).not.toHaveAttribute('data-gekta-keyboard-open', 'true');
+      await expect(composer).toHaveValue(draft);
     }
 
     await expect(page.locator('#gekta-composer-boundary')).toBeVisible();
