@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-ati-adapter-authority-4997",
+  "status": "staged",
+  "purpose": "W6-B: define an ATI reference adapter for board, auction, order, webhook, tracking and document capabilities over the provider-neutral Logistics authority without leaking ATI-specific semantics into core Shipment/Deal models or claiming live access.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. This staged branch has zero implementation authority until separate governance review/merge and immutable scope promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [29],
+  "terminalCriteria": ["ATI_REFERENCE_ADAPTER=PASS", "ATI_BOARD=PASS", "ATI_AUCTION=PASS", "ATI_ORDER=PASS", "ATI_WEBHOOK=PASS", "ATI_TRACKING=PASS", "ATI_DOKI=PASS"],
+  "allowedPaths": [
+    "apps/api/src/modules/logistics-adapters/logistics-provider.port.ts",
+    "apps/api/src/modules/logistics-adapters/logistics-provider.contract.ts",
+    "apps/api/src/modules/logistics-adapters/logistics-provider.contract.spec.ts",
+    "apps/api/src/modules/logistics-adapters/ati-reference.adapter.ts",
+    "apps/api/src/modules/logistics-adapters/ati-reference.adapter.spec.ts",
+    "apps/api/src/modules/logistics-adapters/ati-webhook.verifier.ts",
+    "apps/api/src/modules/logistics-adapters/ati-webhook.verifier.spec.ts",
+    "apps/api/src/modules/logistics-adapters/ati-tracking.mapper.ts",
+    "apps/api/src/modules/logistics-adapters/ati-tracking.mapper.spec.ts",
+    "apps/api/test/industrial/ati-reference-adapter.e2e-spec.ts",
+    "scripts/verify-pc-crop-ati-adapter-scope.test.mjs",
+    ".github/workflows/pc-crop-ati-adapter.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "dependencies": {
+    "w4aLogisticsAuthorityRequiredForConsumerWiring": true,
+    "providerRegistryReused": true,
+    "realAtiContractCredentialsExternal": true
+  },
+  "requiredInvariants": [
+    "Core logistics remains provider-neutral. ATI identifiers, statuses, board/auction concepts and webhook payload fields are normalized at the adapter boundary and never become canonical Shipment state directly.",
+    "Capabilities are explicit: BOARD_PUBLISH, CARRIER_AUCTION, ORDER_CREATE, WEBHOOK_RECEIVE, TRACKING_READ and DOCUMENT_EXCHANGE. Missing capability fails closed and cannot silently use another ATI surface.",
+    "An ATI board post or auction is a logistics sourcing projection, not a Deal/Shipment/payment authority. Canonical provider/own-fleet selection and Shipment creation remain in W4-A.",
+    "ATI order creation requires an already authorized canonical logistics selection/basis, exact shipment terms and payload-bound idempotency. Browser-provided ATI identity/status never creates core authority.",
+    "Webhook verification binds provider account, signing/secret key version, event id, payload fingerprint, timestamp/freshness and replay protection before mapping any fact.",
+    "Tracking points are append-only provider observations with source timestamp and precision/provenance; they cannot manufacture physical admission, delivery acceptance or legal custody without canonical policy.",
+    "ATI document exchange maps provider references to canonical document requirements/receipts but cannot mark ETRN/EPD/other documents signed, delivered or accepted without validated provider/signature/EDO evidence.",
+    "Outbound request acceptance/queueing is not ATI success. Only validated immutable provider receipts may update integration state, and canonical logistics state changes occur through accepted core commands.",
+    "Adapter remains NOT_ACTIVATED without real API contract, credentials, base URLs, webhook secret/key and validated production mapping; tests must never report live ATI success.",
+    "Errors, rate limits, unsupported operations and provider outages produce explicit degraded/fail-closed states with retryable durable integration evidence, never process-memory authority.",
+    "No new mandatory recurring cost, credential or secret is committed by the staged/reference adapter work.",
+    "Registration, Role Eligibility, W2/W3/W4 core authorities, Federal Accounting lock #4321 and REG.RU-only production remain unchanged."
+  ],
+  "acceptance": [
+    "Adapter contract tests prove all six ATI capability surfaces map to provider-neutral request/receipt models and ATI fields do not enter canonical Shipment types.",
+    "Reference adapter is NOT_ACTIVATED without credentials/config and cannot fabricate board/order/tracking/document success.",
+    "Webhook replay, wrong secret/key, stale timestamp, account/provider mismatch and payload mutation fail closed.",
+    "Tracking mapping preserves source timestamps/provenance and cannot directly advance delivery/acceptance state.",
+    "Order/board/auction requests require canonical authorized logistics basis and exact idempotency; duplicate/conflicting requests are deterministic.",
+    "Document mapping cannot promote provider document availability to signed/delivered/accepted without validated canonical receipts.",
+    "No core Deal/Shipment/Settlement mutation is introduced in the reference adapter foundation.",
+    "Exact-head review and credentialed REG.RU ATI acceptance remain mandatory before any ATI terminal criterion receives PASS."
+  ],
+  "remainingTerminalBoundary": [
+    "Actual ATI API contract/credentials/endpoints/webhook registration and production mapping are external dependencies.",
+    "W4-A Logistics must consume adapter sourcing/order/tracking evidence before terminal integration credit.",
+    "EDO/EPD/transport-document legal validation remains W6-C/W5-B and is not proven by ATI document transport alone.",
+    "Real production error/rate-limit/reconciliation evidence on REG.RU remains required."
+  ],
+  "terminalCredit": 0
+}
