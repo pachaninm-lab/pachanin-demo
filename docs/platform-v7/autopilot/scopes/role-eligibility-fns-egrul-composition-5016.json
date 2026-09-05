@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/role-eligibility-fns-egrul-composition-5016",
+  "status": "active",
+  "purpose": "Complete official FNS EGRUL baseline plus daily-delta composition for INN/OGRN verification without changing registration or enabling enforcement.",
+  "authorityBaseExactMain": "064e10b4fe1a71498586898cfc84ab925678c08b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "allowedPaths": [
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-ingest.repository.ts",
+    "apps/api/src/modules/role-eligibility/adapters/fns-egrul-feed.parser.spec.ts",
+    "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-composition-5016.json"
+  ],
+  "boundaries": [
+    "REGISTRATION_CODE_CHANGED=0",
+    "REGISTRATION_BEHAVIOR_CHANGED=0",
+    "ROLE_ELIGIBILITY_ENFORCEMENT=false",
+    "PRODUCTION_DATABASE_MUTATION=0",
+    "daily delta must inherit only from an ACTIVE FNS EGRUL generation",
+    "daily delta publication time must be newer than its inherited baseline",
+    "delta replacement is allowed only inside the target STAGING generation",
+    "transport/parser/source failure cannot create negative legal-entity evidence",
+    "no undocumented FNS endpoint reverse engineering",
+    "NEW_MANDATORY_RECURRING_COST_RUB=0"
+  ]
+}
