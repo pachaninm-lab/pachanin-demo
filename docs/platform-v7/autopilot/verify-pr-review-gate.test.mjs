@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   activeUnresolvedThreads,
   checkRollupBlockers,
+  ciSnapshotMatchesHead,
   cleanCodexReviewPrefixes,
   exactHeadCodexReviews,
   isIgnoredMergeGateCheck,
@@ -199,4 +200,11 @@ test('legacy status contexts are evaluated by state', () => {
   ];
 
   assert.deepEqual(checkRollupBlockers(checks), ['legacy-pending:PENDING']);
+});
+
+test('CI snapshot must be bound to the exact verified head', () => {
+  assert.equal(ciSnapshotMatchesHead(head, head), true);
+  assert.equal(ciSnapshotMatchesHead(oldHead, head), false);
+  assert.equal(ciSnapshotMatchesHead('not-a-sha', head), false);
+  assert.equal(ciSnapshotMatchesHead('', head), false);
 });
