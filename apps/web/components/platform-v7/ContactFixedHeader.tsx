@@ -4,10 +4,10 @@ import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 
 type Locale = 'ru' | 'en' | 'zh';
 
-const COPY: Record<Locale, { aria: string; login: string; register: string }> = {
-  ru: { aria: 'Шапка страницы обращения', login: 'Войти', register: 'Зарегистрироваться' },
-  en: { aria: 'Contact page header', login: 'Sign in', register: 'Register' },
-  zh: { aria: '联系页面页眉', login: '登录', register: '注册' },
+const COPY: Record<Locale, { aria: string; skip: string; login: string; register: string }> = {
+  ru: { aria: 'Шапка страницы обращения', skip: 'Перейти к содержанию', login: 'Войти', register: 'Зарегистрироваться' },
+  en: { aria: 'Contact page header', skip: 'Skip to content', login: 'Sign in', register: 'Register' },
+  zh: { aria: '联系页面页眉', skip: '跳到主要内容', login: '登录', register: '注册' },
 };
 
 function localeOf(value: string): Locale {
@@ -22,6 +22,7 @@ export function ContactFixedHeader({ locale }: { locale: string }) {
 
   return (
     <>
+      <a className='pc-skip-link' href='#main-content'>{copy.skip}</a>
       <PublicSiteHeader
         ariaLabel={copy.aria}
         actions={(
