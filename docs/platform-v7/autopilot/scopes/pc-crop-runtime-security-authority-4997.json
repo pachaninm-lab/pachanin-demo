@@ -10,6 +10,14 @@
   "newRecurringCostRub": 0,
   "specificationSections": [20, 35, 100, 102],
   "terminalCriteria": ["PROVIDER_NEUTRAL=PASS", "FAIL_CLOSED=PASS", "RUNTIME_CONFIG=PASS", "PROVIDER_HEALTH=PASS", "OUTBOX_HEALTH=PASS", "WEBHOOK_SECURITY=PASS", "REPLAY_PROTECTION=PASS", "EGRESS_POLICY=PASS"],
+  "sourceAuditFindings": [
+    "POST /api/webhooks/edo currently authenticates JSON.stringify(parsedBody), not the exact raw request bytes, so body parsing/reserialization is inside the signature trust boundary.",
+    "POST /api/webhooks/edo currently permits a missing X-Timestamp in degraded mode and permits a missing X-Event-Id, so freshness and replay identity are not mandatory.",
+    "POST /api/webhooks/edo currently keeps replay state in a process-local Map, so restart/horizontal scale can replay an accepted provider event.",
+    "POST /integrations/edo/webhook is a second public EDO ingress with no HMAC/timestamp/event-id verification and delegates directly to handleEdoWebhook.",
+    "handleEdoWebhook currently echoes caller-supplied signingStatus as received data; that result is not canonical document/signature authority and cannot become one by route acceptance.",
+    "EDO_WEBHOOK_SECRET is a process-global secret, not a provider/integration-binding-scoped credential or key-version authority; it cannot by itself satisfy production provider-neutral readiness."
+  ],
   "allowedPaths": [
     "packages/integration-sdk/src/live/integration-config.ts",
     "packages/integration-sdk/src/live/build-client.ts",
@@ -35,16 +43,21 @@
     "existingFgisFailClosedInboxReused": true,
     "existingBankCallbackKeyAuthorityReused": true,
     "existingDurableOutboxReused": true,
-    "w6ProviderAdaptersMayConsumeLater": true
+    "existingIntegrationBindingAuthorityReadOnly": true,
+    "w6ProviderAdaptersMayConsumeLater": true,
+    "w6EdoCredentialBindingRemainsSeparate": true
   },
   "requiredInvariants": [
     "There is one canonical integration runtime mode vocabulary across API and integration SDK. Production startup never defaults to stub/mock and fails before listening when required live-safe configuration is internally inconsistent.",
     "Mock/stub adapters may exist only in explicit test/non-production modes and can never satisfy machine-readable production readiness or provider-health acceptance.",
     "Startup executes the canonical environment/config validator. Declared live/provider capability cannot become READY when required endpoint, binding, credential reference, key/certificate or provider health evidence is absent.",
     "Readiness publishes database/migrations, durable outbox backlog/worker ownership, integration inbox/replay authority, provider capability health and degraded/fail-closed reason codes without exposing secrets.",
-    "Public EDO webhook requires a mandatory timestamp/freshness window, event id and verified raw-body signature. JSON reserialization is not signature authority and missing timestamp/event id never degrades to accepted mode.",
+    "Exactly one public EDO callback ingress may remain eligible for production acceptance. POST /integrations/edo/webhook must fail closed/retire and must never return an accepted/received success by delegating unsigned input to handleEdoWebhook.",
+    "The canonical EDO webhook candidate requires the exact raw request bytes for signature verification plus mandatory timestamp/freshness window and mandatory event id. JSON reserialization is not signature authority and missing timestamp/event id never degrades to accepted mode.",
     "Webhook replay/idempotency is PostgreSQL-durable and provider/integration-binding scoped; restart, horizontal scale or another instance cannot replay an accepted event.",
+    "A process-global EDO_WEBHOOK_SECRET can never by itself make production EDO READY. Production readiness requires a server-resolved credential/key version bound to an accepted provider IntegrationBinding, or the EDO capability remains NOT_READY/DEGRADED without accepting provider success.",
     "Inbound accepted receipt/event remains distinct from canonical document/regulatory/business success. W7-A may persist verified integration evidence but cannot directly fabricate DealDocument SIGNED/DELIVERED/ACCEPTED or government finality.",
+    "Caller-supplied documentId/dealId/signingStatus/signedAt fields are evidence payload only until separately reconciled by the W6-C/W5-B document/signature authority; route acceptance never upgrades them to canonical state.",
     "Retired FGIS JSON webhook remains retired and the stronger signed SOAP/inbox path is never weakened by generalized webhook work.",
     "TLS/secure-transport requirements are explicit and fail closed. Plain HTTP external endpoints are rejected in production except explicitly local/internal health dependencies covered by a separately pinned policy.",
     "NetworkPolicy egress is generated/verified from the approved provider/runtime dependency set and cannot silently allow unrestricted Internet egress while documentation claims provider-restricted traffic.",
@@ -56,14 +69,17 @@
     "Production-mode startup tests reject missing/contradictory integration mode, mock-enabled live config, insecure external transport and missing mandatory provider/binding evidence before server listen.",
     "API and SDK resolve the same canonical mode and provider maturity for identical configuration; no divergent env-name/default path remains.",
     "Readiness tests fail when durable outbox owner/backlog/provider health/replay authority is unhealthy and recover when exact underlying evidence returns green.",
-    "EDO webhook tests cover raw-body HMAC, mandatory timestamp, mandatory event id, stale timestamp, body mutation, wrong binding/key and durable replay across simulated restart/second instance.",
-    "Verified webhook receipt cannot directly promote canonical document success without the separate W6-C/W5-B receipt/conformance authority.",
+    "EDO ingress inventory proves there is no second unsigned public success path: POST /integrations/edo/webhook is retired/fail-closed and cannot reach handleEdoWebhook as accepted provider evidence.",
+    "Canonical EDO webhook tests cover exact raw-body HMAC, mandatory timestamp, mandatory event id, stale timestamp, body mutation/reserialization mismatch, wrong binding/key and durable replay across simulated restart/second instance.",
+    "Tests prove a process-global secret without an accepted server-side binding/key version cannot satisfy EDO production readiness or create accepted provider success.",
+    "Verified webhook receipt cannot directly promote canonical document/signature success without the separate W6-C/W5-B receipt/conformance authority, including when signingStatus says SIGNED.",
     "NetworkPolicy acceptance proves only approved DNS/database/internal/provider egress needed by configured production capabilities and rejects an unapproved external destination.",
     "Alert tests prove each modified critical alert fires on an actually emitted exact metric and recovers after the condition clears.",
     "FGIS signed inbox, bank callback/key rotation, RLS, security scan, CodeQL, exact-head runtime/Kubernetes acceptance and threat-negative tests remain green."
   ],
   "remainingTerminalBoundary": [
     "Provider-specific live credentials/endpoints and real external receipts remain W6/external acceptance, not W7-A success.",
+    "EDO production credential binding/key rotation and authentic provider conformance remain W6-C/external acceptance; until then EDO is not READY even if generic webhook security passes.",
     "REG.RU exact-release runtime must prove startup/readiness/egress/webhook behavior under real topology before terminal runtime/security credit.",
     "Full OPS-02 metric/alert inventory beyond integration/runtime-critical rules may require a later observability cleanup slice.",
     "Production external penetration/security acceptance remains part of final release evidence."
