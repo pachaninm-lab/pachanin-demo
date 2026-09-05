@@ -11,6 +11,7 @@ const header = readFileSync('components/platform-v7/PublicSiteHeader.tsx', 'utf8
 const css = readFileSync('styles/platform-v7-public-product-experience-v5.css', 'utf8');
 const copy = readFileSync('i18n/public-product-experience-v4.ts', 'utf8');
 const journey = readFileSync('i18n/public-deal-journey-v5.ts', 'utf8');
+const acceptanceE2e = readFileSync('tests/e2e/platform-v7-public-experience-v4.spec.ts', 'utf8');
 
 describe('Public Product Experience V4/V5 compatibility under the canonical homepage', () => {
   it('keeps the public entry registration-first and ordinary-journey oriented', () => {
@@ -90,5 +91,11 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('@media (forced-colors: active)');
     expect(css).toContain('max-height: calc(100dvh');
+  });
+
+  it('pins the declared responsive acceptance widths in browser coverage', () => {
+    expect(acceptanceE2e).toContain('for (const width of [320, 375, 390, 430, 768, 1280, 1440])');
+    expect(acceptanceE2e).toContain('expect(metrics.overflow).toBeLessThanOrEqual(1)');
+    expect(acceptanceE2e).toContain('expect(metrics.primaryHeight).toBeGreaterThanOrEqual(44)');
   });
 });
