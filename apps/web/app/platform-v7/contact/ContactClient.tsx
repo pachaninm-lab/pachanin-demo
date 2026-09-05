@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, HelpCircle, MessageSquareText, ShieldCheck } from 'lucide-react';
+import { ArrowRight, HelpCircle, MessageSquareText, ShieldCheck, TriangleAlert } from 'lucide-react';
 
 type Locale = 'ru' | 'en' | 'zh';
 
@@ -21,6 +21,8 @@ type ContactCopy = {
   submit: string;
   successTitle: string;
   successText: string;
+  errorTitle: string;
+  errorText: string;
   back: string;
 };
 
@@ -45,6 +47,8 @@ const COPY: Record<Locale, ContactCopy> = {
     submit: 'Отправить обращение',
     successTitle: 'Обращение принято',
     successText: 'Ответ будет направлен по указанному телефону или адресу электронной почты после рассмотрения обращения.',
+    errorTitle: 'Обращение не отправлено',
+    errorText: 'Проверьте заполненные данные и попробуйте ещё раз. Если ошибка повторяется, свяжитесь с платформой по телефону.',
     back: 'Вернуться к описанию платформы',
   },
   en: {
@@ -67,6 +71,8 @@ const COPY: Record<Locale, ContactCopy> = {
     submit: 'Send inquiry',
     successTitle: 'Inquiry received',
     successText: 'A response will be sent to the supplied phone number or email address after the inquiry is reviewed.',
+    errorTitle: 'Inquiry not sent',
+    errorText: 'Check the entered details and try again. If the error continues, contact the platform by phone.',
     back: 'Return to the platform overview',
   },
   zh: {
@@ -89,6 +95,8 @@ const COPY: Record<Locale, ContactCopy> = {
     submit: '发送咨询',
     successTitle: '咨询已受理',
     successText: '审核后将通过所填电话或电子邮箱发送回复。',
+    errorTitle: '咨询未发送',
+    errorText: '请检查所填信息后重试。如果问题仍然存在，请通过电话联系平台。',
     back: '返回平台介绍',
   },
 };
@@ -124,7 +132,7 @@ function Card({ icon, title, text }: { icon: React.ReactNode; title: string; tex
   return <article className='p7-contact-info-card'>{icon}<strong>{title}</strong><p>{text}</p></article>;
 }
 
-export function ContactClient({ sent, locale }: { sent: boolean; locale: Locale }) {
+export function ContactClient({ sent, failed, locale }: { sent: boolean; failed: boolean; locale: Locale }) {
   const copy = COPY[locale];
   const suffix = `?lang=${locale}`;
 
@@ -152,25 +160,34 @@ export function ContactClient({ sent, locale }: { sent: boolean; locale: Locale 
               <Link href={`/platform-v7${suffix}`}>{copy.back}<ArrowRight size={17} aria-hidden='true' /></Link>
             </div>
           ) : (
-            <form method='post' action='/api/platform-v7/inquiries' className='p7-contact-form'>
-              <input type='text' name='website' tabIndex={-1} autoComplete='off' aria-hidden='true' className='p7-contact-honeypot' />
-              <input type='hidden' name='source' value='platform_v7_contact_page' />
-              <input type='hidden' name='locale' value={locale} />
-              <h2>{copy.formTitle}</h2>
-              <p>{copy.formLead}</p>
-              <label>
-                <span>{copy.type}</span>
-                <select name='type' required defaultValue='platform'>
-                  {QUESTION_TYPES[locale].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </label>
-              <label><span>{copy.name}</span><input name='name' type='text' minLength={2} maxLength={80} required /></label>
-              <label><span>{copy.organization}</span><input name='organization' type='text' maxLength={120} /></label>
-              <label><span>{copy.contact}</span><input name='contact' type='text' minLength={5} maxLength={120} required /></label>
-              <label className='p7-contact-full'><span>{copy.message}</span><textarea name='message' maxLength={2000} rows={6} required /></label>
-              <label className='p7-contact-consent'><input type='checkbox' name='consent' value='yes' required /><span>{copy.consent}</span></label>
-              <button type='submit'>{copy.submit}<ArrowRight size={17} aria-hidden='true' /></button>
-            </form>
+            <>
+              {failed ? (
+                <div className='p7-contact-error' role='alert'>
+                  <TriangleAlert size={22} aria-hidden='true' />
+                  <div><strong>{copy.errorTitle}</strong><p>{copy.errorText}</p></div>
+                  <a href='tel:+79162778989'>+7 916 277-89-89</a>
+                </div>
+              ) : null}
+              <form method='post' action='/api/platform-v7/inquiries' className='p7-contact-form'>
+                <input type='text' name='website' tabIndex={-1} autoComplete='off' aria-hidden='true' className='p7-contact-honeypot' />
+                <input type='hidden' name='source' value='platform_v7_contact_page' />
+                <input type='hidden' name='locale' value={locale} />
+                <h2>{copy.formTitle}</h2>
+                <p>{copy.formLead}</p>
+                <label>
+                  <span>{copy.type}</span>
+                  <select name='type' required defaultValue='platform'>
+                    {QUESTION_TYPES[locale].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                <label><span>{copy.name}</span><input name='name' type='text' minLength={2} maxLength={80} required /></label>
+                <label><span>{copy.organization}</span><input name='organization' type='text' maxLength={120} /></label>
+                <label><span>{copy.contact}</span><input name='contact' type='text' minLength={5} maxLength={120} required /></label>
+                <label className='p7-contact-full'><span>{copy.message}</span><textarea name='message' maxLength={2000} rows={6} required /></label>
+                <label className='p7-contact-consent'><input type='checkbox' name='consent' value='yes' required /><span>{copy.consent}</span></label>
+                <button type='submit'>{copy.submit}<ArrowRight size={17} aria-hidden='true' /></button>
+              </form>
+            </>
           )}
         </section>
       </section>
@@ -186,7 +203,7 @@ const css = `
 .p7-contact-copy{padding:clamp(24px,4vw,44px)}
 .p7-contact-kicker{display:inline-flex;width:fit-content;margin-bottom:14px;padding:8px 12px;border-radius:999px;background:rgba(0,122,47,.08);color:#087a3b;font-size:11px;font-weight:950;text-transform:uppercase}
 .p7-contact-copy h1{margin:0;max-width:820px;font-size:clamp(34px,5vw,68px);line-height:.99;letter-spacing:-.055em}
-.p7-contact-copy p,.p7-contact-form p,.p7-contact-success p{margin:16px 0 0;color:#43514b;font-size:16px;line-height:1.5;font-weight:620}
+.p7-contact-copy p,.p7-contact-form p,.p7-contact-success p,.p7-contact-error p{margin:16px 0 0;color:#43514b;font-size:16px;line-height:1.5;font-weight:620}
 .p7-contact-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:26px}
 .p7-contact-info-card{display:grid;gap:8px;padding:17px;border:1px solid rgba(7,22,17,.075);border-radius:22px;background:#fff}
 .p7-contact-info-card svg{color:#087a3b}.p7-contact-info-card strong{font-size:16px;font-weight:950}.p7-contact-info-card p{margin:0;color:#61716b;font-size:12.5px;line-height:1.38}
@@ -194,15 +211,19 @@ const css = `
 .p7-contact-form h2,.p7-contact-success h2{grid-column:1/-1;margin:0;font-size:clamp(25px,3vw,38px);line-height:1.05;letter-spacing:-.045em}
 .p7-contact-form p{grid-column:1/-1;margin:0 0 4px;font-size:13px}.p7-contact-form label{display:grid;gap:6px}.p7-contact-form label span{color:#5e6b66;font-size:12px;font-weight:900}
 .p7-contact-form input,.p7-contact-form select,.p7-contact-form textarea{width:100%;border:1px solid rgba(7,22,17,.12);border-radius:15px;background:#fff;color:#071611;font:inherit;font-size:16px;font-weight:650;outline:none}
-.p7-contact-form input:focus-visible,.p7-contact-form select:focus-visible,.p7-contact-form textarea:focus-visible,.p7-contact-form button:focus-visible,.p7-contact-success a:focus-visible{outline:3px solid rgba(8,122,59,.26);outline-offset:2px}
+.p7-contact-form input:focus-visible,.p7-contact-form select:focus-visible,.p7-contact-form textarea:focus-visible,.p7-contact-form button:focus-visible,.p7-contact-success a:focus-visible,.p7-contact-error a:focus-visible{outline:3px solid rgba(8,122,59,.26);outline-offset:2px}
 .p7-contact-form input,.p7-contact-form select{min-height:48px;padding:0 13px}.p7-contact-form textarea{min-height:132px;padding:12px 13px;resize:vertical}
 .p7-contact-full,.p7-contact-consent,.p7-contact-form button{grid-column:1/-1}.p7-contact-consent{display:flex!important;align-items:flex-start;gap:10px;color:#43514b;font-size:13px;line-height:1.35}
 .p7-contact-consent input{width:20px;min-width:20px;min-height:20px;margin-top:1px}.p7-contact-form button{min-height:52px;border:0;border-radius:17px;background:#087a3b;color:#fff;font-weight:950;font-size:15px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
-.p7-contact-form button:hover{background:#07572e}.p7-contact-success{display:grid;gap:12px;place-items:start}.p7-contact-success>span{width:48px;height:48px;border-radius:18px;background:rgba(0,122,47,.08);color:#087a3b;display:grid;place-items:center}
-.p7-contact-success a{min-height:44px;display:inline-flex;align-items:center;gap:8px;color:#087a3b;font-weight:950}.p7-contact-honeypot{position:absolute!important;left:-9999px!important}
+.p7-contact-form button:hover{background:#07572e}
+.p7-contact-success{display:grid;gap:12px;place-items:start}.p7-contact-success>span{width:48px;height:48px;border-radius:18px;background:rgba(0,122,47,.08);color:#087a3b;display:grid;place-items:center}
+.p7-contact-success a{min-height:44px;display:inline-flex;align-items:center;gap:8px;color:#087a3b;font-weight:950}
+.p7-contact-error{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;margin-bottom:16px;padding:14px;border:1px solid rgba(164,78,18,.24);border-radius:16px;background:#fff8f0;color:#6b3510}
+.p7-contact-error>svg{margin-top:1px}.p7-contact-error strong{font-size:14px;font-weight:950}.p7-contact-error p{margin:4px 0 0;font-size:13px;line-height:1.45;color:#6b4a35}.p7-contact-error a{grid-column:2;min-height:44px;width:fit-content;display:inline-flex;align-items:center;color:#07572e;font-size:14px;font-weight:950}
+.p7-contact-honeypot{position:absolute!important;left:-9999px!important}
 @media(max-width:920px){.p7-contact-layout{grid-template-columns:1fr}.p7-contact-cards{grid-template-columns:1fr}.p7-contact-form{grid-template-columns:1fr}}
-@media(max-width:560px){.p7-contact-page{padding:10px 10px calc(env(safe-area-inset-bottom) + 28px)}.p7-contact-layout{gap:12px;padding-top:16px}.p7-contact-copy,.p7-contact-form-card{border-radius:24px}.p7-contact-copy{padding:18px}.p7-contact-copy h1{font-size:32px}.p7-contact-copy p{font-size:14px;line-height:1.45}.p7-contact-cards{margin-top:16px;gap:8px}.p7-contact-info-card{padding:12px;border-radius:18px}.p7-contact-form-card{padding:12px}.p7-contact-form{gap:10px}.p7-contact-form h2{font-size:25px}.p7-contact-form p{font-size:12px;line-height:1.4}.p7-contact-form textarea{min-height:112px;max-height:210px}.p7-contact-consent{padding:10px;border:1px solid rgba(0,122,47,.16);border-radius:15px;background:#f6fbf8;font-size:12px}.p7-contact-form button{min-height:48px}}
+@media(max-width:560px){.p7-contact-page{padding:10px 10px calc(env(safe-area-inset-bottom) + 28px)}.p7-contact-layout{gap:12px;padding-top:16px}.p7-contact-copy,.p7-contact-form-card{border-radius:24px}.p7-contact-copy{padding:18px}.p7-contact-copy h1{font-size:32px}.p7-contact-copy p{font-size:14px;line-height:1.45}.p7-contact-cards{margin-top:16px;gap:8px}.p7-contact-info-card{padding:12px;border-radius:18px}.p7-contact-form-card{padding:12px}.p7-contact-form{gap:10px}.p7-contact-form h2{font-size:25px}.p7-contact-form p{font-size:12px;line-height:1.4}.p7-contact-form textarea{min-height:112px;max-height:210px}.p7-contact-consent{padding:10px;border:1px solid rgba(0,122,47,.16);border-radius:15px;background:#f6fbf8;font-size:12px}.p7-contact-form button{min-height:48px}.p7-contact-error{grid-template-columns:1fr}.p7-contact-error>svg{display:none}.p7-contact-error a{grid-column:1}}
 @media(max-width:380px){.p7-contact-copy h1{font-size:29px}.p7-contact-form-card{padding:10px}.p7-contact-form textarea{min-height:96px}}
 @media(prefers-reduced-motion:reduce){.p7-contact-form button{scroll-behavior:auto}}
-@media(forced-colors:active){.p7-contact-copy,.p7-contact-form-card,.p7-contact-info-card,.p7-contact-form input,.p7-contact-form select,.p7-contact-form textarea,.p7-contact-form button{border:2px solid ButtonText}}
+@media(forced-colors:active){.p7-contact-copy,.p7-contact-form-card,.p7-contact-info-card,.p7-contact-error,.p7-contact-form input,.p7-contact-form select,.p7-contact-form textarea,.p7-contact-form button{border:2px solid ButtonText}}
 `;
