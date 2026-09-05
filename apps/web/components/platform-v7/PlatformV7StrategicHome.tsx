@@ -239,12 +239,12 @@ export async function PlatformV7StrategicHome() {
                 <b>{normalState.status}</b>
               </div>
               <div
-                className={styles.heroDealProgress}
+                className={`${styles.heroDealProgress} pc-public-deal-stage-rail pc-public-deal-stage-rail--hero`}
                 role='progressbar'
                 aria-label={story.demo.stageLabel}
                 aria-valuemin={1}
-                aria-valuemax={6}
-                aria-valuenow={6}
+                aria-valuemax={story.demo.stages.length}
+                aria-valuenow={story.demo.stages.length}
               >
                 {story.demo.stages.map((stage) => (
                   <span key={stage} className={styles.progressDone}>
@@ -417,7 +417,7 @@ export async function PlatformV7StrategicHome() {
                     <div className={styles.demoHeader}>
                       <div><span>{story.heroDeal.product}</span><small>{story.heroDeal.route}</small></div><b>{state.status}</b>
                     </div>
-                    <div className={styles.demoStageRail} aria-label={story.demo.stageLabel}>
+                    <div className={`${styles.demoStageRail} pc-public-deal-stage-rail pc-public-deal-stage-rail--demo`} aria-label={story.demo.stageLabel}>
                       {story.demo.stages.map((stage, stageIndex) => (
                         <span key={stage} className={stageIndex < 4 ? styles.stageDone : stageIndex === 4 ? styles.stageCurrent : undefined}><i>{stageIndex + 1}</i><small>{stage}</small></span>
                       ))}
