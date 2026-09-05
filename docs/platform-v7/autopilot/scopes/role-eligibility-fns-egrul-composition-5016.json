@@ -7,7 +7,7 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "allowedPaths": [
     "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-ingest.repository.ts",
-    "apps/api/src/modules/role-eligibility/adapters/fns-egrul-feed.parser.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-composition.spec.ts",
     "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-composition-5016.json"
   ],
   "boundaries": [
