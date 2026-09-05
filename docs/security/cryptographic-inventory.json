@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2229,
+  "scannedFiles": 2237,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 82,
+      "sites": 83,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 82,
+          "sites": 83,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -60,6 +60,7 @@
             "apps/api/src/modules/auth/accounting-document-payload.builder.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
             "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
+            "apps/api/src/modules/commercial-rules/commercial-rules.contract.ts",
             "apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.ts",
             "apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts",
             "apps/api/src/modules/deals/canonical-test-deal.seed.ts",

@@ -66,6 +66,10 @@ model Organization {
   providerRegistryEvents            ProviderRegistryEvent[]
   integrationBindings               IntegrationBinding[]
   integrationBindingEvents          IntegrationBindingEvent[]
+  commercialRuleSets                CommercialRuleSet[]
+  commercialRulePacks               CommercialRulePack[]
+  commercialDecisions               CommercialDecision[]
+  commercialRuleEvents              CommercialRuleEvent[]
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -162,6 +166,12 @@ model UserOrg {
   integrationBindingsCreated     IntegrationBinding[]                @relation("IntegrationBindingCreatedBy")
   integrationBindingsUpdated     IntegrationBinding[]                @relation("IntegrationBindingUpdatedBy")
   integrationBindingEventsAuthored IntegrationBindingEvent[]         @relation("IntegrationBindingEventActor")
+  commercialRuleSetsCreated      CommercialRuleSet[]                  @relation("CommercialRuleSetCreatedBy")
+  commercialRuleSetsUpdated      CommercialRuleSet[]                  @relation("CommercialRuleSetUpdatedBy")
+  commercialRulePacksCreated     CommercialRulePack[]                 @relation("CommercialRulePackCreatedBy")
+  commercialRulePacksUpdated     CommercialRulePack[]                 @relation("CommercialRulePackUpdatedBy")
+  commercialDecisionsAuthored    CommercialDecision[]                 @relation("CommercialDecisionActor")
+  commercialRuleEventsAuthored   CommercialRuleEvent[]                @relation("CommercialRuleEventActor")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -430,6 +440,147 @@ model IntegrationBindingEvent {
   @@unique([tenantId, organizationId, idempotencyKey], map: "integration_binding_event_idempotency_key")
   @@index([integrationBindingId, createdAt, id], map: "integration_binding_event_chain_idx")
   @@map("integration_binding_events")
+}
+
+/// Immutable version of one organization-owned commercial policy set. A row
+/// may move DRAFT -> PUBLISHED -> RETIRED, but its definition and content hash
+/// become database-protected as soon as it is published.
+model CommercialRuleSet {
+  id                    String    @id
+  tenantId              String
+  organizationId        String
+  ruleSetKey            String
+  version               BigInt
+  stateVersion          BigInt    @default(1)
+  status                String    @default("DRAFT")
+  name                  String
+  currency              String
+  rules                 Json
+  contentHash           String
+  effectiveFrom         DateTime? @db.Timestamptz(6)
+  effectiveTo           DateTime? @db.Timestamptz(6)
+  publishedAt           DateTime? @db.Timestamptz(6)
+  retiredAt             DateTime? @db.Timestamptz(6)
+  createdByMembershipId String
+  updatedByMembershipId String
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "commercial_rule_set_organization_fkey")
+  createdBy    UserOrg             @relation("CommercialRuleSetCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_rule_set_created_by_fkey")
+  updatedBy    UserOrg             @relation("CommercialRuleSetUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_rule_set_updated_by_fkey")
+  decisions   CommercialDecision[]
+
+  @@unique([tenantId, organizationId, ruleSetKey, version], map: "commercial_rule_set_version_key")
+  @@unique([id, tenantId, organizationId], map: "commercial_rule_set_scope_identity_key")
+  @@index([tenantId, organizationId, ruleSetKey, status], map: "commercial_rule_set_lookup_idx")
+  @@map("commercial_rule_sets")
+}
+
+/// Immutable versioned bundle of exact CommercialRuleSet versions. Entries
+/// contain ruleSet id, key, version and content hash, never a moving alias.
+model CommercialRulePack {
+  id                    String    @id
+  tenantId              String
+  organizationId        String
+  rulePackKey           String
+  version               BigInt
+  stateVersion          BigInt    @default(1)
+  status                String    @default("DRAFT")
+  name                  String
+  entries               Json
+  contentHash           String
+  effectiveFrom         DateTime? @db.Timestamptz(6)
+  effectiveTo           DateTime? @db.Timestamptz(6)
+  publishedAt           DateTime? @db.Timestamptz(6)
+  retiredAt             DateTime? @db.Timestamptz(6)
+  createdByMembershipId String
+  updatedByMembershipId String
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  organization Organization        @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "commercial_rule_pack_organization_fkey")
+  createdBy    UserOrg             @relation("CommercialRulePackCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_rule_pack_created_by_fkey")
+  updatedBy    UserOrg             @relation("CommercialRulePackUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_rule_pack_updated_by_fkey")
+  decisions   CommercialDecision[]
+
+  @@unique([tenantId, organizationId, rulePackKey, version], map: "commercial_rule_pack_version_key")
+  @@unique([id, tenantId, organizationId], map: "commercial_rule_pack_scope_identity_key")
+  @@index([tenantId, organizationId, rulePackKey, status], map: "commercial_rule_pack_lookup_idx")
+  @@map("commercial_rule_packs")
+}
+
+/// Append-only evaluation evidence. It records the exact versioned authority,
+/// canonical input/output and hashes without creating a financial obligation.
+model CommercialDecision {
+  id                  String   @id
+  tenantId            String
+  organizationId      String
+  decisionKey         String
+  ruleSetId           String
+  ruleSetKey          String
+  ruleSetVersion      BigInt
+  ruleSetContentHash  String
+  rulePackId          String?
+  rulePackKey         String?
+  rulePackVersion     BigInt?
+  rulePackContentHash String?
+  input               Json
+  inputHash           String
+  output              Json
+  outputHash          String
+  decisionStatus      String
+  amountKopecks       BigInt?
+  currency            String
+  actorUserId         String
+  actorMembershipId   String
+  correlationId       String
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+
+  ruleSet      CommercialRuleSet  @relation(fields: [ruleSetId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "commercial_decision_rule_set_fkey")
+  rulePack     CommercialRulePack? @relation(fields: [rulePackId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "commercial_decision_rule_pack_fkey")
+  organization Organization        @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "commercial_decision_organization_fkey")
+  actor        UserOrg             @relation("CommercialDecisionActor", fields: [actorMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_decision_actor_fkey")
+
+  @@unique([tenantId, organizationId, decisionKey], map: "commercial_decision_key")
+  @@index([tenantId, organizationId, ruleSetId, createdAt], map: "commercial_decision_rule_set_idx")
+  @@map("commercial_decisions")
+}
+
+/// Idempotent command receipt and tamper-evident audit/outbox chain for rule
+/// set and rule-pack lifecycle transitions.
+model CommercialRuleEvent {
+  id                 String   @id
+  tenantId           String
+  organizationId     String
+  aggregateType      String
+  aggregateId        String
+  action             String
+  resultStatus       String
+  commandId          String
+  idempotencyKey     String
+  requestFingerprint String
+  reason             String
+  actorUserId        String
+  actorRole          String
+  actorMembershipId  String
+  correlationId      String
+  beforeState        Json?
+  afterState         Json
+  prevHash           String?
+  hash               String
+  auditEventId       String   @unique(map: "commercial_rule_event_audit_key")
+  outboxEntryId      String   @unique(map: "commercial_rule_event_outbox_key")
+  aggregateVersion   BigInt
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "commercial_rule_event_organization_fkey")
+  actor        UserOrg      @relation("CommercialRuleEventActor", fields: [actorMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_rule_event_actor_fkey")
+
+  @@unique([tenantId, organizationId, commandId], map: "commercial_rule_event_command_key")
+  @@unique([tenantId, organizationId, idempotencyKey], map: "commercial_rule_event_idempotency_key")
+  @@index([tenantId, organizationId, aggregateType, aggregateId, createdAt, id], map: "commercial_rule_event_chain_idx")
+  @@map("commercial_rule_events")
 }
 
 /// Server-held provider verification facts. W1-B grants application runtimes
