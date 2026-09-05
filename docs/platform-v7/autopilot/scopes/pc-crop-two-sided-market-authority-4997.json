@@ -33,6 +33,14 @@
   ],
   "excludedAfterSourceAudit": [
     {
+      "path": "apps/api/prisma/schema.prisma",
+      "reason": "W2-E foundation lives in a dedicated market_negotiation PostgreSQL schema and uses raw SQL through RlsTransactionService. It introduces no public Prisma model; the canonical public datamodel stays unchanged."
+    },
+    {
+      "path": "packages/domain-core/src/index.ts",
+      "reason": "The parallel-safe foundation keeps its pure domain module self-contained and tests it by direct source import. Publishing a new barrel export is deferred to the mounted consumer slice to avoid a shared-file collision with W2-D."
+    },
+    {
       "path": "apps/api/src/app.module.ts",
       "reason": "The first W2-E slice is a durable authority foundation only, deliberately unmounted so it can be implemented in parallel without overlapping W2-D. HTTP exposure is a later accepted consumer slice."
     },
@@ -67,6 +75,7 @@
   "requiredInvariants": [
     "Reuse the existing Auction path and canonical Deal; W2-E adds additional pre-Deal origins only. Do not create DealV2, AuctionV2, LotV2 or a browser-owned parallel marketplace.",
     "DemandRequest, RFQ, OfferVersion, CounterOffer, Negotiation and MatchCandidate are PostgreSQL-authoritative aggregates with tenant isolation, immutable version lineage, optimistic concurrency and payload-bound idempotency.",
+    "All W2-E authority tables/functions live in a dedicated market_negotiation schema with ENABLE + FORCE RLS or equivalently confined memberless command ownership; runtime repositories use raw SQL through trusted RLS context, with no public Prisma schema drift.",
     "Commercial terms use exact Money/measure primitives and immutable normalized snapshots; caller Float money, caller-calculated totals or mutable accepted terms are forbidden.",
     "Buyer demand and seller offers are distinct authorities. A seller cannot forge buyer demand, a buyer cannot forge seller inventory, and same-tenant outsiders cannot read private negotiation state.",
     "Each OfferVersion and CounterOffer is append-only. Negotiation acceptance pins exactly one immutable accepted basis version; later edits create new versions and cannot rewrite accepted history.",
@@ -79,6 +88,7 @@
   ],
   "acceptance": [
     "Restricted PostgreSQL tests prove buyer DemandRequest/RFQ creation, seller OfferVersion response, counteroffer/version chains, acceptance of one exact version and rejection of stale or changed-payload replay.",
+    "Dedicated-schema confinement is proven: no runtime role owns the market tables/functions, PUBLIC cannot mutate them, FORCE RLS/current identity checks apply, and no public Prisma schema drift is introduced.",
     "Cross-tenant callers and same-tenant outsiders cannot read or mutate private RFQ/negotiation rows; revoked membership/user/organization authority fails before mutation and replay.",
     "Concurrent competing accept/counter commands serialize deterministically and cannot accept two different terms for one negotiation version.",
     "Exact Money/quantity invariants reject Float-like or inconsistent totals and retain integer minor units / pinned unit rules.",
