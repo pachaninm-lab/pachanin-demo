@@ -12,6 +12,7 @@ const connect = read('i18n/platform-v7-organization-connect-operating.ts');
 const connectEntry = read('i18n/platform-v7-organization-connect-product.ts');
 const hero = read('i18n/platform-v7-hero-message.ts');
 const roleWorkspace = read('components/platform-v7/PublicDealRoleScenario.tsx');
+const roleWorkspaceCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
 
 describe('platform-v7 visible public operating copy', () => {
   it('presents one seven-step ordinary Deal journey across the homepage and role preview', () => {
@@ -31,6 +32,8 @@ describe('platform-v7 visible public operating copy', () => {
     expect(home).toContain("phases: ['Товар и условия', 'Торги и контрагент', 'Сделка и договор'");
     expect(roleWorkspace).toContain("stageLabel: '7 шагов Сделки'");
     expect(roleWorkspace).toContain("status: 'Шаг 5 · Приёмка и качество'");
+    expect(roleWorkspaceCss).toContain('grid-template-columns: repeat(7, minmax(0, 1fr));');
+    expect(roleWorkspaceCss).toContain('grid-template-columns: repeat(7, minmax(86px, 1fr));');
     expect(storyEntry).not.toContain("navFunctions: '8 шагов Сделки'");
     expect(storyEntry).not.toContain("fullPathText: '19 этапов");
   });
