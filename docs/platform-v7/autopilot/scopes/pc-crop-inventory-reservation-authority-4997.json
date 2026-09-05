@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-inventory-reservation-authority-4997",
+  "status": "active",
+  "purpose": "W2-A: canonical physical inventory identities, pinned exact commodity quantities and PostgreSQL atomic reservation/release across lots sharing one position.",
+  "authorityBaseExactMain": "d1b944da7d96e12d2b7e2b47b451530f4ffce276",
+  "authorization": "Owner instruction to continue PC-CROP on 2026-09-05 with existing push/PR/merge authorization; implements the merged W2-A acceptance plan. Authority must be merged separately before implementation.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "packages/domain-core/src/inventory.ts",
+    "packages/domain-core/src/inventory.test.ts",
+    "packages/domain-core/src/index.ts",
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+    "apps/api/src/modules/inventory/inventory.contract.ts",
+    "apps/api/src/modules/inventory/inventory.contract.spec.ts",
+    "apps/api/src/modules/inventory/inventory.repository.ts",
+    "apps/api/src/modules/inventory/inventory.controller.ts",
+    "apps/api/src/modules/inventory/inventory.module.ts",
+    "apps/api/src/modules/inventory/dto/inventory-api.dto.ts",
+    "apps/api/src/app.module.ts",
+    "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+    "scripts/platform-v7-one-deal-e2e.sh",
+    "scripts/verify-pc-crop-inventory-scope.test.mjs",
+    ".github/workflows/pc-crop-inventory.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "requiredInvariants": [
+    "Registration, role eligibility and the accounting lock #4321 remain unchanged.",
+    "Use canonical CommodityProfile versions and existing Auction/Deal references; no second Deal or provider engine.",
+    "Manual/imported declarations remain DECLARED and cannot manufacture confirmed quantity, ownership, custody or verified evidence.",
+    "Versioned availability distinguishes exclusive stock buckets from cumulative lifecycle counters; all quantities use exact integers and pinned units.",
+    "PostgreSQL commands serialize one physical position at READ COMMITTED; direct restricted-role DML cannot bypass command evidence or quantity limits.",
+    "Tenant and organization authority comes from current database membership; revoked authority cannot replay or mutate commands.",
+    "CAS, payload-bound idempotency, audit, event and outbox commit atomically; immutable snapshots retain policy and source-state versions.",
+    "No mandatory paid dependencies, external partner messages or production mutations."
+  ],
+  "acceptance": [
+    "Concurrent reservations on two canonical lots sharing one physical position never exceed availability.",
+    "Cross-tenant and same-tenant cross-organization reads/commands are denied under restricted principals.",
+    "Exact replay, conflicting replay, stale versions, release races and direct SQL bypass attempts are tested.",
+    "Audit, event and outbox failure leave no partial state or acknowledged missing command.",
+    "Pinned quantity precision/conversions, forward migrations, zero schema drift and backup/restore are proven."
+  ],
+  "remainingTerminalBoundary": [
+    "All inventory lifecycle transitions, genealogy, independent custody/title/evidence and trust policy remain later W2 slices.",
+    "Existing Lot/Offer/Deal writers must all consume inventory authority before DOUBLE_SELL_PROTECTION terminal credit.",
+    "Honest declaration/warning/acknowledgement UI and REG.RU runtime acceptance are still required."
+  ],
+  "terminalCredit": 0
+}
