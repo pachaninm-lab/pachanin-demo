@@ -10,6 +10,25 @@ const viewports = [
   { width: 1440, height: 900, name: '1440x900' },
 ] as const;
 
+const linkedPageViewports = [
+  { width: 390, height: 844, name: 'mobile-390x844' },
+  { width: 1440, height: 900, name: 'desktop-1440x900' },
+] as const;
+
+const linkedLocales = ['ru', 'en', 'zh'] as const;
+type LinkedLocale = (typeof linkedLocales)[number];
+
+const linkedPublicPages = [
+  { name: 'about', path: '/platform-v7/about', ready: 'main h1' },
+  { name: 'how-it-works', path: '/platform-v7/how-it-works', ready: '#pc-ppe-explorer-title' },
+  { name: 'ai-in-action', path: '/platform-v7/ai-in-action', ready: '[data-testid="platform-v7-ai-in-action-authority"]' },
+  { name: 'trust', path: '/platform-v7/trust', ready: '.pc-trust-page' },
+  { name: 'contact', path: '/platform-v7/contact', ready: '[data-testid="platform-v7-question-form-page"]' },
+  { name: 'privacy', path: '/platform-v7/privacy', ready: 'text=Политика конфиденциальности' },
+] as const;
+
+type LinkedPublicPageName = (typeof linkedPublicPages)[number]['name'];
+
 const currentPublicAnchorIds = [
   'participants',
   'difference',
@@ -118,6 +137,37 @@ async function expectKeyboardCompleteRoleTabs(page: Page) {
   await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
 }
 
+async function expectLinkedPageLocaleContinuity(page: Page, name: LinkedPublicPageName, locale: LinkedLocale) {
+  expect(new URL(page.url()).searchParams.get('lang')).toBe(locale);
+
+  switch (name) {
+    case 'about':
+      await expect(page.locator(`a[href="/platform-v7/register?lang=${locale}"]`).first()).toBeVisible();
+      await expect(page.locator(`a[href="/platform-v7/trust?lang=${locale}"]`).first()).toBeVisible();
+      break;
+    case 'how-it-works':
+      await expect(page.locator(`a[href="/platform-v7/register?lang=${locale}"]`).first()).toBeVisible();
+      await expect(page.locator(`footer a[href="/platform-v7/contact?lang=${locale}"]`)).toBeVisible();
+      break;
+    case 'ai-in-action':
+      await expect(page.locator(`.pc-v6-header-actions a[href="/platform-v7/register?lang=${locale}"]`)).toBeVisible();
+      await expect(page.locator(`footer a[href="/platform-v7/contact?lang=${locale}"]`)).toBeVisible();
+      break;
+    case 'trust':
+      await expect(page.locator('.pc-trust-back')).toHaveAttribute('href', `/platform-v7?lang=${locale}`);
+      await expect(page.locator('.pc-trust-primary')).toHaveAttribute('href', `/platform-v7/contact?lang=${locale}`);
+      break;
+    case 'contact':
+      await expect(page.locator('.p7-contact-register')).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
+      break;
+    case 'privacy':
+      // The policy source is byte-bound and intentionally not rewritten here.
+      // This acceptance still proves that the live linked route resolves at the
+      // requested locale URL, stays readable at both viewports and does not overflow.
+      break;
+  }
+}
+
 test.describe('Platform V7 exact responsive public acceptance', () => {
   for (const viewport of viewports) {
     test(`${viewport.name} keeps the public Deal entry clear, accessible and anchored`, async ({ page }, testInfo) => {
@@ -201,6 +251,39 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
         fullPage: true,
         animations: 'disabled',
       });
+    });
+  }
+});
+
+test.describe('Platform V7 live linked-page acceptance', () => {
+  for (const viewport of linkedPageViewports) {
+    test(`${viewport.name} verifies linked pages in RU EN ZH without locale loss or overflow`, async ({ page }, testInfo) => {
+      test.setTimeout(180_000);
+      const runtimeFailures: string[] = [];
+      page.on('pageerror', (error) => runtimeFailures.push(error.message));
+      page.on('console', (message) => {
+        if (message.type() === 'error' && /hydration|uncaught|error boundary/i.test(message.text())) runtimeFailures.push(message.text());
+      });
+
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+      for (const locale of linkedLocales) {
+        for (const target of linkedPublicPages) {
+          runtimeFailures.length = 0;
+          const response = await page.goto(`${target.path}?lang=${locale}`, { waitUntil: 'load' });
+          expect(response?.ok(), `${target.path}?lang=${locale} should return 2xx`).toBe(true);
+          await expect(page.locator(target.ready).first()).toBeVisible();
+          await expectLinkedPageLocaleContinuity(page, target.name, locale);
+          await expectNoHorizontalOverflow(page);
+          expect(runtimeFailures, `${target.path}?lang=${locale} runtime failures`).toEqual([]);
+
+          await page.screenshot({
+            path: testInfo.outputPath(`platform-v7-linked-${target.name}-${locale}-${viewport.name}.png`),
+            fullPage: true,
+            animations: 'disabled',
+          });
+        }
+      }
     });
   }
 });
