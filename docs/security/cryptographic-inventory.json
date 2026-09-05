@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2227,
+  "scannedFiles": 2229,
   "operations": [
     {
       "operation": "encryption",

@@ -32,6 +32,52 @@ const mapCheck = (row: CheckRow): EligibilityCheck => ({
   startedAt: row.started_at, completedAt: row.completed_at, nextRecheckAt: row.next_recheck_at,
 });
 
+const VALID_RUSSIAN_INN_SQL = Prisma.sql`
+  (
+    CASE
+      WHEN candidate.inn ~ '^[0-9]{10}$' THEN
+        mod(mod(
+          2 * substr(candidate.inn,1,1)::int +
+          4 * substr(candidate.inn,2,1)::int +
+          10 * substr(candidate.inn,3,1)::int +
+          3 * substr(candidate.inn,4,1)::int +
+          5 * substr(candidate.inn,5,1)::int +
+          9 * substr(candidate.inn,6,1)::int +
+          4 * substr(candidate.inn,7,1)::int +
+          6 * substr(candidate.inn,8,1)::int +
+          8 * substr(candidate.inn,9,1)::int
+        ,11),10) = substr(candidate.inn,10,1)::int
+      WHEN candidate.inn ~ '^[0-9]{12}$' THEN
+        mod(mod(
+          7 * substr(candidate.inn,1,1)::int +
+          2 * substr(candidate.inn,2,1)::int +
+          4 * substr(candidate.inn,3,1)::int +
+          10 * substr(candidate.inn,4,1)::int +
+          3 * substr(candidate.inn,5,1)::int +
+          5 * substr(candidate.inn,6,1)::int +
+          9 * substr(candidate.inn,7,1)::int +
+          4 * substr(candidate.inn,8,1)::int +
+          6 * substr(candidate.inn,9,1)::int +
+          8 * substr(candidate.inn,10,1)::int
+        ,11),10) = substr(candidate.inn,11,1)::int
+        AND mod(mod(
+          3 * substr(candidate.inn,1,1)::int +
+          7 * substr(candidate.inn,2,1)::int +
+          2 * substr(candidate.inn,3,1)::int +
+          4 * substr(candidate.inn,4,1)::int +
+          10 * substr(candidate.inn,5,1)::int +
+          3 * substr(candidate.inn,6,1)::int +
+          5 * substr(candidate.inn,7,1)::int +
+          9 * substr(candidate.inn,8,1)::int +
+          4 * substr(candidate.inn,9,1)::int +
+          6 * substr(candidate.inn,10,1)::int +
+          8 * substr(candidate.inn,11,1)::int
+        ,11),10) = substr(candidate.inn,12,1)::int
+      ELSE FALSE
+    END
+  )
+`;
+
 @Injectable()
 export class RoleEligibilityWorkerRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -40,9 +86,11 @@ export class RoleEligibilityWorkerRepository {
     const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 1000);
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<CandidateRow[]>(Prisma.sql`
-        SELECT * FROM auth.read_role_eligibility_candidates(NULL)
-        WHERE application_status NOT IN ('REJECTED','CANCELLED','EXPIRED')
-        ORDER BY submitted_at,application_id
+        SELECT candidate.*
+        FROM auth.read_role_eligibility_candidates(NULL) AS candidate
+        WHERE candidate.application_status NOT IN ('REJECTED','CANCELLED','EXPIRED')
+          AND ${VALID_RUSSIAN_INN_SQL}
+        ORDER BY candidate.submitted_at,candidate.application_id
         LIMIT ${safeLimit}
       `);
       return rows.map(mapCandidate);

@@ -10,11 +10,12 @@ import { AuditService } from '../audit/audit.service';
 import { PasswordResetService } from '../auth/password-reset.service';
 import { assertRecentSettlementFinancialMfa } from '../settlement-engine/settlement-financial-mfa.guard';
 import { RequestUser, Role } from '../../common/types/request-user';
+import { TICKET_PRIORITIES, type TicketPriority } from './support.priorities';
 
 const SUPPORT_ROLES: Role[] = [Role.SUPPORT_MANAGER, Role.ADMIN];
 
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'ESCALATED';
-export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export { TICKET_PRIORITIES, type TicketPriority } from './support.priorities';
 
 export interface SupportTicket {
   id: string;
@@ -42,6 +43,24 @@ export interface TicketComment {
   text: string;
   isInternal: boolean;
   createdAt: string;
+}
+
+/**
+ * Ранг приоритета в очереди — позиция в каноническом массиве.
+ *
+ * Раньше здесь лежал ВТОРОЙ список: `{ CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }`
+ * с падением на `?? 3`. Найдено ревью: пока список приоритетов один, а порядок
+ * задаётся отдельным объектом, добавление нового значения в
+ * `TICKET_PRIORITIES` заставило бы его пройти проверку на границе и тут же
+ * провалиться в `?? 3` — то есть вернуло бы ровно то молчаливое понижение,
+ * ради устранения которого эта правка и делалась.
+ *
+ * Неизвестное значение всё ещё получает низший ранг, но теперь это последний
+ * рубеж, а не рабочий путь: создать такой приоритет через API нельзя.
+ */
+function priorityRank(priority: string): number {
+  const index = (TICKET_PRIORITIES as readonly string[]).indexOf(priority);
+  return index === -1 ? TICKET_PRIORITIES.length : index;
 }
 
 @Injectable()
@@ -123,10 +142,7 @@ export class SupportService {
         }
         return true;
       })
-      .sort((a, b) => {
-        const priorityOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-        return (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3);
-      });
+      .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
   }
 
   getTicket(id: string, user: RequestUser): SupportTicket {

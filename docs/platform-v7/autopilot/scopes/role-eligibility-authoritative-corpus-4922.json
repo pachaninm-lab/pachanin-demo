@@ -1,23 +1,33 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/role-eligibility-authoritative-corpus-4922",
+  "branch": "fix/role-eligibility-identifier-admission-4922",
   "status": "active",
-  "purpose": "Bound the Role Eligibility authoritative-readiness correction so invalid-checksum shadow rows remain durable history but cannot count as authoritative legal-entity evidence.",
-  "authorityBaseExactMain": "8cc730c76476c2b2458200ed370bcc16008ec6e0",
+  "purpose": "Bound Role Eligibility authoritative-corpus hardening so historical invalid-checksum shadow rows remain durable history while new automatic/manual checks and future enforcement admission accept only checksum-valid Russian INN identifiers.",
+  "authorityBaseExactMain": "bc6da8e4d8f284ed93bf7ebc4c3defd01214ee54",
   "productionHosting": "REG_RU_VPS_ONLY",
   "allowedPaths": [
+    "apps/api/src/modules/role-eligibility/role-eligibility-policy.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-identifiers.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-worker.repository.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-admission.service.ts",
     ".github/workflows/role-eligibility-authoritative-corpus-readiness.yml",
     ".github/workflows/role-eligibility-ci.yml",
     "docs/platform-v7/role-eligibility/authoritative-corpus-readiness.md",
     "scripts/check-role-eligibility-authoritative-corpus-contract.mjs",
-    "scripts/production-role-eligibility-authoritative-readiness.sh"
+    "scripts/production-role-eligibility-authoritative-readiness.sh",
+    "docs/platform-v7/autopilot/scopes/role-eligibility-authoritative-corpus-4922.json"
   ],
   "boundaries": [
     "REGISTRATION_CODE_CHANGED=0",
     "REGISTRATION_BEHAVIOR_CHANGED=0",
     "ROLE_ELIGIBILITY_ENFORCEMENT=false",
     "PRODUCTION_DATABASE_MUTATION=0",
-    "invalid-checksum rows remain durable history",
-    "exclusion from readiness is not negative legal-entity evidence"
+    "historical invalid-checksum rows remain durable history",
+    "invalid-checksum automatic candidates are filtered before the worker LIMIT",
+    "manual recheck cannot create a new invalid-identifier check",
+    "future enforcement fails closed before authority-state reads for invalid identifiers",
+    "checksum validity is identifier integrity only and is never positive legal-entity evidence",
+    "no migration, backfill, deletion, verdict rewrite, registration change or external partner action"
   ]
 }
