@@ -101,7 +101,8 @@ test('registration stays primary while Deal exploration, PDF and organization as
 
   const assistance = page.locator('#connect-organization');
   await expect(assistance).toContainText('Эта форма не является регистрацией');
-  await expect(assistance.getByRole('button', { name: 'Отправить запрос на помощь' })).toBeVisible();
+  await expect(assistance.getByRole('button', { name: 'Продолжить' })).toBeVisible();
+  await expect(assistance.getByRole('button', { name: 'Отправить запрос на помощь' })).toBeHidden();
 });
 
 test('mobile service menu stays inside the 320px viewport and exposes trust navigation', async ({ page }) => {
