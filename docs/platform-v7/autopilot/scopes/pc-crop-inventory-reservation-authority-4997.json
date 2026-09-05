@@ -4,7 +4,7 @@
   "branch": "feat/pc-crop-inventory-reservation-authority-4997",
   "status": "active",
   "purpose": "W2-A: canonical physical inventory identities, pinned exact commodity quantities and PostgreSQL atomic reservation/release across lots sharing one position.",
-  "authorityBaseExactMain": "d1b944da7d96e12d2b7e2b47b451530f4ffce276",
+  "authorityBaseExactMain": "2f162c4f20b95cea4849c9c428c82ff9f952c122",
   "authorization": "Owner instruction to continue PC-CROP on 2026-09-05 with existing push/PR/merge authorization; implements the merged W2-A acceptance plan. Authority must be merged separately before implementation.",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
