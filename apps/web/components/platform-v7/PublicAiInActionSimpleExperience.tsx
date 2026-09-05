@@ -173,6 +173,39 @@ export function PublicAiInActionSimpleExperience({ locale }: { locale: string })
   const [role, setRole] = React.useState<RoleKey>('buyer');
   const scenario = copy.role.scenarios[role];
 
+  const activateRole = (nextRole: RoleKey, source: 'pointer' | 'keyboard') => {
+    setRole(nextRole);
+    trackEvent('role_intelligence_opened', { role: nextRole, source: source === 'keyboard' ? 'ai_passport_keyboard' : 'ai_passport', locale: localeKey });
+  };
+
+  const handleRoleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, key: RoleKey) => {
+    const currentIndex = ROLE_ORDER.indexOf(key);
+    let nextIndex = currentIndex;
+
+    switch (event.key) {
+      case 'ArrowRight':
+        nextIndex = (currentIndex + 1) % ROLE_ORDER.length;
+        break;
+      case 'ArrowLeft':
+        nextIndex = (currentIndex - 1 + ROLE_ORDER.length) % ROLE_ORDER.length;
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = ROLE_ORDER.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    const nextRole = ROLE_ORDER[nextIndex]!;
+    activateRole(nextRole, 'keyboard');
+    const tabs = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    tabs?.[nextIndex]?.focus();
+  };
+
   return (
     <div className={styles.page}>
       <span hidden aria-hidden='true' data-release-compat='ai-passport'>TAI — доказательный уровень исполнения сделки · NOT_ATTESTED · TAI готовит — человек подтверждает — адаптер исполняет</span>
@@ -201,10 +234,24 @@ export function PublicAiInActionSimpleExperience({ locale }: { locale: string })
       <section id='role-analysis' className={styles.section} aria-labelledby='pc-ai-role-title'>
         <div className={styles.shell}>
           <header className={styles.sectionHeader}><span className={styles.eyebrow}>{copy.role.eyebrow}</span><h2 id='pc-ai-role-title'>{copy.role.title}</h2><p>{copy.role.lead}</p></header>
-          <div className={styles.roleTabs} role='tablist' aria-label={copy.role.title}>
-            {ROLE_ORDER.map((key) => <button key={key} type='button' role='tab' aria-selected={role === key} aria-controls='pc-ai-role-result' onClick={() => { setRole(key); trackEvent('role_intelligence_opened', { role: key, source: 'ai_passport', locale: localeKey }); }}>{copy.role.scenarios[key].tab}</button>)}
+          <div className={styles.roleTabs} role='tablist' aria-label={copy.role.title} aria-orientation='horizontal'>
+            {ROLE_ORDER.map((key) => (
+              <button
+                key={key}
+                id={`pc-ai-role-tab-${key}`}
+                type='button'
+                role='tab'
+                aria-selected={role === key}
+                aria-controls='pc-ai-role-result'
+                tabIndex={role === key ? 0 : -1}
+                onClick={() => activateRole(key, 'pointer')}
+                onKeyDown={(event) => handleRoleTabKeyDown(event, key)}
+              >
+                {copy.role.scenarios[key].tab}
+              </button>
+            ))}
           </div>
-          <div id='pc-ai-role-result' className={styles.roleResult} role='tabpanel' aria-live='polite'>
+          <div id='pc-ai-role-result' className={styles.roleResult} role='tabpanel' aria-labelledby={`pc-ai-role-tab-${role}`} aria-live='polite'>
             <div className={styles.roleContext}><UserCheck size={21} aria-hidden='true' /><span>{copy.role.scope}</span><strong>{scenario.scope}</strong></div>
             <div className={styles.roleGrid}>
               <article data-tone='warning'><TriangleAlert size={18} aria-hidden='true' /><span>{copy.role.blocker}</span><strong>{scenario.blocker}</strong></article>
