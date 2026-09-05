@@ -7,6 +7,7 @@ const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'u
 
 const wrapper = read('apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx');
 const home = read('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
+const page = read('apps/web/app/platform-v7/page.tsx');
 const story = read('apps/web/i18n/platform-v7-home-story-product.ts');
 const css = read('apps/web/styles/platform-v7-international-home-fix.css');
 const tsconfig = read('apps/web/tsconfig.json');
@@ -33,6 +34,14 @@ describe('platform-v7 international homepage completion', () => {
     expect(story).toContain("journey: '7 шагов'");
     expect(story).toContain("fullPathLabel: 'Обычный путь'");
     expect(story).not.toContain("navFunctions: '8 шагов Сделки'");
+  });
+
+  it('keeps semantic homepage copy in normal DOM instead of CSS substitution', () => {
+    expect(page).not.toContain('.pc-v6-kicker::before');
+    expect(page).not.toContain('.pc-v6-kicker::after');
+    expect(page).not.toContain('font-size: 0');
+    expect(css).not.toContain('content:');
+    expect(css).not.toContain('font-size: 0');
   });
 
   it('does not recreate visitor copy or sections through compatibility CSS', () => {
