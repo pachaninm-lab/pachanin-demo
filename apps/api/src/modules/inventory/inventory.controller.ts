@@ -6,7 +6,6 @@ import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import type { RequestUser } from '../../common/types/request-user';
-import { InventoryCommandDto } from './dto/inventory-api.dto';
 import { validateInventoryCommand } from './inventory.contract';
 import { InventoryRepository } from './inventory.repository';
 
@@ -28,8 +27,10 @@ export class InventoryController {
 
   @Post('commands')
   @RateLimit({ name: 'inventory_command', scope: 'user', limit: 30, windowSeconds: 60 })
-  async command(@CurrentUser() user: RequestUser, @Body() dto: InventoryCommandDto, @Res({ passthrough: true }) response: Response) {
+  async command(@CurrentUser() user: RequestUser, @Body() dto: unknown, @Res({ passthrough: true }) response: Response) {
     try {
+      // Preserve the raw command: the global DTO whitelist would silently strip
+      // unknown authority fields before this closed-shape validation runs.
       validateInventoryCommand(dto);
       const receipt = await this.inventory.execute(user, dto);
       response.setHeader('ETag', `"${receipt.position.stateVersion}"`);
