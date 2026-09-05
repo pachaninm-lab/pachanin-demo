@@ -14,6 +14,26 @@ const COMPLETED_REVIEW_STATES = new Set([
   'COMMENTED',
 ]);
 
+const GREEN_CHECK_STATES = new Set([
+  'SUCCESS',
+  'SKIPPED',
+  'NEUTRAL',
+]);
+
+const IGNORED_CHECK_WORKFLOWS = new Set([
+  'Repo automations',
+  'platform-v7 autopilot generated merge',
+  'platform-v7 generated PR cleanup',
+]);
+
+const IGNORED_CHECK_NAMES = new Set([
+  'Exact-head Codex review gate',
+  'automerge',
+  'merge-generated',
+  'reconcile-generated',
+  'deploy/pachaninm-lab/pachanin-demo',
+]);
+
 function normalizeLogin(review) {
   return String(review?.user?.login || review?.author?.login || '').trim();
 }
@@ -59,6 +79,46 @@ export function latestBlockingChangeRequests(reviews) {
 
   return [...blockedByReviewer.entries()]
     .map(([login, review]) => ({ login, review }));
+}
+
+function checkName(check) {
+  return String(check?.context || check?.name || check?.title || '').trim();
+}
+
+function checkWorkflow(check) {
+  return String(check?.workflowName || check?.workflow || '').trim();
+}
+
+export function isIgnoredMergeGateCheck(check) {
+  const name = checkName(check);
+  const workflow = checkWorkflow(check);
+  return IGNORED_CHECK_NAMES.has(name) || IGNORED_CHECK_WORKFLOWS.has(workflow);
+}
+
+export function substantiveChecks(checks) {
+  return (checks || []).filter((check) => !isIgnoredMergeGateCheck(check));
+}
+
+export function checkRollupBlockers(checks) {
+  const blockers = [];
+
+  for (const check of substantiveChecks(checks)) {
+    const name = checkName(check) || 'unnamed-check';
+    const workflow = checkWorkflow(check);
+    const status = String(check?.status || '').toUpperCase();
+    const terminalState = String(check?.conclusion || check?.state || '').toUpperCase();
+
+    if (status && status !== 'COMPLETED') {
+      blockers.push(`${workflow ? `${workflow} / ` : ''}${name}:${status}`);
+      continue;
+    }
+
+    if (!terminalState || !GREEN_CHECK_STATES.has(terminalState)) {
+      blockers.push(`${workflow ? `${workflow} / ` : ''}${name}:${terminalState || 'UNKNOWN'}`);
+    }
+  }
+
+  return blockers;
 }
 
 function runGh(args) {
@@ -129,6 +189,21 @@ function fetchAllReviewThreads(repo, prNumber) {
   return pages.flatMap((page) => page?.data?.repository?.pullRequest?.reviewThreads?.nodes || []);
 }
 
+function fetchCheckRollup(repo, prNumber) {
+  const value = ghJson([
+    'pr',
+    'view',
+    String(prNumber),
+    '--repo',
+    repo,
+    '--json',
+    'statusCheckRollup',
+    '--jq',
+    '.statusCheckRollup',
+  ]);
+  return Array.isArray(value) ? value : [];
+}
+
 function fail(code, message) {
   console.error(`${code}: ${message}`);
   process.exit(1);
@@ -138,6 +213,7 @@ function main() {
   const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '';
   const prNumber = Number(process.env.PR_NUMBER || 0);
   const expectedHead = String(process.env.HEAD_SHA || '').trim();
+  const requireGreenCi = process.env.REQUIRE_GREEN_CI === '1';
 
   if (!repo) fail('REVIEW_GATE_REPO_MISSING', 'REPO/GITHUB_REPOSITORY is required.');
   if (!Number.isInteger(prNumber) || prNumber <= 0) fail('REVIEW_GATE_PR_MISSING', 'PR_NUMBER must be a positive integer.');
@@ -187,7 +263,25 @@ function main() {
     );
   }
 
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexExactHeadReviews=${exactCodex.length} unresolvedCurrentThreads=0`);
+  let checkedCi = 0;
+  if (requireGreenCi) {
+    const checks = fetchCheckRollup(repo, prNumber);
+    const observed = substantiveChecks(checks);
+    checkedCi = observed.length;
+    if (observed.length === 0) {
+      fail('REVIEW_GATE_CI_EVIDENCE_MISSING', `No substantive CI/status evidence exists for exact head ${headSha}.`);
+    }
+
+    const ciBlockers = checkRollupBlockers(checks);
+    if (ciBlockers.length > 0) {
+      fail(
+        'REVIEW_GATE_CI_NOT_GREEN',
+        `${ciBlockers.length} exact-head check(s) are pending or non-green: ${ciBlockers.slice(0, 30).join(', ')}`,
+      );
+    }
+  }
+
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexExactHeadReviews=${exactCodex.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';
