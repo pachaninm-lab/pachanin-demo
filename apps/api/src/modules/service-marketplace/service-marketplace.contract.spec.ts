@@ -1,3 +1,9 @@
+import { type INestApplication, ValidationPipe } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import request from 'supertest';
+import { Role } from '../../common/types/request-user';
+import { ServiceMarketplaceController } from './service-marketplace.controller';
+import { ServiceMarketplaceRepository } from './service-marketplace.repository';
 import {
   ServiceMarketplaceValidationError,
   normalizeServiceMarketplaceCommand,
@@ -120,5 +126,50 @@ describe('service marketplace contract', () => {
 
   it('hashes object keys independently of insertion order', () => {
     expect(serviceMarketplaceDigest({ a: 1, b: 2 })).toBe(serviceMarketplaceDigest({ b: 2, a: 1 }));
+  });
+});
+
+describe('service marketplace HTTP command boundary', () => {
+  let app: INestApplication;
+  const user = { id: 'actor-one', email: 'actor@example.invalid', role: Role.ADMIN, orgId: 'org-one', tenantId: 'tenant-one', sessionId: 'session-one' };
+  const execute = jest.fn(async (_user, command) => {
+    // Exercise the same normalization used at repository admission.
+    normalizeServiceMarketplaceCommand(command);
+    return { stateVersion: '1', createsFinancialObligation: false };
+  });
+  const body = {
+    commandId: base.commandId, idempotencyKey: base.idempotencyKey, correlationId: base.correlationId, reason: base.reason,
+    category: 'LOGISTICS', serviceStage: 'DELIVERY', subjectType: 'DEAL', subjectId: 'deal-001',
+    description: 'Move the selected grain lot to the buyer.', targetRegion: 'Moscow',
+  };
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [ServiceMarketplaceController],
+      providers: [{ provide: ServiceMarketplaceRepository, useValue: { execute } }],
+    }).compile();
+    app = moduleRef.createNestApplication();
+    app.use((req: { user?: typeof user }, _res: unknown, next: () => void) => { req.user = user; next(); });
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }));
+    app.setGlobalPrefix('api');
+    await app.init();
+  });
+  beforeEach(() => execute.mockClear());
+  afterAll(async () => { await app?.close(); });
+
+  it.each(['hiddenFee', 'verified', 'providerId', 'tenantId', 'organizationId', 'status', 'createsFinancialObligation', 'requestId', 'action', 'expectedStateVersion'])('rejects supplied %s before execution', async (field) => {
+    const response = await request(app.getHttpServer()).post('/api/service-marketplace/request-001/create-request')
+      .set('If-Match', '"0"').send({ ...body, [field]: 'forged' }).expect(422);
+    expect(response.body.code).toBe('SERVICE_COMMAND_UNKNOWN_FIELD');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('accepts a valid HTTP command with path identity and If-Match authority', async () => {
+    const response = await request(app.getHttpServer()).post('/api/service-marketplace/request-001/create-request')
+      .set('If-Match', '"0"').send(body).expect(201);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledWith(user, { ...body, requestId: 'request-001', action: 'CREATE_REQUEST', expectedStateVersion: '0' });
+    expect(response.headers.etag).toBe('"1"');
+    expect(response.headers['cache-control']).toBe('private, no-store');
   });
 });

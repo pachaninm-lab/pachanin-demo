@@ -21,9 +21,8 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import type { RequestUser } from '../../common/types/request-user';
 import {
   ServiceMarketplaceValidationError,
-  type ServiceMarketplaceCommand,
+  normalizeServiceMarketplaceHttpCommand,
 } from './service-marketplace.contract';
-import { ServiceMarketplaceCommandDto } from './dto/service-marketplace-api.dto';
 import { ServiceMarketplaceRepository } from './service-marketplace.repository';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9:_.-]{2,239}$/u;
@@ -91,16 +90,19 @@ export class ServiceMarketplaceController {
     @Param('action') rawAction: string,
     @Headers('if-match') ifMatch: string | undefined,
     @CurrentUser() user: RequestUser,
-    @Body() dto: ServiceMarketplaceCommandDto,
+    @Body() dto: unknown,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const command = {
-      ...dto,
-      requestId: requestId(rawRequestId),
-      action: action(rawAction),
-      expectedStateVersion: expectedVersion(ifMatch),
-    } as unknown as ServiceMarketplaceCommand;
-    const receipt = await this.handle(() => this.marketplace.execute(user, command));
+    const receipt = await this.handle(() => {
+      // Preserve raw fields until closed-shape validation; the global DTO
+      // whitelist must not erase unknown or caller-supplied authority fields.
+      const command = normalizeServiceMarketplaceHttpCommand(dto, {
+        requestId: requestId(rawRequestId),
+        action: action(rawAction),
+        expectedStateVersion: expectedVersion(ifMatch),
+      });
+      return this.marketplace.execute(user, command);
+    });
     response.setHeader('ETag', `"${receipt.stateVersion}"`);
     response.setHeader('Cache-Control', 'private, no-store');
     return receipt;

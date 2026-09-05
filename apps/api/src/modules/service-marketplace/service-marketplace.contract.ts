@@ -175,6 +175,17 @@ const ACTION_KEYS: Readonly<Record<ServiceMarketplaceAction, readonly string[]>>
   RECORD_SETTLEMENT: ['settlementReferenceType', 'settlementReference'],
 };
 
+export function normalizeServiceMarketplaceHttpCommand(
+  input: unknown,
+  authority: Pick<ServiceMarketplaceCommand, 'requestId' | 'action' | 'expectedStateVersion'>,
+): ServiceMarketplaceCommand {
+  const body = record(input);
+  if (['requestId', 'action', 'expectedStateVersion'].some((key) => Object.hasOwn(body, key))) {
+    throw new ServiceMarketplaceValidationError('SERVICE_COMMAND_UNKNOWN_FIELD', 'Path and If-Match authority must not be supplied in the body.');
+  }
+  return normalizeServiceMarketplaceCommand({ ...body, ...authority });
+}
+
 export function normalizeServiceMarketplaceCommand(input: unknown): ServiceMarketplaceCommand {
   const command = record(input);
   if (typeof command.action !== 'string' || !(SERVICE_MARKETPLACE_ACTIONS as readonly string[]).includes(command.action)) {

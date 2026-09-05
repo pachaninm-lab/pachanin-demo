@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "active",
+  "issue": 5016,
+  "branch": "feat/role-eligibility-fns-egrul-file-import-5016",
+  "allowedPaths": [
+    "apps/api/src/fns-egrul-import.ts",
+    "apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts",
+    "apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-import.module.ts",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "forbiddenPaths": [
+    "apps/api/prisma/migrations/**",
+    "apps/api/prisma/schema.prisma",
+    "apps/web/**",
+    "infra/**"
+  ],
+  "notes": "Prior bounded authorization for the exact importer implementation paths above. The implementation branch cannot modify this authority manifest. No FTP credential provisioning, registration change, production run, migration, schema change, UI change, infrastructure change, or enforcement activation."
+}
