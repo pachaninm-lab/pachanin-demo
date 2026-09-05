@@ -106,7 +106,8 @@
    * Keep the canonical brand readable instead of deleting it to make room for
    * conversion. The first row carries the brand; the second row carries the
    * 44px controls and the registration CTA. The page offset follows the real
-   * two-row header height, so no content is covered.
+   * two-row header height, so no content is covered. Selectors intentionally
+   * outrank the older strategic-home mobile-brand compatibility layer.
    */
   .pc-v7-public-entry {
     --entry-public-header-base: 96px !important;
@@ -114,7 +115,7 @@
     --pc-public-header-total-height: 96px !important;
   }
 
-  .pc-v7-public-entry .pc-site-header {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
     flex-wrap: wrap !important;
     align-content: center !important;
     align-items: center !important;
@@ -126,24 +127,26 @@
     padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px)) !important;
   }
 
-  .pc-v7-public-entry .pc-site-brand {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
     flex: 1 0 100% !important;
     min-height: 40px !important;
     overflow: visible !important;
   }
 
-  .pc-v7-public-entry .pc-site-brand-text {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text {
     display: grid !important;
     overflow: visible !important;
   }
 
-  .pc-v7-public-entry .pc-site-brand-text strong {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong {
+    width: auto !important;
     max-width: none !important;
     overflow: visible !important;
+    white-space: nowrap !important;
     text-overflow: clip !important;
   }
 
-  .pc-v7-public-entry .pc-site-actions {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions {
     flex: 1 0 100% !important;
     width: 100% !important;
     margin-left: 0 !important;
@@ -151,7 +154,7 @@
     gap: 4px !important;
   }
 
-  .pc-v7-public-entry .pc-v6-header-actions {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
     gap: 4px !important;
   }
 
