@@ -15,6 +15,8 @@ const tsconfig = JSON.parse(read('tsconfig.json')) as { compilerOptions?: { path
 const about = read('app/platform-v7/about/page.tsx');
 const contact = read('app/platform-v7/contact/ContactClient.tsx');
 const contactPage = read('app/platform-v7/contact/page.tsx');
+const contactLayout = read('app/platform-v7/contact/layout.tsx');
+const contactHeader = read('components/platform-v7/ContactFixedHeader.tsx');
 const ai = read('components/platform-v7/PublicAiInActionSimpleExperience.tsx');
 const aiPage = read('app/platform-v7/ai-in-action/page.tsx');
 const how = read('app/platform-v7/how-it-works/page.tsx');
@@ -103,13 +105,19 @@ describe('platform-v7 linked public-page trust', () => {
     expect(about.toLowerCase()).not.toContain('зерновой сделки');
   });
 
-  it('keeps Contact a real inquiry channel and never presents it as account registration', () => {
+  it('keeps Contact a real inquiry channel and preserves registration-first public chrome', () => {
     expect(contact).toContain("action='/api/platform-v7/inquiries'");
     expect(contact).toContain("name='consent'");
     expect(contact).toContain('Обращение в поддержку не создаёт аккаунт и не назначает роль.');
     expect(contact).toContain('Регистрация пользователя находится в отдельном разделе.');
-    expect(contact).toContain('/platform-v7/register');
     expect(contactPage).toContain("type Locale = 'ru' | 'en' | 'zh'");
+    expect(contactHeader).toContain('/platform-v7/register?lang=');
+    expect(contactHeader).toContain('p7-contact-register');
+    expect(contactHeader).toContain('/platform-v7/login?lang=');
+    const headerIndex = contactLayout.indexOf('<ContactFixedHeader />');
+    const contentIndex = contactLayout.indexOf('{children}');
+    expect(headerIndex).toBeGreaterThan(-1);
+    expect(contentIndex).toBeGreaterThan(headerIndex);
     expect(contact.toLowerCase()).not.toContain('controlled pilot');
     expect(contact.toLowerCase()).not.toContain('pre-integration');
   });
