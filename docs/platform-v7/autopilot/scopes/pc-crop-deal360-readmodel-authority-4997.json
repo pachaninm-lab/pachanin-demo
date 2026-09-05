@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-deal360-readmodel-4997",
+  "status": "staged",
+  "purpose": "W8-B: replace static Deal 360 scenarios, demo money/provider/document/logistics facts and fixture selectors with one server-backed participant-scoped DealWorkspaceReadModel while preserving the existing composition/design language and never turning projections into command authority.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [60, 61, 62, 65, 66, 67],
+  "terminalCriteria": ["DEAL_360=PASS", "ROLE_INFORMATION_ARCHITECTURE=PASS", "NO_STATIC_AUTHORITY=PASS"],
+  "allowedPaths": [
+    "apps/api/src/modules/deal-workspace-read/deal-workspace-read.contract.ts",
+    "apps/api/src/modules/deal-workspace-read/deal-workspace-read.contract.spec.ts",
+    "apps/api/src/modules/deal-workspace-read/deal-workspace-read.repository.ts",
+    "apps/api/src/modules/deal-workspace-read/deal-workspace-read.repository.spec.ts",
+    "apps/api/src/modules/deal-workspace-read/deal-workspace-read.service.ts",
+    "apps/api/src/modules/deal-workspace-read/deal-workspace-read.service.spec.ts",
+    "apps/api/src/modules/deal-workspace-read/deal-workspace-read.controller.ts",
+    "apps/web/app/platform-v7/deals/[id]/clean/page.tsx",
+    "apps/web/lib/platform-v7/deal360-source-of-truth.ts",
+    "apps/web/lib/platform-v7/deal-workspace-runtime-binding.ts",
+    "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx",
+    "apps/web/components/platform-v7/DealGuaranteesBlock.tsx",
+    "apps/web/components/platform-v7/DealChangeHistory.tsx",
+    "apps/web/tests/unit/platformV7Deal360ReadModel.test.tsx",
+    "apps/web/tests/e2e/platform-v7-deal360-real-authority.spec.ts",
+    "scripts/verify-pc-crop-deal360-readmodel-scope.test.mjs",
+    ".github/workflows/pc-crop-deal360-readmodel.yml"
+  ],
+  "excludedAfterSourceAudit": [
+    {"path":"apps/api/src/modules/deals/prisma-deal.repository.ts","reason":"W8-B is a read projection and must not collide with W2-C Deal mutation authority."},
+    {"path":"apps/api/src/modules/settlement-engine/**","reason":"Money state is read through accepted source facts and cannot be recomputed or mutated by the workspace projection."},
+    {"path":"apps/api/src/modules/logistics/**","reason":"Shipment/logistics authority remains source-only; W8-B cannot modify logistics state."},
+    {"path":"apps/api/src/modules/documents/**","reason":"Document authority remains source-only; W8-B cannot fabricate document lifecycle."},
+    {"path":"apps/api/src/app.module.ts","reason":"Mounting may be handled through an existing read/proxy route or separately bounded wiring; global module mutation is deferred."}
+  ],
+  "sourceEvidence": [
+    "apps/web/app/platform-v7/deals/[id]/clean/page.tsx",
+    "apps/web/lib/platform-v7/deal360-source-of-truth.ts",
+    "apps/web/lib/platform-v7/deal-workspace-runtime-binding.ts",
+    "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Deal 360 reads one canonical Deal and participant-scoped related authorities; it never creates DealWorkspace truth independent of Deal/Settlement/Logistics/Documents/Disputes/Trust/Integration evidence.",
+    "Static DEAL360_SCENARIOS, canonical fixture selectors, invented provider statuses, invented money amounts and sandbox trip/incidents are removed from production authority paths. A missing source renders MISSING/NOT_READY, never a plausible substitute.",
+    "The read model identifies every field/group by source authority, source object id/version/revision and freshness where relevant so users can distinguish facts from projections or external pending states.",
+    "Money uses exact canonical minor-unit facts only. No `number`/rub helper, static 9.65m examples or UI recomputation becomes financial authority.",
+    "Provider gates display actual IntegrationBinding/capability maturity/receipt state. Named providers that are not activated appear NOT_ACTIVATED/EXTERNAL_BLOCKER, never as selected/available/62-percent tracking fixtures.",
+    "Documents display actual canonical document type/version/status/requirement data and cannot manufacture SIGNED/DELIVERED/ACCEPTED from transport or fixture labels.",
+    "Logistics/tracking display actual Shipment/provider observation state. Absence of Shipment/track data is explicit and cannot fall back to test route/trip ids.",
+    "Next action and blocker explanations are deterministic projections from persisted source facts/versioned policies; UI copy may simplify but cannot change permission or state.",
+    "Read access reuses current participant/tenant/organization authority and denies same-tenant outsiders/cross-tenant callers. Staff/privileged visibility remains separately explicit.",
+    "The role-specific view can hide irrelevant detail but never hide a blocker/action the role is responsible for. The underlying read model remains complete and source-backed.",
+    "Existing Design System v8/tokens/composition are retained while inline/static styling is progressively replaced only where touched; visual refactor must not widen data authority.",
+    "Registration, Role Eligibility, W2/W3/W4/W5 command authorities, Federal Accounting lock #4321 and REG.RU production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Static regression proves production Deal 360 imports no `DEAL360_SCENARIOS`, `canonicalDomainDeals` or static domain selectors for authority and contains no fixed production deal/lot/trip/provider money facts.",
+    "Server read-model tests prove participant-scoped aggregation across Deal, documents, disputes, logistics, settlement/trust/integration sources and explicit missing-source states.",
+    "A provider with no accepted IntegrationBinding/receipt cannot appear live/selected/successful in Deal 360; a real accepted source revision appears with provenance.",
+    "Exact money projection matches canonical source minor units and UI formatting only converts for display; no JS floating calculation changes source totals.",
+    "Cross-tenant/same-tenant outsider access is denied and revoked participant authority fails on the next read.",
+    "E2E covers loading, not-found, missing external source, blocker, active execution, dispute and completed-like read states without fixture fallback.",
+    "Mobile/desktop role-specific information hierarchy preserves the same source facts and next-action reason codes.",
+    "Exact-head CI/review plus REG.RU server-backed runtime evidence are required before terminal DEAL_360/NO_STATIC_AUTHORITY credit."
+  ],
+  "remainingTerminalBoundary": [
+    "Downstream authorities must be accepted before their Deal 360 sections can be terminally complete.",
+    "Full role-specific UX across every cabinet remains W8-A/W8-C/W8-D and human acceptance.",
+    "Design-system cleanup outside touched Deal 360 components is not terminally solved by W8-B.",
+    "Real-user unaided task acceptance remains ACCEPT-01."
+  ],
+  "terminalCredit": 0
+}
