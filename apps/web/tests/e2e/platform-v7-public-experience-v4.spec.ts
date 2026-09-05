@@ -164,7 +164,13 @@ test('detailed explorer preserves ten internal stages and browser history withou
   await expect(stageTrack.getByRole('button')).toHaveCount(10);
 
   const perspective = page.locator('.pc-ppe-context-panel select');
-  await expect(perspective.locator('option')).toHaveCount(9);
+  await expect(perspective.locator('option[data-public-perspective="true"]')).toHaveCount(9);
+  const legacyStaff = perspective.locator('option[data-legacy-staff="true"]');
+  await expect(legacyStaff).toHaveCount(3);
+  for (const option of await legacyStaff.all()) {
+    await expect(option).toHaveAttribute('hidden', '');
+    await expect(option).toBeDisabled();
+  }
 
   await stageTrack.getByRole('button', { name: /Документы/ }).click();
   await expect(page).toHaveURL(/stage=documents/);
