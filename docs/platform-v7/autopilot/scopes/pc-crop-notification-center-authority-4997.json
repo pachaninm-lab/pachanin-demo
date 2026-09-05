@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-notification-center-authority-4997",
+  "status": "staged",
+  "purpose": "W9-C: replace process-local notification/read state and hard-coded delivery assumptions with a PostgreSQL inbox, versioned templates, outbox-driven delivery attempts/receipts, user preferences, quiet hours and mandatory-event exceptions.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [42],
+  "terminalCriteria": ["NOTIFICATION_CENTER=PASS", "NOTIFICATION_DELIVERY=PASS", "NOTIFICATION_PREFERENCES=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/notification-center.ts",
+    "packages/domain-core/src/notification-center.test.ts",
+    "apps/api/prisma/migrations/20260906100000_notification_center_authority/migration.sql",
+    "apps/api/src/modules/notifications/notifications.service.ts",
+    "apps/api/src/modules/notifications/notifications.controller.ts",
+    "apps/api/src/modules/notifications/notification.repository.ts",
+    "apps/api/src/modules/notifications/notification.repository.spec.ts",
+    "apps/api/src/modules/notifications/notification-template.registry.ts",
+    "apps/api/src/modules/notifications/notification-template.registry.spec.ts",
+    "apps/api/src/modules/notifications/notification-delivery.service.ts",
+    "apps/api/src/modules/notifications/notification-delivery.service.spec.ts",
+    "apps/api/test/industrial/notification-center-authority.e2e-spec.ts",
+    "apps/web/app/platform-v7/notifications/page.tsx",
+    "apps/web/tests/unit/platformV7Notifications.test.tsx",
+    "scripts/verify-pc-crop-notification-center-scope.test.mjs",
+    ".github/workflows/pc-crop-notification-center.yml"
+  ],
+  "sourceEvidence": [
+    "apps/api/src/modules/notifications/notifications.service.ts",
+    "apps/web/app/platform-v7/notifications/page.tsx",
+    "apps/api/src/common/outbox/outbox.service.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.runner.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "The notification inbox/read state is PostgreSQL-authoritative and tenant/user scoped; restart or another instance observes the same rows and read acknowledgements.",
+    "Notifications originate from accepted domain/outbox events or explicit operator/system commands with authoritative source references. Template names that imply payment, signature, EDO, KYC or delivery success cannot create such success without the source event proving it.",
+    "Template definitions are versioned, localized RU/EN/ZH, effective-dated and content-hashed. A historical notification pins the exact template version and rendered source facts.",
+    "Delivery to in-app/email/SMS/push/other channels is a separate attempt/receipt lifecycle. Creating an inbox item is not proof an external channel delivered it.",
+    "Preferences are user-scoped and versioned. Quiet hours suppress/defer only optional notifications; mandatory security/legal/deadline events explicitly marked non-suppressible still create inbox/delivery obligations according to policy.",
+    "No process-local array/Map may be production delivery/read authority. Capacity limits use retention/archive policy instead of silently deleting the oldest 500 records.",
+    "Mark-read/mark-all-read require current user authority and idempotently append/update read evidence without allowing one user to acknowledge another user's notification.",
+    "Every notification stores source event/object, type, severity/priority, required action/deadline if present and route/deep-link target as data; free-form title/message never becomes the only business evidence.",
+    "Delivery retries use durable attempts, exponential/backoff policy, terminal failure/dead-letter state and receipts. A failed channel does not erase the inbox item or source event.",
+    "Same-tenant/cross-tenant leakage through bulk listing/counting is denied. Staff broadcast/mandatory notices require separate explicit staff authority and audience snapshot.",
+    "No notification action mutates Deal, money, signature, external integration or Role Eligibility state; it only surfaces or acknowledges information.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, domain authorities, external provider credentials and REG.RU topology remain unchanged."
+  ],
+  "acceptance": [
+    "Regression proves NotificationsService no longer uses process-local notification arrays for production inbox/read authority.",
+    "Restricted PostgreSQL tests prove create/list/read/mark-all, tenant/user isolation, idempotency and restart/second-instance consistency.",
+    "Template tests prove exact version/language rendering and reject a template that claims an external success without an accepted matching source event type/status.",
+    "Preference/quiet-hours tests prove optional delivery deferral and mandatory exception behavior while the in-app record remains durable.",
+    "Delivery tests prove attempt/retry/receipt/dead-letter semantics and distinguish queued/sent/delivered outcomes.",
+    "Retention tests archive/expire according to policy rather than silently truncating at a fixed process-memory count.",
+    "Notification UI shows loading/empty/error/read/unread/action/deadline and channel status without static/demo fallback facts.",
+    "Exact-head CI/review plus REG.RU restart/multi-instance/user-flow evidence are required before terminal notification credit."
+  ],
+  "remainingTerminalBoundary": [
+    "Real external email/SMS/push providers, if used, require separate provider contracts/credentials/receipts; in-app can be completed without new mandatory recurring cost.",
+    "Settings W8-C must expose notification preferences/provenance after both authorities are accepted.",
+    "Deadline/exception engine W9-D supplies mandatory deadline/escalation events.",
+    "Real-user notification usability/noise acceptance remains later human acceptance."
+  ],
+  "terminalCredit": 0
+}
