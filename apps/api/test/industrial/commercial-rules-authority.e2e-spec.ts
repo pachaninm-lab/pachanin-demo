@@ -351,7 +351,10 @@ describeAuthority('CommercialRules PostgreSQL authority', () => {
     const legitimateOutput = { status: 'CALCULATED', amountKopecks: '5000', payerAllocations: [
       { payer: 'SELLER', amountKopecks: '2000' }, { payer: 'BUYER', amountKopecks: '3000' },
     ], missingFacts: [] };
-    const insert = (material: unknown, output: typeof legitimateOutput, amount: string, hashOverride: string | null = null) =>
+    const insert = (
+      material: unknown, output: typeof legitimateOutput, amount: string, hashOverride: string | null = null,
+      packVersion: bigint | null = 1n, packHash: string | null = rulePackHash,
+    ) =>
       rls.withTrustedContext({ ...forgedNonAdmin, isOrgAdmin: false }, (tx) => tx.$executeRaw(Prisma.sql`
         INSERT INTO public."commercial_decisions" (
           "id", "tenantId", "organizationId", "decisionKey", "ruleSetId", "ruleSetKey", "ruleSetVersion", "ruleSetContentHash",
@@ -359,7 +362,7 @@ describeAuthority('CommercialRules PostgreSQL authority', () => {
           "decisionStatus", "amountKopecks", "currency", "actorUserId", "actorMembershipId", "correlationId"
         ) VALUES (
           ${`${RUN_ID}-direct-forgery`}, ${TENANT_A}, ${ORG_A}, ${input.decisionKey}, ${ruleSetId}, 'platform-fee', 1, ${ruleSetHash},
-          ${rulePackId}, 'default-services', 1, ${rulePackHash}, ${JSON.stringify(material)}::jsonb,
+          ${rulePackId}, 'default-services', ${packVersion}, ${packHash}, ${JSON.stringify(material)}::jsonb,
           coalesce(${hashOverride}, encode(sha256(convert_to((${JSON.stringify(material)}::jsonb)::text, 'UTF8')), 'hex')),
           ${JSON.stringify(output)}::jsonb, encode(sha256(convert_to((${JSON.stringify(output)}::jsonb)::text, 'UTF8')), 'hex'),
           ${output.status}, ${BigInt(amount)}, 'RUB', ${USER_C}, ${MEMBERSHIP_C}, ${input.correlationId}
@@ -370,6 +373,10 @@ describeAuthority('CommercialRules PostgreSQL authority', () => {
       .rejects.toThrow(/PC_COMMERCIAL_DECISION_OUTPUT_MISMATCH/);
     await expect(insert(input, legitimateOutput, '1')).rejects.toThrow(/PC_COMMERCIAL_DECISION_OUTPUT_MISMATCH/);
     await expect(insert(input, legitimateOutput, '5000', 'a'.repeat(64))).rejects.toThrow(/PC_COMMERCIAL_DECISION_MATERIAL_MISMATCH/);
+    await expect(insert(input, legitimateOutput, '5000', null, null))
+      .rejects.toThrow(/PC_COMMERCIAL_DECISION_PACK_AUTHORITY_MISMATCH/);
+    await expect(insert(input, legitimateOutput, '5000', null, 1n, null))
+      .rejects.toThrow(/PC_COMMERCIAL_DECISION_PACK_AUTHORITY_MISMATCH/);
     await expect(insert({ ...input, context: { serviceCategory: 'OTHER' } }, legitimateOutput, '5000'))
       .rejects.toThrow(/PC_COMMERCIAL_DECISION_CONDITION_MISMATCH/);
     await expect(insert({ ...input, facts: { ...input.facts, contractPayer: 'BUYER' } }, legitimateOutput, '5000'))

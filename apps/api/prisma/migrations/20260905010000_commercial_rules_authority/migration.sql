@@ -148,7 +148,8 @@ CREATE TABLE public."commercial_decisions" (
     AND "ruleSetContentHash" ~ '^[0-9a-f]{64}$'
     AND (
       ("rulePackId" IS NULL AND "rulePackKey" IS NULL AND "rulePackVersion" IS NULL AND "rulePackContentHash" IS NULL)
-      OR ("rulePackId" IS NOT NULL AND "rulePackKey" IS NOT NULL AND "rulePackVersion" >= 1 AND "rulePackContentHash" ~ '^[0-9a-f]{64}$')
+      OR ("rulePackId" IS NOT NULL AND "rulePackKey" IS NOT NULL AND "rulePackVersion" IS NOT NULL
+        AND "rulePackContentHash" IS NOT NULL AND "rulePackVersion" >= 1 AND "rulePackContentHash" ~ '^[0-9a-f]{64}$')
     )
   ),
   CONSTRAINT "commercial_decision_hash_check" CHECK ("inputHash" ~ '^[0-9a-f]{64}$' AND "outputHash" ~ '^[0-9a-f]{64}$'),
@@ -489,8 +490,9 @@ BEGIN
     IF NOT FOUND THEN
       RAISE EXCEPTION USING ERRCODE = '23000', MESSAGE = 'PC_COMMERCIAL_DECISION_PACK_AUTHORITY_MISSING';
     END IF;
-    IF pack."status" <> 'PUBLISHED' OR pack."rulePackKey" <> NEW."rulePackKey"
-       OR pack."version" <> NEW."rulePackVersion" OR pack."contentHash" <> NEW."rulePackContentHash" THEN
+    IF pack."status" IS DISTINCT FROM 'PUBLISHED' OR pack."rulePackKey" IS DISTINCT FROM NEW."rulePackKey"
+       OR pack."version" IS DISTINCT FROM NEW."rulePackVersion"
+       OR pack."contentHash" IS DISTINCT FROM NEW."rulePackContentHash" THEN
       RAISE EXCEPTION USING ERRCODE = '23000', MESSAGE = 'PC_COMMERCIAL_DECISION_PACK_AUTHORITY_MISMATCH';
     END IF;
     IF NOT EXISTS (
