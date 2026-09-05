@@ -51,12 +51,27 @@ function trackedSources(root) {
     .sort();
 }
 
+/**
+ * Комментарии снимаются до подсчёта: иначе файл, который ОПИСЫВАЕТ дефект,
+ * считается носителем дефекта. Именно так и вышло — DTO-файл кабинета Гекты
+ * объясняет в комментарии, что `@Body() body: { … }` стирается до Object, и
+ * гейт засчитал это объяснение как непроверенное тело.
+ *
+ * Строчный комментарий снимается только тогда, когда он занимает строку
+ * целиком: `//` внутри строкового литерала (например, в URL) обрезал бы
+ * настоящий код. Проверено на всём дереве: снятие комментариев меняет счёт
+ * ровно одного файла и не меняет число DTO-типизированных параметров.
+ */
+export function stripComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//gu, '').replace(/^\s*\/\/.*$/gmu, '');
+}
+
 export function scanSources(files, read = (file) => readFileSync(file, 'utf8')) {
   const unvalidatedByFile = new Map();
   let validated = 0;
 
   for (const file of files) {
-    const text = read(file);
+    const text = stripComments(read(file));
     for (const match of text.matchAll(BODY_PARAMETER)) {
       const remainder = text.slice(match.index + match[0].length);
       const inlineLiteral = remainder.startsWith('{');

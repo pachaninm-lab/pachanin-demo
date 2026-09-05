@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 /**
@@ -159,8 +159,10 @@ export class GektaAccessService {
         ? input.until ?? null
         : new Date(now.getTime() + (input.kind === 'DAYS_7' ? 7 : 30) * DAY_MS);
 
-    if (input.kind !== 'LIFETIME' && !expiresAt) {
-      throw new Error('a dated manual grant requires an expiry');
+    // `new Date('мусор')` — объект, то есть значение истинное: одной проверки
+    // на отсутствие даты было мало, неразбираемая дата проходила её насквозь.
+    if (input.kind !== 'LIFETIME' && (!expiresAt || Number.isNaN(expiresAt.getTime()))) {
+      throw new BadRequestException('a dated manual grant requires a valid expiry');
     }
 
     return this.prisma.$transaction(async (tx) => {

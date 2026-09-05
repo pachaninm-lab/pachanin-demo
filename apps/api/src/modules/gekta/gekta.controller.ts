@@ -7,6 +7,24 @@ import { GektaWorkspaceService } from './gekta-workspace.service';
 import { GektaOperatorGuard, RequireGektaPermission, permissionsFor, resolveGektaRoles } from './gekta-operator.guard';
 import { GektaSessionGuard, type GektaSessionRequest } from './gekta-session.guard';
 import { AllowProductSession } from '../../common/decorators/product-session.decorator';
+import {
+  AppendMessageDto,
+  CreateConversationDto,
+  CreateProjectDto,
+  DeclarePhoneDto,
+  ImportHistoryDto,
+  RenameProjectDto,
+  UpdateConversationDto,
+} from './dto/gekta.dto';
+import {
+  ExtendTrialDto,
+  GrantAccessDto,
+  GrantLifetimeDto,
+  ResetQuotaDto,
+  RevokeGrantDto,
+  SuspendAccountDto,
+} from './dto/gekta-operator.dto';
+import type { GektaManualGrantKind } from './gekta.contract';
 
 type AuthedRequest = { user?: { id?: string; sub?: string; gektaRoles?: string[]; staffRoles?: string[] } };
 
@@ -66,9 +84,9 @@ export class GektaController {
   }
 
   @Post('phone')
-  async declarePhone(@Req() request: GektaSessionRequest, @Body() body: { phone?: string }) {
+  async declarePhone(@Req() request: GektaSessionRequest, @Body() body: DeclarePhoneDto) {
     const accountId = await this.accountIdFor(request);
-    const identity = await this.phone.declarePhone(accountId, String(body?.phone ?? ''));
+    const identity = await this.phone.declarePhone(accountId, body.phone);
     // Состояние возвращается как есть: DECLARED никогда не показывается как подтверждённое.
     return { state: identity.state, declaredAt: identity.declaredAt };
   }
@@ -79,15 +97,15 @@ export class GektaController {
   }
 
   @Post('projects')
-  async createProject(@Req() request: GektaSessionRequest, @Body() body: { name?: string; description?: string; locale?: string }) {
+  async createProject(@Req() request: GektaSessionRequest, @Body() body: CreateProjectDto) {
     const accountId = await this.accountIdFor(request);
-    return this.workspace.createProject(accountId, String(body?.name ?? ''), String(body?.description ?? ''), String(body?.locale ?? 'ru'));
+    return this.workspace.createProject(accountId, body.name, body.description ?? '', body.locale ?? 'ru');
   }
 
   @Patch('projects/:id')
-  async renameProject(@Req() request: GektaSessionRequest, @Param('id') id: string, @Body() body: { name?: string; description?: string }) {
+  async renameProject(@Req() request: GektaSessionRequest, @Param('id') id: string, @Body() body: RenameProjectDto) {
     const accountId = await this.accountIdFor(request);
-    return this.workspace.renameProject(accountId, id, String(body?.name ?? ''), body?.description);
+    return this.workspace.renameProject(accountId, id, body.name, body.description);
   }
 
   @Delete('projects/:id')
@@ -112,20 +130,20 @@ export class GektaController {
   }
 
   @Post('conversations')
-  async createConversation(@Req() request: GektaSessionRequest, @Body() body: { title?: string; locale?: string; projectId?: string | null }) {
+  async createConversation(@Req() request: GektaSessionRequest, @Body() body: CreateConversationDto) {
     const accountId = await this.accountIdFor(request);
-    return this.workspace.createConversation(accountId, String(body?.title ?? ''), String(body?.locale ?? 'ru'), body?.projectId ?? null);
+    return this.workspace.createConversation(accountId, body.title ?? '', body.locale ?? 'ru', body.projectId ?? null);
   }
 
   @Post('conversations/:id/messages')
-  async appendMessage(@Req() request: GektaSessionRequest, @Param('id') id: string, @Body() body: { role?: string; body?: string; citations?: unknown; attachments?: unknown }) {
+  async appendMessage(@Req() request: GektaSessionRequest, @Param('id') id: string, @Body() body: AppendMessageDto) {
     const accountId = await this.accountIdFor(request);
-    const role = body?.role === 'assistant' ? 'assistant' : 'user';
+    const role = body.role === 'assistant' ? 'assistant' : 'user';
     const message = await this.workspace.appendMessage(accountId, id, {
       role,
-      body: String(body?.body ?? ''),
-      citations: body?.citations,
-      attachments: body?.attachments,
+      body: body.body,
+      citations: body.citations,
+      attachments: body.attachments,
     });
     // Счётчик двигает только завершённый ответ ассистента.
     if (role === 'assistant') await this.access.recordCompletedAnswer(accountId);
@@ -133,10 +151,10 @@ export class GektaController {
   }
 
   @Patch('conversations/:id')
-  async updateConversation(@Req() request: GektaSessionRequest, @Param('id') id: string, @Body() body: { title?: string; projectId?: string | null }) {
+  async updateConversation(@Req() request: GektaSessionRequest, @Param('id') id: string, @Body() body: UpdateConversationDto) {
     const accountId = await this.accountIdFor(request);
-    if (body?.projectId !== undefined) return this.workspace.moveConversation(accountId, id, body.projectId);
-    return this.workspace.renameConversation(accountId, id, String(body?.title ?? ''));
+    if (body.projectId !== undefined) return this.workspace.moveConversation(accountId, id, body.projectId);
+    return this.workspace.renameConversation(accountId, id, body.title ?? '');
   }
 
   @Delete('conversations/:id')
@@ -150,10 +168,10 @@ export class GektaController {
   }
 
   @Post('history/import')
-  async importHistory(@Req() request: GektaSessionRequest, @Body() body: { conversations?: unknown }) {
+  async importHistory(@Req() request: GektaSessionRequest, @Body() body: ImportHistoryDto) {
     const accountId = await this.accountIdFor(request);
-    const incoming = Array.isArray(body?.conversations) ? body.conversations : [];
-    return this.workspace.importAnonymousHistory(accountId, incoming as never);
+    // `as never` здесь больше не нужен: форма тела проверена до контроллера.
+    return this.workspace.importAnonymousHistory(accountId, body.conversations);
   }
 }
 
@@ -232,16 +250,18 @@ export class GektaOperatorController {
   async grant(
     @Req() request: AuthedRequest,
     @Param('id') accountId: string,
-    @Body() body: { kind?: string; until?: string; reason?: string },
+    @Body() body: GrantAccessDto,
   ) {
-    const kind = body?.kind === 'DAYS_30' ? 'DAYS_30' : body?.kind === 'UNTIL_DATE' ? 'UNTIL_DATE' : 'DAYS_7';
+    // Вид гранта больше не подменяется молча: нераспознанное значение теперь
+    // отклоняется на границе, а не превращается в DAYS_7 без ведома оператора.
+    const kind = body.kind as GektaManualGrantKind;
     const before = await this.access.resolveEntitlementByAccount(accountId);
     const grant = await this.access.grantManualAccess({
       accountId,
       kind,
-      until: body?.until ? new Date(body.until) : null,
+      until: body.until ? new Date(body.until) : null,
       grantedBy: userIdOf(request),
-      reason: String(body?.reason ?? ''),
+      reason: body.reason,
     });
     const after = await this.access.resolveEntitlementByAccount(accountId);
     await this.operator.writeAudit({
@@ -253,7 +273,7 @@ export class GektaOperatorController {
       action: 'entitlement.grant_manual',
       previousState: before.state,
       newState: after.state,
-      reason: String(body?.reason ?? ''),
+      reason: body.reason,
       expiresAt: grant.expiresAt,
       source: 'operator_console',
     });
@@ -262,13 +282,13 @@ export class GektaOperatorController {
 
   @Post('accounts/:id/grant-lifetime')
   @RequireGektaPermission('entitlement.grant_lifetime')
-  async grantLifetime(@Req() request: AuthedRequest, @Param('id') accountId: string, @Body() body: { reason?: string }) {
+  async grantLifetime(@Req() request: AuthedRequest, @Param('id') accountId: string, @Body() body: GrantLifetimeDto) {
     const before = await this.access.resolveEntitlementByAccount(accountId);
     const grant = await this.access.grantManualAccess({
       accountId,
       kind: 'LIFETIME',
       grantedBy: userIdOf(request),
-      reason: String(body?.reason ?? ''),
+      reason: body.reason,
     });
     const after = await this.access.resolveEntitlementByAccount(accountId);
     await this.operator.writeAudit({
@@ -280,7 +300,7 @@ export class GektaOperatorController {
       action: 'entitlement.grant_lifetime',
       previousState: before.state,
       newState: after.state,
-      reason: String(body?.reason ?? ''),
+      reason: body.reason,
       expiresAt: null,
       source: 'operator_console',
     });
@@ -289,7 +309,7 @@ export class GektaOperatorController {
 
   @Post('grants/:grantId/revoke')
   @RequireGektaPermission('entitlement.revoke_manual')
-  async revoke(@Req() request: AuthedRequest, @Param('grantId') grantId: string, @Body() body: { reason?: string }) {
+  async revoke(@Req() request: AuthedRequest, @Param('grantId') grantId: string, @Body() body: RevokeGrantDto) {
     const grant = await this.access.revokeGrant(grantId, userIdOf(request));
     const after = await this.access.resolveEntitlementByAccount(grant.accountId);
     await this.operator.writeAudit({
@@ -301,7 +321,7 @@ export class GektaOperatorController {
       action: 'entitlement.revoke',
       previousState: grant.kind,
       newState: after.state,
-      reason: String(body?.reason ?? ''),
+      reason: body.reason,
       expiresAt: null,
       source: 'operator_console',
     });
@@ -310,9 +330,10 @@ export class GektaOperatorController {
 
   @Post('accounts/:id/extend-trial')
   @RequireGektaPermission('entitlement.extend_trial')
-  async extendTrial(@Req() request: AuthedRequest, @Param('id') accountId: string, @Body() body: { days?: number; reason?: string }) {
+  async extendTrial(@Req() request: AuthedRequest, @Param('id') accountId: string, @Body() body: ExtendTrialDto) {
     const before = await this.access.resolveEntitlementByAccount(accountId);
-    const days = Number.isFinite(body?.days) && (body?.days ?? 0) > 0 ? Math.min(Number(body?.days), 365) : 30;
+    // Диапазон проверен на границе; здесь остаётся только значение по умолчанию.
+    const days = body.days ?? 30;
     const account = await this.access.extendTrial(accountId, days);
     const after = await this.access.resolveEntitlementByAccount(accountId);
     await this.operator.writeAudit({
@@ -324,7 +345,7 @@ export class GektaOperatorController {
       action: 'entitlement.extend_trial',
       previousState: before.state,
       newState: after.state,
-      reason: String(body?.reason ?? ''),
+      reason: body.reason,
       expiresAt: account.trialEndsAt,
       source: 'operator_console',
     });
@@ -333,9 +354,9 @@ export class GektaOperatorController {
 
   @Post('accounts/:id/suspend')
   @RequireGektaPermission('account.suspend')
-  async suspend(@Req() request: AuthedRequest, @Param('id') accountId: string, @Body() body: { suspended?: boolean; reason?: string }) {
+  async suspend(@Req() request: AuthedRequest, @Param('id') accountId: string, @Body() body: SuspendAccountDto) {
     const before = await this.access.resolveEntitlementByAccount(accountId);
-    await this.access.setSuspended(accountId, body?.suspended !== false, String(body?.reason ?? ''));
+    await this.access.setSuspended(accountId, body.suspended, body.reason);
     const after = await this.access.resolveEntitlementByAccount(accountId);
     await this.operator.writeAudit({
       correlationId: `suspend-${accountId}-${Date.now()}`,
@@ -346,7 +367,7 @@ export class GektaOperatorController {
       action: 'account.suspend',
       previousState: before.state,
       newState: after.state,
-      reason: String(body?.reason ?? ''),
+      reason: body.reason,
       expiresAt: null,
       source: 'operator_console',
     });
@@ -355,7 +376,7 @@ export class GektaOperatorController {
 
   @Post('accounts/:id/reset-quota')
   @RequireGektaPermission('entitlement.reset_quota')
-  async resetQuota(@Req() request: AuthedRequest, @Param('id') accountId: string, @Body() body: { reason?: string }) {
+  async resetQuota(@Req() request: AuthedRequest, @Param('id') accountId: string, @Body() body: ResetQuotaDto) {
     await this.access.resetDailyQuota(accountId);
     await this.operator.writeAudit({
       correlationId: `quota-${accountId}-${Date.now()}`,
@@ -366,7 +387,7 @@ export class GektaOperatorController {
       action: 'entitlement.reset_quota',
       previousState: 'quota_exhausted',
       newState: 'quota_reset',
-      reason: String(body?.reason ?? ''),
+      reason: body.reason,
       expiresAt: null,
       source: 'operator_console',
     });

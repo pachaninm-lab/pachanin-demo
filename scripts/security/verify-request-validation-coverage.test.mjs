@@ -175,3 +175,61 @@ test('an untracked file is not scanned, matching what the pipe would see after a
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+/**
+ * Гейт считает код, а не прозу. Дефект был настоящий: DTO-файл кабинета Гекты
+ * объясняет в комментарии, что `@Body() body: { … }` стирается до Object, и
+ * гейт засчитал это объяснение как непроверенное тело — то есть файл, который
+ * ДОКУМЕНТИРУЕТ дефект, был обвинён в том, что его несёт.
+ */
+test('a body pattern inside a comment is documentation, not an endpoint', () => {
+  withFixture(
+    {
+      sources: {
+        'a.controller.ts': inline(2),
+        'b.controller.ts': [
+          '/**',
+          ' * Инлайн-тип @Body() body: { field: string } стирается до Object.',
+          ' */',
+          '// @Body() body: { legacy: string } — так было раньше',
+          inline(1),
+          dto(2),
+        ].join('\n'),
+      },
+      baseline: {
+        minValidatedBodyParameters: 2,
+        unvalidatedBodyParametersByFile: { 'src/a.controller.ts': 2, 'src/b.controller.ts': 1 },
+      },
+    },
+    ({ status, out }) => {
+      assert.equal(status, 0, out);
+      assert.match(out, /3 unvalidated @Body\(\) parameters/u);
+    },
+  );
+});
+
+/**
+ * Обратная сторона: снятие комментариев не должно прятать настоящий параметр.
+ * Строчный комментарий снимается только целой строкой, поэтому `//` внутри
+ * строкового литерала не обрезает код, который идёт следом.
+ */
+test('a // inside a string literal does not hide the code after it', () => {
+  withFixture(
+    {
+      sources: {
+        'a.controller.ts': [
+          "  readonly docs = 'https://example.invalid/guide';",
+          inline(2),
+        ].join('\n'),
+      },
+      baseline: {
+        minValidatedBodyParameters: 0,
+        unvalidatedBodyParametersByFile: { 'src/a.controller.ts': 2 },
+      },
+    },
+    ({ status, out }) => {
+      assert.equal(status, 0, out);
+      assert.match(out, /2 unvalidated @Body\(\) parameters/u);
+    },
+  );
+});

@@ -1,5 +1,14 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import {
+  GEKTA_CONVERSATION_TITLE_MAX,
+  GEKTA_IMPORT_MAX_CONVERSATIONS,
+  GEKTA_IMPORT_MAX_MESSAGES,
+  GEKTA_MESSAGE_BODY_MAX,
+  GEKTA_PROJECT_DESCRIPTION_MAX,
+  GEKTA_PROJECT_NAME_MAX,
+  type GektaMessageRole,
+} from './gekta.contract';
 
 /**
  * Проекты и история диалогов зарегистрированного пользователя.
@@ -10,9 +19,11 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Ownable = { accountId: string };
 
-const MAX_NAME = 60;
-const MAX_DESCRIPTION = 240;
-const MAX_TITLE = 80;
+// Пределы объявлены один раз в gekta.contract.ts: DTO проверяет границу по
+// тем же числам, которыми режет сервис.
+const MAX_NAME = GEKTA_PROJECT_NAME_MAX;
+const MAX_DESCRIPTION = GEKTA_PROJECT_DESCRIPTION_MAX;
+const MAX_TITLE = GEKTA_CONVERSATION_TITLE_MAX;
 
 function clean(value: string, limit: number): string {
   return value
@@ -110,7 +121,7 @@ export class GektaWorkspaceService {
   }
 
   async appendMessage(accountId: string, conversationId: string, message: {
-    role: 'user' | 'assistant';
+    role: GektaMessageRole;
     body: string;
     citations?: unknown;
     attachments?: unknown;
@@ -122,7 +133,7 @@ export class GektaWorkspaceService {
         data: {
           conversationId,
           role: message.role,
-          body: message.body.slice(0, 12_000),
+          body: message.body.slice(0, GEKTA_MESSAGE_BODY_MAX),
           citations: (message.citations ?? undefined) as never,
           attachments: (message.attachments ?? undefined) as never,
         },
@@ -177,12 +188,12 @@ export class GektaWorkspaceService {
       title: string;
       locale: string;
       createdAt?: string;
-      messages: readonly { role: 'user' | 'assistant'; body: string; createdAt?: string }[];
+      messages: readonly { role: GektaMessageRole; body: string; createdAt?: string }[];
     }[],
     now: Date = new Date(),
   ) {
     const imported: string[] = [];
-    for (const incoming of conversations.slice(0, 60)) {
+    for (const incoming of conversations.slice(0, GEKTA_IMPORT_MAX_CONVERSATIONS)) {
       const title = clean(incoming.title, MAX_TITLE);
       if (!title) continue;
 
@@ -199,9 +210,9 @@ export class GektaWorkspaceService {
           importedAt: now,
           createdAt: incoming.createdAt ? new Date(incoming.createdAt) : now,
           messages: {
-            create: incoming.messages.slice(0, 80).map((message) => ({
+            create: incoming.messages.slice(0, GEKTA_IMPORT_MAX_MESSAGES).map((message) => ({
               role: message.role,
-              body: message.body.slice(0, 12_000),
+              body: message.body.slice(0, GEKTA_MESSAGE_BODY_MAX),
               createdAt: message.createdAt ? new Date(message.createdAt) : now,
             })),
           },
