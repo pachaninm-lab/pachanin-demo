@@ -34,6 +34,10 @@
   ],
   "excludedAfterSourceAudit": [
     {
+      "path": "apps/api/prisma/schema.prisma",
+      "reason": "W2-D stores its authority in a dedicated trade_trust PostgreSQL schema and uses the established raw-SQL/RLS transaction boundary. No new public Prisma model is required, so the canonical public datamodel remains unchanged."
+    },
+    {
       "path": "apps/api/src/modules/auctions/auction-authority.service.ts",
       "reason": "W2-D first acceptance is an independent trust authority. Auction already exposes DECLARED/PUBLIC_ALLOWED from W2-B; consumer projection belongs to a later integration slice and must not widen this foundation."
     },
@@ -61,6 +65,7 @@
     "Verification is fact-level, not one global verified boolean. The canonical dimensions are EXISTENCE, QUANTITY, QUALITY, LOCATION, CUSTODY, OWNERSHIP_OR_DISPOSAL_RIGHT, ENCUMBRANCE, FGIS_STATUS, DOCUMENT_STATUS and REGULATORY_STATUS.",
     "VerificationStatus supports exactly the specification vocabulary DECLARED, DOCUMENTS_PROVIDED, PARTIALLY_VERIFIED, VERIFIED, STALE, UNDER_REVIEW and CONFLICT_DETECTED; transitions are server-derived from durable evidence and versioned policy, never caller-declared authority.",
     "TradePermission, VerificationStatus, RegulatoryStatus, SettlementEligibility, ServiceEligibility and RiskLevel are persisted/evaluated as independent axes. DECLARED + PUBLIC_ALLOWED remains valid unless a separately evidenced mandatory legal/regulatory blocker applies.",
+    "All W2-D authority tables/functions live in a dedicated trade_trust schema with ENABLE + FORCE RLS or an equivalently confined memberless command owner; application repositories use raw SQL through RlsTransactionService. No public Prisma model or writable session claim becomes trust authority.",
     "Manual, ERP or document-assisted claims never create independent verification, custody, ownership/disposal right, FGIS success or regulatory compliance by label alone.",
     "TradeRiskAcknowledgement is append-only and immutable. Each accepted record retains dealId, lotId, organizationId, userId, riskCode, riskDisclosureVersion, evidenceSnapshotVersion, warningShownAt and acceptedAt, plus the critical stage needed to prove repeated warnings.",
     "Warnings can be required again at later critical stages; an earlier acknowledgement cannot silently satisfy a newer disclosure version, newer evidence snapshot, changed risk code or later mandatory stage.",
@@ -73,6 +78,7 @@
   ],
   "acceptance": [
     "Restricted PostgreSQL tests prove the ten fact dimensions, all seven verification statuses, independent axes and DECLARED + PUBLIC_ALLOWED without a fabricated verified timestamp or external success claim.",
+    "Dedicated-schema confinement is proven: no runtime role owns the trust tables/functions, PUBLIC cannot mutate them, FORCE RLS/current identity checks apply, and no public Prisma schema drift is introduced.",
     "Same-tenant outsiders and cross-tenant callers cannot read or mutate private trust snapshots or acknowledgements; current membership/user/organization revocation is rechecked before command and replay.",
     "Exact replay returns the original immutable receipt; changed disclosure version, evidence snapshot, stage, risk code or payload under the same idempotency key is rejected.",
     "A stale/conflicting evidence update changes only the affected fact and derived axes according to a pinned policy version; it does not erase prior snapshots or acknowledgements.",
