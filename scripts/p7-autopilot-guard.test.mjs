@@ -193,6 +193,14 @@ test(`${implementationBranch}: fails closed without immutable base authority`, (
 });
 }
 
+test('records immutable prior authority for the EGRUL governance manifest only', () => {
+  const state = JSON.parse(fs.readFileSync(path.resolve('docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
+  assert.deepEqual(
+    state.approvedConcurrentScopes['governance/role-eligibility-fns-egrul-file-import-5016'],
+    ['docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json'],
+  );
+});
+
 test('runs immutable authority checks from a read-only trusted-base workflow', () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   for (const marker of [
@@ -209,6 +217,8 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "const manifestPath = 'docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json';",
     "'apps/api/src/fns-egrul-import.ts'",
     "'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts'",
+    "'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts'",
+    "'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.spec.ts'",
     "'docs/security/cryptographic-inventory.json'",
     'run: node docs/platform-v7/crop-platform/post-registration/verify-w0.mjs',
     'HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}',
