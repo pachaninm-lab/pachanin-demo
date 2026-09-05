@@ -2,12 +2,12 @@
   "schemaVersion": "pc-crop.post-registration.gap-map.v1",
   "issue": 4997,
   "observedAt": "2026-09-05",
-  "exactMainBaseline": "824a073cad569532c2be21603a143e679508a301",
+  "exactMainBaseline": "3928fa44d7145879e3739eff7df954592ad3012f",
   "auditLineage": {
     "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
-    "deltaReviewedToExactMain": "824a073cad569532c2be21603a143e679508a301",
+    "deltaReviewedToExactMain": "3928fa44d7145879e3739eff7df954592ad3012f",
     "postRegistrationFindingsChanged": true,
-    "previousObservedMainSha": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
+    "previousObservedMainSha": "824a073cad569532c2be21603a143e679508a301",
     "w0Delta": {
       "deltaCommits": [
         "db2b0d61ac6206e3b1fc25d54692a7747dbf7365",
@@ -22,7 +22,7 @@
       5019,
       5026
     ],
-    "reviewedW2PullRequests": [5029],
+    "reviewedW2PullRequests": [5029, 5040],
     "governancePullRequest": 5021
   },
   "specification": {
@@ -145,15 +145,9 @@
     },
     {
       "id": "CFG-05",
-      "sections": [
-        22,
-        48
-      ],
+      "sections": [22, 48],
       "area": "Service marketplace and provider onboarding",
-      "classification": [
-        "KEEP",
-        "EXTEND_EXISTING"
-      ],
+      "classification": ["KEEP", "EXTEND_EXISTING"],
       "severity": "P1",
       "evidence": [
         "apps/api/src/modules/service-marketplace/service-marketplace.repository.ts",
@@ -167,39 +161,37 @@
     },
     {
       "id": "MKT-01",
-      "sections": [
-        7,
-        8
-      ],
+      "sections": [7, 8],
       "area": "Physical inventory, genealogy and reservation",
-      "classification": [
-        "KEEP",
-        "EXTEND_EXISTING"
-      ],
+      "classification": ["KEEP", "EXTEND_EXISTING"],
       "severity": "P0",
       "evidence": [
         "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+        "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
         "apps/api/src/modules/inventory/inventory.repository.ts",
-        "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts"
+        "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+        "apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts"
       ],
-      "finding": "W2-A merged in #5029: six FORCE-RLS tables, memberless command owner, pinned exact quantities, DECLARE/RESERVE/RELEASE, durable receipts and availability snapshots. Restricted READ COMMITTED races across two known lots, revoked membership, direct-write denial, evidence rollback and restore passed 15/15. Existing market writers still do not require this inventory authority.",
-      "requiredDelta": "Bind the existing Auction registration and later Offer/Deal writers to canonical inventory; add full lifecycle, genealogy, independent custody/title/restriction facts and user-facing trust/acknowledgement flows before terminal acceptance.",
-      "w0Finding": "InventoryPosition, Batch, genealogy, custody, title, restriction, reservation and availability authority do not exist. Auction exclusivity cannot prevent two lots from selling the same physical grain.",
-      "updatedBy": "W1-E/W2-A bounded acceptance reconciliation"
+      "finding": "W2-A/#5029 established canonical FORCE-RLS Inventory positions, exact quantity buckets, DECLARE/RESERVE/RELEASE, immutable receipts/snapshots and READ COMMITTED contention. W2-B/#5040 now makes every new Auction registration atomically reserve that canonical stock and persist an immutable lot-to-position/reservation/profile/quantity binding; old verified registration is denied and the bound reservation is protected from legacy release/reuse.",
+      "requiredDelta": "Make the existing canonical Deal allocate the exact winning quantity from the bound reservation and conserve partial remainder; later bind RFQ/Offer writers, then add complete lifecycle, genealogy, custody/title/restrictions and user-facing acceptance before terminal credit.",
+      "w0Finding": "InventoryPosition, Batch, genealogy, custody, title, restriction, reservation and availability authority did not exist; Auction exclusivity alone could not protect the same physical grain across lots.",
+      "updatedBy": "W2-B bounded acceptance reconciliation"
     },
     {
       "id": "MKT-02",
       "sections": [9, 10, 11],
       "area": "Progressive trust and trade permission",
-      "classification": ["NEW_REQUIRED", "REMOVE_OR_SUPERSEDE"],
+      "classification": ["KEEP", "EXTEND_EXISTING", "NEW_REQUIRED", "REMOVE_OR_SUPERSEDE"],
       "severity": "P0",
       "evidence": [
-        "apps/api/src/modules/auctions/auction-command.service.ts",
-        "apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql",
+        "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
+        "apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts",
         "packages/domain-core/src/source-of-truth.ts"
       ],
-      "finding": "Trust is binary or opaque. Client-supplied MANUAL_VERIFIED, ERP and OTHER sources are immediately stamped verified and admitted; DECLARED plus PUBLIC_ALLOWED is unavailable and no immutable risk acknowledgement exists.",
-      "requiredDelta": "Separate fact-level confidence, freshness, conflict, trade permission and regulatory/service eligibility; persist disclosure and acceptance evidence."
+      "finding": "W2-B removes the false verified-source assumption from the new Auction registration edge: the inventory-bound lot remains DECLARED, can be PUBLIC_ALLOWED, keeps source_verified_at null and does not fabricate independent verification. Complete fact-level trust axes, evidence freshness/conflicts and immutable TradeRiskAcknowledgement are still absent.",
+      "requiredDelta": "Extend the accepted separation into canonical Deal and later Offer/RFQ paths; persist EXISTENCE/QUANTITY/QUALITY/LOCATION/CUSTODY/OWNERSHIP/REGULATORY facts with provenance/freshness/conflict state and immutable disclosure/acceptance evidence.",
+      "w0Finding": "Trust was binary or opaque and caller source labels could be stamped verified; DECLARED plus PUBLIC_ALLOWED and immutable risk acknowledgement were unavailable.",
+      "updatedBy": "W2-B bounded acceptance reconciliation"
     },
     {
       "id": "MKT-03",
@@ -213,8 +205,8 @@
         "apps/api/src/modules/search/search.service.ts",
         "apps/api/src/modules/deals/dto/create-deal.dto.ts"
       ],
-      "finding": "The PostgreSQL auction supply path is strong. DemandRequest, RFQ, OfferVersion, CounterOffer, Negotiation, MatchCandidate and DealDraft are absent; search projects only tombstoned legacy lots. Deal creation accepts only an auction basis.",
-      "requiredDelta": "Keep auction and canonical Deal; add two-sided market aggregates and generic immutable DealBasis adapters."
+      "finding": "The PostgreSQL auction supply path is strong and new Auction lots are now inventory-bound. DemandRequest, RFQ, OfferVersion, CounterOffer, Negotiation, MatchCandidate and DealDraft are absent; search projects only tombstoned legacy lots. Deal creation still accepts only an auction basis.",
+      "requiredDelta": "Keep Auction and canonical Deal; add two-sided market aggregates and generic immutable DealBasis adapters after the current Auction-to-Deal inventory allocation boundary is closed."
     },
     {
       "id": "MKT-04",
@@ -252,10 +244,12 @@
       "evidence": [
         "apps/api/src/modules/deals/deals.module.ts",
         "apps/api/src/modules/deals/prisma-deal.repository.ts",
-        "apps/api/prisma/migrations/20260712193000_postgresql_deal_authority/migration.sql"
+        "apps/api/prisma/migrations/20260712193000_postgresql_deal_authority/migration.sql",
+        "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql"
       ],
-      "finding": "Deal, participants, events, passport, RLS and atomic audit/outbox are reusable. Creation is auction-only and an auction-originated Deal restarts at DRAFT, repeating completed auction stages.",
-      "requiredDelta": "Add origin/basis adapters and accepted immutable terms to the same Deal; correct the lifecycle without DealV2."
+      "finding": "Deal, participants, events, passport, RLS and atomic audit/outbox are reusable. PrismaDealRepository consumes the confirmed Auction DEAL_BASIS_READY event, but it does not yet allocate the winning quantity against the immutable Auction inventory binding; creation remains Auction-only and starts the Deal at DRAFT.",
+      "requiredDelta": "Reuse the same PrismaDealRepository and Auction award in one atomic W2-C transaction that persists exact stock allocation and award binding without changing the canonical commercial basis/saga shape; then add other origin/basis adapters and correct lifecycle semantics without DealV2.",
+      "updatedBy": "W2-B bounded acceptance reconciliation"
     },
     {
       "id": "LEGAL-01",
@@ -450,9 +444,7 @@
       "area": "Platform treasury",
       "classification": ["NEW_REQUIRED"],
       "severity": "P1",
-      "evidence": [
-        "apps/api/prisma/schema.prisma"
-      ],
+      "evidence": ["apps/api/prisma/schema.prisma"],
       "finding": "Bank account registry, platform receivable/payable, revenue recognition, partner accrual, payment authority matrix and 13-week forecast are absent.",
       "requiredDelta": "Build treasury as a separate accounting projection over canonical obligations and receipts, not as another wallet ledger."
     },

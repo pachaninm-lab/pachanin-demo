@@ -1,15 +1,9 @@
 {
   "schemaVersion": "pc-crop.post-registration.bounded-slice-plan.v1",
   "issue": 4997,
-  "slice": "W2-A",
-  "status": "FOUNDATION_MERGED_CONTINUATION_REQUIRED",
-  "specificationSections": [
-    7,
-    8,
-    9,
-    10,
-    11
-  ],
+  "slice": "W2-A/W2-B",
+  "status": "INVENTORY_FOUNDATION_AND_AUCTION_BINDING_MERGED_DEAL_ALLOCATION_NEXT",
+  "specificationSections": [7, 8, 9, 10, 11, 13, 14],
   "criteria": [
     "INVENTORY=PASS",
     "DOUBLE_SELL_PROTECTION=PASS",
@@ -17,56 +11,57 @@
     "UNVERIFIED_TRADING=PASS"
   ],
   "terminalCredit": 0,
-  "observedMainSha": "824a073cad569532c2be21603a143e679508a301",
+  "observedMainSha": "3928fa44d7145879e3739eff7df954592ad3012f",
   "confirmedFindings": [
     {
-      "evidence": "apps/api/prisma/migrations/20260713210000_auction_postgresql_authority/migration.sql",
-      "finding": "Auction quantity belongs to each lot; bid volume cannot exceed that lot's volume. There is no shared physical inventory identity or reservation across different lots. Reuse the auction and canonical Deal authorities."
+      "evidence": "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+      "finding": "W2-A established canonical Batch/InventoryPosition identities, exact integer quantities, immutable availability snapshots and PostgreSQL RESERVE/RELEASE under a memberless command owner."
     },
     {
-      "evidence": "apps/api/prisma/migrations/20260715013000_auction_atomic_execution/migration.sql",
-      "finding": "auction.register_verified_lot stamps source_verified_at and ADMITTED from the supplied source label/reference. Per-lot atomic award is reusable but does not prove physical stock or protect the same stock offered in multiple lots."
+      "evidence": "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
+      "finding": "W2-B requires every new Auction lot to bind one canonical Inventory reservation atomically. The bound lot is DECLARED and PUBLIC_ALLOWED with source_verified_at kept null; the legacy verified-lot command is denied."
     },
     {
-      "evidence": "apps/api/src/modules/auctions/auction-fgis-self-verification.spec.ts",
-      "finding": "FGIS self-verification is quarantined. ERP, MANUAL_VERIFIED and OTHER still reach the existing SQL command. The replacement must support DECLARED plus PUBLIC_ALLOWED while reserving independent verification for authoritative evidence."
+      "evidence": "apps/api/src/modules/deals/prisma-deal.repository.ts",
+      "finding": "The existing canonical Deal repository consumes one confirmed auction DEAL_BASIS_READY event and atomically creates Deal, participants, event, audit and outbox receipt, but it does not yet consume or normalize the Auction inventory binding."
     },
     {
-      "evidence": "packages/domain-core/src/commodity-profile.ts",
-      "finding": "Versioned commodity profiles already provide unit dimensions, decimal precision and exact conversion ratios. Inventory must pin and reuse these profiles; it must not invent float quantities or a second commodity authority."
+      "evidence": "apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql",
+      "finding": "Auction close derives the exact winning bid and emits the canonical Deal basis. That basis currently carries commercial terms only; inventory allocation must be server-derived from the already-bound lot rather than added as browser input."
     }
   ],
-  "implementationOrder": [
+  "implementedBoundaries": [
     {
-      "step": "Canonical quantity and physical stock authority",
-      "result": "Add tenant/organization-scoped Batch and InventoryPosition identities with pinned commodity-profile versions and exact quantities. Model custody, title/disposal evidence and restrictions as separate facts. A declaration never creates independent evidence."
+      "id": "W2-A",
+      "result": "Canonical inventory position/reservation authority, exact quantities, concurrent capacity protection, durable receipts/snapshots/audit/outbox and restricted-principal restore acceptance.",
+      "pr": 5029,
+      "mergeSha": "824a073cad569532c2be21603a143e679508a301",
+      "terminalCredit": 0
     },
     {
-      "step": "Versioned availability policy",
-      "result": "Persist separate declared, confirmed, available, reserved, committed, shipped, accepted, blocked, disputed and sold quantities. Specify exclusive stock buckets versus cumulative lifecycle counters so the formula does not subtract the same volume twice. Persist the policy version and source-state version in every availability snapshot."
-    },
-    {
-      "step": "PostgreSQL reservation commands",
-      "result": "Reserve and release against the canonical physical inventory identity under database locks and server-resolved authority. Link real lot/Deal references where required. Require CAS, payload-bound replay and atomic event/audit/outbox. Restricted application roles must not bypass quantity checks through direct DML."
-    },
-    {
-      "step": "Progressive trust and auction consumption",
-      "result": "Replace the legacy verified-source assumption with independent verification, trade permission and regulatory/settlement eligibility. Permit declared public offers unless an actual mandatory blocker applies; legal/financial progression requires its own facts and immutable risk acknowledgements. Reuse the existing Auction and Deal engine."
+      "id": "W2-B",
+      "result": "Existing Auction registration consumes canonical Inventory reservation atomically; exact commodity/profile/quantity binding is immutable; DECLARED + PUBLIC_ALLOWED is separated from independent verification; bound reservations cannot be released/reused through the old lifecycle.",
+      "pr": 5040,
+      "mergeSha": "3928fa44d7145879e3739eff7df954592ad3012f",
+      "verifiedHead": "48000fde05c6a986d004e0597519c12dabd1ccc7",
+      "acceptance": {
+        "api": "74/74 PASS",
+        "auctionExisting": "2/2 PASS",
+        "restrictedPostgresqlHttp": "17/17 PASS",
+        "restoreOwnerAcl": "1/1 PASS",
+        "migrations": "199/199 applied, zero public schema drift",
+        "industrial": "96 tests PASS with expected conditional skips; all 17 new Auction tests executed",
+        "workflows": "29 success + 1 maintenance skip; exact-head review clean"
+      },
+      "terminalCredit": 0
     }
-  ],
-  "firstAcceptanceBoundary": [
-    "Two transactions on different lots sharing one inventory position cannot reserve more than policy permits; the database must enforce this at READ COMMITTED as well as through the API transaction wrapper.",
-    "Cross-tenant and same-tenant cross-organization reads and commands are denied under restricted principals.",
-    "Repeated reserve/release commands replay once; altered payloads and stale versions are rejected.",
-    "An event, audit or outbox failure rolls back the reservation and all quantity changes; no acknowledged command may be absent after commit.",
-    "Manual or imported declarations do not manufacture confirmed quantity, ownership, custody or verified source evidence.",
-    "Pinned quantity units and policy versions survive replay, backup/restore and concurrent changes without float arithmetic.",
-    "The known-identity reservation proof must not be described as detecting every duplicate manual declaration of unknown physical stock."
   ],
   "remainingTerminalBoundary": [
-    "Batch genealogy, custody/title restrictions, all quantity lifecycle transitions and evidence freshness/conflict handling.",
-    "Canonical inventory consumption by every relevant Lot/Offer/Deal writer; per-lot protection alone receives no terminal credit.",
-    "User-facing declaration, warning and acknowledgement flows and REG.RU runtime acceptance."
+    "Canonical winning-quantity allocation by Deal creation; partial winning quantity must conserve the unallocated reservation remainder.",
+    "RFQ/Offer/Negotiation inventory consumption and multi-origin market authority.",
+    "Committed/shipped/accepted/sold lifecycle, genealogy, custody/title/restrictions and independent evidence freshness/conflict handling.",
+    "Immutable TradeRiskAcknowledgement and complete fact-level progressive trust axes.",
+    "User-facing inventory/market/Deal warnings and REG.RU runtime acceptance."
   ],
   "invariants": {
     "registrationChanges": 0,
@@ -76,47 +71,32 @@
     "productionHosting": "REG_RU_VPS_ONLY",
     "newMandatoryRecurringCostRub": 0
   },
-  "sourceAuditSha": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
-  "sourceAnchorDelta": "W2-A inventory authority and W1-E service integration are merged and accepted in isolated CI. Existing Auction registration still calls auction.register_verified_lot without an inventory binding; FGIS quarantine remains. Historical source findings outside this bounded delta are retained.",
-  "foundationAcceptance": {
-    "pr": 5029,
-    "mergeSha": "824a073cad569532c2be21603a143e679508a301",
-    "verifiedHead": "77eea15dfe3c227d4202b7fdff60ec79faae5c84",
-    "postgresql": {
-      "passed": 15,
-      "total": 15
-    },
-    "api": {
-      "passed": 22,
-      "total": 22
-    },
-    "restoreAuthority": "INVENTORY_RESTORE_AUTHORITY_PASS",
-    "fullExactHeadCi": "PASS",
-    "terminalCredit": 0
-  },
+  "sourceAuditSha": "3928fa44d7145879e3739eff7df954592ad3012f",
+  "sourceAnchorDelta": "W2-B is merged and accepted in #5040. New Auction lots are inventory-bound and declared-public without fabricated verification. The remaining immediate gap is the existing canonical Deal creation edge: PrismaDealRepository validates Auction basis but does not yet allocate the winning quantity against the immutable inventory binding.",
   "nextContinuation": {
-    "id": "W2-B",
-    "name": "Inventory-bound declared auction lots through the existing Auction authority",
-    "sourceAudit": "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
-    "status": "BOUNDED_SOURCE_REVIEW_COMPLETE_IMPLEMENTATION_SCOPE_PENDING",
+    "id": "W2-C",
+    "name": "Canonical Deal inventory allocation from the existing Auction award",
+    "governancePr": 5055,
+    "implementationBranch": "feat/pc-crop-deal-inventory-allocation-4997",
+    "status": "FINITE_SCOPE_PR_OPEN_IMPLEMENTATION_BLOCKED_UNTIL_IMMUTABLE_BASE_APPROVAL",
     "registrationCodeChanged": false,
     "registrationBehaviorChanged": false,
     "roleEligibilityEnforcementChanged": false,
     "newRecurringCostRub": 0,
     "acceptance": [
-      "One existing Auction registration command creates a lot and binds a canonical inventory reservation atomically; no independent Lot/Deal engine.",
-      "Browser source labels never create independent verification. DECLARED supply can be PUBLIC_ALLOWED while FGIS self-verification stays quarantined.",
-      "Lot quantity is derived exactly from the pinned inventory commodity profile; no inconsistent culture/profile or quantity binding is accepted.",
-      "Cross-lot contention, same-tenant outsiders, revoked membership, stale versions, replay and missing audit/outbox roll back under restricted PostgreSQL principals.",
-      "Legacy registration SQL cannot bypass the inventory binding once the new command is active; existing lots require an explicit compatibility rule, not a fabricated backfill.",
-      "Bid/award/Deal consumption, complete trust/risk-acknowledgement UI and REG.RU runtime remain separately accepted continuation boundaries."
+      "One existing PrismaDealRepository transaction creates the canonical Deal and one exact inventory allocation linked to the same lot binding, winning bid and award; no parallel Deal or stock engine.",
+      "Winning quantity is server-derived from the awarded bid and pinned Inventory profile/unit identity. Client stock/verification fields are not accepted as authority.",
+      "Partial winning quantity allocates only the winner's exact quantity and conserves the unallocated remainder without falsely committing, shipping, accepting or selling it.",
+      "Revoked seller/buyer authority cannot obtain a replayed success. Missing allocation, audit, outbox, award or actor evidence rolls back the Deal creation completely.",
+      "Runtime/seed/SET ROLE/legacy definer paths cannot insert an application Deal without the required inventory allocation; historical privileged migration fixtures remain explicitly isolated.",
+      "RLS overlay, one-deal reset and DR restore preserve the bound-reservation guard and stock conservation."
     ],
     "existingAuthorities": [
-      "apps/api/src/modules/auctions/auction-command.service.ts",
-      "apps/api/src/modules/auctions/auction-authority.service.ts",
+      "apps/api/src/modules/deals/prisma-deal.repository.ts",
       "apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql",
-      "apps/api/src/modules/inventory/inventory.repository.ts"
+      "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
+      "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts"
     ],
-    "scopeRule": "This plan grants no implementation paths. Merge a finite independent source-controlled approval before new migration or Auction API changes."
+    "scopeRule": "#5055 records a finite future implementation list only. Do not create the implementation branch until independent acceptance is promoted into immutable base-state approvedConcurrentScopes."
   }
 }
