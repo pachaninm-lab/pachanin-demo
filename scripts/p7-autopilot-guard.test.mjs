@@ -8,6 +8,7 @@ import test from 'node:test';
 const implementationBranches = [
   'fix/p0-registration-authority-rollover-4637',
   'fix/p0-owner-control-plane-audit-lock-4698',
+  'feat/pc-crop-auction-inventory-authority-4997',
   'docs/pc-crop-post-registration-progress-4997',
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
@@ -201,6 +202,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     'name: FNS EGRUL immutable scope · trusted base',
     "github.event.pull_request.head.ref == 'fix/p0-registration-authority-rollover-4637'",
     "github.event.pull_request.head.ref == 'fix/p0-owner-control-plane-audit-lock-4698'",
+    "github.event.pull_request.head.ref == 'feat/pc-crop-auction-inventory-authority-4997'",
     "github.event.pull_request.head.ref == 'docs/pc-crop-post-registration-progress-4997'",
     "github.event.pull_request.head.ref == 'governance/role-eligibility-fns-egrul-file-import-5016'",
     "github.event.pull_request.head.ref == 'feat/role-eligibility-fns-egrul-file-import-5016'",
@@ -265,4 +267,38 @@ test('governance branches retain unprivileged head regression validation', () =>
     assert.doesNotMatch(section, /github\.head_ref != 'governance\//u);
   }
   assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
+});
+
+test('Auction inventory uses trusted scope routing while retaining substantive head validation', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const branch = 'feat/pc-crop-auction-inventory-authority-4997';
+  const section = (start, end) => {
+    const first = workflow.indexOf(start);
+    const last = workflow.indexOf(end, first + start.length);
+    assert.ok(first >= 0 && last > first, `missing workflow section: ${start}`);
+    return workflow.slice(first, last);
+  };
+  const trusted = section('  trusted-immutable-scope:', '  guard:');
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`));
+  assert.ok(trusted.includes(`|${branch}|`));
+  assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
+  assert.ok(trusted.includes('test "$(git rev-parse HEAD)" = "$BASE_SHA"'));
+  assert.ok(trusted.includes('bash scripts/p7-autopilot-guard.sh'));
+  assert.doesNotMatch(trusted, /git\s+(?:checkout|switch)\s+.*HEAD_SHA|ref:\s*\$\{\{\s*github\.event\.pull_request\.head/u);
+  const guard = section('  guard:', '      - name: Require standard validations in the required guard context');
+  assert.ok(guard.includes(`github.head_ref == '${branch}'`));
+  assert.ok(guard.includes("'PC-CROP immutable scope · PR-head defense' || 'guard'"));
+  assert.ok(guard.includes('permissions:\n      contents: read'));
+  const defense = section('      - name: Validate immutable scope with trusted base guard on PR head', '      - name: Validate post-registration DoD register');
+  assert.ok(defense.includes(`github.head_ref == '${branch}'`));
+  assert.ok(defense.includes(`|${branch}|`));
+  assert.ok(defense.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"'));
+  const standardScope = section('      - name: Validate standard branch scope on PR head', '  standard_validation:');
+  assert.ok(standardScope.includes(`github.head_ref != '${branch}'`));
+  for (const [start, end] of [
+    ['      - name: Require standard validations in the required guard context', '      - name: Validate immutable scope with trusted base guard on PR head'],
+    ['  standard_validation:', '    runs-on: ubuntu-latest'],
+  ]) {
+    assert.ok(!section(start, end).includes(`github.head_ref != '${branch}'`), 'Auction must retain substantive head validations');
+  }
 });
