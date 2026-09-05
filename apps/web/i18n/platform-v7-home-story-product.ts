@@ -219,7 +219,12 @@ export function getPlatformV7HomeStoryCopy(locale: string) {
       fullPathText: local.fullPathText,
       stagesLabel: local.stagesLabel,
     },
-    demo: { ...copy.demo, title: local.demoTitle, lead: local.demoLead },
+    demo: {
+      ...copy.demo,
+      title: local.demoTitle,
+      lead: local.demoLead,
+      stages: local.processPhases.map((phase) => phase.title),
+    },
     roles: {
       ...copy.roles,
       title: local.rolesTitle,
