@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "issue": 4997,
   "branch": "feat/pc-crop-progressive-trust-authority-4997",
-  "status": "active",
+  "status": "proposed",
   "purpose": "W2-D foundation: implement fact-level progressive trust, separate trade permission from verification, and append immutable TradeRiskAcknowledgement evidence without creating a parallel Deal, Inventory or compliance engine.",
   "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
   "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
