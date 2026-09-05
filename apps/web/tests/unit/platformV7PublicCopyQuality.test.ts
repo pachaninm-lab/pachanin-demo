@@ -78,6 +78,24 @@ describe('platform-v7 public copy quality', () => {
     }
   });
 
+  it('keeps About and Contact chrome source-owned and registration-first', () => {
+    const about = read('apps/web/app/platform-v7/about/page.tsx');
+    const contact = read('apps/web/app/platform-v7/contact/ContactClient.tsx');
+    const contactHeader = read('apps/web/components/platform-v7/ContactFixedHeader.tsx');
+
+    expect(about).toContain('PublicSiteHeader');
+    expect(about).toContain('p7-about-register');
+    expect(about).toContain('/platform-v7/register');
+    expect(about).not.toContain("content:'↪'");
+    expect(about).not.toContain('font-size:0');
+
+    expect(contact).not.toContain("className='p7-contact-header'");
+    expect(contact).toContain("action='/api/platform-v7/inquiries'");
+    expect(contact).toContain('Отправка обращения не открывает сделки, документы и закрытые разделы платформы.');
+    expect(contactHeader).toContain('p7-contact-register');
+    expect(contactHeader).toContain('/platform-v7/register?lang=');
+  });
+
   it('allows legacy AI release markers only as hidden compatibility metadata', () => {
     expect(aiExperience).toContain("<span hidden aria-hidden='true' data-release-compat='ai-passport'>TAI — доказательный уровень исполнения сделки · NOT_ATTESTED · TAI готовит — человек подтверждает — адаптер исполняет</span>");
     expect(aiExperience).not.toContain("status: 'NOT_ATTESTED'");
