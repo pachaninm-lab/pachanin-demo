@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-market-economics-authority-4997",
+  "status": "active",
+  "purpose": "W2-F foundation: add source-backed, versioned seller netback and buyer landed-cost authority using exact Money/measures and accepted Commercial Rules, without mutating Settlement or creating live-money claims.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [16],
+  "terminalCriteria": [
+    "NETBACK=PASS",
+    "LANDED_COST=PASS"
+  ],
+  "allowedPaths": [
+    "packages/domain-core/src/market-economics.ts",
+    "packages/domain-core/src/market-economics.test.ts",
+    "apps/api/prisma/migrations/20260905230000_market_economics_authority/migration.sql",
+    "apps/api/src/modules/market-economics/market-economics.contract.ts",
+    "apps/api/src/modules/market-economics/market-economics.contract.spec.ts",
+    "apps/api/src/modules/market-economics/market-economics.repository.ts",
+    "apps/api/src/modules/market-economics/market-economics.repository.spec.ts",
+    "apps/api/src/modules/market-economics/market-economics.policy.ts",
+    "apps/api/src/modules/market-economics/market-economics.policy.spec.ts",
+    "apps/api/test/industrial/market-economics-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-market-economics-scope.test.mjs",
+    ".github/workflows/pc-crop-market-economics.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {
+      "path": "apps/api/src/modules/settlement-engine/settlement-calculation.ts",
+      "reason": "The existing calculator is explicitly not live-money authority. W2-F builds a new source-backed read/projection authority first instead of mutating Settlement semantics."
+    },
+    {
+      "path": "apps/api/src/app.module.ts",
+      "reason": "The first slice is an unmounted authority foundation so it can proceed in parallel; API exposure is a later consumer slice."
+    },
+    {
+      "path": "apps/api/src/modules/commercial-rules/commercial-rules.repository.ts",
+      "reason": "Accepted CommercialRuleSet/RulePack/Decision authority is reused read-only and must not be broadened by this slice."
+    },
+    {
+      "path": "apps/api/src/modules/deals/prisma-deal.repository.ts",
+      "reason": "Deal facts are later input consumers after W2-C; this foundation accepts explicit server-side source snapshots in isolated authority tests and does not mutate Deal."
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "reason": "Global CI remains an independent gate."
+    },
+    {
+      "path": "scripts/platform-v7-forward-only-migration-check.mjs",
+      "reason": "The generic migration checker discovers additive migrations dynamically and remains unchanged."
+    }
+  ],
+  "sourceEvidence": [
+    "packages/domain-core/src/money.ts",
+    "packages/domain-core/src/measures.ts",
+    "apps/api/src/modules/settlement-engine/settlement-calculation.ts",
+    "packages/domain-core/src/commercial-rules.ts",
+    "apps/api/src/modules/commercial-rules/commercial-rules.repository.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "All monetary inputs and outputs use integer minor units / exact Money types; no Float, binary floating arithmetic or caller-formatted totals become authority.",
+    "All quantities use pinned measure/unit rules. Unit conversions and rounding policies are versioned and reproducible.",
+    "Seller netback and buyer landed cost are separate projections over one immutable commercial basis; neither projection mutates Deal, Settlement, ledger, payment or invoice state.",
+    "Every projection stores the exact source snapshot identifiers and versions for price/quantity, logistics cost, service cost, commercial rules, tax/fee assumptions and any other included component.",
+    "A projection with missing mandatory facts returns MISSING_FACTS/NOT_READY rather than inserting defaults that look authoritative.",
+    "Unversioned environment defaults, browser-supplied rates, legacy numeric shapes and hidden fallback fees are rejected from authoritative calculations.",
+    "CommercialRuleSet/RulePack/Decision are consumed read-only and pinned by identity/version/hash; later rule publication never rewrites a historical economics snapshot.",
+    "Every line item is explainable: code, payer perspective, amount, sourceRef, sourceVersion and inclusion rationale are persisted so the total can be recomputed.",
+    "Recalculation creates a new immutable projection version; accepted historical snapshots are never overwritten.",
+    "Current tenant/organization scope is required for write and read authority. Cross-tenant and same-tenant outsider access is denied under FORCE RLS.",
+    "Mutation, audit and outbox evidence commit atomically with payload-bound idempotency and optimistic versioning; missing evidence rolls back the projection receipt.",
+    "Registration, Role Eligibility, Auction/Inventory, Deal allocation, Progressive Trust, Two-Sided Market, Settlement, Federal Accounting lock #4321, packages/lockfiles and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Domain tests prove exact arithmetic, unit conversions, rounding, missing-facts behavior and seller/buyer perspective separation over large values beyond JavaScript safe integer boundaries.",
+    "Restricted PostgreSQL tests prove immutable versioned snapshots, exact replay, changed-payload conflict, CAS/stale rejection, tenant isolation and outsider denial.",
+    "Changing a Commercial Rule version creates a new projection while preserving the prior snapshot and its exact total.",
+    "Missing logistics/service/tax facts are explicit gaps and never silently replaced by zero or environment defaults unless the pinned rule explicitly defines zero.",
+    "Line-item sum equals authoritative total exactly in minor units; source refs/versions are complete for every included component.",
+    "Audit/outbox failure rolls back projection/version/receipt atomically.",
+    "No Settlement/ledger/payment mutation occurs in W2-F foundation and no UI/API claims live payable/receivable money from these projections.",
+    "Forward migrations, zero public-schema drift, backup/restore, cryptographic freshness and exact-head CI/review pass while global independent gates remain unchanged."
+  ],
+  "remainingTerminalBoundary": [
+    "Mounted buyer/seller economics APIs and role UX remain later consumer work.",
+    "Authoritative Deal/Offer/Logistics/Service/Tax input wiring remains after their respective source authorities are accepted.",
+    "Commercial projections do not become financial obligations; SettlementPlan and obligation ledger remain separate W3/W6 work.",
+    "Verified REG.RU runtime and real-user price decision acceptance remain required before terminal NETBACK/LANDED_COST credit."
+  ],
+  "terminalCredit": 0
+}
