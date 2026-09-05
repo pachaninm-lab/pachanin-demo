@@ -145,6 +145,7 @@ describeAuthority('Service Marketplace PostgreSQL authority', () => {
         category: 'LOGISTICS',
         legalRole: 'carrier',
         status: 'ACTIVE',
+        effectiveFrom: new Date(Date.now() - 1_000),
         createdByMembershipId: PROVIDER_MEMBERSHIP,
         updatedByMembershipId: PROVIDER_MEMBERSHIP,
       } });
