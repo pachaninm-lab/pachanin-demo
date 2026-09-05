@@ -2,50 +2,16 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "issue": 4997,
   "branch": "feat/pc-crop-document-engine-authority-4997",
-  "status": "staged",
+  "status": "active",
   "purpose": "W3-B foundation: establish the complete versioned document requirement/type/status matrix around the existing canonical DealDocument authority, without creating DocumentV2 or mutating signed documents.",
   "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
-  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification. This file only stages a future finite scope; no implementation authority exists until a separate governance PR is reviewed, merged and promoted into immutable base-state authority.",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "specificationSections": [18],
-  "terminalCriteria": [
-    "DOCUMENT_ENGINE=PASS"
-  ],
-  "requiredDocumentTypes": [
-    "FRAMEWORK_CONTRACT",
-    "SUPPLY_CONTRACT",
-    "SPECIFICATION",
-    "INVOICE",
-    "UPD",
-    "UKD",
-    "ACT",
-    "SERVICE_CONTRACT",
-    "TRANSPORT_REQUEST",
-    "ETRN",
-    "EPD",
-    "LAB_PROTOCOL",
-    "SURVEY_REPORT",
-    "WAREHOUSE_DOCUMENT",
-    "AGENT_REPORT",
-    "RECONCILIATION_ACT",
-    "CLAIM",
-    "AMENDMENT",
-    "CANCELLATION"
-  ],
-  "requiredStatuses": [
-    "DRAFT",
-    "GENERATED",
-    "REVIEW",
-    "SIGNING",
-    "SIGNED",
-    "SENT",
-    "DELIVERED",
-    "ACCEPTED",
-    "CORRECTED",
-    "CANCELLED",
-    "ARCHIVED"
-  ],
+  "terminalCriteria": ["DOCUMENT_ENGINE=PASS"],
+  "requiredDocumentTypes": ["FRAMEWORK_CONTRACT","SUPPLY_CONTRACT","SPECIFICATION","INVOICE","UPD","UKD","ACT","SERVICE_CONTRACT","TRANSPORT_REQUEST","ETRN","EPD","LAB_PROTOCOL","SURVEY_REPORT","WAREHOUSE_DOCUMENT","AGENT_REPORT","RECONCILIATION_ACT","CLAIM","AMENDMENT","CANCELLATION"],
+  "requiredStatuses": ["DRAFT","GENERATED","REVIEW","SIGNING","SIGNED","SENT","DELIVERED","ACCEPTED","CORRECTED","CANCELLED","ARCHIVED"],
   "allowedPaths": [
     "packages/domain-core/src/document-engine.ts",
     "packages/domain-core/src/document-engine.test.ts",
@@ -63,30 +29,12 @@
     "docs/security/cryptographic-inventory.json"
   ],
   "excludedAfterSourceAudit": [
-    {
-      "path": "apps/api/prisma/schema.prisma",
-      "reason": "Existing DealDocument remains canonical. The first slice stores document registry/lifecycle policy in a dedicated document_engine schema and introduces no second public document model."
-    },
-    {
-      "path": "packages/domain-core/src/index.ts",
-      "reason": "Barrel publication is deferred to consumer wiring to avoid shared-file collisions with concurrent work."
-    },
-    {
-      "path": "apps/api/src/modules/documents/document-matrix.service.ts",
-      "reason": "The current hard-coded 9-type matrix is source evidence, not modified by the foundation. Replacement wiring is a separately accepted consumer slice."
-    },
-    {
-      "path": "apps/api/src/modules/documents/prisma-document.repository.ts",
-      "reason": "Existing canonical document writer/immutability remains unchanged in the registry foundation."
-    },
-    {
-      "path": "apps/api/src/app.module.ts",
-      "reason": "The first registry foundation is unmounted; API/user flow is later work."
-    },
-    {
-      "path": ".github/workflows/ci.yml",
-      "reason": "Global CI remains an independent gate."
-    }
+    {"path":"apps/api/prisma/schema.prisma","reason":"Existing DealDocument remains canonical. The first slice stores document registry/lifecycle policy in a dedicated document_engine schema and introduces no second public document model."},
+    {"path":"packages/domain-core/src/index.ts","reason":"Barrel publication is deferred to consumer wiring to avoid shared-file collisions with concurrent work."},
+    {"path":"apps/api/src/modules/documents/document-matrix.service.ts","reason":"The current hard-coded 9-type matrix is source evidence, not modified by the foundation. Replacement wiring is a separately accepted consumer slice."},
+    {"path":"apps/api/src/modules/documents/prisma-document.repository.ts","reason":"Existing canonical document writer/immutability remains unchanged in the registry foundation."},
+    {"path":"apps/api/src/app.module.ts","reason":"The first registry foundation is unmounted; API/user flow is later work."},
+    {"path":".github/workflows/ci.yml","reason":"Global CI remains an independent gate."}
   ],
   "sourceEvidence": [
     "apps/api/src/modules/documents/document-matrix.service.ts",
