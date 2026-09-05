@@ -90,6 +90,21 @@ ALTER TABLE auction.inventory_bindings OWNER TO pc_inventory_authority;
 
 GRANT INSERT ON auction.lots TO pc_inventory_authority;
 GRANT SELECT ON auction.command_receipts TO pc_inventory_authority;
+-- FOR SHARE also evaluates UPDATE USING policies. Organization administrators
+-- can be FARMERs; the older global-ADMIN write policies do not admit their
+-- locks. These named owner-only policies permit the existing column-granted
+-- row locks and reject every row update through WITH CHECK (false).
+CREATE POLICY auction_inventory_membership_lock ON public.user_orgs FOR UPDATE TO pc_inventory_authority
+USING (id = public.app_pc_crop_membership_id() AND "userId" = public.app_identity_user_id()
+  AND "organizationId" = public.app_identity_org_id() AND status = 'ACTIVE' AND is_org_admin
+  AND role::text = public.app_identity_role()) WITH CHECK (false);
+CREATE POLICY auction_inventory_organization_lock ON public.organizations FOR UPDATE TO pc_inventory_authority
+USING (id = public.app_identity_org_id() AND "tenantId" = public.app_identity_tenant_id()
+  AND status = 'ACTIVE' AND public.app_pc_crop_membership_id() IS NOT NULL) WITH CHECK (false);
+CREATE POLICY auction_inventory_profile_lock ON public.commodity_profile_versions FOR UPDATE TO pc_inventory_authority
+USING (status = 'EFFECTIVE' AND "effectiveFrom" <= clock_timestamp()
+  AND ("effectiveTo" IS NULL OR "effectiveTo" > clock_timestamp())
+  AND public.app_pc_crop_membership_id() IS NOT NULL) WITH CHECK (false);
 CREATE POLICY auction_inventory_lot_insert ON auction.lots FOR INSERT TO pc_inventory_authority
 WITH CHECK (tenant_id = public.app_identity_tenant_id() AND seller_org_id = public.app_identity_org_id()
   AND seller_user_id = public.app_identity_user_id() AND inventory_binding_id IS NOT NULL

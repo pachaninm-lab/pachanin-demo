@@ -93,6 +93,10 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
   });
 
   it('accepts atomic bids, deterministic winner, one close and one canonical Deal', async () => {
+    // Market role and organization administration are independent database axes.
+    // The seller must work as FARMER without a synthetic ADMIN membership.
+    expect(await admin.userOrg.findMany({ where: { userId: SELLER_USER }, select: { role: true, status: true, isOrgAdmin: true } }))
+      .toEqual([{ role: 'FARMER', status: 'ACTIVE', isOrgAdmin: true }]);
     const profileVersionId = await seedStockProfile(admin);
     const stock = await inventory.execute(seller, {
       action: 'DECLARE', commandId: 'auction-atomic:declare', idempotencyKey: 'auction-atomic:declare',
@@ -461,6 +465,7 @@ async function seedActors(admin: PrismaClient): Promise<void> {
         userId: id,
         organizationId,
         role,
+        status: 'ACTIVE',
         isDefault: true,
         isOrgAdmin: true,
       },
