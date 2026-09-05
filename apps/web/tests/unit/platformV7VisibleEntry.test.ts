@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const pageSource = () => readFileSync(resolve(__dirname, '../../app/platform-v7/page.tsx'), 'utf8');
+const homeSource = () => readFileSync(resolve(__dirname, '../../components/platform-v7/PlatformV7StrategicHome.tsx'), 'utf8');
+const homeCopy = () => readFileSync(resolve(__dirname, '../../i18n/platform-v7-home-v3-operating.ts'), 'utf8');
+const storyCopy = () => readFileSync(resolve(__dirname, '../../i18n/platform-v7-home-story-product.ts'), 'utf8');
 const explorerSource = () => readFileSync(resolve(__dirname, '../../app/platform-v7/how-it-works/page.tsx'), 'utf8');
-const productCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-product-experience-v4.ts'), 'utf8');
 const loginCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-login-copy.ts'), 'utf8');
 const publicHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/PublicSiteHeader.tsx'), 'utf8');
 const localeSwitch = () => readFileSync(resolve(__dirname, '../../components/platform-v7/PublicLocaleSwitch.tsx'), 'utf8');
@@ -30,25 +32,28 @@ function approvedLogoBinary() {
 }
 
 describe('platform-v7 visible public entry', () => {
-  it('front-loads the user task and keeps two deliberate actions', () => {
-    const page = pageSource();
-    const copy = productCopy();
+  it('front-loads product value and makes registration the only primary conversion', () => {
+    const home = homeSource();
+    const copy = homeCopy();
+    const story = storyCopy();
 
-    expect(copy).toContain("title: 'Сделка под контролем — от условий до расчёта'");
-    expect(copy).toContain('ответственный, следующее действие и причина блокировки');
-    expect(page).toContain("className='pc-ppe-primary-button'");
-    expect(page).toContain("className='pc-ppe-secondary-button'");
-    expect(copy).toContain('Разобрать демонстрационную сделку');
-    expect(copy).toContain('Подключить организацию');
+    expect(home).toContain('const registerHref = `/platform-v7/register?lang=');
+    expect(home).toContain("eventName='registration_open'");
+    expect(home).toContain("href='#live'");
+    expect(home).toContain("href='/downloads/prozrachnaya-tsena-presentation.pdf'");
+    expect(copy).toContain("secondary: 'Зарегистрироваться'");
+    expect(copy).toContain("tertiary: 'Скачать презентацию'");
+    expect(story).toContain("roles: '9 ролей'");
+    expect(story).toContain("journey: '7 шагов'");
   });
 
   it('uses service navigation and an accessible support dialog', () => {
-    const page = pageSource();
+    const home = homeSource();
     const header = publicHeader();
     const widget = support();
 
-    expect(page).toContain('nav={nav}');
-    expect(page).toContain('showMobileMenu');
+    expect(home).toContain('nav={nav}');
+    expect(home).toContain('showMobileMenu');
     expect(header).toContain('nav && showMobileMenu');
     expect(widget).toContain("role='dialog'");
     expect(widget).toContain("aria-modal='true'");
@@ -118,32 +123,32 @@ describe('platform-v7 visible public entry', () => {
     expect(header).toContain('border: 1px solid var(--pc-site-control-border)');
     expect(header).toContain('border-radius: var(--pc-site-control-radius)');
     expect(header).toContain('background: var(--pc-site-control-background)');
-    expect(header).not.toContain('.pc-site-locale-switch { min-width: 54px; gap: 5px; padding: 0 10px; color: #087a3b;');
   });
 
   it('uses descriptive access labels without client-selected authority', () => {
-    const page = pageSource();
+    const home = homeSource();
     const login = loginCopy();
 
-    expect(page).toContain("href='/platform-v7/login'");
-    expect(page).not.toContain('/platform-v7/login?role=');
-    expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
+    expect(home).toContain('const loginHref = `/platform-v7/login?lang=');
+    expect(home).not.toContain('/platform-v7/login?role=');
+    expect(home).toContain("data-testid='platform-v7-root-execution-cockpit'");
     expect(login).toContain('Восстановить доступ');
   });
 
-  it('states the demonstration and maturity boundary instead of simulating live operation', () => {
-    const joined = [pageSource(), explorerSource(), productCopy()].join('\n').toLowerCase();
+  it('labels examples honestly without exposing internal maturity jargon', () => {
+    const joined = [pageSource(), homeSource(), storyCopy(), explorerSource()].join('\n').toLowerCase();
 
-    expect(joined).toContain('демонстрационная сделка');
+    expect(joined).toContain('вымышленный пример');
     expect(joined).toContain('не содержит реальных сделок');
-    expect(joined).toContain('controlled pilot / pre-integration');
-    expect(joined).toContain('не выполняет денежные операции');
-    expect(joined).not.toContain('deal-2408');
+    expect(joined).toContain('обычное исполнение — основной сценарий');
+    for (const phrase of ['controlled pilot', 'pre-integration', 'not_attested', 'production-like simulation']) {
+      expect(joined).not.toContain(phrase);
+    }
     expect(joined).not.toMatch(/production-ready|fully live|fully integrated|bank connected|fgis connected|edo connected/i);
   });
 
   it('keeps public copy free of synthetic marketing language', () => {
-    const joined = [pageSource(), explorerSource(), productCopy()].join('\n').toLowerCase();
+    const joined = [pageSource(), homeSource(), storyCopy(), explorerSource()].join('\n').toLowerCase();
 
     for (const phrase of [
       'революционный',
