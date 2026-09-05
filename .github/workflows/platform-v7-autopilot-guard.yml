@@ -73,7 +73,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request_target' &&
       (github.event.pull_request.head.ref == 'fix/p0-registration-authority-rollover-4637' ||
-      github.event.pull_request.head.ref == 'fix/p0-owner-control-plane-audit-lock-4698')
+      github.event.pull_request.head.ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.event.pull_request.head.ref == 'docs/pc-crop-post-registration-progress-4997')
     permissions:
       checks: write
       contents: read
@@ -101,7 +101,7 @@ jobs:
               exit 1
             fi
             case "$IMMUTABLE_SCOPE_BRANCH" in
-              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698) ;;
+              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|docs/pc-crop-post-registration-progress-4997) ;;
               *) echo 'Trusted immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
             esac
             if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -156,7 +156,7 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   guard:
-    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
+    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
     needs: standard_validation
     if: always() && github.event_name != 'pull_request_target'
     permissions:
@@ -171,7 +171,7 @@ jobs:
         if: >-
           github.event_name != 'pull_request' ||
           (github.head_ref != 'fix/p0-registration-authority-rollover-4637' &&
-          github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698')
+          github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698' && github.head_ref != 'docs/pc-crop-post-registration-progress-4997')
         env:
           STANDARD_VALIDATION_RESULT: ${{ needs.standard_validation.result }}
         run: |
@@ -183,14 +183,14 @@ jobs:
         if: >-
           github.event_name == 'pull_request' &&
           (github.head_ref == 'fix/p0-registration-authority-rollover-4637' ||
-          github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698')
+          github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           IMMUTABLE_SCOPE_BRANCH: ${{ github.head_ref }}
         run: |
           case "$IMMUTABLE_SCOPE_BRANCH" in
-            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698) ;;
+            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|docs/pc-crop-post-registration-progress-4997) ;;
             *) echo 'PR-head immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
           esac
           if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -204,11 +204,14 @@ jobs:
           chmod 0700 "$TRUSTED_GUARD"
           BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF="$IMMUTABLE_SCOPE_BRANCH" \
             bash "$TRUSTED_GUARD"
+      - name: Validate post-registration DoD register
+        if: github.event_name == 'pull_request' && github.head_ref == 'docs/pc-crop-post-registration-progress-4997'
+        run: node docs/platform-v7/crop-platform/post-registration/verify-w0.mjs
       - name: Validate standard branch scope on PR head
         if: >-
           github.event_name != 'pull_request' ||
           (github.head_ref != 'fix/p0-registration-authority-rollover-4637' &&
-          github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698')
+          github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698' && github.head_ref != 'docs/pc-crop-post-registration-progress-4997')
         run: bash scripts/p7-autopilot-guard.sh
 
   standard_validation:
@@ -217,7 +220,7 @@ jobs:
       github.event_name != 'pull_request_target' &&
       (github.event_name != 'pull_request' ||
       (github.head_ref != 'fix/p0-registration-authority-rollover-4637' &&
-      github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698'))
+      github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698' && github.head_ref != 'docs/pc-crop-post-registration-progress-4997'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

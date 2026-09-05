@@ -6,11 +6,12 @@ HEAD_REF="${HEAD_REF:-HEAD}"
 STATE_FILE="docs/platform-v7/autopilot/autopilot-state.json"
 REGISTRATION_ROLLOVER_BRANCH="fix/p0-registration-authority-rollover-4637"
 OWNER_AUDIT_LOCK_BRANCH="fix/p0-owner-control-plane-audit-lock-4698"
+POST_REGISTRATION_PROGRESS_BRANCH="docs/pc-crop-post-registration-progress-4997"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH") return 0 ;;
+    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -47,7 +48,7 @@ if [ ! -f "$STATE_FILE" ]; then
 fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  # The scope for these production-capable repairs is resolved exclusively
+  # The scope for these protected branches is resolved exclusively
   # from the immutable base commit below, never from the
   # pull request's working tree or the globally active implementation scope.
   ALLOWED_CURRENT=''

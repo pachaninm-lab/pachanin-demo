@@ -8,6 +8,7 @@ import test from 'node:test';
 const implementationBranches = [
   'fix/p0-registration-authority-rollover-4637',
   'fix/p0-owner-control-plane-audit-lock-4698',
+  'docs/pc-crop-post-registration-progress-4997',
 ];
 const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
@@ -197,6 +198,8 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     'name: PC-CROP implementation immutable scope · trusted base',
     "github.event.pull_request.head.ref == 'fix/p0-registration-authority-rollover-4637'",
     "github.event.pull_request.head.ref == 'fix/p0-owner-control-plane-audit-lock-4698'",
+    "github.event.pull_request.head.ref == 'docs/pc-crop-post-registration-progress-4997'",
+    'run: node docs/platform-v7/crop-platform/post-registration/verify-w0.mjs',
     'HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}',
     'if [ "$HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then',
     'PC-CROP immutable-scope authority rejects same-name branches from forks.',
@@ -210,7 +213,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "-f name='guard'",
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
-    "github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}",
+    "github.head_ref == 'docs/pc-crop-post-registration-progress-4997') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}",
     'needs: standard_validation',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
