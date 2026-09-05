@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { constants as fsConstants, type Dirent } from 'node:fs';
-import { open, readdir, realpath, type FileHandle } from 'node:fs/promises';
+import { lstat, open, readdir, realpath, type FileHandle } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import {
   decodeFnsEgrulXml,
@@ -136,6 +136,12 @@ export class FnsEgrulFileImportService {
     if (!isAbsolute(directory)) throw importError('FNS_EGRUL_IMPORT_DIR_MUST_BE_ABSOLUTE');
 
     const resolved = resolve(directory);
+    const rootStat = await lstat(resolved).catch(() => {
+      throw importError('FNS_EGRUL_IMPORT_DIRECTORY_UNAVAILABLE');
+    });
+    if (rootStat.isSymbolicLink()) throw importError('FNS_EGRUL_IMPORT_SYMLINK_FORBIDDEN');
+    if (!rootStat.isDirectory()) throw importError('FNS_EGRUL_IMPORT_DIRECTORY_UNAVAILABLE');
+
     let root: string;
     try {
       root = await realpath(resolved);
