@@ -211,11 +211,12 @@ export default async function AboutPage() {
         localeControl={<PublicLocaleLink />}
         actions={(
           <>
-            <Link href={`/platform-v7/login${lang}`} className='pc-site-action' aria-label={copy.login} style={{ width: 'auto', padding: '0 12px' }}>{copy.login}</Link>
-            <Link href={`/platform-v7/register${lang}`} className='pc-site-action' aria-label={copy.register} style={{ width: 'auto', padding: '0 14px', background: '#087a3b', borderColor: '#087a3b', color: '#fff', fontWeight: 800 }}>{copy.register}</Link>
+            <Link href={`/platform-v7/login${lang}`} className='pc-site-action p7-about-login' aria-label={copy.login}>{copy.login}</Link>
+            <Link href={`/platform-v7/register${lang}`} className='pc-site-action p7-about-register' aria-label={copy.register}>{copy.register}</Link>
           </>
         )}
       />
+      <style>{ABOUT_HEADER_CSS}</style>
 
       <main style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto', padding: '88px 16px 56px' }}>
         <section style={sectionStyle}>
@@ -279,6 +280,28 @@ function PublicLink({ item, open, locale }: { item: Card; open: string; locale: 
 function Bullet({ text }: { text: string }) {
   return <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}><span aria-hidden='true' style={{ fontWeight: 900 }}>•</span><span>{text}</span></div>;
 }
+
+const ABOUT_HEADER_CSS = `
+.pc-site-header:has(.p7-about-register) .p7-about-login,
+.pc-site-header:has(.p7-about-register) .p7-about-register{width:auto;padding:0 12px;white-space:nowrap}
+.pc-site-header:has(.p7-about-register) .p7-about-register{background:#087a3b;border-color:#087a3b;color:#fff;font-weight:800}
+.pc-site-header:has(.p7-about-register) .p7-about-register:hover,
+.pc-site-header:has(.p7-about-register) .p7-about-register:focus-visible{background:#07572e;color:#fff}
+@media(max-width:560px){
+  .pc-site-header:has(.p7-about-register){gap:6px;padding-inline:10px}
+  .pc-site-header:has(.p7-about-register) .pc-site-brand-text{display:none}
+  .pc-site-header:has(.p7-about-register) .pc-site-actions{gap:4px}
+  .pc-site-header:has(.p7-about-register) .p7-about-login{width:44px;min-width:44px;padding:0;font-size:0}
+  .pc-site-header:has(.p7-about-register) .p7-about-login::before{content:'↪';font-size:18px;line-height:1}
+  .pc-site-header:has(.p7-about-register) .p7-about-register{min-height:44px;padding:0 10px;font-size:13px}
+}
+@media(max-width:340px){
+  .pc-site-header:has(.p7-about-register) .p7-about-register{padding:0 8px;font-size:12px}
+}
+@media(forced-colors:active){
+  .pc-site-header:has(.p7-about-register) .p7-about-register{border:2px solid ButtonText}
+}
+`;
 
 const sectionStyle = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 } as const;
 const sectionTitleStyle = { fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', margin: 0 } as const;
