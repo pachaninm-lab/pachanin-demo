@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/production-p0-reviewer-reset-enqueue-db-state.yml'
       - 'scripts/production-p0-reviewer-reset-enqueue-db-state.sh'
+      - 'scripts/production-p0-reviewer-reset-enqueue-db-state-remote.sh'
       - 'scripts/check-production-p0-reviewer-reset-enqueue-db-state.mjs'
       - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-enqueue-db-state-3785.json'
   issue_comment:
@@ -57,6 +58,7 @@ jobs:
           set -Eeuo pipefail
           node scripts/check-production-p0-reviewer-reset-enqueue-db-state.mjs
           bash -n scripts/production-p0-reviewer-reset-enqueue-db-state.sh
+          bash -n scripts/production-p0-reviewer-reset-enqueue-db-state-remote.sh
 
       - name: Verify exact owner-issued provenance
         if: github.event_name == 'issue_comment'
