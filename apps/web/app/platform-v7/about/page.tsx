@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getLocale } from 'next-intl/server';
+import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
+import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Card = Readonly<{ title: string; note: string; href: string }>;
@@ -27,6 +29,10 @@ type Copy = Readonly<{
   home: string;
   status: string;
   register: string;
+  login: string;
+  navDeal: string;
+  navTrust: string;
+  navContact: string;
   open: string;
 }>;
 
@@ -67,10 +73,8 @@ const COPY: Record<Locale, Copy> = {
     contactCta: 'Задать вопрос',
     legalTitle: 'Правила и документы',
     legalText: 'Юридические и информационные страницы публикуются отдельно от маркетинговых формулировок. Неподтверждённые реквизиты, статусы подключений и договорные обещания не подставляются автоматически.',
-    home: 'На главную',
-    status: 'Состояние системы',
-    register: 'Зарегистрироваться',
-    open: 'Открыть',
+    home: 'На главную', status: 'Состояние системы', register: 'Зарегистрироваться', login: 'Войти',
+    navDeal: 'Как работает', navTrust: 'Доверие', navContact: 'Контакты', open: 'Открыть',
   },
   en: {
     metadataTitle: 'About the platform — Transparent Price',
@@ -108,10 +112,8 @@ const COPY: Record<Locale, Copy> = {
     contactCta: 'Ask a question',
     legalTitle: 'Rules and documents',
     legalText: 'Legal and information pages remain separate from marketing copy. Unverified legal details, connection status or contractual promises are never filled in automatically.',
-    home: 'Home',
-    status: 'System status',
-    register: 'Register',
-    open: 'Open',
+    home: 'Home', status: 'System status', register: 'Register', login: 'Sign in',
+    navDeal: 'How it works', navTrust: 'Trust', navContact: 'Contact', open: 'Open',
   },
   zh: {
     metadataTitle: '关于平台 — 透明价格',
@@ -149,10 +151,8 @@ const COPY: Record<Locale, Copy> = {
     contactCta: '提出问题',
     legalTitle: '规则与文件',
     legalText: '法律与信息页面和营销文案保持分离。未经确认的法律信息、接入状态或合同承诺不会自动展示。',
-    home: '返回首页',
-    status: '系统状态',
-    register: '注册',
-    open: '打开',
+    home: '返回首页', status: '系统状态', register: '注册', login: '登录',
+    navDeal: '如何运行', navTrust: '信任', navContact: '联系', open: '打开',
   },
 };
 
@@ -191,66 +191,84 @@ export default async function AboutPage() {
   const locale = localeOf(await getLocale());
   const copy = COPY[locale];
   const lang = `?lang=${encodeURIComponent(locale)}`;
+  const nav = (
+    <>
+      <Link href={`/platform-v7/how-it-works${lang}`}>{copy.navDeal}</Link>
+      <Link href={`/platform-v7/trust${lang}`}>{copy.navTrust}</Link>
+      <Link href={`/platform-v7/contact${lang}`}>{copy.navContact}</Link>
+    </>
+  );
+
   return (
-    <main style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto', padding: '24px 16px 56px' }}>
-      <section style={sectionStyle}>
-        <h1 style={{ fontSize: 30, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', margin: 0 }}>{copy.title}</h1>
-        <p style={leadStyle}>{copy.lead}</p>
-        <p style={mutedStyle}>{copy.domainNote}</p>
-        <Link href={`/platform-v7/register${lang}`} style={primaryLinkStyle}>{copy.register}</Link>
-      </section>
+    <>
+      <PublicSiteHeader
+        ariaLabel={copy.title}
+        brandHomeLabel={copy.home}
+        navLabel={copy.title}
+        menuLabel={copy.navDeal}
+        nav={nav}
+        showMobileMenu
+        localeControl={<PublicLocaleLink />}
+        actions={(
+          <>
+            <Link href={`/platform-v7/login${lang}`} className='pc-site-action' aria-label={copy.login} style={{ width: 'auto', padding: '0 12px' }}>{copy.login}</Link>
+            <Link href={`/platform-v7/register${lang}`} className='pc-site-action' aria-label={copy.register} style={{ width: 'auto', padding: '0 14px', background: '#087a3b', borderColor: '#087a3b', color: '#fff', fontWeight: 800 }}>{copy.register}</Link>
+          </>
+        )}
+      />
 
-      <section style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>{copy.whatTitle}</h2>
-        {copy.bullets.map((text) => <Bullet key={text} text={text} />)}
-      </section>
-
-      <section style={sectionStyle}>
-        <div>
-          <h2 style={sectionTitleStyle}>{copy.trustTitle}</h2>
-          <p style={mutedStyle}>{copy.trustLead}</p>
-        </div>
-        <div style={gridStyle}>{copy.trustLinks.map((item) => <PublicLink key={item.href} item={item} open={copy.open} locale={locale} />)}</div>
-      </section>
-
-      <section style={sectionStyle}>
-        <div>
-          <h2 style={sectionTitleStyle}>{copy.exploreTitle}</h2>
-          <p style={mutedStyle}>{copy.exploreLead}</p>
-        </div>
-        <div style={gridStyle}>{copy.exploreLinks.map((item) => <PublicLink key={item.href} item={item} open={copy.open} locale={locale} />)}</div>
-      </section>
-
-      <section style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>{copy.contactTitle}</h2>
-        <p style={mutedStyle}>{copy.contactText}</p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <main style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto', padding: '88px 16px 56px' }}>
+        <section style={sectionStyle}>
+          <h1 style={{ fontSize: 'clamp(30px, 5vw, 48px)', lineHeight: 1.05, fontWeight: 850, color: 'var(--pc-text-primary, #0F1419)', margin: 0 }}>{copy.title}</h1>
+          <p style={leadStyle}>{copy.lead}</p>
+          <p style={mutedStyle}>{copy.domainNote}</p>
           <Link href={`/platform-v7/register${lang}`} style={primaryLinkStyle}>{copy.register}</Link>
-          <Link href={`/platform-v7/contact${lang}`} style={secondaryLinkStyle}>{copy.contactCta}</Link>
-        </div>
-      </section>
+        </section>
 
-      <section style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>{copy.legalTitle}</h2>
+        <section style={sectionStyle}>
+          <h2 style={sectionTitleStyle}>{copy.whatTitle}</h2>
+          {copy.bullets.map((text) => <Bullet key={text} text={text} />)}
+        </section>
+
+        <section style={sectionStyle}>
+          <div><h2 style={sectionTitleStyle}>{copy.trustTitle}</h2><p style={mutedStyle}>{copy.trustLead}</p></div>
+          <div style={gridStyle}>{copy.trustLinks.map((item) => <PublicLink key={item.href} item={item} open={copy.open} locale={locale} />)}</div>
+        </section>
+
+        <section style={sectionStyle}>
+          <div><h2 style={sectionTitleStyle}>{copy.exploreTitle}</h2><p style={mutedStyle}>{copy.exploreLead}</p></div>
+          <div style={gridStyle}>{copy.exploreLinks.map((item) => <PublicLink key={item.href} item={item} open={copy.open} locale={locale} />)}</div>
+        </section>
+
+        <section style={sectionStyle}>
+          <h2 style={sectionTitleStyle}>{copy.contactTitle}</h2>
+          <p style={mutedStyle}>{copy.contactText}</p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <Link href={`/platform-v7/register${lang}`} style={primaryLinkStyle}>{copy.register}</Link>
+            <Link href={`/platform-v7/contact${lang}`} style={secondaryLinkStyle}>{copy.contactCta}</Link>
+          </div>
+        </section>
+
+        <section style={sectionStyle}>
+          <h2 style={sectionTitleStyle}>{copy.legalTitle}</h2>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {LEGAL_LINKS.map((item) => <Link key={item.href} href={`${item.href}${lang}`} style={pillStyle}>{item.label}</Link>)}
+          </div>
+          <p style={mutedStyle}>{copy.legalText}</p>
+        </section>
+
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {LEGAL_LINKS.map((item) => (
-            <Link key={item.href} href={`${item.href}${lang}`} style={pillStyle}>{item.label}</Link>
-          ))}
+          <Link href={`/platform-v7${lang}`} style={secondaryLinkStyle}>{copy.home}</Link>
+          <Link href={`/platform-v7/status${lang}`} style={secondaryLinkStyle}>{copy.status}</Link>
         </div>
-        <p style={mutedStyle}>{copy.legalText}</p>
-      </section>
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href={`/platform-v7${lang}`} style={primaryLinkStyle}>{copy.home}</Link>
-        <Link href={`/platform-v7/status${lang}`} style={secondaryLinkStyle}>{copy.status}</Link>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
 
 function PublicLink({ item, open, locale }: { item: Card; open: string; locale: Locale }) {
   return (
-    <Link href={`${item.href}?lang=${encodeURIComponent(locale)}`} style={{ textDecoration: 'none', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 8 }}>
+    <Link href={`${item.href}?lang=${encodeURIComponent(locale)}`} style={{ textDecoration: 'none', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 8, minHeight: 44 }}>
       <strong style={{ fontSize: 16, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</strong>
       <span style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{item.note}</span>
       <span style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>{open} →</span>
@@ -259,19 +277,14 @@ function PublicLink({ item, open, locale }: { item: Card; open: string; locale: 
 }
 
 function Bullet({ text }: { text: string }) {
-  return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>
-      <span aria-hidden='true' style={{ fontWeight: 900 }}>•</span>
-      <span>{text}</span>
-    </div>
-  );
+  return <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}><span aria-hidden='true' style={{ fontWeight: 900 }}>•</span><span>{text}</span></div>;
 }
 
 const sectionStyle = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 } as const;
 const sectionTitleStyle = { fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', margin: 0 } as const;
-const leadStyle = { margin: '8px 0 0', fontSize: 14, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 } as const;
+const leadStyle = { margin: '8px 0 0', fontSize: 15, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.65 } as const;
 const mutedStyle = { margin: 0, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 } as const;
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 } as const;
 const primaryLinkStyle = { width: 'fit-content', textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, minHeight: 44, display: 'inline-flex', alignItems: 'center' } as const;
 const secondaryLinkStyle = { width: 'fit-content', textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, minHeight: 44, display: 'inline-flex', alignItems: 'center' } as const;
-const pillStyle = { textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 40, padding: '8px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 800 } as const;
+const pillStyle = { textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '8px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 800 } as const;
