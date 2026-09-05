@@ -42,6 +42,17 @@ describe('platform-v7 international homepage completion', () => {
     expect(css).toContain('grid-template-columns: repeat(7, minmax(0, 1fr));');
     expect(css).toContain('.pc-v7-public-entry .pc-public-deal-stage-rail--demo');
     expect(css).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
+    expect(css).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
+  });
+
+  it('keeps registration available in the fixed header on mobile', () => {
+    expect(home).toContain("<a href={registerHref} className='pc-v6-header-cta'>{copy.nav.connect}</a>");
+    expect(css).toContain('.pc-v7-public-entry .pc-v6-header-cta');
+    expect(css).toContain('display: inline-flex !important');
+    expect(css).toContain('@media (max-width: 430px)');
+    expect(css).toContain('.pc-v7-public-entry .pc-site-brand-text');
+    expect(css).toContain('display: none !important');
+    expect(css).toContain('@media (max-width: 359px)');
   });
 
   it('keeps semantic homepage copy in normal DOM instead of CSS substitution', () => {
