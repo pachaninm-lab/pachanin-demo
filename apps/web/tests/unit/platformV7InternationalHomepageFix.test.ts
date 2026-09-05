@@ -28,12 +28,20 @@ describe('platform-v7 international homepage completion', () => {
     expect(wrapper).not.toContain("normalizedKey(element.key) === '08'");
   });
 
-  it('keeps the canonical seven-step path in the canonical homepage source', () => {
+  it('keeps the canonical seven-step path and progress rails aligned', () => {
     expect(home).toContain("id='deal-path'");
     expect(story).toContain("processTitle: 'Семь шагов обычной агросделки'");
     expect(story).toContain("journey: '7 шагов'");
     expect(story).toContain("fullPathLabel: 'Обычный путь'");
     expect(story).not.toContain("navFunctions: '8 шагов Сделки'");
+    expect(home).toContain('aria-valuemax={story.demo.stages.length}');
+    expect(home).toContain('aria-valuenow={story.demo.stages.length}');
+    expect(home).toContain('pc-public-deal-stage-rail--hero');
+    expect(home).toContain('pc-public-deal-stage-rail--demo');
+    expect(css).toContain('.pc-v7-public-entry .pc-public-deal-stage-rail');
+    expect(css).toContain('grid-template-columns: repeat(7, minmax(0, 1fr));');
+    expect(css).toContain('.pc-v7-public-entry .pc-public-deal-stage-rail--demo');
+    expect(css).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
   });
 
   it('keeps semantic homepage copy in normal DOM instead of CSS substitution', () => {
