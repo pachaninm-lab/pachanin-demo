@@ -44,6 +44,10 @@ function isSent(searchParams: ContactSearchParams) {
   return raw === '1' || raw === 'true';
 }
 
+function hasDeliveryError(searchParams: ContactSearchParams) {
+  return Boolean(first(searchParams.error));
+}
+
 export async function generateMetadata(
   props: { searchParams?: Promise<ContactSearchParams> },
 ): Promise<Metadata> {
@@ -78,5 +82,5 @@ export default async function PlatformV7ContactPage(
 ) {
   const params = (await props.searchParams) ?? {};
   const locale = localeOf(params, await getLocale());
-  return <ContactClient sent={isSent(params)} locale={locale} />;
+  return <ContactClient sent={isSent(params)} failed={hasDeliveryError(params)} locale={locale} />;
 }
