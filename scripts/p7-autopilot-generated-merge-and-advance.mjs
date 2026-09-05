@@ -32,17 +32,48 @@ function assertExactHeadMergeGate() {
   });
 }
 
-function mergeGeneratedPr() {
-  const before = json('gh', ['pr', 'view', prNumber, '--repo', repo, '--json', 'mergedAt,mergeCommit']);
-  if (before.mergedAt) {
-    const existing = before.mergeCommit?.oid || '';
+function assertGeneratedMergeAuthorization() {
+  const live = json('gh', [
+    'pr',
+    'view',
+    prNumber,
+    '--repo',
+    repo,
+    '--json',
+    'headRefOid,isDraft,mergeable,labels,mergedAt,mergeCommit',
+  ]);
+
+  if (live.mergedAt) {
+    const existing = live.mergeCommit?.oid || '';
     if (!existing) throw new Error(`generated PR #${prNumber} is merged but merge commit is unavailable`);
-    return existing;
+    return { alreadyMerged: true, mergeSha: existing };
   }
 
-  // Re-read review threads, review state, CI rollup and live PR head immediately
-  // before the SHA-bound merge. Workflow-level preflights are not merge authority.
+  const liveHead = String(live.headRefOid || '');
+  if (liveHead !== String(headSha)) {
+    throw new Error(`generated PR #${prNumber} head moved before merge: expected=${headSha} actual=${liveHead}`);
+  }
+  if (live.isDraft) throw new Error(`generated PR #${prNumber} became draft before merge`);
+  if (live.mergeable !== 'MERGEABLE') {
+    throw new Error(`generated PR #${prNumber} is not mergeable before merge: ${live.mergeable || 'UNKNOWN'}`);
+  }
+
+  const labels = new Set((Array.isArray(live.labels) ? live.labels : []).map((label) => String(label?.name || '')));
+  const requiredLabels = ['platform-v7', 'agent-generated', 'automerge'];
+  const missing = requiredLabels.filter((label) => !labels.has(label));
+  if (missing.length > 0) {
+    throw new Error(`generated PR #${prNumber} lost merge authorization label(s): ${missing.join(', ')}`);
+  }
+
+  return { alreadyMerged: false, mergeSha: '' };
+}
+
+function mergeGeneratedPr() {
+  // Review/thread/CI evidence is re-read first. Then authorization labels, live
+  // head and mergeability are refetched immediately before the SHA-bound merge.
   assertExactHeadMergeGate();
+  const authorization = assertGeneratedMergeAuthorization();
+  if (authorization.alreadyMerged) return authorization.mergeSha;
 
   const mergeResult = json('gh', [
     'api',
