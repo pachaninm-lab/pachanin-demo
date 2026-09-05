@@ -10,6 +10,7 @@ import {
   exactHeadCodexReviews,
   isIgnoredMergeGateCheck,
   latestBlockingChangeRequests,
+  positiveExactHeadCodexReviews,
   reviewGatePrState,
   substantiveChecks,
 } from './verify-pr-review-gate.mjs';
@@ -42,6 +43,30 @@ test('accepts only a completed Codex review on the exact head', () => {
   ];
 
   assert.equal(exactHeadCodexReviews(reviews, head).length, 1);
+});
+
+test('only explicit approval is positive review authority; COMMENTED and CHANGES_REQUESTED are not', () => {
+  const reviews = [
+    {
+      user: { login: 'chatgpt-codex-connector[bot]' },
+      commit_id: head,
+      state: 'COMMENTED',
+    },
+    {
+      user: { login: 'chatgpt-codex-connector' },
+      commit_id: head,
+      state: 'CHANGES_REQUESTED',
+    },
+    {
+      user: { login: 'chatgpt-codex-connector' },
+      commit_id: head,
+      state: 'APPROVED',
+    },
+  ];
+
+  assert.equal(exactHeadCodexReviews(reviews, head).length, 3);
+  assert.deepEqual(positiveExactHeadCodexReviews(reviews, head), [reviews[2]]);
+  assert.equal(positiveExactHeadCodexReviews(reviews.slice(0, 2), head).length, 0);
 });
 
 test('recognizes clean Codex review evidence only from the Codex bot and a reviewed commit prefix', () => {
@@ -88,6 +113,7 @@ test('rejects a review from another actor even when commit matches', () => {
   ];
 
   assert.equal(exactHeadCodexReviews(reviews, head).length, 0);
+  assert.equal(positiveExactHeadCodexReviews(reviews, head).length, 0);
 });
 
 test('blocks only unresolved non-outdated review threads', () => {
@@ -213,10 +239,14 @@ test('CI snapshot must be bound to the exact verified head', () => {
   assert.equal(ciSnapshotMatchesHead('', head), false);
 });
 
-test('draft PR state is never reviewable authority', () => {
+test('PR state classification fails closed for Draft and incomplete/unknown state', () => {
   assert.equal(reviewGatePrState({ state: 'open', draft: false }), 'REVIEWABLE');
   assert.equal(reviewGatePrState({ state: 'open', draft: true }), 'DRAFT');
   assert.equal(reviewGatePrState({ state: 'closed', draft: false }), 'CLOSED');
+  assert.equal(reviewGatePrState({ state: 'open' }), 'INVALID');
+  assert.equal(reviewGatePrState({ state: 'unknown', draft: false }), 'INVALID');
+  assert.equal(reviewGatePrState({ draft: false }), 'INVALID');
+  assert.equal(reviewGatePrState(null), 'INVALID');
 });
 
 test('review reconciliation workflow uses supported dispatch wiring and complete pagination', () => {
@@ -246,6 +276,8 @@ test('review reconciliation workflow uses supported dispatch wiring and complete
   assert.ok(finalLiveStateChecks.length >= 3);
   const draftInvalidations = workflow.match(/\[ "\$current_state" != OPEN \] \|\| \[ "\$current_draft" = true \]/gu) || [];
   assert.ok(draftInvalidations.length >= 3);
+  const publisherAuthorityFailures = workflow.match(/if \[ "\$state" != success \]; then\s+exit 1\s+fi/gu) || [];
+  assert.ok(publisherAuthorityFailures.length >= 3);
   assert.match(workflow, /^\s*exact-head-dispatched-gate:\s*$/mu);
   assert.match(
     workflow,
