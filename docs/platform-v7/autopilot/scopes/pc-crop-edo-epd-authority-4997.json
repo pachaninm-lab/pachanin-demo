@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-edo-epd-authority-4997",
+  "status": "staged",
+  "purpose": "W6-C: define provider-neutral EDO and EPD transport/receipt/conformance authority over canonical immutable documents and signature evidence without activating any vendor or treating transport as legal finality.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; implementation authority requires separate governance review/merge and immutable scope promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [31],
+  "terminalCriteria": ["EDO_MULTI_PROVIDER=PASS", "EPD_MULTI_PROVIDER=PASS", "ATI_DOKI=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/document-transport.ts",
+    "packages/domain-core/src/document-transport.test.ts",
+    "apps/api/src/modules/document-transport/document-transport.port.ts",
+    "apps/api/src/modules/document-transport/document-transport.contract.ts",
+    "apps/api/src/modules/document-transport/document-transport.contract.spec.ts",
+    "apps/api/src/modules/document-transport/document-transport.router.ts",
+    "apps/api/src/modules/document-transport/document-transport.router.spec.ts",
+    "apps/api/src/modules/document-transport/epd-conformance.mapper.ts",
+    "apps/api/src/modules/document-transport/epd-conformance.mapper.spec.ts",
+    "apps/api/test/industrial/document-transport-conformance.e2e-spec.ts",
+    "scripts/verify-pc-crop-edo-epd-scope.test.mjs",
+    ".github/workflows/pc-crop-edo-epd.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "dependencies": {
+    "w3bDocumentRegistryRequiredForFullMatrix": true,
+    "w5bSignatureAuthorityRequiredForSignedDelivery": true,
+    "providerRegistryReused": true,
+    "realProviderContractsCredentialsExternal": true
+  },
+  "requiredInvariants": [
+    "Canonical document bytes/version/hash and signature evidence remain the source of legal document identity. EDO/EPD transport never creates or mutates document content authority.",
+    "DocumentTransportPort is provider-neutral and exposes capability/version negotiation, send, status query, receipt ingestion, cancellation/correction transport and webhook/inbox semantics without vendor-specific core fields.",
+    "Transport states are distinct from canonical document lifecycle. REQUEST_ACCEPTED/QUEUED/SENT_TO_PROVIDER is never DELIVERED/ACCEPTED/SIGNED until a validated immutable provider/legal receipt proves the exact state transition.",
+    "Every outbound envelope binds exact document id/version/hash, sender/recipient organization authority, signature receipt references, document type/profile, idempotency key and provider integration binding.",
+    "Every inbound receipt binds provider/integration account, external event/document id, exact payload fingerprint, provider timestamp, receipt type/status and verification result. Replay or cross-provider mismatch fails closed.",
+    "EPD/ETRN conformance is versioned and explicit. A provider-specific payload maps to a canonical transport-document profile only if required fields, identities, signatures and schema/profile versions validate.",
+    "One provider may support EDO but not EPD/ETRN or vice versa. Missing capability fails closed and cannot silently fall back to upload or another provider unless an authorized routing decision is made.",
+    "At least two test/reference provider implementations must satisfy the same port to prove multi-provider substitution without changing Document/Deal core.",
+    "External adapters remain NOT_ACTIVATED without real contract, credentials, endpoints, webhook secrets/certificates and accepted production receipts. Fixtures cannot claim legal delivery.",
+    "Provider outage/degradation preserves durable retry/inbox/outbox evidence and does not mutate canonical document finality.",
+    "ATI document transport, if used, is merely another provider route and cannot bypass EPD/signature/document conformance.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, W3/W5 document/signature authority, packages/lockfiles and REG.RU production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Contract tests prove provider-neutral send/status/receipt/webhook models and no vendor-specific core field leakage.",
+    "Two reference providers can transport the same canonical document profile without modifying Document core or lifecycle policy.",
+    "Queued/request-accepted states cannot produce DELIVERED/ACCEPTED; only validated immutable receipts can.",
+    "Wrong document hash/version, recipient/sender, integration binding, event replay, stale/invalid webhook or signature mismatch fails closed.",
+    "EPD/ETRN conformance tests cover valid/invalid profile versions, missing mandatory fields and signature/identity mismatches.",
+    "NOT_ACTIVATED adapters cannot fabricate success and no secret/credential is committed.",
+    "Provider outage/retry does not duplicate sends or rewrite historical transport receipts.",
+    "Exact-head review plus real REG.RU provider credentialed acceptance is required before EDO/EPD/ATI_DOKI terminal credit."
+  ],
+  "remainingTerminalBoundary": [
+    "Real EDO/EPD provider contracts, credentials, endpoint/schema documentation and webhook/certificate setup are external dependencies.",
+    "W3-B document lifecycle and W5-B signer authority must be consumer-wired before legal delivery can become end-to-end PASS.",
+    "At least two real production providers are required for terminal multi-provider evidence; reference fakes are foundation evidence only.",
+    "REG.RU production receipts and operational failure/reconciliation evidence remain mandatory."
+  ],
+  "terminalCredit": 0
+}
