@@ -200,6 +200,44 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "governance/pc-crop-post-registration-progress-scope-4997": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
+    ],
+    "docs/pc-crop-post-registration-progress-4997": [
+      "docs/platform-v7/crop-platform/post-registration/README.md",
+      "docs/platform-v7/crop-platform/post-registration/dod-baseline.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.mjs",
+      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json"
+    ],
+    "fix/static-presentation-download-buildtime-20260830": [
+      "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+      "apps/web/package.json",
+      "apps/web/scripts/materialize-presentation-pdf.mjs",
+      "apps/web/scripts/presentation-pdf-contract.mjs",
+      "apps/web/lib/presentation-pdf/part-00.ts",
+      "apps/web/lib/presentation-pdf/part-01.ts",
+      "apps/web/lib/presentation-pdf/part-02.ts",
+      "apps/web/lib/presentation-pdf/part-03.ts",
+      "apps/web/lib/presentation-pdf/part-04.ts",
+      "apps/web/lib/presentation-pdf/part-05.ts",
+      "apps/web/lib/presentation-pdf/part-06.ts",
+      "apps/web/lib/presentation-pdf/part-07.ts",
+      "apps/web/lib/presentation-pdf/part-08.ts",
+      "apps/web/lib/presentation-pdf/part-09.ts",
+      "apps/web/lib/presentation-pdf/part-10.ts",
+      "apps/web/lib/presentation-pdf/part-11.ts",
+      "apps/web/lib/presentation-pdf/part-12.ts",
+      "apps/web/lib/presentation-pdf/part-13.ts",
+      "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+      "docs/platform-v7/autopilot/scopes/static-presentation-buildtime-download-20260830.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
     "claude/autonomous-execution-contract-oc7ds7": [
       "apps/api/prisma/schema.prisma",
       "apps/api/prisma/migrations/*_pc_crop_job_profile_capabilities/**",
@@ -310,6 +348,13 @@
       "scripts/pc-crop-10a/verify.mjs",
       "docs/platform-v7/autopilot/autopilot-state.json",
       "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
+    ],
+    "fix/tai-owner-deployment-command-20260803": [
+      ".github/workflows/tai-owner-reg-ru-deployment-command.yml",
+      "scripts/select-tai-restricted-qwen-activation-status.mjs",
+      "scripts/check-tai-owner-deployment-status-selection.mjs",
+      "scripts/check-tai-owner-deployment-command.mjs",
+      "docs/platform-v7/autopilot/scopes/tai-owner-deployment-command-20260803.json"
     ],
     "fix/public-ai-generic-platform-routing-3438": [
       "docs/platform-v7/autopilot/scopes/fix-public-ai-generic-platform-routing-3438.json",
@@ -1214,6 +1259,79 @@
       ".github/workflows/company-os-control-host-readiness-v2.yml",
       ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
       "docs/platform-v7/autopilot/scopes/company-os-compose-service-pipefail-4496.json"
+    ],
+    "fix/design-v8-acceptance-csrf-faq-4503": [
+      "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+      "apps/web/tests/e2e/support/acceptance-login.ts",
+      "docs/platform-v7/autopilot/scopes/design-v8-acceptance-csrf-faq-4503.json"
+    ],
+    "governance/harden-p0-registration-authority-rollover-4637": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "fix/p0-registration-authority-rollover-4637": [
+      ".github/workflows/platform-v7-safe-merge.yml",
+      ".github/workflows/production-full-stack-exact-sha.yml",
+      ".github/workflows/production-auth-mail-outbox-cutover.yml",
+      ".github/workflows/production-p0-staff-api-origin-local-controller-repair.yml",
+      ".github/workflows/production-p0-reviewer-inspect.yml",
+      ".github/workflows/production-p0-first-customer-acceptance.yml",
+      ".github/workflows/production-p0-all-role-registration.yml",
+      ".github/workflows/production-p0-runtime-revision-parity-diagnostic.yml",
+      "apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts",
+      "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
+      "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
+      "scripts/production-p0-all-role-registration.sh",
+      "scripts/production-p0-reviewer-inspect.sh",
+      "scripts/check-production-full-stack-release.mjs",
+      "scripts/check-production-auth-mail-outbox-cutover.mjs",
+      "scripts/check-production-p0-reviewer-inspect.mjs",
+      "scripts/check-production-p0-first-customer-acceptance.mjs",
+      "scripts/check-production-p0-all-role-registration.mjs",
+      "docs/ops/production-full-stack-release.md",
+      "docs/ops/production-p0-first-customer-acceptance.md",
+      "docs/ops/production-p0-all-role-registration.md"
+    ],
+    "fix/p0-owner-control-plane-audit-lock-4698": [
+      "apps/api/src/modules/staff-access/staff-access.repository.ts",
+      "apps/api/src/modules/staff-access/staff-access.repository.spec.ts"
+    ],
+    "governance/harden-p0-owner-control-plane-audit-lock-4698": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "fgis/xml-escape-convergence-4806": [
+      "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
+      "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts"
+    ],
+    "feat/pc-crop-inventory-reservation-authority-4997": [
+      "packages/domain-core/src/inventory.ts",
+      "packages/domain-core/src/inventory.test.ts",
+      "packages/domain-core/src/index.ts",
+      "apps/api/prisma/schema.prisma",
+      "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+      "apps/api/src/modules/inventory/inventory.contract.ts",
+      "apps/api/src/modules/inventory/inventory.contract.spec.ts",
+      "apps/api/src/modules/inventory/inventory.repository.ts",
+      "apps/api/src/modules/inventory/inventory.controller.ts",
+      "apps/api/src/modules/inventory/inventory.module.ts",
+      "apps/api/src/modules/inventory/dto/inventory-api.dto.ts",
+      "apps/api/src/app.module.ts",
+      "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "scripts/verify-pc-crop-inventory-scope.test.mjs",
+      ".github/workflows/pc-crop-inventory.yml",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "governance/pc-crop-inventory-reservation-scope-4997": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/scopes/pc-crop-inventory-reservation-authority-4997.json"
     ]
   },
   "currentAcceptance": [

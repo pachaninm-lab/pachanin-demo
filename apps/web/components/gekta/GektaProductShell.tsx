@@ -6,7 +6,28 @@ import type { GektaLocale } from '@/lib/gekta/content';
 import { getGektaApplicationSchema, getGektaFaqSchema, safeJsonLd } from '@/lib/gekta/seo';
 
 const mobileTouchContract = `
+[data-gekta-chat-workspace='true'] {
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+[data-gekta-chat-workspace='true'] button {
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: inherit;
+}
+
 @media (max-width: 767px) {
+  /* WebKit keeps UA border/background/shadow values on otherwise unstyled
+     icon buttons even after appearance:none. Reset only the two neutral
+     mobile controls that intentionally inherit the surrounding surface. */
+  [data-gekta-chat-workspace='true'] header > button:first-child,
+  [data-gekta-chat-workspace='true'] [data-gekta-drop-target='true'] > button {
+    border: 0;
+    background-color: transparent;
+    box-shadow: none;
+  }
+
   [data-gekta-chat-workspace='true']:not(.overflow-hidden) {
     height: auto !important;
     min-height: var(--gekta-visual-viewport-height, 100dvh) !important;

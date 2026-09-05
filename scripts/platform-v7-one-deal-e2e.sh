@@ -114,6 +114,48 @@ $one_deal_role$;
 GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_app;
 GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement, auth TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
+GRANT USAGE ON SCHEMA inventory TO one_deal_app;
+GRANT SELECT ON ALL TABLES IN SCHEMA inventory TO one_deal_app;
+GRANT EXECUTE ON FUNCTION inventory.execute_command(jsonb), inventory.position_view(inventory.positions) TO one_deal_app;
+-- Provider registry is deliberately narrower than the generic disposable
+-- harness grant: organization commands cannot delete authority rows, and the
+-- application principal can only read server-held verification evidence.
+REVOKE DELETE, TRUNCATE ON
+  public.providers,
+  public.provider_capabilities,
+  public.service_offerings,
+  public.provider_registry_events
+FROM one_deal_app;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.provider_registry_evidence
+FROM one_deal_app;
+-- Integration bindings use the same command boundary. The application may
+-- declare/update bindings and append command events, while acceptance evidence
+-- stays under the separate server authority.
+REVOKE DELETE, TRUNCATE ON public.integration_bindings
+FROM one_deal_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON public.integration_binding_events
+FROM one_deal_app;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.integration_capability_evidence
+FROM one_deal_app;
+-- Commercial versions may transition through the governed command boundary,
+-- but published definitions, decisions and event evidence are never deletable.
+REVOKE DELETE, TRUNCATE ON
+  public.commercial_rule_sets,
+  public.commercial_rule_packs
+FROM one_deal_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON
+  public.commercial_decisions,
+  public.commercial_rule_events
+FROM one_deal_app;
+-- Service-marketplace aggregate updates are command-authorized, while quotes
+-- and event receipts stay append-only and every aggregate remains undeletable.
+REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON
+  public.service_marketplace_requests
+FROM one_deal_app;
+REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON
+  public.service_marketplace_quotes,
+  public.service_marketplace_events
+FROM one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
 GRANT SELECT ON
@@ -232,6 +274,7 @@ GRANT EXECUTE ON FUNCTION auth.mark_registration_email_verified(TEXT, TEXT, TEXT
 GRANT EXECUTE ON FUNCTION auth.registration_join_notification_recipients(TEXT, TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_password_reset_subject(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.replace_password_after_reset(TEXT, TEXT, TEXT, TIMESTAMPTZ) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.upgrade_password_hash_format(TEXT, TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.organization_team_snapshot(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.resolve_organization_admin_session(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.organization_membership_exists_for_email(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
@@ -332,6 +375,7 @@ REVOKE ALL ON FUNCTION auth.mark_registration_email_verified(TEXT, TEXT, TEXT) F
 REVOKE ALL ON FUNCTION auth.registration_join_notification_recipients(TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_password_reset_subject(TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.replace_password_after_reset(TEXT, TEXT, TEXT, TIMESTAMPTZ) FROM one_deal_staff;
+REVOKE ALL ON FUNCTION auth.upgrade_password_hash_format(TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.organization_team_snapshot(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_organization_admin_session(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.organization_membership_exists_for_email(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
@@ -793,6 +837,22 @@ SELECT
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.users', 'INSERT')
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.user_orgs', 'INSERT')
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.organizations', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE')
+    AND has_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'id', 'UPDATE')
+    AND NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE WITH GRANT OPTION')
+    AND (SELECT count(*) FROM pg_attribute attribute
+         WHERE attribute.attrelid = 'auth.registration_applications'::regclass
+           AND attribute.attnum > 0
+           AND NOT attribute.attisdropped
+           AND has_column_privilege(
+             'pc_registration_decision_authority',
+             'auth.registration_applications',
+             attribute.attname,
+             'UPDATE'
+           )) = 1
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')
+    AND NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'DELETE')
   )::int::text
   || ':' ||
   (
@@ -1081,5 +1141,65 @@ AUTH_TOKEN_PEPPER="$AUTH_TOKEN_PEPPER" \
 MFA_ENCRYPTION_KEY="$MFA_ENCRYPTION_KEY" \
 BANK_HMAC_SECRET="$BANK_HMAC_SECRET" \
 pnpm --filter @pc/api exec jest --runInBand --config test/staff-access/jest.e2e.config.json
+
+echo "[one-deal] running organization-capability PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/organization-capability-authority.e2e-spec.ts
+
+echo "[one-deal] running provider-registry PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/provider-registry-authority.e2e-spec.ts
+
+echo "[one-deal] running integration-binding PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/integration-binding-authority.e2e-spec.ts
+
+echo "[one-deal] running commercial-rules PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/commercial-rules-authority.e2e-spec.ts
+
+echo "[one-deal] running service-marketplace PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/service-marketplace-authority.e2e-spec.ts
+
+echo "[one-deal] running inventory PostgreSQL reservation authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/inventory-reservation-authority.e2e-spec.ts
 
 echo "[one-deal] exploitation gate passed"

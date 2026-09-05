@@ -1,0 +1,715 @@
+{
+  "schemaVersion": "pc-crop.post-registration.gap-map.v1",
+  "issue": 4997,
+  "observedAt": "2026-09-05",
+  "exactMainBaseline": "824a073cad569532c2be21603a143e679508a301",
+  "auditLineage": {
+    "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
+    "deltaReviewedToExactMain": "824a073cad569532c2be21603a143e679508a301",
+    "postRegistrationFindingsChanged": true,
+    "previousObservedMainSha": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
+    "w0Delta": {
+      "deltaCommits": [
+        "db2b0d61ac6206e3b1fc25d54692a7747dbf7365",
+        "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff"
+      ],
+      "deltaPaths": ["scripts/production-role-eligibility-fns-rsmp-import.sh"]
+    },
+    "reviewedW1PullRequests": [
+      5001,
+      5010,
+      5015,
+      5019,
+      5026
+    ],
+    "reviewedW2PullRequests": [5029],
+    "governancePullRequest": 5021
+  },
+  "specification": {
+    "sha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
+    "bytes": 50947,
+    "lines": 2768,
+    "sectionFirst": 0,
+    "sectionLast": 110,
+    "dodCriteria": 126
+  },
+  "classification": ["KEEP", "EXTEND_EXISTING", "NEW_REQUIRED", "REMOVE_OR_SUPERSEDE", "EXTERNAL_BLOCKER", "NOT_REQUIRED"],
+  "findings": [
+    {
+      "id": "CORE-01",
+      "sections": [2, 3],
+      "area": "Registration, identity and role eligibility",
+      "classification": ["KEEP", "NOT_REQUIRED"],
+      "severity": "P0_INVARIANT",
+      "evidence": [
+        "apps/api/prisma/schema.prisma",
+        "apps/api/src/modules/auth/organization-job-profile.ts",
+        "apps/api/src/common/guards/auth.guard.ts"
+      ],
+      "finding": "Registration, membership role, job profile, bearer authentication and MFA foundations exist and are outside the implementation scope.",
+      "requiredDelta": "Do not change registration code or behavior. Prove the three registration boundary invariants on every later slice."
+    },
+    {
+      "id": "CORE-02",
+      "sections": [1, 2, 102],
+      "area": "Trusted tenant context and RLS transactions",
+      "classification": ["KEEP", "EXTEND_EXISTING"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/common/prisma/rls-transaction.service.ts",
+        "apps/api/src/modules/documents/prisma-document.repository.ts",
+        "apps/api/src/modules/disputes/postgresql-dispute.repository.ts"
+      ],
+      "finding": "Canonical modules derive actor and tenant server-side and use scoped PostgreSQL transactions, but legacy and process-local modules bypass the pattern.",
+      "requiredDelta": "Require RLS transaction context for every new authority and retire bypassing writers."
+    },
+    {
+      "id": "CORE-03",
+      "sections": [1, 2, 100, 102],
+      "area": "Transactional audit, outbox and idempotency",
+      "classification": ["KEEP", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/documents/prisma-document.repository.ts",
+        "apps/api/src/modules/integration-events/durable-outbox.runner.ts",
+        "apps/api/src/modules/audit/audit.service.ts",
+        "apps/api/src/common/outbox/outbox.service.ts"
+      ],
+      "finding": "Specialized repositories atomically bind business rows, audit, outbox and payload fingerprints. Generic AuditService has an in-memory hash head and swallows persistence failures; generic enqueue is not transaction-bound.",
+      "requiredDelta": "Reuse the specialized transactional repository pattern; never use best-effort audit as business evidence."
+    },
+    {
+      "id": "CFG-01",
+      "sections": [5, 105],
+      "area": "Organization capability authority",
+      "classification": ["KEEP", "EXTEND_EXISTING"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/organization-capabilities/organization-capability.registry.ts",
+        "apps/api/src/modules/organization-capabilities/organization-capability.repository.ts",
+        "apps/api/test/industrial/organization-capability-authority.e2e-spec.ts"
+      ],
+      "finding": "The 13-code organization capability registry and PostgreSQL assignment/event authority were merged in #5001 and verified under restricted principals. The effective mode is SHADOW.",
+      "requiredDelta": "Retain W1-A evidence; prove REG.RU deployment and downstream product consumption without changing registration.",
+      "w0Finding": "The existing capability resolver describes a person's accounting permissions. There is no durable organization capability registry for the 13 post-registration capabilities.",
+      "updatedBy": "W1 bounded delta reconciliation"
+    },
+    {
+      "id": "CFG-02",
+      "sections": [20, 21, 41],
+      "area": "Provider registry and ranking",
+      "classification": ["KEEP", "EXTEND_EXISTING"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/service-providers/provider-registry.repository.ts",
+        "apps/api/src/modules/service-providers/service-providers.service.ts",
+        "apps/api/test/industrial/provider-registry-authority.e2e-spec.ts"
+      ],
+      "finding": "PostgreSQL Provider, ProviderCapability and ServiceOffering authority replaced the fictional catalog and caller-supplied compliance facts in #5010. Only server-held evidence can admit a provider.",
+      "requiredDelta": "Prove partner substitution across full service workflows, ranking explanations and REG.RU runtime; no external access or real receipt is inferred.",
+      "w0Finding": "The API exposes a fictional static pilot catalog, a default Sber entry and an opaque hand-scored ranking. Compliance facts can be supplied by query parameters. The pure fail-closed compliance policy is reusable.",
+      "updatedBy": "W1 bounded delta reconciliation"
+    },
+    {
+      "id": "CFG-03",
+      "sections": [23, 105],
+      "area": "Commercial rules and rule packs",
+      "classification": ["KEEP", "EXTEND_EXISTING"],
+      "severity": "P0",
+      "evidence": [
+        "packages/domain-core/src/commercial-rules.ts",
+        "apps/api/src/modules/commercial-rules/commercial-rules.repository.ts",
+        "apps/api/prisma/migrations/20260905010000_commercial_rules_authority/migration.sql",
+        "apps/api/test/industrial/commercial-rules-authority.e2e-spec.ts"
+      ],
+      "finding": "Versioned CommercialRuleSet, RulePack and immutable decisions were merged in #5019. PostgreSQL 11/11, domain 29/29 and API contracts 11/11 passed; database recalculation, complete null-safe references, lifecycle evidence and acknowledgement safety were verified. All 39 workflows succeeded and review threads were resolved.",
+      "requiredDelta": "Bind server-derived contract/Deal facts and accepted commercial decisions to financial/service workflows and demonstrate the REG.RU runtime. CONTRACT_RULE remains non-financial MISSING_FACTS until authoritative contract facts are available.",
+      "w0Finding": "There is no versioned CommercialRuleSet or RulePack authority. Existing fee and logistics defaults are ad hoc inputs or environment values and the calculator is not wired to live money.",
+      "updatedBy": "W1 bounded delta reconciliation"
+    },
+    {
+      "id": "CFG-04",
+      "sections": [49, 50, 90, 105],
+      "area": "Integration bindings and capability maturity",
+      "classification": ["KEEP", "EXTEND_EXISTING"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/service-providers/integration-binding.repository.ts",
+        "apps/api/src/modules/service-providers/integration-binding.contract.ts",
+        "apps/api/test/industrial/integration-binding-authority.e2e-spec.ts"
+      ],
+      "finding": "IntegrationBinding and evidence-backed maturity authority were merged in #5015; unset adapters fail closed. Restricted-principal CI verifies provider suspension and capability revocation. Federal-accounting maturity consumption remains deferred under lock #4321.",
+      "requiredDelta": "Complete the separately governed consumer handoff and demonstrate provider onboarding, conformance and REG.RU runtime acceptance with authentic external receipts.",
+      "w0Finding": "Provider-neutral adapter interfaces and honest connection diagnostics exist, but binding state is an in-memory singleton, mocks register by default and there is no per-organization secret/evidence/version/maturity authority.",
+      "updatedBy": "W1 bounded delta reconciliation"
+    },
+    {
+      "id": "CFG-05",
+      "sections": [
+        22,
+        48
+      ],
+      "area": "Service marketplace and provider onboarding",
+      "classification": [
+        "KEEP",
+        "EXTEND_EXISTING"
+      ],
+      "severity": "P1",
+      "evidence": [
+        "apps/api/src/modules/service-marketplace/service-marketplace.repository.ts",
+        "apps/api/prisma/migrations/20260905030000_service_marketplace_authority/migration.sql",
+        "apps/api/test/industrial/service-marketplace-authority.e2e-spec.ts"
+      ],
+      "finding": "W1-E Service Marketplace authority merged in #5026; tenant-isolated request/quote/selection/payer/execution/evidence/acceptance lifecycle and append-only non-financial settlement references are PostgreSQL-authoritative. Provider, capability, offering and organization revocation are rechecked. PostgreSQL 12/12 and combined inventory compatibility passed.",
+      "requiredDelta": "Connect the accepted service lifecycle to existing logistics, lab, document and settlement engines; complete provider onboarding/conformance and user flows, then prove REG.RU execution.",
+      "w0Finding": "Intake and attestation primitives exist. There is no durable Request to Quote to Selection to PayerConfirmation to Execution to Evidence to Settlement lifecycle or generic conformance kit.",
+      "updatedBy": "W1-E/W2-A bounded acceptance reconciliation"
+    },
+    {
+      "id": "MKT-01",
+      "sections": [
+        7,
+        8
+      ],
+      "area": "Physical inventory, genealogy and reservation",
+      "classification": [
+        "KEEP",
+        "EXTEND_EXISTING"
+      ],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+        "apps/api/src/modules/inventory/inventory.repository.ts",
+        "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts"
+      ],
+      "finding": "W2-A merged in #5029: six FORCE-RLS tables, memberless command owner, pinned exact quantities, DECLARE/RESERVE/RELEASE, durable receipts and availability snapshots. Restricted READ COMMITTED races across two known lots, revoked membership, direct-write denial, evidence rollback and restore passed 15/15. Existing market writers still do not require this inventory authority.",
+      "requiredDelta": "Bind the existing Auction registration and later Offer/Deal writers to canonical inventory; add full lifecycle, genealogy, independent custody/title/restriction facts and user-facing trust/acknowledgement flows before terminal acceptance.",
+      "w0Finding": "InventoryPosition, Batch, genealogy, custody, title, restriction, reservation and availability authority do not exist. Auction exclusivity cannot prevent two lots from selling the same physical grain.",
+      "updatedBy": "W1-E/W2-A bounded acceptance reconciliation"
+    },
+    {
+      "id": "MKT-02",
+      "sections": [9, 10, 11],
+      "area": "Progressive trust and trade permission",
+      "classification": ["NEW_REQUIRED", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/auctions/auction-command.service.ts",
+        "apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql",
+        "packages/domain-core/src/source-of-truth.ts"
+      ],
+      "finding": "Trust is binary or opaque. Client-supplied MANUAL_VERIFIED, ERP and OTHER sources are immediately stamped verified and admitted; DECLARED plus PUBLIC_ALLOWED is unavailable and no immutable risk acknowledgement exists.",
+      "requiredDelta": "Separate fact-level confidence, freshness, conflict, trade permission and regulatory/service eligibility; persist disclosure and acceptance evidence."
+    },
+    {
+      "id": "MKT-03",
+      "sections": [13, 14, 15],
+      "area": "Two-sided market, RFQ, offers and negotiation",
+      "classification": ["EXTEND_EXISTING", "NEW_REQUIRED"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/auctions/auction-authority.service.ts",
+        "apps/api/src/modules/lots/lots.service.ts",
+        "apps/api/src/modules/search/search.service.ts",
+        "apps/api/src/modules/deals/dto/create-deal.dto.ts"
+      ],
+      "finding": "The PostgreSQL auction supply path is strong. DemandRequest, RFQ, OfferVersion, CounterOffer, Negotiation, MatchCandidate and DealDraft are absent; search projects only tombstoned legacy lots. Deal creation accepts only an auction basis.",
+      "requiredDelta": "Keep auction and canonical Deal; add two-sided market aggregates and generic immutable DealBasis adapters."
+    },
+    {
+      "id": "MKT-04",
+      "sections": [16],
+      "area": "Netback and landed cost",
+      "classification": ["EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P1",
+      "evidence": [
+        "packages/domain-core/src/money.ts",
+        "packages/domain-core/src/measures.ts",
+        "apps/api/src/modules/settlement-engine/settlement-calculation.ts"
+      ],
+      "finding": "Exact Money and measure objects exist and a partial calculator exists, but it is explicitly disconnected from live money and accepts unversioned defaults and legacy numeric shapes.",
+      "requiredDelta": "Create source-backed, versioned seller netback and buyer landed-cost projections from accepted terms and commercial rules."
+    },
+    {
+      "id": "MKT-05",
+      "sections": [2, 13],
+      "area": "Legacy lot authority",
+      "classification": ["REMOVE_OR_SUPERSEDE"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/lots/lots.service.ts",
+        "apps/api/src/modules/lots/lots.controller.ts"
+      ],
+      "finding": "Legacy lots openly lack PostgreSQL locking, reservations, tenant isolation and audit. Production mutations are tombstoned, but public routes remain mounted.",
+      "requiredDelta": "Keep a fail-closed compatibility tombstone until clients migrate; never revive this service as authority."
+    },
+    {
+      "id": "DEAL-01",
+      "sections": [1, 2, 14],
+      "area": "Canonical Deal engine",
+      "classification": ["KEEP", "EXTEND_EXISTING"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/deals/deals.module.ts",
+        "apps/api/src/modules/deals/prisma-deal.repository.ts",
+        "apps/api/prisma/migrations/20260712193000_postgresql_deal_authority/migration.sql"
+      ],
+      "finding": "Deal, participants, events, passport, RLS and atomic audit/outbox are reusable. Creation is auction-only and an auction-originated Deal restarts at DRAFT, repeating completed auction stages.",
+      "requiredDelta": "Add origin/basis adapters and accepted immutable terms to the same Deal; correct the lifecycle without DealV2."
+    },
+    {
+      "id": "LEGAL-01",
+      "sections": [17],
+      "area": "Contract versions and amendments",
+      "classification": ["KEEP", "EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P1",
+      "evidence": [
+        "apps/api/prisma/schema.prisma",
+        "apps/api/prisma/migrations/20260816040000_pc_crop_contract_versions/migration.sql",
+        "apps/api/src/modules/documents/document-template.service.ts"
+      ],
+      "finding": "Immutable signed ContractVersion and supersession chains exist, but application command APIs are incomplete and legal templates plus GrainFlow commercial terms are hard-coded and caller-rendered.",
+      "requiredDelta": "Add approved templates, clauses, DealConstitution and SpecificationVersion derived only from agreed Deal terms."
+    },
+    {
+      "id": "LEGAL-02",
+      "sections": [18],
+      "area": "Document engine",
+      "classification": ["KEEP", "EXTEND_EXISTING"],
+      "severity": "P1",
+      "evidence": [
+        "apps/api/src/modules/documents/prisma-document.repository.ts",
+        "apps/api/src/modules/documents/document-matrix.service.ts",
+        "apps/api/prisma/schema.prisma"
+      ],
+      "finding": "DealDocument has immutable versions, verified storage, signature evidence, fingerprints, RLS, audit and outbox. The type matrix and lifecycle are incomplete and DealDocument can diverge from AccountingDocument.",
+      "requiredDelta": "Unify authoritative document requirements and extend lifecycle types without weakening immutability."
+    },
+    {
+      "id": "LEGAL-03",
+      "sections": [19, 31],
+      "area": "Signature, MChD and EDO authority",
+      "classification": ["KEEP", "EXTEND_EXISTING", "EXTERNAL_BLOCKER"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/auth/signing-authority.policy.ts",
+        "apps/api/src/modules/documents/prisma-document.repository.ts",
+        "apps/api/src/modules/documents/documents.service.ts"
+      ],
+      "finding": "SigningAuthority and a deny-by-default MFA/certificate/MChD policy exist, but the policy is not wired into the production signature writer and MChD is not validated against a live revocation source. External EDO/signature methods correctly fail as not activated.",
+      "requiredDelta": "Wire the policy atomically, implement provider-neutral ports and receipts, then obtain provider contracts, credentials and revocation feeds."
+    },
+    {
+      "id": "PHY-01",
+      "sections": [12],
+      "area": "Verification marketplace and labs",
+      "classification": ["KEEP", "EXTEND_EXISTING", "NEW_REQUIRED"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/labs/lab.repository.ts",
+        "apps/api/src/modules/labs/lab-authority.service.ts",
+        "apps/api/src/modules/labs/labs.controller.ts",
+        "apps/api/prisma/migrations/20260713121000_labs_postgresql_authority/migration.sql"
+      ],
+      "finding": "The PostgreSQL lab sample, custody, test and signed protocol authority is strong. Provision/admission is not exposed through API, no generalized verification order exists and a FAILED result still advances Deal to QUALITY_ACCEPTED.",
+      "requiredDelta": "Expose safe admission, add generalized verification orchestration and explicit reject, retest and adjustment branches."
+    },
+    {
+      "id": "PHY-02",
+      "sections": [28, 30],
+      "area": "Logistics and driver execution",
+      "classification": ["KEEP", "EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P1",
+      "evidence": [
+        "apps/api/src/modules/logistics/prisma-shipment.repository.ts",
+        "apps/api/src/modules/deals/deal-command.service.ts",
+        "apps/web/components/platform-v7/DriverOfflineQueue.tsx",
+        "apps/web/lib/platform-v7/offline-command-queue.ts"
+      ],
+      "finding": "Shipment, checkpoints, GPS, PIN and admission are durable. A Deal gets one deterministic shipment; assignment is immutable; request, quote, provider/own-fleet selection, split shipment and correction flows are missing. Live driver UI simulates synchronization instead of using the real queue library.",
+      "requiredDelta": "Extend the same shipment authority with marketplace, multi-shipment and correction events and connect the durable offline queue."
+    },
+    {
+      "id": "PHY-03",
+      "sections": [46],
+      "area": "Elevator and physical storage",
+      "classification": ["REMOVE_OR_SUPERSEDE", "NEW_REQUIRED"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/elevator/elevator.service.ts",
+        "apps/api/src/app.module.ts"
+      ],
+      "finding": "Production-mounted elevator routes store acts in a process-local Map, use Float, trust caller elevatorOrgId, lack tenant/deal authorization and suppress audit failures.",
+      "requiredDelta": "Fail-close unsafe mutations, then add PostgreSQL facility, intake, weighing correction, custody, capacity and storage-position authority."
+    },
+    {
+      "id": "PHY-04",
+      "sections": [45, 47],
+      "area": "Future crop and insurance",
+      "classification": ["NEW_REQUIRED", "REMOVE_OR_SUPERSEDE", "EXTERNAL_BLOCKER"],
+      "severity": "P1",
+      "evidence": [
+        "packages/domain-core/src/commercial-expansion.ts",
+        "packages/domain-core/src/service-provider-registry.ts"
+      ],
+      "finding": "Forecast crop types and ForwardDeal are absent. Insurance is hard-coded partner copy and fictional provider data, with no offer, policy, coverage, claim or payout lifecycle.",
+      "requiredDelta": "Separate forecast from physical availability and build provider-neutral insurance lifecycle before live provider onboarding."
+    },
+    {
+      "id": "EXT-01",
+      "sections": [26, 27],
+      "area": "Multi-bank and Sber reference",
+      "classification": ["KEEP", "EXTEND_EXISTING", "NEW_REQUIRED", "EXTERNAL_BLOCKER"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/settlement-engine/settlement-engine.module.ts",
+        "apps/api/src/modules/settlement-engine/bank-key-registry.service.ts",
+        "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+        "packages/integration-sdk/src/live/live-bank.adapter.ts"
+      ],
+      "finding": "Bank-neutral settlement, holds, callback keys and pending bank operations exist. No outbound bank consumer, complete bank adapter, BillingPort, FinancingPort, bank binding or live finality receipt exists. The named live adapter is a skeleton.",
+      "requiredDelta": "Add bank-neutral plans and ports first; Sber contracts, OAuth/mTLS, callbacks and acceptance remain external blockers."
+    },
+    {
+      "id": "EXT-02",
+      "sections": [29],
+      "area": "ATI reference logistics provider",
+      "classification": ["NEW_REQUIRED", "EXTERNAL_BLOCKER"],
+      "severity": "P1",
+      "evidence": [
+        "packages/integration-sdk/src",
+        "apps/api/src/modules/logistics"
+      ],
+      "finding": "ATI board, auction, order, webhook, tracking and organization-binding adapters are absent.",
+      "requiredDelta": "Implement ports and conformance tests up to the credential boundary; obtain ATI contract, documentation and credentials separately."
+    },
+    {
+      "id": "EXT-03",
+      "sections": [31],
+      "area": "EDO and EPD providers",
+      "classification": ["EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE", "EXTERNAL_BLOCKER"],
+      "severity": "P0",
+      "evidence": [
+        "packages/integration-sdk/src/live/live-diadok.adapter.ts",
+        "packages/integration-sdk/src/live/live-gis-epd.adapter.ts",
+        "apps/api/src/modules/logistics/etn.service.ts",
+        "apps/api/src/modules/integrations/integrations.controller.ts",
+        "apps/api/src/modules/integrations/edo-webhook.controller.ts"
+      ],
+      "finding": "Provider-neutral skeletons exist, EPD is disabled, and two production webhooks are not acceptable evidence: one is unsigned and non-persistent; the other has optional timestamp, process-local replay protection and no state update.",
+      "requiredDelta": "Remove unsigned bypasses, persist raw-body verified receipts and add provider contracts and credentials after internal conformance."
+    },
+    {
+      "id": "EXT-04",
+      "sections": [32, 33, 34, 35],
+      "area": "Government gateway and regulatory lifecycle",
+      "classification": ["KEEP", "EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE", "EXTERNAL_BLOCKER"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/prisma/schema.prisma",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.transport.ts",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.dispatch.fail-closed.ts",
+        "apps/api/src/modules/compliance/compliance.service.ts"
+      ],
+      "finding": "FGIS inbox, correlation, retries and quarantine are the strongest external contour and correctly remain non-live. The generic gateway is incomplete; applicability lacks the full matrix and reporting logs SUCCESS for a shell without a durable submission receipt.",
+      "requiredDelta": "Preserve the inbox pattern, add applicability/obligation/submission/receipt/correction aggregates and never report external success without receipt."
+    },
+    {
+      "id": "EXT-05",
+      "sections": [36],
+      "area": "1C integration",
+      "classification": ["NEW_REQUIRED", "EXTERNAL_BLOCKER"],
+      "severity": "P1",
+      "evidence": [
+        "apps/api/src/modules/accounting/connection-center.repository.ts",
+        "apps/api/src/modules/accounting/document-transport.port.ts",
+        "apps/api/src/modules/accounting/document-transport.fake.ts"
+      ],
+      "finding": "Connection Center honestly reports adapterImplemented false. Only a transport contract and test fake exist; mapping, synchronization, conflicts and receipts are absent.",
+      "requiredDelta": "Implement canonical mappings and conflict/reconciliation workflow before credentialed 1C acceptance."
+    },
+    {
+      "id": "FIN-01",
+      "sections": [24, 25, 37],
+      "area": "Accounting, financial obligations and settlement plan",
+      "classification": ["KEEP", "EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/settlement-engine/settlement-engine.module.ts",
+        "apps/api/prisma/migrations/20260713140000_settlement_postgresql_authority/migration.sql",
+        "apps/api/src/modules/ledger/ledger.service.ts",
+        "apps/api/src/modules/ledger/ledger-v2.service.ts",
+        "apps/api/prisma/schema.prisma"
+      ],
+      "finding": "Settlement and accounting hold strong exact payment, allocation, beneficiary, reconciliation and hash-chain facts. There is no unified obligation ledger or explicit multi-scheme SettlementPlan. Two legacy ledger implementations remain memory/global-account based.",
+      "requiredDelta": "Extend settlement/accounting into one obligation view and plan router; retire competing ledger mutation authorities."
+    },
+    {
+      "id": "FIN-02",
+      "sections": [38],
+      "area": "Platform treasury",
+      "classification": ["NEW_REQUIRED"],
+      "severity": "P1",
+      "evidence": [
+        "apps/api/prisma/schema.prisma"
+      ],
+      "finding": "Bank account registry, platform receivable/payable, revenue recognition, partner accrual, payment authority matrix and 13-week forecast are absent.",
+      "requiredDelta": "Build treasury as a separate accounting projection over canonical obligations and receipts, not as another wallet ledger."
+    },
+    {
+      "id": "RISK-01",
+      "sections": [39],
+      "area": "Dispute and claims",
+      "classification": ["KEEP", "EXTEND_EXISTING"],
+      "severity": "P1",
+      "evidence": [
+        "apps/api/src/modules/disputes/postgresql-dispute.repository.ts",
+        "apps/api/prisma/migrations/20260715021000_dispute_postgresql_authority/migration.sql"
+      ],
+      "finding": "Canonical cases, participants, append-only evidence, appeals, money instructions, receipts, RLS, CAS and idempotency exist. Response, counter-evidence, retest, survey, expert review and proven partial holds remain incomplete.",
+      "requiredDelta": "Extend the same dispute authority with claims and partial-resolution branches."
+    },
+    {
+      "id": "RISK-02",
+      "sections": [40, 41],
+      "area": "Counterparty evidence, anti-fraud and reputation",
+      "classification": ["KEEP", "EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE", "NEW_REQUIRED"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/anti-fraud/anti-fraud.service.ts",
+        "apps/api/src/modules/business-reputation/business-reputation.service.ts",
+        "packages/domain-core/src/service-provider-registry.ts",
+        "apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/migration.sql"
+      ],
+      "finding": "Append-only eligibility evidence is reusable. Anti-fraud transition state is process-local, ranking is opaque, and reputation can fabricate fallback metrics when persistence is unavailable.",
+      "requiredDelta": "Create durable evidence graph, RiskCase and transparent versioned decision factors; fail closed instead of inventing scores."
+    },
+    {
+      "id": "RISK-03",
+      "sections": [42],
+      "area": "Notification center",
+      "classification": ["REMOVE_OR_SUPERSEDE", "NEW_REQUIRED"],
+      "severity": "P1",
+      "evidence": [
+        "apps/api/src/modules/notifications/notifications.service.ts",
+        "apps/web/app/platform-v7/notifications/page.tsx"
+      ],
+      "finding": "The web boundary reads and acknowledges server events, but the server inbox and read state are process-local and templates are hard-coded.",
+      "requiredDelta": "Add PostgreSQL inbox, outbox-driven delivery, attempts, receipts, preferences, quiet hours and mandatory exceptions."
+    },
+    {
+      "id": "RISK-04",
+      "sections": [43, 44],
+      "area": "Deadline, SLA and exception engines",
+      "classification": ["EXTEND_EXISTING", "NEW_REQUIRED"],
+      "severity": "P1",
+      "evidence": [
+        "packages/domain-core/src/deadline-protection.ts",
+        "apps/api/prisma/schema.prisma"
+      ],
+      "finding": "Individual deadlines and audit before/after facts exist, but no durable business calendar, pause/resume/escalation engine or governed ExceptionCase/manual-resolution workflow exists.",
+      "requiredDelta": "Implement server-authoritative deadlines and two-person exception resolution without fabricating external finality."
+    },
+    {
+      "id": "GOV-01",
+      "sections": [52, 53, 54, 55],
+      "area": "Entitlements, organization lifecycle, moderation and data governance",
+      "classification": ["EXTEND_EXISTING", "NEW_REQUIRED", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P1",
+      "evidence": [
+        "apps/web/app/platform-v7/profile/team",
+        "apps/web/components/platform-v7/PrivacyPortalPanel.tsx",
+        "apps/web/lib/platform-v7/data-subject-rights.ts",
+        "apps/web/lib/platform-v7/evidence-retention.ts"
+      ],
+      "finding": "Membership invitation, revoke and security controls are reusable. Platform entitlements, full organization lifecycle, marketplace moderation and durable privacy governance are absent; the privacy portal is hard-coded and local-only.",
+      "requiredDelta": "Add server-backed governance registries and remove unsupported privacy and processor claims."
+    },
+    {
+      "id": "UX-01",
+      "sections": [6, 63, 64, 68],
+      "area": "Post-registration activation and role roots",
+      "classification": ["REMOVE_OR_SUPERSEDE", "NEW_REQUIRED"],
+      "severity": "P0",
+      "evidence": [
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts"
+      ],
+      "finding": "The protected shell replaces real role pages with a generic RoleIntentDashboard and an empty message with no activation call to action. Tests currently preserve the contradictory behavior.",
+      "requiredDelta": "Show capability-specific first actions and the real role workspace to ordinary authenticated users."
+    },
+    {
+      "id": "UX-02",
+      "sections": [60, 61, 62, 65, 66, 67],
+      "area": "Deal 360 and design system",
+      "classification": ["KEEP", "EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P0",
+      "evidence": [
+        "packages/design-system-v8",
+        "packages/design-tokens",
+        "apps/web/app/platform-v7/deals/[id]/clean/page.tsx",
+        "apps/web/lib/platform-v7/deal360-source-of-truth.ts",
+        "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx"
+      ],
+      "finding": "Useful next-action, human-copy and progressive-disclosure patterns exist, but the production Deal 360 route reads static canonical fixtures and sandbox logistics/incidents. Thousands of inline styles remain outside the design system.",
+      "requiredDelta": "Keep the composition and tokens; replace every static authority with server-backed read models and complete role-specific information architecture."
+    },
+    {
+      "id": "UX-03",
+      "sections": [51, 69, 70, 71, 72, 73, 74, 77],
+      "area": "Search, screen states, confirmations, forms, tables and saved views",
+      "classification": ["EXTEND_EXISTING", "NEW_REQUIRED"],
+      "severity": "P1",
+      "evidence": [
+        "apps/web/components/platform-v7/CommandPalette.tsx",
+        "apps/web/components/platform-v7/CanonicalDealsList.tsx",
+        "apps/web/components/platform-v7/visual/ActionPreview.tsx"
+      ],
+      "finding": "The command palette searches navigation only; durable domain search, saved searches, alerts and saved views are absent. Good isolated loading/error/form patterns exist, but no mandatory all-screen contract or industrial grid and irreversible actions lack a unified confirmation ceremony.",
+      "requiredDelta": "Build server-backed discovery and reusable state, form, table, diff and confirmation contracts."
+    },
+    {
+      "id": "UX-04",
+      "sections": [75, 76],
+      "area": "Responsive and accessible critical workflows",
+      "classification": ["EXTEND_EXISTING"],
+      "severity": "P1",
+      "evidence": [
+        "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+        "apps/web/tests/unit"
+      ],
+      "finding": "Public and generic shell coverage is substantial, but private role tests exercise the generic dashboard and full WCAG 2.2 AA automation runs only on a subset of critical surfaces.",
+      "requiredDelta": "Prove every real private critical flow at 320, 390, 430, tablet and desktop with keyboard, reduced-motion and AA checks."
+    },
+    {
+      "id": "UX-05",
+      "sections": [78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97],
+      "area": "Settings platform",
+      "classification": ["EXTEND_EXISTING", "NEW_REQUIRED", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P0",
+      "evidence": [
+        "apps/web/app/platform-v7/profile",
+        "apps/web/app/platform-v7/connectors/page.tsx",
+        "apps/web/components/platform-v7/PrivacyPortalPanel.tsx",
+        "apps/api/src/modules/partner-api/partner-api.service.ts"
+      ],
+      "finding": "There is no settings subtree, scope inheritance or effective-value provenance. Team and connector diagnostics are partial foundations. Most personal, role, integration, finance, signature, Gekta, privacy and developer settings are absent; API keys and webhooks are process-local.",
+      "requiredDelta": "Build settings as a server-authoritative platform after the underlying configuration models exist."
+    },
+    {
+      "id": "UX-06",
+      "sections": [56, 57, 58, 93],
+      "area": "Gekta contextual copilot",
+      "classification": ["KEEP", "EXTEND_EXISTING", "NEW_REQUIRED"],
+      "severity": "P1",
+      "evidence": [
+        "apps/web/components/platform-v7/AiAssistantPanel.tsx",
+        "apps/web/lib/platform-v7/assistant-capability-registry.ts",
+        "apps/tai/tests/test_informational_only_boundary.py"
+      ],
+      "finding": "The assistant is explicitly informational/read-only and has useful role/deal context. It is not embedded in every key workflow and contract/integration explanations and settings remain incomplete.",
+      "requiredDelta": "Keep the no-irreversible-authority boundary and extend read/prepared-action context only after domain authorities exist."
+    },
+    {
+      "id": "UX-07",
+      "sections": [98, 99],
+      "area": "Analytics and public product shell",
+      "classification": ["KEEP", "EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P1",
+      "evidence": [
+        "apps/web/app/platform-v7/executive/page.tsx",
+        "apps/web/components/platform-v7/UnitEconomicsPassport.tsx",
+        "apps/web/components/platform-v7/ClickHouseAnalyticsPanel.tsx",
+        "apps/web/lib/platform-v7/public-seo-routes.json"
+      ],
+      "finding": "Executive aggregation and public SEO/i18n/mobile foundations exist. Unit economics and ClickHouse panels are demo/static, and seller, buyer and partner analytics are incomplete.",
+      "requiredDelta": "Replace demo analytics with source-backed metrics and remove unsupported public claims."
+    },
+    {
+      "id": "OPS-01",
+      "sections": [20, 35, 100],
+      "area": "Integration mode and health authority",
+      "classification": ["REMOVE_OR_SUPERSEDE", "EXTEND_EXISTING"],
+      "severity": "P0",
+      "evidence": [
+        "packages/integration-sdk/src/live/integration-config.ts",
+        "apps/api/src/shared/provider-health.shared.ts",
+        "apps/api/src/common/config/env.validation.ts",
+        "apps/api/src/main.ts",
+        "apps/api/src/health.controller.ts"
+      ],
+      "finding": "SDK and API use incompatible environment names, default to stub, startup permits mocks, config validation has no runtime caller and readiness checks only database/migrations rather than outbox and provider degradation.",
+      "requiredDelta": "Unify and validate fail-closed modes at startup and publish machine-readable provider and queue readiness without calling mocks live."
+    },
+    {
+      "id": "OPS-02",
+      "sections": [100],
+      "area": "Metrics and alerts",
+      "classification": ["KEEP", "EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P1",
+      "evidence": [
+        "apps/api/src/main.ts",
+        "infra/prometheus/runtime-alert-rules.yml",
+        "apps/api/src/health.controller.ts"
+      ],
+      "finding": "OTEL, Prometheus, Sentry and queue/reconciliation telemetry exist, but alert expressions and labels do not match emitted runtime metrics.",
+      "requiredDelta": "Bind every alert to emitted exact metric names and prove firing/recovery in acceptance."
+    },
+    {
+      "id": "OPS-03",
+      "sections": [101],
+      "area": "Backup, restore and disaster recovery",
+      "classification": ["EXTEND_EXISTING", "EXTERNAL_BLOCKER"],
+      "severity": "P0",
+      "evidence": [
+        "docs/platform-v7/production-database-deployment-runbook.md",
+        "infra/helm/grainflow"
+      ],
+      "finding": "Durable workers, retry/DLQ, HPA and PDB exist, but post-registration RPO/RTO, PITR, backup evidence and exact-release restore/DR drills are not proven.",
+      "requiredDelta": "Set approved RPO/RTO and attach real REG.RU backup, restore and DR drill evidence to an exact revision."
+    },
+    {
+      "id": "SEC-01",
+      "sections": [102],
+      "area": "Integration perimeter security",
+      "classification": ["KEEP", "EXTEND_EXISTING", "REMOVE_OR_SUPERSEDE"],
+      "severity": "P0",
+      "evidence": [
+        "apps/api/src/modules/integrations/integrations.controller.ts",
+        "apps/api/src/modules/integrations/edo-webhook.controller.ts",
+        "packages/integration-sdk/src/live/build-client.ts",
+        "infra/helm/grainflow/templates/networkpolicy.yaml"
+      ],
+      "finding": "RLS, MFA/JIT, bank callback keys and immutable ledgers are strong. Public EDO webhook verification, replay persistence, TLS claims, mock configuration and external egress rules remain unsafe or contradictory.",
+      "requiredDelta": "Close unsigned webhooks, require secure transports, persist replay state, align egress with approved providers and re-run threat/negative tests."
+    },
+    {
+      "id": "ACCEPT-01",
+      "sections": [103, 104, 109],
+      "area": "Human reality acceptance",
+      "classification": ["NEW_REQUIRED"],
+      "severity": "P0",
+      "evidence": [
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/components/platform-v7/RoleIntentDashboard.tsx"
+      ],
+      "finding": "No evidence shows 5 to 8 unaided tasks completed by real users for each role. Current role roots prevent the required first primary action without support.",
+      "requiredDelta": "Run role-based research only after server-backed workflows replace generic and demo surfaces."
+    }
+  ],
+  "prohibitedParallelAuthorities": [
+    "DealV2",
+    "SettlementV2",
+    "IntegrationV2",
+    "ServiceProviderV2"
+  ],
+  "firstImplementationSlice": {
+    "id": "W1-A",
+    "name": "Organization Capability Authority — shadow mode",
+    "dependsOnExternalAccess": false,
+    "changesRegistration": false,
+    "changesEnforcement": false,
+    "next": "W1-B durable Provider Registry and ServiceOffering authority"
+  }
+}

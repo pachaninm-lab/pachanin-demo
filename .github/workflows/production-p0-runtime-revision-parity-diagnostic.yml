@@ -12,8 +12,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-p0-runtime-revision-parity-diagnostic-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number || github.run_id }}
+  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 4637 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) || github.event.comment.performed_via_github_app.id == 1144995) && github.event.comment.body == '/production p0-runtime-revision-parity-diagnostic current-runtime' && 'pc-crop-registration-lifecycle' || format('production-p0-runtime-revision-parity-diagnostic-{0}', github.event.pull_request.number || github.run_id) }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   contract:
@@ -22,7 +23,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (
         github.event_name == 'issue_comment' &&
-        github.event.issue.number == 3072 &&
+        github.event.issue.number == 4637 &&
         github.event.comment.user.login == github.repository_owner &&
         github.event.comment.author_association == 'OWNER' &&
         (
@@ -58,11 +59,26 @@ jobs:
               'StrictHostKeyChecking=yes',
               'docker inspect',
               'AUTH_MAIL_WORKER_REVISION',
+              'STAFF_DATABASE_URL',
+              'auth.staff_reviewer_login_readiness()',
+              'REVIEWER_LOGIN_READINESS',
+              'REVIEWER_CREDENTIAL_UNLOCK_OR_WAIT_REQUIRED',
+              'git merge-base --is-ancestor',
+              'pc-crop-registration-lifecycle',
+              'queue: max',
+              'RUNTIME_STABILITY',
               '/production p0-runtime-revision-parity-diagnostic current-runtime',
           ]
           missing = [item for item in required if item not in text]
           if missing:
               raise SystemExit('missing invariant: ' + ' | '.join(missing))
+          expected_counts = {
+              'github.event.issue.number == ' + '4637': 2,
+              'gh issue comment ' + '4637': 1,
+          }
+          wrong_count = [item for item, count in expected_counts.items() if text.count(item) != count]
+          if wrong_count:
+              raise SystemExit('non-exact continuation invariant: ' + ' | '.join(wrong_count))
           forbidden = [
               'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',
               'docker ' + 'kill', 'docker ' + 'compose', 'docker ' + 'service',
@@ -70,6 +86,10 @@ jobs:
               'TRUNCATE ' + 'TABLE', 'ALTER ' + 'ROLE', 'MAIL ' + 'FROM',
               'RCPT ' + 'TO', '/api/auth/' + 'forgot-password',
               '--request ' + 'POST', '-X ' + 'POST', '--data-' + 'binary',
+              'password_' + 'hash', 'mfa_secret_' + 'ciphertext',
+              'mfa_backup_' + 'hashes',
+              'github.event.issue.number == ' + '3072',
+              'gh issue comment ' + '3072',
           ]
           bad = [item for item in forbidden if item in text]
           if bad:
@@ -228,7 +248,7 @@ jobs:
           project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
           [[ -n "$project" ]]
           mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
-          mapfile -t worker_ids < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          mapfile -t worker_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
           (( ${#api_ids[@]} == 1 && ${#worker_ids[@]} == 1 ))
           api_id="${api_ids[0]}"; worker_id="${worker_ids[0]}"
           api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
@@ -236,11 +256,80 @@ jobs:
           worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"
           worker_state="$(docker inspect --format '{{.State.Status}}' "$worker_id")"
           worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$worker_id")"
+          [[ "$worker_state" == 'running' && "$worker_health" == 'healthy' ]]
+          docker exec "$worker_id" /nodejs/bin/node -e \
+            "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(async r=>{if(!r.ok)process.exit(1);const x=await r.json();if(x.status!=='ready'||x.component!=='auth-mail-worker'||x.checks?.database!==true)process.exit(1)}).catch(()=>process.exit(1))"
           emit API_REVISION "$api_revision"
           emit WEB_REVISION "$web_revision"
           emit AUTH_MAIL_WORKER_REVISION "$worker_revision"
           emit AUTH_MAIL_WORKER_STATE "$worker_state"
           emit AUTH_MAIL_WORKER_HEALTH "$worker_health"
+
+          docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
+          const { PrismaClient } = require('@prisma/client');
+
+          const safeCode = (error) => {
+            const raw = String(error && typeof error === 'object' && 'code' in error ? error.code : 'UNKNOWN');
+            return raw.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32) || 'UNKNOWN';
+          };
+
+          (async () => {
+            const databaseUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
+            if (!databaseUrl) throw Object.assign(new Error('staff database unavailable'), { code: 'STAFF_DATABASE_URL_MISSING' });
+            const db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+            try {
+              const rows = await db.$queryRawUnsafe(`
+                SELECT current_user AS user_name,
+                       assignment_ready_count,
+                       active_identity_ready_count,
+                       membership_ready_count,
+                       password_ready_count,
+                       mfa_enrolled_ready_count,
+                       login_ready_count
+                FROM auth.staff_reviewer_login_readiness()
+              `);
+              const row = rows[0] || {};
+              if (row.user_name !== 'pc_staff_runtime') {
+                throw Object.assign(new Error('staff principal invalid'), { code: 'P0_STAFF_PRINCIPAL_BOUNDARY_INVALID' });
+              }
+              const values = [
+                Number(row.assignment_ready_count || 0),
+                Number(row.active_identity_ready_count || 0),
+                Number(row.membership_ready_count || 0),
+                Number(row.password_ready_count || 0),
+                Number(row.mfa_enrolled_ready_count || 0),
+                Number(row.login_ready_count || 0),
+              ];
+              if (rows.length !== 1 || values.some((value) => !Number.isInteger(value) || value < 0)) {
+                throw Object.assign(new Error('readiness counts invalid'), { code: 'P0_REVIEWER_READINESS_INVALID_COUNTS' });
+              }
+              const [assignments, identities, memberships, passwords, mfa, login] = values;
+              if (identities > assignments || memberships > identities || passwords > memberships
+                  || mfa > passwords || login > mfa) {
+                throw Object.assign(new Error('readiness not monotonic'), { code: 'P0_REVIEWER_READINESS_NON_MONOTONIC' });
+              }
+              console.log(
+                `REVIEWER_LOGIN_READINESS|${row.user_name}|${assignments}|${identities}`
+                + `|${memberships}|${passwords}|${mfa}|${login}`,
+              );
+            } finally {
+              await db.$disconnect();
+            }
+          })().catch((error) => {
+            console.error(`P0_REVIEWER_RUNTIME_DIAGNOSTIC_ERROR|${safeCode(error)}`);
+            process.exitCode = 1;
+          });
+          NODE
+
+          api_revision_after="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          web_revision_after="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          worker_revision_after="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"
+          worker_state_after="$(docker inspect --format '{{.State.Status}}' "$worker_id")"
+          worker_health_after="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$worker_id")"
+          [[ "$api_revision_after" == "$api_revision" && "$web_revision_after" == "$web_revision" ]]
+          [[ "$worker_revision_after" == "$worker_revision" && "$worker_state_after" == "$worker_state" ]]
+          [[ "$worker_health_after" == "$worker_health" ]]
+          emit RUNTIME_STABILITY PASS
           emit PRODUCTION_MUTATION NONE
           REMOTE
 
@@ -249,18 +338,51 @@ jobs:
           worker="$(grep -E '^AUTH_MAIL_WORKER_REVISION=[0-9a-f]{40}$' "$raw" | tail -n1 | cut -d= -f2-)"
           state="$(grep -E '^AUTH_MAIL_WORKER_STATE=[a-z]+$' "$raw" | tail -n1 | cut -d= -f2-)"
           health="$(grep -E '^AUTH_MAIL_WORKER_HEALTH=[a-z]+$' "$raw" | tail -n1 | cut -d= -f2-)"
+          readiness_marker="$(grep -E '^REVIEWER_LOGIN_READINESS\|pc_staff_runtime\|[0-9]+\|[0-9]+\|[0-9]+\|[0-9]+\|[0-9]+\|[0-9]+$' "$raw" | tail -n1)"
+          grep -Fxq 'RUNTIME_STABILITY=PASS' "$raw"
           grep -Fxq 'PRODUCTION_MUTATION=NONE' "$raw"
           [[ "$api" =~ ^[0-9a-f]{40}$ && "$web" =~ ^[0-9a-f]{40}$ && "$worker" =~ ^[0-9a-f]{40}$ ]]
-          parity='FAIL'
-          [[ "$api" == "$web" && "$api" == "$worker" ]] && parity='PASS'
+          [[ "$state" == 'running' && "$health" == 'healthy' ]]
+          [[ "$api" == "$web" && "$api" == "$worker" ]]
+          parity='PASS'
+
+          IFS='|' read -r readiness_tag principal assignments identities memberships passwords mfa login <<< "$readiness_marker"
+          [[ "$readiness_tag" == 'REVIEWER_LOGIN_READINESS' && "$principal" == 'pc_staff_runtime' ]]
+          for value in "$assignments" "$identities" "$memberships" "$passwords" "$mfa" "$login"; do
+            [[ "$value" =~ ^[0-9]+$ ]]
+          done
+          (( identities <= assignments ))
+          (( memberships <= identities ))
+          (( passwords <= memberships ))
+          (( mfa <= passwords ))
+          (( login <= mfa ))
+
+          readiness_class='BLOCKED'
+          if (( login > 0 )); then
+            readiness_class='READY'
+            next='HUMAN_REVIEWER_LOGIN_CEREMONY_REQUIRED'
+          elif (( mfa > 0 )); then
+            next='REVIEWER_CREDENTIAL_UNLOCK_OR_WAIT_REQUIRED'
+          elif (( passwords > 0 )); then
+            next='REVIEWER_MFA_ENROLLMENT_REQUIRED'
+          elif (( memberships > 0 )); then
+            next='REVIEWER_PASSWORD_RESET_REQUIRED'
+          elif (( identities > 0 )); then
+            next='REVIEWER_MEMBERSHIP_OR_ORGANIZATION_REPAIR_REQUIRED'
+          elif (( assignments > 0 )); then
+            next='REVIEWER_IDENTITY_REPAIR_REQUIRED'
+          else
+            next='FIRST_REVIEWER_BOOTSTRAP_REQUIRED'
+          fi
 
           git fetch --no-tags origin main >/dev/null
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           for rev in "$api" "$web" "$worker"; do git cat-file -e "${rev}^{commit}"; done
+          git merge-base --is-ancestor "$api" "$TARGET_SHA"
 
-          printf -v comment_body '## Production P0 runtime revision parity diagnostic\n\n- exact main: `%s`\n- API revision: `%s`\n- Web revision: `%s`\n- auth-mail-worker revision: `%s`\n- auth-mail-worker state: `%s`\n- auth-mail-worker health: `%s`\n- revision parity: `%s`\n- reviewer identity exposure: `NONE`\n- PRODUCTION_MUTATION: `NONE`' "$TARGET_SHA" "$api" "$web" "$worker" "$state" "$health" "$parity"
-          gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body "$comment_body" >/dev/null
+          printf -v comment_body '## Production P0 runtime revision parity and reviewer readiness diagnostic\n\n- exact main: `%s`\n- API revision: `%s`\n- Web revision: `%s`\n- auth-mail-worker revision: `%s`\n- auth-mail-worker state: `%s`\n- auth-mail-worker health: `%s`\n- revision parity: `%s`\n- runtime stability across diagnostic: `PASS`\n- deployed revision is an ancestor of exact main: `PASS`\n- staff principal: `%s`\n- reviewer readiness (assignment/identity/membership/password/MFA/login): `%s|%s|%s|%s|%s|%s`\n- reviewer readiness class: `%s`\n- result: `PASS_READ_ONLY_CLASSIFIED`\n- next: `%s`\n- reviewer identity exposure: `NONE`\n- raw database output: `NOT_PUBLISHED`\n- PRODUCTION_MUTATION: `NONE`' "$TARGET_SHA" "$api" "$web" "$worker" "$state" "$health" "$parity" "$principal" "$assignments" "$identities" "$memberships" "$passwords" "$mfa" "$login" "$readiness_class" "$next"
+          gh issue comment 4637 --repo "$GITHUB_REPOSITORY" --body "$comment_body" >/dev/null
 
           echo "API_REVISION=$api"
           echo "WEB_REVISION=$web"
@@ -268,4 +390,8 @@ jobs:
           echo "AUTH_MAIL_WORKER_STATE=$state"
           echo "AUTH_MAIL_WORKER_HEALTH=$health"
           echo "REVISION_PARITY=$parity"
+          echo 'RUNTIME_STABILITY=PASS'
+          echo "REVIEWER_READINESS=$assignments|$identities|$memberships|$passwords|$mfa|$login"
+          echo "REVIEWER_READINESS_CLASS=$readiness_class"
+          echo "NEXT=$next"
           echo 'PRODUCTION_MUTATION=NONE'

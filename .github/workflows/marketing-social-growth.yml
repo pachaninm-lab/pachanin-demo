@@ -1,0 +1,109 @@
+name: Marketing Social Growth Safety Gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/marketing-social-growth.yml'
+      - 'apps/api/package.json'
+      - 'apps/api/tsconfig.marketing-outbox-worker.json'
+      - 'apps/api/src/marketing-outbox-worker.ts'
+      - 'apps/api/src/marketing-outbox-worker.module.ts'
+      - 'apps/api/src/modules/marketing/**'
+      - 'apps/web/app/api/marketing/telegram/webhook/route.ts'
+      - 'apps/web/app/api/platform-v7/organization-connect/route.ts'
+      - 'apps/web/components/platform-v7/OrganizationConnectForm.tsx'
+      - 'apps/web/lib/platform-v7/marketing-attribution.ts'
+      - 'apps/web/lib/platform-v7/marketing-attribution.server.ts'
+      - 'apps/web/lib/platform-v7/telegram-marketing-qualification.ts'
+      - 'apps/web/tests/unit/marketingSocialWaitlist.test.ts'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/marketing-social-growth.yml'
+      - 'apps/api/package.json'
+      - 'apps/api/tsconfig.marketing-outbox-worker.json'
+      - 'apps/api/src/marketing-outbox-worker.ts'
+      - 'apps/api/src/marketing-outbox-worker.module.ts'
+      - 'apps/api/src/modules/marketing/**'
+      - 'apps/web/app/api/marketing/telegram/webhook/route.ts'
+      - 'apps/web/app/api/platform-v7/organization-connect/route.ts'
+      - 'apps/web/components/platform-v7/OrganizationConnectForm.tsx'
+      - 'apps/web/lib/platform-v7/marketing-attribution.ts'
+      - 'apps/web/lib/platform-v7/marketing-attribution.server.ts'
+      - 'apps/web/lib/platform-v7/telegram-marketing-qualification.ts'
+      - 'apps/web/tests/unit/marketingSocialWaitlist.test.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  marketing-safety:
+    name: RU channels · editorial evidence · Telegram→QWO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck API and web
+        run: |
+          pnpm --filter @pc/api typecheck
+          pnpm --filter @pc/web typecheck
+
+      - name: Build isolated marketing worker
+        run: |
+          pnpm --filter @pc/api build:marketing-outbox-worker
+          test -s apps/api/dist-marketing-outbox-worker/marketing-outbox-worker.js
+
+      - name: Verify outbound marketing safety contracts
+        run: >-
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath
+          src/modules/marketing/marketing-policy.service.spec.ts
+          src/modules/marketing/connectors/telegram.publisher.spec.ts
+          src/modules/marketing/connectors/vk.publisher.spec.ts
+          src/modules/marketing/marketing-outbox.contract.spec.ts
+          src/modules/marketing/marketing-durable-outbox.worker.spec.ts
+
+      - name: Verify radar evidence, cadence and topic-planning contracts
+        run: >-
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath
+          src/modules/marketing/marketing-editorial-core.spec.ts
+          src/modules/marketing/marketing-content-planner.spec.ts
+
+      - name: Verify signed attribution HMAC authority
+        run: >-
+          pnpm --filter @pc/web exec vitest run
+          tests/unit/marketingSocialWaitlist.test.ts
+          -t "marketing social waitlist attribution"
+
+      - name: Verify Telegram qualification and BFF authority
+        run: >-
+          pnpm --filter @pc/web exec vitest run
+          tests/unit/marketingSocialWaitlist.test.ts
+          -t "Telegram qualification without Telegram PII persistence"
+
+      - name: Verify existing organization-intake regression
+        run: >-
+          pnpm --filter @pc/web exec vitest run
+          tests/unit/platformV7OrganizationConnectIntake.test.ts

@@ -39,6 +39,24 @@ describe('P0 first-customer registration boundary', () => {
     expect(resendRoute).not.toContain('REGISTRATION_DELIVERY_KEY:');
   });
 
+  it('retries only the proven transient SMTP timeout once and still fails closed after the retry', () => {
+    expect(registerRoute).toContain('export const maxDuration = 30');
+    expect(registerRoute).toContain("result.provider === 'smtp'");
+    expect(registerRoute).toContain("result.reason.includes('smtp_timeout')");
+    expect(registerRoute).toContain('attempts = 2');
+    expect(registerRoute).toContain('await new Promise((resolve) => setTimeout(resolve, 250))');
+    expect(registerRoute).toContain('if (!deliveryResult.delivered)');
+    expect(registerRoute).toContain("code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'");
+    expect(registerRoute).not.toContain('while (');
+  });
+
+  it('forwards the bounded API registration retry window needed by the production matrix', () => {
+    expect(registerRoute).toContain('retryAfterSeconds?: number');
+    expect(registerRoute).toContain('boundedRetryAfterSeconds(payload.retryAfterSeconds)');
+    expect(registerRoute).toContain('Number(value) <= 86_400');
+    expect(registerRoute).toContain('{ retryAfterSeconds }');
+  });
+
   it('executes the server-only Resend transport without exposing its credential', async () => {
     const previous = {
       resendApiKey: process.env.RESEND_API_KEY,

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4647,
+  "branch": "security/present-all-at-path-4647",
+  "status": "active",
+  "purpose": "Add a PRESENT_ALL_AT_PATH condition check that requires every pattern in every named path, so an evidence condition can state that several facts must all still hold. PRESENT_AT_PATH matches with patterns.some(), which is right when the patterns are alternative spellings of one control and wrong when the condition means a conjunction - there, losing one fact leaves the decision standing on the half that remains. Additive only: no existing decision, check or verdict changes.",
+  "authorityBaseExactMain": "ea934796d21aba94da691c64a5392de42402b059",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/present-all-at-path-4647.json",
+    "scripts/security/build-asvs-matrix.mjs",
+    "scripts/security/build-asvs-matrix.test.mjs"
+  ],
+  "requiredInvariants": [
+    "Purely additive: PRESENT_AT_PATH and ABSENT_AT_PATH keep their existing semantics exactly, so no decision already in the register changes verdict or gets rejected by this commit.",
+    "The existing missing-path guard and empty-pattern guard apply to the new check as well, and are covered by tests.",
+    "Tests encode both real failure modes found in the register rather than an abstract example: a condition whose second pattern is the rejection half of a signature check, and a two-path/two-pattern condition satisfied only along the diagonal.",
+    "No decision in docs/security/asvs-applicability-decisions.json is migrated in this scope - that revision needs per-condition judgement about whether the author meant AND or OR, plus a negative test each, and is deliberately left to a separate pass.",
+    "No production, REG.RU, DNS or database mutation.",
+    "No application code changes."
+  ],
+  "acceptance": [
+    "evaluateCondition supports PRESENT_ALL_AT_PATH, requiring every pattern in every named path.",
+    "node --test scripts/security/*.test.mjs passes, with new tests proving PRESENT_AT_PATH still holds when one of two named facts is removed while PRESENT_ALL_AT_PATH stops holding.",
+    "Rebuilding the matrix leaves decisionsApplied at 332 and decisionsRejected at 0 - the register is untouched by this change."
+  ]
+}

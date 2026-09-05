@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword, verifyPassword } from './password-hashing';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { RequestUser } from '../../common/types/request-user';
 import { isStrongPassword } from '../../common/validators/strong-password.validator';
@@ -36,7 +36,23 @@ import {
 import { PersistentAuthRepository, type AuthSqlClient } from './persistent-auth.repository';
 
 const INVITATION_TTL_MS = 72 * 60 * 60 * 1000;
-const MFA_RECOVERY_TTL_MS = 30 * 60 * 1000;
+
+/**
+ * The MFA-recovery credential is minted here, delivered to a separate channel
+ * (email) and presented back to the application, which makes it an out-of-band
+ * authentication request. ASVS 5.0 V6.5.5 caps those at ten minutes; this was
+ * thirty.
+ *
+ * An invitation is not the same kind of credential and keeps its own, much
+ * longer lifetime: it admits nobody on its own, it starts a review by a human
+ * administrator, and it is not a step in authenticating an existing account.
+ * The cap belongs to the credential that completes an authentication.
+ *
+ * Anything that tells a user how long this link lasts must derive the number
+ * from here rather than restate it, which is why the delivery payload carries
+ * expiresInSeconds.
+ */
+export const MFA_RECOVERY_TTL_MS = 10 * 60 * 1000;
 
 type AdminMembership = {
   id: string;
@@ -421,7 +437,7 @@ export class OrganizationInvitationService {
     }
     const parsed = resolvePresentedCredential(dto.token, 'iv');
     if (!parsed) throw new BadRequestException({ code: 'INVITATION_INVALID' });
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const passwordHash = await hashPassword(dto.password);
 
     const result = await this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<Array<{
@@ -485,7 +501,7 @@ export class OrganizationInvitationService {
           existingUser.deletedAt
           || existingUser.status !== 'ACTIVE'
           || !existingUser.passwordHash
-          || !await bcrypt.compare(dto.password, existingUser.passwordHash)
+          || !await verifyPassword(dto.password, existingUser.passwordHash)
         )
       ) return { kind: 'invalid' as const };
       if (!existingUser && !isStrongPassword(dto.password)) {
@@ -915,7 +931,15 @@ export class OrganizationInvitationService {
       ) {
         return { kind: 'invalid' as const };
       }
-      const validPassword = await bcrypt.compare(dto.password, String(challenge.password_hash || ''));
+      // Through the owning module, not bcrypt.compare directly. A stored hash
+      // has not been guaranteed to be bcrypt since the versioned scheme landed:
+      // hashPassword writes scrypt, so any account whose password was set after
+      // that point already could not complete MFA recovery here - bcrypt.compare
+      // against a scrypt record returns false and the flow reports
+      // MFA_RECOVERY_INVALID for a correct password. Rewriting legacy hashes on
+      // login turns that from a bug affecting new accounts into one affecting
+      // every account, which is how it was found.
+      const validPassword = await verifyPassword(dto.password, challenge.password_hash);
       if (!validPassword) {
         const terminal = challenge.attempts + 1 >= challenge.max_attempts;
         const changed = await tx.$executeRaw(Prisma.sql`

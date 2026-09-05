@@ -35,6 +35,7 @@ const AUTH_RUNTIME_FUNCTIONS = [
   'auth.registration_join_notification_recipients(TEXT, TEXT, TEXT)',
   'auth.resolve_password_reset_subject(TEXT)',
   'auth.replace_password_after_reset(TEXT, TEXT, TEXT, TIMESTAMPTZ)',
+  'auth.upgrade_password_hash_format(TEXT, TEXT, TEXT)',
   'auth.organization_team_snapshot(TEXT, TEXT, TEXT, TEXT, TEXT)',
   'auth.resolve_organization_admin_session(TEXT, TEXT, TEXT, TEXT, TEXT)',
   'auth.organization_membership_exists_for_email(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT)',
@@ -140,6 +141,47 @@ describe('auth and staff principal provisioning', () => {
     expect(migration).not.toMatch(
       /GRANT (?:SELECT|INSERT|UPDATE|DELETE)[^;]*ON public\."(?:user_orgs|organizations)"[^;]*TO pc_auth_mfa_authority/,
     );
+  });
+
+  it('reconciles the compatibility MFA flag only from a fresh bound TOTP proof', () => {
+    const migration = repositoryFile(
+      'apps/api/prisma/migrations/20260822143000_p0_authenticated_totp_compatibility/migration.sql',
+    );
+    const repository = repositoryFile(
+      'apps/api/src/modules/auth/persistent-auth.repository.ts',
+    );
+
+    for (const proof of [
+      "challenge.\"type\" IN ('TOTP_ENROLL', 'TOTP_VERIFY')",
+      'challenge.verified_at = pg_catalog.transaction_timestamp()',
+      'challenge.expires_at > pg_catalog.transaction_timestamp()',
+      "session.mfa_verified_method = 'TOTP'",
+      'session.mfa_verified_at = pg_catalog.transaction_timestamp()',
+      'challenge.verified_at = session.mfa_verified_at',
+      'session.revoked_at IS NULL',
+      'session.expires_at > pg_catalog.transaction_timestamp()',
+      'session.credential_version = credential.credential_version',
+      "credential.mfa_key_version = 'v1'",
+    ]) {
+      expect(migration).toContain(proof);
+    }
+    expect(migration).toContain('UPDATE public."users" subject');
+    expect(migration).toContain('SET "mfaEnabled" = true');
+    expect(migration).toContain('OWNER TO pc_auth_mfa_authority');
+    expect(migration).toContain(
+      'REVOKE ALL ON FUNCTION auth.finalize_authenticated_user_mfa(text, text, text)',
+    );
+    expect(migration).toContain('pg_catalog.aclexplode(');
+    expect(migration).toContain('privilege.grantee = 0');
+    expect(migration).not.toMatch(/CREATE ROLE|GRANT EXECUTE/);
+    expect(migration).not.toMatch(
+      /(?:INSERT|UPDATE|DELETE|TRUNCATE)\s+(?:INTO\s+|FROM\s+)?auth\./i,
+    );
+
+    expect(repository).toContain('AND session_id = ${input.sessionId}');
+    expect(repository).toContain('AND user_id = ${input.userId}');
+    expect(repository).toContain("if (input.method === 'TOTP')");
+    expect(repository).toContain('mfa_key_version = CASE');
   });
 
   it('keeps password reset behind a column-bounded non-inheritable authority', () => {
@@ -264,6 +306,69 @@ describe('auth and staff principal provisioning', () => {
     expect(migration).not.toMatch(
       /GRANT (?:INSERT|DELETE)[^;]*ON public\."(?:users|user_orgs|organizations)"[^;]*TO pc_registration_decision_authority/,
     );
+  });
+
+  it('keeps both registration application row locks with only id-column UPDATE authority', () => {
+    const authority = repositoryFile(
+      'apps/api/prisma/migrations/20260808140000_p0_registration_decision_authority/migration.sql',
+    );
+    const migration = repositoryFile(
+      'apps/api/prisma/migrations/20260826180000_p0_registration_decision_application_lock_privilege/migration.sql',
+    );
+
+    expect(authority).toMatch(/^\s*FOR UPDATE OF application, organization;$/mu);
+    expect(authority).toMatch(/^\s*FOR UPDATE OF candidate, organization;$/mu);
+    expect(migration.match(
+      /GRANT UPDATE\s*\([^)]*\)\s*ON TABLE auth\.registration_applications/gi,
+    )).toEqual(['GRANT UPDATE (id) ON TABLE auth.registration_applications']);
+    expect(migration).not.toMatch(
+      /GRANT UPDATE\s*\([^)]*(?:status|version)[^)]*\)\s*ON TABLE auth\.registration_applications/i,
+    );
+    expect(migration).not.toMatch(
+      /GRANT UPDATE\s+ON TABLE auth\.registration_applications/i,
+    );
+    expect(migration).not.toMatch(
+      /GRANT UPDATE\s*\(id\)\s*ON TABLE auth\.registration_applications[^;]*WITH GRANT OPTION/i,
+    );
+    expect(migration).not.toMatch(/\b(?:REVOKE|ALTER)\b/i);
+    expect(migration).not.toContain('CREATE OR REPLACE FUNCTION');
+    expect(migration).toContain(
+      "has_column_privilege(\n       'pc_registration_decision_authority',\n       'auth.registration_applications',\n       'id',\n       'UPDATE'",
+    );
+    expect(migration).toContain(
+      "has_any_column_privilege(\n       'pc_registration_decision_authority',\n       'auth.registration_applications',\n       'UPDATE WITH GRANT OPTION'",
+    );
+    expect(migration).toContain("attribute.attrelid = 'auth.registration_applications'::regclass");
+    expect(migration).toContain('attribute.attnum > 0');
+    expect(migration).toContain('NOT attribute.attisdropped');
+    expect(migration).toContain(') <> 1 THEN');
+    expect(migration).toContain("'INSERT'\n     )");
+    expect(migration).toContain("'DELETE'\n     )");
+    expect(migration).toContain('procedure.proconfig @> ARRAY[');
+    expect(migration).toContain("acl.grantee = 0");
+    expect(migration).toContain("acl.privilege_type = 'EXECUTE'");
+    expect(migration).toContain('NOT role.rolreplication');
+
+    const rehearsal = repositoryFile('scripts/platform-v7-database-dr-rehearsal.sh');
+    expect(rehearsal).toContain(
+      'REVOKE ALL PRIVILEGES ON auth.registration_applications\n      FROM pc_registration_decision_authority;',
+    );
+    expect(rehearsal).toContain(
+      'GRANT UPDATE (id) ON TABLE auth.registration_applications\n      TO pc_registration_decision_authority;',
+    );
+
+    const integration = repositoryFile('scripts/platform-v7-rls-integration.sh');
+    expect(integration).toContain('P0_REGISTRATION_DECISION_LOCK_PRIVILEGE_MIGRATION=');
+    expect(integration).toContain('[[ -f "$P0_REGISTRATION_DECISION_LOCK_PRIVILEGE_MIGRATION" ]]');
+    expect(integration).toContain('admin -f "$P0_REGISTRATION_DECISION_LOCK_PRIVILEGE_MIGRATION"');
+    expect(integration).toContain('SET LOCAL ROLE pc_registration_decision_authority;');
+    expect(integration).toMatch(
+      /SELECT id\s+FROM auth\.registration_applications\s+WHERE false\s+FOR UPDATE;/m,
+    );
+    expect(integration).toMatch(
+      /UPDATE auth\.registration_applications\s+SET status = status, version = version\s+WHERE false;/m,
+    );
+    expect(integration).toContain("grep -Fq '42501'");
   });
 
   it('separates read-only account export from bounded anonymization', () => {
@@ -462,6 +567,28 @@ describe('auth and staff principal provisioning', () => {
       expect(proof).toContain(
         "NOT has_table_privilege('pc_mfa_recovery_identity_authority', 'auth.credential_states', 'UPDATE')",
       );
+      expect(proof).toContain(
+        "NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE')",
+      );
+      expect(proof).toContain(
+        "has_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'id', 'UPDATE')",
+      );
+      expect(proof).toContain(
+        "NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE WITH GRANT OPTION')",
+      );
+      expect(proof).toContain(
+        "NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')",
+      );
+      expect(proof).toContain(
+        "NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')",
+      );
+      expect(proof).toContain(
+        "NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'DELETE')",
+      );
+      expect(proof).toContain(
+        "attribute.attrelid = 'auth.registration_applications'::regclass",
+      );
+      expect(proof).toContain(')) = 1');
     }
     expect(oneDeal).toContain('REGISTRATION_DECISION_AUTHORITY_PROOF');
     expect(oneDeal).toContain('ACCOUNT_LIFECYCLE_AUTHORITY_PROOF');

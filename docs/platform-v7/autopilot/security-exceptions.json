@@ -4,54 +4,5 @@
     "criticalExceptionsAllowed": false,
     "maximumExceptionDays": 90
   },
-  "exceptions": [
-    {
-      "id": "SEC-2026-4432",
-      "scanner": "trivy-container",
-      "findingType": "vulnerability",
-      "findingId": "CVE-2026-14456",
-      "purls": [
-        "pkg:deb/debian/libssl3t64@3.5.6-1~deb13u2?arch=amd64&distro=debian-13.6"
-      ],
-      "severity": "HIGH",
-      "owner": "platform-security",
-      "approvedBy": "pachaninm-lab",
-      "ticket": "#4432",
-      "rationale": "Trivy reports fix_deferred with no fixed Debian package. The finding is specific to an OpenSSL QUIC server/listener accepting QUIC Initial packets; the production NestJS API is a TCP HTTP service on port 3001 behind the existing reverse proxy and contains no QUIC, HTTP/3 or UDP server wiring. The exception is finding-specific, scanner-specific, time-bounded to seven days, and does not relax CRITICAL or unrelated HIGH findings.",
-      "createdAt": "2026-08-19T05:42:42Z",
-      "expiresAt": "2026-08-26T05:42:42Z"
-    },
-    {
-      "id": "SEC-2026-4438",
-      "scanner": "trivy-web-container",
-      "findingType": "vulnerability",
-      "findingId": "CVE-2026-14456",
-      "purls": [
-        "pkg:deb/debian/libssl3t64@3.5.6-1~deb13u2?arch=amd64&distro=debian-13.6"
-      ],
-      "severity": "HIGH",
-      "owner": "platform-security",
-      "approvedBy": "pachaninm-lab",
-      "ticket": "#4438",
-      "rationale": "Trivy reports fix_deferred with no fixed Debian package. The finding is specific to an OpenSSL QUIC server/listener accepting QUIC Initial packets; the production Next.js Web runtime is a TCP HTTP service on port 3000 behind the existing reverse proxy and contains no QUIC, HTTP/3 or UDP server wiring. The exception is finding-specific, scanner-specific, time-bounded to the same short window as the API exception, and does not relax CRITICAL or unrelated HIGH findings.",
-      "createdAt": "2026-08-21T12:48:35Z",
-      "expiresAt": "2026-08-26T05:42:42Z"
-    },
-    {
-      "id": "SEC-2026-4476",
-      "scanner": "trivy-outbox-worker-container",
-      "findingType": "vulnerability",
-      "findingId": "CVE-2026-14456",
-      "purls": [
-        "pkg:deb/debian/libssl3t64@3.5.6-1~deb13u2?arch=amd64&distro=debian-13.6"
-      ],
-      "severity": "HIGH",
-      "owner": "platform-security",
-      "approvedBy": "pachaninm-lab",
-      "ticket": "#4476",
-      "rationale": "Trivy reports fix_deferred with no fixed Debian package. The finding is specific to an OpenSSL QUIC server/listener accepting QUIC Initial packets; the durable outbox worker is an outbound PostgreSQL/Kafka process whose optional health endpoint is TCP HTTP on port 3002 and contains no QUIC, HTTP/3 or UDP server wiring. The exception is finding-specific, scanner-specific, time-bounded to the same short window as the API and Web exceptions, and does not relax CRITICAL or unrelated HIGH findings.",
-      "createdAt": "2026-08-21T21:34:00Z",
-      "expiresAt": "2026-08-26T05:42:42Z"
-    }
-  ]
+  "exceptions": []
 }

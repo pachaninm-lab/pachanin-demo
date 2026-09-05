@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4612,
+  "branch": "sec/asvs-v3-web-frontend-4612",
+  "status": "active",
+  "purpose": "Record applicability and evidence-backed verdicts for OWASP ASVS 5.0.0 chapter V3 (Web Frontend Security) — 31 requirements — in the machine-readable decision register, with no code changes.",
+  "authorityBaseExactMain": "e1b7ee844e06c17db357c8a4633294de40e95965",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v3-web-frontend-4612.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "Every V3 requirement is either an explicit decision (APPLICABLE with PASS/FAIL, or NOT_APPLICABLE_WITH_JUSTIFICATION with a real self-revoking condition) or is deliberately left undeclared to fall through to the honest PENDING_APPLICABILITY_REVIEW/NOT_ASSESSED default.",
+    "Every applicability=NOT_APPLICABLE_WITH_JUSTIFICATION decision has status=NOT_APPLICABLE and vice versa, verified across the whole decisions file before every push.",
+    "A PASS or FAIL is only recorded where the underlying code (middleware.ts security headers, server-request-security.ts CSRF, cookie option objects, main.ts CORS, storage.service.ts download URLs, tsconfig.base.json) was read and the cited pattern verified against the live tree in this pass.",
+    "The served CSP is read from apps/web/middleware.ts, which the repository's own next.config.js comment identifies as taking precedence over the different, vestigial policy still listed there — the assessment does not cite the superseded next.config.js policy as the effective one.",
+    "Findings that name real gaps (missing CSP object-src/base-uri hardening, missing COOP/CSP-report-uri headers, cookie name prefix absence, disabled TypeScript strict mode, unforced Content-Disposition on downloads) are recorded as evidence for future remediation, not fixed here.",
+    "No security control is weakened; Semgrep, the pinning ratchet and every other gate stay at full strength.",
+    "No production, REG.RU, DNS or database mutation.",
+    "This scope changes no application code.",
+    "finalPass stays false."
+  ],
+  "acceptance": [
+    "docs/security/asvs-applicability-decisions.json gains exactly 25 new V3.* decisions and no duplicates; the remaining 6 V3 requirements stay undeclared (PENDING_APPLICABILITY_REVIEW/NOT_ASSESSED).",
+    "The evidence gate rejects 0 decisions; decisionsApplied increases by 25; finalPass stays false.",
+    "scripts/security/*.test.mjs stays 60/60 (JSON-only change, no script logic touched).",
+    "A file-wide applicability/status consistency check reports 0 inconsistencies before every push.",
+    "Every FAIL and PASS note cites a real file and pattern checked against the live tree in this pass."
+  ]
+}

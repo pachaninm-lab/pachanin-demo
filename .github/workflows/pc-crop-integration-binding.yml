@@ -1,0 +1,180 @@
+name: PC-CROP Integration Binding Authority
+
+on:
+  pull_request:
+    paths:
+      - 'packages/domain-core/src/integration-capability.ts'
+      - 'packages/domain-core/src/index.ts'
+      - 'packages/integration-sdk/src/adapter.interface.ts'
+      - 'packages/integration-sdk/src/registry.ts'
+      - 'packages/integration-sdk/src/live/**'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260904230000_integration_binding_authority/**'
+      - 'apps/api/src/modules/service-providers/**'
+      - 'apps/api/test/industrial/integration-binding-authority.e2e-spec.ts'
+      - 'scripts/platform-v7-one-deal-e2e.sh'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json'
+      - 'scripts/verify-pc-crop-integration-binding-scope.test.mjs'
+      - '.github/workflows/pc-crop-integration-binding.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/domain-core/src/integration-capability.ts'
+      - 'packages/domain-core/src/index.ts'
+      - 'packages/integration-sdk/src/adapter.interface.ts'
+      - 'packages/integration-sdk/src/registry.ts'
+      - 'packages/integration-sdk/src/live/**'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260904230000_integration_binding_authority/**'
+      - 'apps/api/src/modules/service-providers/**'
+      - 'apps/api/test/industrial/integration-binding-authority.e2e-spec.ts'
+      - 'scripts/platform-v7-one-deal-e2e.sh'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json'
+      - 'scripts/verify-pc-crop-integration-binding-scope.test.mjs'
+      - '.github/workflows/pc-crop-integration-binding.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-integration-binding-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/grainflow
+  EVIDENCE_DIR: artifacts/pc-crop-integration-binding
+
+jobs:
+  integration-binding-authority:
+    name: PostgreSQL binding, maturity and fail-closed adapters
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Bind and verify narrow scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref="HEAD^"
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          if [[ "${GITHUB_HEAD_REF:-}" == "feat/pc-crop-integration-binding-authority-4997" ]]; then
+            PC_CROP_BASE_REF="$base_ref" \
+              node --test scripts/verify-pc-crop-integration-binding-scope.test.mjs \
+              2>&1 | tee "$EVIDENCE_DIR/scope.log"
+          else
+            # Later waves retain all static and runtime regression checks.
+            # Their changed-file boundary belongs to their own approved scope.
+            node --test scripts/verify-pc-crop-integration-binding-scope.test.mjs \
+              2>&1 | tee "$EVIDENCE_DIR/scope.log"
+          fi
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply complete migration chain and prove zero drift
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code \
+            2>&1 | tee "$EVIDENCE_DIR/schema-drift.log"
+          pnpm --filter @pc/api exec prisma generate \
+            2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+
+      - name: Typecheck binding authority
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck \
+            2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
+
+      - name: Run binding and maturity contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand \
+            --runTestsByPath src/modules/service-providers/integration-binding.contract.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/api-contracts.log"
+
+      - name: Run fail-closed adapter contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm exec vitest run packages/integration-sdk/src \
+            2>&1 | tee "$EVIDENCE_DIR/integration-sdk.log"
+
+      - name: Record restricted-principal acceptance owner
+        run: |
+          printf '%s\n' \
+            'Restricted-principal PostgreSQL acceptance runs in the blocking one-deal exploitation job.' \
+            > "$EVIDENCE_DIR/runtime-acceptance-owner.txt"
+
+      - name: Build exact evidence inventory
+        if: always()
+        run: |
+          find "$EVIDENCE_DIR" -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$EVIDENCE_DIR/exact-evidence-sha256.txt"
+
+      - name: Upload binding evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pc-crop-integration-binding-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+
+  integration-binding-gate:
+    name: PC-CROP Integration Binding Gate · blocking
+    if: always()
+    runs-on: ubuntu-24.04
+    needs: integration-binding-authority
+    steps:
+      - name: Enforce integration binding authority result
+        run: test "${{ needs.integration-binding-authority.result }}" = success

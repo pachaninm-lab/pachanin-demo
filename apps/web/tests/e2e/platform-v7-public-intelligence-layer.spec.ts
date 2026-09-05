@@ -134,7 +134,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
 
     await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
-    await expect(page.locator('#faq details')).toHaveCount(4);
+    await expect(page.locator('#faq details')).toHaveCount(5);
 
     await settleContactDock(page);
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);

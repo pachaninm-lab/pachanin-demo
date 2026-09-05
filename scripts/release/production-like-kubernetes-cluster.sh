@@ -446,6 +446,22 @@ SELECT
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.users', 'INSERT')
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.user_orgs', 'INSERT')
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.organizations', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE')
+    AND has_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'id', 'UPDATE')
+    AND NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE WITH GRANT OPTION')
+    AND (SELECT count(*) FROM pg_attribute attribute
+         WHERE attribute.attrelid = 'auth.registration_applications'::regclass
+           AND attribute.attnum > 0
+           AND NOT attribute.attisdropped
+           AND has_column_privilege(
+             'pc_registration_decision_authority',
+             'auth.registration_applications',
+             attribute.attname,
+             'UPDATE'
+           )) = 1
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')
+    AND NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'DELETE')
   )::int::text
   || ':' ||
   (

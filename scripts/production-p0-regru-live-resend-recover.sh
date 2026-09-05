@@ -61,6 +61,12 @@ on_error() {
 trap cleanup EXIT
 trap on_error ERR
 
+if [[ "${GITHUB_RUN_ID:-}" == '32219738787' ]]; then
+  BLOCKER=STALE_ACTIONS_ORPHAN_NEUTRALIZED
+  MUTATION=NONE
+  false
+fi
+
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
 git fetch --no-tags origin main >/dev/null
 [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]

@@ -75,7 +75,7 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(composer).toContain('ATTACHMENT_ONLY_PROMPT');
     expect(composer).toContain('CircleSlash2');
     expect(composer).toContain('text-[14px] leading-5');
-    expect(composer).toContain('История этого режима хранится в браузере');
+    expect(composer).toContain('Не отправляй пароли, токены и другие секреты.');
     expect(product).toContain("input:not([type='checkbox']):not([type='radio']):not([type='file'])");
     expect(product).toContain('font-size: 16px !important');
     expect(product).toContain("[data-gekta-phone-card='true'] button");

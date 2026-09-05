@@ -100,19 +100,56 @@ const consumerAfter = [
   'test "$consumer_status" = "0" || test "$consumer_status" = "1"',
 ].join('\n');
 
+const finalLogsBefore = [
+  'kubectl logs -n "$NAMESPACE" -l "$WORKER_SELECTOR" --all-containers=true --prefix=true --tail=1000 \\',
+  '  > "$RUNTIME_DIR/final-worker-logs.txt" 2>&1',
+].join('\n');
+
+const finalLogsAfter = [
+  '# Snapshot exactly the two current Ready workers after scale-down.',
+  '# A selector-based log read can include the terminating third pod and fail with NotFound.',
+  'final_worker_pods_file="$RUNTIME_DIR/final-worker-pods.txt"',
+  'for _ in $(seq 1 30); do',
+  '  : > "$final_worker_pods_file"',
+  '  while IFS= read -r final_worker_pod; do',
+  '    test -n "$final_worker_pod"',
+  '    final_worker_deleting="$(kubectl get -n "$NAMESPACE" "$final_worker_pod" -o jsonpath=\'{.metadata.deletionTimestamp}\' 2>/dev/null || true)"',
+  '    final_worker_ready="$(kubectl get -n "$NAMESPACE" "$final_worker_pod" -o jsonpath=\'{.status.conditions[?(@.type=="Ready")].status}\' 2>/dev/null || true)"',
+  '    if [[ -z "$final_worker_deleting" && "$final_worker_ready" = "True" ]]; then',
+  '      printf \'%s\\n\' "$final_worker_pod" >> "$final_worker_pods_file"',
+  '    fi',
+  '  done < <(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" -o name | sort)',
+  '  final_worker_pod_count="$(wc -l < "$final_worker_pods_file" | tr -d \' \')"',
+  '  [[ "$final_worker_pod_count" = "2" ]] && break',
+  '  sleep 1',
+  'done',
+  'test "${final_worker_pod_count:-0}" = "2"',
+  ': > "$RUNTIME_DIR/final-worker-logs.txt"',
+  'while IFS= read -r final_worker_pod; do',
+  '  test -n "$final_worker_pod"',
+  '  kubectl logs -n "$NAMESPACE" "$final_worker_pod" --all-containers=true --prefix=true --tail=1000 \\',
+  '    >> "$RUNTIME_DIR/final-worker-logs.txt" 2>&1',
+  'done < "$final_worker_pods_file"',
+].join('\n');
+
 if (!source.includes(gracefulBefore)) {
   throw new Error('graceful shutdown assertion boundary not found');
 }
 if (!source.includes(consumerBefore)) {
   throw new Error('Kafka delivery probe boundary not found');
 }
+if (!source.includes(finalLogsBefore)) {
+  throw new Error('final worker log collection boundary not found');
+}
 
 let rendered = source.replace(gracefulBefore, gracefulAfter);
 rendered = rendered.replace(consumerBefore, consumerAfter);
+rendered = rendered.replace(finalLogsBefore, finalLogsAfter);
 if (
   rendered === source ||
   rendered.includes(gracefulBefore) ||
-  rendered.includes(consumerBefore)
+  rendered.includes(consumerBefore) ||
+  rendered.includes(finalLogsBefore)
 ) {
   throw new Error('acceptance boundaries were not replaced exactly once');
 }

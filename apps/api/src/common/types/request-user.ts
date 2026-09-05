@@ -43,6 +43,9 @@ export const ROLES_REQUIRING_MFA: Role[] = [
   Role.ADMIN,
   Role.COMPLIANCE_OFFICER,
   Role.ARBITRATOR,
+  // GUEST is the server role assigned to an approved organization employee.
+  // It is a real tenant membership, not anonymous access, and must complete TOTP.
+  Role.GUEST,
 ];
 
 export const FINANCIAL_MFA_THRESHOLD_KOPECKS = 10_000_000; // 100 000 ₽

@@ -17,7 +17,10 @@ export const INTERNAL_MARKER = /(?:<\s*\/?\s*(?:think(?:ing)?|analysis|reasoning
 
 export function stripInternalModelTrace(value: string): string {
   let result = typeof value === 'string' ? value : '';
-  if (!result || !INTERNAL_MARKER.test(result)) return result.trim();
+  // Already-public text is an identity transform. In the streaming path the
+  // leading space/newline may be the only separator between two committed
+  // fragments; trimming it here collapses words on the public wire.
+  if (!result || !INTERNAL_MARKER.test(result)) return result;
 
   for (let pass = 0; pass < 4; pass += 1) {
     const next = result.replace(INTERNAL_TAG_BLOCK, ' ');

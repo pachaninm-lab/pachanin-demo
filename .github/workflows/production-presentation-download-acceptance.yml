@@ -1,0 +1,33 @@
+name: Production Presentation Download Acceptance
+
+on:
+  workflow_run:
+    workflows:
+      - Production Web Owner Exact-SHA Command
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-presentation-download-acceptance
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify live presentation PDF download
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout released revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Verify live presentation PDF
+        env:
+          LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+        run: bash scripts/production-presentation-download-acceptance.sh

@@ -1,39 +1,41 @@
 import '@/styles/platform-v7-public-register.css';
+import '@/styles/platform-v7-public-register-official.css';
+import '@/styles/platform-v7-public-register-reflow.css';
 import Link from 'next/link';
 import { Home, Languages, LogIn } from 'lucide-react';
 import { BrandMark } from '@/components/v7r/BrandMark';
-import { RegisterFormClient } from './RegisterFormClient';
+import { RegisterFormClientPublic } from './RegisterFormClientPublic';
 
 type Locale = 'ru' | 'en' | 'zh';
 type RegisterSearchParams = Record<string, string | string[] | undefined>;
 
 const PAGE_COPY = {
   ru: {
-    nav: 'Навигация регистрации',
+    nav: 'Навигация страницы регистрации',
     login: 'Войти',
-    home: 'Главная',
+    home: 'На главную',
     language: 'Сменить язык',
-    kicker: 'P0 · Первый клиентский доступ',
-    title: 'Подключение организации к платформе',
-    lead: 'Заполни реальные данные. После отправки потребуется подтвердить email и дождаться серверного допуска. Выбор рабочего пространства не выдаёт роль и не открывает личный кабинет.',
+    kicker: 'Регистрация на платформе',
+    title: 'Регистрация организации и пользователя',
+    lead: 'Укажите достоверные сведения об организации и заявителе. После отправки заявки подтвердите адрес электронной почты и дождитесь результата проверки. Выберите предполагаемый формат участия — права доступа предоставляются только после проверки и одобрения заявки.',
   },
   en: {
-    nav: 'Registration navigation',
+    nav: 'Registration page navigation',
     login: 'Sign in',
     home: 'Home',
     language: 'Change language',
-    kicker: 'P0 · First customer access',
-    title: 'Connect an organization to the platform',
-    lead: 'Enter real data. After submission, confirm the email and wait for server-side admission. Selecting a workspace does not grant a role or open a workspace.',
+    kicker: 'Platform registration',
+    title: 'Organization and user registration',
+    lead: 'Provide accurate organization and applicant details. After submitting the application, confirm the email address and wait for the review result. Select the intended participation type; access rights are granted only after the application has been reviewed and approved.',
   },
   zh: {
-    nav: '注册导航',
+    nav: '注册页面导航',
     login: '登录',
     home: '首页',
     language: '切换语言',
-    kicker: 'P0 · 首位客户访问',
-    title: '将组织接入平台',
-    lead: '请填写真实信息。提交后需确认电子邮箱并等待服务器审核。选择工作空间不会授予角色，也不会直接开放个人工作区。',
+    kicker: '平台注册',
+    title: '组织和用户注册',
+    lead: '请填写真实、准确的组织和申请人信息。提交申请后，请确认电子邮箱并等待审核结果。请选择计划参与的平台身份；访问权限仅在申请审核并获批准后授予。',
   },
 } satisfies Record<Locale, Record<string, string>>;
 
@@ -81,11 +83,11 @@ export default async function RegisterPage({
               <Languages size={17} aria-hidden='true' />
               <span>{locale.toUpperCase()}</span>
             </a>
-            <Link href='/platform-v7/login'>
+            <Link href='/platform-v7/login' aria-label={copy.login} title={copy.login}>
               <LogIn size={17} aria-hidden='true' />
               <span>{copy.login}</span>
             </Link>
-            <Link href='/platform-v7'>
+            <Link href='/platform-v7' aria-label={copy.home} title={copy.home}>
               <Home size={17} aria-hidden='true' />
               <span>{copy.home}</span>
             </Link>
@@ -98,7 +100,7 @@ export default async function RegisterPage({
           <p>{copy.lead}</p>
         </section>
 
-        <RegisterFormClient
+        <RegisterFormClientPublic
           locale={locale}
           verifyToken={verifyToken || undefined}
           initialStatusToken={statusToken || undefined}

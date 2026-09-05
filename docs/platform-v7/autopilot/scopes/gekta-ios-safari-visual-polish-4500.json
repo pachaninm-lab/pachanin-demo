@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-ios-safari-visual-polish-4500",
+  "branch": "fix/gekta-ios-native-control-reset-4500",
+  "issue": 4500,
+  "status": "active",
+  "purpose": "Normalize Gekta controls in iOS Safari/WebKit and tighten the 320px composer copy after exact production evidence exposed native browser chrome and visual crowding, without changing backend, model, auth, registration or business logic.",
+  "approvedBy": "owner-instruction-2026-08-22-gekta-continue-to-ideal",
+  "authorityBaseExactMain": "d9bbbd584099e1120744362d54d7fc3c4b0961b3",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "concurrencyBoundary": "Frontend visual/mobile polish and focused Gekta browser acceptance only. Concurrent PC-CROP, Company OS, accounting and other product work must not be modified.",
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaProductShell.tsx",
+    "apps/web/components/gekta/GektaComposer.tsx",
+    "apps/web/components/gekta/GektaUtilityMobileStyle.tsx",
+    "apps/web/playwright.gekta-mobile-pr.config.ts",
+    "apps/web/playwright.production-mobile.config.ts",
+    "apps/web/tests/e2e/gekta-ios-safari-visual-polish-acceptance.spec.ts",
+    "apps/web/tests/unit/gektaIosSafariVisualPolish.test.ts",
+    "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-ios-safari-visual-polish-4500.json"
+  ],
+  "requiredBehavior": [
+    "Safari/WebKit must render Gekta buttons with the product styling instead of native grey or 3D button chrome",
+    "the 320px composer placeholder and mobile safety boundary must remain readable without colliding with the composer action row",
+    "Gekta support and data/security routes must remain inside the Gekta visual system",
+    "mobile text-entry controls must remain at least 16 CSS px and primary touch targets at least 44x44 CSS px",
+    "RU/EN/ZH Gekta routes must remain free of horizontal page overflow"
+  ],
+  "forbiddenCapabilities": [
+    "backend API, streaming protocol, model, auth, MFA, PostgreSQL, registration, role or business-logic changes",
+    "acceptance threshold weakening, retries or masking of a real browser failure",
+    "new paid service, server, library or recurring cost",
+    "production mutation before exact-head CI and protected release authority"
+  ],
+  "acceptance": [
+    "all changed files remain inside allowedPaths",
+    "focused unit contracts pass",
+    "Chromium and WebKit run the 320px Safari visual polish acceptance with retries disabled",
+    "Gekta Mobile UX PR Acceptance, Node CI, web-unit and required security/governance gates pass on the exact head",
+    "production mobile acceptance includes the same visual polish test and remains fail-closed"
+  ]
+}

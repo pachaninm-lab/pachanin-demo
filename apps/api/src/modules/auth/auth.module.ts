@@ -14,6 +14,7 @@ import { PasswordResetService } from './password-reset.service';
 import { PersistentAuthRepository } from './persistent-auth.repository';
 import { ProductSessionService } from './product-session.service';
 import { RegistrationApplicationService } from './registration-application.service';
+import { RegistrationCancellationService } from './registration-cancellation.service';
 import { RegistrationDecisionService } from './registration-decision.service';
 
 @Module({
@@ -29,6 +30,7 @@ import { RegistrationDecisionService } from './registration-decision.service';
     PasswordResetRepository,
     PasswordResetService,
     RegistrationApplicationService,
+    RegistrationCancellationService,
     RegistrationDecisionService,
     AuthService,
     ProductSessionService,
@@ -44,6 +46,7 @@ import { RegistrationDecisionService } from './registration-decision.service';
     OrganizationInvitationService,
     PasswordResetService,
     RegistrationApplicationService,
+    RegistrationCancellationService,
     RegistrationDecisionService,
     PersistentAuthRepository,
     AuthPrismaService,

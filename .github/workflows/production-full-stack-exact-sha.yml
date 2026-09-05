@@ -7,6 +7,16 @@ on:
         description: 'Set only by the owner-authorized production release controller.'
         required: true
         type: boolean
+      target_sha:
+        description: 'Immutable release candidate captured by the owner controller.'
+        required: false
+        default: ''
+        type: string
+      controller_issue_number:
+        description: 'Exact owner-validated release issue propagated by the controller.'
+        required: false
+        default: 0
+        type: number
   pull_request:
     branches: [main]
     paths:
@@ -26,23 +36,6 @@ on:
       - 'scripts/production-full-stack-exact-sha.sh'
       - 'scripts/production-full-stack-live-acceptance.sh'
       - 'scripts/check-production-full-stack-release.mjs'
-  workflow_run:
-    workflows: ['Build & Publish Canonical Docker Images']
-    types: [completed]
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      target_sha:
-        description: 'Exact current main SHA'
-        required: true
-        type: string
-      confirmation:
-        description: 'Enter DEPLOY-FULL-STACK-EXACT-SHA'
-        required: true
-        type: string
-  issue_comment:
-    types: [created]
-
 permissions:
   contents: read
   packages: read
@@ -51,6 +44,7 @@ permissions:
 concurrency:
   group: production-full-stack-exact-sha
   cancel-in-progress: false
+  queue: max
 
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
@@ -58,6 +52,7 @@ env:
   DEFAULT_HOST: 195.19.12.120
   EVIDENCE_DIR: artifacts/production-full-stack-release
   RELEASE_ISSUE_NUMBER: 3072
+  CONTINUATION_ISSUE_NUMBER: 4637
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
   SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -74,18 +69,9 @@ jobs:
   contract:
     name: Validate full-stack release contract
     if: >-
-      (inputs.owner_release_authorized == true) ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main') ||
+      inputs.owner_release_authorized == true ||
       github.event_name == 'pull_request' ||
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.number == 3072 &&
-       github.event.comment.user.login == github.repository_owner &&
-       github.event.comment.body == '/production full-stack current-main')
+      github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -93,51 +79,69 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Reject every non-controller reusable release authority
+        if: inputs.owner_release_authorized == true
+        shell: bash
+        env:
+          TARGET_SHA: ${{ inputs.target_sha }}
+          CONTROLLER_ISSUE_NUMBER: ${{ inputs.controller_issue_number }}
+          EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ASSOCIATION: ${{ github.event.comment.author_association }}
+          COMMAND: ${{ github.event.comment.body }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ && "$TARGET_SHA" == "$EVENT_SHA" ]]
+          [[ "$CONTROLLER_ISSUE_NUMBER" == 3072 || "$CONTROLLER_ISSUE_NUMBER" == 4637 ]]
+          [[ "$CONTROLLER_ISSUE_NUMBER" == "$EVENT_ISSUE_NUMBER" ]]
+          [[ "$COMMENTER" == "$REPOSITORY_OWNER" && "$ASSOCIATION" == OWNER ]]
+          [[ "$COMMAND" == '/production release current-main' ]]
+          [[ "$GITHUB_ACTOR" == "$REPOSITORY_OWNER" ]]
+          [[ "$GITHUB_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]
       - run: node scripts/check-production-full-stack-release.mjs
 
   deploy:
     name: Migrate, deploy API and web, verify live intake
     needs: contract
     if: >-
-      (inputs.owner_release_authorized == true) ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main') ||
-      (github.event_name == 'workflow_dispatch' &&
-       github.actor == github.repository_owner &&
-       inputs.confirmation == 'DEPLOY-FULL-STACK-EXACT-SHA') ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.number == 3072 &&
-       github.event.comment.user.login == github.repository_owner &&
-       github.event.comment.body == '/production full-stack current-main')
+      (inputs.owner_release_authorized == true &&
+       (inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+         inputs.controller_issue_number == github.event.issue.number &&
+         github.event.comment.user.login == github.repository_owner &&
+         github.event.comment.author_association == 'OWNER' &&
+         github.event.comment.body == '/production release current-main' &&
+         github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner)
     runs-on: ubuntu-24.04
     timeout-minutes: 75
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event_name == 'workflow_call' && github.event.repository.default_branch || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref_name }}
+          ref: ${{ inputs.target_sha }}
           fetch-depth: 0
 
-      - name: Resolve exact current-main target
+      - name: Resolve immutable owner-authorized release candidate
         id: target
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          target='${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}'
-          if [[ '${{ github.event_name }}' == issue_comment || '${{ github.event_name }}' == workflow_call ]]; then
-            target="$(git rev-parse origin/main)"
-          fi
-          if [[ '${{ github.event_name }}' == workflow_run ]]; then
-            [[ '${{ github.event.workflow_run.name }}' == 'Build & Publish Canonical Docker Images' ]]
-            [[ '${{ github.event.workflow_run.conclusion }}' == success ]]
-            [[ '${{ github.event.workflow_run.event }}' == push ]]
-            [[ '${{ github.event.workflow_run.head_branch }}' == main ]]
-          fi
+          target='${{ inputs.target_sha }}'
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$target" == "$(git rev-parse origin/main)" ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
           git cat-file -e "${target}^{commit}"
+          current_main="$(git rev-parse origin/main)"
+          [[ "$current_main" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          git merge-base --is-ancestor "$target" "$current_main" \
+            || { echo RELEASE_CANDIDATE_NO_LONGER_ANCESTOR >&2; exit 14; }
           echo "sha=$target" >> "$GITHUB_OUTPUT"
           echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
 
@@ -272,11 +276,19 @@ jobs:
       - name: Repair confirmed stale Redis network attachment
         id: redis_network
         env:
+          GH_TOKEN: ${{ github.token }}
           HOST: ${{ steps.ssh.outputs.host }}
           PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
         shell: bash
         run: |
           set -euo pipefail
+          git fetch --no-tags origin main >/dev/null
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current_main" ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          git merge-base --is-ancestor "$TARGET_SHA" "$current_main" \
+            || { echo RELEASE_CANDIDATE_NO_LONGER_ANCESTOR >&2; exit 14; }
           raw="$(mktemp)"
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" 'bash -se' > "$raw" 2>&1 <<'REMOTE'
@@ -356,6 +368,7 @@ jobs:
       - name: Execute migration and exact API/web rollout
         id: production
         env:
+          GH_TOKEN: ${{ github.token }}
           HOST: ${{ steps.ssh.outputs.host }}
           PORT: ${{ steps.ssh.outputs.port }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
@@ -365,6 +378,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git fetch --no-tags origin main >/dev/null
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current_main" ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          git merge-base --is-ancestor "$TARGET_SHA" "$current_main" \
+            || { echo RELEASE_CANDIDATE_NO_LONGER_ANCESTOR >&2; exit 14; }
           enc(){ printf '%s' "$1" | base64 -w0; }
           raw="$(mktemp)"; clean="$EVIDENCE_DIR/production-action.log"
           set +e
@@ -457,9 +476,11 @@ jobs:
           BACKUP_MODE: ${{ steps.production.outputs.backup_mode }}
           LIVE_OUTCOME: ${{ steps.live.outcome }}
           DATABASE_OUTCOME: ${{ steps.database.outcome }}
+          EVIDENCE_ISSUE_NUMBER: ${{ inputs.owner_release_authorized == true && inputs.controller_issue_number || 3072 }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$EVIDENCE_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]
           live="$(sed -n 's/^LIVE_ACCEPTANCE=//p' "$EVIDENCE_DIR/live.log" 2>/dev/null | tail -1 || true)"
           request="$(sed -n 's/^LIVE_REQUEST_NUMBER=//p' "$EVIDENCE_DIR/live.log" 2>/dev/null | tail -1 || true)"
           durable="$(sed -n 's/^DURABLE_INTAKE_DB=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
@@ -488,8 +509,8 @@ jobs:
             echo "- Watchtower retired: \`${WATCHTOWER_RETIRED:-0}\`"
           } > "$record"
           find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
-          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
-          if [[ "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" ]]; then
+          gh issue comment "$EVIDENCE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          if [[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" && "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" ]]; then
             gh issue close "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --reason completed
           fi
 
@@ -507,7 +528,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: production-full-stack-release-${{ github.run_id }}
+          name: production-full-stack-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 90

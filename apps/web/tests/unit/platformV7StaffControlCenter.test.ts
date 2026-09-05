@@ -37,18 +37,26 @@ const staffShellCss = source('apps/web/components/platform-v7/staff/StaffPlatfor
 const staffRuntime = source('apps/web/components/platform-v7/staff/StaffShellRuntime.tsx');
 const protectedShell = source('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const requestService = source('apps/api/src/modules/staff-access/staff-access-request.service.ts');
+const serverApiBase = source('apps/web/lib/server/server-api-origin.ts');
+const apiMain = source('apps/api/src/main.ts');
 
 describe('platform-v7 Staff Control Center authority boundary', () => {
+  it('binds the staff server authority to the Nest /api base instead of the service root', () => {
+    expect(apiMain).toContain("app.setGlobalPrefix('api'");
+    expect(serverApiBase).toContain("const COMPOSE_INTERNAL_API_BASE_URL = 'http://api:3001/api';");
+    expect(serverApiBase).toContain("url.pathname !== '/api' && url.pathname !== '/api/'");
+    expect(serverApiBase).not.toContain("const COMPOSE_INTERNAL_API_ORIGIN = 'http://api:3001';");
+  });
+
   it('verifies the real server session and consumes canonical staff capabilities fail-closed', () => {
     expect(page).toContain('cookieStore.get(ACCESS_COOKIE)');
-    expect(page).toContain('function resolveApiOrigin()');
-    expect(page).toContain("process.env.NODE_ENV === 'production' && url.protocol !== 'https:'");
-    expect(page).toContain('fetch(`${API_ORIGIN}/auth/me`');
-    expect(page).toContain('fetch(`${API_ORIGIN}/staff/capabilities/me`');
+    expect(page).toContain('resolveServerApiBaseUrl();');
+    expect(page).toContain('fetch(`${API_BASE_URL}/auth/me`');
+    expect(page).toContain('fetch(`${API_BASE_URL}/staff/capabilities/me`');
     expect(page).toContain('parseStaffCapabilitiesContract(');
     expect(page).toContain('capabilities.identity.id !== identity.id');
     expect(page).toContain("capabilities.roles.includes('PLATFORM_OWNER')");
-    expect(page).not.toContain('fetch(`${API_ORIGIN}/staff/assignments/me`');
+    expect(page).not.toContain('fetch(`${API_BASE_URL}/staff/assignments/me`');
     expect(page).not.toContain('staffRoles.length === 0 || identity.mfaVerified !== true');
     expect(page).toContain("verification.status === 'forbidden'");
     expect(page).toContain("redirect: 'manual'");
@@ -60,14 +68,14 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
   });
 
   it('keeps the staff proxy allowlisted, CSRF-protected and token-safe', () => {
+    expect(proxy).toContain('resolveServerApiBaseUrl();');
     expect(proxy).toContain('const READ_PATHS = [');
     expect(proxy).toContain('const WRITE_PATHS = [');
     expect(proxy).toContain('if (!path || !isAllowed(method, path))');
     expect(proxy).toContain("code: 'STAFF_ROUTE_NOT_ALLOWED'");
     expect(proxy).toContain('const csrf = assertCsrf(request)');
     expect(proxy).toContain("code: 'CSRF_REJECTED'");
-    expect(proxy).toContain("process.env.NODE_ENV === 'production' && url.protocol !== 'https:'");
-    expect(proxy).toContain('const targetUrl = `${apiOrigin}/staff/${path}');
+    expect(proxy).toContain('const targetUrl = `${API_BASE_URL}/staff/${path}');
     expect(proxy).toContain('delete safePayload.accessToken');
     expect(proxy).toContain('httpOnly: true');
     expect(proxy).toContain("sameSite: 'strict'");
@@ -76,8 +84,9 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
   });
 
   it('keeps the capabilities self-BFF read-only, server-token-bound and schema-sanitized', () => {
+    expect(capabilitiesBff).toContain('resolveServerApiBaseUrl();');
     expect(capabilitiesBff).toContain("(await cookies()).get(ACCESS_COOKIE)?.value");
-    expect(capabilitiesBff).toContain('fetch(`${API_ORIGIN}/staff/capabilities/me`');
+    expect(capabilitiesBff).toContain('fetch(`${API_BASE_URL}/staff/capabilities/me`');
     expect(capabilitiesBff).toContain('Authorization: `Bearer ${accessToken}`');
     expect(capabilitiesBff).toContain('parseStaffCapabilitiesContract(');
     expect(capabilitiesBff).toContain("redirect: 'manual'");

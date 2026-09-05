@@ -60,15 +60,31 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Audit frozen pnpm dependency graph
+      - name: Install locked dependencies and inventory production graph
         shell: bash
         run: |
           set -euo pipefail
           corepack enable
           pnpm install --frozen-lockfile
+          pnpm -r list --prod --json --depth Infinity > pnpm-production-dependencies.json
+
+      - name: Verify npm Bulk Advisory transport decoding
+        run: node docs/platform-v7/autopilot/collect-npm-bulk-audit.test.mjs
+
+      - name: Audit frozen pnpm production dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
           : > pnpm-audit.json
+          : > pnpm-audit.stdout.txt
+          : > pnpm-audit.stderr.txt
           set +e
-          pnpm audit --prod --json > pnpm-audit.json
+          NPM_BULK_AUDIT_INPUT="$PWD/pnpm-production-dependencies.json" \
+          PNPM_AUDIT_JSON="$PWD/pnpm-audit.json" \
+          NPM_REGISTRY_URL="https://registry.npmjs.org" \
+          node docs/platform-v7/autopilot/collect-npm-bulk-audit.mjs \
+            > pnpm-audit.stdout.txt \
+            2> pnpm-audit.stderr.txt
           audit_status=$?
           set -e
           printf '%s\n' "$audit_status" > pnpm-audit-exit-status.txt
@@ -82,6 +98,8 @@ jobs:
           policy_status=$?
           set -e
           printf '%s\n' "$policy_status" > pnpm-audit-policy-status.txt
+          cat pnpm-audit.stdout.txt
+          cat pnpm-audit.stderr.txt >&2
           cat pnpm-audit.json
           cat pnpm-audit-policy.json
 
@@ -187,10 +205,13 @@ jobs:
           name: dependency-audit-${{ github.sha }}
           path: |
             dependency-policy-summary.json
+            pnpm-production-dependencies.json
             pnpm-audit-exit-status.txt
             pnpm-audit-policy-status.txt
             pnpm-audit-policy.json
             pnpm-audit.json
+            pnpm-audit.stdout.txt
+            pnpm-audit.stderr.txt
             python-audit-exit-status.txt
             python-audit.json
             tai-runtime-requirements.txt

@@ -14,12 +14,14 @@ import {
   currentEvidenceCopy,
   enforceCurrentEvidenceBoundary,
   enforcePlatformGrounding,
+  isPlantDiseasePreventionQuestion,
   needsDiseaseCompletenessFloor,
   normalizeForComparison,
   plantDiseaseCompletenessFloor,
   sanitizeAnswer,
   splitAnswerBlocks,
   stripRawLinks,
+  stripUngroundedCropProtectionPrescriptions,
   truncationCopy,
   verifiedFallback,
   type PublicAnswerMode,
@@ -141,6 +143,12 @@ export class RestrictedPublicQwenService {
 
       const safetyFlags: string[] = [];
       let answer = sanitizeAnswer(content);
+      answer = stripUngroundedCropProtectionPrescriptions(answer, safetyFlags);
+      if (!answer && request.answerMode === 'general_agro'
+        && isPlantDiseasePreventionQuestion(`${request.originalQuestion} ${request.question}`, request.locale)) {
+        safetyFlags.push('GENERAL_AGRO_DISEASE_COMPLETENESS_FLOOR');
+        answer = plantDiseaseCompletenessFloor(request.locale);
+      }
       if (!answer) throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
       if (WRITE_CLAIM_PATTERN.test(answer)) {
         throw new ServiceUnavailableException('Restricted public model emitted a prohibited action claim.');
@@ -195,20 +203,6 @@ export class RestrictedPublicQwenService {
     }
   }
 
-  /**
-   * The same answer, produced incrementally.
-   *
-   * This is the streaming path in the load-bearing sense: the model is asked for
-   * `stream: true` and text is released to the caller while generation is still
-   * running, so the first sentence reaches a reader long before the last token
-   * exists. It is not the buffered answer cut into pieces — there is no complete
-   * answer anywhere in this method until generation ends.
-   *
-   * The safety rules are not relaxed to make that possible. They run per block
-   * inside the gate, which withholds anything it cannot yet decide, and the two
-   * rules that are genuinely about the finished answer run at flush, where they
-   * only append.
-   */
   async *generateStream(
     raw: unknown,
     readerSignal?: AbortSignal,
@@ -226,9 +220,6 @@ export class RestrictedPublicQwenService {
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
-    // A reader that goes away must stop generation, not merely stop being read:
-    // an abandoned llama.cpp completion keeps a CPU busy producing an answer
-    // nobody will ever see.
     const onReaderAbort = () => controller.abort();
     if (readerSignal?.aborted) controller.abort();
     readerSignal?.addEventListener('abort', onReaderAbort, { once: true });
@@ -243,18 +234,12 @@ export class RestrictedPublicQwenService {
     try {
       yield { type: 'meta', modelIdentity: config.model, answerMode: request.answerMode };
 
-      // Deterministic from the request, so it leads the answer rather than
-      // waiting behind the model — the boundary is the point of the answer when
-      // the question needs current evidence nobody has governed.
       if (request.currentDataRequired) {
         safetyFlags.push('CURRENT_EVIDENCE_REQUIRED');
         yield { type: 'delta', text: currentEvidenceCopy(request.locale) };
       }
 
       const messages = buildMessages(request);
-      // Held in one record rather than as separate locals: they are written by
-      // the nested consumer, and separate `let`s would stay narrowed to their
-      // initial literal by control-flow analysis that cannot see those writes.
       const outcome = {
         finishReason: 'other' as ProviderFinishReason,
         promptTokens: null as number | null,
@@ -288,10 +273,6 @@ export class RestrictedPublicQwenService {
 
       yield* consume(messages, tokenBudget.initialMaxTokens);
 
-      // A completion cut off by the token ceiling continues in a second stream,
-      // exactly as the buffered path does. The gate spans both, so the seam is
-      // not visible to the reader as a restart. The continuation has its own
-      // smaller hard ceiling and shares the original provider timeout.
       if (outcome.finishReason === 'length') {
         yield* consume([
           ...messages,
@@ -313,9 +294,6 @@ export class RestrictedPublicQwenService {
 
       let emitted = gate.emitted;
       if (!emitted) {
-        // Grounding may legitimately remove every block. The verified contour
-        // still owes the reader its governed answer; the general contour has
-        // nothing truthful left to say, so it refuses.
         if (request.answerMode === 'verified_platform') {
           const fallback = verifiedFallback(request.grounding);
           if (fallback) {
@@ -361,15 +339,11 @@ export class RestrictedPublicQwenService {
     } finally {
       clearTimeout(timeout);
       readerSignal?.removeEventListener('abort', onReaderAbort);
-      // Whatever ended the loop — completion, refusal, cancellation or the
-      // caller walking away from the generator — the upstream completion is
-      // cancelled rather than left running.
       controller.abort();
     }
   }
 }
 
-/** What one streamed answer emits, in order. */
 export type PublicStreamEvent =
   | Readonly<{ type: 'meta'; modelIdentity: string; answerMode: PublicAnswerMode }>
   | Readonly<{ type: 'delta'; text: string }>
@@ -385,13 +359,6 @@ export type PublicStreamEvent =
     safetyFlags: readonly string[];
   }>;
 
-/**
- * One `stream: true` completion, yielded as it arrives.
- *
- * The body is read chunk by chunk and never accumulated: buffering it here would
- * reintroduce exactly the wait this path exists to remove, while looking like
- * streaming from the outside.
- */
 async function* callProviderStream(
   endpoint: URL,
   config: ProviderConfig,
@@ -521,8 +488,6 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
   const responseBudgetProfile = normalizeResponseBudgetProfile(row.responseBudget, answerMode);
   const currentDataRequired = row.currentDataRequired === true;
   const history = normalizeHistory(row.history);
-  // Derived context the boundary computed, not raw history: bounded here as well
-  // so a caller cannot grow the prompt by growing the state it sends.
   const conversationState = cleanMultilineText(row.conversationState, MAX_CONVERSATION_STATE_CHARS);
   if (SECRET_PATTERN.test(conversationState)) {
     throw new BadRequestException('Secret-like conversation state is forbidden in the public model contour.');
@@ -657,6 +622,9 @@ function publicSystemPrompt(
     'For irrigation selection or design, explicitly cover at least two of water source or available debit, required flow, operating pressure, filtration, zoning, line or tape length, emitter spacing, crop water demand, soil and relief.',
     'For crop production, consider crop or variety and growth stage, soil and pH, moisture, nutrition, temperature, disease, pests, weeds, plant density and field history.',
     'For plant disease prevention, explicitly cover at least two independent controls: reducing inoculum through sanitation and removal of infected residues, canopy or crop structure that shortens leaf-wetness duration, weather-linked infection risk, monitoring and treatment timing, and only locally registered label-compliant crop protection. Do not substitute root or irrigation advice for the disease-prevention plan unless root or water evidence is actually relevant.',
+    'For crop-protection chemistry, never prescribe or recommend a concrete product, active ingredient, dose or interval unless the prompt contains the location/region, crop growth stage and governed current registration evidence for that crop and location. Without those inputs, discuss non-chemical controls, say that only a currently registered label-compliant product may be selected, and ask for the missing region and growth stage.',
+    'Do not diagnose a plant disease as certain from a short text description alone. State the diagnosis as conditional, name the observable symptoms needed to distinguish it from alternatives, and ask for the decisive signs when they are missing.',
+    'Use pathogen-resistance terminology for fungal or oomycete disease management; do not call it pest resistance unless the subject is actually an insect or other pest.',
     'For livestock, consider feed or ration, water, health, microclimate, stress, age or production stage and records.',
     'For machinery, consider load, settings, cooling, lubrication, wear, fasteners, vibration, speed and operating conditions; use the actual machine named by the user.',
     'For storage, infrastructure, farm economics and farm IT, name the controlling capacity, quality, cost, unit, process and verification variables rather than giving generic advice.',
@@ -687,10 +655,6 @@ function generalAgroResponseBudgetRule(
 }
 
 function buildGroundedPrompt(request: NormalizedRequest): string {
-  // General-agro answers do not use platform knowledge as factual authority.
-  // Keeping that variable JSON in every model prompt made llama.cpp prefill
-  // thousands of irrelevant characters before it could emit the first token.
-  // Verified-platform questions retain the complete governed grounding.
   const verifiedPlatformContext = request.answerMode === 'verified_platform'
     ? [
       'PUBLIC_PLATFORM_CONTEXT_JSON:',

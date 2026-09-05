@@ -64,6 +64,7 @@ RUN set -eux; \
     | while IFS= read -r library; do \
         cp -L "$library" "/ocr-root/opt/ocr/lib/$(basename "$library")"; \
       done; \
+  rm -f /ocr-root/opt/ocr/lib/libssl.so.3 /ocr-root/opt/ocr/lib/libcrypto.so.3; \
   test -x /ocr-root/usr/bin/tesseract; \
   test -x /ocr-root/usr/bin/pdftoppm; \
   test -x /ocr-root/usr/bin/pdftotext; \
@@ -71,6 +72,31 @@ RUN set -eux; \
   test -f /ocr-root/usr/share/tesseract-ocr/5/tessdata/eng.traineddata; \
   test -f /ocr-root/usr/share/tesseract-ocr/5/tessdata/rus.traineddata; \
   test -f /ocr-root/usr/share/tesseract-ocr/5/tessdata/chi_sim.traineddata
+
+# Distroless Debian 13 still ships OpenSSL 3.5.6 at the current upstream tag.
+# Overlay the exact Debian security build while retaining the distroless/nonroot
+# runtime. Package control records are copied with the payload so Trivy/SBOM
+# inventory reflects the files that are actually installed.
+FROM debian:trixie-slim AS openssl-security-patch
+ARG OPENSSL_SECURITY_VERSION=3.5.7-1~deb13u2
+WORKDIR /tmp/openssl-security
+RUN set -eux; \
+  apt-get update; \
+  apt-get install -y --no-install-recommends ca-certificates; \
+  apt-get download \
+    "libssl3t64=${OPENSSL_SECURITY_VERSION}" \
+    "openssl-provider-legacy=${OPENSSL_SECURITY_VERSION}"; \
+  mkdir -p /openssl-root/var/lib/dpkg/status.d; \
+  for deb in *.deb; do \
+    package_name="$(dpkg-deb --field "${deb}" Package)"; \
+    dpkg --ctrl-tarfile "${deb}" | tar -Oxf - ./control > "/openssl-root/var/lib/dpkg/status.d/${package_name}"; \
+    dpkg --extract "${deb}" /openssl-root; \
+  done; \
+  grep -Fx "Version: ${OPENSSL_SECURITY_VERSION}" /openssl-root/var/lib/dpkg/status.d/libssl3t64; \
+  grep -Fx "Version: ${OPENSSL_SECURITY_VERSION}" /openssl-root/var/lib/dpkg/status.d/openssl-provider-legacy; \
+  find /openssl-root/usr/lib -name 'libssl.so.3' -type f -print -quit | grep -q .; \
+  find /openssl-root/usr/lib -name 'libcrypto.so.3' -type f -print -quit | grep -q .; \
+  rm -rf /var/lib/apt/lists/*
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
@@ -91,6 +117,7 @@ ENV LD_LIBRARY_PATH=/opt/ocr/lib
 WORKDIR /app
 
 COPY --from=ocr-runtime /ocr-root/ /
+COPY --from=openssl-security-patch /openssl-root/ /
 RUN ["/usr/bin/tesseract", "--version"]
 RUN ["/usr/bin/pdftoppm", "-v"]
 RUN ["/usr/bin/convert", "-version"]

@@ -20,8 +20,9 @@ permissions:
   issues: write
 
 concurrency:
-  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 3072 && github.event.comment.user.login == github.repository_owner && github.event.comment.body == '/production release current-main' && 'platform-v7-production-release-current-main' || 'platform-v7-safe-merge' }}
+  group: ${{ github.event_name == 'issue_comment' && (github.event.issue.number == 3072 || github.event.issue.number == 4637) && github.event.comment.user.login == github.repository_owner && github.actor == github.repository_owner && github.event.comment.body == '/production release current-main' && 'pc-crop-registration-lifecycle' || 'platform-v7-safe-merge' }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   safe-merge:
@@ -83,14 +84,20 @@ jobs:
   production-release-control-3072:
     if: >-
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
       github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
       (
-        github.event.comment.body == '/production release current-main' ||
-        github.event.comment.body == '/production status current-main'
+        (
+          github.event.issue.number == 3072 &&
+          github.event.comment.body == '/production release current-main'
+        ) ||
+        (
+          github.event.issue.number == 4637 &&
+          github.event.comment.body == '/production release current-main'
+        )
       )
-    outputs:
-      exact_main_sha: ${{ steps.release.outputs.main_sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -100,14 +107,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           COMMAND: ${{ github.event.comment.body }}
+          CONTROLLER_ISSUE_NUMBER: ${{ github.event.issue.number }}
         shell: bash
         run: |
           set -euo pipefail
 
-          main_sha=$(gh api "repos/$REPO/commits/main" --jq .sha)
-          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
-          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          [[ "$CONTROLLER_ISSUE_NUMBER" == 3072 || "$CONTROLLER_ISSUE_NUMBER" == 4637 ]]
+          if [[ "$CONTROLLER_ISSUE_NUMBER" == 4637 ]]; then
+            [[ "$COMMAND" == '/production release current-main' ]]
+          fi
 
+          main_sha="$GITHUB_SHA"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          current_main=$(gh api "repos/$REPO/commits/main" --jq .sha)
+          [[ "$current_main" == "$main_sha" ]] || {
+            echo "Release candidate advanced before image dispatch: expected=$main_sha actual=$current_main" >&2
+            exit 19
+          }
           if [[ "$COMMAND" == '/production release current-main' ]]; then
             dispatch_started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
             gh workflow run docker-publish.yml \
@@ -152,10 +168,13 @@ jobs:
             done
 
             current_main=$(gh api "repos/$REPO/commits/main" --jq .sha)
-            [[ "$current_main" == "$main_sha" ]] || {
-              echo "Main advanced during image publication: expected=$main_sha actual=$current_main" >&2
-              exit 23
-            }
+            if [[ "$current_main" != "$main_sha" ]]; then
+              comparison=$(gh api "repos/$REPO/compare/$main_sha...$current_main" --jq .status)
+              [[ "$comparison" == ahead ]] || {
+                echo "Release candidate is no longer an ancestor of main." >&2
+                exit 23
+              }
+            fi
 
           fi
 
@@ -243,8 +262,10 @@ jobs:
           fi
           status_title=$(printf '%s' "$status_title" | cut -c1-240)
 
-          gh issue edit 3072 --repo "$REPO" --title "$status_title"
-          gh issue comment 3072 --repo "$REPO" --body-file "$record"
+          if [[ "$CONTROLLER_ISSUE_NUMBER" == 3072 ]]; then
+            gh issue edit 3072 --repo "$REPO" --title "$status_title"
+          fi
+          gh issue comment "$CONTROLLER_ISSUE_NUMBER" --repo "$REPO" --body-file "$record"
           cat "$record" >> "$GITHUB_STEP_SUMMARY"
 
   production-full-stack-execution-3072:
@@ -252,12 +273,17 @@ jobs:
     if: >-
       needs.production-release-control-3072.result == 'success' &&
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
       github.event.comment.user.login == github.repository_owner &&
-      github.event.comment.body == '/production release current-main'
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/production release current-main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
     uses: ./.github/workflows/production-full-stack-exact-sha.yml
     with:
       owner_release_authorized: true
+      target_sha: ${{ github.sha }}
+      controller_issue_number: ${{ github.event.issue.number }}
     secrets: inherit
 
   production-auth-mail-cutover-3072:
@@ -266,14 +292,40 @@ jobs:
       needs.production-release-control-3072.result == 'success' &&
       needs.production-full-stack-execution-3072.result == 'success' &&
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
       github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
       github.event.comment.body == '/production release current-main' &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner
     uses: ./.github/workflows/production-auth-mail-outbox-cutover.yml
     with:
       controller_authorized: true
-      controller_target_sha: ${{ needs.production-release-control-3072.outputs.exact_main_sha }}
+      controller_target_sha: ${{ github.sha }}
       controller_run_id: ${{ github.run_id }}
+      controller_issue_number: ${{ github.event.issue.number }}
+    secrets: inherit
+
+  production-reviewer-readiness-3072:
+    needs:
+      - production-release-control-3072
+      - production-full-stack-execution-3072
+      - production-auth-mail-cutover-3072
+    if: >-
+      needs.production-release-control-3072.result == 'success' &&
+      needs.production-full-stack-execution-3072.result == 'success' &&
+      needs.production-auth-mail-cutover-3072.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/production release current-main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    uses: ./.github/workflows/production-p0-reviewer-inspect.yml
+    with:
+      controller_authorized: true
+      controller_target_sha: ${{ github.sha }}
+      controller_run_id: ${{ github.run_id }}
+      controller_issue_number: ${{ github.event.issue.number }}
     secrets: inherit

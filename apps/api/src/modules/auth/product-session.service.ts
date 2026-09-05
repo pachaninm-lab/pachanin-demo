@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { RequestProductUser, isProductSessionScope } from '../../common/types/product-session';
 import { signAccessToken, verifyAccessClaims } from './access-token';
+import { SESSION_IDLE_TIMEOUT_MS } from './auth.service';
 import { appendAuthAudit } from './auth-audit';
 import {
   buildOtpAuthUri,
@@ -11,7 +12,7 @@ import {
   generateTotpSecret,
   hashClientValue,
   secureEqual,
-  verifyTotp,
+  matchTotpCounter,
 } from './auth-crypto';
 import {
   digestMfaBackupCode,
@@ -157,7 +158,7 @@ export class ProductSessionService {
       const credentialMatchesChallenge = credential
         && (enrollment ? !credential.mfa_enabled : credential.mfa_enabled);
       const verification = credentialMatchesChallenge
-        ? this.verifyMfaCode(credential, code, !enrollment)
+        ? await this.verifyMfaCode(tx, credential, code, !enrollment)
         : null;
       if (!verification) {
         // Попытка последняя, если счётчик уже достиг предела: тот же порог и
@@ -423,6 +424,18 @@ export class ProductSessionService {
     if (context.session_status === 'EXPIRED' || context.session_expires_at <= new Date()) {
       return 'SESSION_EXPIRED';
     }
+    // The same idle limit as the platform pathway, from the same constant. Two
+    // session stores with two different idle rules would be the inconsistency
+    // V6.3.4 is about, and the number is not worth having in two places.
+    //
+    // The privileged fifteen-minute tier does not apply here and is not faked:
+    // a product session carries a scope, not a platform role, so there is no
+    // role on this row to decide it from. Reaching for staffRoles to invent one
+    // would be a second authority for who is privileged, which is the thing
+    // that consistency requirement forbids.
+    if (context.session_last_seen_at.getTime() + SESSION_IDLE_TIMEOUT_MS <= Date.now()) {
+      return 'SESSION_IDLE_TIMEOUT';
+    }
     if (context.session_status !== 'ACTIVE') return 'SESSION_NOT_ACTIVE';
     if (context.user_status !== 'ACTIVE') return 'USER_NOT_ACTIVE';
     if (
@@ -436,11 +449,12 @@ export class ProductSessionService {
     return null;
   }
 
-  private verifyMfaCode(
+  private async verifyMfaCode(
+    client: AuthSqlClient,
     credential: CredentialStateRow,
     code: string,
     allowBackup: boolean,
-  ): { method: 'TOTP' } | { method: 'BACKUP'; remainingBackupHashes: string[] } | null {
+  ): Promise<{ method: 'TOTP' } | { method: 'BACKUP'; remainingBackupHashes: string[] } | null> {
     let secret: string | null = null;
     if (credential.mfa_secret_ciphertext) {
       try {
@@ -451,7 +465,16 @@ export class ProductSessionService {
         secret = null;
       }
     }
-    if (secret && verifyTotp(secret, code)) return { method: 'TOTP' };
+    if (secret) {
+      const counter = matchTotpCounter(secret, code);
+      if (counter !== null) {
+        // Same consume as the platform pathway, from the same repository
+        // method. A product session that accepted a replayed code while the
+        // platform refused it would be the inconsistency V6.3.4 is about.
+        const consumed = await this.repository.consumeTotpCounter(client, credential.user_id, counter);
+        return consumed ? { method: 'TOTP' } : null;
+      }
+    }
 
     // Enrollment proves possession of the newly presented TOTP secret. An old
     // recovery code must never be able to approve a replacement authenticator.

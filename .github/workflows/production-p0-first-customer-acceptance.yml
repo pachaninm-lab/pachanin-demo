@@ -24,14 +24,16 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-p0-first-customer-acceptance
+  group: ${{ github.event_name == 'issue_comment' && (github.event.issue.number == 3072 || github.event.issue.number == 4637) && github.event.comment.user.login == github.repository_owner && github.actor == github.repository_owner && github.event.comment.body == '/production p0-first-customer current-main' && 'pc-crop-registration-lifecycle' || 'production-p0-first-customer-acceptance' }}
   cancel-in-progress: false
+  queue: max
 
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   DEFAULT_HOST: 195.19.12.120
   RELEASE_ISSUE_NUMBER: 3072
+  CONTINUATION_ISSUE_NUMBER: 4637
   EVIDENCE_DIR: artifacts/production-p0-first-customer
 
 jobs:
@@ -42,13 +44,21 @@ jobs:
       github.event_name == 'push' ||
       (
         github.event_name == 'issue_comment' &&
-        github.event.issue.number == 3072 &&
         github.event.comment.user.login == github.repository_owner &&
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
         (
-          github.event.comment.body == '/production p0-first-customer current-main' ||
-          github.event.comment.body == '/production p0-reviewer-membership-repair deployed-30d9075'
+          (
+            github.event.issue.number == 3072 &&
+            (
+              github.event.comment.body == '/production p0-first-customer current-main' ||
+              github.event.comment.body == '/production p0-reviewer-membership-repair deployed-30d9075'
+            )
+          ) ||
+          (
+            github.event.issue.number == 4637 &&
+            github.event.comment.body == '/production p0-first-customer current-main'
+          )
         )
       )
     runs-on: ubuntu-24.04
@@ -97,6 +107,10 @@ jobs:
       github.event.comment.body == '/production p0-reviewer-membership-repair deployed-30d9075'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: read
       issues: write
@@ -433,14 +447,19 @@ jobs:
     if: >-
       needs.contract.result == 'success' &&
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
       github.event.comment.user.login == github.repository_owner &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
       github.event.comment.body == '/production p0-first-customer current-main'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
     permissions:
+      actions: read
       contents: read
       issues: write
     env:
@@ -459,6 +478,7 @@ jobs:
       SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
       SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
       SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -466,16 +486,108 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Resolve exact current main
+      - name: Resolve immutable candidate from successful release and mail cutover
         id: target
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --no-tags origin main
-          target="$(git rev-parse origin/main)"
+          runs="$RUNNER_TEMP/pc-p0-release-controller-runs.json"
+          jobs="$RUNNER_TEMP/pc-p0-release-controller-jobs.json"
+          gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/platform-v7-safe-merge.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&per_page=100" \
+            > "$runs"
+          candidates_parser_file="$RUNNER_TEMP/pc-p0-candidates-parser-1.txt"
+          node - "$runs" > "$candidates_parser_file" <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const pages = Array.isArray(payload) ? payload : [payload];
+          const workflowRuns = pages.flatMap((page) => page.workflow_runs || []);
+          for (const run of workflowRuns.sort((a, b) => Number(b.id) - Number(a.id))) {
+            if (run.event === 'issue_comment'
+              && run.head_branch === 'main'
+              && Number.isSafeInteger(Number(run.id))
+              && /^[0-9a-f]{40}$/.test(String(run.head_sha || ''))) {
+              process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.head_sha} ${run.status || 'unknown'} ${run.conclusion || 'pending'}\n`);
+            }
+          }
+          NODE
+          mapfile -t candidates < "$candidates_parser_file"
+          target=''
+          release_run_id=''
+          release_run_attempt=''
+          for candidate in "${candidates[@]}"; do
+            read -r candidate_run candidate_attempt candidate_sha candidate_status candidate_conclusion <<< "$candidate"
+            [[ "$candidate_run" =~ ^[0-9]{2,20}$ && "$candidate_attempt" =~ ^[0-9]{1,4}$ && "$candidate_sha" =~ ^[0-9a-f]{40}$ ]] || continue
+            for materialize_attempt in $(seq 1 5); do
+              gh api "repos/$GITHUB_REPOSITORY/actions/runs/$candidate_run/attempts/$candidate_attempt/jobs?per_page=100" > "$jobs"
+              [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]] && break
+              sleep 2
+            done
+            job_count="$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")"
+            if [[ "$job_count" == 0 ]]; then
+              echo "P0_RELEASE_INTENT_JOBS_NOT_MATERIALIZED=$candidate_run" >&2
+              exit 14
+            fi
+            set +e
+            node - "$jobs" "$candidate_status" "$candidate_conclusion" "$candidate_attempt" <<'NODE'
+          const fs = require('node:fs');
+          const [path, runStatus, runConclusion, runAttempt] = process.argv.slice(2);
+          const jobs = JSON.parse(fs.readFileSync(path, 'utf8')).jobs || [];
+          const control = jobs.filter((job) => job.name === 'production-release-control-3072');
+          if (control.length === 1 && control[0].conclusion === 'skipped') {
+            process.exit(Number(runAttempt) > 1 ? 5 : 2);
+          }
+          if (control.length !== 1) process.exit(3);
+          const required = [
+            'production-release-control-3072',
+            'production-full-stack-execution-3072 / Validate full-stack release contract',
+            'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake',
+            'production-auth-mail-cutover-3072 / Validate auth-mail cutover contract',
+            'production-auth-mail-cutover-3072 / Cut over exact production to durable auth-mail worker',
+            'production-reviewer-readiness-3072 / Validate production reviewer inspect contract',
+            'production-reviewer-readiness-3072 / Read-only REG.RU reviewer login readiness',
+          ];
+          if (runStatus !== 'completed' || runConclusion !== 'success') process.exit(4);
+          for (const name of required) {
+            const matches = jobs.filter((job) => job.name === name);
+            if (matches.length !== 1 || matches[0].conclusion !== 'success') process.exit(4);
+          }
+          NODE
+            verdict=$?
+            set -e
+            if [[ "$verdict" == 2 ]]; then
+              continue
+            elif [[ "$verdict" == 0 ]]; then
+              target="$candidate_sha"
+              release_run_id="$candidate_run"
+              release_run_attempt="$candidate_attempt"
+              break
+            else
+              echo "P0_LATEST_RELEASE_INTENT_NOT_TERMINAL_PASS=$candidate_run" >&2
+              exit 13
+            fi
+          done
+          [[ "$release_run_id" =~ ^[0-9]{2,20}$ && "$release_run_attempt" =~ ^[0-9]{1,4}$ ]]
           [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          git fetch --no-tags origin main
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$target^{commit}"
+          git merge-base --is-ancestor "$target" "$current" \
+            || { echo P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR >&2; exit 12; }
+          git checkout --detach "$target"
+          [[ "$(git rev-parse HEAD)" == "$target" ]]
           echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "release_run_id=$release_run_id" >> "$GITHUB_OUTPUT"
+          echo "release_run_attempt=$release_run_attempt" >> "$GITHUB_OUTPUT"
+          rm -f "$runs" "$jobs"
+
+      - name: Validate acceptance contract from immutable candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/check-production-p0-first-customer-acceptance.mjs
+          bash -n scripts/production-p0-first-customer-acceptance.sh
 
       - name: Resolve protected key and pinned REG.RU identity
         id: ssh
@@ -485,8 +597,13 @@ jobs:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         run: |
           set -euo pipefail
-          guard_main() {
-            [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          guard_candidate_ancestry() {
+            local current
+            git fetch --no-tags origin main >/dev/null
+            current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+            [[ "$(git rev-parse origin/main)" == "$current" ]]
+            git cat-file -e "$TARGET_SHA^{commit}"
+            git merge-base --is-ancestor "$TARGET_SHA" "$current"
           }
           trim() {
             local value="$1"
@@ -541,10 +658,10 @@ jobs:
             || try_slot "${SSH_KEY_FALLBACK:-}" \
             || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 26; }
 
-          guard_main
+          guard_candidate_ancestry
           domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
           grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips" || { echo P0_CANONICAL_DNS_MISMATCH >&2; exit 27; }
-          guard_main
+          guard_candidate_ancestry
           scan="$(mktemp)"; match="$(mktemp)"
           ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
           [[ -s "$scan" ]]
@@ -556,7 +673,7 @@ jobs:
           mv "$match" "$known_hosts"
           rm -f "$scan"
           chmod 0600 "$known_hosts"
-          guard_main
+          guard_candidate_ancestry
           ssh -i "$key_path" -p "$port" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
@@ -568,22 +685,80 @@ jobs:
           echo "key_path=$key_path" >> "$GITHUB_OUTPUT"
           echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"
 
-      - name: Reconfirm exact main immediately before production mutation
+      - name: Reconfirm immutable release candidate immediately before production mutation
         shell: bash
         env:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
+          RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+          RELEASE_RUN_ATTEMPT: ${{ steps.target.outputs.release_run_attempt }}
         run: |
           set -euo pipefail
+          assert_no_newer_release_intent() {
+            local runs row run_id run_status jobs count state materialized
+            read -r expected_attempt expected_status expected_conclusion expected_created < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending"), .created_at] | @tsv')
+            [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+              && "$expected_status" == completed && "$expected_conclusion" == success ]]
+            [[ "$expected_created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
+            runs="$RUNNER_TEMP/terminal-release-intents.json"
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/workflows/platform-v7-safe-merge.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&created=%3E%3D$expected_created&per_page=100" > "$runs"
+            newer_parser_file="$RUNNER_TEMP/pc-p0-newer-parser-2.txt"
+            node - "$runs" "$RELEASE_RUN_ID" > "$newer_parser_file" <<'NODE'
+          const fs = require('node:fs');
+          const [path, expected] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const pages = Array.isArray(payload) ? payload : [payload];
+          for (const run of pages.flatMap((page) => page.workflow_runs || [])) {
+            if (Number(run.id) > Number(expected)) process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.status}\n`);
+          }
+          NODE
+            mapfile -t newer < "$newer_parser_file"
+            for row in "${newer[@]}"; do
+              read -r run_id run_attempt run_status <<< "$row"
+              jobs="$RUNNER_TEMP/terminal-release-$run_id.json"
+              materialized=0
+              for materialize_attempt in $(seq 1 5); do
+                gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/attempts/$run_attempt/jobs?per_page=100" > "$jobs"
+                if [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]]; then
+                  materialized=1
+                  break
+                fi
+                [[ "$run_status" == completed ]] && break
+                sleep 2
+              done
+              read -r count state < <(node - "$jobs" <<'NODE'
+          const fs = require('node:fs');
+          const jobs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).jobs || [];
+          const matches = jobs.filter((job) => job.name === 'production-release-control-3072');
+          process.stdout.write(`${matches.length} ${matches[0]?.conclusion || matches[0]?.status || 'none'}\n`);
+          NODE
+              )
+              [[ "$run_attempt" == 1 && "$materialized" == 1 \
+                && "$count" == 1 && "$state" == skipped ]] || return 1
+            done
+            read -r expected_attempt expected_status expected_conclusion < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+            [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+              && "$expected_status" == completed && "$expected_conclusion" == success ]]
+          }
+          git fetch --no-tags origin main >/dev/null
           current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
-          [[ "$current" == "$TARGET_SHA" ]] \
-            || { echo P0_MAIN_ADVANCED_BEFORE_MUTATION >&2; exit 29; }
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current" \
+            || { echo P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR >&2; exit 29; }
+          assert_no_newer_release_intent
 
-      - name: Execute exact-main P0 first-customer acceptance
+      - name: Execute immutable-candidate P0 first-customer acceptance
         id: acceptance
         continue-on-error: true
         shell: bash
         env:
           PC_P0_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          PC_P0_RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+          PC_P0_RELEASE_RUN_ATTEMPT: ${{ steps.target.outputs.release_run_attempt }}
           PC_P0_LIVE_BASE: ${{ env.LIVE_BASE }}
           PC_P0_EVIDENCE_DIR: ${{ env.EVIDENCE_DIR }}
           PC_P0_SSH_HOST: ${{ steps.ssh.outputs.host }}
@@ -593,9 +768,80 @@ jobs:
           PC_P0_SSH_KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
         run: |
           set -euo pipefail
+          read -r release_attempt release_status release_conclusion < <(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$PC_P0_RELEASE_RUN_ID" \
+            --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+          [[ "$release_attempt" == "$PC_P0_RELEASE_RUN_ATTEMPT" \
+            && "$release_status" == completed && "$release_conclusion" == success ]] \
+            || { echo P0_RELEASE_ATTEMPT_CHANGED_BEFORE_FIRST_CUSTOMER >&2; exit 32; }
+          command -v setsid >/dev/null
           mkdir -p "$EVIDENCE_DIR"
-          bash scripts/production-p0-first-customer-acceptance.sh '${{ steps.target.outputs.sha }}' \
-            | tee "$EVIDENCE_DIR/run.log"
+          lineage_done="$RUNNER_TEMP/first-customer-lineage-monitor.done"
+          lineage_blocker="$RUNNER_TEMP/first-customer-lineage-monitor.blocker"
+          rm -f "$lineage_done" "$lineage_blocker"
+          runner_pid=''
+          monitor_pid=''
+          cleanup_supervisor() {
+            touch "$lineage_done" 2>/dev/null || true
+            if [[ -n "${monitor_pid:-}" ]] && kill -0 "$monitor_pid" 2>/dev/null; then
+              kill -TERM "$monitor_pid" 2>/dev/null || true
+            fi
+            wait "${monitor_pid:-0}" 2>/dev/null || true
+            if [[ -n "${runner_pid:-}" ]] && kill -0 "$runner_pid" 2>/dev/null; then
+              kill -TERM -- "-$runner_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup_supervisor EXIT
+          monitor_release_attempt() {
+            local snapshot attempt status conclusion
+            while [[ ! -e "$lineage_done" ]]; do
+              if ! snapshot="$(gh api \
+                "repos/$GITHUB_REPOSITORY/actions/runs/$PC_P0_RELEASE_RUN_ID" \
+                --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')"; then
+                printf 'P0_RELEASE_ATTEMPT_MONITOR_LOOKUP_FAILED\n' > "$lineage_blocker"
+                break
+              fi
+              read -r attempt status conclusion <<< "$snapshot"
+              if [[ "$attempt" != "$PC_P0_RELEASE_RUN_ATTEMPT" \
+                || "$status" != completed || "$conclusion" != success ]]; then
+                printf 'P0_RELEASE_ATTEMPT_CHANGED_DURING_FIRST_CUSTOMER\n' > "$lineage_blocker"
+                break
+              fi
+              for _ in $(seq 1 15); do
+                [[ -e "$lineage_done" ]] && return 0
+                sleep 1
+              done
+            done
+            if [[ -s "$lineage_blocker" ]] && kill -0 "$runner_pid" 2>/dev/null; then
+              kill -TERM -- "-$runner_pid" 2>/dev/null || true
+              for _ in $(seq 1 10); do
+                kill -0 "$runner_pid" 2>/dev/null || return 0
+                sleep 1
+              done
+              kill -KILL -- "-$runner_pid" 2>/dev/null || true
+            fi
+          }
+          set +e
+          setsid --wait bash -c \
+            'set -o pipefail; bash scripts/production-p0-first-customer-acceptance.sh "$1" | tee "$2/run.log"' \
+            _ '${{ steps.target.outputs.sha }}' "$EVIDENCE_DIR" &
+          runner_pid=$!
+          monitor_release_attempt &
+          monitor_pid=$!
+          wait "$runner_pid"
+          runner_status=$?
+          touch "$lineage_done"
+          wait "$monitor_pid"
+          monitor_status=$?
+          set -e
+          trap - EXIT
+          cleanup_supervisor
+          if [[ -s "$lineage_blocker" ]]; then
+            cat "$lineage_blocker" >&2
+            exit 32
+          fi
+          [[ "$monitor_status" == 0 ]] || { echo P0_RELEASE_ATTEMPT_MONITOR_FAILED >&2; exit 32; }
+          exit "$runner_status"
 
       - name: Enforce bounded redacted evidence
         id: evidence
@@ -604,6 +850,23 @@ jobs:
         run: |
           set -euo pipefail
           test -f "$EVIDENCE_DIR/result.json"
+          node - "$EVIDENCE_DIR/result.json" '${{ steps.target.outputs.sha }}' '${{ github.run_id }}-${{ github.run_attempt }}' '${{ steps.target.outputs.release_run_id }}' '${{ steps.target.outputs.release_run_attempt }}' <<'NODE'
+          const fs = require('node:fs');
+          const [path, target, runId, releaseRunId, releaseRunAttempt] = process.argv.slice(2);
+          const result = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (result.schemaVersion !== 'production.p0.first-customer.acceptance.v1'
+            || result.passed !== true
+            || result.targetSha !== target
+            || result.runId !== runId
+            || result.releaseControllerRunId !== releaseRunId
+            || result.releaseControllerRunAttempt !== releaseRunAttempt
+            || result.production?.apiRevisionExact !== true
+            || result.production?.webRevisionExact !== true
+            || result.production?.migrationImageRevisionExact !== true
+            || result.production?.authMailWorkerRevisionExact !== true
+            || result.production?.authMailWorkerReady !== true
+            || result.secretsOrRawTokensInEvidence !== false) process.exit(2);
+          NODE
           if ! command -v rg >/dev/null 2>&1; then
             rg() {
               grep -PR --binary-files=text "$@"
@@ -623,15 +886,83 @@ jobs:
           find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 \
             | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
 
-      - name: Guard exact main before artifact publication
+      - name: Guard immutable release candidate before artifact publication
         id: artifact_guard
         if: always()
         shell: bash
         env:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
+          RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+          RELEASE_RUN_ATTEMPT: ${{ steps.target.outputs.release_run_attempt }}
         run: |
           set -euo pipefail
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          assert_no_newer_release_intent() {
+            local runs row run_id run_status jobs count state materialized
+            read -r expected_attempt expected_status expected_conclusion expected_created < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending"), .created_at] | @tsv')
+            [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+              && "$expected_status" == completed && "$expected_conclusion" == success ]]
+            [[ "$expected_created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
+            runs="$RUNNER_TEMP/terminal-release-intents.json"
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/workflows/platform-v7-safe-merge.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&created=%3E%3D$expected_created&per_page=100" > "$runs"
+            newer_parser_file="$RUNNER_TEMP/pc-p0-newer-parser-3.txt"
+            node - "$runs" "$RELEASE_RUN_ID" > "$newer_parser_file" <<'NODE'
+          const fs = require('node:fs');
+          const [path, expected] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const pages = Array.isArray(payload) ? payload : [payload];
+          for (const run of pages.flatMap((page) => page.workflow_runs || [])) {
+            if (Number(run.id) > Number(expected)) process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.status}\n`);
+          }
+          NODE
+            mapfile -t newer < "$newer_parser_file"
+            for row in "${newer[@]}"; do
+              read -r run_id run_attempt run_status <<< "$row"
+              jobs="$RUNNER_TEMP/terminal-release-$run_id.json"
+              materialized=0
+              for materialize_attempt in $(seq 1 5); do
+                gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/attempts/$run_attempt/jobs?per_page=100" > "$jobs"
+                if [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]]; then
+                  materialized=1
+                  break
+                fi
+                [[ "$run_status" == completed ]] && break
+                sleep 2
+              done
+              read -r count state < <(node - "$jobs" <<'NODE'
+          const fs = require('node:fs');
+          const jobs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).jobs || [];
+          const matches = jobs.filter((job) => job.name === 'production-release-control-3072');
+          process.stdout.write(`${matches.length} ${matches[0]?.conclusion || matches[0]?.status || 'none'}\n`);
+          NODE
+              )
+              [[ "$run_attempt" == 1 && "$materialized" == 1 \
+                && "$count" == 1 && "$state" == skipped ]] || return 1
+            done
+            read -r expected_attempt expected_status expected_conclusion < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+            [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+              && "$expected_status" == completed && "$expected_conclusion" == success ]]
+          }
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
+          assert_no_newer_release_intent
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
+          read -r release_attempt release_status release_conclusion < <(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+            --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+          [[ "$release_attempt" == "$RELEASE_RUN_ATTEMPT" \
+            && "$release_status" == completed && "$release_conclusion" == success ]] \
+            || { echo P0_RELEASE_ATTEMPT_CHANGED_BEFORE_FIRST_CUSTOMER_ARTIFACT >&2; exit 32; }
 
       - name: Upload bounded P0 acceptance evidence
         id: upload
@@ -641,7 +972,7 @@ jobs:
           steps.artifact_guard.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: production-p0-first-customer-${{ steps.target.outputs.sha }}-${{ github.run_id }}
+          name: production-p0-first-customer-${{ steps.target.outputs.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 90
@@ -675,7 +1006,11 @@ jobs:
           CLEANUP_OUTCOME: ${{ steps.credential_cleanup.outcome }}
         run: |
           set -euo pipefail
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
           execution_result=''
           stage=''
           blocker=''
@@ -707,19 +1042,23 @@ jobs:
           {
             echo "## Production P0 first-customer acceptance"
             echo
-            echo "- exact main: \`$TARGET_SHA\`"
+            echo "- immutable release candidate: \`$TARGET_SHA\`"
             echo "- result: \`$terminal_result\`"
             echo "- execution: \`${execution_result:-FAIL}\`"
             echo "- stage: \`${stage:-unknown}\`"
             echo "- blocker: \`${blocker:-none}\`"
             echo "- evidence validation: \`$EVIDENCE_OUTCOME\`"
-            echo "- exact-main artifact guard: \`$ARTIFACT_GUARD_OUTCOME\`"
+            echo "- release-candidate artifact guard: \`$ARTIFACT_GUARD_OUTCOME\`"
             echo "- artifact upload: \`$UPLOAD_OUTCOME\`"
             echo "- credential cleanup: \`$CLEANUP_OUTCOME\`"
             echo "- artifact retention policy: \`90 days\`"
             echo "- run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } > "$record"
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
           gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
           rm -f "$record"
 
@@ -730,8 +1069,12 @@ jobs:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         run: |
           set -euo pipefail
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]] \
-            || { echo P0_MAIN_ADVANCED_BEFORE_TERMINAL_RESULT >&2; exit 1; }
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current" \
+            || { echo P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR >&2; exit 1; }
           [[ '${{ steps.acceptance.outcome }}' == success ]]
           [[ '${{ steps.evidence.outcome }}' == success ]]
           [[ '${{ steps.artifact_guard.outcome }}' == success ]]

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4503,
+  "branch": "fix/design-v8-acceptance-csrf-faq-4503",
+  "status": "active",
+  "purpose": "Repair the Design System v8 acceptance harness after the intentional MFA-pending CSRF rotation and align its public FAQ count with the approved accounting FAQ already rendered by the active product story.",
+  "authorityBaseExactMain": "d9bbbd584099e1120744362d54d7fc3c4b0961b3",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/tests/e2e/support/acceptance-login.ts",
+    "docs/platform-v7/autopilot/scopes/design-v8-acceptance-csrf-faq-4503.json"
+  ],
+  "requiredInvariants": [
+    "The acceptance helper must use the current server-minted CSRF token after the login route rotates the browser session into MFA-pending state.",
+    "The repair must not weaken CSRF enforcement, MFA verification, session rotation, replay protection, rate limits or server-authoritative authentication.",
+    "The public intelligence acceptance must assert the five FAQ entries rendered by the active product-story alias, including the approved accounting FAQ.",
+    "No product UI, application route, authentication implementation, database, migration, dependency, lockfile, workflow, production configuration or deployment topology may change.",
+    "Merge and CI success are not REG.RU production deployment evidence.",
+    "No new recurring cost is introduced."
+  ],
+  "acceptance": [
+    "The Design System v8 browser matrix completes MFA login without a stale-CSRF 403.",
+    "The public homepage acceptance observes exactly five FAQ disclosure elements.",
+    "The concurrent-scope guard accepts exactly the three authorized paths.",
+    "Relevant exact-head CI and security gates pass without exclusions or weakened controls."
+  ]
+}

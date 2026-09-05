@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword } from './password-hashing';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { Role } from '../../common/types/request-user';
 import { AuthPrismaService } from './auth-prisma.service';
@@ -224,7 +224,7 @@ export class RegistrationApplicationService {
     }
 
     const requestedRole = roleForWorkspace(normalized.workspace);
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const passwordHash = await hashPassword(dto.password);
     const emailToken = issueRegistrationEmailToken();
     const now = new Date();
     const applicationExpiresAt = new Date(now.getTime() + REGISTRATION_APPLICATION_TTL_MS);

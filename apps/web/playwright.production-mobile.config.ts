@@ -6,6 +6,7 @@ export default defineConfig({
     /(?:platform-v7|gekta)-production-mobile-acceptance\.spec\.ts/,
     /gekta-keyboard-start-acceptance\.spec\.ts/,
     /gekta-hero-density-acceptance\.spec\.ts/,
+    /gekta-ios-safari-visual-polish-acceptance\.spec\.ts/,
   ],
   fullyParallel: false,
   forbidOnly: true,

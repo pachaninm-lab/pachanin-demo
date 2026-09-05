@@ -112,7 +112,8 @@ sync_target() {
     scripts/tai-reg-ru-deploy.sh \
     scripts/tai_model_artifact_evidence.py \
     scripts/production-full-stack-exact-sha.sh \
-    scripts/tai-restricted-qwen-reg-ru-activate.sh; do
+    scripts/tai-restricted-qwen-reg-ru-activate.sh \
+    scripts/pc-p0-staff-api-origin-local-repair.sh; do
     [[ -f "$REPOSITORY_ROOT/$path" && ! -L "$REPOSITORY_ROOT/$path" ]] || fail PROTECTED_SCRIPT_INVALID 24
   done
 }
@@ -659,6 +660,164 @@ PY_VALIDATE_RECLAIM
   (( rc == 0 )) || fail DOCKER_RECLAIM_INSUFFICIENT_SAFE_HEADROOM 97
 }
 
+run_pc_crop_staff_api_origin_repair() {
+  [[ $# -eq 1 && "$1" == '--pc-crop-staff-api-origin-repair-v1' ]] || fail INVALID_PC_CROP_STAFF_API_ORIGIN_REPAIR_ARGUMENTS 98
+  local script="$REPOSITORY_ROOT/scripts/pc-p0-staff-api-origin-local-repair.sh"
+  local raw="$job_state/staff-api-origin-repair.raw"
+  local report="$job_state/staff-api-origin-repair.json"
+  local rc=0 evidence_rc=0
+  [[ -f "$script" && ! -L "$script" ]] || fail PC_CROP_STAFF_API_ORIGIN_REPAIR_SCRIPT_INVALID 98
+  [[ "$(git -C "$REPOSITORY_ROOT" rev-parse HEAD)" == "$TARGET_SHA" ]] || fail PROTECTED_CHECKOUT_MISMATCH 98
+  [[ -z "$(git -C "$REPOSITORY_ROOT" status --porcelain=v1)" ]] || fail PROTECTED_CHECKOUT_DIRTY 98
+
+  set +e
+  bash "$script" "$TARGET_SHA" "$RUN_ID" > "$raw" 2>/dev/null
+  rc=$?
+  set -e
+
+  set +e
+  python3 - "$raw" "$report" "$TARGET_SHA" "$RUN_ID" "$rc" <<'PY_PC_CROP_REPAIR_EVIDENCE'
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+raw_path, report_path, target_sha, run_id_raw, rc_raw = sys.argv[1:]
+rc = int(rc_raw)
+parse_error = False
+allowed_keys = {
+    'RESULT','FAIL_STAGE','ROLLBACK','DEPLOYED_SHA','ACTIVE_BEFORE','COMPOSE_BEFORE',
+    'REPAIR_MODE','ACTIVE_AFTER','AUTH_STATUS','CAP_STATUS','IMAGE_UNCHANGED','API_UNCHANGED',
+    'NONWEB_UNCHANGED','REVISION_UNCHANGED','PRODUCTION_MUTATION',
+}
+values = {}
+try:
+    raw = Path(raw_path).read_text(encoding='utf-8')
+except Exception:
+    raw = ''
+    parse_error = True
+if len(raw.encode('utf-8', errors='ignore')) > 32768 or '\x00' in raw or '\r' in raw:
+    parse_error = True
+    raw = ''
+for line in raw.splitlines():
+    if not line:
+        continue
+    key, sep, value = line.partition('=')
+    if not sep or key not in allowed_keys or key in values:
+        parse_error = True
+        continue
+    if len(value) > 128 or any(ord(ch) < 32 or ord(ch) > 126 for ch in value):
+        parse_error = True
+        continue
+    values[key] = value
+
+origin_classes = {
+    'NOT_EVALUATED','UNSET','CANONICAL','ACCEPTED_HTTPS','INVALID_PARSE','INVALID_SCHEME',
+    'INVALID_COMPONENTS','INVALID_HTTP_AUTHORITY','INVALID_HTTP_PATH',
+}
+repair_modes = {'NOT_EVALUATED','NONE_REQUIRED','OVERRIDE_CREATED','OVERRIDE_PRESENT_RECREATE'}
+probe_states = {'NOT_EVALUATED','401','TIMEOUT','FETCH_ERROR'}
+unchanged_states = {'PASS','NOT_ATTESTED'}
+rollback_states = {'NOT_REQUIRED','CONFIRMED','FAILED'}
+mutation_states = {
+    'NONE','WEB_ONLY_API_ORIGIN_OVERRIDE_AND_RECREATE','NONE_OR_ROLLED_BACK',
+    'UNKNOWN_REQUIRES_OPERATOR_REVIEW',
+}
+result_states = {'PASS_ALREADY_CANONICAL','PASS_REPAIRED','FAIL_CLOSED'}
+
+def pick(key, allowed, default):
+    global parse_error
+    value = values.get(key, default)
+    if value not in allowed:
+        parse_error = True
+        return default
+    return value
+
+result = pick('RESULT', result_states, 'FAIL_CLOSED')
+deployed = values.get('DEPLOYED_SHA', 'UNKNOWN')
+if deployed != 'UNKNOWN' and not re.fullmatch(r'[0-9a-f]{40}', deployed):
+    deployed = 'UNKNOWN'
+    parse_error = True
+active_before = pick('ACTIVE_BEFORE', origin_classes, 'NOT_EVALUATED')
+compose_before = pick('COMPOSE_BEFORE', origin_classes, 'NOT_EVALUATED')
+repair_mode = pick('REPAIR_MODE', repair_modes, 'NOT_EVALUATED')
+active_after = pick('ACTIVE_AFTER', origin_classes, 'NOT_EVALUATED')
+auth_status = pick('AUTH_STATUS', probe_states, 'NOT_EVALUATED')
+cap_status = pick('CAP_STATUS', probe_states, 'NOT_EVALUATED')
+image_unchanged = pick('IMAGE_UNCHANGED', unchanged_states, 'NOT_ATTESTED')
+api_unchanged = pick('API_UNCHANGED', unchanged_states, 'NOT_ATTESTED')
+nonweb_unchanged = pick('NONWEB_UNCHANGED', unchanged_states, 'NOT_ATTESTED')
+revision_unchanged = pick('REVISION_UNCHANGED', unchanged_states, 'NOT_ATTESTED')
+rollback = pick('ROLLBACK', rollback_states, 'NOT_REQUIRED')
+mutation = pick('PRODUCTION_MUTATION', mutation_states, 'UNKNOWN_REQUIRES_OPERATOR_REVIEW' if rc else 'NONE')
+fail_stage = values.get('FAIL_STAGE', 'NONE' if rc == 0 else 'UNKNOWN')
+if not re.fullmatch(r'(?:NONE|UNKNOWN|[A-Z][A-Z0-9_]{0,63})', fail_stage):
+    fail_stage = 'UNKNOWN'
+    parse_error = True
+
+success_common = (
+    deployed != 'UNKNOWN' and auth_status == '401' and cap_status == '401' and
+    image_unchanged == api_unchanged == nonweb_unchanged == revision_unchanged == 'PASS' and
+    rollback == 'NOT_REQUIRED' and fail_stage == 'NONE'
+)
+if result == 'PASS_ALREADY_CANONICAL':
+    success_shape = (
+        active_before in {'UNSET','CANONICAL'} and active_after == active_before and
+        repair_mode == 'NONE_REQUIRED' and mutation == 'NONE'
+    )
+elif result == 'PASS_REPAIRED':
+    success_shape = (
+        active_before.startswith('INVALID_') and active_after == 'CANONICAL' and
+        repair_mode in {'OVERRIDE_CREATED','OVERRIDE_PRESENT_RECREATE'} and
+        mutation == 'WEB_ONLY_API_ORIGIN_OVERRIDE_AND_RECREATE'
+    )
+else:
+    success_shape = False
+passed = rc == 0 and not parse_error and success_common and success_shape
+if rc == 0 and not passed:
+    parse_error = True
+    result = 'FAIL_CLOSED'
+    fail_stage = 'EVIDENCE_CONTRACT_INVALID'
+    mutation = 'UNKNOWN_REQUIRES_OPERATOR_REVIEW'
+
+payload = {
+    'schemaVersion':'pc-crop.staff-api-origin-local-repair.v1',
+    'targetSha':target_sha,
+    'deployedRevision':deployed,
+    'result':result,
+    'activeBefore':active_before,
+    'composeBefore':compose_before,
+    'repairMode':repair_mode,
+    'activeAfter':active_after,
+    'authStatus':auth_status,
+    'capStatus':cap_status,
+    'webImageUnchanged':image_unchanged == 'PASS',
+    'apiContainerUnchanged':api_unchanged == 'PASS',
+    'nonWebContainersUnchanged':nonweb_unchanged == 'PASS',
+    'revisionUnchanged':revision_unchanged == 'PASS',
+    'failStage':fail_stage,
+    'rollback':rollback,
+    'productionMutation':mutation,
+    'newRecurringCostRub':0,
+    'passed':passed,
+}
+path = Path(report_path)
+path.write_text(json.dumps(payload, ensure_ascii=True, separators=(',', ':')) + '\n', encoding='utf-8')
+os.chmod(path, 0o600)
+raise SystemExit(2 if parse_error else 0)
+PY_PC_CROP_REPAIR_EVIDENCE
+  evidence_rc=$?
+  set -e
+
+  rm -f "$raw"
+  [[ -s "$report" && ! -L "$report" ]] || fail PC_CROP_STAFF_API_ORIGIN_REPAIR_EVIDENCE_MISSING 98
+  publish_file "$report" staff-api-origin-repair.json
+  if (( rc != 0 || evidence_rc != 0 )); then
+    fail PC_CROP_STAFF_API_ORIGIN_REPAIR_FAILED 98
+  fi
+}
+
 set_deploy_failure_stage() {
   local code="$1" stage_file="$job_state/deploy-stage-error.log"
   [[ "$code" =~ ^[A-Z][A-Z0-9]*_[A-Z0-9_]+$ ]] || fail DEPLOY_STAGE_CODE_INVALID 96
@@ -767,7 +926,9 @@ case "$ACTION" in
   activate) run_activate "$@" ;;
   finalize-activation) finalize_activation "$@" ;;
   deploy)
-    if [[ "${1:-}" == '--reclaim-docker-headroom-v1' ]]; then
+    if [[ "${1:-}" == '--pc-crop-staff-api-origin-repair-v1' ]]; then
+      run_pc_crop_staff_api_origin_repair "$@"
+    elif [[ "${1:-}" == '--reclaim-docker-headroom-v1' ]]; then
       run_docker_headroom_reclaim "$@"
     else
       run_deploy "$@"

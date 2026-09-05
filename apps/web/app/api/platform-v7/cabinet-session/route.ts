@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { readVerifiedCabinetRole, signCabinetSession } from '@/lib/platform-v7/verified-session';
+import { assertCsrf } from '@/lib/server-request-security';
 
 /**
  * Phase 4D-pre — dedicated platform-v7 cabinet session issuance.
@@ -57,6 +58,22 @@ function readBearerToken(request: Request): string | null {
 }
 
 export async function POST(request: Request) {
+  // V3.5.1. Этот маршрут действует по ambient-куке: ниже он читает
+  // pc_access_token через cookies(), проверяет по нему роль и ВЫПУСКАЕТ
+  // cookie-сессию кабинета на 8 часов. Куку браузер прикладывает сам, поэтому
+  // без проверки чужая страница могла бы заставить браузер вошедшего
+  // пользователя выпустить себе сессию кабинета - изменение состояния, а не
+  // чтение.
+  //
+  // Гейт стоит ДО разбора тела и до любого обращения к учётке. Сломать
+  // работающий вызов он не может: pc_csrf_token выставляется тем же ответом,
+  // что и pc_access_token (auth-session-response.ts), поэтому любая сессия,
+  // способная пройти проверку роли, куку уже несёт.
+  const csrf = assertCsrf(request);
+  if (!csrf.ok) {
+    const reason = 'reason' in csrf ? csrf.reason : 'csrf_invalid';
+    return NextResponse.json({ ok: false, code: 'CSRF_REQUIRED', reason }, { status: 403 });
+  }
   const body = await request.json().catch(() => ({}));
   const bodyRole = typeof body?.role === 'string' ? body.role : '';
   const nowSeconds = Math.floor(Date.now() / 1000);

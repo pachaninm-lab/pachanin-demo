@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
-import { createHash, createHmac, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, hkdfSync, timingSafeEqual } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
@@ -235,7 +235,32 @@ function fingerprintFilters(filters: RegistryFilters): string {
   })).digest('hex');
 }
 
-function cursorSecret(): string {
+/**
+ * Domain separation for the cursor key.
+ *
+ * This used to HMAC with the master material directly, and when
+ * DEAL_REGISTRY_CURSOR_SECRET was unset that material was JWT_SECRET - the
+ * secret that signs session access tokens. Nothing was forgeable across the two,
+ * but only because of the shape of what each signs: a JWT signs
+ * `header.payload`, which contains a dot, and a cursor signs a single base64url
+ * string, which cannot. Safety that rests on message shape stops being safety
+ * the first time either format changes.
+ *
+ * The same codebase already answers this. opaque-token-authority.ts derives its
+ * digest key by HKDF under an `info` label so it is not the session-signing
+ * secret even when it comes from the same master material, and explains why. The
+ * cursor now does the same thing under its own label.
+ *
+ * A dedicated DEAL_REGISTRY_CURSOR_SECRET is still honoured and still preferred;
+ * derivation applies to whichever material is in use, so a deployment that sets
+ * the dedicated secret gets separation from everything else as well.
+ */
+const CURSOR_HKDF_INFO = 'pc-deal-registry-cursor:v1';
+const CURSOR_HKDF_SALT = 'pc-deal-registry-cursor-salt';
+
+let cachedCursorKey: Buffer | null = null;
+
+function cursorKeyMaterial(): string {
   const secret = process.env.DEAL_REGISTRY_CURSOR_SECRET || process.env.JWT_SECRET;
   if (!secret || secret.length < 32) {
     throw new InternalServerErrorException({ code: 'DEAL_REGISTRY_CURSOR_SECRET_REQUIRED' });
@@ -243,8 +268,27 @@ function cursorSecret(): string {
   return secret;
 }
 
-function signCursor(encoded: string): string {
-  return createHmac('sha256', cursorSecret()).update(encoded).digest('base64url');
+export function cursorSigningKey(): Buffer {
+  if (!cachedCursorKey) {
+    cachedCursorKey = Buffer.from(
+      hkdfSync('sha256', cursorKeyMaterial(), CURSOR_HKDF_SALT, CURSOR_HKDF_INFO, 32),
+    );
+  }
+  return cachedCursorKey;
+}
+
+/** Test seam: the key is cached per process, so a changed secret needs a reset. */
+export function resetCursorSigningKey(): void {
+  cachedCursorKey = null;
+}
+
+/**
+ * Exported as a test seam. A correct derivation is worth nothing if the signer
+ * does not use it, and that bypass is invisible to any test that only exercises
+ * `cursorSigningKey`. Returning a digest reveals no key material.
+ */
+export function signCursor(encoded: string): string {
+  return createHmac('sha256', cursorSigningKey()).update(encoded).digest('base64url');
 }
 
 function encodeCursor(cursor: RegistryCursor, filterFingerprint: string): string {

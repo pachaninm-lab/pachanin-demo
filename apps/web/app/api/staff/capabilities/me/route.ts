@@ -4,24 +4,13 @@ import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
+import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-function resolveApiOrigin(): string {
-  const configured = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim();
-  if (!configured) return '';
-  try {
-    const url = new URL(configured);
-    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') return '';
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return '';
-  }
-}
-
-const API_ORIGIN = resolveApiOrigin();
+const API_BASE_URL = resolveServerApiBaseUrl();
 
 function json(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, {
@@ -44,12 +33,12 @@ export async function GET(request: Request) {
   if (!accessToken || accessToken.startsWith('demo.')) {
     return json({ code: 'UNAUTHENTICATED', correlationId }, 401);
   }
-  if (!API_ORIGIN) {
+  if (!API_BASE_URL) {
     return json({ code: 'STAFF_AUTHORITY_UNAVAILABLE', correlationId }, 503);
   }
 
   try {
-    const upstream = await fetch(`${API_ORIGIN}/staff/capabilities/me`, {
+    const upstream = await fetch(`${API_BASE_URL}/staff/capabilities/me`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,
