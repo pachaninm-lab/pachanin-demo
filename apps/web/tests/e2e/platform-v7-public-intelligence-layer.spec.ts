@@ -62,8 +62,8 @@ async function expectMinimumTargets(page: Page, locator: string) {
   }, { timeout: 15_000, intervals: [100, 250, 500], message: `${locator} must remain at least 44×44 CSS px` }).toBe(true);
 }
 
-test.describe('Final v4 public Deal and TAI intelligence layer', () => {
-  test('home presents the approved Deal-first argument and fails closed', async ({ page }) => {
+test.describe('Public Deal and Gekta intelligence layer', () => {
+  test('home presents the registration-first ordinary Deal argument and fails closed', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     const forbiddenRequests: string[] = [];
     page.on('request', (request) => {
@@ -76,25 +76,39 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
     await expect(page.locator('#pc-v6-title')).toContainText('Управляйте агросделкой');
     await expect(page.locator('#pc-v6-title')).toContainText('от цены до расчёта');
-    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Показатель белка ниже условия договора');
+    await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
+    await expect(page.locator('.pc-v6-header-cta')).toHaveAttribute('href', '/platform-v7/register?lang=ru');
 
-    await expect(page.locator('#difference')).toContainText('От согласования цены до закрытия Сделки — один управляемый процесс');
+    const heroPrimary = page.locator('.pc-v6-hero .pc-v6-primary');
+    await expect(heroPrimary).toHaveCount(1);
+    await expect(heroPrimary).toHaveAttribute('href', '/platform-v7/register?lang=ru');
+    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Вымышленный пример Сделки');
+    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Поставка подтверждена');
+    await expect(page.locator('[data-testid="platform-v7-deal-card"] [role="progressbar"]')).toHaveAttribute('aria-valuenow', '5');
+    await expect(page.locator('[data-testid="platform-v7-deal-card"] [role="progressbar"]')).toHaveAttribute('aria-valuemax', '7');
+
+    await expect(page.locator('#difference')).toContainText('товар и условия');
+    await expect(page.locator('#difference')).toContainText('расчёт и закрытие');
     await expect(page.locator('#difference [role="table"]')).toHaveCount(1);
     await expect(page.locator('#difference [data-comparison-row="true"]')).toHaveCount(6);
-    await expect(page.locator('#functions article')).toHaveCount(7);
-    await expect(page.locator('#functions')).toContainText('Показать шаги 5–7');
-    await expect(page.locator('#deal-path')).toHaveCount(0);
+    await expect(page.locator('#deal-path')).toBeVisible();
+    await expect(page.locator('#deal-path')).toContainText('Семь шагов обычной агросделки');
+    await expect(page.locator('#functions article')).toHaveCount(6);
+    await expect(page.locator('#functions')).toContainText('Показать все возможности');
     await expect(page.locator('#trust')).toBeVisible();
-    await expect(page.locator('#trust .pc-home-trust-grid article')).toHaveCount(4);
-    await expect(page.locator('#connection-process')).toBeVisible();
-    await expect(page.locator('#connection-process article')).toHaveCount(3);
+    await expect(page.locator('#trust article')).toHaveCount(3);
+    await expect(page.locator('#connection-process')).toHaveCount(0);
+    await expect(page.locator('#connect-organization')).toBeVisible();
+
     if ((page.viewportSize()?.width ?? 1440) < 768) {
       const disclosures = [
         { id: '#difference-more-toggle', controls: 'difference-comparison-rows' },
+        { id: '#phases-more-toggle', controls: 'phases-more-cards' },
         { id: '#functions-more-toggle', controls: 'functions-more-cards' },
       ] as const;
       await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(2);
-      await expect(page.locator('#functions article').nth(6)).toBeHidden();
+      await expect(page.locator('#deal-path article').nth(6)).toBeHidden();
+      await expect(page.locator('#functions article').nth(5)).toBeHidden();
       for (const disclosure of disclosures) {
         const toggle = page.locator(disclosure.id);
         const label = page.locator(`label[for="${disclosure.id.slice(1)}"]`);
@@ -107,41 +121,43 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
       }
     }
     await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(6);
-    await expect(page.locator('#functions article').nth(6)).toBeVisible();
+    await expect(page.locator('#deal-path article').nth(6)).toBeVisible();
+    await expect(page.locator('#functions article').nth(5)).toBeVisible();
     await expect(page.getByRole('main')).toHaveAttribute('id', 'main-content');
     await expect(page.getByRole('banner')).toHaveCount(1);
     await expect(page.getByRole('contentinfo')).toHaveCount(1);
     await expect(page.locator('.pc-v6-control-tower')).toHaveCount(1);
 
     await expect(page.locator('#live [data-state]')).toHaveCount(3);
-    await expect(page.locator('#public-deal-state-deviation')).toBeChecked();
-    await expect(page.locator('#live [data-state="deviation"]')).toBeVisible();
-    await page.locator('label[for="public-deal-state-normal"]').click();
     await expect(page.locator('#public-deal-state-normal')).toBeChecked();
-    await expect(page.locator('#live [data-state="normal"]')).toContainText('Поставка подтверждена');
+    await expect(page.locator('#live [data-state="normal"]')).toBeVisible();
+    await expect(page.locator('#live')).toContainText('вымышленный пример Сделки');
+    await page.locator('label[for="public-deal-state-deviation"]').click();
+    await expect(page.locator('#public-deal-state-deviation')).toBeChecked();
+    await expect(page.locator('#live [data-state="deviation"]')).toContainText('Показатель качества ниже условия');
     await page.locator('label[for="public-deal-state-dispute"]').click();
     await expect(page.locator('#live [data-state="dispute"]')).toContainText('Гекта воздержалась от вывода');
 
-    const perspectives = page.getByRole('tablist', { name: 'Что видит каждый участник' });
+    const perspectives = page.getByRole('tablist', { name: 'Выберите роль для просмотра' });
     await expect(perspectives).toBeVisible();
-    await expect(perspectives.getByRole('tab')).toHaveCount(12);
-    await perspectives.getByRole('tab', { name: 'Арбитр' }).click();
-    await expect(page.getByRole('tabpanel')).toContainText('спорную сумму');
+    await expect(perspectives.getByRole('tab')).toHaveCount(9);
+    const employee = perspectives.getByRole('tab', { name: 'Сотрудник платформы', exact: true });
+    await employee.click();
+    await expect(page.getByRole('tabpanel')).toContainText('Сделка остановилась');
+    await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
 
-    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Протокол лаборатории');
-    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Готовность расчёта нельзя подтвердить');
     const taiProductLink = page.getByRole('link', { name: 'Посмотреть Гекту в работе' }).first();
     await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
 
     await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
-    await expect(page.locator('#faq details')).toHaveCount(5);
+    await expect(page.locator('#faq details')).toHaveCount(6);
 
     await settleContactDock(page);
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
     await expectMinimumTargets(page, '.pc-public-contact-dock-action');
     await expectMinimumTargets(
       page,
-      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="functions-more-toggle"]',
+      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="phases-more-toggle"], label[for="functions-more-toggle"]',
     );
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
@@ -149,18 +165,23 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('390×844 first viewport contains the category, result, primary action and compact public AI', async ({ page }) => {
+  test('390×844 first viewport keeps registration visible and the public assistant compact', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
 
     await expect(page.locator('#pc-v6-title')).toContainText('Управляйте агросделкой');
     await expect(page.locator('#pc-v6-title')).toContainText('от цены до расчёта');
-    const primary = page.getByRole('link', { name: 'Посмотреть Сделку в работе' }).first();
+    const primary = page.locator('.pc-v6-hero .pc-v6-primary');
     await expect(primary).toBeVisible();
+    await expect(primary).toHaveAttribute('href', '/platform-v7/register?lang=ru');
     const primaryBox = await primary.boundingBox();
     expect(primaryBox).not.toBeNull();
     expect((primaryBox?.y ?? 9999) + (primaryBox?.height ?? 9999)).toBeLessThanOrEqual(844);
+    const headerRegistration = page.locator('.pc-v6-header-cta');
+    await expect(headerRegistration).toBeVisible();
+    await expectMinimumTargets(page, '.pc-v6-header-cta');
+
     const dealCardBox = await page.locator('[data-testid="platform-v7-deal-card"]').boundingBox();
     expect(dealCardBox).not.toBeNull();
     expect(dealCardBox?.y ?? 9999).toBeLessThan(844);
@@ -192,24 +213,41 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('TAI passport exposes controlled layers without overstating maturity', async ({ page }) => {
+  test('Gekta public page exposes human-readable boundaries and keyboard-complete role views', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const response = await page.goto('/platform-v7/ai-in-action?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
     await expect(page.locator('[data-testid="platform-v7-ai-in-action-authority"]')).toBeVisible();
-    await expect(page.getByText('NOT_ATTESTED', { exact: true })).toBeVisible();
+    await expect(page.getByText('NOT_ATTESTED', { exact: true })).toHaveCount(0);
+    const compatibilityMarker = page.locator('[data-release-compat="ai-passport"]');
+    await expect(compatibilityMarker).toHaveCount(1);
+    await expect(compatibilityMarker).toBeHidden();
     for (const selector of ['#role-analysis', '#documents', '#government-data', '#risks-money', '#prepared-actions', '#evidence', '#security', '#limitations', '#connection']) {
       await expect(page.locator(selector)).toBeVisible();
     }
+
     const roleAnalysis = page.locator('#role-analysis');
-    await roleAnalysis.getByRole('tab', { name: 'Продавец' }).click();
-    await expect(roleAnalysis.locator('[role="tabpanel"]')).toContainText('Версия протокола не связана');
+    const tabs = roleAnalysis.getByRole('tab');
+    await expect(tabs).toHaveCount(9);
+    const buyer = roleAnalysis.getByRole('tab', { name: 'Покупатель', exact: true });
+    await buyer.focus();
+    await buyer.press('ArrowRight');
+    const logistics = roleAnalysis.getByRole('tab', { name: 'Логистика', exact: true });
+    await expect(logistics).toBeFocused();
+    await expect(logistics).toHaveAttribute('aria-selected', 'true');
+    await logistics.press('End');
+    const employee = roleAnalysis.getByRole('tab', { name: 'Сотрудник платформы', exact: true });
+    await expect(employee).toBeFocused();
+    await expect(employee).toHaveAttribute('aria-selected', 'true');
+    await expect(roleAnalysis.locator('[role="tabpanel"]')).toHaveAttribute('aria-labelledby', 'pc-ai-role-tab-employee');
+    await expect(roleAnalysis.locator('[role="tabpanel"]')).toContainText('Сделка остановилась');
 
     const government = page.locator('#government-data');
     await expect(government.locator('[data-status="CONNECTED"]')).toHaveCount(0);
-    await expect(government.locator('.pc-public-government-result')).toContainText('Проверка не выполнялась');
-    await expect(page.locator('#limitations')).toContainText('Неподключённая государственная система не отображается как подключённая');
+    await expect(government).toContainText('Текущая проверка не выполнялась');
+    await expect(page.locator('#limitations')).toContainText('Неподключённая внешняя система не отображается как подключённая');
+    await expect(page.locator('#limitations')).toContainText('Гекта не назначает роль и не меняет права доступа');
     await settleContactDock(page);
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
     const media = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -223,7 +261,7 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'Full width matrix runs once on Chromium.');
     const cases = [
       { width: 320, locale: 'ru' }, { width: 375, locale: 'en' }, { width: 390, locale: 'zh' },
-      { width: 430, locale: 'ru' }, { width: 768, locale: 'en' }, { width: 1024, locale: 'zh' }, { width: 1440, locale: 'ru' },
+      { width: 430, locale: 'ru' }, { width: 768, locale: 'en' }, { width: 1280, locale: 'zh' }, { width: 1440, locale: 'ru' },
     ] as const;
     for (const item of cases) {
       await page.setViewportSize({ width: item.width, height: 1000 });
@@ -231,12 +269,14 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
       expect(home?.ok(), `home ${item.width}px ${item.locale}`).toBe(true);
       await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
       await expect(page.locator('#difference')).toBeVisible();
+      await expect(page.locator('#deal-path')).toBeVisible();
       await expect(page.locator('#functions')).toBeVisible();
       await expect(page.locator('#live')).toBeVisible();
       await expect(page.locator('#trust')).toBeVisible();
-      await expect(page.locator('#connection-process')).toBeVisible();
-      await expect(page.locator('#deal-path')).toHaveCount(0);
+      await expect(page.locator('#connect-organization')).toBeVisible();
+      await expect(page.locator('#connection-process')).toHaveCount(0);
       await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
+      await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
       await expectNoHorizontalOverflow(page);
       await settleContactDock(page);
       await expectMinimumTargets(page, '.pc-public-contact-dock-action');
@@ -244,8 +284,8 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
       expect(trust?.ok(), `trust ${item.width}px ${item.locale}`).toBe(true);
       await expect(page.locator('.pc-trust-domains article')).toHaveCount(4);
       await expectNoHorizontalOverflow(page);
-      const passport = await page.goto(`/platform-v7/ai-in-action?lang=${item.locale}`, { waitUntil: 'load' });
-      expect(passport?.ok(), `passport ${item.width}px ${item.locale}`).toBe(true);
+      const gekta = await page.goto(`/platform-v7/ai-in-action?lang=${item.locale}`, { waitUntil: 'load' });
+      expect(gekta?.ok(), `gekta ${item.width}px ${item.locale}`).toBe(true);
       await expect(page.locator('[data-testid="platform-v7-ai-in-action-authority"]')).toBeVisible();
       await expectNoHorizontalOverflow(page);
       await settleContactDock(page);
