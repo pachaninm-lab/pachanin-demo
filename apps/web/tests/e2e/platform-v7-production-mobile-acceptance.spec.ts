@@ -137,7 +137,17 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
       await expect(header).toBeVisible();
       const headerHeight = await header.evaluate((node) => node.getBoundingClientRect().height);
       expect(headerHeight).toBeGreaterThanOrEqual(44);
-      expect(headerHeight).toBeLessThanOrEqual(80);
+      expect(headerHeight).toBeLessThanOrEqual(viewport.width <= 430 ? 104 : 80);
+      if (viewport.width <= 430) expect(headerHeight).toBeGreaterThanOrEqual(88);
+
+      const brand = header.locator('.pc-site-brand-text strong');
+      await expect(brand).toBeVisible();
+      await expect(brand).toHaveText('Прозрачная Цена');
+      const brandFits = await brand.evaluate((node) => {
+        const host = node.closest<HTMLElement>('.pc-site-brand') ?? node as HTMLElement;
+        return host.scrollWidth <= host.clientWidth + 1 && host.scrollHeight <= host.clientHeight + 1;
+      });
+      expect(brandFits).toBe(true);
 
       const headerRegistration = page.locator('.pc-v6-header-cta');
       await expect(headerRegistration).toBeVisible();
