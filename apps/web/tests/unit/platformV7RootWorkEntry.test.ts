@@ -21,6 +21,7 @@ describe('platform-v7 final public entry', () => {
   const entryGate = read('components/platform-v7/PublicDealEntryGate.tsx');
   const support = read('components/platform-v7/ChatSupportWidget.tsx');
   const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
+  const aiExperience = read('components/platform-v7/PublicAiInActionSimpleExperience.tsx');
 
   it('renders the full public narrative, trust layer, final registration CTA and optional assistance form', () => {
     expect(page).toContain('const home = await PlatformV7StrategicHome();');
@@ -79,6 +80,20 @@ describe('platform-v7 final public entry', () => {
     expect(explorerPage).toContain("const registerHref = localizedHref('/platform-v7/register')");
     expect(explorer).toContain('const registerHref = `/platform-v7/register?lang=${encodeURIComponent(localizedLocale)}`');
     expect(explorer).toContain('href={registerHref}');
+  });
+
+  it('preserves RU EN ZH through Gekta and quick Deal completion CTAs', () => {
+    expect(aiExperience).toContain('const localeSuffix = `?lang=${encodeURIComponent(localeKey)}`');
+    expect(aiExperience).toContain('const dealHref = `${homeHref}#deal-path`');
+    expect(aiExperience).toContain('const registerHref = `/platform-v7/register${localeSuffix}`');
+    expect(aiExperience).toContain('href={dealHref}');
+    expect(aiExperience).toContain('href={registerHref}');
+    expect(aiExperience).toContain('href={homeHref}');
+    expect(aiExperience).not.toContain("href='/platform-v7#deal-path'");
+    expect(aiExperience).not.toContain("href='/platform-v7/register' className={styles.primary}");
+    expect(explorerAdapter).toContain('const registerHref = `/platform-v7/register?lang=${encodeURIComponent(normalizedLocale)}`');
+    expect(explorerAdapter).toContain('href={registerHref}');
+    expect(explorerAdapter).not.toContain("<a href='/platform-v7/register' className='pc-ppe-primary-button'");
   });
 
   it('keeps the shared brand-home link locale-safe while retaining the legacy fallback', () => {

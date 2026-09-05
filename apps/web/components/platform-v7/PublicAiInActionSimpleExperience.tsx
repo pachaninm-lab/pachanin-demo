@@ -170,6 +170,10 @@ const ROLE_ORDER: RoleKey[] = ['seller', 'buyer', 'logistics', 'driver', 'storag
 export function PublicAiInActionSimpleExperience({ locale }: { locale: string }) {
   const localeKey: Locale = locale === 'en' || locale === 'zh' ? locale : 'ru';
   const copy = COPY[localeKey];
+  const localeSuffix = `?lang=${encodeURIComponent(localeKey)}`;
+  const homeHref = `/platform-v7${localeSuffix}`;
+  const dealHref = `${homeHref}#deal-path`;
+  const registerHref = `/platform-v7/register${localeSuffix}`;
   const [role, setRole] = React.useState<RoleKey>('buyer');
   const scenario = copy.role.scenarios[role];
 
@@ -219,7 +223,7 @@ export function PublicAiInActionSimpleExperience({ locale }: { locale: string })
               <p>{copy.hero.lead}</p>
               <div className={styles.heroActions}>
                 <a href='#role-analysis' className={styles.primary}>{copy.hero.primary}<ArrowRight size={18} aria-hidden='true' /></a>
-                <a href='/platform-v7#deal-path' className={styles.secondary}>{copy.hero.secondary}</a>
+                <a href={dealHref} className={styles.secondary}>{copy.hero.secondary}</a>
               </div>
             </div>
             <aside className={styles.statusPanel} aria-label={copy.hero.status}>
@@ -317,7 +321,7 @@ export function PublicAiInActionSimpleExperience({ locale }: { locale: string })
           <header className={styles.sectionHeader}><span className={styles.eyebrow}>{copy.connection.eyebrow}</span><h2 id='pc-ai-connection-title'>{copy.connection.title}</h2><p>{copy.connection.lead}</p></header>
           <div className={styles.connectionGrid}>{copy.connection.modes.map(([title, body]) => <article key={title}><h3>{title}</h3><p>{body}</p></article>)}</div>
           <p className={styles.productionNote}><ShieldCheck size={17} aria-hidden='true' />{copy.connection.note}</p>
-          <div className={styles.heroActions}><a href='/platform-v7/register' className={styles.primary}>{copy.connection.primary}<ArrowRight size={18} aria-hidden='true' /></a><a href='/platform-v7' className={styles.secondary}>{copy.connection.secondary}</a></div>
+          <div className={styles.heroActions}><a href={registerHref} className={styles.primary}>{copy.connection.primary}<ArrowRight size={18} aria-hidden='true' /></a><a href={homeHref} className={styles.secondary}>{copy.connection.secondary}</a></div>
         </div>
       </section>
     </div>

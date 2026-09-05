@@ -92,6 +92,8 @@ export function PublicDealExplorerV4({ copy, locale, initialState }: {
 }) {
   const ui = getPublicProductExperienceV4Copy(locale);
   const journey = getPublicDealJourneyV5Copy(locale);
+  const normalizedLocale = locale === 'en' || locale === 'zh' ? locale : 'ru';
+  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(normalizedLocale)}`;
   const normalizedState = useMemo<TourState>(() => normalizePublicBusinessState(initialState), [initialState]);
   const [historyState, setHistoryState] = useState<TourState>(normalizedState);
   const [historyRevision, setHistoryRevision] = useState(0);
@@ -375,7 +377,7 @@ export function PublicDealExplorerV4({ copy, locale, initialState }: {
                   <ul className='pc-ppe-v5-result-list'>{journey.finalChecks.map((item) => <li key={item}><i>✓</i><span>{item}</span></li>)}</ul>
                   <div className='pc-ppe-v5-one-contour'>{journey.labels.oneContour}</div>
                   <div className='pc-ppe-v5-complete-actions'>
-                    <a href='/platform-v7/register' className='pc-ppe-primary-button' onClick={() => window.dispatchEvent(new CustomEvent('pc:public-product-analytics', { detail: { name: 'connect_cta_click', locale, source: 'public_v5_complete' } }))}>{ui.explorer.connect}<PublicExperienceIcon name='arrow' size={18} /></a>
+                    <a href={registerHref} className='pc-ppe-primary-button' onClick={() => window.dispatchEvent(new CustomEvent('pc:public-product-analytics', { detail: { name: 'connect_cta_click', locale, source: 'public_v5_complete' } }))}>{ui.explorer.connect}<PublicExperienceIcon name='arrow' size={18} /></a>
                     <button type='button' onClick={() => { selectMobileScenario(historyState.scenario === 'standard' ? 'partial' : historyState.scenario === 'partial' ? 'dispute' : 'standard'); selectStage('terms', 'replace'); }}>{journey.labels.anotherScenario}</button>
                   </div>
                 </section>
