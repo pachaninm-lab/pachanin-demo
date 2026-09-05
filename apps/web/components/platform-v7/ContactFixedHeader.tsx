@@ -2,15 +2,15 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ChevronLeft, HelpCircle } from 'lucide-react';
+import { LogIn, UserPlus } from 'lucide-react';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 
 type Locale = 'ru' | 'en' | 'zh';
 
-const COPY: Record<Locale, { aria: string; back: string; help: string }> = {
-  ru: { aria: 'Шапка страницы обращения', back: 'Назад', help: 'Контакты' },
-  en: { aria: 'Contact page header', back: 'Back', help: 'Contact' },
-  zh: { aria: '联系页面页眉', back: '返回', help: '联系' },
+const COPY: Record<Locale, { aria: string; login: string; register: string }> = {
+  ru: { aria: 'Шапка страницы обращения', login: 'Войти', register: 'Зарегистрироваться' },
+  en: { aria: 'Contact page header', login: 'Sign in', register: 'Register' },
+  zh: { aria: '联系页面页眉', login: '登录', register: '注册' },
 };
 
 export function ContactFixedHeader() {
@@ -25,8 +25,12 @@ export function ContactFixedHeader() {
         ariaLabel={copy.aria}
         actions={(
           <>
-            <Link href={`/platform-v7?lang=${locale}`} className='pc-site-action' aria-label={copy.back}><ChevronLeft size={18} /><span>{copy.back}</span></Link>
-            <Link href={`/platform-v7/contact?lang=${locale}`} className='pc-site-action' aria-label={copy.help}><HelpCircle size={18} /><span>{copy.help}</span></Link>
+            <Link href={`/platform-v7/login?lang=${locale}`} className='pc-site-action p7-contact-login' aria-label={copy.login}>
+              <LogIn size={18} aria-hidden='true' /><span>{copy.login}</span>
+            </Link>
+            <Link href={`/platform-v7/register?lang=${locale}`} className='pc-site-action p7-contact-register' aria-label={copy.register}>
+              <UserPlus size={18} aria-hidden='true' /><span>{copy.register}</span>
+            </Link>
           </>
         )}
       />
@@ -37,7 +41,6 @@ export function ContactFixedHeader() {
 
 const css = `
 .pc-shell-root-v4:has(.p7-contact-page){--pc-header-offset:0px!important}
-.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-header,
 .pc-shell-root-v4:has(.p7-contact-page) .pc-v4-header,
 .pc-shell-root-v4:has(.p7-contact-page) .pc-v4-bottomnav,
 .pc-shell-root-v4:has(.p7-contact-page) .pc-v4-drawer,
@@ -45,11 +48,23 @@ const css = `
 .pc-shell-root-v4:has(.p7-contact-page) .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:transparent!important;min-height:100svh!important}
 html body .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-page{padding-top:78px!important}
 html body .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-layout{padding-top:0!important;margin-top:0!important}
+.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-login,
+.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register{width:auto!important;padding:0 12px!important;gap:7px!important;white-space:nowrap!important}
+.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register{background:#087a3b!important;border-color:#087a3b!important;color:#fff!important;font-weight:800!important}
+.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register:hover,
+.pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register:focus-visible{background:#07572e!important;color:#fff!important}
 @media(max-width:760px){
   html body .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-page{padding-top:72px!important}
 }
 @media(max-width:560px){
-  .pc-shell-root-v4:has(.p7-contact-page) .pc-site-action span{display:none!important}
-  .pc-shell-root-v4:has(.p7-contact-page) .pc-site-action{width:44px;min-height:44px;padding:0!important}
+  .pc-shell-root-v4:has(.p7-contact-page) .pc-site-brand-text{display:none!important}
+  .pc-shell-root-v4:has(.p7-contact-page) .pc-site-header{gap:6px!important;padding-inline:10px!important}
+  .pc-shell-root-v4:has(.p7-contact-page) .pc-site-actions{gap:4px!important}
+  .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-login{width:44px!important;min-width:44px!important;padding:0!important}
+  .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-login span{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important}
+  .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register{min-height:44px!important;padding:0 10px!important;font-size:13px!important}
+}
+@media(max-width:340px){
+  .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-register{padding:0 8px!important;font-size:12px!important}
 }
 `;
