@@ -105,7 +105,9 @@ describe('platform-v7 visible public operating copy', () => {
       expect(renderedSources).not.toContain(phrase);
     }
     expect(storyEntry).toContain('Обычное исполнение — основной сценарий');
-    expect(storyEntry).toContain('Отклонение и спор — отдельные примеры исключений');
+    expect(storyEntry).toContain('Ниже показан вымышленный пример Сделки');
+    expect(storyEntry).toContain('The section below is a fictional Deal example');
+    expect(storyEntry).toContain('下面展示的是虚构交易示例');
     expect(roleWorkspace).toContain("preview: 'Вымышленный пример Сделки'");
   });
 
