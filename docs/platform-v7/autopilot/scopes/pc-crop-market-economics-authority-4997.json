@@ -31,6 +31,14 @@
   ],
   "excludedAfterSourceAudit": [
     {
+      "path": "apps/api/prisma/schema.prisma",
+      "reason": "W2-F stores immutable projection authority in a dedicated market_economics PostgreSQL schema and uses raw SQL through RlsTransactionService. No public Prisma model is required."
+    },
+    {
+      "path": "packages/domain-core/src/index.ts",
+      "reason": "The parallel-safe foundation tests its pure domain module by direct source import. Barrel publication is deferred to a mounted consumer slice to avoid a shared-file collision with W2-D."
+    },
+    {
       "path": "apps/api/src/modules/settlement-engine/settlement-calculation.ts",
       "reason": "The existing calculator is explicitly not live-money authority. W2-F builds a new source-backed read/projection authority first instead of mutating Settlement semantics."
     },
@@ -66,6 +74,7 @@
   "requiredInvariants": [
     "All monetary inputs and outputs use integer minor units / exact Money types; no Float, binary floating arithmetic or caller-formatted totals become authority.",
     "All quantities use pinned measure/unit rules. Unit conversions and rounding policies are versioned and reproducible.",
+    "All W2-F authority tables/functions live in a dedicated market_economics schema with ENABLE + FORCE RLS or equivalently confined memberless command ownership; repositories use raw SQL through trusted RLS context, with no public Prisma schema drift.",
     "Seller netback and buyer landed cost are separate projections over one immutable commercial basis; neither projection mutates Deal, Settlement, ledger, payment or invoice state.",
     "Every projection stores the exact source snapshot identifiers and versions for price/quantity, logistics cost, service cost, commercial rules, tax/fee assumptions and any other included component.",
     "A projection with missing mandatory facts returns MISSING_FACTS/NOT_READY rather than inserting defaults that look authoritative.",
@@ -79,6 +88,7 @@
   ],
   "acceptance": [
     "Domain tests prove exact arithmetic, unit conversions, rounding, missing-facts behavior and seller/buyer perspective separation over large values beyond JavaScript safe integer boundaries.",
+    "Dedicated-schema confinement is proven: no runtime role owns the economics tables/functions, PUBLIC cannot mutate them, FORCE RLS/current identity checks apply, and no public Prisma schema drift is introduced.",
     "Restricted PostgreSQL tests prove immutable versioned snapshots, exact replay, changed-payload conflict, CAS/stale rejection, tenant isolation and outsider denial.",
     "Changing a Commercial Rule version creates a new projection while preserving the prior snapshot and its exact total.",
     "Missing logistics/service/tax facts are explicit gaps and never silently replaced by zero or environment defaults unless the pinned rule explicitly defines zero.",
