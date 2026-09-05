@@ -158,7 +158,7 @@ export function PublicDealExplorer({
   const selectPerspective = (value: TourPerspective) => commit({ type: 'select-perspective', perspective: value }, 'perspective_selected');
   const selectScenario = (value: TourScenario) => commit({ type: 'select-scenario', scenario: value }, 'scenario_selected');
   const selectStage = (value: TourStage) => commit({ type: 'select-stage', stage: value }, 'stage_selected');
-  const selectRisk = (value: TourRisk) => commit({ type: 'select-risk', risk }, 'risk_selected');
+  const selectRisk = (value: TourRisk) => commit({ type: 'select-risk', risk: value }, 'risk_selected');
 
   return (
     <div className='pc-ppe-explorer' data-lens={state.lens} data-scenario={state.scenario}>
