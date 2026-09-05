@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2249,
+  "scannedFiles": 2251,
   "operations": [
     {
       "operation": "encryption",
@@ -285,11 +285,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 240,
+      "sites": 242,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 240,
+          "sites": 242,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
@@ -322,6 +322,7 @@
             "apps/api/src/modules/logistics/prisma-shipment.repository.ts",
             "apps/api/src/modules/organization-intake/organization-intake.controller.ts",
             "apps/api/src/modules/organization-intake/organization-intake.service.ts",
+            "apps/api/src/modules/railway/dto/railway.dto.ts",
             "apps/api/src/modules/railway/railway.service.ts",
             "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-dispatch.repository.ts",
             "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.repository.ts",
