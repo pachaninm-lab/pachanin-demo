@@ -48,6 +48,19 @@ export function exactHeadCodexReviews(reviews, headSha) {
   });
 }
 
+export function cleanCodexReviewPrefixes(comments) {
+  const prefixes = [];
+  for (const comment of comments || []) {
+    const login = normalizeLogin(comment);
+    if (!CODEX_REVIEW_LOGINS.has(login)) continue;
+    const body = String(comment?.body || '');
+    if (!/Codex Review:\s*Didn't find any major issues\./u.test(body)) continue;
+    const match = body.match(/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{10,40})`/u);
+    if (match) prefixes.push(match[1]);
+  }
+  return prefixes;
+}
+
 export function activeUnresolvedThreads(threads) {
   return (threads || []).filter((thread) => thread?.isResolved !== true && thread?.isOutdated !== true);
 }
@@ -144,6 +157,21 @@ function fetchAllReviews(repo, prNumber) {
   return pages.flatMap((page) => Array.isArray(page) ? page : []);
 }
 
+function fetchAllIssueComments(repo, prNumber) {
+  const pages = ghJson([
+    'api',
+    '--paginate',
+    '--slurp',
+    `repos/${repo}/issues/${prNumber}/comments?per_page=100`,
+  ]) || [];
+  return pages.flatMap((page) => Array.isArray(page) ? page : []);
+}
+
+function resolveCommitSha(repo, ref) {
+  const commit = ghJson(['api', `repos/${repo}/commits/${ref}`]);
+  return String(commit?.sha || '').trim();
+}
+
 function fetchAllReviewThreads(repo, prNumber) {
   const [owner, name] = String(repo).split('/');
   if (!owner || !name) throw new Error(`Invalid repository name: ${repo}`);
@@ -238,7 +266,18 @@ function main() {
 
   const reviews = fetchAllReviews(repo, prNumber);
   const exactCodex = exactHeadCodexReviews(reviews, headSha);
-  if (exactCodex.length === 0) {
+  const comments = fetchAllIssueComments(repo, prNumber);
+  const cleanPrefixes = cleanCodexReviewPrefixes(comments);
+  let exactCleanCodex = 0;
+  for (const prefix of cleanPrefixes) {
+    try {
+      if (resolveCommitSha(repo, prefix) === headSha) exactCleanCodex += 1;
+    } catch {
+      // Ignore a stale or no-longer-resolvable short review prefix.
+    }
+  }
+
+  if (exactCodex.length === 0 && exactCleanCodex === 0) {
     fail('REVIEW_GATE_CODEX_EXACT_HEAD_MISSING', `No completed Codex review is bound to exact head ${headSha}.`);
   }
 
@@ -281,7 +320,7 @@ function main() {
     }
   }
 
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexExactHeadReviews=${exactCodex.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexExactHeadReviews=${exactCodex.length} codexExactHeadCleanComments=${exactCleanCodex} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';
