@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Children, isValidElement, type ReactNode } from 'react';
 import { BrandMark } from '@/components/v7r/BrandMark';
 import { PublicLocaleSwitch } from '@/components/platform-v7/PublicLocaleSwitch';
 
@@ -285,6 +285,29 @@ const PUBLIC_SITE_HEADER_STYLES = `
 }
 `;
 
+type PublicLocale = 'ru' | 'en' | 'zh';
+
+function findActionLocale(node: ReactNode): PublicLocale | null {
+  const queue = [...Children.toArray(node)];
+  while (queue.length > 0) {
+    const child = queue.shift();
+    if (!isValidElement<{ href?: unknown; children?: ReactNode }>(child)) continue;
+    const href = child.props.href;
+    if (typeof href === 'string' && href.startsWith('/platform-v7')) {
+      const match = href.match(/[?&]lang=(ru|en|zh)(?:&|#|$)/);
+      if (match?.[1] === 'ru' || match?.[1] === 'en' || match?.[1] === 'zh') return match[1];
+    }
+    queue.push(...Children.toArray(child.props.children));
+  }
+  return null;
+}
+
+function resolveBrandHomeHref(actions: ReactNode, explicitHref?: string) {
+  if (explicitHref) return explicitHref;
+  const locale = findActionLocale(actions);
+  return locale ? `/platform-v7?lang=${locale}` : '/platform-v7';
+}
+
 /**
  * Single canonical public header shared by every public platform-v7 surface.
  * The optional mobile menu remains server-rendered and requires no hydration.
@@ -297,6 +320,7 @@ export function PublicSiteHeader({
   showMobileMenu = true,
   ariaLabel = 'Шапка сайта',
   brandHomeLabel = 'Прозрачная Цена — на главную',
+  brandHomeHref,
   navLabel = 'Разделы',
   menuLabel = 'Открыть меню',
 }: {
@@ -307,14 +331,16 @@ export function PublicSiteHeader({
   showMobileMenu?: boolean;
   ariaLabel?: string;
   brandHomeLabel?: string;
+  brandHomeHref?: string;
   navLabel?: string;
   menuLabel?: string;
 }) {
+  const resolvedBrandHomeHref = resolveBrandHomeHref(actions, brandHomeHref);
   return (
     <>
       <style>{PUBLIC_SITE_HEADER_STYLES}</style>
       <header className='pc-site-header' aria-label={ariaLabel}>
-        <a href='/platform-v7' className='pc-site-brand' aria-label={brandHomeLabel}>
+        <a href={resolvedBrandHomeHref} className='pc-site-brand' aria-label={brandHomeLabel}>
           <span className='pc-site-brand-mark' data-brand-mark='transparent-price-canonical'><BrandMark size={40} /></span>
           <span className='pc-site-brand-text'>
             <strong>Прозрачная Цена</strong>
