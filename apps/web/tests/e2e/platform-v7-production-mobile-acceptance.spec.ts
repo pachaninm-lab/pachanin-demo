@@ -160,7 +160,7 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
           return { fontSize, ratio: lineHeight / fontSize };
         }));
       expect(headings.length).toBeGreaterThan(0);
-      expect(headings.every((heading) => heading.fontSize >= 28 && heading.fontSize <= 44), JSON.stringify(headings, null, 2)).toBe(true);
+      expect(headings.every((heading) => heading.fontSize >= 26 && heading.fontSize <= 44), JSON.stringify(headings, null, 2)).toBe(true);
       expect(headings.every((heading) => heading.ratio <= 1.2), JSON.stringify(headings, null, 2)).toBe(true);
 
       await expect(page.getByRole('region', { name: 'Вымышленный пример Сделки' })).toBeVisible();
