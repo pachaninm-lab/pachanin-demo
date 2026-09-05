@@ -25,6 +25,7 @@ permissions:
 concurrency:
   group: repo-automerge-${{ github.event.pull_request.number || github.event.issue.number || github.event.client_payload.pr_number || github.run_id }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   exact-head-review-gate:
@@ -93,13 +94,20 @@ jobs:
             --description 'Exact-head Codex review complete; no active unresolved review findings' \
             >/dev/null 2>&1 || true
 
-          current_head=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq .headRefOid)
+          live=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,isDraft,state)
+          current_head=$(printf '%s' "$live" | jq -r '.headRefOid')
+          current_draft=$(printf '%s' "$live" | jq -r '.isDraft')
+          current_state=$(printf '%s' "$live" | jq -r '.state')
           if [ "$current_head" != "$HEAD_SHA" ]; then
             echo "Stale gate run ignored: expected=$HEAD_SHA current=$current_head"
             exit 0
           fi
 
-          if [ "$GATE_OUTCOME" = success ]; then
+          if [ "$current_state" != OPEN ] || [ "$current_draft" = true ]; then
+            state=failure
+            description='Exact-head review authority invalidated by current PR state'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          elif [ "$GATE_OUTCOME" = success ]; then
             state=success
             description='Exact-head Codex review passed with no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
@@ -211,13 +219,20 @@ jobs:
             --description 'Exact-head Codex review complete; no active unresolved review findings' \
             >/dev/null 2>&1 || true
 
-          current_head=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq .headRefOid)
+          live=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,isDraft,state)
+          current_head=$(printf '%s' "$live" | jq -r '.headRefOid')
+          current_draft=$(printf '%s' "$live" | jq -r '.isDraft')
+          current_state=$(printf '%s' "$live" | jq -r '.state')
           if [ "$current_head" != "$HEAD_SHA" ]; then
             echo "Stale clean-comment gate run ignored: expected=$HEAD_SHA current=$current_head"
             exit 0
           fi
 
-          if [ "$GATE_OUTCOME" = success ]; then
+          if [ "$current_state" != OPEN ] || [ "$current_draft" = true ]; then
+            state=failure
+            description='Exact-head review authority invalidated by current PR state'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          elif [ "$GATE_OUTCOME" = success ]; then
             state=success
             description='Exact-head Codex review passed with no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
@@ -333,13 +348,20 @@ jobs:
             --description 'Exact-head Codex review complete; no active unresolved review findings' \
             >/dev/null 2>&1 || true
 
-          current_head=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq .headRefOid)
+          live=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,isDraft,state)
+          current_head=$(printf '%s' "$live" | jq -r '.headRefOid')
+          current_draft=$(printf '%s' "$live" | jq -r '.isDraft')
+          current_state=$(printf '%s' "$live" | jq -r '.state')
           if [ "$current_head" != "$HEAD_SHA" ]; then
             echo "Stale scheduled gate ignored: expected=$HEAD_SHA current=$current_head"
             exit 0
           fi
 
-          if [ "$GATE_OUTCOME" = success ]; then
+          if [ "$current_state" != OPEN ] || [ "$current_draft" = true ]; then
+            state=failure
+            description='Exact-head review authority invalidated by current PR state'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          elif [ "$GATE_OUTCOME" = success ]; then
             state=success
             description='Exact-head Codex review passed with no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
