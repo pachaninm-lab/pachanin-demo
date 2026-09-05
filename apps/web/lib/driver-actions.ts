@@ -43,11 +43,17 @@ export async function uploadEvidence(shipmentId: string, file: File, type: strin
 }
 
 export async function reportIncident(shipmentId: string, description: string, linkedDealId?: string): Promise<void> {
+  // Имена полей должны совпадать с теми, что читает API: `subject`, `category`
+  // и `dealId`. Раньше здесь стояли `title` и `linkedDealId`, которых сервис не
+  // знает, и это НЕ давало ошибки — тикет создавался с пустыми темой,
+  // категорией и связью со сделкой. Замерено на сервисе: из всего тела
+  // долетал только `priority`.
   await api.post(`/support/tickets`, {
-    title: `Инцидент на рейсе ${shipmentId}`,
+    subject: `Инцидент на рейсе ${shipmentId}`,
     description,
+    category: 'LOGISTICS',
     priority: 'HIGH',
-    linkedDealId,
+    dealId: linkedDealId,
   });
 }
 
