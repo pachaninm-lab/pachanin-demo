@@ -134,6 +134,12 @@ export function checkRollupBlockers(checks) {
   return blockers;
 }
 
+export function ciSnapshotMatchesHead(snapshotHeadSha, expectedHeadSha) {
+  const snapshot = String(snapshotHeadSha || '').trim();
+  const expected = String(expectedHeadSha || '').trim();
+  return /^[0-9a-f]{40}$/u.test(snapshot) && snapshot === expected;
+}
+
 function runGh(args) {
   return execFileSync('gh', args, {
     encoding: 'utf8',
@@ -217,7 +223,7 @@ function fetchAllReviewThreads(repo, prNumber) {
   return pages.flatMap((page) => page?.data?.repository?.pullRequest?.reviewThreads?.nodes || []);
 }
 
-function fetchCheckRollup(repo, prNumber) {
+function fetchCheckSnapshot(repo, prNumber) {
   const value = ghJson([
     'pr',
     'view',
@@ -225,11 +231,18 @@ function fetchCheckRollup(repo, prNumber) {
     '--repo',
     repo,
     '--json',
-    'statusCheckRollup',
-    '--jq',
-    '.statusCheckRollup',
+    'headRefOid,statusCheckRollup',
   ]);
-  return Array.isArray(value) ? value : [];
+
+  return {
+    headSha: String(value?.headRefOid || '').trim(),
+    checks: Array.isArray(value?.statusCheckRollup) ? value.statusCheckRollup : [],
+  };
+}
+
+function fetchLivePrHead(repo, prNumber) {
+  const pr = ghJson(['api', `repos/${repo}/pulls/${prNumber}`]);
+  return String(pr?.head?.sha || '').trim();
 }
 
 function fail(code, message) {
@@ -304,20 +317,35 @@ function main() {
 
   let checkedCi = 0;
   if (requireGreenCi) {
-    const checks = fetchCheckRollup(repo, prNumber);
-    const observed = substantiveChecks(checks);
+    const snapshot = fetchCheckSnapshot(repo, prNumber);
+    if (!ciSnapshotMatchesHead(snapshot.headSha, headSha)) {
+      fail(
+        'REVIEW_GATE_CI_HEAD_MISMATCH',
+        `CI snapshot head ${snapshot.headSha || 'missing'} does not match verified head ${headSha}.`,
+      );
+    }
+
+    const observed = substantiveChecks(snapshot.checks);
     checkedCi = observed.length;
     if (observed.length === 0) {
       fail('REVIEW_GATE_CI_EVIDENCE_MISSING', `No substantive CI/status evidence exists for exact head ${headSha}.`);
     }
 
-    const ciBlockers = checkRollupBlockers(checks);
+    const ciBlockers = checkRollupBlockers(snapshot.checks);
     if (ciBlockers.length > 0) {
       fail(
         'REVIEW_GATE_CI_NOT_GREEN',
         `${ciBlockers.length} exact-head check(s) are pending or non-green: ${ciBlockers.slice(0, 30).join(', ')}`,
       );
     }
+  }
+
+  const finalHead = fetchLivePrHead(repo, prNumber);
+  if (finalHead !== headSha) {
+    fail(
+      'REVIEW_GATE_HEAD_MOVED_DURING_VERIFICATION',
+      `Verified head ${headSha}, current head is now ${finalHead || 'missing'}.`,
+    );
   }
 
   console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexExactHeadReviews=${exactCodex.length} codexExactHeadCleanComments=${exactCleanCodex} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
