@@ -33,7 +33,7 @@ type UiCopy = {
   deal: string;
   status: string;
   stageLabel: string;
-  stages: [string, string, string, string, string];
+  stages: [string, string, string, string, string, string, string];
   route: string;
   routeValue: string;
   quality: string;
@@ -153,10 +153,10 @@ const ui: Record<Locale, UiCopy> = {
     label: 'Сделка глазами вашей роли',
     rolesLabel: 'Выберите роль для просмотра',
     note: 'Это публичное объяснение пользы. Выбор роли здесь не открывает данные и не назначает права — реальные полномочия определяются системой после регистрации и проверки организации.',
-    preview: 'Пример рабочей Сделки',
+    preview: 'Вымышленный пример Сделки',
     deal: 'Подсолнечник · 1 200 т',
-    status: 'Исполнение сделки',
-    stageLabel: 'Этапы исполнения', stages: ['Рейс', 'Прибытие', 'Вес', 'Качество', 'Расчёт'],
+    status: 'Шаг 5 · Приёмка и качество',
+    stageLabel: '7 шагов Сделки', stages: ['Товар и условия', 'Торги и контрагент', 'Сделка и договор', 'Логистика и поставка', 'Приёмка и качество', 'Документы и готовность расчёта', 'Расчёт и закрытие'],
     route: 'Поставка', routeValue: 'Рейс завершён · прибытие подтверждено',
     quality: 'Качество', qualityValue: 'Протокол получен · проверяется по условиям',
     documents: 'Документы', documentsValue: 'Комплект собирается по Сделке',
@@ -166,8 +166,8 @@ const ui: Record<Locale, UiCopy> = {
   en: {
     label: 'The Deal from your role', rolesLabel: 'Choose a role to preview',
     note: 'This is a public value explanation. Choosing a role here does not expose data or grant authority; actual permissions are assigned by the system after registration and organisation verification.',
-    preview: 'Example Deal workspace', deal: 'Sunflower · 1,200 t', status: 'Deal execution',
-    stageLabel: 'Execution stages', stages: ['Trip', 'Arrival', 'Weight', 'Quality', 'Settlement'],
+    preview: 'Fictional Deal example', deal: 'Sunflower · 1,200 t', status: 'Step 5 · Acceptance and quality',
+    stageLabel: '7 Deal steps', stages: ['Product and terms', 'Bidding and counterparty', 'Deal and contract', 'Logistics and delivery', 'Acceptance and quality', 'Documents and settlement readiness', 'Settlement and closure'],
     route: 'Delivery', routeValue: 'Trip complete · arrival confirmed', quality: 'Quality', qualityValue: 'Protocol received · being checked against terms',
     documents: 'Documents', documentsValue: 'Deal document set is being assembled', reserve: 'Settlement', reserveValue: 'Readiness depends on verified evidence',
     risk: 'What matters to this role', owner: 'Owner', next: 'Next action', evidence: 'Evidence', money: 'Money outcome',
@@ -175,8 +175,8 @@ const ui: Record<Locale, UiCopy> = {
   zh: {
     label: '从你的角色查看交易', rolesLabel: '选择角色查看',
     note: '这是公开价值说明。此处选择角色不会开放数据或授予权限；真实权限在注册并完成机构核验后由系统确定。',
-    preview: '交易工作示例', deal: '葵花籽 · 1,200 吨', status: '交易履约',
-    stageLabel: '履约阶段', stages: ['运输', '到达', '称重', '质量', '结算'],
+    preview: '虚构交易示例', deal: '葵花籽 · 1,200 吨', status: '第 5 步 · 验收与质量',
+    stageLabel: '交易七步', stages: ['商品与条件', '竞价与交易方', '交易与合同', '物流与交付', '验收与质量', '文件与结算准备', '结算与关闭'],
     route: '交付', routeValue: '运输完成 · 到达已确认', quality: '质量', qualityValue: '报告已收到 · 正按条件核对',
     documents: '文件', documentsValue: '正在按交易整理文件', reserve: '结算', reserveValue: '就绪状态取决于已确认依据',
     risk: '该角色关注什么', owner: '责任方', next: '下一步', evidence: '依据', money: '资金结果',
@@ -196,7 +196,7 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
         <div className={styles.workspaceHeader}><div><small>{copy.preview}</small><strong>{copy.deal}</strong></div><span>{copy.status}</span></div>
         <div className={styles.stageRail} role='list' aria-label={copy.stageLabel}>
           {copy.stages.map((stage, index) => (
-            <div key={stage} role='listitem' className={index < 3 ? styles.done : index === 3 ? styles.activeStage : undefined}>
+            <div key={stage} role='listitem' className={index < 4 ? styles.done : index === 4 ? styles.activeStage : undefined}>
               <i aria-hidden='true' /><span>{stage}</span>
             </div>
           ))}
