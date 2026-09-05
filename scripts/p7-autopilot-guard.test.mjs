@@ -302,3 +302,20 @@ test('Auction inventory uses trusted scope routing while retaining substantive h
     assert.ok(!section(start, end).includes(`github.head_ref != '${branch}'`), 'Auction must retain substantive head validations');
   }
 });
+
+test('Auction head validation triggers for every immutable state-approved path', () => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const approved = state.approvedConcurrentScopes['feat/pc-crop-auction-inventory-authority-4997'];
+  assert.ok(Array.isArray(approved), 'Auction scope must be recorded in the state authority');
+  assert.equal(approved.length, 19);
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const first = workflow.indexOf('\n  pull_request:\n');
+  const last = workflow.indexOf('\nconcurrency:', first);
+  assert.ok(first >= 0 && last > first, 'unprivileged pull_request trigger must exist');
+  const trigger = workflow.slice(first, last);
+  const paths = [...trigger.matchAll(/^      - '([^']+)'$/gmu)].map((match) => match[1]);
+  for (const file of approved) {
+    assert.equal(paths.filter((entry) => entry === file).length, 1,
+      `Each approved Auction path must trigger head validation exactly once: ${file}`);
+  }
+});

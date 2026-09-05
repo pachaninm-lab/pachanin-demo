@@ -14,6 +14,23 @@ on:
     branches:
       - main
     paths:
+      - 'apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql'
+      - 'apps/api/src/modules/auctions/auction-command.service.ts'
+      - 'apps/api/src/modules/auctions/auction-authority.service.ts'
+      - 'apps/api/src/modules/auctions/auctions.controller.ts'
+      - 'apps/api/src/modules/auctions/auction-command.service.spec.ts'
+      - 'apps/api/src/modules/auctions/auction-postgresql-authority.spec.ts'
+      - 'apps/api/src/modules/auctions/auction-fgis-self-verification.spec.ts'
+      - 'apps/api/src/modules/auctions/dto/auction-inventory.dto.ts'
+      - 'apps/api/src/modules/auctions/auction-inventory.contract.ts'
+      - 'apps/api/src/modules/auctions/auction-inventory.contract.spec.ts'
+      - 'apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts'
+      - 'apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts'
+      - 'apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts'
+      - 'scripts/verify-pc-crop-auction-inventory-scope.test.mjs'
+      - '.github/workflows/auction-atomic-acceptance.yml'
+      - 'scripts/auction-atomic-acceptance.mjs'
+      - 'scripts/platform-v7-one-deal-e2e.sh'
       - 'apps/api/src/fns-egrul-import.ts'
       - 'apps/api/src/modules/role-eligibility/**'
       - 'apps/api/src/modules/auth/**'
