@@ -3,6 +3,8 @@ name: platform-v7 autopilot generated merge
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
+  pull_request_review:
+    types: [submitted, dismissed]
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
@@ -24,7 +26,7 @@ concurrency:
 jobs:
   merge-generated:
     if: >-
-      github.event_name == 'pull_request' &&
+      (github.event_name == 'pull_request' || github.event_name == 'pull_request_review') &&
       github.event.pull_request.state == 'open' &&
       contains(github.event.pull_request.labels.*.name, 'platform-v7') &&
       contains(github.event.pull_request.labels.*.name, 'agent-generated') &&
@@ -68,6 +70,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           P7_GENERATED_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
+          node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
+          node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
           node scripts/p7-autopilot-generated-inline-checks.mjs
           node scripts/p7-autopilot-generated-merge-and-advance.mjs
           node scripts/p7-autopilot-generated-merge-reconcile.mjs
