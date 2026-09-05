@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/public-home-role-clarity-scope-20260905",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-05-public-home-and-linked-pages",
+  "purpose": "Record a separately reviewable exact-path scope for the requested public homepage and linked-page clarity improvements before the implementation is merged.",
+  "authorityBaseExactMain": "2c319d762c57cf63b360b4e11aa376e550725217",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json",
+    "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "globalSpecificationChange": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
