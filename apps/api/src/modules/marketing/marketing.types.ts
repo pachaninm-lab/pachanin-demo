@@ -28,6 +28,8 @@ export interface AdvertisingMetadata {
   erid?: string;
   /** Legal advertiser identity shown/linked as required by Russian advertising law. */
   advertiserName?: string;
+  /** Russian taxpayer identifier used by the fail-closed legal-admission rule. */
+  advertiserInn?: string;
   /** True only when the rendered creative contains the Russian advertising marker. */
   hasAdvertisingLabel?: boolean;
   /** Paid placement is disabled by default and requires a separate budget switch. */
@@ -66,6 +68,7 @@ export type MarketingPolicyCode =
   | 'LEGAL_CLASSIFICATION_UNCERTAIN'
   | 'ADVERTISING_MARKER_MISSING'
   | 'ADVERTISER_IDENTITY_MISSING'
+  | 'ADVERTISER_INN_INVALID'
   | 'ERID_MISSING'
   | 'PAID_MODE_DISABLED'
   | 'UNSOLICITED_DIRECT_MESSAGE';
