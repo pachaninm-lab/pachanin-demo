@@ -1,26 +1,104 @@
 name: Repo automations
 
 on:
-  pull_request:
-    types: [labeled, unlabeled, synchronize, opened, reopened]
+  pull_request_target:
+    types: [labeled, unlabeled, synchronize, opened, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+  statuses: read
 
 jobs:
+  exact-head-review-gate:
+    name: Exact-head Codex review gate
+    if: >-
+      github.event.pull_request.state == 'open'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify review gate implementation and exact PR head
+        id: gate
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
+          node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
+
+      - name: Reconcile visible review-gate label
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh label create review-gate-passed \
+            --repo "$REPO" \
+            --color 0E8A16 \
+            --description 'Exact-head Codex review complete; no active unresolved review findings' \
+            >/dev/null 2>&1 || true
+
+          if [ "$GATE_OUTCOME" = success ]; then
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
+          else
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          fi
+
+      - name: Enforce review gate result
+        if: steps.gate.outcome != 'success'
+        run: |
+          echo 'Exact-head review gate is not satisfied.' >&2
+          exit 1
+
   automerge:
+    needs: exact-head-review-gate
     runs-on: ubuntu-latest
     if: >-
-      github.event_name == 'pull_request' &&
+      needs.exact-head-review-gate.result == 'success' &&
       github.event.pull_request.state == 'open' &&
+      !github.event.pull_request.draft &&
+      contains(github.event.pull_request.labels.*.name, 'automerge') &&
+      contains(github.event.pull_request.labels.*.name, 'review-gate-passed') &&
       !(contains(github.event.pull_request.labels.*.name, 'platform-v7') &&
         contains(github.event.pull_request.labels.*.name, 'agent-generated'))
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout trusted main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
       - uses: pascalgn/automerge-action@v0.16.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MERGE_METHOD: squash
-          MERGE_LABELS: automerge
+          MERGE_LABELS: automerge,review-gate-passed
           UPDATE_LABELS: automerge
-          MERGE_REMOVE_LABELS: automerge
+          MERGE_REMOVE_LABELS: automerge,review-gate-passed
 
-# Production is deployed by the Netlify Git integration on push to main
-# (see netlify.toml). No CI-driven deploy job is required here.
+# Production deployment is independent of this repository-merge workflow.
+# REG.RU remains the only production contour and requires its separate exact-SHA release authority.
