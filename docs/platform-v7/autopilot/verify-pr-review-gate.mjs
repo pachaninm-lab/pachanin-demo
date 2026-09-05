@@ -141,6 +141,12 @@ export function ciSnapshotMatchesHead(snapshotHeadSha, expectedHeadSha) {
   return /^[0-9a-f]{40}$/u.test(snapshot) && snapshot === expected;
 }
 
+export function reviewGatePrState(pr) {
+  if (String(pr?.state || '').toLowerCase() !== 'open') return 'CLOSED';
+  if (pr?.draft === true) return 'DRAFT';
+  return 'REVIEWABLE';
+}
+
 function runGh(args) {
   return execFileSync('gh', args, {
     encoding: 'utf8',
@@ -263,13 +269,13 @@ function main() {
   const pr = ghJson(['api', `repos/${repo}/pulls/${prNumber}`]);
   if (!pr) fail('REVIEW_GATE_PR_UNAVAILABLE', `Unable to read PR #${prNumber}.`);
 
-  if (String(pr.state).toLowerCase() !== 'open') {
+  const prState = reviewGatePrState(pr);
+  if (prState === 'CLOSED') {
     console.log(`PR_REVIEW_GATE=SKIP_CLOSED pr=${prNumber}`);
     return;
   }
-  if (pr.draft === true) {
-    console.log(`PR_REVIEW_GATE=SKIP_DRAFT pr=${prNumber}`);
-    return;
+  if (prState === 'DRAFT') {
+    fail('REVIEW_GATE_DRAFT', `Draft PR #${prNumber} cannot satisfy exact-head review authority.`);
   }
 
   const headSha = String(pr?.head?.sha || '').trim();
