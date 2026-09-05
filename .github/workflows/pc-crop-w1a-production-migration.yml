@@ -1,0 +1,379 @@
+name: PC-CROP W1-A Production Migration
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-w1a-production-migration.yml'
+      - 'scripts/production-pc-crop-w1a-migration.sh'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-w1a-production-migration-4997.json'
+
+permissions:
+  contents: read
+  packages: write
+  issues: write
+
+concurrency:
+  group: pc-crop-w1a-production-migration
+  cancel-in-progress: false
+
+env:
+  ISSUE_NUMBER: 4997
+  COMMAND: /pc-crop w1-a migrate current-main
+  TARGET_MIGRATION: 20260904120000_organization_capability_authority
+  DEFAULT_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/pc-crop-w1a-production-migration
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
+  BACKUP_EVIDENCE_FILE_SECRET: ${{ secrets.PC_PROD_BACKUP_EVIDENCE_FILE }}
+
+jobs:
+  contract:
+    name: Validate isolated W1-A migration authority
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event.issue.number == 4997 &&
+       github.event.comment.body == '/pc-crop w1-a migrate current-main' &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Validate bounded mutation contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-pc-crop-w1a-migration.sh
+          f='.github/workflows/pc-crop-w1a-production-migration.yml'
+          s='scripts/production-pc-crop-w1a-migration.sh'
+          grep -Fq "github.event.issue.number == 4997" "$f"
+          grep -Fq "github.event.comment.body == '/pc-crop w1-a migrate current-main'" "$f"
+          grep -Fq 'ROLE_ELIGIBILITY_ENFORCEMENT false' "$s"
+          grep -Fq 'REGISTRATION_RUNTIME_UNCHANGED PASS' "$s"
+          grep -Fq 'PRODUCTION_DATABASE_MUTATION BOUNDED_W1A_MIGRATION' "$s"
+          grep -Fq 'TARGET_NOT_SOLE_PENDING' "$s"
+          grep -Fq 'SET TRANSACTION READ ONLY' "$s"
+          grep -Fq 'SET row_security = off' "$s"
+          grep -Fq 'FORCE ROW LEVEL SECURITY' "apps/api/prisma/migrations/$TARGET_MIGRATION/migration.sql"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = `apps/api/prisma/migrations/${process.env.TARGET_MIGRATION}/migration.sql`;
+          const raw = fs.readFileSync(path, 'utf8');
+          const sql = raw.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+          if (/registration|eligibility\./i.test(sql)) throw new Error('W1-A migration crosses protected registration/Role Eligibility boundary');
+          if (/^\s*(?:INSERT\s+INTO|UPDATE\s+[\w".]+\s+SET|DELETE\s+FROM|TRUNCATE\s+)/im.test(sql)) throw new Error('W1-A migration contains data mutation/backfill');
+          for (const table of ['organization_capability_assignments', 'organization_capability_events']) {
+            if (!sql.includes(`CREATE TABLE public."${table}"`)) throw new Error(`missing ${table}`);
+          }
+          NODE
+          ! grep -Eq 'workflow_dispatch:|^[[:space:]]*push:' "$f"
+
+  migrate:
+    name: Apply sole pending W1-A migration on REG.RU
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4997 &&
+      github.event.comment.body == '/pc-crop w1-a migrate current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve immutable current-main target and migration set
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          git fetch --no-tags origin main
+          target="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse origin/main)" ]]
+          [[ "$target" == "$GITHUB_SHA" ]] || { echo PC_CROP_W1A_MAIN_DRIFT >&2; exit 14; }
+          git checkout --detach "$target"
+          find apps/api/prisma/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | LC_ALL=C sort > "$EVIDENCE_DIR/repository-migrations.txt"
+          grep -Fxq "$TARGET_MIGRATION" "$EVIDENCE_DIR/repository-migrations.txt"
+          sha256sum "apps/api/prisma/migrations/$TARGET_MIGRATION/migration.sql" > "$EVIDENCE_DIR/target-migration.sha256"
+          expected_b64="$(base64 -w0 < "$EVIDENCE_DIR/repository-migrations.txt")"
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+          echo "expected_b64=$expected_b64" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$target" > "$EVIDENCE_DIR/target-sha.txt"
+
+      - name: Materialize exact non-root migration image
+        id: image
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SHORT_SHA: ${{ steps.target.outputs.short }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="ghcr.io/pachaninm-lab/grainflow-migration:w1a-sha-${SHORT_SHA}"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          reusable=0
+          if docker pull "$image" >/dev/null 2>&1; then
+            revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image" 2>/dev/null || true)"
+            [[ "$revision" != "$TARGET_SHA" ]] || reusable=1
+          fi
+          if [[ "$reusable" == 0 ]]; then
+            docker build \
+              --file infra/docker/Dockerfile.migrations \
+              --build-arg "GIT_COMMIT=$TARGET_SHA" \
+              --build-arg "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --tag "$image" .
+            docker push "$image" >/dev/null
+          fi
+          docker pull "$image" >/dev/null
+          revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")"
+          [[ "$revision" == "$TARGET_SHA" ]]
+          user="$(docker image inspect --format '{{.Config.User}}' "$image")"
+          [[ -n "$user" && "$user" != root && "$user" != 0 ]]
+          cmd="$(docker image inspect --format '{{json .Config.Cmd}}' "$image")"
+          [[ "$cmd" == '["node_modules/prisma/build/index.js","migrate","deploy","--schema","prisma/schema.prisma"]' ]]
+          docker run --rm --entrypoint /nodejs/bin/node "$image" -e \
+            "const fs=require('node:fs');const p='/app/prisma/migrations/${TARGET_MIGRATION}/migration.sql';if(!fs.existsSync(p)||fs.statSync(p).size<1000)process.exit(1)"
+          docker image inspect "$image" > "$EVIDENCE_DIR/migration-image.json"
+          docker image inspect --format '{{json .RepoDigests}}' "$image" > "$EVIDENCE_DIR/migration-image-digests.json"
+          echo "ref=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned REG.RU identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo PC_CROP_W1A_CANONICAL_VPS_MISMATCH >&2; exit 20; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo PC_CROP_W1A_PRODUCTION_PRINCIPAL_INVALID >&2; exit 21; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 22
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo PC_CROP_W1A_PINNED_HOST_FINGERPRINT_REQUIRED >&2; exit 23; }
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"; ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || { echo PC_CROP_W1A_NO_VALID_PROTECTED_PRIVATE_KEY >&2; exit 24; }
+          scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo PC_CROP_W1A_PINNED_HOST_KEY_MISMATCH >&2; exit 25; }
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; python3 --version >/dev/null; echo PC_CROP_W1A_SSH_AUTH=PASS' \
+            | tee "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq PC_CROP_W1A_SSH_AUTH=PASS "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Prove deployed runtime code is unchanged since W1-A application release
+        id: runtime
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api_revision="$(ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            'set -euo pipefail; mapfile -t ids < <(docker ps -q --filter "label=com.docker.compose.service=api"); (( ${#ids[@]} == 1 )); image=$(docker inspect --format "{{.Image}}" "${ids[0]}"); docker image inspect --format "{{index .Config.Labels \"org.opencontainers.image.revision\"}}" "$image"')"
+          [[ "$api_revision" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$api_revision^{commit}" 2>/dev/null || git fetch --no-tags origin "$api_revision"
+          git merge-base --is-ancestor "$api_revision" "$TARGET_SHA"
+          git diff --name-only "$api_revision..$TARGET_SHA" > "$EVIDENCE_DIR/runtime-diff.txt"
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            case "$file" in
+              .github/workflows/pc-crop-w1a-production-preflight.yml|\
+              docs/platform-v7/autopilot/scopes/pc-crop-w1a-production-preflight-4997.json|\
+              .github/workflows/pc-crop-w1a-production-migration.yml|\
+              docs/platform-v7/autopilot/scopes/pc-crop-w1a-production-migration-4997.json|\
+              scripts/production-pc-crop-w1a-migration.sh) ;;
+              *) echo "PC_CROP_W1A_RUNTIME_DRIFT_FILE=$file" >&2; exit 30 ;;
+            esac
+          done < "$EVIDENCE_DIR/runtime-diff.txt"
+          echo "api_sha=$api_revision" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$api_revision" > "$EVIDENCE_DIR/deployed-api-sha.txt"
+
+      - name: Recheck current main immediately before production mutation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$current_main" == "$TARGET_SHA" ]] || { echo PC_CROP_W1A_MAIN_DRIFT >&2; exit 31; }
+
+      - name: Copy bounded W1-A migration authority
+        id: copy
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote="/tmp/pc-crop-w1a-migration-${GITHUB_RUN_ID}.sh"
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            scripts/production-pc-crop-w1a-migration.sh "$SSH_USER_SECRET@$HOST:$remote"
+          echo "remote=$remote" >> "$GITHUB_OUTPUT"
+
+      - name: Backup, apply only W1-A migration, and prove post-state
+        id: migrate
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          MIGRATION_IMAGE: ${{ steps.image.outputs.ref }}
+          EXPECTED_MIGRATIONS_B64: ${{ steps.target.outputs.expected_b64 }}
+          REMOTE_SCRIPT: ${{ steps.copy.outputs.remote }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          enc(){ [[ -z "$1" ]] || printf '%s' "$1" | base64 -w0; }
+          prod_dir_b64="$(enc "${PROD_DIR_SECRET:-}")"
+          prod_compose_b64="$(enc "${PROD_COMPOSE_SECRET:-}")"
+          prod_project_b64="$(enc "${PROD_PROJECT_SECRET:-}")"
+          backup_b64="$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")"
+          for value in "$prod_dir_b64" "$prod_compose_b64" "$prod_project_b64" "$backup_b64" "$EXPECTED_MIGRATIONS_B64"; do
+            [[ -z "$value" ]] || echo "::add-mask::$value"
+          done
+          raw="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "set -euo pipefail; chmod 0700 '$REMOTE_SCRIPT'; PC_CROP_W1A_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_CROP_W1A_EXPECTED_MIGRATIONS_B64='$EXPECTED_MIGRATIONS_B64' PC_PROD_DIR_B64='$prod_dir_b64' PC_PROD_COMPOSE_B64='$prod_compose_b64' PC_PROD_PROJECT_B64='$prod_project_b64' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$backup_b64' '$REMOTE_SCRIPT' migrate '$TARGET_SHA' '$GITHUB_RUN_ID'" \
+            > "$raw" 2>&1
+          remote_status=$?
+          set -e
+          sed -E \
+            -e 's#(postgres(ql)?://)[^/@ ]+@#\1[REDACTED]@#g' \
+            -e 's#(password|token|secret|authorization|api[_-]?key)([[:space:]]*[:=][[:space:]]*)[^[:space:],;}]+#\1\2[REDACTED]#gI' \
+            "$raw" | tee "$EVIDENCE_DIR/migration.log"
+          rm -f "$raw"
+          (( remote_status == 0 )) || exit "$remote_status"
+          grep -Fxq PC_CROP_W1A_MIGRATION=PASS "$EVIDENCE_DIR/migration.log"
+          grep -Fxq "PC_CROP_W1A_TARGET_SHA=$TARGET_SHA" "$EVIDENCE_DIR/migration.log"
+          grep -Fxq PC_CROP_W1A_TARGET_APPLIED=true "$EVIDENCE_DIR/migration.log"
+          grep -Fxq PC_CROP_W1A_PENDING_MIGRATIONS=0 "$EVIDENCE_DIR/migration.log"
+          grep -Fxq PC_CROP_W1A_ASSIGNMENTS_ROWS=0 "$EVIDENCE_DIR/migration.log"
+          grep -Fxq PC_CROP_W1A_EVENTS_ROWS=0 "$EVIDENCE_DIR/migration.log"
+          grep -Fxq PC_CROP_W1A_FORCE_RLS=PASS "$EVIDENCE_DIR/migration.log"
+          grep -Fxq API_WEB_RUNTIME_UNCHANGED=PASS "$EVIDENCE_DIR/migration.log"
+          grep -Fxq ROLE_ELIGIBILITY_RUNTIME_UNCHANGED=PASS "$EVIDENCE_DIR/migration.log"
+          grep -Fxq ROLE_ELIGIBILITY_ENFORCEMENT=false "$EVIDENCE_DIR/migration.log"
+          grep -Fxq REGISTRATION_RUNTIME_UNCHANGED=PASS "$EVIDENCE_DIR/migration.log"
+          grep -Fxq PRODUCTION_DATABASE_MUTATION=BOUNDED_W1A_MIGRATION "$EVIDENCE_DIR/migration.log"
+          grep -Eq '^PC_CROP_W1A_BACKUP_MODE=(LOGICAL_COMPOSE_POSTGRES|PROTECTED_EXTERNAL_EVIDENCE)$' "$EVIDENCE_DIR/migration.log"
+          echo "status=PASS" >> "$GITHUB_OUTPUT"
+
+      - name: Publish W1-A migration evidence
+        if: always() && steps.migrate.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          API_SHA: ${{ steps.runtime.outputs.api_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          backup_mode="$(sed -n 's/^PC_CROP_W1A_BACKUP_MODE=//p' "$EVIDENCE_DIR/migration.log" | tail -1)"
+          cat > "$EVIDENCE_DIR/result.md" <<EOF2
+          ## PC-CROP W1-A production migration \`$GITHUB_RUN_ID\`
+
+          - exact current main: \`$TARGET_SHA\`
+          - deployed application API SHA: \`$API_SHA\`
+          - runtime-code drift from deployed API to target: \`operational files only\`
+          - pre-mutation repository migration state: \`SAFE_SINGLE_PENDING_TARGET\`
+          - applied migration: \`$TARGET_MIGRATION\`
+          - backup: \`$backup_mode\`
+          - pending repository migrations after: \`0\`
+          - W1-A assignment/event rows after: \`0/0\`
+          - W1-A RLS/FORCE RLS: \`PASS\`
+          - API/web runtime unchanged: \`PASS\`
+          - Role Eligibility runtime unchanged: \`PASS\`
+          - Role Eligibility enforcement: \`false\`
+          - registration runtime unchanged: \`PASS\`
+          - production DB mutation: \`BOUNDED_W1A_MIGRATION\`
+
+          This applies only the already-merged W1-A Organization Capability Authority schema. No capability was default-granted or backfilled.
+          EOF2
+          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/result.md"
+
+      - name: Upload immutable W1-A migration evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pc-crop-w1a-production-migration-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Cleanup bounded production authority
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          REMOTE_SCRIPT: ${{ steps.copy.outputs.remote }}
+        shell: bash
+        run: |
+          set +e
+          if [[ -n "${HOST:-}" && -n "${PORT:-}" && -n "${REMOTE_SCRIPT:-}" && -f "$HOME/.ssh/id_pc_prod" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" "rm -f -- '$REMOTE_SCRIPT'" >/dev/null 2>&1 || true
+          fi
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+          chmod 700 "$HOME/.ssh" 2>/dev/null || true
