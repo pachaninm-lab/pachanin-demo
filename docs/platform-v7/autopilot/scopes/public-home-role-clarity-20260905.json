@@ -23,6 +23,10 @@
     "apps/web/i18n/platform-v7-home-story-product.ts",
     "apps/web/i18n/platform-v7-organization-connect-product.ts",
     "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
+    "apps/web/tests/unit/platformV7HomepageProductCopy.test.ts",
+    "apps/web/tests/unit/platformV7HomepageVisibleOperatingCopy.test.ts",
+    "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
     "apps/web/tests/unit/platformV7PublicEntryClarity.test.tsx",
     "apps/web/tests/unit/platformV7PublicPagesTrust.test.tsx",
     "docs/platform-v7/public-experience/2026-09-05-acceptance.md"
@@ -30,6 +34,7 @@
   "requiredInvariants": [
     "Only the explicitly listed public presentation, localization, acceptance and test paths may change; the global specification and serialized domain programme are unchanged.",
     "The single new permanent public-entry-clarity.yml workflow runs focused UI and existing registration-boundary checks for pull requests with contents: read, no production secrets, no write token, no deployment and no merge or repository mutation; existing required checks are not removed or weakened.",
+    "The four explicitly listed homepage copy regression suites may replace superseded literal marketing expectations with behavior checks for the user-authorized role clarity, ordinary deal journey and clearly labelled examples. Security, registration, consent, authorization, protected-route and data-integrity assertions must not be removed, skipped, weakened or changed merely to obtain a passing result.",
     "Registration, authentication, role assignment, organization creation, reviewer authority, tenant isolation, RBAC, API endpoints, database schema and production topology are unchanged.",
     "The byte-bound terms and privacy policy page sources, consent versions, consent hashes, clients and PostgreSQL consent-evidence whitelist are unchanged.",
     "PrivacyPortalPanel may replace invented personal consent records and local-only success actions with truthful links to existing support. It must not redefine the policy, fabricate an operator or recipient, or claim a request was submitted without a durable response.",
@@ -66,7 +71,7 @@
     "The exact implementation diff is a subset of allowedPaths from the independent accepted governance base.",
     "Source-controlled scope resolution, autopilot guard, production-hosting authority and exact-head review-gate contract checks pass.",
     "Focused web unit tests, relevant role/route/copy regressions and web typecheck are recorded with their actual results.",
-    "Desktop and mobile checks cover 320, 375, 390, 430, 768 and 1280 CSS-pixel widths, with live visuals and unresolved gaps recorded honestly.",
+    "Desktop and mobile checks cover 320, 375, 390, 430, 768 and 1440 CSS-pixel widths, with live visuals and unresolved gaps recorded honestly.",
     "Registration and consent source hashes match the accepted base; no auth, identity, API, database, lockfile or PDF change is present.",
     "A completed Codex review is bound to the exact current PR head; all substantive required CI checks are terminal and green before merge.",
     "Any later production release uses the existing canonical REG.RU exact-SHA workflow and requires healthy running OCI revision and live-domain evidence before being called deployed."
