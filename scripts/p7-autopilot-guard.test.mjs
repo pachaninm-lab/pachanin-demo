@@ -8,6 +8,7 @@ import test from 'node:test';
 const implementationBranches = [
   'fix/p0-registration-authority-rollover-4637',
   'fix/p0-owner-control-plane-audit-lock-4698',
+  'feat/pc-crop-auction-inventory-authority-4997',
   'docs/pc-crop-post-registration-progress-4997',
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
@@ -192,6 +193,14 @@ test(`${implementationBranch}: fails closed without immutable base authority`, (
 });
 }
 
+test('records immutable prior authority for the EGRUL governance manifest only', () => {
+  const state = JSON.parse(fs.readFileSync(path.resolve('docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
+  assert.deepEqual(
+    state.approvedConcurrentScopes['governance/role-eligibility-fns-egrul-file-import-5016'],
+    ['docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json'],
+  );
+});
+
 test('runs immutable authority checks from a read-only trusted-base workflow', () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   for (const marker of [
@@ -201,12 +210,15 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     'name: FNS EGRUL immutable scope · trusted base',
     "github.event.pull_request.head.ref == 'fix/p0-registration-authority-rollover-4637'",
     "github.event.pull_request.head.ref == 'fix/p0-owner-control-plane-audit-lock-4698'",
+    "github.event.pull_request.head.ref == 'feat/pc-crop-auction-inventory-authority-4997'",
     "github.event.pull_request.head.ref == 'docs/pc-crop-post-registration-progress-4997'",
     "github.event.pull_request.head.ref == 'governance/role-eligibility-fns-egrul-file-import-5016'",
     "github.event.pull_request.head.ref == 'feat/role-eligibility-fns-egrul-file-import-5016'",
     "const manifestPath = 'docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json';",
     "'apps/api/src/fns-egrul-import.ts'",
     "'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts'",
+    "'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts'",
+    "'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.spec.ts'",
     "'docs/security/cryptographic-inventory.json'",
     'run: node docs/platform-v7/crop-platform/post-registration/verify-w0.mjs',
     'HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}',
@@ -265,4 +277,55 @@ test('governance branches retain unprivileged head regression validation', () =>
     assert.doesNotMatch(section, /github\.head_ref != 'governance\//u);
   }
   assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
+});
+
+test('Auction inventory uses trusted scope routing while retaining substantive head validation', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const branch = 'feat/pc-crop-auction-inventory-authority-4997';
+  const section = (start, end) => {
+    const first = workflow.indexOf(start);
+    const last = workflow.indexOf(end, first + start.length);
+    assert.ok(first >= 0 && last > first, `missing workflow section: ${start}`);
+    return workflow.slice(first, last);
+  };
+  const trusted = section('  trusted-immutable-scope:', '  guard:');
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`));
+  assert.ok(trusted.includes(`|${branch}|`));
+  assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
+  assert.ok(trusted.includes('test "$(git rev-parse HEAD)" = "$BASE_SHA"'));
+  assert.ok(trusted.includes('bash scripts/p7-autopilot-guard.sh'));
+  assert.doesNotMatch(trusted, /git\s+(?:checkout|switch)\s+.*HEAD_SHA|ref:\s*\$\{\{\s*github\.event\.pull_request\.head/u);
+  const guard = section('  guard:', '      - name: Require standard validations in the required guard context');
+  assert.ok(guard.includes(`github.head_ref == '${branch}'`));
+  assert.ok(guard.includes("'PC-CROP immutable scope · PR-head defense' || 'guard'"));
+  assert.ok(guard.includes('permissions:\n      contents: read'));
+  const defense = section('      - name: Validate immutable scope with trusted base guard on PR head', '      - name: Validate post-registration DoD register');
+  assert.ok(defense.includes(`github.head_ref == '${branch}'`));
+  assert.ok(defense.includes(`|${branch}|`));
+  assert.ok(defense.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"'));
+  const standardScope = section('      - name: Validate standard branch scope on PR head', '  standard_validation:');
+  assert.ok(standardScope.includes(`github.head_ref != '${branch}'`));
+  for (const [start, end] of [
+    ['      - name: Require standard validations in the required guard context', '      - name: Validate immutable scope with trusted base guard on PR head'],
+    ['  standard_validation:', '    runs-on: ubuntu-latest'],
+  ]) {
+    assert.ok(!section(start, end).includes(`github.head_ref != '${branch}'`), 'Auction must retain substantive head validations');
+  }
+});
+
+test('Auction head validation triggers for every immutable state-approved path', () => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const approved = state.approvedConcurrentScopes['feat/pc-crop-auction-inventory-authority-4997'];
+  assert.ok(Array.isArray(approved), 'Auction scope must be recorded in the state authority');
+  assert.equal(approved.length, 19);
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const first = workflow.indexOf('\n  pull_request:\n');
+  const last = workflow.indexOf('\nconcurrency:', first);
+  assert.ok(first >= 0 && last > first, 'unprivileged pull_request trigger must exist');
+  const trigger = workflow.slice(first, last);
+  const paths = [...trigger.matchAll(/^      - '([^']+)'$/gmu)].map((match) => match[1]);
+  for (const file of approved) {
+    assert.equal(paths.filter((entry) => entry === file).length, 1,
+      `Each approved Auction path must trigger head validation exactly once: ${file}`);
+  }
 });

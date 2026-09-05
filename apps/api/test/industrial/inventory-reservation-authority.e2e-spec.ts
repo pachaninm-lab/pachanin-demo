@@ -151,17 +151,58 @@ describeAuthority('Inventory PostgreSQL authority at READ COMMITTED', () => {
       SELECT current_user AS name, rolsuper AS superuser FROM pg_catalog.pg_roles WHERE rolname=current_user`);
     expect(roles[0]?.superuser).toBe(false);
     const appRole = roles[0]!.name;
-    const missing = await admin.$queryRaw<Array<{ table_name: string }>>(Prisma.sql`
-      SELECT c.relname AS table_name FROM pg_catalog.pg_class c
+    type CascadeRelation = { schema_name: string; table_name: string; can_truncate: boolean; acl: Prisma.JsonValue };
+    // TRUNCATE checks every FK-dependent table before firing any trigger.
+    // The Auction binding introduces a cycle across schemas; UNION computes
+    // the finite closure, including ordinary inheritance/partition descendants.
+    const cascadeRelations = () => admin.$queryRaw<CascadeRelation[]>(Prisma.sql`
+      WITH RECURSIVE edges(parent_oid,child_oid) AS (
+        SELECT confrelid,conrelid FROM pg_catalog.pg_constraint WHERE contype='f'
+        UNION
+        SELECT inhparent,inhrelid FROM pg_catalog.pg_inherits
+      ), affected(table_oid) AS (
+        SELECT 'inventory.positions'::regclass::oid
+        UNION
+        SELECT edges.child_oid FROM edges JOIN affected ON affected.table_oid=edges.parent_oid
+      )
+      SELECT n.nspname AS schema_name,c.relname AS table_name,
+        has_table_privilege(${appRole},c.oid,'TRUNCATE') AS can_truncate,
+        COALESCE((SELECT jsonb_agg(jsonb_build_object(
+          'grantor',a.grantor::text,'grantee',a.grantee::text,'privilege',a.privilege_type,'grantable',a.is_grantable
+        ) ORDER BY a.grantor,a.grantee,a.privilege_type,a.is_grantable)
+          FROM pg_catalog.aclexplode(COALESCE(c.relacl,pg_catalog.acldefault('r',c.relowner))) a),'[]'::jsonb) AS acl
+      FROM affected JOIN pg_catalog.pg_class c ON c.oid=affected.table_oid
       JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
-      WHERE n.nspname='inventory' AND c.relkind='r'
-        AND NOT has_table_privilege(${appRole}, c.oid, 'TRUNCATE')`);
+      WHERE c.relkind IN ('r','p') ORDER BY n.nspname,c.relname`);
+    const affected = await cascadeRelations();
+    const missing = affected.filter((row) => !row.can_truncate);
+    expect(missing.length).toBeGreaterThan(0);
     const quoteIdentifier = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const qualifiedTable = (row: CascadeRelation) => `${quoteIdentifier(row.schema_name)}.${quoteIdentifier(row.table_name)}`;
+    const rowCounts = () => Promise.all(affected.map(async (row) => ({
+      table: qualifiedTable(row),
+      count: (await admin.$queryRawUnsafe<Array<{ count: string }>>(`SELECT count(*)::text AS count FROM ${qualifiedTable(row)}`))[0]!.count,
+    })));
+    const beforeCounts = await rowCounts();
+    const beforePosition = await stored(position);
+    await expect(app.$executeRawUnsafe('TRUNCATE inventory.positions CASCADE')).rejects.toMatchObject({
+      code: 'P2010', meta: { code: '42501', message: expect.stringContaining('permission denied') },
+    });
+    expect(await rowCounts()).toEqual(beforeCounts);
+    expect(await stored(position)).toEqual(beforePosition);
     try {
-      for (const row of missing) await admin.$executeRawUnsafe(`GRANT TRUNCATE ON inventory.${quoteIdentifier(row.table_name)} TO ${quoteIdentifier(appRole)}`);
+      // These grants exist only in the disposable test database. Give the
+      // runtime exactly the missing privileges so the guard itself is exercised.
+      for (const row of missing) await admin.$executeRawUnsafe(`GRANT TRUNCATE ON ${qualifiedTable(row)} TO ${quoteIdentifier(appRole)}`);
+      expect((await cascadeRelations()).every((row) => row.can_truncate)).toBe(true);
       await expect(app.$executeRawUnsafe('TRUNCATE inventory.positions CASCADE')).rejects.toThrow('INVENTORY_DIRECT_MUTATION_DENIED');
+      expect(await rowCounts()).toEqual(beforeCounts);
+      expect(await stored(position)).toEqual(beforePosition);
     } finally {
-      for (const row of missing) await admin.$executeRawUnsafe(`REVOKE TRUNCATE ON inventory.${quoteIdentifier(row.table_name)} FROM ${quoteIdentifier(appRole)}`);
+      for (const row of missing) await admin.$executeRawUnsafe(`REVOKE TRUNCATE ON ${qualifiedTable(row)} FROM ${quoteIdentifier(appRole)}`);
+      // ACL defaults may become explicit after GRANT/REVOKE; compare their
+      // normalized contents, preserving every original grantee and privilege.
+      expect(await cascadeRelations()).toEqual(affected);
     }
     const rollback = new Error('inventory maintenance proof rollback');
     await expect(admin.$transaction(async (tx) => {
@@ -170,6 +211,8 @@ describeAuthority('Inventory PostgreSQL authority at READ COMMITTED', () => {
       expect(rows[0]?.count).toBe(0n);
       throw rollback;
     })).rejects.toBe(rollback);
+    expect(await rowCounts()).toEqual(beforeCounts);
+    expect(await stored(position)).toEqual(beforePosition);
     expect((await stored(position))[0]?.state_version).toBe(1n);
   });
 
