@@ -75,6 +75,15 @@ export class ServiceMarketplaceController {
     return this.marketplace.listOwn(user);
   }
 
+  @Get(':requestId/quotes')
+  @RateLimit({ name: 'service_marketplace_quotes', scope: 'user', limit: 120, windowSeconds: 60 })
+  listSelectableQuotes(
+    @Param('requestId') rawRequestId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.marketplace.listSelectableQuotes(user, requestId(rawRequestId));
+  }
+
   @Post(':requestId/:action')
   @RateLimit({ name: 'service_marketplace_command', scope: 'user', limit: 60, windowSeconds: 60 })
   async command(

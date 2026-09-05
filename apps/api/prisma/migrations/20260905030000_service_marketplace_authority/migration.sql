@@ -593,10 +593,13 @@ CREATE POLICY service_marketplace_quote_insert ON public."service_marketplace_qu
 );
 
 CREATE POLICY service_marketplace_event_select ON public."service_marketplace_events" FOR SELECT USING (
-  "tenantId" = public.app_identity_tenant_id() AND EXISTS (
-    SELECT 1 FROM public."service_marketplace_requests" request_row
-     WHERE request_row."id" = "service_marketplace_events"."requestId"
-       AND public.app_service_marketplace_participant(request_row)
+  "tenantId" = public.app_identity_tenant_id() AND (
+    "actorOrganizationId" = public.app_identity_org_id()
+    OR EXISTS (
+      SELECT 1 FROM public."service_marketplace_requests" request_row
+       WHERE request_row."id" = "service_marketplace_events"."requestId"
+         AND public.app_service_marketplace_participant(request_row)
+    )
   )
 );
 CREATE POLICY service_marketplace_event_insert ON public."service_marketplace_events" FOR INSERT WITH CHECK (
@@ -624,12 +627,12 @@ CREATE POLICY outbox_entries_service_marketplace_insert ON public."outbox_entrie
        AND event."actorOrganizationId" = public.app_identity_org_id()
        AND event."actorUserId" = public.app_identity_user_id()
        AND event."correlationId" = "outbox_entries"."correlationId"
-       AND event."commandId" = "payload" #>> '{event,commandId}'
-       AND event."requestId" = "payload" #>> '{event,requestId}'
-       AND event."action" = "payload" #>> '{event,action}'
-       AND event."toStatus" = "payload" #>> '{event,status}'
-       AND event."aggregateVersion"::text = "payload" #>> '{event,aggregateVersion}'
-       AND event."requestFingerprint" = "payload" ->> 'requestFingerprint'
+       AND event."commandId" = "outbox_entries"."payload" #>> '{event,commandId}'
+       AND event."requestId" = "outbox_entries"."payload" #>> '{event,requestId}'
+       AND event."action" = "outbox_entries"."payload" #>> '{event,action}'
+       AND event."toStatus" = "outbox_entries"."payload" #>> '{event,status}'
+       AND event."aggregateVersion"::text = "outbox_entries"."payload" #>> '{event,aggregateVersion}'
+       AND event."requestFingerprint" = "outbox_entries"."payload" ->> 'requestFingerprint'
   )
 );
 

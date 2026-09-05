@@ -62,6 +62,21 @@ type QuoteAuthority = {
   capabilityId: string;
 };
 
+type QuoteRow = {
+  id: string;
+  providerOrganizationId: string;
+  serviceOfferingId: string;
+  serviceOfferingVersion: bigint;
+  commercialDecisionId: string | null;
+  quoteType: 'RULE_DECISION' | 'MANUAL_QUOTE';
+  amountKopecks: bigint;
+  currency: 'RUB' | 'USD' | 'EUR' | 'CNY';
+  payerMode: string;
+  termsHash: string;
+  expiresAt: Date;
+  createdAt: Date;
+};
+
 type ReplayRow = {
   requestId: string;
   action: ServiceMarketplaceCommand['action'];
@@ -126,6 +141,57 @@ export class ServiceMarketplaceRepository {
         authority: 'POSTGRESQL' as const,
         createsFinancialObligation: false as const,
         items: requests.map((row) => this.snapshot(row)),
+      };
+    });
+  }
+
+  async listSelectableQuotes(user: RequestUser, requestId: string) {
+    return this.rls.withTrustedContext(user, async (tx, context) => {
+      const requests = await tx.$queryRaw<Array<{
+        id: string;
+        status: ServiceMarketplaceStatus;
+        stateVersion: bigint;
+      }>>(Prisma.sql`
+        SELECT "id", "status", "stateVersion" FROM public."service_marketplace_requests"
+         WHERE "id" = ${requestId} AND "tenantId" = ${context.tenantId}
+           AND "requesterOrganizationId" = ${context.orgId}
+         LIMIT 1
+      `);
+      const request = requests[0];
+      if (!request) throw new NotFoundException({ code: 'SERVICE_MARKETPLACE_REQUEST_NOT_FOUND' });
+      const quotes = request.status === 'QUOTED'
+        ? await tx.$queryRaw<QuoteRow[]>(Prisma.sql`
+            SELECT "id", "providerOrganizationId", "serviceOfferingId", "serviceOfferingVersion",
+                   "commercialDecisionId", "quoteType", "amountKopecks", "currency", "payerMode",
+                   "termsHash", "expiresAt", "createdAt"
+              FROM public."service_marketplace_quotes"
+             WHERE "requestId" = ${requestId} AND "tenantId" = ${context.tenantId}
+               AND "expiresAt" > clock_timestamp()
+             ORDER BY "amountKopecks" ASC, "createdAt" ASC, "id" ASC
+          `)
+        : [];
+      return {
+        tenantId: context.tenantId,
+        organizationId: context.orgId,
+        requestId: request.id,
+        requestStatus: request.status,
+        stateVersion: request.stateVersion.toString(),
+        authority: 'POSTGRESQL' as const,
+        createsFinancialObligation: false as const,
+        items: quotes.map((quote) => ({
+          id: quote.id,
+          providerOrganizationId: quote.providerOrganizationId,
+          serviceOfferingId: quote.serviceOfferingId,
+          serviceOfferingVersion: quote.serviceOfferingVersion.toString(),
+          commercialDecisionId: quote.commercialDecisionId,
+          quoteType: quote.quoteType,
+          amountKopecks: quote.amountKopecks.toString(),
+          currency: quote.currency,
+          payerMode: quote.payerMode,
+          termsHash: quote.termsHash,
+          expiresAt: quote.expiresAt.toISOString(),
+          createdAt: quote.createdAt.toISOString(),
+        })),
       };
     });
   }

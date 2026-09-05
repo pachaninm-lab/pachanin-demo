@@ -63,6 +63,9 @@ test('PostgreSQL owns participant authority, immutable quotes and lifecycle evid
   assert.match(migration, /PC_SERVICE_REQUEST_EVIDENCE_REQUIRED/u);
   assert.match(migration, /PC_SERVICE_EVENT_AUDIT_MISMATCH/u);
   assert.match(migration, /outbox_entries_service_marketplace_insert/u);
+  assert.match(migration, /"actorOrganizationId" = public\.app_identity_org_id\(\)[\s\S]+OR EXISTS/u);
+  assert.match(migration, /event\."commandId" = "outbox_entries"\."payload" #>> '\{event,commandId\}'/u);
+  assert.doesNotMatch(migration, /event\."(?:commandId|requestId|action|toStatus|aggregateVersion|requestFingerprint)"[^\n]+ = "payload"/u);
   assert.match(migration, /SECURITY DEFINER SET search_path = pg_catalog, public/u);
   assert.match(migration, /GRANT SELECT, INSERT ON public\."service_marketplace_events" TO %I/u);
   assert.doesNotMatch(migration, /GRANT [^;]*(?:UPDATE|DELETE)[^;]*service_marketplace_events/u);
@@ -92,4 +95,15 @@ test('quotes pin verified offerings and settlement stays non-financial', () => {
   assert.match(migration, /selected_quote\."expiresAt" <= clock_timestamp\(\)/u);
   assert.match(repository, /createsFinancialObligation: false/u);
   assert.doesNotMatch(repository, /accounting_(?:obligations|payments|advances)|ledger_entries/iu);
+});
+
+test('requesters can discover unexpired quotes and workflow commands fail fast', () => {
+  const controller = source('apps/api/src/modules/service-marketplace/service-marketplace.controller.ts');
+  const repository = source('apps/api/src/modules/service-marketplace/service-marketplace.repository.ts');
+  const workflow = source('.github/workflows/pc-crop-service-marketplace.yml');
+  assert.match(controller, /@Get\(':requestId\/quotes'\)/u);
+  assert.match(repository, /"requesterOrganizationId" = \$\{context\.orgId\}/u);
+  assert.match(repository, /"expiresAt" > clock_timestamp\(\)/u);
+  assert.doesNotMatch(workflow, /set -o pipefail/u);
+  assert.equal((workflow.match(/set -euo pipefail/gu) ?? []).length, 3);
 });

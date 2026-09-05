@@ -109,7 +109,7 @@ jobs:
       - name: Apply complete migration chain and prove zero drift
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
           pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
           pnpm --filter @pc/api exec prisma migrate diff --from-url "$DATABASE_URL" \
@@ -122,7 +122,7 @@ jobs:
       - name: Run domain and API contracts
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           pnpm exec vitest run packages/domain-core/src/service-marketplace.test.ts \
             2>&1 | tee "$EVIDENCE_DIR/domain-contracts.log"
           pnpm --filter @pc/api exec jest --runInBand \

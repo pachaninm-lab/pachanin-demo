@@ -17,22 +17,28 @@ const TENANT = `${RUN_ID}-tenant`;
 const OTHER_TENANT = `${RUN_ID}-other-tenant`;
 const REQUESTER_ORG = `${RUN_ID}-requester-org`;
 const PROVIDER_ORG = `${RUN_ID}-provider-org`;
+const ALT_PROVIDER_ORG = `${RUN_ID}-alt-provider-org`;
 const PAYER_ORG = `${RUN_ID}-payer-org`;
 const OUTSIDER_ORG = `${RUN_ID}-outsider-org`;
 const OTHER_ORG = `${RUN_ID}-other-org`;
 const REQUESTER_USER = `${RUN_ID}-requester-user`;
 const PROVIDER_USER = `${RUN_ID}-provider-user`;
+const ALT_PROVIDER_USER = `${RUN_ID}-alt-provider-user`;
 const PAYER_USER = `${RUN_ID}-payer-user`;
 const OUTSIDER_USER = `${RUN_ID}-outsider-user`;
 const OTHER_USER = `${RUN_ID}-other-user`;
 const REQUESTER_MEMBERSHIP = `${RUN_ID}-requester-membership`;
 const PROVIDER_MEMBERSHIP = `${RUN_ID}-provider-membership`;
+const ALT_PROVIDER_MEMBERSHIP = `${RUN_ID}-alt-provider-membership`;
 const PAYER_MEMBERSHIP = `${RUN_ID}-payer-membership`;
 const OUTSIDER_MEMBERSHIP = `${RUN_ID}-outsider-membership`;
 const OTHER_MEMBERSHIP = `${RUN_ID}-other-membership`;
 const PROVIDER_ID = `${RUN_ID}-provider`;
 const CAPABILITY_ID = `${RUN_ID}-capability`;
 const OFFERING_ID = `${RUN_ID}-offering`;
+const ALT_PROVIDER_ID = `${RUN_ID}-alt-provider`;
+const ALT_CAPABILITY_ID = `${RUN_ID}-alt-capability`;
+const ALT_OFFERING_ID = `${RUN_ID}-alt-offering`;
 
 function actor(
   id: string,
@@ -55,6 +61,9 @@ function actor(
 
 const requester = actor(REQUESTER_USER, REQUESTER_ORG, TENANT, REQUESTER_MEMBERSHIP, Role.BUYER);
 const provider = actor(PROVIDER_USER, PROVIDER_ORG, TENANT, PROVIDER_MEMBERSHIP, Role.LOGISTICIAN);
+const altProvider = actor(
+  ALT_PROVIDER_USER, ALT_PROVIDER_ORG, TENANT, ALT_PROVIDER_MEMBERSHIP, Role.LOGISTICIAN,
+);
 const payer = actor(PAYER_USER, PAYER_ORG, TENANT, PAYER_MEMBERSHIP, Role.ACCOUNTING);
 const outsider = actor(OUTSIDER_USER, OUTSIDER_ORG, TENANT, OUTSIDER_MEMBERSHIP, Role.ADMIN);
 const otherTenant = actor(OTHER_USER, OTHER_ORG, OTHER_TENANT, OTHER_MEMBERSHIP, Role.ADMIN);
@@ -107,11 +116,12 @@ describeAuthority('Service Marketplace PostgreSQL authority', () => {
     await admin.organization.createMany({ data: [
       { id: REQUESTER_ORG, tenantId: TENANT, inn: `71${seed}1`, name: 'Marketplace requester', status: 'ACTIVE' },
       { id: PROVIDER_ORG, tenantId: TENANT, inn: `72${seed}2`, name: 'Marketplace provider', status: 'ACTIVE' },
+      { id: ALT_PROVIDER_ORG, tenantId: TENANT, inn: `76${seed}6`, name: 'Marketplace alternate provider', status: 'ACTIVE' },
       { id: PAYER_ORG, tenantId: TENANT, inn: `73${seed}3`, name: 'Marketplace payer', status: 'ACTIVE' },
       { id: OUTSIDER_ORG, tenantId: TENANT, inn: `74${seed}4`, name: 'Marketplace outsider', status: 'ACTIVE' },
       { id: OTHER_ORG, tenantId: OTHER_TENANT, inn: `75${seed}5`, name: 'Marketplace other tenant', status: 'ACTIVE' },
     ] });
-    await admin.user.createMany({ data: [requester, provider, payer, outsider, otherTenant].map((entry) => ({
+    await admin.user.createMany({ data: [requester, provider, altProvider, payer, outsider, otherTenant].map((entry) => ({
       id: entry.id,
       email: entry.email,
       passwordHash: 'industrial-not-a-login-secret',
@@ -120,6 +130,7 @@ describeAuthority('Service Marketplace PostgreSQL authority', () => {
     await admin.userOrg.createMany({ data: [
       { id: REQUESTER_MEMBERSHIP, userId: REQUESTER_USER, organizationId: REQUESTER_ORG, role: Role.BUYER, status: 'ACTIVE' },
       { id: PROVIDER_MEMBERSHIP, userId: PROVIDER_USER, organizationId: PROVIDER_ORG, role: Role.LOGISTICIAN, status: 'ACTIVE' },
+      { id: ALT_PROVIDER_MEMBERSHIP, userId: ALT_PROVIDER_USER, organizationId: ALT_PROVIDER_ORG, role: Role.LOGISTICIAN, status: 'ACTIVE' },
       { id: PAYER_MEMBERSHIP, userId: PAYER_USER, organizationId: PAYER_ORG, role: Role.ACCOUNTING, status: 'ACTIVE' },
       { id: OUTSIDER_MEMBERSHIP, userId: OUTSIDER_USER, organizationId: OUTSIDER_ORG, role: Role.ADMIN, status: 'ACTIVE', isOrgAdmin: true },
       { id: OTHER_MEMBERSHIP, userId: OTHER_USER, organizationId: OTHER_ORG, role: Role.ADMIN, status: 'ACTIVE', isOrgAdmin: true },
@@ -166,6 +177,43 @@ describeAuthority('Service Marketplace PostgreSQL authority', () => {
         createdByMembershipId: PROVIDER_MEMBERSHIP,
         updatedByMembershipId: PROVIDER_MEMBERSHIP,
       } });
+      await tx.provider.create({ data: {
+        id: ALT_PROVIDER_ID,
+        tenantId: TENANT,
+        organizationId: ALT_PROVIDER_ORG,
+        status: 'ACTIVE',
+        createdByMembershipId: ALT_PROVIDER_MEMBERSHIP,
+        updatedByMembershipId: ALT_PROVIDER_MEMBERSHIP,
+      } });
+      await tx.providerCapability.create({ data: {
+        id: ALT_CAPABILITY_ID,
+        tenantId: TENANT,
+        organizationId: ALT_PROVIDER_ORG,
+        providerId: ALT_PROVIDER_ID,
+        category: 'LOGISTICS',
+        legalRole: 'carrier',
+        status: 'ACTIVE',
+        effectiveFrom: new Date(Date.now() - 1_000),
+        createdByMembershipId: ALT_PROVIDER_MEMBERSHIP,
+        updatedByMembershipId: ALT_PROVIDER_MEMBERSHIP,
+      } });
+      await tx.serviceOffering.create({ data: {
+        id: ALT_OFFERING_ID,
+        tenantId: TENANT,
+        organizationId: ALT_PROVIDER_ORG,
+        providerId: ALT_PROVIDER_ID,
+        capabilityId: ALT_CAPABILITY_ID,
+        offeringKey: 'industrial-logistics-alternate',
+        category: 'LOGISTICS',
+        title: 'Industrial logistics alternate',
+        description: 'Alternate active logistics offering for replay authority tests.',
+        regions: ['Tambov region'],
+        cultures: ['WHEAT'],
+        stages: ['DISPATCH'],
+        status: 'ACTIVE',
+        createdByMembershipId: ALT_PROVIDER_MEMBERSHIP,
+        updatedByMembershipId: ALT_PROVIDER_MEMBERSHIP,
+      } });
     });
   });
 
@@ -183,13 +231,14 @@ describeAuthority('Service Marketplace PostgreSQL authority', () => {
       await admin.outboxEntry.deleteMany({ where: { correlationId: { startsWith: RUN_ID } } });
       await admin.auditEvent.deleteMany({ where: { correlationId: { startsWith: RUN_ID } } });
       await admin.userOrg.deleteMany({ where: { id: { in: [
-        REQUESTER_MEMBERSHIP, PROVIDER_MEMBERSHIP, PAYER_MEMBERSHIP, OUTSIDER_MEMBERSHIP, OTHER_MEMBERSHIP,
+        REQUESTER_MEMBERSHIP, PROVIDER_MEMBERSHIP, ALT_PROVIDER_MEMBERSHIP,
+        PAYER_MEMBERSHIP, OUTSIDER_MEMBERSHIP, OTHER_MEMBERSHIP,
       ] } } });
       await admin.user.deleteMany({ where: { id: { in: [
-        REQUESTER_USER, PROVIDER_USER, PAYER_USER, OUTSIDER_USER, OTHER_USER,
+        REQUESTER_USER, PROVIDER_USER, ALT_PROVIDER_USER, PAYER_USER, OUTSIDER_USER, OTHER_USER,
       ] } } });
       await admin.organization.deleteMany({ where: { id: { in: [
-        REQUESTER_ORG, PROVIDER_ORG, PAYER_ORG, OUTSIDER_ORG, OTHER_ORG,
+        REQUESTER_ORG, PROVIDER_ORG, ALT_PROVIDER_ORG, PAYER_ORG, OUTSIDER_ORG, OTHER_ORG,
       ] } } });
     }
     await Promise.allSettled([admin.$disconnect(), app.$disconnect()]);
@@ -244,6 +293,21 @@ describeAuthority('Service Marketplace PostgreSQL authority', () => {
       termsHash: serviceMarketplaceDigest({ scope: 'transport', price: '125000' }),
       expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
     })).toMatchObject({ status: 'QUOTED', stateVersion: '2', quoteId });
+    await expect(marketplace.listSelectableQuotes(outsider, requestId))
+      .rejects.toMatchObject({ response: { code: 'SERVICE_MARKETPLACE_REQUEST_NOT_FOUND' } });
+    expect(await marketplace.listSelectableQuotes(requester, requestId)).toMatchObject({
+      requestId,
+      requestStatus: 'QUOTED',
+      stateVersion: '2',
+      authority: 'POSTGRESQL',
+      items: [{
+        id: quoteId,
+        providerOrganizationId: PROVIDER_ORG,
+        serviceOfferingId: OFFERING_ID,
+        amountKopecks: '125000',
+        currency: 'RUB',
+      }],
+    });
 
     await expect(marketplace.execute(provider, {
       ...base(requestId, 'SELECT_PROVIDER', '2', 'forged-selection'), action: 'SELECT_PROVIDER', quoteId,
@@ -334,6 +398,55 @@ describeAuthority('Service Marketplace PostgreSQL authority', () => {
     await expect(marketplace.execute(provider, quote(
       expiredRequestId, 'expired', `${RUN_ID}-quote-expired`, new Date(Date.now() - 1_000).toISOString(),
     ))).rejects.toBeDefined();
+  });
+
+  it('preserves exact replay for a provider whose quote was not selected', async () => {
+    const requestId = `${RUN_ID}-request-losing-provider-replay`;
+    await marketplace.execute(requester, createRequest(requestId, 'losing-provider-replay'));
+    const losing = {
+      ...base(requestId, 'SUBMIT_QUOTE', '1', 'losing-provider-quote'),
+      action: 'SUBMIT_QUOTE' as const,
+      quoteId: `${RUN_ID}-quote-losing-provider`,
+      serviceOfferingId: OFFERING_ID,
+      serviceOfferingVersion: '1',
+      quoteType: 'MANUAL_QUOTE' as const,
+      commercialDecisionId: null,
+      amountKopecks: '125000',
+      currency: 'RUB' as const,
+      payerMode: 'BUYER',
+      termsHash: serviceMarketplaceDigest({ provider: 'losing' }),
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    };
+    await marketplace.execute(provider, losing);
+    const selectedQuoteId = `${RUN_ID}-quote-selected-provider`;
+    await marketplace.execute(altProvider, {
+      ...base(requestId, 'SUBMIT_QUOTE', '2', 'selected-provider-quote'),
+      action: 'SUBMIT_QUOTE',
+      quoteId: selectedQuoteId,
+      serviceOfferingId: ALT_OFFERING_ID,
+      serviceOfferingVersion: '1',
+      quoteType: 'MANUAL_QUOTE',
+      commercialDecisionId: null,
+      amountKopecks: '115000',
+      currency: 'RUB',
+      payerMode: 'BUYER',
+      termsHash: serviceMarketplaceDigest({ provider: 'selected' }),
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    });
+    expect((await marketplace.listSelectableQuotes(requester, requestId)).items.map((quote) => quote.id))
+      .toEqual([selectedQuoteId, losing.quoteId]);
+    await marketplace.execute(requester, {
+      ...base(requestId, 'SELECT_PROVIDER', '3', 'select-alternate-provider'),
+      action: 'SELECT_PROVIDER',
+      quoteId: selectedQuoteId,
+    });
+    await expect(marketplace.execute(provider, losing)).resolves.toMatchObject({
+      requestId,
+      status: 'QUOTED',
+      stateVersion: '2',
+      quoteId: losing.quoteId,
+      replayed: true,
+    });
   });
 
   it('rolls back request, audit and event when outbox evidence is absent', async () => {
