@@ -52,9 +52,10 @@ describe('platform-v7 visible public entry', () => {
     expect(story).toContain("journey: '7 шагов'");
   });
 
-  it('uses service navigation and an accessible support dialog', () => {
+  it('uses service navigation and an accessible support dialog without post-render contact layout mutation', () => {
     const home = homeSource();
     const header = publicHeader();
+    const contact = contactHeader();
     const widget = support();
 
     expect(home).toContain('nav={nav}');
@@ -64,6 +65,10 @@ describe('platform-v7 visible public entry', () => {
     expect(widget).toContain("aria-modal='true'");
     expect(widget).toContain("event.key === 'Escape'");
     expect(widget).toContain('triggerRef.current?.focus()');
+    expect(contact).toContain('PublicSiteHeader');
+    expect(contact).not.toContain('useEffect');
+    expect(contact).not.toContain('getBoundingClientRect');
+    expect(contact).toContain('padding-top:78px!important');
     expect(css()).toContain('right: max(14px');
     expect(css()).not.toContain('right: -5px');
   });
