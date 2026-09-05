@@ -55,6 +55,20 @@ describe('platform-v7 Gekta and nine-role public value scenario', () => {
     expect(aiExperience).toContain('Неподключённый источник не показывается подключённым');
   });
 
+  it('makes the Gekta role selector keyboard complete and panel-linked', () => {
+    expect(aiExperience).toContain("aria-orientation='horizontal'");
+    expect(aiExperience).toContain('tabIndex={role === key ? 0 : -1}');
+    expect(aiExperience).toContain('aria-labelledby={`pc-ai-role-tab-${role}`}');
+    expect(aiExperience).toContain("id={`pc-ai-role-tab-${key}`}");
+    for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End']) {
+      expect(aiExperience).toContain(`case '${key}':`);
+    }
+    expect(aiExperience).toContain("querySelectorAll<HTMLButtonElement>('[role=\"tab\"]')");
+    expect(aiExperience).toContain('event.preventDefault()');
+    expect(aiExperience).toContain("activateRole(nextRole, 'keyboard')");
+    expect(aiExperience).toContain('tabs?.[nextIndex]?.focus()');
+  });
+
   it('avoids unverified scale, partner and connectivity claims', () => {
     const combined = `${home}\n${roleScenario}\n${storyCopy}\n${aiExperience}`.toLowerCase();
     for (const phrase of [
