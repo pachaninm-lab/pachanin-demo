@@ -11,8 +11,6 @@ const implementationBranches = [
   'docs/pc-crop-post-registration-progress-4997',
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
-  'governance/role-eligibility-fns-egrul-file-import-5016',
-  'feat/role-eligibility-fns-egrul-file-import-5016',
 ];
 const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
@@ -200,11 +198,16 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     'pull_request_target:',
     'group: platform-v7-autopilot-guard-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}',
     'name: PC-CROP implementation immutable scope · trusted base',
+    'name: FNS EGRUL immutable scope · trusted base',
     "github.event.pull_request.head.ref == 'fix/p0-registration-authority-rollover-4637'",
     "github.event.pull_request.head.ref == 'fix/p0-owner-control-plane-audit-lock-4698'",
     "github.event.pull_request.head.ref == 'docs/pc-crop-post-registration-progress-4997'",
     "github.event.pull_request.head.ref == 'governance/role-eligibility-fns-egrul-file-import-5016'",
     "github.event.pull_request.head.ref == 'feat/role-eligibility-fns-egrul-file-import-5016'",
+    "const manifestPath = 'docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json';",
+    "'apps/api/src/fns-egrul-import.ts'",
+    "'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts'",
+    "'docs/security/cryptographic-inventory.json'",
     'run: node docs/platform-v7/crop-platform/post-registration/verify-w0.mjs',
     'HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}',
     'if [ "$HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then',
