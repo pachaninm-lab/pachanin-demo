@@ -1,6 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
 import { MockGpsAdapter, GeoPoint, Geofence, GeofenceEvent } from '../../../../../packages/integration-sdk/src/adapters/gps.adapter';
+import {
+  AVG_SPEED_MIN_KMH,
+  TARIFF_RATE_KOPECKS_PER_TON_KM,
+  VAT_RATE,
+  type VehicleType,
+} from './route-planner.contract';
 
 interface Waypoint {
   lat: number;
@@ -92,20 +98,38 @@ export class RoutePlannerService {
     const a = Math.sin(dLat / 2) ** 2 +
       Math.cos(fromPoint.lat * Math.PI / 180) * Math.cos(toPoint.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
     const distanceKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    // Скорость ниже единицы давала Infinity в часах и RangeError на
+    // toISOString, то есть 500; отрицательная — время прибытия во вчерашнем
+    // дне без единой ошибки. Отказ честнее обоих исходов.
+    if (!Number.isFinite(avgSpeedKmh) || avgSpeedKmh < AVG_SPEED_MIN_KMH) {
+      throw new BadRequestException('ETA_AVERAGE_SPEED_INVALID');
+    }
     const etaHours = distanceKm / avgSpeedKmh;
+    if (!Number.isFinite(distanceKm) || !Number.isFinite(etaHours)) {
+      throw new BadRequestException('ETA_COORDINATES_INVALID');
+    }
     const etaAt = new Date(Date.now() + etaHours * 3600 * 1000).toISOString();
     return { distanceKm: Math.round(distanceKm), etaHours: Math.round(etaHours * 10) / 10, etaAt };
   }
 
-  estimateLogisticsTariff(distanceKm: number, weightTons: number, vehicleType: 'truck' | 'rail' | 'vessel' = 'truck'): {
+  estimateLogisticsTariff(distanceKm: number, weightTons: number, vehicleType: VehicleType = 'truck'): {
     baseTariffKopecks: number;
     totalKopecks: number;
     ratePerTonKmKopecks: number;
   } {
-    const rates: Record<string, number> = { truck: 350, rail: 180, vessel: 90 };
-    const ratePerTonKmKopecks = rates[vehicleType];
+    // Ставки живут в route-planner.contract.ts по одному разу. Неизвестный тип
+    // давал undefined и NaN на всю сумму — в JSON это уезжало как null, то
+    // есть тариф без цифры. Отрицательное расстояние давало отрицательный
+    // тариф, то есть счёт в пользу плательщика.
+    const ratePerTonKmKopecks = TARIFF_RATE_KOPECKS_PER_TON_KM[vehicleType];
+    if (ratePerTonKmKopecks === undefined) {
+      throw new BadRequestException('TARIFF_VEHICLE_TYPE_UNKNOWN');
+    }
+    if (!Number.isFinite(distanceKm) || !Number.isFinite(weightTons) || distanceKm < 0 || weightTons < 0) {
+      throw new BadRequestException('TARIFF_MEASURES_INVALID');
+    }
     const baseTariffKopecks = Math.round(distanceKm * weightTons * ratePerTonKmKopecks);
-    const vatKopecks = Math.round(baseTariffKopecks * 0.2);
+    const vatKopecks = Math.round(baseTariffKopecks * VAT_RATE);
     return { baseTariffKopecks, totalKopecks: baseTariffKopecks + vatKopecks, ratePerTonKmKopecks };
   }
 }
