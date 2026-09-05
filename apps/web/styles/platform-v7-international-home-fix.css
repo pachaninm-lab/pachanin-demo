@@ -2,16 +2,37 @@
  * Compatibility stylesheet for the tsconfig-routed international homepage wrapper.
  * The wrapper is intentionally transparent: this file must not create sections,
  * replace copy, or hide canonical homepage content. It only retains terminal
- * mobile/footer spacing that is still shared by the live public shell.
+ * mobile/footer spacing and seven-step responsive rail behavior shared by the
+ * live public shell.
  */
 
 .pc-v7-public-entry .pc-v6-footer {
   padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
+.pc-v7-public-entry .pc-public-deal-stage-rail {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
 @media (max-width: 767px) {
   .pc-v7-public-entry .pc-v6-footer {
     padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .pc-v7-public-entry .pc-public-deal-stage-rail--hero small {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .pc-v7-public-entry .pc-public-deal-stage-rail--demo {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .pc-public-contact-dock[data-assistant-context='public'] {
