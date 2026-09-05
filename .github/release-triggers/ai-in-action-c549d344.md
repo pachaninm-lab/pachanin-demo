@@ -4,3 +4,4 @@
 - Public route: `/platform-v7/ai-in-action`
 - Scope: mobile density, footer whitespace, compact controls and boundaries
 - Acceptance: exact `linux/amd64` image, exact live manifest SHA, canonical route authority and current Russian hero copy.
+- Trigger: `2026-07-20T15:52Z`
