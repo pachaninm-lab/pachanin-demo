@@ -75,6 +75,14 @@ describe('platform-v7 public homepage entry', () => {
     expect(productStory).toContain("processTitle: 'Семь шагов обычной агросделки'");
   });
 
+  it('shows acceptance and quality as the current hero step instead of a falsely completed Deal', () => {
+    expect(component).toContain('const heroCurrentStepIndex = Math.min(4, story.demo.stages.length - 1);');
+    expect(component).toContain('aria-valuenow={heroCurrentStepIndex + 1}');
+    expect(component).toContain('stageIndex < heroCurrentStepIndex ? styles.progressDone');
+    expect(component).toContain('stageIndex === heroCurrentStepIndex ? styles.progressActive');
+    expect(component).not.toContain('aria-valuenow={story.demo.stages.length}');
+  });
+
   it('retains critical layout, structured data and accessibility authority', () => {
     expect(page).toContain('CRITICAL_HOME_CSS');
     expect(page).toContain('--entry-public-header-offset');
