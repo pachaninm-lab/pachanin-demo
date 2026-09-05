@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-org-governance-authority-4997",
+  "status": "staged",
+  "purpose": "W10-B: add server-backed platform entitlements, post-registration organization lifecycle and marketplace moderation registries while reusing existing membership/security controls and never modifying registration or Role Eligibility.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [52, 53, 54],
+  "terminalCriteria": ["ENTITLEMENTS=PASS", "ORGANIZATION_LIFECYCLE=PASS", "MODERATION=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/platform-entitlements.ts",
+    "packages/domain-core/src/platform-entitlements.test.ts",
+    "packages/domain-core/src/organization-lifecycle.ts",
+    "packages/domain-core/src/organization-lifecycle.test.ts",
+    "packages/domain-core/src/marketplace-moderation.ts",
+    "packages/domain-core/src/marketplace-moderation.test.ts",
+    "apps/api/prisma/migrations/20260906130000_org_governance_authority/migration.sql",
+    "apps/api/src/modules/org-governance/org-governance.contract.ts",
+    "apps/api/src/modules/org-governance/org-governance.contract.spec.ts",
+    "apps/api/src/modules/org-governance/org-governance.repository.ts",
+    "apps/api/src/modules/org-governance/org-governance.repository.spec.ts",
+    "apps/api/src/modules/org-governance/org-governance.policy.ts",
+    "apps/api/src/modules/org-governance/org-governance.policy.spec.ts",
+    "apps/api/test/industrial/org-governance-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-org-governance-scope.test.mjs",
+    ".github/workflows/pc-crop-org-governance.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {"path":"apps/api/src/modules/auth/**","reason":"Registration, membership creation/role assignment and Role Eligibility remain invariant. W10-B reads existing organization/member state but does not modify those authorities."},
+    {"path":"apps/web/app/platform-v7/profile/team/**","reason":"Current team UI is source evidence; role UX wiring is later and cannot drive lifecycle authority."},
+    {"path":"apps/api/src/modules/service-providers/**","reason":"Provider registry/maturity remains independent. Moderation can reference provider/listing facts but cannot rewrite provider verification."},
+    {"path":"apps/api/src/app.module.ts","reason":"First governance authority can remain unmounted or use separately bounded wiring."}
+  ],
+  "sourceEvidence": [
+    "apps/web/app/platform-v7/profile/team",
+    "apps/api/src/modules/organization-capabilities/organization-capability.repository.ts",
+    "apps/api/src/modules/service-providers/provider-registry.repository.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Platform entitlement is a separate access/commercial entitlement axis and never replaces membership role, job profile, organization capability, Role Eligibility or domain permission checks.",
+    "Entitlement definitions are versioned/effective-dated and may govern plan/module limits, feature availability or quotas only where domain policy explicitly declares an entitlement dependency. Missing entitlement fails closed for that feature but cannot revoke unrelated legal/role authority.",
+    "Post-registration organization lifecycle uses explicit states/transitions such as ACTIVE, RESTRICTED, SUSPENDED, CLOSING, ARCHIVED where policy permits. Registration-created identity facts are not edited to simulate lifecycle changes.",
+    "Suspension/restriction reasons, scope, effective time, evidence, actor and appeal/review references are immutable/versioned. Historical transactions remain readable/auditable under policy even when new actions are blocked.",
+    "Organization closure/archive cannot physically delete canonical Deals, documents, ledger, evidence or audit history and must obey retention/legal-hold rules.",
+    "Marketplace moderation applies to listings/offers/provider/service/public content as a separate moderation decision. Hidden/blocked content status is not proof the underlying commodity/provider/organization is illegal, fraudulent or unverified.",
+    "Moderation decisions are versioned, reason-coded, evidence-linked, appealable where policy allows and cannot silently rewrite listing/provider source facts.",
+    "Staff/control-plane moderation and organization restriction require explicit staff authority, recent MFA where high risk, exact scope and immutable audit/outbox receipt; ordinary organization users cannot self-grant staff entitlement.",
+    "Two-person approval may be required for platform-wide or irreversible high-risk governance actions according to a pinned policy; same user/membership cannot satisfy both approvals.",
+    "Current actor/member/org/staff authority is revalidated before mutation/replay; revoked authority cannot replay an old governance receipt as current authorization.",
+    "Tenant isolation applies to organization-private lifecycle/entitlement records; platform-wide staff views use a distinct control-plane authority, never a browser-selected tenant override.",
+    "No governance action creates external provider success, financial settlement, signature, KYC/AML verification or regulatory finality; it only gates platform behavior within its explicit policy scope.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, canonical domain records, external credentials and REG.RU topology remain unchanged."
+  ],
+  "acceptance": [
+    "Restricted PostgreSQL tests prove versioned entitlement assignment/effective evaluation without altering membership role/job profile/capability authority.",
+    "Organization lifecycle tests prove scoped restriction/suspension/archive, immutable history, action gating and continued historical read/audit retention.",
+    "Moderation tests prove listing/content/provider-reference decisions are reason/evidence/version bound and cannot mutate underlying source verification facts.",
+    "High-risk staff governance tests cover recent MFA, two-person distinct approver rules, stale/revoked staff authority and replay/conflict cases.",
+    "Cross-tenant organization access and browser-selected staff/tenant scope fail closed.",
+    "Audit/outbox/event failure rolls back governance mutation and no partial restriction/entitlement/moderation receipt remains.",
+    "Registration/Role Eligibility regression proves zero code/behavior change to those contours.",
+    "Exact-head CI/review plus REG.RU staff/organization lifecycle acceptance remain required before terminal governance credit."
+  ],
+  "remainingTerminalBoundary": [
+    "Privacy/data-subject/processor governance from section 55 remains a separate W10-C slice.",
+    "Settings W8-C and role activation W8-A consume entitlements/lifecycle after both authorities are accepted.",
+    "Commercial plan/billing model must define entitlement products without turning entitlements into money ledger authority.",
+    "Real organization/staff human acceptance and legal retention review remain mandatory."
+  ],
+  "terminalCredit": 0
+}
