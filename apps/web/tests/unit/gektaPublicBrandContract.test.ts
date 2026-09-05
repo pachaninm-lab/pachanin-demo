@@ -32,7 +32,7 @@ describe('Gekta public brand contract', () => {
     expect(sources.contactDock).toContain("assistant: 'Гекта'");
     expect(sources.contactDock).toContain("assistantAria: 'Открыть Гекту'");
     expect(sources.dealJourney).toContain("askTai: 'Спросить Гекту об этом этапе'");
-    expect(sources.hero).toContain('Гекта сопоставляет факты');
+    expect(sources.hero).toContain('Гекта сопоставляет доступные факты');
     expect(sources.homeStory).toContain("label: 'Гекта'");
     expect(sources.homeStory).toContain("title: 'Контроль и Гекта'");
     expect(sources.productPassport).toContain("title: 'Гекта объясняет состояние Сделки и следующий шаг по доступным основаниям'");
@@ -46,8 +46,8 @@ describe('Gekta public brand contract', () => {
     expect(sources.contactDock).toContain("assistantAria: 'Open Gekta'");
     expect(sources.dealJourney).toContain("askTai: 'Ask Gekta about this stage'");
     expect(sources.dealJourney).toContain("askTai: '向 Gekta 询问当前阶段'");
-    expect(sources.hero).toContain('Gekta matches facts');
-    expect(sources.hero).toContain('Gekta 对照事实');
+    expect(sources.hero).toContain('Gekta compares available facts');
+    expect(sources.hero).toContain('Gekta 对照可用事实');
     expect(sources.productPassport).toContain('Gekta explains Deal state and the next step from available evidence');
     expect(sources.productPassport).toContain('Gekta 根据可用依据解释交易状态和下一步');
   });
