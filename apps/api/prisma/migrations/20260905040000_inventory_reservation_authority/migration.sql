@@ -196,6 +196,19 @@ GRANT UPDATE (updated_at) ON auction.lots TO pc_inventory_authority;
 GRANT SELECT, INSERT ON public.audit_events TO pc_inventory_authority;
 GRANT INSERT ON public.outbox_entries TO pc_inventory_authority;
 
+-- PostgreSQL plans all applicable TO PUBLIC outbox policies before their
+-- principal predicates can reject this owner. Grant only the event columns
+-- referenced by the four existing W1 policies. Their FORCE RLS remains active;
+-- the memberless owner gains no event mutation or application-facing read API.
+GRANT SELECT ("action", "actorRole", "actorUserId", "aggregateVersion", "assignmentId", "auditEventId", "commandId", "correlationId", "organizationId", "outboxEntryId", "requestFingerprint", "tenantId", "toStatus")
+  ON public.organization_capability_events TO pc_inventory_authority;
+GRANT SELECT ("action", "actorRole", "actorUserId", "aggregateVersion", "auditEventId", "category", "commandId", "correlationId", "entityId", "entityType", "organizationId", "outboxEntryId", "providerId", "requestFingerprint", "resultStatus", "tenantId")
+  ON public.provider_registry_events TO pc_inventory_authority;
+GRANT SELECT ("action", "actorRole", "actorUserId", "aggregateVersion", "auditEventId", "commandId", "correlationId", "integrationBindingId", "organizationId", "outboxEntryId", "requestFingerprint", "resultStatus", "tenantId")
+  ON public.integration_binding_events TO pc_inventory_authority;
+GRANT SELECT ("action", "actorRole", "actorUserId", "aggregateId", "aggregateType", "aggregateVersion", "auditEventId", "commandId", "correlationId", "organizationId", "outboxEntryId", "requestFingerprint", "resultStatus", "tenantId")
+  ON public.commercial_rule_events TO pc_inventory_authority;
+
 -- The existing outbox producer policies admit named Deal/application roles,
 -- not this memberless command owner. Bind its one event shape to the snapshot
 -- and audit already inserted by the same transaction; no runtime DML is added.
