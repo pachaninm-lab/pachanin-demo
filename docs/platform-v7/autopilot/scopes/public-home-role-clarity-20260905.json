@@ -4,7 +4,7 @@
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-05-public-home-and-linked-pages",
   "purpose": "Improve the public homepage and its linked explanatory pages so visitors understand the product, their role-specific value, the ordinary deal journey, trust boundaries and the existing registration next step.",
-  "authorityBaseExactMain": "2c319d762c57cf63b360b4e11aa376e550725217",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
   "effectiveAfter": "The independent governance PR adding this manifest is reviewed and merged to main. The implementation must use that accepted base manifest and must not create or widen its own scope.",
   "allowedPaths": [
     ".github/workflows/public-entry-clarity.yml",
