@@ -134,7 +134,7 @@ describeAuthority('Inventory PostgreSQL authority at READ COMMITTED', () => {
     const command = reserve(`failed-${kind}`, position, '1', '10');
     await admin.$executeRawUnsafe(`CREATE FUNCTION inventory.acceptance_force_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'inventory acceptance forced failure'; END $$`);
     await admin.$executeRawUnsafe(`CREATE TRIGGER inventory_acceptance_failure BEFORE INSERT ON ${table} FOR EACH ROW EXECUTE FUNCTION inventory.acceptance_force_failure()`);
-    try { await expect(inventory.execute(actor, command)).rejects.toBeDefined(); }
+    try { await expect(inventory.execute(actor, command)).rejects.toThrow('inventory acceptance forced failure'); }
     finally {
       await admin.$executeRawUnsafe(`DROP TRIGGER inventory_acceptance_failure ON ${table}`);
       await admin.$executeRawUnsafe('DROP FUNCTION inventory.acceptance_force_failure()');
@@ -154,12 +154,14 @@ describeAuthority('Inventory PostgreSQL authority at READ COMMITTED', () => {
     const position = (await inventory.execute(actor, declaration('deferred'))).position.positionId;
     await admin.$executeRawUnsafe("CREATE FUNCTION inventory.acceptance_deferred_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'inventory deferred evidence failure'; END $$");
     await admin.$executeRawUnsafe('CREATE CONSTRAINT TRIGGER inventory_acceptance_deferred AFTER INSERT ON inventory.command_events DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION inventory.acceptance_deferred_failure()');
-    try { await expect(inventory.execute(actor, reserve('deferred-failure', position, '1', '10'))).rejects.toBeDefined(); }
+    const command = reserve('deferred-failure', position, '1', '10');
+    try { await expect(inventory.execute(actor, command)).rejects.toThrow('inventory deferred evidence failure'); }
     finally {
       await admin.$executeRawUnsafe('DROP TRIGGER inventory_acceptance_deferred ON inventory.command_events');
       await admin.$executeRawUnsafe('DROP FUNCTION inventory.acceptance_deferred_failure()');
     }
     expect((await stored(position))[0]).toMatchObject({ state_version: 1n, reserved_quantity: 0n });
+    expect((await inventory.execute(actor, command)).position.stateVersion).toBe('2');
   });
 
   it('rechecks current membership before replay and never trusts a revoked admin claim', async () => {

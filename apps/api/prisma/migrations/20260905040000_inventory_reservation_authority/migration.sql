@@ -187,12 +187,18 @@ CREATE TRIGGER inventory_policy_no_truncate BEFORE TRUNCATE ON inventory.availab
 FOR EACH STATEMENT EXECUTE FUNCTION inventory.private_write_guard();
 ALTER TABLE inventory.availability_policies OWNER TO pc_inventory_authority;
 
--- Column UPDATE grants permit row locks only; no identity-writing function or
--- UPDATE policy is added. Locks serialize membership/organization revocation.
+-- Column UPDATE grants permit row locks. No identity-writing function is
+-- exposed. Locks serialize membership/organization revocation.
 GRANT SELECT ON public.users, public.user_orgs, public.organizations, public.commodity_profile_versions, auction.lots TO pc_inventory_authority;
 GRANT UPDATE (version) ON public.user_orgs TO pc_inventory_authority;
 GRANT UPDATE ("updatedAt") ON public.users, public.organizations, public.commodity_profile_versions TO pc_inventory_authority;
 GRANT UPDATE (updated_at) ON auction.lots TO pc_inventory_authority;
+-- FOR SHARE additionally needs an UPDATE USING policy on these read-only
+-- Auction tables. WITH CHECK false permits the lock but rejects a row update.
+CREATE POLICY inventory_lot_lock ON auction.lots FOR UPDATE TO pc_inventory_authority
+USING (tenant_id = public.app_identity_tenant_id() AND seller_org_id = public.app_identity_org_id()
+  AND public.app_pc_crop_membership_id() IS NOT NULL)
+WITH CHECK (false);
 GRANT SELECT, INSERT ON public.audit_events TO pc_inventory_authority;
 GRANT INSERT ON public.outbox_entries TO pc_inventory_authority;
 
