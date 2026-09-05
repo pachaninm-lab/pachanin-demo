@@ -56,9 +56,10 @@ test('homepage exposes exactly nine public role perspectives without changing UR
     await expect(roles.getByRole('tab', { name: label })).toBeVisible();
   }
 
+  await expect(roles).toContainText('реальные полномочия определяются системой после регистрации и проверки организации');
   const before = page.url();
   await roles.getByRole('tab', { name: 'Сотрудник платформы' }).click();
-  await expect(roles.getByRole('tabpanel')).toContainText('реальные полномочия');
+  await expect(roles.getByRole('tabpanel')).toContainText('Оператор / контроль платформы');
   expect(page.url()).toBe(before);
 });
 
@@ -157,7 +158,7 @@ test('how-it-works leads with the ordinary journey while retaining fictional-dat
 
 test('detailed explorer preserves ten internal stages and browser history without exposing extra public roles', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
-  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance&lens=participants&view=detail', { waitUntil: 'load' });
+  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance&lens=participants&view=detail&intent=buy', { waitUntil: 'load' });
 
   const stageTrack = page.locator('.pc-ppe-stage-track');
   await expect(stageTrack).toBeVisible();
@@ -178,7 +179,7 @@ test('detailed explorer preserves ten internal stages and browser history withou
 test('reduced motion pauses guided autoplay rather than advancing automatically', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 390, height: 900 });
-  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance&lens=execution', { waitUntil: 'load' });
+  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance&lens=execution&intent=buy', { waitUntil: 'load' });
 
   await page.getByRole('button', { name: 'Начать быстрый показ' }).click();
   await expect(page).toHaveURL(/stage=terms/);
