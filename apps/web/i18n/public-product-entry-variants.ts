@@ -34,20 +34,15 @@ export type PublicProductEntryVariantsCopy = {
 
 const copy: Record<AppLocale, PublicProductEntryVariantsCopy> = {
   ru: {
-    experimentBadge: 'Выберите удобный взгляд на Сделку',
+    experimentBadge: 'Быстрый вход в пример Сделки',
     role: {
-      title: 'Кто вы в сделке?',
-      lead: 'Выберите свою роль. Это только публичная перспектива: она не назначает права и не открывает рабочий кабинет.',
+      title: 'С чего вы хотите начать?',
+      lead: 'Это четыре быстрых маршрута по задаче, а не список ролей и не назначение прав. Все девять публичных ролей доступны внутри Сделки.',
       options: [
-        { id: 'seller', label: 'Продавец', description: 'Лот, условия, отгрузка, документы и готовность расчёта.', perspective: 'seller', lens: 'participants' },
-        { id: 'buyer', label: 'Покупатель', description: 'Предложения, условия, приёмка, качество и основание оплаты.', perspective: 'buyer', lens: 'participants' },
-        { id: 'logistics', label: 'Логистика', description: 'Перевозчик, рейс, маршрут, сроки и подтверждение доставки.', perspective: 'logistics', lens: 'execution' },
-        { id: 'driver', label: 'Водитель', description: 'Назначенный рейс, маршрут, документы и следующий шаг.', perspective: 'driver', lens: 'execution' },
-        { id: 'storage', label: 'Элеватор / хранение', description: 'Приёмка, вес, размещение и статус партии.', perspective: 'elevator', lens: 'execution' },
-        { id: 'laboratory', label: 'Лаборатория', description: 'Проба, методика, результат и протокол качества.', perspective: 'lab', lens: 'documents' },
-        { id: 'surveyor', label: 'Сюрвейер', description: 'Независимая проверка количества, качества и доказательств.', perspective: 'surveyor', lens: 'risk' },
-        { id: 'bank', label: 'Банк / финансы', description: 'Подтверждённые расчётные основания и финансовые блокеры.', perspective: 'bank', lens: 'money' },
-        { id: 'employee', label: 'Сотрудник платформы', description: 'Операционные задачи, контроль, сроки, доказательства и эскалации в пределах реальных полномочий.', perspective: 'operator', lens: 'execution' },
+        { id: 'sell', label: 'Я продаю', description: 'Товар, условия, поставка, документы и готовность расчёта.', perspective: 'seller', lens: 'participants' },
+        { id: 'buy', label: 'Я покупаю', description: 'Предложения, условия, приёмка, качество и основание оплаты.', perspective: 'buyer', lens: 'participants' },
+        { id: 'execute', label: 'Я обеспечиваю исполнение', description: 'Логистика, приёмка, качество, сроки и операционные блокеры.', perspective: 'operator', lens: 'execution' },
+        { id: 'control', label: 'Я контролирую деньги и риски', description: 'Расчётные основания, отклонения, доказательства и финансовые блокеры.', perspective: 'bank', lens: 'money' },
       ],
     },
     problem: {
@@ -64,20 +59,15 @@ const copy: Record<AppLocale, PublicProductEntryVariantsCopy> = {
     back: 'Вернуться к главной',
   },
   en: {
-    experimentBadge: 'Choose the most useful view of the Deal',
+    experimentBadge: 'Quick entry to the example Deal',
     role: {
-      title: 'Who are you in the Deal?',
-      lead: 'Choose your role. This is only a public perspective: it never assigns permissions or opens a workspace.',
+      title: 'Where do you want to start?',
+      lead: 'These are four task shortcuts, not a role list and not permission assignment. All nine public roles remain available inside the Deal.',
       options: [
-        { id: 'seller', label: 'Seller', description: 'Lot, terms, dispatch, documents and settlement readiness.', perspective: 'seller', lens: 'participants' },
-        { id: 'buyer', label: 'Buyer', description: 'Offers, terms, acceptance, quality and payment basis.', perspective: 'buyer', lens: 'participants' },
-        { id: 'logistics', label: 'Logistics', description: 'Carrier, trip, route, timing and delivery evidence.', perspective: 'logistics', lens: 'execution' },
-        { id: 'driver', label: 'Driver', description: 'Assigned trip, route, transport documents and next action.', perspective: 'driver', lens: 'execution' },
-        { id: 'storage', label: 'Elevator / storage', description: 'Acceptance, weight, placement and lot status.', perspective: 'elevator', lens: 'execution' },
-        { id: 'laboratory', label: 'Laboratory', description: 'Sample, method, result and quality protocol.', perspective: 'lab', lens: 'documents' },
-        { id: 'surveyor', label: 'Surveyor', description: 'Independent quantity, quality and evidence verification.', perspective: 'surveyor', lens: 'risk' },
-        { id: 'bank', label: 'Bank / finance', description: 'Verified settlement grounds and financial blockers.', perspective: 'bank', lens: 'money' },
-        { id: 'employee', label: 'Platform employee', description: 'Operational work, control, deadlines, evidence and escalation within real authority.', perspective: 'operator', lens: 'execution' },
+        { id: 'sell', label: 'I sell', description: 'Product, terms, delivery, documents and settlement readiness.', perspective: 'seller', lens: 'participants' },
+        { id: 'buy', label: 'I buy', description: 'Offers, terms, acceptance, quality and payment basis.', perspective: 'buyer', lens: 'participants' },
+        { id: 'execute', label: 'I support execution', description: 'Logistics, acceptance, quality, deadlines and operational blockers.', perspective: 'operator', lens: 'execution' },
+        { id: 'control', label: 'I control money and risk', description: 'Settlement grounds, deviations, evidence and financial blockers.', perspective: 'bank', lens: 'money' },
       ],
     },
     problem: {
@@ -94,20 +84,15 @@ const copy: Record<AppLocale, PublicProductEntryVariantsCopy> = {
     back: 'Back to home',
   },
   zh: {
-    experimentBadge: '选择最适合你的交易视角',
+    experimentBadge: '快速进入交易示例',
     role: {
-      title: '你在交易中承担什么角色？',
-      lead: '请选择你的角色。这里仅改变公共视角，不会授予权限或打开工作空间。',
+      title: '你想从哪里开始？',
+      lead: '这里是四个任务快捷入口，不是角色列表，也不会授予权限。交易内部仍提供全部九个公开角色。',
       options: [
-        { id: 'seller', label: '卖方', description: '批次、条件、发运、文件和结算准备状态。', perspective: 'seller', lens: 'participants' },
-        { id: 'buyer', label: '买方', description: '报价、条件、验收、质量和付款依据。', perspective: 'buyer', lens: 'participants' },
-        { id: 'logistics', label: '物流', description: '承运方、运输任务、路线、时限和交付证明。', perspective: 'logistics', lens: 'execution' },
-        { id: 'driver', label: '司机', description: '已分配运输任务、路线、运输文件和下一步。', perspective: 'driver', lens: 'execution' },
-        { id: 'storage', label: '筒仓 / 仓储', description: '验收、重量、存放位置和批次状态。', perspective: 'elevator', lens: 'execution' },
-        { id: 'laboratory', label: '实验室', description: '样品、检测方法、结果和质量报告。', perspective: 'lab', lens: 'documents' },
-        { id: 'surveyor', label: '检验机构', description: '独立核验数量、质量和证据。', perspective: 'surveyor', lens: 'risk' },
-        { id: 'bank', label: '银行 / 金融', description: '已确认的结算依据和金融阻塞项。', perspective: 'bank', lens: 'money' },
-        { id: 'employee', label: '平台员工', description: '在真实权限范围内处理运营、控制、期限、证据和升级。', perspective: 'operator', lens: 'execution' },
+        { id: 'sell', label: '我要出售', description: '商品、条件、交付、文件和结算准备状态。', perspective: 'seller', lens: 'participants' },
+        { id: 'buy', label: '我要购买', description: '报价、条件、验收、质量和付款依据。', perspective: 'buyer', lens: 'participants' },
+        { id: 'execute', label: '我负责履约支持', description: '物流、验收、质量、期限和运营阻塞项。', perspective: 'operator', lens: 'execution' },
+        { id: 'control', label: '我控制资金与风险', description: '结算依据、偏差、证据和金融阻塞项。', perspective: 'bank', lens: 'money' },
       ],
     },
     problem: {
