@@ -14,7 +14,8 @@ import type { InventoryCommand } from '../../src/modules/inventory/inventory.con
 import { FgisLegacyQuarantineAuditService } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit';
 
 const ADMIN_URL = String(process.env.ONE_DEAL_ADMIN_URL ?? process.env.TEST_ADMIN_DATABASE_URL ?? '');
-const APP_URL = String(process.env.ONE_DEAL_APP_URL ?? process.env.DATABASE_URL ?? '');
+const EXPLICIT_APP_URL = String(process.env.ONE_DEAL_APP_URL ?? process.env.TEST_APPLICATION_DATABASE_URL ?? '');
+const APP_URL = EXPLICIT_APP_URL || String(process.env.DATABASE_URL ?? ADMIN_URL);
 const RESTORE = process.env.AUCTION_INVENTORY_RESTORE_PROOF === '1';
 const RUN = 'auction-inventory-authority';
 const TENANT = `${RUN}-tenant`;
@@ -54,10 +55,12 @@ function registration(key: string, positionId: string, overrides: Partial<Regist
 const describeAuthority = ADMIN_URL && APP_URL ? describe : describe.skip;
 describeAuthority(RESTORE ? 'Auction inventory restored PostgreSQL authority' : 'Auction inventory PostgreSQL authority', () => {
   const admin = new PrismaService({ datasources: { db: { url: ADMIN_URL } } });
-  const app = new PrismaService({ datasources: { db: { url: APP_URL } } });
-  const rls = new RlsTransactionService(app);
-  const inventory = new InventoryRepository(rls);
-  const commands = new AuctionCommandService(rls, new FgisLegacyQuarantineAuditService(app));
+  let app: PrismaService;
+  let rls: RlsTransactionService;
+  let inventory: InventoryRepository;
+  let commands: AuctionCommandService;
+  let createdRuntimeRole: string | undefined;
+  const quoteIdentifier = (value: string) => `"${value.replaceAll('"', '""')}"`;
   const raw = async (user: RequestUser, input: RegisterAuctionLotInput | Json): Promise<Receipt> => {
     const rows = await rls.withTrustedContext(user, async (tx) => {
       const result = await tx.$queryRaw<Array<{ result: Receipt }>>(Prisma.sql`
@@ -112,6 +115,11 @@ describeAuthority(RESTORE ? 'Auction inventory restored PostgreSQL authority' : 
     expect(rows[0]!.auction_audit_lot).toBe(rows[0]!.auction_outbox_lot);
   };
   const confinement = async () => {
+    const runtime = await app.$queryRaw<Array<Json>>(Prisma.sql`SELECT r.rolsuper,r.rolbypassrls,r.rolcreatedb,r.rolcreaterole,
+      (SELECT count(*)::text FROM pg_auth_members WHERE member=r.oid OR roleid=r.oid) AS memberships,
+      (SELECT count(*)::text FROM pg_class WHERE relowner=r.oid AND relnamespace IN ('auction'::regnamespace,'inventory'::regnamespace)) AS owned_tables
+      FROM pg_roles r WHERE r.rolname=current_user`);
+    expect(runtime).toEqual([{ rolsuper: false, rolbypassrls: false, rolcreatedb: false, rolcreaterole: false, memberships: '0', owned_tables: '0' }]);
     const proof = await app.$queryRaw<Array<Json>>(Prisma.sql`SELECT
       p.prosecdef,pg_get_userbyid(p.proowner) AS owner,
       r.rolcanlogin,r.rolsuper,r.rolbypassrls,r.rolinherit,r.rolcreatedb,r.rolcreaterole,
@@ -129,7 +137,31 @@ describeAuthority(RESTORE ? 'Auction inventory restored PostgreSQL authority' : 
   };
 
   beforeAll(async () => {
-    await Promise.all([admin.$connect(), app.$connect()]);
+    await admin.$connect();
+    let runtimeUrl = EXPLICIT_APP_URL;
+    if (!runtimeUrl) {
+      // The generic industrial runner supplies its migration administrator as
+      // DATABASE_URL. Exercise the same restricted proofs through a separate
+      // connection, without changing that runner's environment or shared roles.
+      const role = `auction_inventory_test_${randomUUID().replaceAll('-', '')}`;
+      const password = randomUUID().replaceAll('-', '');
+      await admin.$executeRawUnsafe(`CREATE ROLE ${quoteIdentifier(role)} LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '${password}'`);
+      createdRuntimeRole = role;
+      const database = (await admin.$queryRaw<Array<{ name: string }>>(Prisma.sql`SELECT current_database() AS name`))[0]!.name;
+      await admin.$executeRawUnsafe(`GRANT CONNECT ON DATABASE ${quoteIdentifier(database)} TO ${quoteIdentifier(role)}`);
+      await admin.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public,auction,inventory TO ${quoteIdentifier(role)}`);
+      await admin.$executeRawUnsafe(`GRANT SELECT ON ALL TABLES IN SCHEMA auction,inventory TO ${quoteIdentifier(role)}`);
+      await admin.$executeRawUnsafe(`GRANT EXECUTE ON FUNCTION auction.register_inventory_lot(jsonb),inventory.execute_command(jsonb),inventory.position_view(inventory.positions) TO ${quoteIdentifier(role)}`);
+      const url = new URL(ADMIN_URL);
+      url.username = role;
+      url.password = password;
+      runtimeUrl = url.toString();
+    }
+    app = new PrismaService({ datasources: { db: { url: runtimeUrl } } });
+    await app.$connect();
+    rls = new RlsTransactionService(app);
+    inventory = new InventoryRepository(rls);
+    commands = new AuctionCommandService(rls, new FgisLegacyQuarantineAuditService(app));
     if (RESTORE) return;
     await admin.organization.createMany({ data: actors.filter((_user, index) => index !== 3).map((user, index) => ({
       id: user.orgId!, tenantId: user.tenantId!, inn: `980000010${index}`, name: `Auction inventory ${index}`,
@@ -140,7 +172,25 @@ describeAuthority(RESTORE ? 'Auction inventory restored PostgreSQL authority' : 
     await seedProfile(admin, PROFILE_VERSION);
   });
   // Keep the committed corpus for pg_dump/pg_restore; no authority trigger is disabled.
-  afterAll(async () => { await Promise.allSettled([app.$disconnect(), admin.$disconnect()]); });
+  afterAll(async () => {
+    try { await app?.$disconnect(); }
+    finally {
+      try {
+        if (createdRuntimeRole) {
+          const owned = await admin.$queryRaw<Array<{ objects: string }>>(Prisma.sql`SELECT (
+            (SELECT count(*) FROM pg_class WHERE relowner=${createdRuntimeRole}::regrole)
+            +(SELECT count(*) FROM pg_proc WHERE proowner=${createdRuntimeRole}::regrole)
+            +(SELECT count(*) FROM pg_namespace WHERE nspowner=${createdRuntimeRole}::regrole)
+          )::text AS objects`);
+          expect(owned).toEqual([{ objects: '0' }]);
+          // Only the uniquely created disposable role is removed. It owns no
+          // objects, so DROP OWNED restores its temporary grants exclusively.
+          await admin.$executeRawUnsafe(`DROP OWNED BY ${quoteIdentifier(createdRuntimeRole)}`);
+          await admin.$executeRawUnsafe(`DROP ROLE ${quoteIdentifier(createdRuntimeRole)}`);
+        }
+      } finally { await admin.$disconnect(); }
+    }
+  });
 
   if (RESTORE) {
     it('restores confined binding authority with durable replay and held stock', async () => {
