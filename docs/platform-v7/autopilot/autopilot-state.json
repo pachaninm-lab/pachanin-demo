@@ -200,11 +200,35 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "feat/pc-crop-auction-inventory-authority-4997": [
+      "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
+      "apps/api/src/modules/auctions/auction-command.service.ts",
+      "apps/api/src/modules/auctions/auction-authority.service.ts",
+      "apps/api/src/modules/auctions/auctions.controller.ts",
+      "apps/api/src/modules/auctions/auction-command.service.spec.ts",
+      "apps/api/src/modules/auctions/auction-postgresql-authority.spec.ts",
+      "apps/api/src/modules/auctions/auction-fgis-self-verification.spec.ts",
+      "apps/api/src/modules/auctions/dto/auction-inventory.dto.ts",
+      "apps/api/src/modules/auctions/auction-inventory.contract.ts",
+      "apps/api/src/modules/auctions/auction-inventory.contract.spec.ts",
+      "apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts",
+      "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+      "apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts",
+      "scripts/verify-pc-crop-auction-inventory-scope.test.mjs",
+      ".github/workflows/auction-atomic-acceptance.yml",
+      "scripts/auction-atomic-acceptance.mjs",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
       ".github/workflows/platform-v7-autopilot-guard.yml"
+    ],
+    "governance/role-eligibility-fns-egrul-file-import-5016": [
+      "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json"
     ],
     "docs/pc-crop-post-registration-progress-4997": [
       "docs/platform-v7/crop-platform/post-registration/README.md",
