@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-commercial-rules-authority-4997",
+  "status": "active",
+  "purpose": "Establish tenant-scoped, versioned CommercialRuleSet and RulePack authority with deterministic pricing and payer decisions that retain immutable rule references.",
+  "authorityBaseExactMain": "21894df096216be0b18fe61856b94f5089e92e0b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-commercial-rules-authority-4997.json",
+    "packages/domain-core/src/index.ts",
+    "packages/domain-core/src/commercial-rules.ts",
+    "packages/domain-core/src/commercial-rules.test.ts",
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260905010000_commercial_rules_authority/**",
+    "apps/api/src/modules/commercial-rules/**",
+    "apps/api/src/app.module.ts",
+    "apps/api/test/industrial/commercial-rules-authority.e2e-spec.ts",
+    "scripts/platform-v7-one-deal-e2e.sh",
+    "scripts/verify-pc-crop-commercial-rules-scope.test.mjs",
+    ".github/workflows/pc-crop-commercial-rules.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "requiredInvariants": [
+    "REGISTRATION_CODE_CHANGED=0, REGISTRATION_BEHAVIOR_CHANGED=0 and ROLE_ELIGIBILITY_REGRESSION=0.",
+    "CommercialRuleSet, RulePack and decisions are PostgreSQL-authoritative and tenant-scoped.",
+    "Published rule versions and decision records are append-only and retain content hashes.",
+    "Pricing uses integer kopecks or basis points and never floating-point money.",
+    "The pricing vocabulary is FREE, SUBSCRIPTION, ACCESS_FEE, FIXED, PER_TON, PER_KM, PER_TRIP, PER_HOUR, PERCENT, SUCCESS_FEE, CAPPED_PERCENT, HYBRID and MANUAL_QUOTE.",
+    "The payer vocabulary is SELLER, BUYER, INITIATOR, DELIVERY_RESPONSIBLE, SPLIT, CONTRACT_RULE and REQUIRES_CONFIRMATION.",
+    "Every evaluation records immutable rule-set and rule-pack version references plus the exact input and output hashes.",
+    "Publishing and retiring rule versions require organization-admin authority, CAS versioning, payload-bound idempotency and chained audit/outbox events.",
+    "Rule evaluation is deterministic, fail-closed for missing facts and cannot create a financial obligation.",
+    "No accounting path, registration path, Deal Engine mutation, paid dependency, external partner access or production activation is introduced."
+  ],
+  "acceptance": [
+    "All thirteen pricing models and seven payer modes are represented by exact closed vocabularies.",
+    "Draft rules cannot be evaluated and published versions cannot be edited or deleted.",
+    "The same version and canonical input produce the same content-addressed decision.",
+    "Percent and capped-percent calculations are integer-safe and bounded.",
+    "MANUAL_QUOTE and REQUIRES_CONFIRMATION return explicit non-financial pending outcomes.",
+    "Exact command replay returns the original receipt and conflicting replay is rejected.",
+    "Concurrent publish commands produce one accepted transition and one stale-version result.",
+    "Cross-tenant and same-tenant outsider reads and writes are denied under restricted PostgreSQL principals.",
+    "A forced audit or outbox failure rolls back rule state and append-only events.",
+    "The scope guard confirms no registration, accounting or role-eligibility path changed."
+  ]
+}
