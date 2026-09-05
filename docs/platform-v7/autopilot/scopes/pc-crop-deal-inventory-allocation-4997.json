@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-deal-inventory-allocation-4997",
+  "status": "active",
+  "purpose": "W2-C: allocate the existing Auction-bound canonical Inventory reservation when the existing canonical Deal is created from an awarded Auction basis; no parallel Deal, Auction or stock engine.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and registered in immutable base-state authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260905190000_deal_inventory_allocation/migration.sql",
+    "apps/api/src/modules/deals/prisma-deal.repository.ts",
+    "apps/api/src/modules/deals/deal-repository.spec.ts",
+    "apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts",
+    "apps/api/test/industrial/deal-postgresql-authority.e2e-spec.ts",
+    "apps/api/test/one-deal/postgresql-deal-authority.e2e-spec.ts",
+    "apps/api/test/one-deal/restored-database-acceptance.ts",
+    "apps/api/test/one-deal/seed.ts",
+    "infra/sql/postgresql-deal-authority-policies.sql",
+    "scripts/auction-atomic-acceptance.mjs",
+    "scripts/platform-v7-one-deal-e2e.sh",
+    "scripts/verify-pc-crop-deal-inventory-scope.test.mjs",
+    ".github/workflows/auction-atomic-acceptance.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "reason": "The generic industrial CI already discovers the existing Deal suite; W2-C must not widen or weaken the global workflow to admit one bounded slice."
+    },
+    {
+      "path": "scripts/platform-v7-forward-only-migration-check.mjs",
+      "reason": "The checker discovers additive migrations dynamically; changing the checker would weaken independence of the migration gate."
+    },
+    {
+      "path": "scripts/platform-v7-database-dr-rehearsal.sh",
+      "reason": "The existing DR driver is generic; W2-C restore assertions belong in the already-run restored database acceptance and Auction acceptance evidence."
+    },
+    {
+      "path": "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
+      "reason": "The synthetic canonical Deal is intentionally not an Auction-origin Deal. W2-C must not modify that fixture to manufacture an allocation bypass."
+    },
+    {
+      "path": "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
+      "reason": "The closed canonical lifecycle test consumes the existing synthetic Deal and need not change for an Auction-origin creation invariant."
+    },
+    {
+      "path": "apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts",
+      "reason": "W2-B registration/reservation authority remains unchanged; W2-C end-to-end allocation is exercised at Auction execution and Deal authority boundaries instead."
+    },
+    {
+      "path": "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+      "reason": "W2-C does not change RESERVE/RELEASE quantities at DRAFT; it adds an immutable allocation sub-claim while the existing lot reservation remains RESERVED."
+    },
+    {
+      "path": "apps/api/src/modules/auctions/auction-postgresql-authority.spec.ts",
+      "reason": "No application Auction command contract is changed; the existing close/bind authority is reused and its integration is proven by the live Auction atomic suite."
+    }
+  ],
+  "sourceEvidence": [
+    "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
+    "apps/api/prisma/migrations/20260715013000_auction_atomic_execution/migration.sql",
+    "apps/api/src/modules/deals/prisma-deal.repository.ts",
+    "infra/sql/postgresql-deal-authority-policies.sql",
+    "apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts",
+    "apps/api/test/one-deal/seed.ts",
+    "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json"
+  ],
+  "requiredInvariants": [
+    "Reuse the existing Auction award, DEAL_BASIS_READY event, PrismaDealRepository, canonical Deal, Inventory position/reservation and existing audit/outbox authorities; do not create DealV2, InventoryV2 or a parallel market engine.",
+    "A Deal created from an inventory-bound Auction lot must commit one immutable normalized stock allocation linked to the exact Auction inventory binding, award, winning bid and canonical Deal before the create receipt can commit.",
+    "Winning quantity is derived server-side from the authoritative winning bid using the binding's pinned profile/unit rules. Browser quantity, source, verified or ownership claims never become authority.",
+    "Partial winning quantity allocates only that exact quantity and records the exact still-reserved remainder. The original lot reservation remains RESERVED until a separately accepted lifecycle transition; DRAFT allocation itself is not commitment, shipment, acceptance, sale or independent verification.",
+    "Current seller and buyer users, memberships, organizations and tenant scope are revalidated before mutation and before every replay response. Revocation cannot replay a previously valid create receipt as current authority.",
+    "Deal, participants, stock allocation, Auction award binding, Deal event, audit and outbox commit atomically at READ COMMITTED under a stable lock order and payload-bound idempotency.",
+    "A replay may verify existing allocation evidence but must never repair a missing allocation after a create receipt already exists.",
+    "Application Deal INSERT cannot bypass inventory allocation by omitting Auction inventory evidence, by SET ROLE, caller-controlled fixture flags or a legacy SECURITY DEFINER owner. Historical non-Auction controlled fixtures remain explicitly outside this Auction-origin invariant.",
+    "The canonical 18-key Deal sagaState remains backward-compatible; normalized inventory links are stored separately rather than changing the signed/hashed commercial basis shape.",
+    "The inventory reservation release/reuse guard remains effective after canonical RLS policy overlay, one-deal reset and database restore; no broad DML grant is introduced.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, packages, lockfiles, external provider claims and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Restricted PostgreSQL and HTTP/service tests prove exact full and partial winning-quantity allocation, replay, changed-payload conflict, stale/missing binding denial, cross-tenant and same-tenant outsider denial.",
+    "Revoking either current seller or current buyer membership/user/organization authority makes a subsequent create replay fail closed rather than return the historical receipt.",
+    "Missing allocation evidence, audit, outbox, actor authority or award linkage rolls the complete Deal creation back; no partially acknowledged Deal or stock mutation remains.",
+    "A bound reservation cannot be released, rewritten or reused while its awarded lot/Deal allocation exists; remainder arithmetic and stock conservation are exact integer atoms.",
+    "Existing Auction race/winner tests and canonical Deal tests remain effective; legacy non-Auction controlled fixtures are not silently converted into authoritative stock evidence.",
+    "The generic forward-only migration checker, global CI workflow and generic DR driver pass unchanged, proving W2-C did not modify its own independent gates.",
+    "Forward migration chain, no public schema drift, one-deal, restore, cryptographic freshness and exact-head CI/review pass."
+  ],
+  "remainingTerminalBoundary": [
+    "Committed/shipped/accepted/sold lifecycle, genealogy, custody/title/restrictions and immutable TradeRiskAcknowledgement remain later W2 slices.",
+    "RFQ/Offer/Negotiation inventory consumption remains separately accepted; this slice covers the existing Auction-to-Deal path only.",
+    "User-facing stock-to-lot-to-Deal UX, warnings/acknowledgement and verified REG.RU runtime acceptance remain required before terminal INVENTORY/DOUBLE_SELL_PROTECTION/UNVERIFIED_TRADING credit."
+  ],
+  "terminalCredit": 0
+}
