@@ -528,7 +528,7 @@ export class ServiceMarketplaceRepository {
     if (row.requestFingerprint !== fingerprint) {
       throw new ConflictException({ code: 'SERVICE_MARKETPLACE_IDEMPOTENCY_PAYLOAD_MISMATCH' });
     }
-    return { ...row.receipt, replayed: true, committedAt: row.createdAt.toISOString() };
+    return { ...row.receipt, replayed: true };
   }
 
   private snapshot(row: RequestRow): Record<string, unknown> {

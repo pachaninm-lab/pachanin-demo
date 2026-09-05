@@ -381,6 +381,25 @@ describeAuthority('Service Marketplace PostgreSQL authority', () => {
   });
 
   it('rejects direct lifecycle mutation without command evidence', async () => {
+    const forgedRequestId = `${RUN_ID}-request-prefilled`;
+    await expect(rls.withTrustedContext(requester, async (tx) => {
+      await tx.$queryRaw(Prisma.sql`
+        SELECT set_config('app.current_command_id', ${`${RUN_ID}-prefilled-command`}, true),
+               set_config('app.current_service_marketplace_action', 'CREATE_REQUEST', true)
+      `);
+      return tx.$executeRaw(Prisma.sql`
+        INSERT INTO public."service_marketplace_requests" (
+          "id", "tenantId", "requesterOrganizationId", "category", "serviceStage", "subjectType",
+          "subjectId", "description", "executionReference", "createdByMembershipId",
+          "updatedByMembershipId", "updatedByOrganizationId"
+        ) VALUES (
+          ${forgedRequestId}, ${TENANT}, ${REQUESTER_ORG}, 'LOGISTICS', 'DISPATCH', 'DEAL',
+          ${`${RUN_ID}-deal-prefilled`}, 'A direct request with prefilled future state must fail.',
+          ${`${RUN_ID}/forged/execution`}, ${REQUESTER_MEMBERSHIP}, ${REQUESTER_MEMBERSHIP}, ${REQUESTER_ORG}
+        )
+      `);
+    })).rejects.toThrow(/service_request_execution_shape_check/);
+
     const requestId = `${RUN_ID}-request-direct-mutation`;
     await marketplace.execute(requester, createRequest(requestId, 'direct-mutation'));
     await expect(rls.withTrustedContext(requester, async (tx) => tx.$executeRaw(Prisma.sql`

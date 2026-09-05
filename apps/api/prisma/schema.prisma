@@ -714,6 +714,7 @@ model ServiceMarketplaceEvent {
 
   @@unique([tenantId, actorOrganizationId, commandId], map: "service_marketplace_event_command_key")
   @@unique([tenantId, actorOrganizationId, idempotencyKey], map: "service_marketplace_event_idempotency_key")
+  @@unique([requestId, aggregateVersion], map: "service_marketplace_event_version_key")
   @@index([requestId, createdAt, id], map: "service_marketplace_event_chain_idx")
   @@map("service_marketplace_events")
 }

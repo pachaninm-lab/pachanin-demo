@@ -80,21 +80,27 @@ CREATE TABLE public."service_marketplace_requests" (
       AND "payerConfirmedByMembershipId" IS NOT NULL AND "payerConfirmedAt" IS NOT NULL)
   ),
   CONSTRAINT "service_request_execution_shape_check" CHECK (
-    "status" IN ('REQUESTED','QUOTED','PROVIDER_SELECTED','PAYER_ASSIGNED','PAYER_CONFIRMED')
-    OR ("executionReference" IS NOT NULL AND "executionReference" ~ '^[A-Za-z0-9][A-Za-z0-9:_.\/-]{2,239}$')
+    ("status" IN ('REQUESTED','QUOTED','PROVIDER_SELECTED','PAYER_ASSIGNED','PAYER_CONFIRMED')
+      AND "executionReference" IS NULL)
+    OR ("status" NOT IN ('REQUESTED','QUOTED','PROVIDER_SELECTED','PAYER_ASSIGNED','PAYER_CONFIRMED')
+      AND "executionReference" IS NOT NULL AND "executionReference" ~ '^[A-Za-z0-9][A-Za-z0-9:_.\/-]{2,239}$')
   ),
   CONSTRAINT "service_request_evidence_shape_check" CHECK (
-    "status" IN ('REQUESTED','QUOTED','PROVIDER_SELECTED','PAYER_ASSIGNED','PAYER_CONFIRMED','EXECUTING')
-    OR ("evidenceReference" IS NOT NULL AND "evidenceHash" IS NOT NULL
+    ("status" IN ('REQUESTED','QUOTED','PROVIDER_SELECTED','PAYER_ASSIGNED','PAYER_CONFIRMED','EXECUTING')
+      AND "evidenceReference" IS NULL AND "evidenceHash" IS NULL)
+    OR ("status" NOT IN ('REQUESTED','QUOTED','PROVIDER_SELECTED','PAYER_ASSIGNED','PAYER_CONFIRMED','EXECUTING')
+      AND "evidenceReference" IS NOT NULL AND "evidenceHash" IS NOT NULL
       AND "evidenceReference" ~ '^[A-Za-z0-9][A-Za-z0-9:_.\/-]{2,239}$' AND "evidenceHash" ~ '^[0-9a-f]{64}$')
   ),
   CONSTRAINT "service_request_acceptance_shape_check" CHECK (
-    "status" IN ('REQUESTED','QUOTED','PROVIDER_SELECTED','PAYER_ASSIGNED','PAYER_CONFIRMED','EXECUTING','EVIDENCE_SUBMITTED')
-    OR ("acceptanceNote" IS NOT NULL AND length(btrim("acceptanceNote")) BETWEEN 10 AND 2000)
+    ("status" IN ('REQUESTED','QUOTED','PROVIDER_SELECTED','PAYER_ASSIGNED','PAYER_CONFIRMED','EXECUTING','EVIDENCE_SUBMITTED')
+      AND "acceptanceNote" IS NULL)
+    OR ("status" NOT IN ('REQUESTED','QUOTED','PROVIDER_SELECTED','PAYER_ASSIGNED','PAYER_CONFIRMED','EXECUTING','EVIDENCE_SUBMITTED')
+      AND "acceptanceNote" IS NOT NULL AND length(btrim("acceptanceNote")) BETWEEN 10 AND 2000)
   ),
   CONSTRAINT "service_request_settlement_shape_check" CHECK (
-    "status" <> 'SETTLEMENT_RECORDED'
-    OR ("settlementReferenceType" IS NOT NULL AND "settlementReference" IS NOT NULL
+    ("status" <> 'SETTLEMENT_RECORDED' AND "settlementReferenceType" IS NULL AND "settlementReference" IS NULL)
+    OR ("status" = 'SETTLEMENT_RECORDED' AND "settlementReferenceType" IS NOT NULL AND "settlementReference" IS NOT NULL
       AND "settlementReferenceType" IN ('EXTERNAL','SETTLEMENT_PLAN_PENDING','LEDGER_PENDING')
       AND "settlementReference" ~ '^[A-Za-z0-9][A-Za-z0-9:_.\/-]{2,239}$')
   )
@@ -190,6 +196,7 @@ CREATE TABLE public."service_marketplace_events" (
   "createdAt" timestamptz(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "service_marketplace_event_command_key" UNIQUE ("tenantId", "actorOrganizationId", "commandId"),
   CONSTRAINT "service_marketplace_event_idempotency_key" UNIQUE ("tenantId", "actorOrganizationId", "idempotencyKey"),
+  CONSTRAINT "service_marketplace_event_version_key" UNIQUE ("requestId", "aggregateVersion"),
   CONSTRAINT "service_marketplace_event_audit_key" UNIQUE ("auditEventId"),
   CONSTRAINT "service_marketplace_event_outbox_key" UNIQUE ("outboxEntryId"),
   CONSTRAINT "service_marketplace_event_request_fkey"
@@ -258,6 +265,7 @@ BEGIN
   IF TG_OP <> 'INSERT' THEN
     RAISE EXCEPTION USING ERRCODE = '23000', MESSAGE = 'PC_SERVICE_QUOTE_IMMUTABLE';
   END IF;
+  NEW."createdAt" := clock_timestamp();
   SELECT * INTO request_row FROM public."service_marketplace_requests"
     WHERE "id" = NEW."requestId" AND "tenantId" = NEW."tenantId";
   IF NOT FOUND OR request_row."status" NOT IN ('REQUESTED','QUOTED') THEN
@@ -316,6 +324,8 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = '23000', MESSAGE = 'PC_SERVICE_FINANCIAL_OBLIGATION_FORBIDDEN';
   END IF;
   IF TG_OP = 'INSERT' THEN
+    NEW."createdAt" := clock_timestamp();
+    NEW."updatedAt" := NEW."createdAt";
     IF action_name <> 'CREATE_REQUEST' OR NEW."status" <> 'REQUESTED' OR NEW."stateVersion" <> 1
        OR NEW."requesterOrganizationId" <> actor_org OR NEW."tenantId" <> public.app_identity_tenant_id()
        OR NEW."createdByMembershipId" IS DISTINCT FROM actor_membership
@@ -325,6 +335,7 @@ BEGIN
     END IF;
     RETURN NEW;
   END IF;
+  NEW."updatedAt" := clock_timestamp();
   IF NEW."id" <> OLD."id" OR NEW."tenantId" <> OLD."tenantId"
      OR NEW."requesterOrganizationId" <> OLD."requesterOrganizationId"
      OR NEW."category" <> OLD."category" OR NEW."serviceStage" <> OLD."serviceStage"
@@ -365,6 +376,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'PC_SERVICE_PAYER_ASSIGNMENT_INVALID';
       END IF;
     WHEN 'CONFIRM_PAYER' THEN
+      NEW."payerConfirmedAt" := clock_timestamp();
       IF OLD."status" <> 'PAYER_ASSIGNED' OR NEW."status" <> 'PAYER_CONFIRMED'
          OR actor_org IS DISTINCT FROM OLD."payerOrganizationId" OR actor_membership IS DISTINCT FROM OLD."payerMembershipId"
          OR NEW."payerConfirmedByMembershipId" IS DISTINCT FROM actor_membership OR NEW."payerConfirmedAt" IS NULL
@@ -416,6 +428,7 @@ BEGIN
   IF TG_OP <> 'INSERT' THEN
     RAISE EXCEPTION USING ERRCODE = '23000', MESSAGE = 'PC_SERVICE_EVENT_IMMUTABLE';
   END IF;
+  NEW."createdAt" := clock_timestamp();
   IF NEW."tenantId" <> public.app_identity_tenant_id()
      OR NEW."actorOrganizationId" <> public.app_identity_org_id()
      OR NEW."actorUserId" <> public.app_identity_user_id()
@@ -443,12 +456,39 @@ BEGIN
        AND audit."metadata" ->> 'commandId' = NEW."commandId"
        AND audit."metadata" ->> 'idempotencyKey' = NEW."idempotencyKey"
        AND audit."metadata" ->> 'requestFingerprint' = NEW."requestFingerprint"
+       AND audit."metadata" ->> 'createsFinancialObligation' = 'false'
+       AND audit."afterState" ->> 'id' = NEW."requestId"
+       AND audit."afterState" ->> 'status' = NEW."toStatus"
+       AND audit."afterState" ->> 'stateVersion' = NEW."aggregateVersion"::text
+       AND audit."afterState" ->> 'createsFinancialObligation' = 'false'
+       AND (
+         (NEW."fromStatus" IS NULL AND coalesce(audit."beforeState", 'null'::jsonb) = 'null'::jsonb)
+         OR (NEW."fromStatus" IS NOT NULL AND audit."beforeState" ->> 'id' = NEW."requestId"
+           AND audit."beforeState" ->> 'status' = NEW."fromStatus"
+           AND audit."beforeState" ->> 'stateVersion' = (NEW."aggregateVersion" - 1)::text)
+       )
   ) THEN
     RAISE EXCEPTION USING ERRCODE = '23000', MESSAGE = 'PC_SERVICE_EVENT_AUDIT_MISMATCH';
   END IF;
+  IF NEW."payload" ->> 'requestId' IS DISTINCT FROM NEW."requestId"
+     OR NEW."payload" ->> 'action' IS DISTINCT FROM NEW."action"
+     OR NEW."payload" ->> 'commandId' IS DISTINCT FROM NEW."commandId"
+     OR NEW."payload" ->> 'idempotencyKey' IS DISTINCT FROM NEW."idempotencyKey"
+     OR NEW."payload" ->> 'correlationId' IS DISTINCT FROM NEW."correlationId"
+     OR NEW."receipt" ->> 'requestId' IS DISTINCT FROM NEW."requestId"
+     OR NEW."receipt" ->> 'action' IS DISTINCT FROM NEW."action"
+     OR NEW."receipt" ->> 'status' IS DISTINCT FROM NEW."toStatus"
+     OR NEW."receipt" ->> 'stateVersion' IS DISTINCT FROM NEW."aggregateVersion"::text
+     OR NEW."receipt" ->> 'commandId' IS DISTINCT FROM NEW."commandId"
+     OR NEW."receipt" ->> 'idempotencyKey' IS DISTINCT FROM NEW."idempotencyKey"
+     OR NEW."receipt" ->> 'correlationId' IS DISTINCT FROM NEW."correlationId"
+     OR NEW."receipt" ->> 'replayed' IS DISTINCT FROM 'false'
+     OR NEW."receipt" ->> 'createsFinancialObligation' IS DISTINCT FROM 'false' THEN
+    RAISE EXCEPTION USING ERRCODE = '23000', MESSAGE = 'PC_SERVICE_EVENT_MATERIAL_MISMATCH';
+  END IF;
   SELECT event."hash" INTO expected_prev_hash FROM public."service_marketplace_events" event
    WHERE event."tenantId" = NEW."tenantId" AND event."requestId" = NEW."requestId"
-   ORDER BY event."createdAt" DESC, event."id" DESC LIMIT 1;
+   ORDER BY event."aggregateVersion" DESC LIMIT 1;
   IF NEW."prevHash" IS DISTINCT FROM expected_prev_hash THEN
     RAISE EXCEPTION USING ERRCODE = '23000', MESSAGE = 'PC_SERVICE_EVENT_CHAIN_MISMATCH';
   END IF;
