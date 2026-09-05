@@ -83,7 +83,8 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     await expect(heroPrimary).toHaveCount(1);
     await expect(heroPrimary).toHaveAttribute('href', '/platform-v7/register?lang=ru');
     await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Вымышленный пример Сделки');
-    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Поставка подтверждена');
+    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Поставка принята по условиям Сделки');
+    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Следующий шаг — документы');
     await expect(page.locator('[data-testid="platform-v7-deal-card"] [role="progressbar"]')).toHaveAttribute('aria-valuenow', '5');
     await expect(page.locator('[data-testid="platform-v7-deal-card"] [role="progressbar"]')).toHaveAttribute('aria-valuemax', '7');
 
