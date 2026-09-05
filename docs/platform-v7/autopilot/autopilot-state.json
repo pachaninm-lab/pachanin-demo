@@ -200,6 +200,15 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "docs/pc-crop-post-registration-progress-4997": [
+      "docs/platform-v7/autopilot/scopes/pc-crop-post-registration-progress-4997.json",
+      "docs/platform-v7/crop-platform/post-registration/README.md",
+      "docs/platform-v7/crop-platform/post-registration/dod-baseline.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.mjs",
+      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json"
+    ],
     "fix/static-presentation-download-buildtime-20260830": [
       "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
       "apps/web/package.json",
