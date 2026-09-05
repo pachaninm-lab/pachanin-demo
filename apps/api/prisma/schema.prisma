@@ -70,6 +70,10 @@ model Organization {
   commercialRulePacks               CommercialRulePack[]
   commercialDecisions               CommercialDecision[]
   commercialRuleEvents              CommercialRuleEvent[]
+  serviceRequestsRequested          ServiceMarketplaceRequest[] @relation("ServiceRequestRequesterOrganization")
+  serviceRequestsAsPayer            ServiceMarketplaceRequest[] @relation("ServiceRequestPayerOrganization")
+  serviceQuotesProvided             ServiceMarketplaceQuote[]   @relation("ServiceQuoteProviderOrganization")
+  serviceMarketplaceEventsAuthored  ServiceMarketplaceEvent[]   @relation("ServiceMarketplaceEventActorOrganization")
 
   @@unique([id, tenantId], map: "organizations_id_tenant_id_identity_idx")
   @@index([tenantId])
@@ -172,6 +176,12 @@ model UserOrg {
   commercialRulePacksUpdated     CommercialRulePack[]                 @relation("CommercialRulePackUpdatedBy")
   commercialDecisionsAuthored    CommercialDecision[]                 @relation("CommercialDecisionActor")
   commercialRuleEventsAuthored   CommercialRuleEvent[]                @relation("CommercialRuleEventActor")
+  serviceRequestsCreated         ServiceMarketplaceRequest[]           @relation("ServiceRequestCreatedBy")
+  serviceRequestsUpdated         ServiceMarketplaceRequest[]           @relation("ServiceRequestUpdatedBy")
+  serviceRequestsAssignedToPayer ServiceMarketplaceRequest[]           @relation("ServiceRequestPayerMembership")
+  serviceRequestsPayerConfirmed  ServiceMarketplaceRequest[]           @relation("ServiceRequestPayerConfirmedBy")
+  serviceQuotesAuthored          ServiceMarketplaceQuote[]             @relation("ServiceQuoteCreatedBy")
+  serviceMarketplaceEventsAuthored ServiceMarketplaceEvent[]           @relation("ServiceMarketplaceEventActor")
 
   @@unique([userId, organizationId])
   @@unique([id, organizationId], map: "user_orgs_id_organization_identity_idx")
@@ -336,6 +346,7 @@ model ServiceOffering {
   capability ProviderCapability @relation(fields: [capabilityId, providerId, tenantId, organizationId, category], references: [id, providerId, tenantId, organizationId, category], onDelete: Restrict, map: "service_offering_capability_fkey")
   createdBy  UserOrg            @relation("ServiceOfferingCreatedBy", fields: [createdByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "service_offering_created_by_fkey")
   updatedBy  UserOrg            @relation("ServiceOfferingUpdatedBy", fields: [updatedByMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "service_offering_updated_by_fkey")
+  serviceMarketplaceQuotes ServiceMarketplaceQuote[]
 
   @@unique([providerId, offeringKey], map: "service_offering_provider_key")
   @@unique([id, tenantId, organizationId], map: "service_offering_scope_identity_key")
@@ -541,6 +552,7 @@ model CommercialDecision {
   rulePack     CommercialRulePack? @relation(fields: [rulePackId, tenantId, organizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "commercial_decision_rule_pack_fkey")
   organization Organization        @relation(fields: [organizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "commercial_decision_organization_fkey")
   actor        UserOrg             @relation("CommercialDecisionActor", fields: [actorMembershipId, organizationId], references: [id, organizationId], onDelete: Restrict, map: "commercial_decision_actor_fkey")
+  serviceMarketplaceQuotes ServiceMarketplaceQuote[]
 
   @@unique([tenantId, organizationId, decisionKey], map: "commercial_decision_key")
   @@index([tenantId, organizationId, ruleSetId, createdAt], map: "commercial_decision_rule_set_idx")
@@ -581,6 +593,129 @@ model CommercialRuleEvent {
   @@unique([tenantId, organizationId, idempotencyKey], map: "commercial_rule_event_idempotency_key")
   @@index([tenantId, organizationId, aggregateType, aggregateId, createdAt, id], map: "commercial_rule_event_chain_idx")
   @@map("commercial_rule_events")
+}
+
+/// Current state of one provider-neutral service purchase. Financial authority
+/// is deliberately absent: even the terminal state stores only a reference.
+model ServiceMarketplaceRequest {
+  id                           String   @id
+  tenantId                     String
+  requesterOrganizationId      String
+  category                     String
+  serviceStage                 String
+  subjectType                  String
+  subjectId                    String
+  description                  String
+  targetRegion                 String?
+  status                       String   @default("REQUESTED")
+  stateVersion                 BigInt   @default(1)
+  selectedQuoteId              String?  @unique(map: "service_request_selected_quote_key")
+  selectedProviderOrganizationId String?
+  payerAssignmentId            String?
+  payerOrganizationId          String?
+  payerMembershipId            String?
+  payerConfirmedByMembershipId String?
+  payerConfirmedAt             DateTime? @db.Timestamptz(6)
+  executionReference           String?
+  evidenceReference            String?
+  evidenceHash                 String?
+  acceptanceNote               String?
+  settlementReferenceType      String?
+  settlementReference          String?
+  createsFinancialObligation   Boolean  @default(false)
+  createdByMembershipId        String
+  updatedByMembershipId        String
+  updatedByOrganizationId      String
+  createdAt                    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt                    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  requesterOrganization Organization @relation("ServiceRequestRequesterOrganization", fields: [requesterOrganizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_request_requester_organization_fkey")
+  payerOrganization     Organization? @relation("ServiceRequestPayerOrganization", fields: [payerOrganizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_request_payer_organization_fkey")
+  createdBy             UserOrg      @relation("ServiceRequestCreatedBy", fields: [createdByMembershipId, requesterOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_request_created_by_fkey")
+  updatedBy             UserOrg      @relation("ServiceRequestUpdatedBy", fields: [updatedByMembershipId, updatedByOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_request_updated_by_fkey")
+  payerMembership       UserOrg?     @relation("ServiceRequestPayerMembership", fields: [payerMembershipId, payerOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_request_payer_membership_fkey")
+  payerConfirmedBy      UserOrg?     @relation("ServiceRequestPayerConfirmedBy", fields: [payerConfirmedByMembershipId, payerOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_request_payer_confirmed_by_fkey")
+  selectedQuote         ServiceMarketplaceQuote? @relation("SelectedServiceQuote", fields: [selectedQuoteId], references: [id], onDelete: Restrict)
+  quotes                ServiceMarketplaceQuote[] @relation("ServiceRequestQuotes")
+  events                ServiceMarketplaceEvent[]
+
+  @@unique([id, tenantId], map: "service_request_scope_identity_key")
+  @@unique([tenantId, requesterOrganizationId, payerAssignmentId], map: "service_request_payer_assignment_key")
+  @@index([tenantId, requesterOrganizationId, status, updatedAt], map: "service_request_requester_status_idx")
+  @@index([tenantId, selectedProviderOrganizationId, status, updatedAt], map: "service_request_provider_status_idx")
+  @@index([tenantId, payerOrganizationId, status, updatedAt], map: "service_request_payer_status_idx")
+  @@map("service_marketplace_requests")
+}
+
+/// Immutable provider quote pinned to the exact ServiceOffering version and,
+/// when rule-priced, to one immutable CommercialDecision.
+model ServiceMarketplaceQuote {
+  id                     String   @id
+  tenantId               String
+  requestId              String
+  providerOrganizationId String
+  providerId             String
+  capabilityId           String
+  serviceOfferingId      String
+  serviceOfferingVersion BigInt
+  commercialDecisionId   String?
+  quoteType              String
+  amountKopecks          BigInt
+  currency               String
+  payerMode              String
+  termsHash              String
+  expiresAt              DateTime @db.Timestamptz(6)
+  createdByMembershipId  String
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+
+  request        ServiceMarketplaceRequest @relation("ServiceRequestQuotes", fields: [requestId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_quote_request_fkey")
+  offering       ServiceOffering            @relation(fields: [serviceOfferingId, tenantId, providerOrganizationId], references: [id, tenantId, organizationId], onDelete: Restrict, map: "service_quote_offering_fkey")
+  decision       CommercialDecision?         @relation(fields: [commercialDecisionId], references: [id], onDelete: Restrict, map: "service_quote_commercial_decision_fkey")
+  providerOrganization Organization          @relation("ServiceQuoteProviderOrganization", fields: [providerOrganizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_quote_provider_organization_fkey")
+  createdBy      UserOrg                     @relation("ServiceQuoteCreatedBy", fields: [createdByMembershipId, providerOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_quote_created_by_fkey")
+  selectedFor    ServiceMarketplaceRequest?  @relation("SelectedServiceQuote")
+
+  @@unique([requestId, providerOrganizationId, serviceOfferingId], map: "service_quote_provider_offering_key")
+  @@unique([id, requestId, tenantId], map: "service_quote_request_identity_key")
+  @@index([tenantId, requestId, createdAt], map: "service_quote_request_idx")
+  @@map("service_marketplace_quotes")
+}
+
+/// Append-only receipt, audit pointer and outbox pointer for every lifecycle
+/// command. The request row may advance only if a matching receipt commits.
+model ServiceMarketplaceEvent {
+  id                  String   @id
+  tenantId            String
+  requestId           String
+  actorOrganizationId String
+  commandId           String
+  idempotencyKey      String
+  requestFingerprint  String
+  action               String
+  fromStatus           String?
+  toStatus             String
+  actorUserId          String
+  actorRole            String
+  actorMembershipId    String
+  correlationId        String
+  reason                String
+  payload               Json
+  receipt               Json
+  prevHash              String?
+  hash                  String
+  auditEventId          String   @unique(map: "service_marketplace_event_audit_key")
+  outboxEntryId         String   @unique(map: "service_marketplace_event_outbox_key")
+  aggregateVersion      BigInt
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+
+  request           ServiceMarketplaceRequest @relation(fields: [requestId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_marketplace_event_request_fkey")
+  actorOrganization Organization              @relation("ServiceMarketplaceEventActorOrganization", fields: [actorOrganizationId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "service_marketplace_event_actor_organization_fkey")
+  actor             UserOrg                   @relation("ServiceMarketplaceEventActor", fields: [actorMembershipId, actorOrganizationId], references: [id, organizationId], onDelete: Restrict, map: "service_marketplace_event_actor_fkey")
+
+  @@unique([tenantId, actorOrganizationId, commandId], map: "service_marketplace_event_command_key")
+  @@unique([tenantId, actorOrganizationId, idempotencyKey], map: "service_marketplace_event_idempotency_key")
+  @@index([requestId, createdAt, id], map: "service_marketplace_event_chain_idx")
+  @@map("service_marketplace_events")
 }
 
 /// Server-held provider verification facts. W1-B grants application runtimes

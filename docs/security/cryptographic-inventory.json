@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2237,
+  "scannedFiles": 2243,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 83,
+      "sites": 84,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 83,
+          "sites": 84,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -99,6 +99,7 @@
             "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts",
             "apps/api/src/modules/role-eligibility/role-eligibility-security.ts",
+            "apps/api/src/modules/service-marketplace/service-marketplace.contract.ts",
             "apps/api/src/modules/service-providers/integration-binding.contract.ts",
             "apps/api/src/modules/service-providers/provider-registry.contract.ts",
             "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",

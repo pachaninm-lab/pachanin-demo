@@ -1170,4 +1170,14 @@ pnpm --filter @pc/api exec jest --runInBand \
   --config test/industrial/jest.config.json \
   --runTestsByPath test/industrial/commercial-rules-authority.e2e-spec.ts
 
+echo "[one-deal] running service-marketplace PostgreSQL authority suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+ONE_DEAL_ADMIN_URL="$ADMIN_URL" \
+ONE_DEAL_APP_URL="$APP_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec jest --runInBand \
+  --config test/industrial/jest.config.json \
+  --runTestsByPath test/industrial/service-marketplace-authority.e2e-spec.ts
+
 echo "[one-deal] exploitation gate passed"
