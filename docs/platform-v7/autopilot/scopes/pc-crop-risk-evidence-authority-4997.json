@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-risk-evidence-authority-4997",
+  "status": "staged",
+  "purpose": "W7-B: replace process-local anti-fraud transitions and fabricated reputation fallbacks with a durable evidence graph, RiskCase and transparent versioned decision/reputation factors without turning scores into Deal or eligibility authority.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [40, 41],
+  "terminalCriteria": ["COUNTERPARTY_EVIDENCE=PASS", "ANTI_FRAUD=PASS", "REPUTATION=PASS", "EXPLAINABLE_RISK=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/risk-evidence.ts",
+    "packages/domain-core/src/risk-evidence.test.ts",
+    "apps/api/prisma/migrations/20260906060000_risk_evidence_authority/migration.sql",
+    "apps/api/src/modules/risk-evidence/risk-evidence.contract.ts",
+    "apps/api/src/modules/risk-evidence/risk-evidence.contract.spec.ts",
+    "apps/api/src/modules/risk-evidence/risk-evidence.repository.ts",
+    "apps/api/src/modules/risk-evidence/risk-evidence.repository.spec.ts",
+    "apps/api/src/modules/risk-evidence/risk-decision.policy.ts",
+    "apps/api/src/modules/risk-evidence/risk-decision.policy.spec.ts",
+    "apps/api/src/modules/anti-fraud/anti-fraud.service.ts",
+    "apps/api/src/modules/business-reputation/business-reputation.service.ts",
+    "apps/api/test/industrial/risk-evidence-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-risk-evidence-scope.test.mjs",
+    ".github/workflows/pc-crop-risk-evidence.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {"path":"apps/api/prisma/schema.prisma","reason":"W7-B uses a private risk_evidence schema and does not create a public score-as-authority model."},
+    {"path":"apps/api/src/modules/deals/**","reason":"Risk evidence informs governed decisions but cannot mutate Deal state directly in the foundation."},
+    {"path":"apps/api/src/modules/auth/**","reason":"Existing append-only Role Eligibility evidence is reused read-only; registration/eligibility remain out of scope."},
+    {"path":"apps/api/src/app.module.ts","reason":"The first authority can remain behind existing anti-fraud/reputation boundaries; global module wiring is not required for the foundation."},
+    {"path":".github/workflows/ci.yml","reason":"Global CI remains independent."}
+  ],
+  "sourceEvidence": [
+    "apps/api/src/modules/anti-fraud/anti-fraud.service.ts",
+    "apps/api/src/modules/business-reputation/business-reputation.service.ts",
+    "apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/migration.sql",
+    "packages/domain-core/src/service-provider-registry.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Risk evidence is append-only, source/provenance/version/freshness bound and fact-specific. A score is a derived projection, never primary evidence.",
+    "Process-local rapid-transition memory is removed from production decision authority; transition/rate evidence must be durable and horizontally consistent.",
+    "If persistence or required source evidence is unavailable, reputation/risk is UNAVAILABLE/UNDER_REVIEW rather than fabricated from hard-coded fallback metrics.",
+    "Money/quantity inputs use exact canonical source facts. Float Rub/ton values and hard-coded commodity thresholds cannot become authoritative commercial-risk facts without a versioned published policy/source.",
+    "RiskCase is a durable lifecycle for flag, review, evidence, response, decision, appeal/override and closure. Manual resolution is explicit, auditable and cannot silently edit historical evidence.",
+    "DecisionPolicy versions persist factor definitions, source requirements, weights/thresholds and reason-code mappings so every decision/reputation projection can be reproduced.",
+    "Opaque ML output cannot alone block, permit or rank a counterparty. ML features/model version/output are evidence inputs and every material action has explicit explainable rule/evidence factors plus human-review path where policy requires.",
+    "Reputation separates observed facts from interpretation and never publishes invented deal/payment/KYC/AML metrics. No persistence means no score, not sample data.",
+    "Current tenant/organization/actor authority is enforced for private evidence/cases. Public/counterparty reputation surfaces disclose only a separately approved minimized projection, never raw cross-tenant evidence.",
+    "Same-tenant outsider and cross-tenant access to private evidence/cases is denied; eligibility and provider evidence are referenced with exact source ids/revisions rather than copied mutable truth.",
+    "Every case/decision mutation commits immutable event, audit, outbox and receipt atomically with payload-bound idempotency and optimistic concurrency.",
+    "A risk decision cannot manufacture KYC/AML/regulatory/verification success, change Deal terms, release money or replace Role Eligibility authority.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, Progressive Trust, Provider Registry, packages/lockfiles and REG.RU-only production remain unchanged."
+  ],
+  "acceptance": [
+    "Regression tests prove anti-fraud production behavior no longer depends on process-local transition Map state and persistence failure is not swallowed as a successful durable flag.",
+    "Reputation tests prove absence of Prisma/source data never returns fabricated sample metrics/score/recommendation and cross-tenant orgs remain indistinguishable from nonexistent where required.",
+    "Restricted PostgreSQL tests prove durable evidence graph, RiskCase lifecycle, versioned decisions, exact replay/conflict, tenant isolation and current-authority revocation checks.",
+    "A decision can be reproduced from persisted evidence ids/revisions and policy version with the same factor/reason output.",
+    "Missing/stale/conflicting mandatory evidence produces UNDER_REVIEW/UNAVAILABLE or explicit policy outcome, never an invented neutral/good score.",
+    "ML model unavailable or changed output does not erase deterministic evidence/reason factors or produce silent last-value fallback authority.",
+    "Audit/outbox/event failure rolls back all case/decision state and no acknowledged decision remains without evidence.",
+    "Exact-head CI/review, security tests and later REG.RU runtime acceptance are required before terminal risk/reputation credit."
+  ],
+  "remainingTerminalBoundary": [
+    "Counterparty-facing minimized reputation UX, appeal workflow and ranking consumption remain later consumer acceptance.",
+    "External data providers/official sources for additional risk factors require separate IntegrationBinding/conformance/live receipts.",
+    "Market ranking must consume transparent factors without making score a hidden admission authority.",
+    "REG.RU horizontal-instance/race/runtime evidence remains required."
+  ],
+  "terminalCredit": 0
+}
