@@ -8,11 +8,12 @@ import {
   HttpStatus,
   Param,
   Post,
+  Req,
   Res,
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { ServiceMarketplaceError, type ServiceMarketplaceAction } from '../../../../../packages/domain-core/src';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
@@ -23,6 +24,7 @@ import {
   ServiceMarketplaceValidationError,
   normalizeServiceMarketplaceHttpCommand,
 } from './service-marketplace.contract';
+import { ServiceMarketplaceCommandDto } from './dto/service-marketplace-api.dto';
 import { ServiceMarketplaceRepository } from './service-marketplace.repository';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9:_.-]{2,239}$/u;
@@ -90,13 +92,14 @@ export class ServiceMarketplaceController {
     @Param('action') rawAction: string,
     @Headers('if-match') ifMatch: string | undefined,
     @CurrentUser() user: RequestUser,
-    @Body() dto: unknown,
+    @Body() _dto: ServiceMarketplaceCommandDto,
+    @Req() request: Pick<Request, 'body'>,
     @Res({ passthrough: true }) response: Response,
   ) {
     const receipt = await this.handle(() => {
-      // Preserve raw fields until closed-shape validation; the global DTO
-      // whitelist must not erase unknown or caller-supplied authority fields.
-      const command = normalizeServiceMarketplaceHttpCommand(dto, {
+      // Keep DTO validation and validate the original body too: the global
+      // whitelist strips unknown fields from the DTO argument, not request.body.
+      const command = normalizeServiceMarketplaceHttpCommand(request.body, {
         requestId: requestId(rawRequestId),
         action: action(rawAction),
         expectedStateVersion: expectedVersion(ifMatch),

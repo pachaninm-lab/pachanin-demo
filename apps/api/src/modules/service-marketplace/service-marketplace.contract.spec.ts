@@ -158,9 +158,11 @@ describe('service marketplace HTTP command boundary', () => {
   afterAll(async () => { await app?.close(); });
 
   it.each(['hiddenFee', 'verified', 'providerId', 'tenantId', 'organizationId', 'status', 'createsFinancialObligation', 'requestId', 'action', 'expectedStateVersion'])('rejects supplied %s before execution', async (field) => {
+    const rejectedByDto = !['hiddenFee', 'verified', 'providerId'].includes(field);
     const response = await request(app.getHttpServer()).post('/api/service-marketplace/request-001/create-request')
-      .set('If-Match', '"0"').send({ ...body, [field]: 'forged' }).expect(422);
-    expect(response.body.code).toBe('SERVICE_COMMAND_UNKNOWN_FIELD');
+      .set('If-Match', '"0"').send({ ...body, [field]: 'forged' }).expect(rejectedByDto ? 400 : 422);
+    if (rejectedByDto) expect(response.body.message).toEqual(expect.arrayContaining([expect.any(String)]));
+    else expect(response.body.code).toBe('SERVICE_COMMAND_UNKNOWN_FIELD');
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -171,5 +173,11 @@ describe('service marketplace HTTP command boundary', () => {
     expect(execute).toHaveBeenCalledWith(user, { ...body, requestId: 'request-001', action: 'CREATE_REQUEST', expectedStateVersion: '0' });
     expect(response.headers.etag).toBe('"1"');
     expect(response.headers['cache-control']).toBe('private, no-store');
+  });
+
+  it('retains global DTO validation before command admission', async () => {
+    await request(app.getHttpServer()).post('/api/service-marketplace/request-001/create-request')
+      .set('If-Match', '"0"').send({ ...body, commandId: '!' }).expect(400);
+    expect(execute).not.toHaveBeenCalled();
   });
 });
