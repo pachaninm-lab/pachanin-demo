@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getLocale } from 'next-intl/server';
 import { ContactClient } from './ContactClient';
 
 type Locale = 'ru' | 'en' | 'zh';
@@ -26,9 +27,16 @@ function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function localeOf(params: ContactSearchParams): Locale {
+function normalizeLocale(value: string | undefined): Locale {
+  if (value?.startsWith('en')) return 'en';
+  if (value?.startsWith('zh')) return 'zh';
+  return 'ru';
+}
+
+function localeOf(params: ContactSearchParams, fallbackLocale: string): Locale {
   const lang = first(params.lang);
-  return lang === 'en' || lang === 'zh' ? lang : 'ru';
+  if (lang === 'en' || lang === 'zh' || lang === 'ru') return lang;
+  return normalizeLocale(fallbackLocale);
 }
 
 function isSent(searchParams: ContactSearchParams) {
@@ -40,7 +48,7 @@ export async function generateMetadata(
   props: { searchParams?: Promise<ContactSearchParams> },
 ): Promise<Metadata> {
   const params = (await props.searchParams) ?? {};
-  const locale = localeOf(params);
+  const locale = localeOf(params, await getLocale());
   const meta = META[locale];
   const canonical = 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/contact';
   return {
@@ -69,5 +77,6 @@ export default async function PlatformV7ContactPage(
   props: { searchParams?: Promise<ContactSearchParams> },
 ) {
   const params = (await props.searchParams) ?? {};
-  return <ContactClient sent={isSent(params)} locale={localeOf(params)} />;
+  const locale = localeOf(params, await getLocale());
+  return <ContactClient sent={isSent(params)} locale={locale} />;
 }
