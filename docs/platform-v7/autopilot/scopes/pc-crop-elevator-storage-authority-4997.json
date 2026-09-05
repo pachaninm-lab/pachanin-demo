@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-elevator-storage-authority-4997",
+  "status": "active",
+  "purpose": "W4-C: fail-close unsafe process-local elevator mutations and establish PostgreSQL-authoritative facility, intake, weighing correction, custody evidence, capacity and storage-position records without creating a second Inventory authority.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [46],
+  "terminalCriteria": ["ELEVATOR_VERIFICATION=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/elevator-storage.ts",
+    "packages/domain-core/src/elevator-storage.test.ts",
+    "apps/api/prisma/migrations/20260906020000_elevator_storage_authority/migration.sql",
+    "apps/api/src/modules/elevator/elevator.contract.ts",
+    "apps/api/src/modules/elevator/elevator.contract.spec.ts",
+    "apps/api/src/modules/elevator/elevator.repository.ts",
+    "apps/api/src/modules/elevator/elevator.repository.spec.ts",
+    "apps/api/src/modules/elevator/elevator.service.ts",
+    "apps/api/src/modules/elevator/elevator.controller.ts",
+    "apps/api/src/modules/elevator/elevator.module.ts",
+    "apps/api/test/industrial/elevator-storage-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-elevator-storage-scope.test.mjs",
+    ".github/workflows/pc-crop-elevator-storage.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {"path":"apps/api/prisma/schema.prisma","reason":"W4-C uses a dedicated private elevator_storage PostgreSQL schema and trusted command boundary; no public Prisma model becomes authority."},
+    {"path":"apps/api/src/modules/inventory/**","reason":"Canonical Inventory remains the stock authority. Elevator records produce physical storage/custody evidence and capacity facts; they do not rewrite Inventory/title state directly."},
+    {"path":"apps/api/src/modules/deals/**","reason":"Deal authority remains a consumer/reference; elevator intake cannot mutate Deal status directly in this foundation."},
+    {"path":"apps/api/src/app.module.ts","reason":"ElevatorModule is already mounted; no global module mutation is required."},
+    {"path":".github/workflows/ci.yml","reason":"Global CI remains an independent gate."},
+    {"path":"scripts/platform-v7-forward-only-migration-check.mjs","reason":"Generic additive migration checker remains unchanged."}
+  ],
+  "sourceEvidence": [
+    "apps/api/src/modules/elevator/elevator.service.ts",
+    "apps/api/src/modules/elevator/elevator.controller.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "All production elevator mutations are PostgreSQL-authoritative; process-local Map state is removed from mutation authority and no audit/outbox failure is suppressed.",
+    "Tenant, Deal/lot, facility organization and actor authority are derived from current authenticated database context; caller elevatorOrgId or tenant fields never become authority.",
+    "Facility and storage capacity use exact integer pinned units. Float weight/capacity arithmetic is forbidden from authoritative records.",
+    "Intake records gross/tare/net observations, measurement source, device/manual provenance and occurredAt. Manual values remain declared observations, not independent verification by label alone.",
+    "Weighing correction appends a new immutable correction version with reason/actor/evidence and cannot rewrite a prior accepted observation.",
+    "Elevator custody evidence is distinct from legal title/disposal-right evidence. Physical possession at a facility cannot manufacture ownership or encumbrance clearance.",
+    "StoragePosition pins facility, storage cell/bin/warehouse location, commodity profile/version, quantity basis and custody period. Capacity cannot be exceeded by concurrent accepted positions.",
+    "Current membership/user/organization/facility capability is revalidated before command and replay; revocation prevents historical receipt replay from acting as current authority.",
+    "Cross-tenant and same-tenant outsider access to intake, weights, capacity, positions and custody evidence is denied under FORCE RLS.",
+    "Every accepted mutation commits aggregate state, immutable event, audit and outbox atomically with payload-bound idempotency and optimistic version checks.",
+    "Later Inventory/Progressive Trust integration consumes signed elevator evidence through explicit adapters; W4-C does not mutate Inventory verificationStatus or Deal state directly.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, packages/lockfiles, external provider claims and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Static/runtime regression proves process-local Map and caller elevatorOrgId are no longer mutation authority and audit failures fail the command closed.",
+    "Restricted PostgreSQL tests prove facility creation/read, intake, exact gross/tare/net arithmetic, correction versioning, capacity and storage positions.",
+    "Concurrent intake/storage allocation cannot exceed facility/storage capacity and produces deterministic conflict/stale outcomes.",
+    "Cross-tenant and same-tenant outsider reads/writes, revoked actor/facility authority and changed-payload replay fail closed.",
+    "Manual observations retain provenance and never self-promote ownership, FGIS status, legal title or VERIFIED trust state.",
+    "Audit/outbox/event failure leaves no partial elevator record or acknowledged command.",
+    "Elevator custody evidence can be referenced immutably by later Inventory/Verification adapters without changing its historical bytes/hash.",
+    "Forward migrations, zero public-schema drift, restore, cryptographic freshness, global CI and exact-head review pass without weakening independent gates."
+  ],
+  "remainingTerminalBoundary": [
+    "Progressive Trust/Inventory must consume accepted elevator evidence before terminal ELEVATOR_VERIFICATION credit.",
+    "User-facing facility/intake/storage/correction flows and real device/manual workflows remain later UX acceptance.",
+    "External elevator integrations remain provider adapters and require separate live credentials/receipts if used.",
+    "Verified REG.RU runtime with real elevator operational acceptance remains required before terminal PASS."
+  ],
+  "terminalCredit": 0
+}
