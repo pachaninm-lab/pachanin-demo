@@ -41,6 +41,11 @@ describe('platform-v7 visible public entry', () => {
     expect(home).toContain("eventName='registration_open'");
     expect(home).toContain("href='#live'");
     expect(home).toContain("href='/downloads/prozrachnaya-tsena-presentation.pdf'");
+    expect(home.match(/className='pc-v6-primary'/g)).toHaveLength(2);
+    expect(home).not.toContain("href={dealHref} className='pc-v6-primary'");
+    expect(home).not.toContain("href={trustHref} className='pc-v6-primary'");
+    expect(home).toContain("href={dealHref} className='pc-v6-secondary'");
+    expect(home).toContain("href={trustHref} className='pc-v6-secondary'");
     expect(copy).toContain("secondary: 'Зарегистрироваться'");
     expect(copy).toContain("tertiary: 'Скачать презентацию'");
     expect(story).toContain("roles: '9 ролей'");
