@@ -117,6 +117,17 @@ export function GrainActionFeedbackPanel({ role }: GrainActionFeedbackPanelProps
           ))}
         </div>
       </div>
+      <div style={gridStyle}>
+        {ctx.supportCases.slice(0, 3).map((supportCase) => (
+          <div key={supportCase.id} style={cardStyle}>
+            <StatusPill>{supportCase.priority}</StatusPill>
+            <p style={strongStyle}>{supportCase.title}</p>
+            <p style={microStyle}>Связь: {supportCase.relatedEntityType} {supportCase.relatedEntityId}</p>
+            <p style={microStyle}>Следующее действие: {supportCase.nextActionTitle ?? supportCase.suggestedResolution}</p>
+            <p style={microStyle}>Ответственный: {roleLabel[supportCase.nextActionRole ?? supportCase.requesterRole]}</p>
+          </div>
+        ))}
+      </div>
     </P7Section>
   );
 }
