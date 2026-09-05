@@ -247,3 +247,15 @@ for (const branch of implementationBranches.filter((name) => name.startsWith('go
     assert.notEqual(runGuard({ ...context, baseline }).status, 0);
   });
 }
+
+test('governance branches retain unprivileged head regression validation', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  for (const [start, end] of [
+    ['      - name: Require standard validations in the required guard context', '      - name: Validate immutable scope with trusted base guard on PR head'],
+    ['  standard_validation:', '    runs-on: ubuntu-latest'],
+  ]) {
+    const section = workflow.slice(workflow.indexOf(start), workflow.indexOf(end, workflow.indexOf(start) + start.length));
+    assert.doesNotMatch(section, /github\.head_ref != 'governance\//u);
+  }
+  assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
+});

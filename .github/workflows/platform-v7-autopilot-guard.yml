@@ -171,7 +171,7 @@ jobs:
         if: >-
           github.event_name != 'pull_request' ||
           (github.head_ref != 'fix/p0-registration-authority-rollover-4637' &&
-          github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698' && github.head_ref != 'governance/pc-crop-post-registration-progress-scope-4997' && github.head_ref != 'governance/pc-crop-inventory-reservation-scope-4997' && github.head_ref != 'docs/pc-crop-post-registration-progress-4997')
+          github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698' && github.head_ref != 'docs/pc-crop-post-registration-progress-4997')
         env:
           STANDARD_VALIDATION_RESULT: ${{ needs.standard_validation.result }}
         run: |
@@ -220,7 +220,7 @@ jobs:
       github.event_name != 'pull_request_target' &&
       (github.event_name != 'pull_request' ||
       (github.head_ref != 'fix/p0-registration-authority-rollover-4637' &&
-      github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698' && github.head_ref != 'governance/pc-crop-post-registration-progress-scope-4997' && github.head_ref != 'governance/pc-crop-inventory-reservation-scope-4997' && github.head_ref != 'docs/pc-crop-post-registration-progress-4997'))
+      github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698' && github.head_ref != 'docs/pc-crop-post-registration-progress-4997'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
