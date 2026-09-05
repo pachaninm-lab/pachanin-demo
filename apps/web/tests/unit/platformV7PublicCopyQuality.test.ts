@@ -78,24 +78,38 @@ describe('platform-v7 public copy quality', () => {
     }
   });
 
-  it('keeps About and Contact chrome source-owned and registration-first', () => {
+  it('keeps About and Contact chrome source-owned, understandable and registration-first', () => {
     const about = read('apps/web/app/platform-v7/about/page.tsx');
     const contact = read('apps/web/app/platform-v7/contact/ContactClient.tsx');
+    const contactPage = read('apps/web/app/platform-v7/contact/page.tsx');
+    const contactLayout = read('apps/web/app/platform-v7/contact/layout.tsx');
     const contactHeader = read('apps/web/components/platform-v7/ContactFixedHeader.tsx');
 
     expect(about).toContain('PublicSiteHeader');
     expect(about).toContain('p7-about-register');
     expect(about).toContain('/platform-v7/register');
+    expect(about).toContain('Что такое «Прозрачная Цена»');
+    expect(about).not.toContain('исторические адреса страниц');
     expect(about).not.toContain("content:'↪'");
     expect(about).not.toContain('font-size:0');
 
     expect(contact).not.toContain("className='p7-contact-header'");
+    expect(contact).toContain("id='main-content' tabIndex={-1}");
     expect(contact).toContain("action='/api/platform-v7/inquiries'");
     expect(contact).toContain('Отправка обращения не открывает сделки, документы и закрытые разделы платформы.');
+    expect(contact).toContain('Обращение не отправлено');
+    expect(contact).toContain("href='tel:+79162778989'");
+    expect(contactPage).toContain('failed={hasDeliveryError(params)}');
+    expect(contactLayout).toContain('<ContactFixedHeader locale={locale} />');
+    expect(contactHeader).toContain("href='#main-content'");
     expect(contactHeader).toContain('p7-contact-register');
     expect(contactHeader).toContain('/platform-v7/register?lang=');
     expect(contactHeader).toContain('html body .p7-contact-page{padding-top:78px!important}');
+    expect(contactHeader).not.toContain('useSearchParams');
     expect(contactHeader).not.toContain('.pc-shell-root-v4');
+    for (const providerDetail of ['provider_failure', 'smtp_failed', 'resend_failed']) {
+      expect(contact).not.toContain(providerDetail);
+    }
   });
 
   it('allows legacy AI release markers only as hidden compatibility metadata', () => {
