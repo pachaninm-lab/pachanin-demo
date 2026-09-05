@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-dispute-claims-authority-4997",
+  "status": "staged",
+  "purpose": "W9-B: extend the existing canonical PostgreSQL Dispute authority with Claim/Response/CounterEvidence, retest/survey/expert-review branches and exact partial-hold/resolution evidence without creating DisputeV2 or a second money-instruction authority.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [39],
+  "terminalCriteria": ["DISPUTE_CLAIMS=PASS", "COUNTER_EVIDENCE=PASS", "RETEST_SURVEY=PASS", "PARTIAL_RESOLUTION=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/dispute-claims.ts",
+    "packages/domain-core/src/dispute-claims.test.ts",
+    "apps/api/prisma/migrations/20260906090000_dispute_claims_extension/migration.sql",
+    "apps/api/src/modules/disputes/postgresql-dispute.repository.ts",
+    "apps/api/src/modules/disputes/disputes.service.ts",
+    "apps/api/src/modules/disputes/disputes.controller.ts",
+    "apps/api/src/modules/disputes/dispute-postgresql-authority.spec.ts",
+    "apps/api/src/modules/disputes/dto/create-claim.dto.ts",
+    "apps/api/src/modules/disputes/dto/respond-claim.dto.ts",
+    "apps/api/src/modules/disputes/dto/add-counter-evidence.dto.ts",
+    "apps/api/src/modules/disputes/dto/request-independent-review.dto.ts",
+    "apps/api/test/industrial/dispute-claims-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-dispute-claims-scope.test.mjs",
+    ".github/workflows/pc-crop-dispute-claims.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {"path":"apps/api/src/modules/settlement-engine/**","reason":"Partial hold/release remains canonical Settlement authority. Dispute records instructions/basis only; W9-B cannot move money."},
+    {"path":"apps/api/src/modules/labs/**","reason":"Retest consumes VerificationOrder/Lab evidence through references; it does not mutate lab authority."},
+    {"path":"apps/api/src/modules/verification-orchestration/**","reason":"Independent retest/survey/expert review is requested/referenced from the dispute but executed by the accepted verification authority."},
+    {"path":"apps/api/prisma/schema.prisma","reason":"The existing private dispute authority is extended through forward SQL and no parallel public Dispute model is created."},
+    {"path":".github/workflows/ci.yml","reason":"Global CI remains an independent gate."}
+  ],
+  "sourceEvidence": [
+    "apps/api/src/modules/disputes/postgresql-dispute.repository.ts",
+    "apps/api/prisma/migrations/20260715021000_dispute_postgresql_authority/migration.sql",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Reuse the existing Dispute case/participant/evidence/appeal/money-instruction/receipt/RLS/CAS/idempotency authority; do not create DisputeV2 or another arbitration engine.",
+    "Claim is an immutable/versioned assertion tied to exact Deal/document/quality/weight/logistics/money facts and claimed remedy/amount where applicable. A claim is not proven merely because it is filed.",
+    "Response and CounterEvidence are append-only, source/provenance/version bound and participant-scoped. Neither party may delete or overwrite the other side's evidence.",
+    "Retest, survey and expert review are explicit independent-review requests with provider/method/evidence requirements and resulting VerificationOrder references; requested review is not a successful independent result.",
+    "PartialResolution records accepted/rejected issue portions and exact minor-unit hold/release instruction bases. Sum of resolved/open/disputed amount portions conserves the canonical disputed amount exactly.",
+    "Dispute cannot directly move money; it emits an immutable settlement instruction/basis that canonical Settlement validates and applies separately.",
+    "A settlement hold/release receipt must be linked back before the dispute can claim financial execution/finality. Instruction sent/queued is not money moved.",
+    "Decision/appeal history is immutable. New evidence/retest after a decision creates a new review/appeal/version branch according to policy; historical decision bytes are never rewritten.",
+    "Current Deal participant/arbitrator/support authority is revalidated before mutation and replay. Revocation prevents a historical receipt from serving as current authorization.",
+    "Cross-tenant and same-tenant outsider access to claims/evidence/private expert reports is denied except explicit role/participant authority.",
+    "Every mutation commits case version, immutable event/evidence, audit, outbox and receipt atomically with payload-bound idempotency.",
+    "No lab/survey/provider result is self-verified by upload; independent evidence authority must validate it under its own policy.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, Settlement, Verification, Document authorities and REG.RU production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Restricted PostgreSQL tests prove claim -> response -> counter-evidence -> independent-review request -> decision/partial-resolution flows with full immutable history.",
+    "Retest/survey/expert request without accepted verification evidence cannot be treated as completed or verified.",
+    "Partial amount cases conserve exact minor units and cannot release more than the canonical disputed/held amount.",
+    "Settlement instruction creation does not mutate payment/hold state; later receipt linkage is required to show financial execution.",
+    "Concurrent response/decision/appeal commands serialize via CAS and stale/changed-payload replay fail deterministically.",
+    "Cross-tenant/same-tenant outsider access and revoked participant/arbitrator authority fail closed before mutation and replay.",
+    "Audit/outbox/evidence failure leaves no partial accepted case transition or receipt.",
+    "Existing dispute PostgreSQL authority tests remain green; exact-head CI/review and REG.RU real dispute workflow acceptance remain required for terminal credit."
+  ],
+  "remainingTerminalBoundary": [
+    "W4-B generalized VerificationOrder must be accepted for independent retest/survey/expert execution.",
+    "W5-A SettlementPlan/FinancialObligation must consume dispute instructions/receipts for end-to-end partial financial resolution.",
+    "Role UI/evidence upload/read/appeal workflow and real arbitrator/party acceptance remain later UX/human acceptance.",
+    "REG.RU production evidence remains mandatory."
+  ],
+  "terminalCredit": 0
+}
