@@ -16,6 +16,7 @@ describe('platform-v7 final public entry', () => {
   const dockCss = read('app/pc-public-entry/platform-v7/home-approved-contact-dock.css');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
   const explorerPage = read('app/platform-v7/how-it-works/page.tsx');
+  const trustPage = read('app/platform-v7/trust/page.tsx');
   const explorer = read('components/platform-v7/PublicDealExplorer.tsx');
   const explorerAdapter = read('components/platform-v7/PublicDealExplorerV4.tsx');
   const entryGate = read('components/platform-v7/PublicDealEntryGate.tsx');
@@ -103,6 +104,13 @@ describe('platform-v7 final public entry', () => {
     expect(siteHeader).toContain('brandHomeHref?: string;');
     expect(siteHeader).toContain('href={resolvedBrandHomeHref}');
     expect(siteHeader).not.toContain("<a href='/platform-v7' className='pc-site-brand'");
+  });
+
+  it('preserves RU EN ZH when returning from the linked Trust Center', () => {
+    expect(trustPage).toContain("if (element.props.href === '/platform-v7')");
+    expect(trustPage).toContain('nextProps.href = `/platform-v7?lang=${locale}`');
+    expect(trustPage).toContain('nextProps.actions = rebrandTrustCopy(element.props.actions, locale)');
+    expect(trustPage).not.toContain('return cloneElement(element, undefined, ...children)');
   });
 
   it('states integration maturity without false-live language or internal jargon', () => {
