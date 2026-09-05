@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-privacy-governance-authority-4997",
+  "status": "staged",
+  "purpose": "W10-C: replace hard-coded/local privacy portal claims with durable data-processing, data-subject request, retention/legal-hold and processor/subprocessor governance that reports only evidenced platform behavior and preserves legal/business records according to policy.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [55, 92],
+  "terminalCriteria": ["PRIVACY_GOVERNANCE=PASS", "DATA_SUBJECT_RIGHTS=PASS", "RETENTION_LEGAL_HOLD=PASS", "PROCESSOR_REGISTER=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/privacy-governance.ts",
+    "packages/domain-core/src/privacy-governance.test.ts",
+    "apps/api/prisma/migrations/20260906140000_privacy_governance_authority/migration.sql",
+    "apps/api/src/modules/privacy-governance/privacy-governance.contract.ts",
+    "apps/api/src/modules/privacy-governance/privacy-governance.contract.spec.ts",
+    "apps/api/src/modules/privacy-governance/privacy-governance.repository.ts",
+    "apps/api/src/modules/privacy-governance/privacy-governance.repository.spec.ts",
+    "apps/api/src/modules/privacy-governance/privacy-governance.policy.ts",
+    "apps/api/src/modules/privacy-governance/privacy-governance.policy.spec.ts",
+    "apps/api/test/industrial/privacy-governance-authority.e2e-spec.ts",
+    "apps/web/components/platform-v7/PrivacyPortalPanel.tsx",
+    "apps/web/lib/platform-v7/data-subject-rights.ts",
+    "apps/web/lib/platform-v7/evidence-retention.ts",
+    "apps/web/tests/unit/platformV7PrivacyPortal.test.tsx",
+    "scripts/verify-pc-crop-privacy-governance-scope.test.mjs",
+    ".github/workflows/pc-crop-privacy-governance.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "sourceEvidence": [
+    "apps/web/components/platform-v7/PrivacyPortalPanel.tsx",
+    "apps/web/lib/platform-v7/data-subject-rights.ts",
+    "apps/web/lib/platform-v7/evidence-retention.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Privacy UI and APIs report only server-evidenced processing/storage/processor facts. Static local text cannot assert that a right, deletion, export, consent, processor or retention control has been executed.",
+    "ProcessingPurpose/LegalBasis/DataCategory/Recipient/Processor records are versioned and source-linked. A processor/subprocessor is not listed as active unless an approved integration/provider/contract evidence path supports that claim.",
+    "DataSubjectRequest is a durable lifecycle for access, export, correction, restriction/objection and deletion where legally applicable, with requester identity proof, scope, deadlines, review, execution evidence and completion receipt.",
+    "A deletion request never physically deletes records that a pinned legal/contract/audit/financial/regulatory retention policy requires to be retained. Those records enter explicit retained/legal-hold/not-applicable result with reason/evidence.",
+    "RetentionPolicy is versioned by data class/object type, legal/business basis, duration/start event, archive/delete/anonymize action and legal-hold override. Historical objects pin the policy/revision applied.",
+    "LegalHold is explicit, scoped, reason/evidence bound, effective-dated and authorized; it prevents retention deletion/anonymization for matching records without rewriting the original retention schedule.",
+    "Exports are generated from current authorized subject-linked data under minimization policy and return an immutable export manifest/hash; creation/queueing is not proof the subject downloaded it.",
+    "Corrections create new canonical domain versions through the owning domain authority where correction is legally/technically allowed; privacy governance cannot directly rewrite Deal/document/ledger/audit facts.",
+    "Consent, where used, is separate from other legal bases and has versioned notice/content, grant/withdrawal evidence and scope. Withdrawal does not retroactively invalidate processing performed under another valid basis.",
+    "Current user/organization/staff authority and recent MFA for high-risk export/deletion operations are revalidated before mutation and replay; cross-tenant/subject access is denied.",
+    "Every privacy-governance mutation commits immutable event, audit, outbox and receipt atomically with idempotency/CAS.",
+    "No privacy action weakens security logging, immutable audit, financial/legal evidence, Role Eligibility or external regulatory obligations.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, domain authorities, external contracts and REG.RU production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Static regression proves the privacy portal no longer presents local hard-coded completion/processor/retention claims as server truth.",
+    "Restricted PostgreSQL tests prove DSR lifecycle, subject/tenant isolation, identity/authority checks, deadlines, idempotency and immutable completion evidence.",
+    "Deletion/retention tests prove records under legal/audit/financial/regulatory hold are not deleted and return exact retained/not-applicable reasons.",
+    "Retention/legal-hold tests reproduce actions from exact policy versions and preserve old schedules when policies change.",
+    "Processor registry cannot mark an external provider active without accepted provider/integration/contract evidence reference.",
+    "Export tests produce a content manifest/hash and deny cross-subject/cross-tenant/revoked actor/MFA-stale attempts.",
+    "Audit/outbox/event failure rolls back the governance command and no completed DSR/hold/retention action remains without evidence.",
+    "Exact-head CI/review plus legal/privacy review and REG.RU real-user request evidence remain required before terminal privacy credit."
+  ],
+  "remainingTerminalBoundary": [
+    "Final legal bases/retention periods/processor list require jurisdiction- and company-specific legal approval and actual provider contracts.",
+    "Domain-specific correction/deletion adapters require separate accepted changes to each owning authority where applicable.",
+    "Settings W8-C can expose preferences/privacy controls only after this authority exists.",
+    "Human privacy/legal acceptance and incident/request operational drills remain mandatory."
+  ],
+  "terminalCredit": 0
+}
