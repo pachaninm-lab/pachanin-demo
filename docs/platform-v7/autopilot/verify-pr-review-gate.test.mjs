@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   activeUnresolvedThreads,
   checkRollupBlockers,
+  cleanCodexReviewPrefixes,
   exactHeadCodexReviews,
   isIgnoredMergeGateCheck,
   latestBlockingChangeRequests,
@@ -38,6 +39,40 @@ test('accepts only a completed Codex review on the exact head', () => {
   ];
 
   assert.equal(exactHeadCodexReviews(reviews, head).length, 1);
+});
+
+test('recognizes clean Codex review evidence only from the Codex bot and a reviewed commit prefix', () => {
+  const comments = [
+    {
+      user: { login: 'someone-else' },
+      body: "Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** `1234567890`",
+    },
+    {
+      user: { login: 'chatgpt-codex-connector[bot]' },
+      body: 'Codex Review summary without clean-review sentence. **Reviewed commit:** `abcdef1234`',
+    },
+    {
+      user: { login: 'chatgpt-codex-connector[bot]' },
+      body: "Codex Review: Didn't find any major issues. Keep it up!\n\n**Reviewed commit:** `deadbeef42`",
+    },
+  ];
+
+  assert.deepEqual(cleanCodexReviewPrefixes(comments), ['deadbeef42']);
+});
+
+test('rejects short or malformed clean-review commit prefixes', () => {
+  const comments = [
+    {
+      user: { login: 'chatgpt-codex-connector[bot]' },
+      body: "Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** `abc1234`",
+    },
+    {
+      user: { login: 'chatgpt-codex-connector[bot]' },
+      body: "Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** `not-a-sha!`",
+    },
+  ];
+
+  assert.deepEqual(cleanCodexReviewPrefixes(comments), []);
 });
 
 test('rejects a review from another actor even when commit matches', () => {
