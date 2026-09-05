@@ -214,8 +214,13 @@ export class CommercialRulesRepository {
     validateCommercialDecisionRequest(request);
     if (!user.membershipId?.trim()) throw new ForbiddenException({ code: 'MEMBERSHIP_REQUIRED' });
     const input = stableCommercialJson(request);
-    const inputHash = commercialDigest(input);
     return this.rls.withTrustedContext(user, async (tx, context) => {
+      // Decision hashes use PostgreSQL's canonical jsonb representation. The
+      // insert trigger verifies these hashes and independently evaluates output.
+      const hashes = await tx.$queryRaw<Array<{ hash: string }>>(Prisma.sql`
+        SELECT encode(sha256(convert_to((${JSON.stringify(input)}::jsonb)::text, 'UTF8')), 'hex') AS hash
+      `);
+      const inputHash = hashes[0]!.hash;
       await tx.$queryRaw(Prisma.sql`
         SELECT pg_advisory_xact_lock(hashtextextended(
           ${`${context.tenantId}:${context.orgId}:commercial-decision:${request.decisionKey}`}, 0
@@ -259,7 +264,6 @@ export class CommercialRulesRepository {
       }
 
       const output = evaluateCommercialRule(rule.commercial, request.facts);
-      const outputHash = commercialDigest(output);
       const id = deterministicId('commercial-decision', `${context.tenantId}:${context.orgId}:${request.decisionKey}`);
       await tx.$executeRaw(Prisma.sql`
         INSERT INTO public."commercial_decisions" (
@@ -271,7 +275,8 @@ export class CommercialRulesRepository {
           ${id}, ${context.tenantId}, ${context.orgId}, ${request.decisionKey}, ${ruleSet.id}, ${ruleSet.aggregateKey},
           ${ruleSet.version}, ${ruleSet.contentHash}, ${rulePack?.id ?? null}, ${rulePack?.aggregateKey ?? null},
           ${rulePack?.version ?? null}, ${rulePack?.contentHash ?? null}, ${JSON.stringify(input)}::jsonb,
-          ${inputHash}, ${JSON.stringify(output)}::jsonb, ${outputHash}, ${output.status},
+          ${inputHash}, ${JSON.stringify(output)}::jsonb,
+          encode(sha256(convert_to((${JSON.stringify(output)}::jsonb)::text, 'UTF8')), 'hex'), ${output.status},
           ${output.amountKopecks === null ? null : BigInt(output.amountKopecks)}, ${ruleSet.currency!},
           ${context.userId}, ${user.membershipId!}, ${request.correlationId}
         )

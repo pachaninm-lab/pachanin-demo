@@ -44,6 +44,20 @@ describe('commercial rules', () => {
     });
   });
 
+  test.each(['-1', '1.5', '9223372036854775808', '01'])('rejects invalid pricing %s before payer confirmation', (amountKopecks) => {
+    expect(() => evaluateCommercialRule({ pricingModel: 'FIXED', pricing: { amountKopecks }, payerMode: 'REQUIRES_CONFIRMATION' }, {}))
+      .toThrow(CommercialRuleError);
+  });
+
+  test('requires pricing configuration independently of missing runtime facts', () => {
+    expect(() => evaluateCommercialRule({ pricingModel: 'SUCCESS_FEE', pricing: { amountKopecks: '-1' }, payerMode: 'BUYER' }, {}))
+      .toThrow(CommercialRuleError);
+    expect(() => evaluateCommercialRule({ pricingModel: 'PERCENT', pricing: { basisPoints: 10001 }, payerMode: 'REQUIRES_CONFIRMATION' }, {}))
+      .toThrow(CommercialRuleError);
+    expect(evaluateCommercialRule({ pricingModel: 'PER_TON', pricing: { rateKopecks: '10' }, payerMode: 'REQUIRES_CONFIRMATION' }, {}))
+      .toMatchObject({ status: 'MISSING_FACTS', missingFacts: ['quantityMilliTons'], amountKopecks: null });
+  });
+
   test('applies success, cap and half-up boundaries deterministically', () => {
     expect(evaluateCommercialRule({
       pricingModel: 'SUCCESS_FEE', pricing: { amountKopecks: '5000' }, payerMode: 'BUYER',

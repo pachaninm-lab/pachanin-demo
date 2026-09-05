@@ -401,8 +401,11 @@ export function validateCommercialDecisionRequest(request: CommercialDecisionReq
       continue;
     }
     if (key === 'success' && typeof value === 'boolean') continue;
-    if (key === 'contractPayer' && typeof value === 'string'
-      && ['SELLER', 'BUYER', 'INITIATOR', 'DELIVERY_RESPONSIBLE'].includes(value)) continue;
+    // No Deal/Contract authority is bound in this slice. Never turn a request
+    // field into a contractual payer; CONTRACT_RULE remains MISSING_FACTS.
+    if (key === 'contractPayer') {
+      throw new CommercialRulesValidationError('CONTRACT_PAYER_AUTHORITY_REQUIRED', 'contractPayer must come from contract authority');
+    }
     throw new CommercialRulesValidationError('EVALUATION_FACTS_INVALID', `unknown or invalid fact: ${key}`);
   }
 }

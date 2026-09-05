@@ -229,6 +229,34 @@ function evaluateAmount(
   }
 }
 
+/** Configuration must be valid even when a decision needs payer confirmation. */
+function validatePricing(definition: CommercialRuleDefinition): void {
+  const config = definition.pricing;
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    throw new CommercialRuleError('pricing must be an object');
+  }
+  const fields: Partial<Record<CommercialPricingModel, readonly (keyof CommercialPricingConfiguration)[]>> = {
+    FREE: [], MANUAL_QUOTE: [],
+    SUBSCRIPTION: ['amountKopecks'], ACCESS_FEE: ['amountKopecks'], FIXED: ['amountKopecks'],
+    PER_TON: ['rateKopecks'], PER_KM: ['rateKopecks'], PER_TRIP: ['rateKopecks'], PER_HOUR: ['rateKopecks'],
+    SUCCESS_FEE: ['amountKopecks'], PERCENT: ['basisPoints'],
+    CAPPED_PERCENT: ['basisPoints', 'capKopecks'], HYBRID: ['fixedKopecks', 'basisPoints'],
+  };
+  const required = fields[definition.pricingModel];
+  if (!required) throw new CommercialRuleError('pricingModel is invalid');
+  const allowed: readonly string[] = definition.pricingModel === 'HYBRID' ? [...required, 'capKopecks'] : required;
+  if (Object.keys(config).some((field) => !allowed.includes(field))) {
+    throw new CommercialRuleError('pricing contains an unknown field');
+  }
+  for (const field of required) {
+    if (config[field] === undefined) throw new CommercialRuleError(`pricing.${field} is required`);
+  }
+  for (const [field, value] of Object.entries(config)) {
+    if (field === 'basisPoints') requiredBasisPoints(value as number);
+    else integer(value, `pricing.${field}`, []);
+  }
+}
+
 function allocations(
   amount: bigint,
   definition: CommercialRuleDefinition,
@@ -285,17 +313,19 @@ export function evaluateCommercialRule(
   definition: CommercialRuleDefinition,
   facts: CommercialEvaluationFacts,
 ): CommercialEvaluation {
+  validatePricing(definition);
+  // Validate payer configuration independently of amount/fact availability.
+  allocations(0n, definition, facts, []);
   if (definition.pricingModel === 'MANUAL_QUOTE') {
     return { status: 'MANUAL_QUOTE_REQUIRED', amountKopecks: null, payerAllocations: [], missingFacts: [] };
   }
-  if (definition.payerMode === 'REQUIRES_CONFIRMATION') {
-    return { status: 'PAYER_CONFIRMATION_REQUIRED', amountKopecks: null, payerAllocations: [], missingFacts: [] };
-  }
-
   const missing: string[] = [];
   const amount = evaluateAmount(definition, facts, missing);
   if (amount === null || missing.length > 0) {
     return { status: 'MISSING_FACTS', amountKopecks: null, payerAllocations: [], missingFacts: [...new Set(missing)].sort() };
+  }
+  if (definition.payerMode === 'REQUIRES_CONFIRMATION') {
+    return { status: 'PAYER_CONFIRMATION_REQUIRED', amountKopecks: null, payerAllocations: [], missingFacts: [] };
   }
   const payerAllocations = allocations(amount, definition, facts, missing);
   if (payerAllocations === null || missing.length > 0) {

@@ -9,6 +9,11 @@ import {
   type CommercialRuleCommand,
 } from '../../src/modules/commercial-rules/commercial-rules.contract';
 import { CommercialRulesRepository } from '../../src/modules/commercial-rules/commercial-rules.repository';
+import {
+  evaluateCommercialRule,
+  type CommercialRuleDefinition,
+  type CommercialEvaluationFacts,
+} from '../../../../packages/domain-core/src';
 
 const ADMIN_URL = String(process.env.ONE_DEAL_ADMIN_URL ?? '');
 const APP_URL = String(process.env.ONE_DEAL_APP_URL ?? '');
@@ -267,5 +272,145 @@ describeAuthority('CommercialRules PostgreSQL authority', () => {
     `);
     expect(counts[0]).toEqual({ versions: 0n, events: 0n });
     expect(await admin.auditEvent.count({ where: { correlationId: failing.correlationId } })).toBe(0);
+  });
+
+  it('denies direct rule-set and rule-pack transitions even with a spoofed command context', async () => {
+    const draft = await rules.execute(actorA, createRuleSet('no-evidence', 'no-evidence-fee'));
+    const directTransition = (table: 'commercial_rule_sets' | 'commercial_rule_packs', id: string, status: 'PUBLISHED' | 'RETIRED') =>
+      rls.withTrustedContext(actorA, async (tx) => {
+        await tx.$queryRaw(Prisma.sql`SELECT set_config('app.current_command_id', ${`${RUN_ID}-spoofed-command`}, true)`);
+        return tx.$executeRaw(Prisma.sql`
+          UPDATE ${Prisma.raw(`public."${table}"`)} SET "status" = ${status}, "stateVersion" = "stateVersion" + 1,
+            "publishedAt" = CASE WHEN ${status} = 'PUBLISHED' THEN clock_timestamp() ELSE "publishedAt" END,
+            "retiredAt" = CASE WHEN ${status} = 'RETIRED' THEN clock_timestamp() ELSE NULL END,
+            "updatedByMembershipId" = ${MEMBERSHIP_A}, "updatedAt" = clock_timestamp() WHERE "id" = ${id}
+        `);
+      });
+    await expect(directTransition('commercial_rule_sets', draft.aggregateId, 'PUBLISHED'))
+      .rejects.toThrow(/PC_COMMERCIAL_VERSION_EVIDENCE_REQUIRED/);
+    await rules.execute(actorA, lifecycle('PUBLISH', 'RULE_SET', 'no-evidence-fee', draft.aggregateId, '1', 'no-evidence-publish'));
+    await expect(directTransition('commercial_rule_sets', draft.aggregateId, 'RETIRED'))
+      .rejects.toThrow(/PC_COMMERCIAL_VERSION_EVIDENCE_REQUIRED/);
+    const pack = await rules.execute(actorA, {
+      ...createRuleSet('no-evidence-pack', 'no-evidence-pack'), aggregateType: 'RULE_PACK', currency: undefined, rules: undefined,
+      entries: [{ ruleSetId, ruleSetKey: 'platform-fee', ruleSetVersion: '1', ruleSetContentHash: ruleSetHash }],
+    });
+    await expect(directTransition('commercial_rule_packs', pack.aggregateId, 'PUBLISHED'))
+      .rejects.toThrow(/PC_COMMERCIAL_VERSION_EVIDENCE_REQUIRED/);
+    await rules.execute(actorA, lifecycle('PUBLISH', 'RULE_PACK', 'no-evidence-pack', pack.aggregateId, '1', 'no-evidence-pack-publish'));
+    await expect(directTransition('commercial_rule_packs', pack.aggregateId, 'RETIRED'))
+      .rejects.toThrow(/PC_COMMERCIAL_VERSION_EVIDENCE_REQUIRED/);
+  });
+
+  it('rolls back a complete lifecycle event when outbox insertion is silently omitted', async () => {
+    const incomplete = new CommercialRulesRepository({
+      withTrustedContext: (user: RequestUser, work: Parameters<RlsTransactionService['withTrustedContext']>[1]) =>
+        rls.withTrustedContext(user, (tx, context) => work(new Proxy(tx, {
+          get(target, property) {
+            if (property === '$executeRaw') return (query: Prisma.Sql) =>
+              query.sql.includes('INSERT INTO public."outbox_entries"') ? Promise.resolve(1) : target.$executeRaw(query);
+            return Reflect.get(target, property);
+          },
+        }), context)),
+    } as RlsTransactionService);
+    const command = createRuleSet('missing-outbox', 'missing-outbox-fee');
+    await expect(incomplete.execute(actorA, command)).rejects.toThrow(/PC_COMMERCIAL_VERSION_EVIDENCE_REQUIRED/);
+    expect(await admin.auditEvent.count({ where: { correlationId: command.correlationId } })).toBe(0);
+    const rows = await rls.withTrustedContext(actorA, (tx) => tx.$queryRaw(Prisma.sql`
+      SELECT "id" FROM public."commercial_rule_sets" WHERE "ruleSetKey" = 'missing-outbox-fee'
+    `));
+    expect(rows).toEqual([]);
+  });
+
+  it('rejects forged decision material with valid published references and correctly recomputed hashes', async () => {
+    const input = {
+      decisionKey: `${RUN_ID}-direct-forgery`, correlationId: `${RUN_ID}-direct-forgery-correlation`,
+      ruleSetId, rulePackId, ruleKey: 'standard-percent', context: { serviceCategory: 'LOGISTICS' }, facts: { baseAmountKopecks: '1000000' },
+    };
+    const legitimateOutput = { status: 'CALCULATED', amountKopecks: '5000', payerAllocations: [
+      { payer: 'SELLER', amountKopecks: '2000' }, { payer: 'BUYER', amountKopecks: '3000' },
+    ], missingFacts: [] };
+    const insert = (material: unknown, output: typeof legitimateOutput, amount: string, hashOverride: string | null = null) =>
+      rls.withTrustedContext({ ...forgedNonAdmin, isOrgAdmin: false }, (tx) => tx.$executeRaw(Prisma.sql`
+        INSERT INTO public."commercial_decisions" (
+          "id", "tenantId", "organizationId", "decisionKey", "ruleSetId", "ruleSetKey", "ruleSetVersion", "ruleSetContentHash",
+          "rulePackId", "rulePackKey", "rulePackVersion", "rulePackContentHash", "input", "inputHash", "output", "outputHash",
+          "decisionStatus", "amountKopecks", "currency", "actorUserId", "actorMembershipId", "correlationId"
+        ) VALUES (
+          ${`${RUN_ID}-direct-forgery`}, ${TENANT_A}, ${ORG_A}, ${input.decisionKey}, ${ruleSetId}, 'platform-fee', 1, ${ruleSetHash},
+          ${rulePackId}, 'default-services', 1, ${rulePackHash}, ${JSON.stringify(material)}::jsonb,
+          coalesce(${hashOverride}, encode(sha256(convert_to((${JSON.stringify(material)}::jsonb)::text, 'UTF8')), 'hex')),
+          ${JSON.stringify(output)}::jsonb, encode(sha256(convert_to((${JSON.stringify(output)}::jsonb)::text, 'UTF8')), 'hex'),
+          ${output.status}, ${BigInt(amount)}, 'RUB', ${USER_C}, ${MEMBERSHIP_C}, ${input.correlationId}
+        )
+      `));
+    await expect(insert(input, { ...legitimateOutput, amountKopecks: '1' }, '1')).rejects.toThrow(/PC_COMMERCIAL_DECISION_OUTPUT_MISMATCH/);
+    await expect(insert(input, { ...legitimateOutput, payerAllocations: [{ payer: 'BUYER', amountKopecks: '5000' }] }, '5000'))
+      .rejects.toThrow(/PC_COMMERCIAL_DECISION_OUTPUT_MISMATCH/);
+    await expect(insert(input, legitimateOutput, '1')).rejects.toThrow(/PC_COMMERCIAL_DECISION_OUTPUT_MISMATCH/);
+    await expect(insert(input, legitimateOutput, '5000', 'a'.repeat(64))).rejects.toThrow(/PC_COMMERCIAL_DECISION_MATERIAL_MISMATCH/);
+    await expect(insert({ ...input, context: { serviceCategory: 'OTHER' } }, legitimateOutput, '5000'))
+      .rejects.toThrow(/PC_COMMERCIAL_DECISION_CONDITION_MISMATCH/);
+    await expect(insert({ ...input, facts: { ...input.facts, contractPayer: 'BUYER' } }, legitimateOutput, '5000'))
+      .rejects.toThrow(/PC_COMMERCIAL_CONTRACT_PAYER_AUTHORITY_REQUIRED/);
+    // An ordinary member still obtains the valid computed decision via the API repository.
+    expect(await rules.evaluate({ ...forgedNonAdmin, isOrgAdmin: false }, input)).toMatchObject({ decision: legitimateOutput });
+  });
+
+  it('keeps unresolved contract payer non-financial and rejects request overrides', async () => {
+    const draft = await rules.execute(actorA, { ...createRuleSet('contract', 'contract-fee'), rules: [{
+      ruleKey: 'contract-payer', kind: 'PAYER', priority: 1, when: {},
+      commercial: { pricingModel: 'FIXED', pricing: { amountKopecks: '90' }, payerMode: 'CONTRACT_RULE' },
+    }] });
+    await rules.execute(actorA, lifecycle('PUBLISH', 'RULE_SET', 'contract-fee', draft.aggregateId, '1', 'contract-publish'));
+    const request = { decisionKey: `${RUN_ID}-contract-decision`, correlationId: `${RUN_ID}-contract-decision-correlation`,
+      ruleSetId: draft.aggregateId, ruleKey: 'contract-payer', context: {}, facts: {} };
+    expect(await rules.evaluate(actorA, request)).toMatchObject({
+      createsFinancialObligation: false, decision: { status: 'MISSING_FACTS', amountKopecks: null, missingFacts: ['contractPayer'], payerAllocations: [] },
+    });
+    await expect(rules.evaluate(actorA, { ...request, facts: { contractPayer: 'SELLER' } }))
+      .rejects.toThrow(/contractPayer must come from contract authority/);
+  });
+
+  it('agrees across domain and PostgreSQL for every model, payer mode and integer boundary', async () => {
+    const cases: Array<[CommercialRuleDefinition, CommercialEvaluationFacts]> = [
+      [{ pricingModel: 'FREE', pricing: {}, payerMode: 'SELLER' }, {}],
+      [{ pricingModel: 'SUBSCRIPTION', pricing: { amountKopecks: '12500' }, payerMode: 'BUYER' }, { subscriptionPeriods: '3' }],
+      [{ pricingModel: 'ACCESS_FEE', pricing: { amountKopecks: '900' }, payerMode: 'INITIATOR' }, { accessUnits: '2' }],
+      [{ pricingModel: 'FIXED', pricing: { amountKopecks: '9223372036854775807' }, payerMode: 'DELIVERY_RESPONSIBLE' }, {}],
+      [{ pricingModel: 'PER_TON', pricing: { rateKopecks: '1250' }, payerMode: 'BUYER' }, { quantityMilliTons: '2500' }],
+      [{ pricingModel: 'PER_KM', pricing: { rateKopecks: '200' }, payerMode: 'BUYER' }, { distanceMeters: '1250' }],
+      [{ pricingModel: 'PER_TRIP', pricing: { rateKopecks: '7000' }, payerMode: 'BUYER' }, { tripCount: '4' }],
+      [{ pricingModel: 'PER_HOUR', pricing: { rateKopecks: '6000' }, payerMode: 'BUYER' }, { durationMinutes: '90' }],
+      [{ pricingModel: 'PERCENT', pricing: { basisPoints: 1 }, payerMode: 'BUYER' }, { baseAmountKopecks: '5000' }],
+      [{ pricingModel: 'SUCCESS_FEE', pricing: { amountKopecks: '5000' }, payerMode: 'BUYER' }, { success: false }],
+      [{ pricingModel: 'CAPPED_PERCENT', pricing: { basisPoints: 1000, capKopecks: '8000' }, payerMode: 'BUYER' }, { baseAmountKopecks: '100000' }],
+      [{ pricingModel: 'HYBRID', pricing: { fixedKopecks: '1000', basisPoints: 500, capKopecks: '2000' }, payerMode: 'BUYER' }, { baseAmountKopecks: '100000' }],
+      [{ pricingModel: 'MANUAL_QUOTE', pricing: {}, payerMode: 'BUYER' }, {}],
+      [{ pricingModel: 'FIXED', pricing: { amountKopecks: '101' }, payerMode: 'SPLIT', payerShares: [
+        { payer: 'SELLER', basisPoints: 5000 }, { payer: 'BUYER', basisPoints: 5000 },
+      ] }, {}],
+      [{ pricingModel: 'FIXED', pricing: { amountKopecks: '1' }, payerMode: 'CONTRACT_RULE' }, {}],
+      [{ pricingModel: 'FIXED', pricing: { amountKopecks: '1' }, payerMode: 'REQUIRES_CONFIRMATION' }, {}],
+      [{ pricingModel: 'PER_TON', pricing: { rateKopecks: '1' }, payerMode: 'REQUIRES_CONFIRMATION' }, {}],
+      [{ pricingModel: 'SUCCESS_FEE', pricing: { amountKopecks: '1' }, payerMode: 'BUYER' }, {}],
+    ];
+    for (const [definition, facts] of cases) {
+      const result = await app.$queryRaw<Array<{ output: unknown }>>(Prisma.sql`
+        SELECT public.app_commercial_evaluate(${JSON.stringify(definition)}::jsonb, ${JSON.stringify(facts)}::jsonb) AS output
+      `);
+      expect(result[0]?.output).toEqual(evaluateCommercialRule(definition, facts));
+    }
+    const invalid: Array<[CommercialRuleDefinition, CommercialEvaluationFacts]> = [
+      [{ pricingModel: 'FIXED', pricing: { amountKopecks: '-1' }, payerMode: 'REQUIRES_CONFIRMATION' }, {}],
+      [{ pricingModel: 'PERCENT', pricing: { basisPoints: 10001 }, payerMode: 'REQUIRES_CONFIRMATION' }, {}],
+      [{ pricingModel: 'SUCCESS_FEE', pricing: { amountKopecks: '-1' }, payerMode: 'BUYER' }, {}],
+      [{ pricingModel: 'PER_TRIP', pricing: { rateKopecks: '9223372036854775807' }, payerMode: 'BUYER' }, { tripCount: '2' }],
+    ];
+    for (const [definition, facts] of invalid) {
+      expect(() => evaluateCommercialRule(definition, facts)).toThrow();
+      await expect(app.$queryRaw(Prisma.sql`SELECT public.app_commercial_evaluate(${JSON.stringify(definition)}::jsonb, ${JSON.stringify(facts)}::jsonb)`))
+        .rejects.toThrow(/PC_COMMERCIAL_/);
+    }
   });
 });

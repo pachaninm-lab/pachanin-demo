@@ -35,6 +35,20 @@ describe('commercial rules contract', () => {
     expect(commercialRuleCommandFingerprint(createRuleSet)).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it.each(['-1', '1.5', '9223372036854775808', '01'])('rejects confirmation pricing %s before publishing', (amountKopecks) => {
+    expect(() => validateCommercialRuleCommand({ ...createRuleSet, rules: [{
+      ruleKey: 'confirmation-fee', kind: 'PRICING', priority: 1, when: {},
+      commercial: { pricingModel: 'FIXED', pricing: { amountKopecks }, payerMode: 'REQUIRES_CONFIRMATION' },
+    }] })).toThrow(CommercialRulesValidationError);
+  });
+
+  it('rejects a contractual payer supplied by the caller', () => {
+    expect(() => validateCommercialDecisionRequest({
+      decisionKey: 'decision:contract-payer', correlationId: 'correlation:contract-payer',
+      ruleSetId: 'rule-set:001', ruleKey: 'standard-percent', context: {}, facts: { contractPayer: 'SELLER' },
+    })).toThrow('contractPayer must come from contract authority');
+  });
+
   it('canonicalizes object key order', () => {
     expect(commercialDigest({ b: 2, a: 1 })).toBe(commercialDigest({ a: 1, b: 2 }));
     expect(commercialDigest({ 'я': 1, z: 2, A: 3 })).toBe(commercialDigest({ A: 3, z: 2, 'я': 1 }));
