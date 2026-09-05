@@ -20,6 +20,7 @@ describe('platform-v7 final public entry', () => {
   const explorerAdapter = read('components/platform-v7/PublicDealExplorerV4.tsx');
   const entryGate = read('components/platform-v7/PublicDealEntryGate.tsx');
   const support = read('components/platform-v7/ChatSupportWidget.tsx');
+  const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
 
   it('renders the full public narrative, trust layer, final registration CTA and optional assistance form', () => {
     expect(page).toContain('const home = await PlatformV7StrategicHome();');
@@ -78,6 +79,15 @@ describe('platform-v7 final public entry', () => {
     expect(explorerPage).toContain("const registerHref = localizedHref('/platform-v7/register')");
     expect(explorer).toContain('const registerHref = `/platform-v7/register?lang=${encodeURIComponent(localizedLocale)}`');
     expect(explorer).toContain('href={registerHref}');
+  });
+
+  it('keeps the shared brand-home link locale-safe while retaining the legacy fallback', () => {
+    expect(siteHeader).toContain("href.startsWith('/platform-v7')");
+    expect(siteHeader).toContain("href.match(/[?&]lang=(ru|en|zh)(?:&|#|$)/)");
+    expect(siteHeader).toContain("return locale ? `/platform-v7?lang=${locale}` : '/platform-v7'");
+    expect(siteHeader).toContain('brandHomeHref?: string;');
+    expect(siteHeader).toContain('href={resolvedBrandHomeHref}');
+    expect(siteHeader).not.toContain("<a href='/platform-v7' className='pc-site-brand'");
   });
 
   it('states integration maturity without false-live language or internal jargon', () => {
