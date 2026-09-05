@@ -54,18 +54,23 @@ describe('platform-v7 international homepage completion', () => {
   });
 
   it('keeps the full brand and registration available together in the mobile fixed header', () => {
+    const authority = ".pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit']";
     expect(home).toContain("<a href={registerHref} className='pc-v6-header-cta'>{copy.nav.connect}</a>");
     expect(css).toContain('.pc-v7-public-entry .pc-v6-header-cta');
     expect(css).toContain('display: inline-flex !important');
     expect(css).toContain('@media (max-width: 430px)');
     expect(css).toContain('--pc-public-header-total-height: 96px !important');
+    expect(css).toContain(`${authority} .pc-site-header`);
     expect(css).toContain('flex-wrap: wrap !important');
     expect(css).toContain('height: 96px !important');
-    expect(css).toContain('.pc-v7-public-entry .pc-site-brand-text');
+    expect(css).toContain(`${authority} .pc-site-brand`);
+    expect(css).toContain(`${authority} .pc-site-brand-text`);
+    expect(css).toContain(`${authority} .pc-site-brand-text strong`);
     expect(css).toContain('display: grid !important');
     expect(css).toContain('overflow: visible !important');
+    expect(css).toContain('white-space: nowrap !important');
     expect(css).not.toContain('.pc-site-brand-text {\n    display: none !important;');
-    expect(css).toContain('.pc-v7-public-entry .pc-site-actions');
+    expect(css).toContain(`${authority} .pc-site-actions`);
     expect(css).toContain('flex: 1 0 100% !important');
     expect(css).toContain('@media (max-width: 359px)');
   });
