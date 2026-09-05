@@ -15,6 +15,7 @@ const implementationBranches = [
 const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
 const sourceWorkflow = path.resolve('.github/workflows/platform-v7-autopilot-guard.yml');
+const sourceState = path.resolve('docs/platform-v7/autopilot/autopilot-state.json');
 
 function write(root, file, content, mode) {
   const target = path.join(root, file);
@@ -265,4 +266,15 @@ test('governance branches retain unprivileged head regression validation', () =>
     assert.doesNotMatch(section, /github\.head_ref != 'governance\//u);
   }
   assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
+});
+
+test('source state pre-authorizes the bounded FNS imported-health preservation fix', () => {
+  const state = JSON.parse(fs.readFileSync(sourceState, 'utf8'));
+  assert.deepEqual(
+    state.approvedConcurrentScopes?.['fix/role-eligibility-fns-import-health-preservation-5016'],
+    [
+      'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts',
+      'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.spec.ts',
+    ],
+  );
 });
