@@ -9,6 +9,8 @@ const implementationBranches = [
   'fix/p0-registration-authority-rollover-4637',
   'fix/p0-owner-control-plane-audit-lock-4698',
   'docs/pc-crop-post-registration-progress-4997',
+  'governance/pc-crop-post-registration-progress-scope-4997',
+  'governance/pc-crop-inventory-reservation-scope-4997',
 ];
 const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
@@ -144,7 +146,7 @@ test(`${implementationBranch}: rejects branch-local state expansion`, (t) => {
 
   const result = runGuard(context);
   assert.notEqual(result.status, 0, output(result));
-  assert.match(output(result), /Mutable scope authority changed/u);
+  assert.match(output(result), implementationBranch.startsWith('governance/') ? /Files outside current autopilot scope/u : /Mutable scope authority changed/u);
 });
 
 test(`${implementationBranch}: rejects a branch-local scope manifest`, (t) => {
@@ -160,7 +162,7 @@ test(`${implementationBranch}: rejects a branch-local scope manifest`, (t) => {
 
   const result = runGuard(context);
   assert.notEqual(result.status, 0, output(result));
-  assert.match(output(result), /Mutable scope authority changed/u);
+  assert.match(output(result), implementationBranch.startsWith('governance/') ? /Files outside current autopilot scope/u : /Mutable scope authority changed/u);
 });
 
 test(`${implementationBranch}: rejects changes to the guard authority`, (t) => {
@@ -170,7 +172,7 @@ test(`${implementationBranch}: rejects changes to the guard authority`, (t) => {
 
   const result = runGuard(context);
   assert.notEqual(result.status, 0, output(result));
-  assert.match(output(result), /Mutable scope authority changed/u);
+  assert.match(output(result), implementationBranch.startsWith('governance/') ? /Files outside current autopilot scope/u : /Mutable scope authority changed/u);
 });
 
 test(`${implementationBranch}: fails closed without immutable base authority`, (t) => {
@@ -224,4 +226,36 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
   ]) {
     assert.ok(workflow.includes(marker), `missing trusted-base workflow marker: ${marker}`);
   }
+});
+
+for (const branch of implementationBranches.filter((name) => name.startsWith('governance/'))) {
+  test(`${branch}: permits governance authorities only when the base lists them explicitly`, (t) => {
+    const context = fixture(t, branch);
+    const stateFile = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, stateFile), 'utf8'));
+    state.approvedConcurrentScopes[branch] = [stateFile, 'scripts/p7-autopilot-guard.sh'];
+    write(context.root, stateFile, JSON.stringify(state));
+    commit(context.root, 'record prior two-file governance approval');
+    const baseline = git(context.root, ['rev-parse', 'HEAD']);
+    state.approvedConcurrentScopes['future/branch'] = ['future.txt'];
+    write(context.root, stateFile, JSON.stringify(state));
+    fs.appendFileSync(path.join(context.root, 'scripts/p7-autopilot-guard.sh'), '\n# approved governance change\n');
+    commit(context.root, 'apply approved governance changes');
+    assert.equal(runGuard({ ...context, baseline }).status, 0);
+    write(context.root, 'README.md', 'unapproved despite a governance branch');
+    commit(context.root, 'attempt to exceed the prior approval');
+    assert.notEqual(runGuard({ ...context, baseline }).status, 0);
+  });
+}
+
+test('governance branches retain unprivileged head regression validation', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  for (const [start, end] of [
+    ['      - name: Require standard validations in the required guard context', '      - name: Validate immutable scope with trusted base guard on PR head'],
+    ['  standard_validation:', '    runs-on: ubuntu-latest'],
+  ]) {
+    const section = workflow.slice(workflow.indexOf(start), workflow.indexOf(end, workflow.indexOf(start) + start.length));
+    assert.doesNotMatch(section, /github\.head_ref != 'governance\//u);
+  }
+  assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
 });
