@@ -90,7 +90,9 @@ describe('platform-v7 public copy quality', () => {
     const story = read('apps/web/i18n/platform-v7-home-story-product.ts');
     const howItWorks = read('apps/web/app/platform-v7/how-it-works/page.tsx');
     expect(story).toContain("processTitle: 'Семь шагов обычной агросделки'");
-    expect(story).toContain('Отклонение и спор — отдельные примеры исключений');
+    expect(story).toContain('Ниже показан вымышленный пример Сделки');
+    expect(story).toContain('The section below is a fictional Deal example');
+    expect(story).toContain('下面展示的是虚构交易示例');
     expect(howItWorks).toContain("kicker: 'Как работает Сделка'");
     expect(howItWorks).toContain('вымышленный пример');
     expect(home).toContain('const normalState = story.demo.states[0]!;');
