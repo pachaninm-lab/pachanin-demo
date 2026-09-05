@@ -3,7 +3,7 @@
   "issue": 4997,
   "branch": "feat/pc-crop-progressive-trust-authority-4997",
   "status": "active",
-  "purpose": "W2-D: implement fact-level progressive trust, separate trade permission from verification, and append immutable TradeRiskAcknowledgement evidence without creating a parallel Deal, Inventory or compliance engine.",
+  "purpose": "W2-D foundation: implement fact-level progressive trust, separate trade permission from verification, and append immutable TradeRiskAcknowledgement evidence without creating a parallel Deal, Inventory or compliance engine.",
   "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
   "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
   "productionHosting": "REG_RU_VPS_ONLY",
@@ -26,13 +26,29 @@
     "apps/api/src/modules/trade-trust/trade-trust.module.ts",
     "apps/api/src/modules/trade-trust/dto/trade-trust.dto.ts",
     "apps/api/src/app.module.ts",
-    "apps/api/src/modules/auctions/auction-authority.service.ts",
-    "apps/api/src/modules/deals/prisma-deal.repository.ts",
     "apps/api/test/industrial/trade-trust-authority.e2e-spec.ts",
     "scripts/verify-pc-crop-trade-trust-scope.test.mjs",
     ".github/workflows/pc-crop-trade-trust.yml",
     "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
     "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {
+      "path": "apps/api/src/modules/auctions/auction-authority.service.ts",
+      "reason": "W2-D first acceptance is an independent trust authority. Auction already exposes DECLARED/PUBLIC_ALLOWED from W2-B; consumer projection belongs to a later integration slice and must not widen this foundation."
+    },
+    {
+      "path": "apps/api/src/modules/deals/prisma-deal.repository.ts",
+      "reason": "Deal-stage consumption overlaps W2-C. W2-D foundation stores and validates trust/acknowledgement evidence against canonical references without modifying Deal creation."
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "reason": "Global CI remains an independent gate; the bounded trust workflow may invoke existing commands but must not weaken global CI to admit this slice."
+    },
+    {
+      "path": "scripts/platform-v7-forward-only-migration-check.mjs",
+      "reason": "The generic migration checker discovers additive migrations dynamically and must remain unchanged."
+    }
   ],
   "sourceEvidence": [
     "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
@@ -51,22 +67,22 @@
     "Current user, membership, organization and tenant authority are resolved from PostgreSQL before acknowledgement and before replay. Revoked authority cannot replay an old acknowledgement as a current authorization fact.",
     "Acknowledging risk records informed acceptance only. It cannot override a hard regulatory blocker, manufacture independent evidence, change quantity, release money, sign a document or authorize another organization.",
     "Trust snapshots, acknowledgement, audit and outbox evidence commit atomically with payload-bound idempotency, CAS/version checks and tenant/organization FORCE RLS. Restricted application roles cannot bypass the command boundary by direct DML.",
-    "Existing Auction Inventory binding remains DECLARED/PUBLIC_ALLOWED with source_verified_at NULL. W2-D extends its honest projection; it does not weaken W2-B reservation, bid, award or FGIS quarantine controls.",
-    "Existing canonical Deal, Inventory, Service Marketplace, Commercial Rules and Source-of-Truth utilities are reused. Do not create DealV2, InventoryV2, ComplianceV2 or another provider engine.",
+    "Existing Auction Inventory binding remains DECLARED/PUBLIC_ALLOWED with source_verified_at NULL. W2-D references that state as input evidence but does not modify W2-B reservation, bid, award or FGIS quarantine controls.",
+    "Existing canonical Deal, Inventory, Service Marketplace, Commercial Rules and Source-of-Truth utilities are reused as references/evidence. Do not create DealV2, InventoryV2, ComplianceV2 or another provider engine.",
     "Registration, Role Eligibility, Federal Accounting lock #4321, package/lockfiles, external provider claims and production topology remain unchanged."
   ],
   "acceptance": [
     "Restricted PostgreSQL tests prove the ten fact dimensions, all seven verification statuses, independent axes and DECLARED + PUBLIC_ALLOWED without a fabricated verified timestamp or external success claim.",
-    "Same-tenant outsiders and cross-tenant callers cannot read or mutate private trust snapshots or acknowledgements; current seller/buyer membership revocation is rechecked before command and replay.",
+    "Same-tenant outsiders and cross-tenant callers cannot read or mutate private trust snapshots or acknowledgements; current membership/user/organization revocation is rechecked before command and replay.",
     "Exact replay returns the original immutable receipt; changed disclosure version, evidence snapshot, stage, risk code or payload under the same idempotency key is rejected.",
     "A stale/conflicting evidence update changes only the affected fact and derived axes according to a pinned policy version; it does not erase prior snapshots or acknowledgements.",
     "Hard regulatory blockers remain blocked even after acknowledgement, while absence of independent verification alone does not block PUBLIC_ALLOWED trading.",
     "Audit/outbox/evidence insertion failure rolls back the command with no acknowledged partial trust state.",
-    "Auction and canonical Deal projections expose server-derived trust state without accepting client verification/permission fields.",
+    "The trust API returns only server-derived trust state and rejects client-supplied verification/permission authority fields; canonical lot/deal identifiers are validated as existing same-tenant references where required.",
     "Forward migrations, zero public-schema drift, backup/restore, cryptographic freshness and exact-head CI/review pass without changing registration or global independent gates."
   ],
   "remainingTerminalBoundary": [
-    "Full UI disclosure/confirmation ceremony, repeated warnings on every required critical screen and real-user acceptance remain later UX acceptance work.",
+    "Auction/Deal consumer wiring, full UI disclosure/confirmation ceremony, repeated warnings on every required critical screen and real-user acceptance remain later integration/UX work.",
     "Independent lab/surveyor/elevator/FGIS evidence producers and freshness/conflict reconciliation remain separate provider/regulatory slices.",
     "Settlement and service eligibility must be consumed by their respective canonical engines before terminal end-to-end credit.",
     "Verified REG.RU runtime acceptance remains required before any of the three terminal criteria receives PASS credit."
