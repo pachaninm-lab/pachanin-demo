@@ -19,6 +19,18 @@
     padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
+  /* Registration remains the primary conversion route on every viewport. */
+  .pc-v7-public-entry .pc-v6-header-cta {
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 10px !important;
+    font-size: 13px !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
   .pc-v7-public-entry .pc-public-deal-stage-rail--hero small {
     position: absolute;
     width: 1px;
@@ -80,6 +92,33 @@
     clip-path: inset(50%) !important;
     white-space: nowrap !important;
     border: 0 !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .pc-v7-public-entry .pc-site-header {
+    gap: 4px !important;
+    padding-inline: 10px !important;
+  }
+
+  .pc-v7-public-entry .pc-site-brand-text {
+    display: none !important;
+  }
+
+  .pc-v7-public-entry .pc-site-actions,
+  .pc-v7-public-entry .pc-v6-header-actions {
+    gap: 4px !important;
+  }
+
+  .pc-v7-public-entry .pc-public-deal-stage-rail--demo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 359px) {
+  .pc-v7-public-entry .pc-v6-header-cta {
+    padding-inline: 8px !important;
+    font-size: 12px !important;
   }
 }
 
