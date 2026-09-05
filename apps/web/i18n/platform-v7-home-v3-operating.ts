@@ -10,7 +10,9 @@ const operatingCopy = {
       proofLabel: 'Как платформа ведёт Сделку',
     },
     lifecycle: {
-      lead: 'Условия, торги, исполнение, документы, качество и расчёт связаны с одной Сделкой: видны факты, ответственный, основание и следующий шаг.',
+      lead: 'Семь понятных шагов ведут Сделку от товара и условий до расчёта и закрытия. На каждом шаге видны факты, ответственный, основание и следующий шаг.',
+      hint: 'Семь шагов обычной Сделки.',
+      phases: ['Товар и условия', 'Торги и контрагент', 'Сделка и договор', 'Логистика и поставка', 'Приёмка и качество', 'Документы и готовность расчёта', 'Расчёт и закрытие'],
     },
     final: {
       title: 'Начните работать с платформой',
@@ -31,7 +33,9 @@ const operatingCopy = {
       proofLabel: 'How the platform runs a Deal',
     },
     lifecycle: {
-      lead: 'Terms, bidding, execution, documents, quality and settlement stay linked to one Deal with visible facts, owner, evidence and next step.',
+      lead: 'Seven clear steps take a Deal from product and terms to settlement and closure. Every step shows facts, owner, evidence and the next action.',
+      hint: 'Seven steps of an ordinary Deal.',
+      phases: ['Product and terms', 'Bidding and counterparty', 'Deal and contract', 'Logistics and delivery', 'Acceptance and quality', 'Documents and settlement readiness', 'Settlement and closure'],
     },
     final: {
       title: 'Start using the platform',
@@ -52,7 +56,9 @@ const operatingCopy = {
       proofLabel: '平台如何管理交易',
     },
     lifecycle: {
-      lead: '条件、竞价、履约、文件、质量和结算都关联到同一笔交易，并显示事实、责任方、依据和下一步。',
+      lead: '七个清晰步骤把交易从商品与条件推进到结算与关闭，每一步都显示事实、责任方、依据和下一步。',
+      hint: '普通交易的七个步骤。',
+      phases: ['商品与条件', '竞价与交易方', '交易与合同', '物流与交付', '验收与质量', '文件与结算准备', '结算与关闭'],
     },
     final: {
       title: '开始使用平台',
