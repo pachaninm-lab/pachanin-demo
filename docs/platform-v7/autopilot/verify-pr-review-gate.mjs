@@ -14,6 +14,10 @@ const COMPLETED_REVIEW_STATES = new Set([
   'COMMENTED',
 ]);
 
+const POSITIVE_REVIEW_STATES = new Set([
+  'APPROVED',
+]);
+
 const GREEN_CHECK_STATES = new Set([
   'SUCCESS',
   'SKIPPED',
@@ -47,6 +51,12 @@ export function exactHeadCodexReviews(reviews, headSha) {
     const state = String(review?.state || '').toUpperCase();
     return CODEX_REVIEW_LOGINS.has(login) && commitId === expected && COMPLETED_REVIEW_STATES.has(state);
   });
+}
+
+export function positiveExactHeadCodexReviews(reviews, headSha) {
+  return exactHeadCodexReviews(reviews, headSha).filter((review) => (
+    POSITIVE_REVIEW_STATES.has(String(review?.state || '').toUpperCase())
+  ));
 }
 
 export function cleanCodexReviewPrefixes(comments) {
@@ -142,9 +152,10 @@ export function ciSnapshotMatchesHead(snapshotHeadSha, expectedHeadSha) {
 }
 
 export function reviewGatePrState(pr) {
-  if (String(pr?.state || '').toLowerCase() !== 'open') return 'CLOSED';
-  if (pr?.draft === true) return 'DRAFT';
-  return 'REVIEWABLE';
+  const state = String(pr?.state || '').toLowerCase();
+  if (state === 'closed') return 'CLOSED';
+  if (state !== 'open' || typeof pr?.draft !== 'boolean') return 'INVALID';
+  return pr.draft ? 'DRAFT' : 'REVIEWABLE';
 }
 
 function runGh(args) {
@@ -270,6 +281,9 @@ function main() {
   if (!pr) fail('REVIEW_GATE_PR_UNAVAILABLE', `Unable to read PR #${prNumber}.`);
 
   const prState = reviewGatePrState(pr);
+  if (prState === 'INVALID') {
+    fail('REVIEW_GATE_PR_STATE_INVALID', `PR #${prNumber} has an incomplete or unsupported live state.`);
+  }
   if (prState === 'CLOSED') {
     console.log(`PR_REVIEW_GATE=SKIP_CLOSED pr=${prNumber}`);
     return;
@@ -286,6 +300,7 @@ function main() {
 
   const reviews = fetchAllReviews(repo, prNumber);
   const exactCodex = exactHeadCodexReviews(reviews, headSha);
+  const positiveExactCodex = positiveExactHeadCodexReviews(reviews, headSha);
   const comments = fetchAllIssueComments(repo, prNumber);
   const cleanPrefixes = cleanCodexReviewPrefixes(comments);
   let exactCleanCodex = 0;
@@ -297,8 +312,11 @@ function main() {
     }
   }
 
-  if (exactCodex.length === 0 && exactCleanCodex === 0) {
-    fail('REVIEW_GATE_CODEX_EXACT_HEAD_MISSING', `No completed Codex review is bound to exact head ${headSha}.`);
+  if (positiveExactCodex.length === 0 && exactCleanCodex === 0) {
+    fail(
+      'REVIEW_GATE_CODEX_EXACT_HEAD_CLEAN_MISSING',
+      `No positive Codex approval or clean-review evidence is bound to exact head ${headSha}.`,
+    );
   }
 
   const blockingReviews = latestBlockingChangeRequests(reviews);
@@ -355,7 +373,7 @@ function main() {
     );
   }
 
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexExactHeadReviews=${exactCodex.length} codexExactHeadCleanComments=${exactCleanCodex} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexExactHeadReviews=${exactCodex.length} codexExactHeadPositiveReviews=${positiveExactCodex.length} codexExactHeadCleanComments=${exactCleanCodex} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';
