@@ -2,12 +2,12 @@
   "schemaVersion": "pc-crop.post-registration.gap-map.v1",
   "issue": 4997,
   "observedAt": "2026-09-05",
-  "exactMainBaseline": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
+  "exactMainBaseline": "824a073cad569532c2be21603a143e679508a301",
   "auditLineage": {
     "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
-    "deltaReviewedToExactMain": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
+    "deltaReviewedToExactMain": "824a073cad569532c2be21603a143e679508a301",
     "postRegistrationFindingsChanged": true,
-    "previousObservedMainSha": "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff",
+    "previousObservedMainSha": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
     "w0Delta": {
       "deltaCommits": [
         "db2b0d61ac6206e3b1fc25d54692a7747dbf7365",
@@ -19,8 +19,10 @@
       5001,
       5010,
       5015,
-      5019
+      5019,
+      5026
     ],
+    "reviewedW2PullRequests": [5029],
     "governancePullRequest": 5021
   },
   "specification": {
@@ -143,31 +145,47 @@
     },
     {
       "id": "CFG-05",
-      "sections": [22, 48],
+      "sections": [
+        22,
+        48
+      ],
       "area": "Service marketplace and provider onboarding",
-      "classification": ["NEW_REQUIRED", "EXTEND_EXISTING"],
+      "classification": [
+        "KEEP",
+        "EXTEND_EXISTING"
+      ],
       "severity": "P1",
       "evidence": [
-        "apps/api/src/modules/organization-intake/organization-intake.service.ts",
-        "packages/domain-core/src/provider-compliance-gates.ts",
-        "apps/api/src/modules/accounting/connection-attestation.policy.ts"
+        "apps/api/src/modules/service-marketplace/service-marketplace.repository.ts",
+        "apps/api/prisma/migrations/20260905030000_service_marketplace_authority/migration.sql",
+        "apps/api/test/industrial/service-marketplace-authority.e2e-spec.ts"
       ],
-      "finding": "Intake and attestation primitives exist. There is no durable Request to Quote to Selection to PayerConfirmation to Execution to Evidence to Settlement lifecycle or generic conformance kit.",
-      "requiredDelta": "Build the marketplace orchestration over existing logistics, lab, document and settlement execution engines."
+      "finding": "W1-E Service Marketplace authority merged in #5026; tenant-isolated request/quote/selection/payer/execution/evidence/acceptance lifecycle and append-only non-financial settlement references are PostgreSQL-authoritative. Provider, capability, offering and organization revocation are rechecked. PostgreSQL 12/12 and combined inventory compatibility passed.",
+      "requiredDelta": "Connect the accepted service lifecycle to existing logistics, lab, document and settlement engines; complete provider onboarding/conformance and user flows, then prove REG.RU execution.",
+      "w0Finding": "Intake and attestation primitives exist. There is no durable Request to Quote to Selection to PayerConfirmation to Execution to Evidence to Settlement lifecycle or generic conformance kit.",
+      "updatedBy": "W1-E/W2-A bounded acceptance reconciliation"
     },
     {
       "id": "MKT-01",
-      "sections": [7, 8],
+      "sections": [
+        7,
+        8
+      ],
       "area": "Physical inventory, genealogy and reservation",
-      "classification": ["NEW_REQUIRED"],
+      "classification": [
+        "KEEP",
+        "EXTEND_EXISTING"
+      ],
       "severity": "P0",
       "evidence": [
-        "apps/api/prisma/schema.prisma",
-        "apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql",
-        "apps/api/prisma/migrations/20260802120000_fgis_verified_lot_path_quarantine/migration.sql"
+        "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+        "apps/api/src/modules/inventory/inventory.repository.ts",
+        "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts"
       ],
-      "finding": "InventoryPosition, Batch, genealogy, custody, title, restriction, reservation and availability authority do not exist. Auction exclusivity cannot prevent two lots from selling the same physical grain.",
-      "requiredDelta": "Create exact-quantity PostgreSQL inventory and atomic cross-lot reservation before enabling new market paths."
+      "finding": "W2-A merged in #5029: six FORCE-RLS tables, memberless command owner, pinned exact quantities, DECLARE/RESERVE/RELEASE, durable receipts and availability snapshots. Restricted READ COMMITTED races across two known lots, revoked membership, direct-write denial, evidence rollback and restore passed 15/15. Existing market writers still do not require this inventory authority.",
+      "requiredDelta": "Bind the existing Auction registration and later Offer/Deal writers to canonical inventory; add full lifecycle, genealogy, independent custody/title/restriction facts and user-facing trust/acknowledgement flows before terminal acceptance.",
+      "w0Finding": "InventoryPosition, Batch, genealogy, custody, title, restriction, reservation and availability authority do not exist. Auction exclusivity cannot prevent two lots from selling the same physical grain.",
+      "updatedBy": "W1-E/W2-A bounded acceptance reconciliation"
     },
     {
       "id": "MKT-02",
