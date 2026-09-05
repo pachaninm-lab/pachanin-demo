@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -209,4 +210,35 @@ test('CI snapshot must be bound to the exact verified head', () => {
   assert.equal(ciSnapshotMatchesHead(oldHead, head), false);
   assert.equal(ciSnapshotMatchesHead('not-a-sha', head), false);
   assert.equal(ciSnapshotMatchesHead('', head), false);
+});
+
+test('review reconciliation workflow uses supported dispatch wiring and complete pagination', () => {
+  const workflow = readFileSync(
+    new URL('../../../.github/workflows/automerge.yml', import.meta.url),
+    'utf8',
+  );
+
+  // YAML parseability itself is enforced by Workflow Syntax Guard; this test binds
+  // the semantic reconciliation contract so an unsupported trigger or broken payload
+  // cannot silently replace the supported repository_dispatch path again.
+  assert.doesNotMatch(workflow, /^\s*pull_request_review_thread:/mu);
+  assert.match(workflow, /^\s*repository_dispatch:\s*$/mu);
+  assert.match(workflow, /^\s*types:\s*\[review-gate-reconcile\]\s*$/mu);
+  assert.match(
+    workflow,
+    /group:\s*repo-automerge-\$\{\{[^\n]*github\.event\.client_payload\.pr_number[^\n]*\}\}/u,
+  );
+  assert.match(workflow, /^\s*exact-head-dispatched-gate:\s*$/mu);
+  assert.match(
+    workflow,
+    /github\.event_name == 'repository_dispatch' && github\.event\.action == 'review-gate-reconcile'/u,
+  );
+  assert.match(workflow, /PR_NUMBER:\s*\$\{\{ github\.event\.client_payload\.pr_number \}\}/u);
+  assert.match(workflow, /EXPECTED_HEAD:\s*\$\{\{ github\.event\.client_payload\.head_sha \}\}/u);
+  assert.match(workflow, /gh api --paginate --slurp/u);
+  assert.match(workflow, /repos\/\$REPO\/pulls\?state=open&per_page=100/u);
+  assert.match(workflow, /repos\/\$REPO\/dispatches/u);
+  assert.match(workflow, /event_type=review-gate-reconcile/u);
+  assert.match(workflow, /client_payload\[pr_number\]=\$pr_number/u);
+  assert.match(workflow, /client_payload\[head_sha\]=\$head_sha/u);
 });
