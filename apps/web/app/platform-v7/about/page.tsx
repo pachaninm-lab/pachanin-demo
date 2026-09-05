@@ -18,9 +18,6 @@ type Copy = Readonly<{
   trustTitle: string;
   trustLead: string;
   trustLinks: readonly Card[];
-  exploreTitle: string;
-  exploreLead: string;
-  exploreLinks: readonly Card[];
   contactTitle: string;
   contactText: string;
   contactCta: string;
@@ -53,20 +50,10 @@ const COPY: Record<Locale, Copy> = {
     trustTitle: 'Что подтверждено, а что требует подключения',
     trustLead: 'Платформа не выдаёт внешнюю систему за подключённую. Банк, государственная система, ЭДО, 1С или лабораторный контур считаются доступными только после подтверждения для конкретной организации.',
     trustLinks: [
-      { title: 'Как проходит Сделка', note: 'Обычный путь сделки и отдельно отмеченные примеры отклонений — без доступа к реальным данным.', href: '/platform-v7/how-it-works' },
+      { title: 'Как проходит Сделка', note: 'Обычный путь Сделки и отдельно отмеченные примеры отклонений — без доступа к реальным данным.', href: '/platform-v7/how-it-works' },
       { title: 'Центр доверия', note: 'Полномочия, доказательства, данные, внешние подключения и границы Гекты.', href: '/platform-v7/trust' },
       { title: 'Гекта в работе', note: 'Как Гекта объясняет факты, риски и следующий разрешённый шаг — без самостоятельных полномочий.', href: '/platform-v7/ai-in-action' },
       { title: 'Задать вопрос', note: 'Отдельный канал помощи. Обращение не является регистрацией и не открывает кабинет.', href: '/platform-v7/contact' },
-    ],
-    exploreTitle: 'Что можно посмотреть подробнее',
-    exploreLead: 'Эти разделы раскрывают отдельные части агросделки — исполнение, логистику, качество, документы, расчётные основания и государственные данные.',
-    exploreLinks: [
-      { title: 'Исполнение сделки', note: 'Условия, поставка, приёмка, документы, расчёт и доказательства.', href: '/platform-v7/secure-grain-deal' },
-      { title: 'Логистика', note: 'Перевозка, водитель, маршрут, контрольные точки и подтверждение доставки.', href: '/platform-v7/grain-logistics' },
-      { title: 'Качество и приёмка', note: 'Вес, показатели качества, расхождения и подтверждающие материалы.', href: '/platform-v7/grain-quality' },
-      { title: 'Документы', note: 'Комплектность и связь документов с фактическим исполнением Сделки.', href: '/platform-v7/grain-documents' },
-      { title: 'Расчётные основания', note: 'Что должно быть подтверждено до финансового действия.', href: '/platform-v7/grain-payment' },
-      { title: 'Государственные данные', note: 'Внешний обмен показывается как доступный только после подтверждённого подключения.', href: '/platform-v7/fgis-zerno' },
     ],
     contactTitle: 'Нужна помощь до регистрации?',
     contactText: 'Можно задать вопрос о платформе, ролях, документах или будущем подключении организации. Для рабочего кабинета используется отдельная регистрация.',
@@ -97,16 +84,6 @@ const COPY: Record<Locale, Copy> = {
       { title: 'Gekta in action', note: 'How Gekta explains facts, risks and the next permitted step without gaining independent authority.', href: '/platform-v7/ai-in-action' },
       { title: 'Ask a question', note: 'A separate help channel. Contact does not register a user or open a workspace.', href: '/platform-v7/contact' },
     ],
-    exploreTitle: 'Explore the main parts of a Deal',
-    exploreLead: 'These sections explain execution, logistics, quality, documents, settlement grounds and government-data connections in more detail.',
-    exploreLinks: [
-      { title: 'Deal execution', note: 'Terms, delivery, acceptance, documents, settlement and evidence.', href: '/platform-v7/secure-grain-deal' },
-      { title: 'Logistics', note: 'Transport, driver, route, checkpoints and delivery evidence.', href: '/platform-v7/grain-logistics' },
-      { title: 'Quality and acceptance', note: 'Weight, quality indicators, discrepancies and supporting evidence.', href: '/platform-v7/grain-quality' },
-      { title: 'Documents', note: 'Document completeness and relationship to actual Deal execution.', href: '/platform-v7/grain-documents' },
-      { title: 'Settlement grounds', note: 'What must be confirmed before a financial action.', href: '/platform-v7/grain-payment' },
-      { title: 'Government data', note: 'External exchange is shown as available only after a confirmed connection.', href: '/platform-v7/fgis-zerno' },
-    ],
     contactTitle: 'Need help before registration?',
     contactText: 'Ask about the platform, roles, documents or a future organisation connection. A separate registration flow is used to obtain a workspace.',
     contactCta: 'Ask a question',
@@ -135,16 +112,6 @@ const COPY: Record<Locale, Copy> = {
       { title: '信任中心', note: '权限、证据、数据、外部连接和 Gekta 的边界。', href: '/platform-v7/trust' },
       { title: 'Gekta 实际运行', note: '了解 Gekta 如何解释事实、风险和允许的下一步，同时不获得独立权限。', href: '/platform-v7/ai-in-action' },
       { title: '提出问题', note: '独立帮助渠道。提交问题不会完成注册，也不会打开工作空间。', href: '/platform-v7/contact' },
-    ],
-    exploreTitle: '进一步了解交易的主要部分',
-    exploreLead: '这些页面进一步解释履约、物流、质量、文件、结算依据和政府数据接入。',
-    exploreLinks: [
-      { title: '交易履约', note: '条件、交付、验收、文件、结算与证据。', href: '/platform-v7/secure-grain-deal' },
-      { title: '物流', note: '运输、司机、路线、检查点和交付证明。', href: '/platform-v7/grain-logistics' },
-      { title: '质量与验收', note: '重量、质量指标、差异和证明材料。', href: '/platform-v7/grain-quality' },
-      { title: '文件', note: '文件完整性以及与实际履约的关联。', href: '/platform-v7/grain-documents' },
-      { title: '结算依据', note: '金融操作前必须确认哪些事实。', href: '/platform-v7/grain-payment' },
-      { title: '政府数据', note: '只有接入确认后，外部交换才显示为可用。', href: '/platform-v7/fgis-zerno' },
     ],
     contactTitle: '注册前需要帮助？',
     contactText: '可以询问平台、角色、文件或未来的机构接入。获得工作空间需要使用独立注册流程。',
@@ -234,11 +201,6 @@ export default async function AboutPage() {
         <section style={sectionStyle}>
           <div><h2 style={sectionTitleStyle}>{copy.trustTitle}</h2><p style={mutedStyle}>{copy.trustLead}</p></div>
           <div style={gridStyle}>{copy.trustLinks.map((item) => <PublicLink key={item.href} item={item} open={copy.open} locale={locale} />)}</div>
-        </section>
-
-        <section style={sectionStyle}>
-          <div><h2 style={sectionTitleStyle}>{copy.exploreTitle}</h2><p style={mutedStyle}>{copy.exploreLead}</p></div>
-          <div style={gridStyle}>{copy.exploreLinks.map((item) => <PublicLink key={item.href} item={item} open={copy.open} locale={locale} />)}</div>
         </section>
 
         <section style={sectionStyle}>
