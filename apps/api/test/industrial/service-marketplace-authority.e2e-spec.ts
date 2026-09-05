@@ -449,6 +449,50 @@ describeAuthority('Service Marketplace PostgreSQL authority', () => {
     });
   });
 
+  it.each(['provider', 'capability', 'offering', 'organization'] as const)(
+    'rechecks current %s authority at selection and execution', async (authority) => {
+      const suffix = `revoked-${authority}`;
+      const requestId = `${RUN_ID}-request-${suffix}`;
+      const quoteId = `${RUN_ID}-quote-${suffix}`;
+      await marketplace.execute(requester, createRequest(requestId, suffix));
+      await marketplace.execute(provider, {
+        ...base(requestId, 'SUBMIT_QUOTE', '1', `${suffix}-quote`), action: 'SUBMIT_QUOTE', quoteId,
+        serviceOfferingId: OFFERING_ID, serviceOfferingVersion: '1', quoteType: 'MANUAL_QUOTE',
+        commercialDecisionId: null, amountKopecks: '9000', currency: 'RUB', payerMode: 'BUYER',
+        termsHash: serviceMarketplaceDigest({ suffix }), expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      });
+      // Set upstream facts through the same isolated migration-principal fixture
+      // as beforeAll. Marketplace triggers and restricted commands stay active.
+      const setActive = async (active: boolean) => admin.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+        if (authority === 'provider') await tx.provider.update({ where: { id: PROVIDER_ID }, data: { status: active ? 'ACTIVE' : 'SUSPENDED' } });
+        if (authority === 'capability') await tx.providerCapability.update({ where: { id: CAPABILITY_ID }, data: { status: active ? 'ACTIVE' : 'REVOKED', effectiveTo: active ? null : new Date() } });
+        if (authority === 'offering') await tx.serviceOffering.update({ where: { id: OFFERING_ID }, data: { status: active ? 'ACTIVE' : 'SUSPENDED' } });
+        if (authority === 'organization') await tx.organization.update({ where: { id: PROVIDER_ORG }, data: { status: active ? 'ACTIVE' : 'SUSPENDED' } });
+      });
+      const selection = { ...base(requestId, 'SELECT_PROVIDER', '2', `${suffix}-select`), action: 'SELECT_PROVIDER' as const, quoteId };
+      await setActive(false);
+      try { await expect(marketplace.execute(requester, selection)).rejects.toBeInstanceOf(ForbiddenException); }
+      finally { await setActive(true); }
+      expect(await marketplace.execute(requester, selection)).toMatchObject({ status: 'PROVIDER_SELECTED', stateVersion: '3', replayed: false });
+      const payerAssignmentId = `${RUN_ID}-assignment-${suffix}`;
+      await marketplace.execute(requester, {
+        ...base(requestId, 'ASSIGN_PAYER', '3', `${suffix}-assign`), action: 'ASSIGN_PAYER',
+        payerAssignmentId, payerOrganizationId: PAYER_ORG, payerMembershipId: PAYER_MEMBERSHIP,
+      });
+      await marketplace.execute(payer, {
+        ...base(requestId, 'CONFIRM_PAYER', '4', `${suffix}-confirm`), action: 'CONFIRM_PAYER', payerAssignmentId,
+      });
+      const execution = { ...base(requestId, 'START_EXECUTION', '5', `${suffix}-start`), action: 'START_EXECUTION' as const, executionReference: `${RUN_ID}/execution/${suffix}` };
+      await setActive(false);
+      try { await expect(marketplace.execute(provider, execution)).rejects.toBeInstanceOf(ForbiddenException); }
+      finally { await setActive(true); }
+      expect(await marketplace.execute(provider, execution)).toMatchObject({ status: 'EXECUTING', stateVersion: '6', replayed: false });
+      const events = await admin.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`SELECT count(*) FROM public."service_marketplace_events" WHERE "requestId"=${requestId}`);
+      expect(events[0]?.count).toBe(6n);
+    },
+  );
+
   it('rolls back request, audit and event when outbox evidence is absent', async () => {
     const incomplete = new ServiceMarketplaceRepository({
       withTrustedContext: (user: RequestUser, work: Parameters<RlsTransactionService['withTrustedContext']>[1]) =>

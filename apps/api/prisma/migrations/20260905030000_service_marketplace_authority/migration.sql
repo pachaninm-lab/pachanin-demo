@@ -309,6 +309,42 @@ BEGIN
 END
 $function$;
 
+-- Admission uses current upstream authority, not the historical quote alone.
+-- Share locks serialize admission with provider/capability/offering revocation.
+CREATE FUNCTION public.app_service_marketplace_lock_provider(quote_id text, request_id text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $function$
+BEGIN
+  PERFORM 1 FROM public."service_marketplace_quotes" quote
+    JOIN public."service_marketplace_requests" request_row
+      ON request_row."id" = quote."requestId" AND request_row."tenantId" = quote."tenantId"
+    JOIN public."service_offerings" offering
+      ON offering."id" = quote."serviceOfferingId" AND offering."version" = quote."serviceOfferingVersion"
+      AND offering."tenantId" = quote."tenantId" AND offering."organizationId" = quote."providerOrganizationId"
+      AND offering."providerId" = quote."providerId" AND offering."capabilityId" = quote."capabilityId"
+    JOIN public."provider_capabilities" capability
+      ON capability."id" = offering."capabilityId" AND capability."providerId" = offering."providerId"
+      AND capability."tenantId" = offering."tenantId" AND capability."organizationId" = offering."organizationId"
+    JOIN public."providers" provider
+      ON provider."id" = offering."providerId" AND provider."tenantId" = offering."tenantId"
+      AND provider."organizationId" = offering."organizationId"
+    JOIN public."organizations" organization
+      ON organization."id" = offering."organizationId" AND organization."tenantId" = offering."tenantId"
+   WHERE quote."id" = quote_id AND quote."requestId" = request_id
+     AND quote."tenantId" = public.app_identity_tenant_id()
+     AND public.app_pc_crop_membership_id() IS NOT NULL
+     AND (request_row."requesterOrganizationId" = public.app_identity_org_id()
+       OR request_row."selectedProviderOrganizationId" = public.app_identity_org_id())
+     AND offering."status" = 'ACTIVE' AND capability."status" = 'ACTIVE'
+     AND provider."status" = 'ACTIVE' AND organization."status" = 'ACTIVE'
+     AND capability."effectiveFrom" <= clock_timestamp()
+     AND (capability."effectiveTo" IS NULL OR capability."effectiveTo" > clock_timestamp())
+   FOR SHARE OF offering, capability, provider, organization;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'PC_SERVICE_PROVIDER_AUTHORITY_NOT_CURRENT';
+  END IF;
+END
+$function$;
+
 CREATE FUNCTION public.app_service_marketplace_request_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, public AS $function$
 DECLARE
@@ -366,6 +402,7 @@ BEGIN
             IS DISTINCT FROM to_jsonb(OLD) - ARRAY['status','stateVersion','selectedQuoteId','selectedProviderOrganizationId','updatedByMembershipId','updatedByOrganizationId','updatedAt'] THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'PC_SERVICE_SELECTION_INVALID';
       END IF;
+      PERFORM public.app_service_marketplace_lock_provider(NEW."selectedQuoteId", NEW."id");
     WHEN 'ASSIGN_PAYER' THEN
       IF OLD."status" NOT IN ('PROVIDER_SELECTED','PAYER_ASSIGNED') OR NEW."status" <> 'PAYER_ASSIGNED'
          OR actor_org <> OLD."requesterOrganizationId"
@@ -391,6 +428,7 @@ BEGIN
             IS DISTINCT FROM to_jsonb(OLD) - ARRAY['status','stateVersion','executionReference','updatedByMembershipId','updatedByOrganizationId','updatedAt'] THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'PC_SERVICE_EXECUTION_INVALID';
       END IF;
+      PERFORM public.app_service_marketplace_lock_provider(OLD."selectedQuoteId", OLD."id");
     WHEN 'SUBMIT_EVIDENCE' THEN
       IF OLD."status" <> 'EXECUTING' OR NEW."status" <> 'EVIDENCE_SUBMITTED'
          OR actor_org IS DISTINCT FROM OLD."selectedProviderOrganizationId"
@@ -637,6 +675,7 @@ CREATE POLICY outbox_entries_service_marketplace_insert ON public."outbox_entrie
 );
 
 REVOKE ALL ON FUNCTION public.app_service_marketplace_participant(public."service_marketplace_requests") FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.app_service_marketplace_lock_provider(text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_service_marketplace_quote_guard() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_service_marketplace_request_guard() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_service_marketplace_event_guard() FROM PUBLIC;
@@ -657,6 +696,7 @@ BEGIN
     EXECUTE format('GRANT SELECT, INSERT ON public."service_marketplace_events" TO %I', runtime_role);
     EXECUTE format('GRANT SELECT, INSERT ON public."audit_events" TO %I', runtime_role);
     EXECUTE format('GRANT INSERT ON public."outbox_entries" TO %I', runtime_role);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.app_service_marketplace_lock_provider(text, text) TO %I', runtime_role);
     EXECUTE format(
       'GRANT EXECUTE ON FUNCTION public.app_service_marketplace_participant(public."service_marketplace_requests") TO %I',
       runtime_role
