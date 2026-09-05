@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-inventory-evidence-authority-4997",
+  "status": "active",
+  "purpose": "W2-G foundation: extend the existing canonical Inventory authority with BatchGenealogy, CustodyPosition, TitleEvidence and InventoryRestriction facts, without changing Deal allocation or manufacturing independent verification.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [7, 8],
+  "terminalCriteria": [
+    "INVENTORY=PASS",
+    "DOUBLE_SELL_PROTECTION=PASS"
+  ],
+  "allowedPaths": [
+    "packages/domain-core/src/inventory-evidence.ts",
+    "packages/domain-core/src/inventory-evidence.test.ts",
+    "apps/api/prisma/migrations/20260905240000_inventory_evidence_authority/migration.sql",
+    "apps/api/src/modules/inventory-evidence/inventory-evidence.contract.ts",
+    "apps/api/src/modules/inventory-evidence/inventory-evidence.contract.spec.ts",
+    "apps/api/src/modules/inventory-evidence/inventory-evidence.repository.ts",
+    "apps/api/src/modules/inventory-evidence/inventory-evidence.repository.spec.ts",
+    "apps/api/src/modules/inventory-evidence/inventory-evidence.policy.ts",
+    "apps/api/src/modules/inventory-evidence/inventory-evidence.policy.spec.ts",
+    "apps/api/test/industrial/inventory-evidence-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-inventory-evidence-scope.test.mjs",
+    ".github/workflows/pc-crop-inventory-evidence.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {
+      "path": "apps/api/prisma/schema.prisma",
+      "reason": "The existing Inventory authority is intentionally private-schema/raw-SQL. W2-G extends the existing `inventory` schema and introduces no public Prisma model."
+    },
+    {
+      "path": "packages/domain-core/src/index.ts",
+      "reason": "The parallel-safe foundation tests its domain module by direct source import; barrel export is deferred to a mounted consumer slice."
+    },
+    {
+      "path": "apps/api/src/modules/inventory/inventory.repository.ts",
+      "reason": "Existing DECLARE/RESERVE/RELEASE command semantics remain unchanged. W2-G uses separate bounded evidence commands over the same canonical batches/positions."
+    },
+    {
+      "path": "apps/api/src/modules/inventory/inventory.contract.ts",
+      "reason": "W2-G does not add lifecycle quantity commands to the existing reservation contract; COMMIT/SHIP/ACCEPT/SOLD remain a later Deal-linked slice."
+    },
+    {
+      "path": "apps/api/src/app.module.ts",
+      "reason": "The first evidence foundation is unmounted and parallel-safe; API/UI exposure is later work."
+    },
+    {
+      "path": "apps/api/src/modules/deals/prisma-deal.repository.ts",
+      "reason": "W2-G does not consume or mutate Deal; Deal allocation remains W2-C."
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "reason": "Global CI remains an independent gate."
+    },
+    {
+      "path": "scripts/platform-v7-forward-only-migration-check.mjs",
+      "reason": "The generic forward-only checker discovers additive migrations dynamically and remains unchanged."
+    }
+  ],
+  "sourceEvidence": [
+    "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+    "apps/api/src/modules/inventory/inventory.contract.ts",
+    "apps/api/src/modules/inventory/inventory.repository.ts",
+    "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Extend the existing `inventory` schema, `inventory.batches`, `inventory.positions`, `inventory.reservations` and `pc_inventory_authority`; do not create InventoryV2 or another stock authority.",
+    "BatchGenealogy is append-only and represents typed parent→child transformations with exact quantities, pinned unit/profile identities and conservation checks. Genealogy cannot create physical quantity ex nihilo.",
+    "CustodyPosition and TitleEvidence are distinct facts. Custody records who physically controls stock; title/disposal-right evidence records the legal/evidentiary claim. Neither implies the other.",
+    "InventoryRestriction is an explicit versioned blocker/constraint fact with scope, reason, source evidence, effective interval and release/supersession evidence; restrictions cannot be removed by editing history.",
+    "Manual/document/ERP claims remain DECLARED evidence and never become independent verification merely because a custody/title/restriction row exists.",
+    "Every new fact pins tenant, organization, canonical batch/position identity, source type/reference, evidence version/hash and actor membership; cross-tenant or same-tenant outsiders cannot forge another organization's physical/legal facts.",
+    "Current user, membership and organization state are revalidated before mutation and replay. Revoked authority cannot return a prior receipt as current authority.",
+    "Evidence mutations are append-only commands with payload-bound idempotency, optimistic versioning, immutable event hash, audit and outbox in one transaction.",
+    "Evidence facts may reduce eligibility or availability only through a separately versioned policy/consumer; W2-G itself does not silently change reservation quantities, commit stock, transfer ownership, ship, accept or sell.",
+    "Existing W2-A conservation and W2-B bound-reservation guards stay effective. Genealogy/evidence commands cannot release, reuse or rewrite an Auction-bound reservation.",
+    "No browser field can select verified status, ownership truth, custody truth, legal finality or regulatory success. External receipts remain separate evidence producers.",
+    "Registration, Role Eligibility, W2-C Deal allocation, W2-D trust, Federal Accounting lock #4321, packages/lockfiles and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Restricted PostgreSQL tests create and read BatchGenealogy, CustodyPosition, TitleEvidence and InventoryRestriction facts only for current tenant/organization authority.",
+    "Genealogy split/merge evidence conserves exact integer atoms across parent and child batches and rejects profile/unit/quantity mismatch, cycles and duplicate consumption.",
+    "Custody and title can intentionally disagree without one overwriting the other; the API/repository projection exposes the conflict honestly rather than inventing ownership.",
+    "Restriction supersession/release is append-only and requires current authority plus explicit evidence; direct UPDATE/DELETE/TRUNCATE is denied.",
+    "Cross-tenant, same-tenant outsider and revoked-membership commands/replays fail closed.",
+    "Exact replay returns the original receipt; changed payload under the same idempotency key is rejected.",
+    "Forced audit/outbox/evidence failure leaves no partial genealogy/custody/title/restriction state or accepted receipt.",
+    "W2-A reservation quantities and W2-B Auction binding remain byte-for-byte behaviorally unchanged; an evidence command cannot alter reservation status or quantity.",
+    "Forward migrations, zero public Prisma schema drift, backup/restore, cryptographic freshness and exact-head CI/review pass while global independent gates remain unchanged."
+  ],
+  "remainingTerminalBoundary": [
+    "COMMIT/SHIP/ACCEPT/SOLD and other quantity lifecycle transitions remain a later Deal-linked Inventory slice.",
+    "Progressive Trust consumption of custody/title/restriction evidence remains W2-D consumer integration work.",
+    "Mounted Inventory evidence API/UI and My Products → Batch → Lot → Deal user flow remain later UX work.",
+    "Verified REG.RU runtime and end-to-end double-sell acceptance remain required before terminal INVENTORY/DOUBLE_SELL_PROTECTION credit."
+  ],
+  "terminalCredit": 0
+}
