@@ -1,154 +1,259 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getLocale } from 'next-intl/server';
 
-export const metadata: Metadata = {
-  title: 'О проекте — Прозрачная Цена на домене Процент-Агро.рф',
-  description:
-    'Прозрачная Цена на домене Процент-Агро.рф — controlled pilot / pre-integration контур исполнения зерновой сделки: цена, логистика, приёмка, документы, расчёт, спор и доказательства.',
-  alternates: {
-    canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/about',
+type Locale = 'ru' | 'en' | 'zh';
+type Card = Readonly<{ title: string; note: string; href: string }>;
+
+type Copy = Readonly<{
+  metadataTitle: string;
+  metadataDescription: string;
+  title: string;
+  lead: string;
+  domainNote: string;
+  whatTitle: string;
+  bullets: readonly string[];
+  trustTitle: string;
+  trustLead: string;
+  trustLinks: readonly Card[];
+  exploreTitle: string;
+  exploreLead: string;
+  exploreLinks: readonly Card[];
+  contactTitle: string;
+  contactText: string;
+  contactCta: string;
+  legalTitle: string;
+  legalText: string;
+  home: string;
+  status: string;
+  register: string;
+  open: string;
+}>;
+
+const COPY: Record<Locale, Copy> = {
+  ru: {
+    metadataTitle: 'О платформе — Прозрачная Цена',
+    metadataDescription: 'Прозрачная Цена помогает участникам агросделки в растениеводстве вести одну Сделку от условий и выбора контрагента до поставки, качества, документов, расчёта и закрытия.',
+    title: 'О платформе',
+    lead: '«Прозрачная Цена» — единый цифровой контур агросделки в растениеводстве. Он связывает участников, условия, исполнение, качество, документы, расчётные основания и исключения в одной истории Сделки.',
+    domainNote: 'Процент-Агро.рф — публичный домен платформы «Прозрачная Цена».',
+    whatTitle: 'Что получает участник',
+    bullets: [
+      'Понимает, где находится Сделка сейчас и какое действие требуется дальше.',
+      'Видит свою ответственность, связанные документы и подтверждённые события исполнения.',
+      'Работает с поставкой, логистикой, приёмкой, качеством и расчётными основаниями в одном контексте.',
+      'При отклонении видит причину, доказательства, ответственного и разрешённый следующий шаг.',
+    ],
+    trustTitle: 'Доверие без лишних обещаний',
+    trustLead: 'Публичные страницы отделяют возможности платформы от внешних подключений. Банк, государственная система, ЭДО, 1С или лабораторный контур не считаются подключёнными без подтверждения для конкретной организации.',
+    trustLinks: [
+      { title: 'Как проходит Сделка', note: 'Обычный путь сделки и отдельно отмеченные примеры отклонений — без доступа к реальным данным.', href: '/platform-v7/how-it-works' },
+      { title: 'Центр доверия', note: 'Правила полномочий, доказательств, данных, внешних подключений и Гекты.', href: '/platform-v7/trust' },
+      { title: 'Состояние системы', note: 'Подтверждаемые внутренние сигналы и честная граница внешних систем.', href: '/platform-v7/status' },
+      { title: 'Задать вопрос', note: 'Отдельный канал помощи. Обращение не является регистрацией и не открывает кабинет.', href: '/platform-v7/contact' },
+    ],
+    exploreTitle: 'Основные публичные разделы',
+    exploreLead: 'Материалы объясняют отдельные части агросделки. Некоторые исторические адреса страниц содержат слово grain, но позиционирование платформы охватывает сделки растениеводства, а не только зерно.',
+    exploreLinks: [
+      { title: 'Исполнение сделки', note: 'Условия, поставка, приёмка, документы, расчёт и доказательства.', href: '/platform-v7/secure-grain-deal' },
+      { title: 'Логистика', note: 'Перевозка, водитель, маршрут, контрольные точки и подтверждение доставки.', href: '/platform-v7/grain-logistics' },
+      { title: 'Качество и приёмка', note: 'Вес, показатели качества, расхождения и подтверждающие материалы.', href: '/platform-v7/grain-quality' },
+      { title: 'Документы', note: 'Комплектность и связь документов с фактическим исполнением Сделки.', href: '/platform-v7/grain-documents' },
+      { title: 'Расчётные основания', note: 'Что должно быть подтверждено до финансового действия.', href: '/platform-v7/grain-payment' },
+      { title: 'Государственные данные', note: 'Внешний обмен показывается как доступный только после подтверждённого подключения.', href: '/platform-v7/fgis-zerno' },
+    ],
+    contactTitle: 'Нужна помощь до регистрации?',
+    contactText: 'Можно задать вопрос о платформе, ролях, документах или будущем подключении организации. Для получения рабочего кабинета используется отдельная регистрация.',
+    contactCta: 'Задать вопрос',
+    legalTitle: 'Правила и документы',
+    legalText: 'Юридические и информационные страницы публикуются отдельно от маркетинговых формулировок. Неподтверждённые реквизиты, статусы подключений и договорные обещания не подставляются автоматически.',
+    home: 'На главную',
+    status: 'Состояние системы',
+    register: 'Зарегистрироваться',
+    open: 'Открыть',
   },
-  openGraph: {
-    title: 'О проекте — Прозрачная Цена / Процент Агро',
-    description:
-      'Проект на домене Процент-Агро.рф не является обычной доской объявлений: фокус — исполнение сделки после цены, документный след, расчёт и доказательства.',
-    url: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/about',
-    siteName: 'Прозрачная Цена / Процент Агро',
-    locale: 'ru_RU',
-    type: 'website',
+  en: {
+    metadataTitle: 'About the platform — Transparent Price',
+    metadataDescription: 'Transparent Price helps crop-trade participants run one Deal from terms and counterparty selection through delivery, quality, documents, settlement grounds and closure.',
+    title: 'About the platform',
+    lead: 'Transparent Price is a unified digital crop-trade workflow. It links participants, terms, execution, quality, documents, settlement grounds and exceptions in one Deal history.',
+    domainNote: 'Процент-Агро.рф is the public domain of the Transparent Price platform.',
+    whatTitle: 'What a participant gets',
+    bullets: [
+      'A clear view of the current Deal stage and the next required action.',
+      'Role-specific responsibility, linked documents and verified execution events.',
+      'Delivery, logistics, acceptance, quality and settlement grounds in one context.',
+      'For deviations: cause, evidence, owner and the next permitted step.',
+    ],
+    trustTitle: 'Trust without overclaiming',
+    trustLead: 'Public pages separate platform capability from external connectivity. A bank, government system, EDI, 1C or laboratory circuit is not presented as connected until it is confirmed for the organisation.',
+    trustLinks: [
+      { title: 'How a Deal works', note: 'The ordinary journey plus clearly labelled deviation examples, without access to real Deal data.', href: '/platform-v7/how-it-works' },
+      { title: 'Trust Center', note: 'Authority, evidence, data, external-connection and Gekta boundaries.', href: '/platform-v7/trust' },
+      { title: 'System status', note: 'Verifiable internal signals and an explicit external-system boundary.', href: '/platform-v7/status' },
+      { title: 'Ask a question', note: 'A separate help channel. Contact does not register a user or open a workspace.', href: '/platform-v7/contact' },
+    ],
+    exploreTitle: 'Main public sections',
+    exploreLead: 'These pages explain individual parts of an agricultural Deal. Some historical route names still contain “grain”, but platform positioning covers crop transactions rather than grain only.',
+    exploreLinks: [
+      { title: 'Deal execution', note: 'Terms, delivery, acceptance, documents, settlement and evidence.', href: '/platform-v7/secure-grain-deal' },
+      { title: 'Logistics', note: 'Transport, driver, route, checkpoints and delivery evidence.', href: '/platform-v7/grain-logistics' },
+      { title: 'Quality and acceptance', note: 'Weight, quality indicators, discrepancies and supporting evidence.', href: '/platform-v7/grain-quality' },
+      { title: 'Documents', note: 'Document completeness and relationship to actual Deal execution.', href: '/platform-v7/grain-documents' },
+      { title: 'Settlement grounds', note: 'What must be confirmed before a financial action.', href: '/platform-v7/grain-payment' },
+      { title: 'Government data', note: 'External exchange is shown as available only after a confirmed connection.', href: '/platform-v7/fgis-zerno' },
+    ],
+    contactTitle: 'Need help before registration?',
+    contactText: 'Ask about the platform, roles, documents or a future organisation connection. A separate registration flow is used to obtain a workspace.',
+    contactCta: 'Ask a question',
+    legalTitle: 'Rules and documents',
+    legalText: 'Legal and information pages remain separate from marketing copy. Unverified legal details, connection status or contractual promises are never filled in automatically.',
+    home: 'Home',
+    status: 'System status',
+    register: 'Register',
+    open: 'Open',
+  },
+  zh: {
+    metadataTitle: '关于平台 — 透明价格',
+    metadataDescription: '透明价格帮助种植业交易参与方在同一笔交易中管理条件、交易方选择、交付、质量、文件、结算依据和关闭。',
+    title: '关于平台',
+    lead: '“透明价格”是种植业农业交易的统一数字流程，把参与方、条件、履约、质量、文件、结算依据和异常情况连接到同一笔交易历史中。',
+    domainNote: 'Процент-Агро.рф 是“透明价格”平台的公开域名。',
+    whatTitle: '参与方获得什么',
+    bullets: [
+      '清楚看到交易当前阶段以及下一步需要完成的操作。',
+      '看到与自身角色相关的责任、文件和已确认履约事件。',
+      '在同一上下文中处理交付、物流、验收、质量和结算依据。',
+      '发生偏差时看到原因、证据、责任方以及允许的下一步。',
+    ],
+    trustTitle: '信任来自可验证边界，而不是夸大承诺',
+    trustLead: '公开页面将平台能力与外部连接分开。银行、政府系统、电子文件、1C 或实验室系统只有在机构接入被确认后，才会显示为已连接。',
+    trustLinks: [
+      { title: '交易如何运行', note: '普通交易路径以及明确标记的偏差示例，不访问真实交易数据。', href: '/platform-v7/how-it-works' },
+      { title: '信任中心', note: '权限、证据、数据、外部连接和 Gekta 的边界。', href: '/platform-v7/trust' },
+      { title: '系统状态', note: '可验证的内部信号以及明确的外部系统边界。', href: '/platform-v7/status' },
+      { title: '提出问题', note: '独立帮助渠道。提交问题不会完成注册，也不会打开工作空间。', href: '/platform-v7/contact' },
+    ],
+    exploreTitle: '主要公开页面',
+    exploreLead: '这些页面解释农业交易的各个部分。部分历史地址仍包含 grain 一词，但平台定位覆盖种植业交易，而不仅限于粮食。',
+    exploreLinks: [
+      { title: '交易履约', note: '条件、交付、验收、文件、结算与证据。', href: '/platform-v7/secure-grain-deal' },
+      { title: '物流', note: '运输、司机、路线、检查点和交付证明。', href: '/platform-v7/grain-logistics' },
+      { title: '质量与验收', note: '重量、质量指标、差异和证明材料。', href: '/platform-v7/grain-quality' },
+      { title: '文件', note: '文件完整性以及与实际履约的关联。', href: '/platform-v7/grain-documents' },
+      { title: '结算依据', note: '金融操作前必须确认哪些事实。', href: '/platform-v7/grain-payment' },
+      { title: '政府数据', note: '只有接入确认后，外部交换才显示为可用。', href: '/platform-v7/fgis-zerno' },
+    ],
+    contactTitle: '注册前需要帮助？',
+    contactText: '可以询问平台、角色、文件或未来的机构接入。获得工作空间需要使用独立注册流程。',
+    contactCta: '提出问题',
+    legalTitle: '规则与文件',
+    legalText: '法律与信息页面和营销文案保持分离。未经确认的法律信息、接入状态或合同承诺不会自动展示。',
+    home: '返回首页',
+    status: '系统状态',
+    register: '注册',
+    open: '打开',
   },
 };
-
-const TRUST_LINKS = [
-  {
-    title: 'Демонстрационная сделка',
-    note: 'Публичный proof-of-flow без доступа к рабочим кабинетам и реальным данным.',
-    href: '/platform-v7/demo',
-  },
-  {
-    title: 'Документный контур',
-    note: 'СДИЗ, ЭДО, транспортные документы, акты, приёмка, качество и доказательства.',
-    href: '/platform-v7/docs',
-  },
-  {
-    title: 'Статус сервисов',
-    note: 'Честная граница текущей готовности: controlled pilot / pre-integration.',
-    href: '/platform-v7/status',
-  },
-  {
-    title: 'Обратная связь',
-    note: 'Единый публичный канал для вопросов по пилоту, банку, региону и подключению.',
-    href: '/platform-v7/contact',
-  },
-];
-
-const SEO_LINKS = [
-  { title: 'Безопасная зерновая сделка', note: 'Исполнение после цены: рейс, приёмка, документы, расчёт, спор и доказательства.', href: '/platform-v7/secure-grain-deal' },
-  { title: 'Логистика зерна', note: 'Рейс, водитель, маршрут, элеватор, контрольные точки и отклонения.', href: '/platform-v7/grain-logistics' },
-  { title: 'Качество и приёмка', note: 'Вес, лабораторные показатели, допуски, расхождения и доказательный слой.', href: '/platform-v7/grain-quality' },
-  { title: 'Документы сделки', note: 'СДИЗ, ЭДО, транспортные документы, акты и комплектность до расчёта.', href: '/platform-v7/grain-documents' },
-  { title: 'Расчёты по сделке', note: 'Основание для оплаты после подтверждённых событий, документов и качества.', href: '/platform-v7/grain-payment' },
-  { title: 'ФГИС Зерно и СДИЗ', note: 'Целевой pre-integration контур регуляторного следа и прослеживаемости партии.', href: '/platform-v7/fgis-zerno' },
-];
 
 const LEGAL_LINKS = [
   { label: 'Privacy', href: '/platform-v7/privacy' },
   { label: 'Terms', href: '/platform-v7/terms' },
   { label: 'Oferta', href: '/platform-v7/oferta' },
   { label: 'Docs', href: '/platform-v7/docs' },
-];
+] as const;
 
-export default function AboutPage() {
+function localeOf(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = localeOf(await getLocale());
+  const copy = COPY[locale];
+  return {
+    title: copy.metadataTitle,
+    description: copy.metadataDescription,
+    alternates: {
+      canonical: '/platform-v7/about',
+      languages: {
+        ru: '/platform-v7/about?lang=ru',
+        en: '/platform-v7/about?lang=en',
+        zh: '/platform-v7/about?lang=zh',
+      },
+    },
+    robots: { index: true, follow: true },
+  };
+}
+
+export default async function AboutPage() {
+  const locale = localeOf(await getLocale());
+  const copy = COPY[locale];
+  const lang = `?lang=${encodeURIComponent(locale)}`;
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>О проекте</div>
-        <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Прозрачная Цена — это не витрина объявлений, а цифровой контур исполнения внебиржевой зерновой сделки: от цены и допуска до логистики, приёмки, документов, основания для расчёта, спора и доказательств.
-        </div>
-        <div style={{ marginTop: 10, fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>
-          Процент Агро и Процент-Агро.рф используются как публичная доменная связка проекта Прозрачная Цена.
-        </div>
+    <main style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto', padding: '24px 16px 56px' }}>
+      <section style={sectionStyle}>
+        <h1 style={{ fontSize: 30, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', margin: 0 }}>{copy.title}</h1>
+        <p style={leadStyle}>{copy.lead}</p>
+        <p style={mutedStyle}>{copy.domainNote}</p>
+        <Link href={`/platform-v7/register${lang}`} style={primaryLinkStyle}>{copy.register}</Link>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Что делает система</div>
-        <Bullet text='Держит сделку в одном контуре, а не разносит её по чатам, звонкам и разрозненным файлам.' />
-        <Bullet text='Показывает следующий шаг, владельца действия и причину блокировки расчёта.' />
-        <Bullet text='Связывает логистику, документы, приёмку, качество, банковское основание и спор в одну цепочку.' />
-        <Bullet text='Собирает доказательную базу для оператора, банка, комплаенса и разбора расхождений.' />
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>{copy.whatTitle}</h2>
+        {copy.bullets.map((text) => <Bullet key={text} text={text} />)}
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+      <section style={sectionStyle}>
         <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Доверие и прозрачность</div>
-          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
-            Здесь собраны публичные поверхности, которые помогают понять контур без доступа к личным кабинетам и без заявления неподтверждённых live-интеграций.
-          </div>
+          <h2 style={sectionTitleStyle}>{copy.trustTitle}</h2>
+          <p style={mutedStyle}>{copy.trustLead}</p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-          {TRUST_LINKS.map((item) => (
-            <PublicLink key={item.href} item={item} />
-          ))}
-        </div>
+        <div style={gridStyle}>{copy.trustLinks.map((item) => <PublicLink key={item.href} item={item} open={copy.open} locale={locale} />)}</div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
+      <section style={sectionStyle}>
         <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Публичные разделы для поиска</div>
-          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
-            Эти страницы объясняют поисковикам и рынку, что Процент-Агро — это контур исполнения зерновой сделки, а не обычная доска объявлений.
-          </div>
+          <h2 style={sectionTitleStyle}>{copy.exploreTitle}</h2>
+          <p style={mutedStyle}>{copy.exploreLead}</p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-          {SEO_LINKS.map((item) => (
-            <PublicLink key={item.href} item={item} />
-          ))}
+        <div style={gridStyle}>{copy.exploreLinks.map((item) => <PublicLink key={item.href} item={item} open={copy.open} locale={locale} />)}</div>
+      </section>
+
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>{copy.contactTitle}</h2>
+        <p style={mutedStyle}>{copy.contactText}</p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Link href={`/platform-v7/register${lang}`} style={primaryLinkStyle}>{copy.register}</Link>
+          <Link href={`/platform-v7/contact${lang}`} style={secondaryLinkStyle}>{copy.contactCta}</Link>
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Публичный канал связи</div>
-        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Для вопросов по платформе, controlled pilot, банковскому контуру, региональному запуску или техническому взаимодействию используется форма обращения. Неподтверждённые реквизиты, демо-email и тестовые телефоны на публичной странице не публикуются.
-        </div>
-        <Link href='/platform-v7/contact' style={{ width: 'fit-content', textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          Задать вопрос
-        </Link>
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Юридический и документный контур</div>
+      <section style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>{copy.legalTitle}</h2>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {LEGAL_LINKS.map((item) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', padding: '8px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 800 }}>
-              {item.label}
-            </Link>
+            <Link key={item.href} href={`${item.href}${lang}`} style={pillStyle}>{item.label}</Link>
           ))}
         </div>
-        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Эти поверхности нужны не для витрины, а для понятного внешнего контура: право, безопасность, условия работы и документы платформы.
-        </div>
+        <p style={mutedStyle}>{copy.legalText}</p>
       </section>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          На главную
-        </Link>
-        <Link href='/platform-v7/status' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
-          Статус сервисов
-        </Link>
+        <Link href={`/platform-v7${lang}`} style={primaryLinkStyle}>{copy.home}</Link>
+        <Link href={`/platform-v7/status${lang}`} style={secondaryLinkStyle}>{copy.status}</Link>
       </div>
-    </div>
+    </main>
   );
 }
 
-function PublicLink({ item }: { item: { title: string; note: string; href: string } }) {
+function PublicLink({ item, open, locale }: { item: Card; open: string; locale: Locale }) {
   return (
-    <Link href={item.href} style={{ textDecoration: 'none', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 8 }}>
-      <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
-      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{item.note}</div>
-      <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+    <Link href={`${item.href}?lang=${encodeURIComponent(locale)}`} style={{ textDecoration: 'none', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 8 }}>
+      <strong style={{ fontSize: 16, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</strong>
+      <span style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{item.note}</span>
+      <span style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>{open} →</span>
     </Link>
   );
 }
@@ -156,8 +261,17 @@ function PublicLink({ item }: { item: { title: string; note: string; href: strin
 function Bullet({ text }: { text: string }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>
-      <span style={{ fontWeight: 900 }}>•</span>
+      <span aria-hidden='true' style={{ fontWeight: 900 }}>•</span>
       <span>{text}</span>
     </div>
   );
 }
+
+const sectionStyle = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 } as const;
+const sectionTitleStyle = { fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', margin: 0 } as const;
+const leadStyle = { margin: '8px 0 0', fontSize: 14, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 } as const;
+const mutedStyle = { margin: 0, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 } as const;
+const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 } as const;
+const primaryLinkStyle = { width: 'fit-content', textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, minHeight: 44, display: 'inline-flex', alignItems: 'center' } as const;
+const secondaryLinkStyle = { width: 'fit-content', textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, minHeight: 44, display: 'inline-flex', alignItems: 'center' } as const;
+const pillStyle = { textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 40, padding: '8px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 800 } as const;
