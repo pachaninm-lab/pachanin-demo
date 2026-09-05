@@ -89,6 +89,10 @@ describe('platform-v7 public copy quality', () => {
     expect(about).toContain('p7-about-register');
     expect(about).toContain('/platform-v7/register');
     expect(about).toContain('Что такое «Прозрачная Цена»');
+    expect(about).toContain("href: '/platform-v7/ai-in-action'");
+    expect(about).toContain('href={`/platform-v7/trust${lang}`}');
+    expect(about).not.toContain("href: '/platform-v7/status'");
+    expect(about).not.toContain('href={`/platform-v7/status${lang}`}');
     expect(about).not.toContain('исторические адреса страниц');
     expect(about).not.toContain("content:'↪'");
     expect(about).not.toContain('font-size:0');
