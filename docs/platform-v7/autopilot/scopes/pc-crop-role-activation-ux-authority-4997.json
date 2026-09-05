@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-role-activation-ux-4997",
+  "status": "staged",
+  "purpose": "W8-A: replace the generic post-registration role-root interception with server-backed capability-specific activation and primary-action surfaces while preserving role/tenant authority and without modifying registration.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review/merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [6, 63, 64, 68],
+  "terminalCriteria": ["ROLE_ACTIVATION=PASS", "ROLE_PRIMARY_ACTION=PASS", "EMPTY_STATE=PASS"],
+  "allowedPaths": [
+    "apps/api/src/modules/role-workspace/role-workspace.contract.ts",
+    "apps/api/src/modules/role-workspace/role-workspace.contract.spec.ts",
+    "apps/api/src/modules/role-workspace/role-workspace.service.ts",
+    "apps/api/src/modules/role-workspace/role-workspace.service.spec.ts",
+    "apps/api/src/modules/role-workspace/role-workspace.controller.ts",
+    "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+    "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+    "apps/web/components/platform-v7/RoleIntentDashboard.module.css",
+    "apps/web/components/platform-v7/RolePrimaryAction.tsx",
+    "apps/web/components/platform-v7/RolePrimaryAction.module.css",
+    "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+    "apps/web/tests/unit/platformV7RoleActivation.test.tsx",
+    "apps/web/tests/e2e/platform-v7-role-activation.spec.ts",
+    "scripts/verify-pc-crop-role-activation-ux-scope.test.mjs",
+    ".github/workflows/pc-crop-role-activation-ux.yml"
+  ],
+  "excludedAfterSourceAudit": [
+    {"path":"apps/api/src/modules/auth/**","reason":"Registration/auth/Role Eligibility are invariant and must not change. Workspace reads only the already verified current user/membership/capabilities."},
+    {"path":"apps/web/app/platform-v7/*/page.tsx","reason":"Existing role workspaces remain canonical children; the first slice fixes shell interception/activation rather than rewriting every role page at once."},
+    {"path":"apps/web/lib/platform-v7/controlled-test-organizations.ts","reason":"Controlled owner preview remains test-only and cannot become ordinary-user activation authority."},
+    {"path":"apps/api/src/app.module.ts","reason":"First contract may use an existing mounted aggregation/proxy boundary or separately accepted module wiring; global module changes are not required in the staged scope."}
+  ],
+  "sourceEvidence": [
+    "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+    "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+    "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Registration behavior and role assignment are unchanged. The shell consumes only the server-verified role and current server-backed capability/workspace data.",
+    "Ordinary authenticated users are never routed to a test/owner preview and the preview cookie/controlled organization marker never grants product authority.",
+    "Every role root exposes one clear first primary action derived from current organization capability, authoritative workflow availability and current blockers; the browser cannot select or manufacture capability availability.",
+    "An empty role root is actionable: it explains why there is no work and offers only currently authorized creation/discovery/setup actions, not a dead message that waits for a Deal to appear.",
+    "Existing real role workspace children remain reachable and are not hidden behind a generic Deal-only dashboard when the user has a valid primary action unrelated to an existing Deal.",
+    "Role activation supports buyer, seller, logistics, driver, surveyor, elevator, lab, bank, compliance, arbitrator, executive and operator using one server-derived contract with role-specific action vocabulary.",
+    "Actions remain links/intents until the target server command independently authorizes them. UI activation state never becomes command authority.",
+    "Loading, empty, error, blocked and ready states are explicit and preserve RU/EN/ZH. Failures do not fall back to fabricated fixture work or test data.",
+    "Capability/setup blockers expose the exact next step, such as add organization capability, connect an accepted provider or complete required setup, only when that route/action is actually authorized.",
+    "No role root claims live external provider, signature, regulatory or money readiness unless the server workspace contract has accepted evidence for it.",
+    "Mobile-first first action is visible without horizontal scroll or hidden navigation; keyboard/focus and reduced-motion rules remain intact.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, product authorities and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Unit tests prove every role maps server workspace facts to an explicit primary action or an actionable blocked/empty state and never to invented work.",
+    "Regression proves ordinary role roots no longer replace their real workspace with a Deal-only generic surface by default.",
+    "Controlled owner preview remains presentation-only and cannot change current role/capabilities/tenant or server action authorization.",
+    "A role with zero Deals but permission to create/request work sees the relevant first action; a role without that permission sees an exact blocker/next step.",
+    "Server failure renders a recoverable error and never static/demo data.",
+    "E2E covers all role roots on at least 390px mobile and desktop with keyboard navigation and RU/EN/ZH labels for the primary activation state.",
+    "Registration boundary tests remain green and no auth/registration/eligibility file changes in the implementation diff.",
+    "Exact-head CI/review plus real-user acceptance later remain required before terminal role-activation credit."
+  ],
+  "remainingTerminalBoundary": [
+    "Each downstream primary action must have its own accepted server authority before the UI can be terminally useful.",
+    "Full Deal 360 and settings/discovery UX remain separate W8 slices.",
+    "5–8 unaided real-user tasks per role remain ACCEPT-01 and are not proven by automated activation tests.",
+    "REG.RU runtime/mobile acceptance remains mandatory."
+  ],
+  "terminalCredit": 0
+}
