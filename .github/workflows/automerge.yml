@@ -16,7 +16,7 @@ permissions:
   pull-requests: write
   issues: write
   checks: read
-  statuses: read
+  statuses: write
 
 concurrency:
   group: repo-automerge-${{ github.event.pull_request.number || github.run_id }}
@@ -44,6 +44,20 @@ jobs:
         with:
           node-version: 20
 
+      - name: Mark exact-head review gate pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
+            -f state=pending \
+            -f context=review-gate/exact-head \
+            -f description='Exact-head Codex review is being reconciled' \
+            >/dev/null
+
       - name: Verify review gate implementation and exact PR head
         id: gate
         continue-on-error: true
@@ -58,12 +72,13 @@ jobs:
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
           node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
 
-      - name: Reconcile visible review-gate label
+      - name: Publish exact-head review status and visible label
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GATE_OUTCOME: ${{ steps.gate.outcome }}
         shell: bash
         run: |
@@ -74,11 +89,27 @@ jobs:
             --description 'Exact-head Codex review complete; no active unresolved review findings' \
             >/dev/null 2>&1 || true
 
+          current_head=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq .headRefOid)
+          if [ "$current_head" != "$HEAD_SHA" ]; then
+            echo "Stale gate run ignored: expected=$HEAD_SHA current=$current_head"
+            exit 0
+          fi
+
           if [ "$GATE_OUTCOME" = success ]; then
+            state=success
+            description='Exact-head Codex review passed with no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
           else
+            state=failure
+            description='Exact-head Codex review is missing or has blocking findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           fi
+
+          gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
+            -f "state=$state" \
+            -f context=review-gate/exact-head \
+            -f "description=$description" \
+            >/dev/null
 
       - name: Enforce review gate result
         if: steps.gate.outcome != 'success'
