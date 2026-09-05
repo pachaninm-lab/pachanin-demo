@@ -103,6 +103,44 @@ describe('FnsEgrulFileImportService validate-only authority boundary', () => {
       .rejects.toThrow('FNS_EGRUL_IMPORT_DIRECTORY_CHANGED_AFTER_MANIFEST');
   });
 
+  it('fails closed when an XML file is added between the two complete validation passes', async () => {
+    await writeFile(join(root, 'a.xml'), entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
+
+    const original = service.inspectFullSnapshot.bind(service);
+    let pass = 0;
+    jest.spyOn(service, 'inspectFullSnapshot').mockImplementation(async (directory, format) => {
+      const manifest = await original(directory, format);
+      pass += 1;
+      if (pass === 1) {
+        await writeFile(join(root, 'b.xml'), entityXml('7812345675', '1047796045770', 'OOO BETA'));
+      }
+      return manifest;
+    });
+
+    await expect(service.validateFullSnapshot({ directory: root, format: '4.08' }))
+      .rejects.toThrow('FNS_EGRUL_IMPORT_DIRECTORY_CHANGED_AFTER_MANIFEST');
+  });
+
+  it('fails closed when an XML file is removed between the two complete validation passes', async () => {
+    const removed = join(root, 'b.xml');
+    await writeFile(join(root, 'a.xml'), entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
+    await writeFile(removed, entityXml('7812345675', '1047796045770', 'OOO BETA'));
+
+    const original = service.inspectFullSnapshot.bind(service);
+    let pass = 0;
+    jest.spyOn(service, 'inspectFullSnapshot').mockImplementation(async (directory, format) => {
+      const manifest = await original(directory, format);
+      pass += 1;
+      if (pass === 1) {
+        await rm(removed, { force: true });
+      }
+      return manifest;
+    });
+
+    await expect(service.validateFullSnapshot({ directory: root, format: '4.08' }))
+      .rejects.toThrow('FNS_EGRUL_IMPORT_DIRECTORY_CHANGED_AFTER_MANIFEST');
+  });
+
   it('rejects symlinks before reading a protected target', async () => {
     const outside = join(tmpdir(), `fns-egrul-outside-${Date.now()}.xml`);
     await writeFile(outside, entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
@@ -112,6 +150,18 @@ describe('FnsEgrulFileImportService validate-only authority boundary', () => {
         .rejects.toThrow('FNS_EGRUL_IMPORT_SYMLINK_FORBIDDEN');
     } finally {
       await rm(outside, { force: true });
+    }
+  });
+
+  it('rejects a symlinked staging root before traversal', async () => {
+    await writeFile(join(root, 'a.xml'), entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
+    const linkedRoot = join(tmpdir(), `fns-egrul-root-link-${process.pid}-${Date.now()}`);
+    try {
+      await symlink(root, linkedRoot, 'dir');
+      await expect(service.validateFullSnapshot({ directory: linkedRoot, format: '4.08' }))
+        .rejects.toThrow('FNS_EGRUL_IMPORT_SYMLINK_FORBIDDEN');
+    } finally {
+      await rm(linkedRoot, { force: true });
     }
   });
 
