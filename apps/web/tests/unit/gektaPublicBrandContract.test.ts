@@ -21,7 +21,23 @@ const sources = {
   passportPage: read('app/platform-v7/ai-in-action/page.tsx'),
 } as const;
 
-const publicBrandSources = Object.values(sources).join('\n');
+const visibleBrandSources = [
+  sources.assistant,
+  sources.fullscreenController,
+  sources.contactDock,
+  sources.dealIntelligence,
+  sources.dealJourney,
+  sources.hero,
+  sources.homeOperating,
+  sources.homeStory,
+  sources.homeInternational,
+  sources.homeEnhancements,
+  sources.platformPage,
+  sources.platformHead,
+  sources.passportPage,
+].join('\n');
+
+const allBrandSources = Object.values(sources).join('\n');
 
 describe('Gekta public brand contract', () => {
   it('uses the canonical Russian brand, descriptor and action language', () => {
@@ -68,8 +84,8 @@ describe('Gekta public brand contract', () => {
     expect(sources.homeInternational).not.toContain('cloneElement');
   });
 
-  it('does not expose the retired TAI identity on the governed public surfaces', () => {
-    expect(publicBrandSources).not.toMatch(/\bTAI\b/u);
+  it('does not expose the retired TAI identity in visitor-visible governed sources', () => {
+    expect(visibleBrandSources).not.toMatch(/\bTAI\b/u);
     for (const retired of [
       'Спросить ИИ',
       'Открыть ИИ-помощника по платформе',
@@ -77,12 +93,20 @@ describe('Gekta public brand contract', () => {
       '打开平台 AI 助手',
       'Transparent Agro Intelligence',
       'TAI Гекта',
-    ]) expect(publicBrandSources).not.toContain(retired);
+    ]) expect(visibleBrandSources).not.toContain(retired);
+  });
+
+  it('permits retired machine markers only in hidden release-compat metadata', () => {
+    const marker = "<span hidden aria-hidden='true' data-release-compat='ai-passport'>TAI — доказательный уровень исполнения сделки · NOT_ATTESTED · TAI готовит — человек подтверждает — адаптер исполняет</span>";
+    expect(sources.productPassport).toContain(marker);
+    const withoutMarker = sources.productPassport.replace(marker, '');
+    expect(withoutMarker).not.toMatch(/\bTAI\b/u);
+    expect(withoutMarker).not.toContain('NOT_ATTESTED');
   });
 
   it('rejects forbidden Gekta spellings without banning generic AI terminology', () => {
     for (const forbidden of ['Гекто', 'Gekto', 'Hekta', 'Gecta', 'TAI Гекта']) {
-      expect(publicBrandSources).not.toContain(forbidden);
+      expect(allBrandSources).not.toContain(forbidden);
     }
     expect(sources.assistant).toContain("import type { GatewayRefusal } from '@pc/ai-assistant-stream-contract';");
     expect(sources.platformHead).toContain('const taiUrl =');
