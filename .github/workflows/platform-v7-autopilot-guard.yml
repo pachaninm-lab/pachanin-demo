@@ -165,6 +165,8 @@ jobs:
             'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts',
             'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.spec.ts',
             'apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-import.module.ts',
+            'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts',
+            'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.spec.ts',
             'docs/security/CRYPTOGRAPHIC_INVENTORY.md',
             'docs/security/cryptographic-inventory.json',
           ];
