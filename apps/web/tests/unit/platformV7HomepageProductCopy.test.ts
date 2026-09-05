@@ -54,16 +54,20 @@ describe('platform-v7 homepage product copy', () => {
     expect(story).toContain("accountingQ: 'Как бухгалтер работает с 1С и ЭДО?'");
     expect(story).toContain("accountingQ: 'How does an accountant work with 1C and EDI?'");
     expect(story).toContain("accountingQ: '会计人员如何使用 1C 和电子单据系统？'");
+    expect(story).toContain('Внешние системы подключаются через отдельные управляемые интеграции');
     expect(story).toContain('Конкретная схема, доступность интеграции и права подтверждаются для организации до обмена данными.');
     expect(story).not.toContain('бухгалтер продолжает работать в привычной 1С и ЭДО');
     expect(story).not.toContain('без двойного ввода');
   });
 
-  it('keeps internal maturity jargon out of final homepage copy while preserving honest example language', () => {
+  it('keeps examples explicitly fictional and internal maturity jargon out of final homepage copy', () => {
     const publicCopy = [story, home, homeOperating, hero, connect, page].join('\n').toLowerCase();
     for (const phrase of ['controlled pilot', 'pre-integration', 'not_attested', 'production-like simulation', 'fake-live']) {
       expect(publicCopy).not.toContain(phrase);
     }
+    expect(story).toContain("heroSampleLabel: 'Вымышленный пример Сделки'");
+    expect(story).toContain("heroSampleLabel: 'Fictional Deal example'");
+    expect(story).toContain("heroSampleLabel: '虚构交易示例'");
     expect(story).toContain('Обычное исполнение — основной сценарий');
     expect(story).toContain('Отклонение и спор — отдельные примеры исключений');
   });
@@ -82,7 +86,8 @@ describe('platform-v7 homepage product copy', () => {
     expect(page).toContain('Гекта связаны в одной Сделке');
     expect(page).toContain('аграрным интеллектом Гекта');
     expect(page).not.toMatch(/\bTAI\b/u);
-    expect(story).toContain('Критические решения подтверждает уполномоченный участник.');
+    expect(story).toContain("taiState: 'Пример анализа · по данным сценария'");
+    expect(story).toContain('Она не назначает роли, не меняет права, не подписывает документы и не запускает движение денег.');
     expect(story).toContain('Critical decisions are confirmed by an authorised participant.');
     expect(story).toContain('关键决定由获授权的参与方确认。');
   });
