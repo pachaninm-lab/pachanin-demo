@@ -42,6 +42,16 @@ describe('platform-v7 public production deal flow and question flow', () => {
     expect(contactPage).toContain("if (lang === 'en' || lang === 'zh' || lang === 'ru') return lang;");
   });
 
+  it('shows delivery failure without leaking provider error details or claiming success', () => {
+    expect(contactPage).toContain('failed={hasDeliveryError(params)}');
+    expect(contactClient).toContain("role='alert'");
+    expect(contactClient).toContain('Обращение не отправлено');
+    expect(contactClient).toContain("href='tel:+79162778989'");
+    expect(contactClient).not.toContain('provider_failure');
+    expect(contactClient).not.toContain('smtp_failed');
+    expect(contactClient).not.toContain('resend_failed');
+  });
+
   it('validates inquiry input server-side and supports email delivery when configured', () => {
     expect(inquiryRoute).toContain('QUESTION_TYPES');
     expect(inquiryRoute).toContain('validate(inquiry)');
