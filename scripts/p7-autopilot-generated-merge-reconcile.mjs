@@ -259,13 +259,15 @@ function mergePr(prNumber, headSha, message) {
     '--repo',
     repo,
     '--json',
-    'isDraft,mergeable,headRefOid',
+    'isDraft,mergeable,headRefOid,labels',
   ]);
   const liveHead = String(latest.headRefOid || '');
   if (!/^[0-9a-f]{40}$/.test(liveHead)) throw new Error(`PR #${prNumber} has invalid live head: ${liveHead}`);
   if (liveHead !== String(headSha)) throw new Error(`PR #${prNumber} head moved before merge: expected=${headSha} actual=${liveHead}`);
   if (latest.isDraft) throw new Error(`PR #${prNumber} became draft before merge`);
   if (latest.mergeable !== 'MERGEABLE') throw new Error(`PR #${prNumber} is not mergeable before merge: ${latest.mergeable}`);
+  const liveLabels = Array.isArray(latest.labels) ? latest.labels.map((label) => String(label?.name || label || '')) : [];
+  if (!liveLabels.includes('platform-v7')) throw new Error(`PR #${prNumber} lost required platform-v7 label before merge`);
 
   run('node', ['docs/platform-v7/autopilot/verify-pr-review-gate.mjs'], {
     ...process.env,
