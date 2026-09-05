@@ -48,13 +48,20 @@ describe('platform-v7 international homepage completion', () => {
     expect(css).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
   });
 
-  it('keeps registration available in the fixed header on mobile', () => {
+  it('keeps the full brand and registration available together in the mobile fixed header', () => {
     expect(home).toContain("<a href={registerHref} className='pc-v6-header-cta'>{copy.nav.connect}</a>");
     expect(css).toContain('.pc-v7-public-entry .pc-v6-header-cta');
     expect(css).toContain('display: inline-flex !important');
     expect(css).toContain('@media (max-width: 430px)');
+    expect(css).toContain('--pc-public-header-total-height: 96px !important');
+    expect(css).toContain('flex-wrap: wrap !important');
+    expect(css).toContain('height: 96px !important');
     expect(css).toContain('.pc-v7-public-entry .pc-site-brand-text');
-    expect(css).toContain('display: none !important');
+    expect(css).toContain('display: grid !important');
+    expect(css).toContain('overflow: visible !important');
+    expect(css).not.toContain('.pc-site-brand-text {\n    display: none !important;');
+    expect(css).toContain('.pc-v7-public-entry .pc-site-actions');
+    expect(css).toContain('flex: 1 0 100% !important');
     expect(css).toContain('@media (max-width: 359px)');
   });
 
