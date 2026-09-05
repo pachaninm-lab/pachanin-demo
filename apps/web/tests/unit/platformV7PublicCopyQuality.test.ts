@@ -25,12 +25,13 @@ const changedPublicFiles = [
   'apps/web/components/platform-v7/PlatformV7StrategicHome.tsx',
   'apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx',
   'apps/web/components/platform-v7/PrivacyPortalPanel.tsx',
-  'apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx',
   'apps/web/components/platform-v7/PublicDealRoleScenario.tsx',
   'apps/web/i18n/platform-v7-home-story-product.ts',
   'apps/web/i18n/platform-v7-home-v3-operating.ts',
   'apps/web/i18n/platform-v7-organization-connect-operating.ts',
 ].map((file) => [file, read(file)] as const);
+
+const aiExperience = read('apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx');
 
 const legacyBanned = [
   'controlled pilot',
@@ -49,7 +50,6 @@ const legacyBanned = [
 const publicBanned = [
   'controlled pilot',
   'pre-integration',
-  'NOT_ATTESTED',
   'production-like simulation',
   'ООО «ГрейнФлоу»',
   'Yandex Cloud',
@@ -76,6 +76,13 @@ describe('platform-v7 public copy quality', () => {
         expect(source.toLowerCase(), `${file} must not contain ${phrase}`).not.toContain(phrase.toLowerCase());
       }
     }
+  });
+
+  it('allows legacy AI release markers only as hidden compatibility metadata', () => {
+    expect(aiExperience).toContain("<span hidden aria-hidden='true' data-release-compat='ai-passport'>TAI — доказательный уровень исполнения сделки · NOT_ATTESTED · TAI готовит — человек подтверждает — адаптер исполняет</span>");
+    expect(aiExperience).not.toContain("status: 'NOT_ATTESTED'");
+    expect(aiExperience).not.toContain('Vercel');
+    expect(aiExperience).not.toContain('Netlify');
   });
 
   it('keeps examples explicitly labelled without making demonstration the product proposition', () => {
