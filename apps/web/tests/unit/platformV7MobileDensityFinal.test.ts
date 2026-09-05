@@ -8,6 +8,7 @@ describe('platform-v7 final mobile density contract', () => {
   const page = read('app/platform-v7/page.tsx');
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const densityCss = read('components/platform-v7/PlatformV7HomeMobileDensity.css');
+  const responsiveAcceptance = read('tests/e2e/platform-v7-production-mobile-acceptance.spec.ts');
 
   it('resolves the server homepage before returning the document stream', () => {
     expect(page).toContain('export default async function PlatformV7RootPage()');
@@ -37,7 +38,7 @@ describe('platform-v7 final mobile density contract', () => {
     expect(densityCss).toContain('padding: 30px 12px !important');
   });
 
-  it('renders the TAI reasoning path as a full-width compact sequence', () => {
+  it('renders the Gekta reasoning path as a full-width compact sequence', () => {
     expect(enhancements).toContain('pc-v6-tai-workflow');
     expect(densityCss).toContain('.pc-v6-tai-rules > .pc-v6-tai-workflow');
     expect(densityCss).toContain('grid-template-columns: 26px minmax(0, 1fr) !important');
@@ -52,11 +53,22 @@ describe('platform-v7 final mobile density contract', () => {
     expect(densityCss).not.toContain('display: none !important; /* crop');
   });
 
-  it('keeps the organization conversion path compact and usable', () => {
+  it('keeps the optional organization-assistance form compact and usable', () => {
     expect(densityCss).toContain('#connect-organization form');
     expect(densityCss).toContain('gap: 14px !important');
     expect(densityCss).toContain('padding: 15px !important');
     expect(densityCss).toContain('#connect-organization form input');
     expect(densityCss).toContain('min-height: 48px !important');
+  });
+
+  it('pins fresh responsive acceptance to every required CSS viewport width', () => {
+    for (const width of [320, 375, 390, 430, 768, 1280, 1440]) {
+      expect(responsiveAcceptance).toContain(`width: ${width},`);
+    }
+    expect(responsiveAcceptance).toContain('expectNoHorizontalOverflow(page)');
+    expect(responsiveAcceptance).toContain('expectRegistrationOnlyPrimaryCtas(page)');
+    expect(responsiveAcceptance).toContain('expectKeyboardCompleteRoleTabs(page)');
+    expect(responsiveAcceptance).toContain("page.screenshot({");
+    expect(responsiveAcceptance).toContain("fullPage: true");
   });
 });
