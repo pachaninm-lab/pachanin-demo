@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "staged",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP specification. This staged governance branch is intentionally not opened as a PR while current W2 governance CI/review lanes are saturated; it changes no product behavior and grants no implementation authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-contract-foundation-scope-4997",
+  "purpose": "W3-A staged governance only: finite source boundary for ApprovedTemplate, ClauseLibrary, DealConstitution and SpecificationVersion around the existing ContractVersion chain.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-contract-foundation-scope-governance-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-contract-foundation-authority-4997.json"
+  ],
+  "dependencies": {
+    "existingContractVersionReused": true,
+    "w2DealTermsRequiredForConsumerWiringOnly": true,
+    "foundationMayProceedOnlyAfterSeparateGovernanceReviewAndImmutableScopeApproval": true
+  },
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "contractVersionMutation": false,
+    "signatureOrEdoAction": false,
+    "mountedApi": false
+  }
+}
