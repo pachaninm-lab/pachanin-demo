@@ -94,6 +94,8 @@ describe('platform-v7 public copy quality', () => {
     expect(contact).toContain('Отправка обращения не открывает сделки, документы и закрытые разделы платформы.');
     expect(contactHeader).toContain('p7-contact-register');
     expect(contactHeader).toContain('/platform-v7/register?lang=');
+    expect(contactHeader).toContain('html body .p7-contact-page{padding-top:78px!important}');
+    expect(contactHeader).not.toContain('.pc-shell-root-v4');
   });
 
   it('allows legacy AI release markers only as hidden compatibility metadata', () => {
