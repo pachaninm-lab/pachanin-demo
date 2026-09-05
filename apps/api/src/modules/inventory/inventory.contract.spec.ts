@@ -79,4 +79,10 @@ describe('Inventory HTTP command boundary with application validation settings',
     expect(response.headers.etag).toBe('"1"');
     expect(response.headers['cache-control']).toBe('private, no-store');
   });
+
+  it('retains global DTO validation before command admission', async () => {
+    await request(app.getHttpServer()).post('/api/inventory/commands')
+      .send({ ...declaration, quantity: 1 }).expect(400);
+    expect(execute).not.toHaveBeenCalled();
+  });
 });

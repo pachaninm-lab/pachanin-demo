@@ -1,11 +1,12 @@
-import { BadRequestException, Body, Controller, Get, Post, Query, Res, UnprocessableEntityException, UseGuards } from '@nestjs/common';
-import type { Response } from 'express';
+import { BadRequestException, Body, Controller, Get, Post, Query, Req, Res, UnprocessableEntityException, UseGuards } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { InventoryError } from '../../../../../packages/domain-core/src/inventory';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import type { RequestUser } from '../../common/types/request-user';
+import { InventoryCommandDto } from './dto/inventory-api.dto';
 import { validateInventoryCommand } from './inventory.contract';
 import { InventoryRepository } from './inventory.repository';
 
@@ -27,12 +28,13 @@ export class InventoryController {
 
   @Post('commands')
   @RateLimit({ name: 'inventory_command', scope: 'user', limit: 30, windowSeconds: 60 })
-  async command(@CurrentUser() user: RequestUser, @Body() dto: unknown, @Res({ passthrough: true }) response: Response) {
+  async command(@CurrentUser() user: RequestUser, @Body() _dto: InventoryCommandDto, @Req() request: Pick<Request, 'body'>, @Res({ passthrough: true }) response: Response) {
     try {
-      // Preserve the raw command: the global DTO whitelist would silently strip
-      // unknown authority fields before this closed-shape validation runs.
-      validateInventoryCommand(dto);
-      const receipt = await this.inventory.execute(user, dto);
+      // Keep DTO validation and also validate the original request body, since
+      // the global whitelist removes unknown fields from the DTO argument only.
+      const command: unknown = request.body;
+      validateInventoryCommand(command);
+      const receipt = await this.inventory.execute(user, command);
       response.setHeader('ETag', `"${receipt.position.stateVersion}"`);
       response.setHeader('Cache-Control', 'private, no-store');
       return receipt;
