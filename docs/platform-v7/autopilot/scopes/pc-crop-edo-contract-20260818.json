@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-edo-contract-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — provider-neutral EDO contract",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseExactMain": "aa237f085ddb9d1447a6625b586c15cc8d989ce5",
+  "purpose": "Continue the owner-authorized programme with the offline-buildable provider-neutral EDO contract from sections 25-26: exact route vocabulary, exact adapter surface, exact provider-neutral states, fail-closed UNKNOWN/reconciliation semantics, one-organization binding rules for Diadoc/Saby and the rule that an existing 1C-EDO route is not silently duplicated by a second automatic channel.",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/edo-provider.contract.ts",
+    "apps/api/src/modules/accounting/edo-provider.contract.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/edo-provider-contract-slice-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-edo-contract-20260818.json"
+  ],
+  "boundaries": [
+    "No live Diadoc, Saby or 1C-EDO API call and no vendor credential.",
+    "No customer password field or password-based provider authorization is introduced.",
+    "No second automatic EDO channel when 1C-EDO is already selected unless a separate explicit justification exists outside this pure contract.",
+    "A Diadoc OAuth identity with multiple boxes never grants them all: one concrete provider box is selected per organization binding.",
+    "A Saby connection is bound to one concrete provider organization/account.",
+    "Timeout after send is UNKNOWN, never success; UNKNOWN requires reconciliation before retry.",
+    "No apps/web, packages, lockfile, Prisma, auth, FGIS, banking, hosting or production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredInvariants": [
+    "EdoRoute is exactly ONE_C_EDO, DIRECT_DIADOC, DIRECT_SABY, OTHER_ADAPTER, MANUAL.",
+    "Provider-neutral state vocabulary is exactly DRAFT, READY_TO_SIGN, SIGNED, SUBMITTED, DELIVERED, COUNTERPARTY_ACTION_REQUIRED, ACCEPTED, REJECTED, CORRECTION_REQUIRED, ANNULMENT_PENDING, ANNULLED, ERROR, UNKNOWN.",
+    "EdoProviderAdapter exposes exactly connect, disconnect, health, listOrganizations, resolveCounterparty, checkRoute, createDraft, validate, send, getDocument, getStatus, accept, reject, requestCorrection, annul, getEvents, downloadOriginal, downloadSignatures, downloadServiceDocuments.",
+    "Diadoc binding is platform_org_id + provider_org_id + provider_box_id and box must be explicitly authorized/selected.",
+    "Saby binding is platform organization + provider organization + concrete provider account.",
+    "Unknown provider result is not retried before reconciliation."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-edo-contract-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- edo-provider.contract.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting and security gates"
+  ]
+}
