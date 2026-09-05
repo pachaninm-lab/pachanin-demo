@@ -48,6 +48,11 @@ describe('platform-v7 international homepage completion', () => {
     expect(css).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
   });
 
+  it('keeps every visible Hero Deal card text node at the trusted fourteen-pixel floor', () => {
+    expect(css).toContain("[data-testid='platform-v7-deal-card'] :where(span, small, b)");
+    expect(css).toContain('font-size: 14px !important');
+  });
+
   it('keeps the full brand and registration available together in the mobile fixed header', () => {
     expect(home).toContain("<a href={registerHref} className='pc-v6-header-cta'>{copy.nav.connect}</a>");
     expect(css).toContain('.pc-v7-public-entry .pc-v6-header-cta');
