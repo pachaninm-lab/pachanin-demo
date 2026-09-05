@@ -11,7 +11,7 @@
   ],
   "implementationBranch": "feat/public-home-role-clarity-20260905",
   "implementationManifest": "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json",
-  "implementationAllowedPathCount": 54,
+  "implementationAllowedPathCount": 68,
   "boundaries": {
     "productBehaviorChange": false,
     "registrationChange": false,
