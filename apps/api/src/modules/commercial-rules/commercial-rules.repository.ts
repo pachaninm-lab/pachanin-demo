@@ -198,7 +198,14 @@ export class CommercialRulesRepository {
           }
           after = await this.transitionVersion(tx, context, user.membershipId!, command, before, committedAt);
         }
-        return this.appendCommandEvidence(tx, context, user, command, fingerprint, before, after, committedAt);
+        const receipt = await this.appendCommandEvidence(tx, context, user, command, fingerprint, before, after, committedAt);
+        // Surface a deferred evidence violation as a query error before the
+        // driver commits. PostgreSQL still enforces the same constraint for
+        // direct SQL, even if a driver discards the COMMIT error payload.
+        await tx.$executeRaw(Prisma.sql`
+          SET CONSTRAINTS commercial_rule_set_evidence_guard, commercial_rule_pack_evidence_guard IMMEDIATE
+        `);
+        return receipt;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxConflictRetries: 3 });
     } catch (error) {
       const code = databaseCode(error);

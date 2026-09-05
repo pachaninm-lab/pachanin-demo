@@ -279,12 +279,16 @@ describeAuthority('CommercialRules PostgreSQL authority', () => {
     const directTransition = (table: 'commercial_rule_sets' | 'commercial_rule_packs', id: string, status: 'PUBLISHED' | 'RETIRED') =>
       rls.withTrustedContext(actorA, async (tx) => {
         await tx.$queryRaw(Prisma.sql`SELECT set_config('app.current_command_id', ${`${RUN_ID}-spoofed-command`}, true)`);
-        return tx.$executeRaw(Prisma.sql`
+        const count = await tx.$executeRaw(Prisma.sql`
           UPDATE ${Prisma.raw(`public."${table}"`)} SET "status" = ${status}, "stateVersion" = "stateVersion" + 1,
             "publishedAt" = CASE WHEN ${status} = 'PUBLISHED' THEN clock_timestamp() ELSE "publishedAt" END,
             "retiredAt" = CASE WHEN ${status} = 'RETIRED' THEN clock_timestamp() ELSE NULL END,
             "updatedByMembershipId" = ${MEMBERSHIP_A}, "updatedAt" = clock_timestamp() WHERE "id" = ${id}
         `);
+        await tx.$executeRaw(Prisma.sql`
+          SET CONSTRAINTS commercial_rule_set_evidence_guard, commercial_rule_pack_evidence_guard IMMEDIATE
+        `);
+        return count;
       });
     await expect(directTransition('commercial_rule_sets', draft.aggregateId, 'PUBLISHED'))
       .rejects.toThrow(/PC_COMMERCIAL_VERSION_EVIDENCE_REQUIRED/);
@@ -300,6 +304,23 @@ describeAuthority('CommercialRules PostgreSQL authority', () => {
     await rules.execute(actorA, lifecycle('PUBLISH', 'RULE_PACK', 'no-evidence-pack', pack.aggregateId, '1', 'no-evidence-pack-publish'));
     await expect(directTransition('commercial_rule_packs', pack.aggregateId, 'RETIRED'))
       .rejects.toThrow(/PC_COMMERCIAL_VERSION_EVIDENCE_REQUIRED/);
+  });
+
+  it('rejects a direct commit without evidence in PostgreSQL independently of the driver result', async () => {
+    const draft = await rules.execute(actorA, createRuleSet('commit-proof', 'commit-proof-fee'));
+    // Some driver versions drop a deferred constraint error returned by COMMIT.
+    // Persisted state is the authority; both driver outcomes must leave DRAFT.
+    await rls.withTrustedContext(actorA, (tx) => tx.$executeRaw(Prisma.sql`
+      UPDATE public."commercial_rule_sets" SET "status" = 'PUBLISHED', "stateVersion" = 2,
+        "publishedAt" = clock_timestamp(), "updatedAt" = clock_timestamp(), "updatedByMembershipId" = ${MEMBERSHIP_A}
+       WHERE "id" = ${draft.aggregateId}
+    `)).catch(() => undefined);
+    const rows = await rls.withTrustedContext(actorA, (tx) => tx.$queryRaw<Array<{ status: string; stateVersion: bigint }>>(Prisma.sql`
+      SELECT "status", "stateVersion" FROM public."commercial_rule_sets" WHERE "id" = ${draft.aggregateId}
+    `));
+    expect(rows).toEqual([{ status: 'DRAFT', stateVersion: 1n }]);
+    await expect(rules.execute(actorA, lifecycle('PUBLISH', 'RULE_SET', 'commit-proof-fee', draft.aggregateId, '1', 'commit-proof-publish')))
+      .resolves.toMatchObject({ status: 'PUBLISHED', stateVersion: '2' });
   });
 
   it('rolls back a complete lifecycle event when outbox insertion is silently omitted', async () => {
