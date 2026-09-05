@@ -35,6 +35,20 @@ const CRITICAL_HOME_CSS = `
   min-height: var(--entry-public-header-base) !important;
   max-height: var(--entry-public-header-base) !important;
 }
+.pc-v7-public-entry [data-testid='platform-v7-presentation-download'] {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--pc-v6-muted) !important;
+  box-shadow: none !important;
+  padding-inline: 8px !important;
+  font-weight: 600 !important;
+}
+.pc-v7-public-entry [data-testid='platform-v7-presentation-download']:hover,
+.pc-v7-public-entry [data-testid='platform-v7-presentation-download']:focus-visible {
+  border-color: var(--pc-v6-line) !important;
+  background: var(--pc-v6-bg) !important;
+  color: var(--pc-v6-ink) !important;
+}
 .pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type {
   display: flex;
   align-items: flex-start;
