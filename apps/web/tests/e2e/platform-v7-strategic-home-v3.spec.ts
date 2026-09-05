@@ -69,7 +69,7 @@ async function fillFirstStep(page: Page) {
 }
 
 test.describe('Platform V7 strategic homepage browser acceptance', () => {
-  test('RU EN ZH render the Deal-first homepage without runtime or horizontal-overflow failures', async ({ page }) => {
+  test('RU EN ZH render the registration-first Deal homepage without runtime or overflow failures', async ({ page }) => {
     const runtimeFailures: string[] = [];
     page.on('pageerror', (error) => runtimeFailures.push(error.message));
     page.on('console', (message) => {
@@ -83,16 +83,18 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expect(page.locator('#pc-v6-title')).toBeVisible();
       await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
       await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toBeVisible();
-      await expect(page.locator('#deal-path')).toHaveCount(0);
-      await expect(page.locator('#functions article')).toHaveCount(7);
+      await expect(page.locator('#deal-path')).toBeVisible();
+      await expect(page.locator('#functions article')).toHaveCount(6);
       await expect(page.locator('#trust')).toBeVisible();
       await expect(page.locator('#participants')).toBeVisible();
       await expect(page.locator('#money')).toBeVisible();
       await expect(page.locator('#tai')).toBeVisible();
-      await expect(page.locator('#connection-process')).toBeVisible();
+      await expect(page.locator('#connection-process')).toHaveCount(0);
       await expect(page.locator('#connect-organization')).toBeVisible();
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-step', '1');
+      await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
+      await expect(page.locator('.pc-v6-header-cta')).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
       await expect(page.locator('html')).toHaveAttribute('lang', new RegExp(`^${locale}`));
       await expectNoHorizontalOverflow(page);
     }
@@ -107,17 +109,18 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
 
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
-    const tabs = page.getByRole('tablist', { name: 'Что видит каждый участник' });
+    const tabs = page.getByRole('tablist', { name: 'Выберите роль для просмотра' });
     await expect(tabs).toBeVisible();
-    const bank = page.getByRole('tab', { name: 'Банк' });
-    await bank.click();
-    await expect(bank).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('tabpanel')).toContainText('выплата остановлена правилами Сделки');
-    await expect(page.getByText('Одна Сделка показывает данные, ответственность, действие, основание и денежное последствие каждой роли.')).toBeVisible();
+    await expect(tabs.getByRole('tab')).toHaveCount(9);
+    const employee = tabs.getByRole('tab', { name: 'Сотрудник платформы', exact: true });
+    await employee.click();
+    await expect(employee).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tabpanel')).toContainText('Если Сделка остановилась');
+    await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
     expect(forbiddenRequests).toEqual([]);
   });
 
-  test('organization intake validates step one locally without sending personal data', async ({ page }) => {
+  test('organization assistance validates step one locally without sending personal data', async ({ page }) => {
     const submittedRequests: string[] = [];
     let captureSubmission = false;
     page.on('request', (request) => {
@@ -128,6 +131,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     const form = page.locator('#connect-organization form');
     await expect(form).toBeVisible();
     await expect(form).toHaveAttribute('data-ready', 'true');
+    await expect(page.locator('#connect-organization')).toContainText('Эта форма не является регистрацией');
     captureSubmission = true;
     await form.getByRole('button', { name: 'Продолжить' }).click();
     await expect(form).toHaveAttribute('data-step', '1');
@@ -137,7 +141,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await expectNoSeriousAxeViolations(page);
   });
 
-  test('organization intake reaches durable acceptance through the existing endpoint', async ({ page }) => {
+  test('organization assistance reaches durable acceptance through the existing endpoint', async ({ page }) => {
     let payload: Record<string, unknown> | null = null;
     let idempotencyKey = '';
     await page.route('**/api/platform-v7/organization-connect', async (route) => {
@@ -157,9 +161,9 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await form.getByLabel('Телефон').fill('+7 900 000-00-00');
     await form.getByLabel('Email').fill('test@example.com');
     await form.getByLabel('Роль организации').selectOption('BUYER_PROCESSOR');
-    await form.getByLabel('Рабочая задача').selectOption('DEAL_EXECUTION');
+    await form.getByLabel('С чем нужна помощь').selectOption('DEAL_EXECUTION');
     await form.getByLabel(/Я согласен/).check();
-    await form.getByRole('button', { name: 'Начать подключение' }).click();
+    await form.getByRole('button', { name: 'Отправить запрос на помощь' }).click();
 
     await expect(page.getByRole('status')).toContainText('REQ-2026-TEST');
     expect(idempotencyKey).toMatch(/^public-org-connect:/);
@@ -176,9 +180,14 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
   });
 
-  test('mobile public AI remains visible and enabled throughout homepage scrolling', async ({ page }) => {
+  test('mobile registration and public AI remain visible throughout homepage scrolling', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    const headerRegistration = page.locator('.pc-v6-header-cta');
+    await expect(headerRegistration).toBeVisible();
+    await expect(headerRegistration).toHaveAttribute('href', '/platform-v7/register?lang=ru');
+    await expectMinimumTargets(page, '.pc-v6-header-cta');
+
     const dock = page.locator('.pc-public-contact-dock');
     const assistant = dock.locator('.pc-public-contact-dock-assistant');
     const secondaryActions = dock.locator('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)');
@@ -201,6 +210,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       expect(response?.ok()).toBe(true);
       const form = page.locator('#connect-organization form');
       await expect(form).toHaveAttribute('data-ready', 'true');
+      await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '[role="tab"]');
       await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"]):not([tabindex="-1"]):visible');
@@ -223,6 +233,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
       await settleContactDock(page);
       await expectNoHorizontalOverflow(page);
       await page.screenshot({
@@ -237,6 +248,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
       await settleContactDock(page);
       await page.screenshot({
         path: testInfo.outputPath(`strategic-home-${locale}-390px.png`),
