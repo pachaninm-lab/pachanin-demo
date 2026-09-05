@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-multi-bank-sber-authority-4997",
+  "status": "staged",
+  "purpose": "W6-A: establish provider-neutral bank capabilities and a Sber reference adapter contract over the canonical SettlementPlan/bank-operation authority without claiming live credentials or creating bank-specific core semantics.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP specification. This branch stages a finite future scope only; implementation authority requires separate governance review, merge and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [26, 27],
+  "terminalCriteria": ["MULTI_BANK=PASS", "SBER_REFERENCE_ADAPTER=PASS", "SBER_SAFE_DEAL_READY=PASS", "SBER_BILLING_READY=PASS", "SBER_FINANCING_READY=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/bank-capability.ts",
+    "packages/domain-core/src/bank-capability.test.ts",
+    "apps/api/src/modules/bank-adapters/bank-adapter.port.ts",
+    "apps/api/src/modules/bank-adapters/bank-capability.router.ts",
+    "apps/api/src/modules/bank-adapters/bank-capability.router.spec.ts",
+    "apps/api/src/modules/bank-adapters/bank-receipt.contract.ts",
+    "apps/api/src/modules/bank-adapters/bank-receipt.contract.spec.ts",
+    "apps/api/src/modules/bank-adapters/sber-reference.adapter.ts",
+    "apps/api/src/modules/bank-adapters/sber-reference.adapter.spec.ts",
+    "apps/api/test/industrial/multi-bank-reference-adapter.e2e-spec.ts",
+    "scripts/verify-pc-crop-multi-bank-sber-scope.test.mjs",
+    ".github/workflows/pc-crop-multi-bank-sber.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "dependencies": {
+    "canonicalSettlementPlanRequired": "W5-A consumer boundary",
+    "providerRegistryReused": true,
+    "integrationBindingReused": true
+  },
+  "requiredInvariants": [
+    "Bank/provider choice is an adapter concern. Core SettlementPlan/FinancialObligation semantics remain provider-neutral and no Sber-only field enters canonical money authority.",
+    "Capabilities are explicit and versioned, including reserve/release safe-deal-like flow, direct payment/billing, financing/application and callback/reconciliation support; unsupported capability fails closed.",
+    "The Sber adapter is a reference adapter whose live state is NOT_ACTIVATED until a real contract, credentials, endpoint configuration and accepted receipt evidence exist.",
+    "Adapter request/response contracts use exact minor units, immutable operation/idempotency identifiers and the canonical settlement source versions; no Float money or browser-computed amount becomes authority.",
+    "An outbound accepted/queued request is not bank success. Only validated provider receipt/callback bound to exact operation/provider/key/payload fingerprint can advance canonical settlement state.",
+    "The same router contract accepts at least two test adapter implementations without changing Settlement core, proving multi-bank substitution rather than one-provider lock-in.",
+    "Credential/key/revocation authority remains server-side. Browser, Deal participant or adapter cannot select arbitrary tenant/provider identity or callback key.",
+    "Callback replay, mismatched amount/currency/operation/provider, stale key and unknown event fail closed and cannot create duplicate ledger movements.",
+    "Financing readiness is a capability/application lifecycle only; adapter availability does not imply approved financing, credit limit or funds.",
+    "Billing readiness is separate from safe-deal/reserve-release readiness; one provider capability cannot be silently reused as another.",
+    "No live Sber claim is emitted by fixtures, docs or UI until production receipts are evidenced on REG.RU.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, packages/lockfiles and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Contract tests prove the provider-neutral adapter/receipt vocabulary and capability matrix has no Sber-only field in canonical core types.",
+    "Two fake/reference bank adapters satisfy the same router and can be swapped without Settlement core changes.",
+    "Sber reference adapter fails NOT_ACTIVATED without production credentials/config and never returns fabricated SUCCESS.",
+    "Exact amount/currency/idempotency/callback matching and duplicate/replay/mismatched receipt cases are tested fail closed.",
+    "Capability absence separately blocks safe-deal, billing or financing actions rather than degrading to another bank function.",
+    "Existing settlement reconciliation/key rotation/hash-chain tests remain green and no new mutation authority bypasses them.",
+    "No secret, credential or paid dependency is committed; new mandatory recurring cost remains 0 RUB.",
+    "Exact-head CI/review and later REG.RU credentialed acceptance are required before terminal multi-bank/Sber credit."
+  ],
+  "remainingTerminalBoundary": [
+    "Real Sber contract, credentials, endpoints, callback/revocation feeds and production receipts are external dependencies.",
+    "W5-A SettlementPlan consumer wiring must exist before adapters can move real canonical obligations.",
+    "A second real bank provider is required to prove production multi-bank substitution; test adapters are foundation evidence only.",
+    "REG.RU production acceptance remains mandatory."
+  ],
+  "terminalCredit": 0
+}
