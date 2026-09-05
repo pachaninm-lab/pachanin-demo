@@ -7,6 +7,8 @@ on:
     types: [submitted, dismissed]
   pull_request_review_comment:
     types: [created, edited, deleted]
+  issue_comment:
+    types: [created, edited, deleted]
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
@@ -19,7 +21,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: repo-automerge-${{ github.event.pull_request.number || github.run_id }}
+  group: repo-automerge-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -117,6 +119,124 @@ jobs:
           echo 'Exact-head review gate is not satisfied.' >&2
           exit 1
 
+  exact-head-clean-comment-gate:
+    name: Exact-head Codex clean-comment gate
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      (github.event.comment.user.login == 'chatgpt-codex-connector[bot]' ||
+       github.event.comment.user.login == 'chatgpt-codex-connector')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20
+
+      - name: Resolve live PR and exact head
+        id: live
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+          state=$(printf '%s' "$pr" | jq -r '.state')
+          draft=$(printf '%s' "$pr" | jq -r '.draft')
+          head_sha=$(printf '%s' "$pr" | jq -r '.head.sha')
+
+          active=false
+          if [ "$state" = open ] && [ "$draft" != true ] && printf '%s' "$head_sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            active=true
+          fi
+
+          echo "active=$active" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Mark exact-head review gate pending
+        if: steps.live.outputs.active == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ steps.live.outputs.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
+            -f state=pending \
+            -f context=review-gate/exact-head \
+            -f description='Exact-head Codex clean-review evidence is being reconciled' \
+            >/dev/null
+
+      - name: Verify exact-head clean-review evidence
+        id: clean_gate
+        if: steps.live.outputs.active == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          HEAD_SHA: ${{ steps.live.outputs.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
+          node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
+
+      - name: Publish exact-head clean-review status and visible label
+        if: always() && steps.live.outputs.active == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          HEAD_SHA: ${{ steps.live.outputs.head_sha }}
+          GATE_OUTCOME: ${{ steps.clean_gate.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh label create review-gate-passed \
+            --repo "$REPO" \
+            --color 0E8A16 \
+            --description 'Exact-head Codex review complete; no active unresolved review findings' \
+            >/dev/null 2>&1 || true
+
+          current_head=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq .headRefOid)
+          if [ "$current_head" != "$HEAD_SHA" ]; then
+            echo "Stale clean-comment gate run ignored: expected=$HEAD_SHA current=$current_head"
+            exit 0
+          fi
+
+          if [ "$GATE_OUTCOME" = success ]; then
+            state=success
+            description='Exact-head Codex review passed with no current unresolved findings'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
+          else
+            state=failure
+            description='Exact-head Codex clean-review evidence is missing or blocking findings remain'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          fi
+
+          gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
+            -f "state=$state" \
+            -f context=review-gate/exact-head \
+            -f "description=$description" \
+            >/dev/null
+
+      - name: Enforce clean-comment gate result
+        if: steps.live.outputs.active == 'true' && steps.clean_gate.outcome != 'success'
+        run: |
+          echo 'Exact-head Codex clean-comment gate is not satisfied.' >&2
+          exit 1
+
   automerge-event:
     name: Guarded automerge on PR event
     needs: exact-head-review-gate
@@ -156,11 +276,18 @@ jobs:
             exit 0
           fi
 
-          pr_state=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,mergeable)
+          pr_state=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,mergeable,isDraft,labels)
           current_head=$(printf '%s' "$pr_state" | jq -r '.headRefOid')
           mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
+          draft=$(printf '%s' "$pr_state" | jq -r '.isDraft')
+          live_automerge=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("automerge") != null')
+          generated=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | (index("platform-v7") != null and index("agent-generated") != null)')
           if [ "$current_head" != "$HEAD_SHA" ]; then
             echo "Automerge deferred: head moved expected=$HEAD_SHA current=$current_head"
+            exit 0
+          fi
+          if [ "$draft" = true ] || [ "$live_automerge" != true ] || [ "$generated" = true ]; then
+            echo "Automerge deferred: live authorization changed draft=$draft automerge=$live_automerge generated=$generated"
             exit 0
           fi
           if [ "$mergeable" != MERGEABLE ]; then
@@ -224,18 +351,25 @@ jobs:
             fi
 
             # Scheduled reconciliation never publishes or removes review-gate-passed.
-            # The per-PR event gate owns that visible label/status. The scheduler is
-            # merge authority only after the central exact-head verifier passes.
+            # Event-driven gates own the visible label/status. The scheduler is merge
+            # authority only after the central exact-head verifier passes.
             if ! PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" REQUIRE_GREEN_CI=1 node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
               echo "#$pr_number deferred: exact-head review/CI gate not terminal green"
               continue
             fi
 
-            pr_state=$(gh pr view "$pr_number" --repo "$REPO" --json headRefOid,mergeable)
+            pr_state=$(gh pr view "$pr_number" --repo "$REPO" --json headRefOid,mergeable,isDraft,labels)
             current_head=$(printf '%s' "$pr_state" | jq -r '.headRefOid')
             mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
+            live_draft=$(printf '%s' "$pr_state" | jq -r '.isDraft')
+            live_automerge=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("automerge") != null')
+            live_generated=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | (index("platform-v7") != null and index("agent-generated") != null)')
             if [ "$current_head" != "$head_sha" ]; then
               echo "#$pr_number deferred: head moved after verification expected=$head_sha current=$current_head"
+              continue
+            fi
+            if [ "$live_draft" = true ] || [ "$live_automerge" != true ] || [ "$live_generated" = true ]; then
+              echo "#$pr_number deferred: live authorization changed draft=$live_draft automerge=$live_automerge generated=$live_generated"
               continue
             fi
             if [ "$mergeable" != MERGEABLE ]; then
