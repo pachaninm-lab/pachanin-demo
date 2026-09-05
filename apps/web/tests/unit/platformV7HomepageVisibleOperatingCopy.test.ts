@@ -14,7 +14,7 @@ const hero = read('i18n/platform-v7-hero-message.ts');
 const roleWorkspace = read('components/platform-v7/PublicDealRoleScenario.tsx');
 
 describe('platform-v7 visible public operating copy', () => {
-  it('presents one seven-step ordinary Deal journey', () => {
+  it('presents one seven-step ordinary Deal journey across the homepage and role preview', () => {
     for (const step of [
       'Товар и условия',
       'Торги и контрагент',
@@ -25,9 +25,12 @@ describe('platform-v7 visible public operating copy', () => {
       'Расчёт и закрытие',
     ]) {
       expect(storyEntry).toContain(`title: '${step}'`);
+      expect(roleWorkspace).toContain(`'${step}'`);
     }
     expect(storyEntry).toContain("journey: '7 шагов'");
     expect(home).toContain("phases: ['Товар и условия', 'Торги и контрагент', 'Сделка и договор'");
+    expect(roleWorkspace).toContain("stageLabel: '7 шагов Сделки'");
+    expect(roleWorkspace).toContain("status: 'Шаг 5 · Приёмка и качество'");
     expect(storyEntry).not.toContain("navFunctions: '8 шагов Сделки'");
     expect(storyEntry).not.toContain("fullPathText: '19 этапов");
   });
@@ -84,6 +87,7 @@ describe('platform-v7 visible public operating copy', () => {
     }
     expect(storyEntry).toContain('Обычное исполнение — основной сценарий');
     expect(storyEntry).toContain('Отклонение и спор — отдельные примеры исключений');
+    expect(roleWorkspace).toContain("preview: 'Вымышленный пример Сделки'");
   });
 
   it('keeps source-resolution wrappers explicit without relying on stale base copy', () => {
