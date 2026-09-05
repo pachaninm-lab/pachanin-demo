@@ -48,7 +48,10 @@ commercial rules are recorded as PARTIAL with their remaining boundaries.
 | W1-A | #5001 merged | 13 codes, PostgreSQL RLS, CAS, replay, audit/outbox | SHADOW; downstream use and REG.RU acceptance |
 | W1-B | #5010 merged | Durable provider, capability and service-offering registry | Complete service workflows and live provider evidence |
 | W1-C | #5015 merged | Binding/maturity authority; PostgreSQL 7/7; Kubernetes/outbox passed | REG.RU, authentic external receipts, accounting consumer under #4321 |
-| W1-D | #5019 | Reviewed implementation and focused contracts | Exact-head PostgreSQL/CI, review and merge; Deal/financial and production acceptance |
+| W1-D | #5019 merged | Domain 29/29, contracts 11/11, PostgreSQL 11/11, DR, Kubernetes/outbox; 39 successful workflows | Contract/Deal/service/financial integration and REG.RU acceptance |
+
+Register maintenance is limited to six files by the immutable base approval
+merged in #5021; branch-local state, manifest and workflow expansion is denied.
 
 The exact current main, PR head, workflow evidence and next step are recorded
 in `execution-state.v1.json`. No W1 production update has been verified. The
@@ -57,10 +60,10 @@ runtime claim.
 
 ## Historical W0 conclusion
 
-The repository contains strong PostgreSQL-authoritative foundations for
+At the original W0 audit, the repository contained PostgreSQL-authoritative foundations for
 auction, Deal, documents, laboratories, settlement, disputes, FGIS inbox and
-accounting. The post-registration operating system is not assembled around
-them. The blocking gaps are upstream:
+accounting. The post-registration operating system was not assembled around
+them. These findings describe that baseline; current W1 changes are recorded above:
 
 1. no canonical physical inventory, availability or cross-lot reservation;
 2. client-supplied `MANUAL_VERIFIED`, `ERP` and `OTHER` sources can be admitted
@@ -88,11 +91,12 @@ W1-A delivered `Organization Capability Authority — shadow mode`:
   decisions until a later separately accepted enforcement slice.
 
 W1-B replaced the static provider catalog with durable provider, capability
-and service-offering authority. W1-C added integration bindings. W1-D must
-finish its exact-head checks and review before merge. The next bounded
+and service-offering authority. W1-C added integration bindings. W1-D
+is merged after exact-head checks and review. The next bounded
 product slice is W2-A: canonical physical inventory, independent evidence
-and concurrent quantity reservation. External provider activation remains
-separately attested.
+and concurrent quantity reservation. Its bounded source audit, reuse decisions
+and required acceptance are in `w2-a-inventory-reservation-plan.v1.json`.
+External provider activation remains separately attested.
 
 ## Registration boundary
 

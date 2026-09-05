@@ -2,10 +2,10 @@
   "schemaVersion": "pc-crop.post-registration.gap-map.v1",
   "issue": 4997,
   "observedAt": "2026-09-05",
-  "exactMainBaseline": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
+  "exactMainBaseline": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
   "auditLineage": {
     "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
-    "deltaReviewedToExactMain": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
+    "deltaReviewedToExactMain": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
     "postRegistrationFindingsChanged": true,
     "previousObservedMainSha": "bb0d0c20f0f4621e5fd60d606b821b1d790c99ff",
     "w0Delta": {
@@ -18,9 +18,10 @@
     "reviewedW1PullRequests": [
       5001,
       5010,
-      5015
+      5015,
+      5019
     ],
-    "inProgressPullRequest": 5019
+    "governancePullRequest": 5021
   },
   "specification": {
     "sha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
@@ -114,11 +115,13 @@
       "classification": ["KEEP", "EXTEND_EXISTING"],
       "severity": "P0",
       "evidence": [
-        "apps/api/src/modules/settlement-engine/settlement-calculation.ts",
-        "apps/api/prisma/schema.prisma"
+        "packages/domain-core/src/commercial-rules.ts",
+        "apps/api/src/modules/commercial-rules/commercial-rules.repository.ts",
+        "apps/api/prisma/migrations/20260905010000_commercial_rules_authority/migration.sql",
+        "apps/api/test/industrial/commercial-rules-authority.e2e-spec.ts"
       ],
-      "finding": "PR #5019 adds versioned CommercialRuleSet and RulePack authority and immutable decisions. Review fixes add database recalculation, lifecycle evidence linkage and pre-acknowledgement constraint checks. The PR remains under current-head CI/review.",
-      "requiredDelta": "Finish exact-head CI and review, merge the bounded slice, then bind contract/Deal facts and accepted commercial decisions to financial/service workflows with production evidence.",
+      "finding": "Versioned CommercialRuleSet, RulePack and immutable decisions were merged in #5019. PostgreSQL 11/11, domain 29/29 and API contracts 11/11 passed; database recalculation, complete null-safe references, lifecycle evidence and acknowledgement safety were verified. All 39 workflows succeeded and review threads were resolved.",
+      "requiredDelta": "Bind server-derived contract/Deal facts and accepted commercial decisions to financial/service workflows and demonstrate the REG.RU runtime. CONTRACT_RULE remains non-financial MISSING_FACTS until authoritative contract facts are available.",
       "w0Finding": "There is no versioned CommercialRuleSet or RulePack authority. Existing fee and logistics defaults are ad hoc inputs or environment values and the calculator is not wired to live money.",
       "updatedBy": "W1 bounded delta reconciliation"
     },

@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.dod-baseline.v1",
   "issue": 4997,
   "observedAt": "2026-09-05",
-  "exactMainBaseline": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
+  "exactMainBaseline": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
   "specificationSha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
   "statusVocabulary": [
     "PASS",
@@ -55,7 +55,7 @@
     {"criterion": "MULTI_PROVIDER_CORE=PASS", "status": "PARTIAL", "gapRefs": ["CFG-02", "CFG-04"], "evidence": ["apps/api/src/modules/service-providers/service-providers.service.ts", "docs/platform-v7/autopilot/scopes/pc-crop-provider-registry-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json"], "note": "W1-B/C are merged and CI accepted. Provider substitution across complete service/Deal processes and REG.RU execution are not evidenced."},
     {"criterion": "SINGLE_PROVIDER_LOCK_IN=0", "status": "FAIL", "gapRefs": ["CFG-02"]},
     {"criterion": "NEW_PROVIDER_WITHOUT_CORE_CHANGE=PASS", "status": "FAIL", "gapRefs": ["CFG-02", "CFG-04"]},
-    {"criterion": "COMMERCIAL_RULE_ENGINE=PASS", "status": "PARTIAL", "gapRefs": ["CFG-03"], "evidence": ["apps/api/src/modules/settlement-engine/settlement-calculation.ts"], "note": "W1-D is PR #5019, head a6cfb2cdb21afaac36ac2cbd2ab107d517c1cc57. PostgreSQL 11/11, component tests and migration/drift passed on predecessor 02a9f5eb; the final null-safe RulePack reference fix is under exact-head CI. Review remains open. Deal/contract/obligation integration and production acceptance remain unproven."},
+    {"criterion": "COMMERCIAL_RULE_ENGINE=PASS", "status": "PARTIAL", "gapRefs": ["CFG-03"], "evidence": ["packages/domain-core/src/commercial-rules.ts", "apps/api/src/modules/commercial-rules/commercial-rules.repository.ts", "apps/api/prisma/migrations/20260905010000_commercial_rules_authority/migration.sql", "apps/api/test/industrial/commercial-rules-authority.e2e-spec.ts"], "note": "W1-D merged in #5019 at 3b85c746e765e5f6d55c4878a6f24973f0e41f4e. Verified head a6cfb2cdb21afaac36ac2cbd2ab107d517c1cc57: domain 29/29, API contracts 11/11, PostgreSQL 11/11, all 196 migrations, zero drift, DR and Kubernetes/outbox accepted; all four review findings resolved. Contract payer stays pending until server contract authority is wired. Deal/obligation/service integration and REG.RU acceptance remain unproven; zero terminal credit."},
     {"criterion": "SERVICE_MARKETPLACE=PASS", "status": "FAIL", "gapRefs": ["CFG-05"]},
     {"criterion": "FINANCIAL_LEDGER=PASS", "status": "PARTIAL", "gapRefs": ["FIN-01"]},
     {"criterion": "SETTLEMENT_PLAN=PASS", "status": "PARTIAL", "gapRefs": ["FIN-01"]},

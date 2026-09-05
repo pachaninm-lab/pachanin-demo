@@ -3,10 +3,21 @@
   "issue": 4997,
   "slice": "W2-A",
   "status": "BOUNDED_SOURCE_AUDIT_COMPLETE_IMPLEMENTATION_PENDING",
-  "specificationSections": [7, 8, 9, 10, 11],
-  "criteria": ["INVENTORY=PASS", "DOUBLE_SELL_PROTECTION=PASS", "PROGRESSIVE_TRUST=PASS", "UNVERIFIED_TRADING=PASS"],
+  "specificationSections": [
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "criteria": [
+    "INVENTORY=PASS",
+    "DOUBLE_SELL_PROTECTION=PASS",
+    "PROGRESSIVE_TRUST=PASS",
+    "UNVERIFIED_TRADING=PASS"
+  ],
   "terminalCredit": 0,
-  "observedMainSha": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
+  "observedMainSha": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
   "confirmedFindings": [
     {
       "evidence": "apps/api/prisma/migrations/20260713210000_auction_postgresql_authority/migration.sql",
@@ -64,5 +75,7 @@
     "productionMutation": 0,
     "productionHosting": "REG_RU_VPS_ONLY",
     "newMandatoryRecurringCostRub": 0
-  }
+  },
+  "sourceAuditSha": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
+  "sourceAnchorDelta": "The four audited source files are unchanged through the merged W1-D and scope-governance commits."
 }

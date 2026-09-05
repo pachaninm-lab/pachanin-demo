@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.execution-state.v1",
   "programme": "pc-crop-post-registration-operating-system",
   "issue": 4997,
-  "updatedAt": "2026-09-05T02:25:00.000Z",
+  "updatedAt": "2026-09-05T03:04:10.057Z",
   "specification": {
     "sha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
     "dodListSha256": "091acfafbde256b0028e7dbfb2afe7c97a05c6b899ba1fc9b0ccbfc4b40a93a2",
@@ -10,7 +10,7 @@
     "sections": 111,
     "dodCriteria": 126
   },
-  "observedMainSha": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
+  "observedMainSha": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
   "auditLineage": {
     "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
     "deltaReviewedToObservedMain": true,
@@ -29,13 +29,15 @@
     "reviewedW1PullRequests": [
       5001,
       5010,
-      5015
+      5015,
+      5019
     ],
-    "inProgressPullRequest": 5019
+    "governancePullRequest": 5021,
+    "governanceMergeSha": "48dcbec2da506bd5fb27089ab0de4d6545fad9d2"
   },
   "observedProductionSha": null,
   "observedProductionShaReason": "No REG.RU update performed for these W1 slices. Historical read-only preflight 33924967425 observed API d401f2678070eae3362d22d09b60aadf3a8e042d with W1-A migration absent; this is not a fresh production observation.",
-  "status": "W1_FOUNDATIONS_MERGED_COMMERCIAL_REVIEW_IN_PROGRESS",
+  "status": "W1_CONFIG_FOUNDATION_MERGED_W2_INVENTORY_NEXT",
   "overallProgressPercent": 3.1,
   "overallProgressBasis": "Strict terminal DoD: floor(4 PASS / 126 total * 1000) / 10. PARTIAL, FAIL, EXTERNAL_BLOCKER and NOT_EVIDENCED receive zero credit.",
   "dodStatusCounts": {
@@ -56,7 +58,7 @@
     {
       "id": "W1",
       "name": "Config Foundation",
-      "status": "IN_PROGRESS",
+      "status": "MERGED",
       "externalAccessRequired": false
     },
     {
@@ -109,20 +111,22 @@
     }
   ],
   "nextSlice": {
-    "id": "W1-D",
-    "name": "Finish commercial-rule authority review and exact-head CI",
+    "id": "W2-A",
+    "name": "Canonical physical inventory and concurrent quantity reservation",
+    "sourceAudit": "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+    "status": "SOURCE_AUDIT_COMPLETE_IMPLEMENTATION_PENDING",
     "registrationCodeChanged": false,
     "registrationBehaviorChanged": false,
     "roleEligibilityEnforcementChanged": false,
-    "productEnforcementChanged": false,
     "newRecurringCostRub": 0,
     "acceptance": [
-      "All mandatory workflows succeed on the current PR head.",
-      "PostgreSQL denies unaudited lifecycle transitions and forged decisions under restricted principals.",
-      "API never acknowledges a command rejected by deferred PostgreSQL evidence constraints.",
-      "No unresolved review finding remains; main/head drift is checked before merge."
-    ],
-    "nextAfterMerge": "W2-A bounded audit: canonical inventory, independent evidence and concurrent quantity reservation."
+      "PostgreSQL prevents competing lots and Deals from reserving more than a shared physical inventory position permits.",
+      "Tenant/organization isolation, CAS and payload-bound idempotency are proven under restricted principals.",
+      "Reservation, quantities, event, audit and outbox commit atomically; failed commits are never acknowledged.",
+      "Manual declarations remain DECLARED and may be PUBLIC_ALLOWED; independent verification and mandatory blockers are separate facts.",
+      "Commodity units and availability policy versions are pinned; custody, title and cumulative quantities are not conflated.",
+      "Full terminal credit requires the remaining inventory lifecycle, product consumers and accepted REG.RU runtime."
+    ]
   },
   "p0Risks": [
     "No canonical inventory reservation or cross-lot double-sell protection.",
@@ -189,28 +193,49 @@
     {
       "id": "W1-D",
       "name": "Commercial rules and rule packs",
-      "status": "CI_AND_REVIEW_PENDING",
+      "status": "MERGED",
       "pr": 5019,
       "headSha": "a6cfb2cdb21afaac36ac2cbd2ab107d517c1cc57",
       "productionAccepted": false,
-      "previousHeadEvidence": {
-        "headSha": "02a9f5eb7950fd908ac26ca9020ad2b2d40739fb",
-        "postgresqlTests": {
-          "passed": 11,
-          "total": 11
-        },
-        "domainTests": {
-          "passed": 29,
-          "total": 29
-        },
-        "contractTests": {
-          "passed": 11,
-          "total": 11
-        },
-        "oneDealAndDrRun": 33938293629,
-        "commercialAuthorityRun": 33938293608,
-        "schemaDrift": false
+      "mergeSha": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
+      "verifiedHead": "a6cfb2cdb21afaac36ac2cbd2ab107d517c1cc57",
+      "domainTests": {
+        "passed": 29,
+        "total": 29
+      },
+      "contractTests": {
+        "passed": 11,
+        "total": 11
+      },
+      "postgresqlTests": {
+        "passed": 11,
+        "total": 11
+      },
+      "repositoryMigrations": 196,
+      "schemaDrift": false,
+      "oneDealAndDrRun": 33938801218,
+      "commercialAuthorityRun": 33938801239,
+      "kubernetesOutboxRun": 33938801250,
+      "workflowCounts": {
+        "success": 39,
+        "skipped": 2,
+        "failed": 0
+      },
+      "reviewThreads": {
+        "total": 4,
+        "unresolved": 0
       }
     }
-  ]
+  ],
+  "registerGovernance": {
+    "pr": 5021,
+    "mergeSha": "48dcbec2da506bd5fb27089ab0de4d6545fad9d2",
+    "mode": "IMMUTABLE_BASE_SCOPE",
+    "allowedRegisterFiles": 6,
+    "guardTests": {
+      "passed": 28,
+      "total": 28
+    },
+    "workflowRun": 33940127251
+  }
 }
