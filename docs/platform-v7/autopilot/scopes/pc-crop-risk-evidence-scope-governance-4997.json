@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "staged",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-risk-evidence-scope-4997",
+  "purpose": "W7-B staged governance: durable counterparty evidence graph, RiskCase and explainable versioned anti-fraud/reputation decisions with zero fabricated fallback authority.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-risk-evidence-scope-governance-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-risk-evidence-authority-4997.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "roleEligibilityMutation": false,
+    "fabricatedScoreOrExternalSuccess": false
+  }
+}
