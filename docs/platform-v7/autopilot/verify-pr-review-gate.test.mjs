@@ -163,12 +163,14 @@ test('dismissal clears a previous change request', () => {
 test('ignores only review-gate automation checks to avoid self-deadlock', () => {
   const checks = [
     { workflowName: 'Repo automations', name: 'Exact-head Codex review gate', status: 'IN_PROGRESS' },
+    { context: 'review-gate/exact-head', state: 'SUCCESS' },
     { workflowName: 'CI', name: 'web-unit', status: 'COMPLETED', conclusion: 'SUCCESS' },
   ];
 
   assert.equal(isIgnoredMergeGateCheck(checks[0]), true);
-  assert.equal(isIgnoredMergeGateCheck(checks[1]), false);
-  assert.deepEqual(substantiveChecks(checks), [checks[1]]);
+  assert.equal(isIgnoredMergeGateCheck(checks[1]), true);
+  assert.equal(isIgnoredMergeGateCheck(checks[2]), false);
+  assert.deepEqual(substantiveChecks(checks), [checks[2]]);
 });
 
 test('green, skipped and neutral exact-head checks are accepted', () => {
