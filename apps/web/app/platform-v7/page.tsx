@@ -188,14 +188,17 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     gap: 4px !important;
     padding-inline: 8px !important;
   }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-mark {
+    display: none !important;
+  }
   [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
-    flex: 1 1 0 !important;
+    flex: 1 1 auto !important;
     min-width: 0 !important;
-    gap: 6px !important;
+    gap: 0 !important;
     overflow: hidden !important;
   }
   [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text {
-    flex: 1 1 0 !important;
+    flex: 1 1 auto !important;
     min-width: 0 !important;
     overflow: hidden !important;
   }
@@ -225,30 +228,44 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     padding-inline: 4px !important;
   }
   [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta {
-    width: 44px !important;
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
     min-width: 44px !important;
     height: 44px !important;
     min-height: 44px !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    color: transparent !important;
-    font-size: 0 !important;
-  }
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta::after {
-    content: '→';
-    display: block;
-    color: #fff;
-    font-size: 20px;
-    font-weight: 800;
-    line-height: 1;
+    max-width: 110px !important;
+    padding: 0 8px !important;
+    overflow: visible !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    line-height: 1.05 !important;
+    white-space: normal !important;
+    text-align: center !important;
   }
 }
 @media (max-width: 359px) {
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-mark {
-    display: none !important;
+  .pc-v7-public-entry {
+    --entry-public-header-base: 100px;
+    --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset));
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
+    flex-wrap: wrap !important;
+    align-content: center !important;
+    row-gap: 4px !important;
   }
   [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
-    gap: 0 !important;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions {
+    width: 100% !important;
+    justify-content: flex-end !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta {
+    max-width: none !important;
+    white-space: nowrap !important;
   }
   .pc-v6-hero h1.pc-v6-hero-title { font-size: 31px; }
 }
