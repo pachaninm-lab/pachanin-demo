@@ -9,6 +9,7 @@ import { RoleEligibilitySourceHealthService } from './role-eligibility-source-he
 import {
   EligibilitySourceError,
   defaultRegistryDomainForSource,
+  registryDomainForGeneration,
   type EligibilitySource,
   type RegistryAdapterFetchResult,
   type RegistryGeneration,
@@ -85,17 +86,22 @@ export class RoleEligibilityRegistrySyncService {
     let active: RegistryGeneration | null;
     let sourceHealth: SourceHealthSnapshot | null;
     try {
-      active = await this.registry.active('FNS', 'EGRUL');
-      sourceHealth = await this.health.get('FNS', 'EGRUL');
+      active = await this.registry.active('FNS');
+      sourceHealth = await this.health.get('FNS');
     } catch {
       return null;
     }
 
-    if (!active || active.status !== 'ACTIVE' || active.registryDomain !== 'EGRUL') return null;
+    if (!active || active.status !== 'ACTIVE') return null;
+    const activeDomain = active.registryDomain || registryDomainForGeneration('FNS', active.schemaVersion);
+    if (activeDomain !== 'EGRUL') return null;
     if (!FILE_BACKED_EGRUL_SCHEMAS.has(active.schemaVersion)) return null;
     if (!FILE_BACKED_EGRUL_PARSER_VERSIONS.has(active.parserVersion)) return null;
     if (active.freshUntil.getTime() <= Date.now()) return null;
-    if (!sourceHealth || sourceHealth.registryDomain !== 'EGRUL' || sourceHealth.status !== 'HEALTHY' || sourceHealth.circuitState !== 'CLOSED') return null;
+    if (!sourceHealth || sourceHealth.status !== 'HEALTHY' || sourceHealth.circuitState !== 'CLOSED') return null;
+    const healthDomain = sourceHealth.registryDomain
+      || (sourceHealth.schemaVersion ? registryDomainForGeneration('FNS', sourceHealth.schemaVersion) : 'EGRUL');
+    if (healthDomain !== 'EGRUL') return null;
     if (sourceHealth.activeGeneration !== active.generation) return null;
     if (sourceHealth.parserVersion !== active.parserVersion) return null;
     if (sourceHealth.schemaVersion !== active.schemaVersion) return null;
@@ -108,7 +114,7 @@ export class RoleEligibilityRegistrySyncService {
 
   async sync(source: EligibilitySource) {
     const requestedDomain = defaultRegistryDomainForSource(source);
-    await this.health.assertFetchAllowed(source, requestedDomain);
+    await this.health.assertFetchAllowed(source);
     const adapter = this.adapters[source];
     const correlationId = `registry-sync:${source}:${requestedDomain}:${randomUUID()}`;
     let stagedId: string | null = null;
@@ -193,13 +199,13 @@ export class RoleEligibilityRegistrySyncService {
             preservedFreshUntil: preserved.freshUntil.toISOString(),
           });
         } catch {
-          await this.health.failure(source, 'UNAVAILABLE', FNS_EGRUL_PRESERVATION_AUDIT_FAILED, 'EGRUL');
+          await this.health.failure(source, 'UNAVAILABLE', FNS_EGRUL_PRESERVATION_AUDIT_FAILED);
           throw new EligibilitySourceError(source, FNS_EGRUL_PRESERVATION_AUDIT_FAILED, 'UNAVAILABLE');
         }
         throw typed;
       }
 
-      await this.health.failure(source, typed.health, typed.code, requestedDomain);
+      await this.health.failure(source, typed.health, typed.code);
       await this.registry.auditSourceEvent('ROLE_ELIGIBILITY_SOURCE_FETCH_FAILED', source, correlationId, {
         registryDomain: requestedDomain,
         errorCode: typed.code,
