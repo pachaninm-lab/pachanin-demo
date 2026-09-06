@@ -2054,6 +2054,39 @@
       "note": "The requirement asks that automatic redirects to a hostname the application does not control happen only against an allowlist. Measured, the application never redirects to another hostname at all: every redirect target under apps/web/app is an internal path, and a search for a redirect to an absolute http or https URL returns nothing. That is stronger than an allowlist, because there is no external destination to allow. What was found and fixed rather than documented as latent: four places decided an internal destination with value.startsWith(\"/\"), which is not the check it looks like. Resolved against the real application origin, //evil.com, ////evil.com and /\\evil.com all begin with a slash and all resolve to https://evil.com - a protocol-relative address, and the backslash form which the URL parser normalises to a forward slash. Reaching them was not possible in production: /api/auth/demo and its role and instant variants answer 503 through demoLoginAllowed, and on the login page the value must equal one of ten hard-coded /canon paths before it is used, so returnTo never reaches a redirect. The defect was therefore latent rather than live, and it is stated that way rather than inflated into a live open redirect. It is fixed anyway because a bypassable guard sitting in four places is a pattern waiting to be copied into a fifth that is not gated. safeInternalPath decides structurally - it resolves the value against a probe origin and requires the origin to come back unchanged - so forms nobody has thought of are rejected too, not only the three that were measured. Twelve tests cover it, including a case that repeats the parameter, and one that reproduces the old check to show it really did let all three through."
     },
     {
+      "requirementId": "V3.7.3",
+      "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
+      "status": "NOT_APPLICABLE",
+      "evidence": [
+        "repository-scan:no-external-redirect-target"
+      ],
+      "conditions": [
+        {
+          "condition": "the application still never sends the user to an absolute address on another host: no redirect and no scripted navigation names one",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/app",
+            "apps/web/lib",
+            "apps/web/components"
+          ],
+          "patterns": [
+            "redirect('http",
+            "redirect(\"http",
+            "redirect(`http",
+            "redirect(new url('http",
+            "redirect(new url(\"http",
+            "redirect(new url(`http",
+            "location.href = 'http",
+            "location.href = \"http",
+            "location.href = `http",
+            "location.replace('http",
+            "location.assign('http"
+          ]
+        }
+      ],
+      "note": "The requirement asks for a notification, with an option to cancel, when the application sends the user to a URL outside its control. That situation does not arise: the application never sends the user outside. Measured over every .ts, .tsx, .js, .jsx, .mjs and .cjs file under apps/web/app, apps/web/lib and apps/web/components, in the same way the condition is evaluated, a redirect or scripted navigation naming an absolute http or https address returns zero matches - across quoted and template-literal forms, NextResponse.redirect, redirect(new URL(...)), location.href, location.replace and location.assign. The same scan for an absolute external href in markup also returns zero, so there is not even a link out to speak of, let alone an automatic navigation. Every destination in the application is an internal path. This is the same measurement that backs the V3.7.2 PASS, read from the other side: there the point was that no external destination can be reached through the redirect guard, here that none is ever named in the first place. Not claimed: that a notification exists, or that one would be shown if an external redirect were added. There is no such screen and none is needed while the triggering condition is absent. If a redirect to another host is ever introduced, the condition above stops holding and the requirement returns for assessment rather than staying not-applicable on a scan that no longer describes the code."
+    },
+    {
       "requirementId": "V4.1.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
@@ -10154,6 +10187,67 @@
         }
       ],
       "note": "Measured on the real service rather than argued from the pattern. The Rosstat 29-СХ regulatory export aggregated deal volume into a plain object literal keyed by the deal culture, and culture reaches that key as free text: create-deal.dto constrains it with @IsString only, while the same concept on a lot is constrained to an allowlist with @IsIn. Driving exportRegulatoryReport with two deals, one of them 500 tonnes: culture __proto__ produced a report with no such row at all and 500 tonnes silently missing, because assigning to __proto__ on a literal creates no own property; culture constructor, toString and valueOf produced rows whose value was the source text of a native function, because acc[c] ?? 0 returns the inherited member rather than undefined and the addition became concatenation. A statistical return to a regulator that silently loses tonnage is a false filing, not a formatting defect. Four sites are closed in this pass by keying with Map and, where the value is returned to the API, converting with Object.fromEntries, which creates __proto__ as an own property and therefore preserves both the response shape and the data: exports (the 29-СХ report), compliance and integration-events adapter statistics, and the industrial deal command gateway status counts. The last of these is not exploitable today because the status column is an enum, and it is fixed as the same class rather than presented as a live defect. The requirement stays FAIL because the property is codebase-wide and roughly fifteen data-keyed literal writes remain, including the recursive masking helpers, where a key produced by JSON.parse can legitimately be an own __proto__ property. Reverting the fixed service to its literal fails five of the nine tests in the pass, so the fix is load-bearing rather than cosmetic."
+    },
+    {
+      "requirementId": "V15.3.7",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/request-cookie.ts",
+        "apps/web/lib/server-request-security.ts",
+        "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+        "apps/web/tests/unit/requestCookieParsing.spec.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the shared cookie parser still refuses a repeated cookie instead of picking a side, and still refuses a value that does not decode instead of throwing",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/request-cookie.ts"
+          ],
+          "patterns": [
+            "matches > 1",
+            "matches !== 1",
+            "decodeuricomponent(found)",
+            "} catch {"
+          ]
+        },
+        {
+          "condition": "neither consumer parses the Cookie header on its own again: a second parser is exactly the defect this requirement is about",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server-request-security.ts",
+            "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
+          ],
+          "patterns": [
+            "headers.get('cookie')",
+            "headers.get(\"cookie\")",
+            "cookies.getall(csrf_cookie)"
+          ]
+        },
+        {
+          "condition": "both consumers read the CSRF cookie through the one shared parser",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server-request-security.ts",
+            "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
+          ],
+          "patterns": [
+            "readrequestcookie(request, csrf_cookie)"
+          ]
+        },
+        {
+          "condition": "the suite that reproduces the disagreement is still one of the web unit tests CI actually runs",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            ".github/workflows/ci.yml"
+          ],
+          "patterns": [
+            "tests/unit/requestcookieparsing.spec.ts"
+          ]
+        }
+      ],
+      "note": "The requirement names cookies as a request-parameter source in its own text, and that is where the platform had the defect. Measured, not inferred: for the single header Cookie: pc_csrf_token=AAA; pc_csrf_token=BBB the two parsers in this application answered differently - server-request-security.ts returned AAA (first match, Array.prototype.find) and the Next parser used by staff/open-cabinet returned BBB (last, because RequestCookies keys a Map by name). One request, two answers, and which one decided access depended on which route was hit. Both values were checked against the real code, including the compiled Next parser, and the test reproduces both before asserting the fix. Why this is not academic here: the control realm control.xn----8sbjf4befbjgs9b.xn--p1ai is a subdomain of the primary host, so the platform genuinely has neighbours under one registrable domain, and a neighbour that sets pc_csrf_token with a Domain attribute produces exactly this doubled header. The order the browser sends is by path length then creation time (RFC 6265 section 5.4), and creation time belongs to whoever sets the cookie, so neither first nor last is a safe choice. The fix therefore refuses the ambiguity: one shared parser, and a repeated cookie reads as no cookie at all. A legitimate request is untouched and this was checked rather than assumed - auth-cookies.ts and the client set in api/auth/demo/instant both write host-only with Path=/, so the platform cannot produce a second copy of its own cookie; a repeat means someone else wrote it. A test drives the real route and asserts a single cookie still passes the check and reaches the next reason for refusal, so the change cannot be a silent lockout. A second defect in the same function was found and fixed with it: decodeURIComponent throws URIError on a value like % or %zz, and that exception left assertCsrf and the route handler, so a request with a corrupted cookie got 500 instead of 403 on any of the routes where the check is the first line. The other parameter sources were measured too, and were already sound: query, body and route parameters are never merged into one object anywhere in apps/api/src or apps/web (zero occurrences), no handler reads the same parameter from two sources, and seven of the nine @Query() sites bind a validated DTO whose @IsString or @IsInt rejects the array that a repeated query parameter produces. The remaining two, sber-business/start and sber-business/callback, take an inline-typed query - which class-validator does not check - but both reach service methods that return not_configured and act on nothing. That is stated as it is rather than counted as a defence."
     },
     {
       "requirementId": "V15.4.1",
