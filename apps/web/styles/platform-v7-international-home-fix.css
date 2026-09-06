@@ -31,6 +31,17 @@
   scroll-margin-top: calc(var(--pc-public-header-total-height, 64px) + 18px) !important;
 }
 
+/* Keep desktop section hierarchy inside the production readability contract.
+ * The story module previously reached 48px at wide viewports while the live
+ * acceptance contract caps ordinary section H2s at 44px. */
+@media (min-width: 901px) {
+  .pc-v7-public-entry .pc-v6-section-head h2,
+  .pc-v7-public-entry .pc-v6-final h2,
+  .pc-v7-public-entry #connect-organization h2 {
+    font-size: clamp(38px, 3.3vw, 44px) !important;
+  }
+}
+
 /* The first-view Deal card is explanatory product UI, not metadata. Keep every
  * visible text node at the trusted 14px legibility floor on all viewports. */
 .pc-v7-public-entry [data-testid='platform-v7-deal-card'] :where(span, small, b) {
