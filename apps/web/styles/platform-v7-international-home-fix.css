@@ -61,6 +61,23 @@
   font-size: 14px !important;
 }
 
+/* Accessibility authority for the new public Deal story. The previous muted
+ * treatment did not meet WCAG 2 AA on white surfaces. Keep the semantic content
+ * unchanged while giving phase numbers, stage indices and the Gekta detail link
+ * sufficient contrast in every browser. */
+.pc-v7-public-entry #deal-path article > span:first-child {
+  background: #087a3b !important;
+  color: #fff !important;
+}
+
+.pc-v7-public-entry #participants button > span > small {
+  color: #526159 !important;
+}
+
+.pc-v7-public-entry [data-testid='platform-v7-ai-analysis'] a {
+  color: #07572e !important;
+}
+
 /* Desktop Deal story: the seven phase cards become a restrained sticky stack.
  * The content remains ordinary DOM content; this only changes how the same
  * explanation is paced while the visitor scrolls. */
