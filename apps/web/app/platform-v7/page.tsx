@@ -69,6 +69,9 @@ const CRITICAL_HOME_CSS = `
   font-weight: 800;
   line-height: 1;
 }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > span:nth-child(n + 6) > small {
+  color: #56655d !important;
+}
 .pc-v6-hero {
   display: grid;
   align-items: center;
@@ -180,7 +183,73 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     line-height: 1.42;
   }
 }
+@media (max-width: 430px) {
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
+    gap: 4px !important;
+    padding-inline: 8px !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    color: #071611 !important;
+    font-size: 14px !important;
+    line-height: 1.05 !important;
+    letter-spacing: -.035em !important;
+    white-space: normal !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    text-overflow: clip !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions,
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
+    flex: 0 0 auto !important;
+    gap: 4px !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-locale-switch {
+    width: 44px !important;
+    min-width: 44px !important;
+    padding-inline: 4px !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    color: transparent !important;
+    font-size: 0 !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta::after {
+    content: '→';
+    display: block;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+  }
+}
 @media (max-width: 359px) {
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-mark {
+    display: none !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
+    gap: 0 !important;
+  }
   .pc-v6-hero h1.pc-v6-hero-title { font-size: 31px; }
 }
 @media (min-width: 768px) {
