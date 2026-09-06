@@ -136,7 +136,7 @@ describe('platform-v7 visible public operating copy', () => {
     expect(home).toContain("nav: { connect: 'Начать'");
     expect(home).toContain("secondary: 'Зарегистрироваться'");
     expect(home).toContain("tertiary: 'Скачать презентацию'");
-    expect(home).toContain("primary: 'Посмотреть, как работает Сделка'");
+    expect(home).toContain("primary: 'Посмотреть пример Сделки'");
   });
 
   it('keeps organization intake as optional assistance rather than registration', () => {
