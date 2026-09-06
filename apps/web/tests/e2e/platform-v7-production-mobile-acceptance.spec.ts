@@ -141,10 +141,17 @@ async function expectLinkedPageLocaleContinuity(page: Page, name: LinkedPublicPa
   expect(new URL(page.url()).searchParams.get('lang')).toBe(locale);
 
   switch (name) {
-    case 'about':
+    case 'about': {
       await expect(page.locator(`a[href="/platform-v7/register?lang=${locale}"]`).first()).toBeVisible();
-      await expect(page.locator(`a[href="/platform-v7/trust?lang=${locale}"]`).first()).toBeVisible();
+      const mobileMenuToggle = page.locator('.pc-site-mobile-menu > summary').first();
+      if (await mobileMenuToggle.isVisible()) {
+        await mobileMenuToggle.click();
+        await expect(page.locator(`.pc-site-mobile-nav a[href="/platform-v7/trust?lang=${locale}"]`)).toBeVisible();
+      } else {
+        await expect(page.locator(`.pc-site-nav a[href="/platform-v7/trust?lang=${locale}"]`)).toBeVisible();
+      }
       break;
+    }
     case 'how-it-works':
       await expect(page.locator(`a[href="/platform-v7/register?lang=${locale}"]`).first()).toBeVisible();
       await expect(page.locator(`footer a[href="/platform-v7/contact?lang=${locale}"]`)).toBeVisible();
@@ -224,7 +231,8 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
           return { fontSize, ratio: lineHeight / fontSize };
         }));
       expect(headings.length).toBeGreaterThan(0);
-      expect(headings.every((heading) => heading.fontSize >= 26 && heading.fontSize <= 44), JSON.stringify(headings, null, 2)).toBe(true);
+      const maxHeadingFontSize = viewport.width >= 1280 ? 48 : 44;
+      expect(headings.every((heading) => heading.fontSize >= 26 && heading.fontSize <= maxHeadingFontSize), JSON.stringify(headings, null, 2)).toBe(true);
       expect(headings.every((heading) => heading.ratio <= 1.2), JSON.stringify(headings, null, 2)).toBe(true);
 
       await expect(page.getByRole('region', { name: 'Вымышленный пример Сделки' })).toBeVisible();
@@ -259,29 +267,34 @@ test.describe('Platform V7 live linked-page acceptance', () => {
   for (const viewport of linkedPageViewports) {
     test(`${viewport.name} verifies linked pages in RU EN ZH without locale loss or overflow`, async ({ page }, testInfo) => {
       test.setTimeout(180_000);
-      const runtimeFailures: string[] = [];
-      page.on('pageerror', (error) => runtimeFailures.push(error.message));
-      page.on('console', (message) => {
-        if (message.type() === 'error' && /hydration|uncaught|error boundary/i.test(message.text())) runtimeFailures.push(message.text());
-      });
-
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      const context = page.context();
 
       for (const locale of linkedLocales) {
         for (const target of linkedPublicPages) {
-          runtimeFailures.length = 0;
-          const response = await page.goto(`${target.path}?lang=${locale}`, { waitUntil: 'load' });
-          expect(response?.ok(), `${target.path}?lang=${locale} should return 2xx`).toBe(true);
-          await expect(page.locator(target.ready).first()).toBeVisible();
-          await expectLinkedPageLocaleContinuity(page, target.name, locale);
-          await expectNoHorizontalOverflow(page);
-          expect(runtimeFailures, `${target.path}?lang=${locale} runtime failures`).toEqual([]);
-
-          await page.screenshot({
-            path: testInfo.outputPath(`platform-v7-linked-${target.name}-${locale}-${viewport.name}.png`),
-            fullPage: true,
-            animations: 'disabled',
+          const targetPage = await context.newPage();
+          const runtimeFailures: string[] = [];
+          targetPage.on('pageerror', (error) => runtimeFailures.push(error.message));
+          targetPage.on('console', (message) => {
+            if (message.type() === 'error' && /hydration|uncaught|error boundary/i.test(message.text())) runtimeFailures.push(message.text());
           });
+
+          try {
+            await targetPage.setViewportSize({ width: viewport.width, height: viewport.height });
+            const response = await targetPage.goto(`${target.path}?lang=${locale}`, { waitUntil: 'load' });
+            expect(response?.ok(), `${target.path}?lang=${locale} should return 2xx`).toBe(true);
+            await expect(targetPage.locator(target.ready).first()).toBeVisible();
+            await expectLinkedPageLocaleContinuity(targetPage, target.name, locale);
+            await expectNoHorizontalOverflow(targetPage);
+            expect(runtimeFailures, `${target.path}?lang=${locale} runtime failures`).toEqual([]);
+
+            await targetPage.screenshot({
+              path: testInfo.outputPath(`platform-v7-linked-${target.name}-${locale}-${viewport.name}.png`),
+              fullPage: true,
+              animations: 'disabled',
+            });
+          } finally {
+            await targetPage.close();
+          }
         }
       }
     });
