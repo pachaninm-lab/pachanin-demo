@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "issue": 4997,
   "branch": "feat/pc-crop-inventory-evidence-authority-4997",
-  "status": "active",
+  "status": "proposed",
   "purpose": "W2-G foundation: extend the existing canonical Inventory authority with BatchGenealogy, CustodyPosition, TitleEvidence and InventoryRestriction facts, without changing Deal allocation or manufacturing independent verification.",
   "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
   "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
