@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/module-body-validation",
+  "status": "active",
+  "purpose": "V2.2.1/V2.2.2 на теле акта взвешивания и на статусе организации. Акт взвешивания — документ, которым решается, сколько зерна принято, то есть деньги, — принимал тело, объявленное буквально `any`. Замерено на живом сервисе: мусор вместо тоннажа давал акт приёмки БЕЗ тоннажа (netTons и acceptedTons в JSON становились null), отрицательное брутто давало отрицательный нетто, а корректировка тем же мусором ПОРТИЛА уже честный акт. Статус организации писался в колонку типа String через `status as any`, поэтому произвольная строка и даже пустая попадали в базу дословно.",
+  "authorityBaseExactMain": "7f900c79326a8ac816324472f90995428842ac9d",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/module-body-validation.json",
+    "docs/security/request-validation-baseline.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "apps/api/src/modules/elevator/elevator.controller.ts",
+    "apps/api/src/modules/elevator/elevator.service.ts",
+    "apps/api/src/modules/elevator/dto/create-weighing-act.dto.ts",
+    "apps/api/src/modules/elevator/dto/correct-weighing-act.dto.ts",
+    "apps/api/src/modules/elevator/dto/dispute-act.dto.ts",
+    "apps/api/src/modules/elevator/elevator-body-validation.spec.ts",
+    "apps/api/src/modules/organizations/organizations.controller.ts",
+    "apps/api/src/modules/organizations/organizations.service.ts",
+    "apps/api/src/modules/organizations/dto/update-organization-status.dto.ts"
+  ],
+  "requiredInvariants": [
+    "Дефекты ЗАМЕРЕНЫ на живом сервисе до правки, брутто 100 / тара 20: grossTons 'abc' → netTons NaN, acceptedTons NaN, в JSON null/null; grossTons -50 → netTons -70, acceptedTons 0, discrepancyTons -70; grossTons Infinity → netTons null, discrepancyPct null; gross 20 / tare 100 → netTons -80. И отдельно: correctAct({grossTons:'мусор'}) на ЧЕСТНОМ акте с нетто 80 превращал его в null — портилась верная запись, а не создавалась неверная.",
+    "Тело было объявлено буквально `@Body() body: any` в createAct и correctAct. Это не инлайн-тип, который стирается, а явное отключение проверки.",
+    "Отказывают И граница, И сервис. Сторожа weightTons, percent и assertNetIsPositive стоят в elevator.service.ts, потому что вызывающий в обход DTO не должен уметь записать акт приёмки без тоннажа.",
+    "@Type(() => Number) намеренно НЕ добавлен: он выполняется до @IsNumber и превратил бы строку в число. Строка '100' сегодня проходит по случайности — из-за приведения в JS при вычитании, — и после правки не проходит. @IsNumber() без опций сам отвергает NaN и Infinity: allowNaN и allowInfinity по умолчанию false.",
+    "Статус организации сужен до РОВНО тех значений, которые платформа записывает сама, и список получен перечислением всех мест записи в organization.status: PENDING (создание и default схемы), VERIFIED и SUSPENDED (resolveKycTask), BLOCKED (blockOrganization). Колонка объявлена String @default(\"PENDING\"), а не перечислением, поэтому произвольная строка писалась дословно.",
+    "Проверено, что сужение никого не ломает: у маршрута PATCH /api/organizations/:id/status нет ни одного вызывающего ни в вебе, ни в e2e.",
+    "Ни один контроллер, цитируемый решениями ASVS на восьми открытых ветках, не тронут. Список собран перечислением цитат по всем веткам: accounting, admin, anti-fraud, auth, compliance, export-trade, exports, partner-api, railway, route-planner, runtime-snapshot, saga, staff-access. Это прямой вывод из того, что цитата V1.3.3 уже однажды чуть не была отозвана порядком мержа.",
+    "Схема БД, миграции, RLS не тронуты. Ни одной зависимости не добавлено. Роли и проверки доступа не тронуты и не продублированы в DTO — assertElevatorRole и ролевая проверка организаций остались на месте и покрыты отдельными проверками. Production/REG.RU/DNS/БД/креденшелы не мутировались. Новые обязательные расходы: 0 ₽."
+  ],
+  "acceptance": [
+    "Ратчет затянут: 66 → 62 непроверенных тела, 134 → 138 DTO-типизированных, 23 → 21 файл.",
+    "18 проверок, базовый прогон 18/18.",
+    "Четыре мутации, все пойманы: снятие сторожа tare>gross — 1 упавшая; сторож тоннажа пропускает всё — 4; снятие сторожа статуса организации — 1; снятие @IsNumber с grossTons — 1.",
+    "Одна мутация сначала не скомпилировалась (`if (false)` даёт неиспользуемый параметр), то есть ничего не проверила. Переделана на ранний возврат и перезапущена — иначе непроверенное было бы засчитано за проверенное.",
+    "Обратная сторона проверена, а не предположена: честный акт брутто 100 / тара 20 при влажности 14% и сорности 2% даёт нетто 80 и принято 72.8 (80 − 5.6 − 1.6); настоящая корректировка на 120 даёт нетто 100 и статус CORRECTED; все четыре настоящих статуса организации проходят.",
+    "Матрица ASVS не изменилась и ни одно решение не отозвано: 129 PASS / 90 FAIL / 88 NOT_APPLICABLE / 38 NOT_ASSESSED, отклонённых 0.",
+    "pnpm --filter @pc/api typecheck — exit 0."
+  ],
+  "notClosed": [
+    "V2.2.1 и V2.2.2 остаются FAIL: закрытие четырёх тел не делает свойство верным по кодовой базе, остаётся 62 непроверенных тела в 21 файле.",
+    "Верхняя граница тоннажа 1 000 000 тонн выбрана как заведомо недостижимая для одной отгрузки, а не как отраслевая норма. Настоящий предел — свойство продукта, и здесь он не назначается.",
+    "Логистика (transitionCompat), деловая репутация (getScoreBatch с неограниченным массивом orgIds) и остальные свободные модули в этот проход НЕ вошли: их сервисы не замерены, а добавлять DTO по результату чтения контроллера — то же самое, что чинить по грепу.",
+    "Хранение актов в Map в памяти процесса не исправлялось: это архитектурное решение модуля, а не дефект границы запроса.",
+    "Статусы организации, которых платформа не пишет, но которые могли быть записаны исторически внешним потребителем API, теперь отвергаются. Вызывающих не найдено, поэтому риск принят осознанно; если такой потребитель существует, список расширяется одной строкой."
+  ]
+}
