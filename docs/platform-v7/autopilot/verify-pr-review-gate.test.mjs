@@ -269,12 +269,14 @@ test('legacy status contexts are evaluated by state', () => {
   assert.deepEqual(checkRollupBlockers(checks), ['legacy-pending:PENDING']);
 });
 
-test('provider-independent machine review counts only distinct successful trusted analyzers', () => {
+test('provider-independent machine review counts only wholly successful trusted analyzer workflows', () => {
   const checks = [
     { workflowName: 'CodeQL platform-v7 report', name: 'codeql', status: 'COMPLETED', conclusion: 'SUCCESS' },
-    { workflowName: 'Qodana platform-v7 report', name: 'qodana', status: 'COMPLETED', conclusion: 'SUCCESS' },
+    { workflowName: 'Qodana platform-v7 report', name: 'qodana-main', status: 'COMPLETED', conclusion: 'SUCCESS' },
+    { workflowName: 'Qodana platform-v7 report', name: 'qodana-optional', status: 'COMPLETED', conclusion: 'NEUTRAL' },
     { workflowName: 'Security Quality Gate', name: 'security', status: 'COMPLETED', conclusion: 'SUCCESS' },
     { workflowName: 'Security Quality Gate', name: 'security-duplicate', status: 'COMPLETED', conclusion: 'SUCCESS' },
+    { workflowName: 'Security Abuse and Evidence Acceptance', name: 'abuse', status: 'COMPLETED', conclusion: 'SUCCESS' },
     { workflowName: 'Dependency Review', name: 'dependency-pending', status: 'IN_PROGRESS', conclusion: null },
     { workflowName: 'Dependency Review', name: 'dependency-skipped', status: 'COMPLETED', conclusion: 'SKIPPED' },
     { workflowName: 'Runtime Context Security Gate', name: 'runtime-neutral', status: 'COMPLETED', conclusion: 'NEUTRAL' },
@@ -283,7 +285,7 @@ test('provider-independent machine review counts only distinct successful truste
 
   assert.deepEqual(machineReviewAuthorities(checks), [
     'CodeQL platform-v7 report',
-    'Qodana platform-v7 report',
+    'Security Abuse and Evidence Acceptance',
     'Security Quality Gate',
   ]);
   assert.equal(MIN_MACHINE_REVIEW_AUTHORITIES, 3);
