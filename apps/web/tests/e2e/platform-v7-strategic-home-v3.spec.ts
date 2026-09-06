@@ -283,6 +283,14 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
   }
 
+  test('768px tablet keeps the Hero Deal header readable', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1000 });
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+    await expectDealCardHeaderReadable(page);
+    await expectNoHorizontalOverflow(page);
+  });
+
   test('desktop navigation distinguishes in-page Gekta help from the standalone product', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'Source-owned navigation labels need one desktop rendering proof.');
     await page.setViewportSize({ width: 1440, height: 900 });
