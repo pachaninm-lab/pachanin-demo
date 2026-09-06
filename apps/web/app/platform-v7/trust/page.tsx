@@ -11,7 +11,11 @@ import {
 import BaseTrustCenterPage from '../../trust/page';
 
 type Locale = 'ru' | 'en' | 'zh';
-type ElementProps = Record<string, unknown> & { children?: ReactNode };
+type ElementProps = Record<string, unknown> & {
+  children?: ReactNode;
+  href?: unknown;
+  actions?: ReactNode;
+};
 
 const METADATA: Record<Locale, Readonly<{ title: string; description: string }>> = {
   ru: {
@@ -47,8 +51,15 @@ function rebrandTrustCopy(node: ReactNode, locale: Locale): ReactNode {
   if (!isValidElement(node)) return node;
 
   const element = node as ReactElement<ElementProps>;
+  const nextProps: Partial<ElementProps> = {};
+  if (element.props.href === '/platform-v7') {
+    nextProps.href = `/platform-v7?lang=${locale}`;
+  }
+  if (element.props.actions !== undefined) {
+    nextProps.actions = rebrandTrustCopy(element.props.actions, locale);
+  }
   const children = Children.toArray(element.props.children).map((child) => rebrandTrustCopy(child, locale));
-  return cloneElement(element, undefined, ...children);
+  return cloneElement(element, nextProps, ...children);
 }
 
 export default async function PlatformV7TrustPage() {
