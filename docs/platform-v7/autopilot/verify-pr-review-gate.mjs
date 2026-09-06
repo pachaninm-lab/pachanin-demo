@@ -205,8 +205,11 @@ function fetchAllIssueComments(repo, prNumber) {
 }
 
 function resolveCommitSha(repo, ref) {
-  const commit = ghJson(['api', `repos/${repo}/commits/${ref}`]);
-  return String(commit?.sha || '').trim();
+  const prefix = String(ref || '').trim();
+  if (!/^[0-9a-f]{10,40}$/u.test(prefix)) return '';
+  const commit = ghJson(['api', `repos/${repo}/commits/${prefix}`]);
+  const sha = String(commit?.sha || '').trim();
+  return /^[0-9a-f]{40}$/u.test(sha) && sha.startsWith(prefix) ? sha : '';
 }
 
 function fetchAllReviewThreads(repo, prNumber) {
