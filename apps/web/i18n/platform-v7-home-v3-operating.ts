@@ -5,7 +5,7 @@ const operatingCopy = {
     a11y: { controlTower: 'Упрощённый пример одной Сделки' },
     nav: { connect: 'Начать', status: 'Доверие и контроль' },
     hero: {
-      primary: 'Посмотреть, как работает Сделка',
+      primary: 'Посмотреть пример Сделки',
       secondary: 'Зарегистрироваться',
       tertiary: 'Скачать презентацию',
       proofLabel: 'Как платформа ведёт Сделку',
@@ -29,7 +29,7 @@ const operatingCopy = {
     a11y: { controlTower: 'Simplified example of one Deal' },
     nav: { connect: 'Register', status: 'Trust and control' },
     hero: {
-      primary: 'See how a Deal works',
+      primary: 'View the Deal example',
       secondary: 'Register',
       tertiary: 'Download presentation',
       proofLabel: 'How the platform runs a Deal',
@@ -53,7 +53,7 @@ const operatingCopy = {
     a11y: { controlTower: '一笔交易的简化示例' },
     nav: { connect: '注册', status: '信任与控制' },
     hero: {
-      primary: '查看交易如何运行',
+      primary: '查看交易示例',
       secondary: '注册',
       tertiary: '下载演示文稿',
       proofLabel: '平台如何管理交易',
