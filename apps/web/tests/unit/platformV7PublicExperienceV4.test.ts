@@ -33,6 +33,8 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
     expect(root).toContain('href={contactHref}');
     expect(explorerPage).toContain('nav={nav}');
     expect(explorerPage).toContain('showMobileMenu');
+    expect(explorerPage).toContain("href={localizedHref('/platform-v7/trust')}");
+    expect(explorerPage).not.toContain("href={localizedHref('/platform-v7/status')}");
     expect(header).toContain('PUBLIC_SITE_HEADER_STYLES');
     expect(header).toContain('pc-site-mobile-nav');
   });
@@ -73,6 +75,18 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
     expect(detailedCopy).not.toContain('DEAL-2408');
     expect(detailedCopy).not.toContain('B-2408');
     expect(detailedCopy).not.toContain('R-318');
+  });
+
+  it('removes visitor-facing status and readiness language from the detailed Deal surface without changing state authority', () => {
+    expect(explorerPage).toContain('sanitizeVisibleDealCopy');
+    expect(explorerPage).toContain("['готовность расчёта', 'основание расчёта']");
+    expect(explorerPage).toContain("['settlement readiness', 'settlement basis']");
+    expect(explorerPage).toContain("['完整结算准备', '完整结算依据']");
+    expect(explorerPage).toContain(".pc-ppe-deal-state > div[data-tone='action']");
+    expect(explorerPage).toContain('.pc-ppe-v5-stage-main > p');
+    expect(explorerPage).toContain('.pc-ppe-document-card summary small');
+    expect(adapter).toContain('writeTourStateToSearchParams');
+    expect(explorer).toContain('reduceTourState');
   });
 
   it('keeps nine public participant choices while preserving internal URL compatibility', () => {
