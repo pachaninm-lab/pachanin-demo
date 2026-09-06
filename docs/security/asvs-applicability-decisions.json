@@ -1600,6 +1600,54 @@
       "note": "Cookies that carry a value not meant to be readable by client-side script (the session token in auth-session-response.ts, the MFA ticket in gekta-mfa-ticket.ts, the membership-selection cookie) are all set with httpOnly: true, and those values are only ever transferred via the Set-Cookie response header, never echoed into a response body or script. The one cookie that is deliberately client-readable, the CSRF token, is exactly the case this requirement is not about - it exists to be read by client JavaScript so it can be echoed back as a header (assessed under V3.5.1)."
     },
     {
+      "requirementId": "V3.3.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/access-token.ts",
+        "apps/web/lib/server-request-security.ts",
+        "measured:443-bytes-of-4096"
+      ],
+      "conditions": [
+        {
+          "condition": "the access token payload is a fixed claim set with no variable-length field, so the cookie size is bounded by construction rather than by luck",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "typ: 'access'",
+            "sid: sessionid",
+            "cv: credentialversion"
+          ]
+        },
+        {
+          "condition": "nothing is spread into the token payload: a spread is how a bounded claim set silently becomes an unbounded one",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/access-token.ts"
+          ],
+          "patterns": [
+            "...user",
+            "...claims",
+            "...payload",
+            "...membership"
+          ]
+        },
+        {
+          "condition": "the CSRF cookie value is a fixed-width random token rather than anything derived from request data",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server-request-security.ts"
+          ],
+          "patterns": [
+            "randombytes(24).tostring("
+          ]
+        }
+      ],
+      "note": "Measured rather than assumed. Every cookie the application writes was enumerated: pc_access_token, pc_refresh_token, pc_session_present, pc_csrf_token, plus the MFA pending, MFA step-up and membership-selection tickets. Every value written is a constant, a server-generated token of fixed shape, or the empty string used to clear the cookie; none carries user-supplied variable-length data, so the browser 4096-byte ceiling is not reachable from input. The largest is the access token, signed with the fixed claim set typ, sid, cv, sub, iss, aud, exp and jti: sub, sid and jti are UUIDs and cv is a number, so the encoded length does not vary with the user. Signed with realistic values it is 428 bytes, and with the cookie name pc_access_token the pair is 443 bytes against the 4096-byte limit - 3653 bytes of headroom, 89 per cent unused. The CSRF cookie is randomBytes(24) rendered as hex, a fixed 48 characters. The conditions are chosen to revoke on the change that would actually break this: a spread into the token payload, which is how a bounded claim set silently becomes unbounded. None is present today. Not claimed: that oversized cookies are rejected at runtime. There is no size guard in the code, and none is needed while no value can vary with input; if a variable-length claim is ever added, the second condition fails and this decision returns for reassessment rather than standing on a measurement that no longer describes the code."
+    },
+    {
       "requirementId": "V3.4.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
