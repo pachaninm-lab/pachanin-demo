@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "proposed",
+  "issue": 5064,
+  "branch": "feat/role-eligibility-fns-registry-coverage-authority-5064",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260906180000_role_eligibility_fns_registry_coverage_authority/migration.sql",
+    "apps/api/src/modules/role-eligibility/role-eligibility.types.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-registry.repository.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-source-health.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-source-health.service.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-ingest.repository.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-composition.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-registry-coverage.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-registry-coverage.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility.repository.ts",
+    "scripts/role-eligibility-postgres-smoke.sh"
+  ],
+  "forbiddenPaths": [
+    "apps/web/**",
+    "infra/**",
+    "apps/api/src/modules/registration/**",
+    "apps/api/src/modules/role-eligibility/role-eligibility-policy.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-enforcement-policy.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-enforcement.repository.ts",
+    ".github/workflows/**"
+  ],
+  "notes": "STAGED PROPOSAL ONLY. ZERO IMPLEMENTATION AUTHORITY until this exact finite scope is independently reviewed, merged, and separately promoted into trusted base-state authority after #5033/#5099 preservation is accepted. #5064 owns only FNS registry-domain, coverage, lineage, source-finality and atomic negative-resolution authority. Required DB semantics: server-controlled non-null registry_domain; active generation and source health keyed by (source, registry_domain); conservative historical backfill with coverage UNKNOWN and source_finality false; domain-scoped activation; immutable baseline/predecessor/update-package lineage and continuity-policy identity; distinct ACQUISITION_COMPLETE, LOCAL_IMPORT_INTEGRITY, BASELINE_COVERAGE, UPDATE_CONTINUITY and SOURCE_FINALITY facts; deterministic active-generation fingerprint ordering including registry_domain; no generic adapter/manual SQL/operator path may self-claim complete coverage or finality. Implement one PostgreSQL-coherent negative-resolution service as the only corpus-level NOT_FOUND route, binding a valid registry identifier to one exact current domain authority token, matching source-health generation, freshness, accepted parser/schema/policy, coverage, continuity, SOURCE_FINALITY=true and the zero-row lookup in one stable snapshot; A->B activation races must either stay consistently bound to A or retry under B. Current-year EGRUL bulk absence with SOURCE_FINALITY false/unknown must return COVERAGE_NOT_FINAL/REVIEW_REQUIRED and never legal non-existence; no guessed lag may manufacture finality. RSME remains positive-only; point signed no-record evidence remains separate under #5059. Preserve EGRUL/EGRIP separation and simultaneous domain authority without collisions. This slice may add only the listed forward-only migration/application/acceptance files; no O(delta) current-pointer storage from #5067/#5098, no canonical identity/status/canonical-field policy, no registration/UI/infra/credentials, no enforcement activation and no production mutation. Real PostgreSQL smoke must prove migration/restore/drift safety, least privilege, generic-runtime inability to promote partial/unknown data, EGRUL/EGRIP domain isolation, stable fingerprint ordering, immutable lineage, finality default false, negative lookup generation-race safety and zero false NOT_FOUND when finality is absent. REG.RU only. ROLE_ELIGIBILITY_ENFORCEMENT=false. New mandatory recurring code/SaaS cost: 0 RUB. Proposal resynced onto exact main e68a639358bf71a6085db904f8d41aa7d490d150."
+}
