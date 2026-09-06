@@ -22,7 +22,7 @@
 
 .heading span {
   color: var(--pc-v6-muted, #52615b);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -53,9 +53,9 @@
 
 .workspaceHeader small {
   color: #66766e;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 620;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .workspaceHeader strong {
@@ -74,9 +74,9 @@
   border-radius: 999px;
   background: #f2f8f4;
   color: #24523b;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 680;
-  line-height: 1.25;
+  line-height: 1.3;
   text-align: center;
 }
 
@@ -104,7 +104,7 @@
   position: relative;
   z-index: 1;
   min-width: 0;
-  min-height: 60px;
+  min-height: 66px;
   display: grid;
   justify-items: center;
   align-content: start;
@@ -143,9 +143,9 @@
   display: grid;
   gap: 2px;
   color: inherit;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 640;
-  line-height: 1.2;
+  line-height: 1.25;
   text-align: center;
   overflow-wrap: normal;
   word-break: normal;
@@ -153,7 +153,7 @@
 
 .stageRail button > span > small {
   color: #8a9891;
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 720;
   line-height: 1;
   letter-spacing: 0.05em;
@@ -183,9 +183,9 @@
 
 .stageNarrative > span {
   color: #087a3b;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 760;
-  line-height: 1.2;
+  line-height: 1.25;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -203,8 +203,8 @@
   max-width: 900px;
   margin: 0;
   color: #53635b;
-  font-size: 12px;
-  line-height: 1.48;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .metrics {
@@ -250,16 +250,16 @@
 .rolePanel span,
 .gektaCard span {
   color: #65736c;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 640;
-  line-height: 1.28;
+  line-height: 1.32;
 }
 
 .metrics strong {
   color: #172b22;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 680;
-  line-height: 1.34;
+  line-height: 1.38;
   overflow-wrap: normal;
   word-break: normal;
 }
@@ -281,15 +281,15 @@
 
 .gektaCard strong {
   color: #21324d;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 680;
-  line-height: 1.4;
+  line-height: 1.42;
 }
 
 .gektaCard small {
   color: #68778b;
-  font-size: 10.5px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .tabs {
@@ -315,7 +315,7 @@
   color: #20342b;
   padding: 8px 12px;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 680;
   cursor: pointer;
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease;
@@ -362,9 +362,9 @@
 
 .rolePanel strong {
   color: #172b22;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 670;
-  line-height: 1.38;
+  line-height: 1.4;
   overflow-wrap: normal;
   word-break: normal;
 }
@@ -395,8 +395,8 @@
   border-radius: 9px;
   background: #edf5f0;
   color: #40534a;
-  font-size: 11px;
-  line-height: 1.38;
+  font-size: 12px;
+  line-height: 1.42;
   overflow-wrap: normal;
   word-break: normal;
 }
@@ -414,11 +414,11 @@
   }
 
   .heading strong {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   .heading span {
-    font-size: 11px;
+    font-size: 13px;
   }
 
   .workspaceHeader {
@@ -427,12 +427,12 @@
   }
 
   .workspaceHeader strong {
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .workspaceHeader > span {
-    max-width: 44%;
-    font-size: 10.5px;
+    max-width: 46%;
+    font-size: 12px;
   }
 
   .stageRail {
@@ -451,8 +451,8 @@
   }
 
   .stageRail button {
-    min-width: 156px;
-    min-height: 64px;
+    min-width: 168px;
+    min-height: 68px;
     grid-template-columns: auto 1fr;
     justify-items: start;
     align-items: center;
@@ -467,7 +467,7 @@
   .stageRail button > span {
     justify-items: start;
     text-align: left;
-    font-size: 10.5px;
+    font-size: 12px;
   }
 
   .stageNarrative {
@@ -475,11 +475,11 @@
   }
 
   .stageNarrative > strong {
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .stageNarrative > p {
-    font-size: 11px;
+    font-size: 13px;
   }
 
   .metrics {
@@ -487,7 +487,7 @@
   }
 
   .metrics article {
-    min-height: 72px;
+    min-height: 78px;
     padding: 10px;
     border-bottom: 1px solid rgba(29, 78, 56, 0.1);
   }
@@ -502,7 +502,7 @@
   }
 
   .metrics strong {
-    font-size: 11.5px;
+    font-size: 13px;
   }
 
   .gektaCard {
@@ -511,7 +511,7 @@
   }
 
   .gektaCard strong {
-    font-size: 11.5px;
+    font-size: 13px;
   }
 
   .tabs {
@@ -522,7 +522,7 @@
   .tabs button {
     min-height: 44px;
     padding-inline: 11px;
-    font-size: 11.5px;
+    font-size: 13px;
   }
 
   .rolePanel {
@@ -534,11 +534,11 @@
   }
 
   .rolePanel strong {
-    font-size: 12px;
+    font-size: 14px;
   }
 
   .contextRow > span {
-    font-size: 10.5px;
+    font-size: 12px;
   }
 }
 
