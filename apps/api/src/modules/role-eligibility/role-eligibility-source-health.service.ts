@@ -66,9 +66,13 @@ export class RoleEligibilitySourceHealthService {
     source: EligibilitySource,
     input: { generation: string; parserVersion: string; schemaVersion: string; freshUntil: Date; registryDomain?: RegistryDomain },
   ): Promise<void> {
-    const registryDomain = input.registryDomain || registryDomainForGeneration(source, input.schemaVersion);
-    if (source === 'FNS' && registryDomain === 'UNKNOWN') {
+    const derivedDomain = registryDomainForGeneration(source, input.schemaVersion);
+    const registryDomain = input.registryDomain || derivedDomain;
+    if (source === 'FNS' && derivedDomain === 'UNKNOWN') {
       throw new Error('ROLE_ELIGIBILITY_FNS_HEALTH_DOMAIN_UNRESOLVED');
+    }
+    if (registryDomain !== derivedDomain) {
+      throw new Error('ROLE_ELIGIBILITY_SOURCE_HEALTH_DOMAIN_SCHEMA_MISMATCH');
     }
     await this.write(
       source,
