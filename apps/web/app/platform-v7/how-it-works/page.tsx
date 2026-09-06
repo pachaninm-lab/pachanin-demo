@@ -126,6 +126,7 @@ export default async function PublicDealFromInsidePage({
 
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-deal-from-inside'>
+      <style>{`.pc-ppe-stage-nav > .pc-ppe-icon-button { flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 44px; }`}</style>
       <a className='pc-skip-link' href='#pc-ppe-explorer-title'>{chrome('skipToContent')}</a>
       <PublicExperienceScrollCoordinator />
       <PublicSiteHeader
