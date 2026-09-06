@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "pc-crop.ip-due-diligence.v1",
+  "generatedAt": "2026-09-06T14:35:02.638Z",
+  "gitHead": "d9cacaa942d8bc96d729ce8ca1f285e4877b8768",
+  "kpi": {
+    "THIRD_PARTY_PRODUCT_CODE": 0,
+    "UNKNOWN_PRODUCT_CODE": 0,
+    "UNRESOLVED_LICENSES": 0,
+    "UNRESOLVED_FIRST_PARTY_PROVENANCE": 133
+  },
+  "openContributors": [
+    {
+      "contributor": "Platon",
+      "commits": 88,
+      "files": 133,
+      "lines": 8610,
+      "crownJewelFiles": 24,
+      "crownJewelLines": 721
+    }
+  ],
+  "similarity": {
+    "status": "NO_RELEVANT_MATCH",
+    "corpusFiles": 19650,
+    "findings": 0,
+    "blockers": 0,
+    "claim": "NO_MATERIAL_UNDECLARED_BORROWING_ACROSS_VERIFIED_CORPUS",
+    "notClaimed": "WORLDWIDE_UNIQUENESS"
+  },
+  "notAsserted": [
+    "WORLDWIDE_UNIQUENESS",
+    "PATENT_FREEDOM_TO_OPERATE",
+    "TRADEMARK_CLEARANCE",
+    "PRODUCTION_STATE_EQUALS_SOURCE_STATE"
+  ],
+  "evidence": [
+    {
+      "what": "Провенанс каждого файла",
+      "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json",
+      "sha256": "fa2149389edc0d0119b480d4cb34694d9bdc514667d5dc07d25289f2f746e6d7",
+      "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
+    },
+    {
+      "what": "Сводка провенанса и KPI",
+      "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json",
+      "sha256": "557129fed3232809dde2a173231697b8b3a9b44579c224e54ac674998c667fdc",
+      "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
+    },
+    {
+      "what": "Провенанс в табличном виде",
+      "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.csv",
+      "sha256": "548cbaeeeb213b2e433fd74087d4b6897e0a448bdb1f7a7ace6e67e546c030c1",
+      "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
+    },
+    {
+      "what": "Лицензии зависимостей",
+      "artifact": "artifacts/ip-clean-room/license-summary.json",
+      "sha256": "7196e915e35aa08d9626ad680f821511f209321a1789fbb34927c9370ba19363",
+      "reproduce": "node scripts/ip/build-license-map.mjs artifacts/ip-clean-room/sbom artifacts/ip-clean-room"
+    },
+    {
+      "what": "Покрытие SBOM",
+      "artifact": "artifacts/ip-clean-room/SBOM_COVERAGE.json",
+      "sha256": "9274537c5298d623c0430997c36ee792c2c2eec45fb603152d3eb1bd59d0fa27",
+      "reproduce": "node scripts/ip/build-sbom-coverage.mjs artifacts/ip-clean-room docs/ip/sbom-coverage-scope.json"
+    },
+    {
+      "what": "Анализ сходства",
+      "artifact": "artifacts/ip-clean-room/similarity-summary.json",
+      "sha256": "ba4cc230339945aaf1bf780732fc2bcf12b2a3ff2384093b9e07b941417f319f",
+      "reproduce": "IP_SIMILARITY_CORPUS=artifacts/ip-clean-room/similarity-corpus IP_SIMILARITY_CORPUS_APPROVED=1 IP_SIMILARITY_CORPUS_APPROVAL=docs/ip/similarity/dependency-corpus-approval.json node scripts/ip/build-offline-similarity-evidence.mjs artifacts/ip-clean-room"
+    },
+    {
+      "what": "Отпечатки для анализа сходства",
+      "artifact": "artifacts/ip-clean-room/similarity-fingerprints.json",
+      "sha256": "f34fb645e42e412789713605203b2c8e96e05518bdf8478da71bed3a37218722",
+      "reproduce": "IP_SIMILARITY_CORPUS=artifacts/ip-clean-room/similarity-corpus IP_SIMILARITY_CORPUS_APPROVED=1 IP_SIMILARITY_CORPUS_APPROVAL=docs/ip/similarity/dependency-corpus-approval.json node scripts/ip/build-offline-similarity-evidence.mjs artifacts/ip-clean-room"
+    },
+    {
+      "what": "Инвентаризация репозитория",
+      "artifact": "artifacts/ip-clean-room/REPOSITORY_INVENTORY.json",
+      "sha256": "c40c8521bcaa82ea8db3700f75e5ec8b96646d0d23893ba4aa198014f11444d6",
+      "reproduce": "node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room"
+    },
+    {
+      "what": "Атрибуция средств генерации",
+      "artifact": "artifacts/ip-clean-room/AI_ATTRIBUTION.json",
+      "sha256": "eb612d978c3df20e5ded7984e1c16b51aa6f049422a111bb68be6ba34ce83982",
+      "reproduce": "node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room"
+    }
+  ]
+}

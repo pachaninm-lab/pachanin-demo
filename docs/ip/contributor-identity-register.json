@@ -22,16 +22,22 @@
   "identities": [
     {
       "displayName": "pachaninm-lab",
-      "emails": ["pachaninm@gmail.com", "263435807+pachaninm-lab@users.noreply.github.com", "pachaninm-lab@users.noreply.github.com"],
+      "emails": [
+        "pachaninm@gmail.com",
+        "263435807+pachaninm-lab@users.noreply.github.com",
+        "pachaninm-lab@users.noreply.github.com"
+      ],
       "commits": 22075,
       "class": "PRINCIPAL",
-      "evidence": "Владелец репозитория и учётной записи GitHub pachaninm-lab; 22 075 коммитов из 24 849 (88.8%) по всей истории.",
+      "evidence": "Владелец репозитория и учётной записи GitHub pachaninm-lab; 22 075 коммитов из 23 639 (93.4%) по всей истории (git log --all --no-merges).",
       "instrumentRequired": "DECLARATION_OF_AUTHORSHIP_AND_RIGHTS",
       "rationale": "Собственный творческий труд правообладателя. Приобретать право не у кого — требуется зафиксировать авторство и принадлежность права."
     },
     {
       "displayName": "Platon",
-      "emails": ["platon@MacBook-Pro-Platon.local"],
+      "emails": [
+        "platon@MacBook-Pro-Platon.local"
+      ],
       "commits": 88,
       "class": "HUMAN_CONTRIBUTOR",
       "evidence": "88 коммитов, 20.05.2026–12.06.2026. Адрес — локальное имя личной машины (MacBook-Pro-Platon.local), корпоративного домена нет. По git blame сохранилось 8 610 строк в 133 файлах, из них 721 строка в 24 файлах защищаемого ядра.",
@@ -40,8 +46,10 @@
     },
     {
       "displayName": "Claude",
-      "emails": ["noreply@anthropic.com"],
-      "commits": 984,
+      "emails": [
+        "noreply@anthropic.com"
+      ],
+      "commits": 985,
       "class": "AI_TOOL",
       "evidence": "Служебный адрес поставщика инструмента (noreply@anthropic.com); коммиты выполнены при запуске инструмента оператором репозитория.",
       "instrumentRequired": "NONE",
@@ -49,16 +57,21 @@
     },
     {
       "displayName": "claude[bot]",
-      "emails": ["claude[bot]@users.noreply.github.com"],
-      "commits": 4,
+      "emails": [
+        "claude[bot]@users.noreply.github.com"
+      ],
+      "commits": 0,
       "class": "AI_TOOL",
       "evidence": "Приложение GitHub, запускаемое из репозитория правообладателя.",
       "instrumentRequired": "NONE",
-      "rationale": "То же основание, что и для Claude."
+      "rationale": "То же основание, что и для Claude.",
+      "absentFromHistory": "Идентичность не имеет коммитов в текущей истории репозитория; запись сохранена, чтобы классификация оставалась полной."
     },
     {
       "displayName": "Codex",
-      "emails": ["codex@openai.local"],
+      "emails": [
+        "codex@openai.local"
+      ],
       "commits": 65,
       "class": "AI_TOOL",
       "evidence": "Локальный служебный адрес инструмента (codex@openai.local).",
@@ -67,7 +80,9 @@
     },
     {
       "displayName": "root",
-      "emails": ["root@cv7660557.novalocal"],
+      "emails": [
+        "root@cv7660557.novalocal"
+      ],
       "commits": 4,
       "class": "OPERATIONS_ACCOUNT",
       "evidence": "Хост cv7660557.novalocal — производственный сервер правообладателя. Три коммита из четырёх пустые («ci: trigger …»), четвёртый пересобирает pnpm-lock.yaml. По git blame сохранилось ДВЕ строки: пустая строка и служебный комментарий «# Exact-head CI trigger: identity RLS acceptance.» в scripts/platform-v7-rls-integration.sh.",
@@ -80,26 +95,68 @@
     "instrumentRequired": "NONE",
     "rationale": "Автоматика репозитория, настроенная и запускаемая правообладателем. Отдельного автора не порождает; результат относится к работам правообладателя.",
     "identities": [
-      { "displayName": "github-actions[bot]", "commits": 321 },
-      { "displayName": "platform-v7-agent", "commits": 50 },
-      { "displayName": "platform-v7-ops", "commits": 16 },
-      { "displayName": "p7-state", "commits": 15 },
-      { "displayName": "pc-crop-governed-bot", "commits": 5 },
-      { "displayName": "public-entry-watch", "commits": 3 },
-      { "displayName": "dependabot[bot]", "commits": 3 },
-      { "displayName": "pc-crop-governance-bot", "commits": 2 },
-      { "displayName": "pc-crop-authority[bot]", "commits": 2 },
-      { "displayName": "p7-authority-bot", "commits": 2 },
-      { "displayName": "platform-v7-industrial-bot", "commits": 1 },
-      { "displayName": "pc-crop-auth-mail-fix", "commits": 1 },
-      { "displayName": "pc-crop-auth-mail-checker", "commits": 1 }
+      {
+        "displayName": "github-actions[bot]",
+        "commits": 321
+      },
+      {
+        "displayName": "platform-v7-agent",
+        "commits": 50
+      },
+      {
+        "displayName": "platform-v7-ops",
+        "commits": 16
+      },
+      {
+        "displayName": "p7-state",
+        "commits": 15
+      },
+      {
+        "displayName": "pc-crop-governed-bot",
+        "commits": 5
+      },
+      {
+        "displayName": "public-entry-watch",
+        "commits": 3
+      },
+      {
+        "displayName": "dependabot[bot]",
+        "commits": 3
+      },
+      {
+        "displayName": "pc-crop-governance-bot",
+        "commits": 2
+      },
+      {
+        "displayName": "pc-crop-authority[bot]",
+        "commits": 2
+      },
+      {
+        "displayName": "p7-authority-bot",
+        "commits": 2
+      },
+      {
+        "displayName": "platform-v7-industrial-bot",
+        "commits": 1
+      },
+      {
+        "displayName": "pc-crop-auth-mail-fix",
+        "commits": 1
+      },
+      {
+        "displayName": "pc-crop-auth-mail-checker",
+        "commits": 1
+      }
     ]
   },
   "completeness": {
-    "totalCommitsNoMerges": 24849,
-    "identitiesEnumerated": 20,
+    "totalCommitsNoMerges": 23639,
+    "identitiesEnumerated": 19,
     "method": "git log --all --no-merges --format='%aN|%aE' | sort | uniq -c — полное перечисление, а не выборка.",
     "humanAuthorsBesidesPrincipal": 1,
-    "note": "Единственное физическое лицо помимо правообладателя — Platon. Всё остальное — правообладатель, инструменты и автоматика."
+    "note": "Единственное физическое лицо помимо правообладателя — Platon. Всё остальное — правообладатель, инструменты и автоматика.",
+    "basis": "git log --all --no-merges --format=%aN",
+    "measuredAt": "2026-09-06T14:36:36.075Z",
+    "verifier": "node scripts/ip/verify-contributor-identity-register.mjs"
   }
 }

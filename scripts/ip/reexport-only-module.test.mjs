@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
-import { isReExportOnlyModule } from './build-offline-similarity-evidence.mjs';
+import { isReExportOnlyModule } from './reexport-only-module.mjs';
 
 test('чистый barrel исключается из сравнения', () => {
   assert.equal(isReExportOnlyModule("export * from './types';\nexport * from './store';\n"), true);

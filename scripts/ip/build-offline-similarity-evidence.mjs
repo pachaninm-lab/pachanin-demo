@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
+import { isReExportOnlyModule } from './reexport-only-module.mjs';
 
 const outDir = process.argv[2] ?? 'artifacts/ip-clean-room';
 const corpusInput = String(process.env.IP_SIMILARITY_CORPUS ?? '').trim();
@@ -62,37 +63,6 @@ function winnow(sourceTokens, gramSize = 12, windowSize = 8) {
   return [...selected].sort((left, right) => left - right);
 }
 
-/**
- * Модуль, состоящий только из реэкспортов, сравнению не подлежит.
- *
- * Замерено, а не предположено: первый прогон по корпусу из 15 569 файлов дал
- * 48 находок, и ВСЕ 48 пришлись на два файла — packages/domain-core/src/
- * execution-simulation/index.ts и packages/integration-sdk/src/index.ts. Оба
- * не содержат ни строки логики, только `export * from './…';`.
- *
- * Причина ложного совпадения в самом методе: нормализация заменяет строковые
- * литералы на <STRING>, поэтому ЛЮБОЙ barrel-файл схлопывается в одну и ту же
- * последовательность токенов `export * from <STRING> ;`. Единственное, что
- * такие файлы различает, — имена собственных модулей, и именно их нормализация
- * уничтожает. То есть детектор совпадал по ОТСУТСТВИЮ содержания.
- *
- * Охраняется форма выражения, а не перечень имён файлов (ГК РФ ст. 1259 п. 5),
- * поэтому такой модуль не несёт самостоятельного выражения и сравнивать его не
- * с чем. Исключение узкое: файл, где помимо реэкспортов есть хоть один
- * оператор, сравнивается как обычно.
- */
-export function isReExportOnlyModule(source) {
-  const withoutComments = String(source ?? '')
-    .replace(/\/\*[\s\S]*?\*\//gu, '\n')
-    .replace(/(^|\s)\/\/.*$/gmu, '$1');
-  const statements = withoutComments
-    .split(/;|\n/u)
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (statements.length === 0) return false;
-  const reExport = /^(?:export\s*\*(?:\s+as\s+[\p{L}_$][\p{L}\p{N}_$]*)?\s+from\s*['"`][^'"`]+['"`]|export\s*\{[^}]*\}\s*from\s*['"`][^'"`]+['"`]|import\s+[^;]*from\s*['"`][^'"`]+['"`]|export\s*\{[^}]*\})$/u;
-  return statements.every((statement) => reExport.test(statement));
-}
 
 function fingerprint(path, source) {
   const normalized = normalizeSource(source);

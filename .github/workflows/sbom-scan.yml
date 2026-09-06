@@ -234,6 +234,15 @@ jobs:
       - name: Build full-history clean-room provenance
         run: node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room
 
+      - name: Verify every contributor identity is classified
+        run: node scripts/ip/verify-contributor-identity-register.mjs --baseline
+
+      - name: Measure first-party provenance across the tree
+        run: node scripts/ip/build-first-party-provenance.mjs
+
+      - name: Enforce first-party provenance ratchet
+        run: node scripts/ip/verify-first-party-provenance.mjs --baseline
+
       - name: Verify pinned SBOM tool package integrity
         run: test "$(env -i PATH="$PATH" HOME="$HOME" npm view @cyclonedx/cdxgen@${CDXGEN_VERSION} dist.integrity)" = "${CDXGEN_INTEGRITY}"
 
