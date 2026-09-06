@@ -45,23 +45,20 @@ async function expectDealCardHeaderReadable(page: Page) {
   const card = page.locator('[data-testid="platform-v7-deal-card"]');
   const header = card.locator(':scope > div').first();
   const copy = header.locator(':scope > div').first();
-  const status = header.locator(':scope > b').first();
+  const legacyStatus = header.locator(':scope > b').first();
   const title = copy.locator('strong').first();
   await expect(header).toBeVisible();
   await expect(copy).toBeVisible();
-  await expect(status).toBeVisible();
+  await expect(legacyStatus).toHaveCount(0);
   await expect(title).toBeVisible();
 
-  const [headerBox, copyBox, statusBox] = await Promise.all([
+  const [headerBox, copyBox] = await Promise.all([
     header.boundingBox(),
     copy.boundingBox(),
-    status.boundingBox(),
   ]);
   expect(headerBox, 'Hero Deal header bounding box').not.toBeNull();
   expect(copyBox, 'Hero Deal copy bounding box').not.toBeNull();
-  expect(statusBox, 'Hero Deal status bounding box').not.toBeNull();
   expect(copyBox!.width, 'Hero Deal copy must retain readable width').toBeGreaterThanOrEqual(headerBox!.width * 0.65);
-  expect(statusBox!.y, 'Hero Deal status must follow the copy block').toBeGreaterThanOrEqual(copyBox!.y + copyBox!.height - 1);
 
   const titleLineCount = await title.evaluate((node) => {
     const range = document.createRange();
