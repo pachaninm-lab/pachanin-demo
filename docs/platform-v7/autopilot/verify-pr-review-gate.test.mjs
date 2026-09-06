@@ -8,6 +8,7 @@ import {
   ciSnapshotMatchesHead,
   cleanCodexReviewPrefixes,
   exactHeadCodexReviews,
+  exactHeadOwnerSelfAudits,
   isIgnoredMergeGateCheck,
   latestBlockingChangeRequests,
   positiveExactHeadCodexReviews,
@@ -101,6 +102,33 @@ test('rejects short or malformed clean-review commit prefixes', () => {
   ];
 
   assert.deepEqual(cleanCodexReviewPrefixes(comments), []);
+});
+
+test('owner self-audit authority is exact-head and exact-owner only', () => {
+  const owner = 'pachaninm-lab';
+  const comments = [
+    {
+      user: { login: owner },
+      body: `OWNER SELF-AUDIT: PASS exact head \`${head}\``,
+    },
+    {
+      user: { login: owner },
+      body: `OWNER SELF-AUDIT: PASS exact head \`${oldHead}\``,
+    },
+    {
+      user: { login: 'someone-else' },
+      body: `OWNER SELF-AUDIT: PASS exact head \`${head}\``,
+    },
+    {
+      user: { login: owner },
+      body: `OWNER SELF-AUDIT: PASS exact head \`${head.slice(0, 12)}\``,
+    },
+  ];
+
+  assert.deepEqual(exactHeadOwnerSelfAudits(comments, owner, head), [comments[0]]);
+  assert.equal(exactHeadOwnerSelfAudits(comments, owner, oldHead).length, 1);
+  assert.equal(exactHeadOwnerSelfAudits(comments, 'other-owner', head).length, 0);
+  assert.equal(exactHeadOwnerSelfAudits(comments, owner, 'not-a-sha').length, 0);
 });
 
 test('rejects a review from another actor even when commit matches', () => {
