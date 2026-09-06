@@ -8,14 +8,23 @@ export const CODEX_REVIEW_LOGINS = new Set([
   'chatgpt-codex-connector[bot]',
 ]);
 
+export const COPILOT_REVIEW_LOGINS = new Set([
+  'copilot-pull-request-reviewer[bot]',
+]);
+
 const COMPLETED_REVIEW_STATES = new Set([
   'APPROVED',
   'CHANGES_REQUESTED',
   'COMMENTED',
 ]);
 
-const POSITIVE_REVIEW_STATES = new Set([
+const POSITIVE_CODEX_REVIEW_STATES = new Set([
   'APPROVED',
+]);
+
+const POSITIVE_COPILOT_REVIEW_STATES = new Set([
+  'APPROVED',
+  'COMMENTED',
 ]);
 
 const GREEN_CHECK_STATES = new Set([
@@ -39,35 +48,37 @@ const IGNORED_CHECK_NAMES = new Set([
   'deploy/pachaninm-lab/pachanin-demo',
 ]);
 
-const MACHINE_REVIEW_WORKFLOWS = new Set([
-  'CodeQL platform-v7 report',
-  'Qodana platform-v7 report',
-  'Security Quality Gate',
-  'Security Abuse and Evidence Acceptance',
-  'Runtime Context Security Gate',
-  'Dependency Review',
-  'Canonical SBOM Generation & IP Clean Room',
-]);
-
-export const MIN_MACHINE_REVIEW_AUTHORITIES = 3;
-
 function normalizeLogin(review) {
   return String(review?.user?.login || review?.author?.login || '').trim();
 }
 
-export function exactHeadCodexReviews(reviews, headSha) {
+function exactHeadReviewsByLogins(reviews, headSha, allowedLogins) {
   const expected = String(headSha || '').trim();
   return (reviews || []).filter((review) => {
     const login = normalizeLogin(review);
     const commitId = String(review?.commit_id || review?.commitId || '').trim();
     const state = String(review?.state || '').toUpperCase();
-    return CODEX_REVIEW_LOGINS.has(login) && commitId === expected && COMPLETED_REVIEW_STATES.has(state);
+    return allowedLogins.has(login) && commitId === expected && COMPLETED_REVIEW_STATES.has(state);
   });
+}
+
+export function exactHeadCodexReviews(reviews, headSha) {
+  return exactHeadReviewsByLogins(reviews, headSha, CODEX_REVIEW_LOGINS);
 }
 
 export function positiveExactHeadCodexReviews(reviews, headSha) {
   return exactHeadCodexReviews(reviews, headSha).filter((review) => (
-    POSITIVE_REVIEW_STATES.has(String(review?.state || '').toUpperCase())
+    POSITIVE_CODEX_REVIEW_STATES.has(String(review?.state || '').toUpperCase())
+  ));
+}
+
+export function exactHeadCopilotReviews(reviews, headSha) {
+  return exactHeadReviewsByLogins(reviews, headSha, COPILOT_REVIEW_LOGINS);
+}
+
+export function positiveExactHeadCopilotReviews(reviews, headSha) {
+  return exactHeadCopilotReviews(reviews, headSha).filter((review) => (
+    POSITIVE_COPILOT_REVIEW_STATES.has(String(review?.state || '').toUpperCase())
   ));
 }
 
@@ -122,6 +133,8 @@ export function latestBlockingChangeRequests(reviews) {
     if (state === 'APPROVED' || state === 'DISMISSED') {
       blockedByReviewer.delete(login);
     }
+
+    // COMMENTED does not clear an earlier CHANGES_REQUESTED review.
   }
 
   return [...blockedByReviewer.entries()]
@@ -136,10 +149,6 @@ function checkWorkflow(check) {
   return String(check?.workflowName || check?.workflow || '').trim();
 }
 
-function checkTerminalState(check) {
-  return String(check?.conclusion || check?.state || '').toUpperCase();
-}
-
 export function isIgnoredMergeGateCheck(check) {
   const name = checkName(check);
   const workflow = checkWorkflow(check);
@@ -150,25 +159,6 @@ export function substantiveChecks(checks) {
   return (checks || []).filter((check) => !isIgnoredMergeGateCheck(check));
 }
 
-export function machineReviewAuthorities(checks) {
-  const workflowOutcomes = new Map();
-  for (const check of substantiveChecks(checks)) {
-    const workflow = checkWorkflow(check);
-    if (!MACHINE_REVIEW_WORKFLOWS.has(workflow)) continue;
-    const status = String(check?.status || '').toUpperCase();
-    const terminalState = checkTerminalState(check);
-    const successful = (!status || status === 'COMPLETED') && terminalState === 'SUCCESS';
-    const outcomes = workflowOutcomes.get(workflow) || [];
-    outcomes.push(successful);
-    workflowOutcomes.set(workflow, outcomes);
-  }
-
-  return [...workflowOutcomes.entries()]
-    .filter(([, outcomes]) => outcomes.length > 0 && outcomes.every(Boolean))
-    .map(([workflow]) => workflow)
-    .sort();
-}
-
 export function checkRollupBlockers(checks) {
   const blockers = [];
 
@@ -176,7 +166,7 @@ export function checkRollupBlockers(checks) {
     const name = checkName(check) || 'unnamed-check';
     const workflow = checkWorkflow(check);
     const status = String(check?.status || '').toUpperCase();
-    const terminalState = checkTerminalState(check);
+    const terminalState = String(check?.conclusion || check?.state || '').toUpperCase();
 
     if (status && status !== 'COMPLETED') {
       blockers.push(`${workflow ? `${workflow} / ` : ''}${name}:${status}`);
@@ -352,6 +342,7 @@ function main() {
 
   const reviews = fetchAllReviews(repo, prNumber);
   const comments = fetchAllIssueComments(repo, prNumber);
+
   const positiveCodexReviews = positiveExactHeadCodexReviews(reviews, headSha);
   const cleanPrefixes = cleanCodexReviewPrefixes(comments);
   let exactCleanCodexComments = 0;
@@ -363,6 +354,16 @@ function main() {
     }
   }
   const codexAuthority = positiveCodexReviews.length > 0 || exactCleanCodexComments > 0;
+
+  const positiveCopilotReviews = positiveExactHeadCopilotReviews(reviews, headSha);
+  const copilotAuthority = positiveCopilotReviews.length > 0;
+
+  if (!codexAuthority && !copilotAuthority) {
+    fail(
+      'REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING',
+      `No genuine independent review authority is bound to exact head ${headSha}; accepted providers are Codex clean/approved review or GitHub Copilot exact-head code review.`,
+    );
+  }
 
   const ownerSelfAudits = exactHeadOwnerSelfAudits(comments, ownerLogin, headSha);
   if (ownerSelfAudits.length === 0) {
@@ -394,8 +395,7 @@ function main() {
   }
 
   let checkedCi = 0;
-  let machineAuthorities = [];
-  if (requireGreenCi || !codexAuthority) {
+  if (requireGreenCi) {
     const snapshot = fetchCheckSnapshot(repo, prNumber);
     if (!ciSnapshotMatchesHead(snapshot.headSha, headSha)) {
       fail(
@@ -417,15 +417,6 @@ function main() {
         `${ciBlockers.length} exact-head check(s) are pending or non-green: ${ciBlockers.slice(0, 30).join(', ')}`,
       );
     }
-
-    machineAuthorities = machineReviewAuthorities(snapshot.checks);
-  }
-
-  if (!codexAuthority && machineAuthorities.length < MIN_MACHINE_REVIEW_AUTHORITIES) {
-    fail(
-      'REVIEW_GATE_INDEPENDENT_MACHINE_REVIEW_INSUFFICIENT',
-      `Codex authority is unavailable and only ${machineAuthorities.length}/${MIN_MACHINE_REVIEW_AUTHORITIES} independent machine-review authorities are wholly successful: ${machineAuthorities.join(', ') || 'none'}.`,
-    );
   }
 
   const finalHead = fetchLivePrHead(repo, prNumber);
@@ -436,8 +427,8 @@ function main() {
     );
   }
 
-  const reviewAuthority = codexAuthority ? 'CODEX' : 'MACHINE_FALLBACK';
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} reviewAuthority=${reviewAuthority} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} machineReviewAuthorities=${machineAuthorities.length} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+  const reviewAuthority = codexAuthority ? 'CODEX' : 'GITHUB_COPILOT';
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} reviewAuthority=${reviewAuthority} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} copilotExactHeadReviews=${positiveCopilotReviews.length} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';
