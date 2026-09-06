@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 
@@ -23,6 +23,38 @@ export interface WeighingAct {
 }
 
 const ELEVATOR_ROLES: Role[] = [Role.ELEVATOR, Role.ADMIN, Role.SUPPORT_MANAGER];
+
+/**
+ * Тоннаж — это количество зерна, то есть деньги. NaN, Infinity, строка и
+ * минус здесь не «странный ввод», а акт приёмки, которому нельзя верить.
+ *
+ * Замерено до правки: grossTons 'abc' давало netTons NaN и acceptedTons NaN,
+ * что в JSON становится null — акт приёмки без тоннажа; grossTons -50
+ * давало netTons -70. Сторож стоит в сервисе, а не только в DTO, потому что
+ * вызывающий в обход границы не должен уметь записать такой акт.
+ */
+function weightTons(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new BadRequestException(`Поле "${field}" акта взвешивания должно быть неотрицательным числом.`);
+  }
+  return value;
+}
+
+/** Доля в процентах: вне 0..100 расчёт вычетов теряет смысл. */
+function percent(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) {
+    throw new BadRequestException(`Поле "${field}" акта взвешивания должно быть числом от 0 до 100.`);
+  }
+  return value;
+}
+
+/** Тара больше брутто — это отрицательный нетто, а не маленький. */
+function assertNetIsPositive(gross: number, tare: number): number {
+  if (tare > gross) {
+    throw new BadRequestException('Тара не может превышать брутто: нетто акта взвешивания стало бы отрицательным.');
+  }
+  return gross - tare;
+}
 
 @Injectable()
 export class ElevatorService {
@@ -51,9 +83,17 @@ export class ElevatorService {
     user: RequestUser,
   ): WeighingAct {
     this.assertElevatorRole(user);
-    const netTons = params.grossTons - params.tareTons;
-    const moistureDeduction = params.moisturePct ? netTons * (params.moisturePct / 100) * 0.5 : 0;
-    const impurityDeduction = params.impuritiesPct ? netTons * (params.impuritiesPct / 100) : 0;
+    const grossTons = weightTons(params.grossTons, 'grossTons');
+    const tareTons = weightTons(params.tareTons, 'tareTons');
+    const netTons = assertNetIsPositive(grossTons, tareTons);
+    const moisturePct = params.moisturePct === undefined || params.moisturePct === null
+      ? undefined
+      : percent(params.moisturePct, 'moisturePct');
+    const impuritiesPct = params.impuritiesPct === undefined || params.impuritiesPct === null
+      ? undefined
+      : percent(params.impuritiesPct, 'impuritiesPct');
+    const moistureDeduction = moisturePct ? netTons * (moisturePct / 100) * 0.5 : 0;
+    const impurityDeduction = impuritiesPct ? netTons * (impuritiesPct / 100) : 0;
     const acceptedTons = Math.max(0, netTons - moistureDeduction - impurityDeduction);
 
     const id = `wa-${String(++this.counter).padStart(5, '0')}-${Date.now().toString(36)}`;
@@ -128,11 +168,11 @@ export class ElevatorService {
     if (!act) throw new NotFoundException(`Акт ${id} не найден`);
     if (act.actStatus === 'ACCEPTED') throw new ForbiddenException('Принятый акт нельзя корректировать');
 
-    const gross = correction.grossTons ?? act.grossTons;
-    const tare = correction.tareTons ?? act.tareTons;
-    const net = gross - tare;
-    const moisture = correction.moisturePct ?? act.moisturePct ?? 0;
-    const impurity = correction.impuritiesPct ?? act.impuritiesPct ?? 0;
+    const gross = weightTons(correction.grossTons ?? act.grossTons, 'grossTons');
+    const tare = weightTons(correction.tareTons ?? act.tareTons, 'tareTons');
+    const net = assertNetIsPositive(gross, tare);
+    const moisture = percent(correction.moisturePct ?? act.moisturePct ?? 0, 'moisturePct');
+    const impurity = percent(correction.impuritiesPct ?? act.impuritiesPct ?? 0, 'impuritiesPct');
     const moistureDeduction = net * (moisture / 100) * 0.5;
     const impurityDeduction = net * (impurity / 100);
     const accepted = Math.max(0, net - moistureDeduction - impurityDeduction);
