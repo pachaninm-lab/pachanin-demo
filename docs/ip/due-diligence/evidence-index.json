@@ -1,7 +1,7 @@
 {
   "schemaVersion": "pc-crop.ip-due-diligence.v1",
-  "generatedAt": "2026-09-06T15:01:28.913Z",
-  "gitHead": "31401ad21be60cb003c29f11062b98870bce196a",
+  "generatedAt": "2026-09-06T22:37:52.488Z",
+  "gitHead": "1b698418eb03eaa09299a2c8f6a6516104872381",
   "kpi": {
     "THIRD_PARTY_PRODUCT_CODE": 0,
     "UNKNOWN_PRODUCT_CODE": 0,
@@ -68,13 +68,13 @@
     {
       "what": "Провенанс каждого файла",
       "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json",
-      "sha256": "39f491bffd1071833f7300bcedd2da7d086389ba51fb9bd2dff1024a12b26f89",
+      "sha256": "f2187736b2da96f6ecefdb4dd167c1bc68ce24adb120a6014fb9b76fae1e1d94",
       "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
     },
     {
       "what": "Сводка провенанса и KPI",
       "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json",
-      "sha256": "ff1af83fd8ea26838f67099b89f7db42ede0a4b5066119c47855fee4ea47a579",
+      "sha256": "9146e7972bb68a1ec9fa5e8f237b0bb40f81772fa956756b78c53520ef483a6a",
       "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
     },
     {

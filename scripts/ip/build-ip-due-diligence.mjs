@@ -62,10 +62,38 @@ const legacy = readJson('PROVENANCE_SUMMARY.json');
 const perFile = JSON.parse(fs.readFileSync(path.join(ART, 'FIRST_PARTY_PROVENANCE.json'), 'utf8'));
 const fileRows = Array.isArray(perFile) ? perFile : (perFile.files ?? perFile.rows ?? []);
 const crownRows = fileRows.filter((r) => r.criticality === 'CROWN_JEWEL');
-const countBy = (rows) => rows.reduce((acc, r) => {
-  acc[r.authorship_provenance] = (acc[r.authorship_provenance] ?? 0) + 1;
-  return acc;
-}, {});
+// Tallied through a Map, and the total is checked against the row count.
+//
+// The obvious form is `acc[row.field] = (acc[row.field] ?? 0) + 1` on a plain
+// object, and it loses rows without saying so. The field is read out of a JSON
+// file, so its values are data:
+//
+//   authorship_provenance "__proto__"   → never counted; the read returns the
+//                                         prototype, `?? 0` does not fire, and
+//                                         assigning a number to __proto__ is a
+//                                         silent no-op
+//   authorship_provenance "constructor" → the read returns Object itself and
+//                                         `+ 1` concatenates, so the tally ends
+//                                         up holding the string
+//                                         "function Object() { … }1"
+//
+// Measured on five rows with two "__proto__" and one "constructor": the tally
+// summed to 2. These numbers go into the due-diligence dossier, where a count
+// that quietly drops rows is exactly the kind of unmeasured claim the rest of
+// this contour exists to prevent.
+function countBy(rows) {
+  const tally = new Map();
+  for (const row of rows) {
+    const key = row.authorship_provenance;
+    tally.set(key, (tally.get(key) ?? 0) + 1);
+  }
+  const total = [...tally.values()].reduce((sum, n) => sum + n, 0);
+  if (total !== rows.length) {
+    console.error(`due-diligence: подсчёт потерял строки — ${total} из ${rows.length}`);
+    process.exit(1);
+  }
+  return tally;
+}
 const crownByProvenance = countBy(crownRows);
 const allByProvenance = countBy(fileRows);
 const mergeStats = {
@@ -285,15 +313,15 @@ L();
 L('| Провенанс сохранившихся строк | Ядро (crown jewels) | Всё дерево |');
 L('|---|---|---|');
 for (const key of ['HUMAN_ONLY', 'HUMAN_WITH_AI_TOOL', 'AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION', 'AUTOMATION_GENERATED', 'NO_RECORDED_HISTORY']) {
-  const c = crownByProvenance[key] ?? 0;
-  const a = allByProvenance[key] ?? 0;
+  const c = crownByProvenance.get(key) ?? 0;
+  const a = allByProvenance.get(key) ?? 0;
   if (c === 0 && a === 0) continue;
   L(`| \`${key}\` | ${num(c)} | ${num(a)} |`);
 }
 L(`| **Итого** | **${num(crownRows.length)}** | **${num(fileRows.length)}** |`);
 L();
-const aiOnlyCrown = crownByProvenance.AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION ?? 0;
-const humanTouchedCrown = crownRows.length - aiOnlyCrown - (crownByProvenance.AUTOMATION_GENERATED ?? 0) - (crownByProvenance.NO_RECORDED_HISTORY ?? 0);
+const aiOnlyCrown = crownByProvenance.get('AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION') ?? 0;
+const humanTouchedCrown = crownRows.length - aiOnlyCrown - (crownByProvenance.get('AUTOMATION_GENERATED') ?? 0) - (crownByProvenance.get('NO_RECORDED_HISTORY') ?? 0);
 L(`**Что здесь измерено.** В ${num(humanTouchedCrown)} из ${num(crownRows.length)} файлов ядра сохранились строки, внесённые под учётной записью человека. В ${num(aiOnlyCrown)} файлах ядра все сохранившиеся строки внесены под учётной записью генеративного инструмента.`);
 L();
 L('**Что это НЕ означает.** Строка «автор коммита» — это учётная запись, под которой выполнен коммит, а не установление авторства в смысле ст. 1257 ГК РФ. Программное средство автором не является; автором признаётся гражданин, творческим трудом которого произведение создано, и этим гражданином во всех перечисленных случаях выступает правообладатель, задававший постановку задачи, принимавший результат и включавший его в продукт.');
@@ -411,8 +439,8 @@ const index = {
     explanation: "The legacy classifier assigns UNKNOWN as its default for anything that is not an IP-control file, vendored code or a lockfile. UNKNOWN there means the classifier does not answer the question, not that a file's origin is unknown. Its blockers are deliberately left in place: removing one by renaming the value that produces it is the fabricated PASS the chain-of-title register warns against.",
   },
   authorshipProvenance: {
-    crownJewels: crownByProvenance,
-    allFiles: allByProvenance,
+    crownJewels: Object.fromEntries(crownByProvenance),
+    allFiles: Object.fromEntries(allByProvenance),
     crownJewelTotal: crownRows.length,
     fileTotal: fileRows.length,
     mergesOnDefaultBranch: mergeStats,
