@@ -121,10 +121,13 @@ describe('platform-v7 homepage product copy', () => {
 });
 
 describe('platform-v7 linked public-page trust', () => {
-  it('keeps About crop-oriented and free of internal maturity shorthand', () => {
+  it('keeps About crop-oriented, bounded in the canonical header and free of internal maturity shorthand', () => {
     expect(about).toContain("type Locale = 'ru' | 'en' | 'zh'");
     expect(about).toContain('агросделки в растениеводстве');
     expect(about).toContain('/platform-v7/register');
+    expect(about).toContain("className='pc-v6-header-cta p7-about-register'");
+    expect(about).not.toContain("className='pc-site-action p7-about-register'");
+    expect(about).toContain('.pc-site-header:has(.p7-about-register) .p7-about-login,.pc-site-header:has(.p7-about-register) .p7-about-register{width:auto;min-width:44px;height:44px');
     expect(about.toLowerCase()).not.toContain('controlled pilot');
     expect(about.toLowerCase()).not.toContain('pre-integration');
     expect(about.toLowerCase()).not.toContain('зерновой сделки');
@@ -175,7 +178,7 @@ describe('platform-v7 linked public-page trust', () => {
     expect(how.toLowerCase()).not.toContain('controlled pilot');
   });
 
-  it('removes invented privacy records and fake local request success', () => {
+  it('keeps the immutable privacy rights panel free of invented providers and fake local request success', () => {
     for (const invented of [
       'ООО «ГрейнФлоу»',
       'Yandex Cloud',
@@ -186,8 +189,8 @@ describe('platform-v7 linked public-page trust', () => {
       'SBIS',
       'Wialon',
     ]) expect(privacyPanel).not.toContain(invented);
-    expect(privacyPanel).toContain('не создаёт вымышленные персональные записи, согласия или обращения');
-    expect(privacyPanel).toContain('обращение считается направленным после фактической отправки пользователем');
+    expect(privacyPanel).toContain('не показывает вымышленные персональные записи, согласия, обращения или статусы');
+    expect(privacyPanel).toContain('обращение считается направленным только после фактической отправки через доступный канал связи');
     expect(privacyPanel).toContain("href='/platform-v7/contact'");
     expect(privacyPanel).not.toContain('setActionStatus');
     expect(privacyPanel).not.toContain('setConsents');
