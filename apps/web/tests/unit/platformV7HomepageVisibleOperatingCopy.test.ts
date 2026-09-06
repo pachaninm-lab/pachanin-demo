@@ -120,6 +120,9 @@ describe('platform-v7 visible public operating copy', () => {
     expect(roleWorkspace).toContain("preview: 'Упрощённый экран рабочего кабинета'");
     expect(storyOperating).toContain("state: 'Факты · основания · следующий шаг'");
     expect(storyOperating).toContain('Публичная помощь с подключением остаётся отдельным каналом');
+    expect(internationalCss).toContain("[data-testid='platform-v7-deal-card'] > div:first-child > b");
+    expect(internationalCss).toContain("#live article[data-state] > div:first-child > b");
+    expect(internationalCss).toContain('display: none !important');
   });
 
   it('adds purposeful scroll pacing with a static reduced-motion equivalent', () => {
