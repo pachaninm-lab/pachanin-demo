@@ -74,6 +74,29 @@ async function expectDealCardHeaderReadable(page: Page) {
   expect(titleLineCount, 'Hero Deal title must not collapse into a vertical column').toBeLessThanOrEqual(3);
 }
 
+async function expectMobileAssistantClearOfDealCopy(page: Page) {
+  await settleContactDock(page);
+  const dock = page.locator('.pc-public-contact-dock');
+  await expectMinimumTargets(page, '.pc-public-contact-dock-assistant');
+  const dockBox = await dock.boundingBox();
+  expect(dockBox, 'public assistant dock bounding box').not.toBeNull();
+
+  const textBoxes = await page.locator(
+    '[data-testid="platform-v7-deal-card"] article > span, [data-testid="platform-v7-deal-card"] article > strong',
+  ).evaluateAll((nodes) => nodes.map((node) => {
+    const box = node.getBoundingClientRect();
+    return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+  }));
+
+  const overlaps = textBoxes.filter((box) => (
+    box.right > dockBox!.x
+    && box.left < dockBox!.x + dockBox!.width
+    && box.bottom > dockBox!.y
+    && box.top < dockBox!.y + dockBox!.height
+  ));
+  expect(overlaps, 'compact public assistant must not obscure Hero Deal copy').toEqual([]);
+}
+
 async function scrollAndFlush(page: Page, top: number) {
   await page.evaluate(async (targetTop) => {
     window.scrollTo({ top: targetTop, behavior: 'instant' });
@@ -240,6 +263,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await expectMinimumTargets(page, '.pc-v6-header-cta');
     await expectHeaderControlsWithinViewport(page);
     await expectDealCardHeaderReadable(page);
+    await expectMobileAssistantClearOfDealCopy(page);
 
     const dock = page.locator('.pc-public-contact-dock');
     const assistant = dock.locator('.pc-public-contact-dock-assistant');
@@ -266,6 +290,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
       await expectHeaderControlsWithinViewport(page);
       await expectDealCardHeaderReadable(page);
+      if (width <= 390) await expectMobileAssistantClearOfDealCopy(page);
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '[role="tab"]');
       await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"]):not([tabindex="-1"]):visible');
@@ -372,6 +397,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
       await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
       await settleContactDock(page);
+      if (width <= 390) await expectMobileAssistantClearOfDealCopy(page);
       await expectNoHorizontalOverflow(page);
       await page.screenshot({
         path: testInfo.outputPath(`strategic-home-ru-${width}px.png`),
@@ -387,6 +413,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
       await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
       await settleContactDock(page);
+      await expectMobileAssistantClearOfDealCopy(page);
       await page.screenshot({
         path: testInfo.outputPath(`strategic-home-${locale}-390px.png`),
         fullPage: true,
