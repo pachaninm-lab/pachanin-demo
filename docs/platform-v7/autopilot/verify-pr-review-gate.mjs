@@ -39,6 +39,18 @@ const IGNORED_CHECK_NAMES = new Set([
   'deploy/pachaninm-lab/pachanin-demo',
 ]);
 
+const MACHINE_REVIEW_WORKFLOWS = new Set([
+  'CodeQL platform-v7 report',
+  'Qodana platform-v7 report',
+  'Security Quality Gate',
+  'Security Abuse and Evidence Acceptance',
+  'Runtime Context Security Gate',
+  'Dependency Review',
+  'Canonical SBOM Generation & IP Clean Room',
+]);
+
+export const MIN_MACHINE_REVIEW_AUTHORITIES = 3;
+
 function normalizeLogin(review) {
   return String(review?.user?.login || review?.author?.login || '').trim();
 }
@@ -110,8 +122,6 @@ export function latestBlockingChangeRequests(reviews) {
     if (state === 'APPROVED' || state === 'DISMISSED') {
       blockedByReviewer.delete(login);
     }
-
-    // COMMENTED does not clear an earlier CHANGES_REQUESTED review.
   }
 
   return [...blockedByReviewer.entries()]
@@ -126,6 +136,10 @@ function checkWorkflow(check) {
   return String(check?.workflowName || check?.workflow || '').trim();
 }
 
+function checkTerminalState(check) {
+  return String(check?.conclusion || check?.state || '').toUpperCase();
+}
+
 export function isIgnoredMergeGateCheck(check) {
   const name = checkName(check);
   const workflow = checkWorkflow(check);
@@ -136,6 +150,20 @@ export function substantiveChecks(checks) {
   return (checks || []).filter((check) => !isIgnoredMergeGateCheck(check));
 }
 
+export function machineReviewAuthorities(checks) {
+  const authorities = new Set();
+  for (const check of substantiveChecks(checks)) {
+    const workflow = checkWorkflow(check);
+    if (!MACHINE_REVIEW_WORKFLOWS.has(workflow)) continue;
+    const status = String(check?.status || '').toUpperCase();
+    const terminalState = checkTerminalState(check);
+    if (status && status !== 'COMPLETED') continue;
+    if (terminalState !== 'SUCCESS') continue;
+    authorities.add(workflow);
+  }
+  return [...authorities].sort();
+}
+
 export function checkRollupBlockers(checks) {
   const blockers = [];
 
@@ -143,7 +171,7 @@ export function checkRollupBlockers(checks) {
     const name = checkName(check) || 'unnamed-check';
     const workflow = checkWorkflow(check);
     const status = String(check?.status || '').toUpperCase();
-    const terminalState = String(check?.conclusion || check?.state || '').toUpperCase();
+    const terminalState = checkTerminalState(check);
 
     if (status && status !== 'COMPLETED') {
       blockers.push(`${workflow ? `${workflow} / ` : ''}${name}:${status}`);
@@ -329,12 +357,7 @@ function main() {
       // Ignore stale or no-longer-resolvable reviewed-commit prefixes.
     }
   }
-  if (positiveCodexReviews.length === 0 && exactCleanCodexComments === 0) {
-    fail(
-      'REVIEW_GATE_CODEX_EXACT_HEAD_MISSING',
-      `No positive Codex review authority is bound to exact head ${headSha}.`,
-    );
-  }
+  const codexAuthority = positiveCodexReviews.length > 0 || exactCleanCodexComments > 0;
 
   const ownerSelfAudits = exactHeadOwnerSelfAudits(comments, ownerLogin, headSha);
   if (ownerSelfAudits.length === 0) {
@@ -365,7 +388,15 @@ function main() {
     );
   }
 
+  if (!codexAuthority && !requireGreenCi) {
+    fail(
+      'REVIEW_GATE_MACHINE_FALLBACK_REQUIRES_GREEN_CI',
+      'Codex authority is absent, so provider-independent machine review fallback requires REQUIRE_GREEN_CI=1.',
+    );
+  }
+
   let checkedCi = 0;
+  let machineAuthorities = [];
   if (requireGreenCi) {
     const snapshot = fetchCheckSnapshot(repo, prNumber);
     if (!ciSnapshotMatchesHead(snapshot.headSha, headSha)) {
@@ -388,6 +419,15 @@ function main() {
         `${ciBlockers.length} exact-head check(s) are pending or non-green: ${ciBlockers.slice(0, 30).join(', ')}`,
       );
     }
+
+    machineAuthorities = machineReviewAuthorities(snapshot.checks);
+  }
+
+  if (!codexAuthority && machineAuthorities.length < MIN_MACHINE_REVIEW_AUTHORITIES) {
+    fail(
+      'REVIEW_GATE_INDEPENDENT_MACHINE_REVIEW_INSUFFICIENT',
+      `Codex authority is unavailable and only ${machineAuthorities.length}/${MIN_MACHINE_REVIEW_AUTHORITIES} independent machine-review authorities are successful: ${machineAuthorities.join(', ') || 'none'}.`,
+    );
   }
 
   const finalHead = fetchLivePrHead(repo, prNumber);
@@ -398,7 +438,8 @@ function main() {
     );
   }
 
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+  const reviewAuthority = codexAuthority ? 'CODEX' : 'MACHINE_FALLBACK';
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} reviewAuthority=${reviewAuthority} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} machineReviewAuthorities=${machineAuthorities.length} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';

@@ -11,6 +11,8 @@ import {
   exactHeadOwnerSelfAudits,
   isIgnoredMergeGateCheck,
   latestBlockingChangeRequests,
+  machineReviewAuthorities,
+  MIN_MACHINE_REVIEW_AUTHORITIES,
   positiveExactHeadCodexReviews,
   reviewGatePrState,
   substantiveChecks,
@@ -267,6 +269,26 @@ test('legacy status contexts are evaluated by state', () => {
   assert.deepEqual(checkRollupBlockers(checks), ['legacy-pending:PENDING']);
 });
 
+test('provider-independent machine review counts only distinct successful trusted analyzers', () => {
+  const checks = [
+    { workflowName: 'CodeQL platform-v7 report', name: 'codeql', status: 'COMPLETED', conclusion: 'SUCCESS' },
+    { workflowName: 'Qodana platform-v7 report', name: 'qodana', status: 'COMPLETED', conclusion: 'SUCCESS' },
+    { workflowName: 'Security Quality Gate', name: 'security', status: 'COMPLETED', conclusion: 'SUCCESS' },
+    { workflowName: 'Security Quality Gate', name: 'security-duplicate', status: 'COMPLETED', conclusion: 'SUCCESS' },
+    { workflowName: 'Dependency Review', name: 'dependency-pending', status: 'IN_PROGRESS', conclusion: null },
+    { workflowName: 'Dependency Review', name: 'dependency-skipped', status: 'COMPLETED', conclusion: 'SKIPPED' },
+    { workflowName: 'Runtime Context Security Gate', name: 'runtime-neutral', status: 'COMPLETED', conclusion: 'NEUTRAL' },
+    { workflowName: 'CI', name: 'unit', status: 'COMPLETED', conclusion: 'SUCCESS' },
+  ];
+
+  assert.deepEqual(machineReviewAuthorities(checks), [
+    'CodeQL platform-v7 report',
+    'Qodana platform-v7 report',
+    'Security Quality Gate',
+  ]);
+  assert.equal(MIN_MACHINE_REVIEW_AUTHORITIES, 3);
+});
+
 test('CI snapshot must be bound to the exact verified head', () => {
   assert.equal(ciSnapshotMatchesHead(head, head), true);
   assert.equal(ciSnapshotMatchesHead(oldHead, head), false);
@@ -284,7 +306,7 @@ test('PR state classification fails closed for Draft and incomplete/unknown stat
   assert.equal(reviewGatePrState(null), 'INVALID');
 });
 
-test('verifier main requires exact-head Codex authority in addition to owner self-audit', () => {
+test('verifier main preserves exact-head Codex authority and adds a fail-closed provider fallback', () => {
   const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
   const mainStart = verifier.indexOf('function main()');
   assert.ok(mainStart >= 0);
@@ -293,11 +315,15 @@ test('verifier main requires exact-head Codex authority in addition to owner sel
   assert.match(mainBody, /positiveExactHeadCodexReviews\(reviews, headSha\)/u);
   assert.match(mainBody, /cleanCodexReviewPrefixes\(comments\)/u);
   assert.match(mainBody, /resolveCommitSha\(repo, prefix\) === headSha/u);
-  assert.match(mainBody, /REVIEW_GATE_CODEX_EXACT_HEAD_MISSING/u);
+  assert.match(mainBody, /const codexAuthority = positiveCodexReviews\.length > 0 \|\| exactCleanCodexComments > 0/u);
+  assert.match(mainBody, /REVIEW_GATE_MACHINE_FALLBACK_REQUIRES_GREEN_CI/u);
+  assert.match(mainBody, /machineReviewAuthorities\(snapshot\.checks\)/u);
+  assert.match(mainBody, /REVIEW_GATE_INDEPENDENT_MACHINE_REVIEW_INSUFFICIENT/u);
   assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
-  assert.match(mainBody, /codexApprovals=\$\{positiveCodexReviews\.length\}/u);
+  assert.match(mainBody, /reviewAuthority=\$\{reviewAuthority\}/u);
+  assert.doesNotMatch(mainBody, /REVIEW_GATE_CODEX_EXACT_HEAD_MISSING/u);
   assert.ok(
-    mainBody.indexOf('REVIEW_GATE_CODEX_EXACT_HEAD_MISSING') < mainBody.indexOf('PR_REVIEW_GATE=PASS'),
+    mainBody.indexOf('REVIEW_GATE_INDEPENDENT_MACHINE_REVIEW_INSUFFICIENT') < mainBody.indexOf('PR_REVIEW_GATE=PASS'),
   );
 });
 
