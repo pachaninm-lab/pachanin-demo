@@ -10,6 +10,35 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
+/**
+ * Ячейка markdown-таблицы из внешнего текста.
+ *
+ * Прежняя форма экранировала только трубу: `String(x).replace(/\|/gu, '\\|')`.
+ * Обратный слеш при этом не экранировался, поэтому описание коммита вида
+ * `a\|B|C` превращалось в `a\\|B|C`: рендерер читал `\\` как экранированный
+ * слеш, а следующая труба оставалась живым разделителем. Замерено на строке
+ * таблицы, где должно быть 6 ячеек:
+ *
+ *   слеш вплотную к трубе   было 7 ячеек   стало 6
+ *   две трубы после слеша   было 7 ячеек   стало 6
+ *   перевод строки          было 2 строки  стало 1
+ *   возврат каретки         было 2 строки  стало 1
+ *
+ * Это приложение — исчерпывающий перечень произведений к договору об
+ * отчуждении. Описание коммита, способное добавить столбец или целую строку,
+ * меняет то, что документ заявляет переданным.
+ *
+ * Порядок обязателен: перевод строки убирается первым, срез идёт ДО
+ * экранирования (иначе он режет экранирующую последовательность и оставляет
+ * висящий слеш), слеши экранируются раньше труб.
+ */
+function cell(value, limit = 100) {
+  return String(value)
+    .replace(/[\r\n]+/gu, ' ')
+    .slice(0, limit)
+    .replace(/\\/gu, '\\\\')
+    .replace(/\|/gu, '\\|');
+}
 function git(args, maxBuffer = 256 * 1024 * 1024) {
   return execFileSync('git', args, { encoding: 'utf8', maxBuffer });
 }
@@ -91,20 +120,20 @@ for (const contributor of register.identities.filter((entry) => entry.class === 
     ``,
     `| № | файл | строк | blob SHA |`,
     `|---:|---|---:|---|`,
-    ...crown.map((f, i) => `| ${i + 1} | \`${f.path}\` | ${f.lines} | \`${f.blobSha.slice(0, 12)}\` |`),
+    ...crown.map((f, i) => `| ${i + 1} | \`${cell(f.path, 200)}\` | ${f.lines} | \`${cell(f.blobSha.slice(0, 12))}\` |`),
     ``,
     `## Раздел Б. Остальные файлы`,
     ``,
     `| № | файл | строк | категория | blob SHA |`,
     `|---:|---|---:|---|---|`,
     ...files.filter((f) => f.criticality !== 'CROWN_JEWEL')
-      .map((f, i) => `| ${i + 1} | \`${f.path}\` | ${f.lines} | ${f.criticality} | \`${f.blobSha.slice(0, 12)}\` |`),
+      .map((f, i) => `| ${i + 1} | \`${cell(f.path, 200)}\` | ${f.lines} | ${cell(f.criticality)} | \`${cell(f.blobSha.slice(0, 12))}\` |`),
     ``,
     `## Раздел В. Коммиты автора`,
     ``,
     `| № | SHA | дата | описание |`,
     `|---:|---|---|---|`,
-    ...commits.map((c, i) => `| ${i + 1} | \`${c.sha.slice(0, 12)}\` | ${c.date.slice(0, 10)} | ${String(c.subject).replace(/\|/gu, '\\|').slice(0, 100)} |`),
+    ...commits.map((c, i) => `| ${i + 1} | \`${cell(c.sha.slice(0, 12))}\` | ${cell(c.date.slice(0, 10))} | ${cell(c.subject)} |`),
     ``,
   ].join('\n');
   writeFileSync(`${outDir}/appendix-${slug}-covered-works.md`, `${md}\n`);
