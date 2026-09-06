@@ -3,7 +3,7 @@
   "branch": "wip/public-ux-phase3-linked-surfaces-5111",
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-06-continue-public-ux-5111",
-  "purpose": "Complete Phase 3 of #5111 by normalizing every remaining homepage-reachable public surface onto the canonical public shell, removing visitor-facing status/readiness presentation, and resolving Gekta mobile/floating-shell inconsistencies without changing authentication, registration authority, AI gateway authority or legal-consent authority.",
+  "purpose": "Complete Phase 3 of #5111 by normalizing every remaining homepage-reachable public surface onto the canonical public shell, removing visitor-facing status/readiness presentation, and resolving mobile/floating-shell inconsistencies without changing authentication, registration authority, AI gateway authority or legal-consent authority.",
   "authorityBaseExactMain": "b8c6a3844bc35e56848d071d7106562a2841b67d",
   "effectiveAfter": "This independent governance PR is reviewed and merged to main. The implementation branch must then be created or rematerialized from the accepted exact main containing this manifest; implementation must not widen its own scope.",
   "allowedPaths": [
@@ -37,6 +37,7 @@
   "requiredInvariants": [
     "This is public presentation and acceptance scope only. Personal cabinets, protected runtime, API, database, tenant, RBAC, registration authority, authentication authority, consent authority, release authority and production topology are unchanged.",
     "The canonical PublicSiteHeader remains the single website header geometry authority. Gekta may retain its internal chat-workspace toolbar as product UI, but the public discovery surface must use the canonical website header and must not introduce a second competing public-site header.",
+    "PublicSiteHeader may own one canonical public-mobile contact-dock presentation for pages that render the canonical header: at <=767px the floating dock may collapse to one >=44px Gekta/assistant action while the support and phone actions are hidden from that floating dock, so it cannot cover forms or reading content. This is presentation-only; underlying assistant/support triggers, phone destination and desktop behavior remain unchanged.",
     "Gekta discovery may hide the canonical website header only after the visitor explicitly enters the immersive chat workspace, where the existing Gekta workspace toolbar becomes the application chrome. Entering or leaving chat must not change account, entitlement, gateway, conversation, consent or billing semantics.",
     "Gekta RU, EN and ZH top-level product routes remain /gekta, /gekta/en and /gekta/zh. Locale navigation may change presentation only; AI gateway requests, entitlement, account session, storage, projects, conversation history and streaming behavior are unchanged.",
     "GektaMobileDrawer and GektaFloatingEntry may change only for responsive geometry, overlay/backdrop weight, safe-area, focus, touch-target, overlap and reduced-motion acceptance. Their destinations, dialog semantics, focus trapping, inert behavior and product-entry authority remain unchanged.",
@@ -88,6 +89,7 @@
     "The exact SHA-256 bytes of app/platform-v7/terms/page.tsx and app/platform-v7/privacy/page.tsx still match CURRENT_CONSENT_EVIDENCE and the PostgreSQL consent-evidence whitelist after the implementation.",
     "Terms and Privacy keep all substantive legal-policy prose visible while non-public operational navigation cards are removed from the visitor presentation by the external shell only.",
     "Terms, Privacy, Oferta and Docs are presented inside one canonical locale-aware public shell without changing public/protected route classification or any authorization decision.",
+    "Canonical-header pages at mobile widths do not expose the 304-334px three-action contact dock over forms or reading content; they retain one touch-safe Gekta/assistant floating action and keep the underlying support/call destinations unchanged.",
     "The Gekta RU/EN/ZH discovery surface uses canonical public-site chrome without breaking the existing immersive chat workspace, mobile drawer, streaming, account or entitlement behavior.",
     "Focused regressions prove no visitor-facing status/readiness/provider-connection marketing language on the changed or wrapped public surfaces.",
     "Browser evidence at required viewports proves no overflow, clipping, fixed/floating overlap or undersized primary controls and preserves keyboard/reduced-motion behavior.",
