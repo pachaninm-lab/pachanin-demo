@@ -40,6 +40,7 @@
     "External systems, banks, government systems, EDI, laboratories, providers, partners, certifications, SLA, geography, scale, customers and economic effects are never claimed without their own authoritative evidence. Platform capability is not evidence that an external system performed an action.",
     "RU, EN and ZH are source-native on all four public surfaces. The active locale is preserved through public navigation and Login/Register actions. Registration locale changes preserve verify and statusToken query values exactly as today.",
     "Mobile is accepted separately rather than as a compressed desktop layout. At 320, 375, 390, 430, 768, 1280 and 1440 CSS pixels there is no horizontal clipping or hidden overflow, the full brand remains legible where the canonical header requires it, and interactive controls remain at least 44 CSS pixels in the applicable touch dimension.",
+    "Browser acceptance must exercise the full Cartesian public matrix rather than a two-viewport shortcut: RU, EN and ZH at 320, 375, 390, 430, 768, 1280 and 1440 CSS pixels for the homepage and every linked public surface covered by the final public journey, including About, How it works, AI/Gekta, Trust, Contact, Privacy, Login and Register.",
     "Keyboard navigation, focus visibility, skip links, reduced-motion behavior where present, forced-colour resilience and semantic heading/landmark order are preserved or strengthened; no accessibility assertion may be weakened merely to pass.",
     "No new recurring cost is introduced and production remains REG.RU-only. No REG.RU deployment or immutable release action is authorized by this implementation scope.",
     "Every implementation exact head requires terminal substantive CI, genuine independent exact-head review, no unresolved current review threads, final base/head drift verification and SHA-bound merge discipline before merge. Owner self-audit and machine analyzers do not substitute for independent review."
@@ -52,7 +53,7 @@
     "Privacy contains no fabricated operator requisites, no invented personal records, no link marketed as system status, and no public shortcut into protected profile/auth surfaces.",
     "Trust preserves authority/evidence/Gekta/external-source boundaries while replacing availability/connection-status language with source/basis/evidence language in RU/EN/ZH.",
     "Existing registration, legal/recovery, public-copy, trust, i18n-runtime, typography and root-entry unit suites pass without weakening protected registration/auth/consent assertions.",
-    "Production mobile and public-experience browser acceptance passes at 320, 375, 390, 430, 768, 1280 and 1440 with no overflow, adequate touch targets and source-native RU/EN/ZH copy.",
+    "Production browser acceptance covers RU, EN and ZH at 320, 375, 390, 430, 768, 1280 and 1440 for the homepage plus About, How it works, AI/Gekta, Trust, Contact, Privacy, Login and Register, with no overflow, adequate touch targets, locale continuity and source-native copy.",
     "Web build, security, Design System v8 browser/accessibility, substantive exact-head CI and all required repository gates pass before merge."
   ]
 }
