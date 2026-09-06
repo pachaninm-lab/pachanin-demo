@@ -7,7 +7,7 @@ const operatingCopy = {
       functions: '7 шагов Сделки',
       deal: 'Сделка в работе',
       roles: 'Для участников',
-      tai: 'Гекта',
+      tai: 'Как помогает Гекта',
     },
     heroDeal: {
       sampleLabel: 'Сделка в работе',
@@ -155,7 +155,7 @@ const operatingCopy = {
       functions: '7 Deal steps',
       deal: 'Deal in action',
       roles: 'For participants',
-      tai: 'Gekta',
+      tai: 'How Gekta helps',
     },
     heroDeal: {
       sampleLabel: 'Deal in action',
@@ -242,7 +242,7 @@ const operatingCopy = {
       functions: '交易七步',
       deal: '交易运行',
       roles: '参与方价值',
-      tai: 'Gekta',
+      tai: 'Gekta 如何帮助',
     },
     heroDeal: {
       sampleLabel: '交易运行',

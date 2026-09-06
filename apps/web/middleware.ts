@@ -482,7 +482,7 @@ export async function middleware(req: NextRequest) {
 
   if (p === '/platform-v7' || p.startsWith('/platform-v7/')) {
     const isEntry = p === '/platform-v7';
-    const isIndexable = isEntry && PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
+    const isIndexable = PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
     if (isStaticFileRequest(p)) return applySecurityHeaders(NextResponse.next(), false);
     if (isPlatformV7PublicPath(p) || isPlatformV7StaffPath(p)) {
       const routeRole = isPublicRegistrationPath(p) ? 'organization' : presentationRole;

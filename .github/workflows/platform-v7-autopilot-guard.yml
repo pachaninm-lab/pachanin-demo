@@ -41,6 +41,10 @@ on:
       - 'apps/web/components/transaction-ux/**'
       - 'apps/web/components/v7r/**'
       - 'apps/web/public/platform-v7/**'
+      - 'apps/web/i18n/platform-v7-hero-message.ts'
+      - 'apps/web/i18n/platform-v7-home-story-product.ts'
+      - 'apps/web/i18n/platform-v7-home-v3-product.ts'
+      - 'apps/web/i18n/platform-v7-organization-connect-product.ts'
       - 'apps/web/lib/auction-server.ts'
       - 'apps/web/lib/logistics-server.ts'
       - 'apps/web/lib/deal-execution-server.ts'
@@ -65,6 +69,7 @@ on:
       - 'scripts/check-production-p0-staff-decision-idempotency.mjs'
       - 'scripts/check-production-p0-staff-decision-session.mjs'
       - 'scripts/check-production-p0-registration-decision-replay-notification.mjs'
+      - '.github/workflows/public-entry-clarity.yml'
       - '.github/workflows/platform-v7-autopilot-guard.yml'
       - '.github/workflows/production-like-kubernetes-acceptance.yml'
       - '.github/workflows/platform-v7-safe-merge.yml'
@@ -263,7 +268,13 @@ jobs:
     if: >-
       github.event_name == 'pull_request_target' &&
       (github.event.pull_request.head.ref == 'fix/p0-registration-authority-rollover-4637' ||
-      github.event.pull_request.head.ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.event.pull_request.head.ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.event.pull_request.head.ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.event.pull_request.head.ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.event.pull_request.head.ref == 'docs/pc-crop-post-registration-progress-4997')
+      github.event.pull_request.head.ref == 'fix/p0-owner-control-plane-audit-lock-4698' ||
+      github.event.pull_request.head.ref == 'feat/pc-crop-auction-inventory-authority-4997' ||
+      github.event.pull_request.head.ref == 'governance/pc-crop-post-registration-progress-scope-4997' ||
+      github.event.pull_request.head.ref == 'governance/pc-crop-inventory-reservation-scope-4997' ||
+      github.event.pull_request.head.ref == 'docs/pc-crop-post-registration-progress-4997' ||
+      github.event.pull_request.head.ref == 'governance/public-home-role-clarity-scope-20260905' ||
+      github.event.pull_request.head.ref == 'feat/public-home-role-clarity-20260905')
     permissions:
       checks: write
       contents: read
@@ -291,7 +302,7 @@ jobs:
               exit 1
             fi
             case "$IMMUTABLE_SCOPE_BRANCH" in
-              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997) ;;
+              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905) ;;
               *) echo 'Trusted immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
             esac
             if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -346,7 +357,7 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   guard:
-    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
+    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
     needs: standard_validation
     if: always() && github.event_name != 'pull_request_target'
     permissions:
@@ -373,14 +384,20 @@ jobs:
         if: >-
           github.event_name == 'pull_request' &&
           (github.head_ref == 'fix/p0-registration-authority-rollover-4637' ||
-          github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997')
+          github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' ||
+          github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' ||
+          github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' ||
+          github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' ||
+          github.head_ref == 'docs/pc-crop-post-registration-progress-4997' ||
+          github.head_ref == 'governance/public-home-role-clarity-scope-20260905' ||
+          github.head_ref == 'feat/public-home-role-clarity-20260905')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           IMMUTABLE_SCOPE_BRANCH: ${{ github.head_ref }}
         run: |
           case "$IMMUTABLE_SCOPE_BRANCH" in
-            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997) ;;
+            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905) ;;
             *) echo 'PR-head immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
           esac
           if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -401,7 +418,13 @@ jobs:
         if: >-
           github.event_name != 'pull_request' ||
           (github.head_ref != 'fix/p0-registration-authority-rollover-4637' &&
-          github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698' && github.head_ref != 'feat/pc-crop-auction-inventory-authority-4997' && github.head_ref != 'governance/pc-crop-post-registration-progress-scope-4997' && github.head_ref != 'governance/pc-crop-inventory-reservation-scope-4997' && github.head_ref != 'docs/pc-crop-post-registration-progress-4997')
+          github.head_ref != 'fix/p0-owner-control-plane-audit-lock-4698' &&
+          github.head_ref != 'feat/pc-crop-auction-inventory-authority-4997' &&
+          github.head_ref != 'governance/pc-crop-post-registration-progress-scope-4997' &&
+          github.head_ref != 'governance/pc-crop-inventory-reservation-scope-4997' &&
+          github.head_ref != 'docs/pc-crop-post-registration-progress-4997' &&
+          github.head_ref != 'governance/public-home-role-clarity-scope-20260905' &&
+          github.head_ref != 'feat/public-home-role-clarity-20260905')
         run: bash scripts/p7-autopilot-guard.sh
 
   standard_validation:

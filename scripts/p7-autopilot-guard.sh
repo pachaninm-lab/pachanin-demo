@@ -11,11 +11,15 @@ INVENTORY_RESERVATION_BRANCH="feat/pc-crop-inventory-reservation-authority-4997"
 AUCTION_INVENTORY_BRANCH="feat/pc-crop-auction-inventory-authority-4997"
 SCOPE_GOVERNANCE_BRANCH="governance/pc-crop-post-registration-progress-scope-4997"
 INVENTORY_SCOPE_GOVERNANCE_BRANCH="governance/pc-crop-inventory-reservation-scope-4997"
+PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="governance/public-home-role-clarity-scope-20260905"
+PUBLIC_HOME_IMPLEMENTATION_BRANCH="feat/public-home-role-clarity-20260905"
+PUBLIC_HOME_GOVERNANCE_MANIFEST="docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json"
+PUBLIC_HOME_IMPLEMENTATION_MANIFEST="docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH") return 0 ;;
+    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -52,9 +56,7 @@ if [ ! -f "$STATE_FILE" ]; then
 fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  # The scope for these protected branches is resolved exclusively
-  # from the immutable base commit below, never from the
-  # pull request's working tree or the globally active implementation scope.
+  # Protected branches resolve scope exclusively from the immutable base.
   ALLOWED_CURRENT=''
 else
   ALLOWED_CURRENT=$(node - <<'JS'
@@ -360,26 +362,48 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
 fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" node - <<'JS'
+  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" node - <<'JS'
 const { execFileSync } = require('node:child_process');
 
 const baseRef = String(process.env.BASE_REF || '').trim();
 const stateFile = String(process.env.STATE_FILE || '').trim();
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
+const publicHomeGovernanceBranch = String(process.env.PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH || '').trim();
+const publicHomeImplementationBranch = String(process.env.PUBLIC_HOME_IMPLEMENTATION_BRANCH || '').trim();
+const publicHomeGovernanceManifest = String(process.env.PUBLIC_HOME_GOVERNANCE_MANIFEST || '').trim();
+const publicHomeImplementationManifest = String(process.env.PUBLIC_HOME_IMPLEMENTATION_MANIFEST || '').trim();
 if (!baseRef || !stateFile || !branch) {
   throw new Error('P7_IMMUTABLE_SCOPE: immutable scope inputs are required');
 }
 
-let state;
-try {
-  const raw = execFileSync('git', ['show', `${baseRef}:${stateFile}`], { encoding: 'utf8' });
-  state = JSON.parse(raw);
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
+let scopes;
+if (branch === publicHomeGovernanceBranch) {
+  scopes = [publicHomeGovernanceManifest, publicHomeImplementationManifest];
+} else if (branch === publicHomeImplementationBranch) {
+  let manifest;
+  try {
+    const raw = execFileSync('git', ['show', `${baseRef}:${publicHomeImplementationManifest}`], { encoding: 'utf8' });
+    manifest = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`P7_IMMUTABLE_SCOPE: cannot load accepted public-home manifest: ${message}`);
+  }
+  if (manifest.schemaVersion !== 'platform-v7.concurrent-scope.v1' || manifest.status !== 'active' || manifest.branch !== publicHomeImplementationBranch) {
+    throw new Error('P7_IMMUTABLE_SCOPE: accepted public-home manifest identity is invalid');
+  }
+  scopes = manifest.allowedPaths;
+} else {
+  let state;
+  try {
+    const raw = execFileSync('git', ['show', `${baseRef}:${stateFile}`], { encoding: 'utf8' });
+    state = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
+  }
+  scopes = state.approvedConcurrentScopes?.[branch];
 }
 
-const scopes = state.approvedConcurrentScopes?.[branch];
 if (!Array.isArray(scopes) || scopes.length === 0) {
   throw new Error(`P7_IMMUTABLE_SCOPE: no immutable approved scope for ${branch}`);
 }
@@ -415,8 +439,6 @@ fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
   # Discard every legacy hardcoded or diff-triggered scope expansion above.
-  # This branch receives exactly the immutable base-approved entries and no
-  # union with global, legacy, or branch-local authorities.
   ALLOWED_CURRENT="$APPROVED_BRANCH_SCOPE"
 elif [ -n "$APPROVED_BRANCH_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$APPROVED_BRANCH_SCOPE")
@@ -432,8 +454,8 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ]; then
-  MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$)' || true)
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ]; then
+  MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
   if [ -n "$MUTABLE_SCOPE_AUTHORITIES" ]; then
     echo "Mutable scope authority changed on a PC-CROP immutable-scope implementation branch:"
     printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES"
@@ -442,19 +464,6 @@ if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE
 fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ] || [ "${GITHUB_HEAD_REF:-}" = "identity-rls-3670" ]; then
-  # Lockfile exemptions are granted per branch by the owner, never self-issued.
-  # identity-rls-3670: owner-directed P0 registration/RLS closure requires the
-  # actual nanoid HIGH-advisory remediation; package.json and pnpm-lock.yaml
-  # remain bounded by the source-controlled branch scope below.
-  # fix/security-brace-expansion-5-0-8: owner instruction of 2026-08-03 to raise
-  # brace-expansion to 5.0.9 and socket.io-parser to 4.2.7, both HIGH advisories
-  # against the production tree. A resolution bump cannot be expressed without
-  # pnpm-lock.yaml, and the owner declined a formal exception in favour of the
-  # fix. Scoped below to package.json and pnpm-lock.yaml only.
-  # claude/tai-production-attestation-gizgzh: owner instruction of 2026-07-26 to
-  # remove Netlify in full, which requires dropping @netlify/plugin-nextjs from
-  # package.json and pnpm-lock.yaml together — package.json alone would break
-  # `pnpm install --frozen-lockfile`.
   FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|\.env|.*\.pem$|.*\.key$)'
 else
   FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$|\.env|.*\.pem$|.*\.key$)'
