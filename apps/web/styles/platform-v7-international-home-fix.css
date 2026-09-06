@@ -1,218 +1,56 @@
 /*
- * International homepage completion layer.
- * Loaded only by the final homepage wrapper and intentionally independent from
- * the public-assistant viewport work in progress on other branches.
+ * Compatibility stylesheet for the tsconfig-routed international homepage wrapper.
+ * The wrapper is intentionally transparent: this file must not create sections,
+ * replace copy, or hide canonical homepage content. It only retains terminal
+ * mobile/footer spacing and seven-step responsive rail behavior shared by the
+ * live public shell.
  */
-
-.pc-home-mobile-contact-link {
-  display: none !important;
-}
 
 .pc-v7-public-entry .pc-v6-footer {
   padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
-.pc-home-trust,
-.pc-home-connection-process {
-  scroll-margin-top: calc(var(--entry-header-height, 64px) + 18px);
+.pc-v7-public-entry .pc-public-deal-stage-rail {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
-.pc-home-trust {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid #cfdcd4;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 92% 8%, rgba(8, 122, 59, 0.08), transparent 30%),
-    linear-gradient(180deg, #fbfdfc 0%, #f4f8f5 100%);
-  box-shadow: 0 16px 38px rgba(16, 42, 29, 0.055);
-}
-
-.pc-home-trust > .pc-v6-section-head,
-.pc-home-connection-process > .pc-v6-section-head {
-  max-width: 780px;
-}
-
-.pc-home-trust-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.pc-home-trust-grid article {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  align-items: start;
-  gap: 13px;
-  padding: 18px;
-  border: 1px solid #d6e1da;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.pc-home-trust-grid article > svg {
-  width: 20px;
-  height: 20px;
-  box-sizing: content-box;
-  padding: 10px;
-  border-radius: 11px;
-  background: #eaf5ee;
-  color: #087a3b;
-}
-
-.pc-home-trust-grid article > div {
-  min-width: 0;
-  display: grid;
-  gap: 6px;
-}
-
-.pc-home-trust-grid strong {
-  color: #153126;
-  font-size: 15px;
-  font-weight: 740;
-  line-height: 1.3;
-}
-
-.pc-home-trust-grid p {
-  margin: 0;
-  color: #526159;
-  font-size: 13px;
-  line-height: 1.52;
-}
-
-.pc-home-trust-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 9px;
-  margin-top: 20px;
-}
-
-.pc-home-trust-actions a {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 14px;
-  border: 1px solid #bfd0c6;
-  border-radius: 11px;
-  background: #ffffff;
-  color: #173d2b;
-  font-size: 13px;
-  font-weight: 720;
-  text-decoration: none;
-}
-
-.pc-home-trust-actions .pc-home-trust-primary {
-  border-color: #087a3b;
-  background: #087a3b;
-  color: #ffffff;
-}
-
-.pc-home-trust-actions a:hover {
-  border-color: #087a3b;
-  background: #edf7f1;
-  color: #07572e;
-}
-
-.pc-home-trust-actions .pc-home-trust-primary:hover {
-  background: #075f32;
-  color: #ffffff;
-}
-
-.pc-home-trust-actions a:focus-visible,
-.pc-home-connection-grid article:focus-within {
-  outline: 3px solid rgba(8, 122, 59, 0.22);
-  outline-offset: 2px;
-}
-
-.pc-home-connection-process {
-  padding-bottom: 18px !important;
-}
-
-.pc-home-connection-grid {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.pc-home-connection-grid::before {
-  position: absolute;
-  top: 31px;
-  right: 15%;
-  left: 15%;
-  height: 1px;
-  background: #b9d1c2;
-  content: '';
-}
-
-.pc-home-connection-grid article {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: auto 38px;
-  align-items: center;
-  column-gap: 10px;
-  row-gap: 10px;
-  padding: 18px;
-  border: 1px solid #d3dfd7;
-  border-radius: 15px;
-  background: #ffffff;
-  box-shadow: 0 10px 24px rgba(16, 42, 29, 0.04);
-}
-
-.pc-home-connection-grid article > span {
-  width: 42px;
-  height: 42px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 12px;
-  background: #087a3b;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.pc-home-connection-grid article > svg {
-  justify-self: end;
-  color: #4c755f;
-}
-
-.pc-home-connection-grid h3,
-.pc-home-connection-grid p {
-  grid-column: 1 / -1;
-}
-
-.pc-home-connection-grid h3 {
-  margin: 2px 0 0;
-  color: #153126;
-  font-size: 17px;
-  font-weight: 740;
-  line-height: 1.3;
-}
-
-.pc-home-connection-grid p {
-  margin: 0;
-  color: #526159;
-  font-size: 13px;
-  line-height: 1.52;
-}
-
-@media (max-width: 900px) {
-  .pc-site-mobile-nav .pc-home-mobile-contact-link {
-    display: flex !important;
-  }
+/* The first-view Deal card is explanatory product UI, not metadata. Keep every
+ * visible text node at the trusted 14px legibility floor on all viewports. */
+.pc-v7-public-entry [data-testid='platform-v7-deal-card'] :where(span, small, b) {
+  font-size: 14px !important;
 }
 
 @media (max-width: 767px) {
   .pc-v7-public-entry .pc-v6-footer {
     padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Registration remains the primary conversion route on every viewport. */
+  .pc-v7-public-entry .pc-v6-header-cta {
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 10px !important;
+    font-size: 13px !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+
+  .pc-v7-public-entry .pc-public-deal-stage-rail--hero small {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .pc-v7-public-entry .pc-public-deal-stage-rail--demo {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .pc-public-contact-dock[data-assistant-context='public'] {
@@ -261,126 +99,87 @@
     white-space: nowrap !important;
     border: 0 !important;
   }
+}
 
-  .pc-home-trust,
-  .pc-home-connection-process {
-    scroll-margin-top: calc(var(--entry-header-height, 48px) + 12px);
+@media (max-width: 430px) {
+  /*
+   * Keep the canonical brand readable instead of deleting it to make room for
+   * conversion. The first row carries the brand; the second row carries the
+   * 44px controls and the registration CTA. The page offset follows the real
+   * two-row header height, so no content is covered. Selectors intentionally
+   * outrank the older strategic-home mobile-brand compatibility layer.
+   */
+  .pc-v7-public-entry {
+    --entry-public-header-base: 96px !important;
+    --pc-public-header-base-height: 96px !important;
+    --pc-public-header-total-height: 96px !important;
   }
 
-  .pc-home-trust > .pc-v6-section-head h2,
-  .pc-home-connection-process > .pc-v6-section-head h2 {
-    font-size: clamp(32px, 7.6vw, 38px);
-    line-height: 1.08;
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
+    flex-wrap: wrap !important;
+    align-content: center !important;
+    align-items: center !important;
+    row-gap: 4px !important;
+    column-gap: 4px !important;
+    height: 96px !important;
+    min-height: 96px !important;
+    max-height: 96px !important;
+    padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px)) !important;
   }
 
-  .pc-home-trust {
-    margin-inline: -2px;
-    padding: 22px 16px !important;
-    border-radius: 16px;
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
+    flex: 1 0 100% !important;
+    min-height: 40px !important;
+    overflow: visible !important;
   }
 
-  .pc-home-trust-grid {
-    grid-template-columns: 1fr;
-    gap: 9px;
-    margin-top: 18px;
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text {
+    display: grid !important;
+    overflow: visible !important;
   }
 
-  .pc-home-trust-grid article {
-    grid-template-columns: 38px minmax(0, 1fr);
-    gap: 11px;
-    padding: 15px;
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong {
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
+    white-space: nowrap !important;
+    text-overflow: clip !important;
   }
 
-  .pc-home-trust-grid article > svg {
-    width: 18px;
-    height: 18px;
-    padding: 9px;
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions {
+    flex: 1 0 100% !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    justify-content: flex-end !important;
+    gap: 4px !important;
   }
 
-  .pc-home-trust-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
+    gap: 4px !important;
   }
 
-  .pc-home-trust-actions .pc-home-trust-primary {
-    grid-column: 1 / -1;
-  }
-
-  .pc-home-connection-process {
-    padding-top: 36px !important;
-  }
-
-  .pc-home-connection-grid {
-    grid-template-columns: 1fr;
-    gap: 9px;
-    margin-top: 18px;
-  }
-
-  .pc-home-connection-grid::before {
-    top: 22px;
-    bottom: 22px;
-    left: 38px;
-    width: 1px;
-    height: auto;
-  }
-
-  .pc-home-connection-grid article {
-    grid-template-columns: 42px 32px minmax(0, 1fr);
-    padding: 14px;
-  }
-
-  .pc-home-connection-grid article > span {
-    grid-row: 1 / span 2;
-  }
-
-  .pc-home-connection-grid article > svg {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: center;
-  }
-
-  .pc-home-connection-grid h3,
-  .pc-home-connection-grid p {
-    grid-column: 3;
-  }
-
-  .pc-home-connection-grid h3 {
-    grid-row: 1;
-    align-self: center;
-    margin: 0;
-    font-size: 15px;
-  }
-
-  .pc-home-connection-grid p {
-    grid-row: 2;
-    font-size: 12.5px;
+  .pc-v7-public-entry .pc-public-deal-stage-rail--demo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 360px) {
-  .pc-home-trust-actions {
-    grid-template-columns: 1fr;
-  }
-
-  .pc-home-trust-actions .pc-home-trust-primary {
-    grid-column: auto;
+@media (max-width: 359px) {
+  .pc-v7-public-entry .pc-v6-header-cta {
+    padding-inline: 8px !important;
+    font-size: 12px !important;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pc-home-trust-actions a,
-  .pc-home-connection-grid article {
-    transition: none !important;
+  .pc-public-contact-dock[data-assistant-context='public'] * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
 
 @media (forced-colors: active) {
-  .pc-home-trust,
-  .pc-home-trust-grid article,
-  .pc-home-connection-grid article,
-  .pc-home-trust-actions a {
+  .pc-public-contact-dock[data-assistant-context='public'] {
     border: 2px solid ButtonText;
     background: Canvas;
-    color: ButtonText;
   }
 }

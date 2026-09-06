@@ -1,5 +1,6 @@
 import '@/styles/platform-v7-strategic-home-v3.css';
 import type { Metadata } from 'next';
+import { getLocale } from 'next-intl/server';
 import { PlatformV7StrategicHome } from '@/components/platform-v7/PlatformV7StrategicHome';
 
 const CRITICAL_HOME_CSS = `
@@ -23,7 +24,7 @@ const CRITICAL_HOME_CSS = `
   --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset));
   min-height: 100dvh !important;
   padding-top: var(--entry-header-height) !important;
-  background: #ffffff;
+  background: #fff;
   color: var(--pc-v6-ink);
   font-family: var(--pc-entry-font-body);
   text-rendering: auto;
@@ -34,6 +35,20 @@ const CRITICAL_HOME_CSS = `
   height: var(--entry-public-header-base) !important;
   min-height: var(--entry-public-header-base) !important;
   max-height: var(--entry-public-header-base) !important;
+}
+.pc-v7-public-entry [data-testid='platform-v7-presentation-download'] {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--pc-v6-muted) !important;
+  box-shadow: none !important;
+  padding-inline: 8px !important;
+  font-weight: 600 !important;
+}
+.pc-v7-public-entry [data-testid='platform-v7-presentation-download']:hover,
+.pc-v7-public-entry [data-testid='platform-v7-presentation-download']:focus-visible {
+  border-color: var(--pc-v6-line) !important;
+  background: var(--pc-v6-bg) !important;
+  color: var(--pc-v6-ink) !important;
 }
 .pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type {
   display: flex;
@@ -55,6 +70,13 @@ const CRITICAL_HOME_CSS = `
   font-weight: 800;
   line-height: 1;
 }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero {
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  padding-bottom: 14px !important;
+}
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero small {
+  display: none !important;
+}
 .pc-v6-hero {
   display: grid;
   align-items: center;
@@ -65,54 +87,18 @@ const CRITICAL_HOME_CSS = `
 .pc-v6-hero-copy {
   min-width: 0;
   max-width: 650px;
-  text-rendering: auto;
 }
 .pc-v6-hero .pc-v6-kicker {
-  max-width: 42ch;
+  display: block;
+  max-width: 44ch;
   margin-bottom: 12px;
   color: var(--pc-v6-green);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 750;
   line-height: 1.35;
   letter-spacing: 0;
   text-transform: none;
-}
-html:lang(ru) .pc-v6-hero .pc-v6-kicker,
-html[lang^='ru'] .pc-v6-hero .pc-v6-kicker,
-html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker {
-  display: block;
-  max-width: none;
-  font-size: 0;
-  line-height: 1;
-  letter-spacing: 0;
-  white-space: normal;
-}
-html:lang(ru) .pc-v6-hero .pc-v6-kicker::before,
-html:lang(ru) .pc-v6-hero .pc-v6-kicker::after,
-html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::before,
-html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::after,
-html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::before,
-html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
-  display: block;
-  color: var(--pc-v6-green);
-}
-html:lang(ru) .pc-v6-hero .pc-v6-kicker::before,
-html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::before,
-html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::before {
-  content: 'Платформа управления агросделками в растениеводстве';
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-html:lang(ru) .pc-v6-hero .pc-v6-kicker::after,
-html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::after,
-html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
-  content: 'с собственным искусственным интеллектом';
-  margin-top: 3px;
-  font-size: 17px;
-  font-weight: 900;
-  line-height: 1.16;
-  letter-spacing: -.014em;
+  white-space: pre-line;
 }
 .pc-v6-hero h1.pc-v6-hero-title {
   max-width: 13ch;
@@ -126,15 +112,13 @@ html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
   text-wrap: balance;
 }
 .pc-v6-hero-title-main,
-.pc-v6-hero-title-accent {
-  display: block;
-}
+.pc-v6-hero-title-accent { display: block; }
 .pc-v6-hero-title-accent {
   margin-top: 8px;
   color: var(--pc-v6-green);
 }
 .pc-v6-hero-copy > p.pc-v6-hero-lead {
-  max-width: 54ch;
+  max-width: 58ch;
   margin: 18px 0 0;
   color: var(--pc-v6-muted);
   font-family: Arial, sans-serif;
@@ -143,55 +127,7 @@ html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
   line-height: 1.5;
   letter-spacing: -.006em;
 }
-.pc-v6-control-tower-unified {
-  align-self: start;
-  overflow: hidden;
-}
-.pc-v6-control-tower {
-  align-self: start !important;
-}
-.pc-v6-tower-intelligence {
-  display: grid !important;
-  grid-template-columns: auto minmax(0, 1fr) 44px;
-  align-items: center;
-  gap: 10px !important;
-  padding: 13px 14px 13px 18px !important;
-  border-top: 1px solid #d3e3da !important;
-  background: linear-gradient(90deg, #eaf7ef 0%, #f7fbf8 100%) !important;
-}
-.pc-v6-tower-intelligence > svg { color: var(--pc-v6-green); }
-.pc-v6-tower-intelligence strong {
-  display: block;
-  color: #07572e;
-  font-size: 14px;
-  line-height: 1.3;
-}
-.pc-v6-tower-intelligence span {
-  display: block;
-  margin-top: 3px;
-  color: #42584d;
-  font-size: 12.5px;
-  line-height: 1.42;
-}
-.pc-v6-tower-intelligence-link {
-  width: 44px;
-  height: 44px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid #c4dccd;
-  border-radius: 12px;
-  background: #fff;
-  color: #07572e;
-  text-decoration: none;
-}
-.pc-v6-tower-intelligence-link:focus-visible {
-  outline: 3px solid rgba(8, 122, 59, .25);
-  outline-offset: 2px;
-}
-.pc-v6-trust-after-lifecycle {
-  margin-top: 0 !important;
-  margin-bottom: 10px !important;
-}
+.pc-v6-control-tower { align-self: start !important; }
 html[data-p7-language='zh'] * {
   letter-spacing: 0 !important;
   word-break: keep-all;
@@ -202,20 +138,61 @@ html[data-p7-language='zh'] h2,
 html[data-p7-language='zh'] h3 { line-height: 1.14; }
 @supports (content-visibility: auto) {
   .pc-v7-public-entry #participants,
-  .pc-v7-public-entry #role-entry,
-  .pc-v7-public-entry .pc-v6-category,
   .pc-v7-public-entry #deal-path,
+  .pc-v7-public-entry #live,
   .pc-v7-public-entry #tai,
   .pc-v7-public-entry #money,
-  .pc-v7-public-entry #integrations,
-  .pc-v7-public-entry .pc-v6-crops,
-  .pc-v7-public-entry #maturity,
   .pc-v7-public-entry #connect-organization,
   .pc-v7-public-entry .pc-v6-faq,
   .pc-v7-public-entry .pc-v6-final {
     content-visibility: visible !important;
     contain: none !important;
     contain-intrinsic-size: none !important;
+  }
+}
+@media (min-width: 901px) and (max-width: 1279px) {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-nav {
+    display: none !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-mobile-menu {
+    display: block !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions,
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
+    gap: 6px !important;
+  }
+}
+@media (min-width: 1280px) and (max-width: 1320px) {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
+    gap: 12px !important;
+    padding-inline: 20px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-nav {
+    gap: 12px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions,
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
+    gap: 6px !important;
+  }
+}
+@media (max-width: 1023px) {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > div {
+    min-width: 0 !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > b {
+    justify-self: start !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    text-align: left !important;
   }
 }
 @media (max-width: 767px) {
@@ -229,43 +206,18 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     font-size: 16px;
   }
   .pc-v6-hero {
-    gap: 14px;
-    padding-top: 18px;
-    padding-bottom: 24px;
+    gap: 16px;
+    padding-top: 20px;
+    padding-bottom: 26px;
   }
   .pc-v6-hero .pc-v6-kicker {
     width: 100%;
-    max-width: none;
+    max-width: 36ch;
     margin-bottom: 9px;
-    font-size: 12.5px;
+    font-size: clamp(12px, 3.45vw, 14px);
     line-height: 1.3;
+    white-space: pre-line;
     text-wrap: balance;
-  }
-  html:lang(ru) .pc-v6-hero .pc-v6-kicker,
-  html[lang^='ru'] .pc-v6-hero .pc-v6-kicker,
-  html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker {
-    font-size: 0;
-    line-height: 1;
-    white-space: normal;
-  }
-  html:lang(ru) .pc-v6-hero .pc-v6-kicker::before,
-  html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::before,
-  html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::before {
-    font-size: clamp(10px, 2.95vw, 12px);
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: -.007em;
-    white-space: nowrap;
-  }
-  html:lang(ru) .pc-v6-hero .pc-v6-kicker::after,
-  html[lang^='ru'] .pc-v6-hero .pc-v6-kicker::after,
-  html[data-p7-language='ru'] .pc-v6-hero .pc-v6-kicker::after {
-    margin-top: 4px;
-    font-size: clamp(14.5px, 4vw, 17px);
-    font-weight: 900;
-    line-height: 1.12;
-    letter-spacing: -.02em;
-    white-space: nowrap;
   }
   .pc-v6-hero h1.pc-v6-hero-title {
     max-width: 100%;
@@ -277,46 +229,127 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   .pc-v6-hero-copy > p.pc-v6-hero-lead {
     max-width: 42ch;
     margin-top: 12px;
-    font-size: 14.5px;
-    line-height: 1.38;
+    font-size: 15px;
+    line-height: 1.42;
   }
-  .pc-v6-tower-intelligence {
-    grid-template-columns: auto minmax(0, 1fr) 44px;
-    gap: 8px !important;
-    padding: 10px 10px 10px 12px !important;
+}
+@media (max-width: 430px) {
+  .pc-v7-public-entry {
+    --entry-public-header-base: 100px !important;
+    --pc-public-header-base-height: 100px !important;
+    --pc-public-header-total-height: calc(100px + var(--entry-public-header-offset)) !important;
+    --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset)) !important;
   }
-  .pc-v6-tower-intelligence strong { font-size: 12.5px; }
-  .pc-v6-tower-intelligence span {
-    display: -webkit-box;
-    overflow: hidden;
-    font-size: 11.5px;
-    line-height: 1.35;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-  .pc-v6-tower-intelligence-link { border-radius: 10px; }
-  .pc-v6-trust-after-lifecycle {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
     display: flex !important;
-    gap: 10px !important;
-    overflow-x: auto;
-    margin: 0 -12px !important;
-    padding: 2px 12px 12px;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    scroll-snap-type: x mandatory;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: none;
+    flex-wrap: wrap !important;
+    align-content: center !important;
+    align-items: center !important;
+    height: 100px !important;
+    min-height: 100px !important;
+    max-height: 100px !important;
+    gap: 4px !important;
+    padding-inline: 8px !important;
   }
-  .pc-v6-trust-after-lifecycle::-webkit-scrollbar { display: none; }
-  .pc-v6-trust-after-lifecycle article {
-    flex: 0 0 min(78vw, 296px);
-    min-height: 112px;
-    scroll-snap-align: start;
-    padding: 15px !important;
-    border: 1px solid var(--pc-v6-line) !important;
-    border-radius: 14px;
-    background: #fff;
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-mobile-nav {
+    top: calc(var(--entry-public-header-offset) + var(--entry-public-header-base) + 4px) !important;
+    max-height: calc(100dvh - var(--entry-public-header-offset) - var(--entry-public-header-base) - 20px) !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-mark {
+    display: none !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
+    flex: 1 0 100% !important;
+    width: 100% !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    gap: 0 !important;
+    overflow: visible !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong {
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    color: #071611 !important;
+    font-size: 14px !important;
+    line-height: 1.05 !important;
+    letter-spacing: -.035em !important;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    text-overflow: clip !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] :is(
+    .pc-site-brand,
+    .pc-skip-link,
+    .pc-site-mobile-menu > summary,
+    .pc-site-locale-switch,
+    .entry-login,
+    .pc-v6-header-cta,
+    label[for='difference-more-toggle'],
+    label[for='phases-more-toggle'],
+    label[for='functions-more-toggle']
+  ) {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions {
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    justify-content: flex-end !important;
+    gap: 4px !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
+    display: flex !important;
+    flex: 0 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 4px !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-locale-switch {
+    width: 44px !important;
+    min-width: 44px !important;
+    padding-inline: 4px !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-width: none !important;
+    padding: 0 8px !important;
+    overflow: visible !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    line-height: 1.05 !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > div {
+    min-width: 0 !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > b {
+    justify-self: start !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    text-align: left !important;
   }
 }
 @media (max-width: 359px) {
@@ -329,42 +362,87 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
 :lang(zh) .pc-v6-hero-title-accent { letter-spacing: 0; }
 `;
 
-export const metadata: Metadata = {
-  title: 'Прозрачная Цена — единая система управления агросделкой',
-  description: 'Торги, договор, поставка, приёмка, качество, документы, расчёт, спор и Гекта связаны в одной Сделке.',
-  alternates: {
-    canonical: '/platform-v7',
-    languages: {
-      ru: '/platform-v7?lang=ru',
-      en: '/platform-v7?lang=en',
-      zh: '/platform-v7?lang=zh',
-    },
-  },
-  openGraph: {
-    type: 'website',
+type PublicHomeLocale = 'ru' | 'en' | 'zh';
+
+type PublicHomeMetadataCopy = Readonly<{
+  title: string;
+  description: string;
+  openGraphDescription: string;
+  twitterTitle: string;
+  twitterDescription: string;
+}>;
+
+const HOME_METADATA: Record<PublicHomeLocale, PublicHomeMetadataCopy> = {
+  ru: {
     title: 'Прозрачная Цена — единая система управления агросделкой',
-    description: 'От цены до расчёта: участники, логистика, качество, документы, деньги, спор и Гекта работают в одной Сделке.',
-    url: '/platform-v7',
-    siteName: 'Прозрачная Цена',
-    locale: 'ru_RU',
+    description: 'Условия, торги, поставка, качество, документы, расчёт и Гекта связаны в одной Сделке. Отклонения и споры подключаются только при необходимости.',
+    openGraphDescription: 'Одна агросделка от условий и выбора контрагента до поставки, качества, документов, расчёта и закрытия. Отклонение или спор — отдельная ветка, когда она действительно нужна.',
+    twitterTitle: 'Прозрачная Цена — управление агросделкой от цены до расчёта',
+    twitterDescription: 'Единая система управления агросделкой с аграрным интеллектом Гекта: от условий и поставки до документов, расчёта и закрытия.',
   },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Прозрачная Цена — управление агросделкой от цены до расчёта',
-    description: 'Единая система управления агросделкой с аграрным интеллектом Гекта: исполнение, расчёт, доказательства и закрытие.',
+  en: {
+    title: 'Transparent Price — one system for managing an agricultural Deal',
+    description: 'Terms, trading, delivery, quality, documents, settlement and Gekta are connected in one Deal. Deviations and disputes appear only when needed.',
+    openGraphDescription: 'One crop-trade Deal from terms and counterparty selection through delivery, quality, documents, settlement and closure. Deviations and disputes stay separate exception branches.',
+    twitterTitle: 'Transparent Price — agricultural Deal management from terms to settlement',
+    twitterDescription: 'One agricultural Deal with Gekta intelligence: terms, delivery, documents, settlement and closure in one verifiable flow.',
   },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-      'max-video-preview': -1,
-    },
+  zh: {
+    title: '透明价格 — 农业交易统一管理系统',
+    description: '条件、交易、交付、质量、文件、结算与 Gekta 连接在同一笔交易中；只有在需要时才进入偏差或争议流程。',
+    openGraphDescription: '一笔种植业交易从条件和交易方选择，到交付、质量、文件、结算与关闭；偏差和争议仅作为需要时启用的例外分支。',
+    twitterTitle: '透明价格 — 从条件到结算的农业交易管理',
+    twitterDescription: '一笔农业交易与 Gekta 智能层贯穿条件、交付、文件、结算与关闭，形成可核验流程。',
   },
 };
+
+function homeMetadataLocale(value: string): PublicHomeLocale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = homeMetadataLocale(await getLocale());
+  const copy = HOME_METADATA[locale];
+
+  return {
+    title: copy.title,
+    description: copy.description,
+    alternates: {
+      canonical: '/platform-v7',
+      languages: {
+        ru: '/platform-v7?lang=ru',
+        en: '/platform-v7?lang=en',
+        zh: '/platform-v7?lang=zh',
+      },
+    },
+    openGraph: {
+      type: 'website',
+      title: copy.title,
+      description: copy.openGraphDescription,
+      url: '/platform-v7',
+      siteName: 'Прозрачная Цена',
+      locale: locale === 'en' ? 'en_US' : locale === 'zh' ? 'zh_CN' : 'ru_RU',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: copy.twitterTitle,
+      description: copy.twitterDescription,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
+    },
+  };
+}
 
 export default async function PlatformV7RootPage() {
   const home = await PlatformV7StrategicHome();
