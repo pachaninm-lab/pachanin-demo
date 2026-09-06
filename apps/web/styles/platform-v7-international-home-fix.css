@@ -14,6 +14,23 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
+/* Section anchors must follow the actual fixed-header authority. On <=430px
+ * the production header becomes two rows, so a static 84px margin hides the
+ * anchored heading under the live 96-100px header. */
+.pc-v7-public-entry :where(
+  #participants,
+  #difference,
+  #deal-path,
+  #functions,
+  #live,
+  #trust,
+  #tai,
+  #faq,
+  #connect-organization
+) {
+  scroll-margin-top: calc(var(--pc-public-header-total-height, 64px) + 18px) !important;
+}
+
 /* The first-view Deal card is explanatory product UI, not metadata. Keep every
  * visible text node at the trusted 14px legibility floor on all viewports. */
 .pc-v7-public-entry [data-testid='platform-v7-deal-card'] :where(span, small, b) {
