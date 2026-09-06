@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/compliance-storage-body-validation",
+  "status": "active",
+  "purpose": "V2.2.1/V2.2.2 плюс вторая половина V1.3.3 на семи телах запроса в compliance, storage и банковской сверке. Семь тел объявлялись инлайн-типом, который стирается до Object, поэтому ValidationPipe их не видел. Два из семи несли настоящие дефекты, и оба — в модуле комплаенса: генерация РЕГУЛЯТОРНОГО отчёта падала пятисоткой на мусорной дате и молча отдавала пустой отчёт на перевёрнутом периоде, а решение по задаче KYC записывало в БД произвольный статус и приостанавливало организацию вместо одобрения при неверном регистре. Остальные пять — пробел границы там, где сервис защищался сам; это сказано прямо и за исправление дефекта не выдаётся.",
+  "authorityBaseExactMain": "032b0bab9ca44d1c8f3e0bbed0adddbdda975e3b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/compliance-storage-body-validation.json",
+    "docs/security/request-validation-baseline.json",
+    "apps/api/src/modules/compliance/compliance.controller.ts",
+    "apps/api/src/modules/compliance/compliance.service.ts",
+    "apps/api/src/modules/compliance/dto/resolve-kyc-task.dto.ts",
+    "apps/api/src/modules/compliance/dto/block-organization.dto.ts",
+    "apps/api/src/modules/compliance/dto/generate-regulatory-report.dto.ts",
+    "apps/api/src/modules/compliance/compliance-body-validation.spec.ts",
+    "apps/api/src/modules/storage/storage.controller.ts",
+    "apps/api/src/modules/storage/dto/request-upload.dto.ts",
+    "apps/api/src/modules/storage/dto/confirm-upload.dto.ts",
+    "apps/api/src/modules/storage/storage-body-validation.spec.ts",
+    "apps/api/src/modules/bank-reconciliation/bank-reconciliation.controller.ts",
+    "apps/api/src/modules/bank-reconciliation/dto/import-mt940.dto.ts",
+    "apps/api/src/modules/bank-reconciliation/dto/manual-match.dto.ts",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "Дефекты ЗАМЕРЕНЫ на живом сервисе до правки, а не выведены из отсутствия декоратора. from='мусор' → RangeError: Invalid time value, причём Invalid Date успевал уйти в предикат Prisma до падения; from=2026-12-31 при to=2026-01-01 → принято молча, rowCount 0; reportType={} → TypeError: toLowerCase is not a function; reportType='../../etc/passwd' → reportId 'rpt-../../etc/passwd-…' и то же значение в objectId записи аудита; status='ВЗЛОМАНО' → записано в БД как есть; status='approved' → организация ПРИОСТАНОВЛЕНА вместо одобрения.",
+    "Перевёрнутый период — самый тихий из них и потому названный отдельно: это отчёт РЕГУЛЯТОРУ за период, сообщающий «операций нет», хотя они есть. Пустой отчёт и отчёт по пустому периоду выглядят одинаково, и различить их постфактум нельзя, поэтому отказ, а не молчаливый ноль. Комментарий в самом сервисе уже называл этот класс для отказа БД; путь перевёрнутого диапазона оставался открыт.",
+    "Отказывают И граница, И сервис. Вызывающий в обход DTO не должен уметь записать неизвестный статус KYC, неизвестный тип отчёта или перевёрнутый период — сторожа стоят и в compliance.service.ts.",
+    "Список типов отчёта взят не с потолка: это ровно те четыре, которые публикует соседний listRegulatoryReports (MINSELHHOZ_MONTHLY, ROSSTAT_QUARTERLY, FNS_QUARTERLY, ROSFINMONITORING_THRESHOLD). Вызывающих на вебе у маршрута генерации нет — проверено, — поэтому сужение не отказывает никому, кто работал.",
+    "Пять из семи тел ЖИВЫХ дефектов не несли, и это установлено чтением сервисов, а не предположением: requiredIdentifier, sanitizeFilename, assertAllowedMime, assertAllowedSize (Number.isSafeInteger и диапазон), normalizeSha256 (String(value ?? '') и ^[a-f0-9]{64}$), String(content ?? '').trim(). Исправление несуществующего дефекта себе не приписывается; DTO добавлены потому, что требование про проверку на ГРАНИЦЕ, а защита держалась целиком на том, что сервис не забыл проверить сам.",
+    "Единственное, чего не было вовсе ни на границе, ни в сервисе, — верхняя граница длины выписки MT940. 4 МБ выбраны по замеру предметной области: настоящая месячная MT940 — десятки килобайт, запас трёхзначный.",
+    "@Type(() => Number) к sizeBytes намеренно НЕ добавлен: он выполняется ДО @IsInt и превратил бы строку '9999' в число, то есть отменил бы ровно ту проверку, ради которой стоит. Это проверено мутацией: с ним проверка «отвергает размер строкой» падает.",
+    "Схема БД, миграции, RLS не тронуты. Ни одной зависимости не добавлено. Роли и проверки доступа не тронуты и не продублированы в DTO. Production/REG.RU/DNS/БД/креденшелы не мутировались. Новые обязательные расходы: 0 ₽."
+  ],
+  "acceptance": [
+    "Ратчет затянут: 66 → 59 непроверенных тел, 134 → 141 DTO-типизированных, 23 → 20 файлов. compliance, storage и bank-reconciliation в базе больше не числятся.",
+    "33 проверки в двух прогонах, базовый прогон 33/33.",
+    "Шесть мутаций, все пойманы: снятие сторожа перевёрнутого периода — 1 упавшая; снятие сторожа статуса KYC — 2; снятие @IsIn с reportType — 2; снятие @IsISO8601 с from/to — 1; снятие @MaxLength с выписки — 1; добавление @Type(() => Number) к sizeBytes — 1.",
+    "Матрица ASVS не изменилась и ни одно решение не отозвано: 129 PASS / 90 FAIL / 88 NOT_APPLICABLE / 38 NOT_ASSESSED, отклонённых 0. Единственные решения, цитирующие изменённые файлы, — V5.4.1 и V5.4.2, и их условия про Content-Disposition правкой не затронуты.",
+    "pnpm --filter @pc/api typecheck — exit 0."
+  ],
+  "notClosed": [
+    "V2.2.1 и V2.2.2 остаются FAIL. Закрытие семи тел не делает свойство верным по кодовой базе: остаётся 59 непроверенных тел в 20 файлах.",
+    "accounting.controller.ts (15) и gekta-registration.controller.ts (7) не тронуты намеренно: первый под проектным замком #4957, второй — регистрационная бизнес-логика, которую программе запрещено трогать.",
+    "МЕРЖ-ЗАВИСИМОСТЬ, названная заранее: решение V1.3.3 в PR #5102 цитирует condition PRESENT_AT_PATH на '@body() body: { reason: string }' в compliance.controller.ts — ровно ту строку, которую этот проход убирает. Если #5102 вольётся первым, эта ветка отзовёт V1.3.3 в NOT_ASSESSED. Цитату нужно перенацелить на тело, которое остаётся непроверенным, при мерже второго из двух — это то же исправление знаменателя, а не подгонка.",
+    "Верхняя граница размера файла остаётся за сервисом (OBJECT_STORAGE_MAX_BYTES) и в DTO не дублируется: два источника одного предела разойдутся."
+  ]
+}
