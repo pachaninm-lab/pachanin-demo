@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "issue": 4997,
   "branch": "feat/pc-crop-logistics-extension-authority-4997",
-  "status": "active",
+  "status": "proposed",
   "purpose": "W4-A: extend the existing durable Shipment authority with logistics request/quote, provider-or-own-fleet selection, multi-shipment allocation, correction events and durable offline driver queue consumption without creating ShipmentV2.",
   "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
   "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
