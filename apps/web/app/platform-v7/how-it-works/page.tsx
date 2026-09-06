@@ -73,6 +73,22 @@ const PAGE_COPY: Record<Locale, Readonly<{
   },
 };
 
+const HOW_IT_WORKS_PUBLIC_CSS = `
+.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-stage-nav > .pc-ppe-icon-button {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+/* Public exploration focuses on context, action and grounds instead of status
+ * fields. Underlying route/state authority remains unchanged for navigation. */
+.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-deal-state > div[data-tone='action'],
+.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-v5-stage-main > p,
+.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-document-card summary small {
+  display: none !important;
+}
+`;
+
 function localeOf(value: string): Locale {
   if (value.startsWith('en')) return 'en';
   if (value.startsWith('zh')) return 'zh';
@@ -130,7 +146,7 @@ export default async function PublicDealFromInsidePage({
 
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-deal-from-inside'>
-      <style>{`.pc-ppe-stage-nav > .pc-ppe-icon-button { flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 44px; }`}</style>
+      <style>{HOW_IT_WORKS_PUBLIC_CSS}</style>
       <a className='pc-skip-link' href='#pc-ppe-explorer-title'>{chrome('skipToContent')}</a>
       <PublicExperienceScrollCoordinator />
       <PublicSiteHeader
