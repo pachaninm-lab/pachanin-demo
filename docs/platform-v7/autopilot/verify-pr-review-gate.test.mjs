@@ -277,6 +277,23 @@ test('PR state classification fails closed for Draft and incomplete/unknown stat
   assert.equal(reviewGatePrState(null), 'INVALID');
 });
 
+test('verifier main requires exact-head Codex authority in addition to owner self-audit', () => {
+  const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
+  const mainStart = verifier.indexOf('function main()');
+  assert.ok(mainStart >= 0);
+  const mainBody = verifier.slice(mainStart);
+
+  assert.match(mainBody, /positiveExactHeadCodexReviews\(reviews, headSha\)/u);
+  assert.match(mainBody, /cleanCodexReviewPrefixes\(comments\)/u);
+  assert.match(mainBody, /resolveCommitSha\(repo, prefix\) === headSha/u);
+  assert.match(mainBody, /REVIEW_GATE_CODEX_EXACT_HEAD_MISSING/u);
+  assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
+  assert.match(mainBody, /codexApprovals=\$\{positiveCodexReviews\.length\}/u);
+  assert.ok(
+    mainBody.indexOf('REVIEW_GATE_CODEX_EXACT_HEAD_MISSING') < mainBody.indexOf('PR_REVIEW_GATE=PASS'),
+  );
+});
+
 test('review reconciliation workflow uses supported dispatch wiring and complete pagination', () => {
   const workflow = readFileSync(
     new URL('../../../.github/workflows/automerge.yml', import.meta.url),
