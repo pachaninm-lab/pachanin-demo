@@ -249,12 +249,17 @@ export class RoleEligibilityRepository {
   }
 
   async sourceHealth(): Promise<SourceHealthSnapshot[]> {
+    // Existing role-evaluation policy is source-only and currently consumes FNS/EGRUL.
+    // Keep EGRIP/UNKNOWN health isolated so it cannot overwrite the FNS legal-entity state.
     return this.db((client) => client.$queryRaw<SourceHealthSnapshot[]>(Prisma.sql`
       SELECT source,registry_domain AS "registryDomain",status,circuit_state AS "circuitState",active_generation AS "activeGeneration",
              parser_version AS "parserVersion",schema_version AS "schemaVersion",last_success_at AS "lastSuccessAt",
              last_failure_at AS "lastFailureAt",checked_at AS "checkedAt",fresh_until AS "freshUntil",
              consecutive_failures AS "consecutiveFailures",last_error_code AS "lastErrorCode"
-      FROM eligibility.source_health ORDER BY source,registry_domain
+      FROM eligibility.source_health
+      WHERE (source='FNS' AND registry_domain='EGRUL')
+         OR (source<>'FNS' AND registry_domain=source)
+      ORDER BY source
     `));
   }
 }
