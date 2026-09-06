@@ -166,7 +166,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     const employee = tabs.getByRole('tab', { name: 'Сотрудник платформы', exact: true });
     await employee.click();
     await expect(employee).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('tabpanel')).toContainText('Если Сделка остановилась');
+    await expect(page.getByRole('tabpanel')).toContainText('Причина исключения');
     await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
     expect(forbiddenRequests).toEqual([]);
   });
