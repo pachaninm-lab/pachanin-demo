@@ -104,6 +104,13 @@ test('rejects short or malformed clean-review commit prefixes', () => {
   assert.deepEqual(cleanCodexReviewPrefixes(comments), []);
 });
 
+test('clean-review SHA resolution cannot rebind an old prefix through a branch or tag alias', () => {
+  const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
+
+  assert.ok(verifier.includes("if (!/^[0-9a-f]{10,40}$/u.test(prefix)) return '';"));
+  assert.ok(verifier.includes("return /^[0-9a-f]{40}$/u.test(sha) && sha.startsWith(prefix) ? sha : '';"));
+});
+
 test('owner self-audit authority is exact-head and exact-owner only', () => {
   const owner = 'pachaninm-lab';
   const comments = [
@@ -275,6 +282,23 @@ test('PR state classification fails closed for Draft and incomplete/unknown stat
   assert.equal(reviewGatePrState({ state: 'unknown', draft: false }), 'INVALID');
   assert.equal(reviewGatePrState({ draft: false }), 'INVALID');
   assert.equal(reviewGatePrState(null), 'INVALID');
+});
+
+test('verifier main requires exact-head Codex authority in addition to owner self-audit', () => {
+  const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
+  const mainStart = verifier.indexOf('function main()');
+  assert.ok(mainStart >= 0);
+  const mainBody = verifier.slice(mainStart);
+
+  assert.match(mainBody, /positiveExactHeadCodexReviews\(reviews, headSha\)/u);
+  assert.match(mainBody, /cleanCodexReviewPrefixes\(comments\)/u);
+  assert.match(mainBody, /resolveCommitSha\(repo, prefix\) === headSha/u);
+  assert.match(mainBody, /REVIEW_GATE_CODEX_EXACT_HEAD_MISSING/u);
+  assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
+  assert.match(mainBody, /codexApprovals=\$\{positiveCodexReviews\.length\}/u);
+  assert.ok(
+    mainBody.indexOf('REVIEW_GATE_CODEX_EXACT_HEAD_MISSING') < mainBody.indexOf('PR_REVIEW_GATE=PASS'),
+  );
 });
 
 test('review reconciliation workflow uses supported dispatch wiring and complete pagination', () => {

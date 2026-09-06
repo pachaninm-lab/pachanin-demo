@@ -204,6 +204,14 @@ function fetchAllIssueComments(repo, prNumber) {
   return pages.flatMap((page) => Array.isArray(page) ? page : []);
 }
 
+function resolveCommitSha(repo, ref) {
+  const prefix = String(ref || '').trim();
+  if (!/^[0-9a-f]{10,40}$/u.test(prefix)) return '';
+  const commit = ghJson(['api', `repos/${repo}/commits/${prefix}`]);
+  const sha = String(commit?.sha || '').trim();
+  return /^[0-9a-f]{40}$/u.test(sha) && sha.startsWith(prefix) ? sha : '';
+}
+
 function fetchAllReviewThreads(repo, prNumber) {
   const [owner, name] = String(repo).split('/');
   if (!owner || !name) throw new Error(`Invalid repository name: ${repo}`);
@@ -311,6 +319,23 @@ function main() {
 
   const reviews = fetchAllReviews(repo, prNumber);
   const comments = fetchAllIssueComments(repo, prNumber);
+  const positiveCodexReviews = positiveExactHeadCodexReviews(reviews, headSha);
+  const cleanPrefixes = cleanCodexReviewPrefixes(comments);
+  let exactCleanCodexComments = 0;
+  for (const prefix of cleanPrefixes) {
+    try {
+      if (resolveCommitSha(repo, prefix) === headSha) exactCleanCodexComments += 1;
+    } catch {
+      // Ignore stale or no-longer-resolvable reviewed-commit prefixes.
+    }
+  }
+  if (positiveCodexReviews.length === 0 && exactCleanCodexComments === 0) {
+    fail(
+      'REVIEW_GATE_CODEX_EXACT_HEAD_MISSING',
+      `No positive Codex review authority is bound to exact head ${headSha}.`,
+    );
+  }
+
   const ownerSelfAudits = exactHeadOwnerSelfAudits(comments, ownerLogin, headSha);
   if (ownerSelfAudits.length === 0) {
     fail(
@@ -373,7 +398,7 @@ function main() {
     );
   }
 
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';
