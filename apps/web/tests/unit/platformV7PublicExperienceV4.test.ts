@@ -50,7 +50,7 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
 
   it('keeps illustrative data explicit and removes internal maturity shorthand', () => {
     expect(copy).toContain("demoLabel: 'Вымышленный пример Сделки'");
-    expect(copy).toContain('не содержит реальных сделок, организаций или денежных операций');
+    expect(copy).toContain('без реальных сделок, организаций или денежных операций');
     expect(copy).toContain("demoLabel: 'Fictional Deal example'");
     expect(copy).toContain("demoLabel: '虚构交易示例'");
     expect(copy.toLowerCase()).not.toContain('controlled pilot');
@@ -77,14 +77,22 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
     expect(detailedCopy).not.toContain('R-318');
   });
 
-  it('removes visitor-facing status and readiness language from the detailed Deal surface without changing state authority', () => {
-    expect(explorerPage).toContain('sanitizeVisibleDealCopy');
-    expect(explorerPage).toContain("['готовность расчёта', 'основание расчёта']");
-    expect(explorerPage).toContain("['settlement readiness', 'settlement basis']");
-    expect(explorerPage).toContain("['完整结算准备', '完整结算依据']");
+  it('removes visitor-facing status and readiness language without changing state authority', () => {
+    expect(explorerPage).toContain('HOW_IT_WORKS_PUBLIC_CSS');
     expect(explorerPage).toContain(".pc-ppe-deal-state > div[data-tone='action']");
     expect(explorerPage).toContain('.pc-ppe-v5-stage-main > p');
     expect(explorerPage).toContain('.pc-ppe-document-card summary small');
+    expect(adapter).toContain('statusLabel: presentation.contextLabel');
+    expect(adapter).toContain('status: presentation.context');
+    expect(copy).toContain("nextStage: 'Далее: документы и основания расчёта'");
+    expect(copy).toContain("nextStage: 'Next: documents and settlement grounds'");
+    expect(copy).toContain("nextStage: '下一步：文件与结算依据'");
+    expect(copy).not.toContain('готовность расчёта');
+    expect(copy).not.toContain('settlement readiness');
+    expect(copy).not.toContain('结算准备');
+    expect(copy).not.toContain('Only verifiable statuses');
+    expect(copy).not.toContain('只展示可核验状态');
+    expect(copy).not.toContain("href: '/platform-v7/status'");
     expect(adapter).toContain('writeTourStateToSearchParams');
     expect(explorer).toContain('reduceTourState');
   });
@@ -107,12 +115,15 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
     expect(adapter).toContain("name: 'stage_selected'");
   });
 
-  it('keeps the banking and external-integration boundary explicit', () => {
+  it('keeps the banking and external-system boundary explicit without connection-state marketing', () => {
     expect(journey).toContain('не выполняет банковские операции');
-    expect(journey).toContain('не выдаёт неподключённые внешние системы за работающие');
+    expect(journey).toContain('не имитирует ответы внешних систем');
     expect(journey).toContain('no real banking operation is performed in the public example');
     expect(journey).toContain('公开页面不执行真实银行操作');
-    expect(copy).toContain('Неподтверждённая внешняя интеграция не показывается как работающая');
+    expect(copy).toContain('Интерфейс не приписывает внешней системе действие без соответствующего источника');
+    expect(copy).toContain('The interface does not attribute an action to an external system without a corresponding source');
+    expect(copy).not.toContain('Неподтверждённая внешняя интеграция не показывается как работающая');
+    expect(copy).not.toContain('unconfirmed external integration');
     expect(adapter).not.toContain('fetch(');
   });
 
