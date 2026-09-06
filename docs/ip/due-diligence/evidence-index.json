@@ -1,7 +1,7 @@
 {
   "schemaVersion": "pc-crop.ip-due-diligence.v1",
-  "generatedAt": "2026-09-06T14:56:42.332Z",
-  "gitHead": "a0cd9166d9d16b1fcf5ac18f778ad240ceee1175",
+  "generatedAt": "2026-09-06T15:01:28.913Z",
+  "gitHead": "31401ad21be60cb003c29f11062b98870bce196a",
   "kpi": {
     "THIRD_PARTY_PRODUCT_CODE": 0,
     "UNKNOWN_PRODUCT_CODE": 0,
@@ -25,6 +25,12 @@
     "blockers": 0,
     "claim": "NO_MATERIAL_UNDECLARED_BORROWING_ACROSS_VERIFIED_CORPUS",
     "notClaimed": "WORLDWIDE_UNIQUENESS"
+  },
+  "legacyModelReconciliation": {
+    "legacyUnknownOriginFiles": 6721,
+    "legacyCrownJewelUnknownOrigin": 636,
+    "legacyUnresolvedRightsFiles": 6766,
+    "explanation": "The legacy classifier assigns UNKNOWN as its default for anything that is not an IP-control file, vendored code or a lockfile. UNKNOWN there means the classifier does not answer the question, not that a file's origin is unknown. Its blockers are deliberately left in place: removing one by renaming the value that produces it is the fabricated PASS the chain-of-title register warns against."
   },
   "authorshipProvenance": {
     "crownJewels": {
@@ -62,13 +68,13 @@
     {
       "what": "Провенанс каждого файла",
       "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json",
-      "sha256": "fef1e5a6dd73b13ff52573f37fd50a7e5b008e6c3ef84a74b7704a40687990b2",
+      "sha256": "39f491bffd1071833f7300bcedd2da7d086389ba51fb9bd2dff1024a12b26f89",
       "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
     },
     {
       "what": "Сводка провенанса и KPI",
       "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json",
-      "sha256": "47551dee42858c440a189b18b9d1043bd45f0ee30667e9ce6d699b6e54724f02",
+      "sha256": "ff1af83fd8ea26838f67099b89f7db42ede0a4b5066119c47855fee4ea47a579",
       "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
     },
     {

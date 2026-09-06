@@ -53,6 +53,12 @@ const identities = JSON.parse(fs.readFileSync('docs/ip/contributor-identity-regi
 // Per-file authorship provenance, so section 6 can state how much of the
 // protected core carries only tool-attributed lines instead of asserting that
 // the question does not arise.
+// The legacy clean-room summary, read so the dossier can reconcile it rather
+// than leave a reviewer holding two contradictory numbers. Its blockers are
+// still reported by the CI evidence gate, and the evidence bundle a reviewer
+// downloads carries both files.
+const legacy = readJson('PROVENANCE_SUMMARY.json');
+
 const perFile = JSON.parse(fs.readFileSync(path.join(ART, 'FIRST_PARTY_PROVENANCE.json'), 'utf8'));
 const fileRows = Array.isArray(perFile) ? perFile : (perFile.files ?? perFile.rows ?? []);
 const crownRows = fileRows.filter((r) => r.criticality === 'CROWN_JEWEL');
@@ -183,6 +189,22 @@ L(`| Сгенерированные и сборочные артефакты | $
 L(`| Средства управления IP (реестры, гейты, документы) | ${num(k.ipGovernance)} |`);
 L();
 L('Классификация ведётся по трём независимым осям — класс кода, разрешённость лицензии, человеческий провенанс. Оси не смешиваются: файл может быть первопартийным продуктовым кодом и одновременно иметь неоформленного контрибьютора, и модель обязана уметь это сказать.');
+L();
+L('### 3.1. Почему в комплекте доказательств два разных ответа про происхождение');
+L();
+L('Реестр доказательств содержит две модели, и их числа выглядят противоречиво. Противоречия нет, но объяснить это обязан документ, а не читатель.');
+L();
+L('| | Прежняя модель (`PROVENANCE_SUMMARY.json`) | Новая модель (`FIRST_PARTY_PROVENANCE_SUMMARY.json`) |');
+L('|---|---|---|');
+L(`| Файлов «неизвестного происхождения» | ${num(legacy.unknownOriginFiles)} | ${num(k.UNKNOWN_PRODUCT_CODE)} |`);
+L(`| Файлов ядра «неизвестного происхождения» | ${num(legacy.crownJewelUnknownOrigin)} | ${num(k.UNKNOWN_PRODUCT_CODE)} |`);
+L(`| Файлов с неурегулированными правами | ${num(legacy.unresolvedRightsFiles)} | ${num(stillOpen.reduce((s, c) => s + c.survivingFiles, 0))} |`);
+L();
+L('**Прежняя модель отвечала на другой вопрос.** Её классификатор различал файлы по пути: средства управления IP, вендоренный код, lock-файлы — а всему остальному присваивал `UNKNOWN` как значение по умолчанию. `UNKNOWN` там означает не «происхождение файла неизвестно», а «этот классификатор на вопрос не отвечает». Отсюда и число, равное почти всему дереву: классификатор воздерживался по каждому файлу продукта.');
+L();
+L('**Новая модель отвечает на сам вопрос** — по истории репозитория и `git blame`, а не по пути файла. Поэтому её ноль — это измеренный ответ, а не переопределённый по умолчанию.');
+L();
+L('**Почему прежние показатели не отключены.** Убрать блокер, переименовав значение, которое его порождает, — это и есть сфабрикованный PASS, от которого предупреждает сам реестр цепочки прав. Прежняя модель оставлена работать как есть, её блокеры продолжают выводиться гейтом доказательств, а несовпадение объяснено здесь. Проверяющему нужны обе цифры и причина их различия, а не одна удобная.');
 L();
 L('## 4. Сторонние компоненты и лицензии');
 L();
@@ -381,6 +403,12 @@ const index = {
     blockers: (similarity.blockers ?? []).length,
     claim: 'NO_MATERIAL_UNDECLARED_BORROWING_ACROSS_VERIFIED_CORPUS',
     notClaimed: 'WORLDWIDE_UNIQUENESS',
+  },
+  legacyModelReconciliation: {
+    legacyUnknownOriginFiles: legacy.unknownOriginFiles,
+    legacyCrownJewelUnknownOrigin: legacy.crownJewelUnknownOrigin,
+    legacyUnresolvedRightsFiles: legacy.unresolvedRightsFiles,
+    explanation: "The legacy classifier assigns UNKNOWN as its default for anything that is not an IP-control file, vendored code or a lockfile. UNKNOWN there means the classifier does not answer the question, not that a file's origin is unknown. Its blockers are deliberately left in place: removing one by renaming the value that produces it is the fabricated PASS the chain-of-title register warns against.",
   },
   authorshipProvenance: {
     crownJewels: crownByProvenance,
