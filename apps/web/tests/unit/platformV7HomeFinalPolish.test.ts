@@ -58,15 +58,12 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(storyCopy).not.toContain("title: 'Анализ Гекты'");
   });
 
-  it('keeps the Hero Deal progress rail structurally seven-stage and readable', () => {
+  it('keeps the Hero Deal progress rail structurally seven-stage and visually quiet', () => {
     expect(home).toContain("className={`${styles.heroDealProgress} pc-public-deal-stage-rail pc-public-deal-stage-rail--hero`}");
     expect(home).toContain('aria-valuemax={story.demo.stages.length}');
     expect(page).toContain('grid-template-columns: repeat(7, minmax(0, 1fr)) !important');
-    expect(page).toContain('word-break: normal !important');
-    expect(page).toContain('overflow-wrap: normal !important');
-    expect(page).toContain('hyphens: none !important');
-    expect(page).toContain('@media (max-width: 1279px)');
-    expect(page).toContain(".pc-public-deal-stage-rail--hero small {\n    display: none !important;");
+    expect(page).toContain('padding-bottom: 14px !important');
+    expect(page).toContain(".pc-public-deal-stage-rail--hero small {\n  display: none !important;");
   });
 
   it('uses the approved mobile H2 scale and compact conversion controls', () => {
