@@ -129,6 +129,17 @@ describe('platform-v7 international homepage completion', () => {
     expect(trustContent).toContain('У Гекты нет самостоятельного права менять Сделку');
   });
 
+  it('keeps the wide-desktop contact dock in a narrow non-text-obscuring rail', () => {
+    expect(css).toContain('@media (min-width: 1180px)');
+    expect(css).toContain('body:has(.pc-v7-public-entry)');
+    expect(css).toContain('width: 54px !important');
+    expect(css).toContain('grid-template-rows: repeat(3, 48px) !important');
+    expect(css).toContain('width: 48px !important');
+    expect(css).toContain('min-height: 48px !important');
+    expect(css).toContain('.pc-public-contact-dock-action strong');
+    expect(css).toContain('clip-path: inset(50%) !important');
+  });
+
   it('retains mobile dock sizing, reduced-motion and forced-colors resilience', () => {
     expect(css).toContain('width: 56px !important');
     expect(css).toContain('min-height: 48px !important');
