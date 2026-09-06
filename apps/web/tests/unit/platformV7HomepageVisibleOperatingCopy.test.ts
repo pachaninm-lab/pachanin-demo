@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-const story = read('i18n/platform-v7-home-story-operating.ts');
+const storyOperating = read('i18n/platform-v7-home-story-operating.ts');
 const storyEntry = read('i18n/platform-v7-home-story-product.ts');
 const home = read('i18n/platform-v7-home-v3-operating.ts');
 const homeEntry = read('i18n/platform-v7-home-v3-product.ts');
@@ -12,46 +12,70 @@ const connect = read('i18n/platform-v7-organization-connect-operating.ts');
 const connectEntry = read('i18n/platform-v7-organization-connect-product.ts');
 const hero = read('i18n/platform-v7-hero-message.ts');
 const roleWorkspace = read('components/platform-v7/PublicDealRoleScenario.tsx');
+const roleWorkspaceCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
 
-describe('platform-v7 complete visible operating-product copy', () => {
-  it('shows the requested Deal scenario as seven explicit steps', () => {
+describe('platform-v7 visible public operating copy', () => {
+  it('presents one seven-step ordinary Deal journey across the homepage and role preview', () => {
     for (const step of [
-      'Лот и условия',
-      'Торги и выбор предложения',
-      'Поставка',
-      'Лабораторное отклонение',
-      'Анализ TAI',
-      'Решение участника',
-      'Расчёт или спор',
+      'Товар и условия',
+      'Торги и контрагент',
+      'Сделка и договор',
+      'Логистика и поставка',
+      'Приёмка и качество',
+      'Документы и готовность расчёта',
+      'Расчёт и закрытие',
     ]) {
-      expect(story).toContain(`title: '${step}'`);
+      expect(storyEntry).toContain(`title: '${step}'`);
+      expect(roleWorkspace).toContain(`'${step}'`);
     }
-
-    expect(story).toContain("title: 'Доказательства и аналитика'");
-    expect(story).toContain('Семь шагов работают как одна Сделка');
+    expect(storyEntry).toContain("journey: '7 шагов'");
+    expect(home).toContain("phases: ['Товар и условия', 'Торги и контрагент', 'Сделка и договор'");
+    expect(roleWorkspace).toContain("stageLabel: '7 шагов Сделки'");
+    expect(roleWorkspace).toContain("status: 'Шаг 5 · Приёмка и качество'");
+    expect(roleWorkspaceCss).toContain('grid-template-columns: repeat(7, minmax(0, 1fr));');
+    expect(roleWorkspaceCss).toContain('grid-template-columns: repeat(7, minmax(86px, 1fr));');
+    expect(storyEntry).not.toContain("navFunctions: '8 шагов Сделки'");
+    expect(storyEntry).not.toContain("fullPathText: '19 этапов");
   });
 
-  it('puts concrete product scale and multilingual coverage in the visible proof strip', () => {
-    expect(story).toContain("label: '12 ролей'");
-    expect(story).toContain("label: '19 этапов'");
-    expect(story).toContain("label: 'RU · EN · ZH'");
-    expect(story).toContain("label: 'TAI внутри Сделки'");
-
-    expect(story).toContain("label: '12 roles'");
-    expect(story).toContain("label: '19 stages'");
-    expect(story).toContain("label: '12 个角色'");
-    expect(story).toContain("label: '19 个阶段'");
+  it('uses exactly nine public visitor roles in the visible proof and selector', () => {
+    expect(storyEntry).toContain("label: '9 ролей'");
+    expect(storyEntry).toContain("label: '9 roles'");
+    expect(storyEntry).toContain("label: '9 个角色'");
+    for (const role of ["'seller'", "'buyer'", "'logistics'", "'driver'", "'storage'", "'laboratory'", "'surveyor'", "'bank'", "'employee'"]) {
+      expect(roleWorkspace).toContain(role);
+    }
+    for (const retiredPublicRole of ["| 'operator'", "| 'compliance'", "| 'arbitrator'", "| 'executive'"]) {
+      expect(roleWorkspace).not.toContain(retiredPublicRole);
+    }
   });
 
-  it('names the target participants and full Deal outcome on the first screen', () => {
-    expect(hero).toContain('производитель, покупатель, логистика, элеватор, лаборатория, финансы и контроль');
-    expect(hero).toContain('от лота до расчёта и спора');
-    expect(home).toContain("proofLabel: '12 ролей · 19 этапов · RU/EN/ZH · TAI'");
-    expect(home).toContain("primary: 'Посмотреть Сделку в работе'");
-    expect(home).toContain("secondary: 'Начать работу с платформой'");
+  it('keeps the public role selector keyboard complete without granting authority', () => {
+    expect(roleWorkspace).toContain("role='tablist'");
+    expect(roleWorkspace).toContain("aria-orientation='horizontal'");
+    expect(roleWorkspace).toContain("aria-controls='public-role-panel'");
+    expect(roleWorkspace).toContain("id='public-role-panel'");
+    expect(roleWorkspace).toContain('tabIndex={role === key ? 0 : -1}');
+    expect(roleWorkspace).toContain('aria-labelledby={`public-role-tab-${role}`}');
+    for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End']) {
+      expect(roleWorkspace).toContain(`case '${key}':`);
+    }
+    expect(roleWorkspace).toContain("querySelectorAll<HTMLButtonElement>('[role=\"tab\"]')");
+    expect(roleWorkspace).toContain('event.preventDefault()');
+    expect(roleWorkspace).toContain('tabs?.[nextIndex]?.focus()');
+    expect(roleWorkspace).toContain('реальные полномочия определяются системой после регистрации и проверки организации');
   });
 
-  it('uses business tasks and one durable next step in the organization form', () => {
+  it('keeps crop positioning and registration-first conversion on the first screen', () => {
+    expect(hero).toContain('Платформа управления агросделками в растениеводстве');
+    expect(hero).toContain("title: 'Управляйте агросделкой'");
+    expect(home).toContain("nav: { connect: 'Зарегистрироваться'");
+    expect(home).toContain("secondary: 'Зарегистрироваться'");
+    expect(home).toContain("tertiary: 'Скачать презентацию'");
+    expect(home).toContain("primary: 'Посмотреть, как работает Сделка'");
+  });
+
+  it('keeps organization intake as optional assistance rather than registration', () => {
     for (const task of [
       'Полный цикл Сделки',
       'Поставка, логистика и приёмка',
@@ -62,47 +86,36 @@ describe('platform-v7 complete visible operating-product copy', () => {
     ]) {
       expect(connect).toContain(task);
     }
-
-    expect(connect).toContain("submit: 'Начать подключение'");
-    expect(connect).toContain('После отправки вы получите номер заявки и подтверждённый следующий шаг.');
+    expect(connect).toContain("eyebrow: 'Дополнительная помощь'");
+    expect(connect).toContain('Эта форма не является регистрацией');
+    expect(connect).toContain("submit: 'Отправить запрос на помощь'");
+    expect(connect).toContain('Для создания аккаунта используйте отдельную регистрацию платформы');
   });
 
-  it('removes residual example, stage and hidden-integration language from rendered sources', () => {
-    const renderedSources = [story, home, connect, hero, roleWorkspace].join('\n');
-    const forbidden = [
-      'Демонстрационный сценарий',
-      'Сценарий демонстрационный',
-      'демонстрационной Сделки',
-      'demonstration scenario',
-      'Demonstration Deal',
-      '演示场景',
-      'Пример интерфейса',
-      'Interface example',
-      '界面示例',
-      'Ролевое представление одного сценария',
-      'Переключение не открывает данные и не меняет права',
-      'Интеграция с внешней системой',
-      'External-system integration',
-      '外部系统集成',
-      'В реализации',
-      'In implementation',
-      '实施中',
-      'Подтверждается при подключении',
-      'Требует адаптера',
-      'Требует отдельного подключения',
-      'fake-live',
-      'план подключения',
-    ];
-
-    for (const phrase of forbidden) {
-      expect(renderedSources.toLowerCase()).not.toContain(phrase.toLowerCase());
+  it('keeps examples honest while avoiding internal maturity jargon in final visible layers', () => {
+    const renderedSources = [storyEntry, home, connect, hero, roleWorkspace].join('\n').toLowerCase();
+    for (const phrase of [
+      'controlled pilot',
+      'pre-integration',
+      'not_attested',
+      'production-like simulation',
+      'lead capture',
+      'crm',
+    ]) {
+      expect(renderedSources).not.toContain(phrase);
     }
+    expect(storyEntry).toContain('Обычное исполнение — основной сценарий');
+    expect(storyEntry).toContain('Ниже показан вымышленный пример Сделки');
+    expect(storyEntry).toContain('The section below is a fictional Deal example');
+    expect(storyEntry).toContain('下面展示的是虚构交易示例');
+    expect(roleWorkspace).toContain("preview: 'Вымышленный пример Сделки'");
   });
 
-  it('keeps the existing public entrypoints while routing to the final copy layers', () => {
+  it('keeps source-resolution wrappers explicit without relying on stale base copy', () => {
     expect(storyEntry).toContain("from './platform-v7-home-story-operating'");
     expect(homeEntry).toContain("from './platform-v7-home-v3-operating'");
     expect(connectEntry).toContain("from './platform-v7-organization-connect-operating'");
+    expect(storyOperating).toContain('export function getPlatformV7HomeStoryCopy');
     expect(roleWorkspace).toContain("role='tablist'");
     expect(roleWorkspace).toContain("role='tabpanel'");
   });

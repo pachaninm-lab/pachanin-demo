@@ -66,9 +66,19 @@ describe('Platform V7 production i18n runtime bridge', () => {
     expect(source).toContain("brandHomeLabel={chrome('brandHomeLabel')}");
   });
 
-  it('is mounted through the shared public and protected hydration runtime', () => {
+  it('keeps the bridge available only for legacy public routes that still need DOM translation', () => {
     const source = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
+    const boundary = source.slice(
+      source.indexOf('function needsLegacyTranslationBridge'),
+      source.indexOf('/**', source.indexOf('function needsLegacyTranslationBridge')),
+    );
+
     expect(source).toContain("import { PlatformV7TranslationRuntimeBridge }");
     expect(source).toContain('<PlatformV7TranslationRuntimeBridge />');
+    expect(boundary).toContain("clean === '/platform-v7/deal-flow'");
+    expect(boundary).toContain("clean === '/platform-v7/demo'");
+    expect(boundary).not.toContain("clean === '/platform-v7/contact'");
+    expect(boundary).not.toContain("clean === '/platform-v7'");
+    expect(boundary).not.toContain("clean === '/pc-public-entry/platform-v7'");
   });
 });
