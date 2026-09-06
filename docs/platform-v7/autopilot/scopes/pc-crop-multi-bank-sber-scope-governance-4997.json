@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "staged",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "7f900c79326a8ac816324472f90995428842ac9d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP specification. This staged branch changes no product behavior and grants no implementation authority before separate governance review and immutable scope promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-multi-bank-sber-scope-4997",
+  "purpose": "W6-A staged governance: provider-neutral bank adapter/capability/receipt boundary with Sber as one reference adapter and zero live-success claim. Source audit explicitly rejects sandbox/example env, UI provider metadata, mocks and Sber Business ID as bank authority or finality evidence.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-multi-bank-sber-scope-governance-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-multi-bank-sber-authority-4997.json"
+  ],
+  "dependencies": {
+    "w5aSettlementPlanRequiredForLiveConsumer": true,
+    "realProviderCredentialsExternal": true,
+    "secondRealBankRequiredForTerminalMultiBank": true,
+    "regRuProductionAcceptanceRequired": true
+  },
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "roleEligibilityChange": false,
+    "federalAccountingLock4321Change": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "externalSuccessClaim": false,
+    "credentialOrSecretChange": false,
+    "implementationAuthorityGranted": false
+  }
+}
