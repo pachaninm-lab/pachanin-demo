@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { AuditService } from '../audit/audit.service';
+import { csvRow } from '../../common/security/csv-cell';
 
 const COMPLIANCE_ROLES: Role[] = [Role.COMPLIANCE_OFFICER, Role.ADMIN];
 
@@ -162,11 +163,29 @@ export class ComplianceService {
       take: 10000,
     });
     const header = 'id,action,actorUserId,actorRole,objectType,objectId,outcome,reason,hash,createdAt\n';
-    const rows = events.map(e =>
-      [e.id, e.action, e.actorUserId, e.actorRole, e.objectType ?? '', e.objectId ?? '', e.outcome, e.reason ?? '', e.hash, e.createdAt.toISOString()]
-        .map(v => `"${String(v).replace(/"/g, '""')}"`)
-        .join(',')
-    ).join('\n');
+    // Ячейка собиралась здесь вручную: кавычки удваивались, и на этом всё.
+    // Строка получалась корректной по RFC 4180 и при этом исполняемой в
+    // программе, которая её откроет: ячейка, начинающаяся с =, +, - или @,
+    // трактуется Excel и LibreOffice как формула. Поля этого отчёта — action,
+    // reason, objectType, objectId — приходят из аудируемых операций, а reason
+    // объявлен в контроллере инлайновым телом и не проверяется, то есть это
+    // свободный текст вызывающего. Читает файл другой человек: комплаенс-офицер
+    // или регулятор. csvCell закрывает обе задачи разом и уже используется
+    // регуляторными отчётами — ровно тот случай, который его комментарий и
+    // называет: один отчёт удваивал кавычки правильно и не имел защиты от
+    // второй задачи.
+    const rows = events.map((event) => csvRow([
+      event.id,
+      event.action,
+      event.actorUserId,
+      event.actorRole,
+      event.objectType,
+      event.objectId,
+      event.outcome,
+      event.reason,
+      event.hash,
+      event.createdAt.toISOString(),
+    ])).join('\n');
     return header + rows;
   }
 

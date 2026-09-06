@@ -6,6 +6,8 @@
 // здесь не удобство, а верность продакшену: в нём Headers склеивает повторный
 // заголовок Cookie через '; ' — ровно так, как это делает Node в рантайме.
 import { RequestCookies } from 'next/dist/compiled/@edge-runtime/cookies';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { NextRequest } from 'next/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readRequestCookie } from '@/lib/request-cookie';
@@ -203,5 +205,38 @@ describe('staff/open-cabinet читает ту же куку тем же раз�
     const { POST } = await import('@/app/platform-v7/staff/open-cabinet/route');
     const response = await POST(post(`${CSRF}=abc123`, 'abc123'));
     expect((await response.json()).code).not.toBe('CSRF_REJECTED');
+  });
+});
+
+describe('второго разбора заголовка Cookie в приложении не появилось', () => {
+  const SOURCE_ROOTS = ['app', 'lib', 'components', 'middleware.ts'];
+  const ALLOWED = new Set(['lib/request-cookie.ts']);
+
+  function sourceFiles(entry: string, collected: string[] = []): string[] {
+    const full = resolve(process.cwd(), entry);
+    if (!existsSync(full)) return collected;
+    if (statSync(full).isFile()) {
+      if (/\.(?:ts|tsx)$/u.test(entry)) collected.push(entry);
+      return collected;
+    }
+    for (const child of readdirSync(full)) {
+      if (child === 'node_modules') continue;
+      sourceFiles(`${entry}/${child}`, collected);
+    }
+    return collected;
+  }
+
+  it('заголовок Cookie читает ровно один файл', () => {
+    // Правка началась с двух разборов; при поиске нашёлся третий, в
+    // server-request-actor.ts, — тот же .find по первому совпадению, и через
+    // него шёл сторож маршрута. Утверждение «разбор один» держится не памятью,
+    // а этой проверкой: четвёртая копия уронит её при появлении.
+    const readers = SOURCE_ROOTS
+      .flatMap((root) => sourceFiles(root))
+      .filter((file) => {
+        const text = readFileSync(resolve(process.cwd(), file), 'utf8');
+        return text.includes("headers.get('cookie')") || text.includes('headers.get("cookie")');
+      });
+    expect(readers).toEqual([...ALLOWED]);
   });
 });

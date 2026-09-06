@@ -5,6 +5,43 @@
   "policy": "A decision must name what was examined and carry conditions re-evaluated on every run. Having a control is not evidence that a requirement is met: no PASS may be inferred from the presence of MFA, RLS, CodeQL, an SBOM or a passing test. Anything without a valid, currently-holding decision stays PENDING and NOT_ASSESSED.",
   "decisions": [
     {
+      "requirementId": "V1.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/web/app/api/staff/[...path]/route.ts",
+        "apps/web/app/staff/[...path]/route.ts",
+        "measured:next-route-matcher-decodes-params"
+      ],
+      "conditions": [
+        {
+          "condition": "route handlers still decode a path segment that Next has already decoded, which is a second decode of the same input",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/staff/[...path]/route.ts",
+            "apps/web/app/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "decodeuricomponent(part)"
+          ]
+        },
+        {
+          "condition": "only one decoding mechanism is in use, so the second decode is at least the same decode and not a different one",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "decodeuri(",
+            "unescape("
+          ]
+        }
+      ],
+      "note": "Recorded as FAIL on a measured double decode, not on suspicion. Next decodes route parameters before a handler sees them - this was read in the installed framework rather than assumed: getRouteMatcher in next/dist/shared/lib/router/utils/route-matcher.js calls decodeURIComponent on every captured group and, for a repeating catch-all group, splits on / and decodes each entry. Eight route handlers then call decodeURIComponent on those already-decoded segments: the four staff proxies, the three platform-v7 proxies and app/staff. That is the same input decoded twice, which is exactly what this requirement forbids. Stated at its real severity rather than inflated: it is not exploitable today, and that was checked rather than hoped. In api/staff the guard that rejects a segment equal to . or .. or containing a slash runs AFTER the second decode, so a double-encoded traversal is decoded into its dangerous form in time to be caught, which is the correct order the requirement also asks for. A triple-encoded segment survives the guard as %2e%2e, but the forwarded path must then match one of the fully anchored allowlist patterns before it is sent, and those do not admit it as a path element. So the ordering half of the requirement is satisfied and the allowlist holds; what fails is the once half, in eight places. Not fixed in this pass, deliberately: removing a decode from a proxy changes what path is forwarded to the API for every request through it, and which encodings real callers send has not been measured. Changing request routing on the strength of a source reading is how a working platform breaks; the measurement comes first, and it is a separate pass. What was checked and found correct: there is exactly one decoding mechanism - decodeURIComponent at 30 runtime sites, with decodeURI, unescape and escape returning zero - so the second decode is at least the same decode rather than a second, differently-behaving one. And the decode-then-validate order was read at every security-relevant site: auth-session decodes then parses then checks the claims; sensitive-data decodes a parameter name only to decide whether it is sensitive and emits the original; database-principal-boundary and industrial-mode decode a username once out of a parsed URL; object-storage decodes a segment and immediately re-encodes it canonically; request-cookie decodes once, after locating the value and before returning it. None decodes after validating."
+    },
+    {
       "requirementId": "V1.1.2",
       "applicability": "APPLICABLE",
       "status": "PASS",
@@ -526,6 +563,51 @@
       "note": "The application never dynamically executes code from a string. A scan for eval( and new Function( across apps/api/src, apps/web/lib and apps/web/app returns zero matches."
     },
     {
+      "requirementId": "V1.3.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/compliance/compliance.service.ts",
+        "apps/api/src/common/security/csv-cell.ts",
+        "apps/api/src/modules/compliance/compliance.controller.ts",
+        "docs/security/request-validation-baseline.json"
+      ],
+      "conditions": [
+        {
+          "condition": "the audit-log export still renders its cells through the one CSV encoder rather than by hand, so the report cannot be executed by the program that opens it",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/compliance/compliance.service.ts"
+          ],
+          "patterns": [
+            "csvrow(["
+          ]
+        },
+        {
+          "condition": "no SQL is built by interpolation anywhere in the API: the unsafe raw forms are what would put a value into a query as text",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src"
+          ],
+          "patterns": [
+            "$queryrawunsafe",
+            "$executerawunsafe"
+          ]
+        },
+        {
+          "condition": "the length half of this requirement is still open, and the compliance reason body is the cited instance: it is declared inline, so no length bound is applied to it",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/compliance/compliance.controller.ts"
+          ],
+          "patterns": [
+            "@body() body: { reason: string }"
+          ]
+        }
+      ],
+      "note": "Recorded as FAIL after measuring both halves the requirement asks for, and only one of them is true. The encoding half is genuinely complete and was closed the rest of the way in this change. Every dangerous context was enumerated and each has one encoder used at every site: SQL - zero occurrences of queryRawUnsafe or executeRawUnsafe in apps/api/src, so nothing is built by interpolation; operating-system commands - none, established under V1.2.5; XML - xml-escape.ts, used by the regulatory reports; logs - log-encode.ts; download filenames - content-disposition.ts; CSV - csv-cell.ts, which handles both the structural problem (a quote ending the field early) and the execution problem (a cell starting with =, +, - or @ being run as a formula by Excel and LibreOffice). HTML was measured site by site rather than assumed: 23 files use dangerouslySetInnerHTML and not one interpolates request data - every argument is a static template literal, a module constant, or safeJsonLd, which escapes < as \\u003c and so cannot be broken out of a script element. What this change fixed: compliance.service.ts exportAuditCsv was the last place building a CSV cell by hand. It doubled quotes, so the file was well-formed by RFC 4180 and executable anyway - which is exactly the failure csv-cell.ts was written for, and its own comment names another report that fell into it. The fields are action, reason, objectType and objectId, and reason is free text from the caller, so the file a compliance officer or a regulator opens could carry a formula. Now routed through csvRow; a mutation back to the hand-built cell fails 5 of the 11 tests, and the 6 that hold under both are the ones asserting the working case still works. Why this is still not a PASS: the requirement also asks that input which is too long be trimmed, and that is not true across the application. The ratchet counts 66 unvalidated @Body() parameters across 23 files - a body declared with an inline type erases to Object and ValidationPipe skips it, so no MaxLength applies. The cited instance is the compliance reason itself, declared inline in the same module this change touched: the value now cannot execute in a spreadsheet, but nothing bounds its length. Declaring PASS on the encoding half alone would repeat the denominator error these decisions have already been corrected for once. Measured and deliberately NOT changed: two structured-data sites, head.tsx and PlatformV7StructuredData.tsx, serialise with a bare JSON.stringify instead of safeJsonLd. Both were read, and both objects are module-level constants built from a fixed origin with no props, no request data and no user input, so there is no injection path and this is not counted as a defect. They are presentation files the programme is instructed not to touch, and inventing a defect to justify touching them would be the wrong trade."
+    },
+    {
       "requirementId": "V1.3.4",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
@@ -976,7 +1058,8 @@
           "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/web/lib/server-request-security.ts",
-            "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
+            "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+            "apps/web/lib/server-request-actor.ts"
           ],
           "patterns": [
             "headers.get('cookie')",
@@ -985,7 +1068,7 @@
           ]
         }
       ],
-      "note": "Measured per data type rather than asserted in general. JSON: one parser. The built-in JSON.parse is used at 96 sites and no alternative implementation is present anywhere - json5, fast-json, jsonc-parser and secure-json-parse return zero, in the source and in the manifests. XML: no parser at all, and no XML dependency in any manifest, so the class the requirement names does not exist here. URL: one parser. new URL appears in 62 files, and a scan for a URL decision made by string manipulation instead - splitting on //, matching a protocol with a regular expression, extracting a host by index - returns zero, so origin checks, redirect guards and proxy targets all resolve through the same implementation. Percent-decoding: one mechanism. decodeURIComponent at 30 sites, and decodeURI, unescape and escape - which decode by different rules - return zero. Cookie header: this was the one place where the application really did have two parsers, and they really did disagree. server-request-security.ts returned the first match and the Next parser used by staff/open-cabinet returned the last, so Cookie: pc_csrf_token=AAA; pc_csrf_token=BBB read as AAA on one route and BBB on another. That is fixed in this change, not documented: one shared parser, and an ambiguous header reads as no cookie. Query string: the platform does parse it twice in sequence, and that was measured rather than waved through. Every BFF proxy rebuilds the query the same way, with searchParams.toString(), and the API then parses the result with the qs parser Express uses. Twelve adversarial inputs were run through both paths and compared: repeated keys, bracket arrays, a mixed scalar-and-object key, malformed percent-encoding (% and %zz), plus versus %20, a semicolon separator, a bare key with no value, and __proto__ in both key positions. What the API sees is identical in all twelve whether the query arrives directly or through the proxy, and qs drops __proto__ keys rather than assigning them. Two mechanisms in sequence therefore agree, which is what the requirement asks for; it does not require that only one exist. Not claimed: that a future parser would be caught by review. The first condition is what catches it - adding a second JSON or XML parser, or a decoder with different rules, revokes this decision and returns the requirement for assessment."
+      "note": "Measured per data type rather than asserted in general. JSON: one parser. The built-in JSON.parse is used at 96 sites and no alternative implementation is present anywhere - json5, fast-json, jsonc-parser and secure-json-parse return zero, in the source and in the manifests. XML: no parser at all, and no XML dependency in any manifest, so the class the requirement names does not exist here. URL: one parser. new URL appears in 62 files, and a scan for a URL decision made by string manipulation instead - splitting on //, matching a protocol with a regular expression, extracting a host by index - returns zero, so origin checks, redirect guards and proxy targets all resolve through the same implementation. Percent-decoding: one mechanism. decodeURIComponent at 30 sites, and decodeURI, unescape and escape - which decode by different rules - return zero. Cookie header: this was the one place where the application really did have two parsers, and they really did disagree. server-request-security.ts returned the first match and the Next parser used by staff/open-cabinet returned the last, so Cookie: pc_csrf_token=AAA; pc_csrf_token=BBB read as AAA on one route and BBB on another. That is fixed in this change, not documented: one shared parser, and an ambiguous header reads as no cookie. Query string: the platform does parse it twice in sequence, and that was measured rather than waved through. Every BFF proxy rebuilds the query the same way, with searchParams.toString(), and the API then parses the result with the qs parser Express uses. Twelve adversarial inputs were run through both paths and compared: repeated keys, bracket arrays, a mixed scalar-and-object key, malformed percent-encoding (% and %zz), plus versus %20, a semicolon separator, a bare key with no value, and __proto__ in both key positions. What the API sees is identical in all twelve whether the query arrives directly or through the proxy, and qs drops __proto__ keys rather than assigning them. Two mechanisms in sequence therefore agree, which is what the requirement asks for; it does not require that only one exist. Not claimed: that a future parser would be caught by review. The first condition is what catches it - adding a second JSON or XML parser, or a decoder with different rules, revokes this decision and returns the requirement for assessment. То же уточнение, что и в V15.3.7: копий ручного разбора куки было три; третья, в server-request-actor.ts, найдена при сплошном поиске и тоже сведена к общему разбору. Разбор Next остаётся в middleware.ts и assistant-server-context.ts и расхождением не является - на неповторённой куке значения совпадают, на повторённой строгий разбор отказывает, а не принимает другое."
     },
     {
       "requirementId": "V2.1.1",
@@ -2189,6 +2272,64 @@
         }
       ],
       "note": "The requirement asks for a notification, with an option to cancel, when the application sends the user to a URL outside its control. That situation does not arise: the application never sends the user outside. Measured over every .ts, .tsx, .js, .jsx, .mjs and .cjs file under apps/web/app, apps/web/lib and apps/web/components, in the same way the condition is evaluated, a redirect or scripted navigation naming an absolute http or https address returns zero matches - across quoted and template-literal forms, NextResponse.redirect, redirect(new URL(...)), location.href, location.replace and location.assign. The same scan for an absolute external href in markup also returns zero, so there is not even a link out to speak of, let alone an automatic navigation. Every destination in the application is an internal path. This is the same measurement that backs the V3.7.2 PASS, read from the other side: there the point was that no external destination can be reached through the redirect guard, here that none is ever named in the first place. Not claimed: that a notification exists, or that one would be shown if an external redirect were added. There is no such screen and none is needed while the triggering condition is absent. If a redirect to another host is ever introduced, the condition above stops holding and the requirement returns for assessment rather than staying not-applicable on a scan that no longer describes the code."
+    },
+    {
+      "requirementId": "V3.7.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/web/middleware.ts",
+        "infra/nginx/nginx.conf"
+      ],
+      "conditions": [
+        {
+          "condition": "both layers that answer the browser still send an HSTS header that is preload-eligible, which is the part of this requirement the repository can carry",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts",
+            "infra/nginx/nginx.conf"
+          ],
+          "patterns": [
+            "includesubdomains; preload"
+          ]
+        }
+      ],
+      "note": "Recorded as not met rather than assumed met, because the thing the requirement asks for could not be established. What the repository does carry is correct and was measured: both layers that answer a browser send a preload-eligible header - middleware.ts sends max-age=31536000; includeSubDomains; preload and the nginx front sends max-age=63072000; includeSubDomains; preload, so the max-age exceeds the one-year minimum in both and includeSubDomains and preload are present in both. What the requirement actually asks is something else: that the top-level domain is on the public HSTS preload list built into browsers. That is a submission the domain owner makes at hstspreload.org, not a repository change, and membership could not be verified from this environment either - the checker is not reachable through the egress proxy, which answered 403 to the CONNECT. So there are two separate reasons this is not a PASS: the listing is an owner action that has not been evidenced, and the state of the list could not be read. Deliberately not done: the header is not weakened or strengthened to make this look closed, and no claim is made that sending preload in the header places a domain on the list - it does not; it only makes the domain eligible for a submission. The condition above is written so that removing preload or includeSubDomains from either layer revokes even this partial position, rather than letting a FAIL sit unattached to any fact."
+    },
+    {
+      "requirementId": "V3.7.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx",
+        "repository-scan:no-secure-context-guard",
+        "repository-scan:no-browser-requirements-document"
+      ],
+      "conditions": [
+        {
+          "condition": "a staff action still depends on a browser security feature without checking that it is there",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx"
+          ],
+          "patterns": [
+            "crypto.subtle.digest("
+          ]
+        },
+        {
+          "condition": "nothing in the web application asks whether the security features it depends on are available",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/app",
+            "apps/web/lib",
+            "apps/web/components"
+          ],
+          "patterns": [
+            "issecurecontext"
+          ]
+        }
+      ],
+      "note": "Measured, and it fails on both halves. There is no documented behaviour to compare against: a search of docs for a statement of supported browsers or required browser security features returns nothing, so the requirement has no baseline to be met. And there is no behaviour either: a scan of apps/web for isSecureContext returns zero, so the application never asks whether the security features it relies on are present. The concrete instance is RegistrationReviewQueue.tsx, a client component in which decisionMarker calls crypto.subtle.digest with no guard. crypto.subtle is undefined outside a secure context and on a browser without Web Crypto, so the call throws a TypeError inside a React handler and the staff approval simply stops, with no warning, no block, and no message. Scope stated honestly rather than inflated: the control host is served over HTTPS in production, so this is not a live break there. It breaks where the page is reached outside a secure context - a plain-HTTP or misconfigured deployment - or on a browser without Web Crypto, and it breaks silently, which is exactly the behaviour this requirement exists to prevent. What was found already correct and is not counted as satisfying this requirement: feature detection for service workers is done properly at three sites with the in-navigator form. That is a capability check for an offline feature, not a security-feature check, and treating it as one would be the kind of substitution these decisions are meant to avoid. Not fixed in this pass deliberately: the fix is a documented statement of required browser features plus a guard that blocks or warns, and writing a user-facing failure path for the staff registration queue is a product decision about what the user should see, not a boundary fix that can be made from a scan."
     },
     {
       "requirementId": "V4.1.1",
@@ -10300,7 +10441,8 @@
         "apps/web/lib/request-cookie.ts",
         "apps/web/lib/server-request-security.ts",
         "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
-        "apps/web/tests/unit/requestCookieParsing.spec.ts"
+        "apps/web/tests/unit/requestCookieParsing.spec.ts",
+        "apps/web/lib/server-request-actor.ts"
       ],
       "conditions": [
         {
@@ -10317,11 +10459,12 @@
           ]
         },
         {
-          "condition": "neither consumer parses the Cookie header on its own again: a second parser is exactly the defect this requirement is about",
+          "condition": "ни один потребитель не разбирает заголовок Cookie сам: второй разбор — это ровно тот дефект, о котором требование",
           "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/web/lib/server-request-security.ts",
-            "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
+            "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+            "apps/web/lib/server-request-actor.ts"
           ],
           "patterns": [
             "headers.get('cookie')",
@@ -10351,7 +10494,7 @@
           ]
         }
       ],
-      "note": "The requirement names cookies as a request-parameter source in its own text, and that is where the platform had the defect. Measured, not inferred: for the single header Cookie: pc_csrf_token=AAA; pc_csrf_token=BBB the two parsers in this application answered differently - server-request-security.ts returned AAA (first match, Array.prototype.find) and the Next parser used by staff/open-cabinet returned BBB (last, because RequestCookies keys a Map by name). One request, two answers, and which one decided access depended on which route was hit. Both values were checked against the real code, including the compiled Next parser, and the test reproduces both before asserting the fix. Why this is not academic here: the control realm control.xn----8sbjf4befbjgs9b.xn--p1ai is a subdomain of the primary host, so the platform genuinely has neighbours under one registrable domain, and a neighbour that sets pc_csrf_token with a Domain attribute produces exactly this doubled header. The order the browser sends is by path length then creation time (RFC 6265 section 5.4), and creation time belongs to whoever sets the cookie, so neither first nor last is a safe choice. The fix therefore refuses the ambiguity: one shared parser, and a repeated cookie reads as no cookie at all. A legitimate request is untouched and this was checked rather than assumed - auth-cookies.ts and the client set in api/auth/demo/instant both write host-only with Path=/, so the platform cannot produce a second copy of its own cookie; a repeat means someone else wrote it. A test drives the real route and asserts a single cookie still passes the check and reaches the next reason for refusal, so the change cannot be a silent lockout. A second defect in the same function was found and fixed with it: decodeURIComponent throws URIError on a value like % or %zz, and that exception left assertCsrf and the route handler, so a request with a corrupted cookie got 500 instead of 403 on any of the routes where the check is the first line. The other parameter sources were measured too, and were already sound: query, body and route parameters are never merged into one object anywhere in apps/api/src or apps/web (zero occurrences), no handler reads the same parameter from two sources, and seven of the nine @Query() sites bind a validated DTO whose @IsString or @IsInt rejects the array that a repeated query parameter produces. The remaining two, sber-business/start and sber-business/callback, take an inline-typed query - which class-validator does not check - but both reach service methods that return not_configured and act on nothing. That is stated as it is rather than counted as a defence."
+      "note": "The requirement names cookies as a request-parameter source in its own text, and that is where the platform had the defect. Measured, not inferred: for the single header Cookie: pc_csrf_token=AAA; pc_csrf_token=BBB the two parsers in this application answered differently - server-request-security.ts returned AAA (first match, Array.prototype.find) and the Next parser used by staff/open-cabinet returned BBB (last, because RequestCookies keys a Map by name). One request, two answers, and which one decided access depended on which route was hit. Both values were checked against the real code, including the compiled Next parser, and the test reproduces both before asserting the fix. Why this is not academic here: the control realm control.xn----8sbjf4befbjgs9b.xn--p1ai is a subdomain of the primary host, so the platform genuinely has neighbours under one registrable domain, and a neighbour that sets pc_csrf_token with a Domain attribute produces exactly this doubled header. The order the browser sends is by path length then creation time (RFC 6265 section 5.4), and creation time belongs to whoever sets the cookie, so neither first nor last is a safe choice. The fix therefore refuses the ambiguity: one shared parser, and a repeated cookie reads as no cookie at all. A legitimate request is untouched and this was checked rather than assumed - auth-cookies.ts and the client set in api/auth/demo/instant both write host-only with Path=/, so the platform cannot produce a second copy of its own cookie; a repeat means someone else wrote it. A test drives the real route and asserts a single cookie still passes the check and reaches the next reason for refusal, so the change cannot be a silent lockout. A second defect in the same function was found and fixed with it: decodeURIComponent throws URIError on a value like % or %zz, and that exception left assertCsrf and the route handler, so a request with a corrupted cookie got 500 instead of 403 on any of the routes where the check is the first line. The other parameter sources were measured too, and were already sound: query, body and route parameters are never merged into one object anywhere in apps/api/src or apps/web (zero occurrences), no handler reads the same parameter from two sources, and seven of the nine @Query() sites bind a validated DTO whose @IsString or @IsInt rejects the array that a repeated query parameter produces. The remaining two, sber-business/start and sber-business/callback, take an inline-typed query - which class-validator does not check - but both reach service methods that return not_configured and act on nothing. That is stated as it is rather than counted as a defence. Поправка по итогу более широкого поиска, а не по замечанию: копий первого-совпадения было ТРИ, а не две. Третья, в server-request-actor.ts, читала куку токена доступа тем же .find, и через неё шёл сторож маршрутов commercial-route-guards.ts, то есть решение о доступе. Она тоже переведена на общий разбор. Утверждение «разбор один» держится теперь не памятью, а проверкой: тест обходит app, lib, components и middleware.ts и требует, чтобы заголовок Cookie читал ровно один файл, так что четвёртая копия уронит его при появлении. Разбор Next по-прежнему используется - в middleware.ts и assistant-server-context.ts, - и это названо прямо, а не умолчано. Расхождением это не является, и вот почему: на неповторённой куке общий разбор и разбор Next дают ОДНО И ТО ЖЕ значение, а на повторённой общий отказывает вместо того, чтобы принять другое. Дефект был в том, что два разбора принимали РАЗНЫЕ значения; ни один вход больше не даёт двух разных принятых ответов. Разница «значение против отказа» - в сторону закрытия, а не расхождения."
     },
     {
       "requirementId": "V15.4.1",
