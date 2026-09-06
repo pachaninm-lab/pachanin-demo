@@ -23,6 +23,60 @@ async function expectMinimumTargets(page: Page, selector: string) {
   expect(valid, `${selector} must expose 44×44 CSS px visible targets`).toBe(true);
 }
 
+async function expectHeaderControlsWithinViewport(page: Page) {
+  const viewport = page.viewportSize();
+  expect(viewport, 'viewport size').not.toBeNull();
+  for (const selector of [
+    '.pc-site-mobile-menu > summary',
+    '.pc-site-locale-switch',
+    '.entry-login',
+    '.pc-v6-header-cta',
+  ]) {
+    const control = page.locator(selector).first();
+    await expect(control).toBeVisible();
+    const box = await control.boundingBox();
+    expect(box, `${selector} bounding box`).not.toBeNull();
+    expect(box!.x, `${selector} left edge`).toBeGreaterThanOrEqual(-1);
+    expect(box!.x + box!.width, `${selector} right edge`).toBeLessThanOrEqual(viewport!.width + 1);
+  }
+}
+
+async function expectDealCardHeaderReadable(page: Page) {
+  const card = page.locator('[data-testid="platform-v7-deal-card"]');
+  const header = card.locator(':scope > div').first();
+  const copy = header.locator(':scope > div').first();
+  const status = header.locator(':scope > b').first();
+  const title = copy.locator('strong').first();
+  await expect(header).toBeVisible();
+  await expect(copy).toBeVisible();
+  await expect(status).toBeVisible();
+  await expect(title).toBeVisible();
+
+  const [headerBox, copyBox, statusBox] = await Promise.all([
+    header.boundingBox(),
+    copy.boundingBox(),
+    status.boundingBox(),
+  ]);
+  expect(headerBox, 'Hero Deal header bounding box').not.toBeNull();
+  expect(copyBox, 'Hero Deal copy bounding box').not.toBeNull();
+  expect(statusBox, 'Hero Deal status bounding box').not.toBeNull();
+  expect(copyBox!.width, 'Hero Deal copy must retain readable width').toBeGreaterThanOrEqual(headerBox!.width * 0.65);
+  expect(statusBox!.y, 'Hero Deal status must follow the copy block').toBeGreaterThanOrEqual(copyBox!.y + copyBox!.height - 1);
+
+  const titleLineCount = await title.evaluate((node) => {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+    const tops: number[] = [];
+    for (const rect of rects) {
+      if (!tops.some((top) => Math.abs(top - rect.top) <= 1)) tops.push(rect.top);
+    }
+    return tops.length;
+  });
+  expect(titleLineCount, 'Hero Deal title line count').toBeGreaterThanOrEqual(1);
+  expect(titleLineCount, 'Hero Deal title must not collapse into a vertical column').toBeLessThanOrEqual(3);
+}
+
 async function scrollAndFlush(page: Page, top: number) {
   await page.evaluate(async (targetTop) => {
     window.scrollTo({ top: targetTop, behavior: 'instant' });
@@ -187,6 +241,8 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await expect(headerRegistration).toBeVisible();
     await expect(headerRegistration).toHaveAttribute('href', '/platform-v7/register?lang=ru');
     await expectMinimumTargets(page, '.pc-v6-header-cta');
+    await expectHeaderControlsWithinViewport(page);
+    await expectDealCardHeaderReadable(page);
 
     const dock = page.locator('.pc-public-contact-dock');
     const assistant = dock.locator('.pc-public-contact-dock-assistant');
@@ -211,6 +267,8 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       const form = page.locator('#connect-organization form');
       await expect(form).toHaveAttribute('data-ready', 'true');
       await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
+      await expectHeaderControlsWithinViewport(page);
+      await expectDealCardHeaderReadable(page);
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '[role="tab"]');
       await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"]):not([tabindex="-1"]):visible');
@@ -224,6 +282,29 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expectNoHorizontalOverflow(page);
     });
   }
+
+  test('desktop navigation distinguishes in-page Gekta help from the standalone product', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'Source-owned navigation labels need one desktop rendering proof.');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const expectations = {
+      ru: { help: 'Как помогает Гекта', product: 'Гекта' },
+      en: { help: 'How Gekta helps', product: 'Gekta' },
+      zh: { help: 'Gekta 如何帮助', product: 'Gekta' },
+    } as const;
+
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
+      expect(response?.ok()).toBe(true);
+      const nav = page.locator('.pc-site-nav');
+      await expect(nav).toBeVisible();
+      const labels = (await nav.locator('a').allTextContents()).map((label) => label.trim());
+      expect(new Set(labels).size, `${locale} desktop nav labels must be distinct`).toBe(labels.length);
+      await expect(nav.getByRole('link', { name: expectations[locale].help, exact: true })).toHaveAttribute('href', '#tai');
+      const product = nav.getByRole('link', { name: expectations[locale].product, exact: true });
+      await expect(product).toHaveAttribute('data-nav-product', 'gekta');
+      await expect(product).not.toHaveAttribute('href', '#tai');
+    }
+  });
 
   test('captures responsive and multilingual visual evidence', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'Visual evidence is captured once in Chromium.');
