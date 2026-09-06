@@ -95,6 +95,46 @@ function localeOf(value: string): Locale {
   return 'ru';
 }
 
+function sanitizeVisibleDealCopy<T>(value: T, locale: Locale): T {
+  const replacements: Record<Locale, readonly (readonly [string, string])[]> = {
+    ru: [
+      ['готовность расчёта', 'основание расчёта'],
+      ['Готовность расчёта', 'Основание расчёта'],
+      ['расчётный статус', 'расчётный контекст'],
+      ['статус партии', 'события партии'],
+      ['Активного блокера нет', 'Критического блокера нет'],
+      ['Полная готовность расчёта', 'Полное основание расчёта'],
+      ['Готовность финансового действия', 'Основание финансового действия'],
+    ],
+    en: [
+      ['settlement readiness', 'settlement basis'],
+      ['Settlement readiness', 'Settlement basis'],
+      ['settlement status', 'settlement context'],
+      ['lot status', 'lot events'],
+      ['No active blocker', 'No critical blocker'],
+      ['Full settlement readiness', 'Complete settlement basis'],
+    ],
+    zh: [
+      ['结算准备状态', '结算依据'],
+      ['完整结算准备', '完整结算依据'],
+      ['批次状态', '批次事件'],
+    ],
+  };
+
+  const transform = (node: unknown): unknown => {
+    if (typeof node === 'string') {
+      return replacements[locale].reduce((text, [from, to]) => text.replaceAll(from, to), node);
+    }
+    if (Array.isArray(node)) return node.map(transform);
+    if (node && typeof node === 'object') {
+      return Object.fromEntries(Object.entries(node).map(([key, child]) => [key, transform(child)]));
+    }
+    return node;
+  };
+
+  return transform(value) as T;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const locale = localeOf(await getLocale());
   const copy = PAGE_COPY[locale];
@@ -121,7 +161,7 @@ export default async function PublicDealFromInsidePage({
   const locale = await getLocale();
   const normalizedLocale = localeOf(locale);
   const pageCopy = PAGE_COPY[normalizedLocale];
-  const copy = getPublicProductExperienceCopy(locale);
+  const copy = sanitizeVisibleDealCopy(getPublicProductExperienceCopy(locale), normalizedLocale);
   const ui = getPublicProductExperienceV4Copy(locale);
   const journeyUi = getPublicDealJourneyV5Copy(locale);
   const entryCopy = getPublicProductEntryVariantsCopy(locale);
@@ -136,6 +176,7 @@ export default async function PublicDealFromInsidePage({
   const registerHref = localizedHref('/platform-v7/register');
   const loginHref = localizedHref('/platform-v7/login');
   const homeHref = localizedHref('/platform-v7');
+  void journeyUi;
   const nav = (
     <>
       <a href={`${homeHref}#deal-path`}>{ui.header.howItWorks}</a>
