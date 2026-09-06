@@ -1,7 +1,7 @@
 # IP due diligence — досье
 
 **Объект:** программный комплекс «Прозрачная Цена» (включая продуктовый контур «ГЕКТА»).
-**Состояние исходного текста:** `b9d76887a9415d5bee560dceba2c808657a2718c`.
+**Состояние исходного текста:** `e39b3bd1ed91647b0cc9ec1dfd86f2e734428918`.
 **Дата сборки досье:** 2026-09-06.
 
 Досье собрано автоматически из измеряемых артефактов. Каждое числовое утверждение воспроизводится командой из раздела 9; ни одно число не проставлено вручную.
@@ -170,8 +170,8 @@
 
 | Что | Артефакт | SHA-256 | Команда воспроизведения |
 |---|---|---|---|
-| Провенанс каждого файла | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json` | `962817610821ca12…` | `node scripts/ip/build-first-party-provenance.mjs` |
-| Сводка провенанса и KPI | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json` | `94fa5fb47d82b215…` | `node scripts/ip/build-first-party-provenance.mjs` |
+| Провенанс каждого файла | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json` | `6c99c783e70c4ddf…` | `node scripts/ip/build-first-party-provenance.mjs` |
+| Сводка провенанса и KPI | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json` | `06f5d7f24991b9ae…` | `node scripts/ip/build-first-party-provenance.mjs` |
 | Провенанс в табличном виде | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.csv` | `d24be2566ad5aff9…` | `node scripts/ip/build-first-party-provenance.mjs` |
 | Лицензии зависимостей | `artifacts/ip-clean-room/license-summary.json` | `bce6bfc0ff030084…` | `node scripts/ip/build-license-map.mjs artifacts/ip-clean-room/sbom artifacts/ip-clean-room` |
 | Покрытие SBOM | `artifacts/ip-clean-room/SBOM_COVERAGE.json` | `9274537c5298d623…` | `node scripts/ip/build-sbom-coverage.mjs artifacts/ip-clean-room docs/ip/sbom-coverage-scope.json` |
@@ -183,7 +183,7 @@
 Полная последовательность на чистом дереве:
 
 ```bash
-git checkout b9d76887a9415d5bee560dceba2c808657a2718c
+git checkout e39b3bd1ed91647b0cc9ec1dfd86f2e734428918
 pnpm install --frozen-lockfile
 node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room
 node scripts/ip/build-first-party-provenance.mjs

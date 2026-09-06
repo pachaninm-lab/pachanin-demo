@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { markdownCell } from './markdown-cell.mjs';
 
 const ART = process.argv[2] ?? 'artifacts/ip-clean-room';
 const OUT_DIR = process.argv[3] ?? 'docs/ip/due-diligence';
@@ -290,7 +291,7 @@ L(`| Требующих правового рассмотрения в обяз�
 L(`| Неразрешённых в необязательной области | ${num(unresolvedOptional)} |`);
 L(`| Требующих рассмотрения в необязательной области | ${num(reviewOptional)} |`);
 for (const [cls, n] of Object.entries(licenses.classifications ?? {})) {
-  L(`| Классификация \`${cls}\` | ${num(n)} |`);
+  L(`| Классификация \`${markdownCell(cls)}\` | ${num(n)} |`);
 }
 for (const [scope, n] of Object.entries(licenses.dependencyScopes ?? {})) {
   L(`| Область \`${scope}\` | ${num(n)} |`);
@@ -327,15 +328,15 @@ if ([...byClass.keys()].some((cls) => !cls)) {
 }
 const registerIdentities = [...byClass.values()].reduce((s, c) => s + c.n, 0);
 const registerCommits = [...byClass.values()].reduce((s, c) => s + c.commits, 0);
-const basisOf = {
+const basisOf = new Map(Object.entries({
   PRINCIPAL: 'ст. 1257 ГК РФ — автор-правообладатель',
   HUMAN_CONTRIBUTOR: 'ст. 1234/1285 либо ст. 1295 ГК РФ — требуется документ',
   AI_TOOL: 'ст. 1257, 1228 ГК РФ — средство создания, не автор',
   OPERATIONS_ACCOUNT: 'п. 5 ст. 1259 ГК РФ — нетворческая форма',
   CI_AUTOMATION: 'ст. 1228 ГК РФ — техническое содействие',
-};
+}));
 for (const [cls, c] of [...byClass.entries()].sort()) {
-  L(`| \`${cls}\` | ${c.n} | ${num(c.commits)} | ${basisOf[cls] ?? '—'} |`);
+  L(`| \`${markdownCell(cls)}\` | ${c.n} | ${num(c.commits)} | ${basisOf.get(cls) ?? '—'} |`);
 }
 L();
 if (stillOpen.length === 0) {
@@ -346,7 +347,7 @@ if (stillOpen.length === 0) {
   L('| Контрибьютор | Коммитов | Файлов | Строк | Файлов ядра | Строк ядра | Документ |');
   L('|---|---|---|---|---|---|---|');
   for (const c of stillOpen) {
-    L(`| ${c.contributor} | ${num(c.commits)} | ${num(c.survivingFiles)} | ${num(c.survivingLines)} | ${num(c.crownJewelFiles)} | ${num(c.crownJewelLines)} | \`docs/ip/legal/02-assignment-agreement-platon.md\` либо \`04-employee-work-confirmation-platon.md\` |`);
+    L(`| ${markdownCell(c.contributor)} | ${num(c.commits)} | ${num(c.survivingFiles)} | ${num(c.survivingLines)} | ${num(c.crownJewelFiles)} | ${num(c.crownJewelLines)} | \`docs/ip/legal/02-assignment-agreement-platon.md\` либо \`04-employee-work-confirmation-platon.md\` |`);
   }
   L();
   L('Документы заполнены и готовы к подписи; перечень покрываемых файлов и коммитов — `docs/ip/legal/appendix-platon-covered-works.md`.');
@@ -397,7 +398,7 @@ L('## 7. Анализ сходства с внешним кодом');
 L();
 L('| Показатель | Значение |');
 L('|---|---|');
-L(`| Статус | \`${similarity.status}\` |`);
+L(`| Статус | \`${markdownCell(similarity.status)}\` |`);
 L(`| Защищаемых файлов проверено | ${num(similarity.protectedFiles ?? similarity.sourceFiles ?? 0)} |`);
 L(`| Файлов корпуса сравнения | ${num(similarity.corpusFiles ?? 0)} |`);
 L(`| Находок | ${num((similarity.findings ?? []).length)} |`);
