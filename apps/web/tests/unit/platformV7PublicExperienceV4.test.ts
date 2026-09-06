@@ -93,6 +93,26 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
     expect(copy).not.toContain('Only verifiable statuses');
     expect(copy).not.toContain('只展示可核验状态');
     expect(copy).not.toContain("href: '/platform-v7/status'");
+
+    expect(detailedCopy).toContain("statusLabel: 'Контекст этапа'");
+    expect(detailedCopy).toContain("statusLabel: 'Stage context'");
+    expect(detailedCopy).toContain("statusLabel: '阶段上下文'");
+    expect(detailedCopy).toContain("status: 'Факты · основания · следующий шаг'");
+    expect(detailedCopy).toContain("status: 'Facts · grounds · next action'");
+    expect(detailedCopy).toContain("status: '事实 · 依据 · 下一步'");
+    expect(detailedCopy).not.toContain("statusLabel: 'Статус'");
+    expect(detailedCopy).not.toContain("statusLabel: 'Status'");
+    expect(detailedCopy).not.toContain("statusLabel: '状态'");
+    expect(detailedCopy).not.toContain('готовность расчёта');
+    expect(detailedCopy).not.toContain('settlement readiness');
+    expect(detailedCopy).not.toContain('结算准备');
+    expect(detailedCopy).not.toContain("status: 'Не готово'");
+    expect(detailedCopy).not.toContain("status: 'Not ready'");
+    expect(detailedCopy).not.toContain("status: '未就绪'");
+    expect(detailedCopy).toContain("status: 'Основание расчёта'");
+    expect(detailedCopy).toContain("status: 'Settlement ground'");
+    expect(detailedCopy).toContain("status: '结算依据'");
+
     expect(adapter).toContain('writeTourStateToSearchParams');
     expect(explorer).toContain('reduceTourState');
   });
