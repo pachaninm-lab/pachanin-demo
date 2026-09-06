@@ -8,6 +8,8 @@
     "apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts",
     "apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.spec.ts",
     "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-import.module.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.spec.ts",
     "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
     "docs/security/cryptographic-inventory.json"
   ],
@@ -17,5 +19,5 @@
     "apps/web/**",
     "infra/**"
   ],
-  "notes": "Prior bounded authorization for the exact importer implementation paths above. The implementation branch cannot modify this authority manifest. No FTP credential provisioning, registration change, production run, migration, schema change, UI change, infrastructure change, or enforcement activation."
+  "notes": "Prior bounded authorization for the exact EGRUL local-validator/importer paths plus the existing registry-sync service/spec required to preserve a fresh accepted file-backed EGRUL authority across the scheduled worker cycle. Preservation is EGRUL-specific, not permission to treat every generic source='FNS' state as equivalent. Under the current pre-#5064 schema, the implementation may preserve only when the existing active generation is demonstrably the accepted file-backed EGRUL generation, remains inside its accepted freshness window, provenance/generation identity still match, and the scheduled adapter failure is exactly the known unprovisioned machine-contract condition FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN. Any unrelated FNS failure, stale/missing/mismatched active generation, unsupported provenance/schema, or ambiguous state remains fail-closed and may not be masked. When #5064 later introduces domain-scoped authority, this preservation rule must bind specifically to (source=FNS, registry_domain=EGRUL) and must never preserve or infer EGRIP authority from the EGRUL generation. The implementation branch cannot modify this authority manifest. No FTP credential provisioning, registration change, production run, migration, schema change, UI change, infrastructure change, coverage/finality claim, negative NOT_FOUND authority, or enforcement activation. General PC-CROP TЗ/DoD is unchanged."
 }
