@@ -145,6 +145,22 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     contain-intrinsic-size: none !important;
   }
 }
+@media (max-width: 1023px) {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > div {
+    min-width: 0 !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > b {
+    justify-self: start !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    text-align: left !important;
+  }
+}
 @media (max-width: 767px) {
   .pc-v7-public-entry {
     --entry-public-header-base: 48px;
