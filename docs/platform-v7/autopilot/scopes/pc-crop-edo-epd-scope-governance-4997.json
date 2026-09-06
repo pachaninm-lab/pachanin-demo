@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "staged",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "7f900c79326a8ac816324472f90995428842ac9d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review and immutable scope promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-edo-epd-scope-4997",
+  "purpose": "W6-C staged governance: provider-neutral EDO/EPD transport, receipt and conformance boundary around canonical document/signature authority.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-edo-epd-scope-governance-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-edo-epd-authority-4997.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "externalSuccessClaim": false,
+    "credentialOrSecretChange": false
+  }
+}
