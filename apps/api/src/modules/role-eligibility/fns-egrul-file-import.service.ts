@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { constants as fsConstants, type Dirent } from 'node:fs';
+import { constants as fsConstants, type Dirent, type Stats } from 'node:fs';
 import { lstat, open, readdir, realpath, type FileHandle } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import {
@@ -99,7 +99,45 @@ async function collectXmlFiles(
   }
 }
 
-async function readRegularFileNoFollow(path: string): Promise<Uint8Array> {
+async function verifyOpenedFileWithinRoot(
+  root: string,
+  path: string,
+  handle: FileHandle,
+  openedStat: Stats,
+): Promise<void> {
+  if (process.platform === 'linux') {
+    let openedPath: string;
+    try {
+      // O_NOFOLLOW protects only the final path component. Resolve the already-open
+      // descriptor so a parent-directory symlink swap between realpath() and open()
+      // cannot redirect validation outside the governed staging root.
+      openedPath = await realpath(`/proc/self/fd/${handle.fd}`);
+    } catch {
+      throw importError('FNS_EGRUL_IMPORT_OPEN_FILE_IDENTITY_UNAVAILABLE');
+    }
+    relativePosix(root, openedPath);
+    return;
+  }
+
+  // Portable fallback for non-production developer platforms. Re-resolve the
+  // path after opening and bind it to the opened inode/device. REG.RU production
+  // is Linux and therefore uses the descriptor-authoritative branch above.
+  let reopenedPath: string;
+  let currentStat: Stats;
+  try {
+    reopenedPath = await realpath(path);
+    relativePosix(root, reopenedPath);
+    currentStat = await lstat(reopenedPath);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'FnsEgrulFileImportError') throw error;
+    throw importError('FNS_EGRUL_IMPORT_OPEN_FILE_IDENTITY_UNAVAILABLE');
+  }
+  if (!currentStat.isFile() || currentStat.dev !== openedStat.dev || currentStat.ino !== openedStat.ino) {
+    throw importError('FNS_EGRUL_IMPORT_FILE_IDENTITY_DRIFT');
+  }
+}
+
+export async function readRegularFileNoFollow(root: string, path: string): Promise<Uint8Array> {
   const noFollow = typeof fsConstants.O_NOFOLLOW === 'number' ? fsConstants.O_NOFOLLOW : 0;
   let handle: FileHandle;
   try {
@@ -114,6 +152,7 @@ async function readRegularFileNoFollow(path: string): Promise<Uint8Array> {
     if (!Number.isSafeInteger(stat.size) || stat.size <= 0 || stat.size > MAX_XML_BYTES) {
       throw importError('FNS_EGRUL_IMPORT_FILE_SIZE_INVALID');
     }
+    await verifyOpenedFileWithinRoot(root, path, handle, stat);
     const body = await handle.readFile();
     if (body.byteLength !== stat.size) throw importError('FNS_EGRUL_IMPORT_FILE_SIZE_DRIFT');
     return new Uint8Array(body);
@@ -164,7 +203,7 @@ export class FnsEgrulFileImportService {
       });
       relativePosix(root, canonicalPath);
 
-      const bytes = await readRegularFileNoFollow(canonicalPath);
+      const bytes = await readRegularFileNoFollow(root, canonicalPath);
       const parsed = parseFnsEgrulXml(decodeFnsEgrulXml(bytes), format);
       if (!snapshotPublishedAt) snapshotPublishedAt = parsed.publishedAt;
       if (snapshotPublishedAt.getTime() !== parsed.publishedAt.getTime()) {
