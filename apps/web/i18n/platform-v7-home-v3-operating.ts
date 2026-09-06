@@ -2,7 +2,7 @@ import { getPlatformV7HomeCopy as getBaseHomeCopy } from './platform-v7-home-v3'
 
 const operatingCopy = {
   ru: {
-    nav: { connect: 'Зарегистрироваться', status: 'Доверие и контроль' },
+    nav: { connect: 'Начать', status: 'Доверие и контроль' },
     hero: {
       primary: 'Посмотреть, как работает Сделка',
       secondary: 'Зарегистрироваться',
