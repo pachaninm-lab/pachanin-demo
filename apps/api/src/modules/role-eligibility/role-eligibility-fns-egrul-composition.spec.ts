@@ -12,6 +12,7 @@ const targetPublishedAt = new Date('2026-09-05T00:00:00.000Z');
 const base = {
   id: BASE_ID,
   source: 'FNS',
+  registry_domain: 'EGRUL',
   status: 'ACTIVE',
   published_at: basePublishedAt,
   content_sha256: 'a'.repeat(64),
@@ -67,7 +68,7 @@ function createRepository(queryResponses: unknown[][], executeResults: number[] 
 }
 
 describe('FNS EGRUL baseline plus daily-delta composition', () => {
-  it('inherits the full active FNS generation into an empty newer staging generation', async () => {
+  it('inherits the full active FNS/EGRUL generation into an empty newer staging generation', async () => {
     const { repository, queryRaw, executeRaw } = createRepository([[target], [base]], [2, 1]);
 
     await expect(repository.inheritActiveBase(TARGET_ID)).resolves.toEqual({
@@ -77,7 +78,8 @@ describe('FNS EGRUL baseline plus daily-delta composition', () => {
     });
 
     expect(sqlText(queryRaw.mock.calls[0][0])).toContain('FOR UPDATE');
-    expect(sqlText(queryRaw.mock.calls[1][0])).toContain("source='FNS' AND status='ACTIVE'");
+    expect(sqlText(queryRaw.mock.calls[1][0])).toContain("source='FNS' AND registry_domain=");
+    expect(sqlText(queryRaw.mock.calls[1][0])).toContain("AND status='ACTIVE'");
     expect(sqlText(executeRaw.mock.calls[0][0])).toContain('INSERT INTO eligibility.registry_records');
     expect(sqlText(executeRaw.mock.calls[0][0])).toContain('FROM eligibility.registry_records AS r');
     expect(sqlText(executeRaw.mock.calls[1][0])).toContain('SET record_count=?');
@@ -108,6 +110,13 @@ describe('FNS EGRUL baseline plus daily-delta composition', () => {
     const notNewer = createRepository([[staleTarget], [base]]);
     await expect(notNewer.repository.inheritActiveBase(TARGET_ID))
       .rejects.toThrow('FNS_EGRUL_DELTA_NOT_NEWER_THAN_BASE');
+  });
+
+  it('rejects cross-domain FNS generations before composition', async () => {
+    const wrongDomain = { ...target, registry_domain: 'EGRIP' };
+    const { repository, executeRaw } = createRepository([[wrongDomain]]);
+    await expect(repository.inheritActiveBase(TARGET_ID)).rejects.toThrow('FNS_EGRUL_GENERATION_NOT_FOUND');
+    expect(executeRaw).not.toHaveBeenCalled();
   });
 
   it('replaces only matching OGRNs inside the staging target and keeps cardinality atomic', async () => {
