@@ -15,6 +15,8 @@ const trustContent = read('apps/web/app/trust/page.tsx');
 const trustRoute = read('apps/web/app/platform-v7/trust/page.tsx');
 const platformLayout = read('apps/web/app/platform-v7/layout.tsx');
 const publicSeoRegistry = read('apps/web/lib/platform-v7/public-seo-routes.json');
+const middleware = read('apps/web/middleware.ts');
+const i18nRequest = read('apps/web/i18n/request.ts');
 
 describe('platform-v7 international homepage completion', () => {
   it('keeps the existing alias but makes the wrapper a transparent delegator', () => {
@@ -81,6 +83,22 @@ describe('platform-v7 international homepage completion', () => {
     expect(page).not.toContain('font-size: 0');
     expect(css).not.toContain('content:');
     expect(css).not.toContain('font-size: 0');
+  });
+
+  it('binds homepage metadata to the same server-authoritative RU EN ZH locale as visible copy', () => {
+    expect(middleware).toContain("const queryLocale = req.nextUrl.searchParams.get('lang');");
+    expect(middleware).toContain("requestHeaders.set('x-pc-locale', requestLocale)");
+    expect(i18nRequest).toContain("const LOCALE_HEADER = 'x-pc-locale'");
+    expect(i18nRequest).toContain('const headerLocale = headerStore.get(LOCALE_HEADER);');
+    expect(page).toContain("import { getLocale } from 'next-intl/server';");
+    expect(page).toContain('export async function generateMetadata(): Promise<Metadata>');
+    expect(page).not.toContain('export const metadata: Metadata');
+    expect(page).toContain("title: 'Transparent Price — one system for managing an agricultural Deal'");
+    expect(page).toContain("title: '透明价格 — 农业交易统一管理系统'");
+    expect(page).toContain("locale: locale === 'en' ? 'en_US' : locale === 'zh' ? 'zh_CN' : 'ru_RU'");
+    expect(page).toContain("ru: '/platform-v7?lang=ru'");
+    expect(page).toContain("en: '/platform-v7?lang=en'");
+    expect(page).toContain("zh: '/platform-v7?lang=zh'");
   });
 
   it('does not recreate visitor copy or sections through compatibility CSS', () => {

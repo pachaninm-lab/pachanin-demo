@@ -1,5 +1,6 @@
 import '@/styles/platform-v7-strategic-home-v3.css';
 import type { Metadata } from 'next';
+import { getLocale } from 'next-intl/server';
 import { PlatformV7StrategicHome } from '@/components/platform-v7/PlatformV7StrategicHome';
 
 const CRITICAL_HOME_CSS = `
@@ -361,42 +362,87 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
 :lang(zh) .pc-v6-hero-title-accent { letter-spacing: 0; }
 `;
 
-export const metadata: Metadata = {
-  title: 'Прозрачная Цена — единая система управления агросделкой',
-  description: 'Условия, торги, поставка, качество, документы, расчёт и Гекта связаны в одной Сделке. Отклонения и споры подключаются только при необходимости.',
-  alternates: {
-    canonical: '/platform-v7',
-    languages: {
-      ru: '/platform-v7?lang=ru',
-      en: '/platform-v7?lang=en',
-      zh: '/platform-v7?lang=zh',
-    },
-  },
-  openGraph: {
-    type: 'website',
+type PublicHomeLocale = 'ru' | 'en' | 'zh';
+
+type PublicHomeMetadataCopy = Readonly<{
+  title: string;
+  description: string;
+  openGraphDescription: string;
+  twitterTitle: string;
+  twitterDescription: string;
+}>;
+
+const HOME_METADATA: Record<PublicHomeLocale, PublicHomeMetadataCopy> = {
+  ru: {
     title: 'Прозрачная Цена — единая система управления агросделкой',
-    description: 'Одна агросделка от условий и выбора контрагента до поставки, качества, документов, расчёта и закрытия. Отклонение или спор — отдельная ветка, когда она действительно нужна.',
-    url: '/platform-v7',
-    siteName: 'Прозрачная Цена',
-    locale: 'ru_RU',
+    description: 'Условия, торги, поставка, качество, документы, расчёт и Гекта связаны в одной Сделке. Отклонения и споры подключаются только при необходимости.',
+    openGraphDescription: 'Одна агросделка от условий и выбора контрагента до поставки, качества, документов, расчёта и закрытия. Отклонение или спор — отдельная ветка, когда она действительно нужна.',
+    twitterTitle: 'Прозрачная Цена — управление агросделкой от цены до расчёта',
+    twitterDescription: 'Единая система управления агросделкой с аграрным интеллектом Гекта: от условий и поставки до документов, расчёта и закрытия.',
   },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Прозрачная Цена — управление агросделкой от цены до расчёта',
-    description: 'Единая система управления агросделкой с аграрным интеллектом Гекта: от условий и поставки до документов, расчёта и закрытия.',
+  en: {
+    title: 'Transparent Price — one system for managing an agricultural Deal',
+    description: 'Terms, trading, delivery, quality, documents, settlement and Gekta are connected in one Deal. Deviations and disputes appear only when needed.',
+    openGraphDescription: 'One crop-trade Deal from terms and counterparty selection through delivery, quality, documents, settlement and closure. Deviations and disputes stay separate exception branches.',
+    twitterTitle: 'Transparent Price — agricultural Deal management from terms to settlement',
+    twitterDescription: 'One agricultural Deal with Gekta intelligence: terms, delivery, documents, settlement and closure in one verifiable flow.',
   },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-      'max-video-preview': -1,
-    },
+  zh: {
+    title: '透明价格 — 农业交易统一管理系统',
+    description: '条件、交易、交付、质量、文件、结算与 Gekta 连接在同一笔交易中；只有在需要时才进入偏差或争议流程。',
+    openGraphDescription: '一笔种植业交易从条件和交易方选择，到交付、质量、文件、结算与关闭；偏差和争议仅作为需要时启用的例外分支。',
+    twitterTitle: '透明价格 — 从条件到结算的农业交易管理',
+    twitterDescription: '一笔农业交易与 Gekta 智能层贯穿条件、交付、文件、结算与关闭，形成可核验流程。',
   },
 };
+
+function homeMetadataLocale(value: string): PublicHomeLocale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = homeMetadataLocale(await getLocale());
+  const copy = HOME_METADATA[locale];
+
+  return {
+    title: copy.title,
+    description: copy.description,
+    alternates: {
+      canonical: '/platform-v7',
+      languages: {
+        ru: '/platform-v7?lang=ru',
+        en: '/platform-v7?lang=en',
+        zh: '/platform-v7?lang=zh',
+      },
+    },
+    openGraph: {
+      type: 'website',
+      title: copy.title,
+      description: copy.openGraphDescription,
+      url: '/platform-v7',
+      siteName: 'Прозрачная Цена',
+      locale: locale === 'en' ? 'en_US' : locale === 'zh' ? 'zh_CN' : 'ru_RU',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: copy.twitterTitle,
+      description: copy.twitterDescription,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
+    },
+  };
+}
 
 export default async function PlatformV7RootPage() {
   const home = await PlatformV7StrategicHome();
