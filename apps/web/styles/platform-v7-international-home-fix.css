@@ -19,6 +19,18 @@
   display: none !important;
 }
 
+/* The Deal path is the canonical seven-step story. Do not gate steps 4–7 behind
+ * a disclosure control: desktop scroll pacing and mobile document order must both
+ * expose the complete story without an extra interaction. */
+.pc-v7-public-entry #deal-path #phases-more-toggle,
+.pc-v7-public-entry #deal-path label[for='phases-more-toggle'] {
+  display: none !important;
+}
+
+.pc-v7-public-entry #deal-path #phases-more-cards {
+  display: contents !important;
+}
+
 /* Anchors follow the shared fixed-header authority instead of a route-specific
  * guessed height. */
 .pc-v7-public-entry :where(
@@ -164,8 +176,8 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  /* Mobile keeps the story linear. No sticky card stacking: each step is read
-   * in document order and remains independently understandable. */
+  /* Mobile keeps the story linear. No sticky card stacking: every one of the
+   * seven steps is read in document order and remains independently clear. */
   .pc-v7-public-entry #deal-path article {
     position: relative !important;
     top: auto !important;
