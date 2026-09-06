@@ -137,7 +137,10 @@ export class RoleEligibilityFnsRegistryCoverageService {
             OR s.baseline_coverage IS DISTINCT FROM TRUE
             OR s.update_continuity IS DISTINCT FROM TRUE
             OR s.effective_cutoff IS NULL
-            OR s.effective_cutoff > ${decisionAt}
+            -- A corpus finalized only through an earlier cutoff cannot prove
+            -- non-existence at a later decision time. No locally guessed lag is
+            -- allowed to bridge this gap.
+            OR s.effective_cutoff < ${decisionAt}
             OR s.continuity_policy_version IS NULL
             OR s.continuity_policy_hash IS NULL
             THEN 'COVERAGE_NOT_PROVEN'
@@ -149,7 +152,7 @@ export class RoleEligibilityFnsRegistryCoverageService {
         END::text AS state,
         s.generation_id,
         s.generation,
-        COALESCE(s.authority_token,s.content_sha256) AS authority_token,
+        s.authority_token,
         COALESCE(m.matched_records,0)::bigint AS matched_records,
         COALESCE(m.matched_ogrns,0)::bigint AS matched_ogrns
       FROM (SELECT 1) AS anchor
