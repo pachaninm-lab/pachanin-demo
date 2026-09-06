@@ -204,7 +204,7 @@ export type RegistryGeneration = {
   recordCount: bigint;
   parserVersion: string;
   schemaVersion: string;
-  status: 'STAGING' | 'VALIDATED' | 'ACTIVE' | 'SUPERSEDED' | 'REJECTED';
+  status: 'STAGING' | 'VALIDATED' | 'ACTIVE' | 'REJECTED';
   freshUntil: Date;
 };
 
