@@ -40,7 +40,15 @@ const GENERATED_RE = /(^|\/)(dist|build|generated|coverage|\.next|out)(\/|$)/iu;
 const LOCKFILE_RE = /(^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock|poetry\.lock|Pipfile\.lock|uv\.lock)$/u;
 const IP_CONTROL_RE = /^(LICENSE|LICENSE-PROPRIETARY\.md|NOTICE|COPYRIGHT|IP_POLICY\.md|OPEN_SOURCE_POLICY\.md|CONTRIBUTOR_IP_POLICY\.md|THIRD_PARTY_NOTICES\.md|docs\/ip\/|scripts\/ip\/)/u;
 /** Материалы, сгенерированные сборкой и закоммиченные как данные. */
-const GENERATED_DATA_RE = /(^|\/)(presentation-pdf\/part-\d+\.ts|.*\.generated\.(ts|js|json))$/u;
+// Two independent anchored matches, not one alternation behind `(^|\/)`.
+//
+// The previous form was `/(^|\/)(presentation-pdf\/part-\d+\.ts|.*\.generated\.(ts|js|json))$/`,
+// and the `(^|\/)` prefix in front of `.*` made it quadratic in the number of
+// path separators: the engine retried from every `/` and rescanned to the end
+// each time. Measured on a path of repeated separators: 1.4 ms at 1 000,
+// 5.6 ms at 2 000, 22.3 ms at 4 000 - four times the work per doubling. Paths
+// come from `git ls-files`, so this script does not control their shape.
+const GENERATED_DATA_RE = /(?:^|\/)presentation-pdf\/part-\d+\.ts$|\.generated\.(?:ts|js|json)$/u;
 
 function codeClass(path) {
   if (VENDOR_RE.test(path)) return 'THIRD_PARTY_VENDORED';
