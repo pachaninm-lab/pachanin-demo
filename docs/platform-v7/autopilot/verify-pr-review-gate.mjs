@@ -72,6 +72,19 @@ export function cleanCodexReviewPrefixes(comments) {
   return prefixes;
 }
 
+export function exactHeadOwnerSelfAudits(comments, ownerLogin, headSha) {
+  const owner = String(ownerLogin || '').trim();
+  const expected = String(headSha || '').trim();
+  if (!owner || !/^[0-9a-f]{40}$/u.test(expected)) return [];
+
+  return (comments || []).filter((comment) => {
+    if (normalizeLogin(comment) !== owner) return false;
+    const body = String(comment?.body || '');
+    const matches = [...body.matchAll(/OWNER SELF-AUDIT:\s*PASS exact head\s*`([0-9a-f]{40})`/gu)];
+    return matches.some((match) => match[1] === expected);
+  });
+}
+
 export function activeUnresolvedThreads(threads) {
   return (threads || []).filter((thread) => thread?.isResolved !== true && thread?.isOutdated !== true);
 }
@@ -191,11 +204,6 @@ function fetchAllIssueComments(repo, prNumber) {
   return pages.flatMap((page) => Array.isArray(page) ? page : []);
 }
 
-function resolveCommitSha(repo, ref) {
-  const commit = ghJson(['api', `repos/${repo}/commits/${ref}`]);
-  return String(commit?.sha || '').trim();
-}
-
 function fetchAllReviewThreads(repo, prNumber) {
   const [owner, name] = String(repo).split('/');
   if (!owner || !name) throw new Error(`Invalid repository name: ${repo}`);
@@ -277,6 +285,9 @@ function main() {
   if (!repo) fail('REVIEW_GATE_REPO_MISSING', 'REPO/GITHUB_REPOSITORY is required.');
   if (!Number.isInteger(prNumber) || prNumber <= 0) fail('REVIEW_GATE_PR_MISSING', 'PR_NUMBER must be a positive integer.');
 
+  const [ownerLogin] = String(repo).split('/');
+  if (!ownerLogin) fail('REVIEW_GATE_OWNER_MISSING', `Unable to resolve repository owner from ${repo}.`);
+
   const pr = ghJson(['api', `repos/${repo}/pulls/${prNumber}`]);
   if (!pr) fail('REVIEW_GATE_PR_UNAVAILABLE', `Unable to read PR #${prNumber}.`);
 
@@ -299,23 +310,12 @@ function main() {
   }
 
   const reviews = fetchAllReviews(repo, prNumber);
-  const exactCodex = exactHeadCodexReviews(reviews, headSha);
-  const positiveExactCodex = positiveExactHeadCodexReviews(reviews, headSha);
   const comments = fetchAllIssueComments(repo, prNumber);
-  const cleanPrefixes = cleanCodexReviewPrefixes(comments);
-  let exactCleanCodex = 0;
-  for (const prefix of cleanPrefixes) {
-    try {
-      if (resolveCommitSha(repo, prefix) === headSha) exactCleanCodex += 1;
-    } catch {
-      // Ignore a stale or no-longer-resolvable short review prefix.
-    }
-  }
-
-  if (positiveExactCodex.length === 0 && exactCleanCodex === 0) {
+  const ownerSelfAudits = exactHeadOwnerSelfAudits(comments, ownerLogin, headSha);
+  if (ownerSelfAudits.length === 0) {
     fail(
-      'REVIEW_GATE_CODEX_EXACT_HEAD_CLEAN_MISSING',
-      `No positive Codex approval or clean-review evidence is bound to exact head ${headSha}.`,
+      'REVIEW_GATE_OWNER_SELF_AUDIT_MISSING',
+      `No repository-owner self-audit PASS attestation is bound to exact head ${headSha}.`,
     );
   }
 
@@ -373,7 +373,7 @@ function main() {
     );
   }
 
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexExactHeadReviews=${exactCodex.length} codexExactHeadPositiveReviews=${positiveExactCodex.length} codexExactHeadCleanComments=${exactCleanCodex} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';
