@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.dod-baseline.v1",
   "issue": 4997,
   "observedAt": "2026-09-05",
-  "exactMainBaseline": "824a073cad569532c2be21603a143e679508a301",
+  "exactMainBaseline": "3928fa44d7145879e3739eff7df954592ad3012f",
   "specificationSha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
   "statusVocabulary": [
     "PASS",
@@ -23,7 +23,7 @@
     "rounding": "DOWN_TO_ONE_DECIMAL"
   },
   "criteria": [
-    {"criterion": "REGISTRATION_REGRESSION=0", "status": "PASS", "gapRefs": ["CORE-01"], "evidence": ["config/eligibility/registration-protected-manifest.json", "docs/platform-v7/autopilot/scopes/pc-crop-organization-capability-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json"], "note": "W1 implementations preserve the registration boundary. Profile CI and protected-manifest checks re-prove this invariant per head; unrelated Role Eligibility changes are not attributed to this programme."},
+    {"criterion": "REGISTRATION_REGRESSION=0", "status": "PASS", "gapRefs": ["CORE-01"], "evidence": ["config/eligibility/registration-protected-manifest.json", "docs/platform-v7/autopilot/scopes/pc-crop-organization-capability-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json"], "note": "W1/W2 implementations preserve the registration boundary. Profile CI and protected-manifest checks re-prove this invariant per head; unrelated Role Eligibility changes are not attributed to this programme."},
     {"criterion": "SERVER_AUTHORITATIVE=PASS", "status": "PARTIAL", "gapRefs": ["CORE-02", "CFG-02", "PHY-03", "RISK-03"]},
     {"criterion": "POSTGRESQL_AUTHORITY=PASS", "status": "PARTIAL", "gapRefs": ["CORE-02", "MKT-05", "PHY-03", "FIN-01", "RISK-03"]},
     {"criterion": "TENANT_ISOLATION=PASS", "status": "PARTIAL", "gapRefs": ["CORE-02", "PHY-03", "SEC-01"]},
@@ -35,10 +35,10 @@
     {"criterion": "OFFER_NEGOTIATION=PASS", "status": "FAIL", "gapRefs": ["MKT-03"]},
     {"criterion": "NETBACK=PASS", "status": "FAIL", "gapRefs": ["MKT-04"]},
     {"criterion": "LANDED_COST=PASS", "status": "FAIL", "gapRefs": ["MKT-04"]},
-    {"criterion":"INVENTORY=PASS","status":"PARTIAL","gapRefs":["MKT-01"],"evidence":["apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql","apps/api/src/modules/inventory/inventory.repository.ts","apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts"],"note":"W2-A merged in #5029. Pinned exact quantities, batch/position identities, snapshots, command evidence and reserve/release passed 15/15 PostgreSQL plus restore. Genealogy, custody/title restrictions, all lifecycle commands, product consumers and REG.RU acceptance remain outstanding. Zero terminal credit."},
-    {"criterion":"DOUBLE_SELL_PROTECTION=PASS","status":"PARTIAL","gapRefs":["MKT-01"],"evidence":["apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql","apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts"],"note":"W2-A proves contention at READ COMMITTED across two known lots sharing one inventory position. Existing Lot/Offer/Deal writers still do not require inventory consumption. Unknown duplicate manual descriptions are not detected. Zero terminal credit."},
-    {"criterion": "PROGRESSIVE_TRUST=PASS", "status": "FAIL", "gapRefs": ["MKT-02"]},
-    {"criterion": "UNVERIFIED_TRADING=PASS", "status": "FAIL", "gapRefs": ["MKT-02"]},
+    {"criterion":"INVENTORY=PASS","status":"PARTIAL","gapRefs":["MKT-01"],"evidence":["apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql","apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql","apps/api/src/modules/inventory/inventory.repository.ts","apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts","apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts"],"note":"W2-A/#5029 established canonical exact Inventory reservation authority. W2-B/#5040 makes new Auction registration consume that authority atomically and pins the stock/profile/quantity binding. Canonical Deal/Offer consumption, full lifecycle, genealogy/custody/title restrictions, UX and REG.RU acceptance remain outstanding. Zero terminal credit."},
+    {"criterion":"DOUBLE_SELL_PROTECTION=PASS","status":"PARTIAL","gapRefs":["MKT-01"],"evidence":["apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql","apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql","apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts","apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts"],"note":"W2-A proves READ COMMITTED contention across lots sharing one known physical position; W2-B requires the canonical reservation for every new Auction lot and protects the bound reservation from old release/reuse paths. Canonical Deal and later Offer/RFQ consumption plus unknown duplicate manual identity remain open. Zero terminal credit."},
+    {"criterion": "PROGRESSIVE_TRUST=PASS", "status": "PARTIAL", "gapRefs": ["MKT-02"], "evidence": ["apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql", "apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts"], "note": "W2-B separates the new Auction lot's DECLARED verification status and PUBLIC_ALLOWED trade permission from independent verification and keeps source_verified_at null. Fact-level EXISTENCE/QUANTITY/QUALITY/LOCATION/CUSTODY/OWNERSHIP/REGULATORY axes, freshness/conflicts and complete downstream policy remain outstanding."},
+    {"criterion": "UNVERIFIED_TRADING=PASS", "status": "PARTIAL", "gapRefs": ["MKT-02"], "evidence": ["apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql", "apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts"], "note": "New inventory-bound Auction supply can be DECLARED plus PUBLIC_ALLOWED without fabricating independent evidence. Canonical Deal progression, risk acknowledgement, later Offer/RFQ paths, legal/regulatory blockers and user-facing warnings are not terminally accepted."},
     {"criterion": "RISK_ACKNOWLEDGEMENT=PASS", "status": "FAIL", "gapRefs": ["MKT-02"]},
     {"criterion": "VERIFICATION_MARKETPLACE=PASS", "status": "PARTIAL", "gapRefs": ["PHY-01", "CFG-05"]},
     {"criterion": "LAB_VERIFICATION=PASS", "status": "PARTIAL", "gapRefs": ["PHY-01"]},
@@ -148,6 +148,6 @@
     {"criterion": "USER_REALITY_PASS=PASS", "status": "FAIL", "gapRefs": ["ACCEPT-01"]},
     {"criterion": "PRIMARY_TASK_WITHOUT_SUPPORT=PASS", "status": "FAIL", "gapRefs": ["UX-01", "ACCEPT-01"]},
     {"criterion": "PRODUCTION_MOCK_EVIDENCE=0", "status": "FAIL", "gapRefs": ["CFG-02", "UX-02", "GOV-01", "OPS-01"]},
-    {"criterion": "MANDATORY_NEW_PAID_DEPENDENCIES=0", "status": "PASS", "gapRefs": [], "evidence": ["docs/platform-v7/autopilot/scopes/pc-crop-organization-capability-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-provider-registry-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json"], "note": "W1-A/B/C and the current W1-D diff introduce no mandatory paid dependency or package/lockfile change."}
+    {"criterion": "MANDATORY_NEW_PAID_DEPENDENCIES=0", "status": "PASS", "gapRefs": [], "evidence": ["docs/platform-v7/autopilot/scopes/pc-crop-organization-capability-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-provider-registry-authority-4997.json", "docs/platform-v7/autopilot/scopes/pc-crop-integration-binding-authority-4997.json", "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql"], "note": "Accepted W1/W2 slices through W2-B introduce no mandatory paid dependency or package/lockfile change."}
   ]
 }
