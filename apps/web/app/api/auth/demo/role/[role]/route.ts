@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { safeInternalPath } from '@/lib/safe-internal-path';
 import {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
@@ -38,8 +39,9 @@ const ROLE_TARGETS: Record<string, DemoTarget> = {
 };
 
 function sanitizeDestination(raw: string | null | undefined, fallback: string): string {
-  if (!raw) return fallback;
-  return raw.startsWith('/') ? raw : fallback;
+  // `startsWith('/')` пропускал '//evil.com', '////evil.com' и '/\\evil.com':
+  // все три начинаются со слэша и все три разрешаются на чужой хост.
+  return safeInternalPath(raw, fallback);
 }
 
 export async function GET(

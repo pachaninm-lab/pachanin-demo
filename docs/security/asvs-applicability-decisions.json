@@ -2019,6 +2019,41 @@
       "note": "The application is built entirely on React/Next.js/TypeScript. A scan for every legacy plugin technology this requirement names (ActiveX, Shockwave, Silverlight, NSAPI/NPAPI, Java applets) across the web app returns zero matches."
     },
     {
+      "requirementId": "V3.7.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/safe-internal-path.ts",
+        "apps/web/tests/unit/safeInternalPath.test.ts",
+        "no-external-redirect-target:apps/web/app"
+      ],
+      "conditions": [
+        {
+          "condition": "the redirect guard rejects by resolving the value and requiring the origin to be unchanged, rather than by inspecting its first character",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/safe-internal-path.ts"
+          ],
+          "patterns": [
+            "resolved.origin !== probe",
+            "protocol_relative"
+          ]
+        },
+        {
+          "condition": "no route or page still decides a redirect destination with the bypassable first-character check",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/app"
+          ],
+          "patterns": [
+            "startswith('/') ?",
+            "startswith(\"/\") ?"
+          ]
+        }
+      ],
+      "note": "The requirement asks that automatic redirects to a hostname the application does not control happen only against an allowlist. Measured, the application never redirects to another hostname at all: every redirect target under apps/web/app is an internal path, and a search for a redirect to an absolute http or https URL returns nothing. That is stronger than an allowlist, because there is no external destination to allow. What was found and fixed rather than documented as latent: four places decided an internal destination with value.startsWith(\"/\"), which is not the check it looks like. Resolved against the real application origin, //evil.com, ////evil.com and /\\evil.com all begin with a slash and all resolve to https://evil.com - a protocol-relative address, and the backslash form which the URL parser normalises to a forward slash. Reaching them was not possible in production: /api/auth/demo and its role and instant variants answer 503 through demoLoginAllowed, and on the login page the value must equal one of ten hard-coded /canon paths before it is used, so returnTo never reaches a redirect. The defect was therefore latent rather than live, and it is stated that way rather than inflated into a live open redirect. It is fixed anyway because a bypassable guard sitting in four places is a pattern waiting to be copied into a fifth that is not gated. safeInternalPath decides structurally - it resolves the value against a probe origin and requires the origin to come back unchanged - so forms nobody has thought of are rejected too, not only the three that were measured. Twelve tests cover it, including a case that repeats the parameter, and one that reproduces the old check to show it really did let all three through."
+    },
+    {
       "requirementId": "V4.1.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
