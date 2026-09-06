@@ -104,6 +104,13 @@ test('rejects short or malformed clean-review commit prefixes', () => {
   assert.deepEqual(cleanCodexReviewPrefixes(comments), []);
 });
 
+test('clean-review SHA resolution cannot rebind an old prefix through a branch or tag alias', () => {
+  const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
+
+  assert.ok(verifier.includes("if (!/^[0-9a-f]{10,40}$/u.test(prefix)) return '';"));
+  assert.ok(verifier.includes("return /^[0-9a-f]{40}$/u.test(sha) && sha.startsWith(prefix) ? sha : '';"));
+});
+
 test('owner self-audit authority is exact-head and exact-owner only', () => {
   const owner = 'pachaninm-lab';
   const comments = [
