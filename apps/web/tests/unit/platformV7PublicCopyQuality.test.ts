@@ -26,18 +26,25 @@ const changedPublicFiles = [
   'apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx',
   'apps/web/components/platform-v7/PrivacyPortalPanel.tsx',
   'apps/web/components/platform-v7/PublicDealRoleScenario.tsx',
+  'apps/web/i18n/platform-v7-home-story.ts',
   'apps/web/i18n/platform-v7-home-story-product.ts',
+  'apps/web/i18n/platform-v7-home-story-operating.ts',
   'apps/web/i18n/platform-v7-home-v3-operating.ts',
+  'apps/web/i18n/platform-v7-accounting-value.ts',
   'apps/web/i18n/platform-v7-organization-connect-operating.ts',
+  'apps/web/i18n/public-product-entry-variants.ts',
   'apps/web/i18n/public-product-experience-v3.ts',
   'apps/web/i18n/public-product-experience-v4.ts',
   'apps/web/i18n/public-deal-journey-v5.ts',
 ].map((file) => [file, read(file)] as const);
 
 const aiExperience = read('apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx');
+const baseStory = read('apps/web/i18n/platform-v7-home-story.ts');
 const detailedCopy = read('apps/web/i18n/public-product-experience-v3.ts');
 const sharedCopy = read('apps/web/i18n/public-product-experience-v4.ts');
 const journeyCopy = read('apps/web/i18n/public-deal-journey-v5.ts');
+const entryCopy = read('apps/web/i18n/public-product-entry-variants.ts');
+const accountingCopy = read('apps/web/i18n/platform-v7-accounting-value.ts');
 
 const legacyBanned = [
   'controlled pilot',
@@ -80,6 +87,16 @@ const statusPresentationBanned = [
   'только подтверждаемые статусы',
   'only verifiable statuses',
   '只展示可核验状态',
+  'статусы интеграций',
+  'integration statuses',
+  '集成状态',
+  'публичный статус',
+  'public status',
+  '公开状态',
+  'active connection',
+  'verified statuses',
+  'settlement-ground status',
+  'unconfirmed route',
   "href: '/platform-v7/status'",
 ];
 
@@ -100,11 +117,18 @@ describe('platform-v7 public copy quality', () => {
     }
   });
 
-  it('keeps the three public Deal copy layers free of visitor-facing readiness and system-status marketing', () => {
-    const publicDealCopy = `${detailedCopy}\n${sharedCopy}\n${journeyCopy}`.toLowerCase();
+  it('keeps every live Deal copy owner free of visitor-facing readiness and system-status marketing', () => {
+    const publicDealCopy = [baseStory, detailedCopy, sharedCopy, journeyCopy, entryCopy, accountingCopy].join('\n').toLowerCase();
     for (const phrase of statusPresentationBanned) {
       expect(publicDealCopy, `public Deal copy must not contain ${phrase}`).not.toContain(phrase.toLowerCase());
     }
+
+    expect(baseStory).toContain("settlementLabel: 'Основание расчёта'");
+    expect(baseStory).toContain("settlementLabel: 'Settlement basis'");
+    expect(baseStory).toContain("settlementLabel: '结算依据'");
+    expect(baseStory).toContain("metrics: [{ value: '9'");
+    expect(baseStory).toContain("{ value: '7', label: 'понятных шагов публичного пути' }");
+    expect(baseStory).not.toContain("ladder: ['Реализовано', 'Проверено', 'Интегрировано', 'Подключено'");
 
     expect(detailedCopy).toContain("statusLabel: 'Контекст этапа'");
     expect(detailedCopy).toContain("statusLabel: 'Stage context'");
@@ -113,6 +137,8 @@ describe('platform-v7 public copy quality', () => {
     expect(journeyCopy).toContain("settle: { label: 'Проверить основания расчёта'");
     expect(journeyCopy).toContain("settle: { label: 'Review settlement grounds'");
     expect(journeyCopy).toContain("settle: { label: '检查结算依据'");
+    expect(entryCopy).toContain('Товар, условия, поставка, документы и основания расчёта.');
+    expect(accountingCopy).toContain('Маршрут обмена определяется для конкретной организации');
   });
 
   it('keeps About and Contact chrome source-owned, understandable and registration-first', () => {
