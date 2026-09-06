@@ -25,6 +25,9 @@ WHERE registry_domain IS NULL;
 
 ALTER TABLE eligibility.registry_generations
   ALTER COLUMN registry_domain SET NOT NULL,
+  DROP CONSTRAINT IF EXISTS registry_generations_status_check,
+  ADD CONSTRAINT registry_generations_status_check
+    CHECK (status IN ('STAGING','VALIDATED','ACTIVE','SUPERSEDED','REJECTED')),
   ADD CONSTRAINT registry_generations_registry_domain_check
     CHECK (registry_domain IN ('EGRUL','EGRIP','CBR','FGIS_GRAIN','ROSACCREDITATION','UNKNOWN')),
   ADD CONSTRAINT registry_generations_source_domain_check
@@ -230,12 +233,13 @@ BEGIN
   IF target_status NOT IN ('VALIDATED','ACTIVE') THEN
     RAISE EXCEPTION 'generation must be validated before activation';
   END IF;
-  -- Preserve the pre-existing lifecycle contract: the displaced generation stays
-  -- VALIDATED/readable. Immutable predecessor lineage is recorded separately in
-  -- registry_generation_authority; inventing a new runtime status would break
-  -- established import/load consumers without strengthening authority semantics.
+  -- FNS keeps an explicit retired lifecycle state for domain-lineage clarity.
+  -- Existing non-FNS consumers retain the established ACTIVE -> VALIDATED switch.
   UPDATE eligibility.registry_generations
-  SET status = 'VALIDATED'
+  SET status = CASE
+    WHEN p_source = 'FNS' AND p_registry_domain IN ('EGRUL','EGRIP') THEN 'SUPERSEDED'
+    ELSE 'VALIDATED'
+  END
   WHERE source = p_source AND registry_domain = p_registry_domain AND status = 'ACTIVE' AND id <> target_id;
   UPDATE eligibility.registry_generations
   SET status = 'ACTIVE', activated_at = COALESCE(activated_at, clock_timestamp())
