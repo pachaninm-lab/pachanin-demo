@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4616,
+  "branch": "marketing/publication-admission-authority-4616",
+  "status": "active",
+  "purpose": "Close the autonomous social publication cadence bypass by making authenticated PostgreSQL OutboxEntry history, a transaction-scoped per-channel advisory lock and a signed marketing.publication-admission.v1 envelope the only durable admission authority.",
+  "authorityBaseExactMain": "dcbd754eab88b54cb2b055ba58c009285b3cf2b7",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/marketing-social-growth.yml",
+    "apps/api/src/marketing-outbox-worker.module.ts",
+    "apps/api/src/marketing-outbox-worker.ts",
+    "apps/api/src/modules/marketing/marketing-outbox-dispatch.handler.ts",
+    "apps/api/src/modules/marketing/marketing-outbox.contract.spec.ts",
+    "apps/api/src/modules/marketing/marketing-outbox.contract.ts",
+    "apps/api/src/modules/marketing/marketing-outbox.service.spec.ts",
+    "apps/api/src/modules/marketing/marketing-outbox.service.ts",
+    "apps/api/src/modules/marketing/marketing-policy.service.spec.ts",
+    "apps/api/src/modules/marketing/marketing-policy.service.ts",
+    "apps/api/src/modules/marketing/marketing-publication-admission.spec.ts",
+    "apps/api/src/modules/marketing/marketing-publication-admission.ts",
+    "apps/api/src/modules/marketing/marketing-publisher.service.spec.ts",
+    "apps/api/src/modules/marketing/marketing-publisher.service.ts",
+    "apps/api/src/modules/marketing/marketing.module.ts",
+    "apps/api/src/modules/marketing/marketing.types.ts",
+    "docs/platform-v7/autopilot/scopes/marketing-publication-admission-authority-4616.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "requiredInvariants": [
+    "Caller input cannot provide authoritative cadence history or authoritative now; only channel, editorial slot, content, idempotency and policy inputs are accepted.",
+    "The admission service loads bounded 30-day cadence history only from authenticated MARKETING_SOCIAL_PUBLISH_V2 PostgreSQL OutboxEntry rows in PENDING, PROCESSING, SENT or CONFIRMED state.",
+    "Pending and processing rows reserve a slot by createdAt; delivered rows consume a slot by sentAt; malformed, forged or unbound V2 history rows fail closed.",
+    "Admission decision, signed envelope creation and OutboxEntry insertion run in one Serializable Prisma transaction under a parameterized transaction-scoped PostgreSQL advisory lock per channel.",
+    "The deterministic planNextMarketingContent function remains the only cadence decision implementation.",
+    "Exact idempotent replay is accepted; reuse of an idempotency key for a different canonical command is refused.",
+    "MARKETING_PUBLICATION_ADMISSION_HMAC_SECRET must be present and strong before admission, enqueue or outbound worker dispatch can proceed.",
+    "The worker verifies HMAC, expiry, canonical request shape, content digest, command digest, authority digest and outbox idempotency binding, then reruns MarketingPolicyService before connector dispatch.",
+    "No raw MARKETING_SOCIAL_PUBLISH_V1 enqueue path remains callable.",
+    "No production, REG.RU, DNS, credentials, social-account, paid-mode or outbound mutation is authorized.",
+    "New recurring spend remains 0 RUB."
+  ],
+  "acceptance": [
+    "Focused admission tests prove caller history and now rejection, PENDING reservation, SENT sentAt semantics, forged history rejection, cross-channel isolation, bounded history, advisory lock plus Serializable transaction use, exact replay, conflicting replay refusal and serialized empty-history reservations.",
+    "Focused policy and enqueue tests prove invalid INN, invalid ERID and missing evidence block before cadence reservation.",
+    "Focused publisher tests prove forged, expired and wrong-idempotency admissions are rejected before connector invocation.",
+    "The immutable marketing social growth workflow runs all new focused admission and anti-bypass tests.",
+    "API typecheck, web typecheck, isolated marketing worker build, marketing Jest tests, web attribution and intake tests, security tests, IP tests, action pinning and cryptographic inventory discovery are required gates.",
+    "Generated cryptographic inventory artifacts are refreshed from the exact authority base and remain derived evidence only."
+  ]
+}
