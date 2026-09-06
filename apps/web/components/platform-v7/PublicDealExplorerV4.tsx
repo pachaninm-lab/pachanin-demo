@@ -33,6 +33,54 @@ type JourneyMode = 'quick' | 'detailed';
 type JourneyIntentSelection = DealJourneyIntent | 'other';
 type MobileSelectionEvent = 'perspective_selected' | 'scenario_selected';
 
+const PUBLIC_PRESENTATION = {
+  ru: {
+    contextLabel: 'Контекст этапа',
+    context: 'Факты · основания · следующий шаг',
+    noBlocker: 'Блокирующее основание отсутствует',
+    logisticsAction: 'Подтвердить события рейса и относящиеся к нему основания.',
+    documentsNext: 'Проверяются основания для расчёта.',
+    sellerValue: 'Видит товар, поставку, документы и основания расчёта.',
+    sellerOutcome: 'Подтверждённое исполнение и понятное основание расчёта.',
+    elevatorValue: 'Фиксирует прибытие, вес, приёмку, размещение и факты по партии.',
+    elevatorDocuments: 'Рейс, весовые данные, акт приёмки и факты по партии.',
+    operatorDocuments: 'События, основания, версии документов и решения.',
+    qualityDeviationBlocked: 'Финансовое действие до подтверждения основания.',
+    missingDocumentBlocked: 'Финансовое действие до комплекта оснований.',
+    documentContexts: ['Основание приёмки', 'Основание качества', 'Основание расчёта'],
+  },
+  en: {
+    contextLabel: 'Stage context',
+    context: 'Facts · grounds · next action',
+    noBlocker: 'No blocking ground',
+    logisticsAction: 'Confirm trip events and their supporting grounds.',
+    documentsNext: 'Settlement grounds are checked.',
+    sellerValue: 'Sees product, delivery, documents and settlement grounds.',
+    sellerOutcome: 'Confirmed execution and a clear settlement basis.',
+    elevatorValue: 'Records arrival, weight, acceptance, placement and lot facts.',
+    elevatorDocuments: 'Trip, weight data, acceptance act and lot facts.',
+    operatorDocuments: 'Events, grounds, document versions and decisions.',
+    qualityDeviationBlocked: 'Financial action before the relevant grounds are confirmed.',
+    missingDocumentBlocked: 'Financial action before the required grounds are complete.',
+    documentContexts: ['Acceptance ground', 'Quality ground', 'Settlement ground'],
+  },
+  zh: {
+    contextLabel: '阶段上下文',
+    context: '事实 · 依据 · 下一步',
+    noBlocker: '不存在阻塞依据',
+    logisticsAction: '确认运输事件及其相关依据。',
+    documentsNext: '核对结算依据。',
+    sellerValue: '查看商品、交付、文件和结算依据。',
+    sellerOutcome: '履约事实已确认，结算依据清晰。',
+    elevatorValue: '记录到达、重量、验收、存放和批次事实。',
+    elevatorDocuments: '运输任务、称重数据、验收记录和批次事实。',
+    operatorDocuments: '事件、依据、文件版本和决定。',
+    qualityDeviationBlocked: '相关依据确认前不进入金融操作。',
+    missingDocumentBlocked: '所需依据完整前不进入金融操作。',
+    documentContexts: ['验收依据', '质量依据', '结算依据'],
+  },
+} as const;
+
 const ACTIVE_PERSPECTIVES_BY_STAGE: Record<TourStage, readonly TourPerspective[]> = {
   terms: ['seller', 'buyer'],
   admission: ['compliance', 'operator'],
@@ -93,6 +141,7 @@ export function PublicDealExplorerV4({ copy, locale, initialState }: {
   const ui = getPublicProductExperienceV4Copy(locale);
   const journey = getPublicDealJourneyV5Copy(locale);
   const normalizedLocale = locale === 'en' || locale === 'zh' ? locale : 'ru';
+  const presentation = PUBLIC_PRESENTATION[normalizedLocale];
   const registerHref = `/platform-v7/register?lang=${encodeURIComponent(normalizedLocale)}`;
   const normalizedState = useMemo<TourState>(() => normalizePublicBusinessState(initialState), [initialState]);
   const [historyState, setHistoryState] = useState<TourState>(normalizedState);
@@ -184,11 +233,37 @@ export function PublicDealExplorerV4({ copy, locale, initialState }: {
     explorer: {
       ...copy.explorer,
       connect: ui.explorer.connect,
+      deal: {
+        ...copy.explorer.deal,
+        statusLabel: presentation.contextLabel,
+        status: presentation.context,
+        noBlocker: presentation.noBlocker,
+      },
       controls: { ...copy.explorer.controls, lens: ui.explorer.lensLabel, perspective: ui.explorer.roleLabel, scenario: ui.explorer.scenarioLabel, startGuide: ui.explorer.startGuide },
+      stages: {
+        ...copy.explorer.stages,
+        logistics: { ...copy.explorer.stages.logistics, action: presentation.logisticsAction },
+        documents: { ...copy.explorer.stages.documents, next: presentation.documentsNext },
+      },
+      perspectives: {
+        ...copy.explorer.perspectives,
+        seller: { ...copy.explorer.perspectives.seller, value: presentation.sellerValue, outcome: presentation.sellerOutcome },
+        elevator: { ...copy.explorer.perspectives.elevator, value: presentation.elevatorValue, documents: presentation.elevatorDocuments },
+        operator: { ...copy.explorer.perspectives.operator, documents: presentation.operatorDocuments },
+      },
       scenarios: {
         standard: { ...copy.explorer.scenarios.standard, label: ui.explorer.scenarios.standard },
         partial: { ...copy.explorer.scenarios.partial, label: ui.explorer.scenarios.partial },
         dispute: { ...copy.explorer.scenarios.dispute, label: ui.explorer.scenarios.dispute },
+      },
+      documents: copy.explorer.documents.map((document, index) => ({
+        ...document,
+        status: presentation.documentContexts[index] ?? presentation.documentContexts[presentation.documentContexts.length - 1],
+      })),
+      risks: {
+        ...copy.explorer.risks,
+        qualityDeviation: { ...copy.explorer.risks.qualityDeviation, blocked: presentation.qualityDeviationBlocked },
+        missingDocument: { ...copy.explorer.risks.missingDocument, blocked: presentation.missingDocumentBlocked },
       },
     },
   };
