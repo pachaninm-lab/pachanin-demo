@@ -36,6 +36,7 @@ const PAGE_COPY: Record<Locale, Readonly<{
   exampleNotice: string;
   register: string;
   back: string;
+  trust: string;
 }>> = {
   ru: {
     title: 'Как проходит агросделка — Прозрачная Цена',
@@ -46,6 +47,7 @@ const PAGE_COPY: Record<Locale, Readonly<{
     exampleNotice: 'Ниже используется вымышленный пример. Он объясняет механику платформы и не содержит реальных сделок, организаций или банковских операций.',
     register: 'Зарегистрироваться',
     back: 'На главную',
+    trust: 'Доверие',
   },
   en: {
     title: 'How an agricultural Deal works — Transparent Price',
@@ -56,6 +58,7 @@ const PAGE_COPY: Record<Locale, Readonly<{
     exampleNotice: 'The flow below uses fictional data to explain platform mechanics. It contains no real deals, organisations or banking operations.',
     register: 'Register',
     back: 'Back to home',
+    trust: 'Trust',
   },
   zh: {
     title: '农业交易如何运行 — 透明价格',
@@ -66,6 +69,7 @@ const PAGE_COPY: Record<Locale, Readonly<{
     exampleNotice: '下方使用虚构数据说明平台机制，不包含真实交易、机构或银行操作。',
     register: '注册',
     back: '返回首页',
+    trust: '信任',
   },
 };
 
@@ -181,7 +185,7 @@ export default async function PublicDealFromInsidePage({
           </div>
           <nav aria-label={copy.header.aria}>
             <a href={localizedHref('/platform-v7/about')}>{ui.footer.about}</a>
-            <a href={localizedHref('/platform-v7/status')}>{ui.footer.status}</a>
+            <a href={localizedHref('/platform-v7/trust')}>{pageCopy.trust}</a>
             <a href={localizedHref('/platform-v7/privacy')}>{ui.footer.privacy}</a>
             <a href={localizedHref('/platform-v7/terms')}>{ui.footer.terms}</a>
             <a href={localizedHref('/platform-v7/contact')}>{ui.footer.contact}</a>
