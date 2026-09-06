@@ -247,6 +247,16 @@
   }
 }
 
+/* At the smallest accepted widths the persistent public assistant occupies the
+ * right edge of the first viewport. Reserve that exact lane only in the first
+ * Hero Deal row so the stage sentence is never obscured while the 48px target
+ * remains fully available. */
+@media (max-width: 390px) {
+  .pc-v7-public-entry [data-testid='platform-v7-deal-card'] article:first-child {
+    padding-right: 72px !important;
+  }
+}
+
 @media (max-width: 430px) {
   .pc-v7-public-entry .pc-public-deal-stage-rail--demo {
     grid-template-columns: repeat(2, minmax(0, 1fr));
