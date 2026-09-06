@@ -24,18 +24,18 @@ type Locale = 'ru' | 'en' | 'zh';
 const PAGE_COPY = {
   ru: {
     title: 'Гекта в работе — Прозрачная Цена',
-    description: 'Как Гекта помогает участникам агросделки понимать состояние Сделки, документы, риски и следующий шаг, сохраняя решение за человеком и правилами платформы.',
-    role: 'По ролям', documents: 'Документы', government: 'Госданные', security: 'Безопасность', connection: 'Подключение', home: 'На главную', register: 'Зарегистрироваться',
+    description: 'Как Гекта помогает участникам агросделки понимать контекст Сделки, документы, риски и следующий шаг, сохраняя критическое решение за человеком и правилами платформы.',
+    role: 'По ролям', documents: 'Документы', government: 'Госданные', security: 'Безопасность', connection: 'Границы', home: 'На главную', register: 'Зарегистрироваться', trust: 'Доверие',
   },
   en: {
     title: 'Gekta in action — Transparent Price',
-    description: 'How Gekta helps agricultural Deal participants understand Deal state, documents, risk and the next step while decisions remain with people and platform rules.',
-    role: 'By role', documents: 'Documents', government: 'Government data', security: 'Security', connection: 'Connection', home: 'Home', register: 'Register',
+    description: 'How Gekta helps agricultural Deal participants understand Deal context, documents, risk and the next step while critical decisions remain with people and platform rules.',
+    role: 'By role', documents: 'Documents', government: 'Government data', security: 'Security', connection: 'Boundaries', home: 'Home', register: 'Register', trust: 'Trust',
   },
   zh: {
     title: 'Gekta 如何工作 — 透明价格',
-    description: 'Gekta 如何帮助农业交易参与方理解交易状态、文件、风险和下一步，同时关键决定仍由人员和平台规则控制。',
-    role: '按角色', documents: '文件', government: '政府数据', security: '安全', connection: '接入', home: '首页', register: '注册',
+    description: 'Gekta 如何帮助农业交易参与方理解交易上下文、文件、风险和下一步，同时关键决定仍由人员和平台规则控制。',
+    role: '按角色', documents: '文件', government: '政府数据', security: '安全', connection: '边界', home: '首页', register: '注册', trust: '信任',
   },
 } as const;
 
@@ -125,7 +125,7 @@ export default async function PublicAiInActionPage() {
           <div className='pc-ppe-footer-brand'><strong>Прозрачная Цена</strong><p>{ui.footer.note}</p></div>
           <nav aria-label={copy.header.aria}>
             <a href={`/platform-v7/about${suffix}`}>{ui.footer.about}</a>
-            <a href={`/platform-v7/status${suffix}`}>{ui.footer.status}</a>
+            <a href={`/platform-v7/trust${suffix}`}>{pageCopy.trust}</a>
             <a href={`/platform-v7/privacy${suffix}`}>{ui.footer.privacy}</a>
             <a href={`/platform-v7/terms${suffix}`}>{ui.footer.terms}</a>
             <a href={`/platform-v7/contact${suffix}`}>{ui.footer.contact}</a>
