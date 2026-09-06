@@ -13,41 +13,51 @@ const connectEntry = read('i18n/platform-v7-organization-connect-product.ts');
 const hero = read('i18n/platform-v7-hero-message.ts');
 const roleWorkspace = read('components/platform-v7/PublicDealRoleScenario.tsx');
 const roleWorkspaceCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
+const internationalCss = read('styles/platform-v7-international-home-fix.css');
 
 describe('platform-v7 visible public operating copy', () => {
-  it('presents one seven-step ordinary Deal journey across the homepage and role preview', () => {
+  it('presents one seven-step Deal journey from product to closure across the homepage and role preview', () => {
     for (const step of [
+      'Товар, потребность и условия',
+      'Рынок, контрагент и предложение',
+      'Переговоры, Сделка и договор',
+      'Сервисы и логистика',
+      'Приёмка, качество и проверки',
+      'Документы, расчёт и учёт',
+      'Закрытие и исключения',
+    ]) {
+      expect(storyOperating).toContain(`title: '${step}'`);
+    }
+    for (const roleStep of [
       'Товар и условия',
       'Торги и контрагент',
       'Сделка и договор',
       'Логистика и поставка',
       'Приёмка и качество',
-      'Документы и готовность расчёта',
-      'Расчёт и закрытие',
+      'Документы и расчёт',
+      'Закрытие',
     ]) {
-      expect(storyEntry).toContain(`title: '${step}'`);
-      expect(roleWorkspace).toContain(`'${step}'`);
+      expect(roleWorkspace).toContain(`'${roleStep}'`);
     }
-    expect(storyEntry).toContain("journey: '7 шагов'");
+    expect(storyOperating).toContain("label: '7 шагов'");
     expect(home).toContain("phases: ['Товар и условия', 'Торги и контрагент', 'Сделка и договор'");
     expect(roleWorkspace).toContain("stageLabel: '7 шагов Сделки'");
-    expect(roleWorkspace).toContain("status: 'Шаг 5 · Приёмка и качество'");
+    expect(roleWorkspace).toContain("focus: 'Приёмка и качество'");
+    expect(roleWorkspace).not.toContain("status: 'Шаг 5");
     expect(roleWorkspaceCss).toContain('grid-template-columns: repeat(7, minmax(0, 1fr));');
-    expect(roleWorkspaceCss).toContain('grid-template-columns: repeat(7, minmax(86px, 1fr));');
-    expect(storyEntry).not.toContain("navFunctions: '8 шагов Сделки'");
-    expect(storyEntry).not.toContain("fullPathText: '19 этапов");
   });
 
-  it('uses exactly nine public visitor roles in the visible proof and selector', () => {
-    expect(storyEntry).toContain("label: '9 ролей'");
-    expect(storyEntry).toContain("label: '9 roles'");
-    expect(storyEntry).toContain("label: '9 个角色'");
+  it('uses exactly nine public visitor roles in the visible story and selector', () => {
+    expect(storyOperating).toContain("label: '9 ролей'");
+    expect(storyOperating).toContain("label: '9 roles'");
+    expect(storyOperating).toContain("label: '9 个角色'");
     for (const role of ["'seller'", "'buyer'", "'logistics'", "'driver'", "'storage'", "'laboratory'", "'surveyor'", "'bank'", "'employee'"]) {
       expect(roleWorkspace).toContain(role);
     }
     for (const retiredPublicRole of ["| 'operator'", "| 'compliance'", "| 'arbitrator'", "| 'executive'"]) {
       expect(roleWorkspace).not.toContain(retiredPublicRole);
     }
+    expect(storyOperating).toContain('Продавец, покупатель, логистика, водитель, элеватор или хранение, лаборатория, сюрвейер, банк или финансы и сотрудник платформы');
   });
 
   it('keeps the public role selector keyboard complete without granting authority', () => {
@@ -92,8 +102,8 @@ describe('platform-v7 visible public operating copy', () => {
     expect(connect).toContain('Для создания аккаунта используйте отдельную регистрацию платформы');
   });
 
-  it('keeps examples honest while avoiding internal maturity jargon in final visible layers', () => {
-    const renderedSources = [storyEntry, home, connect, hero, roleWorkspace].join('\n').toLowerCase();
+  it('keeps examples honest and removes public readiness/status marketing language from the new role story', () => {
+    const renderedSources = [storyOperating, home, connect, hero, roleWorkspace].join('\n').toLowerCase();
     for (const phrase of [
       'controlled pilot',
       'pre-integration',
@@ -101,14 +111,25 @@ describe('platform-v7 visible public operating copy', () => {
       'production-like simulation',
       'lead capture',
       'crm',
+      "status: 'шаг",
+      "status: 'step",
+      "status: '第",
     ]) {
       expect(renderedSources).not.toContain(phrase);
     }
-    expect(storyEntry).toContain('Обычное исполнение — основной сценарий');
-    expect(storyEntry).toContain('Ниже показан вымышленный пример Сделки');
-    expect(storyEntry).toContain('The section below is a fictional Deal example');
-    expect(storyEntry).toContain('下面展示的是虚构交易示例');
-    expect(roleWorkspace).toContain("preview: 'Вымышленный пример Сделки'");
+    expect(roleWorkspace).toContain("preview: 'Упрощённый экран рабочего кабинета'");
+    expect(storyOperating).toContain("state: 'Факты · основания · следующий шаг'");
+    expect(storyOperating).toContain('Публичная помощь с подключением остаётся отдельным каналом');
+  });
+
+  it('adds purposeful scroll pacing with a static reduced-motion equivalent', () => {
+    expect(internationalCss).toContain('#deal-path > div:has(> article)');
+    expect(internationalCss).toContain('position: sticky !important');
+    expect(internationalCss).toContain('@supports (animation-timeline: view())');
+    expect(internationalCss).toContain('animation-timeline: view()');
+    expect(internationalCss).toContain('@keyframes pc-public-story-reveal');
+    expect(internationalCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(internationalCss).toContain('animation: none !important');
   });
 
   it('keeps source-resolution wrappers explicit without relying on stale base copy', () => {
