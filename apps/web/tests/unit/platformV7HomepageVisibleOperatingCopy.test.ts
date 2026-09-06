@@ -11,6 +11,7 @@ const homeEntry = read('i18n/platform-v7-home-v3-product.ts');
 const connect = read('i18n/platform-v7-organization-connect-operating.ts');
 const connectEntry = read('i18n/platform-v7-organization-connect-product.ts');
 const hero = read('i18n/platform-v7-hero-message.ts');
+const strategicHome = read('components/platform-v7/PlatformV7StrategicHome.tsx');
 const roleWorkspace = read('components/platform-v7/PublicDealRoleScenario.tsx');
 const roleWorkspaceCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
 const internationalCss = read('styles/platform-v7-international-home-fix.css');
@@ -50,6 +51,13 @@ describe('platform-v7 visible public operating copy', () => {
     expect(roleWorkspace).toContain('onClick={() => setStageIndex(index)}');
     expect(roleWorkspace).not.toContain('styles.done');
     expect(roleWorkspace).not.toContain('status:');
+
+    expect(strategicHome).toContain('story.process.phases.slice(0, 3)');
+    expect(strategicHome).toContain('story.process.phases.slice(3)');
+    expect(internationalCss).toContain("#deal-path #phases-more-toggle");
+    expect(internationalCss).toContain("#deal-path label[for='phases-more-toggle']");
+    expect(internationalCss).toContain("#deal-path #phases-more-cards");
+    expect(internationalCss).toContain('display: contents !important;');
   });
 
   it('uses exactly nine public visitor roles in the visible story and selector', () => {
@@ -117,6 +125,9 @@ describe('platform-v7 visible public operating copy', () => {
     expect(roleWorkspaceCss).toContain('@media (max-width: 430px)');
     expect(roleWorkspaceCss).toContain('@media (max-width: 359px)');
     expect(roleWorkspaceCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(internationalCss).toContain('@media (max-width: 767px)');
+    expect(internationalCss).toContain('#deal-path article {\n    position: relative !important;');
+    expect(internationalCss).toContain('top: auto !important;');
   });
 
   it('keeps crop positioning and registration-first conversion on the first screen', () => {
@@ -163,9 +174,13 @@ describe('platform-v7 visible public operating copy', () => {
       expect(renderedSources).not.toContain(phrase);
     }
 
+    expect(strategicHome).not.toContain('{normalState.status}');
+    expect(strategicHome).not.toContain('{state.status}');
     expect(roleWorkspace).not.toContain('status:');
     expect(roleWorkspace).not.toContain('readiness');
     expect(roleWorkspace).not.toContain('maturity');
+    expect(home).not.toContain('готовность расчёта');
+    expect(home).not.toContain('settlement readiness');
     expect(roleWorkspace).toContain("preview: 'Упрощённый экран рабочего кабинета'");
     expect(storyOperating).toContain("state: 'Факты · основания · следующий шаг'");
     expect(storyOperating).toContain('Публичная помощь с подключением остаётся отдельным каналом');
