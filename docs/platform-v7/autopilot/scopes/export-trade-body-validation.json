@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/export-trade-body-validation",
+  "status": "active",
+  "purpose": "V1.4.2/V2.2.1/V2.2.2: четыре тела экспортного модуля объявлялись инлайн-типом, и мимо них проходили три разных способа испортить деньги. Неизвестный базис Инкотермс давал TypeError и 500. Неизвестная валюта давала NaN и сумму null. А цена, присланная строкой, не складывалась с фрахтом и страховкой, а конкатенировалась: итог «5001750001» вместо 175 501, завышение в 28 500 раз, и уходил в ответ строкой.",
+  "authorityBaseExactMain": "8d9f2766dfaf3bc8489979d06c1cc2e01256cc0a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/export-trade-body-validation.json",
+    "apps/api/src/modules/export-trade/export-trade.controller.ts",
+    "apps/api/src/modules/export-trade/export-trade.contract.ts",
+    "apps/api/src/modules/export-trade/export-trade.service.ts",
+    "apps/api/src/modules/export-trade/dto/export-trade.dto.ts",
+    "apps/api/src/modules/export-trade/export-trade-body-validation.spec.ts",
+    "docs/security/request-validation-baseline.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "RolesGuard не тронут и не продублирован в DTO.",
+    "Курсы, правила Инкотермс и ставка фрахта живут в export-trade.contract.ts по одному разу; имена типов Currency и IncotermsCode ре-экспортированы из сервиса, чтобы существующие импорты не сломались.",
+    "Обе справочные таблицы объявлены БЕЗ прототипа и читаются только по собственному ключу. Этот класс дефекта ревью нашло в тарифе планировщика маршрутов; здесь он закрыт заранее, а не по замечанию.",
+    "Ни в одном поле нет @Type(() => Number). Приведение на границе спрятало бы дефект конкатенации вместо того, чтобы его отклонить: замерено, что строковая цена давала итог строкой и завышение в 28 500 раз.",
+    "Сервис отказывает сам, а не только граница: вызывающий в обход границы не должен уметь получить 500, NaN или отрицательный итог.",
+    "Внутренняя таблица курсов наружу не отдаётся: ответ getExchangeRates собирается обычным объектом.",
+    "V2.2.1 и V2.2.2 остаются FAIL и перенацелены на compliance и arbitrator. Оба ПРОВЕРЕНЫ на живость до цитирования, а не после: модули смонтированы, маркеров карантина нет. Файлы, которые чинят другие проходы в работе, намеренно не цитируются — такая цитата отзывала бы решение одним лишь порядком слияния.",
+    "Схема БД, миграции, RLS не тронуты, зависимостей не добавлено. Production/REG.RU/DNS/БД/креденшелы не мутировались. Новые обязательные расходы: 0 ₽."
+  ],
+  "acceptance": [
+    "Замерено ДО исправления на живом сервисе: incoterms «XXX» → TypeError: Cannot read properties of undefined (reading 'costIncludes'), то есть 500; currency «ЗЛТ» → totalCurrency null; priceRub «500» → totalRub «5001750001» строкой вместо 175 501; priceRub -1000000 → totalRub -826 000 и totalCurrency -9229.05; distanceKm и volumeTons по 1e15 → freightRub 3.5e+32; convertCurrency в неизвестную валюту → amount null.",
+    "Одиннадцать мутаций, девять поймано. Две непойманные — уже записанный в этой программе образец взаимного покрытия: @IsNumber() рядом с @Min/@Max и проверка собственного ключа рядом с таблицей без прототипа. Обе задокументированы как покрытые, а не выданы за несущие.",
+    "Обратная сторона проверена: все одиннадцать настоящих базисов и все четыре настоящие валюты проходят; на числовой цене итог остаётся числом и равен сумме слагаемых.",
+    "Матрица сверена ДО и ПОСЛЕ: сразу после исправления кода она показала 88 FAIL / 40 NOT_ASSESSED — V2.2.1 и V2.2.2 отозвались, потому что цитировали export-trade. После перенацеливания восстановлена: 129 PASS / 90 FAIL / 88 NOT_APPLICABLE / 38 NOT_ASSESSED.",
+    "api typecheck exit 0, 30 тестов прохода зелёные, ратчет 66 → 62 непроверенных и 134 → 138 DTO-типизированных, база затянута."
+  ],
+  "notClosed": [
+    "Курсы ЦБ и ставка фрахта остаются заглушками в исходнике. Это не дефект границы запроса и здесь не трогается.",
+    "getCustomsStatus принимает номер декларации из пути без проверки формата; здесь закрывались только тела запросов."
+  ]
+}
