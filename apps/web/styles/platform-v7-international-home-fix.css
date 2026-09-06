@@ -13,6 +13,12 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
+/* Public story surfaces explain the workflow without presenting status badges. */
+.pc-v7-public-entry [data-testid='platform-v7-deal-card'] > div:first-child > b,
+.pc-v7-public-entry #live article[data-state] > div:first-child > b {
+  display: none !important;
+}
+
 /* Anchors follow the shared fixed-header authority instead of a route-specific
  * guessed height. */
 .pc-v7-public-entry :where(
