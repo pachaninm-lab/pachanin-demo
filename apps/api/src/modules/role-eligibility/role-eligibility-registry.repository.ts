@@ -3,16 +3,19 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { sha256, stableJson } from './role-eligibility-security';
-import type {
-  EligibilitySource,
-  RegistryAdapterFetchResult,
-  RegistryGeneration,
-  SourceHealthSnapshot,
+import {
+  defaultRegistryDomainForSource,
+  registryDomainForGeneration,
+  type EligibilitySource,
+  type RegistryAdapterFetchResult,
+  type RegistryDomain,
+  type RegistryGeneration,
+  type SourceHealthSnapshot,
 } from './role-eligibility.types';
 
 type SqlClient = Pick<PrismaClient, '$queryRaw' | '$executeRaw'>;
 type GenerationRow = {
-  id: string; source: EligibilitySource; generation: string; published_at: Date; downloaded_at: Date;
+  id: string; source: EligibilitySource; registry_domain: RegistryDomain; generation: string; published_at: Date; downloaded_at: Date;
   content_sha256: string; record_count: bigint; parser_version: string; schema_version: string;
   status: RegistryGeneration['status']; fresh_until: Date;
 };
@@ -22,6 +25,7 @@ const BULK_INSERT_ROWS = 500;
 const mapGeneration = (row: GenerationRow): RegistryGeneration => ({
   id: row.id,
   source: row.source,
+  registryDomain: row.registry_domain,
   generation: row.generation,
   publishedAt: row.published_at,
   downloadedAt: row.downloaded_at,
@@ -46,21 +50,25 @@ export class RoleEligibilityRegistryRepository {
 
   async stage(payload: RegistryAdapterFetchResult, freshUntil: Date): Promise<RegistryGeneration> {
     return this.runtime(async (client) => {
+      const registryDomain = registryDomainForGeneration(payload.source, payload.schemaVersion);
+      if (payload.source === 'FNS' && registryDomain === 'UNKNOWN') {
+        throw new Error('ROLE_ELIGIBILITY_FNS_REGISTRY_DOMAIN_UNRESOLVED');
+      }
       const generation = `${payload.publishedAt.toISOString()}:${payload.contentSha256.slice(0, 16)}`;
-      const generationId = `elg_${sha256(`${payload.source}\u001f${generation}`).slice(0, 36)}`;
+      const generationId = `elg_${sha256(`${payload.source}\u001f${registryDomain}\u001f${generation}`).slice(0, 36)}`;
       const existing = await client.$queryRaw<GenerationRow[]>(Prisma.sql`
         SELECT * FROM eligibility.registry_generations
-        WHERE source=${payload.source} AND generation=${generation}
+        WHERE source=${payload.source} AND registry_domain=${registryDomain} AND generation=${generation}
         LIMIT 1
       `);
       if (existing[0]) return mapGeneration(existing[0]);
 
       await client.$executeRaw(Prisma.sql`
         INSERT INTO eligibility.registry_generations (
-          id,source,generation,published_at,downloaded_at,content_sha256,record_count,
+          id,source,registry_domain,generation,published_at,downloaded_at,content_sha256,record_count,
           parser_version,schema_version,status,fresh_until,created_at
         ) VALUES (
-          ${generationId},${payload.source},${generation},${payload.publishedAt},${payload.checkedAt},${payload.contentSha256},
+          ${generationId},${payload.source},${registryDomain},${generation},${payload.publishedAt},${payload.checkedAt},${payload.contentSha256},
           ${BigInt(payload.records.length)},${payload.parserVersion},${payload.schemaVersion},'STAGING',${freshUntil},clock_timestamp()
         )
       `);
@@ -121,7 +129,7 @@ export class RoleEligibilityRegistryRepository {
       }
       if (generation.status !== 'ACTIVE') {
         await client.$queryRaw(Prisma.sql`
-          SELECT eligibility.activate_registry_generation(${generation.source},${generation.generation})
+          SELECT eligibility.activate_registry_generation(${generation.source},${generation.registry_domain},${generation.generation})
         `);
       }
       const activated = await client.$queryRaw<GenerationRow[]>(Prisma.sql`
@@ -158,24 +166,34 @@ export class RoleEligibilityRegistryRepository {
     });
   }
 
-  async active(source: EligibilitySource): Promise<RegistryGeneration | null> {
+  async active(
+    source: EligibilitySource,
+    registryDomain: RegistryDomain = defaultRegistryDomainForSource(source),
+  ): Promise<RegistryGeneration | null> {
     const rows = await this.runtime((client) => client.$queryRaw<GenerationRow[]>(Prisma.sql`
-      SELECT * FROM eligibility.registry_generations WHERE source=${source} AND status='ACTIVE' LIMIT 1
+      SELECT * FROM eligibility.registry_generations
+      WHERE source=${source} AND registry_domain=${registryDomain} AND status='ACTIVE'
+      LIMIT 1
     `));
     return rows[0] ? mapGeneration(rows[0]) : null;
   }
 
   async upsertHealth(snapshot: SourceHealthSnapshot): Promise<void> {
+    const registryDomain = snapshot.registryDomain
+      || (snapshot.schemaVersion ? registryDomainForGeneration(snapshot.source, snapshot.schemaVersion) : defaultRegistryDomainForSource(snapshot.source));
+    if (snapshot.source === 'FNS' && registryDomain === 'UNKNOWN') {
+      throw new Error('ROLE_ELIGIBILITY_FNS_HEALTH_DOMAIN_UNRESOLVED');
+    }
     await this.runtime(async (client) => {
       await client.$executeRaw(Prisma.sql`
         INSERT INTO eligibility.source_health (
-          source,status,circuit_state,active_generation,parser_version,schema_version,last_success_at,last_failure_at,
+          source,registry_domain,status,circuit_state,active_generation,parser_version,schema_version,last_success_at,last_failure_at,
           checked_at,fresh_until,consecutive_failures,last_error_code,updated_at
         ) VALUES (
-          ${snapshot.source},${snapshot.status},${snapshot.circuitState},${snapshot.activeGeneration},${snapshot.parserVersion},
+          ${snapshot.source},${registryDomain},${snapshot.status},${snapshot.circuitState},${snapshot.activeGeneration},${snapshot.parserVersion},
           ${snapshot.schemaVersion},${snapshot.lastSuccessAt},${snapshot.lastFailureAt},${snapshot.checkedAt},${snapshot.freshUntil},
           ${snapshot.consecutiveFailures},${snapshot.lastErrorCode},clock_timestamp()
-        ) ON CONFLICT(source) DO UPDATE SET
+        ) ON CONFLICT(source,registry_domain) DO UPDATE SET
           status=EXCLUDED.status,circuit_state=EXCLUDED.circuit_state,active_generation=EXCLUDED.active_generation,
           parser_version=EXCLUDED.parser_version,schema_version=EXCLUDED.schema_version,last_success_at=EXCLUDED.last_success_at,
           last_failure_at=EXCLUDED.last_failure_at,checked_at=EXCLUDED.checked_at,fresh_until=EXCLUDED.fresh_until,
