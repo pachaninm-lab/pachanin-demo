@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type KeyboardEvent } from 'react';
+import { useLocale } from 'next-intl';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Tab = 'overview' | 'rights' | 'request';
@@ -96,8 +97,9 @@ function localeOf(value: string): Locale {
   return 'ru';
 }
 
-export function PrivacyPortalPanel({ locale = 'ru' }: { locale?: string }) {
-  const normalizedLocale = localeOf(locale);
+export function PrivacyPortalPanel({ locale }: { locale?: string } = {}) {
+  const contextLocale = useLocale();
+  const normalizedLocale = localeOf(locale ?? contextLocale);
   const copy = COPY[normalizedLocale];
   const [tab, setTab] = useState<Tab>('overview');
   const suffix = `?lang=${normalizedLocale}`;
