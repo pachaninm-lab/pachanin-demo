@@ -75,7 +75,7 @@ export class RoleEligibilityFnsEgrulIngestRepository {
     if (input.freshUntil.getTime() <= input.publishedAt.getTime()) throw new Error('FNS_EGRUL_FRESHNESS_WINDOW_INVALID');
 
     const generation = `${input.publishedAt.toISOString()}:${input.contentSha256.slice(0, 16)}`;
-    const id = `elg_${sha256(`FNS\u001f${FNS_EGRUL_DOMAIN}\u001f${generation}`).slice(0, 36)}`;
+    let id = `elg_${sha256(`FNS\u001f${FNS_EGRUL_DOMAIN}\u001f${generation}`).slice(0, 36)}`;
     const schemaVersion = `EGRUL_${input.format.replace('.', '')}`;
     let alreadyActive = false;
 
@@ -84,14 +84,19 @@ export class RoleEligibilityFnsEgrulIngestRepository {
         SELECT pg_advisory_xact_lock(hashtextextended(${id}, 0)) IS NULL AS locked
       `);
 
+      // Match the immutable source/domain/generation identity, not only the
+      // post-#5064 generated id. Pre-domain generations keep their historical
+      // ids after migration and must resume instead of colliding with the new
+      // (source,domain,generation) uniqueness constraint.
       const existing = await client.$queryRaw<GenerationState[]>(Prisma.sql`
         SELECT id,source,registry_domain,status,published_at,content_sha256,parser_version,schema_version,record_count
         FROM eligibility.registry_generations
-        WHERE id=${id}
+        WHERE source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND generation=${generation}
         LIMIT 1
       `);
       if (existing[0]) {
         const row = existing[0];
+        id = row.id;
         const identical = row.source === 'FNS'
           && generationDomain(row) === FNS_EGRUL_DOMAIN
           && row.content_sha256 === input.contentSha256
