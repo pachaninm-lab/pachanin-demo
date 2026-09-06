@@ -19,6 +19,7 @@
     "docs/ip/legal/03-acceptance-act-platon.md",
     "docs/ip/legal/04-employee-work-confirmation-platon.md",
     "docs/ip/legal/05-ai-tool-provenance-statement.md",
+    "docs/ip/legal/FINAL_SIGNATURE_PACKAGE.md",
     "docs/ip/legal/appendix-platon-covered-works.json",
     "docs/ip/legal/appendix-platon-covered-works.md",
     "docs/ip/rospatent/01-zayavlenie.md",
@@ -36,7 +37,8 @@
     "scripts/ip/reexport-only-module.mjs",
     "scripts/ip/reexport-only-module.test.mjs",
     "scripts/ip/verify-contributor-identity-register.mjs",
-    "scripts/ip/verify-first-party-provenance.mjs"
+    "scripts/ip/verify-first-party-provenance.mjs",
+    "scripts/ip/verify-legal-instrument-consistency.mjs"
   ],
   "requiredInvariants": [
     "No product behaviour is touched. Every path in this contour is documentation, a provenance/evidence script, or the similarity tool. No application source, schema, migration, dependency or CI runtime is modified.",
@@ -54,7 +56,8 @@
     "Гейт первопартийности в CI работает храповиком, а не обязательным красным. Три закрытых показателя обязаны оставаться нулевыми; четвёртый закрывается подписью, а не кодом, поэтому сравнивается с зафиксированным пределом и не может вырасти. Гейт, обязательно красный по недостижимой из кода причине, перестают читать вместе с тремя работающими показателями.",
     "Базис перечисления идентичностей нестабилен по построению (git log --all видит те ссылки, которые есть у клона; в репозитории 4500+ веток), поэтому в CI проверяется только направленно-безопасная половина: каждая видимая идентичность обязана быть классифицирована и ни одна не может превысить зафиксированный счёт. Границу вклада реально держит показатель по выжившим строкам, который не зависит от набора ссылок вовсе.",
     "Депонируемый листинг не коммитится. Он встраивает коммит, из которого собран, поэтому копия в репозитории называла бы коммит раньше собственного; он собирается в artifacts/ во время подачи из того состояния, которое подаётся.",
-    "В депонируемые материалы включается только то, что прошло проверку на секреты с отказом при совпадении (FAIL_CLOSED)."
+    "В депонируемые материалы включается только то, что прошло проверку на секреты с отказом при совпадении (FAIL_CLOSED).",
+    "Правовые документы не расходятся с приложением, на которое ссылаются. Договор отчуждает права на «произведения по перечню Приложения № 1 по состоянию дерева X»; если приложение пересобрано на Y, а договор всё ещё называет X, они описывают разные множества и приложение перестаёт быть исчерпывающим перечнем. verify-legal-instrument-consistency.mjs проверяет состояние дерева и счётчики во всех пяти документах против приложения и приводит их в соответствие по --write."
   ],
   "acceptance": [
     "scripts/ip/verify-first-party-provenance.mjs reports PASS on THIRD_PARTY_PRODUCT_CODE=0, UNKNOWN_PRODUCT_CODE=0 and UNRESOLVED_LICENSES=0, and OPEN on UNRESOLVED_FIRST_PARTY_PROVENANCE with the exact file and line counts attributable to the one unresolved contributor.",
@@ -65,6 +68,7 @@
     "Занижение счёта любого контрибьютора в реестре идентичностей или его удаление валит verify-contributor-identity-register.mjs; в режиме --baseline рост вклада сверх зафиксированного валит гейт, а меньший набор ссылок — нет.",
     "Возврат THIRD_PARTY_PRODUCT_CODE к ненулю и рост UNRESOLVED_FIRST_PARTY_PROVENANCE выше предела 133 валят verify-first-party-provenance.mjs --baseline; текущее состояние проходит.",
     "Досье IP due diligence отказывается собираться против устаревшего артефакта провенанса, против результата сходства без одобренного корпуса и при несовпадении цифрового отпечатка корпуса с одобрением.",
-    "Пакет для Роспатента собирается в 70 листов из 479 файлов ядра (106 364 строки) с объявленным пропуском середины и отказом при совпадении с образцом секрета."
+    "Пакет для Роспатента собирается в 70 листов из 479 файлов ядра (106 364 строки) с объявленным пропуском середины и отказом при совпадении с образцом секрета.",
+    "Расхождение счётчиков или состояния дерева в любом из пяти правовых документов валит verify-legal-instrument-consistency.mjs с указанием файла и обоих значений."
   ]
 }

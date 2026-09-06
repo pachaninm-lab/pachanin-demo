@@ -10,10 +10,14 @@
 //
 // Two modes, because the two questions have different stability.
 //
-// Default (local, --strict): exact equality on every count. Use it when
-// regenerating the register on a full clone.
+// --strict: exact equality on every count. Use it immediately after --write, on
+// a full clone, to confirm the regeneration landed. It is not the default,
+// because the tool identities gain a commit with every commit made - including
+// the one that would carry the fix - so exact equality is stale the moment it is
+// true.
 //
-// --baseline (CI): only the direction-safe half is enforced, because the
+// Default (and --baseline, its explicit alias): only the direction-safe half is
+// enforced, because the
 // enumerating basis is not stable. `git log --all` sees the refs a checkout
 // happens to hold, and this repository has 4 500+ branches - a CI checkout and a
 // developer clone legitimately disagree on the total. Enforcing exact equality
@@ -37,7 +41,13 @@ import fs from 'node:fs';
 
 const REGISTER = 'docs/ip/contributor-identity-register.json';
 const WRITE = process.argv.includes('--write');
-const BASELINE = process.argv.includes('--baseline');
+// Exact equality against live git is only meaningful in the moment right after a
+// regeneration: the tool identities gain a commit every time anything is
+// committed, including the commit that carries the regenerated register. So the
+// default is the direction-safe check, and --strict is for the regeneration
+// itself. --baseline is kept as an explicit alias for what CI asks for.
+const STRICT = process.argv.includes('--strict');
+const BASELINE = !STRICT;
 
 // Enumerated over every ref, not just the default branch: squash merges rewrite
 // authorship on main, so a main-only count silently drops contributors whose

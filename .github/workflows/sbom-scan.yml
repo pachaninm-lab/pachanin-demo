@@ -237,6 +237,9 @@ jobs:
       - name: Verify every contributor identity is classified
         run: node scripts/ip/verify-contributor-identity-register.mjs --baseline
 
+      - name: Verify legal instruments match the works appendix
+        run: node scripts/ip/verify-legal-instrument-consistency.mjs
+
       - name: Measure first-party provenance across the tree
         run: node scripts/ip/build-first-party-provenance.mjs
 
