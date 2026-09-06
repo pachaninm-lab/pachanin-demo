@@ -38,7 +38,10 @@ describe('platform-v7 final homepage polish contract', () => {
 
   it('keeps product proposition and registration before explanatory detail', () => {
     expect(heroCopy).toContain("title: 'Управляйте агросделкой'");
-    expect(heroCopy).toContain('Одна платформа связывает товар и условия');
+    expect(heroCopy).toContain('Сделка может начаться с вашего товара или потребности.');
+    expect(heroCopy).toContain('Вместо разрозненных чатов, таблиц и файлов');
+    expect(heroCopy).toContain('A Deal can start with your product or your demand.');
+    expect(heroCopy).toContain('一笔交易可以从你的商品或采购需求开始。');
     const hero = home.indexOf("className={`pc-v6-hero ${styles.hero}`}");
     const register = home.indexOf("eventName='registration_open'");
     const roles = home.indexOf("id='participants'");
