@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { AuditService } from '../audit/audit.service';
+import { csvRow } from '../../common/security/csv-cell';
 
 const COMPLIANCE_ROLES: Role[] = [Role.COMPLIANCE_OFFICER, Role.ADMIN];
 
@@ -162,11 +163,29 @@ export class ComplianceService {
       take: 10000,
     });
     const header = 'id,action,actorUserId,actorRole,objectType,objectId,outcome,reason,hash,createdAt\n';
-    const rows = events.map(e =>
-      [e.id, e.action, e.actorUserId, e.actorRole, e.objectType ?? '', e.objectId ?? '', e.outcome, e.reason ?? '', e.hash, e.createdAt.toISOString()]
-        .map(v => `"${String(v).replace(/"/g, '""')}"`)
-        .join(',')
-    ).join('\n');
+    // Ячейка собиралась здесь вручную: кавычки удваивались, и на этом всё.
+    // Строка получалась корректной по RFC 4180 и при этом исполняемой в
+    // программе, которая её откроет: ячейка, начинающаяся с =, +, - или @,
+    // трактуется Excel и LibreOffice как формула. Поля этого отчёта — action,
+    // reason, objectType, objectId — приходят из аудируемых операций, а reason
+    // объявлен в контроллере инлайновым телом и не проверяется, то есть это
+    // свободный текст вызывающего. Читает файл другой человек: комплаенс-офицер
+    // или регулятор. csvCell закрывает обе задачи разом и уже используется
+    // регуляторными отчётами — ровно тот случай, который его комментарий и
+    // называет: один отчёт удваивал кавычки правильно и не имел защиты от
+    // второй задачи.
+    const rows = events.map((event) => csvRow([
+      event.id,
+      event.action,
+      event.actorUserId,
+      event.actorRole,
+      event.objectType,
+      event.objectId,
+      event.outcome,
+      event.reason,
+      event.hash,
+      event.createdAt.toISOString(),
+    ])).join('\n');
     return header + rows;
   }
 
@@ -176,14 +195,24 @@ export class ComplianceService {
       orderBy: { createdAt: 'desc' },
       take: 50,
     }).catch(() => []);
-    const byAdapter: Record<string, { ok: number; error: number; lastAt?: string }> = {};
+    // Ключ — имя адаптера из записи события, поэтому накопитель Map, а не
+    // литерал: у литерала `!byAdapter['toString']` ложно, потому что там лежит
+    // унаследованная функция, ветка инициализации не отрабатывает, и счётчик
+    // пишется в член прототипа. Object.fromEntries на выходе создаёт
+    // СОБСТВЕННОЕ свойство даже для `__proto__`, поэтому форма ответа API не
+    // меняется, а данные перестают теряться.
+    const byAdapter = new Map<string, { ok: number; error: number; lastAt?: string }>();
     for (const e of recent) {
-      if (!byAdapter[e.adapterName]) byAdapter[e.adapterName] = { ok: 0, error: 0 };
-      if (e.status === 'SUCCESS') byAdapter[e.adapterName].ok++;
-      else byAdapter[e.adapterName].error++;
-      if (!byAdapter[e.adapterName].lastAt) byAdapter[e.adapterName].lastAt = e.createdAt.toISOString();
+      let entry = byAdapter.get(e.adapterName);
+      if (!entry) {
+        entry = { ok: 0, error: 0 };
+        byAdapter.set(e.adapterName, entry);
+      }
+      if (e.status === 'SUCCESS') entry.ok++;
+      else entry.error++;
+      if (!entry.lastAt) entry.lastAt = e.createdAt.toISOString();
     }
-    return byAdapter;
+    return Object.fromEntries(byAdapter);
   }
 
   /**
