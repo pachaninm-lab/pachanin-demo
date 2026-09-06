@@ -8,14 +8,23 @@ export const CODEX_REVIEW_LOGINS = new Set([
   'chatgpt-codex-connector[bot]',
 ]);
 
+export const COPILOT_REVIEW_LOGINS = new Set([
+  'copilot-pull-request-reviewer[bot]',
+]);
+
 const COMPLETED_REVIEW_STATES = new Set([
   'APPROVED',
   'CHANGES_REQUESTED',
   'COMMENTED',
 ]);
 
-const POSITIVE_REVIEW_STATES = new Set([
+const POSITIVE_CODEX_REVIEW_STATES = new Set([
   'APPROVED',
+]);
+
+const POSITIVE_COPILOT_REVIEW_STATES = new Set([
+  'APPROVED',
+  'COMMENTED',
 ]);
 
 const GREEN_CHECK_STATES = new Set([
@@ -43,19 +52,33 @@ function normalizeLogin(review) {
   return String(review?.user?.login || review?.author?.login || '').trim();
 }
 
-export function exactHeadCodexReviews(reviews, headSha) {
+function exactHeadReviewsByLogins(reviews, headSha, allowedLogins) {
   const expected = String(headSha || '').trim();
   return (reviews || []).filter((review) => {
     const login = normalizeLogin(review);
     const commitId = String(review?.commit_id || review?.commitId || '').trim();
     const state = String(review?.state || '').toUpperCase();
-    return CODEX_REVIEW_LOGINS.has(login) && commitId === expected && COMPLETED_REVIEW_STATES.has(state);
+    return allowedLogins.has(login) && commitId === expected && COMPLETED_REVIEW_STATES.has(state);
   });
+}
+
+export function exactHeadCodexReviews(reviews, headSha) {
+  return exactHeadReviewsByLogins(reviews, headSha, CODEX_REVIEW_LOGINS);
 }
 
 export function positiveExactHeadCodexReviews(reviews, headSha) {
   return exactHeadCodexReviews(reviews, headSha).filter((review) => (
-    POSITIVE_REVIEW_STATES.has(String(review?.state || '').toUpperCase())
+    POSITIVE_CODEX_REVIEW_STATES.has(String(review?.state || '').toUpperCase())
+  ));
+}
+
+export function exactHeadCopilotReviews(reviews, headSha) {
+  return exactHeadReviewsByLogins(reviews, headSha, COPILOT_REVIEW_LOGINS);
+}
+
+export function positiveExactHeadCopilotReviews(reviews, headSha) {
+  return exactHeadCopilotReviews(reviews, headSha).filter((review) => (
+    POSITIVE_COPILOT_REVIEW_STATES.has(String(review?.state || '').toUpperCase())
   ));
 }
 
@@ -319,6 +342,7 @@ function main() {
 
   const reviews = fetchAllReviews(repo, prNumber);
   const comments = fetchAllIssueComments(repo, prNumber);
+
   const positiveCodexReviews = positiveExactHeadCodexReviews(reviews, headSha);
   const cleanPrefixes = cleanCodexReviewPrefixes(comments);
   let exactCleanCodexComments = 0;
@@ -329,10 +353,15 @@ function main() {
       // Ignore stale or no-longer-resolvable reviewed-commit prefixes.
     }
   }
-  if (positiveCodexReviews.length === 0 && exactCleanCodexComments === 0) {
+  const codexAuthority = positiveCodexReviews.length > 0 || exactCleanCodexComments > 0;
+
+  const positiveCopilotReviews = positiveExactHeadCopilotReviews(reviews, headSha);
+  const copilotAuthority = positiveCopilotReviews.length > 0;
+
+  if (!codexAuthority && !copilotAuthority) {
     fail(
-      'REVIEW_GATE_CODEX_EXACT_HEAD_MISSING',
-      `No positive Codex review authority is bound to exact head ${headSha}.`,
+      'REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING',
+      `No genuine independent review authority is bound to exact head ${headSha}; accepted providers are Codex clean/approved review or GitHub Copilot exact-head code review.`,
     );
   }
 
@@ -398,7 +427,8 @@ function main() {
     );
   }
 
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+  const reviewAuthority = codexAuthority ? 'CODEX' : 'GITHUB_COPILOT';
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} reviewAuthority=${reviewAuthority} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} copilotExactHeadReviews=${positiveCopilotReviews.length} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';
