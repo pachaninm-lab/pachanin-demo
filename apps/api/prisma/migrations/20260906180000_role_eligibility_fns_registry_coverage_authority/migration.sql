@@ -110,6 +110,99 @@ CREATE TRIGGER source_health_identity_guard
 BEFORE UPDATE ON eligibility.source_health
 FOR EACH ROW EXECUTE FUNCTION eligibility.enforce_source_health_identity();
 
+-- Physical EGRUL composition lineage is separate from legal coverage/finality.
+-- The runtime may record only a DB-derived predecessor/package edge; it cannot
+-- claim COMPLETE coverage or SOURCE_FINALITY through this path.
+CREATE TABLE eligibility.registry_generation_lineage (
+  generation_id TEXT PRIMARY KEY,
+  source TEXT NOT NULL,
+  registry_domain TEXT NOT NULL,
+  predecessor_generation_id TEXT NOT NULL REFERENCES eligibility.registry_generations(id) ON DELETE RESTRICT,
+  update_package_id TEXT NOT NULL,
+  update_package_sha256 CHAR(64) NOT NULL,
+  source_published_at TIMESTAMPTZ NOT NULL,
+  effective_cutoff TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  CONSTRAINT registry_generation_lineage_generation_fk
+    FOREIGN KEY (generation_id, source, registry_domain)
+    REFERENCES eligibility.registry_generations(id, source, registry_domain) ON DELETE RESTRICT,
+  CONSTRAINT registry_generation_lineage_domain_check
+    CHECK (source='FNS' AND registry_domain='EGRUL'),
+  CONSTRAINT registry_generation_lineage_sha_check
+    CHECK (update_package_sha256 ~ '^[0-9a-f]{64}$'),
+  CONSTRAINT registry_generation_lineage_no_self_check
+    CHECK (generation_id <> predecessor_generation_id)
+);
+CREATE INDEX registry_generation_lineage_predecessor_idx
+  ON eligibility.registry_generation_lineage(source, registry_domain, predecessor_generation_id, generation_id);
+CREATE TRIGGER registry_generation_lineage_append_only
+BEFORE UPDATE OR DELETE ON eligibility.registry_generation_lineage
+FOR EACH ROW EXECUTE FUNCTION eligibility.reject_append_only_mutation();
+
+CREATE OR REPLACE FUNCTION eligibility.record_fns_egrul_predecessor(
+  p_generation_id TEXT,
+  p_predecessor_generation_id TEXT
+)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, eligibility
+AS $function$
+DECLARE
+  target RECORD;
+  predecessor RECORD;
+  existing RECORD;
+BEGIN
+  SELECT id,source,registry_domain,generation,published_at,content_sha256,status
+  INTO target
+  FROM eligibility.registry_generations
+  WHERE id=p_generation_id
+  FOR SHARE;
+  IF NOT FOUND
+     OR target.source <> 'FNS'
+     OR target.registry_domain <> 'EGRUL'
+     OR target.status NOT IN ('STAGING','VALIDATED') THEN
+    RAISE EXCEPTION 'invalid EGRUL lineage target';
+  END IF;
+
+  SELECT id,source,registry_domain,published_at,status
+  INTO predecessor
+  FROM eligibility.registry_generations
+  WHERE id=p_predecessor_generation_id
+  FOR SHARE;
+  IF NOT FOUND
+     OR predecessor.source <> 'FNS'
+     OR predecessor.registry_domain <> 'EGRUL'
+     OR predecessor.status <> 'ACTIVE'
+     OR predecessor.published_at >= target.published_at THEN
+    RAISE EXCEPTION 'invalid EGRUL lineage predecessor';
+  END IF;
+
+  INSERT INTO eligibility.registry_generation_lineage(
+    generation_id,source,registry_domain,predecessor_generation_id,
+    update_package_id,update_package_sha256,source_published_at,effective_cutoff,created_at
+  ) VALUES (
+    target.id,'FNS','EGRUL',predecessor.id,
+    target.generation,target.content_sha256,target.published_at,target.published_at,clock_timestamp()
+  ) ON CONFLICT (generation_id) DO NOTHING;
+
+  SELECT * INTO existing
+  FROM eligibility.registry_generation_lineage
+  WHERE generation_id=target.id;
+  IF NOT FOUND
+     OR existing.source <> 'FNS'
+     OR existing.registry_domain <> 'EGRUL'
+     OR existing.predecessor_generation_id <> predecessor.id
+     OR existing.update_package_id <> target.generation
+     OR existing.update_package_sha256 <> target.content_sha256
+     OR existing.source_published_at IS DISTINCT FROM target.published_at
+     OR existing.effective_cutoff IS DISTINCT FROM target.published_at THEN
+    RAISE EXCEPTION 'conflicting EGRUL lineage replay';
+  END IF;
+  RETURN target.id;
+END
+$function$;
+
 CREATE TABLE eligibility.registry_generation_authority (
   generation_id TEXT PRIMARY KEY,
   source TEXT NOT NULL,
@@ -174,6 +267,7 @@ AS $function$
 DECLARE
   ref_source TEXT;
   ref_domain TEXT;
+  physical RECORD;
 BEGIN
   IF NEW.predecessor_generation_id = NEW.generation_id THEN
     RAISE EXCEPTION 'predecessor generation cannot self-reference';
@@ -190,6 +284,19 @@ BEGIN
     FROM eligibility.registry_generations WHERE id = NEW.predecessor_generation_id;
     IF ref_source IS DISTINCT FROM NEW.source OR ref_domain IS DISTINCT FROM NEW.registry_domain THEN
       RAISE EXCEPTION 'predecessor generation crosses registry authority domain';
+    END IF;
+  END IF;
+  IF NEW.generation_mode = 'DAILY_EFFECTIVE' THEN
+    SELECT * INTO physical
+    FROM eligibility.registry_generation_lineage
+    WHERE generation_id=NEW.generation_id;
+    IF FOUND AND (
+      physical.predecessor_generation_id IS DISTINCT FROM NEW.predecessor_generation_id
+      OR physical.update_package_id IS DISTINCT FROM NEW.update_package_id
+      OR physical.update_package_sha256 IS DISTINCT FROM NEW.update_package_sha256
+      OR physical.effective_cutoff IS DISTINCT FROM NEW.effective_cutoff
+    ) THEN
+      RAISE EXCEPTION 'authority lineage contradicts persisted composition lineage';
     END IF;
   END IF;
   RETURN NEW;
@@ -266,6 +373,11 @@ BEGIN
 END
 $function$;
 
+REVOKE ALL ON TABLE eligibility.registry_generation_lineage FROM PUBLIC;
+REVOKE INSERT, UPDATE, DELETE ON TABLE eligibility.registry_generation_lineage FROM pc_role_eligibility_runtime;
+GRANT SELECT ON TABLE eligibility.registry_generation_lineage TO pc_role_eligibility_runtime;
+GRANT EXECUTE ON FUNCTION eligibility.record_fns_egrul_predecessor(TEXT, TEXT) TO pc_role_eligibility_runtime;
+
 REVOKE ALL ON TABLE eligibility.registry_generation_authority FROM PUBLIC;
 REVOKE INSERT, UPDATE, DELETE ON TABLE eligibility.registry_generation_authority FROM pc_role_eligibility_runtime;
 GRANT SELECT ON TABLE eligibility.registry_generation_authority TO pc_role_eligibility_runtime;
@@ -276,6 +388,9 @@ DECLARE role_name TEXT;
 BEGIN
   FOREACH role_name IN ARRAY ARRAY['pc_deal_runtime','app_runtime','one_deal_app','app_deal','app_service'] LOOP
     IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = role_name) THEN
+      EXECUTE format('REVOKE INSERT, UPDATE, DELETE ON eligibility.registry_generation_lineage FROM %I', role_name);
+      EXECUTE format('GRANT SELECT ON eligibility.registry_generation_lineage TO %I', role_name);
+      EXECUTE format('GRANT EXECUTE ON FUNCTION eligibility.record_fns_egrul_predecessor(TEXT, TEXT) TO %I', role_name);
       EXECUTE format('REVOKE INSERT, UPDATE, DELETE ON eligibility.registry_generation_authority FROM %I', role_name);
       EXECUTE format('GRANT SELECT ON eligibility.registry_generation_authority TO %I', role_name);
       EXECUTE format('GRANT EXECUTE ON FUNCTION eligibility.activate_registry_generation(TEXT, TEXT, TEXT) TO %I', role_name);
