@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -156,26 +156,61 @@ describe('FnsEgrulFileImportService validate-only authority boundary', () => {
     }
   });
 
-  it('rejects an intermediate parent-symlink swap after canonicalization', async () => {
+  it('rejects a final-component symlink swap instead of defeating O_NOFOLLOW with pre-realpath', async () => {
+    if (process.platform !== 'linux') return;
+
+    const file = join(root, 'a.xml');
+    const moved = join(root, 'a-original.xml');
+    const alternate = join(root, 'alternate.xml');
+    await writeFile(file, entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
+    await writeFile(alternate, entityXml('7812345675', '1047796045770', 'OOO ALTERNATE'));
+
+    await rename(file, moved);
+    await symlink(alternate, file);
+
+    await expect(readRegularFileNoFollow(root, file, 'a.xml'))
+      .rejects.toThrow('FNS_EGRUL_IMPORT_SYMLINK_FORBIDDEN');
+  });
+
+  it('rejects an intermediate parent-symlink swap that escapes the staging root', async () => {
     if (process.platform !== 'linux') return;
 
     const nested = join(root, 'nested');
     const moved = join(root, 'nested-original');
     const outside = await mkdtemp(join(tmpdir(), 'fns-egrul-parent-swap-'));
+    const logicalFile = join(nested, 'a.xml');
     await mkdir(nested);
-    await writeFile(join(nested, 'a.xml'), entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
+    await writeFile(logicalFile, entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
     await writeFile(join(outside, 'a.xml'), entityXml('7812345675', '1047796045770', 'OOO OUTSIDE'));
 
-    const canonicalBeforeSwap = await realpath(join(nested, 'a.xml'));
     await rename(nested, moved);
     await symlink(outside, nested, 'dir');
 
     try {
-      await expect(readRegularFileNoFollow(root, canonicalBeforeSwap))
+      await expect(readRegularFileNoFollow(root, logicalFile, 'nested/a.xml'))
         .rejects.toThrow('FNS_EGRUL_IMPORT_PATH_ESCAPE');
     } finally {
       await rm(outside, { recursive: true, force: true });
     }
+  });
+
+  it('rejects an intermediate parent-symlink swap that aliases another in-root path', async () => {
+    if (process.platform !== 'linux') return;
+
+    const nested = join(root, 'nested');
+    const moved = join(root, 'nested-original');
+    const alternate = join(root, 'alternate');
+    const logicalFile = join(nested, 'a.xml');
+    await mkdir(nested);
+    await mkdir(alternate);
+    await writeFile(logicalFile, entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
+    await writeFile(join(alternate, 'a.xml'), entityXml('7812345675', '1047796045770', 'OOO ALTERNATE'));
+
+    await rename(nested, moved);
+    await symlink(alternate, nested, 'dir');
+
+    await expect(readRegularFileNoFollow(root, logicalFile, 'nested/a.xml'))
+      .rejects.toThrow('FNS_EGRUL_IMPORT_PATH_IDENTITY_DRIFT');
   });
 
   it('rejects a symlinked staging root before traversal', async () => {
