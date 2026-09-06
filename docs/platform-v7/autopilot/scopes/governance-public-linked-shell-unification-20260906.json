@@ -3,7 +3,7 @@
   "branch": "governance/public-linked-shell-unification-20260906",
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-06-public-linked-shell-unification",
-  "purpose": "Record a separately reviewable exact-path scope for unifying the remaining public Trust, Privacy, Login and Register shells under the canonical public navigation while preserving registration, authentication, legal, consent and data authority.",
+  "purpose": "Record a separately reviewable exact-path scope for unifying the remaining public Trust, byte-bound legal Privacy/Terms/Oferta shells, Login and Register under canonical public navigation while preserving exact consent-evidence sources, registration, authentication, legal-source, consent and data authority.",
   "authorityBaseExactMain": "7f900c79326a8ac816324472f90995428842ac9d",
   "effectiveAfter": "This governance slice is intentionally stacked on Phase 1 exact head c97567f461c508c26d6d82786712399d60e52412. Before merge it must be rematerialized or retargeted onto the then-current exact main after PR #5115, pass terminal exact-head substantive CI, receive genuine independent exact-head review, and pass final base/head drift checks. The implementation scope is not effective until this governance slice is merged.",
   "allowedPaths": [
@@ -12,12 +12,13 @@
   ],
   "implementationBranch": "feat/public-linked-shell-unification-20260906",
   "implementationManifest": "docs/platform-v7/autopilot/scopes/public-linked-shell-unification-20260906.json",
-  "implementationAllowedPathCount": 18,
+  "implementationAllowedPathCount": 21,
   "boundaries": {
     "productBehaviorChange": false,
     "registrationChange": false,
     "authenticationChange": false,
     "legalPolicyChange": false,
+    "termsPrivacySourceBytesChange": false,
     "consentAuthorityChange": false,
     "databaseChange": false,
     "productionMutation": false,
