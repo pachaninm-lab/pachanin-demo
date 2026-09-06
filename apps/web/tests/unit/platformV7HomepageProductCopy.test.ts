@@ -41,7 +41,13 @@ describe('platform-v7 homepage product copy', () => {
 
   it('presents one crop Deal product with nine roles and seven public steps in RU EN ZH', () => {
     expect(hero).toContain('ведёт одну агросделку от товара и торгов до поставки, качества, документов и расчёта');
-    expect(hero).toContain('что уже подтверждено и что делать дальше');
+    expect(hero).toContain('какие факты и основания доступны и что делать дальше');
+    expect(hero).toContain('с аграрным интеллектом Гекта');
+    expect(hero).toContain('with Gekta agricultural intelligence');
+    expect(hero).toContain('配备农业智能 Gekta');
+    expect(hero).not.toContain('с собственным искусственным интеллектом');
+    expect(hero).not.toContain('proprietary artificial intelligence');
+    expect(hero).not.toContain('что уже подтверждено и что делать дальше');
     expect(hero).toContain('но не принимает решение вместо человека');
     expect(story).toContain('Полный контур агросделки собран в одной рабочей системе');
     expect(story).toContain('The complete agricultural Deal workflow in one operating system');
