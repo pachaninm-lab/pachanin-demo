@@ -40,10 +40,10 @@ const PUBLIC_SITE_HEADER_STYLES = `
   backdrop-filter: blur(16px);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-/* Canonical public-header authority. The repeated class+attribute specificity is
- * deliberate: older linked pages still carry route-local header overrides.
- * This contract wins without changing protected/personal-cabinet chrome. */
-.pc-site-header[data-public-site-header='canonical'].pc-site-header {
+/* One geometry authority for the public shell. The extra canonical specificity is
+ * intentional: it retires older route-local 96/100px mobile header overrides
+ * without affecting protected/personal-cabinet chrome. */
+.pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header {
   --pc-public-header-base-height: 64px;
   --pc-public-header-total-height: calc(64px + env(safe-area-inset-top, 0px));
   display: flex !important;
@@ -174,10 +174,10 @@ const PUBLIC_SITE_HEADER_STYLES = `
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.pc-site-header :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
+.pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
   box-sizing: border-box;
   width: auto !important;
-  min-width: 0 !important;
+  min-width: 44px !important;
   height: var(--pc-site-control-height) !important;
   min-height: var(--pc-site-control-height) !important;
   display: inline-flex !important;
@@ -195,8 +195,8 @@ const PUBLIC_SITE_HEADER_STYLES = `
   white-space: nowrap !important;
   text-decoration: none !important;
 }
-.pc-site-header :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register):hover,
-.pc-site-header :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register):focus-visible {
+.pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register):hover,
+.pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register):focus-visible {
   background: #07572e !important;
   border-color: #07572e !important;
   color: #fff !important;
@@ -292,26 +292,47 @@ const PUBLIC_SITE_HEADER_STYLES = `
   color: #07572e;
 }
 @media (max-width: 900px) {
-  .pc-site-header .pc-site-nav { display: none; }
-  .pc-site-mobile-menu { display: block; }
-  .pc-site-brand { flex: 1 1 auto; overflow: hidden; }
-  .pc-site-brand-text { overflow: hidden; }
-  .pc-site-brand-text strong { display: block; overflow: hidden; text-overflow: ellipsis; }
-  .pc-site-actions { margin-left: 0; }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-nav { display: none !important; }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-mobile-menu { display: block !important; }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text { overflow: visible !important; }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong {
+    display: block !important;
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-actions { margin-left: 0 !important; }
 }
 @media (max-width: 720px) {
-  .pc-site-header[data-public-site-header='canonical'].pc-site-header {
+  .pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header {
     gap: 5px !important;
     padding-inline: 8px !important;
   }
-  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text {
-    display: none !important;
-  }
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand {
-    flex: 1 1 auto !important;
-    min-width: 36px !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text {
+    display: grid !important;
+    min-width: 0 !important;
     overflow: visible !important;
   }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong {
+    max-width: none !important;
+    color: #071611 !important;
+    font-size: 15px !important;
+    line-height: 1.04 !important;
+    letter-spacing: -.035em !important;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text small { display: none !important; }
   .pc-site-header[data-public-site-header='canonical'] .pc-site-actions,
   .pc-site-header[data-public-site-header='canonical'] .pc-site-actions > div {
     gap: 4px !important;
@@ -330,17 +351,7 @@ const PUBLIC_SITE_HEADER_STYLES = `
     width: 44px !important;
     padding-inline: 5px !important;
   }
-  .pc-site-header[data-public-site-header='canonical'] .entry-login {
-    min-width: 50px !important;
-    padding-inline: 7px !important;
-    font-size: 12px !important;
-  }
-  .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
-    max-width: 116px !important;
-    padding-inline: 9px !important;
-    font-size: 12px !important;
-  }
-  .pc-site-mobile-nav { top: 68px; }
+  .pc-site-mobile-nav { top: calc(68px + env(safe-area-inset-top, 0px)); }
   .pc-v7-public-entry:has(.pc-site-header[data-public-site-header='canonical']) {
     --entry-public-header-base: 64px !important;
     --pc-public-header-base-height: 64px !important;
@@ -348,29 +359,73 @@ const PUBLIC_SITE_HEADER_STYLES = `
     --entry-header-height: calc(64px + var(--entry-public-header-offset, 0px)) !important;
   }
 }
-@media (max-width: 380px) {
-  .pc-site-header[data-public-site-header='canonical'] .pc-site-locale-switch {
-    min-width: 42px !important;
-    width: 42px !important;
+@media (max-width: 430px) {
+  .pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header {
+    gap: 4px !important;
+    padding-inline: 6px !important;
   }
-  .pc-site-header[data-public-site-header='canonical'] .entry-login {
-    min-width: 46px !important;
-    padding-inline: 5px !important;
-    font-size: 11px !important;
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand {
+    flex: 1 1 auto !important;
+    min-width: 84px !important;
+    gap: 0 !important;
+    overflow: visible !important;
   }
-  .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
-    max-width: 98px !important;
-    padding-inline: 7px !important;
-    font-size: 11px !important;
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-mark[data-brand-mark='transparent-price-canonical'] {
+    display: none !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    font-size: 14px !important;
+    line-height: 1.04 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    text-overflow: clip !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions,
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions > div {
+    gap: 3px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .entry-login {
+    width: 44px !important;
+    min-width: 44px !important;
+    padding: 0 !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .entry-login > span {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta {
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding-inline: 8px !important;
+    font-size: 12px !important;
   }
 }
 @media (max-width: 340px) {
-  .pc-site-header[data-public-site-header='canonical'].pc-site-header { padding-inline: 6px !important; }
-  .pc-site-header[data-public-site-header='canonical'] .entry-login { min-width: 44px !important; }
-  .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
-    max-width: 88px !important;
+  .pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header {
+    gap: 3px !important;
     padding-inline: 6px !important;
-    font-size: 10.5px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions,
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions > div {
+    gap: 2px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta {
+    padding-inline: 7px !important;
+    font-size: 11.5px !important;
   }
 }
 @media (prefers-reduced-motion: reduce) {
