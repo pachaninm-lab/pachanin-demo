@@ -89,9 +89,15 @@ describe('platform-v7 public copy quality', () => {
     expect(about).toContain('PublicSiteHeader');
     expect(about).toContain('p7-about-register');
     expect(about).toContain('/platform-v7/register');
-    expect(about).toContain('Что такое «Прозрачная Цена»');
+    expect(about).toContain('Одна система для всей агросделки');
+    expect(about).toContain("brandHome: 'Прозрачная Цена — на главную'");
+    expect(about).toContain("journey: ['Товар и условия', 'Рынок и контрагент'");
+    expect(about).toContain("className='p7-about-journey'");
     expect(about).toContain("href: '/platform-v7/ai-in-action'");
     expect(about).toContain('href={`/platform-v7/trust${lang}`}');
+    expect(about).not.toContain('ABOUT_HEADER_CSS');
+    expect(about).not.toContain('Что подтверждено, а что требует подключения');
+    expect(about).not.toContain('статусы подключений');
     expect(about).not.toContain("href: '/platform-v7/status'");
     expect(about).not.toContain('href={`/platform-v7/status${lang}`}');
     expect(about).not.toContain('/platform-v7/secure-grain-deal');
