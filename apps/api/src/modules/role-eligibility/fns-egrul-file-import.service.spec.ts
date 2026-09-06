@@ -1,7 +1,10 @@
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FnsEgrulFileImportService } from './fns-egrul-file-import.service';
+import {
+  FnsEgrulFileImportService,
+  readRegularFileNoFollow,
+} from './fns-egrul-file-import.service';
 
 const NOW = new Date('2026-09-05T03:00:00.000Z');
 
@@ -150,6 +153,28 @@ describe('FnsEgrulFileImportService validate-only authority boundary', () => {
         .rejects.toThrow('FNS_EGRUL_IMPORT_SYMLINK_FORBIDDEN');
     } finally {
       await rm(outside, { force: true });
+    }
+  });
+
+  it('rejects an intermediate parent-symlink swap after canonicalization', async () => {
+    if (process.platform !== 'linux') return;
+
+    const nested = join(root, 'nested');
+    const moved = join(root, 'nested-original');
+    const outside = await mkdtemp(join(tmpdir(), 'fns-egrul-parent-swap-'));
+    await mkdir(nested);
+    await writeFile(join(nested, 'a.xml'), entityXml('7707083893', '1027700132195', 'OOO ALPHA'));
+    await writeFile(join(outside, 'a.xml'), entityXml('7812345675', '1047796045770', 'OOO OUTSIDE'));
+
+    const canonicalBeforeSwap = await realpath(join(nested, 'a.xml'));
+    await rename(nested, moved);
+    await symlink(outside, nested, 'dir');
+
+    try {
+      await expect(readRegularFileNoFollow(root, canonicalBeforeSwap))
+        .rejects.toThrow('FNS_EGRUL_IMPORT_PATH_ESCAPE');
+    } finally {
+      await rm(outside, { recursive: true, force: true });
     }
   });
 
