@@ -7,6 +7,7 @@ const read = (relativePath: string) => readFileSync(join(process.cwd(), relative
 const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
 const how = read('app/platform-v7/how-it-works/page.tsx');
 const trust = read('app/platform-v7/trust/page.tsx');
+const baseTrust = read('app/trust/page.tsx');
 const about = read('app/platform-v7/about/page.tsx');
 const ai = read('app/platform-v7/ai-in-action/page.tsx');
 const contactHeader = read('components/platform-v7/ContactFixedHeader.tsx');
@@ -17,11 +18,12 @@ const register = read('app/platform-v7/register/page.tsx');
 
 describe('platform-v7 linked public shell unification', () => {
   it('uses the canonical public header across the main linked public surfaces', () => {
-    for (const source of [home, how, trust, about, ai, contactHeader, privacy, login, register]) {
+    for (const source of [home, how, about, ai, contactHeader, privacy, login, register, baseTrust]) {
       expect(source).toContain('PublicSiteHeader');
     }
+    expect(trust).toContain('BaseTrustCenterPage');
 
-    for (const source of [how, about, ai, contactHeader, privacy, login, register]) {
+    for (const source of [how, about, ai, contactHeader, privacy, login, register, baseTrust]) {
       expect(source).toContain('showMobileMenu');
     }
 
@@ -73,10 +75,10 @@ describe('platform-v7 linked public shell unification', () => {
     expect(privacyPortal).toContain("role='tablist'");
     expect(privacyPortal).toContain("role='tab'");
     expect(privacyPortal).toContain("role='tabpanel'");
-    expect(privacyPortal).toContain("case 'ArrowRight'");
-    expect(privacyPortal).toContain("case 'ArrowLeft'");
-    expect(privacyPortal).toContain("case 'Home'");
-    expect(privacyPortal).toContain("case 'End'");
+    expect(privacyPortal).toContain("event.key === 'ArrowRight'");
+    expect(privacyPortal).toContain("event.key === 'ArrowLeft'");
+    expect(privacyPortal).toContain("event.key === 'Home'");
+    expect(privacyPortal).toContain("event.key === 'End'");
     expect(privacyPortal).not.toContain('неподтверждённый статус');
     expect(privacyPortal).not.toContain('unconfirmed status');
   });
