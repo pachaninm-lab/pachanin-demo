@@ -55,7 +55,7 @@ const COPY: Record<Locale, Copy> = {
       'Единый контекст для обычного пути Сделки и для отклонений, перерасчётов и разногласий.',
     ],
     trustTitle: 'Границы доверия встроены в саму Сделку',
-    trustLead: 'Полномочия определяются ролью и организацией, основания остаются связаны с действиями и документами, а внешние контуры взаимодействуют с платформой через отдельные подключения. Гекта помогает понять факты и варианты, но не получает самостоятельного права принять критическое решение.',
+    trustLead: 'Полномочия определяются ролью и организацией, основания остаются связаны с действиями и документами, а внешние контуры взаимодействуют с платформой через отдельные контуры обмена. Гекта помогает понять факты и варианты, но не получает самостоятельного права принять критическое решение.',
     trustLinks: [
       { title: 'Как проходит Сделка', note: 'Посмотрите обычный путь и ситуации, когда исполнение отклоняется от согласованных условий.', href: '/platform-v7/how-it-works' },
       { title: 'Центр доверия', note: 'Как устроены полномочия, доказательства, данные и границы внешних контуров.', href: '/platform-v7/trust' },
@@ -83,11 +83,11 @@ const COPY: Record<Locale, Copy> = {
     bullets: [
       'One working history instead of scattered chats, spreadsheets, files and calls.',
       'Clear responsibility for the role and the next permitted action.',
-      'A direct connection between terms, actual execution, documents and monetary outcome.',
+      'A direct link between terms, actual execution, documents and monetary outcome.',
       'One context for both the ordinary Deal path and deviations, recalculations and disagreements.',
     ],
     trustTitle: 'Trust boundaries are built into the Deal itself',
-    trustLead: 'Authority follows the role and organisation, evidence stays linked to actions and documents, and external systems interact through separate connections. Gekta helps explain facts and options but does not gain independent authority to make a critical decision.',
+    trustLead: 'Authority follows the role and organisation, evidence stays linked to actions and documents, and external systems interact through separate exchange circuits. Gekta helps explain facts and options but does not gain independent authority to make a critical decision.',
     trustLinks: [
       { title: 'How a Deal works', note: 'See the ordinary journey and situations where execution diverges from agreed terms.', href: '/platform-v7/how-it-works' },
       { title: 'Trust Center', note: 'How authority, evidence, data and external-system boundaries are organised.', href: '/platform-v7/trust' },
@@ -119,7 +119,7 @@ const COPY: Record<Locale, Copy> = {
       '正常流程、偏差、重算和分歧都保留在同一交易上下文中。',
     ],
     trustTitle: '信任边界直接内置于交易流程',
-    trustLead: '权限由角色和机构决定，依据始终与操作和文件关联；外部系统通过独立连接与平台交互。Gekta 帮助解释事实和可选方案，但不会获得独立做出关键决定的权限。',
+    trustLead: '权限由角色和机构决定，依据始终与操作和文件关联；外部系统通过独立交换通道与平台交互。Gekta 帮助解释事实和可选方案，但不会获得独立做出关键决定的权限。',
     trustLinks: [
       { title: '交易如何运行', note: '查看普通交易路径，以及履约偏离约定条件时如何处理。', href: '/platform-v7/how-it-works' },
       { title: '信任中心', note: '了解权限、证据、数据以及外部系统边界如何组织。', href: '/platform-v7/trust' },
@@ -192,7 +192,7 @@ export default async function AboutPage() {
         actions={(
           <>
             <Link href={`/platform-v7/login${lang}`} className='entry-login p7-about-login' aria-label={copy.login}>{copy.login}</Link>
-            <Link href={`/platform-v7/register${lang}`} className='pc-site-action p7-about-register' aria-label={copy.register}>{copy.register}</Link>
+            <Link href={`/platform-v7/register${lang}`} className='pc-v6-header-cta p7-about-register' aria-label={copy.register}>{copy.register}</Link>
           </>
         )}
       />
@@ -265,6 +265,9 @@ function Bullet({ text }: { text: string }) {
 
 const ABOUT_PAGE_CSS = `
 .p7-about-page{min-height:100vh;background:#f7faf8;color:#102019;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.pc-site-header:has(.p7-about-register) .p7-about-login,.pc-site-header:has(.p7-about-register) .p7-about-register{width:auto;min-width:44px;height:44px;min-height:44px;padding:0 12px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;text-decoration:none;font-size:13px;font-weight:760}
+.pc-site-header:has(.p7-about-register) .p7-about-register{border:1px solid #087a3b;background:#087a3b;color:#fff}
+.pc-site-header:has(.p7-about-register) .p7-about-register:hover,.pc-site-header:has(.p7-about-register) .p7-about-register:focus-visible{background:#07572e;color:#fff}
 .p7-about-shell{width:min(1180px,calc(100% - 40px));margin:0 auto;padding:112px 0 64px;display:grid;gap:0}
 .p7-about-hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr);gap:64px;align-items:center;padding:52px 0 74px}
 .p7-about-hero-copy{min-width:0}.p7-about-eyebrow{display:block;margin-bottom:12px;color:#087a3b;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
@@ -281,6 +284,7 @@ const ABOUT_PAGE_CSS = `
 .p7-about-legal{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;padding:42px 0;border-bottom:1px solid #dfe8e3}.p7-about-legal h2{font-size:22px}.p7-about-legal p{max-width:68ch;margin:8px 0 0;color:#64736b;font-size:13px;line-height:1.55}.p7-about-legal nav,.p7-about-bottom-nav{display:flex;gap:8px;flex-wrap:wrap}.p7-about-legal a,.p7-about-bottom-nav a{min-height:44px;display:inline-flex;align-items:center;padding:0 12px;border:1px solid #d5e1da;border-radius:999px;background:#fff;color:#334c40;font-size:12px;font-weight:700;text-decoration:none}.p7-about-bottom-nav{padding-top:20px}
 @media(max-width:900px){.p7-about-hero{grid-template-columns:1fr;gap:30px}.p7-about-hero h1{max-width:15ch}.p7-about-outcomes,.p7-about-links{margin-left:0}.p7-about-final{grid-template-columns:1fr;align-items:start}.p7-about-legal{grid-template-columns:1fr}}
 @media(max-width:600px){.p7-about-shell{width:min(100% - 28px,1180px);padding-top:88px}.p7-about-hero{padding:32px 0 50px}.p7-about-hero h1{font-size:clamp(36px,11vw,44px);line-height:1.02}.p7-about-hero-copy>p{font-size:16px;line-height:1.52}.p7-about-actions{display:grid;grid-template-columns:1fr}.p7-about-primary,.p7-about-secondary{width:100%}.p7-about-section{padding:54px 0}.p7-about-section-head{grid-template-columns:36px minmax(0,1fr);gap:12px}.p7-about-section-head>span,.p7-about-final>div>span{width:34px;height:34px}.p7-about-section h2,.p7-about-final h2{font-size:30px}.p7-about-outcomes,.p7-about-links{grid-template-columns:1fr}.p7-about-link-card{min-height:0}.p7-about-final{padding:32px 22px;border-radius:18px}.p7-about-final>div:first-child{grid-template-columns:36px minmax(0,1fr);gap:10px}.p7-about-legal{padding:34px 0}}
+@media(max-width:560px){.pc-site-header:has(.p7-about-register) .p7-about-login{display:none!important}.pc-site-header:has(.p7-about-register) .p7-about-register{padding-inline:10px;font-size:12px}}
 @media(prefers-reduced-motion:reduce){.p7-about-link-card{transition:none}.p7-about-link-card:hover{transform:none}}
-@media(forced-colors:active){.p7-about-journey,.p7-about-outcome,.p7-about-link-card,.p7-about-final,.p7-about-primary,.p7-about-secondary,.p7-about-legal a,.p7-about-bottom-nav a{border:1px solid CanvasText}.p7-about-final{background:Canvas;color:CanvasText}.p7-about-final h2,.p7-about-final p{color:CanvasText}}
+@media(forced-colors:active){.p7-about-journey,.p7-about-outcome,.p7-about-link-card,.p7-about-final,.p7-about-primary,.p7-about-secondary,.p7-about-legal a,.p7-about-bottom-nav a,.pc-site-header:has(.p7-about-register) .p7-about-register{border:1px solid CanvasText}.p7-about-final{background:Canvas;color:CanvasText}.p7-about-final h2,.p7-about-final p{color:CanvasText}}
 `;
