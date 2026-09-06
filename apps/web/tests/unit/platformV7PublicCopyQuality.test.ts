@@ -26,13 +26,25 @@ const changedPublicFiles = [
   'apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx',
   'apps/web/components/platform-v7/PrivacyPortalPanel.tsx',
   'apps/web/components/platform-v7/PublicDealRoleScenario.tsx',
+  'apps/web/i18n/platform-v7-home-story.ts',
   'apps/web/i18n/platform-v7-home-story-product.ts',
+  'apps/web/i18n/platform-v7-home-story-operating.ts',
   'apps/web/i18n/platform-v7-home-v3-operating.ts',
+  'apps/web/i18n/platform-v7-accounting-value.ts',
   'apps/web/i18n/platform-v7-organization-connect-operating.ts',
+  'apps/web/i18n/public-product-entry-variants.ts',
   'apps/web/i18n/public-product-experience-v3.ts',
+  'apps/web/i18n/public-product-experience-v4.ts',
+  'apps/web/i18n/public-deal-journey-v5.ts',
 ].map((file) => [file, read(file)] as const);
 
 const aiExperience = read('apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx');
+const baseStory = read('apps/web/i18n/platform-v7-home-story.ts');
+const detailedCopy = read('apps/web/i18n/public-product-experience-v3.ts');
+const sharedCopy = read('apps/web/i18n/public-product-experience-v4.ts');
+const journeyCopy = read('apps/web/i18n/public-deal-journey-v5.ts');
+const entryCopy = read('apps/web/i18n/public-product-entry-variants.ts');
+const accountingCopy = read('apps/web/i18n/platform-v7-accounting-value.ts');
 
 const legacyBanned = [
   'controlled pilot',
@@ -62,6 +74,32 @@ const publicBanned = [
   'fake-live',
 ];
 
+const statusPresentationBanned = [
+  'готовность расчёта',
+  'settlement readiness',
+  '结算准备',
+  'готовность финансового действия',
+  'financial-action readiness',
+  '金融操作准备',
+  'проверить готовность расчёта',
+  'check settlement readiness',
+  '检查结算准备',
+  'только подтверждаемые статусы',
+  'only verifiable statuses',
+  '只展示可核验状态',
+  'статусы интеграций',
+  'integration statuses',
+  '集成状态',
+  'публичный статус',
+  'public status',
+  '公开状态',
+  'active connection',
+  'verified statuses',
+  'settlement-ground status',
+  'unconfirmed route',
+  "href: '/platform-v7/status'",
+];
+
 describe('platform-v7 public copy quality', () => {
   it('keeps legacy public copy and protected role navigation free of artificial wording', () => {
     for (const [file, source] of legacyFiles) {
@@ -79,6 +117,30 @@ describe('platform-v7 public copy quality', () => {
     }
   });
 
+  it('keeps every live Deal copy owner free of visitor-facing readiness and system-status marketing', () => {
+    const publicDealCopy = [baseStory, detailedCopy, sharedCopy, journeyCopy, entryCopy, accountingCopy].join('\n').toLowerCase();
+    for (const phrase of statusPresentationBanned) {
+      expect(publicDealCopy, `public Deal copy must not contain ${phrase}`).not.toContain(phrase.toLowerCase());
+    }
+
+    expect(baseStory).toContain("settlementLabel: 'Основание расчёта'");
+    expect(baseStory).toContain("settlementLabel: 'Settlement basis'");
+    expect(baseStory).toContain("settlementLabel: '结算依据'");
+    expect(baseStory).toContain("{ value: '9', label: 'публичных ролей одной Сделки' }");
+    expect(baseStory).toContain("{ value: '7', label: 'понятных шагов публичного пути' }");
+    expect(baseStory).not.toContain("ladder: ['Реализовано', 'Проверено', 'Интегрировано', 'Подключено'");
+
+    expect(detailedCopy).toContain("statusLabel: 'Контекст этапа'");
+    expect(detailedCopy).toContain("statusLabel: 'Stage context'");
+    expect(detailedCopy).toContain("statusLabel: '阶段上下文'");
+    expect(sharedCopy).toContain("href: '/platform-v7/trust'");
+    expect(journeyCopy).toContain("settle: { label: 'Проверить основания расчёта'");
+    expect(journeyCopy).toContain("settle: { label: 'Review settlement grounds'");
+    expect(journeyCopy).toContain("settle: { label: '检查结算依据'");
+    expect(entryCopy).toContain('Товар, условия, поставка, документы и основания расчёта.');
+    expect(accountingCopy).toContain('Маршрут обмена определяется для конкретной организации');
+  });
+
   it('keeps About and Contact chrome source-owned, understandable and registration-first', () => {
     const about = read('apps/web/app/platform-v7/about/page.tsx');
     const contact = read('apps/web/app/platform-v7/contact/ContactClient.tsx');
@@ -89,9 +151,15 @@ describe('platform-v7 public copy quality', () => {
     expect(about).toContain('PublicSiteHeader');
     expect(about).toContain('p7-about-register');
     expect(about).toContain('/platform-v7/register');
-    expect(about).toContain('Что такое «Прозрачная Цена»');
+    expect(about).toContain('Одна система для всей агросделки');
+    expect(about).toContain("brandHome: 'Прозрачная Цена — на главную'");
+    expect(about).toContain("journey: ['Товар и условия', 'Рынок и контрагент'");
+    expect(about).toContain("className='p7-about-journey'");
     expect(about).toContain("href: '/platform-v7/ai-in-action'");
     expect(about).toContain('href={`/platform-v7/trust${lang}`}');
+    expect(about).not.toContain('ABOUT_HEADER_CSS');
+    expect(about).not.toContain('Что подтверждено, а что требует подключения');
+    expect(about).not.toContain('статусы подключений');
     expect(about).not.toContain("href: '/platform-v7/status'");
     expect(about).not.toContain('href={`/platform-v7/status${lang}`}');
     expect(about).not.toContain('/platform-v7/secure-grain-deal');

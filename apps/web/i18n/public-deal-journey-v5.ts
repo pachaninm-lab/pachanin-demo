@@ -49,7 +49,7 @@ const copy = {
       kicker: 'Как работает Сделка',
       title: 'Посмотрите обычный путь Сделки от условий до закрытия',
       lead: 'Выберите свою задачу или роль. Сначала платформа показывает нормальное исполнение, а отклонение или спор открываются отдельным сценарием только при необходимости.',
-      demoNotice: 'Ниже используется вымышленный пример. Он не содержит реальных сделок или организаций, не выполняет банковские операции и не выдаёт неподключённые внешние системы за работающие.',
+      demoNotice: 'Ниже используется вымышленный пример. Он не содержит реальных сделок или организаций, не выполняет банковские операции и не имитирует ответы внешних систем.',
       backHome: 'На главную',
       connect: 'Зарегистрироваться',
     },
@@ -102,7 +102,7 @@ const copy = {
       buy: { label: 'Купить продукцию', description: 'Проверить исполнение поставки, качество, документы и основания расчёта.', perspective: 'buyer' },
       transport: { label: 'Организовать перевозку', description: 'Понять задачи перевозчика, водителя и транспортных документов.', perspective: 'logistics' },
       receive: { label: 'Принять и проверить груз', description: 'Увидеть приёмку, вес, лабораторию и подтверждение качества.', perspective: 'elevator' },
-      settle: { label: 'Проверить готовность расчёта', description: 'Понять, какие подтверждённые события и документы создают основание финансового действия.', perspective: 'bank' },
+      settle: { label: 'Проверить основания расчёта', description: 'Понять, какие подтверждённые события и документы создают основание финансового действия.', perspective: 'bank' },
       control: { label: 'Контролировать исполнение', description: 'Посмотреть Сделку, сроки, исключения, риски и доказательную историю.', perspective: 'operator' },
     },
     scenarios: {
@@ -149,14 +149,14 @@ const copy = {
     },
     finalChecks: ['Поставка и ключевые события связаны со Сделкой', 'Документы собраны в едином контексте', 'Расчётные основания проверены', 'Отклонения и решения остаются в хронологии', 'Доказательная история сохранена'],
     before: ['Договор отдельно', 'Перевозка отдельно', 'Лаборатория отдельно', 'Документы отдельно', 'Расчёт отдельно', 'Спор собирается вручную'],
-    after: ['Одна Сделка связывает участников и события', 'Каждый этап имеет ответственного и следующий шаг', 'Документы связаны с событиями исполнения', 'Деньги зависят от подтверждённых оснований', 'Отклонения переходят в доказательный контур', 'Гекта объясняет текущий статус и риск'],
+    after: ['Одна Сделка связывает участников и события', 'Каждый этап имеет ответственного и следующий шаг', 'Документы связаны с событиями исполнения', 'Деньги зависят от подтверждённых оснований', 'Отклонения переходят в доказательный контур', 'Гекта объясняет факты, риск и следующий шаг'],
   },
   en: {
     intro: {
       kicker: 'How a Deal works',
       title: 'See the ordinary Deal journey from terms to closure',
       lead: 'Choose your task or role. The platform shows normal execution first; deviation or dispute is a separate scenario only when needed.',
-      demoNotice: 'The flow uses fictional data. It contains no real deals or organisations, performs no banking operation and never presents an unconnected external system as live.',
+      demoNotice: 'The flow uses fictional data. It contains no real deals or organisations, performs no banking operation and does not simulate responses from external systems.',
       backHome: 'Back to home',
       connect: 'Register',
     },
@@ -164,7 +164,7 @@ const copy = {
       intentQuestion: 'What do you want to do?', intentLead: 'Choose the closest work task — this never changes system permissions.', otherParticipant: 'Another Deal participant', chooseParticipant: 'Choose a participant', changeIntent: 'Change task', quickMode: 'Quick view', detailedMode: 'Explore in detail', quickModeNote: 'The platform walks through key stages and shows what matters to the selected role now.', detailedModeNote: 'Detailed stages, documents, settlement grounds, risks and roles of one Deal.', scenarioQuestion: 'What happens in this Deal?', formalScenario: 'Execution scenario', yourDeal: 'Example Deal', demonstration: 'Fictional example', stage: 'Stage', of: 'of', whatHappened: 'What happened', yourAction: 'What you need to do', noAction: 'No action is required from you right now.', platformAction: 'What the platform does', nowActs: 'Acting now', money: 'Money', documents: 'Documents', risk: 'Risk', next: 'Next', askTai: 'Ask Gekta about this stage', startQuick: 'Start quick walkthrough', pause: 'Pause', continue: 'Continue', stop: 'Stop', restart: 'Start from the beginning', previous: 'Back', nextStage: 'Next stage', detailedOpen: 'Open detailed review', detailedBack: 'Return to quick view', completeTitle: 'Deal completed', completeLead: 'The ordinary Deal journey is complete in one digital contour.', oneContour: 'One Deal connects execution, documents, settlement grounds, risks and evidence.', anotherScenario: 'View another scenario', beforeTitle: 'Without one digital contour', afterTitle: 'With Transparent Price', roleContext: 'Your context', scenarioRiskNone: 'No critical deviations in this scenario.'
     },
     intents: {
-      sell: { label: 'Sell produce', description: 'See the path from sale terms to delivery, documents and settlement.', perspective: 'seller' }, buy: { label: 'Buy produce', description: 'Check delivery execution, quality, documents and settlement grounds.', perspective: 'buyer' }, transport: { label: 'Organise transport', description: 'Understand carrier, driver and transport-document tasks.', perspective: 'logistics' }, receive: { label: 'Receive and inspect cargo', description: 'See acceptance, weight, laboratory checks and quality confirmation.', perspective: 'elevator' }, settle: { label: 'Check settlement readiness', description: 'Understand which verified events and documents form the financial-action basis.', perspective: 'bank' }, control: { label: 'Control execution', description: 'Review the Deal, deadlines, exceptions, risks and evidence history.', perspective: 'operator' }
+      sell: { label: 'Sell produce', description: 'See the path from sale terms to delivery, documents and settlement.', perspective: 'seller' }, buy: { label: 'Buy produce', description: 'Check delivery execution, quality, documents and settlement grounds.', perspective: 'buyer' }, transport: { label: 'Organise transport', description: 'Understand carrier, driver and transport-document tasks.', perspective: 'logistics' }, receive: { label: 'Receive and inspect cargo', description: 'See acceptance, weight, laboratory checks and quality confirmation.', perspective: 'elevator' }, settle: { label: 'Review settlement grounds', description: 'Understand which confirmed events and documents form the financial-action basis.', perspective: 'bank' }, control: { label: 'Control execution', description: 'Review the Deal, deadlines, exceptions, risks and evidence history.', perspective: 'operator' }
     },
     scenarios: {
       standard: { label: 'Everything went normally', risk: 'No critical deviations: the Deal follows the ordinary path.' }, partial: { label: 'Not all volume was accepted', risk: 'The actually accepted volume may change the settlement basis.' }, dispute: { label: 'Quality did not match', risk: 'Settlement may be held until evidence and a deviation decision are recorded.' }
@@ -179,17 +179,17 @@ const copy = {
     },
     finalChecks: ['Delivery and key events are linked to the Deal', 'Documents are assembled in one context', 'Settlement grounds are checked', 'Deviations and decisions remain in chronology', 'Evidence history is retained'],
     before: ['Contract separate', 'Transport separate', 'Laboratory separate', 'Documents separate', 'Settlement separate', 'Dispute evidence assembled manually'],
-    after: ['One Deal connects participants and events', 'Every stage has an owner and next step', 'Documents are linked to execution events', 'Money depends on verified grounds', 'Deviations enter the evidence contour', 'Gekta explains current status and risk'],
+    after: ['One Deal connects participants and events', 'Every stage has an owner and next step', 'Documents are linked to execution events', 'Money depends on confirmed grounds', 'Deviations enter the evidence contour', 'Gekta explains facts, risk and the next action'],
   },
   zh: {
     intro: {
-      kicker: '交易如何运行', title: '查看从条件到关闭的普通交易路径', lead: '选择你的任务或角色。平台先展示正常履约；只有在确有需要时，才进入偏差或争议场景。', demoNotice: '下方使用虚构数据，不包含真实交易或机构，不执行真实银行操作，也不会把尚未接入的外部系统显示为在线能力。', backHome: '返回首页', connect: '注册'
+      kicker: '交易如何运行', title: '查看从条件到关闭的普通交易路径', lead: '选择你的任务或角色。平台先展示正常履约；只有在确有需要时，才进入偏差或争议场景。', demoNotice: '下方使用虚构数据，不包含真实交易或机构，不执行真实银行操作，也不模拟外部系统的响应。', backHome: '返回首页', connect: '注册'
     },
     labels: {
       intentQuestion: '你想做什么？', intentLead: '请选择最接近的工作任务；该选择不会改变系统权限。', otherParticipant: '其他交易参与方', chooseParticipant: '选择参与方', changeIntent: '更换任务', quickMode: '快速查看', detailedMode: '详细查看', quickModeNote: '平台带你经过关键阶段，只展示当前与所选角色最相关的信息。', detailedModeNote: '查看同一笔交易的详细阶段、文件、结算依据、风险和角色。', scenarioQuestion: '这笔交易发生什么情况？', formalScenario: '履约场景', yourDeal: '示例交易', demonstration: '虚构示例', stage: '阶段', of: '/', whatHappened: '发生了什么', yourAction: '你需要做什么', noAction: '当前不需要你执行操作。', platformAction: '平台做什么', nowActs: '当前执行方', money: '资金', documents: '文件', risk: '风险', next: '下一步', askTai: '向 Gekta 询问当前阶段', startQuick: '开始快速查看', pause: '暂停', continue: '继续', stop: '停止', restart: '从头开始', previous: '返回', nextStage: '下一阶段', detailedOpen: '打开详细解析', detailedBack: '返回快速查看', completeTitle: '交易已完成', completeLead: '普通交易路径已在同一个数字闭环中完成。', oneContour: '一笔交易连接履约、文件、结算依据、风险和证据。', anotherScenario: '查看其他场景', beforeTitle: '没有统一数字闭环', afterTitle: '使用“透明价格”', roleContext: '你的上下文', scenarioRiskNone: '当前场景没有重大偏差。'
     },
     intents: {
-      sell: { label: '出售农产品', description: '查看从销售条件到交付、文件和结算的路径。', perspective: 'seller' }, buy: { label: '购买农产品', description: '检查交付履约、质量、文件和结算依据。', perspective: 'buyer' }, transport: { label: '组织运输', description: '了解承运方、司机和运输文件的任务。', perspective: 'logistics' }, receive: { label: '收货并检查', description: '查看收货、重量、实验室和质量确认过程。', perspective: 'elevator' }, settle: { label: '检查结算准备', description: '了解哪些已核验事件和文件形成金融操作依据。', perspective: 'bank' }, control: { label: '控制履约', description: '查看整笔交易、期限、异常、风险和证据历史。', perspective: 'operator' }
+      sell: { label: '出售农产品', description: '查看从销售条件到交付、文件和结算的路径。', perspective: 'seller' }, buy: { label: '购买农产品', description: '检查交付履约、质量、文件和结算依据。', perspective: 'buyer' }, transport: { label: '组织运输', description: '了解承运方、司机和运输文件的任务。', perspective: 'logistics' }, receive: { label: '收货并检查', description: '查看收货、重量、实验室和质量确认过程。', perspective: 'elevator' }, settle: { label: '检查结算依据', description: '了解哪些已确认事件和文件形成金融操作依据。', perspective: 'bank' }, control: { label: '控制履约', description: '查看整笔交易、期限、异常、风险和证据历史。', perspective: 'operator' }
     },
     scenarios: {
       standard: { label: '一切正常', risk: '没有重大偏差，交易按普通路径推进。' }, partial: { label: '未全部收货', risk: '实际收货量可能改变结算依据。' }, dispute: { label: '质量不一致', risk: '在证据和偏差处理决定记录前，结算可能被暂停。' }
@@ -204,7 +204,7 @@ const copy = {
     },
     finalChecks: ['交付和关键事件与交易关联', '文件汇总在统一上下文', '结算依据已检查', '偏差和决定保留在时间线', '证据历史已保存'],
     before: ['合同独立存在', '运输独立存在', '实验室独立存在', '文件独立存在', '结算独立存在', '争议证据需手工汇总'],
-    after: ['一笔交易连接参与方和事件', '每个阶段都有责任方和下一步', '文件与履约事件绑定', '资金取决于已核验依据', '偏差进入证据闭环', 'Gekta 解释当前状态和风险'],
+    after: ['一笔交易连接参与方和事件', '每个阶段都有责任方和下一步', '文件与履约事件绑定', '资金取决于已确认依据', '偏差进入证据闭环', 'Gekta 解释事实、风险和下一步'],
   },
 } as const;
 

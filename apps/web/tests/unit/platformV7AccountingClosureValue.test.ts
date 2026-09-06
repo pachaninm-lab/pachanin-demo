@@ -21,39 +21,43 @@ describe('platform-v7 accounting closure homepage value', () => {
     expect(live).toBeGreaterThan(accounting);
   });
 
-  it('explains value for producer, accountant and buyer without promising a live external connection', () => {
+  it('explains value for producer, accountant and buyer without connection-state marketing', () => {
     expect(copy).toContain("audience: 'Производителю'");
     expect(copy).toContain("audience: 'Бухгалтеру'");
     expect(copy).toContain("audience: 'Покупателю'");
-    expect(copy).toContain('Связь с привычным учётом — после подтверждения подключения');
-    expect(copy).toContain('До такого подключения платформа не обещает автоматический обмен или отсутствие двойного ввода.');
-    expect(copy).toContain('Перечень показывает поддерживаемые направления интеграции, а не подтверждение активного соединения.');
-    expect(copy).toContain('доступность конкретного маршрута и фактический обмен подтверждаются отдельно для организации');
+    expect(copy).toContain('Связь с привычным учётом через управляемый маршрут данных');
+    expect(copy).toContain('В Сделку попадают только данные, полученные из разрешённого источника в пределах прав организации');
+    expect(copy).toContain('Перечень показывает возможные направления интеграции, а не факт обмена с конкретной организацией.');
+    expect(copy).toContain('каждый внешний факт должен иметь соответствующий источник и основание обмена');
   });
 
-  it('keeps Gekta explanatory and treats connection as organisation-specific', () => {
+  it('keeps Gekta explanatory and external data source-based', () => {
     expect(section).toContain("data-testid='platform-v7-accounting-closure-value'");
     expect(section).toContain('copy.gekta.title');
     expect(section).toContain('copy.connection.title');
     expect(section).toContain('copy.protection.title');
-    expect(copy).toContain('Пример показывает, как Гекта может объяснить состояние Сделки');
-    expect(copy).toContain('Подключение определяется для конкретной организации');
-    expect(copy).toContain('Ошибки и неподтверждённые статусы не скрываются');
-    expect(copy).toContain('вместо ложного статуса «готово»');
+    expect(copy).toContain('Пример показывает, как Гекта может объяснить факты Сделки, имеющиеся основания и следующий шаг');
+    expect(copy).toContain('Маршрут обмена определяется для конкретной организации');
+    expect(copy).toContain('Пробелы в основаниях не скрываются');
+    expect(copy).toContain('вместо положительного предположения');
   });
 
-  it('keeps public maturity language honest in RU EN ZH', () => {
+  it('keeps public external-system language status-free in RU EN ZH', () => {
     for (const claim of [
       '1С подключена',
       'ЭДО подключён',
       'Диадок подключён',
       'Saby подключён',
       'платформа гарантирует оплату',
-      'without duplicate entry',
       'active connection',
+      'verified statuses',
+      'settlement-ground status',
+      'unconfirmed route',
+      '未经确认的状态',
+      '活动连接',
     ]) expect(copy.toLowerCase()).not.toContain(claim.toLowerCase());
-    expect(copy).toContain('If a specific accounting or EDI connection is confirmed for the organisation');
-    expect(copy).toContain('具体可用性和实际交换需要针对机构单独确认');
+    expect(copy).toContain('Accounting or EDI data can enter this context only through an organisation-authorised exchange route with a clear source.');
+    expect(copy).toContain('只有通过机构获授权的数据交换路径并带有明确来源时');
   });
 
   it('is responsive and accessible on the public homepage', () => {

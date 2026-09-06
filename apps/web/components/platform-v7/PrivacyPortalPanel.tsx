@@ -25,7 +25,7 @@ export function PrivacyPortalPanel() {
       <div style={{ padding: '14px 16px', borderRadius: 12, border: '1px solid #D7E1DB', background: '#F8FBF9' }}>
         <strong style={{ display: 'block', fontSize: 14, color: '#102019' }}>Права субъекта персональных данных</strong>
         <p style={{ margin: '6px 0 0', fontSize: 12, lineHeight: 1.6, color: '#526159' }}>
-          Этот раздел объясняет доступные действия и не показывает вымышленные персональные записи, согласия, обращения или статусы. Актуальные условия обработки определяются опубликованной политикой конфиденциальности.
+          Этот раздел объясняет доступные действия и не создаёт вымышленные персональные записи, согласия или обращения. Актуальные условия обработки определяются опубликованной политикой конфиденциальности.
         </p>
       </div>
 
@@ -87,7 +87,7 @@ export function PrivacyPortalPanel() {
         <section role='tabpanel' style={{ padding: '14px 16px', borderRadius: 12, border: '1px solid #E2E8E4', background: '#fff' }}>
           <strong style={{ display: 'block', fontSize: 13, color: '#102019' }}>Направить реальное обращение</strong>
           <p style={{ margin: '6px 0 12px', fontSize: 11.5, lineHeight: 1.55, color: '#526159' }}>
-            Используйте опубликованные контакты платформы. Нажатие на ссылку ниже не создаёт фиктивную заявку и не показывает неподтверждённый статус — обращение считается направленным только после фактической отправки через доступный канал связи.
+            Используйте опубликованные контакты платформы. Ссылка ниже только открывает канал связи и не создаёт фиктивную заявку; обращение считается направленным после фактической отправки пользователем.
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <a href='/platform-v7/contact' style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center', padding: '8px 14px', borderRadius: 9, background: '#087A3B', color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 800 }}>

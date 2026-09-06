@@ -81,7 +81,7 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(scenario).toContain('className={styles.stageRail}');
     expect(scenario).toContain('className={styles.metrics}');
     expect(scenario).toContain('className={styles.rolePanel}');
-    expect(scenario).toContain("preview: 'Пример рабочей Сделки'");
+    expect(scenario).toContain("preview: 'Упрощённый экран рабочего кабинета'");
     expect(scenario).toContain("label: 'Сотрудник платформы'");
     expect(scenario.toLowerCase()).not.toContain('confirmed_live');
     expect(scenario).not.toContain('accessToken');

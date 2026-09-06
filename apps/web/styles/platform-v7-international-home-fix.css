@@ -13,6 +13,24 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
+/* Public story surfaces explain the workflow without presenting status badges. */
+.pc-v7-public-entry [data-testid='platform-v7-deal-card'] > div:first-child > b,
+.pc-v7-public-entry #live article[data-state] > div:first-child > b {
+  display: none !important;
+}
+
+/* The Deal path is the canonical seven-step story. Do not gate steps 4–7 behind
+ * a disclosure control: desktop scroll pacing and mobile document order must both
+ * expose the complete story without an extra interaction. */
+.pc-v7-public-entry #deal-path #phases-more-toggle,
+.pc-v7-public-entry #deal-path label[for='phases-more-toggle'] {
+  display: none !important;
+}
+
+.pc-v7-public-entry #deal-path #phases-more-cards {
+  display: contents !important;
+}
+
 /* Anchors follow the shared fixed-header authority instead of a route-specific
  * guessed height. */
 .pc-v7-public-entry :where(
@@ -43,6 +61,116 @@
   font-size: 14px !important;
 }
 
+/* Accessibility authority for the new public Deal story. The previous muted
+ * treatment did not meet WCAG 2 AA on white surfaces. Keep the semantic content
+ * unchanged while giving phase numbers, stage indices and the Gekta detail link
+ * sufficient contrast in every browser. */
+.pc-v7-public-entry #deal-path article > span:first-child {
+  background: #087a3b !important;
+  color: #fff !important;
+}
+
+.pc-v7-public-entry #participants button > span > small {
+  color: #526159 !important;
+}
+
+.pc-v7-public-entry [data-testid='platform-v7-ai-analysis'] a {
+  color: #07572e !important;
+}
+
+/* Desktop Deal story: the seven phase cards become a restrained sticky stack.
+ * The content remains ordinary DOM content; this only changes how the same
+ * explanation is paced while the visitor scrolls. */
+@media (min-width: 1024px) {
+  .pc-v7-public-entry #deal-path > div:has(> article) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 28px !important;
+    max-width: 980px;
+    margin-inline: auto;
+  }
+
+  .pc-v7-public-entry #deal-path > div:has(> article) > article,
+  .pc-v7-public-entry #deal-path > div:has(> article) > div > article {
+    position: sticky !important;
+    top: calc(var(--pc-public-header-total-height, 64px) + 24px);
+    min-height: 250px !important;
+    grid-template-columns: 58px minmax(0, 1fr) !important;
+    grid-template-rows: auto auto 1fr !important;
+    column-gap: 20px !important;
+    row-gap: 10px !important;
+    padding: 28px 30px !important;
+    border-radius: 22px !important;
+    background: linear-gradient(180deg, rgba(8, 122, 59, .045), rgba(255,255,255,.98) 36%) !important;
+    box-shadow: 0 22px 54px rgba(16, 42, 29, .09) !important;
+  }
+
+  .pc-v7-public-entry #deal-path article > span:first-child {
+    grid-column: 1;
+    grid-row: 1 / 4;
+    align-self: start;
+  }
+
+  .pc-v7-public-entry #deal-path article > :is(h3, p, small) {
+    grid-column: 2;
+  }
+
+  .pc-v7-public-entry #deal-path article > h3 {
+    font-size: 28px !important;
+    line-height: 1.12 !important;
+  }
+
+  .pc-v7-public-entry #deal-path article > p {
+    max-width: 70ch;
+    font-size: 15px !important;
+    line-height: 1.58 !important;
+  }
+
+  .pc-v7-public-entry #deal-path article > small {
+    align-self: end;
+    font-size: 13px !important;
+  }
+}
+
+/* Progressive enhancement only. Unsupported browsers keep the same readable
+ * static layout. Motion explains sequence; it never conveys unique meaning.
+ * Text remains fully opaque throughout motion so WCAG contrast never degrades. */
+@supports (animation-timeline: view()) {
+  .pc-v7-public-entry #deal-path article,
+  .pc-v7-public-entry [data-testid='platform-v7-ai-analysis'],
+  .pc-v7-public-entry #participants [role='tabpanel'] {
+    animation-name: pc-public-story-reveal;
+    animation-duration: 1ms;
+    animation-fill-mode: both;
+    animation-timeline: view();
+    animation-range: entry 8% cover 32%;
+  }
+}
+
+@keyframes pc-public-story-reveal {
+  from {
+    transform: translateY(28px) scale(.985);
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > * {
+  animation: pc-public-stage-enter 420ms ease both;
+}
+
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(2) { animation-delay: 70ms; }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(3) { animation-delay: 140ms; }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(4) { animation-delay: 210ms; }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(5) { animation-delay: 280ms; }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(6) { animation-delay: 350ms; }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(7) { animation-delay: 420ms; }
+
+@keyframes pc-public-stage-enter {
+  from { transform: translateY(6px); }
+  to { transform: translateY(0); }
+}
+
 @media (max-width: 767px) {
   .pc-v7-public-entry .pc-v6-footer {
     padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
@@ -62,6 +190,13 @@
 
   .pc-v7-public-entry .pc-public-deal-stage-rail--demo {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Mobile keeps the story linear. No sticky card stacking: every one of the
+   * seven steps is read in document order and remains independently clear. */
+  .pc-v7-public-entry #deal-path article {
+    position: relative !important;
+    top: auto !important;
   }
 
   .pc-public-contact-dock[data-assistant-context='public'] {
@@ -112,6 +247,34 @@
   }
 }
 
+/* RU/EN/ZH place the compact assistant over different Hero Deal rows because
+ * their copy lengths differ. At the smallest accepted widths reserve a narrow
+ * right lane for every row and reduce the dock to a still-accessible 44px action,
+ * preventing first-viewport content occlusion without changing the mobile flow. */
+@media (max-width: 390px) {
+  .pc-v7-public-entry [data-testid='platform-v7-deal-card'] article {
+    padding-right: 56px !important;
+  }
+
+  .pc-public-contact-dock[data-assistant-context='public'] {
+    right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) + 8px)) !important;
+    width: 48px !important;
+    min-width: 48px !important;
+    height: 48px !important;
+    padding: 2px !important;
+    border-radius: 16px !important;
+  }
+
+  .pc-public-contact-dock[data-assistant-context='public']
+    .pc-public-contact-dock-assistant {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 13px !important;
+  }
+}
+
 @media (max-width: 430px) {
   .pc-v7-public-entry .pc-public-deal-stage-rail--demo {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -119,9 +282,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .pc-v7-public-entry *,
   .pc-public-contact-dock[data-assistant-context='public'] * {
+    animation: none !important;
     transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -129,5 +294,11 @@
   .pc-public-contact-dock[data-assistant-context='public'] {
     border: 2px solid ButtonText;
     background: Canvas;
+  }
+
+  .pc-v7-public-entry #deal-path article {
+    border: 1px solid CanvasText !important;
+    background: Canvas !important;
+    box-shadow: none !important;
   }
 }
