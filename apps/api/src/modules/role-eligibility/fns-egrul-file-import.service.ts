@@ -102,6 +102,7 @@ async function collectXmlFiles(
 async function verifyOpenedFileWithinRoot(
   root: string,
   path: string,
+  expectedRelativePath: string,
   handle: FileHandle,
   openedStat: Stats,
 ): Promise<void> {
@@ -109,13 +110,16 @@ async function verifyOpenedFileWithinRoot(
     let openedPath: string;
     try {
       // O_NOFOLLOW protects only the final path component. Resolve the already-open
-      // descriptor so a parent-directory symlink swap between realpath() and open()
-      // cannot redirect validation outside the governed staging root.
+      // descriptor so a parent-directory symlink swap cannot redirect validation
+      // outside the governed staging root or alias another in-root logical path.
       openedPath = await realpath(`/proc/self/fd/${handle.fd}`);
     } catch {
       throw importError('FNS_EGRUL_IMPORT_OPEN_FILE_IDENTITY_UNAVAILABLE');
     }
-    relativePosix(root, openedPath);
+    const actualRelativePath = relativePosix(root, openedPath);
+    if (actualRelativePath !== expectedRelativePath) {
+      throw importError('FNS_EGRUL_IMPORT_PATH_IDENTITY_DRIFT');
+    }
     return;
   }
 
@@ -126,7 +130,10 @@ async function verifyOpenedFileWithinRoot(
   let currentStat: Stats;
   try {
     reopenedPath = await realpath(path);
-    relativePosix(root, reopenedPath);
+    const actualRelativePath = relativePosix(root, reopenedPath);
+    if (actualRelativePath !== expectedRelativePath) {
+      throw importError('FNS_EGRUL_IMPORT_PATH_IDENTITY_DRIFT');
+    }
     currentStat = await lstat(reopenedPath);
   } catch (error) {
     if (error instanceof Error && error.name === 'FnsEgrulFileImportError') throw error;
@@ -137,12 +144,19 @@ async function verifyOpenedFileWithinRoot(
   }
 }
 
-export async function readRegularFileNoFollow(root: string, path: string): Promise<Uint8Array> {
+export async function readRegularFileNoFollow(
+  root: string,
+  path: string,
+  expectedRelativePath = relativePosix(root, path),
+): Promise<Uint8Array> {
   const noFollow = typeof fsConstants.O_NOFOLLOW === 'number' ? fsConstants.O_NOFOLLOW : 0;
   let handle: FileHandle;
   try {
     handle = await open(path, fsConstants.O_RDONLY | noFollow);
-  } catch {
+  } catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+    if (code === 'ELOOP') throw importError('FNS_EGRUL_IMPORT_SYMLINK_FORBIDDEN');
+    if (code === 'ENOENT') throw importError('FNS_EGRUL_IMPORT_FILE_UNAVAILABLE');
     throw importError('FNS_EGRUL_IMPORT_FILE_OPEN_FAILED');
   }
 
@@ -152,7 +166,7 @@ export async function readRegularFileNoFollow(root: string, path: string): Promi
     if (!Number.isSafeInteger(stat.size) || stat.size <= 0 || stat.size > MAX_XML_BYTES) {
       throw importError('FNS_EGRUL_IMPORT_FILE_SIZE_INVALID');
     }
-    await verifyOpenedFileWithinRoot(root, path, handle, stat);
+    await verifyOpenedFileWithinRoot(root, path, expectedRelativePath, handle, stat);
     const body = await handle.readFile();
     if (body.byteLength !== stat.size) throw importError('FNS_EGRUL_IMPORT_FILE_SIZE_DRIFT');
     return new Uint8Array(body);
@@ -198,12 +212,11 @@ export class FnsEgrulFileImportService {
     let totalRecords = 0;
 
     for (const file of discovered) {
-      const canonicalPath = await realpath(file.absolutePath).catch(() => {
-        throw importError('FNS_EGRUL_IMPORT_FILE_UNAVAILABLE');
-      });
-      relativePosix(root, canonicalPath);
-
-      const bytes = await readRegularFileNoFollow(root, canonicalPath);
+      // Open the originally enumerated logical path directly. Pre-resolving it with
+      // realpath() would defeat O_NOFOLLOW if the final file were swapped to a
+      // symlink after enumeration but before open(). Descriptor verification below
+      // then catches intermediate-parent redirects and in-root path aliasing.
+      const bytes = await readRegularFileNoFollow(root, file.absolutePath, file.relativePath);
       const parsed = parseFnsEgrulXml(decodeFnsEgrulXml(bytes), format);
       if (!snapshotPublishedAt) snapshotPublishedAt = parsed.publishedAt;
       if (snapshotPublishedAt.getTime() !== parsed.publishedAt.getTime()) {
