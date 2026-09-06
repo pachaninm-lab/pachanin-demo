@@ -222,6 +222,9 @@ export class RoleEligibilityFnsEgrulIngestRepository {
         `);
         const replay = replayRows[0];
         if (replay?.count === base.record_count && (replay.unmatched || 0n) === 0n) {
+          await client.$queryRaw(Prisma.sql`
+            SELECT eligibility.record_fns_egrul_predecessor(${generationId},${base.id})
+          `);
           return { baseGenerationId: base.id, inherited: Number(base.record_count), replayed: true };
         }
         throw new Error('FNS_EGRUL_DELTA_TARGET_ALREADY_INITIALIZED');
@@ -245,6 +248,9 @@ export class RoleEligibilityFnsEgrulIngestRepository {
         WHERE id=${generationId} AND source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND status='STAGING' AND record_count=0
       `);
       if (updated !== 1) throw new Error('FNS_EGRUL_BASE_COPY_STATE_CHANGED');
+      await client.$queryRaw(Prisma.sql`
+        SELECT eligibility.record_fns_egrul_predecessor(${generationId},${base.id})
+      `);
       return { baseGenerationId: base.id, inherited: inserted, replayed: false };
     });
   }
@@ -302,6 +308,9 @@ export class RoleEligibilityFnsEgrulIngestRepository {
         WHERE id=${generationId} AND source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND status='STAGING'
       `);
       if (updated !== 1) throw new Error('FNS_EGRUL_DELTA_STATE_CHANGED');
+      await client.$queryRaw(Prisma.sql`
+        SELECT eligibility.record_fns_egrul_predecessor(${generationId},${base.id})
+      `);
       return { replaced: deleted, inserted: desired.length };
     });
   }
