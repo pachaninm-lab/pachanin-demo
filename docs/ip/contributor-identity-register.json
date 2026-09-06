@@ -31,7 +31,8 @@
       "class": "PRINCIPAL",
       "evidence": "Владелец репозитория и учётной записи GitHub pachaninm-lab; 22 075 коммитов из 23 639 (93.4%) по всей истории (git log --all --no-merges).",
       "instrumentRequired": "DECLARATION_OF_AUTHORSHIP_AND_RIGHTS",
-      "rationale": "Собственный творческий труд правообладателя. Приобретать право не у кого — требуется зафиксировать авторство и принадлежность права."
+      "rationale": "Собственный творческий труд правообладателя. Приобретать право не у кого — требуется зафиксировать авторство и принадлежность права.",
+      "mergeCommits": 1341
     },
     {
       "displayName": "Platon",
@@ -49,11 +50,12 @@
       "emails": [
         "noreply@anthropic.com"
       ],
-      "commits": 985,
+      "commits": 986,
       "class": "AI_TOOL",
       "evidence": "Служебный адрес поставщика инструмента (noreply@anthropic.com); коммиты выполнены при запуске инструмента оператором репозитория.",
       "instrumentRequired": "NONE",
-      "rationale": "Инструмент, а не гражданин. По ст. 1257 автором быть не может; отдельного правообладателя, у которого приобреталось бы право, не возникает. Фиксируется как tool provenance."
+      "rationale": "Инструмент, а не гражданин. По ст. 1257 автором быть не может; отдельного правообладателя, у которого приобреталось бы право, не возникает. Фиксируется как tool provenance.",
+      "mergeCommits": 116
     },
     {
       "displayName": "claude[bot]",
@@ -65,7 +67,8 @@
       "evidence": "Приложение GitHub, запускаемое из репозитория правообладателя.",
       "instrumentRequired": "NONE",
       "rationale": "То же основание, что и для Claude.",
-      "absentFromHistory": "Идентичность не имеет коммитов в текущей истории репозитория; запись сохранена, чтобы классификация оставалась полной."
+      "absentFromHistory": "Авторских коммитов нет: 4 слияни(я/й) и ничего более. Слияние фиксирует решение принять работу, а не самостоятельное творческое выражение, и в базис авторства не входит.",
+      "mergeCommits": 4
     },
     {
       "displayName": "Codex",
@@ -97,7 +100,8 @@
     "identities": [
       {
         "displayName": "github-actions[bot]",
-        "commits": 321
+        "commits": 321,
+        "mergeCommits": 16
       },
       {
         "displayName": "platform-v7-agent",
@@ -113,7 +117,8 @@
       },
       {
         "displayName": "pc-crop-governed-bot",
-        "commits": 5
+        "commits": 5,
+        "mergeCommits": 2
       },
       {
         "displayName": "public-entry-watch",
@@ -125,7 +130,8 @@
       },
       {
         "displayName": "pc-crop-governance-bot",
-        "commits": 2
+        "commits": 2,
+        "mergeCommits": 1
       },
       {
         "displayName": "pc-crop-authority[bot]",
@@ -150,13 +156,16 @@
     ]
   },
   "completeness": {
-    "totalCommitsNoMerges": 23639,
+    "totalCommitsNoMerges": 23640,
     "identitiesEnumerated": 19,
     "method": "git log --all --no-merges --format='%aN|%aE' | sort | uniq -c — полное перечисление, а не выборка.",
     "humanAuthorsBesidesPrincipal": 1,
     "note": "Единственное физическое лицо помимо правообладателя — Platon. Всё остальное — правообладатель, инструменты и автоматика.",
     "basis": "git log --all --no-merges --format=%aN",
-    "measuredAt": "2026-09-06T14:36:36.075Z",
-    "verifier": "node scripts/ip/verify-contributor-identity-register.mjs"
+    "measuredAt": "2026-09-06T14:44:52.358Z",
+    "verifier": "node scripts/ip/verify-contributor-identity-register.mjs",
+    "mergeBasis": "git log --all --merges --format=%aN — считается отдельно и в базис авторства не входит.",
+    "mergesByPrincipalOnDefaultBranch": 1195,
+    "mergesTotalOnDefaultBranch": 1241
   }
 }

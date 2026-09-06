@@ -1,7 +1,7 @@
 {
   "schemaVersion": "pc-crop.ip-due-diligence.v1",
-  "generatedAt": "2026-09-06T14:35:02.638Z",
-  "gitHead": "d9cacaa942d8bc96d729ce8ca1f285e4877b8768",
+  "generatedAt": "2026-09-06T14:49:06.143Z",
+  "gitHead": "387323d3e55d748044186f3e48504d379f9b1306",
   "kpi": {
     "THIRD_PARTY_PRODUCT_CODE": 0,
     "UNKNOWN_PRODUCT_CODE": 0,
@@ -26,6 +26,32 @@
     "claim": "NO_MATERIAL_UNDECLARED_BORROWING_ACROSS_VERIFIED_CORPUS",
     "notClaimed": "WORLDWIDE_UNIQUENESS"
   },
+  "authorshipProvenance": {
+    "crownJewels": {
+      "AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION": 136,
+      "HUMAN_WITH_AI_TOOL": 189,
+      "HUMAN_ONLY": 309,
+      "AUTOMATION_GENERATED": 2
+    },
+    "allFiles": {
+      "HUMAN_WITH_AI_TOOL": 1576,
+      "HUMAN_ONLY": 4467,
+      "AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION": 692,
+      "AUTOMATION_GENERATED": 59
+    },
+    "crownJewelTotal": 636,
+    "fileTotal": 6794,
+    "mergesOnDefaultBranch": {
+      "byPrincipal": 1195,
+      "total": 1241
+    },
+    "aiCommitsOnDefaultBranch": {
+      "total": 300,
+      "viaMerge": 254,
+      "direct": 46
+    },
+    "note": "Commit-author identity is the account a commit was made under, not a determination of authorship. Under art. 1257 of the Russian Civil Code the author is the citizen whose creative work produced the result; a software tool is not an author."
+  },
   "notAsserted": [
     "WORLDWIDE_UNIQUENESS",
     "PATENT_FREEDOM_TO_OPERATE",
@@ -36,19 +62,19 @@
     {
       "what": "Провенанс каждого файла",
       "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json",
-      "sha256": "fa2149389edc0d0119b480d4cb34694d9bdc514667d5dc07d25289f2f746e6d7",
+      "sha256": "67dea8974d3156086bd8c03a79111866f1e1fa4e46e2658955918e8810ac1111",
       "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
     },
     {
       "what": "Сводка провенанса и KPI",
       "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json",
-      "sha256": "557129fed3232809dde2a173231697b8b3a9b44579c224e54ac674998c667fdc",
+      "sha256": "a46a1b3f13ac22633adcd6f978cd894c96af95583b556d8d17ead3b4c1a16bc8",
       "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
     },
     {
       "what": "Провенанс в табличном виде",
       "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.csv",
-      "sha256": "548cbaeeeb213b2e433fd74087d4b6897e0a448bdb1f7a7ace6e67e546c030c1",
+      "sha256": "ae6cdd1499f78d4d1b2f399579c034839ca41ec24f61b0b15dc9d91d2a415825",
       "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
     },
     {

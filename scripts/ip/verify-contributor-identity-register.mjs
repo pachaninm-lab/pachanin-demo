@@ -53,13 +53,30 @@ for (const name of execFileSync('git', BASIS, { encoding: 'utf8', maxBuffer: 102
 }
 const measuredTotal = [...measured.values()].reduce((s, n) => s + n, 0);
 
+// Merges are counted separately rather than ignored. A merge commit carries no
+// creative expression of its own - it records a decision to accept work, and its
+// content is the resolution, usually empty - so it does not belong in the
+// authorship basis. But an identity whose only commits are merges is not absent
+// from history, and saying it is would be a false statement in a document that
+// ends up attached to a declaration of authorship. claude[bot] is exactly this
+// case: four merges, no authored commits.
+const merges = new Map();
+for (const name of execFileSync('git', ['log', '--all', '--merges', '--format=%aN'], {
+  encoding: 'utf8',
+  maxBuffer: 1024 * 1024 * 64,
+}).split('\n').filter(Boolean)) {
+  merges.set(name, (merges.get(name) ?? 0) + 1);
+}
+
 const register = JSON.parse(fs.readFileSync(REGISTER, 'utf8'));
 const declared = new Map();
 for (const identity of register.identities ?? []) {
   declared.set(identity.displayName, identity);
 }
 for (const identity of register.ciAutomation?.identities ?? []) {
-  declared.set(identity.displayName, identity);
+  // The CI block holds the class once, on the block, not on each entry; the rule
+  // that only a human contributor's growth is a failure needs it per identity.
+  declared.set(identity.displayName, { ...identity, class: register.ciAutomation.class, __ci: identity });
 }
 
 const problems = [];
@@ -72,10 +89,18 @@ for (const [name, count] of [...measured].sort()) {
     continue;
   }
   if (entry.commits !== count) {
-    if (WRITE) entry.commits = count;
+    if (WRITE) { entry.commits = count; if (entry.__ci) entry.__ci.commits = count; }
     else if (!BASELINE) problems.push(`РАСХОЖДЕНИЕ: «${name}» — в реестре ${entry.commits}, измерено ${count}`);
-    else if (count > entry.commits) {
-      problems.push(`РОСТ: «${name}» — в реестре ${entry.commits}, измерено ${count}; вклад вырос сверх зафиксированного`);
+    else if (count > entry.commits && entry.class === 'HUMAN_CONTRIBUTOR') {
+      // Growth is enforced only for a human contributor other than the
+      // principal, because only that growth opens a rights gap that a document
+      // has to close. The principal's own count and the tool identities' counts
+      // rise with every commit by design; failing on those would make the gate
+      // red on any branch that adds a commit after the register was regenerated,
+      // which is every branch.
+      problems.push(`РОСТ: «${name}» — в реестре ${entry.commits}, измерено ${count}; вклад неоформленного контрибьютора вырос`);
+    } else if (count > entry.commits) {
+      notes.push(`выше зафиксированного (ожидаемо для класса ${entry.class ?? '—'}): «${name}» — ${entry.commits} → ${count}`);
     } else {
       notes.push(`ниже зафиксированного: «${name}» — в реестре ${entry.commits}, в этом наборе ссылок ${count}`);
     }
@@ -85,10 +110,19 @@ for (const [name, count] of [...measured].sort()) {
 for (const [name, entry] of [...declared].sort()) {
   if (measured.has(name)) continue;
   if (WRITE) {
+    const target = entry.__ci ?? entry;
+    target.commits = 0;
     entry.commits = 0;
-    entry.absentFromHistory = 'Идентичность не имеет коммитов в текущей истории репозитория; запись сохранена, чтобы классификация оставалась полной.';
+    target.mergeCommits = merges.get(name) ?? 0;
+    entry.mergeCommits = target.mergeCommits;
+    target.absentFromHistory = entry.mergeCommits > 0
+      ? `Авторских коммитов нет: ${entry.mergeCommits} слияни(я/й) и ничего более. Слияние фиксирует решение принять работу, а не самостоятельное творческое выражение, и в базис авторства не входит.`
+      : 'Коммиты этой идентичности недостижимы из ссылок, имеющихся у этого клона репозитория; запись сохранена, чтобы классификация оставалась полной.';
   } else if (BASELINE) {
-    notes.push(`не достижим из этого набора ссылок: «${name}» (в реестре ${entry.commits})`);
+    const m = merges.get(name) ?? 0;
+    notes.push(m > 0
+      ? `авторских коммитов нет, только слияния: «${name}» (${m})`
+      : `не достижим из этого набора ссылок: «${name}» (в реестре ${entry.commits})`);
   } else if (entry.commits !== 0 || !entry.absentFromHistory) {
     // An entry may legitimately measure zero: `--all` only sees the refs this
     // checkout has, and a branch that has since been pruned takes its commits
@@ -115,13 +149,64 @@ if (classifiedTotal !== measuredTotal && !WRITE && !BASELINE) {
 }
 
 if (WRITE) {
+  for (const [name, entry] of declared) {
+    const m = merges.get(name) ?? 0;
+    if (m > 0) (entry.__ci ?? entry).mergeCommits = m;
+  }
   register.completeness.identitiesEnumerated = declared.size;
   register.completeness.basis = `git ${BASIS.join(' ')}`;
+  register.completeness.mergeBasis = 'git log --all --merges --format=%aN — считается отдельно и в базис авторства не входит.';
+  register.completeness.mergesByPrincipalOnDefaultBranch = Number(
+    execFileSync('bash', ['-c', "git log origin/main --merges --format='%aN' | grep -cx pachaninm-lab || true"], { encoding: 'utf8' }).trim(),
+  );
+  register.completeness.mergesTotalOnDefaultBranch = Number(
+    execFileSync('bash', ['-c', "git log origin/main --merges --format='%aN' | wc -l"], { encoding: 'utf8' }).trim(),
+  );
   register.completeness.measuredAt = new Date().toISOString();
   register.completeness.verifier = 'node scripts/ip/verify-contributor-identity-register.mjs';
   fs.writeFileSync(REGISTER, `${JSON.stringify(register, null, 2)}\n`);
   console.log(`Реестр идентичностей перезаписан по измерению: ${declared.size} идентичностей, ${measuredTotal} коммитов.`);
   process.exit(0);
+}
+
+// The legal documents quote these counts in prose. Prose does not recompute, so
+// a figure typed into a declaration of authorship stays wrong forever once the
+// history moves past it - which is precisely how 24 849 and 88.8 % survived into
+// a document meant for signature. Each quoted figure is checked here.
+//
+// The comparison is against the REGISTER, not against live git. The register is
+// a deliberate measurement with a recorded timestamp; live git moves with every
+// commit, including the commit that would carry the fix, so checking prose
+// against it would leave the documents permanently one commit behind and the
+// gate permanently red. Register-versus-git drift is a separate question,
+// handled above by class: only an unformalised human contributor's growth fails.
+const registerPrincipal = declared.get(register.rightsholder?.displayName ?? 'pachaninm-lab');
+const quoted = [
+  ['docs/ip/CHAIN_OF_TITLE_REGISTER.md', /(\d[\d\u00a0 ]*) коммитов из (\d[\d\u00a0 ]*)/u, 'principalOfTotal'],
+  ['docs/ip/legal/01-declaration-of-authorship-principal.md', /\*\*(\d[\d\u00a0 ]*) коммитов из (\d[\d\u00a0 ]*)\*\*/u, 'principalOfTotal'],
+  ['docs/ip/rospatent/01-zayavlenie.md', /(\d[\d\u00a0 ]*) коммитов из (\d[\d\u00a0 ]*)/u, 'principalOfTotal'],
+  ['docs/ip/CHAIN_OF_TITLE_REGISTER.md', /`Claude` (\d+) коммит/u, 'claude'],
+  ['docs/ip/legal/05-ai-tool-provenance-statement.md', /`Claude <noreply@anthropic\.com>` \((\d+) коммит/u, 'claude'],
+];
+const digits = (text) => Number(String(text).replace(/[^\d]/gu, ''));
+for (const [file, pattern, kind] of quoted) {
+  if (!fs.existsSync(file)) continue;
+  const match = fs.readFileSync(file, 'utf8').match(pattern);
+  if (!match) {
+    problems.push(`ЦИТАТА НЕ НАЙДЕНА: ${file} — ожидалась формулировка со счётчиками (${kind})`);
+    continue;
+  }
+  if (kind === 'principalOfTotal') {
+    const registerTotal = register.completeness?.totalCommitsNoMerges;
+    if (digits(match[1]) !== registerPrincipal?.commits || digits(match[2]) !== registerTotal) {
+      problems.push(`ЦИТАТА РАСХОДИТСЯ: ${file} — «${digits(match[1])} из ${digits(match[2])}», в реестре «${registerPrincipal?.commits} из ${registerTotal}»`);
+    }
+  } else if (kind === 'claude') {
+    const claude = declared.get('Claude')?.commits;
+    if (digits(match[1]) !== claude) {
+      problems.push(`ЦИТАТА РАСХОДИТСЯ: ${file} — «Claude ${digits(match[1])}», в реестре ${claude}`);
+    }
+  }
 }
 
 const principal = declared.get(register.rightsholder?.displayName ?? 'pachaninm-lab');

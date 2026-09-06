@@ -50,6 +50,38 @@ const licenses = readJson('license-summary.json');
 const similarity = readJson('similarity-summary.json');
 const identities = JSON.parse(fs.readFileSync('docs/ip/contributor-identity-register.json', 'utf8'));
 
+// Per-file authorship provenance, so section 6 can state how much of the
+// protected core carries only tool-attributed lines instead of asserting that
+// the question does not arise.
+const perFile = JSON.parse(fs.readFileSync(path.join(ART, 'FIRST_PARTY_PROVENANCE.json'), 'utf8'));
+const fileRows = Array.isArray(perFile) ? perFile : (perFile.files ?? perFile.rows ?? []);
+const crownRows = fileRows.filter((r) => r.criticality === 'CROWN_JEWEL');
+const countBy = (rows) => rows.reduce((acc, r) => {
+  acc[r.authorship_provenance] = (acc[r.authorship_provenance] ?? 0) + 1;
+  return acc;
+}, {});
+const crownByProvenance = countBy(crownRows);
+const allByProvenance = countBy(fileRows);
+const mergeStats = {
+  byPrincipal: identities.completeness?.mergesByPrincipalOnDefaultBranch ?? 0,
+  total: identities.completeness?.mergesTotalOnDefaultBranch ?? 0,
+};
+
+// How AI-authored work actually reached the default branch. Splitting merged
+// from directly-pushed matters: the first carries an explicit act of acceptance
+// by whoever authored the merge, the second does not, and claiming both do would
+// be the kind of overstatement this dossier exists to avoid.
+const aiIdentities = new Set(
+  (identities.identities ?? []).filter((i) => i.class === 'AI_TOOL').map((i) => i.displayName),
+);
+const countAuthored = (args) =>
+  git(['log', 'origin/main', ...args, '--format=%aN'])
+    .split('\n')
+    .filter((n) => aiIdentities.has(n)).length;
+const aiOnDefault = countAuthored(['--no-merges']);
+const aiOnDefaultDirect = countAuthored(['--first-parent', '--no-merges']);
+const aiOnDefaultMerged = aiOnDefault - aiOnDefaultDirect;
+
 if (provenance.gitHead !== gitHead) {
   console.error(`due-diligence: provenance artifact is stale (${provenance.gitHead} != ${gitHead})`);
   process.exit(1);
@@ -222,6 +254,41 @@ L('Генеративные средства (`Claude`, `Codex`) применя�
 L();
 L('Практическое следствие для приобретателя: участие ИИ **не создаёт** третьего лица с правами на код и **не требует** от приобретателя получать чьё-либо согласие. Оно требует лишь корректной фиксации, которая выполнена: `docs/ip/legal/05-ai-tool-provenance-statement.md`, `docs/ip/AI_ASSISTED_PROVENANCE.md`, `artifacts/ip-clean-room/AI_ATTRIBUTION.json`.');
 L();
+L('### 6.1. Сколько кода несёт только инструментальную атрибуцию');
+L();
+L('Вопрос закрывается измерением, а не заявлением. Ниже — распределение файлов по тому, чьи строки в них сохранились по `git blame`:');
+L();
+L('| Провенанс сохранившихся строк | Ядро (crown jewels) | Всё дерево |');
+L('|---|---|---|');
+for (const key of ['HUMAN_ONLY', 'HUMAN_WITH_AI_TOOL', 'AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION', 'AUTOMATION_GENERATED', 'NO_RECORDED_HISTORY']) {
+  const c = crownByProvenance[key] ?? 0;
+  const a = allByProvenance[key] ?? 0;
+  if (c === 0 && a === 0) continue;
+  L(`| \`${key}\` | ${num(c)} | ${num(a)} |`);
+}
+L(`| **Итого** | **${num(crownRows.length)}** | **${num(fileRows.length)}** |`);
+L();
+const aiOnlyCrown = crownByProvenance.AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION ?? 0;
+const humanTouchedCrown = crownRows.length - aiOnlyCrown - (crownByProvenance.AUTOMATION_GENERATED ?? 0) - (crownByProvenance.NO_RECORDED_HISTORY ?? 0);
+L(`**Что здесь измерено.** В ${num(humanTouchedCrown)} из ${num(crownRows.length)} файлов ядра сохранились строки, внесённые под учётной записью человека. В ${num(aiOnlyCrown)} файлах ядра все сохранившиеся строки внесены под учётной записью генеративного инструмента.`);
+L();
+L('**Что это НЕ означает.** Строка «автор коммита» — это учётная запись, под которой выполнен коммит, а не установление авторства в смысле ст. 1257 ГК РФ. Программное средство автором не является; автором признаётся гражданин, творческим трудом которого произведение создано, и этим гражданином во всех перечисленных случаях выступает правообладатель, задававший постановку задачи, принимавший результат и включавший его в продукт.');
+L();
+L('**Измеримое подтверждение человеческого контроля.**');
+L();
+L('| Показатель | Значение |');
+L('|---|---|');
+L(`| Слияний в \`main\`, выполненных правообладателем | ${num(mergeStats.byPrincipal)} из ${num(mergeStats.total)} (${((mergeStats.byPrincipal / Math.max(mergeStats.total, 1)) * 100).toFixed(1)} %) |`);
+L(`| Коммитов инструментов в \`main\` | ${num(aiOnDefault)} |`);
+L(`| из них принято через слияние | ${num(aiOnDefaultMerged)} (${((aiOnDefaultMerged / Math.max(aiOnDefault, 1)) * 100).toFixed(1)} %) |`);
+L(`| из них внесено в \`main\` напрямую | ${num(aiOnDefaultDirect)} |`);
+L();
+L(`Слияние — это акт принятия работы в произведение, и его выполняет правообладатель. Для ${num(aiOnDefaultMerged)} коммитов инструментов такой акт зафиксирован в истории явно. Оставшиеся ${num(aiOnDefaultDirect)} внесены в основную ветвь напрямую, отдельного слияния за ними нет, и выдавать их за принятые через слияние было бы неверно; человеческий контроль над ними подтверждается не структурой истории, а тем же основанием, что и для всего остального, — постановкой задачи и принятием результата правообладателем (ст. 1257, 1228 ГК РФ).`);
+L();
+L('**Честная граница.** Учётная запись коммиттера для коммитов инструмента совпадает с учётной записью автора (инструмент проставляет обе), поэтому она независимым признаком человеческого участия не является, и выдавать её за таковой было бы подтасовкой. Независимый признак — авторство слияния, приведённое выше.');
+L();
+L('**Почему эти файлы не переписаны ради атрибуции.** Переписывание работающего кода ядра ради изменения строки «автор» в `git blame` не создаёт авторского права там, где его не было, и не устраняет риска там, где он есть, — зато создаёт реальный риск для работающей платформы. Правовая позиция опирается на ст. 1257 и ст. 1228 ГК РФ, а не на распределение учётных записей в истории.');
+L();
 L('## 7. Анализ сходства с внешним кодом');
 L();
 L('| Показатель | Значение |');
@@ -312,6 +379,15 @@ const index = {
     blockers: (similarity.blockers ?? []).length,
     claim: 'NO_MATERIAL_UNDECLARED_BORROWING_ACROSS_VERIFIED_CORPUS',
     notClaimed: 'WORLDWIDE_UNIQUENESS',
+  },
+  authorshipProvenance: {
+    crownJewels: crownByProvenance,
+    allFiles: allByProvenance,
+    crownJewelTotal: crownRows.length,
+    fileTotal: fileRows.length,
+    mergesOnDefaultBranch: mergeStats,
+    aiCommitsOnDefaultBranch: { total: aiOnDefault, viaMerge: aiOnDefaultMerged, direct: aiOnDefaultDirect },
+    note: 'Commit-author identity is the account a commit was made under, not a determination of authorship. Under art. 1257 of the Russian Civil Code the author is the citizen whose creative work produced the result; a software tool is not an author.',
   },
   notAsserted: [
     'WORLDWIDE_UNIQUENESS',
