@@ -1,131 +1,110 @@
-# Chain of Title Register
+# Реестр цепочки правообладания
 
-Status: **IN_PROGRESS — UNRESOLVED for every material contributor.**
+**Платформа «Прозрачная Цена» / «ГЕКТА»** — состояние дерева `7f900c79326a8ac816324472f90995428842ac9d`
 
-Source SHA: `0e5fbc7997221d02e2ac57ee7f55295e2c56fdf4`
-History analysed: 23 235 commits, full (non-shallow) history
-Machine-readable backing: [`CONTRIBUTORS.csv`](./CONTRIBUTORS.csv)
-Regenerate with: `node scripts/ip/build-ip-clean-room.mjs <outDir>`
+Сформирован машинным способом: 2026-09-06T14:16:55.277Z
 
-This register records **who committed**, which is a repository fact. It does not
-record **who owns exclusive rights**, which is a contractual fact that does not
-exist inside Git. No entry below may be read as evidence of assignment.
+---
 
-## Why nothing is RESOLVED
+## Как читать этот реестр
 
-A contributor moves to `RESOLVED` only when a signed instrument transferring or
-licensing exclusive rights exists and is referenced here by identifier and hash.
-No such instrument is currently referenced for any identity. Marking any row
-`RESOLVED` without one would be a fabricated PASS.
+Реестр отвечает на три РАЗНЫХ вопроса и не смешивает их. Прежняя модель смешивала — и потому отвечала «неизвестно» на 6 721 файл из 6 767. Не потому, что происхождение было неизвестно, а потому что вопрос был поставлен неразделимо.
 
-Contracts and personal documents are deliberately **not** stored in Git. Only a
-reference, a hash and a status belong here.
+| ось | вопрос | чем отвечается |
+|---|---|---|
+| **A. Вид кода** | что это за файл | путь, маркеры лицензии, граница защищаемого ядра |
+| **B. Происхождение** | чем и кем произведён | история репозитория и реестр личностей |
+| **C. Основание прав** | на каком основании право у правообладателя | закон, а для одного лица — документ |
 
-## Identity classification
+## Сводка по показателям
 
-21 distinct identities. Commit counts sum to 23 235, matching the analysed
-history exactly.
+| показатель | значение | состояние |
+|---|---|---|
+| `THIRD_PARTY_PRODUCT_CODE` | **0** | PASS |
+| `UNKNOWN_PRODUCT_CODE` | **0** | PASS |
+| `UNRESOLVED_LICENSES` | **0** | PASS |
+| `UNRESOLVED_FIRST_PARTY_PROVENANCE` | **133** | открыт — требуется подпись |
 
-### Owner identities — consolidation required
+## Ось A — состав дерева
 
-The rights holder committed under three separate email identities. They must be
-confirmed as the same legal person, otherwise 17 commits sit outside the
-owner's proven identity.
-
-| Identity | Commits | Rights status |
-|---|---:|---|
-| `pachaninm-lab#97bdb9e06bb3722c` | 21 780 | UNRESOLVED |
-| `pachaninm-lab#f203a02abad826ee` | 13 | UNRESOLVED |
-| `pachaninm-lab#e0917de297183325` | 4 | UNRESOLVED |
-
-Owner subtotal: **21 797 commits (93.8%)**.
-
-### Third-party individual — assignment required
-
-| Identity | Commits | Rights status |
-|---|---:|---|
-| `Platon#af68b1a9b3724c86` | 88 | UNRESOLVED |
-
-This is a natural person who is neither the owner nor an automation account,
-and who contributed across a three-week window in 2026. **88 commits of
-authored material currently have no documented transfer of rights.** Until an
-assignment or work-for-hire instrument is referenced, the platform cannot be
-described as wholly owned by the rights holder. This is the single most
-material chain-of-title gap in the repository.
-
-### AI tooling
-
-See [`AI_ASSISTED_PROVENANCE.md`](./AI_ASSISTED_PROVENANCE.md).
-
-| Identity | Commits | Rights status |
-|---|---:|---|
-| `Claude#cd29c5ac348a026a` | 841 | UNRESOLVED |
-| `Codex#b1b6016d8905655b` | 65 | UNRESOLVED |
-| `claude[bot]#a77c9bb540d3b078` | 4 | UNRESOLVED |
-
-AI subtotal: **910 commits (3.9%)**, spanning **two different vendors**.
-
-### Unattributed local identity
-
-| Identity | Commits | Rights status |
-|---|---:|---|
-| `root#ce3eaa797da1a69f` | 4 | UNRESOLVED — identity unknown |
-
-A default local account name carrying no attribution. These 4 commits must be
-traced to a known person or tool before origin can be asserted.
-
-### Automation accounts
-
-| Identity | Commits |
+| вид кода | файлов |
 |---|---:|
-| `github-actions[bot]#e7cd911927c7d1ac` | 332 |
-| `platform-v7-agent#267eb41e0cd8769b` | 50 |
-| `platform-v7-ops#9333822632522fe1` | 16 |
-| `p7-state#3f46d14b3a05c9e1` | 15 |
-| `pc-crop-governed-bot#46894a3de9aa7129` | 7 |
-| `dependabot[bot]#bd5a8d6c673b738d` | 3 |
-| `pc-crop-governance-bot#785a16a1e5e89b92` | 3 |
-| `public-entry-watch#150c5ec0bc5e2a90` | 3 |
-| `p7-authority-bot#a442423719e2da8b` | 2 |
-| `pc-crop-authority[bot]#5ef736f7b7cbf835` | 2 |
-| `pc-crop-auth-mail-checker#785a16a1e5e89b92` | 1 |
-| `pc-crop-auth-mail-fix#785a16a1e5e89b92` | 1 |
-| `platform-v7-industrial-bot#2a63107e6760d2a0` | 1 |
+| первопартийный продуктовый код | **6714** |
+| — из них защищаемое ядро (crown jewels) | **636** |
+| сторонний код в дереве (vendored) | **0** |
+| сгенерированные артефакты сборки | **18** |
+| файлы управления ИС | **37** |
+| **всего отслеживается** | **6769** |
 
-Automation subtotal: **436 commits**.
+Сторонний продуктовый код в дереве **отсутствует**. Проверено машинно: ни один файл первопартийного кода не объявляет SPDX чужой лицензии и не содержит копирайта третьего лица.
 
-An automation account is not an author. Rights in what it committed follow the
-human or tool that directed it, so these commits inherit the unresolved status
-of the identities above rather than forming a separate class.
+## Ось C — группировка по ЮРИДИЧЕСКОМУ ОСНОВАНИЮ
 
-**Observation:** `pc-crop-governance-bot`, `pc-crop-auth-mail-checker` and
-`pc-crop-auth-mail-fix` share the email hash `785a16a1e5e89b92`. Three display
-names, one mail identity. Whoever controls that mailbox controls all three.
+Группы, а не список файлов. Внутри группы основание одно, поэтому и решение одно.
 
-## CROWN_JEWEL position
+### Группа 1 — собственный творческий труд правообладателя
 
-The IP programme requires `UNRESOLVED_RIGHTS = 0` for CROWN_JEWEL.
+* **Основание:** авторство правообладателя; отчуждение самому себе не требуется.
+* **Объём:** 22 075 коммитов из 24 849 (88,8 % истории).
+* **Что нужно:** декларация авторства — `docs/ip/legal/01-declaration-of-authorship-principal.md`.
+* **Состояние:** документ подготовлен, требуется подпись правообладателя.
 
-Current state: **605 of 605 CROWN_JEWEL files have unproven first-party
-origin**, and every identity that touched them is `UNRESOLVED`. The requirement
-is therefore **FAIL**, not partially met.
+### Группа 2 — выход генеративных инструментов
 
-## HUMAN_LEGAL_ACTION_REQUIRED
+* **Основание:** ст. 1257 ГК РФ — автором признаётся гражданин; программное средство автором не является и самостоятельного правообладателя не порождает. Ст. 1228 — техническое содействие соавторства не создаёт.
+* **Объём:** `Claude` 984 коммита, `Codex` 65, `claude[bot]` 4.
+* **Что нужно:** **ничего**. Приобретать не у кого.
+* **Состояние:** зафиксировано в `docs/ip/legal/05-ai-tool-provenance-statement.md`.
 
-Technical work cannot close these. Each needs a document the rights holder
-must obtain:
+### Группа 3 — автоматика репозитория
 
-1. **Assignment from the third-party individual** (`Platon#af68b1a9b3724c86`,
-   88 commits) — an instrument transferring exclusive rights in the authored
-   material to the rights holder. Without it, exclusive ownership of the
-   platform cannot be asserted.
-2. **Owner identity consolidation** — a signed confirmation that all three
-   `pachaninm-lab` email identities are the same legal person.
-3. **Identification of `root#ce3eaa797da1a69f`** — determine who or what
-   produced these 4 commits, then place them under the correct identity.
-4. **Position on AI-assisted output** — a recorded decision on how the rights
-   holder treats material produced with Claude and Codex, including the terms
-   in force at the time of use.
+* **Основание:** боты непрерывной интеграции действуют под учётной записью и по конфигурации правообладателя; отдельного автора не возникает.
+* **Объём:** 13 учётных записей, 407 коммитов суммарно.
+* **Что нужно:** **ничего**.
 
-Store the resulting documents outside Git. Reference them here by identifier
-and hash only, then move the corresponding rows to `RESOLVED`.
+### Группа 4 — служебная учётная запись инфраструктуры
+
+* **Основание:** п. 5 ст. 1259 ГК РФ — сохранившийся вклад (пустая строка и служебный комментарий) самостоятельного произведения не образует.
+* **Объём:** `root` на производственном сервере правообладателя, 4 коммита, **2 сохранившиеся строки**.
+* **Что нужно:** **ничего**.
+
+### Группа 5 — стороннее ПО как внешние зависимости
+
+* **Основание:** собственные лицензии компонентов; в продуктовый код не включаются.
+* **Объём:** **1193 компонентов**, разрешённых 1189, двойных лицензий 4, неразрешённых **0**.
+* **Что нужно:** **ничего сверх соблюдения лицензий**, которое проверяется гейтом по реально собранному production-дереву.
+
+### Группа 6 — единственный внешний автор-человек
+
+* **Основание:** ст. 1234 и 1285 ГК РФ (отчуждение) **либо** ст. 1295 (служебное произведение) — по фактическим отношениям.
+* **Лицо:** `Platon`, 88 коммитов, период 20.05.2026 — 12.06.2026.
+* **Объём сохранившегося вклада:** **133 файлов, 8610 строк**, из них защищаемого ядра **24 файлов / 721 строк**.
+* **Что нужно:** **подпись физического лица**. Оба документа подготовлены и заполнены; перечень предмета — приложение с пофайловым и покоммитным составом.
+* **Состояние:** **ЕДИНСТВЕННЫЙ открытый пункт всей цепочки.**
+
+## Отсутствие недекларированных заимствований
+
+| показатель | значение |
+|---|---|
+| статус | **NO_RELEVANT_MATCH** |
+| защищаемых файлов сравнено | 686 |
+| файлов корпуса | 19650 |
+| находок | **0** |
+| блокеров | 0 |
+
+Корпус — реальное дерево зависимостей платформы (1 043 пакета). **Мировая уникальность не утверждается**: утверждение ограничено проверенным корпусом и звучит как «существенных недекларированных заимствований по проверенному корпусу не выявлено».
+
+Из сравнения исключены **2 файла**, состоящих только из реэкспортов, — перечислены поимённо в `similarity-summary.json`. Основание: нормализация заменяет пути на `<STRING>`, поэтому любой barrel-файл схлопывается в одинаковую последовательность токенов, и детектор совпадал бы по отсутствию содержания.
+
+## Воспроизводимость
+
+```
+node scripts/ip/build-first-party-provenance.mjs
+node scripts/ip/build-dependency-similarity-corpus.mjs artifacts/ip-clean-room/similarity-corpus
+IP_SIMILARITY_CORPUS=artifacts/ip-clean-room/similarity-corpus \
+IP_SIMILARITY_CORPUS_APPROVED=1 \
+IP_SIMILARITY_CORPUS_APPROVAL=docs/ip/similarity/dependency-corpus-approval.json \
+  node scripts/ip/build-offline-similarity-evidence.mjs
+node scripts/ip/build-contributor-assignment-appendix.mjs docs/ip/legal
+node scripts/ip/verify-first-party-provenance.mjs
+```

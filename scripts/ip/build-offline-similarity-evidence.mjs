@@ -62,6 +62,38 @@ function winnow(sourceTokens, gramSize = 12, windowSize = 8) {
   return [...selected].sort((left, right) => left - right);
 }
 
+/**
+ * Модуль, состоящий только из реэкспортов, сравнению не подлежит.
+ *
+ * Замерено, а не предположено: первый прогон по корпусу из 15 569 файлов дал
+ * 48 находок, и ВСЕ 48 пришлись на два файла — packages/domain-core/src/
+ * execution-simulation/index.ts и packages/integration-sdk/src/index.ts. Оба
+ * не содержат ни строки логики, только `export * from './…';`.
+ *
+ * Причина ложного совпадения в самом методе: нормализация заменяет строковые
+ * литералы на <STRING>, поэтому ЛЮБОЙ barrel-файл схлопывается в одну и ту же
+ * последовательность токенов `export * from <STRING> ;`. Единственное, что
+ * такие файлы различает, — имена собственных модулей, и именно их нормализация
+ * уничтожает. То есть детектор совпадал по ОТСУТСТВИЮ содержания.
+ *
+ * Охраняется форма выражения, а не перечень имён файлов (ГК РФ ст. 1259 п. 5),
+ * поэтому такой модуль не несёт самостоятельного выражения и сравнивать его не
+ * с чем. Исключение узкое: файл, где помимо реэкспортов есть хоть один
+ * оператор, сравнивается как обычно.
+ */
+export function isReExportOnlyModule(source) {
+  const withoutComments = String(source ?? '')
+    .replace(/\/\*[\s\S]*?\*\//gu, '\n')
+    .replace(/(^|\s)\/\/.*$/gmu, '$1');
+  const statements = withoutComments
+    .split(/;|\n/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (statements.length === 0) return false;
+  const reExport = /^(?:export\s*\*(?:\s+as\s+[\p{L}_$][\p{L}\p{N}_$]*)?\s+from\s*['"`][^'"`]+['"`]|export\s*\{[^}]*\}\s*from\s*['"`][^'"`]+['"`]|import\s+[^;]*from\s*['"`][^'"`]+['"`]|export\s*\{[^}]*\})$/u;
+  return statements.every((statement) => reExport.test(statement));
+}
+
 function fingerprint(path, source) {
   const normalized = normalizeSource(source);
   const sourceTokens = tokens(source);
@@ -109,11 +141,17 @@ const protectedFiles = protectedEntries
   .filter((entry) => textExtensions.has(extname(entry.path).toLowerCase()))
   .map((entry) => entry.path);
 
+const reExportOnlySources = [];
 const sourceFingerprints = protectedFiles.map((path) => {
   const metadata = lstatSync(path);
   if (!metadata.isFile()) throw new Error(`Protected source is not a regular file: ${path}`);
-  return fingerprint(path, readFileSync(path, 'utf8'));
-});
+  const content = readFileSync(path, 'utf8');
+  if (isReExportOnlyModule(content)) {
+    reExportOnlySources.push(path);
+    return null;
+  }
+  return fingerprint(path, content);
+}).filter(Boolean);
 const findings = [];
 const finalBlockers = [];
 if (protectedNonRegular.length) finalBlockers.push(`PROTECTED_NON_REGULAR_FILES:${protectedNonRegular.length}`);
@@ -139,7 +177,11 @@ if (!corpusInput) {
     .filter((item) => textExtensions.has(extname(item.path).toLowerCase()))
     .filter((item) => !excludedPath.test(item.path))
     .sort((left, right) => left.path.localeCompare(right.path, 'en'))
-    .map((item) => fingerprint(item.path, readFileSync(item.absolute, 'utf8')));
+    .map((item) => {
+      const content = readFileSync(item.absolute, 'utf8');
+      return isReExportOnlyModule(content) ? null : fingerprint(item.path, content);
+    })
+    .filter(Boolean);
   corpusFiles = corpus.length;
   corpusDigestSha256 = sha256(JSON.stringify(corpus.map((item) => [item.path, item.exactSha256])));
   if (corpusNonRegular.length) {
@@ -275,6 +317,9 @@ writeFileSync(join(outDir, 'similarity-summary.json'), JSON.stringify({
   networkUsed: false,
   sourceUploaded: false,
   protectedFiles: sourceFingerprints.length,
+  reExportOnlyExcluded: reExportOnlySources.length,
+  reExportOnlyExcludedPaths: reExportOnlySources,
+  reExportOnlyExclusionBasis: 'Модуль, состоящий только из реэкспортов, самостоятельного выражения не несёт: нормализация заменяет пути на <STRING>, и любой barrel схлопывается в одинаковую последовательность токенов. Исключение узкое — файл с хотя бы одним оператором помимо реэкспортов сравнивается как обычно.',
   protectedNonRegularFiles: protectedNonRegular.length,
   approvedCorpus: corpusApproved,
   corpusDigestSha256,
