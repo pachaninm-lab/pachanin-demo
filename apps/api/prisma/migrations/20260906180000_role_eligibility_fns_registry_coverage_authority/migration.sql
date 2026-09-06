@@ -457,6 +457,9 @@ BEGIN
 END
 $function$;
 
+REVOKE ALL ON FUNCTION eligibility.record_fns_egrul_predecessor(TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION eligibility.activate_registry_generation(TEXT, TEXT, TEXT) FROM PUBLIC;
+
 REVOKE ALL ON TABLE eligibility.registry_generation_lineage FROM PUBLIC;
 REVOKE INSERT, UPDATE, DELETE ON TABLE eligibility.registry_generation_lineage FROM pc_role_eligibility_runtime;
 GRANT SELECT ON TABLE eligibility.registry_generation_lineage TO pc_role_eligibility_runtime;
