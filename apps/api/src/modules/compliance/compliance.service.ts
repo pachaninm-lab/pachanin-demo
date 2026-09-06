@@ -176,14 +176,24 @@ export class ComplianceService {
       orderBy: { createdAt: 'desc' },
       take: 50,
     }).catch(() => []);
-    const byAdapter: Record<string, { ok: number; error: number; lastAt?: string }> = {};
+    // Ключ — имя адаптера из записи события, поэтому накопитель Map, а не
+    // литерал: у литерала `!byAdapter['toString']` ложно, потому что там лежит
+    // унаследованная функция, ветка инициализации не отрабатывает, и счётчик
+    // пишется в член прототипа. Object.fromEntries на выходе создаёт
+    // СОБСТВЕННОЕ свойство даже для `__proto__`, поэтому форма ответа API не
+    // меняется, а данные перестают теряться.
+    const byAdapter = new Map<string, { ok: number; error: number; lastAt?: string }>();
     for (const e of recent) {
-      if (!byAdapter[e.adapterName]) byAdapter[e.adapterName] = { ok: 0, error: 0 };
-      if (e.status === 'SUCCESS') byAdapter[e.adapterName].ok++;
-      else byAdapter[e.adapterName].error++;
-      if (!byAdapter[e.adapterName].lastAt) byAdapter[e.adapterName].lastAt = e.createdAt.toISOString();
+      let entry = byAdapter.get(e.adapterName);
+      if (!entry) {
+        entry = { ok: 0, error: 0 };
+        byAdapter.set(e.adapterName, entry);
+      }
+      if (e.status === 'SUCCESS') entry.ok++;
+      else entry.error++;
+      if (!entry.lastAt) entry.lastAt = e.createdAt.toISOString();
     }
-    return byAdapter;
+    return Object.fromEntries(byAdapter);
   }
 
   /**

@@ -286,13 +286,27 @@ export class ExportsService {
     const header = 'Форма 29-СХ,Период,Количество сделок,Объём (т),Сумма (руб)\n';
     const row = `${csvRow(['GrainFlow', `${from.toISOString().split('T')[0]} - ${to.toISOString().split('T')[0]}`, closedDeals.length, totalVol, totalRub])}\n`;
 
-    const cultureSummary = Object.entries(
-      deals.reduce((acc, d) => {
-        const c = d.culture ?? 'Не указана';
-        acc[c] = (acc[c] ?? 0) + (d.volumeTons ?? 0);
-        return acc;
-      }, {} as Record<string, number>)
-    ).map(([c, v]) => csvRow([c, v])).join('\n');
+    // Накопитель — Map, а не объектный литерал.
+    //
+    // Культура сделки приходит свободным текстом: create-deal.dto ограничивает
+    // её только @IsString, тогда как тот же смысл у лота ограничен списком
+    // через @IsIn. Замерено на этом самом выражении, что делал литерал в
+    // государственной форме 29-СХ на двух сделках:
+    //
+    //   culture '__proto__'   → 500 тонн исчезали, строки в отчёте не было вовсе
+    //   culture 'constructor' → в отчёт попадала строка
+    //                           `constructor,"function Object() { [native code] }500"`
+    //   culture 'toString'    → то же с исходником функции
+    //
+    // Причина в том, что `acc[c] ?? 0` для унаследованного ключа возвращает не
+    // undefined, а член прототипа, а присваивание в `__proto__` у литерала
+    // собственного свойства не создаёт. У Map ключ — это ключ.
+    const cultureTotals = new Map<string, number>();
+    for (const deal of deals) {
+      const culture = deal.culture ?? 'Не указана';
+      cultureTotals.set(culture, (cultureTotals.get(culture) ?? 0) + (deal.volumeTons ?? 0));
+    }
+    const cultureSummary = [...cultureTotals].map(([c, v]) => csvRow([c, v])).join('\n');
 
     const content = header + row + '\nКультура,Объём (т)\n' + cultureSummary;
     return { format: 'csv', filename: `rosstat-29sx-${Date.now()}.csv`, content };

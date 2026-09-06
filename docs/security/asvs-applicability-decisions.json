@@ -9857,6 +9857,49 @@
       "note": "Corrected on review: distroless solves a different problem than the one this requirement is about. It removes the shell and package manager an attacker could use post-compromise; it says nothing about which files were copied into the image in the first place, and this build copies compiled test code into it. apps/api/tsconfig.json includes both src/**/*.ts and test/**/*.ts, so pnpm --filter @pc/api build compiles both into the same dist tree (dist/apps/api/src/... and dist/apps/api/test/... side by side). The Dockerfile's cleanup step (rm -rf /prod/api/src /prod/api/test /prod/api/prisma /prod/api/dist) removes the pnpm-deployed source test/ directory, then immediately does cp -R /workspace/apps/api/dist /prod/api/dist - copying the whole compiled dist tree wholesale, compiled test output included, since that copy happens from the build stage's dist, not the just-cleaned /prod/api/dist. The runtime stage then does COPY --from=build ... /prod/api/ ./, so the compiled test files ship in the production image. This is exactly the extraneous functionality (test code) this requirement asks to be verified absent from production, and it is not."
     },
     {
+      "requirementId": "V15.2.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "lockfile-integrity:pnpm-lock.yaml",
+        "no-alternative-registry:package.json",
+        "internal-names-never-registry-resolved:pnpm-lock.yaml",
+        "scripts/ip/verify-private-packages.mjs"
+      ],
+      "conditions": [
+        {
+          "condition": "every resolved component is content-pinned, so a substituted artifact fails the hash rather than installing",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "pnpm-lock.yaml"
+          ],
+          "patterns": [
+            "integrity: sha512-"
+          ]
+        },
+        {
+          "condition": "internal scope names are never resolved through a registry: they appear nowhere in the lockfile, so no install ever asks a registry for them",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "pnpm-lock.yaml"
+          ],
+          "patterns": [
+            "@pc/",
+            "@pachanin/"
+          ]
+        },
+        {
+          "condition": "no manifest declares an alternative registry or a publish target, so there is one expected source rather than a mixed private/public resolution order",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "registry",
+            "publishconfig"
+          ]
+        }
+      ],
+      "note": "Dependency confusion needs a name that resolves in two places with the attacker controlling one of them. Measured, that shape does not exist here. There is no .npmrc at all, so resolution uses a single default registry rather than a mixed private/public order, and no manifest declares a registry or publishConfig. The internal scopes @pc/* and @pachanin/* are resolved by TypeScript path mapping and the pnpm workspace, not by the package manager: they appear zero times in pnpm-lock.yaml, so no install ever queries a registry for a name an attacker could claim publicly. Every one of the 1193 resolved components carries an integrity: sha512- hash and none carries a direct tarball URL, so a substituted artifact fails verification instead of installing. All internal manifests are private: true, and scripts/ip/verify-private-packages.mjs already enforces that none becomes publishable. The conditions are revocable by exactly the changes that would reintroduce the risk: dropping integrity pinning, letting an internal name reach the lockfile, or adding a registry or publishConfig declaration to any manifest."
+    },
+    {
       "requirementId": "V15.2.5",
       "applicability": "APPLICABLE",
       "status": "FAIL",
@@ -9976,6 +10019,33 @@
         }
       ],
       "note": "Same underlying fact as ASVS V3.2.3, assessed here against this requirement's specific text: tsconfig.base.json sets \"strict\": false, inherited by both apps/api/tsconfig.json and apps/web/tsconfig.json with no override. Strict mode is what would catch an implicit any or an unsound type assumption at compile time - exactly the class of bug this requirement is about (a variable silently being the wrong type, or a loose == comparison masking a type-confusion bug). Without it, the compiler gives no backstop for either."
+    },
+    {
+      "requirementId": "V15.3.6",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/common/security/sensitive-data.ts",
+        "apps/web/lib/platform-v7/server-field-masking.ts",
+        "apps/web/lib/platform-v7/adapters/real-adapter-shell.ts",
+        "fixed-in-this-pass:apps/api/src/modules/exports/exports.service.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "data-keyed writes into plain object literals remain, so the requirement’s general claim is not satisfied across the codebase",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/sensitive-data.ts",
+            "apps/web/lib/platform-v7/server-field-masking.ts",
+            "apps/web/lib/platform-v7/adapters/real-adapter-shell.ts"
+          ],
+          "patterns": [
+            "result[key] =",
+            "registry[system] ="
+          ]
+        }
+      ],
+      "note": "Measured on the real service rather than argued from the pattern. The Rosstat 29-СХ regulatory export aggregated deal volume into a plain object literal keyed by the deal culture, and culture reaches that key as free text: create-deal.dto constrains it with @IsString only, while the same concept on a lot is constrained to an allowlist with @IsIn. Driving exportRegulatoryReport with two deals, one of them 500 tonnes: culture __proto__ produced a report with no such row at all and 500 tonnes silently missing, because assigning to __proto__ on a literal creates no own property; culture constructor, toString and valueOf produced rows whose value was the source text of a native function, because acc[c] ?? 0 returns the inherited member rather than undefined and the addition became concatenation. A statistical return to a regulator that silently loses tonnage is a false filing, not a formatting defect. Four sites are closed in this pass by keying with Map and, where the value is returned to the API, converting with Object.fromEntries, which creates __proto__ as an own property and therefore preserves both the response shape and the data: exports (the 29-СХ report), compliance and integration-events adapter statistics, and the industrial deal command gateway status counts. The last of these is not exploitable today because the status column is an enum, and it is fixed as the same class rather than presented as a live defect. The requirement stays FAIL because the property is codebase-wide and roughly fifteen data-keyed literal writes remain, including the recursive masking helpers, where a key produced by JSON.parse can legitimately be an own __proto__ property. Reverting the fixed service to its literal fails five of the nine tests in the pass, so the fix is load-bearing rather than cosmetic."
     },
     {
       "requirementId": "V15.4.1",
