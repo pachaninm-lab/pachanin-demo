@@ -29,6 +29,16 @@ const linkedPublicPages = [
 
 type LinkedPublicPageName = (typeof linkedPublicPages)[number]['name'];
 
+const canonicalDealJourneyRu = [
+  'Товар и условия',
+  'Рынок и контрагент',
+  'Сделка и договор',
+  'Сервисы и логистика',
+  'Приёмка и качество',
+  'Документы и расчёт',
+  'Закрытие и исключения',
+] as const;
+
 const currentPublicAnchorIds = [
   'participants',
   'difference',
@@ -101,17 +111,42 @@ async function expectCurrentAnchorsBelowStickyHeader(page: Page) {
 }
 
 async function expectRegistrationOnlyPrimaryCtas(page: Page) {
-  const primaryHrefs = await page.locator('main .pc-v6-primary').evaluateAll((nodes) => nodes
+  const primaryCtas = await page.locator('main .pc-v6-primary').evaluateAll((nodes) => nodes
     .filter((node) => {
       const style = window.getComputedStyle(node as HTMLElement);
       const box = (node as HTMLElement).getBoundingClientRect();
       return style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0;
     })
-    .map((node) => (node as HTMLAnchorElement).getAttribute('href')));
+    .map((node) => ({
+      href: (node as HTMLAnchorElement).getAttribute('href'),
+      text: (node.textContent ?? '').trim(),
+    })));
 
-  expect(primaryHrefs.length).toBe(2);
-  expect(primaryHrefs.every((href) => href?.startsWith('/platform-v7/register?lang=ru'))).toBe(true);
+  expect(primaryCtas.length).toBe(2);
+  expect(primaryCtas.every(({ href }) => href?.startsWith('/platform-v7/register?lang=ru'))).toBe(true);
+  expect(primaryCtas.every(({ text }) => text.startsWith('Зарегистрироваться'))).toBe(true);
   await expect(page.locator('[data-testid="platform-v7-presentation-download"]')).not.toHaveClass(/pc-v6-primary/);
+}
+
+async function expectCanonicalSevenStepDeal(page: Page) {
+  const heroRail = page.locator('.pc-public-deal-stage-rail--hero');
+  await expect(heroRail).toHaveAttribute('aria-valuemax', '7');
+  await expect(heroRail.locator(':scope > span')).toHaveCount(7);
+  await expect(heroRail.locator(':scope > span small')).toHaveText([...canonicalDealJourneyRu]);
+
+  const pathCards = page.locator('[data-testid="platform-v7-canonical-deal-journey"] article');
+  await expect(pathCards).toHaveCount(7);
+  await expect(pathCards.locator('h3')).toHaveText([...canonicalDealJourneyRu]);
+
+  const detailedStages = page.locator('#deal-path .pc-v6-lifecycle [role="listitem"]');
+  await expect(detailedStages).toHaveCount(7);
+  await expect(detailedStages.locator('span')).toHaveText([...canonicalDealJourneyRu]);
+
+  const demoRails = page.locator('.pc-public-deal-stage-rail--demo');
+  await expect(demoRails).toHaveCount(3);
+  const demoStageCounts = await demoRails.evaluateAll((nodes) => nodes.map((node) => node.children.length));
+  expect(demoStageCounts).toEqual([7, 7, 7]);
+  await expect(demoRails.first().locator(':scope > span small')).toHaveText([...canonicalDealJourneyRu]);
 }
 
 async function expectKeyboardCompleteRoleTabs(page: Page) {
@@ -237,6 +272,7 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
       const headerRegistration = page.locator('.pc-v6-header-cta');
       await expect(headerRegistration).toBeVisible();
       await expect(headerRegistration).toHaveAttribute('href', '/platform-v7/register?lang=ru');
+      await expect(headerRegistration).toHaveText('Зарегистрироваться');
 
       if (viewport.width < 768) {
         await expectVisibleTargetsAtLeast(page, '.pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta', 44);
@@ -272,6 +308,7 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
       expect(formControlHeights.every((height) => height >= 48 && height <= 60), JSON.stringify(formControlHeights, null, 2)).toBe(true);
 
       await expectRegistrationOnlyPrimaryCtas(page);
+      await expectCanonicalSevenStepDeal(page);
       await expectKeyboardCompleteRoleTabs(page);
       await expectStageAwareDealWorkspace(page);
       await expectCurrentAnchorsBelowStickyHeader(page);

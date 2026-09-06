@@ -34,6 +34,7 @@ import styles from './PlatformV7StrategicHomeStory.module.css';
 
 type Locale = 'ru' | 'en' | 'zh';
 type SectionHeaderProps = { id: string; eyebrow: string; title: string; lead?: string };
+type DealJourneyStage = Readonly<{ index: string; title: string; text: string; result: string }>;
 
 function SectionHeader({ id, eyebrow, title, lead }: SectionHeaderProps) {
   return (
@@ -100,6 +101,36 @@ const TRUST_COPY = {
   },
 } as const;
 
+const CANONICAL_DEAL_JOURNEY: Record<Locale, readonly DealJourneyStage[]> = {
+  ru: [
+    { index: '01', title: 'Товар и условия', text: 'Товар, объём, качество, базис и коммерческие условия.', result: 'Есть единая версия условий Сделки.' },
+    { index: '02', title: 'Рынок и контрагент', text: 'Предложения, торги, выбор стороны и фиксация цены.', result: 'Контрагент и коммерческие условия определены.' },
+    { index: '03', title: 'Сделка и договор', text: 'Договор, участники, роли, полномочия и финансовый сценарий.', result: 'Обязательства сторон зафиксированы.' },
+    { index: '04', title: 'Сервисы и логистика', text: 'Перевозка, рейс, водитель, сервисные участники и контрольные точки.', result: 'Исполнение связано с конкретной Сделкой.' },
+    { index: '05', title: 'Приёмка и качество', text: 'Вес, приёмка, лаборатория, отклонения и независимая проверка.', result: 'Фактическое исполнение сопоставлено с условиями.' },
+    { index: '06', title: 'Документы и расчёт', text: 'Документы, версии, подписи и основания финансового действия.', result: 'Документальные и расчётные основания собраны.' },
+    { index: '07', title: 'Закрытие и исключения', text: 'Закрытие обязательств, разногласия, перерасчёты и доказательная история.', result: 'Обычный путь или исключение завершаются внутри одной Сделки.' },
+  ],
+  en: [
+    { index: '01', title: 'Product and terms', text: 'Product, volume, quality, delivery basis and commercial terms.', result: 'One version of the Deal terms is established.' },
+    { index: '02', title: 'Market and counterparty', text: 'Offers, bidding, party selection and price fixation.', result: 'The counterparty and commercial terms are determined.' },
+    { index: '03', title: 'Deal and contract', text: 'Contract, participants, roles, authority and the financial scenario.', result: 'The parties’ obligations are recorded.' },
+    { index: '04', title: 'Services and logistics', text: 'Transport, trip, driver, service participants and control points.', result: 'Execution is linked to the specific Deal.' },
+    { index: '05', title: 'Acceptance and quality', text: 'Weight, acceptance, laboratory results, deviations and independent checks.', result: 'Actual execution is compared with the agreed terms.' },
+    { index: '06', title: 'Documents and settlement', text: 'Documents, versions, signatures and grounds for financial action.', result: 'Documentary and settlement grounds are assembled.' },
+    { index: '07', title: 'Closure and exceptions', text: 'Completion, discrepancies, recalculations and the evidence history.', result: 'The ordinary path or an exception is resolved inside one Deal.' },
+  ],
+  zh: [
+    { index: '01', title: '商品与条件', text: '商品、数量、质量、交付基础与商业条件。', result: '形成同一版本的交易条件。' },
+    { index: '02', title: '市场与交易方', text: '报价、竞价、交易方选择与价格确定。', result: '交易方和商业条件得到确定。' },
+    { index: '03', title: '交易与合同', text: '合同、参与方、角色、权限与财务场景。', result: '各方义务得到记录。' },
+    { index: '04', title: '服务与物流', text: '运输、车次、司机、服务参与方与控制点。', result: '履约与具体交易保持关联。' },
+    { index: '05', title: '验收与质量', text: '重量、验收、实验室结果、偏差与独立核查。', result: '实际履约与约定条件完成对照。' },
+    { index: '06', title: '文件与结算', text: '文件、版本、签名与金融操作依据。', result: '文件依据和结算依据完成汇集。' },
+    { index: '07', title: '关闭与异常', text: '义务关闭、异议、重算与证据历史。', result: '正常路径或异常都在同一笔交易内完成处理。' },
+  ],
+} as const;
+
 function localeOf(locale: string): Locale {
   return locale === 'en' || locale === 'zh' ? locale : 'ru';
 }
@@ -112,6 +143,13 @@ export async function PlatformV7StrategicHome() {
   const story = getPlatformV7HomeStoryCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
   const trustCopy = TRUST_COPY[normalizedLocale];
+  const dealJourney = CANONICAL_DEAL_JOURNEY[normalizedLocale];
+  const registrationLabel = normalizedLocale === 'en' ? 'Register' : normalizedLocale === 'zh' ? '注册' : 'Зарегистрироваться';
+  const dealJourneyAriaLabel = normalizedLocale === 'en'
+    ? 'Seven steps of one Deal'
+    : normalizedLocale === 'zh'
+      ? '同一笔交易的七个步骤'
+      : 'Семь шагов одной Сделки';
   const presentationDownloadLabel = normalizedLocale === 'en'
     ? 'Download presentation (PDF)'
     : normalizedLocale === 'zh'
@@ -126,7 +164,7 @@ export async function PlatformV7StrategicHome() {
   const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(normalizedLocale)}`;
   const gektaProductHref = GEKTA_PATHS[normalizedLocale];
   const normalState = story.demo.states[0]!;
-  const heroCurrentStepIndex = Math.min(4, story.demo.stages.length - 1);
+  const heroCurrentStepIndex = Math.min(4, dealJourney.length - 1);
 
   const nav = (
     <>
@@ -179,7 +217,7 @@ export async function PlatformV7StrategicHome() {
               <LogIn aria-hidden='true' size={18} strokeWidth={1.9} />
               <span>{copy.nav.login}</span>
             </a>
-            <a href={registerHref} className='pc-v6-header-cta'>{copy.nav.connect}</a>
+            <a href={registerHref} className='pc-v6-header-cta'>{registrationLabel}</a>
           </div>
         }
       />
@@ -202,7 +240,7 @@ export async function PlatformV7StrategicHome() {
                   locale={locale}
                   params={{ source: 'home_v5_hero' }}
                 >
-                  {copy.hero.secondary}<ArrowRight aria-hidden='true' size={18} />
+                  {registrationLabel}<ArrowRight aria-hidden='true' size={18} />
                 </PublicExperienceLink>
                 <PublicExperienceLink
                   href='#live'
@@ -241,18 +279,18 @@ export async function PlatformV7StrategicHome() {
               <div
                 className={`${styles.heroDealProgress} pc-public-deal-stage-rail pc-public-deal-stage-rail--hero`}
                 role='progressbar'
-                aria-label={story.demo.stageLabel}
+                aria-label={dealJourneyAriaLabel}
                 aria-valuemin={1}
-                aria-valuemax={story.demo.stages.length}
+                aria-valuemax={dealJourney.length}
                 aria-valuenow={heroCurrentStepIndex + 1}
               >
-                {story.demo.stages.map((stage, stageIndex) => (
+                {dealJourney.map((stage, stageIndex) => (
                   <span
-                    key={stage}
+                    key={stage.index}
                     className={stageIndex < heroCurrentStepIndex ? styles.progressDone : stageIndex === heroCurrentStepIndex ? styles.progressActive : undefined}
                   >
                     <i aria-hidden='true' />
-                    <small>{stage}</small>
+                    <small>{stage.title}</small>
                   </span>
                 ))}
               </div>
@@ -333,8 +371,8 @@ export async function PlatformV7StrategicHome() {
 
           <section id='deal-path' className={`pc-v6-section ${styles.section}`} aria-labelledby='deal-path-title'>
             <SectionHeader id='deal-path-title' eyebrow={story.process.eyebrow} title={story.process.title} lead={story.process.lead} />
-            <div className={styles.phaseGrid}>
-              {story.process.phases.slice(0, 3).map((phase) => (
+            <div className={styles.phaseGrid} data-testid='platform-v7-canonical-deal-journey'>
+              {dealJourney.slice(0, 3).map((phase) => (
                 <article key={phase.index} className={styles.phaseCard}>
                   <span>{phase.index}</span><h3>{phase.title}</h3><p>{phase.text}</p>
                   <small><b>{story.process.resultLabel}:</b> {phase.result}</small>
@@ -345,7 +383,7 @@ export async function PlatformV7StrategicHome() {
                 {story.process.moreLabel}<ArrowRight aria-hidden='true' size={16} />
               </label>
               <div id='phases-more-cards' className={styles.morePhaseGrid}>
-                {story.process.phases.slice(3).map((phase) => (
+                {dealJourney.slice(3).map((phase) => (
                   <article key={phase.index} className={styles.phaseCard}>
                     <span>{phase.index}</span><h3>{phase.title}</h3><p>{phase.text}</p>
                     <small><b>{story.process.resultLabel}:</b> {phase.result}</small>
@@ -355,11 +393,11 @@ export async function PlatformV7StrategicHome() {
             </div>
             <div className={styles.fullPath}>
               <span>{story.process.fullPathLabel}</span>
-              <strong>{story.process.fullPathText}</strong>
+              <strong>{dealJourney.map((stage) => stage.title).join(' → ')}</strong>
               <details className={styles.fullStages}>
                 <summary>{story.process.stagesLabel}<ArrowRight aria-hidden='true' size={16} /></summary>
-                <div className='pc-v6-lifecycle' role='list' tabIndex={0} aria-label={copy.lifecycle.title}>
-                  {copy.lifecycle.phases.map((phase: string, index: number) => <div key={phase} role='listitem'><i>{index + 1}</i><span>{phase}</span></div>)}
+                <div className='pc-v6-lifecycle' role='list' tabIndex={0} aria-label={dealJourneyAriaLabel}>
+                  {dealJourney.map((stage) => <div key={stage.index} role='listitem'><i>{stage.index}</i><span>{stage.title}</span></div>)}
                 </div>
               </details>
             </div>
@@ -420,9 +458,9 @@ export async function PlatformV7StrategicHome() {
                     <div className={styles.demoHeader}>
                       <div><span>{story.heroDeal.product}</span><small>{story.heroDeal.route}</small></div>
                     </div>
-                    <div className={`${styles.demoStageRail} pc-public-deal-stage-rail pc-public-deal-stage-rail--demo`} aria-label={story.demo.stageLabel}>
-                      {story.demo.stages.map((stage, stageIndex) => (
-                        <span key={stage} className={stageIndex < 4 ? styles.stageDone : stageIndex === 4 ? styles.stageCurrent : undefined}><i>{stageIndex + 1}</i><small>{stage}</small></span>
+                    <div className={`${styles.demoStageRail} pc-public-deal-stage-rail pc-public-deal-stage-rail--demo`} aria-label={dealJourneyAriaLabel}>
+                      {dealJourney.map((stage, stageIndex) => (
+                        <span key={stage.index} className={stageIndex < 4 ? styles.stageDone : stageIndex === 4 ? styles.stageCurrent : undefined}><i>{stage.index}</i><small>{stage.title}</small></span>
                       ))}
                     </div>
                     <div className={styles.demoContent}>
@@ -510,7 +548,7 @@ export async function PlatformV7StrategicHome() {
             <p>{copy.final.lead}</p>
             <div className='pc-v6-actions'>
               <PublicExperienceLink href={registerHref} className='pc-v6-primary' eventName='registration_open' locale={locale} params={{ source: 'home_v5_final' }}>
-                {copy.final.primary}<ArrowRight aria-hidden='true' size={18} />
+                {registrationLabel}<ArrowRight aria-hidden='true' size={18} />
               </PublicExperienceLink>
               <PublicExperienceLink href='#connect-organization' className='pc-v6-secondary' eventName='open_organization_connect' locale={locale} params={{ source: 'home_v5_final' }}>
                 {copy.final.secondary}
