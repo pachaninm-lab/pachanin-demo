@@ -185,14 +185,19 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
 }
 @media (max-width: 430px) {
   .pc-v7-public-entry {
-    --entry-public-header-base: 100px;
-    --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset));
+    --entry-public-header-base: 100px !important;
+    --pc-public-header-base-height: 100px !important;
+    --pc-public-header-total-height: calc(100px + var(--entry-public-header-offset)) !important;
+    --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset)) !important;
   }
   .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
     display: flex !important;
     flex-wrap: wrap !important;
     align-content: center !important;
     align-items: center !important;
+    height: 100px !important;
+    min-height: 100px !important;
+    max-height: 100px !important;
     gap: 4px !important;
     padding-inline: 8px !important;
   }
