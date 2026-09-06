@@ -291,6 +291,25 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  test('1024px transitional header uses the compact navigation without clipping controls', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+
+    const desktopNav = page.locator('.pc-site-nav');
+    const menu = page.locator('.pc-site-mobile-menu');
+    const summary = menu.locator(':scope > summary');
+    await expect(desktopNav).toBeHidden();
+    await expect(menu).toBeVisible();
+    await expect(summary).toBeVisible();
+    await expectHeaderControlsWithinViewport(page);
+    await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
+    await summary.click();
+    await expect(page.locator('.pc-site-mobile-nav')).toBeVisible();
+    expect(await page.locator('.pc-site-mobile-nav a').count()).toBeGreaterThanOrEqual(6);
+    await expectNoHorizontalOverflow(page);
+  });
+
   test('1280px header keeps brand, navigation and actions in separate lanes', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
