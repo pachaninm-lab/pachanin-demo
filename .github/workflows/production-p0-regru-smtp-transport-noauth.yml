@@ -1,0 +1,126 @@
+name: Production P0 REG.RU SMTP Transport No-Auth Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-regru-smtp-transport-noauth.yml'
+      - 'scripts/production-p0-regru-smtp-transport-noauth.py'
+      - 'scripts/check-production-p0-regru-smtp-transport-noauth.mjs'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-regru-smtp-transport-noauth-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-regru-smtp-transport-noauth
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate REG.RU SMTP transport no-auth diagnostic contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-regru-smtp-transport-diagnose current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-production-p0-regru-smtp-transport-noauth.mjs
+      - run: python3 -m py_compile scripts/production-p0-regru-smtp-transport-noauth.py
+
+  diagnose:
+    name: Probe REG.RU SMTP DNS/TCP/TLS/EHLO without auth or mail
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-regru-smtp-transport-diagnose current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind to exact current main
+        id: main
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin main >/dev/null
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          [[ "$(git rev-parse origin/main)" == "$main_sha" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          printf 'sha=%s\n' "$main_sha" >> "$GITHUB_OUTPUT"
+      - name: Probe public SMTP transports without AUTH or mail
+        id: probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          result="$(python3 scripts/production-p0-regru-smtp-transport-noauth.py)"
+          printf '%s\n' "$result"
+          grep -Fxq 'AUTH_ATTEMPT=NO' <<< "$result"
+          grep -Fxq 'MAIL_SENT=NO' <<< "$result"
+          grep -Fxq 'PRODUCTION_MUTATION=NONE' <<< "$result"
+          while IFS='=' read -r key value; do
+            [[ "$key" =~ ^[A-Z0-9_]+$ ]]
+            [[ "$value" =~ ^[A-Z0-9_-]+$ ]]
+            printf '%s=%s\n' "${key,,}" "$value" >> "$GITHUB_OUTPUT"
+          done <<< "$result"
+      - name: Recheck exact main after network read
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == '${{ steps.main.outputs.sha }}' ]]
+          git fetch --no-tags origin main >/dev/null
+          [[ "$(git rev-parse origin/main)" == '${{ steps.main.outputs.sha }}' ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+      - name: Publish bounded transport classification
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body "## Production P0 REG.RU SMTP transport no-auth diagnostic
+
+          - exact main: \`${{ steps.main.outputs.sha }}\`
+          - result: \`PASS_READ_ONLY_CLASSIFIED\`
+          - DNS: \`${{ steps.probe.outputs.smtp_dns_class }}\`
+          - SMTPS 465 class: \`${{ steps.probe.outputs.smtps465_class }}\`
+          - SMTPS 465 TCP/TLS/EHLO: \`${{ steps.probe.outputs.smtps465_tcp_ok }}/${{ steps.probe.outputs.smtps465_tls_ok }}/${{ steps.probe.outputs.smtps465_ehlo_ok }}\`
+          - SMTPS 465 AUTH PLAIN/LOGIN advertised: \`${{ steps.probe.outputs.smtps465_auth_plain_advertised }}/${{ steps.probe.outputs.smtps465_auth_login_advertised }}\`
+          - STARTTLS 587 class: \`${{ steps.probe.outputs.starttls587_class }}\`
+          - STARTTLS 587 TCP/EHLO/advertised/TLS/post-TLS-EHLO: \`${{ steps.probe.outputs.starttls587_tcp_ok }}/${{ steps.probe.outputs.starttls587_ehlo_ok }}/${{ steps.probe.outputs.starttls587_advertised }}/${{ steps.probe.outputs.starttls587_tls_ok }}/${{ steps.probe.outputs.starttls587_post_tls_ehlo_ok }}\`
+          - STARTTLS 587 AUTH PLAIN/LOGIN advertised: \`${{ steps.probe.outputs.starttls587_auth_plain_advertised }}/${{ steps.probe.outputs.starttls587_auth_login_advertised }}\`
+          - AUTH attempt: \`${{ steps.probe.outputs.auth_attempt }}\`
+          - mail sent: \`${{ steps.probe.outputs.mail_sent }}\`
+          - production mutation: \`${{ steps.probe.outputs.production_mutation }}\`
+          - credentials used/exposed: \`NONE\`
+          - new recurring cost: \`0 RUB\`" >/dev/null
