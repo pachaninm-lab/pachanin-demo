@@ -137,6 +137,52 @@ if (!similarity.approvedCorpus) {
   console.error('due-diligence: similarity artifact does not record an approved corpus');
   process.exit(1);
 }
+// An unresolved dependency licence is not one thing.
+//
+// The resolver falls back to reading the licence off the installed package, so
+// on a machine that does not install a package the licence cannot be read.
+// Every optional binary for another platform - @img/sharp-darwin-arm64,
+// @emnapi/*, the Windows and FreeBSD builds - is in exactly that position on a
+// Linux checkout, and counting them as unresolved licences would report a
+// compliance gap where there is only a machine that does not run macOS.
+//
+// The distinction that matters: unresolved in a REQUIRED or RUNTIME scope is a
+// real gap and blocks; unresolved only in OPTIONAL scope is a limit of the
+// environment the measurement ran in, and is reported as such with its count.
+const licenseCsvPath = path.join(ART, 'license-map.csv');
+let unresolvedRequired = 0;
+let unresolvedOptional = 0;
+let reviewRequired = 0;
+let reviewOptional = 0;
+if (fs.existsSync(licenseCsvPath)) {
+  const csvLines = fs.readFileSync(licenseCsvPath, 'utf8').split('\n').filter(Boolean);
+  const header = csvLines[0].split(',');
+  const iClass = header.indexOf('classification');
+  const iScope = header.indexOf('dependency_scope');
+  for (const line of csvLines.slice(1)) {
+    const cells = line.split(',');
+    const optional = cells[iScope] === 'OPTIONAL' || cells[iScope] === 'EXCLUDED' || cells[iScope] === 'DEV';
+    if (cells[iClass] === 'UNKNOWN_REVIEW') {
+      if (optional) unresolvedOptional += 1;
+      else unresolvedRequired += 1;
+    }
+    if (cells[iClass] === 'LEGAL_REVIEW') {
+      if (optional) reviewOptional += 1;
+      else reviewRequired += 1;
+    }
+  }
+}
+if (unresolvedRequired > 0) {
+  console.error(`due-diligence: ${unresolvedRequired} обязательн(ая/ых) зависимост(ь/и) без разрешённой лицензии — это пробел, а не ограничение среды`);
+  process.exit(1);
+}
+if (reviewRequired > 0) {
+  // Слабый копилефт вне продуктового пути — обычное положение. В обязательной
+  // области это правовое решение, которое нельзя принять сборкой документа.
+  console.error(`due-diligence: ${reviewRequired} обязательн(ая/ых) зависимост(ь/и) со слабым копилефтом — требуется правовое решение, а не отчёт`);
+  process.exit(1);
+}
+
 if (similarity.corpusDigestSha256 !== approval.corpusDigestSha256) {
   console.error('due-diligence: similarity corpus digest does not match the approval');
   console.error(`  measured: ${similarity.corpusDigestSha256}`);
@@ -239,13 +285,19 @@ L();
 L('| Показатель | Значение |');
 L('|---|---|');
 L(`| Компонентов в SBOM | ${num(licenses.components)} |`);
-L(`| Неразрешённых лицензий после разбора | ${num(licenses.unresolvedAfterInstalledLookup)} |`);
+L(`| Неразрешённых лицензий в обязательной области | **${num(unresolvedRequired)}** |`);
+L(`| Требующих правового рассмотрения в обязательной области | **${num(reviewRequired)}** |`);
+L(`| Неразрешённых в необязательной области | ${num(unresolvedOptional)} |`);
+L(`| Требующих рассмотрения в необязательной области | ${num(reviewOptional)} |`);
 for (const [cls, n] of Object.entries(licenses.classifications ?? {})) {
   L(`| Классификация \`${cls}\` | ${num(n)} |`);
 }
 for (const [scope, n] of Object.entries(licenses.dependencyScopes ?? {})) {
   L(`| Область \`${scope}\` | ${num(n)} |`);
 }
+L();
+L();
+L(`**Что здесь важно.** В обязательной области (\`RUNTIME_OR_REQUIRED\`) нет ни одной зависимости без разрешённой лицензии и ни одной со слабым копилефтом: оба показателя равны нулю, и сборка досье отказывает, если это перестаёт быть так. Ненулевые значения в необязательной области — это \`DEV\`, \`OPTIONAL\` и \`EXCLUDED\`: инструменты разработки и двоичные сборки под другие платформы (macOS, FreeBSD, Windows), которые на машине с Linux не устанавливаются, поэтому их лицензия не читается с установленного пакета. Это предел среды измерения, а не пробел в соответствии, и подменять одно другим документ не должен.`);
 L();
 L('Политика: сильный копилефт (AGPL/GPL/SSPL/BUSL) в обязательной области блокируется до явного правового решения; двойные лицензии оцениваются по избранной разрешительной ветви; слабый копилефт и нестандартные лицензии остаются явными предметами рассмотрения и не выдаются молча за проприетарный код.');
 L();

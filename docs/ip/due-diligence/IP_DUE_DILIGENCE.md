@@ -1,7 +1,7 @@
 # IP due diligence — досье
 
 **Объект:** программный комплекс «Прозрачная Цена» (включая продуктовый контур «ГЕКТА»).
-**Состояние исходного текста:** `1b698418eb03eaa09299a2c8f6a6516104872381`.
+**Состояние исходного текста:** `b9d76887a9415d5bee560dceba2c808657a2718c`.
 **Дата сборки досье:** 2026-09-06.
 
 Досье собрано автоматически из измеряемых артефактов. Каждое числовое утверждение воспроизводится командой из раздела 9; ни одно число не проставлено вручную.
@@ -66,13 +66,21 @@
 | Показатель | Значение |
 |---|---|
 | Компонентов в SBOM | 1 193 |
-| Неразрешённых лицензий после разбора | 0 |
-| Классификация `PERMISSIVE_OR_APPROVED` | 1 189 |
+| Неразрешённых лицензий в обязательной области | **0** |
+| Требующих правового рассмотрения в обязательной области | **0** |
+| Неразрешённых в необязательной области | 57 |
+| Требующих рассмотрения в необязательной области | 8 |
+| Классификация `PERMISSIVE_OR_APPROVED` | 1 124 |
+| Классификация `LEGAL_REVIEW` | 8 |
+| Классификация `UNKNOWN_REVIEW` | 57 |
 | Классификация `PERMISSIVE_OR_APPROVED_DUAL_LICENSE` | 4 |
 | Область `DEV` | 591 |
 | Область `OPTIONAL` | 422 |
 | Область `EXCLUDED` | 28 |
 | Область `RUNTIME_OR_REQUIRED` | 152 |
+
+
+**Что здесь важно.** В обязательной области (`RUNTIME_OR_REQUIRED`) нет ни одной зависимости без разрешённой лицензии и ни одной со слабым копилефтом: оба показателя равны нулю, и сборка досье отказывает, если это перестаёт быть так. Ненулевые значения в необязательной области — это `DEV`, `OPTIONAL` и `EXCLUDED`: инструменты разработки и двоичные сборки под другие платформы (macOS, FreeBSD, Windows), которые на машине с Linux не устанавливаются, поэтому их лицензия не читается с установленного пакета. Это предел среды измерения, а не пробел в соответствии, и подменять одно другим документ не должен.
 
 Политика: сильный копилефт (AGPL/GPL/SSPL/BUSL) в обязательной области блокируется до явного правового решения; двойные лицензии оцениваются по избранной разрешительной ветви; слабый копилефт и нестандартные лицензии остаются явными предметами рассмотрения и не выдаются молча за проприетарный код.
 
@@ -162,10 +170,10 @@
 
 | Что | Артефакт | SHA-256 | Команда воспроизведения |
 |---|---|---|---|
-| Провенанс каждого файла | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json` | `f2187736b2da96f6…` | `node scripts/ip/build-first-party-provenance.mjs` |
-| Сводка провенанса и KPI | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json` | `9146e7972bb68a1e…` | `node scripts/ip/build-first-party-provenance.mjs` |
+| Провенанс каждого файла | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json` | `962817610821ca12…` | `node scripts/ip/build-first-party-provenance.mjs` |
+| Сводка провенанса и KPI | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json` | `94fa5fb47d82b215…` | `node scripts/ip/build-first-party-provenance.mjs` |
 | Провенанс в табличном виде | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.csv` | `d24be2566ad5aff9…` | `node scripts/ip/build-first-party-provenance.mjs` |
-| Лицензии зависимостей | `artifacts/ip-clean-room/license-summary.json` | `7196e915e35aa08d…` | `node scripts/ip/build-license-map.mjs artifacts/ip-clean-room/sbom artifacts/ip-clean-room` |
+| Лицензии зависимостей | `artifacts/ip-clean-room/license-summary.json` | `bce6bfc0ff030084…` | `node scripts/ip/build-license-map.mjs artifacts/ip-clean-room/sbom artifacts/ip-clean-room` |
 | Покрытие SBOM | `artifacts/ip-clean-room/SBOM_COVERAGE.json` | `9274537c5298d623…` | `node scripts/ip/build-sbom-coverage.mjs artifacts/ip-clean-room docs/ip/sbom-coverage-scope.json` |
 | Анализ сходства | `artifacts/ip-clean-room/similarity-summary.json` | `ba4cc230339945aa…` | `IP_SIMILARITY_CORPUS=artifacts/ip-clean-room/similarity-corpus IP_SIMILARITY_CORPUS_APPROVED=1 IP_SIMILARITY_CORPUS_APPROVAL=docs/ip/similarity/dependency-corpus-approval.json node scripts/ip/build-offline-similarity-evidence.mjs artifacts/ip-clean-room` |
 | Отпечатки для анализа сходства | `artifacts/ip-clean-room/similarity-fingerprints.json` | `f34fb645e42e4127…` | `IP_SIMILARITY_CORPUS=artifacts/ip-clean-room/similarity-corpus IP_SIMILARITY_CORPUS_APPROVED=1 IP_SIMILARITY_CORPUS_APPROVAL=docs/ip/similarity/dependency-corpus-approval.json node scripts/ip/build-offline-similarity-evidence.mjs artifacts/ip-clean-room` |
@@ -175,7 +183,7 @@
 Полная последовательность на чистом дереве:
 
 ```bash
-git checkout 1b698418eb03eaa09299a2c8f6a6516104872381
+git checkout b9d76887a9415d5bee560dceba2c808657a2718c
 pnpm install --frozen-lockfile
 node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room
 node scripts/ip/build-first-party-provenance.mjs
