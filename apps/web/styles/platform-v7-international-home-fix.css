@@ -247,13 +247,31 @@
   }
 }
 
-/* At the smallest accepted widths the persistent public assistant occupies the
- * right edge of the first viewport. Reserve that exact lane only in the first
- * Hero Deal row so the stage sentence is never obscured while the 48px target
- * remains fully available. */
+/* RU/EN/ZH place the compact assistant over different Hero Deal rows because
+ * their copy lengths differ. At the smallest accepted widths reserve a narrow
+ * right lane for every row and reduce the dock to a still-accessible 44px action,
+ * preventing first-viewport content occlusion without changing the mobile flow. */
 @media (max-width: 390px) {
-  .pc-v7-public-entry [data-testid='platform-v7-deal-card'] article:first-child {
-    padding-right: 72px !important;
+  .pc-v7-public-entry [data-testid='platform-v7-deal-card'] article {
+    padding-right: 56px !important;
+  }
+
+  .pc-public-contact-dock[data-assistant-context='public'] {
+    right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) + 8px)) !important;
+    width: 48px !important;
+    min-width: 48px !important;
+    height: 48px !important;
+    padding: 2px !important;
+    border-radius: 16px !important;
+  }
+
+  .pc-public-contact-dock[data-assistant-context='public']
+    .pc-public-contact-dock-assistant {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 13px !important;
   }
 }
 
