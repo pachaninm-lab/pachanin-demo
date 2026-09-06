@@ -14,6 +14,10 @@ const COMPLETED_REVIEW_STATES = new Set([
   'COMMENTED',
 ]);
 
+const POSITIVE_REVIEW_STATES = new Set([
+  'APPROVED',
+]);
+
 const GREEN_CHECK_STATES = new Set([
   'SUCCESS',
   'SKIPPED',
@@ -49,6 +53,12 @@ export function exactHeadCodexReviews(reviews, headSha) {
   });
 }
 
+export function positiveExactHeadCodexReviews(reviews, headSha) {
+  return exactHeadCodexReviews(reviews, headSha).filter((review) => (
+    POSITIVE_REVIEW_STATES.has(String(review?.state || '').toUpperCase())
+  ));
+}
+
 export function cleanCodexReviewPrefixes(comments) {
   const prefixes = [];
   for (const comment of comments || []) {
@@ -60,6 +70,19 @@ export function cleanCodexReviewPrefixes(comments) {
     if (match) prefixes.push(match[1]);
   }
   return prefixes;
+}
+
+export function exactHeadOwnerSelfAudits(comments, ownerLogin, headSha) {
+  const owner = String(ownerLogin || '').trim();
+  const expected = String(headSha || '').trim();
+  if (!owner || !/^[0-9a-f]{40}$/u.test(expected)) return [];
+
+  return (comments || []).filter((comment) => {
+    if (normalizeLogin(comment) !== owner) return false;
+    const body = String(comment?.body || '');
+    const matches = [...body.matchAll(/OWNER SELF-AUDIT:\s*PASS exact head\s*`([0-9a-f]{40})`/gu)];
+    return matches.some((match) => match[1] === expected);
+  });
 }
 
 export function activeUnresolvedThreads(threads) {
@@ -141,6 +164,13 @@ export function ciSnapshotMatchesHead(snapshotHeadSha, expectedHeadSha) {
   return /^[0-9a-f]{40}$/u.test(snapshot) && snapshot === expected;
 }
 
+export function reviewGatePrState(pr) {
+  const state = String(pr?.state || '').toLowerCase();
+  if (state === 'closed') return 'CLOSED';
+  if (state !== 'open' || typeof pr?.draft !== 'boolean') return 'INVALID';
+  return pr.draft ? 'DRAFT' : 'REVIEWABLE';
+}
+
 function runGh(args) {
   return execFileSync('gh', args, {
     encoding: 'utf8',
@@ -172,11 +202,6 @@ function fetchAllIssueComments(repo, prNumber) {
     `repos/${repo}/issues/${prNumber}/comments?per_page=100`,
   ]) || [];
   return pages.flatMap((page) => Array.isArray(page) ? page : []);
-}
-
-function resolveCommitSha(repo, ref) {
-  const commit = ghJson(['api', `repos/${repo}/commits/${ref}`]);
-  return String(commit?.sha || '').trim();
 }
 
 function fetchAllReviewThreads(repo, prNumber) {
@@ -260,16 +285,22 @@ function main() {
   if (!repo) fail('REVIEW_GATE_REPO_MISSING', 'REPO/GITHUB_REPOSITORY is required.');
   if (!Number.isInteger(prNumber) || prNumber <= 0) fail('REVIEW_GATE_PR_MISSING', 'PR_NUMBER must be a positive integer.');
 
+  const [ownerLogin] = String(repo).split('/');
+  if (!ownerLogin) fail('REVIEW_GATE_OWNER_MISSING', `Unable to resolve repository owner from ${repo}.`);
+
   const pr = ghJson(['api', `repos/${repo}/pulls/${prNumber}`]);
   if (!pr) fail('REVIEW_GATE_PR_UNAVAILABLE', `Unable to read PR #${prNumber}.`);
 
-  if (String(pr.state).toLowerCase() !== 'open') {
+  const prState = reviewGatePrState(pr);
+  if (prState === 'INVALID') {
+    fail('REVIEW_GATE_PR_STATE_INVALID', `PR #${prNumber} has an incomplete or unsupported live state.`);
+  }
+  if (prState === 'CLOSED') {
     console.log(`PR_REVIEW_GATE=SKIP_CLOSED pr=${prNumber}`);
     return;
   }
-  if (pr.draft === true) {
-    console.log(`PR_REVIEW_GATE=SKIP_DRAFT pr=${prNumber}`);
-    return;
+  if (prState === 'DRAFT') {
+    fail('REVIEW_GATE_DRAFT', `Draft PR #${prNumber} cannot satisfy exact-head review authority.`);
   }
 
   const headSha = String(pr?.head?.sha || '').trim();
@@ -279,20 +310,13 @@ function main() {
   }
 
   const reviews = fetchAllReviews(repo, prNumber);
-  const exactCodex = exactHeadCodexReviews(reviews, headSha);
   const comments = fetchAllIssueComments(repo, prNumber);
-  const cleanPrefixes = cleanCodexReviewPrefixes(comments);
-  let exactCleanCodex = 0;
-  for (const prefix of cleanPrefixes) {
-    try {
-      if (resolveCommitSha(repo, prefix) === headSha) exactCleanCodex += 1;
-    } catch {
-      // Ignore a stale or no-longer-resolvable short review prefix.
-    }
-  }
-
-  if (exactCodex.length === 0 && exactCleanCodex === 0) {
-    fail('REVIEW_GATE_CODEX_EXACT_HEAD_MISSING', `No completed Codex review is bound to exact head ${headSha}.`);
+  const ownerSelfAudits = exactHeadOwnerSelfAudits(comments, ownerLogin, headSha);
+  if (ownerSelfAudits.length === 0) {
+    fail(
+      'REVIEW_GATE_OWNER_SELF_AUDIT_MISSING',
+      `No repository-owner self-audit PASS attestation is bound to exact head ${headSha}.`,
+    );
   }
 
   const blockingReviews = latestBlockingChangeRequests(reviews);
@@ -349,7 +373,7 @@ function main() {
     );
   }
 
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexExactHeadReviews=${exactCodex.length} codexExactHeadCleanComments=${exactCleanCodex} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';
