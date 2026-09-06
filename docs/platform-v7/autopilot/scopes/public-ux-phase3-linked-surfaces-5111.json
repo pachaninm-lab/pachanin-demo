@@ -49,7 +49,6 @@
     "apps/api/**",
     "apps/web/app/api/**",
     "apps/web/app/platform-v7/register/page.tsx",
-    "apps/web/app/platform-v7/register/** except apps/web/app/platform-v7/register/RegisterCleanClient.tsx",
     "apps/web/components/gekta/GektaChatWorkspace.tsx",
     "apps/web/components/gekta/GektaAccessGate.tsx",
     "apps/web/components/gekta/GektaComposer.tsx",
