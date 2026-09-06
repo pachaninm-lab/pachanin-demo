@@ -132,7 +132,8 @@
 }
 
 /* Progressive enhancement only. Unsupported browsers keep the same readable
- * static layout. Motion explains sequence; it never conveys unique meaning. */
+ * static layout. Motion explains sequence; it never conveys unique meaning.
+ * Text remains fully opaque throughout motion so WCAG contrast never degrades. */
 @supports (animation-timeline: view()) {
   .pc-v7-public-entry #deal-path article,
   .pc-v7-public-entry [data-testid='platform-v7-ai-analysis'],
@@ -147,11 +148,9 @@
 
 @keyframes pc-public-story-reveal {
   from {
-    opacity: .42;
     transform: translateY(28px) scale(.985);
   }
   to {
-    opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
@@ -168,8 +167,8 @@
 .pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(7) { animation-delay: 420ms; }
 
 @keyframes pc-public-stage-enter {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(6px); }
+  to { transform: translateY(0); }
 }
 
 @media (max-width: 767px) {
