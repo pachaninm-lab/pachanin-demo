@@ -104,11 +104,11 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     if ((page.viewportSize()?.width ?? 1440) < 768) {
       const disclosures = [
         { id: '#difference-more-toggle', controls: 'difference-comparison-rows' },
-        { id: '#phases-more-toggle', controls: 'phases-more-cards' },
         { id: '#functions-more-toggle', controls: 'functions-more-cards' },
       ] as const;
       await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(2);
-      await expect(page.locator('#deal-path article').nth(6)).toBeHidden();
+      await expect(page.locator('#deal-path article').nth(6)).toBeVisible();
+      await expect(page.locator('#phases-more-toggle')).toBeHidden();
       await expect(page.locator('#functions article').nth(5)).toBeHidden();
       for (const disclosure of disclosures) {
         const toggle = page.locator(disclosure.id);
@@ -158,7 +158,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     await expectMinimumTargets(page, '.pc-public-contact-dock-action');
     await expectMinimumTargets(
       page,
-      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="phases-more-toggle"], label[for="functions-more-toggle"]',
+      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="functions-more-toggle"]',
     );
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
