@@ -12,6 +12,9 @@ const protectedShell = read('apps/web/components/platform-v7/PlatformV7Protected
 const protectedShellCss = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css');
 const designSystemRuntime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
+const contactHeader = read('apps/web/components/platform-v7/ContactFixedHeader.tsx');
+const publicHomeCompatCss = read('apps/web/styles/platform-v7-international-home-fix.css');
+const publicRoleScenarioCss = read('apps/web/components/platform-v7/PublicDealRoleScenario.module.css');
 const publicEntryLayout = read('apps/web/app/pc-public-entry/platform-v7/layout.tsx');
 const supportMount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
 const quietLayer = read('apps/web/components/platform-v7/UxFinalQuietLayer.tsx');
@@ -103,6 +106,36 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(headerCss).toContain('padding-inline: 6px');
     expect(headerCss).toContain('.pc-site-header .pc-site-locale-switch');
     expect(headerCss).toContain('min-width: 56px');
+  });
+
+  it('keeps one canonical 64px public header authority without wrapping on phones', () => {
+    expect(publicHeader).toContain("data-public-site-header='canonical'");
+    expect(publicHeader).toContain('flex-wrap: nowrap !important;');
+    expect(publicHeader).toContain('height: 64px !important;');
+    expect(publicHeader).toContain('--entry-public-header-base: 64px !important;');
+    expect(publicHeader).toContain(".pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text");
+    expect(publicHomeCompatCss).not.toContain('--entry-public-header-base: 96px');
+    expect(publicHomeCompatCss).not.toContain('flex-wrap: wrap !important;');
+  });
+
+  it('keeps public anchors and section typography bound to the canonical header', () => {
+    expect(publicHomeCompatCss).toContain('scroll-margin-top: calc(var(--pc-public-header-total-height, 64px) + 18px) !important;');
+    expect(publicHomeCompatCss).toContain('font-size: clamp(38px, 3.3vw, 44px) !important;');
+  });
+
+  it('keeps locale-native contact brand-home accessibility copy in the shared header', () => {
+    expect(contactHeader).toContain("brandHome: 'Прозрачная Цена — на главную'");
+    expect(contactHeader).toContain("brandHome: 'Transparent Price — home'");
+    expect(contactHeader).toContain("brandHome: '透明价格 — 返回首页'");
+    expect(contactHeader).toContain('brandHomeLabel={copy.brandHome}');
+    expect(contactHeader).not.toContain(':has(.p7-contact-register)');
+  });
+
+  it('uses readable single-column role detail cards at 390 and 430 mobile widths', () => {
+    expect(publicRoleScenarioCss).toContain('@media (max-width: 430px)');
+    expect(publicRoleScenarioCss).toMatch(/\.actionGrid,\s*\n\s*\.contextRow \{\s*\n\s*grid-template-columns: 1fr;/u);
+    expect(publicRoleScenarioCss).toContain('overflow-wrap: normal;');
+    expect(publicRoleScenarioCss).toContain('word-break: normal;');
   });
 
   it('keeps Design System muted text and partner branding above WCAG AA contrast', () => {
