@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "Ratchet baseline for V2.2.1/V2.2.2. Per-file unvalidated @Body() counts may fall but never rise; the DTO-typed total may rise but never fall. Not a claim that the API validates its input.",
-  "minValidatedBodyParameters": 138,
+  "minValidatedBodyParameters": 139,
   "unvalidatedBodyParametersByFile": {
     "apps/api/src/modules/accounting/accounting.controller.ts": 15,
     "apps/api/src/modules/admin/admin.controller.ts": 5,
@@ -10,7 +10,6 @@
     "apps/api/src/modules/arbitrator/arbitrator.controller.ts": 2,
     "apps/api/src/modules/auth/gekta-registration.controller.ts": 7,
     "apps/api/src/modules/bank-reconciliation/bank-reconciliation.controller.ts": 2,
-    "apps/api/src/modules/business-reputation/business-reputation.controller.ts": 1,
     "apps/api/src/modules/compliance/compliance.controller.ts": 3,
     "apps/api/src/modules/documents/documents.controller.ts": 1,
     "apps/api/src/modules/export-trade/export-trade.controller.ts": 4,
