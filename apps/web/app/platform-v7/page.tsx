@@ -145,7 +145,23 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     contain-intrinsic-size: none !important;
   }
 }
-@media (min-width: 901px) and (max-width: 1320px) {
+@media (min-width: 901px) and (max-width: 1199px) {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-nav {
+    display: none !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-mobile-menu {
+    display: block !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions,
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
+    gap: 6px !important;
+  }
+}
+@media (min-width: 1200px) and (max-width: 1320px) {
   .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
     gap: 12px !important;
     padding-inline: 20px !important;
