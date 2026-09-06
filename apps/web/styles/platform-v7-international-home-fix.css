@@ -55,6 +55,53 @@
   }
 }
 
+/* The unified contact dock is useful on desktop, but its default 334px horizontal
+ * footprint can cover the proof strip in the first viewport. At wide desktop
+ * widths keep all three actions while moving them into a narrow icon rail that
+ * fits the right-side gutter. Source labels remain in the accessibility tree. */
+@media (min-width: 1180px) {
+  body:has(.pc-v7-public-entry)
+    .pc-public-contact-dock[data-assistant-context='public'] {
+    right: max(10px, env(safe-area-inset-right, 0px)) !important;
+    left: auto !important;
+    bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) + 10px)) !important;
+    width: 54px !important;
+    min-width: 54px !important;
+    max-width: 54px !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: repeat(3, 48px) !important;
+    gap: 2px !important;
+    padding: 2px !important;
+    border-radius: 16px !important;
+  }
+
+  body:has(.pc-v7-public-entry)
+    .pc-public-contact-dock[data-assistant-context='public']
+    .pc-public-contact-dock-action {
+    width: 48px !important;
+    min-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+  }
+
+  body:has(.pc-v7-public-entry)
+    .pc-public-contact-dock[data-assistant-context='public']
+    .pc-public-contact-dock-action strong {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+}
+
 /* The first-view Deal card is explanatory product UI, not metadata. Keep every
  * visible text node at the trusted 14px legibility floor on all viewports. */
 .pc-v7-public-entry [data-testid='platform-v7-deal-card'] :where(span, small, b) {
