@@ -16,7 +16,7 @@ const roleWorkspaceCss = read('components/platform-v7/PublicDealRoleScenario.mod
 const internationalCss = read('styles/platform-v7-international-home-fix.css');
 
 describe('platform-v7 visible public operating copy', () => {
-  it('presents one seven-step Deal journey from product to closure across the homepage and role preview', () => {
+  it('presents one seven-step Deal journey from product to closure across the homepage and workspace', () => {
     for (const step of [
       'Товар, потребность и условия',
       'Рынок, контрагент и предложение',
@@ -28,6 +28,7 @@ describe('platform-v7 visible public operating copy', () => {
     ]) {
       expect(storyOperating).toContain(`title: '${step}'`);
     }
+
     for (const roleStep of [
       'Товар и условия',
       'Торги и контрагент',
@@ -37,26 +38,33 @@ describe('platform-v7 visible public operating copy', () => {
       'Документы и расчёт',
       'Закрытие',
     ]) {
-      expect(roleWorkspace).toContain(`'${roleStep}'`);
+      expect(roleWorkspace).toContain(`label: '${roleStep}'`);
     }
+
     expect(storyOperating).toContain("label: '7 шагов'");
     expect(home).toContain("phases: ['Товар и условия', 'Торги и контрагент', 'Сделка и договор'");
-    expect(roleWorkspace).toContain("stageLabel: '7 шагов Сделки'");
-    expect(roleWorkspace).toContain("focus: 'Приёмка и качество'");
-    expect(roleWorkspace).not.toContain("status: 'Шаг 5");
-    expect(roleWorkspaceCss).toContain('grid-template-columns: repeat(7, minmax(0, 1fr));');
+    expect(roleWorkspace).toContain("stageLabel: 'Семь этапов одной Сделки'");
+    expect(roleWorkspace).toContain('const [stageIndex, setStageIndex] = useState(0);');
+    expect(roleWorkspace).toContain('const selectedStage = stageList[stageIndex]!;');
+    expect(roleWorkspace).toContain("aria-current={index === stageIndex ? 'step' : undefined}");
+    expect(roleWorkspace).toContain('onClick={() => setStageIndex(index)}');
+    expect(roleWorkspace).not.toContain('styles.done');
+    expect(roleWorkspace).not.toContain('status:');
   });
 
   it('uses exactly nine public visitor roles in the visible story and selector', () => {
     expect(storyOperating).toContain("label: '9 ролей'");
     expect(storyOperating).toContain("label: '9 roles'");
     expect(storyOperating).toContain("label: '9 个角色'");
+
     for (const role of ["'seller'", "'buyer'", "'logistics'", "'driver'", "'storage'", "'laboratory'", "'surveyor'", "'bank'", "'employee'"]) {
       expect(roleWorkspace).toContain(role);
     }
+
     for (const retiredPublicRole of ["| 'operator'", "| 'compliance'", "| 'arbitrator'", "| 'executive'"]) {
       expect(roleWorkspace).not.toContain(retiredPublicRole);
     }
+
     expect(storyOperating).toContain('Продавец, покупатель, логистика, водитель, элеватор или хранение, лаборатория, сюрвейер, банк или финансы и сотрудник платформы');
   });
 
@@ -67,13 +75,48 @@ describe('platform-v7 visible public operating copy', () => {
     expect(roleWorkspace).toContain("id='public-role-panel'");
     expect(roleWorkspace).toContain('tabIndex={role === key ? 0 : -1}');
     expect(roleWorkspace).toContain('aria-labelledby={`public-role-tab-${role}`}');
+
     for (const key of ['ArrowRight', 'ArrowLeft', 'Home', 'End']) {
-      expect(roleWorkspace).toContain(`case '${key}':`);
+      expect(roleWorkspace).toContain(`case '${key}'`);
     }
+
     expect(roleWorkspace).toContain("querySelectorAll<HTMLButtonElement>('[role=\"tab\"]')");
     expect(roleWorkspace).toContain('event.preventDefault()');
     expect(roleWorkspace).toContain('tabs?.[nextIndex]?.focus()');
     expect(roleWorkspace).toContain('реальные полномочия определяются системой после регистрации и проверки организации');
+  });
+
+  it('changes the simplified workspace by Deal stage while role switching changes the participant lens', () => {
+    expect(roleWorkspace).toContain('{selectedStage.focus}');
+    expect(roleWorkspace).toContain('{selectedStage.title}');
+    expect(roleWorkspace).toContain('{selectedStage.explanation}');
+    expect(roleWorkspace).toContain('selectedStage.cards.map');
+    expect(roleWorkspace).toContain('{selectedStage.next}');
+    expect(roleWorkspace).toContain('{selectedStage.evidence}');
+    expect(roleWorkspace).toContain('{selectedRole.lens}');
+    expect(roleWorkspace).toContain('{selectedRole.responsibility}');
+    expect(roleWorkspace).toContain('{selectedRole.money}');
+    expect(roleWorkspace).toContain("deal: 'Одна Сделка · растениеводство'");
+    expect(roleWorkspace).toContain('Упрощённый публичный пример');
+  });
+
+  it('embeds Gekta inside every Deal stage without transferring decision authority', () => {
+    expect(roleWorkspace).toContain("gekta: 'Гекта в контексте Сделки'");
+    expect(roleWorkspace).toContain('{selectedStage.gekta}');
+    expect(roleWorkspace).toContain('{copy.gektaLimit}');
+    expect(roleWorkspace).toContain('критическое решение остаётся за уполномоченным участником');
+    expect(roleWorkspace).toContain("className={styles.gektaCard}");
+  });
+
+  it('treats mobile as a linear stage story rather than shrinking the desktop seven-column rail', () => {
+    expect(roleWorkspaceCss).toContain('grid-template-columns: repeat(7, minmax(0, 1fr));');
+    expect(roleWorkspaceCss).toContain('@media (max-width: 720px)');
+    expect(roleWorkspaceCss).toContain('.stageRail {\n    display: flex;');
+    expect(roleWorkspaceCss).toContain('min-width: 156px;');
+    expect(roleWorkspaceCss).toContain('scroll-snap-type: x mandatory;');
+    expect(roleWorkspaceCss).toContain('@media (max-width: 430px)');
+    expect(roleWorkspaceCss).toContain('@media (max-width: 359px)');
+    expect(roleWorkspaceCss).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
   it('keeps crop positioning and registration-first conversion on the first screen', () => {
@@ -96,14 +139,16 @@ describe('platform-v7 visible public operating copy', () => {
     ]) {
       expect(connect).toContain(task);
     }
+
     expect(connect).toContain("eyebrow: 'Дополнительная помощь'");
     expect(connect).toContain('Эта форма не является регистрацией');
     expect(connect).toContain("submit: 'Отправить запрос на помощь'");
     expect(connect).toContain('Для создания аккаунта используйте отдельную регистрацию платформы');
   });
 
-  it('keeps examples honest and removes public readiness/status marketing language from the new role story', () => {
+  it('keeps the new role story free of public readiness/status badges and internal marketing language', () => {
     const renderedSources = [storyOperating, home, connect, hero, roleWorkspace].join('\n').toLowerCase();
+
     for (const phrase of [
       'controlled pilot',
       'pre-integration',
@@ -117,6 +162,10 @@ describe('platform-v7 visible public operating copy', () => {
     ]) {
       expect(renderedSources).not.toContain(phrase);
     }
+
+    expect(roleWorkspace).not.toContain('status:');
+    expect(roleWorkspace).not.toContain('readiness');
+    expect(roleWorkspace).not.toContain('maturity');
     expect(roleWorkspace).toContain("preview: 'Упрощённый экран рабочего кабинета'");
     expect(storyOperating).toContain("state: 'Факты · основания · следующий шаг'");
     expect(storyOperating).toContain('Публичная помощь с подключением остаётся отдельным каналом');
