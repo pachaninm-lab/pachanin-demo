@@ -1,0 +1,85 @@
+name: Apply TAI live document OCR acceptance
+
+on:
+  push:
+    branches:
+      - feat/tai-live-document-ocr-acceptance-20260802
+    paths:
+      - scripts/apply-tai-live-document-ocr-acceptance.py
+      - .github/workflows/apply-tai-live-document-ocr-acceptance.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-tai-live-document-ocr-acceptance
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          ref: feat/tai-live-document-ocr-acceptance-20260802
+          fetch-depth: 0
+
+      - name: Capture exact authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main feat/tai-live-document-ocr-acceptance-20260802
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+
+      - name: Apply and verify bounded acceptance change
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 scripts/apply-tai-live-document-ocr-acceptance.py
+          python3 -m py_compile scripts/create-live-public-assistant-attachment-fixtures.py
+          node --check scripts/check-live-public-assistant-attachments.mjs
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pil fonts-dejavu-core >/dev/null
+          fixtures="$RUNNER_TEMP/tai-live-attachment-fixtures"
+          python3 scripts/create-live-public-assistant-attachment-fixtures.py "$fixtures"
+          python3 - "$fixtures/manifest.json" <<'PY'
+          import json, pathlib, sys
+          manifest=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert manifest['schemaVersion']=='tai.live-attachment-fixtures.v1'
+          assert len(manifest['files'])==7
+          root=pathlib.Path(sys.argv[1]).parent
+          for item in manifest['files']:
+              path=root/item['name']
+              assert path.is_file() and path.stat().st_size > 0
+          PY
+          grep -Fq 'TAI Live Document OCR Acceptance' .github/workflows/tai-live-document-ocr-acceptance.yml
+          grep -Fq 'TAI Live Document OCR Acceptance' .github/workflows/docker-publish.yml
+          grep -Fq 'scan-pdf-ocr' scripts/create-live-public-assistant-attachment-fixtures.py
+          grep -Fq 'input[type="file"]' scripts/check-live-public-assistant-attachments.mjs
+          git diff --check
+
+      - name: Publish reviewed source changes only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main feat/tai-live-document-ocr-acceptance-20260802
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/feat/tai-live-document-ocr-acceptance-20260802)" = "$EXPECTED_HEAD"
+          rm -f scripts/apply-tai-live-document-ocr-acceptance.py
+          rm -f .github/workflows/apply-tai-live-document-ocr-acceptance.yml
+          git add -A
+          git diff --cached --name-only | sort | tee /tmp/tai-live-acceptance-files.txt
+          if grep -Ev '^([.]github/workflows/apply-tai-live-document-ocr-acceptance[.]yml|[.]github/workflows/docker-publish[.]yml|[.]github/workflows/tai-live-document-ocr-acceptance[.]yml|docs/platform-v7/autopilot/scopes/tai-live-document-ocr-acceptance-20260802[.]json|scripts/apply-tai-live-document-ocr-acceptance[.]py|scripts/check-live-public-assistant-attachments[.]mjs|scripts/create-live-public-assistant-attachment-fixtures[.]py)$' /tmp/tai-live-acceptance-files.txt; then
+            echo 'Final diff exceeds registered live document OCR acceptance scope.' >&2
+            exit 31
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'ci(tai): enforce live document and OCR acceptance'
+          git push --force-with-lease="refs/heads/feat/tai-live-document-ocr-acceptance-20260802:${EXPECTED_HEAD}" \
+            origin HEAD:refs/heads/feat/tai-live-document-ocr-acceptance-20260802
