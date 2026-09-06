@@ -198,12 +198,12 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
       const brandMark = header.locator('.pc-site-brand-mark');
       const brandText = header.locator('.pc-site-brand-text strong');
       await expect(brandLink).toBeVisible();
-      await expect(brandMark).toBeVisible();
-      if (viewport.width <= 720) {
-        await expect(brandText).toBeHidden();
+      await expect(brandText).toBeVisible();
+      await expect(brandText).toHaveText('Прозрачная Цена');
+      if (viewport.width <= 430) {
+        await expect(brandMark).toBeHidden();
       } else {
-        await expect(brandText).toBeVisible();
-        await expect(brandText).toHaveText('Прозрачная Цена');
+        await expect(brandMark).toBeVisible();
       }
 
       const headerRegistration = page.locator('.pc-v6-header-cta');
