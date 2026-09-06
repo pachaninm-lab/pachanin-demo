@@ -26,16 +26,16 @@ describe('Public Deal Journey v5', () => {
     expect(component).toContain("return 'organization_connect_started'");
   });
 
-  it('marks the public banking and external-integration boundary explicitly', () => {
-    expect(copy).toContain('не выполняются реальные банковские операции');
-    expect(copy).toContain('не подтверждаются неподключённые внешние интеграции');
-    expect(copy).toContain('реальная банковская операция в публичном режиме не выполняется');
-    expect(copy).toContain('no real banking operation is performed in public mode');
-    expect(copy).toContain('公开模式不执行真实银行操作');
+  it('marks public banking and external-integration boundaries explicitly', () => {
+    expect(copy).toContain('не выполняет банковские операции');
+    expect(copy).toContain('не выдаёт неподключённые внешние системы за работающие');
+    expect(copy).toContain('реальная банковская операция в публичном примере не выполняется');
+    expect(copy).toContain('no real banking operation is performed in the public example');
+    expect(copy).toContain('公开页面不执行真实银行操作');
     expect(component).not.toContain('fetch(');
   });
 
-  it('has complete RU EN ZH entry, intent, scenario and TAI copy', () => {
+  it('has complete RU EN ZH task, scenario and Gekta copy with one public employee control perspective', () => {
     expect(copy).toContain('ru: {');
     expect(copy).toContain('en: {');
     expect(copy).toContain('zh: {');
@@ -43,13 +43,18 @@ describe('Public Deal Journey v5', () => {
     expect(copy.match(/moneyByStage:/g)?.length).toBe(3);
     expect(copy.match(/documentsByStage:/g)?.length).toBe(3);
     expect(copy.match(/control: \{ label:/g)?.length).toBe(3);
+    expect(copy.match(/perspective: 'operator'/g)?.length).toBe(3);
+    expect(copy).not.toContain("perspective: 'executive'");
   });
 
-  it('uses the new public journey copy on the actual how-it-works route', () => {
+  it('uses ordinary-journey-first language and registration on the actual how-it-works route', () => {
+    expect(copy).toContain("kicker: 'Как работает Сделка'");
+    expect(copy).toContain("connect: 'Зарегистрироваться'");
+    expect(copy).toContain('Сначала платформа показывает нормальное исполнение');
     expect(page).toContain("import '@/styles/platform-v7-public-deal-journey-v5.css'");
-    expect(page).toContain('getPublicDealJourneyV5Copy');
-    expect(page).toContain('journeyUi.intro.title');
-    expect(page).toContain('journeyUi.intro.demoNotice');
+    expect(page).toContain("heading: 'От условий до закрытия — один понятный путь'");
+    expect(page).toContain('Ниже используется вымышленный пример.');
+    expect(page).toContain('const registerHref = `/platform-v7/register?lang=');
   });
 
   it('is mobile-first, accessible and progressive rather than dashboard-dense', () => {

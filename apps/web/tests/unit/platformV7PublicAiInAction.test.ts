@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-describe('platform-v7 public TAI passport', () => {
+describe('platform-v7 public Gekta passport', () => {
   const page = read('app/platform-v7/ai-in-action/page.tsx');
-  const home = read('app/platform-v7/page.tsx');
+  const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const experience = read('components/platform-v7/PublicAiInActionSimpleExperience.tsx');
   const styles = read('components/platform-v7/PublicAiInActionSimpleExperience.module.css');
   const contextual = read('components/platform-v7/ContextualSupportOrAssistant.tsx');
@@ -17,13 +17,13 @@ describe('platform-v7 public TAI passport', () => {
     expect(page).toContain("data-testid='platform-v7-ai-in-action-authority'");
     expect(page).toContain("canonical: '/platform-v7/ai-in-action'");
     expect(page).toContain("data-ai-experience-route='/platform-v7/ai-in-action'");
-    expect(page).toContain('tai-intelligence-contour-passport');
+    expect(page).toContain('gekta-intelligence-contour-passport');
     expect(page).toContain("className='pc-ppe-page pc-ai-in-action-page'");
     expect(page).toContain('<PublicAiInActionSimpleExperience locale={locale} />');
     expect(page).toContain("name='ai_in_action_opened'");
     expect(page).toContain("import '@/styles/platform-v7-public-intelligence-layer.css'");
     expect(seo).toContain('"path": "/platform-v7/ai-in-action"');
-    expect(home).toContain("const aiExperienceHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;");
+    expect(home).toContain("const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(normalizedLocale)}`;");
   });
 
   it('implements the ten passport sections required by the public positioning', () => {
@@ -39,20 +39,24 @@ describe('platform-v7 public TAI passport', () => {
     expect(experience).toContain("id='connection'");
   });
 
-  it('keeps the operational boundary explicit and does not overstate maturity', () => {
-    expect(experience).toContain("status: 'NOT_ATTESTED'");
-    expect(experience).toContain('Ни один неподтверждённый источник не показывается подключённым');
-    expect(experience).toContain('Неподключённая государственная система не отображается как подключённая');
-    expect(experience).toContain('TAI не подписывает');
-    expect(experience).toContain('Screen scraping государственных личных кабинетов запрещён');
-    expect(experience).toContain('Production остаётся в собственном VPS-контуре платформы');
+  it('keeps human operational boundaries explicit without visitor-facing internal status codes', () => {
+    expect(experience).not.toContain("status: 'NOT_ATTESTED'");
+    expect(experience).toContain("hidden aria-hidden='true' data-release-compat='ai-passport'");
+    expect(experience).toContain('Неподключённая внешняя система не отображается как подключённая.');
+    expect(experience).toContain('Гекта не назначает роль и не меняет права доступа.');
+    expect(experience).toContain('Гекта не подписывает, не отправляет и не выпускает деньги без разрешённого человеческого действия.');
+    expect(experience).toContain('Данные государственных личных кабинетов не извлекаются обходным screen scraping.');
+    expect(experience).not.toContain('Production остаётся в собственном VPS-контуре платформы');
+    expect(experience).not.toContain('Vercel');
+    expect(experience).not.toContain('Netlify');
     expect(experience).not.toContain('llama.cpp');
     expect(experience).not.toContain('embeddings');
   });
 
-  it('provides role-aware interactive results without live data or autonomous writes', () => {
-    expect(experience).toContain("type RoleKey = 'buyer' | 'seller' | 'bank';");
-    expect(experience).toContain("const ROLE_ORDER: RoleKey[] = ['buyer', 'seller', 'bank'];");
+  it('provides exactly nine public role perspectives without live data or autonomous writes', () => {
+    expect(experience).toContain("type RoleKey = 'seller' | 'buyer' | 'logistics' | 'driver' | 'storage' | 'laboratory' | 'surveyor' | 'bank' | 'employee';");
+    expect(experience).toContain("const ROLE_ORDER: RoleKey[] = ['seller', 'buyer', 'logistics', 'driver', 'storage', 'laboratory', 'surveyor', 'bank', 'employee'];");
+    expect(experience).toContain("employee: { tab: 'Сотрудник платформы'");
     expect(experience).toContain("role='tablist'");
     expect(experience).toContain('aria-selected={role === key}');
     expect(experience).toContain("aria-live='polite'");
@@ -80,12 +84,14 @@ describe('platform-v7 public TAI passport', () => {
     expect(contextual).toContain('{renderDock ? <PublicContactDock /> : null}');
   });
 
-  it('localizes RU EN ZH and supports mobile, focus and reduced motion', () => {
+  it('localizes RU EN ZH, registers directly and supports mobile, focus and reduced motion', () => {
     expect(experience).toContain('ru: {');
     expect(experience).toContain('en: {');
     expect(experience).toContain('zh: {');
-    expect(experience).toContain('TAI is the evidence layer of deal execution');
-    expect(experience).toContain('TAI 是交易执行的证据层');
+    expect(experience).toContain('Gekta explains Deal state and the next step from available evidence');
+    expect(experience).toContain('Gekta 根据可用依据解释交易状态和下一步');
+    expect(experience).toContain("<a href='/platform-v7/register' className={styles.primary}");
+    expect(page).toContain("href={`/platform-v7/register${suffix}`}");
     expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
     expect(styles).toContain('@media (forced-colors: active)');
     expect(styles).toContain('@media (max-width: 1024px)');

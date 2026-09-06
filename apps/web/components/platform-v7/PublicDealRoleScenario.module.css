@@ -81,7 +81,7 @@
 .stageRail {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0;
   padding: 13px 16px 11px;
   border-bottom: 1px solid rgba(29, 78, 56, 0.1);
@@ -92,8 +92,8 @@
   content: '';
   position: absolute;
   top: 19px;
-  left: calc(10% + 16px);
-  right: calc(10% + 16px);
+  left: calc(7.142857% + 16px);
+  right: calc(7.142857% + 16px);
   height: 2px;
   background: #dce6e0;
 }
@@ -341,18 +341,23 @@
   }
 
   .stageRail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 6px;
+    overflow-x: visible;
     padding: 11px 8px 9px;
+    scroll-snap-type: none;
+    scroll-padding-inline: 0;
+    overscroll-behavior-inline: auto;
   }
 
   .stageRail::before {
-    top: 17px;
-    left: calc(10% + 8px);
-    right: calc(10% + 8px);
+    display: none;
   }
 
   .stageRail > div {
     gap: 4px;
     font-size: 9px;
+    scroll-snap-align: none;
   }
 
   .metrics {
@@ -441,7 +446,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tabs {
+  .tabs,
+  .stageRail {
     scroll-behavior: auto;
   }
 
