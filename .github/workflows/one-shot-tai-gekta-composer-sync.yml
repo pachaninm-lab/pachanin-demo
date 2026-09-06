@@ -1,0 +1,93 @@
+name: One-shot TAI Gekta composer contract sync
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-tai-gekta-composer-sync.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-tai-gekta-composer-sync-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  patch-head:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'fix/tai-gekta-composer-contract'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Apply exact bounded replacements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('scripts/tai-live-public-ai-acceptance.mjs'): [
+                  ('Задай вопрос об агробизнесе или платформе', 'Спроси Гекту о земле, урожае или агробизнесе', 2),
+                  ('Ask about agribusiness or the platform', 'Ask Gekta about land, crops or agribusiness', 1),
+                  ('询问农业商业或平台问题', '向 Gekta 咨询土地、作物或农业经营', 1),
+              ],
+              Path('scripts/tai-potato-mobile-live-acceptance.mjs'): [
+                  ('Задай вопрос об агробизнесе или платформе', 'Спроси Гекту о земле, урожае или агробизнесе', 2),
+              ],
+              Path('apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts'): [
+                  ('Задай вопрос об агробизнесе или платформе', 'Спроси Гекту о земле, урожае или агробизнесе', 2),
+                  ('Ask about agribusiness or the platform', 'Ask Gekta about land, crops or agribusiness', 1),
+                  ('询问农业商业或平台问题', '向 Gekta 咨询土地、作物或农业经营', 2),
+              ],
+              Path('.github/workflows/tai-public-agro-semantic-live-acceptance.yml'): [
+                  ('Задай вопрос об агробизнесе или платформе', 'Спроси Гекту о земле, урожае или агробизнесе', 1),
+              ],
+              Path('docs/platform-v7/autopilot/scopes/tai-gekta-composer-contract.json'): [
+                  ('TAI_GEКTA_HOSTED_COMPOSER_CONTRACT_REPAIR', 'TAI_GEKTA_HOSTED_COMPOSER_CONTRACT_REPAIR', 1),
+              ],
+          }
+
+          for file, rules in replacements.items():
+              text = file.read_text(encoding='utf-8')
+              for old, new, expected in rules:
+                  actual = text.count(old)
+                  if actual != expected:
+                      raise SystemExit(f'{file}: expected {expected} occurrences of {old!r}, found {actual}')
+                  text = text.replace(old, new)
+              file.write_text(text, encoding='utf-8')
+
+          Path('.github/workflows/one-shot-tai-gekta-composer-sync.yml').unlink()
+          PY
+
+          git diff --check
+          git diff --name-only
+          expected=$(cat <<'EOF'
+          .github/workflows/one-shot-tai-gekta-composer-sync.yml
+          .github/workflows/tai-public-agro-semantic-live-acceptance.yml
+          apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts
+          docs/platform-v7/autopilot/scopes/tai-gekta-composer-contract.json
+          scripts/tai-live-public-ai-acceptance.mjs
+          scripts/tai-potato-mobile-live-acceptance.mjs
+          EOF
+          )
+          actual=$(git diff --name-only | sort)
+          [[ "$actual" == "$(printf '%s\n' "$expected" | sort)" ]]
+
+      - name: Commit bounded final diff and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(tai): sync hosted composer labels with Gekta'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
