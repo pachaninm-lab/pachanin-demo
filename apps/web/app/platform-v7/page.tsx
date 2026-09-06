@@ -250,10 +250,19 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     min-width: 44px !important;
     min-height: 44px !important;
   }
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions,
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions {
     flex: 0 0 100% !important;
     width: 100% !important;
+    min-width: 0 !important;
+    justify-content: flex-end !important;
+    gap: 4px !important;
+  }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
+    display: flex !important;
+    flex: 0 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    align-items: center !important;
     justify-content: flex-end !important;
     gap: 4px !important;
   }
@@ -277,6 +286,20 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     line-height: 1.05 !important;
     white-space: nowrap !important;
     text-align: center !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > div {
+    min-width: 0 !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > b {
+    justify-self: start !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    text-align: left !important;
   }
 }
 @media (max-width: 359px) {
