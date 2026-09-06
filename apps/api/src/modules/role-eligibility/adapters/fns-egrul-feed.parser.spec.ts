@@ -29,7 +29,11 @@ describe('FNS EGRUL authorized feed parser', () => {
     <СвВложенныйКонтекст><СвЮЛ ОГРН="1027700132195"><СвНаимЮЛ НаимЮЛПолн="ВЛОЖЕННАЯ ССЫЛКА" /></СвЮЛ></СвВложенныйКонтекст>
   </СвЮЛ>
   <СвЮЛ ПолнНаимОПФ="ООО ЛИКВИДИРОВАНО" КПП="781201001" ИНН="7812345675" ДатаОГРН="2004-01-01" ОГРН="1047796045770" ДатаВып="2026-09-04">
-    <СвПрекрЮЛ ДатаПрекрЮЛ="2026-08-31" />
+    <СвПрекрЮЛ ДатаПрекрЮЛ="2026-08-31">
+      <СпПрекрЮЛ КодСпПрекрЮЛ="407" НаимСпПрекрЮЛ="ЛИКВИДАЦИЯ ЮРИДИЧЕСКОГО ЛИЦА" />
+      <СвРегОрг КодНО="7701" НаимНО="МЕЖРАЙОННАЯ ИФНС РОССИИ № 46 ПО Г. МОСКВЕ" />
+      <ГРНДата ГРН="1234567890123" ДатаЗаписи="2026-08-31" />
+    </СвПрекрЮЛ>
   </СвЮЛ>
 </EGRUL>`;
 
@@ -47,10 +51,21 @@ describe('FNS EGRUL authorized feed parser', () => {
         status: 'ACTIVE',
         primaryOkved: '46.21',
         additionalOkved: ['01.11', '49.41', '52.10'],
+        statusEnvelope: {
+          classification: 'NO_VISIBLE_SPECIAL_STATUS',
+        },
       },
     });
     expect(result.records[1].normalizedPayload.active).toBe(false);
     expect(result.records[1].normalizedPayload.status).toBe('TERMINATED');
+    expect(result.records[1].normalizedPayload.statusEnvelope).toMatchObject({
+      classification: 'TERMINATED',
+      termination: {
+        methodCode: '407',
+        grn: '1234567890123',
+        recordedAt: '2026-08-31',
+      },
+    });
     expect(result.records[1].validUntil?.toISOString()).toBe('2026-08-31T00:00:00.000Z');
   });
 
@@ -91,6 +106,243 @@ describe('FNS EGRUL authorized feed parser', () => {
 
     const invalidTerminated = '<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА"><СвПрекрЮЛ ДатаПрекрЮЛ="2026-02-31"/></СвЮЛ></EGRUL>';
     expect(() => parseFnsEgrulXml(invalidTerminated, '4.08')).toThrow('FNS_EGRUL_TERMINATION_DATE_INVALID');
+  });
+
+  it('ignores fake record markup inside comments and CDATA', () => {
+    const xml = `<EGRUL ДатаВыг="2026-09-05">
+      <!-- <СвЮЛ ИНН="7812345675" ОГРН="1047796045770" ПолнНаимОПФ="FAKE"/> -->
+      <![CDATA[<СвЮЛ ИНН="7812345675" ОГРН="1047796045770" PолнНаимОПФ="FAKE"/>]]>
+      <СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА"/>
+    </EGRUL>`;
+    const result = parseFnsEgrulXml(xml, '4.08');
+    expect(result.records).toHaveLength(1);
+    expect(result.records[0].subjectOgrn).toBe('1027700132195');
+  });
+
+  it('never lets a nested referenced subject terminate or rename its parent', () => {
+    const xml = `<EGRUL ДатаВыг="2026-09-05">
+      <СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА">
+        <СвНаимЮЛ НаимЮЛПолн="ООО РОМАШКА"/>
+        <СвВложенныйКонтекст>
+          <СвЮЛ ИНН="7812345675" ОГРН="1047796045770" ПолнНаимОПФ="ЧУЖОЕ ЮЛ">
+            <СвНаимЮЛ НаимЮЛПолн="ЧУЖОЕ ЮЛ"/>
+            <СвПрекрЮЛ ДатаПрекрЮЛ="2026-08-31"/>
+          </СвЮЛ>
+        </СвВложенныйКонтекст>
+      </СвЮЛ>
+    </EGRUL>`;
+    const [record] = parseFnsEgrulXml(xml, '4.08').records;
+    expect(record.normalizedPayload.legalName).toBe('ООО РОМАШКА');
+    expect(record.normalizedPayload.active).toBe(true);
+    expect(record.normalizedPayload.statusEnvelope?.classification).toBe('NO_VISIBLE_SPECIAL_STATUS');
+  });
+
+  it('rejects duplicate/unquoted attributes and unsupported or XML-invalid entities', () => {
+    const duplicate = '<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="X"/></EGRUL>';
+    expect(() => parseFnsEgrulXml(duplicate, '4.08')).toThrow('FNS_EGRUL_XML_DUPLICATE_ATTRIBUTE');
+
+    const unquoted = '<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН=7707083893 ОГРН="1027700132195" ПолнНаимОПФ="X"/></EGRUL>';
+    expect(() => parseFnsEgrulXml(unquoted, '4.08')).toThrow('FNS_EGRUL_XML_ATTRIBUTE_SYNTAX_INVALID');
+
+    const unsupported = '<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="A &copy; B"/></EGRUL>';
+    expect(() => parseFnsEgrulXml(unsupported, '4.08')).toThrow('FNS_EGRUL_XML_ENTITY_UNSUPPORTED');
+
+    const invalidNumeric = '<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="A &#0; B"/></EGRUL>';
+    expect(() => parseFnsEgrulXml(invalidNumeric, '4.08')).toThrow('FNS_EGRUL_XML_ENTITY_INVALID');
+  });
+
+  it('rejects a transport declaration that contradicts windows-1251', () => {
+    const xml = '<?xml version="1.0" encoding="UTF-8"?><EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="X"/></EGRUL>';
+    expect(() => parseFnsEgrulXml(xml, '4.08')).toThrow('FNS_EGRUL_XML_ENCODING_MISMATCH');
+  });
+
+  it('normalizes visible status, exclusion decision and PII-free reliability facts with provenance', () => {
+    const xml = `<EGRUL ДатаВыг="2026-09-05">
+      <СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА">
+        <СвСтатус>
+          <СвСтатус КодСтатусЮЛ="105" НаимСтатусЮЛ="ПРИНЯТО РЕШЕНИЕ О ПРЕДСТОЯЩЕМ ИСКЛЮЧЕНИИ"/>
+          <СвРешИсклЮЛ ДатаРеш="2026-08-01" НомерРеш="42" ДатаПубликации="2026-08-05"/>
+          <ГРНДата ГРН="1234567890123" ДатаЗаписи="2026-08-01"/>
+        </СвСтатус>
+        <СвАдресЮЛ>
+          <СвНедАдресЮЛ ПризнНедАдресЮЛ="3" ГРН="1234567890124" ДатаЗап="2026-07-01"/>
+        </СвАдресЮЛ>
+        <СвУпрОрг>
+          <СвНедДанУпрОрг ПризнНедДанУпрОрг="2">
+            <ГРНДата ГРН="1234567890125" ДатаЗаписи="2026-07-02"/>
+          </СвНедДанУпрОрг>
+        </СвУпрОрг>
+        <СведДолжнФЛ>
+          <СвНедДанДолжнФЛ ПризнНедДанДолжнФЛ="1">
+            <ГРНДата ДатаЗаписи="2026-07-03"/>
+          </СвНедДанДолжнФЛ>
+        </СведДолжнФЛ>
+        <СвУчредит><УчрФЛ>
+          <СвНедДанУчр ПризнНедДанУчр="1">
+            <ГРНДата ДатаЗаписи="2026-07-04"/>
+          </СвНедДанУчр>
+        </УчрФЛ></СвУчредит>
+      </СвЮЛ>
+    </EGRUL>`;
+    const [record] = parseFnsEgrulXml(xml, '4.08').records;
+    expect(record.normalizedPayload.status).toBe('REVIEW_REQUIRED');
+    expect(record.normalizedPayload.statusEnvelope).toMatchObject({
+      classification: 'SPECIAL_STATUS',
+      visibleStatuses: [{ code: '105', grn: '1234567890123', recordedAt: '2026-08-01' }],
+      exclusionDecisions: [{ decisionDate: '2026-08-01', decisionNumber: '42' }],
+      reliability: [
+        { area: 'ADDRESS', basisCode: '3', sourceTag: 'СвНедАдресЮЛ', grn: '1234567890124', recordedAt: '2026-07-01' },
+        { area: 'MANAGEMENT', basisCode: '1', sourceTag: 'СвНедДанДолжнФЛ', grn: null, recordedAt: '2026-07-03' },
+        { area: 'MANAGEMENT', basisCode: '2', sourceTag: 'СвНедДанУпрОрг', grn: '1234567890125', recordedAt: '2026-07-02' },
+        { area: 'PARTICIPANT', basisCode: '1', sourceTag: 'СвНедДанУчр', grn: null, recordedAt: '2026-07-04' },
+      ],
+    });
+  });
+
+  it('makes reliability-only adverse EGRUL facts review-required', () => {
+    const xml = `<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА"><СвАдресЮЛ><СвНедАдресЮЛ ПризнНедАдресЮЛ="2" ДатаЗап="2026-07-01"/></СвАдресЮЛ></СвЮЛ></EGRUL>`;
+    const [record] = parseFnsEgrulXml(xml, '4.08').records;
+    expect(record.normalizedPayload.active).toBe(false);
+    expect(record.normalizedPayload.status).toBe('REVIEW_REQUIRED');
+    expect(record.normalizedPayload.statusEnvelope).toMatchObject({
+      classification: 'ADVERSE_RELIABILITY',
+      reliability: [{ area: 'ADDRESS', basisCode: '2', grn: null, recordedAt: '2026-07-01' }],
+    });
+  });
+
+  it('fails closed on visible management access restrictions and validates their provenance', () => {
+    const valid = `<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА"><СведДолжнФЛ><ОгрДосСв ОгрДосСв="1"><ГРНДата ДатаЗаписи="2026-07-03"/></ОгрДосСв></СведДолжнФЛ></СвЮЛ></EGRUL>`;
+    const [record] = parseFnsEgrulXml(valid, '4.08').records;
+    expect(record.normalizedPayload.active).toBe(false);
+    expect(record.normalizedPayload.statusEnvelope?.classification).toBe('RESTRICTED_OR_UNKNOWN');
+
+    const malformed = `<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА"><СведДолжнФЛ><ОгрДосСв ОгрДосСв="1"/></СведДолжнФЛ></СвЮЛ></EGRUL>`;
+    expect(() => parseFnsEgrulXml(malformed, '4.08')).toThrow('FNS_EGRUL_MANAGEMENT_RESTRICTION_INVALID');
+  });
+
+  it('enforces the 4.07-only liquidation-deadline restriction without rejecting valid 4.08 data', () => {
+    const wrap = (status: string) => `<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА"><СвСтатус>${status}<ГРНДата ГРН="1234567890123" ДатаЗаписи="2026-09-01"/></СвСтатус></СвЮЛ></EGRUL>`;
+    const liquidation = '<СвСтатус КодСтатусЮЛ="101" НаимСтатусЮЛ="НАХОДИТСЯ В СТАДИИ ЛИКВИДАЦИИ" СрокЛиквООО="2026-12-01"/>';
+    const other = '<СвСтатус КодСтатусЮЛ="105" НаимСтатусЮЛ="ПРИНЯТО РЕШЕНИЕ О ПРЕДСТОЯЩЕМ ИСКЛЮЧЕНИИ" СрокЛиквООО="2026-12-01"/>';
+
+    expect(parseFnsEgrulXml(wrap(liquidation), '4.07').records[0].normalizedPayload.statusEnvelope?.visibleStatuses[0].liquidationDeadline)
+      .toBe('2026-12-01');
+    expect(parseFnsEgrulXml(wrap(liquidation), '4.08').records[0].normalizedPayload.statusEnvelope?.visibleStatuses[0].liquidationDeadline)
+      .toBe('2026-12-01');
+    expect(() => parseFnsEgrulXml(wrap(other), '4.07'))
+      .toThrow('FNS_EGRUL_STATUS_LIQUIDATION_DEADLINE_NOT_ALLOWED');
+  });
+
+  it('rejects duplicate singular exclusion-decision blocks', () => {
+    const decision = '<СвРешИсклЮЛ ДатаРеш="2026-08-01" НомерРеш="42"/>';
+    const xml = `<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА"><СвСтатус><СвСтатус КодСтатусЮЛ="105" НаимСтатусЮЛ="ПРИНЯТО РЕШЕНИЕ О ПРЕДСТОЯЩЕМ ИСКЛЮЧЕНИИ"/>${decision}${decision}<ГРНДата ГРН="1234567890123" ДатаЗаписи="2026-08-01"/></СвСтатус></СвЮЛ></EGRUL>`;
+    expect(() => parseFnsEgrulXml(xml, '4.08')).toThrow('FNS_EGRUL_DUPLICATE_СвРешИсклЮЛ');
+  });
+
+  it('fails closed on missing, duplicate, or ambiguous status-container provenance while allowing an omitted GRN', () => {
+    const wrap = (statusBlock: string) => `<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА">${statusBlock}</СвЮЛ></EGRUL>`;
+    const status = '<СвСтатус КодСтатусЮЛ="101" НаимСтатусЮЛ="НАХОДИТСЯ В СТАДИИ ЛИКВИДАЦИИ"/>';
+    const grnDate = '<ГРНДата ГРН="1234567890123" ДатаЗаписи="2026-09-01"/>';
+
+    expect(() => parseFnsEgrulXml(wrap(`<СвСтатус>${grnDate}</СвСтатус>`), '4.08'))
+      .toThrow('FNS_EGRUL_STATUS_CONTAINER_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`<СвСтатус>${status}${status}${grnDate}</СвСтатус>`), '4.08'))
+      .toThrow('FNS_EGRUL_STATUS_CONTAINER_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`<СвСтатус КодСтатусЮЛ="101">${status}${grnDate}</СвСтатус>`), '4.08'))
+      .toThrow('FNS_EGRUL_STATUS_CONTAINER_AMBIGUOUS');
+    expect(() => parseFnsEgrulXml(wrap(`<СвСтатус>${status}</СвСтатус>`), '4.08'))
+      .toThrow('FNS_EGRUL_STATUS_PROVENANCE_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`<СвСтатус>${status}${grnDate}${grnDate}</СвСтатус>`), '4.08'))
+      .toThrow('FNS_EGRUL_STATUS_PROVENANCE_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`<СвСтатус>${status}<ГРНДата ГРН="1234567890123"/></СвСтатус>`), '4.08'))
+      .toThrow('FNS_EGRUL_STATUS_PROVENANCE_INVALID');
+
+    const [withoutGrn] = parseFnsEgrulXml(
+      wrap(`<СвСтатус>${status}<ГРНДата ДатаЗаписи="2026-09-01"/></СвСтатус>`),
+      '4.08',
+    ).records;
+    expect(withoutGrn.normalizedPayload.statusEnvelope?.visibleStatuses[0]).toMatchObject({
+      grn: null,
+      recordedAt: '2026-09-01',
+    });
+  });
+
+  it('preserves repeatable reorganization status and source provenance, including date-only GRNДата', () => {
+    const xml = `<EGRUL ДатаВыг="2026-09-05">
+      <СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА">
+        <СвРеорг>
+          <СвСтатус КодСтатусЮЛ="121" НаимСтатусЮЛ="НАХОДИТСЯ В ПРОЦЕССЕ РЕОРГАНИЗАЦИИ"/>
+          <ГРНДата ГРН="1234567890123" ДатаЗаписи="2026-08-20"/>
+          <СвРеоргЮЛ ОГРН="1047796045770" ИНН="7812345675" НаимЮЛПолн="УЧАСТНИК"/>
+        </СвРеорг>
+        <СвРеорг>
+          <СвСтатус КодСтатусЮЛ="122" НаимСтатусЮЛ="РЕОРГАНИЗАЦИЯ В ФОРМЕ ПРИСОЕДИНЕНИЯ"/>
+          <ГРНДата ДатаЗаписи="2026-08-21"/>
+        </СвРеорг>
+      </СвЮЛ>
+    </EGRUL>`;
+    const [record] = parseFnsEgrulXml(xml, '4.08').records;
+    expect(record.normalizedPayload.active).toBe(false);
+    expect(record.normalizedPayload.status).toBe('REVIEW_REQUIRED');
+    expect(record.normalizedPayload.statusEnvelope).toMatchObject({
+      classification: 'SPECIAL_STATUS',
+      reorganizationPresent: true,
+      reorganizations: [
+        { code: '121', grn: '1234567890123', recordedAt: '2026-08-20', accessRestricted: false },
+        { code: '122', grn: null, recordedAt: '2026-08-21', accessRestricted: false },
+      ],
+    });
+  });
+
+  it('rejects malformed reorganization blocks instead of reducing them to presence-only evidence', () => {
+    const wrap = (reorganization: string) => `<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА">${reorganization}</СвЮЛ></EGRUL>`;
+    const status = '<СвСтатус КодСтатусЮЛ="121" НаимСтатусЮЛ="НАХОДИТСЯ В ПРОЦЕССЕ РЕОРГАНИЗАЦИИ"/>';
+    const grnDate = '<ГРНДата ГРН="1234567890123" ДатаЗаписи="2026-08-20"/>';
+
+    expect(() => parseFnsEgrulXml(wrap(`<СвРеорг>${grnDate}</СвРеорг>`), '4.08'))
+      .toThrow('FNS_EGRUL_REORGANIZATION_STATUS_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`<СвРеорг>${status}</СвРеорг>`), '4.08'))
+      .toThrow('FNS_EGRUL_REORGANIZATION_PROVENANCE_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`<СвРеорг>${status}${status}${grnDate}</СвРеорг>`), '4.08'))
+      .toThrow('FNS_EGRUL_REORGANIZATION_STATUS_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`<СвРеорг>${status}${grnDate}${grnDate}</СвРеорг>`), '4.08'))
+      .toThrow('FNS_EGRUL_REORGANIZATION_PROVENANCE_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`<СвРеорг>${status}<ГРНДата ГРН="1234567890123"/></СвРеорг>`), '4.08'))
+      .toThrow('FNS_EGRUL_REORGANIZATION_PROVENANCE_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`<СвРеорг>${status}<ГРНДата ГРН="123" ДатаЗаписи="2026-08-20"/></СвРеорг>`), '4.08'))
+      .toThrow('FNS_EGRUL_REORGANIZATION_PROVENANCE_INVALID');
+  });
+
+  it('requires complete termination method, registrar and record provenance while allowing an omitted GRN', () => {
+    const wrap = (termination: string) => `<EGRUL ДатаВыг="2026-09-05"><СвЮЛ ИНН="7707083893" ОГРН="1027700132195" ПолнНаимОПФ="ООО РОМАШКА">${termination}</СвЮЛ></EGRUL>`;
+    const method = '<СпПрекрЮЛ КодСпПрекрЮЛ="407" НаимСпПрекрЮЛ="ЛИКВИДАЦИЯ ЮРИДИЧЕСКОГО ЛИЦА"/>';
+    const registrar = '<СвРегОрг КодНО="7701" НаимНО="МЕЖРАЙОННАЯ ИФНС РОССИИ № 46 ПО Г. МОСКВЕ"/>';
+    const grnDate = '<ГРНДата ГРН="1234567890123" ДатаЗаписи="2026-08-31"/>';
+    const start = '<СвПрекрЮЛ ДатаПрекрЮЛ="2026-08-31">';
+    const end = '</СвПрекрЮЛ>';
+
+    expect(() => parseFnsEgrulXml(wrap(`${start}${registrar}${grnDate}${end}`), '4.08'))
+      .toThrow('FNS_EGRUL_TERMINATION_METHOD_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`${start}${method}${grnDate}${end}`), '4.08'))
+      .toThrow('FNS_EGRUL_TERMINATION_REGISTRAR_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`${start}${method}${registrar}${end}`), '4.08'))
+      .toThrow('FNS_EGRUL_TERMINATION_PROVENANCE_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`${start}${method}${registrar}${grnDate}${grnDate}${end}`), '4.08'))
+      .toThrow('FNS_EGRUL_TERMINATION_PROVENANCE_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`${start}${method}${registrar}<ГРНДата ГРН="1234567890123"/>${end}`), '4.08'))
+      .toThrow('FNS_EGRUL_TERMINATION_PROVENANCE_INVALID');
+    expect(() => parseFnsEgrulXml(wrap(`${start}${method}<СвРегОрг КодНО="77" НаимНО="КОРОТКО"/>${grnDate}${end}`), '4.08'))
+      .toThrow('FNS_EGRUL_TERMINATION_REGISTRAR_INVALID');
+
+    const [withoutGrn] = parseFnsEgrulXml(
+      wrap(`${start}${method}${registrar}<ГРНДата ДатаЗаписи="2026-08-31"/>${end}`),
+      '4.08',
+    ).records;
+    expect(withoutGrn.normalizedPayload.statusEnvelope?.termination).toMatchObject({
+      grn: null,
+      recordedAt: '2026-08-31',
+      methodCode: '407',
+    });
   });
 });
 
