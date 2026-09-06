@@ -3,6 +3,7 @@ set -Eeuo pipefail
 : "${DATABASE_URL:?DATABASE_URL is required}"
 MIGRATION_BASE='apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/migration.sql'
 MIGRATION_SUPERSEDED='apps/api/prisma/migrations/20260902143000_role_eligibility_superseded_current_guard/migration.sql'
+MIGRATION_COVERAGE='apps/api/prisma/migrations/20260906180000_role_eligibility_fns_registry_coverage_authority/migration.sql'
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 CREATE SCHEMA IF NOT EXISTS auth;
@@ -34,6 +35,155 @@ SQL
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_BASE"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_SUPERSEDED"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_COVERAGE"
+
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+-- #5064 domain/coverage/finality authority proof.
+INSERT INTO eligibility.registry_generations(
+  id,source,generation,published_at,downloaded_at,content_sha256,record_count,
+  parser_version,schema_version,status,fresh_until,created_at,validated_at
+) VALUES
+  ('elg_egrul_a','FNS','egrul-a',clock_timestamp(),clock_timestamp(),repeat('1',64),1,'fns-egrul-v1','EGRUL_408','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp()),
+  ('elg_egrip_a','FNS','egrip-a',clock_timestamp(),clock_timestamp(),repeat('2',64),1,'fns-egrip-v1','EGRIP_407','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp()),
+  ('elg_egrul_b','FNS','egrul-b',clock_timestamp()+interval '1 minute',clock_timestamp(),repeat('3',64),1,'fns-egrul-v1','EGRUL_408','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp());
+
+DO $domain_backfill$
+BEGIN
+  IF (SELECT registry_domain FROM eligibility.registry_generations WHERE id='elg_egrul_a') <> 'EGRUL' THEN
+    RAISE EXCEPTION 'EGRUL_DOMAIN_DERIVATION_FAILED';
+  END IF;
+  IF (SELECT registry_domain FROM eligibility.registry_generations WHERE id='elg_egrip_a') <> 'EGRIP' THEN
+    RAISE EXCEPTION 'EGRIP_DOMAIN_DERIVATION_FAILED';
+  END IF;
+END
+$domain_backfill$;
+
+SELECT eligibility.activate_registry_generation('FNS','EGRUL','egrul-a');
+SELECT eligibility.activate_registry_generation('FNS','EGRIP','egrip-a');
+
+DO $simultaneous_domains$
+BEGIN
+  IF (SELECT count(*) FROM eligibility.registry_generations WHERE source='FNS' AND status='ACTIVE') <> 2 THEN
+    RAISE EXCEPTION 'FNS_ACTIVE_DOMAIN_CARDINALITY_INVALID';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM eligibility.registry_generations WHERE source='FNS' AND registry_domain='EGRUL' AND status='ACTIVE') THEN
+    RAISE EXCEPTION 'EGRUL_ACTIVE_MISSING';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM eligibility.registry_generations WHERE source='FNS' AND registry_domain='EGRIP' AND status='ACTIVE') THEN
+    RAISE EXCEPTION 'EGRIP_ACTIVE_MISSING';
+  END IF;
+END
+$simultaneous_domains$;
+
+SELECT eligibility.activate_registry_generation('FNS','EGRUL','egrul-b');
+
+DO $domain_monotonicity$
+BEGIN
+  IF (SELECT status FROM eligibility.registry_generations WHERE id='elg_egrul_a') <> 'SUPERSEDED' THEN
+    RAISE EXCEPTION 'EGRUL_PREDECESSOR_NOT_SUPERSEDED';
+  END IF;
+  IF (SELECT status FROM eligibility.registry_generations WHERE id='elg_egrip_a') <> 'ACTIVE' THEN
+    RAISE EXCEPTION 'EGRIP_COLLATERALLY_SUPERSEDED';
+  END IF;
+  IF (SELECT status FROM eligibility.registry_generations WHERE id='elg_egrul_b') <> 'ACTIVE' THEN
+    RAISE EXCEPTION 'EGRUL_NEW_ACTIVE_MISSING';
+  END IF;
+END
+$domain_monotonicity$;
+
+INSERT INTO eligibility.source_health(
+  source,registry_domain,status,circuit_state,active_generation,parser_version,schema_version,
+  last_success_at,checked_at,fresh_until,consecutive_failures,last_error_code,updated_at
+) VALUES
+  ('FNS','EGRUL','HEALTHY','CLOSED','egrul-b','fns-egrul-v1','EGRUL_408',clock_timestamp(),clock_timestamp(),clock_timestamp()+interval '1 day',0,NULL,clock_timestamp()),
+  ('FNS','EGRIP','HEALTHY','CLOSED','egrip-a','fns-egrip-v1','EGRIP_407',clock_timestamp(),clock_timestamp(),clock_timestamp()+interval '1 day',0,NULL,clock_timestamp());
+
+DO $health_domains$
+BEGIN
+  IF (SELECT count(*) FROM eligibility.source_health WHERE source='FNS') <> 2 THEN
+    RAISE EXCEPTION 'FNS_SOURCE_HEALTH_DOMAIN_COLLISION';
+  END IF;
+END
+$health_domains$;
+
+INSERT INTO eligibility.registry_generation_authority(
+  generation_id,source,registry_domain,coverage_kind,generation_mode,
+  acquisition_complete,local_import_integrity,baseline_coverage,update_continuity,source_finality,
+  baseline_generation_id,predecessor_generation_id,update_package_id,update_package_sha256,
+  continuity_policy_version,continuity_policy_hash,effective_cutoff,authority_token
+) VALUES (
+  'elg_egrul_b','FNS','EGRUL','COMPLETE_EFFECTIVE_CORPUS','DAILY_EFFECTIVE',
+  TRUE,TRUE,TRUE,TRUE,FALSE,
+  'elg_egrul_a','elg_egrul_a','daily-2026-09-07',repeat('4',64),
+  'fns-egrul-continuity-v1',repeat('5',64),clock_timestamp(),repeat('6',64)
+);
+
+INSERT INTO eligibility.registry_generation_authority(
+  generation_id,source,registry_domain,authority_token
+) VALUES ('elg_egrip_a','FNS','EGRIP',repeat('7',64));
+
+DO $conservative_finality$
+BEGIN
+  IF (SELECT source_finality FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrul_b') IS DISTINCT FROM FALSE THEN
+    RAISE EXCEPTION 'CURRENT_YEAR_FINALITY_WAS_FABRICATED';
+  END IF;
+  IF (SELECT coverage_kind FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrip_a') <> 'UNKNOWN' THEN
+    RAISE EXCEPTION 'LEGACY_UNKNOWN_COVERAGE_NOT_CONSERVATIVE';
+  END IF;
+  IF (SELECT source_finality FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrip_a') IS DISTINCT FROM FALSE THEN
+    RAISE EXCEPTION 'DEFAULT_FINALITY_NOT_FALSE';
+  END IF;
+END
+$conservative_finality$;
+
+DO $lineage_domain_guard$
+BEGIN
+  INSERT INTO eligibility.registry_generations(
+    id,source,generation,published_at,downloaded_at,content_sha256,record_count,
+    parser_version,schema_version,status,fresh_until,created_at,validated_at
+  ) VALUES (
+    'elg_egrul_cross','FNS','egrul-cross',clock_timestamp(),clock_timestamp(),repeat('8',64),1,
+    'fns-egrul-v1','EGRUL_408','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp()
+  );
+  BEGIN
+    INSERT INTO eligibility.registry_generation_authority(
+      generation_id,source,registry_domain,coverage_kind,generation_mode,baseline_generation_id,authority_token
+    ) VALUES ('elg_egrul_cross','FNS','EGRUL','UNKNOWN','UNKNOWN','elg_egrip_a',repeat('9',64));
+    RAISE EXCEPTION 'CROSS_DOMAIN_LINEAGE_UNEXPECTEDLY_ACCEPTED';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM = 'CROSS_DOMAIN_LINEAGE_UNEXPECTEDLY_ACCEPTED' THEN RAISE; END IF;
+  END;
+END
+$lineage_domain_guard$;
+
+DO $authority_append_only$
+BEGIN
+  BEGIN
+    UPDATE eligibility.registry_generation_authority SET source_finality=TRUE WHERE generation_id='elg_egrul_b';
+    RAISE EXCEPTION 'AUTHORITY_APPEND_ONLY_NOT_ENFORCED';
+  EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
+  END;
+END
+$authority_append_only$;
+
+SET ROLE pc_role_eligibility_runtime;
+DO $runtime_no_promotion$
+BEGIN
+  BEGIN
+    INSERT INTO eligibility.registry_generation_authority(generation_id,source,registry_domain,authority_token)
+    VALUES ('elg_egrul_cross','FNS','EGRUL',repeat('a',64));
+    RAISE EXCEPTION 'RUNTIME_AUTHORITY_INSERT_UNEXPECTEDLY_ALLOWED';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    UPDATE eligibility.registry_generation_authority SET source_finality=TRUE WHERE generation_id='elg_egrul_b';
+    RAISE EXCEPTION 'RUNTIME_AUTHORITY_UPDATE_UNEXPECTEDLY_ALLOWED';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+END
+$runtime_no_promotion$;
+RESET ROLE;
+SQL
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 DO $proof$
@@ -239,4 +389,9 @@ printf '%s\n' \
   'ATOMIC_VERDICT_TRANSACTION=PASS' \
   'EVIDENCE_PROVENANCE=PASS' \
   'SOURCE_MANIFEST=PASS' \
-  'SUPERSEDED_GUARD=PASS'
+  'SUPERSEDED_GUARD=PASS' \
+  'REGISTRY_DOMAIN_AUTHORITY=PASS' \
+  'REGISTRY_COVERAGE_MODEL=PASS' \
+  'FNS_SOURCE_FINALITY_MODEL=PASS' \
+  'EGRUL_EGRIP_ACTIVE_DOMAIN_SEPARATION=PASS' \
+  'CURRENT_YEAR_BULK_ABSENCE_WITHOUT_FINALITY_NOT_FOUND=0'
