@@ -122,8 +122,6 @@ export function latestBlockingChangeRequests(reviews) {
     if (state === 'APPROVED' || state === 'DISMISSED') {
       blockedByReviewer.delete(login);
     }
-
-    // COMMENTED does not clear an earlier CHANGES_REQUESTED review.
   }
 
   return [...blockedByReviewer.entries()]
@@ -160,7 +158,7 @@ export function machineReviewAuthorities(checks) {
     const status = String(check?.status || '').toUpperCase();
     const terminalState = checkTerminalState(check);
     if (status && status !== 'COMPLETED') continue;
-    if (!GREEN_CHECK_STATES.has(terminalState)) continue;
+    if (terminalState !== 'SUCCESS') continue;
     authorities.add(workflow);
   }
   return [...authorities].sort();
@@ -428,7 +426,7 @@ function main() {
   if (!codexAuthority && machineAuthorities.length < MIN_MACHINE_REVIEW_AUTHORITIES) {
     fail(
       'REVIEW_GATE_INDEPENDENT_MACHINE_REVIEW_INSUFFICIENT',
-      `Codex authority is unavailable and only ${machineAuthorities.length}/${MIN_MACHINE_REVIEW_AUTHORITIES} independent machine-review authorities are green: ${machineAuthorities.join(', ') || 'none'}.`,
+      `Codex authority is unavailable and only ${machineAuthorities.length}/${MIN_MACHINE_REVIEW_AUTHORITIES} independent machine-review authorities are successful: ${machineAuthorities.join(', ') || 'none'}.`,
     );
   }
 
