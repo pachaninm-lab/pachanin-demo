@@ -6,11 +6,13 @@ import { RoleEligibilityRegistryRepository } from './role-eligibility-registry.r
 import { sha256, stableJson } from './role-eligibility-security';
 
 const MAX_APPEND_ROWS = 500;
+const FNS_EGRUL_DOMAIN = 'EGRUL' as const;
 
 type SqlClient = Pick<PrismaClient, '$queryRaw' | '$executeRaw'>;
 type GenerationState = {
   id: string;
   source: string;
+  registry_domain: string;
   status: string;
   published_at: Date;
   content_sha256: string;
@@ -66,7 +68,7 @@ export class RoleEligibilityFnsEgrulIngestRepository {
     if (input.freshUntil.getTime() <= input.publishedAt.getTime()) throw new Error('FNS_EGRUL_FRESHNESS_WINDOW_INVALID');
 
     const generation = `${input.publishedAt.toISOString()}:${input.contentSha256.slice(0, 16)}`;
-    const id = `elg_${sha256(`FNS\u001f${generation}`).slice(0, 36)}`;
+    const id = `elg_${sha256(`FNS\u001f${FNS_EGRUL_DOMAIN}\u001f${generation}`).slice(0, 36)}`;
     const schemaVersion = `EGRUL_${input.format.replace('.', '')}`;
     let alreadyActive = false;
 
@@ -76,7 +78,7 @@ export class RoleEligibilityFnsEgrulIngestRepository {
       `);
 
       const existing = await client.$queryRaw<GenerationState[]>(Prisma.sql`
-        SELECT id,source,status,published_at,content_sha256,parser_version,schema_version,record_count
+        SELECT id,source,registry_domain,status,published_at,content_sha256,parser_version,schema_version,record_count
         FROM eligibility.registry_generations
         WHERE id=${id}
         LIMIT 1
@@ -84,6 +86,7 @@ export class RoleEligibilityFnsEgrulIngestRepository {
       if (existing[0]) {
         const row = existing[0];
         const identical = row.source === 'FNS'
+          && row.registry_domain === FNS_EGRUL_DOMAIN
           && row.content_sha256 === input.contentSha256
           && row.parser_version === input.parserVersion
           && row.schema_version === schemaVersion
@@ -99,10 +102,10 @@ export class RoleEligibilityFnsEgrulIngestRepository {
 
       await client.$executeRaw(Prisma.sql`
         INSERT INTO eligibility.registry_generations (
-          id,source,generation,published_at,downloaded_at,content_sha256,record_count,
+          id,source,registry_domain,generation,published_at,downloaded_at,content_sha256,record_count,
           parser_version,schema_version,status,fresh_until,created_at
         ) VALUES (
-          ${id},'FNS',${generation},${input.publishedAt},${input.downloadedAt},${input.contentSha256},0,
+          ${id},'FNS',${FNS_EGRUL_DOMAIN},${generation},${input.publishedAt},${input.downloadedAt},${input.contentSha256},0,
           ${input.parserVersion},${schemaVersion},'STAGING',${input.freshUntil},clock_timestamp()
         )
       `);
@@ -116,13 +119,15 @@ export class RoleEligibilityFnsEgrulIngestRepository {
 
     return this.runtime(async (client) => {
       const generations = await client.$queryRaw<GenerationState[]>(Prisma.sql`
-        SELECT id,source,status,published_at,content_sha256,parser_version,schema_version,record_count
+        SELECT id,source,registry_domain,status,published_at,content_sha256,parser_version,schema_version,record_count
         FROM eligibility.registry_generations
         WHERE id=${generationId}
         FOR UPDATE
       `);
       const generation = generations[0];
-      if (!generation || generation.source !== 'FNS') throw new Error('FNS_EGRUL_GENERATION_NOT_FOUND');
+      if (!generation || generation.source !== 'FNS' || generation.registry_domain !== FNS_EGRUL_DOMAIN) {
+        throw new Error('FNS_EGRUL_GENERATION_NOT_FOUND');
+      }
       if (generation.status !== 'STAGING') throw new Error('FNS_EGRUL_GENERATION_NOT_STAGING');
 
       const desired = desiredRecords(records);
@@ -165,7 +170,7 @@ export class RoleEligibilityFnsEgrulIngestRepository {
         await client.$executeRaw(Prisma.sql`
           UPDATE eligibility.registry_generations
           SET record_count=record_count + ${BigInt(pending.length)}
-          WHERE id=${generationId} AND status='STAGING'
+          WHERE id=${generationId} AND source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND status='STAGING'
         `);
       }
 
@@ -180,19 +185,21 @@ export class RoleEligibilityFnsEgrulIngestRepository {
   }> {
     return this.runtime(async (client) => {
       const targetRows = await client.$queryRaw<GenerationState[]>(Prisma.sql`
-        SELECT id,source,status,published_at,content_sha256,parser_version,schema_version,record_count
+        SELECT id,source,registry_domain,status,published_at,content_sha256,parser_version,schema_version,record_count
         FROM eligibility.registry_generations
         WHERE id=${generationId}
         FOR UPDATE
       `);
       const target = targetRows[0];
-      if (!target || target.source !== 'FNS') throw new Error('FNS_EGRUL_GENERATION_NOT_FOUND');
+      if (!target || target.source !== 'FNS' || target.registry_domain !== FNS_EGRUL_DOMAIN) {
+        throw new Error('FNS_EGRUL_GENERATION_NOT_FOUND');
+      }
       if (target.status !== 'STAGING') throw new Error('FNS_EGRUL_GENERATION_NOT_STAGING');
 
       const baseRows = await client.$queryRaw<GenerationState[]>(Prisma.sql`
-        SELECT id,source,status,published_at,content_sha256,parser_version,schema_version,record_count
+        SELECT id,source,registry_domain,status,published_at,content_sha256,parser_version,schema_version,record_count
         FROM eligibility.registry_generations
-        WHERE source='FNS' AND status='ACTIVE' AND id<>${generationId}
+        WHERE source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND status='ACTIVE' AND id<>${generationId}
         ORDER BY published_at DESC,id DESC
         LIMIT 1
         FOR SHARE
@@ -241,7 +248,7 @@ export class RoleEligibilityFnsEgrulIngestRepository {
       const updated = await client.$executeRaw(Prisma.sql`
         UPDATE eligibility.registry_generations
         SET record_count=${BigInt(inserted)}
-        WHERE id=${generationId} AND source='FNS' AND status='STAGING' AND record_count=0
+        WHERE id=${generationId} AND source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND status='STAGING' AND record_count=0
       `);
       if (updated !== 1) throw new Error('FNS_EGRUL_BASE_COPY_STATE_CHANGED');
 
@@ -258,19 +265,21 @@ export class RoleEligibilityFnsEgrulIngestRepository {
 
     return this.runtime(async (client) => {
       const targetRows = await client.$queryRaw<GenerationState[]>(Prisma.sql`
-        SELECT id,source,status,published_at,content_sha256,parser_version,schema_version,record_count
+        SELECT id,source,registry_domain,status,published_at,content_sha256,parser_version,schema_version,record_count
         FROM eligibility.registry_generations
         WHERE id=${generationId}
         FOR UPDATE
       `);
       const target = targetRows[0];
-      if (!target || target.source !== 'FNS') throw new Error('FNS_EGRUL_GENERATION_NOT_FOUND');
+      if (!target || target.source !== 'FNS' || target.registry_domain !== FNS_EGRUL_DOMAIN) {
+        throw new Error('FNS_EGRUL_GENERATION_NOT_FOUND');
+      }
       if (target.status !== 'STAGING') throw new Error('FNS_EGRUL_GENERATION_NOT_STAGING');
 
       const baseRows = await client.$queryRaw<GenerationState[]>(Prisma.sql`
-        SELECT id,source,status,published_at,content_sha256,parser_version,schema_version,record_count
+        SELECT id,source,registry_domain,status,published_at,content_sha256,parser_version,schema_version,record_count
         FROM eligibility.registry_generations
-        WHERE source='FNS' AND status='ACTIVE' AND id<>${generationId}
+        WHERE source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND status='ACTIVE' AND id<>${generationId}
         ORDER BY published_at DESC,id DESC
         LIMIT 1
         FOR SHARE
@@ -311,7 +320,7 @@ export class RoleEligibilityFnsEgrulIngestRepository {
       const updated = await client.$executeRaw(Prisma.sql`
         UPDATE eligibility.registry_generations
         SET record_count=${nextCount}
-        WHERE id=${generationId} AND source='FNS' AND status='STAGING'
+        WHERE id=${generationId} AND source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND status='STAGING'
       `);
       if (updated !== 1) throw new Error('FNS_EGRUL_DELTA_STATE_CHANGED');
 
