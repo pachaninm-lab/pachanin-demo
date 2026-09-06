@@ -184,23 +184,29 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   }
 }
 @media (max-width: 430px) {
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-content: center !important;
+    align-items: center !important;
     gap: 4px !important;
     padding-inline: 8px !important;
   }
   [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-mark {
     display: none !important;
   }
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
-    flex: 1 1 auto !important;
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
+    flex: 1 0 100% !important;
+    width: 100% !important;
     min-width: 0 !important;
+    min-height: 44px !important;
     gap: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text {
     flex: 1 1 auto !important;
     min-width: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong {
     display: block !important;
