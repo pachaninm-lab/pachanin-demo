@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-ux-phase1-canonical-header",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-06-public-ux-100",
+  "purpose": "Phase 1 of #5111: establish one canonical public header authority and remove the proven mobile header/readability regressions without changing registration, authentication, protected cabinets or production authority.",
+  "authorityBaseExactMain": "7f900c79326a8ac816324472f90995428842ac9d",
+  "effectiveAfter": "This governance manifest is independently reviewed and merged to main. The implementation branch must then be rematerialized on that accepted main and may change only the paths below.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/page.tsx",
+    "apps/web/components/platform-v7/ContactFixedHeader.tsx",
+    "apps/web/components/platform-v7/PublicDealRoleScenario.module.css",
+    "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+    "apps/web/styles/platform-v7-home-mobile-brand.css",
+    "apps/web/styles/platform-v7-international-home-fix.css",
+    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "apps/web/tests/unit/platformV7BrowserAcceptanceRepairs.test.ts"
+  ],
+  "requiredInvariants": [
+    "PublicSiteHeader is the single geometry authority for homepage and linked public surfaces; personal/protected cabinet chrome is unchanged.",
+    "At 320, 375, 390 and 430 CSS px the public header remains one row, does not exceed the canonical compact-height contract, keeps the full canonical brand name visible, keeps menu/language/login/registration reachable, and creates no horizontal overflow.",
+    "No route-local 96-100px wrapped homepage header authority may remain active after this phase.",
+    "Visible interactive targets required by existing acceptance remain at least 44x44 CSS px; no accessibility or responsive gate is weakened to obtain PASS.",
+    "The homepage primary registration CTA and header registration action continue to point to the existing /platform-v7/register route; registration/authentication semantics and role assignment are unchanged.",
+    "The existing 320px Hero H1 line-count, first-viewport CTA, 14px minimum explanatory text, anchor-not-obscured, RU/EN/ZH and zero-overflow contracts remain authoritative.",
+    "Contact accessible brand-home labels remain locale-native in RU/EN/ZH while the visible canonical product brand remains coherent.",
+    "No API, database, RBAC, tenant, registration business logic, personal cabinet, release workflow, production host or REG.RU action is changed in this scope.",
+    "No paid dependency, external SaaS or recurring cost is introduced."
+  ],
+  "requiredChecks": [
+    "platform-v7 autopilot guard",
+    "Platform V7 Design System v8 Acceptance",
+    "Platform V7 Strategic Home Lighthouse",
+    "web-unit",
+    "CI",
+    "Node CI",
+    "Security Quality Gate",
+    "Canonical SBOM Generation & IP Clean Room",
+    "Production-like Kubernetes Acceptance",
+    "independent exact-head review under the repository review gate"
+  ],
+  "forbiddenChanges": [
+    "registration or authentication behavior",
+    "protected/personal-cabinet layout or authority",
+    "RBAC, tenant, API or database semantics",
+    "release workflows or production deployment authority",
+    "acceptance weakening, skipped responsive assertions or reduced touch targets",
+    "false provider/integration status claims"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "Pre-merge browser/CI evidence is not production acceptance. Final 100/100 still requires exact merged SHA publication, REG.RU exact-SHA deployment, fresh production browser gates and human visual inspection on required mobile/desktop viewports."
+}
