@@ -83,7 +83,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     await expect(heroPrimary).toHaveCount(1);
     await expect(heroPrimary).toHaveAttribute('href', '/platform-v7/register?lang=ru');
     await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Вымышленный пример Сделки');
-    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Поставка принята по условиям Сделки');
+    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Поставка соответствует условиям примера');
     await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Следующий шаг — документы');
     await expect(page.locator('[data-testid="platform-v7-deal-card"] [role="progressbar"]')).toHaveAttribute('aria-valuenow', '5');
     await expect(page.locator('[data-testid="platform-v7-deal-card"] [role="progressbar"]')).toHaveAttribute('aria-valuemax', '7');
@@ -144,7 +144,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     await expect(perspectives.getByRole('tab')).toHaveCount(9);
     const employee = perspectives.getByRole('tab', { name: 'Сотрудник платформы', exact: true });
     await employee.click();
-    await expect(page.getByRole('tabpanel')).toContainText('Сделка остановилась');
+    await expect(page.getByRole('tabpanel')).toContainText('Причина исключения');
     await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
 
     const taiProductLink = page.getByRole('link', { name: 'Посмотреть Гекту в работе' }).first();
