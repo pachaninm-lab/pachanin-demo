@@ -58,9 +58,12 @@ describe('RoleEligibilityFnsRegistryCoverageService', () => {
     expect(text).toContain('a.generation_id=g.id');
     expect(text).toContain('r.generation_id=g.id');
     expect(text).toContain("s.coverage_kind NOT IN ('COMPLETE_NATIONAL_CORPUS','COMPLETE_EFFECTIVE_CORPUS')");
+    expect(text).toContain('s.effective_cutoff <');
     expect(text).toContain('s.source_finality IS DISTINCT FROM TRUE');
     expect(text).toContain("THEN 'COVERAGE_NOT_FINAL'");
     expect(text).toContain("ELSE 'AUTHORITATIVE_NOT_FOUND'");
+    expect(text).toContain('s.authority_token,');
+    expect(text).not.toContain('COALESCE(s.authority_token,s.content_sha256)');
   });
 
   it('requires healthy exact-generation coherence before any positive or negative assertion', async () => {
@@ -79,5 +82,20 @@ describe('RoleEligibilityFnsRegistryCoverageService', () => {
     expect(text).toContain('s.active_generation IS DISTINCT FROM s.generation');
     expect(text).toContain('s.health_parser_version IS DISTINCT FROM s.parser_version');
     expect(text).toContain('s.health_schema_version IS DISTINCT FROM s.schema_version');
+  });
+
+  it('does not invent an authority token when no accepted authority row exists', async () => {
+    const { service } = createService([{
+      state: 'COVERAGE_NOT_PROVEN',
+      generation_id: 'elg-test',
+      generation: 'g1',
+      authority_token: null,
+      matched_records: 0n,
+      matched_ogrns: 0n,
+    }]);
+    await expect(service.resolveEgrulInn('7707083893')).resolves.toMatchObject({
+      state: 'COVERAGE_NOT_PROVEN',
+      authorityToken: null,
+    });
   });
 });
