@@ -306,7 +306,7 @@ test('PR state classification fails closed for Draft and incomplete/unknown stat
   assert.equal(reviewGatePrState(null), 'INVALID');
 });
 
-test('verifier main preserves exact-head Codex authority and adds a fail-closed provider fallback', () => {
+test('verifier main preserves exact-head Codex authority and auto-enters fail-closed fallback without caller flags', () => {
   const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
   const mainStart = verifier.indexOf('function main()');
   assert.ok(mainStart >= 0);
@@ -316,12 +316,13 @@ test('verifier main preserves exact-head Codex authority and adds a fail-closed 
   assert.match(mainBody, /cleanCodexReviewPrefixes\(comments\)/u);
   assert.match(mainBody, /resolveCommitSha\(repo, prefix\) === headSha/u);
   assert.match(mainBody, /const codexAuthority = positiveCodexReviews\.length > 0 \|\| exactCleanCodexComments > 0/u);
-  assert.match(mainBody, /REVIEW_GATE_MACHINE_FALLBACK_REQUIRES_GREEN_CI/u);
+  assert.match(mainBody, /if \(requireGreenCi \|\| !codexAuthority\)/u);
   assert.match(mainBody, /machineReviewAuthorities\(snapshot\.checks\)/u);
   assert.match(mainBody, /REVIEW_GATE_INDEPENDENT_MACHINE_REVIEW_INSUFFICIENT/u);
   assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
   assert.match(mainBody, /reviewAuthority=\$\{reviewAuthority\}/u);
   assert.doesNotMatch(mainBody, /REVIEW_GATE_CODEX_EXACT_HEAD_MISSING/u);
+  assert.doesNotMatch(mainBody, /REVIEW_GATE_MACHINE_FALLBACK_REQUIRES_GREEN_CI/u);
   assert.ok(
     mainBody.indexOf('REVIEW_GATE_INDEPENDENT_MACHINE_REVIEW_INSUFFICIENT') < mainBody.indexOf('PR_REVIEW_GATE=PASS'),
   );
