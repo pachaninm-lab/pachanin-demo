@@ -126,7 +126,7 @@ describe('platform-v7 public copy quality', () => {
     expect(baseStory).toContain("settlementLabel: 'Основание расчёта'");
     expect(baseStory).toContain("settlementLabel: 'Settlement basis'");
     expect(baseStory).toContain("settlementLabel: '结算依据'");
-    expect(baseStory).toContain("metrics: [{ value: '9'");
+    expect(baseStory).toContain("{ value: '9', label: 'публичных ролей одной Сделки' }");
     expect(baseStory).toContain("{ value: '7', label: 'понятных шагов публичного пути' }");
     expect(baseStory).not.toContain("ladder: ['Реализовано', 'Проверено', 'Интегрировано', 'Подключено'");
 
