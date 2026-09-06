@@ -71,18 +71,10 @@ const CRITICAL_HOME_CSS = `
 }
 .pc-v7-public-entry .pc-public-deal-stage-rail--hero {
   grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  padding-bottom: 14px !important;
 }
 .pc-v7-public-entry .pc-public-deal-stage-rail--hero small {
-  max-width: 100%;
-  white-space: normal !important;
-  overflow-wrap: normal !important;
-  word-break: normal !important;
-  hyphens: none !important;
-  line-height: 1.15 !important;
-  text-wrap: balance;
-}
-.pc-v7-public-entry .pc-public-deal-stage-rail--hero > span:nth-child(n + 6) > small {
-  color: #56655d !important;
+  display: none !important;
 }
 .pc-v6-hero {
   display: grid;
@@ -155,14 +147,6 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     content-visibility: visible !important;
     contain: none !important;
     contain-intrinsic-size: none !important;
-  }
-}
-@media (max-width: 1279px) {
-  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-public-deal-stage-rail--hero small {
-    display: none !important;
-  }
-  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-public-deal-stage-rail--hero {
-    padding-bottom: 14px !important;
   }
 }
 @media (min-width: 901px) and (max-width: 1279px) {
