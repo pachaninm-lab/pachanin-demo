@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-connection-center-bff-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — Connection Center BFF read path",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseExactMain": "aa237f085ddb9d1447a6625b586c15cc8d989ce5",
+  "purpose": "Expose the already-implemented server-authoritative Connection Center read models through the existing accounting BFF allowlist without opening any connection mutation. This is plumbing for the self-service UI required by section 22 and section 53.",
+  "allowedPaths": [
+    "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+    "apps/web/tests/unit/platformV7AccountingBffBoundary.test.ts",
+    "docs/ops/pc-crop-federal-accounting/connection-center-bff-slice-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-connection-center-bff-20260818.json"
+  ],
+  "boundaries": [
+    "Only GET accounting/connections and GET accounting/connections/attestations are added to the BFF allowlist.",
+    "No POST connection/attestation path is exposed through the BFF in this slice.",
+    "The BFF remains stateless, no-cache, redirect-refusing and explicit-allowlist only.",
+    "No provider status is invented and no write can set a green connection tick.",
+    "No settings page, API mutation, Prisma, auth, 1C, EDO vendor, hosting or production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-connection-center-bff-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/web test -- platformV7AccountingBffBoundary.test.ts",
+    "pnpm --filter @pc/web typecheck",
+    "existing platform-v7 web/security gates"
+  ]
+}
