@@ -341,13 +341,13 @@
   }
 
   .stageRail {
-    grid-template-columns: repeat(7, minmax(86px, 1fr));
-    overflow-x: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 6px;
+    overflow-x: visible;
     padding: 11px 8px 9px;
-    scroll-snap-type: x proximity;
-    scroll-padding-inline: 8px;
-    scrollbar-width: thin;
-    overscroll-behavior-inline: contain;
+    scroll-snap-type: none;
+    scroll-padding-inline: 0;
+    overscroll-behavior-inline: auto;
   }
 
   .stageRail::before {
@@ -357,7 +357,7 @@
   .stageRail > div {
     gap: 4px;
     font-size: 9px;
-    scroll-snap-align: start;
+    scroll-snap-align: none;
   }
 
   .metrics {
