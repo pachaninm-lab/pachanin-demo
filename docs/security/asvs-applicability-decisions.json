@@ -932,6 +932,62 @@
       "note": "The application deserializes untrusted input with JSON.parse and nothing else - no YAML loader, no node-serialize or unserialize-style library is a dependency. JSON.parse builds plain data objects and cannot itself instantiate arbitrary classes or execute code, which is the mechanism the deserialization attacks this requirement targets rely on; there is no unsafe deserialization surface here."
     },
     {
+      "requirementId": "V1.5.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/request-cookie.ts",
+        "repository-scan:single-json-parser",
+        "repository-scan:single-url-parser",
+        "measured:query-round-trip-12-cases"
+      ],
+      "conditions": [
+        {
+          "condition": "no second parser for a data type the application already parses, and no second percent-decoding mechanism: decodeURI and unescape decode differently from decodeURIComponent",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/lib",
+            "apps/web/app"
+          ],
+          "patterns": [
+            "json5",
+            "fast-xml-parser",
+            "xml2js",
+            "xmldom",
+            "libxmljs",
+            "decodeuri(",
+            "unescape("
+          ]
+        },
+        {
+          "condition": "the Cookie header still has exactly one parser, and it is the one that refuses an ambiguous header rather than picking a side",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/request-cookie.ts"
+          ],
+          "patterns": [
+            "matches > 1",
+            "matches !== 1"
+          ]
+        },
+        {
+          "condition": "neither CSRF consumer grows a second cookie parser again",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server-request-security.ts",
+            "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
+          ],
+          "patterns": [
+            "headers.get('cookie')",
+            "headers.get(\"cookie\")",
+            "cookies.getall(csrf_cookie)"
+          ]
+        }
+      ],
+      "note": "Measured per data type rather than asserted in general. JSON: one parser. The built-in JSON.parse is used at 96 sites and no alternative implementation is present anywhere - json5, fast-json, jsonc-parser and secure-json-parse return zero, in the source and in the manifests. XML: no parser at all, and no XML dependency in any manifest, so the class the requirement names does not exist here. URL: one parser. new URL appears in 62 files, and a scan for a URL decision made by string manipulation instead - splitting on //, matching a protocol with a regular expression, extracting a host by index - returns zero, so origin checks, redirect guards and proxy targets all resolve through the same implementation. Percent-decoding: one mechanism. decodeURIComponent at 30 sites, and decodeURI, unescape and escape - which decode by different rules - return zero. Cookie header: this was the one place where the application really did have two parsers, and they really did disagree. server-request-security.ts returned the first match and the Next parser used by staff/open-cabinet returned the last, so Cookie: pc_csrf_token=AAA; pc_csrf_token=BBB read as AAA on one route and BBB on another. That is fixed in this change, not documented: one shared parser, and an ambiguous header reads as no cookie. Query string: the platform does parse it twice in sequence, and that was measured rather than waved through. Every BFF proxy rebuilds the query the same way, with searchParams.toString(), and the API then parses the result with the qs parser Express uses. Twelve adversarial inputs were run through both paths and compared: repeated keys, bracket arrays, a mixed scalar-and-object key, malformed percent-encoding (% and %zz), plus versus %20, a semicolon separator, a bare key with no value, and __proto__ in both key positions. What the API sees is identical in all twelve whether the query arrives directly or through the proxy, and qs drops __proto__ keys rather than assigning them. Two mechanisms in sequence therefore agree, which is what the requirement asks for; it does not require that only one exist. Not claimed: that a future parser would be caught by review. The first condition is what catches it - adding a second JSON or XML parser, or a decoder with different rules, revokes this decision and returns the requirement for assessment."
+    },
+    {
       "requirementId": "V2.1.1",
       "applicability": "APPLICABLE",
       "status": "FAIL",
@@ -1881,6 +1937,54 @@
         }
       ],
       "note": "Sensitive functionality is reached through POST/PUT/PATCH/DELETE handlers, not GET/HEAD/OPTIONS: every route file in apps/web/app that exports a mutating operation does so under one of the four unsafe method names, confirmed by direct enumeration (59 files), and no GET handler carrying a state-changing side effect was found. A subset of routes additionally validate the sec-fetch-site request header directly (agro-chat, restricted-public-platform-assistant, gekta/entitlement, public-platform-assistant and its attachments route all check for sec-fetch-site: cross-site) - named as a real, additional layer where it exists, not claimed as universal. This requirement is specifically about method choice (or Sec-Fetch validation as an alternative), which the codebase satisfies structurally; it is answered independently of the anti-forgery-token coverage gap recorded under V3.5.1, which is a different requirement about a different mechanism."
+    },
+    {
+      "requirementId": "V3.5.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/platform-v7/control-host.ts",
+        "apps/web/middleware.ts",
+        "apps/web/lib/auth-cookies.ts",
+        "infra/compose/production-web-hardening.override.yml"
+      ],
+      "conditions": [
+        {
+          "condition": "the staff control plane still has its own hostname, distinct from the public platform host",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/control-host.ts"
+          ],
+          "patterns": [
+            "export const primary_platform_host",
+            "export const control_platform_host",
+            "control.${primary_platform_host}"
+          ]
+        },
+        {
+          "condition": "the split is enforced rather than documented: a staff page or staff API arriving on the public host is sent to the control host or refused",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "controlhostrequired",
+            "controlhosturl("
+          ]
+        },
+        {
+          "condition": "no cookie declares a Domain attribute: a domain-scoped cookie would cross the very hostname boundary this requirement relies on, because the control host is a subdomain of the public one",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/auth-cookies.ts",
+            "apps/web/lib/server/auth-session-response.ts"
+          ],
+          "patterns": [
+            "domain"
+          ]
+        }
+      ],
+      "note": "Measured rather than assumed. The platform runs two applications for the browser and they are on two hostnames: the public trading platform on xn----8sbjf4befbjgs9b.xn--p1ai and the staff control plane on control.xn----8sbjf4befbjgs9b.xn--p1ai. The split is enforced in middleware.ts, not merely intended: a staff page arriving on the public host is redirected 308 to the control host, and a staff API path arriving there is refused by controlHostRequired. The API is deliberately not counted as a third browser origin, because it is not one - in production it is reached at http://api:3001/api on the internal compose network, server-side by the BFF, so there is no browser origin for same-origin policy to separate. The second half of the requirement is about hostname-based cookie restrictions, and that is where this needed real measurement rather than a claim, because the control host is a SUBDOMAIN of the public host and therefore shares its registrable domain. Same-origin policy separates them completely regardless. Cookies do not follow origin, they follow domain scope - so every cookie the application writes was checked, and not one declares a Domain attribute: cookieSecurity, sessionMarkerCookie and csrfCookieSecurity all set path, httpOnly, secure and sameSite only, and a scan of the two files that write session cookies returns zero occurrences of the word domain. Host-only cookies do not travel to a sibling host, so the isolation holds - but it holds because of the attribute, not because of the hostname, and the third condition is written to revoke the moment a Domain attribute appears. Stated rather than glossed: GEKTA is not a separate application for the purposes of this requirement. It is a product surface on the public host and applyGektaAuthenticatedSession writes the same pc_access_token cookies as the trading surface, so it is one application with two surfaces; counting it as a second application and then claiming hostname separation would be false."
     },
     {
       "requirementId": "V3.5.5",
