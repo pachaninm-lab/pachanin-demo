@@ -45,6 +45,8 @@ const PRODUCT_COPY: Record<Locale, {
   faqStartA: string;
   accountingQ: string;
   accountingA: string;
+  externalSystemsQ: string;
+  externalSystemsA: string;
 }> = {
   ru: {
     navFunctions: 'Возможности',
@@ -115,6 +117,8 @@ const PRODUCT_COPY: Record<Locale, {
     faqStartA: 'Зарегистрируйтесь в платформе. После регистрации и проверки организации система определит доступный рабочий контур для вашей роли. Если потребуется помощь с подключением, используйте отдельную форму обращения.',
     accountingQ: 'Как бухгалтер работает с 1С и ЭДО?',
     accountingA: 'Внешние системы подключаются через отдельные управляемые интеграции. Платформа может связывать подтверждённые данные и статусы Сделки с внешним учётным и документным контуром только после отдельного подключения. Конкретная схема, доступность интеграции и права подтверждаются для организации до обмена данными.',
+    externalSystemsQ: 'Нужно ли подключать 1С, банк или госсистемы до регистрации?',
+    externalSystemsA: 'Нет. Регистрация не требует предварительного подключения внешних систем. Интеграции подключаются отдельно, когда организации нужен конкретный сценарий и подтверждены доступность, права и основание обмена данными.',
   },
   en: {
     navFunctions: 'Capabilities',
@@ -185,6 +189,8 @@ const PRODUCT_COPY: Record<Locale, {
     faqStartA: 'Register on the platform. After registration and organisation verification, the system determines the workspace available to your role. If connection help is needed, use the separate assistance form.',
     accountingQ: 'How does an accountant work with 1C and EDI?',
     accountingA: 'External systems connect through separate managed integrations. The platform can link verified Deal data and statuses to an external accounting or document workflow only after a separate connection. The exact scheme, integration availability and access rights are confirmed for the organisation before data exchange.',
+    externalSystemsQ: 'Do I need to connect 1C, a bank or government systems before registering?',
+    externalSystemsA: 'No. Registration does not require external systems to be connected first. Integrations are connected separately when an organisation needs a specific workflow and availability, access rights and the data-exchange basis have been confirmed.',
   },
   zh: {
     navFunctions: '平台能力',
@@ -255,6 +261,8 @@ const PRODUCT_COPY: Record<Locale, {
     faqStartA: '先在平台注册。完成注册和机构核验后，系统会根据角色确定可用工作空间。如需接入协助，请使用独立的帮助表单。',
     accountingQ: '会计人员如何使用 1C 和电子单据系统？',
     accountingA: '外部系统通过独立、受管理的集成接入。平台只有在单独接入完成后，才能把已确认的交易数据和状态关联到外部会计或电子文件流程。具体方案、集成可用性和访问权限必须在数据交换前针对机构确认。',
+    externalSystemsQ: '注册前需要先连接 1C、银行或政府系统吗？',
+    externalSystemsA: '不需要。注册不要求预先连接外部系统。只有当机构需要具体流程，并确认可用性、访问权限和数据交换依据后，才单独接入集成。',
   },
 };
 
@@ -320,6 +328,7 @@ export function getPlatformV7HomeStoryCopy(locale: string) {
       items: [
         ...faqWithoutLegacyStart,
         { question: local.accountingQ, answer: local.accountingA },
+        { question: local.externalSystemsQ, answer: local.externalSystemsA },
         { question: local.faqStartQ, answer: local.faqStartA },
       ],
     },
