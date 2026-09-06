@@ -39,6 +39,16 @@ const PAGE_COPY = {
   },
 } as const;
 
+const AI_PUBLIC_CLEANUP_CSS = `
+.pc-ai-in-action-page .pc-public-government-source-grid button small,
+.pc-ai-in-action-page .pc-public-government-result-unchecked,
+.pc-ai-in-action-page .pc-public-government-result dl > div:has(.pc-public-government-status-button),
+.pc-ai-in-action-page .pc-public-government-result dl > div:has(code),
+.pc-ai-in-action-page .pc-public-government-section .pc-ppe-section-header > small {
+  display: none !important;
+}
+`;
+
 function localeOf(value: string): Locale {
   if (value.startsWith('en')) return 'en';
   if (value.startsWith('zh')) return 'zh';
@@ -97,6 +107,7 @@ export default async function PublicAiInActionPage() {
 
   return (
     <main id='main-content' className='pc-ppe-page pc-ai-in-action-page' data-testid='platform-v7-ai-in-action-authority'>
+      <style>{AI_PUBLIC_CLEANUP_CSS}</style>
       <span data-ai-experience-route='/platform-v7/ai-in-action' hidden>gekta-intelligence-contour-passport</span>
       <a className='pc-skip-link' href='#pc-ai-passport-title'>{chrome('skipToContent')}</a>
       <PublicExperiencePageView locale={locale} name='ai_in_action_opened' />
