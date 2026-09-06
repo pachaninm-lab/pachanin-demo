@@ -1,0 +1,12 @@
+{
+  "authority": "public-assistant-mobile-scroll-lock",
+  "base": "279fa6cb160e3dd04f8f95394dfb1ae2eef6e3a5",
+  "head": "3fd00bc12ee96ba5067eb72501e4829561e55e7f",
+  "status": "IMPLEMENTED_PENDING_EXACT_HEAD_CI",
+  "requirements": {
+    "backgroundScrollLocked": true,
+    "overscrollChainingDisabled": true,
+    "panelTouchInteractionPreserved": true,
+    "scopedToAssistantDialog": true
+  }
+}
