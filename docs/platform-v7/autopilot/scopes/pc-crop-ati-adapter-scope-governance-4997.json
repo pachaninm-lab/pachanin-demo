@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "staged",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "7f900c79326a8ac816324472f90995428842ac9d",
+  "authorization": "Owner instruction on 2026-09-05 to continue PC-CROP. Staged only; no implementation authority before separate governance review and immutable base-state promotion.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-ati-adapter-scope-4997",
+  "purpose": "W6-B staged governance: ATI reference adapter boundary for board/auction/order/webhook/tracking/doc capabilities over provider-neutral logistics.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-ati-adapter-scope-governance-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-ati-adapter-authority-4997.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "externalSuccessClaim": false,
+    "credentialOrSecretChange": false
+  }
+}
