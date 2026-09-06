@@ -7,13 +7,14 @@ import {
   checkRollupBlockers,
   ciSnapshotMatchesHead,
   cleanCodexReviewPrefixes,
+  COPILOT_REVIEW_LOGINS,
   exactHeadCodexReviews,
+  exactHeadCopilotReviews,
   exactHeadOwnerSelfAudits,
   isIgnoredMergeGateCheck,
   latestBlockingChangeRequests,
-  machineReviewAuthorities,
-  MIN_MACHINE_REVIEW_AUTHORITIES,
   positiveExactHeadCodexReviews,
+  positiveExactHeadCopilotReviews,
   reviewGatePrState,
   substantiveChecks,
 } from './verify-pr-review-gate.mjs';
@@ -48,7 +49,7 @@ test('accepts only a completed Codex review on the exact head', () => {
   assert.equal(exactHeadCodexReviews(reviews, head).length, 1);
 });
 
-test('only explicit approval is positive review authority; COMMENTED and CHANGES_REQUESTED are not', () => {
+test('only explicit Codex approval is positive review authority; COMMENTED and CHANGES_REQUESTED are not', () => {
   const reviews = [
     {
       user: { login: 'chatgpt-codex-connector[bot]' },
@@ -70,6 +71,46 @@ test('only explicit approval is positive review authority; COMMENTED and CHANGES
   assert.equal(exactHeadCodexReviews(reviews, head).length, 3);
   assert.deepEqual(positiveExactHeadCodexReviews(reviews, head), [reviews[2]]);
   assert.equal(positiveExactHeadCodexReviews(reviews.slice(0, 2), head).length, 0);
+});
+
+test('GitHub Copilot is an explicit independent reviewer provider, not an arbitrary bot', () => {
+  assert.deepEqual([...COPILOT_REVIEW_LOGINS], ['copilot-pull-request-reviewer[bot]']);
+
+  const reviews = [
+    {
+      user: { login: 'copilot-pull-request-reviewer[bot]' },
+      commit_id: oldHead,
+      state: 'COMMENTED',
+    },
+    {
+      user: { login: 'copilot-pull-request-reviewer[bot]' },
+      commit_id: head,
+      state: 'PENDING',
+    },
+    {
+      user: { login: 'some-other-review-bot[bot]' },
+      commit_id: head,
+      state: 'APPROVED',
+    },
+    {
+      user: { login: 'copilot-pull-request-reviewer[bot]' },
+      commit_id: head,
+      state: 'COMMENTED',
+    },
+    {
+      user: { login: 'copilot-pull-request-reviewer[bot]' },
+      commit_id: head,
+      state: 'APPROVED',
+    },
+    {
+      user: { login: 'copilot-pull-request-reviewer[bot]' },
+      commit_id: head,
+      state: 'CHANGES_REQUESTED',
+    },
+  ];
+
+  assert.deepEqual(exactHeadCopilotReviews(reviews, head), [reviews[3], reviews[4], reviews[5]]);
+  assert.deepEqual(positiveExactHeadCopilotReviews(reviews, head), [reviews[3], reviews[4]]);
 });
 
 test('recognizes clean Codex review evidence only from the Codex bot and a reviewed commit prefix', () => {
@@ -140,7 +181,7 @@ test('owner self-audit authority is exact-head and exact-owner only', () => {
   assert.equal(exactHeadOwnerSelfAudits(comments, owner, 'not-a-sha').length, 0);
 });
 
-test('rejects a review from another actor even when commit matches', () => {
+test('rejects a Codex review from another actor even when commit matches', () => {
   const reviews = [
     {
       user: { login: 'someone-else' },
@@ -151,6 +192,19 @@ test('rejects a review from another actor even when commit matches', () => {
 
   assert.equal(exactHeadCodexReviews(reviews, head).length, 0);
   assert.equal(positiveExactHeadCodexReviews(reviews, head).length, 0);
+});
+
+test('rejects a Copilot-looking review from another actor even when commit matches', () => {
+  const reviews = [
+    {
+      user: { login: 'copilot-reviewer[bot]' },
+      commit_id: head,
+      state: 'COMMENTED',
+    },
+  ];
+
+  assert.equal(exactHeadCopilotReviews(reviews, head).length, 0);
+  assert.equal(positiveExactHeadCopilotReviews(reviews, head).length, 0);
 });
 
 test('blocks only unresolved non-outdated review threads', () => {
@@ -269,28 +323,6 @@ test('legacy status contexts are evaluated by state', () => {
   assert.deepEqual(checkRollupBlockers(checks), ['legacy-pending:PENDING']);
 });
 
-test('provider-independent machine review counts only wholly successful trusted analyzer workflows', () => {
-  const checks = [
-    { workflowName: 'CodeQL platform-v7 report', name: 'codeql', status: 'COMPLETED', conclusion: 'SUCCESS' },
-    { workflowName: 'Qodana platform-v7 report', name: 'qodana-main', status: 'COMPLETED', conclusion: 'SUCCESS' },
-    { workflowName: 'Qodana platform-v7 report', name: 'qodana-optional', status: 'COMPLETED', conclusion: 'NEUTRAL' },
-    { workflowName: 'Security Quality Gate', name: 'security', status: 'COMPLETED', conclusion: 'SUCCESS' },
-    { workflowName: 'Security Quality Gate', name: 'security-duplicate', status: 'COMPLETED', conclusion: 'SUCCESS' },
-    { workflowName: 'Security Abuse and Evidence Acceptance', name: 'abuse', status: 'COMPLETED', conclusion: 'SUCCESS' },
-    { workflowName: 'Dependency Review', name: 'dependency-pending', status: 'IN_PROGRESS', conclusion: null },
-    { workflowName: 'Dependency Review', name: 'dependency-skipped', status: 'COMPLETED', conclusion: 'SKIPPED' },
-    { workflowName: 'Runtime Context Security Gate', name: 'runtime-neutral', status: 'COMPLETED', conclusion: 'NEUTRAL' },
-    { workflowName: 'CI', name: 'unit', status: 'COMPLETED', conclusion: 'SUCCESS' },
-  ];
-
-  assert.deepEqual(machineReviewAuthorities(checks), [
-    'CodeQL platform-v7 report',
-    'Security Abuse and Evidence Acceptance',
-    'Security Quality Gate',
-  ]);
-  assert.equal(MIN_MACHINE_REVIEW_AUTHORITIES, 3);
-});
-
 test('CI snapshot must be bound to the exact verified head', () => {
   assert.equal(ciSnapshotMatchesHead(head, head), true);
   assert.equal(ciSnapshotMatchesHead(oldHead, head), false);
@@ -308,7 +340,7 @@ test('PR state classification fails closed for Draft and incomplete/unknown stat
   assert.equal(reviewGatePrState(null), 'INVALID');
 });
 
-test('verifier main preserves exact-head Codex authority and auto-enters fail-closed fallback without caller flags', () => {
+test('verifier main requires genuine independent exact-head authority from Codex or GitHub Copilot', () => {
   const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
   const mainStart = verifier.indexOf('function main()');
   assert.ok(mainStart >= 0);
@@ -317,16 +349,15 @@ test('verifier main preserves exact-head Codex authority and auto-enters fail-cl
   assert.match(mainBody, /positiveExactHeadCodexReviews\(reviews, headSha\)/u);
   assert.match(mainBody, /cleanCodexReviewPrefixes\(comments\)/u);
   assert.match(mainBody, /resolveCommitSha\(repo, prefix\) === headSha/u);
-  assert.match(mainBody, /const codexAuthority = positiveCodexReviews\.length > 0 \|\| exactCleanCodexComments > 0/u);
-  assert.match(mainBody, /if \(requireGreenCi \|\| !codexAuthority\)/u);
-  assert.match(mainBody, /machineReviewAuthorities\(snapshot\.checks\)/u);
-  assert.match(mainBody, /REVIEW_GATE_INDEPENDENT_MACHINE_REVIEW_INSUFFICIENT/u);
+  assert.match(mainBody, /positiveExactHeadCopilotReviews\(reviews, headSha\)/u);
+  assert.match(mainBody, /REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING/u);
   assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
   assert.match(mainBody, /reviewAuthority=\$\{reviewAuthority\}/u);
-  assert.doesNotMatch(mainBody, /REVIEW_GATE_CODEX_EXACT_HEAD_MISSING/u);
-  assert.doesNotMatch(mainBody, /REVIEW_GATE_MACHINE_FALLBACK_REQUIRES_GREEN_CI/u);
+  assert.match(mainBody, /GITHUB_COPILOT/u);
+  assert.doesNotMatch(mainBody, /MACHINE_FALLBACK/u);
+  assert.doesNotMatch(mainBody, /machineReviewAuthorities/u);
   assert.ok(
-    mainBody.indexOf('REVIEW_GATE_INDEPENDENT_MACHINE_REVIEW_INSUFFICIENT') < mainBody.indexOf('PR_REVIEW_GATE=PASS'),
+    mainBody.indexOf('REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING') < mainBody.indexOf('PR_REVIEW_GATE=PASS'),
   );
 });
 
