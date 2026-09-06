@@ -254,6 +254,10 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     align-content: center !important;
     row-gap: 4px !important;
   }
+  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-mobile-nav {
+    top: calc(var(--entry-public-header-offset) + var(--entry-public-header-base) + 4px) !important;
+    max-height: calc(100dvh - var(--entry-public-header-offset) - var(--entry-public-header-base) - 20px) !important;
+  }
   [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
     flex: 1 1 100% !important;
     width: 100% !important;
