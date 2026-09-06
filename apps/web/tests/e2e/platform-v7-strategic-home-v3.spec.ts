@@ -291,6 +291,38 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  test('1280px header keeps brand, navigation and actions in separate lanes', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+
+    const brand = page.locator('.pc-site-brand');
+    const nav = page.locator('.pc-site-nav');
+    const actions = page.locator('.pc-site-actions');
+    const navLinks = nav.locator('a');
+    const registration = page.locator('.pc-v6-header-cta');
+    await expect(brand).toBeVisible();
+    await expect(nav).toBeVisible();
+    await expect(actions).toBeVisible();
+    await expect(registration).toBeVisible();
+    expect(await navLinks.count()).toBeGreaterThan(1);
+
+    const [brandBox, firstNavBox, lastNavBox, actionsBox] = await Promise.all([
+      brand.boundingBox(),
+      navLinks.first().boundingBox(),
+      navLinks.last().boundingBox(),
+      actions.boundingBox(),
+    ]);
+    expect(brandBox, 'brand bounding box').not.toBeNull();
+    expect(firstNavBox, 'first nav link bounding box').not.toBeNull();
+    expect(lastNavBox, 'last nav link bounding box').not.toBeNull();
+    expect(actionsBox, 'actions bounding box').not.toBeNull();
+    expect(firstNavBox!.x, 'navigation must start after the brand').toBeGreaterThanOrEqual(brandBox!.x + brandBox!.width - 1);
+    expect(lastNavBox!.x + lastNavBox!.width, 'navigation must end before header actions').toBeLessThanOrEqual(actionsBox!.x + 1);
+    expect(actionsBox!.x + actionsBox!.width, 'header actions must remain inside the viewport').toBeLessThanOrEqual(1281);
+    await expectNoHorizontalOverflow(page);
+  });
+
   test('desktop navigation distinguishes in-page Gekta help from the standalone product', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'Source-owned navigation labels need one desktop rendering proof.');
     await page.setViewportSize({ width: 1440, height: 900 });
