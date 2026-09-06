@@ -388,16 +388,9 @@ function main() {
     );
   }
 
-  if (!codexAuthority && !requireGreenCi) {
-    fail(
-      'REVIEW_GATE_MACHINE_FALLBACK_REQUIRES_GREEN_CI',
-      'Codex authority is absent, so provider-independent machine review fallback requires REQUIRE_GREEN_CI=1.',
-    );
-  }
-
   let checkedCi = 0;
   let machineAuthorities = [];
-  if (requireGreenCi) {
+  if (requireGreenCi || !codexAuthority) {
     const snapshot = fetchCheckSnapshot(repo, prNumber);
     if (!ciSnapshotMatchesHead(snapshot.headSha, headSha)) {
       fail(
