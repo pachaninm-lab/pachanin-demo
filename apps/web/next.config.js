@@ -62,6 +62,20 @@ const serviceWorkerRecoveryHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  // Оптимизатор картинок выключен намеренно и объявлен, а не подразумевается.
+  //
+  // Замерено: `next/image` не импортируется НИ В ОДНОМ файле приложения, а
+  // единственный потребитель `sharp` во всём Next — `dist/server/image-optimizer.js`.
+  // При этом optional-зависимость Next тянула в production-образ
+  // `@img/sharp-libvips-linux-x64` и `@img/sharp-libvips-linuxmusl-x64` —
+  // 18 МБ нативной библиотеки каждая, обе LGPL-3.0-or-later, то есть живое
+  // лицензионное обязательство ради возможности, которой продукт не пользуется.
+  //
+  // Флаг гасит сам маршрут оптимизации, поэтому удаление sharp из поставки —
+  // не «повезло, что не вызвали», а свойство конфигурации. Если `next/image`
+  // когда-нибудь понадобится, он продолжит отдавать картинки без оптимизации,
+  // а не упадёт.
+  images: { unoptimized: true },
   eslint: {
     ignoreDuringBuilds: true,
   },

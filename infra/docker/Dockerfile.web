@@ -19,6 +19,27 @@ RUN pnpm --filter @pc/web build
 RUN rm -rf /workspace/apps/web/.next/cache
 RUN pnpm --filter @pc/web --prod deploy --legacy /prod/web
 
+# Оптимизатор картинок выключен в next.config.js, а его нативная зависимость
+# больше не едет пользователю. Замерено до этой правки: sharp и его платформенные
+# сборки давали 36 МБ, из них @img/sharp-libvips-linux-x64 и
+# @img/sharp-libvips-linuxmusl-x64 — LGPL-3.0-or-later, при нуле обращений к
+# next/image во всём приложении. `require('sharp')` в Next ленивый и лежит
+# только в dist/server/image-optimizer.js, поэтому удаление не влияет на старт.
+RUN set -eux; \
+  rm -rf /prod/web/node_modules/sharp; \
+  find /prod/web/node_modules/.pnpm -maxdepth 1 \( -name 'sharp@*' -o -name '@img+*' \) -exec rm -rf {} +; \
+  find /prod/web/node_modules -name '@img' -exec rm -rf {} + 2>/dev/null || true; \
+  find /prod/web/node_modules -xtype l -name 'sharp' -delete; \
+  test -z "$(find /prod/web/node_modules -name 'sharp' -print -quit)"; \
+  test -z "$(find /prod/web/node_modules -name '@img' -print -quit)"; \
+  test -d /prod/web/node_modules/next
+
+# Отказ по умолчанию на копилефт в поставляемом дереве. Гейт читает то, что
+# физически уезжает в образ, а не то, что объявляет рабочее пространство:
+# SBOM включает dev, optional и чужие архитектуры, юридическое значение имеют
+# только эти файлы. Принятые обязательства перечислены с основаниями.
+RUN node scripts/ip/verify-shipped-licenses.mjs /prod/web
+
 FROM debian:trixie-slim AS ocr-runtime
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
