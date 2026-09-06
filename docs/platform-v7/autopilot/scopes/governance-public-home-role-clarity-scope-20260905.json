@@ -3,7 +3,7 @@
   "branch": "governance/public-home-role-clarity-scope-20260905",
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-05-public-home-and-linked-pages",
-  "purpose": "Record a separately reviewable exact-path scope for the requested public homepage and linked-page clarity improvements before the implementation is merged.",
+  "purpose": "Record a separately reviewable exact-path scope for the requested public homepage and linked-page clarity improvements, including registry-consistent public SEO indexability, before the implementation is merged.",
   "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json",
@@ -11,7 +11,7 @@
   ],
   "implementationBranch": "feat/public-home-role-clarity-20260905",
   "implementationManifest": "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json",
-  "implementationAllowedPathCount": 70,
+  "implementationAllowedPathCount": 72,
   "boundaries": {
     "productBehaviorChange": false,
     "registrationChange": false,
