@@ -20,6 +20,34 @@ export type EligibilityCheckStatus = typeof ELIGIBILITY_CHECK_STATUSES[number];
 export const ELIGIBILITY_SOURCES = ['FNS', 'FGIS_GRAIN', 'CBR', 'ROSACCREDITATION'] as const;
 export type EligibilitySource = typeof ELIGIBILITY_SOURCES[number];
 
+export const REGISTRY_DOMAINS = [
+  'EGRUL',
+  'EGRIP',
+  'CBR',
+  'FGIS_GRAIN',
+  'ROSACCREDITATION',
+  'UNKNOWN',
+] as const;
+export type RegistryDomain = typeof REGISTRY_DOMAINS[number];
+
+/** Current source-only FNS callers are the already-proven EGRUL contour. */
+export function defaultRegistryDomainForSource(source: EligibilitySource): RegistryDomain {
+  if (source === 'FNS') return 'EGRUL';
+  return source;
+}
+
+/**
+ * Derive a generation domain from server-controlled source/schema provenance.
+ * Generic/unknown FNS schemas never silently become EGRUL or EGRIP authority.
+ */
+export function registryDomainForGeneration(source: EligibilitySource, schemaVersion: string): RegistryDomain {
+  if (source !== 'FNS') return defaultRegistryDomainForSource(source);
+  const schema = String(schemaVersion || '').trim().toUpperCase();
+  if (schema.startsWith('EGRUL_')) return 'EGRUL';
+  if (schema.startsWith('EGRIP_')) return 'EGRIP';
+  return 'UNKNOWN';
+}
+
 /**
  * Sources that are legally/semantically allowed to become mandatory admission
  * provenance. Keep this allowlist explicit instead of deriving it from
@@ -167,6 +195,8 @@ export type EligibilityPolicyDecision = {
 export type RegistryGeneration = {
   id: string;
   source: EligibilitySource;
+  /** Always populated by repository reads; optional only for legacy fixtures during this additive migration. */
+  registryDomain?: RegistryDomain;
   generation: string;
   publishedAt: Date;
   downloadedAt: Date;
@@ -174,7 +204,7 @@ export type RegistryGeneration = {
   recordCount: bigint;
   parserVersion: string;
   schemaVersion: string;
-  status: 'STAGING' | 'VALIDATED' | 'ACTIVE' | 'REJECTED';
+  status: 'STAGING' | 'VALIDATED' | 'ACTIVE' | 'SUPERSEDED' | 'REJECTED';
   freshUntil: Date;
 };
 
@@ -239,6 +269,8 @@ export type EligibilityCheck = {
 
 export type SourceHealthSnapshot = {
   source: EligibilitySource;
+  /** Always populated by repository/service reads; optional only for legacy fixtures. */
+  registryDomain?: RegistryDomain;
   status: SourceHealthStatus;
   circuitState: CircuitState;
   activeGeneration: string | null;
