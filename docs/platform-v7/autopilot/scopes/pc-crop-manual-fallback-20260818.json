@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-manual-fallback-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — honest manual integration fallback",
+  "priority": "P1",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseExactMain": "aa237f085ddb9d1447a6625b586c15cc8d989ce5",
+  "purpose": "Implement the provider-independent manual fallback from section 62 so blocked/unavailable external integrations still have an honest export/import path without manufacturing SENT, PROVIDER_CONFIRMED or POSTED states.",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/manual-integration-fallback.policy.ts",
+    "apps/api/src/modules/accounting/manual-integration-fallback.policy.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/manual-fallback-slice-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-manual-fallback-20260818.json"
+  ],
+  "boundaries": [
+    "Allowed artifact formats are exactly XML, PDF, CSV, XLSX, CANONICAL_JSON and EVIDENCE_ZIP.",
+    "Exporting a file never implies it was sent.",
+    "Human/manual evidence never becomes provider-confirmed evidence.",
+    "A document created in 1C never becomes POSTED by implication.",
+    "No provider credential, API call, runtime route, browser upload, storage write, Prisma, auth, banking, FGIS, hosting or production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-manual-fallback-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- manual-integration-fallback.policy.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting and security gates"
+  ]
+}
