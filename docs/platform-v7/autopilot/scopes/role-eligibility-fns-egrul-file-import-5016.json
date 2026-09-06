@@ -2,20 +2,17 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "status": "active",
   "issue": 5016,
-  "branch": "feat/role-eligibility-fns-egrul-file-import-5016",
+  "branch": "fix/role-eligibility-fns-egrul-scheduled-preservation-5016",
   "allowedPaths": [
-    "apps/api/src/fns-egrul-import.ts",
-    "apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts",
-    "apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.spec.ts",
-    "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-import.module.ts",
-    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
-    "docs/security/cryptographic-inventory.json"
+    "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.spec.ts"
   ],
   "forbiddenPaths": [
     "apps/api/prisma/migrations/**",
     "apps/api/prisma/schema.prisma",
     "apps/web/**",
-    "infra/**"
+    "infra/**",
+    "apps/api/src/modules/registration/**"
   ],
-  "notes": "Prior bounded authorization for the exact importer implementation paths above. The implementation branch cannot modify this authority manifest. No FTP credential provisioning, registration change, production run, migration, schema change, UI change, infrastructure change, or enforcement activation."
+  "notes": "POST-#5024 RETARGET. The local-validator/importer foundation from the former feat/role-eligibility-fns-egrul-file-import-5016 branch is already merged into main and no longer requires implementation authority. This active scope is narrowed to the exact two existing registry-sync files required for scheduled preservation on fix/role-eligibility-fns-egrul-scheduled-preservation-5016. Preservation is EGRUL-specific. Under the current pre-#5064 schema, preserve only when the adapter failure is exactly FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN and PostgreSQL proves an existing ACTIVE file-backed EGRUL_408/EGRUL_407 generation that is still fresh and exactly coherent with HEALTHY/CLOSED source-health generation/parser/schema/freshUntil state. Any stale, missing, mismatched, generic-FNS, probe-failure or unrelated-error condition remains fail-closed. The failed fetch remains a failed/audited fetch and must not be relabeled successful acquisition. When #5064 introduces registry-domain authority, this rule must bind specifically to (source=FNS, registry_domain=EGRUL) and never EGRIP. The implementation branch cannot modify this authority manifest. No registration, migration/schema, UI/web, infrastructure, credentials, production execution, coverage/finality, NOT_FOUND authority or enforcement activation. REG.RU remains the only production contour; ROLE_ELIGIBILITY_ENFORCEMENT=false."
 }
