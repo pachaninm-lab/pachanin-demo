@@ -111,7 +111,9 @@ export class RoleEligibilityFnsRegistryCoverageService {
       SELECT
         CASE
           WHEN s.generation_id IS NULL THEN 'SOURCE_UNAVAILABLE'
-          WHEN s.health_status IS DISTINCT FROM 'HEALTHY'
+          WHEN s.parser_version IS DISTINCT FROM 'fns-egrul-v1'
+            OR s.schema_version NOT IN ('EGRUL_408','EGRUL_407')
+            OR s.health_status IS DISTINCT FROM 'HEALTHY'
             OR s.circuit_state IS DISTINCT FROM 'CLOSED'
             OR s.active_generation IS DISTINCT FROM s.generation
             OR s.health_parser_version IS DISTINCT FROM s.parser_version
@@ -135,6 +137,7 @@ export class RoleEligibilityFnsRegistryCoverageService {
             OR s.baseline_coverage IS DISTINCT FROM TRUE
             OR s.update_continuity IS DISTINCT FROM TRUE
             OR s.effective_cutoff IS NULL
+            OR s.effective_cutoff > ${decisionAt}
             OR s.continuity_policy_version IS NULL
             OR s.continuity_policy_hash IS NULL
             THEN 'COVERAGE_NOT_PROVEN'
