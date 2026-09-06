@@ -120,7 +120,7 @@ describe('platform-v7 visible public operating copy', () => {
     expect(roleWorkspaceCss).toContain('grid-template-columns: repeat(7, minmax(0, 1fr));');
     expect(roleWorkspaceCss).toContain('@media (max-width: 720px)');
     expect(roleWorkspaceCss).toContain('.stageRail {\n    display: flex;');
-    expect(roleWorkspaceCss).toContain('min-width: 156px;');
+    expect(roleWorkspaceCss).toContain('min-width: 168px;');
     expect(roleWorkspaceCss).toContain('scroll-snap-type: x mandatory;');
     expect(roleWorkspaceCss).toContain('@media (max-width: 430px)');
     expect(roleWorkspaceCss).toContain('@media (max-width: 359px)');
