@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
+import { isReExportOnlyModule } from './reexport-only-module.mjs';
 
 const outDir = process.argv[2] ?? 'artifacts/ip-clean-room';
 const corpusInput = String(process.env.IP_SIMILARITY_CORPUS ?? '').trim();
@@ -62,6 +63,7 @@ function winnow(sourceTokens, gramSize = 12, windowSize = 8) {
   return [...selected].sort((left, right) => left - right);
 }
 
+
 function fingerprint(path, source) {
   const normalized = normalizeSource(source);
   const sourceTokens = tokens(source);
@@ -109,11 +111,17 @@ const protectedFiles = protectedEntries
   .filter((entry) => textExtensions.has(extname(entry.path).toLowerCase()))
   .map((entry) => entry.path);
 
+const reExportOnlySources = [];
 const sourceFingerprints = protectedFiles.map((path) => {
   const metadata = lstatSync(path);
   if (!metadata.isFile()) throw new Error(`Protected source is not a regular file: ${path}`);
-  return fingerprint(path, readFileSync(path, 'utf8'));
-});
+  const content = readFileSync(path, 'utf8');
+  if (isReExportOnlyModule(content)) {
+    reExportOnlySources.push(path);
+    return null;
+  }
+  return fingerprint(path, content);
+}).filter(Boolean);
 const findings = [];
 const finalBlockers = [];
 if (protectedNonRegular.length) finalBlockers.push(`PROTECTED_NON_REGULAR_FILES:${protectedNonRegular.length}`);
@@ -139,7 +147,11 @@ if (!corpusInput) {
     .filter((item) => textExtensions.has(extname(item.path).toLowerCase()))
     .filter((item) => !excludedPath.test(item.path))
     .sort((left, right) => left.path.localeCompare(right.path, 'en'))
-    .map((item) => fingerprint(item.path, readFileSync(item.absolute, 'utf8')));
+    .map((item) => {
+      const content = readFileSync(item.absolute, 'utf8');
+      return isReExportOnlyModule(content) ? null : fingerprint(item.path, content);
+    })
+    .filter(Boolean);
   corpusFiles = corpus.length;
   corpusDigestSha256 = sha256(JSON.stringify(corpus.map((item) => [item.path, item.exactSha256])));
   if (corpusNonRegular.length) {
@@ -275,6 +287,9 @@ writeFileSync(join(outDir, 'similarity-summary.json'), JSON.stringify({
   networkUsed: false,
   sourceUploaded: false,
   protectedFiles: sourceFingerprints.length,
+  reExportOnlyExcluded: reExportOnlySources.length,
+  reExportOnlyExcludedPaths: reExportOnlySources,
+  reExportOnlyExclusionBasis: 'Модуль, состоящий только из реэкспортов, самостоятельного выражения не несёт: нормализация заменяет пути на <STRING>, и любой barrel схлопывается в одинаковую последовательность токенов. Исключение узкое — файл с хотя бы одним оператором помимо реэкспортов сравнивается как обычно.',
   protectedNonRegularFiles: protectedNonRegular.length,
   approvedCorpus: corpusApproved,
   corpusDigestSha256,

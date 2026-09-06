@@ -1,0 +1,1260 @@
+{
+  "schemaVersion": "pc-crop.contributor-assignment-appendix.v1",
+  "generatedAt": "2026-09-06T14:51:58.958Z",
+  "gitHead": "9e88031d7b13c06186ab99a22d7ae2eb75f7c2a5",
+  "contributor": {
+    "displayName": "Platon",
+    "gitAuthorEmail": "platon@MacBook-Pro-Platon.local"
+  },
+  "method": "Коммиты — git log --all --no-merges по адресу автора. Файлы и строки — git blame по текущему дереву: учитывается только сохранившийся вклад, переписанное позже не включается.",
+  "totals": {
+    "commits": 88,
+    "pathsTouchedEver": 305,
+    "filesWithSurvivingLines": 133,
+    "survivingLines": 8610,
+    "crownJewelFiles": 24,
+    "crownJewelLines": 721
+  },
+  "commits": [
+    {
+      "sha": "bfe541993f32cfe43bd556ea5bedea51a243fafe",
+      "date": "2026-05-20T20:42:33+03:00",
+      "subject": "feat(platform-v7): Visual Intelligence Layer — 28 components + page integrations"
+    },
+    {
+      "sha": "d97ba6264b116fb6a4311241160e481ca5618454",
+      "date": "2026-05-20T20:49:53+03:00",
+      "subject": "feat(platform-v7): VIL page integrations for deals/disputes/lots/investor + PR-10 QA"
+    },
+    {
+      "sha": "853d3639385e1762ac85530d46a2596849970353",
+      "date": "2026-05-20T20:56:27+03:00",
+      "subject": "feat(platform-v7): VIL on audit, help, not-found, bank/release-safety"
+    },
+    {
+      "sha": "bf98439b44f97d3aada0126a166c85480347fe05",
+      "date": "2026-05-20T20:59:38+03:00",
+      "subject": "feat(platform-v7): EvidenceStrengthMeter, TimelineChapters, ExecutionHeader integration"
+    },
+    {
+      "sha": "17c86b571d9b1d95170d67da7acfa25aa80125f4",
+      "date": "2026-05-20T21:35:19+03:00",
+      "subject": "fix(platform-v7): remove onClick function prop from server component boundary"
+    },
+    {
+      "sha": "dc0ae40e4ec1fe54cd016a6c3781e1fc90fe3d28",
+      "date": "2026-05-20T21:46:57+03:00",
+      "subject": "fix(platform-v7): use LucideIcon type instead of ComponentType for icon props"
+    },
+    {
+      "sha": "ccae08510d0d230beb964e9d4b30aa1724a955e0",
+      "date": "2026-05-20T21:52:26+03:00",
+      "subject": "fix(platform-v7): fix MobileExecutionHeader props — pass named props not items array"
+    },
+    {
+      "sha": "091e192a8e287909e91265a423e6160f2bdd1429",
+      "date": "2026-05-20T21:58:17+03:00",
+      "subject": "fix(platform-v7): make DealMiniMap sections prop optional (has default)"
+    },
+    {
+      "sha": "e733c7577194664393d0ecad66ebe679581bf1db",
+      "date": "2026-05-20T22:34:40+03:00",
+      "subject": "feat(platform-v7): roll out VIL across all role pages + fix DealWorkspaceVisualLayer"
+    },
+    {
+      "sha": "1747b66fbe0b32d9ec75c4b85e335c8d017c7bf6",
+      "date": "2026-05-22T10:13:45+03:00",
+      "subject": "feat(platform-v7): RBAC engine + outbox pattern + document matrix + 63 tests + live API wiring"
+    },
+    {
+      "sha": "b28478c618a982ca113d6504efcceedc49f8bf5e",
+      "date": "2026-05-22T10:28:41+03:00",
+      "subject": "feat(platform-v7): VIL visual polish + component consistency pass"
+    },
+    {
+      "sha": "fd1d69a6c21db8e24316b830bb767905c698ce66",
+      "date": "2026-05-22T12:03:02+03:00",
+      "subject": "feat(platform-v7): Prisma SQLite persistence + EvidencePack hash chain + 4 more role pages wired"
+    },
+    {
+      "sha": "66618177b863650163d70491950089b805378b29",
+      "date": "2026-05-22T12:07:23+03:00",
+      "subject": "feat(platform-v7): AuditService Prisma persistence + elevator + logistics pages wired"
+    },
+    {
+      "sha": "c3cf0c41bdb137b3604dab98c3a11816ea6b2324",
+      "date": "2026-05-22T12:10:38+03:00",
+      "subject": "feat(platform-v7): Prisma persistence wired into DisputesService + OutboxService"
+    },
+    {
+      "sha": "5fe7983ef715393d166bde71bd201b98ae567c28",
+      "date": "2026-05-22T12:12:06+03:00",
+      "subject": "feat(platform-v7): evidence-server.ts + deal evidence-pack page wired to live API"
+    },
+    {
+      "sha": "de9d2a72343a3de91921dca94702138767fc7a13",
+      "date": "2026-05-22T12:51:55+03:00",
+      "subject": "feat(platform-v7): connectors page wired to live integration health API"
+    },
+    {
+      "sha": "7edac47cef225d036754fde5e2a82cc7da7d763c",
+      "date": "2026-05-22T12:53:26+03:00",
+      "subject": "feat(platform-v7): AuditController GET /audit + audit-log page wired to Prisma audit events"
+    },
+    {
+      "sha": "92590e39f5cd6d1f07aaaffbe8dd61ae49a9c408",
+      "date": "2026-05-22T13:01:40+03:00",
+      "subject": "feat: full Prisma schema + DatabaseSeedService for DB-backed persistence"
+    },
+    {
+      "sha": "ff16b17e63f5f8009ade159b3e49fe24ba3f1bf8",
+      "date": "2026-05-22T13:06:08+03:00",
+      "subject": "feat: bank HMAC callback endpoint + executive & admin pages wired to API"
+    },
+    {
+      "sha": "3f2de9610d8066cb1e0890cbca200d5e3abd0369",
+      "date": "2026-05-22T13:09:34+03:00",
+      "subject": "feat: FGIS + EDO inbound webhooks"
+    },
+    {
+      "sha": "ea3b32d919846eaf490b0bbbe6826222b8b61f52",
+      "date": "2026-05-22T13:14:21+03:00",
+      "subject": "feat: Prisma-backed deal and shipment reads with in-memory fallback"
+    },
+    {
+      "sha": "e29af5d1a513c02a0fde1d301e3883404ec519f6",
+      "date": "2026-05-22T13:17:39+03:00",
+      "subject": "test: 5 unit tests for DatabaseSeedService (75 total)"
+    },
+    {
+      "sha": "d4f474a8ec329e34bdee883f8a7715895ea2bdd6",
+      "date": "2026-05-22T13:19:27+03:00",
+      "subject": "test: 6 unit tests for DealsService Prisma fallback logic (81 total)"
+    },
+    {
+      "sha": "0021b7848c95baff4cd70d0106e758333bc965d5",
+      "date": "2026-05-22T13:20:59+03:00",
+      "subject": "test: 9 unit tests for SettlementEngineService (90 total)"
+    },
+    {
+      "sha": "b53f81cfc9d2d51eae0fe9452278c2968a80d78a",
+      "date": "2026-05-22T13:34:06+03:00",
+      "subject": "feat: complete persistence + admin CRUD + 104 tests"
+    },
+    {
+      "sha": "103c7f15e274e419f05446efd81bbdaaf7d4c3b8",
+      "date": "2026-05-22T14:48:30+03:00",
+      "subject": "fix: resolve Railway deploy failures"
+    },
+    {
+      "sha": "b38da26927a6cecc9dbc886571a51f219d590c68",
+      "date": "2026-05-22T14:53:01+03:00",
+      "subject": "fix: correct start script path for production build"
+    },
+    {
+      "sha": "c644d1fc6d0121f150a8d4dacdfb78a85508c398",
+      "date": "2026-05-22T23:56:18+03:00",
+      "subject": "fix(platform-v7): unify security-rbac and security-contracts with canonical role model"
+    },
+    {
+      "sha": "0898a4167d4b3dba7ed8a00d142954cd3edba87b",
+      "date": "2026-05-23T00:12:24+03:00",
+      "subject": "docs(platform-v7): add Stage 4 MoneyTree/Document Matrix implementation plan for Codex"
+    },
+    {
+      "sha": "f7c31a4684581cc7c612fee59dbc50ba277bff5c",
+      "date": "2026-05-23T00:30:31+03:00",
+      "subject": "docs(platform-v7): add PR 4.2 Document Matrix task brief for Codex"
+    },
+    {
+      "sha": "fe8d8ec2bdcffdd19eceb455a9e2647cade24712",
+      "date": "2026-05-23T22:34:21+03:00",
+      "subject": "fix(platform-v7): apply remaining PR 4.3 blockers on top of Codex rewrite"
+    },
+    {
+      "sha": "86ee932c43ee70d61a067b39c5bc2e3f6c6f5ede",
+      "date": "2026-05-23T22:48:40+03:00",
+      "subject": "fix(platform-v7): move bankOrganizationId check before actorRole in p7ConfirmBankMovement"
+    },
+    {
+      "sha": "ada72514520892d697b5f378420c4765c4533133",
+      "date": "2026-05-24T17:23:12+03:00",
+      "subject": "feat(platform-v7): add P7 Application Service Layer (PR 5.1)"
+    },
+    {
+      "sha": "5b9b72981f3812d51bf940d4f338128d95fd1895",
+      "date": "2026-06-07T00:13:17+03:00",
+      "subject": "docs(platform-v7): recover SOT after generated PR 1562"
+    },
+    {
+      "sha": "3e11dedf685c4c3cc76b78534c94e93b0ae4f765",
+      "date": "2026-06-07T00:18:14+03:00",
+      "subject": "fix(platform-v7): stop repeated generated slices"
+    },
+    {
+      "sha": "2c50840301d85f6e6c50719e9a29a4293dc02d8b",
+      "date": "2026-06-07T00:27:47+03:00",
+      "subject": "fix(platform-v7): keep generated merge pending-safe"
+    },
+    {
+      "sha": "e2f041f8269497454d8cc1f445fa764132aa27d1",
+      "date": "2026-06-07T00:31:14+03:00",
+      "subject": "chore(platform-v7): retrigger generated PR checks"
+    },
+    {
+      "sha": "6f1b66bf0996ec67f38dc4fe606a0e749eac2b72",
+      "date": "2026-06-07T00:38:27+03:00",
+      "subject": "fix(platform-v7): allow autopilot docs in generated reconcile"
+    },
+    {
+      "sha": "fabad5673bbc7766b907c34715c5b9d49eda5532",
+      "date": "2026-06-07T00:45:01+03:00",
+      "subject": "fix(platform-v7): recover merged PRs despite stale rollup"
+    },
+    {
+      "sha": "a892660adbd63cd2fdf8c2c4ad52af1c9460bf6f",
+      "date": "2026-06-07T00:51:02+03:00",
+      "subject": "chore(platform-v7): retrigger SOT recovery checks"
+    },
+    {
+      "sha": "9cfecbc5ad0f678453a96c7b7dc8bd72c910f9bd",
+      "date": "2026-06-07T01:11:05+03:00",
+      "subject": "ci(platform-v7): route generated merges through gate"
+    },
+    {
+      "sha": "4e81bdd3311c51cd5b6dc3671e720374a0f7d0c7",
+      "date": "2026-06-07T01:28:48+03:00",
+      "subject": "ci(platform-v7): dispatch generated gate immediately"
+    },
+    {
+      "sha": "fe3e83487e23650c7f288580cabefe3104167d22",
+      "date": "2026-06-07T01:38:18+03:00",
+      "subject": "fix(platform-v7): use supported PR merge fields"
+    },
+    {
+      "sha": "3d93aa4444cd999ba5c21661497df04749b1e540",
+      "date": "2026-06-07T01:39:30+03:00",
+      "subject": "ci(platform-v7): run guard on generated merge scripts"
+    },
+    {
+      "sha": "f09320f86f44a138aaf77623a8f5b8d251363526",
+      "date": "2026-06-07T01:50:54+03:00",
+      "subject": "fix(platform-v7): wait for SOT mergeability in gate"
+    },
+    {
+      "sha": "049db5983333e40fb6372a1e23922c682422ed6b",
+      "date": "2026-06-07T02:05:44+03:00",
+      "subject": "fix(platform-v7): wait for SOT PR discovery in gate"
+    },
+    {
+      "sha": "90ba4a7c0633c4defdca3a1ea56372fcd8de19f0",
+      "date": "2026-06-07T02:23:48+03:00",
+      "subject": "fix(platform-v7): wait uppercase pending statuses"
+    },
+    {
+      "sha": "777e2772d41ff6919c2fb74af499c2adf640e91a",
+      "date": "2026-06-11T15:12:29+03:00",
+      "subject": "chore(platform-v7): sync VP-2.5 guard scope"
+    },
+    {
+      "sha": "413ac6c4f2bf9b29a0b4a5ac3efdad188f23a6b2",
+      "date": "2026-06-11T15:20:09+03:00",
+      "subject": "fix(platform-v7): keep blocked executor dry runs green"
+    },
+    {
+      "sha": "8472d980dd83b5d99460fd0fb45728c0440d9ee0",
+      "date": "2026-06-11T15:38:43+03:00",
+      "subject": "test(platform-v7): isolate localhost backend in vitest"
+    },
+    {
+      "sha": "dd453de3f3bdf1c99cad192aee926b079f99b8db",
+      "date": "2026-06-11T15:48:47+03:00",
+      "subject": "fix(platform-v7): restore shell copy normalizer"
+    },
+    {
+      "sha": "5a9f35448ea8b098fdd745799df78139a5a6fb91",
+      "date": "2026-06-11T16:04:13+03:00",
+      "subject": "test(platform-v7): mock support detail search params"
+    },
+    {
+      "sha": "0b99a85ad15e88883a931c5d2f3c6dfd39428774",
+      "date": "2026-06-11T16:10:23+03:00",
+      "subject": "test(platform-v7): await connectors route page"
+    },
+    {
+      "sha": "27dd213a66f615595f886a5b023a58a56c13522f",
+      "date": "2026-06-11T16:17:59+03:00",
+      "subject": "test(platform-v7): await logistics route page"
+    },
+    {
+      "sha": "3907f127c7f1de64e20577cf785100812d3df78c",
+      "date": "2026-06-11T16:25:09+03:00",
+      "subject": "test(platform-v7): await seller mobile route page"
+    },
+    {
+      "sha": "7725245f033fa77dd9836b189aa138a393b3f7b9",
+      "date": "2026-06-11T16:30:40+03:00",
+      "subject": "test(platform-v7): await decision pack route pages"
+    },
+    {
+      "sha": "f8fb945a41e8975e100f359cda59a0010ada3371",
+      "date": "2026-06-11T16:36:45+03:00",
+      "subject": "test(platform-v7): await bank decision pack route page"
+    },
+    {
+      "sha": "25d7248aac599e9b8ed5b72880e85a768b4e5072",
+      "date": "2026-06-11T16:43:21+03:00",
+      "subject": "test(platform-v7): refresh dispute metadata assertion"
+    },
+    {
+      "sha": "962dd987710e94cbe76707ff50b10da4b690e72b",
+      "date": "2026-06-11T16:49:09+03:00",
+      "subject": "test(platform-v7): refresh deals route assertions"
+    },
+    {
+      "sha": "9196e99d2ae8dd98a96a6a1a2b5cd01aa3a76356",
+      "date": "2026-06-11T16:56:48+03:00",
+      "subject": "test(platform-v7): accept zero min-width serialization"
+    },
+    {
+      "sha": "8f4997e5ec565756876b39e2ab7a8e0f260e1da2",
+      "date": "2026-06-11T17:04:15+03:00",
+      "subject": "test(platform-v7): refresh seller fgis route copy"
+    },
+    {
+      "sha": "9b0e9a9cdcfa7d8c5cdd42624d195b8aa630d4e1",
+      "date": "2026-06-11T17:12:13+03:00",
+      "subject": "test(platform-v7): refresh market rfq route assertions"
+    },
+    {
+      "sha": "55ebd4d3e2eac0b51f7b66125e91bc632c4715bb",
+      "date": "2026-06-11T17:18:11+03:00",
+      "subject": "test(platform-v7): refresh offer to deal route assertions"
+    },
+    {
+      "sha": "b7240d64d4de318889e853bc4d9116e10b0e5a79",
+      "date": "2026-06-11T17:25:31+03:00",
+      "subject": "test(platform-v7): refresh clean deal card route assertions"
+    },
+    {
+      "sha": "0e0e3aa4f32a807b8c4fc38a2b457c2256bbbb42",
+      "date": "2026-06-11T17:32:03+03:00",
+      "subject": "test(platform-v7): refresh readiness route assertions"
+    },
+    {
+      "sha": "fcfbc49defea47940ae25d645b9b545f269802f4",
+      "date": "2026-06-11T17:38:26+03:00",
+      "subject": "test(platform-v7): refresh investor executive route assertions"
+    },
+    {
+      "sha": "0e9bc42c341721b6539ed93affe0ecbd3a98005f",
+      "date": "2026-06-11T17:50:44+03:00",
+      "subject": "test(platform-v7): refresh buyer financing route assertions"
+    },
+    {
+      "sha": "75da08f53669651c47a652c4423487b586d2a7d9",
+      "date": "2026-06-11T17:56:42+03:00",
+      "subject": "test(platform-v7): refresh operational panel copy boundary"
+    },
+    {
+      "sha": "e0269d76a5d2137cbb8cc562cb38eee490c8080d",
+      "date": "2026-06-11T18:02:43+03:00",
+      "subject": "test(platform-v7): refresh bank payment basis panel assertions"
+    },
+    {
+      "sha": "c01adfc18910be6da90a58bea2ed1030719af2af",
+      "date": "2026-06-11T18:10:38+03:00",
+      "subject": "test(platform-v7): refresh fgis runtime check panel assertions"
+    },
+    {
+      "sha": "4a6f8d94344d09a5391203a9dd1c4b712e170960",
+      "date": "2026-06-11T18:17:31+03:00",
+      "subject": "test(platform-v7): refresh action route policy assertions"
+    },
+    {
+      "sha": "dbd2795ecaf46c480f897d68b56aaafe4a115618",
+      "date": "2026-06-11T18:25:26+03:00",
+      "subject": "test(platform-v7): refresh shell route alias assertions"
+    },
+    {
+      "sha": "e8e8588fd33f99c33bdfce0a3469ef7f533136a9",
+      "date": "2026-06-11T18:31:56+03:00",
+      "subject": "test(platform-v7): refresh root work entry assertions"
+    },
+    {
+      "sha": "5dd537d6d5b29f00e30bc1ec4797f59246d93078",
+      "date": "2026-06-11T18:39:31+03:00",
+      "subject": "test(platform-v7): refresh role summary route gate assertions"
+    },
+    {
+      "sha": "bf8d14e64e83839590e59a14046c820666235817",
+      "date": "2026-06-11T18:48:53+03:00",
+      "subject": "test(platform-v7): refresh operational role cockpit assertions"
+    },
+    {
+      "sha": "bb6e7829c0814381a0a27de2e04bf80ae4016f3d",
+      "date": "2026-06-11T18:58:26+03:00",
+      "subject": "test(platform-v7): refresh operational role title assertion"
+    },
+    {
+      "sha": "4a135288a1db42cb587fbe6286bcda134240040b",
+      "date": "2026-06-11T19:09:43+03:00",
+      "subject": "test(platform-v7): refresh operational role title assertion"
+    },
+    {
+      "sha": "fa536e70298fcb482bd3152b4e8dedbcf07398e6",
+      "date": "2026-06-11T19:51:17+03:00",
+      "subject": "test(platform-v7): refresh fgis safety note assertion"
+    },
+    {
+      "sha": "c9415fba1194f8b2df79425f535687ca47cfb40d",
+      "date": "2026-06-11T19:57:55+03:00",
+      "subject": "test(platform-v7): align action service trip write surface guard"
+    },
+    {
+      "sha": "1f5f3936ac6c652db3d23397f1a3c54f7b7824db",
+      "date": "2026-06-11T20:13:11+03:00",
+      "subject": "test(platform-v7): align workspace dispute money permission guard"
+    },
+    {
+      "sha": "22a50d795bea7de6ced6c15d149c20022fb24451",
+      "date": "2026-06-11T20:20:28+03:00",
+      "subject": "test(platform-v7): refresh money reserve amount fixture"
+    },
+    {
+      "sha": "852356a15d1232ea8e7083ae8579927ba1696ba6",
+      "date": "2026-06-11T20:27:30+03:00",
+      "subject": "test(platform-v7): relax action target count guard"
+    },
+    {
+      "sha": "bbe1b3f00da49c5bb8650d55f2a5be6398d6d3f2",
+      "date": "2026-06-11T20:34:33+03:00",
+      "subject": "test(platform-v7): derive action permission service count"
+    },
+    {
+      "sha": "047556249af72772eed78f0581b076ae71ccfae3",
+      "date": "2026-06-12T01:18:01+03:00",
+      "subject": "test(platform-v7): refresh bank role focus copy guard"
+    },
+    {
+      "sha": "3d93b13a9896ea8a8f0377a3a5d44802b33a9d1f",
+      "date": "2026-06-12T01:44:21+03:00",
+      "subject": "test(platform-v7): refresh helper assertions"
+    },
+    {
+      "sha": "ac6d9f0383e2acac5867e17a5c8238839b827833",
+      "date": "2026-06-12T01:47:57+03:00",
+      "subject": "test(platform-v7): align action feedback registry"
+    },
+    {
+      "sha": "2bffb5697f43b453b3744c61bd7086c824ceaadb",
+      "date": "2026-06-12T01:51:57+03:00",
+      "subject": "test(platform-v7): refresh role route guards"
+    },
+    {
+      "sha": "4ee9f03087fb8db7659c47e698db29889b1d154b",
+      "date": "2026-06-12T01:58:21+03:00",
+      "subject": "test(platform-v7): refresh command center entry guard"
+    }
+  ],
+  "files": [
+    {
+      "path": ".gitignore",
+      "lines": 3,
+      "criticality": "STANDARD",
+      "blobSha": "e35dd466aa14d2efef37230c2fecf1fd23d0b1af"
+    },
+    {
+      "path": "apps/api/jest.config.js",
+      "lines": 13,
+      "criticality": "STANDARD",
+      "blobSha": "cfead4d147bb8d37cfb8364458dec947428fbdff"
+    },
+    {
+      "path": "apps/api/package.json",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "0bb22e687d086d031afd393d49099d64fab042e2"
+    },
+    {
+      "path": "apps/api/prisma/migrations/migration_lock.toml",
+      "lines": 2,
+      "criticality": "STANDARD",
+      "blobSha": "99e4f2009079447bfe87fb47e52dcb038d1aec08"
+    },
+    {
+      "path": "apps/api/prisma/schema.prisma",
+      "lines": 26,
+      "criticality": "STANDARD",
+      "blobSha": "6d609bc977e54d5b89e04481ae49b2c82e2d67d7"
+    },
+    {
+      "path": "apps/api/src/app.module.ts",
+      "lines": 8,
+      "criticality": "STANDARD",
+      "blobSha": "b4bff96cdf947182ddb0d72ef81e7e68d61f8bab"
+    },
+    {
+      "path": "apps/api/src/common/action-executor/action-executor.module.ts",
+      "lines": 11,
+      "criticality": "STANDARD",
+      "blobSha": "ef05adcf073105af757961f63feb939799b414d0"
+    },
+    {
+      "path": "apps/api/src/common/action-executor/action-executor.service.ts",
+      "lines": 187,
+      "criticality": "STANDARD",
+      "blobSha": "52fb217336f1616b62454351f8207694428e718a"
+    },
+    {
+      "path": "apps/api/src/common/action-executor/action-executor.spec.ts",
+      "lines": 114,
+      "criticality": "STANDARD",
+      "blobSha": "238d4ab3d76586d100faf4e51f13a1483e447430"
+    },
+    {
+      "path": "apps/api/src/common/action-executor/action-policy.ts",
+      "lines": 123,
+      "criticality": "STANDARD",
+      "blobSha": "37432bb5af0c2e9273263218539d57a4d4b68bd6"
+    },
+    {
+      "path": "apps/api/src/common/database/database-seed.service.spec.ts",
+      "lines": 96,
+      "criticality": "STANDARD",
+      "blobSha": "2ab8395f6eb792009a77febe8208c2252ef456f6"
+    },
+    {
+      "path": "apps/api/src/common/database/database-seed.service.ts",
+      "lines": 148,
+      "criticality": "STANDARD",
+      "blobSha": "8346e49c836cb7d1261cc14758bb35c0dd9b152b"
+    },
+    {
+      "path": "apps/api/src/common/database/database.module.ts",
+      "lines": 7,
+      "criticality": "STANDARD",
+      "blobSha": "e62db007058ab14532c66e4ed44d6fda64423451"
+    },
+    {
+      "path": "apps/api/src/common/outbox/outbox.service.ts",
+      "lines": 41,
+      "criticality": "STANDARD",
+      "blobSha": "f0386457a98afd25b648377798c02232bf9d969e"
+    },
+    {
+      "path": "apps/api/src/common/outbox/outbox.spec.ts",
+      "lines": 19,
+      "criticality": "STANDARD",
+      "blobSha": "ebb0c516a70aa5f0639a118b3df2f1b76b23fe2c"
+    },
+    {
+      "path": "apps/api/src/common/prisma/prisma.module.ts",
+      "lines": 7,
+      "criticality": "STANDARD",
+      "blobSha": "e4d1b4b7253b5b10263baa7d16cad538ecc54a7c"
+    },
+    {
+      "path": "apps/api/src/common/prisma/prisma.service.ts",
+      "lines": 15,
+      "criticality": "STANDARD",
+      "blobSha": "b088b4c9b97f36e141616bc2577ec089705cb3b6"
+    },
+    {
+      "path": "apps/api/src/modules/admin/admin.controller.spec.ts",
+      "lines": 32,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "71ffd12f2a3b131f233b0d08f58be45b8fc75cc5"
+    },
+    {
+      "path": "apps/api/src/modules/admin/admin.controller.ts",
+      "lines": 43,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "29be9d795d202eed28b01f3090ab6a2121d58a5b"
+    },
+    {
+      "path": "apps/api/src/modules/admin/admin.module.ts",
+      "lines": 8,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "c9f948b491b169a8195d959cacf801e2141afa12"
+    },
+    {
+      "path": "apps/api/src/modules/audit/audit.controller.ts",
+      "lines": 17,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "4eb877fbfac3181f429ab323cbd6ecc89a50eac5"
+    },
+    {
+      "path": "apps/api/src/modules/audit/audit.module.ts",
+      "lines": 2,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "197fa558779b9dac8f5bdf3afe407e7fdbac5522"
+    },
+    {
+      "path": "apps/api/src/modules/audit/audit.service.ts",
+      "lines": 39,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "c0e7f43cf37968461ad35e214fe349d7369b9fc6"
+    },
+    {
+      "path": "apps/api/src/modules/auth/auth.service.ts",
+      "lines": 1,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "c1db96161ee13c7897eb34da3d9cdc6c818369d2"
+    },
+    {
+      "path": "apps/api/src/modules/deals/deals.controller.ts",
+      "lines": 7,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "21aa2e168cb6d93cc3215299321f9d38b9ca6a45"
+    },
+    {
+      "path": "apps/api/src/modules/deals/deals.service.spec.ts",
+      "lines": 10,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "f2ff8d41638971fef91853babaac897287308fda"
+    },
+    {
+      "path": "apps/api/src/modules/deals/deals.service.ts",
+      "lines": 2,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "59eeb6ecb4d1419f016c77dd787e4739ba432d71"
+    },
+    {
+      "path": "apps/api/src/modules/disputes/disputes.controller.ts",
+      "lines": 15,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "4d135541e10f261d1a76317af1dd0502a0b33f4c"
+    },
+    {
+      "path": "apps/api/src/modules/disputes/disputes.service.ts",
+      "lines": 11,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "db249f48040398d708d5bf8a641d7061a26055d4"
+    },
+    {
+      "path": "apps/api/src/modules/disputes/dto/create-dispute.dto.ts",
+      "lines": 2,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "beae40ea2960e89441fa56386b39ff7c6a5be471"
+    },
+    {
+      "path": "apps/api/src/modules/documents/document-matrix.service.ts",
+      "lines": 201,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "0bbd413fd98bdb076cbe187eecda1bab5bd70b72"
+    },
+    {
+      "path": "apps/api/src/modules/documents/documents.controller.ts",
+      "lines": 12,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "23889b247abbb5e6bef90b4b8decf649e0956744"
+    },
+    {
+      "path": "apps/api/src/modules/documents/documents.module.ts",
+      "lines": 1,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "380096239c41e664f55259eacf478fe7b0c8984b"
+    },
+    {
+      "path": "apps/api/src/modules/documents/documents.service.ts",
+      "lines": 12,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "ef5317e44c76059ecd939c9886d6b9fcb3d28d66"
+    },
+    {
+      "path": "apps/api/src/modules/evidence-pack/evidence-pack.controller.ts",
+      "lines": 48,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "b13f68adcf80386dc24ea79024339f9ff478fd3d"
+    },
+    {
+      "path": "apps/api/src/modules/evidence-pack/evidence-pack.module.ts",
+      "lines": 10,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "b18027b0d16e4f7ad301095c204bb7e9a305e7c7"
+    },
+    {
+      "path": "apps/api/src/modules/evidence-pack/evidence-pack.service.ts",
+      "lines": 114,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "80d220755bdfb2b51e79640e3fcc1de502deffee"
+    },
+    {
+      "path": "apps/api/src/modules/evidence-pack/evidence-pack.spec.ts",
+      "lines": 72,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "640e8725e189fde2b1cd2a6e375acbe27dc463d0"
+    },
+    {
+      "path": "apps/api/src/modules/integrations/integrations.controller.ts",
+      "lines": 19,
+      "criticality": "STANDARD",
+      "blobSha": "38d968b28e9619020a6d36839c2d13f9cf797054"
+    },
+    {
+      "path": "apps/api/src/modules/integrations/integrations.service.spec.ts",
+      "lines": 79,
+      "criticality": "STANDARD",
+      "blobSha": "f98bc648411e9e8cb97b541c43f8ebd127172ef2"
+    },
+    {
+      "path": "apps/api/src/modules/integrations/integrations.service.ts",
+      "lines": 14,
+      "criticality": "STANDARD",
+      "blobSha": "fa759615e97574ae886b2ab8df85a0f2c1257a9a"
+    },
+    {
+      "path": "apps/api/src/modules/labs/labs.service.ts",
+      "lines": 2,
+      "criticality": "STANDARD",
+      "blobSha": "eedd8321c93b6ec2d4d739cae30f3b6c174346d7"
+    },
+    {
+      "path": "apps/api/src/modules/logistics/logistics.service.ts",
+      "lines": 3,
+      "criticality": "STANDARD",
+      "blobSha": "2a963749febf542156397b28e09e12acdb7595b9"
+    },
+    {
+      "path": "apps/api/src/modules/runtime-core/runtime-core.spec.ts",
+      "lines": 142,
+      "criticality": "STANDARD",
+      "blobSha": "a54248fa2a356d86d04f5febc75a6579bbb6136d"
+    },
+    {
+      "path": "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+      "lines": 24,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "c35341c1fecb9332de00cb47f2cd7ec2546425de"
+    },
+    {
+      "path": "apps/api/src/modules/settlement-engine/settlement-engine.service.spec.ts",
+      "lines": 24,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "db32dd2ab226219a5c473da5a485985061797a89"
+    },
+    {
+      "path": "apps/api/src/modules/settlement-engine/settlement-engine.service.ts",
+      "lines": 14,
+      "criticality": "CROWN_JEWEL",
+      "blobSha": "e0e667eb89dd9635b028493a238f690b878f581b"
+    },
+    {
+      "path": "apps/web/app/api/platform-status/route.ts",
+      "lines": 50,
+      "criticality": "STANDARD",
+      "blobSha": "57109912befe620161b86bd976f5402fa0c998c9"
+    },
+    {
+      "path": "apps/web/app/platform-v7/arbitrator/page.tsx",
+      "lines": 15,
+      "criticality": "STANDARD",
+      "blobSha": "1f39ef40bd36b09860965f3d9fb133c994c276c4"
+    },
+    {
+      "path": "apps/web/app/platform-v7/audit-log/page.tsx",
+      "lines": 14,
+      "criticality": "STANDARD",
+      "blobSha": "9ee9f04f683647eac5dee2eb894129a3cead7e9c"
+    },
+    {
+      "path": "apps/web/app/platform-v7/bank/page.tsx",
+      "lines": 23,
+      "criticality": "STANDARD",
+      "blobSha": "86d740022763e0f84fb19798f84c12db03ef650e"
+    },
+    {
+      "path": "apps/web/app/platform-v7/buyer/page.tsx",
+      "lines": 12,
+      "criticality": "STANDARD",
+      "blobSha": "337d6568aab4f2427786b10fbb507c82a590e5ea"
+    },
+    {
+      "path": "apps/web/app/platform-v7/connectors/page.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "b984a2800935afb53363cf8af5b6ab190e24ddc8"
+    },
+    {
+      "path": "apps/web/app/platform-v7/deals/[id]/audit/page.tsx",
+      "lines": 58,
+      "criticality": "STANDARD",
+      "blobSha": "61aa073171dbc08adb605f51a1707949663f7b12"
+    },
+    {
+      "path": "apps/web/app/platform-v7/deals/[id]/clean/page.tsx",
+      "lines": 2,
+      "criticality": "STANDARD",
+      "blobSha": "a529966dd75f604c70d3ada21f591ea9e3d1d199"
+    },
+    {
+      "path": "apps/web/app/platform-v7/deals/[id]/evidence-pack/page.tsx",
+      "lines": 15,
+      "criticality": "STANDARD",
+      "blobSha": "8ddcf53fe8a9eb148d76f95b4b6821e5ddb042f9"
+    },
+    {
+      "path": "apps/web/app/platform-v7/deals/[id]/review/page.tsx",
+      "lines": 3,
+      "criticality": "STANDARD",
+      "blobSha": "96fb30578ae443edd15704d726b78d20f2dc5ec5"
+    },
+    {
+      "path": "apps/web/app/platform-v7/deals/compare/page.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "4b6515cc9f5c0e3da041fa9b2223af97ba0c6769"
+    },
+    {
+      "path": "apps/web/app/platform-v7/disputes/page.tsx",
+      "lines": 5,
+      "criticality": "STANDARD",
+      "blobSha": "19ebe2e42bc2be947c7306f3ae2f7d3682a96e62"
+    },
+    {
+      "path": "apps/web/app/platform-v7/driver/field/page.tsx",
+      "lines": 16,
+      "criticality": "STANDARD",
+      "blobSha": "b2817b322072a925ea2ba9747baec6a0196485d1"
+    },
+    {
+      "path": "apps/web/app/platform-v7/elevator/page.tsx",
+      "lines": 13,
+      "criticality": "STANDARD",
+      "blobSha": "6338694aa5a8061baa45a64f9ff20101037e5b03"
+    },
+    {
+      "path": "apps/web/app/platform-v7/executive/page.tsx",
+      "lines": 35,
+      "criticality": "STANDARD",
+      "blobSha": "957cb0732a40890c980d1c5865add702d3b89c77"
+    },
+    {
+      "path": "apps/web/app/platform-v7/help/page.tsx",
+      "lines": 4,
+      "criticality": "STANDARD",
+      "blobSha": "b8c792c99f84d46e18d9e7ce671aa99f0ca10f09"
+    },
+    {
+      "path": "apps/web/app/platform-v7/lab/page.tsx",
+      "lines": 16,
+      "criticality": "STANDARD",
+      "blobSha": "1625cbfae97d84577e2698825c90e5e7c63d3611"
+    },
+    {
+      "path": "apps/web/app/platform-v7/logistics/page.tsx",
+      "lines": 10,
+      "criticality": "STANDARD",
+      "blobSha": "99d3da10b4b0e7afb89f3a6180c8304608555be2"
+    },
+    {
+      "path": "apps/web/app/platform-v7/not-found.tsx",
+      "lines": 7,
+      "criticality": "STANDARD",
+      "blobSha": "042fab13d94aca85ec48e83f8aa2ea464efff394"
+    },
+    {
+      "path": "apps/web/app/platform-v7/operator/page.tsx",
+      "lines": 14,
+      "criticality": "STANDARD",
+      "blobSha": "46ff5cb785d6c1b0ba1d8b2fd8b076e82502adb3"
+    },
+    {
+      "path": "apps/web/app/platform-v7/seller/page.tsx",
+      "lines": 11,
+      "criticality": "STANDARD",
+      "blobSha": "9fc92f2766d0247a0235fe11181a28ef08aa6435"
+    },
+    {
+      "path": "apps/web/components/platform-v7/ActionFeedbackPreviewStrip.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "9c214233a1b20a78693d4a3eaa245c8468976e58"
+    },
+    {
+      "path": "apps/web/components/platform-v7/AuditSurfaceSummary.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "865d3d9d83ef0fbb11f6a22d697df0431d6a5671"
+    },
+    {
+      "path": "apps/web/components/platform-v7/BankSmartContractsPanel.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "3574eff3cfc988f634438f30b64f540641cae56e"
+    },
+    {
+      "path": "apps/web/components/platform-v7/LiveApiStatusBar.tsx",
+      "lines": 161,
+      "criticality": "STANDARD",
+      "blobSha": "d0e625b40be5f0d5ab52a1f0d93ac96cf5d0a1f2"
+    },
+    {
+      "path": "apps/web/components/platform-v7/P7ActionFeedbackStrip.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "5ec53ca00d7dbb51b2ac6b4830019760ddae3305"
+    },
+    {
+      "path": "apps/web/components/platform-v7/P7EvidenceReadinessAuditStrip.tsx",
+      "lines": 4,
+      "criticality": "STANDARD",
+      "blobSha": "cba70ac5fa1c92e88c9afed90b2b1def1c68c805"
+    },
+    {
+      "path": "apps/web/components/platform-v7/P7MoneySafetyAuditStrip.tsx",
+      "lines": 2,
+      "criticality": "STANDARD",
+      "blobSha": "e6c7d1ccf0cb0d934dbf8d58a195fbc5e7157e9d"
+    },
+    {
+      "path": "apps/web/components/platform-v7/P7PersistenceQueueStatus.tsx",
+      "lines": 9,
+      "criticality": "STANDARD",
+      "blobSha": "c01a4891846c3c1ff00c2e1e725263ae3d15800f"
+    },
+    {
+      "path": "apps/web/components/platform-v7/RoleExecutionSummary.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "2a628bcf5ec014076fb5a6c5047e3f857f93f2e4"
+    },
+    {
+      "path": "apps/web/components/platform-v7/SupportCaseView.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "9f347cc8ce5cdd3709fc1a4de01d78e33048ea62"
+    },
+    {
+      "path": "apps/web/components/platform-v7/SupportNewCaseClient.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "2dcfc219343dd651712d131c3b46c8dafa9bdb03"
+    },
+    {
+      "path": "apps/web/components/platform-v7/SupportOperatorQueueClient.tsx",
+      "lines": 3,
+      "criticality": "STANDARD",
+      "blobSha": "294ff42b8707d4459fa68df851b7263236acc14c"
+    },
+    {
+      "path": "apps/web/components/platform-v7/SystemRouteSummary.tsx",
+      "lines": 2,
+      "criticality": "STANDARD",
+      "blobSha": "88855835b410b70f32e88b41fad8baa8a915b096"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/ActionPreview.tsx",
+      "lines": 292,
+      "criticality": "STANDARD",
+      "blobSha": "7e4b3cc9feb630e77e019f6a6b2159e1c3e4f7a2"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/AfterActionReceipt.tsx",
+      "lines": 201,
+      "criticality": "STANDARD",
+      "blobSha": "c59dfbef95e81aefe2c63e299799ea4657a386c6"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/BankCleanView.tsx",
+      "lines": 275,
+      "criticality": "STANDARD",
+      "blobSha": "eca1b4857ad65dfbf1410c3ce8430a962d8ec662"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/CauseLine.tsx",
+      "lines": 317,
+      "criticality": "STANDARD",
+      "blobSha": "71ea8e50bf57b72ffa7404799ce87587f60698bc"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/DealMiniMap.tsx",
+      "lines": 250,
+      "criticality": "STANDARD",
+      "blobSha": "65b836dff758b58676f9bd1d0418be47bdc893f0"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/DealStatusEdge.tsx",
+      "lines": 105,
+      "criticality": "STANDARD",
+      "blobSha": "5af4f43c9b226d0fe952c324f858deafdf4346e8"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/DealWorkspaceVisualLayer.tsx",
+      "lines": 335,
+      "criticality": "STANDARD",
+      "blobSha": "40e21e713f3e546c8dfbc4011d7d0b4349f61190"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/DocumentImpactChip.tsx",
+      "lines": 136,
+      "criticality": "STANDARD",
+      "blobSha": "640b18e3fbca10a22709a18e8d146f438fe1963f"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/DriverBigTileIsland.tsx",
+      "lines": 34,
+      "criticality": "STANDARD",
+      "blobSha": "9965a2945ab7c6b66d8b8b04373663563a383cd5"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/DriverBigTileMode.tsx",
+      "lines": 252,
+      "criticality": "STANDARD",
+      "blobSha": "9a8070b64b21a7c275c4e8b886cbab15a7b97df9"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/EvidenceStrengthMeter.tsx",
+      "lines": 253,
+      "criticality": "STANDARD",
+      "blobSha": "fb8754c8a7321f576592bef2e641535529050d67"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/ExecutionHeader.tsx",
+      "lines": 253,
+      "criticality": "STANDARD",
+      "blobSha": "fe539d218137096343ba59739a9b2f7a520e426b"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/FocusDetailMode.tsx",
+      "lines": 96,
+      "criticality": "STANDARD",
+      "blobSha": "f65886ca5515dfaceb27531920509e45ce3c2e9f"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/index.ts",
+      "lines": 85,
+      "criticality": "STANDARD",
+      "blobSha": "540d194d98ab18fc540dbabbd6a0b3556a66e0a1"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/MagneticActionDock.tsx",
+      "lines": 203,
+      "criticality": "STANDARD",
+      "blobSha": "442290c6a92fb6bf7fb697adf9a4cb85d96d106c"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/MobileExecutionHeader.tsx",
+      "lines": 188,
+      "criticality": "STANDARD",
+      "blobSha": "eab24d20ebbb10d13211401f3669dae47b07255e"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/MoneyLockHalo.tsx",
+      "lines": 196,
+      "criticality": "STANDARD",
+      "blobSha": "1e4657f8757e50bebefa468037dc7341e4897e50"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/ObjectFocusHover.tsx",
+      "lines": 225,
+      "criticality": "STANDARD",
+      "blobSha": "1f53b6b1e1c6518bf03beea4d20bb91e752a180e"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/OperatorRadar.tsx",
+      "lines": 208,
+      "criticality": "STANDARD",
+      "blobSha": "b0b3017edb92871a956b47ee82271179622f5c0e"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/OperatorRadarIsland.tsx",
+      "lines": 49,
+      "criticality": "STANDARD",
+      "blobSha": "44d24d4effec3ec7e8de92c1bf87b99989607a7d"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/ProgressiveDetailCard.tsx",
+      "lines": 221,
+      "criticality": "STANDARD",
+      "blobSha": "c63707814f5cf839023da95e3b752b0cac993800"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/ProofRibbon.tsx",
+      "lines": 177,
+      "criticality": "STANDARD",
+      "blobSha": "529e7480a2120e7816a8fb531137acff42efdc30"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/QuietIntelligenceHint.tsx",
+      "lines": 98,
+      "criticality": "STANDARD",
+      "blobSha": "58d18e12480b382d3c3f93c7a7ddfa643a59f4f7"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/RoleLens.tsx",
+      "lines": 155,
+      "criticality": "STANDARD",
+      "blobSha": "0a13aadcea7d816c92988b5d468601808946ee5c"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/SmartSectionSummary.tsx",
+      "lines": 157,
+      "criticality": "STANDARD",
+      "blobSha": "dc0f4c32b2c959f17540375a915bb062ddcd9750"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/TimelineChapters.tsx",
+      "lines": 271,
+      "criticality": "STANDARD",
+      "blobSha": "e5ee12693f30712210c320e0f3c0b6d51bf56181"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/TimelineWithImpact.tsx",
+      "lines": 213,
+      "criticality": "STANDARD",
+      "blobSha": "cd94a9b500ebb97121f03594f2a1e9afbb490d68"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/TrustDot.tsx",
+      "lines": 171,
+      "criticality": "STANDARD",
+      "blobSha": "5d52bd5fd8a9c0068600e11669e70c408b1704a9"
+    },
+    {
+      "path": "apps/web/components/platform-v7/visual/UnlockPath.tsx",
+      "lines": 250,
+      "criticality": "STANDARD",
+      "blobSha": "5f92764c08832fbc100f78fed352271beb8e6686"
+    },
+    {
+      "path": "apps/web/components/v7r/AppShell.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "dabec39d515c9bb466f3d7f5ddfeb9259db9be15"
+    },
+    {
+      "path": "apps/web/components/v7r/CatchAllPage.tsx",
+      "lines": 12,
+      "criticality": "STANDARD",
+      "blobSha": "6fbfcd911480fe858bade1992fa1964b9e75396e"
+    },
+    {
+      "path": "apps/web/components/v7r/CommandPalette.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "bf0be5ab6c73a6604fdde19932bdfeddb2d56cc2"
+    },
+    {
+      "path": "apps/web/components/v7r/DealEvidencePackPreview.tsx",
+      "lines": 3,
+      "criticality": "STANDARD",
+      "blobSha": "a5fb557404d672eb0e77e34963abee43b224a31d"
+    },
+    {
+      "path": "apps/web/components/v7r/DisputesRuntime.tsx",
+      "lines": 5,
+      "criticality": "STANDARD",
+      "blobSha": "234907abffd24a92ade7eddc6bc604f706e0583d"
+    },
+    {
+      "path": "apps/web/components/v7r/DomainControlTowerSummary.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "ae02aeaccc20511a02d4e4220443277f06024d95"
+    },
+    {
+      "path": "apps/web/components/v7r/DomainDisputesSummary.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "f3cab9475af5b809b39e94db9fe69d3dc3be1d31"
+    },
+    {
+      "path": "apps/web/components/v7r/EvidenceExportReadinessSummary.tsx",
+      "lines": 15,
+      "criticality": "STANDARD",
+      "blobSha": "2b047afa7ca81bf58ea395a67d84818bd66145f0"
+    },
+    {
+      "path": "apps/web/components/v7r/EvidencePackOperationsQueue.tsx",
+      "lines": 33,
+      "criticality": "STANDARD",
+      "blobSha": "e34a2e259adb2ea0cf037210b9d6b324cdb78109"
+    },
+    {
+      "path": "apps/web/components/v7r/LiveDealInvestorRuntime.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "353d702d239dbf36ec2b11d1913459f728eabd4f"
+    },
+    {
+      "path": "apps/web/components/v7r/PlatformRolesHub.tsx",
+      "lines": 13,
+      "criticality": "STANDARD",
+      "blobSha": "bb6cb9fca3f3fbaebbcc8e3b8b8ddb6096c16492"
+    },
+    {
+      "path": "apps/web/components/v7r/RiskBadge.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "4ef52b489aaa6bfc3ad25640936102e9679ca2f2"
+    },
+    {
+      "path": "apps/web/components/v7r/RoleActionDispatchBridge.tsx",
+      "lines": 26,
+      "criticality": "STANDARD",
+      "blobSha": "61751761dcbb21324e4f0b7d4c2e324ee19dc021"
+    },
+    {
+      "path": "apps/web/components/v7r/RoleContinuityPanel.tsx",
+      "lines": 24,
+      "criticality": "STANDARD",
+      "blobSha": "c9cc7c7b1243c7e0822b6edd6974228c6f42f9ce"
+    },
+    {
+      "path": "apps/web/components/v7r/SellerLotsRuntime.tsx",
+      "lines": 1,
+      "criticality": "STANDARD",
+      "blobSha": "6a1b38d3479a853faf33d47619dead0c50700eb3"
+    },
+    {
+      "path": "apps/web/components/v7r/SellerLotsRuntimeV2.tsx",
+      "lines": 3,
+      "criticality": "STANDARD",
+      "blobSha": "e8deca59497a301734c266655d5379a52574fe08"
+    },
+    {
+      "path": "apps/web/lib/disputes-server.ts",
+      "lines": 45,
+      "criticality": "STANDARD",
+      "blobSha": "429db475d17ff572b64aebadfdada8ffc8c0d4d0"
+    },
+    {
+      "path": "apps/web/lib/evidence-server.ts",
+      "lines": 54,
+      "criticality": "STANDARD",
+      "blobSha": "bd3632c7dee983ddbe361999423447a618608ef9"
+    },
+    {
+      "path": "apps/web/lib/labs-server.ts",
+      "lines": 77,
+      "criticality": "STANDARD",
+      "blobSha": "c8ac35c44447ac807f8c05a2450a6e005d2871fe"
+    },
+    {
+      "path": "apps/web/lib/logistics-server.ts",
+      "lines": 34,
+      "criticality": "STANDARD",
+      "blobSha": "060e6f80e3de12fab07f286fa1b634dbc9516c40"
+    },
+    {
+      "path": "apps/web/lib/outbox-server.ts",
+      "lines": 74,
+      "criticality": "STANDARD",
+      "blobSha": "0900cd9d317ca92855206b9fb45c91b94c891eff"
+    },
+    {
+      "path": "apps/web/tests/e2e/platform-v7-executive-admin-pages.spec.ts",
+      "lines": 63,
+      "criticality": "STANDARD",
+      "blobSha": "9b08865e3d798e5978194a7e7ccff7119b4f7542"
+    },
+    {
+      "path": "apps/web/tests/e2e/platform-v7-vil-qa.spec.ts",
+      "lines": 142,
+      "criticality": "STANDARD",
+      "blobSha": "a05c2d8357db0429c993e5cd363a1eed14538438"
+    }
+  ]
+}
