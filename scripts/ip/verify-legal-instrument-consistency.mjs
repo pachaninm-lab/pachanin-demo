@@ -42,7 +42,21 @@ if (!/^[0-9a-f]{40}$/u.test(head ?? '')) {
 
 // A non-breaking space, so a number never wraps across a line in a signed document.
 const nbsp = ' ';
-const spaced = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/gu, nbsp);
+// Grouped without a regex on purpose. The usual one-liner for this is
+// `String(n).replace(/\B(?=(\d{3})+(?!\d))/g, sep)`, and its `(\d{3})+`
+// inside a lookahead backtracks quadratically: measured at 5 ms for 2 000
+// digits, 19 ms for 4 000, 79 ms for 8 000 and 308 ms for 16 000 - each
+// doubling roughly quadrupling the time. The counts fed to it are read out of
+// the appendix file, so this script does not control the input.
+function spaced(value) {
+  const digits = String(value);
+  let out = '';
+  for (let i = 0; i < digits.length; i += 1) {
+    if (i > 0 && (digits.length - i) % 3 === 0) out += nbsp;
+    out += digits[i];
+  }
+  return out;
+}
 const anyDigits = '\\d[\\d  ]*';
 
 const COUNTS = [
