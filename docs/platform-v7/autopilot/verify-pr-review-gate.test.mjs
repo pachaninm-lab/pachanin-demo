@@ -8,8 +8,11 @@ import {
   ciSnapshotMatchesHead,
   cleanCodexReviewPrefixes,
   exactHeadCodexReviews,
+  exactHeadOwnerSelfAudits,
   isIgnoredMergeGateCheck,
   latestBlockingChangeRequests,
+  positiveExactHeadCodexReviews,
+  reviewGatePrState,
   substantiveChecks,
 } from './verify-pr-review-gate.mjs';
 
@@ -41,6 +44,30 @@ test('accepts only a completed Codex review on the exact head', () => {
   ];
 
   assert.equal(exactHeadCodexReviews(reviews, head).length, 1);
+});
+
+test('only explicit approval is positive review authority; COMMENTED and CHANGES_REQUESTED are not', () => {
+  const reviews = [
+    {
+      user: { login: 'chatgpt-codex-connector[bot]' },
+      commit_id: head,
+      state: 'COMMENTED',
+    },
+    {
+      user: { login: 'chatgpt-codex-connector' },
+      commit_id: head,
+      state: 'CHANGES_REQUESTED',
+    },
+    {
+      user: { login: 'chatgpt-codex-connector' },
+      commit_id: head,
+      state: 'APPROVED',
+    },
+  ];
+
+  assert.equal(exactHeadCodexReviews(reviews, head).length, 3);
+  assert.deepEqual(positiveExactHeadCodexReviews(reviews, head), [reviews[2]]);
+  assert.equal(positiveExactHeadCodexReviews(reviews.slice(0, 2), head).length, 0);
 });
 
 test('recognizes clean Codex review evidence only from the Codex bot and a reviewed commit prefix', () => {
@@ -77,6 +104,33 @@ test('rejects short or malformed clean-review commit prefixes', () => {
   assert.deepEqual(cleanCodexReviewPrefixes(comments), []);
 });
 
+test('owner self-audit authority is exact-head and exact-owner only', () => {
+  const owner = 'pachaninm-lab';
+  const comments = [
+    {
+      user: { login: owner },
+      body: `OWNER SELF-AUDIT: PASS exact head \`${head}\``,
+    },
+    {
+      user: { login: owner },
+      body: `OWNER SELF-AUDIT: PASS exact head \`${oldHead}\``,
+    },
+    {
+      user: { login: 'someone-else' },
+      body: `OWNER SELF-AUDIT: PASS exact head \`${head}\``,
+    },
+    {
+      user: { login: owner },
+      body: `OWNER SELF-AUDIT: PASS exact head \`${head.slice(0, 12)}\``,
+    },
+  ];
+
+  assert.deepEqual(exactHeadOwnerSelfAudits(comments, owner, head), [comments[0]]);
+  assert.equal(exactHeadOwnerSelfAudits(comments, owner, oldHead).length, 1);
+  assert.equal(exactHeadOwnerSelfAudits(comments, 'other-owner', head).length, 0);
+  assert.equal(exactHeadOwnerSelfAudits(comments, owner, 'not-a-sha').length, 0);
+});
+
 test('rejects a review from another actor even when commit matches', () => {
   const reviews = [
     {
@@ -87,6 +141,7 @@ test('rejects a review from another actor even when commit matches', () => {
   ];
 
   assert.equal(exactHeadCodexReviews(reviews, head).length, 0);
+  assert.equal(positiveExactHeadCodexReviews(reviews, head).length, 0);
 });
 
 test('blocks only unresolved non-outdated review threads', () => {
@@ -212,6 +267,16 @@ test('CI snapshot must be bound to the exact verified head', () => {
   assert.equal(ciSnapshotMatchesHead('', head), false);
 });
 
+test('PR state classification fails closed for Draft and incomplete/unknown state', () => {
+  assert.equal(reviewGatePrState({ state: 'open', draft: false }), 'REVIEWABLE');
+  assert.equal(reviewGatePrState({ state: 'open', draft: true }), 'DRAFT');
+  assert.equal(reviewGatePrState({ state: 'closed', draft: false }), 'CLOSED');
+  assert.equal(reviewGatePrState({ state: 'open' }), 'INVALID');
+  assert.equal(reviewGatePrState({ state: 'unknown', draft: false }), 'INVALID');
+  assert.equal(reviewGatePrState({ draft: false }), 'INVALID');
+  assert.equal(reviewGatePrState(null), 'INVALID');
+});
+
 test('review reconciliation workflow uses supported dispatch wiring and complete pagination', () => {
   const workflow = readFileSync(
     new URL('../../../.github/workflows/automerge.yml', import.meta.url),
@@ -222,12 +287,29 @@ test('review reconciliation workflow uses supported dispatch wiring and complete
   // the semantic reconciliation contract so an unsupported trigger or broken payload
   // cannot silently replace the supported repository_dispatch path again.
   assert.doesNotMatch(workflow, /^\s*pull_request_review_thread:/mu);
+  assert.match(
+    workflow,
+    /^\s*types:\s*\[[^\]]*ready_for_review[^\]]*converted_to_draft[^\]]*\]\s*$/mu,
+  );
   assert.match(workflow, /^\s*repository_dispatch:\s*$/mu);
   assert.match(workflow, /^\s*types:\s*\[review-gate-reconcile\]\s*$/mu);
   assert.match(
     workflow,
     /group:\s*repo-automerge-\$\{\{[^\n]*github\.event\.client_payload\.pr_number[^\n]*\}\}/u,
   );
+  assert.match(workflow, /^\s*cancel-in-progress:\s*false\s*$/mu);
+  assert.doesNotMatch(workflow, /^\s*cancel-in-progress:\s*true\s*$/mu);
+  assert.match(workflow, /^\s*queue:\s*max\s*$/mu);
+  const strictDraftEligibilityChecks = workflow.match(/\[ "\$draft" = false \]/gu) || [];
+  assert.ok(strictDraftEligibilityChecks.length >= 2);
+  const finalLiveStateChecks = workflow.match(/--json headRefOid,isDraft,state/gu) || [];
+  assert.ok(finalLiveStateChecks.length >= 3);
+  const draftInvalidations = workflow.match(/\[ "\$current_state" != OPEN \] \|\| \[ "\$current_draft" != false \]/gu) || [];
+  assert.ok(draftInvalidations.length >= 3);
+  const incompleteStateInvalidations = workflow.match(/Exact-head review authority invalidated by incomplete live PR state/gu) || [];
+  assert.ok(incompleteStateInvalidations.length >= 3);
+  const publisherAuthorityFailures = workflow.match(/if \[ "\$state" != success \]; then\s+exit 1\s+fi/gu) || [];
+  assert.ok(publisherAuthorityFailures.length >= 3);
   assert.match(workflow, /^\s*exact-head-dispatched-gate:\s*$/mu);
   assert.match(
     workflow,
