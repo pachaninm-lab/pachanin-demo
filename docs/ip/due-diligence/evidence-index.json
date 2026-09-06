@@ -1,7 +1,7 @@
 {
   "schemaVersion": "pc-crop.ip-due-diligence.v1",
-  "generatedAt": "2026-09-06T14:49:06.143Z",
-  "gitHead": "387323d3e55d748044186f3e48504d379f9b1306",
+  "generatedAt": "2026-09-06T14:56:42.332Z",
+  "gitHead": "a0cd9166d9d16b1fcf5ac18f778ad240ceee1175",
   "kpi": {
     "THIRD_PARTY_PRODUCT_CODE": 0,
     "UNKNOWN_PRODUCT_CODE": 0,
@@ -36,11 +36,11 @@
     "allFiles": {
       "HUMAN_WITH_AI_TOOL": 1576,
       "HUMAN_ONLY": 4467,
-      "AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION": 692,
+      "AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION": 694,
       "AUTOMATION_GENERATED": 59
     },
     "crownJewelTotal": 636,
-    "fileTotal": 6794,
+    "fileTotal": 6796,
     "mergesOnDefaultBranch": {
       "byPrincipal": 1195,
       "total": 1241
@@ -62,19 +62,19 @@
     {
       "what": "Провенанс каждого файла",
       "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json",
-      "sha256": "67dea8974d3156086bd8c03a79111866f1e1fa4e46e2658955918e8810ac1111",
+      "sha256": "fef1e5a6dd73b13ff52573f37fd50a7e5b008e6c3ef84a74b7704a40687990b2",
       "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
     },
     {
       "what": "Сводка провенанса и KPI",
       "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json",
-      "sha256": "a46a1b3f13ac22633adcd6f978cd894c96af95583b556d8d17ead3b4c1a16bc8",
+      "sha256": "47551dee42858c440a189b18b9d1043bd45f0ee30667e9ce6d699b6e54724f02",
       "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
     },
     {
       "what": "Провенанс в табличном виде",
       "artifact": "artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.csv",
-      "sha256": "ae6cdd1499f78d4d1b2f399579c034839ca41ec24f61b0b15dc9d91d2a415825",
+      "sha256": "d24be2566ad5aff98ee0a4e37f3091aca3898dcd4b539f7351c7c521aacce21a",
       "reproduce": "node scripts/ip/build-first-party-provenance.mjs"
     },
     {

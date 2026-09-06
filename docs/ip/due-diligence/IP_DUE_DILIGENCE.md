@@ -1,10 +1,12 @@
 # IP due diligence — досье
 
 **Объект:** программный комплекс «Прозрачная Цена» (включая продуктовый контур «ГЕКТА»).
-**Состояние исходного текста:** `387323d3e55d748044186f3e48504d379f9b1306`.
+**Состояние исходного текста:** `a0cd9166d9d16b1fcf5ac18f778ad240ceee1175`.
 **Дата сборки досье:** 2026-09-06.
 
 Досье собрано автоматически из измеряемых артефактов. Каждое числовое утверждение воспроизводится командой из раздела 9; ни одно число не проставлено вручную.
+
+Досье описывает состояние, непосредственно предшествующее коммиту, в котором оно лежит: собственный хэш коммита ему недоступен до его создания. Это не устаревание — сборщик отказывается работать против артефакта, собранного не на том состоянии, поэтому пересборка на актуальном дереве либо даёт совпадение, либо явно требует пересчёта.
 
 ---
 
@@ -34,12 +36,12 @@
 
 | Категория | Файлов |
 |---|---|
-| Всего файлов под контролем версий | 6 794 |
+| Всего файлов под контролем версий | 6 796 |
 | Первопартийный продуктовый код | 6 715 |
 | в том числе защищаемое ядро (crown jewels) | 636 |
 | Сторонний код, включённый в дерево (vendored) | 0 |
 | Сгенерированные и сборочные артефакты | 18 |
-| Средства управления IP (реестры, гейты, документы) | 61 |
+| Средства управления IP (реестры, гейты, документы) | 63 |
 
 Классификация ведётся по трём независимым осям — класс кода, разрешённость лицензии, человеческий провенанс. Оси не смешиваются: файл может быть первопартийным продуктовым кодом и одновременно иметь неоформленного контрибьютора, и модель обязана уметь это сказать.
 
@@ -92,9 +94,9 @@
 |---|---|---|
 | `HUMAN_ONLY` | 309 | 4 467 |
 | `HUMAN_WITH_AI_TOOL` | 189 | 1 576 |
-| `AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION` | 136 | 692 |
+| `AI_TOOL_OUTPUT_UNDER_PRINCIPAL_DIRECTION` | 136 | 694 |
 | `AUTOMATION_GENERATED` | 2 | 59 |
-| **Итого** | **636** | **6 794** |
+| **Итого** | **636** | **6 796** |
 
 **Что здесь измерено.** В 498 из 636 файлов ядра сохранились строки, внесённые под учётной записью человека. В 136 файлах ядра все сохранившиеся строки внесены под учётной записью генеративного инструмента.
 
@@ -144,9 +146,9 @@
 
 | Что | Артефакт | SHA-256 | Команда воспроизведения |
 |---|---|---|---|
-| Провенанс каждого файла | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json` | `67dea8974d315608…` | `node scripts/ip/build-first-party-provenance.mjs` |
-| Сводка провенанса и KPI | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json` | `a46a1b3f13ac2263…` | `node scripts/ip/build-first-party-provenance.mjs` |
-| Провенанс в табличном виде | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.csv` | `ae6cdd1499f78d4d…` | `node scripts/ip/build-first-party-provenance.mjs` |
+| Провенанс каждого файла | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.json` | `fef1e5a6dd73b13f…` | `node scripts/ip/build-first-party-provenance.mjs` |
+| Сводка провенанса и KPI | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE_SUMMARY.json` | `47551dee42858c44…` | `node scripts/ip/build-first-party-provenance.mjs` |
+| Провенанс в табличном виде | `artifacts/ip-clean-room/FIRST_PARTY_PROVENANCE.csv` | `d24be2566ad5aff9…` | `node scripts/ip/build-first-party-provenance.mjs` |
 | Лицензии зависимостей | `artifacts/ip-clean-room/license-summary.json` | `7196e915e35aa08d…` | `node scripts/ip/build-license-map.mjs artifacts/ip-clean-room/sbom artifacts/ip-clean-room` |
 | Покрытие SBOM | `artifacts/ip-clean-room/SBOM_COVERAGE.json` | `9274537c5298d623…` | `node scripts/ip/build-sbom-coverage.mjs artifacts/ip-clean-room docs/ip/sbom-coverage-scope.json` |
 | Анализ сходства | `artifacts/ip-clean-room/similarity-summary.json` | `ba4cc230339945aa…` | `IP_SIMILARITY_CORPUS=artifacts/ip-clean-room/similarity-corpus IP_SIMILARITY_CORPUS_APPROVED=1 IP_SIMILARITY_CORPUS_APPROVAL=docs/ip/similarity/dependency-corpus-approval.json node scripts/ip/build-offline-similarity-evidence.mjs artifacts/ip-clean-room` |
@@ -157,7 +159,7 @@
 Полная последовательность на чистом дереве:
 
 ```bash
-git checkout 387323d3e55d748044186f3e48504d379f9b1306
+git checkout a0cd9166d9d16b1fcf5ac18f778ad240ceee1175
 pnpm install --frozen-lockfile
 node scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room
 node scripts/ip/build-first-party-provenance.mjs
