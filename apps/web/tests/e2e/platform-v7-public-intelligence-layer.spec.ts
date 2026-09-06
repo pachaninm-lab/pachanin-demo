@@ -247,7 +247,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     const government = page.locator('#government-data');
     await expect(government.locator('[data-status="CONNECTED"]')).toHaveCount(0);
     await expect(government).toContainText('Текущая проверка не выполнялась');
-    await expect(page.locator('#limitations')).toContainText('Неподключённая внешняя система не отображается как подключённая');
+    await expect(page.locator('#limitations')).toContainText('Гекта не придумывает данные внешней системы, если не получила их из разрешённого источника');
     await expect(page.locator('#limitations')).toContainText('Гекта не назначает роль и не меняет права доступа');
     await settleContactDock(page);
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
