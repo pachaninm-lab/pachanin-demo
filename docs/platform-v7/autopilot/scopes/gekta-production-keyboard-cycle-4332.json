@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-production-keyboard-cycle-4332",
+  "status": "active",
+  "operationalStatus": "OWNER_DIRECTED_GEKTA_MOBILE_ACCEPTANCE_REPAIR",
+  "ownerDecision": {
+    "date": "2026-08-18",
+    "instruction": "Close Gekta issue #4332 without weakening production acceptance; repair the exact production keyboard-cycle acceptance so every simulated software-keyboard reopen begins from an explicitly focused composer and still requires focus, draft, caret and geometry retention after viewport contraction."
+  },
+  "allowedPaths": [
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-production-keyboard-cycle-4332.json"
+  ],
+  "forbiddenPaths": [
+    "apps/api",
+    "prisma",
+    "packages/domain-core"
+  ],
+  "constraints": [
+    "Do not weaken viewport, overlap, draft, caret, localization, touch-target, browser-engine, retry or exact-revision gates.",
+    "No backend, auth, model, database, registration, role or business-logic changes.",
+    "No new recurring cost."
+  ]
+}
