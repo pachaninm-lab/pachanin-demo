@@ -40,6 +40,22 @@ const PUBLIC_SITE_HEADER_STYLES = `
   backdrop-filter: blur(16px);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
+/* Canonical public-header authority. The repeated class+attribute specificity is
+ * deliberate: older linked pages still carry route-local header overrides.
+ * This contract wins without changing protected/personal-cabinet chrome. */
+.pc-site-header[data-public-site-header='canonical'].pc-site-header {
+  --pc-public-header-base-height: 64px;
+  --pc-public-header-total-height: calc(64px + env(safe-area-inset-top, 0px));
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-content: center !important;
+  align-items: center !important;
+  height: 64px !important;
+  min-height: 64px !important;
+  max-height: 64px !important;
+  gap: 10px !important;
+  padding-inline: clamp(12px, 3vw, 32px) !important;
+}
 .pc-site-brand {
   display: inline-flex;
   align-items: center;
@@ -98,9 +114,7 @@ const PUBLIC_SITE_HEADER_STYLES = `
   text-decoration: none;
   white-space: nowrap;
 }
-.pc-site-nav a:hover {
-  color: #087a3b;
-}
+.pc-site-nav a:hover { color: #087a3b; }
 .pc-site-actions {
   flex: 0 0 auto;
   margin-left: auto;
@@ -108,6 +122,13 @@ const PUBLIC_SITE_HEADER_STYLES = `
   align-items: center;
   justify-content: flex-end;
   gap: 9px;
+  min-width: 0;
+}
+.pc-site-actions > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 .pc-site-brand-mark[data-brand-mark='transparent-price-canonical'] {
   width: 40px;
@@ -152,6 +173,33 @@ const PUBLIC_SITE_HEADER_STYLES = `
   text-decoration: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+.pc-site-header :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
+  box-sizing: border-box;
+  width: auto !important;
+  min-width: 0 !important;
+  height: var(--pc-site-control-height) !important;
+  min-height: var(--pc-site-control-height) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 0 14px !important;
+  border: 1px solid #087a3b !important;
+  border-radius: var(--pc-site-control-radius) !important;
+  background: #087a3b !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
+}
+.pc-site-header :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register):hover,
+.pc-site-header :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register):focus-visible {
+  background: #07572e !important;
+  border-color: #07572e !important;
+  color: #fff !important;
 }
 .pc-site-mobile-menu > summary {
   width: var(--pc-site-control-height);
@@ -252,26 +300,78 @@ const PUBLIC_SITE_HEADER_STYLES = `
   .pc-site-actions { margin-left: 0; }
 }
 @media (max-width: 720px) {
-  .pc-site-mobile-nav { top: 64px; }
-  .pc-site-header .pc-site-actions { gap: 4px; }
-  .pc-site-header .entry-login { padding-inline: 10px; }
+  .pc-site-header[data-public-site-header='canonical'].pc-site-header {
+    gap: 5px !important;
+    padding-inline: 8px !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text {
+    display: none !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand {
+    flex: 1 1 auto !important;
+    min-width: 36px !important;
+    overflow: visible !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-actions,
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-actions > div {
+    gap: 4px !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-mark[data-brand-mark='transparent-price-canonical'] {
+    width: 36px !important;
+    height: 36px !important;
+    flex-basis: 36px !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-mobile-menu > summary {
+    width: 44px !important;
+    min-width: 44px !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-locale-switch {
+    min-width: 44px !important;
+    width: 44px !important;
+    padding-inline: 5px !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .entry-login {
+    min-width: 50px !important;
+    padding-inline: 7px !important;
+    font-size: 12px !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
+    max-width: 116px !important;
+    padding-inline: 9px !important;
+    font-size: 12px !important;
+  }
+  .pc-site-mobile-nav { top: 68px; }
+  .pc-v7-public-entry:has(.pc-site-header[data-public-site-header='canonical']) {
+    --entry-public-header-base: 64px !important;
+    --pc-public-header-base-height: 64px !important;
+    --pc-public-header-total-height: calc(64px + var(--entry-public-header-offset, 0px)) !important;
+    --entry-header-height: calc(64px + var(--entry-public-header-offset, 0px)) !important;
+  }
 }
 @media (max-width: 380px) {
-  .pc-site-header .pc-site-brand-text strong { max-width: 94px !important; }
-  .pc-site-header .pc-site-brand { gap: 8px; }
-  .pc-site-header .pc-site-actions { gap: 4px; }
-  .pc-site-header .pc-site-locale-switch { min-width: 50px; padding-inline: 8px; }
-  .pc-site-header .entry-login { padding-inline: 8px; font-size: 13px; }
-  .pc-site-brand-mark[data-brand-mark='transparent-price-canonical'] {
-    width: 36px;
-    height: 36px;
-    flex-basis: 36px;
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-locale-switch {
+    min-width: 42px !important;
+    width: 42px !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] .entry-login {
+    min-width: 46px !important;
+    padding-inline: 5px !important;
+    font-size: 11px !important;
+  }
+  .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
+    max-width: 98px !important;
+    padding-inline: 7px !important;
+    font-size: 11px !important;
   }
 }
 @media (max-width: 340px) {
-  .pc-site-header .pc-site-brand-text strong { max-width: 72px !important; font-size: 15px !important; }
-  .pc-site-header .pc-site-locale-switch { min-width: 48px; padding-inline: 7px; }
-  .pc-site-header .entry-login { padding-inline: 7px; }
+  .pc-site-header[data-public-site-header='canonical'].pc-site-header { padding-inline: 6px !important; }
+  .pc-site-header[data-public-site-header='canonical'] .entry-login { min-width: 44px !important; }
+  .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
+    max-width: 88px !important;
+    padding-inline: 6px !important;
+    font-size: 10.5px !important;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .pc-site-menu-glyph i { transition: none; }
@@ -339,7 +439,7 @@ export function PublicSiteHeader({
   return (
     <>
       <style>{PUBLIC_SITE_HEADER_STYLES}</style>
-      <header className='pc-site-header' aria-label={ariaLabel}>
+      <header className='pc-site-header' data-public-site-header='canonical' aria-label={ariaLabel}>
         <a href={resolvedBrandHomeHref} className='pc-site-brand' aria-label={brandHomeLabel}>
           <span className='pc-site-brand-mark' data-brand-mark='transparent-price-canonical'><BrandMark size={40} /></span>
           <span className='pc-site-brand-text'>
