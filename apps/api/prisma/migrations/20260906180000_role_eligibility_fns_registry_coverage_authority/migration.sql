@@ -1,6 +1,8 @@
 -- #5064: domain-scoped registry authority and fail-closed corpus coverage/finality substrate.
 -- Forward-only. Existing generations remain readable; legacy coverage/finality is conservative.
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE OR REPLACE FUNCTION eligibility.derive_registry_domain(p_source TEXT, p_schema_version TEXT)
 RETURNS TEXT
 LANGUAGE sql
@@ -258,6 +260,88 @@ CREATE TABLE eligibility.registry_generation_authority (
 );
 CREATE INDEX registry_generation_authority_domain_idx
   ON eligibility.registry_generation_authority(source, registry_domain, effective_cutoff DESC, generation_id);
+
+-- The authority token is not operator-selected. It is a canonical SHA-256 over
+-- every authority-bearing fact, excluding created_at. Identical facts therefore
+-- reproduce one stable token; any semantic change creates a different token.
+CREATE OR REPLACE FUNCTION eligibility.compute_registry_authority_token(
+  p_generation_id TEXT,
+  p_source TEXT,
+  p_registry_domain TEXT,
+  p_coverage_kind TEXT,
+  p_generation_mode TEXT,
+  p_acquisition_complete BOOLEAN,
+  p_local_import_integrity BOOLEAN,
+  p_baseline_coverage BOOLEAN,
+  p_update_continuity BOOLEAN,
+  p_source_finality BOOLEAN,
+  p_baseline_generation_id TEXT,
+  p_predecessor_generation_id TEXT,
+  p_update_package_id TEXT,
+  p_update_package_sha256 CHAR(64),
+  p_continuity_policy_version TEXT,
+  p_continuity_policy_hash CHAR(64),
+  p_finality_policy_version TEXT,
+  p_finality_policy_hash CHAR(64),
+  p_effective_cutoff TIMESTAMPTZ
+)
+RETURNS CHAR(64)
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog, eligibility
+AS $function$
+  SELECT encode(
+    public.digest(
+      convert_to(
+        jsonb_build_object(
+          'schemaVersion','role-eligibility.registry-authority-token.v1',
+          'generationId',p_generation_id,
+          'source',p_source,
+          'registryDomain',p_registry_domain,
+          'coverageKind',p_coverage_kind,
+          'generationMode',p_generation_mode,
+          'acquisitionComplete',p_acquisition_complete,
+          'localImportIntegrity',p_local_import_integrity,
+          'baselineCoverage',p_baseline_coverage,
+          'updateContinuity',p_update_continuity,
+          'sourceFinality',p_source_finality,
+          'baselineGenerationId',p_baseline_generation_id,
+          'predecessorGenerationId',p_predecessor_generation_id,
+          'updatePackageId',p_update_package_id,
+          'updatePackageSha256',p_update_package_sha256,
+          'continuityPolicyVersion',p_continuity_policy_version,
+          'continuityPolicyHash',p_continuity_policy_hash,
+          'finalityPolicyVersion',p_finality_policy_version,
+          'finalityPolicyHash',p_finality_policy_hash,
+          'effectiveCutoffEpoch',CASE WHEN p_effective_cutoff IS NULL THEN NULL ELSE extract(epoch FROM p_effective_cutoff) END
+        )::text,
+        'UTF8'
+      ),
+      'sha256'
+    ),
+    'hex'
+  )::CHAR(64)
+$function$;
+
+CREATE OR REPLACE FUNCTION eligibility.bind_registry_authority_token()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, eligibility
+AS $function$
+BEGIN
+  NEW.authority_token := eligibility.compute_registry_authority_token(
+    NEW.generation_id,NEW.source,NEW.registry_domain,NEW.coverage_kind,NEW.generation_mode,
+    NEW.acquisition_complete,NEW.local_import_integrity,NEW.baseline_coverage,NEW.update_continuity,NEW.source_finality,
+    NEW.baseline_generation_id,NEW.predecessor_generation_id,NEW.update_package_id,NEW.update_package_sha256,
+    NEW.continuity_policy_version,NEW.continuity_policy_hash,NEW.finality_policy_version,NEW.finality_policy_hash,
+    NEW.effective_cutoff
+  );
+  RETURN NEW;
+END
+$function$;
+CREATE TRIGGER registry_generation_authority_token_guard
+BEFORE INSERT ON eligibility.registry_generation_authority
+FOR EACH ROW EXECUTE FUNCTION eligibility.bind_registry_authority_token();
 
 CREATE OR REPLACE FUNCTION eligibility.validate_registry_authority_lineage()
 RETURNS trigger
