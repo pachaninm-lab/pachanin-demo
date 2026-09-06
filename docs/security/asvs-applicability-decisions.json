@@ -9923,6 +9923,31 @@
       "note": "Additional protections (sandboxing, encapsulation, containerization, network isolation) around parts of the application documented as risky or dangerous cannot be verified when no such documentation exists (V15.1.4, V15.1.5). This fails as a direct consequence, not an independent finding."
     },
     {
+      "requirementId": "V15.3.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/modules/compliance/compliance.service.ts",
+        "apps/api/src/modules/organizations/organizations.service.ts",
+        "apps/api/src/modules/compliance/compliance.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "service methods reached from a controller still return whole Prisma entities: the query names no select, so every column of the model reaches the response",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/compliance/compliance.service.ts",
+            "apps/api/src/modules/organizations/organizations.service.ts"
+          ],
+          "patterns": [
+            "return this.prisma.auditevent.findmany(",
+            "return this.prisma.organization.findmany("
+          ]
+        }
+      ],
+      "note": "Measured rather than inferred. Twelve service methods return the result of a Prisma find call that names no select, so the whole row reaches the caller; two of them were traced to a controller and are cited here. compliance.controller.ts getAuditLog returns compliance.service.ts getAuditLog, which is auditEvent.findMany with no select: all 26 columns of AuditEvent reach the response, including beforeState, afterState and metadata, which are free-form Json holding whatever the audited operation carried, and hash and prevHash, which are the tamper-evidence chain rather than data the caller needs. organizations.service.ts returns organization.findMany with no select: all 61 columns, including inn, ogrn, kpp, bankDetails and address. Both are behind a role check - compliance requires COMPLIANCE_OFFICER or ADMIN - so this is over-return to an authorised caller rather than an unauthenticated leak, and the severity is stated that way rather than inflated. The requirement is nonetheless about returning only the required subset, and a full audit chain plus arbitrary state blobs is not that. Deliberately not fixed in this pass: narrowing these responses changes their shape, and which fields the web client actually consumes has not been measured. Changing a response shape on the strength of a grep is how a working platform breaks; the measurement comes first. What was checked and found already correct: every query against the User model names an explicit select, so passwordHash, mfaSecret and mfaBackup do not reach any response through these paths - the most dangerous instance of this requirement is already closed."
+    },
+    {
       "requirementId": "V15.3.2",
       "applicability": "APPLICABLE",
       "status": "FAIL",
