@@ -59,4 +59,16 @@ describe('RoleEligibilitySourceHealthService domain authority', () => {
     })).rejects.toThrow('ROLE_ELIGIBILITY_FNS_HEALTH_DOMAIN_UNRESOLVED');
     expect(executeRaw).not.toHaveBeenCalled();
   });
+
+  it('refuses an explicit domain that contradicts the successful generation schema', async () => {
+    const { service, executeRaw } = createService();
+    await expect(service.success('FNS', {
+      registryDomain: 'EGRIP',
+      generation: 'g1',
+      parserVersion: 'fns-egrul-v1',
+      schemaVersion: 'EGRUL_408',
+      freshUntil: new Date(Date.now() + 60_000),
+    })).rejects.toThrow('ROLE_ELIGIBILITY_SOURCE_HEALTH_DOMAIN_SCHEMA_MISMATCH');
+    expect(executeRaw).not.toHaveBeenCalled();
+  });
 });
