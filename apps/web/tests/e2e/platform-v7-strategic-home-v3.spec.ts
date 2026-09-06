@@ -23,6 +23,60 @@ async function expectMinimumTargets(page: Page, selector: string) {
   expect(valid, `${selector} must expose 44×44 CSS px visible targets`).toBe(true);
 }
 
+async function expectHeaderControlsWithinViewport(page: Page) {
+  const viewport = page.viewportSize();
+  expect(viewport, 'viewport size').not.toBeNull();
+  for (const selector of [
+    '.pc-site-mobile-menu > summary',
+    '.pc-site-locale-switch',
+    '.entry-login',
+    '.pc-v6-header-cta',
+  ]) {
+    const control = page.locator(selector).first();
+    await expect(control).toBeVisible();
+    const box = await control.boundingBox();
+    expect(box, `${selector} bounding box`).not.toBeNull();
+    expect(box!.x, `${selector} left edge`).toBeGreaterThanOrEqual(-1);
+    expect(box!.x + box!.width, `${selector} right edge`).toBeLessThanOrEqual(viewport!.width + 1);
+  }
+}
+
+async function expectDealCardHeaderReadable(page: Page) {
+  const card = page.locator('[data-testid="platform-v7-deal-card"]');
+  const header = card.locator(':scope > div').first();
+  const copy = header.locator(':scope > div').first();
+  const status = header.locator(':scope > b').first();
+  const title = copy.locator('strong').first();
+  await expect(header).toBeVisible();
+  await expect(copy).toBeVisible();
+  await expect(status).toBeVisible();
+  await expect(title).toBeVisible();
+
+  const [headerBox, copyBox, statusBox] = await Promise.all([
+    header.boundingBox(),
+    copy.boundingBox(),
+    status.boundingBox(),
+  ]);
+  expect(headerBox, 'Hero Deal header bounding box').not.toBeNull();
+  expect(copyBox, 'Hero Deal copy bounding box').not.toBeNull();
+  expect(statusBox, 'Hero Deal status bounding box').not.toBeNull();
+  expect(copyBox!.width, 'Hero Deal copy must retain readable width').toBeGreaterThanOrEqual(headerBox!.width * 0.65);
+  expect(statusBox!.y, 'Hero Deal status must follow the copy block').toBeGreaterThanOrEqual(copyBox!.y + copyBox!.height - 1);
+
+  const titleLineCount = await title.evaluate((node) => {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+    const tops: number[] = [];
+    for (const rect of rects) {
+      if (!tops.some((top) => Math.abs(top - rect.top) <= 1)) tops.push(rect.top);
+    }
+    return tops.length;
+  });
+  expect(titleLineCount, 'Hero Deal title line count').toBeGreaterThanOrEqual(1);
+  expect(titleLineCount, 'Hero Deal title must not collapse into a vertical column').toBeLessThanOrEqual(3);
+}
+
 async function scrollAndFlush(page: Page, top: number) {
   await page.evaluate(async (targetTop) => {
     window.scrollTo({ top: targetTop, behavior: 'instant' });
@@ -69,7 +123,7 @@ async function fillFirstStep(page: Page) {
 }
 
 test.describe('Platform V7 strategic homepage browser acceptance', () => {
-  test('RU EN ZH render the Deal-first homepage without runtime or horizontal-overflow failures', async ({ page }) => {
+  test('RU EN ZH render the registration-first Deal homepage without runtime or overflow failures', async ({ page }) => {
     const runtimeFailures: string[] = [];
     page.on('pageerror', (error) => runtimeFailures.push(error.message));
     page.on('console', (message) => {
@@ -83,16 +137,18 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       await expect(page.locator('#pc-v6-title')).toBeVisible();
       await expect(page.locator('.pc-v6-control-tower')).toBeVisible();
       await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toBeVisible();
-      await expect(page.locator('#deal-path')).toHaveCount(0);
-      await expect(page.locator('#functions article')).toHaveCount(7);
+      await expect(page.locator('#deal-path')).toBeVisible();
+      await expect(page.locator('#functions article')).toHaveCount(6);
       await expect(page.locator('#trust')).toBeVisible();
       await expect(page.locator('#participants')).toBeVisible();
       await expect(page.locator('#money')).toBeVisible();
       await expect(page.locator('#tai')).toBeVisible();
-      await expect(page.locator('#connection-process')).toBeVisible();
+      await expect(page.locator('#connection-process')).toHaveCount(0);
       await expect(page.locator('#connect-organization')).toBeVisible();
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-step', '1');
+      await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
+      await expect(page.locator('.pc-v6-header-cta')).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
       await expect(page.locator('html')).toHaveAttribute('lang', new RegExp(`^${locale}`));
       await expectNoHorizontalOverflow(page);
     }
@@ -107,17 +163,18 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
 
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
-    const tabs = page.getByRole('tablist', { name: 'Что видит каждый участник' });
+    const tabs = page.getByRole('tablist', { name: 'Выберите роль для просмотра' });
     await expect(tabs).toBeVisible();
-    const bank = page.getByRole('tab', { name: 'Банк' });
-    await bank.click();
-    await expect(bank).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('tabpanel')).toContainText('выплата остановлена правилами Сделки');
-    await expect(page.getByText('Одна Сделка показывает данные, ответственность, действие, основание и денежное последствие каждой роли.')).toBeVisible();
+    await expect(tabs.getByRole('tab')).toHaveCount(9);
+    const employee = tabs.getByRole('tab', { name: 'Сотрудник платформы', exact: true });
+    await employee.click();
+    await expect(employee).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tabpanel')).toContainText('Если Сделка остановилась');
+    await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
     expect(forbiddenRequests).toEqual([]);
   });
 
-  test('organization intake validates step one locally without sending personal data', async ({ page }) => {
+  test('organization assistance validates step one locally without sending personal data', async ({ page }) => {
     const submittedRequests: string[] = [];
     let captureSubmission = false;
     page.on('request', (request) => {
@@ -128,6 +185,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     const form = page.locator('#connect-organization form');
     await expect(form).toBeVisible();
     await expect(form).toHaveAttribute('data-ready', 'true');
+    await expect(page.locator('#connect-organization')).toContainText('Эта форма не является регистрацией');
     captureSubmission = true;
     await form.getByRole('button', { name: 'Продолжить' }).click();
     await expect(form).toHaveAttribute('data-step', '1');
@@ -137,7 +195,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await expectNoSeriousAxeViolations(page);
   });
 
-  test('organization intake reaches durable acceptance through the existing endpoint', async ({ page }) => {
+  test('organization assistance reaches durable acceptance through the existing endpoint', async ({ page }) => {
     let payload: Record<string, unknown> | null = null;
     let idempotencyKey = '';
     await page.route('**/api/platform-v7/organization-connect', async (route) => {
@@ -157,9 +215,9 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     await form.getByLabel('Телефон').fill('+7 900 000-00-00');
     await form.getByLabel('Email').fill('test@example.com');
     await form.getByLabel('Роль организации').selectOption('BUYER_PROCESSOR');
-    await form.getByLabel('Рабочая задача').selectOption('DEAL_EXECUTION');
+    await form.getByLabel('С чем нужна помощь').selectOption('DEAL_EXECUTION');
     await form.getByLabel(/Я согласен/).check();
-    await form.getByRole('button', { name: 'Начать подключение' }).click();
+    await form.getByRole('button', { name: 'Отправить запрос на помощь' }).click();
 
     await expect(page.getByRole('status')).toContainText('REQ-2026-TEST');
     expect(idempotencyKey).toMatch(/^public-org-connect:/);
@@ -176,9 +234,16 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
   });
 
-  test('mobile public AI remains visible and enabled throughout homepage scrolling', async ({ page }) => {
+  test('mobile registration and public AI remain visible throughout homepage scrolling', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    const headerRegistration = page.locator('.pc-v6-header-cta');
+    await expect(headerRegistration).toBeVisible();
+    await expect(headerRegistration).toHaveAttribute('href', '/platform-v7/register?lang=ru');
+    await expectMinimumTargets(page, '.pc-v6-header-cta');
+    await expectHeaderControlsWithinViewport(page);
+    await expectDealCardHeaderReadable(page);
+
     const dock = page.locator('.pc-public-contact-dock');
     const assistant = dock.locator('.pc-public-contact-dock-assistant');
     const secondaryActions = dock.locator('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)');
@@ -201,6 +266,9 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       expect(response?.ok()).toBe(true);
       const form = page.locator('#connect-organization form');
       await expect(form).toHaveAttribute('data-ready', 'true');
+      await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
+      await expectHeaderControlsWithinViewport(page);
+      await expectDealCardHeaderReadable(page);
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '[role="tab"]');
       await expectMinimumTargets(page, '#connect-organization input:not([type="checkbox"]):not([tabindex="-1"]):visible');
@@ -215,6 +283,88 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
     });
   }
 
+  test('768px tablet keeps the Hero Deal header readable', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1000 });
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+    await expectDealCardHeaderReadable(page);
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test('1024px transitional header uses the compact navigation without clipping controls', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+
+    const desktopNav = page.locator('.pc-site-nav');
+    const menu = page.locator('.pc-site-mobile-menu');
+    const summary = menu.locator(':scope > summary');
+    await expect(desktopNav).toBeHidden();
+    await expect(menu).toBeVisible();
+    await expect(summary).toBeVisible();
+    await expectHeaderControlsWithinViewport(page);
+    await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
+    await summary.click();
+    await expect(page.locator('.pc-site-mobile-nav')).toBeVisible();
+    expect(await page.locator('.pc-site-mobile-nav a').count()).toBeGreaterThanOrEqual(6);
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test('1280px header keeps brand, navigation and actions in separate lanes', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+
+    const brand = page.locator('.pc-site-brand');
+    const nav = page.locator('.pc-site-nav');
+    const actions = page.locator('.pc-site-actions');
+    const navLinks = nav.locator('a');
+    const registration = page.locator('.pc-v6-header-cta');
+    await expect(brand).toBeVisible();
+    await expect(nav).toBeVisible();
+    await expect(actions).toBeVisible();
+    await expect(registration).toBeVisible();
+    expect(await navLinks.count()).toBeGreaterThan(1);
+
+    const [brandBox, firstNavBox, lastNavBox, actionsBox] = await Promise.all([
+      brand.boundingBox(),
+      navLinks.first().boundingBox(),
+      navLinks.last().boundingBox(),
+      actions.boundingBox(),
+    ]);
+    expect(brandBox, 'brand bounding box').not.toBeNull();
+    expect(firstNavBox, 'first nav link bounding box').not.toBeNull();
+    expect(lastNavBox, 'last nav link bounding box').not.toBeNull();
+    expect(actionsBox, 'actions bounding box').not.toBeNull();
+    expect(firstNavBox!.x, 'navigation must start after the brand').toBeGreaterThanOrEqual(brandBox!.x + brandBox!.width - 1);
+    expect(lastNavBox!.x + lastNavBox!.width, 'navigation must end before header actions').toBeLessThanOrEqual(actionsBox!.x + 1);
+    expect(actionsBox!.x + actionsBox!.width, 'header actions must remain inside the viewport').toBeLessThanOrEqual(1281);
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test('desktop navigation distinguishes in-page Gekta help from the standalone product', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'Source-owned navigation labels need one desktop rendering proof.');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const expectations = {
+      ru: { help: 'Как помогает Гекта', product: 'Гекта' },
+      en: { help: 'How Gekta helps', product: 'Gekta' },
+      zh: { help: 'Gekta 如何帮助', product: 'Gekta' },
+    } as const;
+
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
+      expect(response?.ok()).toBe(true);
+      const nav = page.locator('.pc-site-nav');
+      await expect(nav).toBeVisible();
+      const labels = (await nav.locator('a').allTextContents()).map((label) => label.trim());
+      expect(new Set(labels).size, `${locale} desktop nav labels must be distinct`).toBe(labels.length);
+      await expect(nav.getByRole('link', { name: expectations[locale].help, exact: true })).toHaveAttribute('href', '#tai');
+      const product = nav.getByRole('link', { name: expectations[locale].product, exact: true });
+      await expect(product).toHaveAttribute('data-nav-product', 'gekta');
+      await expect(product).not.toHaveAttribute('href', '#tai');
+    }
+  });
+
   test('captures responsive and multilingual visual evidence', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'Visual evidence is captured once in Chromium.');
 
@@ -223,6 +373,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
       await settleContactDock(page);
       await expectNoHorizontalOverflow(page);
       await page.screenshot({
@@ -237,6 +388,7 @@ test.describe('Platform V7 strategic homepage browser acceptance', () => {
       const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
       await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
+      await expect(page.locator('.pc-v6-header-cta')).toBeVisible();
       await settleContactDock(page);
       await page.screenshot({
         path: testInfo.outputPath(`strategic-home-${locale}-390px.png`),
