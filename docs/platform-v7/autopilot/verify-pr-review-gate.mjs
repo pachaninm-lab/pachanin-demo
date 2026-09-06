@@ -151,17 +151,22 @@ export function substantiveChecks(checks) {
 }
 
 export function machineReviewAuthorities(checks) {
-  const authorities = new Set();
+  const workflowOutcomes = new Map();
   for (const check of substantiveChecks(checks)) {
     const workflow = checkWorkflow(check);
     if (!MACHINE_REVIEW_WORKFLOWS.has(workflow)) continue;
     const status = String(check?.status || '').toUpperCase();
     const terminalState = checkTerminalState(check);
-    if (status && status !== 'COMPLETED') continue;
-    if (terminalState !== 'SUCCESS') continue;
-    authorities.add(workflow);
+    const successful = (!status || status === 'COMPLETED') && terminalState === 'SUCCESS';
+    const outcomes = workflowOutcomes.get(workflow) || [];
+    outcomes.push(successful);
+    workflowOutcomes.set(workflow, outcomes);
   }
-  return [...authorities].sort();
+
+  return [...workflowOutcomes.entries()]
+    .filter(([, outcomes]) => outcomes.length > 0 && outcomes.every(Boolean))
+    .map(([workflow]) => workflow)
+    .sort();
 }
 
 export function checkRollupBlockers(checks) {
@@ -419,7 +424,7 @@ function main() {
   if (!codexAuthority && machineAuthorities.length < MIN_MACHINE_REVIEW_AUTHORITIES) {
     fail(
       'REVIEW_GATE_INDEPENDENT_MACHINE_REVIEW_INSUFFICIENT',
-      `Codex authority is unavailable and only ${machineAuthorities.length}/${MIN_MACHINE_REVIEW_AUTHORITIES} independent machine-review authorities are successful: ${machineAuthorities.join(', ') || 'none'}.`,
+      `Codex authority is unavailable and only ${machineAuthorities.length}/${MIN_MACHINE_REVIEW_AUTHORITIES} independent machine-review authorities are wholly successful: ${machineAuthorities.join(', ') || 'none'}.`,
     );
   }
 
