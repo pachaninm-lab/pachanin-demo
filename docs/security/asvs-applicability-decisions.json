@@ -5297,37 +5297,93 @@
     {
       "requirementId": "V8.1.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "enforcement:infra/sql/production-rls-policies.sql",
-        "documentation-set:docs/security/THREAT_MODEL.md",
-        "documentation-set:SECURITY.md"
+        "docs/security/AUTHORIZATION_RULES.md",
+        "docs/security/authorization-rules-registry.json",
+        "scripts/security/build-authorization-rules.mjs",
+        "scripts/security/build-authorization-rules.test.mjs",
+        "apps/api/src/app.module.ts",
+        "apps/api/src/common/guards/roles.guard.ts",
+        "infra/sql/production-rls-policies.sql"
       ],
       "conditions": [
         {
-          "condition": "function and data level restrictions are enforced in code and policy",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the rules state, for every role, what it may do, and for every resource attribute, what it restricts and who sets it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/AUTHORIZATION_RULES.md"
+          ],
+          "patterns": [
+            "правила авторизации",
+            "уровень функций",
+            "уровень данных",
+            "что вправе делать",
+            "что ограничивает",
+            "кто устанавливает",
+            "файлы политик",
+            "чего эти правила не покрывают"
+          ]
+        },
+        {
+          "condition": "the rules say plainly which layer they do not cover and record the layer disagreement they found rather than smoothing it over",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/authorization-rules-registry.json"
+          ],
+          "patterns": [
+            "notcovered",
+            "v8.1.2",
+            "commercialrulescontroller",
+            "deny.guest.all",
+            "guest_role_forbidden",
+            "any_authenticated",
+            "уровень полей",
+            "остаётся fail"
+          ]
+        },
+        {
+          "condition": "the vocabulary cannot drift from the tree: a role, an attribute or a policy file present in one and absent in the other fails the build in either direction",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/build-authorization-rules.mjs"
+          ],
+          "patterns": [
+            "undocumented_role",
+            "phantom_role",
+            "undocumented_resource_attribute",
+            "phantom_resource_attribute",
+            "undocumented_policy_file",
+            "phantom_policy_file",
+            "rule_without_content"
+          ]
+        },
+        {
+          "condition": "both enforcement layers named by the rules still exist: the global guard chain and the row-level policies keyed on request-scoped settings",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/app.module.ts"
+          ],
+          "patterns": [
+            "app_guard",
+            "preauthratelimitguard",
+            "appauthguard",
+            "ratelimitguard"
+          ]
+        },
+        {
+          "condition": "and the policies decide on session settings rather than on request content",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "infra/sql/production-rls-policies.sql"
           ],
           "patterns": [
-            "create policy"
-          ]
-        },
-        {
-          "condition": "no document defines the rules those restrictions implement",
-          "check": "ABSENT_AT_PATH",
-          "paths": [
-            "docs/security/THREAT_MODEL.md",
-            "SECURITY.md"
-          ],
-          "patterns": [
-            "authorization rules",
-            "permission matrix"
+            "create policy",
+            "current_setting('app.current_tenant_id'"
           ]
         }
       ],
-      "note": "The restrictions themselves are strong and enforced in the database. What is missing is the statement of what they are meant to be: no document defines function-level or data-specific access rules, so an implementation cannot be reviewed against an intent. This is the same shape of gap as V2.1.x and V7.1.x, and it is the one place this otherwise strong chapter is consistently weak."
+      "note": "Ограничения были сильными и раньше — роли на входе и политики RLS в базе. Не было утверждения о том, какими они задуманы, и это ровно то, что просит требование: без правила реализацию не с чем сравнить.\n\nИзмерено по дереву, а не переписано из памяти: 15 значений в `@Roles` на 57 местах, 42 места `@Public`, 8 признаков ресурса, по которым решают политики, и 9 файлов с 65 политиками. Словарь сверяется в обе стороны: роль, появившаяся в `@Roles` без правила, и правило о роли, которая ничего не защищает, одинаково роняют сборку.\n\nИзмерение поправило собственную первую версию. Однострочный grep нашёл 14 ролей; разбор многострочного декоратора нашёл 15. Пропущенной оказалась GUEST в классовом `@Roles(...)` контроллера commercial-rules, и пропустить её было бы хуже, чем просто недосчитать: она вскрывает расхождение слоёв.\n\nРАСХОЖДЕНИЕ ЗАПИСАНО, А НЕ ИСПРАВЛЕНО. CommercialRulesController перечисляет все четырнадцать ролей включая GUEST, тогда как policy-engine.service.ts отказывает GUEST безусловно (deny.guest.all). Этот контроллер policy engine не вызывает, и ни один guard его не вызывает, поэтому отказ там не срабатывает. Фактического обхода нет: слой данных отклоняет GUEST как guest_role_forbidden, и ни один путь аутентификации роль GUEST не выдаёт — то есть ловит эшелонированность, а не намерение. Приведение слоёв в согласие — правка бизнес-логики и решение владельца; описание её не заменяет.\n\nANY_AUTHENTICATED записан как признак, а не как роль с правами: roles.guard.ts при виде этого значения возвращает true, не сверяясь со списком. Там же записано, что guard пропускает запрос без пользователя вовсе — он авторизует, но не аутентифицирует, и это безопасно лишь потому, что AppAuthGuard стоит раньше, а `@Public()` является явным исключением.\n\nЧто НЕ заявлено: уровень ПОЛЕЙ. Правила говорят, кто вправе вызвать функцию и какие строки увидит, но не какие поля строки вправе читать и писать. Это V8.1.2, он остаётся FAIL, и закрывать его этим документом было бы подменой требования соседним. V8.1.4 тоже остаётся FAIL: он просит контекстные факторы в дополнение к функциям, данным И полям, а поля не описаны.\n\nУсловие решения было слабее самой записи, и это исправлено здесь же: проверка на подстроку «V8.1.2» удовлетворялась и после замены абзаца о непокрытом уровне полей на утверждение, что покрыто всё — найдено мутацией. Условие теперь требует и «уровень полей», и «остаётся FAIL»."
     },
     {
       "requirementId": "V8.1.2",
