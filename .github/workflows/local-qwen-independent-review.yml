@@ -1,6 +1,9 @@
 name: Local Qwen Independent Review
 
 on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths: ['.github/workflows/local-qwen-independent-review.yml']
   pull_request_target:
     types: [opened, reopened, synchronize, edited]
 
@@ -10,13 +13,14 @@ permissions:
   statuses: write
 
 concurrency:
-  group: local-qwen-independent-review-${{ github.event.pull_request.number }}
+  group: local-qwen-independent-review-${{ github.event_name }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   review:
     name: Pinned Qwen exact-head semantic review
     if: >-
+      github.event_name == 'pull_request_target' &&
       github.event.pull_request.state == 'open' &&
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
@@ -417,3 +421,112 @@ jobs:
             -f description='Pinned local Qwen review failed closed' \
             -f target_url="https://github.com/$REPO/actions/runs/$GITHUB_RUN_ID" \
             >/dev/null || true
+
+  transport-acceptance:
+    name: Pinned Qwen batch transport acceptance (no authority publication)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 35
+    steps:
+      - name: Exercise immutable repaired transport against exact PR diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PYTEST'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+          import urllib.request
+
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'qwen-transport-acceptance'
+          root.mkdir()
+          url = 'https://raw.githubusercontent.com/pachaninm-lab/pachanin-demo/5fac275931fb6314491a967ce0c0ab51a5d5c04f/.github/workflows/local-qwen-independent-review.yml'
+          raw = urllib.request.urlopen(url, timeout=30).read()
+          expected = 'a1dadb69aa4e5b3db3a65ab4777d4641c3cba876178fd2873cf2fad7af1b3a4f'
+          if hashlib.sha256(raw).hexdigest() != expected:
+              raise SystemExit('Immutable transport source hash mismatch')
+          (root / 'tested-workflow.yml').write_bytes(raw)
+          repo, number, head = (os.environ[key] for key in ('REPO', 'PR_NUMBER', 'HEAD_SHA'))
+          if repo != 'pachaninm-lab/pachanin-demo' or not number.isdecimal() or not re.fullmatch('[0-9a-f]{40}', head):
+              raise SystemExit('Invalid test input identity')
+          def gh(args):
+              return subprocess.check_output(['gh', 'api', *args])
+          live = json.loads(gh([f'repos/{repo}/pulls/{number}']))
+          if live['head']['sha'] != head:
+              raise SystemExit('Head moved before transport test')
+          diff = gh(['-H', 'Accept: application/vnd.github.v3.diff', f'repos/{repo}/pulls/{number}'])
+          if not 0 < len(diff) <= 90000:
+              raise SystemExit('Review diff outside existing context bound')
+          (root / 'pr.diff').write_bytes(diff)
+          env = {key: value for key, value in os.environ.items() if key not in ('GH_TOKEN', 'GITHUB_TOKEN')}
+          env.update(RUNNER_TEMP=str(root), GITHUB_ENV=str(root / 'environment'), GITHUB_OUTPUT=str(root / 'outputs'), DIFF_SHA256=hashlib.sha256(diff).hexdigest())
+          lines = raw.decode('utf-8').splitlines()
+          for line in lines:
+              match = re.fullmatch(r'      ([A-Z_0-9]+): ([a-zA-Z0-9/_-]+)', line)
+              if match:
+                  env[match[1]] = match[2]
+          selected = [
+              'Download and verify immutable llama.cpp runtime',
+              'Download and verify immutable Qwen coder model',
+              'Build trusted review prompt and strict JSON schema',
+              'Run deterministic local Qwen semantic review',
+              'Validate and canonicalize independent review',
+          ]
+          for name in selected:
+              marker = f'      - name: {name}'
+              if lines.count(marker) != 1:
+                  raise SystemExit('Transport step identity mismatch: ' + name)
+              start = lines.index(marker)
+              end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith('      - name:')), len(lines))
+              body_start = next(i for i in range(start, end) if lines[i] == '        run: |') + 1
+              body_lines = lines[body_start:end]
+              if any(line and not line.startswith('          ') for line in body_lines):
+                  raise SystemExit('Unexpected run-block indentation')
+              body = '\n'.join(line[10:] if line else '' for line in body_lines) + '\n'
+              if ('$' + '{{') in body:
+                  raise SystemExit('Unresolved workflow interpolation in tested script')
+              print('EXECUTE_FIXED_TRANSPORT_STEP=' + name, flush=True)
+              subprocess.run(['bash', '-euo', 'pipefail', '-c', body], env=env, cwd=root, check=True, timeout=1400)
+              if (root / 'environment').exists():
+                  for line in (root / 'environment').read_text().splitlines():
+                      key, sep, value = line.partition('=')
+                      if sep != '=' or key not in {'LLAMA_COMPLETION', 'MODEL_FILE'}:
+                          raise SystemExit('Unexpected runtime environment output')
+                      env[key] = value
+          final = json.loads(gh([f'repos/{repo}/pulls/{number}']))
+          if final['head']['sha'] != head:
+              raise SystemExit('Head moved during transport test')
+          result = json.loads((root / 'review.canonical.json').read_text())
+          evidence = dict(head=head, source_sha256=expected, diff_sha256=hashlib.sha256(diff).hexdigest(), response_sha256=hashlib.sha256((root / 'review.canonical.json').read_bytes()).hexdigest(), authority_published=False)
+          (root / 'identity.json').write_text(json.dumps(evidence, sort_keys=True) + '\n')
+          print('PINNED_QWEN_TRANSPORT_EVIDENCE=' + json.dumps(evidence, sort_keys=True), flush=True)
+          print('PINNED_QWEN_ACTUAL_REVIEW=' + json.dumps(result, ensure_ascii=False, sort_keys=True), flush=True)
+          if result['verdict'] != 'PASS' or result['findings']:
+              raise SystemExit('Independent model found defects; repair remains blocked')
+          print('PINNED_QWEN_BATCH_TRANSPORT=PASS', flush=True)
+          PYTEST
+
+      - name: Preserve actual model output and exact-source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-qwen-transport-acceptance-${{ github.event.pull_request.head.sha }}
+          path: |
+            ${{ runner.temp }}/qwen-transport-acceptance/tested-workflow.yml
+            ${{ runner.temp }}/qwen-transport-acceptance/pr.diff
+            ${{ runner.temp }}/qwen-transport-acceptance/review.completion.raw
+            ${{ runner.temp }}/qwen-transport-acceptance/review.raw
+            ${{ runner.temp }}/qwen-transport-acceptance/review.canonical.json
+            ${{ runner.temp }}/qwen-transport-acceptance/identity.json
+          if-no-files-found: error
+          retention-days: 7
