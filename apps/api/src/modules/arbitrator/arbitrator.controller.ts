@@ -3,6 +3,8 @@ import { ArbitratorService } from './arbitrator.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
+import { AddDisputeNoteDto, ResolveDisputeDto } from './dto/arbitrator.dto';
+import type { DisputeOutcomeName } from './arbitrator.contract';
 
 @Controller('api/arbitrator')
 @UseGuards(JwtAuthGuard)
@@ -25,16 +27,20 @@ export class ArbitratorController {
   }
 
   @Patch('disputes/:id/note')
-  addNote(@Param('id') id: string, @Body() body: { note: string }, @CurrentUser() user: RequestUser) {
+  addNote(@Param('id') id: string, @Body() body: AddDisputeNoteDto, @CurrentUser() user: RequestUser) {
     return this.arbitrator.addNote(id, body.note, user);
   }
 
   @Post('disputes/:id/resolve')
   resolve(
     @Param('id') id: string,
-    @Body() body: { outcome: 'BUYER_WINS' | 'SELLER_WINS' | 'SPLIT' | 'CANCELLED'; splitPct?: number; reason: string },
+    @Body() body: ResolveDisputeDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.arbitrator.resolve(id, body, user);
+    return this.arbitrator.resolve(
+      id,
+      { outcome: body.outcome as DisputeOutcomeName, splitPct: body.splitPct, reason: body.reason },
+      user,
+    );
   }
 }

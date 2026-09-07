@@ -4,8 +4,15 @@ import { ActionExecutorService } from '../../common/action-executor/action-execu
 import { RequestUser, Role } from '../../common/types/request-user';
 import { AuditService } from '../audit/audit.service';
 import { LedgerV2Service } from '../ledger/ledger-v2.service';
+import {
+  isUsableSplitPct,
+  splitHold,
+  SPLIT_PCT_MAX,
+  SPLIT_PCT_MIN,
+  type DisputeOutcomeName,
+} from './arbitrator.contract';
 
-type DisputeOutcome = 'BUYER_WINS' | 'SELLER_WINS' | 'SPLIT' | 'CANCELLED';
+type DisputeOutcome = DisputeOutcomeName;
 
 @Injectable()
 export class ArbitratorService {
@@ -113,6 +120,18 @@ export class ArbitratorService {
       throw new ForbiddenException('Only the assigned arbitrator can resolve');
     }
 
+    // Граница уже проверила долю, но сервис не полагается на неё: вызывающий
+    // в обход контроллера не должен уметь выплатить больше холда.
+    //
+    // Доля ОБЯЗАТЕЛЬНА для SPLIT. Прежде её отсутствие проходило молча: спор
+    // помечался RESOLVED, не выплатив ничего, а повторное разрешение
+    // запрещено — холд оставался запертым навсегда.
+    if (resolution.outcome === 'SPLIT' && !isUsableSplitPct(resolution.splitPct)) {
+      throw new BadRequestException(
+        `DISPUTE_SPLIT_PCT_INVALID: для SPLIT нужна целая доля от ${SPLIT_PCT_MIN} до ${SPLIT_PCT_MAX}`,
+      );
+    }
+
     // Execute money resolution — integer kopecks only, bigint arithmetic
     const holdAmount = BigInt(dispute.moneyHold?.amountKopecks ?? 0);
     if (holdAmount > 0n && dispute.dealId) {
@@ -120,10 +139,10 @@ export class ArbitratorService {
         await this.ledger.refundFromDispute(dispute.dealId, disputeId, dispute.initiatorOrgId, holdAmount);
       } else if (resolution.outcome === 'SELLER_WINS') {
         await this.ledger.release(dispute.dealId, dispute.respondentOrgId ?? '', holdAmount, 0, `dispute-resolve:${disputeId}`);
-      } else if (resolution.outcome === 'SPLIT' && resolution.splitPct !== undefined) {
-        // Round half up, deterministically, in integer space
-        const buyerShare = (holdAmount * BigInt(Math.trunc(resolution.splitPct)) + 50n) / 100n;
-        const sellerShare = holdAmount - buyerShare;
+      } else if (resolution.outcome === 'SPLIT') {
+        // Эскроу не может выплатить больше, чем удерживает: доли считаются
+        // одной функцией, у которой сумма долей тождественно равна холду.
+        const { buyerShare, sellerShare } = splitHold(holdAmount, resolution.splitPct as number);
         if (buyerShare > 0n) await this.ledger.refundFromDispute(dispute.dealId, disputeId, dispute.initiatorOrgId, buyerShare);
         if (sellerShare > 0n) await this.ledger.release(dispute.dealId, dispute.respondentOrgId ?? '', sellerShare, 0, `dispute-split:${disputeId}`);
       }
