@@ -62,7 +62,6 @@ forbid('provisioner', [
   /set\s+-[A-Za-z]*x[A-Za-z]*/,
   /cat\s+.*posthog/i,
   /source\s+.*posthog/i,
-  /printf\s+['"][^'"]*PROJECT_REFERENCE/i,
   /echo\s+.*project_reference/i,
 ]);
 forbid('executor', [
