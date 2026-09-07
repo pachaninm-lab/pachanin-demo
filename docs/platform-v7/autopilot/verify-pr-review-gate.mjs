@@ -12,26 +12,32 @@ export const COPILOT_REVIEW_LOGINS = new Set([
   'copilot-pull-request-reviewer[bot]',
 ]);
 
+export const OCTOPUS_ACTION_SHA = 'c7156c0dc465c20e8b06da84b92b64f9ae8c7c36';
+export const OCTOPUS_REVIEW_LOGIN = 'github-actions[bot]';
+export const OCTOPUS_STATUS_CONTEXT = 'review-provider/octopus';
+export const OCTOPUS_WORKFLOW_PATH = '.github/workflows/octopus-independent-review.yml';
+
+export const LOCAL_QWEN_REVIEW_LOGIN = 'github-actions[bot]';
+export const LOCAL_QWEN_STATUS_CONTEXT = 'review-provider/local-qwen';
+export const LOCAL_QWEN_WORKFLOW_PATH = '.github/workflows/local-qwen-independent-review.yml';
+export const LOCAL_QWEN_WORKFLOW_NAME = 'Local Qwen Independent Review';
+export const LOCAL_QWEN_MODEL_REVISION = 'aebf6a0f72261b12fb8199bc580fe172fe86c901';
+export const LOCAL_QWEN_MODEL_SHA256 = '724fb256bec1ff062b2f65e4569e871ad2e95ab2a3989723d1769c54294730b7';
+export const LOCAL_QWEN_RUNTIME_BUILD = 'b10809';
+export const LOCAL_QWEN_RUNTIME_SOURCE_COMMIT = '5266f24da75dc449bd56cbed7addb9c8e4a6a73e';
+export const LOCAL_QWEN_RUNTIME_ARCHIVE_SHA256 = '5e34434ddc6d03cd1584f403201aff0d4bd1a5793a72ff7e286532dfd1e4b941';
+export const LOCAL_QWEN_POLICY_SHA256 = '5e849bdc71ab93e5431904d8a31fc01262145517ea2d070ebd590b0da240d010';
+
 const COMPLETED_REVIEW_STATES = new Set([
   'APPROVED',
   'CHANGES_REQUESTED',
   'COMMENTED',
 ]);
 
-const POSITIVE_CODEX_REVIEW_STATES = new Set([
-  'APPROVED',
-]);
-
-const POSITIVE_COPILOT_REVIEW_STATES = new Set([
-  'APPROVED',
-  'COMMENTED',
-]);
-
-const GREEN_CHECK_STATES = new Set([
-  'SUCCESS',
-  'SKIPPED',
-  'NEUTRAL',
-]);
+const POSITIVE_CODEX_REVIEW_STATES = new Set(['APPROVED']);
+const POSITIVE_COPILOT_REVIEW_STATES = new Set(['APPROVED', 'COMMENTED']);
+const POSITIVE_PROVIDER_REVIEW_STATES = new Set(['APPROVED', 'COMMENTED']);
+const GREEN_CHECK_STATES = new Set(['SUCCESS', 'SKIPPED', 'NEUTRAL']);
 
 const IGNORED_CHECK_WORKFLOWS = new Set([
   'Repo automations',
@@ -82,6 +88,118 @@ export function positiveExactHeadCopilotReviews(reviews, headSha) {
   ));
 }
 
+function parseOctopusAttestation(review, headSha) {
+  const expected = String(headSha || '').trim();
+  if (!/^[0-9a-f]{40}$/u.test(expected)) return null;
+  if (normalizeLogin(review) !== OCTOPUS_REVIEW_LOGIN) return null;
+  const commitId = String(review?.commit_id || review?.commitId || '').trim();
+  if (commitId !== expected) return null;
+  const state = String(review?.state || '').toUpperCase();
+  if (!POSITIVE_PROVIDER_REVIEW_STATES.has(state)) return null;
+
+  const body = String(review?.body || '').trim();
+  const match = body.match(/^OCTOPUS INDEPENDENT REVIEW: PASS\nExact head: `([0-9a-f]{40})`\nProvider workflow: `([^`]+)`\nProvider action: `([0-9a-f]{40})`\nFindings: `0`\nSummary SHA-256: `([0-9a-f]{64})`\nWorkflow run: `([1-9][0-9]*)`$/u);
+  if (!match || match[1] !== expected || match[2] !== OCTOPUS_WORKFLOW_PATH || match[3] !== OCTOPUS_ACTION_SHA) return null;
+
+  return { review, summarySha256: match[4], runId: match[5] };
+}
+
+export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha, repo) {
+  const repository = String(repo || '').trim();
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)) return [];
+  const latestProviderStatus = (statuses || []).find((status) => String(status?.context || '').trim() === OCTOPUS_STATUS_CONTEXT);
+  if (!latestProviderStatus) return [];
+  if (String(latestProviderStatus?.state || '').toLowerCase() !== 'success') return [];
+  if (String(latestProviderStatus?.creator?.login || '').trim() !== OCTOPUS_REVIEW_LOGIN) return [];
+
+  return (reviews || [])
+    .map((review) => parseOctopusAttestation(review, headSha))
+    .filter(Boolean)
+    .filter((candidate) => {
+      const expectedDescription = `Octopus clean ${OCTOPUS_ACTION_SHA.slice(0, 8)} summary=${candidate.summarySha256.slice(0, 16)}`;
+      const expectedTarget = `https://github.com/${repository}/actions/runs/${candidate.runId}`;
+      return String(latestProviderStatus?.description || '').trim() === expectedDescription
+        && String(latestProviderStatus?.target_url || latestProviderStatus?.targetUrl || '').trim() === expectedTarget;
+    });
+}
+
+function parseLocalQwenAttestation(review, headSha) {
+  const expected = String(headSha || '').trim();
+  if (!/^[0-9a-f]{40}$/u.test(expected)) return null;
+  if (normalizeLogin(review) !== LOCAL_QWEN_REVIEW_LOGIN) return null;
+  const commitId = String(review?.commit_id || review?.commitId || '').trim();
+  if (commitId !== expected) return null;
+  const state = String(review?.state || '').toUpperCase();
+  if (!POSITIVE_PROVIDER_REVIEW_STATES.has(state)) return null;
+
+  const body = String(review?.body || '').trim();
+  const match = body.match(/^LOCAL QWEN INDEPENDENT REVIEW: PASS\nExact head: `([0-9a-f]{40})`\nProvider workflow: `([^`]+)`\nModel revision: `([0-9a-f]{40})`\nModel SHA-256: `([0-9a-f]{64})`\nRuntime build: `(b[0-9]+)`\nRuntime source commit: `([0-9a-f]{40})`\nRuntime archive SHA-256: `([0-9a-f]{64})`\nPolicy SHA-256: `([0-9a-f]{64})`\nDiff SHA-256: `([0-9a-f]{64})`\nResponse SHA-256: `([0-9a-f]{64})`\nWorkflow run: `([1-9][0-9]*)`\nVerdict: `PASS`\nFindings: `0`$/u);
+  if (!match) return null;
+  if (match[1] !== expected) return null;
+  if (match[2] !== LOCAL_QWEN_WORKFLOW_PATH) return null;
+  if (match[3] !== LOCAL_QWEN_MODEL_REVISION) return null;
+  if (match[4] !== LOCAL_QWEN_MODEL_SHA256) return null;
+  if (match[5] !== LOCAL_QWEN_RUNTIME_BUILD) return null;
+  if (match[6] !== LOCAL_QWEN_RUNTIME_SOURCE_COMMIT) return null;
+  if (match[7] !== LOCAL_QWEN_RUNTIME_ARCHIVE_SHA256) return null;
+  if (match[8] !== LOCAL_QWEN_POLICY_SHA256) return null;
+
+  return {
+    review,
+    diffSha256: match[9],
+    responseSha256: match[10],
+    runId: match[11],
+  };
+}
+
+export function positiveExactHeadLocalQwenPairs(reviews, statuses, headSha, repo) {
+  const repository = String(repo || '').trim();
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)) return [];
+  const latestProviderStatus = (statuses || []).find((status) => String(status?.context || '').trim() === LOCAL_QWEN_STATUS_CONTEXT);
+  if (!latestProviderStatus) return [];
+  if (String(latestProviderStatus?.state || '').toLowerCase() !== 'success') return [];
+  if (String(latestProviderStatus?.creator?.login || '').trim() !== LOCAL_QWEN_REVIEW_LOGIN) return [];
+
+  return (reviews || [])
+    .map((review) => parseLocalQwenAttestation(review, headSha))
+    .filter(Boolean)
+    .filter((candidate) => {
+      const expectedDescription = `Qwen clean model=${LOCAL_QWEN_MODEL_SHA256.slice(0, 8)} response=${candidate.responseSha256.slice(0, 16)}`;
+      const expectedTarget = `https://github.com/${repository}/actions/runs/${candidate.runId}`;
+      return String(latestProviderStatus?.description || '').trim() === expectedDescription
+        && String(latestProviderStatus?.target_url || latestProviderStatus?.targetUrl || '').trim() === expectedTarget;
+    })
+    .map((candidate) => ({ ...candidate, status: latestProviderStatus }));
+}
+
+function timestampWithinRun(timestamp, run) {
+  const value = Date.parse(String(timestamp || ''));
+  const started = Date.parse(String(run?.run_started_at || run?.created_at || ''));
+  const ended = Date.parse(String(run?.updated_at || ''));
+  if (!Number.isFinite(value) || !Number.isFinite(started) || !Number.isFinite(ended)) return false;
+  return value >= started - 5000 && value <= ended + 60000;
+}
+
+export function localQwenRunMatches(run, candidate, headSha, repo, prNumber) {
+  const expectedHead = String(headSha || '').trim();
+  const repository = String(repo || '').trim();
+  const expectedPr = Number(prNumber || 0);
+  if (!run || !candidate || !/^[0-9a-f]{40}$/u.test(expectedHead) || !repository || !Number.isInteger(expectedPr) || expectedPr <= 0) return false;
+  if (String(run?.id || '') !== String(candidate.runId || '')) return false;
+  if (String(run?.name || '') !== LOCAL_QWEN_WORKFLOW_NAME) return false;
+  if (String(run?.path || '') !== LOCAL_QWEN_WORKFLOW_PATH) return false;
+  if (String(run?.event || '') !== 'pull_request_target') return false;
+  if (String(run?.status || '') !== 'completed' || String(run?.conclusion || '') !== 'success') return false;
+  if (String(run?.head_sha || '') !== expectedHead) return false;
+  if (String(run?.head_commit?.id || '') !== expectedHead) return false;
+  if (String(run?.repository?.full_name || '') !== repository) return false;
+  if (String(run?.head_repository?.full_name || '') !== repository) return false;
+  if (!Array.isArray(run?.pull_requests) || !run.pull_requests.some((pr) => Number(pr?.number) === expectedPr)) return false;
+  if (!timestampWithinRun(candidate?.review?.submitted_at || candidate?.review?.submittedAt, run)) return false;
+  if (!timestampWithinRun(candidate?.status?.created_at || candidate?.status?.updated_at, run)) return false;
+  return true;
+}
+
 export function cleanCodexReviewPrefixes(comments) {
   const prefixes = [];
   for (const comment of comments || []) {
@@ -99,7 +217,6 @@ export function exactHeadOwnerSelfAudits(comments, ownerLogin, headSha) {
   const owner = String(ownerLogin || '').trim();
   const expected = String(headSha || '').trim();
   if (!owner || !/^[0-9a-f]{40}$/u.test(expected)) return [];
-
   return (comments || []).filter((comment) => {
     if (normalizeLogin(comment) !== owner) return false;
     const body = String(comment?.body || '');
@@ -119,26 +236,17 @@ export function latestBlockingChangeRequests(reviews) {
     const rightTime = Date.parse(right?.submitted_at || right?.submittedAt || 0) || 0;
     return leftTime - rightTime;
   });
-
   for (const review of ordered) {
     const login = normalizeLogin(review);
     if (!login) continue;
     const state = String(review?.state || '').toUpperCase();
-
     if (state === 'CHANGES_REQUESTED') {
       blockedByReviewer.set(login, review);
       continue;
     }
-
-    if (state === 'APPROVED' || state === 'DISMISSED') {
-      blockedByReviewer.delete(login);
-    }
-
-    // COMMENTED does not clear an earlier CHANGES_REQUESTED review.
+    if (state === 'APPROVED' || state === 'DISMISSED') blockedByReviewer.delete(login);
   }
-
-  return [...blockedByReviewer.entries()]
-    .map(([login, review]) => ({ login, review }));
+  return [...blockedByReviewer.entries()].map(([login, review]) => ({ login, review }));
 }
 
 function checkName(check) {
@@ -161,23 +269,19 @@ export function substantiveChecks(checks) {
 
 export function checkRollupBlockers(checks) {
   const blockers = [];
-
   for (const check of substantiveChecks(checks)) {
     const name = checkName(check) || 'unnamed-check';
     const workflow = checkWorkflow(check);
     const status = String(check?.status || '').toUpperCase();
     const terminalState = String(check?.conclusion || check?.state || '').toUpperCase();
-
     if (status && status !== 'COMPLETED') {
       blockers.push(`${workflow ? `${workflow} / ` : ''}${name}:${status}`);
       continue;
     }
-
     if (!terminalState || !GREEN_CHECK_STATES.has(terminalState)) {
       blockers.push(`${workflow ? `${workflow} / ` : ''}${name}:${terminalState || 'UNKNOWN'}`);
     }
   }
-
   return blockers;
 }
 
@@ -208,23 +312,22 @@ function ghJson(args) {
 }
 
 function fetchAllReviews(repo, prNumber) {
-  const pages = ghJson([
-    'api',
-    '--paginate',
-    '--slurp',
-    `repos/${repo}/pulls/${prNumber}/reviews?per_page=100`,
-  ]) || [];
+  const pages = ghJson(['api', '--paginate', '--slurp', `repos/${repo}/pulls/${prNumber}/reviews?per_page=100`]) || [];
   return pages.flatMap((page) => Array.isArray(page) ? page : []);
 }
 
 function fetchAllIssueComments(repo, prNumber) {
-  const pages = ghJson([
-    'api',
-    '--paginate',
-    '--slurp',
-    `repos/${repo}/issues/${prNumber}/comments?per_page=100`,
-  ]) || [];
+  const pages = ghJson(['api', '--paginate', '--slurp', `repos/${repo}/issues/${prNumber}/comments?per_page=100`]) || [];
   return pages.flatMap((page) => Array.isArray(page) ? page : []);
+}
+
+function fetchAllCommitStatuses(repo, headSha) {
+  const pages = ghJson(['api', '--paginate', '--slurp', `repos/${repo}/commits/${headSha}/statuses?per_page=100`]) || [];
+  return pages.flatMap((page) => Array.isArray(page) ? page : []);
+}
+
+function fetchWorkflowRun(repo, runId) {
+  return ghJson(['api', `repos/${repo}/actions/runs/${runId}`]);
 }
 
 function resolveCommitSha(repo, ref) {
@@ -238,7 +341,6 @@ function resolveCommitSha(repo, ref) {
 function fetchAllReviewThreads(repo, prNumber) {
   const [owner, name] = String(repo).split('/');
   if (!owner || !name) throw new Error(`Invalid repository name: ${repo}`);
-
   const query = `
     query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
       repository(owner: $owner, name: $name) {
@@ -249,48 +351,26 @@ function fetchAllReviewThreads(repo, prNumber) {
               isOutdated
               path
               line
-              comments(first: 10) {
-                nodes {
-                  author { login }
-                  body
-                }
-              }
+              comments(first: 10) { nodes { author { login } body } }
             }
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
+            pageInfo { hasNextPage endCursor }
           }
         }
       }
     }
   `;
-
   const pages = ghJson([
-    'api',
-    'graphql',
-    '--paginate',
-    '--slurp',
+    'api', 'graphql', '--paginate', '--slurp',
     '-f', `query=${query}`,
     '-f', `owner=${owner}`,
     '-f', `name=${name}`,
     '-F', `number=${prNumber}`,
   ]) || [];
-
   return pages.flatMap((page) => page?.data?.repository?.pullRequest?.reviewThreads?.nodes || []);
 }
 
 function fetchCheckSnapshot(repo, prNumber) {
-  const value = ghJson([
-    'pr',
-    'view',
-    String(prNumber),
-    '--repo',
-    repo,
-    '--json',
-    'headRefOid,statusCheckRollup',
-  ]);
-
+  const value = ghJson(['pr', 'view', String(prNumber), '--repo', repo, '--json', 'headRefOid,statusCheckRollup']);
   return {
     headSha: String(value?.headRefOid || '').trim(),
     checks: Array.isArray(value?.statusCheckRollup) ? value.statusCheckRollup : [],
@@ -315,33 +395,26 @@ function main() {
 
   if (!repo) fail('REVIEW_GATE_REPO_MISSING', 'REPO/GITHUB_REPOSITORY is required.');
   if (!Number.isInteger(prNumber) || prNumber <= 0) fail('REVIEW_GATE_PR_MISSING', 'PR_NUMBER must be a positive integer.');
-
   const [ownerLogin] = String(repo).split('/');
   if (!ownerLogin) fail('REVIEW_GATE_OWNER_MISSING', `Unable to resolve repository owner from ${repo}.`);
 
   const pr = ghJson(['api', `repos/${repo}/pulls/${prNumber}`]);
   if (!pr) fail('REVIEW_GATE_PR_UNAVAILABLE', `Unable to read PR #${prNumber}.`);
-
   const prState = reviewGatePrState(pr);
-  if (prState === 'INVALID') {
-    fail('REVIEW_GATE_PR_STATE_INVALID', `PR #${prNumber} has an incomplete or unsupported live state.`);
-  }
+  if (prState === 'INVALID') fail('REVIEW_GATE_PR_STATE_INVALID', `PR #${prNumber} has an incomplete or unsupported live state.`);
   if (prState === 'CLOSED') {
     console.log(`PR_REVIEW_GATE=SKIP_CLOSED pr=${prNumber}`);
     return;
   }
-  if (prState === 'DRAFT') {
-    fail('REVIEW_GATE_DRAFT', `Draft PR #${prNumber} cannot satisfy exact-head review authority.`);
-  }
+  if (prState === 'DRAFT') fail('REVIEW_GATE_DRAFT', `Draft PR #${prNumber} cannot satisfy exact-head review authority.`);
 
   const headSha = String(pr?.head?.sha || '').trim();
   if (!/^[0-9a-f]{40}$/u.test(headSha)) fail('REVIEW_GATE_HEAD_INVALID', `Invalid PR head SHA for #${prNumber}.`);
-  if (expectedHead && expectedHead !== headSha) {
-    fail('REVIEW_GATE_HEAD_MOVED', `Expected ${expectedHead}, current head is ${headSha}.`);
-  }
+  if (expectedHead && expectedHead !== headSha) fail('REVIEW_GATE_HEAD_MOVED', `Expected ${expectedHead}, current head is ${headSha}.`);
 
   const reviews = fetchAllReviews(repo, prNumber);
   const comments = fetchAllIssueComments(repo, prNumber);
+  const commitStatuses = fetchAllCommitStatuses(repo, headSha);
 
   const positiveCodexReviews = positiveExactHeadCodexReviews(reviews, headSha);
   const cleanPrefixes = cleanCodexReviewPrefixes(comments);
@@ -358,77 +431,73 @@ function main() {
   const positiveCopilotReviews = positiveExactHeadCopilotReviews(reviews, headSha);
   const copilotAuthority = positiveCopilotReviews.length > 0;
 
-  if (!codexAuthority && !copilotAuthority) {
+  const positiveOctopusAttestations = positiveExactHeadOctopusAttestations(reviews, commitStatuses, headSha, repo);
+  const octopusAuthority = positiveOctopusAttestations.length > 0;
+
+  const localQwenPairs = positiveExactHeadLocalQwenPairs(reviews, commitStatuses, headSha, repo);
+  const positiveLocalQwenAttestations = [];
+  for (const candidate of localQwenPairs) {
+    try {
+      const run = fetchWorkflowRun(repo, candidate.runId);
+      if (localQwenRunMatches(run, candidate, headSha, repo, prNumber)) positiveLocalQwenAttestations.push(candidate);
+    } catch {
+      // Missing/inaccessible workflow-run evidence cannot satisfy review authority.
+    }
+  }
+  const localQwenAuthority = positiveLocalQwenAttestations.length > 0;
+
+  if (!codexAuthority && !copilotAuthority && !octopusAuthority && !localQwenAuthority) {
     fail(
       'REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING',
-      `No genuine independent review authority is bound to exact head ${headSha}; accepted providers are Codex clean/approved review or GitHub Copilot exact-head code review.`,
+      `No genuine independent review authority is bound to exact head ${headSha}; accepted providers are Codex, GitHub Copilot, Octopus paired evidence, or pinned local-Qwen paired review/status/run evidence.`,
     );
   }
 
   const ownerSelfAudits = exactHeadOwnerSelfAudits(comments, ownerLogin, headSha);
   if (ownerSelfAudits.length === 0) {
-    fail(
-      'REVIEW_GATE_OWNER_SELF_AUDIT_MISSING',
-      `No repository-owner self-audit PASS attestation is bound to exact head ${headSha}.`,
-    );
+    fail('REVIEW_GATE_OWNER_SELF_AUDIT_MISSING', `No repository-owner self-audit PASS attestation is bound to exact head ${headSha}.`);
   }
 
   const blockingReviews = latestBlockingChangeRequests(reviews);
   if (blockingReviews.length > 0) {
-    fail(
-      'REVIEW_GATE_CHANGES_REQUESTED',
-      `Active CHANGES_REQUESTED review(s): ${blockingReviews.map(({ login }) => login).join(', ')}.`,
-    );
+    fail('REVIEW_GATE_CHANGES_REQUESTED', `Active CHANGES_REQUESTED review(s): ${blockingReviews.map(({ login }) => login).join(', ')}.`);
   }
 
   const threads = fetchAllReviewThreads(repo, prNumber);
   const unresolved = activeUnresolvedThreads(threads);
   if (unresolved.length > 0) {
-    const locations = unresolved
-      .slice(0, 20)
-      .map((thread) => `${thread.path || 'unknown'}:${thread.line || 'n/a'}`)
-      .join(', ');
-    fail(
-      'REVIEW_GATE_UNRESOLVED_THREADS',
-      `${unresolved.length} current review thread(s) unresolved: ${locations}`,
-    );
+    const locations = unresolved.slice(0, 20).map((thread) => `${thread.path || 'unknown'}:${thread.line || 'n/a'}`).join(', ');
+    fail('REVIEW_GATE_UNRESOLVED_THREADS', `${unresolved.length} current review thread(s) unresolved: ${locations}`);
   }
 
   let checkedCi = 0;
   if (requireGreenCi) {
     const snapshot = fetchCheckSnapshot(repo, prNumber);
     if (!ciSnapshotMatchesHead(snapshot.headSha, headSha)) {
-      fail(
-        'REVIEW_GATE_CI_HEAD_MISMATCH',
-        `CI snapshot head ${snapshot.headSha || 'missing'} does not match verified head ${headSha}.`,
-      );
+      fail('REVIEW_GATE_CI_HEAD_MISMATCH', `CI snapshot head ${snapshot.headSha || 'missing'} does not match verified head ${headSha}.`);
     }
-
     const observed = substantiveChecks(snapshot.checks);
     checkedCi = observed.length;
-    if (observed.length === 0) {
-      fail('REVIEW_GATE_CI_EVIDENCE_MISSING', `No substantive CI/status evidence exists for exact head ${headSha}.`);
-    }
-
+    if (observed.length === 0) fail('REVIEW_GATE_CI_EVIDENCE_MISSING', `No substantive CI/status evidence exists for exact head ${headSha}.`);
     const ciBlockers = checkRollupBlockers(snapshot.checks);
     if (ciBlockers.length > 0) {
-      fail(
-        'REVIEW_GATE_CI_NOT_GREEN',
-        `${ciBlockers.length} exact-head check(s) are pending or non-green: ${ciBlockers.slice(0, 30).join(', ')}`,
-      );
+      fail('REVIEW_GATE_CI_NOT_GREEN', `${ciBlockers.length} exact-head check(s) are pending or non-green: ${ciBlockers.slice(0, 30).join(', ')}`);
     }
   }
 
   const finalHead = fetchLivePrHead(repo, prNumber);
   if (finalHead !== headSha) {
-    fail(
-      'REVIEW_GATE_HEAD_MOVED_DURING_VERIFICATION',
-      `Verified head ${headSha}, current head is now ${finalHead || 'missing'}.`,
-    );
+    fail('REVIEW_GATE_HEAD_MOVED_DURING_VERIFICATION', `Verified head ${headSha}, current head is now ${finalHead || 'missing'}.`);
   }
 
-  const reviewAuthority = codexAuthority ? 'CODEX' : 'GITHUB_COPILOT';
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} reviewAuthority=${reviewAuthority} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} copilotExactHeadReviews=${positiveCopilotReviews.length} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+  const reviewAuthority = codexAuthority
+    ? 'CODEX'
+    : copilotAuthority
+      ? 'GITHUB_COPILOT'
+      : localQwenAuthority
+        ? 'LOCAL_QWEN_CODER'
+        : 'OCTOPUS';
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} reviewAuthority=${reviewAuthority} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} copilotExactHeadReviews=${positiveCopilotReviews.length} octopusExactHeadAttestations=${positiveOctopusAttestations.length} localQwenExactHeadAttestations=${positiveLocalQwenAttestations.length} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';
