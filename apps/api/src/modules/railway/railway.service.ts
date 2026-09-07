@@ -3,9 +3,10 @@ import { randomUUID } from 'crypto';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
 import { MockRzdEtranAdapter } from '../../../../../packages/integration-sdk/src/adapters/rzd-etran.adapter';
 
-export type WagonType = 'HOPPER' | 'COVERED' | 'PLATFORM' | 'TANK';
-export type WagonStatus = 'FREE' | 'ASSIGNED' | 'IN_TRANSIT' | 'MAINTENANCE';
-export type GU12Status = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'EXECUTED';
+// Списки живут в railway.contract.ts по одному разу; имена типов сохранены,
+// чтобы существующие импорты из сервиса продолжали работать.
+export type { GU12Status, WagonStatus, WagonType } from './railway.contract';
+import type { GU12Status, WagonStatus, WagonType } from './railway.contract';
 
 export interface Wagon {
   id: string;
@@ -92,9 +93,16 @@ export class RailwayService {
     const existing = [...this.wagons.values()].find(w => w.wagonNumber === dto.wagonNumber);
     if (existing) throw new BadRequestException(`Wagon ${dto.wagonNumber} already registered`);
 
+    // Поля перечислены поимённо. Прежняя россыпь `{ id: randomUUID(), ...dto }`
+    // позволяла присланному `id` перебить сгенерированный: замерено — вагон
+    // чужой организации переписывался на месте, номер и владелец менялись, а
+    // проверка дубля по номеру не срабатывала, потому что номер был другой.
     const wagon: Wagon = {
       id: randomUUID(),
-      ...dto,
+      wagonNumber: dto.wagonNumber,
+      type: dto.type,
+      capacityTons: dto.capacityTons,
+      ownerOrgId: dto.ownerOrgId,
       status: 'FREE',
       registeredAt: new Date().toISOString(),
     };
@@ -196,6 +204,11 @@ export class RailwayService {
   }): DemurrageRecord {
     const arrivedMs = new Date(dto.arrivedAt).getTime();
     const completedMs = new Date(dto.unloadingCompletedAt).getTime();
+    // Демередж — деньги. Неразбираемая дата давала NaN на всю запись, а в JSON
+    // это уезжало как null: простой без суммы. Отказ честнее пустого числа.
+    if (!Number.isFinite(arrivedMs) || !Number.isFinite(completedMs)) {
+      throw new BadRequestException('DEMURRAGE_TIMESTAMP_INVALID');
+    }
     const totalHours = Math.max(0, (completedMs - arrivedMs) / 3_600_000);
     const detainedHours = Math.max(0, totalHours - FREE_TIME_HOURS);
     const totalKopecks = Math.round(detainedHours * DEMURRAGE_RATE_KOPECKS);
